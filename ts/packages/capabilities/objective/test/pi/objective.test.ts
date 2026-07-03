@@ -21,10 +21,10 @@ const ROOT = "/repo";
 const TRUNK = "master";
 
 const OBJECTIVE_COMMAND_NAMES = [
-	"ji:objective:next",
-	"ji:objective:update",
-	"ji:objective:close",
-	"ji:objective:stack-impl",
+	"ns:objective:next",
+	"ns:objective:update",
+	"ns:objective:close",
+	"ns:objective:stack-impl",
 ] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
 type ObjectiveSkillName =
@@ -34,18 +34,18 @@ type ObjectiveSkillName =
 	| "objective-stack-impl";
 
 const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
-	"ji:objective:next": "objective-next",
-	"ji:objective:update": "objective-update",
-	"ji:objective:close": "objective-close",
-	"ji:objective:stack-impl": "objective-stack-impl",
+	"ns:objective:next": "objective-next",
+	"ns:objective:update": "objective-update",
+	"ns:objective:close": "objective-close",
+	"ns:objective:stack-impl": "objective-stack-impl",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
-	"ji:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
-	"ji:objective:update":
+	"ns:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
+	"ns:objective:update":
 		"Run objective-update for this explicitly selected Objective slug or path:",
-	"ji:objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
-	"ji:objective:stack-impl":
+	"ns:objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
+	"ns:objective:stack-impl":
 		"Run objective-stack-impl for this explicitly selected Objective slug or path:",
 };
 
@@ -310,10 +310,10 @@ async function runObjectiveStackImpl(
 }> {
 	const pi = new FakePi(script, commandInfos);
 	objectiveExtension(pi);
-	const command = pi.commands.get("ji:objective:stack-impl");
+	const command = pi.commands.get("ns:objective:stack-impl");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("ji:objective:stack-impl was not registered");
+		throw new Error("ns:objective:stack-impl was not registered");
 	}
 
 	const context = createContext(contextOptions);
@@ -333,7 +333,7 @@ async function runObjectiveNext(
 }> {
 	const pi = new FakePi(script);
 	objectiveExtension(pi);
-	const command = pi.commands.get("ji:objective:next");
+	const command = pi.commands.get("ns:objective:next");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
@@ -429,7 +429,7 @@ function objectiveListFromRecords(
 		exitCode: 0,
 		data: {
 			trunkBranch: trunkBranch,
-			rootPath: ".ji/objectives",
+			rootPath: ".ns/objectives",
 			statusFilter: "active",
 			namesOnly: false,
 			records: records.map((record) => ({
@@ -459,20 +459,20 @@ function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: s
 }
 
 function candidateStep(slugs: string[]): ScriptedExec {
-	return step("ji", ["objective", "exec", "list-candidates", "--format", "json"], {
+	return step("ns", ["objective", "exec", "list-candidates", "--format", "json"], {
 		stdout: objectiveCandidatesFromRecords(slugs.map((slug) => ({ slug, status: "open" }))),
 	});
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".ji/objectives"], {
+	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
 function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ji/objectives"], {
+	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
@@ -521,7 +521,7 @@ describe("objective:list command", () => {
 				ok: true,
 				result: {
 					trunkBranch: "main",
-					rootPath: ".ji/objectives",
+					rootPath: ".ns/objectives",
 					statusFilter: "all",
 					namesOnly: true,
 					records: [
@@ -600,13 +600,13 @@ test("does not register removed Objective commands", () => {
 	expect(pi.commands.has("objective:current")).toBe(false);
 });
 
-describe("ji:objective:stack-impl command", () => {
+describe("ns:objective:stack-impl command", () => {
 	test("registers the skill-backed wrapper command", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
 
-		expect(pi.commands.has("ji:objective:stack-impl")).toBe(true);
+		expect(pi.commands.has("ns:objective:stack-impl")).toBe(true);
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
@@ -631,7 +631,7 @@ describe("ji:objective:stack-impl command", () => {
 				"Run objective-stack-impl for this explicitly selected Objective slug or path:",
 			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-			expect(result.pi.sentUserMessages[0]?.startsWith("/ji:objective:stack-impl")).toBe(false);
+			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:stack-impl")).toBe(false);
 			expect(result.notifications).toContainEqual({
 				message: "Invoking objective-stack-impl for bravo.",
 				level: "info",
@@ -667,12 +667,12 @@ describe("ji:objective:stack-impl command", () => {
 			expectNoObjectiveListExec(result);
 			expect(result.pi.execCalls[0]).toEqual({
 				command: "git",
-				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ji/objectives"],
+				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"],
 				options: { cwd: ROOT, timeout: 30_000 },
 			});
 			expect(result.pi.execCalls[1]).toEqual({
 				command: "git",
-				args: ["status", "--porcelain=v1", "-z", "--", ".ji/objectives"],
+				args: ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"],
 				options: { cwd: ROOT, timeout: 30_000 },
 			});
 			expect(result.waitForIdleCalls()).toBe(2);
@@ -686,7 +686,7 @@ describe("ji:objective:stack-impl command", () => {
 				"",
 				[
 					listStep(["alpha", "bravo", "charlie"]),
-					diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+					diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 					statusStep(""),
 				],
 				{},
@@ -712,7 +712,7 @@ describe("ji:objective:stack-impl command", () => {
 				"",
 				[
 					listStep(["alpha", "bravo", "charlie"]),
-					diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+					diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
@@ -750,7 +750,7 @@ describe("ji:objective:stack-impl command", () => {
 
 		result.pi.assertDone();
 		expect(result.notifications).toEqual([
-			{ message: "No active Objectives. Create one with /ji:objective:create.", level: "info" },
+			{ message: "No active Objectives. Create one with /ns:objective:create.", level: "info" },
 		]);
 		expect(result.selections).toEqual([]);
 		expect(result.pi.sentUserMessages).toEqual([]);
@@ -761,7 +761,7 @@ describe("objective picker suggestion", () => {
 	test("shows only the one changed active Objective before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
-			diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 			statusStep(""),
 		]);
 
@@ -787,7 +787,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep(""),
-			statusStep(" M .ji/objectives/bravo/objective.md\0"),
+			statusStep(" M .ns/objectives/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -805,7 +805,7 @@ describe("objective picker suggestion", () => {
 	test("dirty-only suggestion uses checkout wording when trunk is unavailable", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"], ""),
-			statusStep(" M .ji/objectives/bravo/objective.md\0"),
+			statusStep(" M .ns/objectives/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -823,8 +823,8 @@ describe("objective picker suggestion", () => {
 	test("dirty and committed diff slugs are unioned changed-first", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
-			diffStep("M\t.ji/objectives/alpha/objective.md\n"),
-			statusStep(" M .ji/objectives/charlie/objective.md\0"),
+			diffStep("M\t.ns/objectives/alpha/objective.md\n"),
+			statusStep(" M .ns/objectives/charlie/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -845,7 +845,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(""),
-			statusStep(" M .ji/objectives/closed-objective/objective.md\0"),
+			statusStep(" M .ns/objectives/closed-objective/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -860,7 +860,7 @@ describe("objective picker suggestion", () => {
 			"",
 			[
 				listStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+				diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 				statusStep(""),
 			],
 			{ selectIndices: [1, 1] },
@@ -882,7 +882,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
 			diffStep(
-				["M\t.ji/objectives/alpha/objective.md", "M\t.ji/objectives/charlie/roadmap.md"].join("\n"),
+				["M\t.ns/objectives/alpha/objective.md", "M\t.ns/objectives/charlie/roadmap.md"].join("\n"),
 			),
 			statusStep(""),
 		]);
@@ -907,7 +907,7 @@ describe("objective picker suggestion", () => {
 			[
 				listStep(["alpha", "bravo", "charlie", "delta"]),
 				diffStep(
-					["M\t.ji/objectives/alpha/objective.md", "M\t.ji/objectives/charlie/roadmap.md"].join(
+					["M\t.ns/objectives/alpha/objective.md", "M\t.ns/objectives/charlie/roadmap.md"].join(
 						"\n",
 					),
 				),
@@ -932,7 +932,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(
-				["M\t.ji/objectives/alpha/objective.md", "M\t.ji/objectives/bravo/objective.md"].join("\n"),
+				["M\t.ns/objectives/alpha/objective.md", "M\t.ns/objectives/bravo/objective.md"].join("\n"),
 			),
 			statusStep(""),
 		]);
@@ -952,7 +952,7 @@ describe("objective picker suggestion", () => {
 	test("does not suggest when the changed Objective slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep("M\t.ji/objectives/closed-objective/objective.md\n"),
+			diffStep("M\t.ns/objectives/closed-objective/objective.md\n"),
 			statusStep(""),
 		]);
 
@@ -970,8 +970,8 @@ describe("objective picker suggestion", () => {
 			listStep(["pi-extension-deepening"]),
 			diffStep(
 				[
-					"A\t.ji/objectives/pi-extension-architecture-deepening/closed.md",
-					"M\t.ji/objectives/pi-extension-deepening/objective.md",
+					"A\t.ns/objectives/pi-extension-architecture-deepening/closed.md",
+					"M\t.ns/objectives/pi-extension-deepening/objective.md",
 				].join("\n"),
 			),
 			statusStep(""),
@@ -992,8 +992,8 @@ describe("objective picker suggestion", () => {
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep(
 				[
-					"M\t.ji/objectives/bravo/objective.md",
-					"M\t.ji/objectives/closed-objective/objective.md",
+					"M\t.ns/objectives/bravo/objective.md",
+					"M\t.ns/objectives/closed-objective/objective.md",
 				].join("\n"),
 			),
 			statusStep(""),
@@ -1023,7 +1023,7 @@ describe("objective picker suggestion", () => {
 	test("git status failure preserves committed diff suggestions", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 			statusStep("", { code: 1, stderr: "status failed" }),
 		]);
 
@@ -1042,7 +1042,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep("", { code: 1, stderr: "fatal: bad revision" }),
-			statusStep(" M .ji/objectives/bravo/objective.md\0"),
+			statusStep(" M .ns/objectives/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -1079,10 +1079,10 @@ describe("objective picker suggestion", () => {
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
-	test("ji:objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
-		const result = await runObjectiveCommand("ji:objective:close", "", [
+	test("ns:objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
+		const result = await runObjectiveCommand("ns:objective:close", "", [
 			listStep(["alpha", "bravo", "charlie"]),
-			diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 			statusStep(""),
 		]);
 
@@ -1118,9 +1118,9 @@ describe("objective command shared selection policy", () => {
 		}
 	});
 
-	test("ji:objective:next completions return fast active Objective slug candidates", async () => {
-		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "", [
-			step("ji", ["objective", "exec", "list-candidates", "--format", "json"], {
+	test("ns:objective:next completions return fast active Objective slug candidates", async () => {
+		const { pi, items } = await objectiveCommandCompletions("ns:objective:next", "", [
+			step("ns", ["objective", "exec", "list-candidates", "--format", "json"], {
 				stdout: objectiveCandidatesFromRecords([
 					{ slug: "alpha", status: "open" },
 					{ slug: "bravo", status: "open" },
@@ -1130,7 +1130,7 @@ describe("objective command shared selection policy", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls[0]).toEqual({
-			command: "ji",
+			command: "ns",
 			args: ["objective", "exec", "list-candidates", "--format", "json"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
@@ -1144,7 +1144,7 @@ describe("objective command shared selection policy", () => {
 		const pi = new FakePi([candidateStep(["alpha", "bravo"])]);
 		objectiveExtension(pi);
 		await pi.emitSessionStart(createContext().ctx);
-		const command = pi.commands.get("ji:objective:next");
+		const command = pi.commands.get("ns:objective:next");
 
 		const allItems = await command?.getArgumentCompletions?.("");
 		const filteredItems = await command?.getArgumentCompletions?.("br");
@@ -1156,7 +1156,7 @@ describe("objective command shared selection policy", () => {
 	});
 
 	test("slug completions reject unsupported multi-arg input without loading candidates", async () => {
-		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "alpha bravo", []);
+		const { pi, items } = await objectiveCommandCompletions("ns:objective:next", "alpha bravo", []);
 
 		pi.assertDone();
 		expect(items).toBeNull();
@@ -1164,8 +1164,8 @@ describe("objective command shared selection policy", () => {
 	});
 
 	test("slug completions fail quietly for candidate command failures", async () => {
-		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "", [
-			step("ji", ["objective", "exec", "list-candidates", "--format", "json"], {
+		const { pi, items } = await objectiveCommandCompletions("ns:objective:next", "", [
+			step("ns", ["objective", "exec", "list-candidates", "--format", "json"], {
 				code: 1,
 				stderr: "failed",
 			}),
@@ -1178,8 +1178,8 @@ describe("objective command shared selection policy", () => {
 	});
 
 	test("slug completions fail quietly for malformed objective candidate JSON", async () => {
-		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "", [
-			step("ji", ["objective", "exec", "list-candidates", "--format", "json"], { stdout: "{" }),
+		const { pi, items } = await objectiveCommandCompletions("ns:objective:next", "", [
+			step("ns", ["objective", "exec", "list-candidates", "--format", "json"], { stdout: "{" }),
 		]);
 
 		pi.assertDone();
@@ -1205,7 +1205,7 @@ describe("objective command shared selection policy", () => {
 	for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 		describe(commandName, () => {
 			test("explicit slug or path bypasses objective list and git evidence", async () => {
-				const explicitObjective = ".ji/objectives/bravo/objective.md";
+				const explicitObjective = ".ns/objectives/bravo/objective.md";
 				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
 				const skillName = OBJECTIVE_SKILLS_BY_COMMAND[commandName];
 
@@ -1245,7 +1245,7 @@ describe("objective command shared selection policy", () => {
 				expectNoObjectiveListExec(result);
 				expect(result.notifications).toEqual([
 					{
-						message: "No active Objectives. Create one with /ji:objective:create.",
+						message: "No active Objectives. Create one with /ns:objective:create.",
 						level: "info",
 					},
 				]);
@@ -1273,7 +1273,7 @@ describe("objective command shared selection policy", () => {
 					"",
 					[
 						listStep(["alpha", "bravo"]),
-						diffStep("M\t.ji/objectives/bravo/objective.md\n"),
+						diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 						statusStep(""),
 					],
 					{ cancelSelect: true },
@@ -1320,7 +1320,7 @@ Use the selected Objective.
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
 				const result = await runObjectiveCommand(
-					"ji:objective:next",
+					"ns:objective:next",
 					"bravo",
 					[],
 					{ cwd: repoDir },
@@ -1345,8 +1345,8 @@ Use the selected Objective.
 		);
 	});
 
-	test("ji:objective:next fallback prompt requires a work-left estimate", async () => {
-		const result = await runObjectiveCommand("ji:objective:next", "bravo");
+	test("ns:objective:next fallback prompt requires a work-left estimate", async () => {
+		const result = await runObjectiveCommand("ns:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain("include a best-effort work-left estimate");
@@ -1355,8 +1355,8 @@ Use the selected Objective.
 		expect(result.pi.sentUserMessages[0]).toContain("until the next discovery or decision step");
 	});
 
-	test("ji:objective:next prompt preauthorizes clear tracking-gate updates", async () => {
-		const result = await runObjectiveCommand("ji:objective:next", "bravo");
+	test("ns:objective:next prompt preauthorizes clear tracking-gate updates", async () => {
+		const result = await runObjectiveCommand("ns:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1371,7 +1371,7 @@ Use the selected Objective.
 	});
 
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("ji:objective:update", "bravo");
+		const result = await runObjectiveCommand("ns:objective:update", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1379,8 +1379,8 @@ Use the selected Objective.
 		);
 	});
 
-	test("ji:objective:close fallback and prompt include closure confirmation guidance", async () => {
-		const result = await runObjectiveCommand("ji:objective:close", "bravo");
+	test("ns:objective:close fallback and prompt include closure confirmation guidance", async () => {
+		const result = await runObjectiveCommand("ns:objective:close", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1397,8 +1397,8 @@ Use the selected Objective.
 		);
 	});
 
-	test("ji:objective:next prompt does not include the objective-update evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("ji:objective:next", "bravo");
+	test("ns:objective:next prompt does not include the objective-update evidence workflow reminder", async () => {
+		const result = await runObjectiveCommand("ns:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");

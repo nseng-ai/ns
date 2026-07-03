@@ -28,17 +28,17 @@ describe("write_saved_plan_file tool", () => {
 		};
 
 		expect(tool.description).toContain(
-			"$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
-		expect(tool.description).not.toContain("Legacy `~/.ji/enriched-plan` content");
+		expect(tool.description).not.toContain("Legacy `~/.ns/enriched-plan` content");
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");
 		expect(tool.description).toContain("Codex-backed slug model");
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/ji:plan:save");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/ji:plan:grill-and-save");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/ns:plan:save");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/ns:plan:grill-and-save");
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
@@ -124,22 +124,22 @@ describe("write_saved_plan_file tool", () => {
 			slug: PLAN_SLUG,
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "ji:plan:save",
+			key: "ns:plan:save",
 			value: "Validating saved plan input…",
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "ji:plan:save",
+			key: "ns:plan:save",
 			value: "Deriving saved-plan filename slug with Codex…",
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "ji:plan:save",
+			key: "ns:plan:save",
 			value: `Derived slug ${PLAN_SLUG}; resolving repo/branch and writing plan file…`,
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "ji:plan:save",
+			key: "ns:plan:save",
 			value: "Writing plan file…",
 		});
-		expect(toolContext.statuses.at(-1)).toEqual({ key: "ji:plan:save", value: undefined });
+		expect(toolContext.statuses.at(-1)).toEqual({ key: "ns:plan:save", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(
 			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
@@ -156,7 +156,7 @@ describe("write_saved_plan_file tool", () => {
 		});
 	});
 
-	test("rejects assistant-provided saved-plan slugs so /ji:plan:save cannot bypass Codex slugging", async () => {
+	test("rejects assistant-provided saved-plan slugs so /ns:plan:save cannot bypass Codex slugging", async () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
@@ -185,8 +185,8 @@ describe("write_saved_plan_file tool", () => {
 
 		expect(pi.execCalls).toEqual([]);
 		expect(toolContext.statuses).toEqual([
-			{ key: "ji:plan:save", value: "Validating saved plan input…" },
-			{ key: "ji:plan:save", value: undefined },
+			{ key: "ns:plan:save", value: "Validating saved plan input…" },
+			{ key: "ns:plan:save", value: undefined },
 		]);
 	});
 

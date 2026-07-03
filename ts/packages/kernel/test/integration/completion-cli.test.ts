@@ -117,14 +117,14 @@ export default defineExtension({
 });
 
 async function createExtensionProject(fileName: string, source: string): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-completion-integration-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-completion-integration-"));
 	tempDirs.push(directory);
 	writeProjectExtension(directory, fileName, source);
 	return directory;
 }
 
 function writeProjectExtension(cwd: string, fileName: string, source: string): void {
-	const path = join(cwd, ".ji", "extensions", fileName);
+	const path = join(cwd, ".ns", "extensions", fileName);
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, source);
 }

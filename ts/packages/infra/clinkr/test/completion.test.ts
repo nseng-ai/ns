@@ -274,22 +274,22 @@ describe("clinkr shell completion helpers", () => {
 	test("renders dynamic resolver setup scripts for supported shells", () => {
 		const resolverCommand = ["completion", "exec", "resolve"];
 		const bash = renderClinkrCompletionScript({
-			commandName: "ji",
+			commandName: "ns",
 			shell: "bash",
 			resolverCommand,
 		});
-		const zsh = renderClinkrCompletionScript({ commandName: "ji", shell: "zsh", resolverCommand });
+		const zsh = renderClinkrCompletionScript({ commandName: "ns", shell: "zsh", resolverCommand });
 		const fish = renderClinkrCompletionScript({
-			commandName: "ji",
+			commandName: "ns",
 			shell: "fish",
 			resolverCommand,
 		});
 
-		expect(bash).toContain("complete -F _ji_completion 'ji'");
-		expect(bash).toContain("'ji' 'completion' 'exec' 'resolve' --");
-		expect(zsh).toContain("compdef _ji_completion 'ji'");
-		expect(zsh).toContain("'ji' 'completion' 'exec' 'resolve' --");
-		expect(fish).toContain("complete -c 'ji'");
-		expect(fish).toContain("'ji' 'completion' 'exec' 'resolve' --");
+		expect(bash).toContain("complete -F _ns_completion 'ns'");
+		expect(bash).toContain("'ns' 'completion' 'exec' 'resolve' --");
+		expect(zsh).toContain("compdef _ns_completion 'ns'");
+		expect(zsh).toContain("'ns' 'completion' 'exec' 'resolve' --");
+		expect(fish).toContain("complete -c 'ns'");
+		expect(fish).toContain("'ns' 'completion' 'exec' 'resolve' --");
 	});
 });

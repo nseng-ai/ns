@@ -145,7 +145,7 @@ describe("stack squash extension", () => {
 
 		expect(pi.execCalls).toEqual([
 			{ command: "git", args: ["status", "--porcelain=v1"], cwd: TEST_CWD },
-			{ command: "ji", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
+			{ command: "ns", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
 			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "gt", args: ["squash", "--no-edit", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "gt", args: ["checkout", "feature/middle", "--no-interactive"], cwd: TEST_CWD },
@@ -188,7 +188,7 @@ describe("stack squash extension", () => {
 
 		expect(pi.execCalls).toEqual([
 			{ command: "git", args: ["status", "--porcelain=v1"], cwd: TEST_CWD },
-			{ command: "ji", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
+			{ command: "ns", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
 		]);
 		expect(ctx.ui.notifications.at(-1)).toMatchObject({
 			level: "error",

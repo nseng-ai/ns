@@ -403,20 +403,20 @@ describe("real git gateway", () => {
 	test("preserves generic git fact command protocols", async () => {
 		const controller = new AbortController();
 		const commands = new ScriptedCommands([
-			step("git", ["status", "--porcelain", "--", ".ji/objectives"], {
-				stdout: " M .ji/objectives/a/objective.md\n",
+			step("git", ["status", "--porcelain", "--", ".ns/objectives"], {
+				stdout: " M .ns/objectives/a/objective.md\n",
 			}),
 			step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
 				stdout:
 					"feature/a\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\t2026-06-15T12:00:00+00:00\nfeature/b\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\t\n\n",
 			}),
-			step("git", ["rev-parse", "refs/heads/main:.ji/objectives"], { stdout: "tree-main\n" }),
-			step("git", ["rev-parse", "refs/heads/feature:.ji/objectives"], {
-				stderr: "fatal: path '.ji/objectives' does not exist in 'refs/heads/feature'",
+			step("git", ["rev-parse", "refs/heads/main:.ns/objectives"], { stdout: "tree-main\n" }),
+			step("git", ["rev-parse", "refs/heads/feature:.ns/objectives"], {
+				stderr: "fatal: path '.ns/objectives' does not exist in 'refs/heads/feature'",
 				code: 128,
 			}),
-			step("git", ["diff", "--name-only", "main..feature", "--", ".ji/objectives"], {
-				stdout: " .ji/objectives/a/objective.md\n\n.ji/objectives/b/roadmap.md\n",
+			step("git", ["diff", "--name-only", "main..feature", "--", ".ns/objectives"], {
+				stdout: " .ns/objectives/a/objective.md\n\n.ns/objectives/b/roadmap.md\n",
 			}),
 		]);
 		const git = new RealGitGateway(commands);
@@ -424,7 +424,7 @@ describe("real git gateway", () => {
 		expect(
 			await git.hasUncommittedChangesUnder({
 				cwd: ROOT,
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 				signal: controller.signal,
 			}),
 		).toEqual({ ok: true, value: true });
@@ -447,7 +447,7 @@ describe("real git gateway", () => {
 			await git.treeOidsAtRefs({
 				cwd: ROOT,
 				refs: ["refs/heads/main", "refs/heads/feature"],
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 			}),
 		).toEqual({
 			ok: true,
@@ -457,16 +457,16 @@ describe("real git gateway", () => {
 			await git.changedPathsUnder({
 				cwd: ROOT,
 				revisionRange: "main..feature",
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 			}),
 		).toEqual({
 			ok: true,
-			value: [".ji/objectives/a/objective.md", ".ji/objectives/b/roadmap.md"],
+			value: [".ns/objectives/a/objective.md", ".ns/objectives/b/roadmap.md"],
 		});
 		commands.assertDone();
 		expect(commands.execCalls[0]).toEqual({
 			command: "git",
-			args: ["status", "--porcelain", "--", ".ji/objectives"],
+			args: ["status", "--porcelain", "--", ".ns/objectives"],
 			options: { cwd: ROOT, timeout: 10_000, signal: controller.signal },
 		});
 		expect(commands.execCalls.map((call) => call.options?.timeout)).toEqual([
@@ -476,33 +476,33 @@ describe("real git gateway", () => {
 
 	test("reports generic git fact failures", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["status", "--porcelain", "--", ".ji/objectives"], {
+			step("git", ["status", "--porcelain", "--", ".ns/objectives"], {
 				code: 2,
 				stderr: "bad status",
 			}),
 			errorStep("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], new Error("spawn ENOENT")),
-			step("git", ["rev-parse", "HEAD:.ji/objectives"], { code: 2, stderr: "unexpected" }),
-			step("git", ["diff", "--name-only", "main..feature", "--", ".ji/objectives"], {
+			step("git", ["rev-parse", "HEAD:.ns/objectives"], { code: 2, stderr: "unexpected" }),
+			step("git", ["diff", "--name-only", "main..feature", "--", ".ns/objectives"], {
 				killed: true,
 			}),
 		]);
 		const git = new RealGitGateway(commands);
 
 		expect(
-			await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".ji/objectives" }),
+			await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".ns/objectives" }),
 		).toMatchObject({ ok: false, error: { code: "git_dirty_status_failed" } });
 		expect(await git.listLocalBranchTips({ cwd: ROOT })).toMatchObject({
 			ok: false,
 			error: { code: "git_startup_failed" },
 		});
 		expect(
-			await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".ji/objectives" }),
+			await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".ns/objectives" }),
 		).toMatchObject({ ok: false, error: { code: "git_tree_oid_failed" } });
 		expect(
 			await git.changedPathsUnder({
 				cwd: ROOT,
 				revisionRange: "main..feature",
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 			}),
 		).toMatchObject({ ok: false, error: { code: "git_changed_paths_failed" } });
 		commands.assertDone();

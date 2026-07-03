@@ -82,8 +82,8 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 			]),
 	},
 	{
-		name: ".ji/extensions",
-		includes: (path) => isInDirectory(path, ".ji/extensions"),
+		name: ".ns/extensions",
+		includes: (path) => isInDirectory(path, ".ns/extensions"),
 	},
 	{
 		name: "docs-site",
@@ -91,7 +91,7 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 	},
 	{
 		name: "top-level TS configs and other source files",
-		includes: (path) => !isInAnyDirectory(path, ["ts/packages", ".ji/extensions", "docs-site"]),
+		includes: (path) => !isInAnyDirectory(path, ["ts/packages", ".ns/extensions", "docs-site"]),
 	},
 ];
 
@@ -1300,7 +1300,7 @@ function setsAreEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): bo
 }
 
 function withTempRepo(run: (repoRoot: string) => void): void {
-	const repoRoot = mkdtempSync(join(tmpdir(), "ji-subpackage-guard-"));
+	const repoRoot = mkdtempSync(join(tmpdir(), "ns-subpackage-guard-"));
 	try {
 		run(repoRoot);
 	} finally {

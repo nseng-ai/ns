@@ -76,7 +76,7 @@ describe("createObjectiveClient", () => {
 	test("surfaces storage failures as ok:false instead of throwing", async () => {
 		const storage = new ObjectiveStorage(
 			new FakeObjectiveStorageGateway({
-				failures: { ".ji/objectives": { code: "storage-error", message: "boom" } },
+				failures: { ".ns/objectives": { code: "storage-error", message: "boom" } },
 			}),
 		);
 		const client = createObjectiveClient({

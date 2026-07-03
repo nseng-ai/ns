@@ -14,7 +14,7 @@ import {
 describe("Pi agent definitions", () => {
 	test("parses scalar frontmatter, prompt guideline lists, and body", () => {
 		const raw = definitionMarkdown({ body: "Body before\n{{prompt}}\nBody after\n" });
-		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.ji/pi/agents/runner.md");
+		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.ns/pi/agents/runner.md");
 
 		expect(parsed).toEqual({
 			schema: "ji.pi-agent.v1",
@@ -28,7 +28,7 @@ describe("Pi agent definitions", () => {
 				"Inspect the returned status.",
 			],
 			body: "Body before\n{{prompt}}\nBody after\n",
-			filePath: "/repo/.ji/pi/agents/runner.md",
+			filePath: "/repo/.ns/pi/agents/runner.md",
 		});
 	});
 
@@ -92,13 +92,13 @@ describe("Pi agent definitions", () => {
 		).toThrow(/expected "  - guideline"/);
 	});
 
-	test("finds .ji/pi/agents from a nested cwd", () => {
+	test("finds .ns/pi/agents from a nested cwd", () => {
 		const root = tempRoot();
 		const nested = join(root, "a", "b", "c");
-		mkdirSync(join(root, ".ji", "pi", "agents"), { recursive: true });
+		mkdirSync(join(root, ".ns", "pi", "agents"), { recursive: true });
 		mkdirSync(nested, { recursive: true });
 
-		expect(findSdlPiAgentsDir(nested)).toBe(join(root, ".ji", "pi", "agents"));
+		expect(findSdlPiAgentsDir(nested)).toBe(join(root, ".ns", "pi", "agents"));
 	});
 
 	test("loads runner.md by name", () => {
@@ -107,7 +107,7 @@ describe("Pi agent definitions", () => {
 
 		const loaded = loadPiAgentDefinition("runner", join(root, "nested"));
 		expect(loaded.name).toBe("runner");
-		expect(loaded.filePath).toBe(join(root, ".ji", "pi", "agents", "runner.md"));
+		expect(loaded.filePath).toBe(join(root, ".ns", "pi", "agents", "runner.md"));
 		expect(loaded.body).toBe("Runner body {{prompt}}");
 	});
 
@@ -186,7 +186,7 @@ function tempRoot(): string {
 }
 
 function writeAgentDefinition(root: string, agentName: string, content: string): void {
-	const agentsDir = join(root, ".ji", "pi", "agents");
+	const agentsDir = join(root, ".ns", "pi", "agents");
 	mkdirSync(agentsDir, { recursive: true });
 	writeFileSync(join(agentsDir, `${agentName}.md`), content, "utf8");
 }

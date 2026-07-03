@@ -25,7 +25,7 @@ const { createFlowSlotClient } = await import("../../src/autoslot/slot-checkout.
 
 describe("Flow slot checkout client", () => {
 	it("enables parent-shell cd directives for CLI autoslot while suppressing clipboard writes", () => {
-		const env = { PATH: "/fake/bin", JI_CD_DIRECTIVE_FILE: "/tmp/ji-cd" };
+		const env = { PATH: "/fake/bin", NS_CD_DIRECTIVE_FILE: "/tmp/ns-cd" };
 
 		createFlowSlotClient({ cwd: "/repo", env });
 

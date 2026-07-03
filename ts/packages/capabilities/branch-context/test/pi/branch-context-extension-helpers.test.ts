@@ -75,7 +75,7 @@ describe("branch-context from-plan policy docs", () => {
 	});
 });
 
-describe("ji:branch-context:from-plan argument parsing", () => {
+describe("ns:branch-context:from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
 		expect(
@@ -119,13 +119,13 @@ describe("buildWritePlanPrompt", () => {
 	test("includes local plan store instructions without branch creation", () => {
 		const prompt = buildWritePlanPrompt("add a tiny docs note plan for testing");
 
-		expect(prompt).toContain("/ji:plan:save request");
+		expect(prompt).toContain("/ns:plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain(
-			"$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
-		expect(prompt).toContain("No legacy ~/.ji/enriched-plan fallback is read or written");
+		expect(prompt).toContain("No legacy ~/.ns/enriched-plan fallback is read or written");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
@@ -164,19 +164,19 @@ describe("buildWritePlanPrompt", () => {
 		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n");
 
 		expect(prompt).toBe(
-			`This is a /ji:plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`,
+			`This is a /ns:plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`,
 		);
 	});
 
 	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
-		const promptPath = join(REPO_ROOT, ".ji", "prompts", "plans-write.md");
+		const promptPath = join(REPO_ROOT, ".ns", "prompts", "plans-write.md");
 		const checkedInContent = await readFile(promptPath, "utf8");
 
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Subagent orchestration opportunities:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Harness-neutral command guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("ji flow cp");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("ns flow cp");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain(
@@ -201,7 +201,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("Prefer native CLI commands");
 		expect(checkedInContent).toContain("harness-specific adapter");
 		expect(checkedInContent).toContain("Implementation checkpoint guidance:");
-		expect(checkedInContent).toContain("ji flow cp");
+		expect(checkedInContent).toContain("ns flow cp");
 		expect(checkedInContent).not.toContain("/ji:flow:cp");
 		expect(checkedInContent).not.toContain("/code:cp");
 		expect(checkedInContent).toContain("coherent standalone");
@@ -244,7 +244,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 	test("includes structured grill requirements and save/no-save contract", () => {
 		const prompt = buildWriteGrilledPlanPrompt("plan the grilled command variant");
 
-		expect(prompt).toContain("/ji:plan:grill-and-save");
+		expect(prompt).toContain("/ns:plan:grill-and-save");
 		expect(prompt).toContain("plan the grilled command variant");
 		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain("grill_ask");

@@ -22,7 +22,7 @@ function factsData(overrides: Record<string, unknown> = {}): Record<string, unkn
 		baseBranch: "main",
 		headAtDispatch: "head1234",
 		changedPaths: [],
-		objectivePath: `.ji/objectives/${SLUG}`,
+		objectivePath: `.ns/objectives/${SLUG}`,
 		reportPath: REPORT_PATH,
 		prompt: "irrelevant to finish",
 		...overrides,

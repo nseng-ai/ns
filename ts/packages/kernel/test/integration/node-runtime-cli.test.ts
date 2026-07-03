@@ -6,10 +6,10 @@ describeNodeRuntimeCliEntrypoint({
 	cliSourcePathFromWorkspace: "packages/kernel/src/cli/index.ts",
 	cliSourceUrl: new URL("../../src/cli/index.ts", import.meta.url),
 	helpAssertions: [
-		{ type: "contains", text: "Usage: ji" },
+		{ type: "contains", text: "Usage: ns" },
 		{ type: "contains", text: "--runtime" },
 		{ type: "not_contains", text: "cp" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @ji/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
+		"runtime: typescript\nentry_point: @ji/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
 });

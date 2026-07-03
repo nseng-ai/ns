@@ -21,7 +21,7 @@ describe("sdl flow changes CLI availability", () => {
 		const topHelp = runUnavailableChangesCli(["--help"]);
 		expect(await topHelp.exit).toBe(0);
 		const help = topHelp.stdout.join("");
-		expect(help).toContain("Usage: ji");
+		expect(help).toContain("Usage: ns");
 		expect(help).not.toContain("changes");
 		expect(help).not.toContain("cp");
 		expect(help).not.toContain("submit");
@@ -32,8 +32,8 @@ describe("sdl flow changes CLI availability", () => {
 	test("changes help and invocation are unavailable without a project extension", async () => {
 		const help = runUnavailableChangesCli(["flow", "changes", "--help"]);
 		expect(await help.exit).toBe(0);
-		expect(help.stdout.join("")).toContain("Usage: ji");
-		expect(help.stdout.join("")).not.toContain("Usage: ji flow changes");
+		expect(help.stdout.join("")).toContain("Usage: ns");
+		expect(help.stdout.join("")).not.toContain("Usage: ns flow changes");
 
 		const run = runUnavailableChangesCli(["flow", "changes"]);
 		expect(await run.exit).not.toBe(0);

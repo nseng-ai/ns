@@ -340,7 +340,7 @@ describe("aretro exec collect-evidence", () => {
 		const sessionSource = new FakeSessionSource({ sessions: [evidenceSession("/repo")] });
 		const context: AretroCliContext = {
 			cwd: "/repo",
-			env: { JI_PAYLOAD_ROOT: payloadRoot },
+			env: { NS_PAYLOAD_ROOT: payloadRoot },
 			git,
 			sessionSource,
 		};

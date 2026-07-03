@@ -92,7 +92,7 @@ function fakeInvestigatorDefinition(
 		description: "Run a fixture investigation.",
 		promptGuidelines: [],
 		body: overrides.body ?? DEFAULT_INVESTIGATOR_BODY,
-		filePath: "/fixture/.ji/pi/agents/investigator.md",
+		filePath: "/fixture/.ns/pi/agents/investigator.md",
 	};
 }
 

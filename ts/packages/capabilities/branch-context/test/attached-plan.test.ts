@@ -155,7 +155,7 @@ describe("loadAttachedPlan", () => {
 		await expect(
 			loadAttachedPlan({}, { cwd: ROOT, context: branchContext({ brmem }) }),
 		).rejects.toThrow(
-			/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*ji branch-context exec from-plan/,
+			/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*ns branch-context exec from-plan/,
 		);
 	});
 

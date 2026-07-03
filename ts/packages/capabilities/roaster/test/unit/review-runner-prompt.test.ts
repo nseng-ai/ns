@@ -50,7 +50,7 @@ describe("Claude Code harness prompt assembly", () => {
 
 		const assembled = assembleReviewPrompt({
 			reviewDefinition,
-			reviewDir: "/repo/.ji/reviews/typescript-style",
+			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },
 		});
 
@@ -69,7 +69,7 @@ describe("Claude Code harness prompt assembly", () => {
 
 		const assembled = assembleReviewPrompt({
 			reviewDefinition,
-			reviewDir: "/repo/.ji/reviews/typescript-style",
+			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },
 		});
 
@@ -104,7 +104,7 @@ describe("Claude Code harness prompt assembly", () => {
 
 		const assembled = assembleReviewPrompt({
 			reviewDefinition,
-			reviewDir: "/repo/.ji/reviews/typescript-style",
+			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },
 		});
 

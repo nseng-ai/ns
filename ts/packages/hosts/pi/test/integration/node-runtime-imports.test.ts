@@ -75,7 +75,7 @@ describe("Node runtime import smoke", () => {
 	}, 15_000);
 
 	test("pi starts with every project-local extension discovered", () => {
-		const tempConfigDir = mkdtempSync(join(tmpdir(), "ji-pi-extension-load-"));
+		const tempConfigDir = mkdtempSync(join(tmpdir(), "ns-pi-extension-load-"));
 		try {
 			const result = spawnSync(
 				PI_BIN,
@@ -104,7 +104,7 @@ describe("Node runtime import smoke", () => {
 				label: `pi startup with ${PROJECT_EXTENSION_ADAPTERS.length} project-local extensions`,
 			});
 			expect(result.stdout).toContain("provider");
-			expect(PROJECT_EXTENSION_ADAPTERS).toContain(".pi/extensions/ji.ts");
+			expect(PROJECT_EXTENSION_ADAPTERS).toContain(".pi/extensions/ns.ts");
 		} finally {
 			rmSync(tempConfigDir, { force: true, recursive: true });
 		}

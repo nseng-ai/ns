@@ -121,7 +121,7 @@ describe("project-local cp extension behavior", () => {
 		expect(run.liveOutput).toHaveLength(5);
 		const settled = run.liveOutput[4];
 		expect(settled?.stream).toBe("stderr");
-		expect(settled?.text).toContain("ji flow cp");
+		expect(settled?.text).toContain("ns flow cp");
 		expect(settled?.text).toContain("worktree inspected");
 		expect(settled?.text).toContain("checkpoint message ready");
 		expect(settled?.text).toContain("checkpoint committed");
@@ -189,8 +189,8 @@ describe("project-local cp extension behavior", () => {
 	test("checkpoint model can be selected by SDL environment with legacy fallback", async () => {
 		const selected = runCpWithFakes({
 			env: {
-				JI_CHECKPOINT_MODEL: "openai-codex/custom-mini",
-				JI_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
+				NS_CHECKPOINT_MODEL: "openai-codex/custom-mini",
+				NS_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
 			},
 		});
 
@@ -198,7 +198,7 @@ describe("project-local cp extension behavior", () => {
 		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
 		const fallback = runCpWithFakes({
-			env: { JI_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
+			env: { NS_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
 		});
 		expect(await fallback.exit).toBe(0);
 		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");

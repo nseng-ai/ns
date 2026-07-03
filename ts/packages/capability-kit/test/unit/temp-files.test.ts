@@ -10,7 +10,7 @@ describe("temporary file helpers", () => {
 		let pathAfterCallback = "";
 
 		const text = await withTemporaryFile(
-			{ prefix: "ji-core-temp-test-", filename: "body.md", contents: "body\n" },
+			{ prefix: "ns-core-temp-test-", filename: "body.md", contents: "body\n" },
 			async (path) => {
 				pathAfterCallback = path;
 				return await readFile(path, "utf8");
@@ -26,7 +26,7 @@ describe("temporary file helpers", () => {
 		let pathAfterCallback = "";
 
 		await expect(
-			withTemporaryJsonFile({ prefix: "ji-core-json-test-", value: { ok: true } }, async (path) => {
+			withTemporaryJsonFile({ prefix: "ns-core-json-test-", value: { ok: true } }, async (path) => {
 				pathAfterCallback = path;
 				expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ ok: true });
 				throw new Error("callback failed");

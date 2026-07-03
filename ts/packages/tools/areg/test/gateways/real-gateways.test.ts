@@ -239,12 +239,12 @@ describe("real areg gateways", () => {
 				piSettings: { type: "file", text: JSON.stringify({ skills: ["-skills/demo"] }) },
 				replacement: {
 					verifiedSurfaces: expect.arrayContaining([
-						"ji:objective:next",
+						"ns:objective:next",
 						"code:just-fix",
-						"ji:branch-context:from-plan",
-						"ji:branch-context:impl-attached-plan",
-						"ji:plan:save",
-						"ji:flow:submit",
+						"ns:branch-context:from-plan",
+						"ns:branch-context:impl-attached-plan",
+						"ns:plan:save",
+						"ns:flow:submit",
 					]),
 				},
 			});

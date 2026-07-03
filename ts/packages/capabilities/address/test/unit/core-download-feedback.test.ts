@@ -49,7 +49,7 @@ describe("collectDownloadFeedback", () => {
 		expect(result.feedback.markdown).toContain("# PR feedback triage request");
 		expect(result.feedback.markdown).toContain("## Instructions before responding");
 		expect(result.feedback.markdown).toContain(
-			"ji address exec close-review-threads --thread-ids-json",
+			"ns address exec close-review-threads --thread-ids-json",
 		);
 		expect(result.feedback.markdown).toContain("include `--body <BODY>` when a reply is useful");
 		expect(result.feedback.markdown).toContain(

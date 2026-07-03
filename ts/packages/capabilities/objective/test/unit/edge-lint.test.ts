@@ -32,7 +32,7 @@ async function lint(
 	const result = await objectiveEdgeLintChecks({
 		storage,
 		slug,
-		recordRelativePath: `.ji/objectives/${slug}`,
+		recordRelativePath: `.ns/objectives/${slug}`,
 		document: splitObjectiveRecordDocument(content),
 	});
 	if (!result.ok) throw new Error(result.error.message);
@@ -182,7 +182,7 @@ describe("sweepObjectiveEdgeLint", () => {
 		expect(result.value.recordCount).toBe(4);
 		expect(labels(result.value.violations)).toEqual(["objective.md edge ghost endpoint exists"]);
 		expect(result.value.violations[0]?.path).toBe(
-			".ji/objective-archive/archived-dangler/objective.md",
+			".ns/objective-archive/archived-dangler/objective.md",
 		);
 	});
 
@@ -198,7 +198,7 @@ describe("sweepObjectiveEdgeLint", () => {
 		const storage = new ObjectiveStorage(
 			new FakeObjectiveStorageGateway({
 				records: [{ slug: "unreadable" }],
-				unreadableFiles: { ".ji/objectives/unreadable/objective.md": "permission denied" },
+				unreadableFiles: { ".ns/objectives/unreadable/objective.md": "permission denied" },
 			}),
 		);
 		const result = await sweepObjectiveEdgeLint(storage);

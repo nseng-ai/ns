@@ -490,7 +490,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(notifications[0]?.message).toContain("Landing path expects feature-a -> feature-b");
 		expect(notifications[0]?.message).toContain("side (subtree: side -> side-2)");
 		expect(commandMessagesText(messages)).toContain(
-			"Land or move the sibling stack first (e.g. gt move --onto main), then rerun /ji:flow:land.",
+			"Land or move the sibling stack first (e.g. gt move --onto main), then rerun /ns:flow:land.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] !== "trunk")).toBe(

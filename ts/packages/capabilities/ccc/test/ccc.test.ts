@@ -7,7 +7,7 @@ import { InMemoryBranchMemoryGateway } from "@ji/branch-context/testing";
 
 // Mock Pi command formatting for tests
 function formatImplBranchContextCommand(key: string): string {
-	return `/ji:branch-context:impl-attached-plan ${key}`;
+	return `/ns:branch-context:impl-attached-plan ${key}`;
 }
 import type { StdinCapableCommandExecApi } from "@ji/core/command";
 import { withTempRepoSkill } from "@ji/core/test-kit";
@@ -64,7 +64,7 @@ const testSlotClient = {
 			ok: false as const,
 			failure: {
 				errorType: "unexpected-current-checkout",
-				message: "Unexpected current ji slot checkout in cmux command test.",
+				message: "Unexpected current ns slot checkout in cmux command test.",
 			},
 		};
 	},
@@ -383,7 +383,7 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain(`Source branch: ${SOURCE_BRANCH}`);
 		expect(content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(content).toContain(`Branch Memory key: ${PLAN_KEY}`);
-		expect(content).toContain("ji slot checkout");
+		expect(content).toContain("ns slot checkout");
 		expect(content).toContain("cmux new-workspace");
 		expect(content).toContain(`--description 'dispatch-plan from ${SOURCE_BRANCH}'`);
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
@@ -482,7 +482,7 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain(
 			"Dry run: no branch was created, no plan was attached, and no cmux surface was opened.",
 		);
-		expect(content).toContain("ji slot checkout");
+		expect(content).toContain("ns slot checkout");
 		expect(content).toContain("cmux new-surface");
 		expect(content).toContain("cmux rename-tab");
 		expect(content).toContain("cmux send -- 'cd");
@@ -597,7 +597,7 @@ describe("CCC cmux command suite", () => {
 		expect(pi.thinkingLevels).toEqual([]);
 	});
 
-	test("ccc:surface:dispatch-plan stops before cmux surface launch when ji slot checkout fails", async () => {
+	test("ccc:surface:dispatch-plan stops before cmux surface launch when ns slot checkout fails", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, {
@@ -788,7 +788,7 @@ describe("CCC cmux command suite", () => {
 		pi.assertDone();
 		const promptText = await readFile(stagedPromptFile, "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
-		expect(promptText).toContain("!ji flow submit");
+		expect(promptText).toContain("!ns flow submit");
 		expect(
 			notificationMessages(ctx).some((message) =>
 				message.includes(`Opened cmux workspace: ${BRANCH}`),
@@ -897,7 +897,7 @@ describe("CCC cmux command suite", () => {
 		const promptText = await readFile(stagedPromptFile, "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
 		expect(promptText).toContain("created from refreshed Graphite trunk");
-		expect(promptText).toContain("!ji flow submit");
+		expect(promptText).toContain("!ns flow submit");
 		expect(
 			notificationMessages(ctx).some((message) =>
 				message.includes(`Opened cmux workspace: ${BRANCH}`),

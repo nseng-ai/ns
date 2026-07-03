@@ -56,7 +56,7 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 		options: Parameters<ReviewCatalogGateway["listReviewKeys"]>[0],
 	): ReturnType<ReviewCatalogGateway["listReviewKeys"]> {
 		this.listCalls.push(options);
-		return { type: "ok", value: { reviewsDir: "/repo/.ji/reviews", keys: ["typescript-style"] } };
+		return { type: "ok", value: { reviewsDir: "/repo/.ns/reviews", keys: ["typescript-style"] } };
 	}
 
 	async loadReviewSource(
@@ -65,7 +65,7 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 		this.sourceCalls.push(options);
 		return {
 			type: "ok",
-			value: { key: options.key, path: "/repo/.ji/reviews/type/review.md", source: "" },
+			value: { key: options.key, path: "/repo/.ns/reviews/type/review.md", source: "" },
 		};
 	}
 }
@@ -181,7 +181,7 @@ describe("createRoasterRuntime", () => {
 			{
 				model: "sonnet",
 				reviewDefinition: sampleReviewDefinition,
-				reviewDir: "/repo/.ji/reviews/typescript-style",
+				reviewDir: "/repo/.ns/reviews/typescript-style",
 				target: { localDiff: sampleDiff },
 			},
 			runOptions,

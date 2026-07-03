@@ -424,7 +424,7 @@ describe("pr feedback watch download helpers", () => {
 		expect(prompt).toContain("cannot be resolved or replied to after validation");
 		expect(prompt).toContain("Do not push, submit, create branches");
 		expect(prompt).toContain("present remaining feedback for human curation");
-		expect(prompt).toContain("ji address exec close-review-threads --thread-ids-json");
+		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(prompt).toContain("omit `--body` for resolve-only closure");
 		expect(prompt).toContain("do not use raw `gh api graphql`");
 		expect(prompt).not.toContain("Do not edit files yet");

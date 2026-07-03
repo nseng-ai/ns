@@ -90,7 +90,7 @@ class FakePi implements CliCommandExtensionAPI {
 	) {
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
-				if (customType === "ji-command-ack") return;
+				if (customType === "ns-command-ack") return;
 				this.messageRenderers.set(customType, renderer);
 			};
 		}
@@ -101,11 +101,11 @@ class FakePi implements CliCommandExtensionAPI {
 						"This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession().",
 					);
 				}
-				if (message.customType === "ji-command-ack") {
+				if (message.customType === "ns-command-ack") {
 					this.ackMessages.push(message);
 					return;
 				}
-				if (message.customType === "ji-command-progress") {
+				if (message.customType === "ns-command-progress") {
 					this.progressMessages.push(message);
 					return;
 				}
@@ -311,17 +311,17 @@ function taggedTheme(): { fg(color: string, text: string): string; bold(text: st
 describe("cli command extension helper", () => {
 	test("cli command trace path uses XDG state fallback and normalized explicit overrides", () => {
 		expect(cliCommandTracePath({ HOME: "/home/tester", XDG_STATE_HOME: "/state" })).toBe(
-			"/state/ji/pi-cli-command-extension/ji-pi-cli-command-extension.jsonl",
+			"/state/ns/pi-cli-command-extension/ns-pi-cli-command-extension.jsonl",
 		);
 		expect(
-			cliCommandTracePath({ HOME: "/home/tester", JI_PI_CLI_TRACE_PATH: "~/trace.jsonl" }),
+			cliCommandTracePath({ HOME: "/home/tester", NS_PI_CLI_TRACE_PATH: "~/trace.jsonl" }),
 		).toBe("/home/tester/trace.jsonl");
 		expect(() =>
 			cliCommandTracePath({
 				HOME: "/home/tester",
-				JI_PI_CLI_TRACE_PATH: "relative/trace.jsonl",
+				NS_PI_CLI_TRACE_PATH: "relative/trace.jsonl",
 			}),
-		).toThrow("JI_PI_CLI_TRACE_PATH must be an absolute path");
+		).toThrow("NS_PI_CLI_TRACE_PATH must be an absolute path");
 	});
 
 	test("registers each command under the configured Pi namespace only", () => {
@@ -651,10 +651,10 @@ describe("cli command extension helper", () => {
 	test("writes metadata trace events and sends final output as a custom message", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "pi-cli-trace-test-"));
 		const tracePath = join(directory, "trace.jsonl");
-		const oldTrace = process.env.JI_PI_CLI_TRACE;
-		const oldTracePath = process.env.JI_PI_CLI_TRACE_PATH;
-		process.env.JI_PI_CLI_TRACE = "1";
-		process.env.JI_PI_CLI_TRACE_PATH = tracePath;
+		const oldTrace = process.env.NS_PI_CLI_TRACE;
+		const oldTracePath = process.env.NS_PI_CLI_TRACE_PATH;
+		process.env.NS_PI_CLI_TRACE = "1";
+		process.env.NS_PI_CLI_TRACE_PATH = tracePath;
 		try {
 			const pi = new FakePi();
 			registerFakeCli(pi, {
@@ -702,8 +702,8 @@ describe("cli command extension helper", () => {
 			});
 			expectSingleCliOutputMessage(pi, "ok\n");
 		} finally {
-			restoreEnv("JI_PI_CLI_TRACE", oldTrace);
-			restoreEnv("JI_PI_CLI_TRACE_PATH", oldTracePath);
+			restoreEnv("NS_PI_CLI_TRACE", oldTrace);
+			restoreEnv("NS_PI_CLI_TRACE_PATH", oldTracePath);
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
@@ -1101,9 +1101,9 @@ describe("cli command extension helper", () => {
 		finishRun();
 		await commandPromise;
 
-		expect(statuses.at(-1)).toEqual({ key: "ji-cli-command", value: undefined });
+		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
 		expect(widgets.at(-1)).toEqual({
-			key: "ji-cli-command-output",
+			key: "ns-cli-command-output",
 			lines: undefined,
 			placement: undefined,
 		});
@@ -1141,7 +1141,7 @@ describe("cli command extension helper", () => {
 		finishRun();
 		await commandPromise;
 
-		expect(statuses.at(-1)).toEqual({ key: "ji-cli-command", value: undefined });
+		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
 	});
 
 	test("keeps footer status stable while the live widget ticks", async () => {
@@ -1172,7 +1172,7 @@ describe("cli command extension helper", () => {
 			// Ignore the transient auto-clearing ack status; this test isolates whether the
 			// live-widget ticks churn the footer status, not the one-shot ack lifecycle.
 			const withoutAck = (entries: StatusUpdate[]): (string | undefined)[] =>
-				entries.filter((status) => status.key !== "ji-command-ack").map((status) => status.value);
+				entries.filter((status) => status.key !== "ns-command-ack").map((status) => status.value);
 			const statusValuesBeforeTicks = withoutAck(statuses);
 			const widgetCountBeforeTicks = widgets.length;
 			await vi.advanceTimersByTimeAsync(3_000);
@@ -1183,7 +1183,7 @@ describe("cli command extension helper", () => {
 			if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
 			finishRun();
 			await commandPromise;
-			expect(statuses.at(-1)).toEqual({ key: "ji-cli-command", value: undefined });
+			expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
 		} finally {
 			vi.useRealTimers();
 		}

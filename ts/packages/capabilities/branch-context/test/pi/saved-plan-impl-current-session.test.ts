@@ -18,17 +18,17 @@ import {
 import type { SelectedSavedPlanFile } from "@ji/plans/api";
 
 describe("saved-plan current-branch implementation command", () => {
-	test("registers /ji:plan:impl-current and shows usage without mutation", async () => {
+	test("registers /ns:plan:impl-current and shows usage without mutation", async () => {
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
-		const command = pi.commands.get("ji:plan:impl-current");
+		const command = pi.commands.get("ns:plan:impl-current");
 		const context = createContext();
 
 		await command?.handler("--help", context.ctx);
 
 		expect(command?.description).toContain("current branch");
-		expect(pi.sentMessages[0]?.content).toContain("Usage: /ji:plan:impl-current");
+		expect(pi.sentMessages[0]?.content).toContain("Usage: /ns:plan:impl-current");
 		expect(pi.sentMessages[0]?.content).toContain("does not create, check out, or attach");
 		expect(fakes.selectPlanCalls).toEqual([]);
 		expect(fakes.createBranchCalls).toEqual([]);
@@ -40,7 +40,7 @@ describe("saved-plan current-branch implementation command", () => {
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
-		const command = pi.commands.get("ji:plan:impl-current");
+		const command = pi.commands.get("ns:plan:impl-current");
 		const context = createContext();
 
 		await command?.handler(`--dry-run ${filePath}`, context.ctx);
@@ -64,7 +64,7 @@ describe("saved-plan current-branch implementation command", () => {
 		const pi = new FakePi([], events);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
-		const command = pi.commands.get("ji:plan:impl-current");
+		const command = pi.commands.get("ns:plan:impl-current");
 		const context = createContext(events, { sessionFile: "/sessions/current.jsonl" });
 
 		await command?.handler(filePath, context.ctx);
@@ -79,7 +79,7 @@ describe("saved-plan current-branch implementation command", () => {
 		expect(prompt).toContain(`Path: ${filePath}`);
 		expect(prompt).toContain(DEFAULT_PLAN_CONTENT);
 		expect(prompt).toContain("----- BEGIN SAVED PLAN -----");
-		expect(prompt).not.toContain("/ji:branch-context:impl-attached-plan");
+		expect(prompt).not.toContain("/ns:branch-context:impl-attached-plan");
 		expect(context.wasSessionReplaced()).toBe(true);
 		expect(events).toContain("replacement-send");
 	});
@@ -105,7 +105,7 @@ describe("saved-plan current-branch implementation command", () => {
 			},
 		});
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
-		const command = pi.commands.get("ji:plan:impl-current");
+		const command = pi.commands.get("ns:plan:impl-current");
 		const sessionEntry = sourcePlanToolResultEntry(sessionEvidence);
 		const context = createContext([], { sessionEntries: [sessionEntry] });
 
@@ -132,7 +132,7 @@ describe("saved-plan current-branch implementation command", () => {
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
-		const command = pi.commands.get("ji:plan:impl-current");
+		const command = pi.commands.get("ns:plan:impl-current");
 		const context = createContext([], { shouldCancelNewSession: true });
 
 		await command?.handler(filePath, context.ctx);
@@ -141,7 +141,7 @@ describe("saved-plan current-branch implementation command", () => {
 		expect(context.replacementUserMessages).toEqual([]);
 		const warning = pi.sentMessages.at(-1)?.content ?? "";
 		expect(warning).toContain("starting the implementation session was cancelled");
-		expect(warning).toContain(`/ji:plan:impl-current ${filePath}`);
+		expect(warning).toContain(`/ns:plan:impl-current ${filePath}`);
 		expect(warning).toContain("manually open /new on the current branch");
 	});
 
@@ -151,14 +151,14 @@ describe("saved-plan current-branch implementation command", () => {
 		const pi = new FakePi([], events);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
-		const command = pi.commands.get("ji:plan:impl-current");
+		const command = pi.commands.get("ns:plan:impl-current");
 		const context = createContext(events, { hasUI: false, shouldCancelNewSession: true });
 
 		await command?.handler(filePath, context.ctx);
 
 		expect(context.wasSessionReplaced()).toBe(false);
 		expect(context.statuses).not.toContainEqual({
-			key: "ji:plan:impl-current",
+			key: "ns:plan:impl-current",
 			value: "starting implementation session…",
 		});
 		expect(context.statuses).toEqual([]);

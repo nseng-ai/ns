@@ -22,8 +22,8 @@ describe("sdl flow submit CLI availability", () => {
 	test("submit help and invocation are unavailable without a project extension", async () => {
 		const help = runUnavailableSubmitCli(["flow", "submit", "--help"]);
 		expect(await help.exit).toBe(0);
-		expect(help.stdout.join("")).toContain("Usage: ji");
-		expect(help.stdout.join("")).not.toContain("Usage: ji flow submit");
+		expect(help.stdout.join("")).toContain("Usage: ns");
+		expect(help.stdout.join("")).not.toContain("Usage: ns flow submit");
 
 		for (const args of [
 			["flow", "submit"],

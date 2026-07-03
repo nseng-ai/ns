@@ -151,7 +151,7 @@ describe("source branch plan path helpers", () => {
 		const tempHome = makeTempDir("source-plan-home-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
-		const legacyRoot = join(tempHome, ".ji", "enriched-plan");
+		const legacyRoot = join(tempHome, ".ns", "enriched-plan");
 		const legacyDirectory = planStoreDirectory(legacyRoot, sourceBranch);
 		await writePlanStoreFile(
 			planStoreGateway,

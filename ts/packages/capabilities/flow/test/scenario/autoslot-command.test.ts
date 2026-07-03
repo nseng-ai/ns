@@ -8,7 +8,7 @@ import {
 } from "./flow-command-fakes.ts";
 import { formattedExecCalls } from "./ji-cli-fakes.ts";
 
-// `ji flow autoslot` routes through the Flow CLI runner (`runFlowCli` → `runAutoslotCli`), which
+// `ns flow autoslot` routes through the Flow CLI runner (`runFlowCli` → `runAutoslotCli`), which
 // renders durable outcomes in the house style next to where their facts are computed. The happy
 // slot-move path uses a real `SlotClient`; these scenarios pin the wrapper's caps resolution +
 // stdout/stderr routing on the outcomes that settle before slot checkout.

@@ -10,7 +10,7 @@ import { createFindingsReview, type ReviewRunResult } from "../../src/core/model
 function runResult(overrides: Partial<ReviewRunResult> = {}): ReviewRunResult {
 	return {
 		reviewName: "team/review key",
-		reviewPath: "/repo/.ji/reviews/team/review key.md",
+		reviewPath: "/repo/.ns/reviews/team/review key.md",
 		modelProfile: "deep",
 		model: "sonnet",
 		baseRef: "main",

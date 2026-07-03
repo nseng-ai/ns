@@ -1,0 +1,497 @@
+{
+ "summary": {
+  "simpleFilesChanged": 2,
+  "simpleTotal": 2,
+  "changesetsDone": 16,
+  "changesetsTotal": 17,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 29
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/test/land-test-helpers.ts",
+   "note": "Line 1 `@ji/capability-kit` import specifier left untouched — DO NOT TOUCH package-scope rule"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts",
+   "note": "Line 1 `@ji/capability-kit/graphite/metadata` import specifier — left as-is per DO NOT TOUCH (package scope, phase-two)"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-1",
+   "note": "branch-context-extension-helpers.test.ts:205 — expect(checkedInContent).not.toContain(\"/ji:flow:cp\") left verbatim: this is a deliberate absence assertion proving a legacy slash-command alias is already gone (paired with a parallel not.toContain(\"/code:cp\") check), matching the brief's explicit DO-NOT-TOUCH carve-out for absence assertions of old namespaced forms."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-1",
+   "note": "All @ji/* import specifiers across every file (e.g. @ji/capability-kit/git/testing, @ji/branch-context, @ji/branch-context/api, @ji/branch-context/testing, @ji/core/exec, @ji/core/command, @ji/core/model-slug, @ji/core/test-kit, @ji/plans, @ji/plans/api, @ji/capability-kit/graphite/testing, @ji/capability-kit/model-slug, @ji/capability-kit/brmem-cli/testing) left untouched per the explicit DO-NOT-TOUCH package-scope rule (phase-two, PR-5 owns these)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-3",
+   "note": "ts/packages/capabilities/flow/test/land/api-boundary.test.ts: every ji occurrence is a phase-two DO-NOT-TOUCH surface — @ji/flow import specifier, describe()/toBe() strings built from LAND_PACKAGE_NAME (@ji/flow package scope), and the package.json manifest key `ji`/`packageJson.ji.tier` (readonly ji:, value.ji, \"ji\" in value) — left verbatim, no edit made."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-3",
+   "note": "ts/packages/capabilities/flow/test/pi/flow-pi-parity.test.ts: @ji/pi/* import specifiers (package scope), the `../../src/pi/ji-extension.ts` filename import, and the sdlExtension/sdlExtensionParity identifiers are all DO-NOT-TOUCH per the brief (ji-*.ts filenames and sdl-named identifiers) — left verbatim, no edit made."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-3",
+   "note": "autobranch-command.test.ts and autoslot-command.test.ts: `./ji-cli-fakes.ts` import specifier is a ji-*.ts filename reference (DO-NOT-TOUCH phase-two surface) — left verbatim."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-3",
+   "note": "ccc.test.ts and cmux-objective-sidebar.test.ts: all @ji/* import specifiers (branch-context, core, ccc, capability-kit) are phase-two package-scope imports — left verbatim, no edit made."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-4",
+   "note": "None: every anchored-form occurrence in the ten files was either an unambiguous rename target (applied) or an unambiguous DO-NOT-TOUCH survivor per the brief (left verbatim); no ambiguous cases required a judgment-call skip."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-5",
+   "note": "ts/packages/capabilities/handoff/test/pi/handoff-self.test.ts:65 and :448 — left `/ji:handoff:pickup --branch ${BRANCH} <returned-slug>` untouched inside `expect(prompt).not.toContain(...)` calls; these are deliberate absence assertions proving the old slash-pickup mechanism is not used by the self-handoff kickoff flow, which the brief's history-and-identity DO NOT TOUCH section says keep their old-name literals verbatim."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-6",
+   "note": "ts/packages/capabilities/objective/test/scenario/exec-runner-begin.test.ts: file has no anchored rename targets — its only ji-bearing tokens are @ji/clinkr (package scope), ../../src/ji/commands/exec-runner-begin.ts (src/ji/ path segment), and ../support/ji-command-harness.ts (ji-*.ts filename), all explicitly phase-two DO NOT TOUCH surfaces; left byte-identical and not included in the modified files list"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-6",
+   "note": "All @ji/* import specifiers left untouched across every file in the cohort (package scope is phase-two DO NOT TOUCH)"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-7",
+   "note": "None — every anchored form found in these 10 files fell cleanly into either the RENAME list (.ji/objectives paths, JI_RUNNER_PI_BIN env var) or the DO NOT TOUCH phase-two list (@ji/* package scope, src/ji/ path segments, ji-command-harness.ts filename); no ambiguous cases required a judgment-call skip."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-8",
+   "note": "plan-primitives.test.ts:154 and saved-plan-file.test.ts:165 legacyRoot/legacyPath literals (`.ji`/`~/.ji`) — no production code references any 'legacy .ji path' concept (grepped src, found none); these are arbitrary illustrative 'some other directory' literals in test-only code. Treated as matching the brief's explicit `~/.ji` anchor and renamed to `.ns`, but flagging as a judgment call since an alternative reading (deliberately preserved historical pre-XDG-migration path) was plausible and not fully ruled out by the brief."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-9",
+   "note": "ts/packages/capabilities/roaster/test/unit/diff-parsing.test.ts and project-config.test.ts: no changes made -- diff-parsing.test.ts has zero anchored ji tokens; project-config.test.ts only contains ji.toml literals, which the brief explicitly marks as a phase-two DO NOT TOUCH surface (ji_toml_invalid code / ji.toml file references are out of scope for this cutover pass)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-10",
+   "note": "checkpoint-message.test.ts:51 — the fixture string '.ji/objectives/pi-extension-deepening/updates/2026-05-25-vibecoded-extension-dispositions.md' quotes a real historical checkpoint commit message referencing a dated (2026-05-25) past objective-update artifact; treated as historical prose/fact that stays verbatim rather than a live repo-state path assertion, so left unrenamed."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-10",
+   "note": "ji-command.test.ts — every 'ji' occurrence in this file (@ji/kernel/sdk, @ji/capability-kit/ji-command import subpath, Sdl*-named identifiers/prose) falls under the DO-NOT-TOUCH phase-two list (package scope, ji-*.ts filename subpaths, and sdl-containing identifiers); no in-window renames existed, so the file was left unmodified."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-11",
+   "note": "ts/packages/hosts/pi/test/investigate.test.ts:88 - schema: \"ji.pi-agent.v1\" left unchanged: it does not match any enumerated anchored-form category (not a CLI name, .ji/ path, ji: namespace, JI_ env var, git ref, or ji-* machine key); it mirrors the PI_AGENT_DEFINITION_SCHEMA constant defined in production source (agent-definition.ts) outside this changeset, so renaming it here in isolation would desync the fixture from the real schema tag rather than following a defined brief anchor."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-12",
+   "note": "ts/packages/hosts/pi/test/worktree-status/extension.test.ts:557 - the map key literal \"ji-flow-changes\" (used only as an arbitrary getExtensionStatuses() key, never asserted against a production constant) does not match any enumerated anchor form (not .ji/, not ji:, not an enumerated brand machine key like ji-command-ack); left it as-is while renaming its paired display-text value to /ns:flow:changes to avoid guessing at an unenumerated rename target."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-13",
+   "note": "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts:105 - runCommand(\"__ji_core_missing_command_for_test__\", []) is an arbitrary nonexistent-command sentinel, not a filesystem path/mkdtemp prefix, CLI-name literal, env-var name, or namespace key enumerated in the brief; left as-is rather than guessing."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-13",
+   "note": "ts/packages/infra/core/test/exec/unit/exec.test.ts:35,40,45,48 - the fixture executable filename \"ji-exec-test-tool\" (created inside an already-renamed ns-exec-unit- tempdir) is not itself a documented mkdtemp-prefix or brand-fixture-path anchor form; left as-is rather than guessing."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "node-runtime-cli.test.ts:4 `name: \"ji Node runtime CLI entrypoint\"` left as-is — it's a test-label/brand-prose string (comparable to a describe()/test() label), which the brief explicitly defers outside the root onboarding docs; not one of the anchored RENAME forms (not \"Usage: ji\", not a `ji <subcommand>` instruction line, not a bin/CLI-argv literal)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "All `../scenario/ji-cli-fakes.ts` import paths left as-is — that file was not one of the four pre-moved skill dirs or the .ji/.pi paths already renamed in this bracket, and the brief says never rename/create/delete files; the import must match the actual (unmoved) filename."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "All `@ji/kernel/sdk`, `@ji/core/...`, `@ji/capability-kit/...`, `@ji/address/ji/commands/...`, `@ji/aretro/ji/commands/...`, `@ji/branch-context/ji/commands/...`, `@ji/handoff/ji/commands/...`, `@ji/objective/ji/commands/...`, and `@ji/pi` occurrences in sdk-module-loader.test.ts, completion-cli.test.ts, and extension-loader-cli.test.ts left untouched — explicit DO NOT TOUCH: @ji/* package scope and /ji/commands path fragments are phase-two (PR-5) surfaces."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "`createSdlJiti` identifier and `jiti`/`Jiti` mentions in sdk-module-loader.test.ts left untouched — TS identifiers containing sdl/ji are DO NOT TOUCH, and `Jiti`/`jiti` refers to the third-party bundler library, not the product."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-16",
+   "note": "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts:226 — the frontmatter literal \"schema: ji.pi-agent.v1\" mirrors the production constant PI_AGENT_DEFINITION_SCHEMA (value \"ji.pi-agent.v1\") in ts/packages/hosts/pi/src/runtime/agent-definition.ts, which is outside this changeset and not on the brief's anchored-forms list (not a .ji/ path, ji:namespace, JI_ env var, or ji.toml). Renaming only the test literal would desync it from the still-unrenamed source constant, so left as-is rather than guessing."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-17",
+   "note": "update-skills-cli.test.ts:242 and init-helpers.test.ts:15 — \"ji.toml\" in test name/error string: left verbatim per explicit DO-NOT-TOUCH rule (ji.toml is phase-two, never touched this window)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-17",
+   "note": "All four files — @ji/* import specifiers (command-backed-skill-registry, clinkr/testing, core/primitives, capability-kit/git/testing): left verbatim per DO-NOT-TOUCH package-scope rule."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-17",
+   "note": "init-helpers.test.ts and update-skills-cli.test.ts — parseSdlAregAgents/sdlToml identifiers: left verbatim per DO-NOT-TOUCH rule on identifiers containing ji or sdl in any casing."
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": "ts/packages/capabilities/ccc/test/land-test-helpers.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const TOPOLOGY_COMMAND = \"ji\";",
+     "after": "export const TOPOLOGY_COMMAND = \"ns\";"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/capability-kit` import specifier left untouched — DO NOT TOUCH package-scope rule"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const TOPOLOGY_COMMAND = \"ji\";",
+     "after": "export const TOPOLOGY_COMMAND = \"ns\";"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/capability-kit/graphite/metadata` import specifier — left as-is per DO NOT TOUCH (package scope, phase-two)"
+   ]
+  }
+ ],
+ "complex": [
+  {
+   "id": "cohort-tests-1",
+   "files": [
+    "ts/packages/capabilities/address/test/scenario/download-feedback.test.ts",
+    "ts/packages/capabilities/address/test/scenario/exec-schema-contract.test.ts",
+    "ts/packages/capabilities/address/test/scenario/json-schema-routes.test.ts",
+    "ts/packages/capabilities/address/test/scenario/map-branch-prs.test.ts",
+    "ts/packages/capabilities/address/test/unit/core-download-feedback.test.ts",
+    "ts/packages/capabilities/aretro/test/scenario/collect-evidence.test.ts",
+    "ts/packages/capabilities/branch-context/test/attached-plan.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-extension-helpers.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-extension-support.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-from-plan.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji→ns renames across the 10-file test cohort: (1) `ji address exec` describe/toContain strings → `ns address exec` in the address package's download-feedback, exec-schema-contract, json-schema-routes, map-branch-prs, and core-download-feedback tests; (2) `JI_PAYLOAD_ROOT` env fixture key → `NS_PAYLOAD_ROOT` in aretro's collect-evidence test (matches production `SDL_PAYLOAD_ROOT_ENV` value already renamed); (3) `ji branch-context exec from-plan` prose in a regex assertion → `ns branch-context exec from-plan` in attached-plan.test.ts (matches production src); (4) in branch-context-extension-helpers.test.ts: the `ji:branch-context:from-plan` describe namespace → `ns:branch-context:from-plan`, `/ji:plan:save` and `/ji:plan:grill-and-save` slash-namespace literals → `/ns:...`, the `$XDG_STATE_HOME/ji/enriched-plan` and `~/.ji/enriched-plan` XDG-namespace strings → `ns`, the `.ji/prompts/plans-write.md` repo-state path → `.ns/prompts/plans-write.md`, and the live `ji flow cp` instruction-line literals (both the not.toContain-on-default-body and toContain-on-checked-in-content assertions) → `ns flow cp`; (5) `.ji/prompts` temp-fixture paths in branch-context-extension-support.ts → `.ns/prompts`; (6) all 49 occurrences of the `ji:branch-context:from-plan` namespace literal in branch-context-from-plan.test.ts → `ns:branch-context:from-plan`.",
+   "skipped": [
+    "branch-context-extension-helpers.test.ts:205 — expect(checkedInContent).not.toContain(\"/ji:flow:cp\") left verbatim: this is a deliberate absence assertion proving a legacy slash-command alias is already gone (paired with a parallel not.toContain(\"/code:cp\") check), matching the brief's explicit DO-NOT-TOUCH carve-out for absence assertions of old namespaced forms.",
+    "All @ji/* import specifiers across every file (e.g. @ji/capability-kit/git/testing, @ji/branch-context, @ji/branch-context/api, @ji/branch-context/testing, @ji/core/exec, @ji/core/command, @ji/core/model-slug, @ji/core/test-kit, @ji/plans, @ji/plans/api, @ji/capability-kit/graphite/testing, @ji/capability-kit/model-slug, @ji/capability-kit/brmem-cli/testing) left untouched per the explicit DO-NOT-TOUCH package-scope rule (phase-two, PR-5 owns these)."
+   ]
+  },
+  {
+   "id": "cohort-tests-2",
+   "files": [
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-gt-upstack-impl-launch.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-impl.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-upstack-impl-session.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-write-tool.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/enriched-plan-commands.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/integration/branch-context-real-brmem.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/saved-plan-impl-current-session.test.ts",
+    "ts/packages/capabilities/ccc/test/autoslot-presentation.test.ts",
+    "ts/packages/capabilities/ccc/test/autoslot.test.ts",
+    "ts/packages/capabilities/ccc/test/ccc-test-harness.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename to all 10 test-cohort files. Renamed: (1) `ji:branch-context:*` and `ji:plan:*` machine/namespace keys (explicitly listed anchored namespaces) to `ns:branch-context:*` / `ns:plan:*` everywhere they appear as command-registry keys, status keys, and prose command references (e.g. `/ji:plan:save` → `/ns:plan:save`) across branch-context-gt-upstack-impl-launch, branch-context-impl, branch-context-upstack-impl-session, branch-context-write-tool, enriched-plan-commands, branch-context-real-brmem, and saved-plan-impl-current-session tests; (2) the XDG state path `$XDG_STATE_HOME/ji/enriched-plan/...` and legacy `~/.ji/enriched-plan` prose to `.../ns/enriched-plan` / `~/.ns/enriched-plan` in branch-context-write-tool.test.ts and enriched-plan-commands.test.ts; (3) backticked `ji slot co ...` / `ji slot checkout ...` CLI command examples (slot is a live subcommand) to `ns slot ...` in autoslot-presentation.test.ts and autoslot.test.ts; (4) the env var name `JI_CCC_SIDEBAR_MODEL` to `NS_CCC_SIDEBAR_MODEL`, the repo-state path `.ji/objectives` to `.ns/objectives`, and the subprocess argv `\"ji\"` (in `step(\"ji\", [\"objective\", \"exec\", \"read-objective\", ...])`) to `\"ns\"` in ccc-test-harness.ts. Left every `@ji/*` package-scope import specifier and every `../src/ji/` / `src/ji/` relative-import path segment byte-identical (explicit DO NOT TOUCH phase-two surfaces) — verified via a final grep sweep of all 10 files showing only those survivor forms remain.",
+   "skipped": []
+  },
+  {
+   "id": "cohort-tests-3",
+   "files": [
+    "ts/packages/capabilities/ccc/test/ccc.test.ts",
+    "ts/packages/capabilities/ccc/test/cmux-objective-sidebar.test.ts",
+    "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts",
+    "ts/packages/capabilities/flow/test/integration/land-stack-sandbox.test.ts",
+    "ts/packages/capabilities/flow/test/pi/code-workflows.test.ts",
+    "ts/packages/capabilities/flow/test/pi/stack-squash.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/autobranch-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/autoslot-command.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji→ns renames to 8 of the 10 test-cohort files per the shared brief: `/ji:...` namespace literals → `/ns:...` (ccc.test.ts, cmux-objective-sidebar.test.ts); `.ji/objectives`/`.ji/objective-archive` paths → `.ns/...` (cmux-objective-sidebar.test.ts); subprocess argv/command literals `\"ji\"` → `\"ns\"` in exec-call assertions and fake shim dispatch (ccc.test.ts, cmux-objective-sidebar.test.ts, land-stack-graphite-cli.test.ts, land-stack-sandbox.test.ts, stack-squash.test.ts); `ji <subcommand>` prose/error-text instruction lines (`ji slot checkout`, `!ji flow submit`, `` `ji flow autobranch` ``, `` `ji flow branch-latest-commit` ``, `` `ji flow autoslot` ``) → ns forms (ccc.test.ts, autobranch-command.test.ts, autoslot-command.test.ts); brand-named mkdtemp prefixes `ji-flow-real-gt-` / `ji-flow-land-sandbox-` → `ns-...` and the backticked external-tool-name mention `` `ji` `` in a file-header comment → `` `ns` `` (land-stack-graphite-cli.test.ts, land-stack-sandbox.test.ts); brand machine key `ji-command-ack` → `ns-command-ack` (code-workflows.test.ts). flow-pi-parity.test.ts and land/api-boundary.test.ts needed no edits — all their `ji` occurrences are phase-two DO-NOT-TOUCH surfaces (package scope `@ji/*`, the `ji-extension.ts` filename import, `sdlExtension`/`sdlExtensionParity` identifiers, and the package.json manifest key `ji`/`packageJson.ji.tier`).",
+   "skipped": [
+    "ts/packages/capabilities/flow/test/land/api-boundary.test.ts: every ji occurrence is a phase-two DO-NOT-TOUCH surface — @ji/flow import specifier, describe()/toBe() strings built from LAND_PACKAGE_NAME (@ji/flow package scope), and the package.json manifest key `ji`/`packageJson.ji.tier` (readonly ji:, value.ji, \"ji\" in value) — left verbatim, no edit made.",
+    "ts/packages/capabilities/flow/test/pi/flow-pi-parity.test.ts: @ji/pi/* import specifiers (package scope), the `../../src/pi/ji-extension.ts` filename import, and the sdlExtension/sdlExtensionParity identifiers are all DO-NOT-TOUCH per the brief (ji-*.ts filenames and sdl-named identifiers) — left verbatim, no edit made.",
+    "autobranch-command.test.ts and autoslot-command.test.ts: `./ji-cli-fakes.ts` import specifier is a ji-*.ts filename reference (DO-NOT-TOUCH phase-two surface) — left verbatim.",
+    "ccc.test.ts and cmux-objective-sidebar.test.ts: all @ji/* import specifiers (branch-context, core, ccc, capability-kit) are phase-two package-scope imports — left verbatim, no edit made."
+   ]
+  },
+  {
+   "id": "cohort-tests-4",
+   "files": [
+    "ts/packages/capabilities/flow/test/scenario/branch-latest-commit-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/changes-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/cp-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/flow-command-fakes.ts",
+    "ts/packages/capabilities/flow/test/scenario/push-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/submit-command.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the anchored ji->ns rename to the 10-file flow test cohort. Renamed: backticked `ji flow <subcommand>` CLI-name prose (branch-latest-commit, autobranch, cp, submit, autoslot) in test assertions and code comments; the `/ji:flow:submit` namespace literal to `/ns:flow:submit`; env var NAMES JI_CHANGES_MODEL, JI_CHECKPOINT_MODEL, JI_DEV_CHECKPOINT_MODEL, JI_DEV_PR_DESCRIPTION_MODEL, JI_DEV_PR_DESCRIPTION_PROMPT, JI_SUBMIT_FAILURE_LOG_DIR, JI_SUBMIT_FAILURE_MODEL (including the matching error-text assertion \"Could not read NS_DEV_PR_DESCRIPTION_PROMPT\"); the PR-description generator version literal \"ji-pr-description-v2\" -> \"ns-pr-description-v2\"; and two brand-named test fixture/tmpdir prefixes (\"ji-regenerate-pr-prompt-\" and \"ji-submit-test-\") to \"ns-...\". Left untouched (per DO NOT TOUCH): @ji/* package-scope imports (@ji/clinkr/testing, @ji/kernel/sdk, @ji/capability-kit/*), src/ji/ path segments and their import specifiers, and ji-*.ts filenames (./ji-cli-fakes.ts, ../../submit/ji-runtime.ts) - these are phase-two surfaces. exec-read-graphite-branch-metadata-command.test.ts, pull-trunk-command.test.ts, and extension-shared-flow-foundations.test.ts contained only DO-NOT-TOUCH forms and were left byte-identical (not listed in files).",
+   "skipped": [
+    "None: every anchored-form occurrence in the ten files was either an unambiguous rename target (applied) or an unambiguous DO-NOT-TOUCH survivor per the brief (left verbatim); no ambiguous cases required a judgment-call skip."
+   ]
+  },
+  {
+   "id": "cohort-tests-5",
+   "files": [
+    "ts/packages/capabilities/flow/test/unit/extension-shared-model-generation.test.ts",
+    "ts/packages/capabilities/flow/test/unit/git-result-block.test.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-topology-guards.test.ts",
+    "ts/packages/capabilities/flow/test/unit/pr-description-orchestration.test.ts",
+    "ts/packages/capabilities/flow/test/unit/pr-description.test.ts",
+    "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts",
+    "ts/packages/capabilities/flow/test/unit/submit.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/claude-handoff.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-launch-flow.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-self.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename to all 10 files in the cohort-tests-5 changeset. Renamed: env-var NAMES JI_CHANGES_MODEL / JI_CHECKPOINT_MODEL / JI_CD_DIRECTIVE_FILE → NS_*; backticked CLI examples (`ji flow submit`, `ji flow push`, `ji handoff create`) → `ns ...`; namespace literals /ji:flow:land and /ji:handoff:pickup (positive toContain assertions) → /ns:...; the PR-description generator marker \"ji-pr-description-v2\" → \"ns-pr-description-v2\"; the repo prompt path fixture \".ji\"/\"prompts\" → \".ns\"/\"prompts\" plus its brand-named tmpdir prefix \"ji-dev-pr-prompt-\" → \"ns-dev-pr-prompt-\"; and the fixture \"/tmp/ji-cd\" → \"/tmp/ns-cd\". Verified every rename against the corresponding production source (all already emit the ns-form), and confirmed `@ji/*` import specifiers plus `src/ji/...` path segments were left untouched as phase-two survivors. All 10 files re-run green under vitest (134 tests passed).",
+   "skipped": [
+    "ts/packages/capabilities/handoff/test/pi/handoff-self.test.ts:65 and :448 — left `/ji:handoff:pickup --branch ${BRANCH} <returned-slug>` untouched inside `expect(prompt).not.toContain(...)` calls; these are deliberate absence assertions proving the old slash-pickup mechanism is not used by the self-handoff kickoff flow, which the brief's history-and-identity DO NOT TOUCH section says keep their old-name literals verbatim."
+   ]
+  },
+  {
+   "id": "cohort-tests-6",
+   "files": [
+    "ts/packages/capabilities/handoff/test/pi/handoff-tab-launch.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-tab.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff.test.ts",
+    "ts/packages/capabilities/objective/test/integration/runner-finish-git.test.ts",
+    "ts/packages/capabilities/objective/test/integration/runner-step-git.test.ts",
+    "ts/packages/capabilities/objective/test/pi/objective-create.test.ts",
+    "ts/packages/capabilities/objective/test/pi/objective-pi-parity.test.ts",
+    "ts/packages/capabilities/objective/test/pi/objective.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the ji->ns brief's anchored-form renames across the 10-file test cohort: Pi command namespaces `ji:handoff:*` and `ji:objective:*` (including template-literal forms) renamed to `ns:handoff:*` / `ns:objective:*`; backticked/prose CLI instruction lines `ji handoff create ...` and `ji objective ...` renamed to `ns handoff create ...` / `ns objective ...`; brand machine keys `ji-command-ack` / `ji-command-progress` renamed to `ns-command-ack` / `ns-command-progress`; repo-state path literals `.ji/objectives` (both slash-joined string form and join(dir, \".ji\", \"objectives\") segment form) renamed to `.ns/objectives`; brand-named tmpdir/mkdtemp prefixes `ji-objective-runner-finish-git-`, `ji-runner-finish-scratch-`, `ji-objective-runner-git-` renamed to `ns-*`; and CLI subprocess argv literal `\"ji\"` (in step()/exec-call assertions invoking the `ji objective exec list-candidates` CLI) renamed to `\"ns\"`. Verified with `npx vitest run` (unit) and `--config vitest.integration.config.ts` (integration): all 146 tests across the 9 touched files pass, plus exec-runner-begin.test.ts (unchanged) still passes.",
+   "skipped": [
+    "ts/packages/capabilities/objective/test/scenario/exec-runner-begin.test.ts: file has no anchored rename targets — its only ji-bearing tokens are @ji/clinkr (package scope), ../../src/ji/commands/exec-runner-begin.ts (src/ji/ path segment), and ../support/ji-command-harness.ts (ji-*.ts filename), all explicitly phase-two DO NOT TOUCH surfaces; left byte-identical and not included in the modified files list",
+    "All @ji/* import specifiers left untouched across every file in the cohort (package scope is phase-two DO NOT TOUCH)"
+   ]
+  },
+  {
+   "id": "cohort-tests-7",
+   "files": [
+    "ts/packages/capabilities/objective/test/scenario/exec-runner-finish.test.ts",
+    "ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts",
+    "ts/packages/capabilities/objective/test/unit/api.test.ts",
+    "ts/packages/capabilities/objective/test/unit/edge-lint.test.ts",
+    "ts/packages/capabilities/objective/test/unit/list-candidates.test.ts",
+    "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts",
+    "ts/packages/capabilities/objective/test/unit/list-objectives.test.ts",
+    "ts/packages/capabilities/objective/test/unit/load-orientations.test.ts",
+    "ts/packages/capabilities/objective/test/unit/objective-list-json.test.ts",
+    "ts/packages/capabilities/objective/test/unit/objective-picker.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji->ns renames across the 10-file test cohort: renamed all `.ji/objectives` / `.ji/objective-archive` repo-state path literals (fixture paths, expected output strings, InMemoryGitGateway tree-oid/changed-path keys, git diff/status stdout fixtures parsed by parseObjectiveDiffChangedSlugs/parseObjectiveStatusChangedSlugs) to `.ns/objectives` / `.ns/objective-archive` to match the already-migrated src (objective-picker.ts checks `parts[0] !== \".ns\"`). Also renamed the env var NAME fixture `JI_RUNNER_PI_BIN` -> `NS_RUNNER_PI_BIN` in exec-runner-step.test.ts to match src's `SDL_RUNNER_PI_BIN_ENV = \"NS_RUNNER_PI_BIN\"`. Left all `@ji/*` package-scope import specifiers, `src/ji/` path segments, and the `ji-command-harness.ts` filename import untouched per the DO NOT TOUCH phase-two list.",
+   "skipped": [
+    "None — every anchored form found in these 10 files fell cleanly into either the RENAME list (.ji/objectives paths, JI_RUNNER_PI_BIN env var) or the DO NOT TOUCH phase-two list (@ji/* package scope, src/ji/ path segments, ji-command-harness.ts filename); no ambiguous cases required a judgment-call skip."
+   ]
+  },
+  {
+   "id": "cohort-tests-8",
+   "files": [
+    "ts/packages/capabilities/objective/test/unit/objective-storage.test.ts",
+    "ts/packages/capabilities/objective/test/unit/pi/child-session/pi-child-session-gateway.test.ts",
+    "ts/packages/capabilities/objective/test/unit/runner/prompt.test.ts",
+    "ts/packages/capabilities/objective/test/unit/runner/run-step.test.ts",
+    "ts/packages/capabilities/objective/test/unit/tracking-gate.test.ts",
+    "ts/packages/capabilities/plans/test/plan-primitives.test.ts",
+    "ts/packages/capabilities/plans/test/saved-plan-file.test.ts",
+    "ts/packages/capabilities/roaster/test/gateways/review-catalog.test.ts",
+    "ts/packages/capabilities/roaster/test/gateways/review-runner.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji->ns renames across the 10-file test cohort: `.ji/objectives` and `.ji/objective-archive` repo-state paths -> `.ns/...` (objective-storage.test.ts, prompt.test.ts, run-step.test.ts, tracking-gate.test.ts); `.ji/reviews` -> `.ns/reviews` (review-catalog.test.ts, review-runner.test.ts); `/tmp/ji-objective-runner-test` tmpdir prefix -> `/tmp/ns-objective-runner-test` and the env-var-name reference `JI_RUNNER_PI_BIN` -> `NS_RUNNER_PI_BIN` in a test title (pi-child-session-gateway.test.ts, matching the already-renamed `SDL_RUNNER_PI_BIN_ENV` value `NS_RUNNER_PI_BIN` in source); XDG state-root segment `state/ji/enriched-plan` -> `state/ns/enriched-plan` and the illustrative `~/.ji` legacy-path literal -> `~/.ns` (saved-plan-file.test.ts, plan-primitives.test.ts), matching production's `resolveSdlXdgPath` which now resolves to an `ns` segment. Left all `@ji/*` import specifiers and `ji.toml` references untouched (local-diff.test.ts had no anchored occurrences at all, hence no diff, and is omitted from the files list). Verified by running all 10 files under vitest: 105/105 tests pass.",
+   "skipped": [
+    "plan-primitives.test.ts:154 and saved-plan-file.test.ts:165 legacyRoot/legacyPath literals (`.ji`/`~/.ji`) — no production code references any 'legacy .ji path' concept (grepped src, found none); these are arbitrary illustrative 'some other directory' literals in test-only code. Treated as matching the brief's explicit `~/.ji` anchor and renamed to `.ns`, but flagging as a judgment call since an alternative reading (deliberately preserved historical pre-XDG-migration path) was plausible and not fully ruled out by the brief."
+   ]
+  },
+  {
+   "id": "cohort-tests-9",
+   "files": [
+    "ts/packages/capabilities/roaster/test/unit/api.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/context.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/findings-publication.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/models.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/record-findings.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-definition.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-log.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-run.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the anchored repo-state path literal `.ji/reviews` -> `.ns/reviews` in 8 of the 10 cohort files (string fixture paths for review directories/files used across roaster unit tests). Left `@ji/capability-kit`, `@ji/roaster` import specifiers and `describe(\"@ji/roaster/api\", ...)` untouched (phase-two package-scope DO NOT TOUCH). Left `ji.toml` references in project-config.test.ts and review-run.test.ts untouched (explicit phase-two DO NOT TOUCH). diff-parsing.test.ts had no in-window occurrences at all (only unrelated 'EMOJI' substring matches from a case-insensitive grep).",
+   "skipped": [
+    "ts/packages/capabilities/roaster/test/unit/diff-parsing.test.ts and project-config.test.ts: no changes made -- diff-parsing.test.ts has zero anchored ji tokens; project-config.test.ts only contains ji.toml literals, which the brief explicitly marks as a phase-two DO NOT TOUCH surface (ji_toml_invalid code / ji.toml file references are out of scope for this cutover pass)."
+   ]
+  },
+  {
+   "id": "cohort-tests-10",
+   "files": [
+    "ts/packages/capabilities/roaster/test/unit/review-runner-prompt.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/skill-reviews.test.ts",
+    "ts/packages/capabilities/slot/test/scenario/gt-navigation-cli.test.ts",
+    "ts/packages/capabilities/slot/test/unit/context.test.ts",
+    "ts/packages/capability-kit/test/git/git-gateway.test.ts",
+    "ts/packages/capability-kit/test/git/integration/testing-create-temp-git-repo.test.ts",
+    "ts/packages/capability-kit/test/git/local-ref-reader.test.ts",
+    "ts/packages/capability-kit/test/unit/git-testing.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji→ns renames across the 10-file test cohort. Renamed repo-state path literals `.ji/reviews/...` → `.ns/reviews/...` (review-runner-prompt.test.ts, skill-reviews.test.ts) and `.ji/objectives` → `.ns/objectives` (git-gateway.test.ts, git-testing.test.ts); XDG state namespace `/state/ji/slots` → `/state/ns/slots` (context.test.ts, including the nested `.local/state/ji/slots` form); a backticked `ji slot checkout <branch>` CLI instruction line → `ns slot checkout <branch>` (gt-navigation-cli.test.ts); and brand-named mkdtemp/prefix fixture strings `ji-core-testing-git-`, `ji-git-refs-`, `ji-git-empty-refs-`, `ji-git-packed-refs-` → `ns-*` (testing-create-temp-git-repo.test.ts, local-ref-reader.test.ts). Left `@ji/*` package-scope imports, the `ji-command` filename subpath import, and `Sdl*`-named identifiers untouched per the DO-NOT-TOUCH phase-two list.",
+   "skipped": [
+    "checkpoint-message.test.ts:51 — the fixture string '.ji/objectives/pi-extension-deepening/updates/2026-05-25-vibecoded-extension-dispositions.md' quotes a real historical checkpoint commit message referencing a dated (2026-05-25) past objective-update artifact; treated as historical prose/fact that stays verbatim rather than a live repo-state path assertion, so left unrenamed.",
+    "ji-command.test.ts — every 'ji' occurrence in this file (@ji/kernel/sdk, @ji/capability-kit/ji-command import subpath, Sdl*-named identifiers/prose) falls under the DO-NOT-TOUCH phase-two list (package scope, ji-*.ts filename subpaths, and sdl-containing identifiers); no in-window renames existed, so the file was left unmodified."
+   ]
+  },
+  {
+   "id": "cohort-tests-11",
+   "files": [
+    "ts/packages/capability-kit/test/unit/ji-context.test.ts",
+    "ts/packages/capability-kit/test/unit/model-slug.test.ts",
+    "ts/packages/capability-kit/test/unit/temp-files.test.ts",
+    "ts/packages/hosts/jicc/test/unit/objective-tab.test.ts",
+    "ts/packages/hosts/jicc/test/unit/stack-map.test.ts",
+    "ts/packages/hosts/pi/test/cli-command-extension.test.ts",
+    "ts/packages/hosts/pi/test/harness-session.test.ts",
+    "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts",
+    "ts/packages/hosts/pi/test/investigate.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji->ns renames across the 10-file test cohort per the shared brief. Changes: env-var fixture key JI_TEST->NS_TEST (ji-context.test.ts); env-var-name literal in a test title JI_SLUG_MODEL->NS_SLUG_MODEL (model-slug.test.ts); brand tmpdir/mkdtemp-style prefixes ji-core-temp-test-/ji-core-json-test- -> ns-core-* (temp-files.test.ts); repo-state path .ji/objectives -> .ns/objectives, subprocess argv command:\\\"ji\\\"->\\\"ns\\\", and error-message regex \\\"ji objective list failed\\\"->\\\"ns objective list failed\\\" (objective-tab.test.ts); backticked `ji slot gt ...` command example, subprocess argv checks, and \\\"ji slot ...\\\" prose/message strings -> ns (stack-map.test.ts); brand machine keys ji-command-ack/ji-command-progress/ji-cli-command/ji-cli-command-output -> ns-*, XDG state/ji path and ji-pi-cli-command-extension.jsonl filename -> state/ns + ns-pi-cli-command-extension.jsonl, and JI_PI_CLI_TRACE/JI_PI_CLI_TRACE_PATH env var names -> NS_* (cli-command-extension.test.ts); brand machine key ji-harness-session-id->ns-harness-session-id and \\\"ji address exec ...\\\" CLI invocation strings -> \\\"ns address exec ...\\\" (harness-session.test.ts); brand mkdtemp prefix ji-pi-extension-load- -> ns-pi-extension-load-, and stale post-move file reference .pi/extensions/ji.ts -> .pi/extensions/ns.ts (matching the already-renamed file on disk) (node-runtime-imports.test.ts); repo-state path /fixture/.ji/pi/agents/... -> /fixture/.ns/pi/agents/... (investigate.test.ts). ts/packages/hosts/jicc/test/unit/cli.test.ts contained no anchored ji forms and was left unmodified (still listed as reviewed, no diff produced).",
+   "skipped": [
+    "ts/packages/hosts/pi/test/investigate.test.ts:88 - schema: \"ji.pi-agent.v1\" left unchanged: it does not match any enumerated anchored-form category (not a CLI name, .ji/ path, ji: namespace, JI_ env var, git ref, or ji-* machine key); it mirrors the PI_AGENT_DEFINITION_SCHEMA constant defined in production source (agent-definition.ts) outside this changeset, so renaming it here in isolation would desync the fixture from the real schema tag rather than following a defined brief anchor."
+   ]
+  },
+  {
+   "id": "cohort-tests-12",
+   "files": [
+    "ts/packages/hosts/pi/test/just-fix.test.ts",
+    "ts/packages/hosts/pi/test/parity.test.ts",
+    "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+    "ts/packages/hosts/pi/test/pr-download-feedback.test.ts",
+    "ts/packages/hosts/pi/test/worktree-status/extension.test.ts",
+    "ts/packages/hosts/pi/test/worktree-status/refresh.test.ts",
+    "ts/packages/infra/brmem/test/gateways/prompt-resolution.test.ts",
+    "ts/packages/infra/brmem/test/integration/prompt-resolution.test.ts",
+    "ts/packages/infra/brmem/test/scenario/resolve-prompt-operation.test.ts",
+    "ts/packages/infra/brmem/test/support/run-scenario.ts"
+   ],
+   "changed": true,
+   "summary": "Applied anchored ji->ns renames across the 10-file test cohort: brand machine keys ns-command-ack/ns-command-progress (just-fix.test.ts, verified against src/commands/ack.ts); .ji/pi/agents -> .ns/pi/agents repo-state paths (parity.test.ts, pi-agent-definition.test.ts, verified against src/runtime/agent-definition.ts's findSdlPiAgentsDir); CLI argv literal command:\"ji\"->\"ns\" and 'ji <subcommand>' prose (address, slot) in pr-download-feedback.test.ts, verified against src/core/pr/feedback-download.ts default runner and pr-stack-feedback-instructions.md; /ji:flow:changes and ji:flow:changes namespace -> /ns:flow:changes / ns:flow:changes plus 'ji flow changes' prose -> 'ns flow changes' in worktree-status/extension.test.ts and refresh.test.ts; ji-worktree-footer- mkdtemp prefix -> ns-worktree-footer- ; .ji/prompts repo-state path and .config/ji/brmem/prompts XDG config namespace -> .ns/prompts and .config/ns/brmem/prompts across all four brmem prompt-resolution test files, verified against src/config/xdg-path.ts's ns config segment. Left @ji/* package-scope imports (DO NOT TOUCH per brief) and the schema: \"ji.pi-agent.v1\" literal untouched because it mirrors the still-unrenamed PI_AGENT_DEFINITION_SCHEMA constant in src/runtime/agent-definition.ts (outside this changeset, confirmed still \"ji.pi-agent.v1\" in source). Ran tsgo --noEmit on the pi package after edits with no new errors.",
+   "skipped": [
+    "ts/packages/hosts/pi/test/worktree-status/extension.test.ts:557 - the map key literal \"ji-flow-changes\" (used only as an arbitrary getExtensionStatuses() key, never asserted against a production constant) does not match any enumerated anchor form (not .ji/, not ji:, not an enumerated brand machine key like ji-command-ack); left it as-is while renaming its paired display-text value to /ns:flow:changes to avoid guessing at an unenumerated rename target."
+   ]
+  },
+  {
+   "id": "cohort-tests-13",
+   "files": [
+    "ts/packages/infra/clinkr/test/completion.test.ts",
+    "ts/packages/infra/core/test/cli-theme/result-block.test.ts",
+    "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts",
+    "ts/packages/infra/core/test/exec/unit/exec.test.ts",
+    "ts/packages/infra/core/test/model-defaults.test.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/config.ts",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the anchored ji->ns rename across the cohort-tests-13 test files: CLI-name literals (commandName: \"ji\" -> \"ns\" and the derived completion-script assertions in completion.test.ts), a `ji <subcommand>` prose example in result-block.test.ts (\"ji slot co demo\" -> \"ns slot co demo\"), brand-named mkdtemp prefixes (\"ji-core-exec-\", \"ji-exec-unit-\", \"ji-subpackage-guard-\" -> \"ns-*\"), the JI_TEST_MODEL env-var-name literal -> NS_TEST_MODEL, the thirteen JI_TS_BAN_*/JI_TS_ADVISORY_* env-var-name constants in typescript-style-guard/config.ts -> NS_TS_*, and the repo-state path literal \".ji/extensions\" -> \".ns/extensions\" (3 occurrences) in typescript-style-guard.test.ts. Left cli-entry.test.ts, package-metadata.ts, and tier-layering.ts untouched: their only ji tokens are DO-NOT-TOUCH survivors (@ji/* package scope, jicc, the package.json \"ji\": {} manifest key and its dotted ji.tier/ji.remainder prose, \"@ji/aretro/ji\" subpackage subpath).",
+   "skipped": [
+    "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts:105 - runCommand(\"__ji_core_missing_command_for_test__\", []) is an arbitrary nonexistent-command sentinel, not a filesystem path/mkdtemp prefix, CLI-name literal, env-var name, or namespace key enumerated in the brief; left as-is rather than guessing.",
+    "ts/packages/infra/core/test/exec/unit/exec.test.ts:35,40,45,48 - the fixture executable filename \"ji-exec-test-tool\" (created inside an already-renamed ns-exec-unit- tempdir) is not itself a documented mkdtemp-prefix or brand-fixture-path anchor form; left as-is rather than guessing."
+   ]
+  },
+  {
+   "id": "cohort-tests-14",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/aretro-extension-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/completion-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/extension-loader-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/flow-extension-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/flow-extension-registry.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/handoff-extension-registry.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/node-runtime-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/objective-extension-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/roaster-extension-cli.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/integration/sdk-module-loader.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the anchored ji→ns rename across the 10 kernel integration test files: CLI `Usage: ji ...` help-text assertions and `ji <subcommand>` prose-instruction lines (e.g. \"ji flow submit\", \"ji flow autobranch\") became `ns`; `JI_*` env-var-name literals (e.g. JI_CHECKPOINT_MODEL, JI_CHANGES_MODEL, JI_SLUG_MODEL, JI_DEV_*, JI_SUBMIT_FAILURE_LOG_DIR, JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS) became NS_*; `.ji/extensions`, `.ji/objectives`, and the `.ji/objectives/...` git-status fixture path became `.ns/...`; brand-named mkdtemp prefixes (ji-aretro-extension-project-, ji-completion-integration-, ji-extension-project-, ji-flow-extension-project-, ji-flow-extension-registry-, ji-flow-extension-help-, ji-handoff-extension-, ji-objective-extension-project-, ji-roaster-extension-project-) became ns-*; and the `bin ji ->` chain in node-runtime-cli.test.ts became `bin ns ->` (leaving the adjacent @ji/kernel package-scope segment untouched).",
+   "skipped": [
+    "node-runtime-cli.test.ts:4 `name: \"ji Node runtime CLI entrypoint\"` left as-is — it's a test-label/brand-prose string (comparable to a describe()/test() label), which the brief explicitly defers outside the root onboarding docs; not one of the anchored RENAME forms (not \"Usage: ji\", not a `ji <subcommand>` instruction line, not a bin/CLI-argv literal).",
+    "All `../scenario/ji-cli-fakes.ts` import paths left as-is — that file was not one of the four pre-moved skill dirs or the .ji/.pi paths already renamed in this bracket, and the brief says never rename/create/delete files; the import must match the actual (unmoved) filename.",
+    "All `@ji/kernel/sdk`, `@ji/core/...`, `@ji/capability-kit/...`, `@ji/address/ji/commands/...`, `@ji/aretro/ji/commands/...`, `@ji/branch-context/ji/commands/...`, `@ji/handoff/ji/commands/...`, `@ji/objective/ji/commands/...`, and `@ji/pi` occurrences in sdk-module-loader.test.ts, completion-cli.test.ts, and extension-loader-cli.test.ts left untouched — explicit DO NOT TOUCH: @ji/* package scope and /ji/commands path fragments are phase-two (PR-5) surfaces.",
+    "`createSdlJiti` identifier and `jiti`/`Jiti` mentions in sdk-module-loader.test.ts left untouched — TS identifiers containing sdl/ji are DO NOT TOUCH, and `Jiti`/`jiti` refers to the third-party bundler library, not the product."
+   ]
+  },
+  {
+   "id": "cohort-tests-15",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/unit/extension-discovery.test.ts",
+    "/Users/schrockn/code/sdl-tools/ts/packages/kernel/test/unit/extension-loader.test.ts"
+   ],
+   "changed": true,
+   "summary": "Reviewed all 10 cohort test files. Renamed the two brand-named mkdtemp prefixes (\"ji-extension-discovery-\" and \"ji-extension-loader-\" → \"ns-extension-discovery-\"/\"ns-extension-loader-\") and one snake_case diagnostic code literal (\"ji_extension_contribution_import_failed\" → \"ns_extension_contribution_import_failed\") in extension-discovery.test.ts and extension-loader.test.ts; verified the renamed diagnostic code matches production code already migrated in src/extensions/loader.ts. All other \"ji\" occurrences across the 10 files (@ji/kernel package-scope imports, ./ji-cli-fakes.ts filename imports, Sdl*-prefixed identifiers, and the package.json manifest \"ji\": { key plus its \"extension_manifest_missing_ji\" diagnostic, \"missing-ji\"/\"bad-sdl\" fixture dir names) are protected survivors per the brief's DO NOT TOUCH list and were left verbatim. changes-cli.test.ts, completion-cli.test.ts, cp-cli.test.ts, extension-options-cli.test.ts, handoff-cli-contract.test.ts, regenerate-pr-cli.test.ts, roaster-extension-cli.test.ts, and submit-cli.test.ts required no edits.",
+   "skipped": []
+  },
+  {
+   "id": "cohort-tests-16",
+   "files": [
+    "ts/packages/tools/areg/test/gateways/real-gateways.test.ts",
+    "ts/packages/tools/areg/test/scenario/doctor-skills-cli.test.ts",
+    "ts/packages/tools/areg/test/scenario/skill-kind-list-show-cli.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the ji->ns brief's anchored `ji:*` namespace renames (ji:objective:*, ji:branch-context:*, ji:plan:*, ji:flow:*) to three areg test fixtures/expectations. real-gateways.test.ts: renamed the six \"ji:objective:next\" / \"ji:branch-context:from-plan\" / \"ji:branch-context:impl-attached-plan\" / \"ji:plan:save\" / \"ji:flow:submit\" strings in the verifiedSurfaces expectation to their ns: equivalents. doctor-skills-cli.test.ts: renamed the \"surface: \\\"ji:objective:create\\\"\" expected finding value to \"ns:objective:create\". skill-kind-list-show-cli.test.ts: renamed the replacementSurfaces fixture entry and the matching \"Pi replacement: replacement-verified:ji:branch-context:from-plan\" expected output string to ns: form. The other seven files in the cohort (sdk-runtime-exports.test.ts, backing-skill-commands.test.ts, pr-feedback-watch.test.ts, pr-preview-commands.test.ts, dispatch-runner-subagent.test.ts, thermo-council.test.ts, init-cli.test.ts) contained only DO-NOT-TOUCH forms (@ji/* package-scope imports, the ji.toml file literal, the manifest key `ji: {` / `parsed.ji?...`) or were already correctly in ns form (.ns/pi/agents, .ns/reviews/... paths — apparently touched concurrently by a sibling agent in this swarm working the same shared tree) — left untouched, no edits needed there.",
+   "skipped": [
+    "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts:226 — the frontmatter literal \"schema: ji.pi-agent.v1\" mirrors the production constant PI_AGENT_DEFINITION_SCHEMA (value \"ji.pi-agent.v1\") in ts/packages/hosts/pi/src/runtime/agent-definition.ts, which is outside this changeset and not on the brief's anchored-forms list (not a .ji/ path, ji:namespace, JI_ env var, or ji.toml). Renaming only the test literal would desync it from the still-unrenamed source constant, so left as-is rather than guessing."
+   ]
+  },
+  {
+   "id": "cohort-tests-17",
+   "files": [],
+   "changed": false,
+   "summary": "Reviewed all four files in the cohort in full. Every ji-related token present (@ji/* package imports, Sdl-cased identifiers like parseSdlAregAgents/sdlToml, and ji.toml references in test names/error strings) falls under the brief's explicit DO-NOT-TOUCH list. The ns:* namespace strings already present in pi-replacement.test.ts and check-frontmatter.test.ts are pre-existing correct values from the already-migrated command-backed-skill registry, not anchored ji: forms needing rename. No anchored rename-list forms were found, so no edits were made.",
+   "skipped": [
+    "update-skills-cli.test.ts:242 and init-helpers.test.ts:15 — \"ji.toml\" in test name/error string: left verbatim per explicit DO-NOT-TOUCH rule (ji.toml is phase-two, never touched this window).",
+    "All four files — @ji/* import specifiers (command-backed-skill-registry, clinkr/testing, core/primitives, capability-kit/git/testing): left verbatim per DO-NOT-TOUCH package-scope rule.",
+    "init-helpers.test.ts and update-skills-cli.test.ts — parseSdlAregAgents/sdlToml identifiers: left verbatim per DO-NOT-TOUCH rule on identifiers containing ji or sdl in any casing."
+   ]
+  }
+ ],
+ "verify": []
+}

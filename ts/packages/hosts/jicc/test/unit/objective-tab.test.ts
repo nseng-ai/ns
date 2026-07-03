@@ -8,7 +8,7 @@ import type { TabModuleDeps } from "../../src/tabs/tab-module.ts";
 
 const LIST: ObjectiveList = {
 	trunkBranch: "master",
-	rootPath: ".ji/objectives",
+	rootPath: ".ns/objectives",
 	statusFilter: "active",
 	namesOnly: false,
 	records: [
@@ -55,7 +55,7 @@ describe("objectiveTabModule.loadModel", () => {
 				code: 0,
 				stdout: envelope({
 					trunkBranch: "master",
-					rootPath: ".ji/objectives",
+					rootPath: ".ns/objectives",
 					statusFilter: "active",
 					namesOnly: false,
 					records: [
@@ -83,7 +83,7 @@ describe("objectiveTabModule.loadModel", () => {
 		]);
 		expect(calls).toEqual([
 			{
-				command: "ji",
+				command: "ns",
 				args: ["objective", "list", "--minimal", "--format", "json"],
 				options: { cwd: "/repo", timeout: 10_000 },
 			},
@@ -98,7 +98,7 @@ describe("objectiveTabModule.loadModel", () => {
 			killed: false,
 		});
 		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(
-			/ji objective list failed with exit code 3.*not in a repo/,
+			/ns objective list failed with exit code 3.*not in a repo/,
 		);
 	});
 

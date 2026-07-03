@@ -18,7 +18,7 @@ async function serveSchemaDocument(operation: string): Promise<Record<string, un
 	return document;
 }
 
-describe("ji address exec --json-schema routes", () => {
+describe("ns address exec --json-schema routes", () => {
 	for (const operation of OPERATION_NAMES) {
 		test(`${operation} serves a useful canonical schema document`, async () => {
 			const document = await serveSchemaDocument(operation);
