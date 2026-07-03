@@ -86,5 +86,8 @@ Risks:
 - Bundle strategy: single bundled artifact (esbuild/tsup) vs publish the workspace graph as
   real npm packages vs a hybrid (bundle the kernel + capabilities, keep a few real deps)?
 - Does the loader keep jiti (shipping `.ts` + jiti in the package) or move to prebuilt JS?
-- Package name/scope for the published `sdl` (public `@sdl/*` scope vs an unscoped `sdl`).
+- ~~Package name/scope for the published CLI~~ — resolved by the `rename-sdl-to-ji`
+  objective (ADR 0024, `docs/adr/0024-rename-sdl-to-ji.md`): publish under the `@ji`
+  scope with the CLI bin installing as `ji`. The published CLI's inner package name (for
+  example `@ji/cli`) remains this objective's call.
 - Which private runtime deps get un-privated vs bundle-inlined?
