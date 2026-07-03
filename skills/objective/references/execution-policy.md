@@ -39,7 +39,7 @@ Ordinary planning-only Objectives may omit these sections. Omitting them means f
 ## Interpretation rules
 
 - Policy is durable prose, not schema.
-- Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
+- Do not add YAML/frontmatter (execution policy never lives in Record Frontmatter, whose only sanctioned keys are `blocked` and `edges`), UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 - Concrete roadmap rows alone do not imply durable execution permission.
 - A `## Runner Policy` heading alone is insufficient when the content is ambiguous.
 - Row-level `Policy:` prose may override Objective-level defaults for that row.

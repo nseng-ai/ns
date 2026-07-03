@@ -44,9 +44,14 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
    ```
 
    Closure PR evidence is not a broad PR ledger and should not trigger historical backfill. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence.
-6. If the Objective has an `orientation.md`, consult `roadmap.md`'s completion section and the durable `Direction`/`Getting to` lines of `orientation.md`. If a durable rule should survive the initiative, note it in `## Closure` (or to the user) as a candidate to graduate into AGENTS.md "Architecture rules". Do not delete `orientation.md`: writing `closed.md` drops it from the always-load set automatically.
-7. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-8. Leave `.ji/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `ji objective archive <slug>` after or instead of closure, depending on intent.
+6. Re-judge Record Frontmatter (defined in the `objective` umbrella skill) around the closure:
+   - **Edge counterparts' Blocked Sentences.** For each entry under the closing record's `edges:`, read the counterpart record's frontmatter. You are closing the thing their annotation may say gates them: when a counterpart's `blocked:` sentence rests on this Objective, re-judge it — clear it if this closure removes the gate, or reword it if a narrower gate remains. This is skill judgment, never a machine auto-flip, and editing the counterpart's `objective.md` frontmatter block (and nothing else in that record) is the sanctioned mirrored exception.
+   - **The record's own Blocked Sentence.** Blocked is a sub-state of open, so a closing record should not keep a live `blocked:` sentence; re-judge and normally remove it as part of closure.
+   - **Leave edges in place.** Closing or archiving an endpoint does not break an edge; do not remove `edges:` entries (on either side) as part of close.
+   - After any frontmatter edit, run `ji objective check <slug>` for each touched record, or `ji objective check --all`; structural violations are errors.
+7. If the Objective has an `orientation.md`, consult `roadmap.md`'s completion section and the durable `Direction`/`Getting to` lines of `orientation.md`. If a durable rule should survive the initiative, note it in `## Closure` (or to the user) as a candidate to graduate into AGENTS.md "Architecture rules". Do not delete `orientation.md`: writing `closed.md` drops it from the always-load set automatically.
+8. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
+9. Leave `.ji/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `ji objective archive <slug>` after or instead of closure, depending on intent.
 
 ## Closure timing
 
@@ -68,4 +73,6 @@ Do not create a duplicate Semantic Update solely for closure. Create one only wh
 - Confirm `closed.md` exists under the selected Objective directory.
 - Confirm the Objective directory remains under `.ji/objectives/<slug>/`.
 - If an `orientation.md` was present, confirm it was left in place (not deleted) and any durable-rule graduation candidate was noted.
+- If the closing record declared edges, confirm each counterpart's Blocked Sentence was re-judged (cleared, reworded, or deliberately kept, with the judgment stated), no `edges:` entries were removed on either side, and only counterpart frontmatter blocks were touched outside the closing record.
+- If any Record Frontmatter was edited, confirm `ji objective check` (per touched slug, or `--all`) reports no structural errors.
 - Summarize the closure outcome and note that closed Objectives are no longer eligible for `objective-next` by default.
