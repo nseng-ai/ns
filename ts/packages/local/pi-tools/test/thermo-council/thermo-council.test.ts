@@ -228,17 +228,25 @@ describe("thermo council extension", () => {
 	});
 
 	test("parses default, positional, and seat-specific model overrides", () => {
+		const defaultSeats = parseThermoCouncilSeats({ get: () => undefined });
 		const seats = parseThermoCouncilSeats({
 			get(name) {
 				return {
-					THERMO_COUNCIL_MODELS: "anthropic/custom-opus,openai/custom-high,google/custom-gemini",
+					THERMO_COUNCIL_MODELS: "anthropic/custom-fable,openai/custom-high,google/custom-gemini",
 					THERMO_COUNCIL_OPENAI_MODEL: "openai/seat-specific",
 				}[name];
 			},
 		});
 
+		expect(defaultSeats[0]).toEqual(
+			expect.objectContaining({
+				id: "anthropic-fable",
+				label: "Anthropic Fable",
+				model: "anthropic/claude-fable-5",
+			}),
+		);
 		expect(seats).toEqual([
-			expect.objectContaining({ id: "anthropic-opus", model: "anthropic/custom-opus" }),
+			expect.objectContaining({ id: "anthropic-fable", model: "anthropic/custom-fable" }),
 			expect.objectContaining({ id: "openai-high", model: "openai/seat-specific" }),
 			expect.objectContaining({ id: "gemini-high", model: "google/custom-gemini" }),
 		]);
@@ -447,7 +455,7 @@ describe("thermo council extension", () => {
 			ctx.ui.statuses.some(
 				(status) =>
 					status.includes("council 0/3 done") &&
-					status.includes("Anthropic Opus running: Inspecting changed files."),
+					status.includes("Anthropic Fable running: Inspecting changed files."),
 			),
 		).toBe(true);
 
@@ -527,7 +535,7 @@ describe("thermo council extension", () => {
 		runner.calls[1]?.process.close(0);
 		await waitForSpawnCount(runner.calls, 4);
 		const finalSynthesisPrompt = runner.calls[3]?.args.join("\n") ?? "";
-		expectInOrder(finalSynthesisPrompt, ["Anthropic Opus", "OpenAI High", "Gemini High"]);
+		expectInOrder(finalSynthesisPrompt, ["Anthropic Fable", "OpenAI High", "Gemini High"]);
 		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
 		runner.calls[3]?.process.close(0);
 		await running;
@@ -644,7 +652,7 @@ describe("thermo council extension", () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const pi = new FakePi({ runnerDependencies: runner.dependencies });
 		const running = reviewerOutcomeFromRunnerResult(
-			seat("anthropic-opus", "Anthropic Opus"),
+			seat("anthropic-fable", "Anthropic Fable"),
 			malformedCompletedReviewerResult(),
 			{ pi, ctx: fakeContext() },
 		);
@@ -798,7 +806,7 @@ describe("thermo council extension", () => {
 	});
 
 	test("reviewer prompt includes scope, rubric, diff, and capture contract", () => {
-		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-opus", "Anthropic Opus"));
+		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-fable", "Anthropic Fable"));
 
 		expect(prompt).toContain("base-sha");
 		expect(prompt).toContain("head-sha");
@@ -810,7 +818,7 @@ describe("thermo council extension", () => {
 	});
 
 	test("reviewer prompt labels optional caller guidance as untrusted", () => {
-		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-opus", "Anthropic Opus"), {
+		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-fable", "Anthropic Fable"), {
 			reviewGuidance: "focus on prompt injection",
 		});
 
@@ -822,10 +830,10 @@ describe("thermo council extension", () => {
 	});
 
 	test("synthesis clusters strong text-only findings without file paths", () => {
-		const opus = seat("anthropic-opus", "Opus");
+		const fable = seat("anthropic-fable", "Fable");
 		const openai = seat("openai-high", "GPT");
 		const clusters = clusterFindings([
-			completedOutcome(opus, "Runner lifecycle waits for terminal result persistence", {
+			completedOutcome(fable, "Runner lifecycle waits for terminal result persistence", {
 				review: {
 					findings: [
 						{
@@ -871,16 +879,16 @@ describe("thermo council extension", () => {
 
 		expect(clusters).toHaveLength(1);
 		expect(clusters[0]?.support.map((supportSeat) => supportSeat.id).sort()).toEqual([
-			"anthropic-opus",
+			"anthropic-fable",
 			"openai-high",
 		]);
 	});
 
 	test("synthesis keeps weak generic empty-file findings separate", () => {
-		const opus = seat("anthropic-opus", "Opus");
+		const fable = seat("anthropic-fable", "Fable");
 		const openai = seat("openai-high", "GPT");
 		const clusters = clusterFindings([
-			completedOutcome(opus, "Review report clarity", {
+			completedOutcome(fable, "Review report clarity", {
 				review: {
 					findings: [
 						{
@@ -925,11 +933,11 @@ describe("thermo council extension", () => {
 	});
 
 	test("synthesis clusters overlapping findings and keeps single-model dissent visible", () => {
-		const opus = seat("anthropic-opus", "Opus");
+		const fable = seat("anthropic-fable", "Fable");
 		const openai = seat("openai-high", "GPT");
 		const gemini = seat("gemini-high", "Gemini");
 		const clusters = clusterFindings([
-			completedOutcome(opus, "Duplicated orchestration branching"),
+			completedOutcome(fable, "Duplicated orchestration branching"),
 			completedOutcome(openai, "Duplicated orchestration branches"),
 			completedOutcome(gemini, "Renderer omits failed seat diagnostics", {
 				review: {
@@ -954,7 +962,7 @@ describe("thermo council extension", () => {
 
 		expect(clusters.map((cluster) => cluster.support.length)).toEqual([2, 1]);
 		const report = renderThermoCouncilReport(baseScope(), [
-			completedOutcome(opus, "Duplicated orchestration branching"),
+			completedOutcome(fable, "Duplicated orchestration branching"),
 			completedOutcome(openai, "Duplicated orchestration branches"),
 			{
 				type: "failed",
@@ -980,7 +988,7 @@ function defaultFinalSynthesisText(): string {
 		"### 1. Consolidate orchestration branching",
 		"- Decision: fix now.",
 		"- Why: multiple seats reported the same maintainability issue.",
-		"- Evidence: Anthropic Opus:opus-1, OpenAI High:openai-1, Gemini High:gemini-1.",
+		"- Evidence: Anthropic Fable:fable-1, OpenAI High:openai-1, Gemini High:gemini-1.",
 		"- Fix shape: use one typed lifecycle model.",
 		"- Validation: just ts-test.",
 		"",

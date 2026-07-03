@@ -10,9 +10,9 @@ interface ModelOverrideOptions {
 
 const DEFAULT_SEATS = [
 	{
-		id: "anthropic-opus",
-		label: "Anthropic Opus",
-		model: "anthropic/claude-opus-4-1",
+		id: "anthropic-fable",
+		label: "Anthropic Fable",
+		model: "anthropic/claude-fable-5",
 		envVar: "THERMO_COUNCIL_ANTHROPIC_MODEL",
 	},
 	{
