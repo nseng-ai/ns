@@ -9,6 +9,7 @@ import { objectiveExecListCandidatesSdlCommand } from "./commands/exec-list-cand
 import { objectiveExecLoadOrientationsSdlCommand } from "./commands/exec-load-orientations.ts";
 import { objectiveExecReadObjectiveSdlCommand } from "./commands/exec-read-objective.ts";
 import { objectiveExecRunnerBeginSdlCommand } from "./commands/exec-runner-begin.ts";
+import { objectiveExecRunnerFinishSdlCommand } from "./commands/exec-runner-finish.ts";
 import { objectiveExecRunnerStepSdlCommand } from "./commands/exec-runner-step.ts";
 import { objectiveExecRunnerSubagentUsageSdlCommand } from "./commands/exec-runner-subagent-usage.ts";
 import { objectiveExecTrackingGateSdlCommand } from "./commands/exec-tracking-gate.ts";
@@ -25,6 +26,7 @@ export const objectiveRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescrip
 		objectiveExecLoadOrientationsSdlCommand,
 		objectiveExecReadObjectiveSdlCommand,
 		objectiveExecRunnerBeginSdlCommand,
+		objectiveExecRunnerFinishSdlCommand,
 		objectiveExecRunnerStepSdlCommand,
 		objectiveExecRunnerSubagentUsageSdlCommand,
 		objectiveExecTrackingGateSdlCommand,
