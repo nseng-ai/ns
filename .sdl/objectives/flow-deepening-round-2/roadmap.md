@@ -105,7 +105,14 @@ stated. Validation baseline for every row: the Definition of Progress suite in
   `updates/2026-07-02T195616Z-extraction-slice-1-merge-gate-validators.md`.
   Residual: `pr-facts.ts` keeps delegation adapters mapping domain
   validator outcomes via `plan-mapping.ts`; the retirement row removes
-  that crossing. Next: slice 2 (real `stackShape`/facts backend).
+  that crossing. Slice 2 (real `stackShape`/facts backend) delivered
+  2026-07-02 (runner step, commit `c7ff48fc5` on
+  `flow-map-slice2-facts-backend`) — see
+  `updates/2026-07-02T202105Z-extraction-slice-2-facts-backend.md`.
+  Residual: production keeps the `preloadedShape` preflight bypass for
+  upfront stack confirmation/dispatch until the round-trip retirement
+  row. Next: slice 3 (isolated fast-path merge via
+  `squashMergePullRequest`).
   Slice gate (replaces the human preview; every check must hold to
   keep a slice):
   - land scenario tests pass; argv assertions stay byte-for-byte for

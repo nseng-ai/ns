@@ -408,9 +408,14 @@ describe("real git gateway", () => {
 			}),
 			step(
 				"git",
-				["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+				[
+					"for-each-ref",
+					"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
+					"refs/heads",
+				],
 				{
-					stdout: "feature/a\t2026-06-15T12:00:00+00:00\nfeature/b\t\n\n",
+					stdout:
+						"feature/a\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\t2026-06-15T12:00:00+00:00\nfeature/b\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\t\n\n",
 				},
 			),
 			step("git", ["rev-parse", "refs/heads/main:.sdl/objectives"], { stdout: "tree-main\n" }),
@@ -434,8 +439,16 @@ describe("real git gateway", () => {
 		expect(await git.listLocalBranchTips({ cwd: ROOT })).toEqual({
 			ok: true,
 			value: [
-				{ name: "feature/a", headIso: "2026-06-15T12:00:00+00:00" },
-				{ name: "feature/b", headIso: null },
+				{
+					name: "feature/a",
+					headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					headIso: "2026-06-15T12:00:00+00:00",
+				},
+				{
+					name: "feature/b",
+					headSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					headIso: null,
+				},
 			],
 		});
 		expect(
@@ -477,7 +490,11 @@ describe("real git gateway", () => {
 			}),
 			errorStep(
 				"git",
-				["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+				[
+					"for-each-ref",
+					"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
+					"refs/heads",
+				],
 				new Error("spawn ENOENT"),
 			),
 			step("git", ["rev-parse", "HEAD:.sdl/objectives"], { code: 2, stderr: "unexpected" }),

@@ -511,7 +511,11 @@ function revisionRangePathCallFromParams(
 
 function normalizeBranchTip(value: string | GitLocalBranchTip): GitLocalBranchTip {
 	if (typeof value === "string") return { name: value, headIso: null };
-	return { name: value.name, headIso: value.headIso };
+	return {
+		name: value.name,
+		...(value.headSha === undefined ? {} : { headSha: value.headSha }),
+		headIso: value.headIso,
+	};
 }
 
 function cloneTreeOidValue(value: string | null | GitErrorInfo): string | null | GitErrorInfo {

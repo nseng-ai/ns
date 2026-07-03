@@ -297,7 +297,11 @@ export class RealGitGateway implements GitGateway {
 	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
 		const run = await this.runGitExpectingSuccess(
 			params,
-			["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+			[
+				"for-each-ref",
+				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
+				"refs/heads",
+			],
 			{
 				code: "git_branch_tips_failed",
 				title: "git local branch tip listing failed",
@@ -473,9 +477,15 @@ function combinedOutput(result: ExecResult): string {
 function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
 	return stdout.split(/\r?\n/u).flatMap((line) => {
 		if (line.trim().length === 0) return [];
-		const [name, headIso] = line.split("\t", 2);
+		const [name, headSha, headIso] = line.split("\t", 3);
 		if (name === undefined || name.length === 0) return [];
-		return [{ name, headIso: headIso === undefined || headIso.length === 0 ? null : headIso }];
+		return [
+			{
+				name,
+				headSha: headSha === undefined || headSha.length === 0 ? null : headSha,
+				headIso: headIso === undefined || headIso.length === 0 ? null : headIso,
+			},
+		];
 	});
 }
 

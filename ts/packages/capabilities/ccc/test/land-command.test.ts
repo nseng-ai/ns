@@ -34,7 +34,7 @@ const GT_TRUNK_ARGS = ["trunk", "--no-interactive"];
 const GIT_COMMON_DIR_ARGS = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
 const GIT_FOR_EACH_REF_ARGS = [
 	"for-each-ref",
-	"--format=%(refname:short)%09%(committerdate:iso-strict)",
+	"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
 	"refs/heads",
 ];
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;

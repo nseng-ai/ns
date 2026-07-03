@@ -78,6 +78,7 @@ export interface GitStatusPathFacts {
 
 export interface GitLocalBranchTip {
 	name: string;
+	headSha?: string | null;
 	headIso: string | null;
 }
 

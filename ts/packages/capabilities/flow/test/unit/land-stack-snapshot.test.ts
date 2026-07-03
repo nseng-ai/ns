@@ -120,7 +120,7 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 describe("loadStackSnapshot reconciles Graphite metadata against live local refs", () => {
 	const FOR_EACH_REF_ARGS = [
 		"for-each-ref",
-		"--format=%(refname:short)%09%(committerdate:iso-strict)",
+		"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
 		"refs/heads",
 	];
 
