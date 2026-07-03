@@ -27,8 +27,9 @@ compat-deletion stance the closed `sdl-config-layout-migration` objective establ
   scrubbed); XDG namespaces `$XDG_{STATE,CONFIG,DATA}_HOME/sdl/` → `.../ji/`; kernel and
   tooling paths (`sdl objective`, `load-orientations`, extension manifests) move in the
   same landing so nothing breaks between commits.
-- **Workspace scopes:** `@sdl/*` and `@sdl-local/*` → `@ji/*` equivalents, plus the
-  unscoped stragglers `sdl-flow` and `sdlcc`; `sdlcc` renames mechanically to `jicc`.
+- **Workspace scopes:** `@sdl/*` and `@sdl-local/*` → `@nseng-ai/*` equivalents, plus
+  the externally published package target `@nseng-ai/ji`, and the unscoped stragglers
+  `sdl-flow` and `sdlcc`; `sdlcc` renames mechanically to `jicc`.
 - **Vocabulary retirement:** root context `# SDL Tools` → `# ji`; compound canonical
   terms rename ("ji extension API", "ji Command Face", "ji Pi mirrors", …); a `ji`
   glossary entry records the lowercase-always rule with *Avoid*: `JI`, `Ji`, `SDL`,
@@ -36,11 +37,11 @@ compat-deletion stance the closed `sdl-config-layout-migration` objective establ
   sweep with it.
 - **Decision records:** an ADR capturing the rename, the accepted collisions (Jujutsu
   `jj` adjacency, npm squat, zoxide `ji` alias convention), the lowercase rule, and the
-  `@ji` npm scope plan; the naming brief lands under `docs/`.
-- **npm clearance:** claim the `@ji` npm scope as an org owned by the `schrockn` npm
-  account. No
-  dispute for the squatted unscoped `ji` slug — the squat is an accepted collision;
-  nothing waits on external parties.
+  npm package naming plan; the naming brief lands under `docs/`.
+- **npm naming:** do not claim the `@ji` npm scope. Publish under the existing
+  `@nseng-ai` scope with package name `ji` (`@nseng-ai/ji`). No dispute for the
+  squatted unscoped `ji` slug — the squat is an accepted collision; nothing waits on
+  external parties.
 - **GitHub repo rename:** `nseng-ai/sdl-tools` → `nseng-ai/ji`, sequenced last, executed
   manually by the owner; the Objective tracks it as a checklist item only.
 - **Manual migration checklist:** one-shot documented `mv` steps for local machines (XDG
@@ -68,17 +69,17 @@ compat-deletion stance the closed `sdl-config-layout-migration` objective establ
 - `ji …` is the only invocation surface; no `sdl` bin exists in the workspace.
 - `.ji/` is the repo state root; `/ji:*` is the Pi namespace; XDG paths use the `ji`
   namespace; `just` passes and `ji objective list` works post-cutover.
-- All workspace packages carry `@ji/*` (or `jicc`) names; no `@sdl` import remains.
+- All workspace packages carry `@nseng-ai/*` (or `jicc`) names; no `@sdl` import
+  remains, and the externally published package target is `@nseng-ai/ji`.
 - CONTEXT.md carries the `ji` glossary entry with the casing rule and `SDL` in *Avoid*;
   no active doc, skill, or context file introduces the old name outside historical
   records.
 - The ADR is merged and the naming brief is checked in under `docs/`.
 - `checkout-free-sdl-distribution`'s publish-name open question is re-recorded as
   resolved by this Objective (done early, not at close).
-- The `@ji` npm scope is registered as an org owned by the `schrockn` npm account; the
-  unscoped
-  `ji` squat is recorded as an accepted collision (no dispute), with the binary
-  installing as `ji` regardless of inner package name.
+- The npm publish target is `@nseng-ai/ji` under the existing `nseng-ai` org/scope; the
+  unscoped `ji` squat is recorded as an accepted collision (no dispute), with the binary
+  installing as `ji`.
 - The GitHub repo is renamed to `nseng-ai/ji` (manual, final step).
 
 ## Assumptions and Risks
@@ -89,9 +90,9 @@ Assumptions:
   consumer exists yet. This is what makes the hard cutover safe. If an external consumer
   appears before cutover, revisit the no-compat stance.
 - GitHub redirects the old repo slug for clones, remotes, and links.
-- The `@ji` npm scope is claimable: as of 2026-07-02 no npm user `ji` exists and the
-  scope carries zero packages. Registering the org is a one-shot owner action with no
-  external gate; if it turns out taken, fall back to `@nseng-ai/ji` with bin `ji`.
+- The existing `nseng-ai` npm org/scope is the publish namespace, and package name `ji`
+  is available/owned there for the external package target `@nseng-ai/ji`; no `@ji` org
+  claim or fallback path is part of the plan.
 
 Risks:
 
@@ -109,4 +110,4 @@ Risks:
 
 ## Open Questions
 
-- The cutover landing window: pick a moment when the Graphite stack is shallow.
+None currently.
