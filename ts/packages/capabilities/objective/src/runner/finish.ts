@@ -12,10 +12,10 @@
 import { resolve } from "node:path";
 
 import { failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { isPathInside, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import { isPathInsideRepo } from "./begin.ts";
+import { runnerBeginResultSchema } from "./begin.ts";
 import {
 	renderRunnerCheckpoint,
 	type CheckpointFacts,
@@ -53,12 +53,12 @@ export const runnerFinishRequestSchema = z.object({
  * Unknown keys (prompt, changedPaths, objectivePath, envelope bookkeeping)
  * are deliberately stripped.
  */
-export const runnerStepFactsSchema = z.object({
-	slug: z.string(),
-	mode: z.enum(["default", "recover"]),
-	baseBranch: z.string(),
-	headAtDispatch: z.string(),
-	reportPath: z.string(),
+export const runnerStepFactsSchema = runnerBeginResultSchema.pick({
+	slug: true,
+	mode: true,
+	baseBranch: true,
+	headAtDispatch: true,
+	reportPath: true,
 });
 
 /**
@@ -188,7 +188,7 @@ export async function runRunnerFinish(
 	let reportText: string;
 	if (reportSource.startsWith("@")) {
 		const reportPath = resolve(ctx.cwd, reportSource.slice(1));
-		if (isPathInsideRepo(reportPath, ctx.repoRoot)) {
+		if (isPathInside(ctx.repoRoot, reportPath)) {
 			return usageError(
 				`Report path ${reportPath} is inside the repository worktree; runner reports must live outside the repo.`,
 				{ argument: "report" },

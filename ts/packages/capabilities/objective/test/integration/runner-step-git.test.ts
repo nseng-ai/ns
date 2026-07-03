@@ -73,6 +73,7 @@ function createIntegrationRunnerContext(
 		git: new RealGitGateway(execApi),
 		graphite: new InMemoryGraphiteBranchGateway(),
 		commands: execApi,
+		outputFormat: "human",
 		childSession: new FakeChildSessionGateway(scripts),
 		writeStdout(text) {
 			stdoutChunks.push(text);

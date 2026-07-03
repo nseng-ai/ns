@@ -62,10 +62,10 @@ function createIntegrationCoreContext(seededRepo: TempGitRepo): IntegrationCoreC
 		git: new RealGitGateway(execApi),
 		graphite: new InMemoryGraphiteBranchGateway(),
 		commands: execApi,
+		outputFormat: "human",
 		writeStdout(text) {
 			stdoutChunks.push(text);
 		},
-		writeStderr() {},
 		phase() {},
 		async readTextFile(path) {
 			try {
@@ -210,6 +210,7 @@ test(
 		const headMessage = workRepo.runGit(["log", "-1", "--format=%B"]);
 		expect(headMessage).not.toContain("Objective-Runner-Step");
 		expect(workRepo.runGit(["rev-list", "--count", "HEAD"]).trim()).toBe("2");
+		expect(workRepo.runGit(["diff", "--cached", "--name-only"])).toBe("");
 		expect(workRepo.runGit(["status", "--porcelain"])).toContain("trailing.txt");
 	},
 	TEST_TIMEOUT_MS,
