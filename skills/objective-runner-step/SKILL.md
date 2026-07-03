@@ -29,8 +29,9 @@ Flags:
 
 ## Expectations before you run it
 
-- **Blocking and slow.** One invocation runs a full child implementation session — typically minutes, up to the timeout. Do not treat silence as a hang.
-- **stderr is live progress, stdout is the contract.** Child activity streams to stderr and is never part of the contract. The checkpoint Markdown is the only stdout in every terminal state that produces one. To capture cleanly: `sdl objective exec runner-step <slug> > checkpoint.md 2> progress.log`.
+- **Blocking and slow.** One invocation runs a full child implementation session — typically minutes, up to the timeout. Run it in the background and follow the stderr stream rather than waiting on a silent foreground call.
+- **stderr is live progress, stdout is the contract.** Child activity streams to stderr and is never part of the contract: elapsed-stamped activity lines (turns, tool calls with argument summaries, assistant/thinking previews) plus a `still running` heartbeat every 30s carrying turn count, tool-call counters, and the age of the last real activity. The checkpoint Markdown is the only stdout in every terminal state that produces one. To capture cleanly: `sdl objective exec runner-step <slug> > checkpoint.md 2> progress.log`, then tail `progress.log` while it runs.
+- **The heartbeat, not silence, is the hang signal.** A quiet stretch with a fresh `last:` in the heartbeat is a child inside a long tool call; a heartbeat whose `last:` age keeps growing far beyond normal tool time is the thing to worry about.
 - **Run from the branch you want as the step's base.** The child creates its own implementation branch off the current branch via the Branch Context/Graphite path. Stacking is emergent: the runner holds no cross-step state, so the next step simply runs from the branch the previous step produced (where the command leaves you).
 - **Preconditions are checked up front (LBYL).** Default mode refuses unless the Objective is open, the worktree is clean, and HEAD is on a named branch. `--recover` inverts the worktree requirement: it refuses unless the tree is dirty and the branch is not trunk. A refusal exits 1 with a message only — no checkpoint, nothing dispatched.
 

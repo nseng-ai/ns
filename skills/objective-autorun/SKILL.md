@@ -23,13 +23,13 @@ This is parent-judgment iteration per ADR 0022, not batch mode. The runner delib
 Each iteration:
 
 1. **Derive guidance.** From the roadmap's active slice, the Objective's policy prose, and prior checkpoints, write a thin, judgment-bearing `--guidance` for this step: what slice to take, what the last step left behind, what to avoid. Do not restate the Objective — the child reads it itself.
-2. **Invoke one step** from the branch the previous step produced (stacking is emergent; the runner holds no cross-step state):
+2. **Invoke one step** from the branch the previous step produced (stacking is emergent; the runner holds no cross-step state), running it in the background so the human gets live feedback:
 
    ```bash
    sdl objective exec runner-step <slug> [--guidance <text|@file>] > checkpoint.md 2> progress.log
    ```
 
-   The invocation is blocking and slow — a full child implementation session. Do not treat silence as a hang.
+   The invocation is slow — a full child implementation session. While it runs, periodically tail `progress.log` and relay a one-line digest to the human: elapsed time, current turn, tool-call count, and the last activity line. stderr carries elapsed-stamped activity plus a `still running` heartbeat every 30s; a heartbeat whose `last:` age keeps growing is the hang signal — silence between your polls is not. Read `checkpoint.md` only after the command exits.
 3. **Read the checkpoint and decide**, using the `objective-runner-step` post-checkpoint playbook verbatim: `committed` → judge the verified facts and claimed narrative, then continue or stop; `verification-failed`/`blocked` → recover (biased default, with sharpened guidance), hand-fix, reset, or escalate; `stop` → honor the child's reason; `malfunction` → read diagnostics and check the worktree before anything else, and escalate on repetition.
 4. **Judge Semantic Updates.** After a step with material Objective impact, record it through the `objective-update` skill and commit that update yourself. Most committed steps need none; updates are learning and decision records, not step changelogs.
 
