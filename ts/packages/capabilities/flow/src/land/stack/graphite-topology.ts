@@ -3,9 +3,11 @@ import { join } from "node:path";
 import { formatCommand } from "@sdl/core/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
+	detectGraphiteForkViolations,
 	parseGraphiteBranchMetadataRows,
 	walkGraphiteAncestors,
 	walkGraphiteSubtree,
+	type GraphiteForkViolation,
 	type GraphiteTopology,
 } from "@sdl/capability-kit/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
@@ -22,11 +24,7 @@ import type { LandStackExtensionAPI } from "./types.ts";
 
 export type { GraphiteTopology } from "@sdl/capability-kit/graphite/metadata";
 
-export interface ForkViolation {
-	readonly forkPoint: string;
-	readonly expectedChild: string;
-	readonly siblings: readonly { readonly branch: string; readonly subtree: readonly string[] }[];
-}
+export type ForkViolation = GraphiteForkViolation & { readonly expectedChild: string };
 
 export async function resolveMetadataDbPath(
 	pi: LandStackExtensionAPI,
@@ -195,27 +193,14 @@ export function detectForkViolations(
 	topology: GraphiteTopology,
 	landingPath: string[],
 ): ForkViolation[] {
-	const violations: ForkViolation[] = [];
 	// Forks inside the landing path are unsafe because gt restack/delete would
 	// rewrite a sibling stack. Forks from the current landing tip are descendant
 	// roots, so they are allowed and handled by descendant maintenance.
-	for (let index = 0; index < landingPath.length - 1; index += 1) {
-		const forkPoint = landingPath[index];
-		const expectedChild = landingPath[index + 1];
-		if (forkPoint === undefined || expectedChild === undefined) continue;
-		const children = topology.get(forkPoint)?.children ?? [];
-		const extras = children.filter((child) => child !== expectedChild);
-		if (extras.length === 0) continue;
-		violations.push({
-			forkPoint,
-			expectedChild,
-			siblings: extras.map((branch) => ({
-				branch,
-				subtree: walkGraphiteSubtree(topology, branch).subtree,
-			})),
-		});
-	}
-	return violations;
+	return detectGraphiteForkViolations(topology, landingPath).filter(hasExpectedChild);
+}
+
+function hasExpectedChild(violation: GraphiteForkViolation): violation is ForkViolation {
+	return violation.expectedChild !== undefined;
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {
