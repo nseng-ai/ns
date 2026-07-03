@@ -10,8 +10,8 @@ pnpm --dir ts run test
 just ts-test
 ```
 
-Default tests include package-local `test/**/*.test.ts` files, except integration tests under
-`test/integration/`. Keep this path fake-driven and deterministic enough for frequent local use.
+Default tests include package-local `test/**/*.test.ts` files, minus specialized category globs such as
+any `integration/` segment under a package `test/` tree. Keep the default path fake-driven and deterministic enough for frequent local use.
 
 Integration tests run intentionally with a separate command:
 
@@ -34,11 +34,17 @@ Do not hide integration or guard tests behind environment variables or make the 
 
 ## Integration test locator
 
-Put TypeScript integration tests at:
+Put TypeScript integration tests under an `integration/` path segment inside a package `test/` tree:
 
 ```text
 ts/packages/<package>/test/integration/**/*.test.ts
+ts/packages/<package>/test/**/integration/**/*.test.ts
 ```
+
+Direct `test/integration/` remains the simplest location for package-level integration coverage. Nested
+forms such as `test/exec/integration/` or `test/pi/integration/` are acceptable when they preserve useful
+package-local taxonomy. Default tests still discover broad `test/**/*.test.ts` paths, then exclude
+specialized category globs, so category placement controls lane membership.
 
 Put repository-wide TypeScript style guard tests at:
 
@@ -98,10 +104,10 @@ not keep the process alive. Raw timers belong in the timer adapter modules or na
 runtime/integration smoke.
 
 Project-owned time-sensitive behavior in the default suite should inject `Clock` or `TimerScheduler` and
-use helpers from `@ji/core/testing`:
+use helpers from `@ji/core/time/testing`:
 
 ```ts
-import { createManualClock, createManualTimerScheduler } from "@ji/core/testing";
+import { createManualClock, createManualTimerScheduler } from "@ji/core/time/testing";
 ```
 
 Use `createManualClock()` for wall-clock reads and elapsed-time assertions. Use
