@@ -886,8 +886,7 @@ describe("code land command", () => {
 		]);
 		expect(notifications).toEqual([
 			{
-				message:
-					"Could not load GitHub PR for feature-branch.\n$ gh pr view feature-branch --json number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt\nexit 1\n----- stdout tail -----\n(empty)\n----- stderr tail -----\nno pull requests found",
+				message: "land stopped: Could not load GitHub PR for feature-branch.",
 				level: "error",
 			},
 		]);
@@ -920,7 +919,7 @@ describe("code land command", () => {
 		]);
 		expect(notifications).toEqual([
 			{
-				message: "gh pr view for feature-branch did not return required PR fields.",
+				message: "land stopped: gh pr view for feature-branch did not return required PR fields.",
 				level: "error",
 			},
 		]);
@@ -940,8 +939,7 @@ describe("code land command", () => {
 				level: "info",
 			},
 			{
-				message:
-					"gh pr merge --squash with PR title/body failed for PR #42.\n$ gh pr merge 42 --squash --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --subject 'Ship feature' --body 'Feature body'\nexit 1\n----- stdout tail -----\nmerge stdout\n----- stderr tail -----\nmerge stderr",
+				message: "land stopped: gh pr merge --squash with PR title/body failed for PR #42.",
 				level: "error",
 			},
 		]);
