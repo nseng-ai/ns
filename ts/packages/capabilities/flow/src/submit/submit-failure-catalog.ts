@@ -1,16 +1,19 @@
 import { optionalEntry } from "@sdl/core/primitives";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
-import { defineFailureCatalog } from "../phase-stream/failure-catalog.ts";
-
-export type SubmitFailureVerdict = "deterministic";
+import {
+	defineFailureCatalog,
+	formatFailureCatalogEntry,
+} from "../phase-stream/failure-catalog.ts";
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
 
 export type SubmitCurrentPrVerificationFailure = {
-	kind: "no_current_pr" | CurrentPrVerificationFailureCause;
-	output: SubmitFailureOutput;
-};
+	[K in "no_current_pr" | CurrentPrVerificationFailureCause]: {
+		kind: K;
+		output: SubmitFailureOutput;
+	};
+}["no_current_pr" | CurrentPrVerificationFailureCause];
 
 export type SubmitSemanticFailureCause = {
 	kind: "empty_branch_skipped";
@@ -48,20 +51,13 @@ interface SubmitPreflightFailureContext {
 
 const submitPreflightFailureCatalog = defineFailureCatalog<
 	SubmitPreflightFailureCause,
-	SubmitFailureVerdict,
+	undefined,
 	SubmitPreflightFailureContext
 >()({
 	empty_branch_skipped: {
-		arm: "empty_branch_skipped",
-		verdict: "deterministic",
-		message: (failure) =>
-			formatEmptyBranchFailure(
-				expectSubmitPreflightFailureKind(failure, "empty_branch_skipped").branchName,
-			),
+		message: (failure) => formatEmptyBranchFailure(failure.branchName),
 	},
 	trunk_out_of_date: {
-		arm: "trunk_out_of_date",
-		verdict: "deterministic",
 		message: () =>
 			[
 				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
@@ -70,67 +66,46 @@ const submitPreflightFailureCatalog = defineFailureCatalog<
 			].join("\n"),
 	},
 	merged_pr_not_in_trunk: {
-		arm: "merged_pr_not_in_trunk",
-		verdict: "deterministic",
 		message: (_failure, context) => formatMergedPrNotInTrunk(context.output),
 	},
 	remote_updated_outside_graphite: {
-		arm: "remote_updated_outside_graphite",
-		verdict: "deterministic",
-		message: (failure) => {
-			const remoteFailure = expectSubmitPreflightFailureKind(
-				failure,
-				"remote_updated_outside_graphite",
-			);
-			return formatRemoteUpdatedOutsideGraphitePreflight({
-				...optionalEntry("branchName", remoteFailure.branchName),
-				...optionalEntry("remoteSync", remoteFailure.remoteSync),
-			});
-		},
+		message: (failure) =>
+			formatRemoteUpdatedOutsideGraphitePreflight({
+				...optionalEntry("branchName", failure.branchName),
+				...optionalEntry("remoteSync", failure.remoteSync),
+			}),
 	},
 });
 
 const submitSemanticFailureCatalog = defineFailureCatalog<
 	SubmitSemanticFailureCause,
-	SubmitFailureVerdict,
+	undefined,
 	undefined
 >()({
 	empty_branch_skipped: {
-		arm: "empty_branch_skipped",
-		verdict: "deterministic",
-		message: (failure) => {
-			const emptyBranch = expectSubmitSemanticFailureKind(failure, "empty_branch_skipped");
-			return emptyBranch.branchName === undefined
+		message: (failure) =>
+			failure.branchName === undefined
 				? "gt submit exited 0, but Graphite skipped submitting part of the submit scope because a branch is empty."
-				: `gt submit exited 0, but Graphite skipped submitting part of the submit scope because branch ${emptyBranch.branchName} is empty.`;
-		},
+				: `gt submit exited 0, but Graphite skipped submitting part of the submit scope because branch ${failure.branchName} is empty.`,
 	},
 });
 
 const currentPrVerificationFailureCatalog = defineFailureCatalog<
 	SubmitCurrentPrVerificationFailure,
-	SubmitFailureVerdict,
+	undefined,
 	undefined
 >()({
 	no_current_pr: {
-		arm: "no_current_pr",
-		verdict: "deterministic",
 		message: () => "gt submit exited 0, but the current branch still has no PR.",
 	},
 	startup_error: {
-		arm: "startup_error",
-		verdict: "deterministic",
 		message: (failure) =>
 			`gt submit exited 0, but current PR verification could not start: ${failure.output.startupError ?? "unknown startup error"}`,
 	},
 	timeout: {
-		arm: "timeout",
-		verdict: "deterministic",
 		message: () => "gt submit exited 0, but current PR verification timed out after 60s.",
 	},
 	command_failed: {
-		arm: "command_failed",
-		verdict: "deterministic",
 		message: (failure) =>
 			`gt submit exited 0, but current PR verification failed with exit code ${failure.output.exitCode}.`,
 	},
@@ -140,39 +115,17 @@ export function formatSubmitPreflightFailureCause(
 	failure: SubmitPreflightFailureCause,
 	output: SubmitFailureOutput,
 ): string {
-	return submitPreflightFailureCatalog[failure.kind].message(failure, { output });
+	return formatFailureCatalogEntry(submitPreflightFailureCatalog, failure, { output });
 }
 
 export function formatSubmitSemanticFailureCause(failure: SubmitSemanticFailureCause): string {
-	return submitSemanticFailureCatalog[failure.kind].message(failure, undefined);
+	return formatFailureCatalogEntry(submitSemanticFailureCatalog, failure, undefined);
 }
 
 export function formatCurrentPrVerificationFailureCause(
 	failure: SubmitCurrentPrVerificationFailure,
 ): string {
-	return currentPrVerificationFailureCatalog[failure.kind].message(failure, undefined);
-}
-
-function expectSubmitPreflightFailureKind<K extends SubmitPreflightFailureCause["kind"]>(
-	failure: SubmitPreflightFailureCause,
-	kind: K,
-): Extract<SubmitPreflightFailureCause, { kind: K }> {
-	if (failure.kind !== kind) {
-		throw new Error(`Submit failure catalog mismatch: expected ${kind}, got ${failure.kind}`);
-	}
-	return failure as Extract<SubmitPreflightFailureCause, { kind: K }>;
-}
-
-function expectSubmitSemanticFailureKind<K extends SubmitSemanticFailureCause["kind"]>(
-	failure: SubmitSemanticFailureCause,
-	kind: K,
-): Extract<SubmitSemanticFailureCause, { kind: K }> {
-	if (failure.kind !== kind) {
-		throw new Error(
-			`Submit semantic failure catalog mismatch: expected ${kind}, got ${failure.kind}`,
-		);
-	}
-	return failure as Extract<SubmitSemanticFailureCause, { kind: K }>;
+	return formatFailureCatalogEntry(currentPrVerificationFailureCatalog, failure, undefined);
 }
 
 function formatEmptyBranchFailure(branchName: string | undefined): string {

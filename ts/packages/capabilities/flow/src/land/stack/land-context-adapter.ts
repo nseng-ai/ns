@@ -1,4 +1,5 @@
 import { formatCommand } from "@sdl/core/command";
+import { formatCommandForDisplay } from "./command-stream.ts";
 import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../api.ts";
 import type {
 	LandContext,
@@ -10,6 +11,7 @@ import type {
 	LandOutcome,
 	LandResult,
 	ManagedSlotWorktree,
+	PullRequestFacts,
 	WorkingTreeStatus,
 	WorktreeClassification,
 } from "../api.ts";
@@ -25,7 +27,6 @@ import {
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { loadGraphiteTopology, resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
-	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
 	type LandGraphiteCommandChannel,
 	type LandGraphiteOperation,
@@ -41,7 +42,6 @@ import {
 	loadStackSnapshot,
 	loadTrunk,
 } from "./stack-facts.ts";
-import { squashMergeArgs } from "./landing-operations.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 import {
 	isManagedSlotPath,
@@ -56,9 +56,9 @@ type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" 
 
 export function createLandContext(
 	pi: LandStackExtensionAPI,
-	options: { graphite?: LandGraphiteCommandChannel } = {},
+	options: { graphite: LandGraphiteCommandChannel },
 ): LandContext {
-	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi });
+	const { graphite } = options;
 	return {
 		git: {
 			resolveRepoRoot: async ({ cwd }) =>
@@ -141,6 +141,7 @@ export function createLandContext(
 			},
 			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
 				const mergeArgs = squashMergeArgs(pullRequest);
+				const commandDisplay = formatCommandForDisplay("gh", mergeArgs);
 				const result = await exec({
 					pi,
 					command: "gh",
@@ -152,8 +153,8 @@ export function createLandContext(
 					return landSuccess({ stdout: result.stdout, stderr: result.stderr });
 				}
 
-				const commandDisplay = formatCommand("gh", mergeArgs);
-				const message = `gh pr merge --squash with PR title/body failed for PR #${pullRequest.number}.\n${formatCommandDetails(result, commandDisplay)}`;
+				const diagnosticResult = redactPullRequestBodyFromResult(result, pullRequest.body);
+				const message = `gh pr merge --squash with PR title/body failed for PR #${pullRequest.number}.\n${formatCommandDetails(diagnosticResult, commandDisplay)}`;
 				return landFailure({
 					type: "boundary",
 					phase: "merge",
@@ -161,7 +162,7 @@ export function createLandContext(
 					code: "squash_merge_failed",
 					message,
 					displayCommand: commandDisplay,
-					details: { execResult: result },
+					execResult: diagnosticResult,
 				});
 			},
 		},
@@ -354,7 +355,7 @@ async function freeSlots(
 		code: "slot_free_failed",
 		message: `Targeted slot cleanup failed before any PRs were landed.\n${formatCommandDetails(result, commandDisplay)}`,
 		displayCommand: commandDisplay,
-		details: { execResult: result },
+		execResult: result,
 	});
 }
 
@@ -649,8 +650,35 @@ function toLandFailure(
 		message: flowFailure.message,
 		...(flowFailure.suggestedAction === undefined
 			? {}
-			: { details: { suggestedAction: flowFailure.suggestedAction } }),
+			: { suggestedAction: flowFailure.suggestedAction }),
 	};
+}
+
+function redactPullRequestBodyFromResult(
+	result: LandGraphiteCommandResult["result"],
+	body: string | null,
+): LandGraphiteCommandResult["result"] {
+	if (body === null || body.length === 0) return result;
+	return {
+		...result,
+		stdout: result.stdout.split(body).join("<PR body>"),
+		stderr: result.stderr.split(body).join("<PR body>"),
+	};
+}
+
+function squashMergeArgs(pr: PullRequestFacts): string[] {
+	return [
+		"pr",
+		"merge",
+		String(pr.number),
+		"--squash",
+		"--match-head-commit",
+		pr.headRefOid,
+		"--subject",
+		pr.title,
+		"--body",
+		pr.body ?? "",
+	];
 }
 
 function localBranchRef(branch: string): string {

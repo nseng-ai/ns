@@ -67,7 +67,8 @@ export interface LandingBoundaryFailure {
 	readonly code: string;
 	readonly message: string;
 	readonly displayCommand?: string;
-	readonly details?: Readonly<Record<string, unknown>>;
+	readonly execResult?: LandCommandResult;
+	readonly suggestedAction?: string;
 }
 
 export interface LandingDomainFailure {

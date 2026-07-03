@@ -8,21 +8,24 @@ describe("failure catalog idiom", () => {
 
 		const catalog = defineFailureCatalog<ExampleFailure, "deterministic", undefined>()({
 			known: {
-				arm: "known",
 				verdict: "deterministic",
-				message: (failure) => `known:${failure.kind}`,
+				message: (failure) => `known:${failure.detail}`,
 			},
 			added: {
-				arm: "added",
 				verdict: "deterministic",
-				message: (failure) => `added:${failure.kind}`,
+				message: (failure) => {
+					// @ts-expect-error known-arm fields are not available in the added entry.
+					const wrongArmDetail = failure.detail;
+					if (wrongArmDetail) return wrongArmDetail;
+					return `added:${failure.reason}`;
+				},
 			},
 		});
 
 		const failure: ExampleFailure = { kind: "added", reason: "new failure" };
 		const entry = catalog[failure.kind];
 
-		expect(entry).toMatchObject({ arm: "added", verdict: "deterministic" });
-		expect(entry.message(failure, undefined)).toBe("added:added");
+		expect(entry).toMatchObject({ verdict: "deterministic" });
+		expect(entry.message(failure, undefined)).toBe("added:new failure");
 	});
 });

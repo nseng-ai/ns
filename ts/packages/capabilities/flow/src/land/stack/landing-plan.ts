@@ -128,8 +128,15 @@ function boundaryFailureOptions(
 	failureValue: Exclude<LandingFailure, { readonly type: "domain" }>,
 ) {
 	if (failureValue.type !== "boundary") return {};
-	const suggestedAction = failureValue.details?.suggestedAction;
-	return typeof suggestedAction === "string" ? { suggestedAction } : {};
+	return {
+		...(failureValue.displayCommand === undefined
+			? {}
+			: { commandDisplay: failureValue.displayCommand }),
+		...(failureValue.execResult === undefined ? {} : { result: failureValue.execResult }),
+		...(failureValue.suggestedAction === undefined
+			? {}
+			: { suggestedAction: failureValue.suggestedAction }),
+	};
 }
 
 function landStackFailureOptionsForDomainFailure(

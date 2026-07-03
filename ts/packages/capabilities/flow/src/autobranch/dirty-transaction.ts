@@ -1,7 +1,9 @@
 import type { CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
-import type { AutobranchFlowOutcome } from "./flow-result.ts";
-import { defineFailureCatalog } from "../phase-stream/failure-catalog.ts";
+import {
+	defineFailureCatalog,
+	formatFailureCatalogEntry,
+} from "../phase-stream/failure-catalog.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
@@ -163,68 +165,42 @@ interface AutobranchTransactionFailureContext {
 
 const autobranchTransactionFailureCatalog = defineFailureCatalog<
 	AutobranchTransactionFailure,
-	AutobranchFlowOutcome,
+	undefined,
 	AutobranchTransactionFailureContext
 >()({
 	stash_failed: {
-		arm: "stash_failed",
-		verdict: "failure",
-		message: (failure) => {
-			const result = expectAutobranchTransactionFailureKind(failure, "stash_failed");
-			return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
-		},
+		message: (failure) =>
+			[`Failed to stash pending changes before branch creation.`, failure.error].join("\n"),
 	},
 	stash_ref_missing: {
-		arm: "stash_ref_missing",
-		verdict: "failure",
-		message: (failure) => {
-			const result = expectAutobranchTransactionFailureKind(failure, "stash_ref_missing");
-			return [
-				`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
+		message: (failure) =>
+			[
+				`Stashed pending changes, but could not find the new stash entry for ${failure.stashMessage}.`,
 				"Inspect `git stash list` before continuing.",
-				result.error,
-			].join("\n");
-		},
+				failure.error,
+			].join("\n"),
 	},
 	graphite_create_failed: {
-		arm: "graphite_create_failed",
-		verdict: "failure",
-		message: (failure, context) => {
-			const result = expectAutobranchTransactionFailureKind(failure, "graphite_create_failed");
-			return [
+		message: (failure, context) =>
+			[
 				`Failed to create Graphite branch ${context.branchName}.`,
-				result.createError,
-				result.restored
+				failure.createError,
+				failure.restored
 					? "Restored pending changes to the original branch."
-					: `Could not restore pending changes: ${result.restoreError}`,
-			].join("\n");
-		},
+					: `Could not restore pending changes: ${failure.restoreError}`,
+			].join("\n"),
 	},
 	restore_failed_after_branch_create: {
-		arm: "restore_failed_after_branch_create",
-		verdict: "failure",
-		message: (failure, context) => {
-			const result = expectAutobranchTransactionFailureKind(
-				failure,
-				"restore_failed_after_branch_create",
-			);
-			return [
+		message: (failure, context) =>
+			[
 				`Created branch ${context.branchName}, but failed to restore pending changes from the stash.`,
-				result.restoreError,
+				failure.restoreError,
 				"Inspect `git stash list` before continuing.",
-			].join("\n");
-		},
+			].join("\n"),
 	},
 	commit_failed_after_branch_create: {
-		arm: "commit_failed_after_branch_create",
-		verdict: "failure",
-		message: (failure, context) => {
-			const result = expectAutobranchTransactionFailureKind(
-				failure,
-				"commit_failed_after_branch_create",
-			);
-			return `Branch ${context.branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
-		},
+		message: (failure, context) =>
+			`Branch ${context.branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${failure.commitError}`,
 	},
 });
 
@@ -232,17 +208,5 @@ export function formatAutobranchTransactionFailure(
 	result: AutobranchTransactionFailure,
 	branchName: string,
 ): string {
-	return autobranchTransactionFailureCatalog[result.kind].message(result, { branchName });
-}
-
-function expectAutobranchTransactionFailureKind<K extends AutobranchTransactionFailure["kind"]>(
-	failure: AutobranchTransactionFailure,
-	kind: K,
-): Extract<AutobranchTransactionFailure, { kind: K }> {
-	if (failure.kind !== kind) {
-		throw new Error(
-			`Dirty autobranch transaction failure catalog mismatch: expected ${kind}, got ${failure.kind}`,
-		);
-	}
-	return failure as Extract<AutobranchTransactionFailure, { kind: K }>;
+	return formatFailureCatalogEntry(autobranchTransactionFailureCatalog, result, { branchName });
 }

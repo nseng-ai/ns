@@ -175,6 +175,14 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 						source: "graphite",
 						code: "submit_required",
 						message: "Submit update required before landing.",
+						displayCommand: "gt submit --update",
+						execResult: {
+							stdout: "",
+							stderr: "submit failed",
+							code: 1,
+							killed: false,
+						},
+						suggestedAction: "Run gt submit --update manually.",
 					},
 				},
 			},
@@ -240,9 +248,23 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 		});
 		expect(
 			await graphite.prepareSubmitUpdate({ repoRoot: REPO_ROOT, branch: "feature/land-core" }),
-		).toMatchObject({
+		).toEqual({
 			type: "failure",
-			failure: { code: "submit_required" },
+			failure: {
+				type: "boundary",
+				phase: "submit-preparation",
+				source: "graphite",
+				code: "submit_required",
+				message: "Submit update required before landing.",
+				displayCommand: "gt submit --update",
+				execResult: {
+					stdout: "",
+					stderr: "submit failed",
+					code: 1,
+					killed: false,
+				},
+				suggestedAction: "Run gt submit --update manually.",
+			},
 		});
 		expect(
 			await graphite.prepareRestackForSubmit({ repoRoot: REPO_ROOT, branch: "feature/child" }),

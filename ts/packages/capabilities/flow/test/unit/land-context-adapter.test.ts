@@ -3,6 +3,7 @@ import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
+import { createLandGraphiteCommandChannel } from "../../src/land/stack/graphite-command-channel.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
@@ -117,6 +118,10 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function createTestLandContext(pi: LandStackExtensionAPI) {
+	return createLandContext(pi, { graphite: createLandGraphiteCommandChannel({ pi }) });
+}
+
 describe("land context adapter facts", () => {
 	test("lists local branches with real tip SHAs", async () => {
 		const pi = new FakePi([
@@ -125,7 +130,7 @@ describe("land context adapter facts", () => {
 					"main\t1111111111111111111111111111111111111111\t2026-06-15T12:00:00+00:00\nfeature\t2222222222222222222222222222222222222222\t\n",
 			}),
 		]);
-		const context = createLandContext(pi);
+		const context = createTestLandContext(pi);
 
 		await expect(context.git.listLocalBranches({ repoRoot: ROOT })).resolves.toEqual({
 			type: "success",
@@ -141,7 +146,7 @@ describe("land context adapter facts", () => {
 		const pi = new FakePi([
 			step("gh", SQUASH_MERGE_ARGS, { stdout: "merged\n", stderr: "notice\n" }),
 		]);
-		const context = createLandContext(pi);
+		const context = createTestLandContext(pi);
 
 		await expect(
 			context.github.squashMergePullRequest({
@@ -161,6 +166,43 @@ describe("land context adapter facts", () => {
 		expect(pi.execCalls).toEqual([
 			{ command: "gh", args: SQUASH_MERGE_ARGS, options: { cwd: ROOT, timeout: 120000 } },
 		]);
+		pi.assertDone();
+	});
+
+	test("redacts squash merge body from failure diagnostics", async () => {
+		const secretBody = "secret PR body";
+		const pi = new FakePi([
+			step("gh", [...SQUASH_MERGE_ARGS.slice(0, -1), secretBody], {
+				code: 1,
+				stderr: `rejected body: ${secretBody}\n`,
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.github.squashMergePullRequest({
+			repoRoot: ROOT,
+			pullRequest: {
+				number: 42,
+				title: "Merge subject",
+				body: secretBody,
+				state: "OPEN",
+				isDraft: false,
+				headRefName: "feature",
+				baseRefName: "main",
+				headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+		});
+
+		expect(result.type).toBe("failure");
+		if (result.type === "failure") {
+			expect(result.failure.type).toBe("boundary");
+			if (result.failure.type === "boundary") {
+				expect(result.failure.message).not.toContain(secretBody);
+				expect(result.failure.message).toContain("--body '<PR body>'");
+				expect(result.failure.displayCommand).toContain("--body '<PR body>'");
+				expect(result.failure.execResult?.stderr).toBe("rejected body: <PR body>\n");
+			}
+		}
 		pi.assertDone();
 	});
 
@@ -189,7 +231,7 @@ describe("land context adapter facts", () => {
 				"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			]),
 		]);
-		const context = createLandContext(pi);
+		const context = createTestLandContext(pi);
 
 		await expect(
 			context.git.snapshotBackupRefs({
@@ -260,7 +302,7 @@ describe("land context adapter facts", () => {
 				stdout: `${metadataDbJson([{ branch: "feature-a", children: ["feature-b"] }])}\n`,
 			}),
 		]);
-		const context = createLandContext(pi);
+		const context = createTestLandContext(pi);
 
 		await expect(
 			context.graphite.refreshBranchFromRemote({
@@ -325,7 +367,7 @@ describe("land context adapter facts", () => {
 				])}\n`,
 			}),
 		]);
-		const context = createLandContext(pi);
+		const context = createTestLandContext(pi);
 
 		const result = await context.graphite.stackShape({
 			repoRoot: ROOT,
