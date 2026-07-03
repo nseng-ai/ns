@@ -1,10 +1,5 @@
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
-import {
-	completed,
-	failure,
-	landStackFailure,
-	type LandStackOutcome,
-} from "./stack/errors.ts";
+import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
 import { notifyPrintAware, setStatus } from "./stack/presentation.ts";
 import type {
 	LandingShape,
