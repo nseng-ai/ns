@@ -21,10 +21,7 @@ export const objectiveRecordFrontmatterSchema = z.strictObject({
 	edges: z.array(objectiveRecordEdgeSchema),
 });
 
-const objectiveRecordFrontmatterInputSchema = z.strictObject({
-	blocked: z.string().optional(),
-	edges: z.array(objectiveRecordEdgeSchema).optional(),
-});
+const objectiveRecordFrontmatterInputSchema = objectiveRecordFrontmatterSchema.partial();
 
 export const objectiveRecordFrontmatterParseSchema = z.discriminatedUnion("type", [
 	z.strictObject({ type: z.literal("frontmatter"), frontmatter: objectiveRecordFrontmatterSchema }),
@@ -67,13 +64,7 @@ export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDo
 	const split = splitMarkdownFrontmatter(content);
 	if (split.type === "not_found") return { body: content };
 	if (split.type === "missing_closing_fence") {
-		return {
-			frontmatter: {
-				type: "malformed",
-				message: "frontmatter opening fence has no closing fence",
-			},
-			body: content,
-		};
+		return malformedFrontmatterDocument("frontmatter opening fence has no closing fence", content);
 	}
 
 	const body = split.block.body;
@@ -81,24 +72,18 @@ export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDo
 	try {
 		parsed = parse(split.block.frontmatterText);
 	} catch (error) {
-		return {
-			frontmatter: {
-				type: "malformed",
-				message: `frontmatter is not valid YAML: ${formatErrorMessage(error)}`,
-			},
+		return malformedFrontmatterDocument(
+			`frontmatter is not valid YAML: ${formatErrorMessage(error)}`,
 			body,
-		};
+		);
 	}
 
 	const validated = objectiveRecordFrontmatterInputSchema.safeParse(parsed ?? {});
 	if (!validated.success) {
-		return {
-			frontmatter: {
-				type: "malformed",
-				message: `frontmatter does not match the blocked/edges schema: ${formatZodError(validated.error)}`,
-			},
+		return malformedFrontmatterDocument(
+			`frontmatter does not match the blocked/edges schema: ${formatZodError(validated.error)}`,
 			body,
-		};
+		);
 	}
 
 	return {
@@ -111,4 +96,8 @@ export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDo
 		},
 		body,
 	};
+}
+
+function malformedFrontmatterDocument(message: string, body: string): ObjectiveRecordDocument {
+	return { frontmatter: { type: "malformed", message }, body };
 }

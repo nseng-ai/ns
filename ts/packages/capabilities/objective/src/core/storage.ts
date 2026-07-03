@@ -72,10 +72,12 @@ export type ObjectiveMarkdownReadResult =
 	| { type: "ok"; content: string }
 	| { type: "unreadable"; message: string };
 
+type ObjectiveMarkdownNonOkReadResult = Exclude<ObjectiveMarkdownReadResult, { type: "ok" }>;
+type ObjectiveMarkdownOkReadResult = Extract<ObjectiveMarkdownReadResult, { type: "ok" }>;
+
 export type ObjectiveRecordDocumentReadResult =
-	| { type: "missing" }
-	| { type: "ok"; content: string; document: ObjectiveRecordDocument }
-	| { type: "unreadable"; message: string };
+	| ObjectiveMarkdownNonOkReadResult
+	| (ObjectiveMarkdownOkReadResult & { document: ObjectiveRecordDocument });
 
 export interface ObjectiveStorageGateway {
 	pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>>;
@@ -116,6 +118,16 @@ export class ObjectiveStorage {
 		const kind = await this.gateway.pathKind(archivedRecordRelativePath(slug));
 		if (!kind.ok) return kind;
 		return { ok: true, value: kind.value === "directory" };
+	}
+
+	async resolveRecordRelativePath(slug: string): Promise<ObjectiveStorageResult<string | null>> {
+		const active = await this.activeRecordExists(slug);
+		if (!active.ok) return active;
+		if (active.value) return { ok: true, value: activeRecordRelativePath(slug) };
+		const archived = await this.archivedRecordExists(slug);
+		if (!archived.ok) return archived;
+		if (archived.value) return { ok: true, value: archivedRecordRelativePath(slug) };
+		return { ok: true, value: null };
 	}
 
 	/** Sorted slugs of archived records; empty when the archive root is absent. */

@@ -15,6 +15,7 @@ import {
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
+	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
@@ -194,6 +195,7 @@ export async function readObjectiveRecord(
 		updateCount: updates.value.length,
 	};
 	const objectiveDocument = await storage.readObjectiveRecordDocument(relativePath);
+	const objectiveMd = objectiveMarkdownReadResult(objectiveDocument);
 	const recordFrontmatter =
 		objectiveDocument.type === "ok" ? objectiveDocument.document.frontmatter : undefined;
 	return {
@@ -202,10 +204,7 @@ export async function readObjectiveRecord(
 			...facts,
 			...(recordFrontmatter === undefined ? {} : { recordFrontmatter }),
 			markdownFiles: {
-				objectiveMd:
-					objectiveDocument.type === "ok"
-						? { type: "ok", content: objectiveDocument.content }
-						: objectiveDocument,
+				objectiveMd,
 				roadmapMd: await storage.readMarkdownFile(`${relativePath}/roadmap.md`),
 				updates: await Promise.all(
 					updates.value.map(async (update) => ({
@@ -239,6 +238,13 @@ function emptyResult(options: {
 		updates: [],
 		updateCount: 0,
 	};
+}
+
+function objectiveMarkdownReadResult(
+	read: ObjectiveRecordDocumentReadResult,
+): ObjectiveMarkdownReadResult {
+	if (read.type !== "ok") return read;
+	return { type: "ok", content: read.content };
 }
 
 function appendMarkdownFile(

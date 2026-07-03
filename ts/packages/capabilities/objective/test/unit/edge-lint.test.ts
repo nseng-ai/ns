@@ -193,4 +193,18 @@ describe("sweepObjectiveEdgeLint", () => {
 		expect(result.value.recordCount).toBe(1);
 		expect(labels(result.value.violations)).toEqual(["objective.md exists"]);
 	});
+
+	test("an unreadable objective.md is a violation", async () => {
+		const storage = new ObjectiveStorage(
+			new FakeObjectiveStorageGateway({
+				records: [{ slug: "unreadable" }],
+				unreadableFiles: { ".ji/objectives/unreadable/objective.md": "permission denied" },
+			}),
+		);
+		const result = await sweepObjectiveEdgeLint(storage);
+		if (!result.ok) throw new Error(result.error.message);
+		expect(result.value.recordCount).toBe(1);
+		expect(labels(result.value.violations)).toEqual(["objective.md is readable Markdown"]);
+		expect(result.value.violations[0]?.detail).toBe("permission denied");
+	});
 });

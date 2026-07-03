@@ -8,6 +8,7 @@ import {
 } from "../../src/core/fake-storage.ts";
 import { runCheckObjective } from "../../src/core/operations/check-objective.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
+import { runObjectiveCheckCommand } from "../../src/ji/commands/check.ts";
 
 const COMPLETE_OBJECTIVE_MD = [
 	"# Objective alpha",
@@ -196,7 +197,7 @@ describe("objective check with Record Frontmatter", () => {
 
 describe("objective check --all edge sweep", () => {
 	test("rejects a slug combined with --all", async () => {
-		const exit = await runCheckObjective(
+		const exit = await runObjectiveCheckCommand(
 			contextWithFakeStorage({
 				records: [{ slug: "alpha", objectiveMd: COMPLETE_OBJECTIVE_MD, roadmapMd: ROADMAP_MD }],
 			}),
@@ -207,7 +208,7 @@ describe("objective check --all edge sweep", () => {
 	});
 
 	test("sweep passes on mirrored records and records without frontmatter", async () => {
-		const exit = await runCheckObjective(
+		const exit = await runObjectiveCheckCommand(
 			contextWithFakeStorage({
 				records: [
 					{
@@ -230,7 +231,7 @@ describe("objective check --all edge sweep", () => {
 	});
 
 	test("sweep covers archived records and aggregates violations", async () => {
-		const exit = await runCheckObjective(
+		const exit = await runObjectiveCheckCommand(
 			contextWithFakeStorage({
 				records: [
 					{

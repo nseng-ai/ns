@@ -118,6 +118,27 @@ describe("Objective storage", () => {
 		});
 	});
 
+	test("resolves active, archived, and absent record-relative paths", async () => {
+		const objectiveStorage = storage(
+			new FakeObjectiveStorageGateway({
+				records: [{ slug: "active" }, { slug: "archived", isArchived: true, isClosed: true }],
+			}),
+		);
+
+		await expect(objectiveStorage.resolveRecordRelativePath("active")).resolves.toEqual({
+			ok: true,
+			value: ".ji/objectives/active",
+		});
+		await expect(objectiveStorage.resolveRecordRelativePath("archived")).resolves.toEqual({
+			ok: true,
+			value: ".ji/objective-archive/archived",
+		});
+		await expect(objectiveStorage.resolveRecordRelativePath("missing")).resolves.toEqual({
+			ok: true,
+			value: null,
+		});
+	});
+
 	test("reads markdown files as raw text and treats missing directories as missing", async () => {
 		const objectiveStorage = storage(
 			new FakeObjectiveStorageGateway({
