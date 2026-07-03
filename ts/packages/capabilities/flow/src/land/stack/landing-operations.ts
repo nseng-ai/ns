@@ -16,13 +16,10 @@ import {
 	performGraphiteMaintenance,
 	type GraphiteMaintenanceOptions,
 } from "./graphite-maintenance.ts";
-import {
-	formatGraphiteCommand,
-	graphiteSubmitUpdateArgs,
-	type LandGraphiteCommandChannel,
-} from "./graphite-command-channel.ts";
+import { formatGraphiteCommand, graphiteSubmitUpdateArgs } from "./graphite-command-channel.ts";
 import { loadPr, validateStrictMergeGate } from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
+import type { LandRuntime } from "./land-runtime.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
@@ -74,7 +71,8 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 export async function confirmAndFreeManagedSlots(
 	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { pi, ctx, plan } = options;
+	const { runtime, ctx, plan } = options;
+	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("sdl", ["slot", ...freeArgs]);
 	const details = [
@@ -206,8 +204,7 @@ export async function prepareMergeLoopState(
 }
 
 export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
-	pi: LandStackExtensionAPI;
-	graphite: LandGraphiteCommandChannel;
+	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	landed: LandedPr[];
@@ -217,7 +214,8 @@ export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
-	const { pi, ctx, plan, landed, warnings } = options;
+	const { runtime, ctx, plan, landed, warnings } = options;
+	const pi = runtime.commands;
 	const { repoRoot, stack } = plan;
 	let state = options.mergeState;
 	if (!state) {
@@ -311,7 +309,7 @@ export async function runMergeLoop(
 		options.commandStream?.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		const maintenance = await performGraphiteMaintenance({
-			pi,
+			runtime,
 			ctx,
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state, options },

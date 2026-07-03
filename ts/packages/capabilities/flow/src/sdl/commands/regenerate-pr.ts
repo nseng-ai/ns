@@ -9,11 +9,12 @@ import {
 } from "@sdl/kernel/sdk";
 
 import {
-	applyRegeneratedPrDescription,
+	applyPreparedPrDescriptionUpdate,
 	createSdlPrDescriptionRuntime,
 	formatPromptSourceLabel,
-	prepareRegeneratedPrDescriptionForCurrentBranch,
-	type RegeneratedPrDescription,
+	preparePrDescriptionUpdate,
+	type PreparedPrDescriptionUpdate,
+	type PrDescriptionUpdateResult,
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
@@ -54,36 +55,41 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// transcript to mine for cause markers. Spec: `.sdl/objectives/cli-ux-north-star/house-style.md`.
 		const caps = resolveFlowStreamCaps(ctx);
 		const runtime = createSdlPrDescriptionRuntime(ctx);
-		const prepared = await prepareRegeneratedPrDescriptionForCurrentBranch({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			githubPr: runtime.githubPr,
-			git: runtime.git,
-			textGenerator: ctx.textGenerator,
-		});
-		if (!prepared.ok) {
+		const pr = await runtime.githubPr.viewCurrentBranchPr({ cwd: ctx.cwd });
+		const prepared: PrDescriptionUpdateResult = pr.ok
+			? await preparePrDescriptionUpdate({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					githubPr: runtime.githubPr,
+					git: runtime.git,
+					textGenerator: ctx.textGenerator,
+					pr: pr.value,
+					fingerprintPolicy: "skip-current",
+				})
+			: { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
+		if (prepared.type === "failed") {
 			// PR lookup / diff / prompt / generation failure: the domain string already leads with a
 			// summary sentence, so route its first line to the bold headline and the rest to the body
 			// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
 			return failed(
 				renderResultBlockFromMessage(caps, {
 					kind: "failure",
-					message: prepared.error === "" ? "Could not regenerate the PR." : prepared.error,
+					message: prepared.reason === "" ? "Could not regenerate the PR." : prepared.reason,
 					cwd: ctx.cwd,
 				}),
 				prepared.exitCode ?? 1,
 			);
 		}
 
-		if (prepared.value.type === "already_current") {
+		if (prepared.type === "skipped") {
 			return ok(
 				renderResultBlock(caps, {
 					kind: "success",
 					headline: "PR title and description are already current.",
 					cwd: ctx.cwd,
 					body: [
-						`PR: #${prepared.value.pr.number} ${prepared.value.pr.url}`,
-						`Prompt: ${formatPromptSourceLabel(prepared.value.promptSource)}`,
+						`PR: #${prepared.pr.number} ${prepared.pr.url}`,
+						`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
 					].join("\n"),
 				}),
 			);
@@ -107,7 +113,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// ANSI, and the prompt is not a machine contract (house-style §7.3, plan PR 4 step 3).
 		const confirmed = await ctx.confirm(
 			"Regenerate PR metadata?",
-			formatConfirmationMessage({ generated: prepared.value, force: request.force }),
+			formatConfirmationMessage({ generated: prepared, force: request.force }),
 		);
 		if (!confirmed) {
 			// Declined confirmation is a warn refusal: the user opted out, GitHub stays untouched.
@@ -121,18 +127,18 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 			);
 		}
 
-		const edited = await applyRegeneratedPrDescription({
+		const edited = await applyPreparedPrDescriptionUpdate({
 			cwd: ctx.cwd,
 			githubPr: runtime.githubPr,
-			regenerated: prepared.value,
+			update: prepared,
 		});
 		if (!edited.ok) {
 			return failed(
 				renderResultBlock(caps, {
 					kind: "failure",
-					headline: `Generated a PR description, but failed to update PR #${prepared.value.pr.number}.`,
+					headline: `Generated a PR description, but failed to update PR #${prepared.pr.number}.`,
 					cwd: ctx.cwd,
-					body: edited.error.trimEnd(),
+					body: edited.reason.trimEnd(),
 				}),
 				1,
 			);
@@ -144,9 +150,9 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 				headline: "Regenerated PR title and description.",
 				cwd: ctx.cwd,
 				body: [
-					`PR: #${prepared.value.pr.number} ${prepared.value.pr.url}`,
-					`Title: ${prepared.value.title}`,
-					`Prompt: ${formatPromptSourceLabel(prepared.value.promptSource)}`,
+					`PR: #${prepared.pr.number} ${prepared.pr.url}`,
+					`Title: ${prepared.title}`,
+					`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
 				].join("\n"),
 			}),
 		);
@@ -158,7 +164,7 @@ export default defineExtension({
 });
 
 function formatConfirmationMessage(input: {
-	generated: RegeneratedPrDescription;
+	generated: PreparedPrDescriptionUpdate;
 	force: boolean;
 }): string {
 	const lines = [

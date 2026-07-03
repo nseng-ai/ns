@@ -1,13 +1,12 @@
 import { normalizeExecResult, type ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { executeStackLanding } from "./land-stack.ts";
-import type { LandLiveProgressSink, LandStackCommandStream } from "./stack/command-stream.ts";
+import type { LandLiveProgressSink } from "./stack/command-stream.ts";
 import type { LandRuntime } from "./stack/land-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
 import { presentBrief, presentFailureOutcome } from "./stack/presentation.ts";
 import { loadLandingShape } from "./stack/stack-facts.ts";
-import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
 import type {
 	LandingShape,
 	LandConfirmationPreview,
@@ -32,7 +31,6 @@ interface RunLandingDispatchOptions {
 	ctx: PrintAwareLandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	progressIo?: SdlCommandIo;
-	commandStream: LandStackCommandStream;
 	liveProgress?: LandLiveProgressSink;
 }
 
@@ -73,8 +71,7 @@ export async function runLandingDispatch(
 			...(progressIo === undefined ? {} : { progressIo }),
 		});
 		return await finishAfterLanding(outcome, {
-			pi: normalizedApi,
-			graphite: runtime.graphite,
+			runtime,
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
@@ -98,8 +95,7 @@ export async function runLandingDispatch(
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	return await finishAfterLanding(outcome, {
-		pi: runtime.commands,
-		graphite: runtime.graphite,
+		runtime,
 		ctx: options.ctx,
 		args: options.parsedArgs,
 		shape: shape.value,
@@ -117,8 +113,7 @@ function normalizeLandExtensionApi(commands: LandStackExtensionAPI): NormalizedL
 async function finishAfterLanding(
 	outcome: LandStackOutcome,
 	options: {
-		pi: LandStackExtensionAPI;
-		graphite: LandGraphiteCommandChannel;
+		runtime: LandRuntime;
 		ctx: PrintAwareLandStackCommandContext;
 		args: ParsedArgs;
 		shape: LandingShape;

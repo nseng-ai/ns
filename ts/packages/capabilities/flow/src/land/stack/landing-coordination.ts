@@ -21,13 +21,8 @@ import {
 	presentBrief,
 	setStatus,
 } from "./presentation.ts";
-import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
-import type {
-	LandStackCommandContext,
-	LandStackExtensionAPI,
-	LandedPr,
-	LandingPlan,
-} from "./types.ts";
+import type { LandRuntime } from "./land-runtime.ts";
+import type { LandStackCommandContext, LandedPr, LandingPlan } from "./types.ts";
 
 export interface LandingSession {
 	ctx: LandStackCommandContext;
@@ -36,8 +31,7 @@ export interface LandingSession {
 }
 
 interface PreparePlanForMergeOptions {
-	runtimePi: LandStackExtensionAPI;
-	graphite: LandGraphiteCommandChannel;
+	runtime: LandRuntime;
 	session: LandingSession;
 	plan: LandingPlan;
 	preMergeConfirmation?: PreMergeConfirmation;
@@ -59,12 +53,12 @@ export async function preparePlanForMerge(
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtimePi, graphite, plan } = options;
+	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 	if (plan.managedSlotConflicts.length > 0) {
 		const slotOutcome = await confirmAndFreeManagedSlots({
-			pi: runtimePi,
+			runtime,
 			ctx,
 			plan,
 			confirmation: preMergeConfirmation,
@@ -74,8 +68,7 @@ async function preparePlanForMergeCore(
 
 	if (plan.prSubmitRequirements.length > 0) {
 		return await submitRequiredUpdatesAndRecheckPlan({
-			runtimePi,
-			graphite,
+			runtime,
 			ctx,
 			plan,
 			commandStream,
@@ -87,8 +80,7 @@ async function preparePlanForMergeCore(
 }
 
 interface SubmitRequiredUpdatesAndRecheckPlanOptions {
-	runtimePi: LandStackExtensionAPI;
-	graphite: LandGraphiteCommandChannel;
+	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	commandStream: LandStackCommandStream;
@@ -98,22 +90,20 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtimePi, graphite, ctx, plan, commandStream, preMergeConfirmation } = options;
+	const { runtime, ctx, plan, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
-		pi: runtimePi,
+		runtime,
 		ctx,
 		plan,
 		confirmation: preMergeConfirmation,
-		graphite,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
-	const rechecked = await buildLandingPlan(runtimePi, ctx.cwd, {
+	const rechecked = await buildLandingPlan(runtime, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
-		graphite,
 	});
 	if (rechecked.type === "failure") return rechecked;
 

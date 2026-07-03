@@ -1,7 +1,6 @@
 import type { ExecResult } from "@sdl/core/command";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
-import { parseGitCheckedOutElsewhere, shortSha, type CheckedOutElsewhere } from "./command-exec.ts";
 import type { LandStackCommandStream } from "./command-stream.ts";
 import {
 	formatGraphiteCommand,
@@ -9,7 +8,9 @@ import {
 	graphiteGetDownstackNoCheckoutArgs,
 	graphiteRestackUpstackArgs,
 	graphiteSubmitUpdateArgs,
-	type LandGraphiteCommandChannel,
+	parseGitCheckedOutElsewhere,
+	shortSha,
+	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
 import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
@@ -21,10 +22,10 @@ import {
 } from "./presentation.ts";
 import { loadPr, validateOpenPrBasics } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
+import type { LandRuntime } from "./land-runtime.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
-	LandStackExtensionAPI,
 	LandingPlan,
 	LandingWarning,
 	MergeLoopState,
@@ -34,7 +35,6 @@ import { formatConflict, slotNameFromPath } from "./worktrees.ts";
 
 export interface GraphiteMaintenanceOptions {
 	commandStream?: LandStackCommandStream;
-	graphite: LandGraphiteCommandChannel;
 	mergeState?: MergeLoopState;
 }
 
@@ -100,15 +100,14 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 }
 
 interface PerformGraphiteMaintenanceOptions {
-	pi: LandStackExtensionAPI;
+	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	step: GraphiteMaintenanceStep;
 }
 
 interface MaintenanceBranchContext {
-	pi: LandStackExtensionAPI;
-	graphite: LandGraphiteCommandChannel;
+	runtime: LandRuntime;
 	repoRoot: string;
 	plan: LandingPlan;
 	prNumber: number;
@@ -129,8 +128,8 @@ type SubmitMaintenanceCheckOutcome =
 async function checkSubmitMaintenanceBranch(
 	options: SubmitMaintenanceCheckOptions,
 ): Promise<SubmitMaintenanceCheckOutcome> {
-	const { pi, repoRoot, plan, prNumber, landedBranch, maintenanceBranch, severity } = options;
-	const localSha = await loadLocalSha(pi, repoRoot, maintenanceBranch);
+	const { runtime, repoRoot, plan, prNumber, landedBranch, maintenanceBranch, severity } = options;
+	const localSha = await loadLocalSha(runtime.commands, repoRoot, maintenanceBranch);
 	if (localSha.type === "failure") {
 		return failOrWarn(severity, {
 			failure: landStackFailure(
@@ -147,7 +146,7 @@ async function checkSubmitMaintenanceBranch(
 		});
 	}
 
-	const pr = await loadPr(pi, repoRoot, maintenanceBranch);
+	const pr = await loadPr(runtime.commands, repoRoot, maintenanceBranch);
 	if (pr.type === "failure") {
 		return failOrWarn(severity, {
 			failure: landStackFailure(
@@ -187,14 +186,14 @@ function isPrMetadataCurrentForMaintenance(options: {
 async function refreshExpectedShaAfterRestack(
 	options: MaintenanceBranchContext,
 ): Promise<GraphiteMaintenanceOutcome | undefined> {
-	const { pi, repoRoot, plan, prNumber, maintenanceBranch, state } = options;
+	const { runtime, repoRoot, plan, prNumber, maintenanceBranch, state } = options;
 	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
 	// expectation for the next iteration's forced refresh target; comparing against
 	// the pre-restack SHA would false-positive on every 3+ branch stack.
 	const nextGetTarget = nextForcedRefreshBranchAfterMaintaining(plan, maintenanceBranch);
 	if (nextGetTarget === undefined) return undefined;
 
-	const refreshedSha = await loadLocalSha(pi, repoRoot, nextGetTarget);
+	const refreshedSha = await loadLocalSha(runtime.commands, repoRoot, nextGetTarget);
 	if (refreshedSha.type === "failure") {
 		return {
 			kind: "halt",
@@ -218,7 +217,7 @@ async function submitMaintenanceBranch(
 	// Post-merge maintenance restacks after a landed PR, so the remote PR branch may
 	// still be on old stack history; keep pre-merge submit/update conservative.
 	const submitArgs = graphiteSubmitUpdateArgs(maintenanceBranch, { force: true });
-	const submitted = await options.graphite.run({
+	const submitted = await options.runtime.graphite.run({
 		args: submitArgs,
 		cwd: repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
@@ -244,7 +243,8 @@ async function submitMaintenanceBranch(
 export async function performGraphiteMaintenance(
 	maintenanceOptions: PerformGraphiteMaintenanceOptions,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { pi, ctx, plan, step } = maintenanceOptions;
+	const { runtime, ctx, plan, step } = maintenanceOptions;
+	const pi = runtime.commands;
 	const { repoRoot } = plan;
 	const { index, branch, prNumber, state, options } = step;
 	const maintenance = nextGraphiteMaintenance(plan, index);
@@ -292,13 +292,13 @@ export async function performGraphiteMaintenance(
 		const getCommandDisplay = formatGraphiteCommand(getArgs);
 		const getResult =
 			maintenance.kind === "optional-descendant"
-				? await options.graphite.runOptionalDescendant({
+				? await runtime.graphite.runOptionalDescendant({
 						args: getArgs,
 						cwd: repoRoot,
 						timeoutMs: GT_MUTATION_TIMEOUT_MS,
 					})
 				: {
-						result: await options.graphite.run({
+						result: await runtime.graphite.run({
 							args: getArgs,
 							cwd: repoRoot,
 							timeoutMs: GT_MUTATION_TIMEOUT_MS,
@@ -393,13 +393,13 @@ export async function performGraphiteMaintenance(
 	const deleteArgs = graphiteDeleteLocalBranchArgs(branch);
 	const deletion =
 		maintenance.kind === "none"
-			? await options.graphite.deleteFinalLocalBranch({
+			? await runtime.graphite.deleteFinalLocalBranch({
 					repoRoot,
 					branch,
 					timeoutMs: GT_MUTATION_TIMEOUT_MS,
 				})
 			: localBranchDeletionFromResult(
-					await options.graphite.run({
+					await runtime.graphite.run({
 						args: deleteArgs,
 						cwd: repoRoot,
 						timeoutMs: GT_MUTATION_TIMEOUT_MS,
@@ -433,7 +433,7 @@ export async function performGraphiteMaintenance(
 
 	setStatus(ctx, `restacking ${maintenance.branch}...`);
 	const restackArgs = graphiteRestackUpstackArgs(maintenance.branch);
-	const restacked = await options.graphite.run({
+	const restacked = await runtime.graphite.run({
 		args: restackArgs,
 		cwd: repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
@@ -456,8 +456,7 @@ export async function performGraphiteMaintenance(
 	}
 
 	const maintenanceContext: MaintenanceBranchContext = {
-		pi,
-		graphite: options.graphite,
+		runtime,
 		repoRoot,
 		plan,
 		prNumber,

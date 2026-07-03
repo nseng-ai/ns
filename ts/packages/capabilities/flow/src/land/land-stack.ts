@@ -8,7 +8,7 @@ import {
 } from "./stack/command-stream.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./stack/constants.ts";
 import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
-import { createLandRuntime } from "./stack/land-runtime.ts";
+import { createLandRuntime, type LandRuntime } from "./stack/land-runtime.ts";
 import {
 	completed,
 	failure,
@@ -72,9 +72,11 @@ export async function executeStackLanding(
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
-	const runtime = createLandRuntime(pi, commandStream);
-	const runtimePi = runtime.commands;
-	const graphite = options.graphite ?? runtime.graphite;
+	const createdRuntime = createLandRuntime(pi, commandStream);
+	const runtime: LandRuntime =
+		options.graphite === undefined
+			? createdRuntime
+			: { ...createdRuntime, graphite: options.graphite };
 	try {
 		if (parsedArgs.shouldShowHelp) {
 			present({ ctx, message: usage(), level: "info" });
@@ -84,24 +86,22 @@ export async function executeStackLanding(
 		setStatus(ctx, "preflighting...");
 		const shape = options.initialShape
 			? success(options.initialShape)
-			: await loadLandingShape(runtimePi, ctx.cwd, { graphite });
+			: await loadLandingShape(runtime.commands, ctx.cwd, { graphite: runtime.graphite });
 		if (shape.type === "failure") {
 			presentLandStackFailure({ session, failure: shape.failure });
 			return failure(shape.failure);
 		}
 
-		const plan = await buildLandingPlan(runtimePi, ctx.cwd, {
+		const plan = await buildLandingPlan(runtime, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 			preloadedShape: shape.value,
-			graphite,
 		});
 		if (plan.type === "failure") {
 			presentLandStackFailure({ session, failure: plan.failure });
 			return failure(plan.failure);
 		}
 		return await executeLandingPlan({
-			runtimePi,
-			graphite,
+			runtime,
 			parsedArgs,
 			options,
 			session,

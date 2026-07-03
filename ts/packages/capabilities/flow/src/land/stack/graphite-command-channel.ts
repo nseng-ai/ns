@@ -26,6 +26,20 @@ export interface GraphiteCommandStream {
 	finish(commandDisplay: string, finish: CommandStreamFinish): void;
 }
 
+interface WithGraphiteCommandStreamOptions<T> {
+	pi: LandStackExtensionAPI;
+	commandStream: GraphiteCommandStream;
+	commandOptions: GraphiteCommandOptions;
+	finishAndValue(raw: ExecResult): { finish?: CommandStreamFinish; value: T };
+}
+
+interface DeleteFinalLocalGraphiteBranchStreamedOptions {
+	pi: LandStackExtensionAPI;
+	commandStream: GraphiteCommandStream;
+	commandOptions: GraphiteCommandOptions;
+	branch: string;
+}
+
 export interface OptionalDescendantGraphiteCommandResult {
 	result: ExecResult;
 	checkoutConflict?: CheckedOutElsewhere;
@@ -88,12 +102,12 @@ export function createLandGraphiteCommandChannel(options: {
 				timeoutMs: deleteOptions.timeoutMs,
 			};
 			if (commandStream) {
-				return await deleteFinalLocalGraphiteBranchStreamed(
+				return await deleteFinalLocalGraphiteBranchStreamed({
 					pi,
 					commandStream,
 					commandOptions,
-					deleteOptions.branch,
-				);
+					branch: deleteOptions.branch,
+				});
 			}
 
 			const raw = await runRawGraphiteCommand(pi, commandOptions);
@@ -228,17 +242,33 @@ async function runRawGraphiteCommand(
 	);
 }
 
+async function withGraphiteCommandStream<T>(
+	input: WithGraphiteCommandStreamOptions<T>,
+): Promise<T> {
+	const commandDisplay = formatGraphiteCommand(input.commandOptions.args);
+	input.commandStream.start(commandDisplay);
+	const raw = await runRawGraphiteCommand(input.pi, input.commandOptions);
+	const { finish, value } = input.finishAndValue(raw);
+	if (finish !== undefined) {
+		input.commandStream.finish(commandDisplay, finish);
+	}
+	return value;
+}
+
 async function runStreamedGraphiteCommand(
 	pi: LandStackExtensionAPI,
 	commandStream: GraphiteCommandStream,
 	options: GraphiteCommandOptions,
 ): Promise<CommandStreamFinish> {
-	const commandDisplay = formatGraphiteCommand(options.args);
-	commandStream.start(commandDisplay);
-	const raw = await runRawGraphiteCommand(pi, options);
-	const finish = normalizeGraphiteCommandFinish(options.args, raw);
-	commandStream.finish(commandDisplay, finish);
-	return finish;
+	return await withGraphiteCommandStream({
+		pi,
+		commandStream,
+		commandOptions: options,
+		finishAndValue: (raw) => {
+			const finish = normalizeGraphiteCommandFinish(options.args, raw);
+			return { finish, value: finish };
+		},
+	});
 }
 
 async function runOptionalDescendantStreamedGraphiteCommand(
@@ -246,39 +276,51 @@ async function runOptionalDescendantStreamedGraphiteCommand(
 	commandStream: GraphiteCommandStream,
 	options: GraphiteCommandOptions,
 ): Promise<OptionalDescendantGraphiteCommandResult> {
-	const commandDisplay = formatGraphiteCommand(options.args);
-	commandStream.start(commandDisplay);
-	const raw = await runRawGraphiteCommand(pi, options);
-	const rawCheckoutConflict = parseOptionalCheckoutConflict(raw);
-	if (rawCheckoutConflict) {
-		return optionalGraphiteCommandResult(raw, rawCheckoutConflict);
-	}
+	return await withGraphiteCommandStream({
+		pi,
+		commandStream,
+		commandOptions: options,
+		finishAndValue: (raw) => {
+			const rawCheckoutConflict = parseOptionalCheckoutConflict(raw);
+			if (rawCheckoutConflict) {
+				return { value: optionalGraphiteCommandResult(raw, rawCheckoutConflict) };
+			}
 
-	const finish = normalizeGraphiteCommandFinish(options.args, raw);
-	commandStream.finish(commandDisplay, finish);
-	return optionalGraphiteCommandResult(finish.result, parseOptionalCheckoutConflict(finish.result));
+			const finish = normalizeGraphiteCommandFinish(options.args, raw);
+			return {
+				finish,
+				value: optionalGraphiteCommandResult(
+					finish.result,
+					parseOptionalCheckoutConflict(finish.result),
+				),
+			};
+		},
+	});
 }
 
 async function deleteFinalLocalGraphiteBranchStreamed(
-	pi: LandStackExtensionAPI,
-	commandStream: GraphiteCommandStream,
-	options: GraphiteCommandOptions,
-	branch: string,
+	input: DeleteFinalLocalGraphiteBranchStreamedOptions,
 ): Promise<FinalLocalGraphiteBranchDeletion> {
-	const commandDisplay = formatGraphiteCommand(options.args);
-	commandStream.start(commandDisplay);
-	const raw = await runRawGraphiteCommand(pi, options);
-	const checkoutConflict = parseOptionalCheckoutConflict(raw);
-	const finish = checkoutConflict
-		? finalDeleteSkippedFinish(raw, branch)
-		: normalizeGraphiteCommandFinish(options.args, raw);
-	commandStream.finish(commandDisplay, finish);
+	return await withGraphiteCommandStream<FinalLocalGraphiteBranchDeletion>({
+		pi: input.pi,
+		commandStream: input.commandStream,
+		commandOptions: input.commandOptions,
+		finishAndValue: (raw) => {
+			const checkoutConflict = parseOptionalCheckoutConflict(raw);
+			const finish = checkoutConflict
+				? finalDeleteSkippedFinish(raw, input.branch)
+				: normalizeGraphiteCommandFinish(input.commandOptions.args, raw);
 
-	if (checkoutConflict) {
-		return { kind: "retained", branch, path: checkoutConflict.path };
-	}
-	if (finish.result.code === 0) return { kind: "deleted" };
-	return { kind: "failed", result: finish.result };
+			if (checkoutConflict) {
+				return {
+					finish,
+					value: { kind: "retained", branch: input.branch, path: checkoutConflict.path },
+				};
+			}
+			if (finish.result.code === 0) return { finish, value: { kind: "deleted" } };
+			return { finish, value: { kind: "failed", result: finish.result } };
+		},
+	});
 }
 
 function parseOptionalCheckoutConflict(result: ExecResult): CheckedOutElsewhere | undefined {

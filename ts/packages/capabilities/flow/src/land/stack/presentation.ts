@@ -5,7 +5,7 @@ import {
 } from "@sdl/core/terminal-presentation";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
-import { formatCommandDetails, shortSha } from "./command-exec.ts";
+import { formatCommandDetails } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
@@ -13,6 +13,7 @@ import {
 	graphiteRestackForSubmitArgs,
 	graphiteSubmitUpdateArgs,
 	restackTargetForSubmit,
+	shortSha,
 } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import type {

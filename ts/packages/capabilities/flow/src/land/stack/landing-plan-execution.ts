@@ -14,12 +14,11 @@ import {
 	presentDryRunLanding,
 	presentLandingSuccess,
 } from "./presentation.ts";
-import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
-import type { LandStackExtensionAPI, LandingPlan, LandingWarning, ParsedArgs } from "./types.ts";
+import type { LandRuntime } from "./land-runtime.ts";
+import type { LandingPlan, LandingWarning, ParsedArgs } from "./types.ts";
 
 interface ExecuteLandingPlanOptions {
-	runtimePi: LandStackExtensionAPI;
-	graphite: LandGraphiteCommandChannel;
+	runtime: LandRuntime;
 	parsedArgs: ParsedArgs;
 	options: {
 		shouldSkipMainConfirmation?: boolean;
@@ -33,7 +32,7 @@ interface ExecuteLandingPlanOptions {
 export async function executeLandingPlan(
 	executionOptions: ExecuteLandingPlanOptions,
 ): Promise<LandStackResult<void>> {
-	const { runtimePi, graphite, parsedArgs, options, session, plan, warnings } = executionOptions;
+	const { runtime, parsedArgs, options, session, plan, warnings } = executionOptions;
 	const { ctx, commandStream, landed } = session;
 	const planText = formatPlan(plan);
 
@@ -53,8 +52,7 @@ export async function executeLandingPlan(
 
 	commandStream.note(formatPreparingLandingMilestone(plan));
 	const readyPlan = await preparePlanForMerge({
-		runtimePi,
-		graphite,
+		runtime,
 		session,
 		plan,
 		...(options.preMergeConfirmation === undefined
@@ -64,13 +62,12 @@ export async function executeLandingPlan(
 	if (readyPlan.type === "failure") return readyPlan;
 
 	const mergeOutcome = await runMergeLoop({
-		pi: runtimePi,
+		runtime,
 		ctx,
 		plan: readyPlan.value,
 		landed,
 		warnings,
 		commandStream,
-		graphite,
 	});
 	if (mergeOutcome.type === "failure") {
 		presentLandStackFailure({
