@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; superseded in part by ADR 0024 (invocation surface, report medium, child-dispatch ownership)
 
 ## Context
 
