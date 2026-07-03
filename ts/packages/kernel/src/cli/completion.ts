@@ -19,7 +19,7 @@ export function buildSdlCompletionScript(shell: ClinkrCompletionShell): SdlCompl
 	return {
 		shell,
 		script: renderClinkrCompletionScript({
-			commandName: "ji",
+			commandName: "ns",
 			shell,
 			resolverCommand: ["completion", "exec", "resolve"],
 		}),

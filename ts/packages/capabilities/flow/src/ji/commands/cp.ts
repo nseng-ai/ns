@@ -63,7 +63,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 			caps,
 			specs: CP_PHASES,
 			deps: flowStreamDeps(ctx, caps),
-			title: "ji flow cp",
+			title: "ns flow cp",
 			body: async (stream) => {
 				const result = await runCpCore({
 					cwd: ctx.cwd,

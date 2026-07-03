@@ -1,7 +1,7 @@
 packages:
   - packages/*
   - packages/*/*
-  - ../.ji/reviews/*/tools/*
+  - ../.ns/reviews/*/tools/*
 
 allowBuilds:
   '@google/genai': true

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ObjectiveMarkdownReadResult } from "../storage.ts";
 
 /**
- * Shared check-item shape for `ji objective check`: the per-record file and
+ * Shared check-item shape for `ns objective check`: the per-record file and
  * heading lints and the edge/blocked structural lint both report through this
  * one row type so per-slug checks and the repo-wide sweep aggregate uniformly.
  */

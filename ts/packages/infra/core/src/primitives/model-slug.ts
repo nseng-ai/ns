@@ -39,7 +39,7 @@ const MODEL_PROVIDER_FAMILIES = [
 const ANTHROPIC_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku", "fable"] as const;
 const CLAUDE_CODE_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku"] as const;
 
-export const SLUG_MODEL_ENV = "JI_SLUG_MODEL";
+export const SLUG_MODEL_ENV = "NS_SLUG_MODEL";
 
 export function parseModelRef(modelRef: string): ParsedModelRef | undefined {
 	const separator = modelRef.indexOf("/");

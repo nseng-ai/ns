@@ -21,7 +21,7 @@ export interface TextGenerator {
 }
 
 export const DEFAULT_PR_DESCRIPTION_MODEL_REF = "openai-codex/gpt-5.4-mini";
-export const PR_DESCRIPTION_MODEL_ENV = "JI_DEV_PR_DESCRIPTION_MODEL";
+export const PR_DESCRIPTION_MODEL_ENV = "NS_DEV_PR_DESCRIPTION_MODEL";
 
 export function selectPrDescriptionModelRef(env: Record<string, string | undefined>): string {
 	const modelRef = env[PR_DESCRIPTION_MODEL_ENV]?.trim();

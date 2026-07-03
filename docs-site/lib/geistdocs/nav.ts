@@ -1,6 +1,6 @@
 export const github = {
-  owner: "dagster-io",
-  repo: "sdl-tools",
+  owner: "nseng-ai",
+  repo: "ns",
 };
 
 export const nav = [

@@ -214,7 +214,7 @@ async function objectiveDiffChangedSlugs(
 	options: ObjectiveDiffChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
-	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".ji/objectives"];
+	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".ns/objectives"];
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
@@ -235,7 +235,7 @@ async function objectiveStatusChangedSlugs(
 	options: ObjectiveStatusChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx } = options;
-	const args = ["status", "--porcelain=v1", "-z", "--", ".ji/objectives"];
+	const args = ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"];
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
@@ -346,7 +346,7 @@ export async function chooseActiveObjectiveSlug(
 	const objectiveList = objectiveListResult.list;
 	if (objectiveList.records.length === 0) {
 		if (hasPicker) {
-			ctx.ui.notify("No active Objectives. Create one with /ji:objective:create.", "info");
+			ctx.ui.notify("No active Objectives. Create one with /ns:objective:create.", "info");
 		}
 		return undefined;
 	}

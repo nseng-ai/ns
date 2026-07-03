@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @@JI_TOOL@@ — runs a ji TypeScript CLI from source.
+# @@NS_TOOL@@ — runs a ns TypeScript CLI from source.
 #
 # Rendered by TypeScript tool install recipes and skill-local source runners.
 # The installer replaces this template's placeholders with shell-quoted literal
@@ -8,11 +8,11 @@
 # In both modes, sources from the caller's current sdl checkout win first.
 set -euo pipefail
 
-tool=@@JI_TOOL@@
-canonical_checkout=@@JI_CANONICAL_CHECKOUT@@
-cli_rel_path=@@JI_CLI_REL_PATH@@
-install_hint=@@JI_INSTALL_HINT@@
-fallback_mode=@@JI_FALLBACK_MODE@@
+tool=@@NS_TOOL@@
+canonical_checkout=@@NS_CANONICAL_CHECKOUT@@
+cli_rel_path=@@NS_CLI_REL_PATH@@
+install_hint=@@NS_INSTALL_HINT@@
+fallback_mode=@@NS_FALLBACK_MODE@@
 
 run_checkout() {
   local checkout="$1"

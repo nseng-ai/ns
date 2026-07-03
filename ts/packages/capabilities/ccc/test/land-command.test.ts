@@ -42,8 +42,8 @@ const SHA_CHILD = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const CHILD_BRANCH = "child-branch";
 // Mirrors Flow's backup-ref command contract exercised through @ji/flow/api;
 // keep local to avoid exporting or deep-importing Flow land-stack internals.
-const FLOW_LAND_BACKUP_REF_NAMESPACE = "refs/ji/flow-land-backup";
-const FLOW_LAND_BACKUP_PREV_REF_NAMESPACE = "refs/ji/flow-land-backup-prev";
+const FLOW_LAND_BACKUP_REF_NAMESPACE = "refs/ns/flow-land-backup";
+const FLOW_LAND_BACKUP_PREV_REF_NAMESPACE = "refs/ns/flow-land-backup-prev";
 
 const DB_SINGLE_BRANCH = metadataDbJson([
 	{ branch: TRUNK, children: [CURRENT], trunk: true },
@@ -216,7 +216,7 @@ async function runLand(
 			: [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
 	registerLandCommand(pi);
-	const command = pi.commands.get("ji:flow:land");
+	const command = pi.commands.get("ns:flow:land");
 	expect(command).toBeDefined();
 	const context = createContext({ mode: options.mode });
 	await command?.handler(options.args ?? "", context.ctx);
@@ -492,14 +492,14 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 }
 
 describe("code land command registration", () => {
-	test("registers only the namespaced ji:flow:land command", () => {
+	test("registers only the namespaced ns:flow:land command", () => {
 		const pi = new FakePi();
 		registerLandCommand(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["ji:flow:land"]);
+		expect([...pi.commands.keys()]).toEqual(["ns:flow:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
-		const command = pi.commands.get("ji:flow:land");
+		const command = pi.commands.get("ns:flow:land");
 		expect(command?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(command?.getArgumentCompletions?.("--")).toEqual([
 			{ value: "--yes", label: "--yes" },
@@ -692,7 +692,7 @@ describe("code land command", () => {
 			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
 		registerLandCommand(pi);
-		const command = pi.commands.get("ji:flow:land");
+		const command = pi.commands.get("ns:flow:land");
 		expect(command).toBeDefined();
 
 		const context = createContext();
@@ -751,17 +751,17 @@ describe("code land command", () => {
 	});
 
 	test("--free --force frees the current managed slot and deletes the local Graphite branch after fast-path landing", async () => {
-		const slotRoot = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01";
+		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
 			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
-			step("ji", ["slot", "free", "--wt", "slot-01"]),
+			step("ns", ["slot", "free", "--wt", "slot-01"]),
 			step("gt", ["delete", CURRENT, "-f", "-q"]),
 		]);
 		registerLandCommand(pi);
-		const command = pi.commands.get("ji:flow:land");
+		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({ cwd: slotRoot });
 
 		await command?.handler("--free --force", context.ctx);
@@ -769,7 +769,7 @@ describe("code land command", () => {
 		expect(context.confirmations).toEqual([]);
 		expect(pi.execCalls.slice(-2)).toEqual([
 			{
-				command: "ji",
+				command: "ns",
 				args: ["slot", "free", "--wt", "slot-01"],
 				options: { cwd: slotRoot, timeout: 120_000 },
 			},
@@ -787,7 +787,7 @@ describe("code land command", () => {
 	});
 
 	test("--free asks before post-landing cleanup", async () => {
-		const slotRoot = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01";
+		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
@@ -795,7 +795,7 @@ describe("code land command", () => {
 			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
 		registerLandCommand(pi);
-		const command = pi.commands.get("ji:flow:land");
+		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({ cwd: slotRoot });
 
 		await command?.handler("--free", context.ctx);
@@ -803,7 +803,7 @@ describe("code land command", () => {
 		expect(context.confirmations).toEqual([
 			{
 				title: "Free current slot and delete local branch?",
-				message: expect.stringContaining("$ ji slot free --wt slot-01"),
+				message: expect.stringContaining("$ ns slot free --wt slot-01"),
 			},
 		]);
 		expect(context.notifications.at(-1)).toEqual({

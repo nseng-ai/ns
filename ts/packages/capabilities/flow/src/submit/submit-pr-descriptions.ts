@@ -144,7 +144,7 @@ export function formatPrDescriptionFailureText(
 		"Description failures:",
 		...failures.map(formatPrDescriptionFailureRow),
 		"",
-		"Checkout the branch and run `ji flow regenerate-pr` to regenerate its PR description.",
+		"Checkout the branch and run `ns flow regenerate-pr` to regenerate its PR description.",
 	];
 	return lines.join("\n");
 }

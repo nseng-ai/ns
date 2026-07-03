@@ -115,7 +115,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 				kind: "refusal",
 				headline: `Autoslot created ${branchName}, but slot movement was skipped.`,
 				cwd: input.cwd,
-				body: "The worktree is not clean; `ji slot checkout --current` requires a clean worktree.",
+				body: "The worktree is not clean; `ns slot checkout --current` requires a clean worktree.",
 			}),
 			"warning",
 		);
@@ -128,7 +128,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		input.io.notify(
 			renderAutoslotResultBlock(input.caps, {
 				kind: "failure",
-				headline: `Autoslot created ${branchName}, but ji slot checkout failed.`,
+				headline: `Autoslot created ${branchName}, but ns slot checkout failed.`,
 				cwd: input.cwd,
 				body: formatSlotCheckoutFailureCause(slot.failure),
 			}),
@@ -144,7 +144,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 			cwd: input.cwd,
 			body: `Worktree: ${slot.target.worktreePath}`,
 			// Keep the navigation line visible and copyable at normal weight (house-style §7.5).
-			guidance: `ji slot co ${slot.target.branchName}`,
+			guidance: `ns slot co ${slot.target.branchName}`,
 		}),
 		"info",
 	);

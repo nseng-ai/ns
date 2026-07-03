@@ -38,7 +38,7 @@ const AUTOBRANCH_DESCRIPTION = `Create a Graphite branch using \`gt create\` fro
 
 This command requires pending worktree changes. It stashes pending changes, creates a Graphite branch, restores the stash, and creates a checkpoint commit.
 
-If the worktree is clean, use \`ji flow branch-latest-commit\` to move the latest eligible unpushed commit to a new Graphite child branch.
+If the worktree is clean, use \`ns flow branch-latest-commit\` to move the latest eligible unpushed commit to a new Graphite child branch.
 
 Environment:
   ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.
@@ -84,7 +84,7 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 					renderPendingWorktreeFailure(caps, {
 						error: result.error,
 						cwd: ctx.cwd,
-						commandLabel: "`ji flow autobranch`",
+						commandLabel: "`ns flow autobranch`",
 					}),
 					1,
 				);
@@ -96,11 +96,11 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 				return failed(
 					renderResultBlock(caps, {
 						kind: "refusal",
-						headline: "`ji flow autobranch` requires pending worktree changes and did not run.",
+						headline: "`ns flow autobranch` requires pending worktree changes and did not run.",
 						cwd: result.root,
 						body: "Working tree is clean.",
 						guidance:
-							"Use `ji flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
+							"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
 					}),
 					1,
 				);

@@ -6,12 +6,12 @@
 // finding-card register — beforeAfter (the kernel→slot inversion), chipRows (ccc), and fanin
 // (the transitional holding-pen) — so copy its shape and replace the content.
 export default {
-  repo: "sdl-tools",
+  repo: "ns",
   targetName: "the SDL Extension Architecture target",
   date: "2026-06-28",
   intro:
     `The actual runtime dependency graph extracted from <span class="font-mono text-sm">package.json</span> files, scored against the
-     end-state in <span class="font-mono text-sm">.ji/objectives/sdl-extension-architecture</span> (ADR 0009 · 0012 · 0016).
+     end-state in <span class="font-mono text-sm">.ns/objectives/sdl-extension-architecture</span> (ADR 0009 · 0012 · 0016).
      The question is not "find refactors" — it is <em>how well are we tracking toward the architecture we said we wanted.</em>
      Since the last reading the headline cycle is gone; the new measure is the declared-tier guard.`,
 
@@ -180,5 +180,5 @@ export default {
   },
 
   provenance:
-    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (32 packages, cycles = []); target invariants read from <span class="font-mono">.ji/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
+    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (32 packages, cycles = []); target invariants read from <span class="font-mono">.ns/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
 };

@@ -74,7 +74,7 @@ export async function loadGraphiteTopology(
 	} catch {
 		return failure(
 			landStackFailure(
-				`ji flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				`ns flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
 					commandDisplay: metadataCommand.display,
 					result,
@@ -86,7 +86,7 @@ export async function loadGraphiteTopology(
 	if (parsed.type === "not_array") {
 		return failure(
 			landStackFailure(
-				`ji flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				`ns flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
 					commandDisplay: metadataCommand.display,
 					result,
@@ -165,7 +165,7 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackR
 		landStackFailure(
 			`Graphite metadata parent chain from ${current} ends at ${walked.terminusBranch} without reaching trunk ${trunk}; refusing to land.`,
 			{
-				suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /ji:flow:land.`,
+				suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /ns:flow:land.`,
 			},
 		),
 	);
@@ -211,6 +211,6 @@ export function formatForkViolations(violations: ForkViolation[], trunk: string)
 		return `Refusing to land: the stack forks at ${violation.forkPoint}. Landing path expects ${violation.forkPoint} -> ${violation.expectedChild}, but ${violation.forkPoint} also has: ${siblingText}.`;
 	});
 	return landStackFailure(lines.join("\n"), {
-		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /ji:flow:land.`,
+		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /ns:flow:land.`,
 	});
 }

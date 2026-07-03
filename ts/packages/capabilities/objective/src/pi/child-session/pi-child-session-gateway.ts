@@ -33,7 +33,7 @@ import type {
 } from "../../runner/child-session.ts";
 import { createEventChannel, type EventChannel } from "../../runner/event-channel.ts";
 
-export const SDL_RUNNER_PI_BIN_ENV = "JI_RUNNER_PI_BIN";
+export const SDL_RUNNER_PI_BIN_ENV = "NS_RUNNER_PI_BIN";
 
 const DEFAULT_STDERR_TAIL_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_SIGKILL_GRACE_MS = 10_000;
@@ -68,7 +68,7 @@ export type SpawnPiChildProcess = (
 ) => SpawnedPiChildProcess;
 
 export interface PiChildSessionGatewayDependencies {
-	/** Host environment; `JI_RUNNER_PI_BIN` overrides the `pi` binary. */
+	/** Host environment; `NS_RUNNER_PI_BIN` overrides the `pi` binary. */
 	env: Record<string, string | undefined>;
 	spawn?: SpawnPiChildProcess;
 	clock?: Clock;
@@ -240,7 +240,7 @@ function buildPiChildArgs(request: ChildSessionRequest, sessionFile: string): st
 }
 
 async function createDefaultSessionDir(): Promise<string> {
-	return await mkdtemp(join(tmpdir(), "ji-objective-runner-"));
+	return await mkdtemp(join(tmpdir(), "ns-objective-runner-"));
 }
 
 function startupFailed(context: string, error: unknown): ChildSessionOutcome {

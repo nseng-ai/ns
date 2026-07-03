@@ -65,7 +65,7 @@ export interface LandExtensionAPI {
 	): Promise<ExecResult>;
 }
 
-const COMMAND_NAME = "ji:flow:land";
+const COMMAND_NAME = "ns:flow:land";
 export function registerLandCommand(pi: LandExtensionAPI): void {
 	registerLandStackRenderer(pi);
 

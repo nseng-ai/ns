@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { createSlotClient } from "../../src/api/index.ts";
 import { FakeClipboardGateway } from "../../src/core/gateways/clipboard.ts";
-import { SDL_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";
+import { NS_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";
 import { runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 describe("Slot Capability API", () => {
@@ -99,7 +99,7 @@ describe("Slot Capability API", () => {
 		try {
 			const directivePath = join(home, "directive");
 			const run = runScenario([], {
-				env: { PATH: "/fake/bin", [SDL_CD_DIRECTIVE_FILE]: directivePath },
+				env: { PATH: "/fake/bin", [NS_CD_DIRECTIVE_FILE]: directivePath },
 				git: {
 					localBranches: ["master", "feature/a"],
 					worktrees: [slotWorktree("slot-01")],
@@ -125,7 +125,7 @@ describe("Slot Capability API", () => {
 		try {
 			const directivePath = join(home, "directive");
 			const run = runScenario([], {
-				env: { PATH: "/fake/bin", [SDL_CD_DIRECTIVE_FILE]: directivePath },
+				env: { PATH: "/fake/bin", [NS_CD_DIRECTIVE_FILE]: directivePath },
 				git: {
 					localBranches: ["master", "feature/a"],
 					worktrees: [slotWorktree("slot-01")],

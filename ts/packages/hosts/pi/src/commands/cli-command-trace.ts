@@ -4,10 +4,10 @@ import process from "node:process";
 import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@ji/capability-kit/xdg";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
-const TRACE_ENV = "JI_PI_CLI_TRACE";
-const TRACE_OUTPUT_ENV = "JI_PI_CLI_TRACE_OUTPUT";
-const TRACE_PATH_ENV = "JI_PI_CLI_TRACE_PATH";
-const DEFAULT_TRACE_FILENAME = "ji-pi-cli-command-extension.jsonl";
+const TRACE_ENV = "NS_PI_CLI_TRACE";
+const TRACE_OUTPUT_ENV = "NS_PI_CLI_TRACE_OUTPUT";
+const TRACE_PATH_ENV = "NS_PI_CLI_TRACE_PATH";
+const DEFAULT_TRACE_FILENAME = "ns-pi-cli-command-extension.jsonl";
 const TRACE_OUTPUT_PREVIEW_CHARS = 500;
 
 type TraceFields = Record<string, unknown>;

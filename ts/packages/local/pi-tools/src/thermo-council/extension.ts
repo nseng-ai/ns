@@ -35,7 +35,7 @@ export const thermoCouncilParity = definePiSurfaceParity([
 			"Run a Pi-native multi-model thermonuclear review council and present a session-local synthesized report",
 		parity: "WAIVED",
 		fallback:
-			"Non-Pi agents should run the portable thermonuclear review rubric directly from .ji/reviews/thermonuclear-review/review.md or use the Thermostack skill for a single-agent review/branch proposal workflow.",
+			"Non-Pi agents should run the portable thermonuclear review rubric directly from .ns/reviews/thermonuclear-review/review.md or use the Thermostack skill for a single-agent review/branch proposal workflow.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@internal/pi-tools/thermo-council",
 		sourceModule: "thermo-council",

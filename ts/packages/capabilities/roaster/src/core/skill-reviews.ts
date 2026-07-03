@@ -41,7 +41,7 @@ const ACRONYMS = new Map([
 	["dry", "DRY"],
 	["python", "Python"],
 	["sdl", "SDL"],
-	["ji", "JI"],
+	["ns", "NS"],
 	["typescript", "TypeScript"],
 ]);
 
@@ -108,7 +108,7 @@ export function roasterRunSurfaceForReviewKey(key: string): string {
 }
 
 export function roastReviewPathForKey(key: string): string {
-	return `.ji/reviews/${key}/review.md`;
+	return `.ns/reviews/${key}/review.md`;
 }
 
 function roastSkillTitleForDefinition(key: string, role: RoasterReviewDisplayRole): string {

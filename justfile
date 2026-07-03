@@ -42,12 +42,12 @@ _ts-workspace-ready:
     @set -e; \
       root="{{justfile_directory()}}"; \
       ts_dir="$root/ts"; \
-      stamp="$ts_dir/node_modules/.ji-workspace-ready.stamp"; \
+      stamp="$ts_dir/node_modules/.ns-workspace-ready.stamp"; \
       inputs_changed() { \
         if [ "$ts_dir/package.json" -nt "$stamp" ] || [ "$ts_dir/pnpm-lock.yaml" -nt "$stamp" ] || [ "$ts_dir/pnpm-workspace.yaml" -nt "$stamp" ]; then return 0; fi; \
         if find "$ts_dir/packages" -name package.json -not -path '*/node_modules/*' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         if [ -d "$ts_dir/patches" ] && find "$ts_dir/patches" -type f -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
-        if [ -d "$root/.ji/reviews" ] && find "$root/.ji/reviews" -path '*/tools/*/package.json' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
+        if [ -d "$root/.ns/reviews" ] && find "$root/.ns/reviews" -path '*/tools/*/package.json' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
         return 1; \
       }; \
       if [ -f "$ts_dir/node_modules/.modules.yaml" ] && [ -f "$stamp" ] && ! inputs_changed; then \
@@ -116,12 +116,12 @@ docs-check: docs-install
 
 js-test: ts-test
 
-# Install the ji shim to ~/.local/bin so `ji` on PATH runs the
+# Install the ns shim to ~/.local/bin so `ns` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-ji: (_install-ts-shim "ji" "ts/packages/kernel/src/cli/index.ts" "just install-ji or just install-tools")
-    rm -f "{{justfile_directory()}}/.venv/bin/ji"
-    @echo "removed stale project venv ji script if present"
+install-ns: (_install-ts-shim "ns" "ts/packages/kernel/src/cli/index.ts" "just install-ns or just install-tools")
+    rm -f "{{justfile_directory()}}/.venv/bin/ns"
+    @echo "removed stale project venv ns script if present"
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
@@ -152,20 +152,20 @@ install-packagechk: (_install-ts-shim "packagechk" "ts/packages/tools/packagechk
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
-    JI_TOOL="{{tool}}" \
-    JI_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
-    JI_CLI_REL_PATH="{{cli_rel_path}}" \
-    JI_INSTALL_HINT="{{install_hint}}" \
-    JI_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
-    JI_OUTPUT="$HOME/.local/bin/{{tool}}" \
+    NS_TOOL="{{tool}}" \
+    NS_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
+    NS_CLI_REL_PATH="{{cli_rel_path}}" \
+    NS_INSTALL_HINT="{{install_hint}}" \
+    NS_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
+    NS_OUTPUT="$HOME/.local/bin/{{tool}}" \
       node "{{justfile_directory()}}/ts/scripts/render-cli-shim.mjs"
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
-# Retired: Branch Context is exposed through `ji branch-context ...`, not a
+# Retired: Branch Context is exposed through `ns branch-context ...`, not a
 # standalone `branch-context` binary.
 link-branch-context:
-    @echo "branch-context standalone binary is retired; use: ji branch-context ..." >&2
+    @echo "branch-context standalone binary is retired; use: ns branch-context ..." >&2
     @exit 2
 
 _remove-stale-branch-context-bin:
@@ -192,8 +192,8 @@ topology *args:
     {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
 
 # Install public tools via TypeScript source shims.
-install-tools: _remove-stale-branch-context-bin install-ji install-brmem install-areg install-vibechk install-packagechk
-    @echo "installed: ji, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via ji branch-context"
+install-tools: _remove-stale-branch-context-bin install-ns install-brmem install-areg install-vibechk install-packagechk
+    @echo "installed: ns, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via ns branch-context"
 
 clean-stale-node-modules-leftovers:
     node {{justfile_directory()}}/scripts/clean-stale-node-modules-leftovers.mjs

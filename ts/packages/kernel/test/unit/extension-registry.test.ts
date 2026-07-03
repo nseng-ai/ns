@@ -16,7 +16,7 @@ import {
 } from "../../src/extensions/registry.ts";
 
 const tempDirs: string[] = [];
-const previousFirstPartyExtensionSetting = process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+const previousFirstPartyExtensionSetting = process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 
 interface Workspace {
 	cwd: string;
@@ -24,26 +24,26 @@ interface Workspace {
 }
 
 async function createWorkspace(): Promise<Workspace> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-extension-registry-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-registry-"));
 	tempDirs.push(directory);
 	return { cwd: join(directory, "project"), homeDir: join(directory, "home") };
 }
 
 function writeProjectExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.cwd, ".ji", "extensions", fileName), source);
+	writeFile(join(workspace.cwd, ".ns", "extensions", fileName), source);
 }
 
 function writeGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".local", "share", "ji", "extensions", fileName), source);
+	writeFile(join(workspace.homeDir, ".local", "share", "ns", "extensions", fileName), source);
 }
 
 function writeLegacyGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".ji", "extensions", fileName), source);
+	writeFile(join(workspace.homeDir, ".ns", "extensions", fileName), source);
 }
 
 function writeProjectManifest(workspace: Workspace, packageName: string, manifest: unknown): void {
 	writeFile(
-		join(workspace.cwd, ".ji", "extensions", packageName, "package.json"),
+		join(workspace.cwd, ".ns", "extensions", packageName, "package.json"),
 		JSON.stringify(manifest),
 	);
 }
@@ -69,15 +69,15 @@ export default defineExtension({
 }
 
 beforeAll(() => {
-	process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+	process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
 });
 
 afterAll(() => {
 	if (previousFirstPartyExtensionSetting === undefined) {
-		delete process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 		return;
 	}
-	process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;
+	process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;
 });
 
 afterEach(() => {
@@ -99,7 +99,7 @@ describe("extension registry", () => {
 
 	test("bundled first-party manifests contribute commands without kernel imports", async () => {
 		const workspace = await createWorkspace();
-		delete process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 		try {
 			const loaded = await loadSdlCommandCatalog({
 				cwd: workspace.cwd,
@@ -113,7 +113,7 @@ describe("extension registry", () => {
 				source: { level: "first-party" },
 			});
 		} finally {
-			process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+			process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
 		}
 	});
 
@@ -217,7 +217,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "hello.ts"),
+			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import during discovery');\n",
 		);
 
@@ -270,7 +270,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "hello.ts"),
+			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import package commands for listing');\n",
 		);
 
@@ -307,7 +307,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "handoff", "src", "list.ts"),
+			join(workspace.cwd, ".ns", "extensions", "handoff", "src", "list.ts"),
 			commandEntry("list", "list"),
 		);
 
@@ -337,7 +337,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "handoff", "src", "create.ts"),
+			join(workspace.cwd, ".ns", "extensions", "handoff", "src", "create.ts"),
 			"throw new Error('group manifest entries should not load for listing');\n",
 		);
 
@@ -377,7 +377,7 @@ describe("extension registry", () => {
 		]);
 		expect(loaded.diagnostics).toEqual([
 			expect.objectContaining({
-				code: "ji_extension_contribution_import_failed",
+				code: "ns_extension_contribution_import_failed",
 				commandName: "hello",
 			}),
 		]);
@@ -413,7 +413,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "commands.ts"),
+			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "commands.ts"),
 			`
 import { defineExtension, ok } from "@ji/kernel/sdk";
 
@@ -464,7 +464,7 @@ export default defineExtension({
 			ji: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "one.ts"),
+			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "one.ts"),
 			commandEntry("one", "pkg"),
 		);
 
@@ -486,7 +486,7 @@ export default defineExtension({
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".ji", "extensions", "handoff", "src", "list.ts"),
+			join(workspace.cwd, ".ns", "extensions", "handoff", "src", "list.ts"),
 			commandEntry("list", "list"),
 		);
 
@@ -520,7 +520,7 @@ export default defineExtension({
 		const command = await loadSelectedSdlCommand(selected);
 		expect(command).toMatchObject({
 			ok: false,
-			diagnostic: { code: "ji_extension_contribution_import_failed", commandName: "throws" },
+			diagnostic: { code: "ns_extension_contribution_import_failed", commandName: "throws" },
 		});
 	});
 

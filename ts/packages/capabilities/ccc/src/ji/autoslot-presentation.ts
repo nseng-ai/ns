@@ -23,7 +23,7 @@ export interface AutoslotResultBlock {
 	cwd: string;
 	/** Domain-authored detail (slot target / skip reason / failure cause) at normal weight. */
 	body?: string;
-	/** Optional normal-weight "what to do next" line (e.g. the copyable `ji slot co <branch>`). */
+	/** Optional normal-weight "what to do next" line (e.g. the copyable `ns slot co <branch>`). */
 	guidance?: string;
 }
 

@@ -326,23 +326,23 @@
       "sourceType": "local",
       "computedHash": "7cb62ecce29161393e08481fad4f021c344ab810478a0042e0773a9b82e3135a"
     },
-    "ji-flow-autobranch": {
-      "source": "skills/ji-flow-autobranch",
+    "ns-flow-autobranch": {
+      "source": "skills/ns-flow-autobranch",
       "sourceType": "local",
       "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
     },
-    "ji-flow-branch-latest-commit": {
-      "source": "skills/ji-flow-branch-latest-commit",
+    "ns-flow-branch-latest-commit": {
+      "source": "skills/ns-flow-branch-latest-commit",
       "sourceType": "local",
       "computedHash": "c969e1054813322299f73c0b3a2af3c6dac473b70bd7e19e0fefc66f21df021b"
     },
-    "ji-flow-cp": {
-      "source": "skills/ji-flow-cp",
+    "ns-flow-cp": {
+      "source": "skills/ns-flow-cp",
       "sourceType": "local",
       "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
     },
-    "ji-flow-submit": {
-      "source": "skills/ji-flow-submit",
+    "ns-flow-submit": {
+      "source": "skills/ns-flow-submit",
       "sourceType": "local",
       "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
     },

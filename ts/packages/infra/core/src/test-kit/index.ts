@@ -78,12 +78,12 @@ export function createTempDirTracker(): TempDirTracker {
 	const homeTempDirs: string[] = [];
 
 	return {
-		async makeTempDir(prefix = "ji-test-"): Promise<string> {
+		async makeTempDir(prefix = "ns-test-"): Promise<string> {
 			const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
 			tempDirs.push(dir);
 			return dir;
 		},
-		async makeHomeTempDir(prefix = ".ji-test-"): Promise<string> {
+		async makeHomeTempDir(prefix = ".ns-test-"): Promise<string> {
 			const dir = await realpath(await mkdtemp(join(homedir(), prefix)));
 			homeTempDirs.push(dir);
 			return dir;
@@ -106,7 +106,7 @@ export async function withTempGitRepo<T>(
 	options: TempGitRepoOptions,
 	callback: (repo: TempGitRepo) => Promise<T>,
 ): Promise<T> {
-	const tempDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? "ji-git-repo-")));
+	const tempDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? "ns-git-repo-")));
 	const repoDir = options.repoName === undefined ? tempDir : join(tempDir, options.repoName);
 	await markGitRepo(repoDir);
 	const realRepoDir = await realpath(repoDir);

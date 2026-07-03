@@ -21,7 +21,7 @@ export interface CheckedOutElsewhere {
 }
 
 export interface ReadGraphiteBranchMetadataCommand {
-	command: "ji";
+	command: "ns";
 	args: string[];
 	display: string;
 }
@@ -218,7 +218,7 @@ export function readGraphiteBranchMetadataCommand(
 	dbPath: string,
 ): ReadGraphiteBranchMetadataCommand {
 	const args = [...READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX, "--db-path", dbPath];
-	return { command: "ji", args, display: formatCommand("ji", args) };
+	return { command: "ns", args, display: formatCommand("ns", args) };
 }
 
 export function normalizeLandCommandFinish(
@@ -229,9 +229,9 @@ export function normalizeLandCommandFinish(
 	if (command === GRAPHITE_COMMAND_NAME) {
 		return normalizeGraphiteCommandFinish(args, result);
 	}
-	// /ji:flow:land reads Graphite topology through a controlled SDL flow exec command;
+	// /ns:flow:land reads Graphite topology through a controlled SDL flow exec command;
 	// avoid labeling unrelated sdl invocations just because the binary matches.
-	if (command === "ji" && result.code === 0 && isReadGraphiteBranchMetadataArgs(args)) {
+	if (command === "ns" && result.code === 0 && isReadGraphiteBranchMetadataArgs(args)) {
 		return { result, note: "read Graphite stack topology" };
 	}
 	return { result };

@@ -9,7 +9,7 @@ import {
 	formatCommand,
 } from "@ji/core/command";
 
-export const SLOT_DIAGNOSTIC_LOG_ENV = "JI_SLOT_DIAGNOSTIC_LOG";
+export const SLOT_DIAGNOSTIC_LOG_ENV = "NS_SLOT_DIAGNOSTIC_LOG";
 
 export interface SlotCommandDiagnosticEvent {
 	readonly type: "slot.command";

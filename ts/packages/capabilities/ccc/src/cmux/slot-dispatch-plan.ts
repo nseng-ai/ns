@@ -242,8 +242,8 @@ async function resolveLatestSavedPlanFromSession(
 		case "not-found":
 			return {
 				error: [
-					"No saved plan from /ji:plan:save was found in the current session branch.",
-					"Run /ji:plan:save first, then rerun the dispatch command.",
+					"No saved plan from /ns:plan:save was found in the current session branch.",
+					"Run /ns:plan:save first, then rerun the dispatch command.",
 				].join("\n"),
 			};
 	}
@@ -379,7 +379,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		"",
 		branchContextPreview,
-		formatCommand("ji", [
+		formatCommand("ns", [
 			"slot",
 			"checkout",
 			operation.branch,
@@ -480,7 +480,7 @@ Options:
   --dry-run    Show the selected plan and commands without mutating.
   --help, -h   Show this help.
 
-Run /ji:plan:save first, then rerun /${config.commandName}.`;
+Run /ns:plan:save first, then rerun /${config.commandName}.`;
 }
 
 async function openBranchInCmuxSurface(options: {

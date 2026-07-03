@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	activeCdDirectivePath,
-	SDL_CD_DIRECTIVE_FILE,
+	NS_CD_DIRECTIVE_FILE,
 	SLOT_CD_DIRECTIVE_FILE,
 	type CdDirectiveFilesystem,
 	writeCdDirectiveIfActive,
@@ -65,11 +65,11 @@ describe("cd directive", () => {
 		const filesystem = new FakeDirectiveFilesystem();
 		await expect(
 			writeCdDirectiveIfActive("/worktree/path", {
-				env: { [SDL_CD_DIRECTIVE_FILE]: "/tmp/ji-directive" },
+				env: { [NS_CD_DIRECTIVE_FILE]: "/tmp/ns-directive" },
 				filesystem,
 			}),
-		).resolves.toEqual({ status: "written", path: "/tmp/ji-directive" });
-		expect(filesystem.writes()).toEqual([{ path: "/tmp/ji-directive", content: "/worktree/path" }]);
+		).resolves.toEqual({ status: "written", path: "/tmp/ns-directive" });
+		expect(filesystem.writes()).toEqual([{ path: "/tmp/ns-directive", content: "/worktree/path" }]);
 	});
 });
 

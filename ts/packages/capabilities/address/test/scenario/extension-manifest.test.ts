@@ -17,7 +17,7 @@ const addressExtensionManifestSchema = z.object({
 	}),
 });
 
-const ADDRESS_EXTENSION_ROOT = "../.ji/extensions/address";
+const ADDRESS_EXTENSION_ROOT = "../.ns/extensions/address";
 const ADDRESS_EXTENSION_MANIFEST_PATH = path.join(ADDRESS_EXTENSION_ROOT, "package.json");
 
 describe("address SDL extension registration", () => {

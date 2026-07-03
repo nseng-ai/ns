@@ -58,7 +58,7 @@ describe("XDG path helpers", () => {
 				env: { HOME: "/home/tester" },
 				segments: ["enriched-plan"],
 			}),
-		).toEqual({ ok: true, value: "/home/tester/.local/state/ji/enriched-plan" });
+		).toEqual({ ok: true, value: "/home/tester/.local/state/ns/enriched-plan" });
 		expect(
 			resolveSdlXdgPath({
 				kind: "state",
@@ -78,7 +78,7 @@ describe("XDG path helpers", () => {
 					segments: ["enriched-plan"],
 				}),
 			),
-		).toBe("/home/tester/.local/state/ji/enriched-plan");
+		).toBe("/home/tester/.local/state/ns/enriched-plan");
 		expect(() =>
 			requireXdgPath(resolveSdlXdgPath({ kind: "state", env: {}, segments: ["logs"] })),
 		).toThrow("HOME environment variable is not set");
@@ -109,7 +109,7 @@ describe("XDG path helpers", () => {
 				overrideEnvName: "JI_LOG_DIR",
 				segments: ["logs"],
 			}),
-		).toBe("/state/ji/logs");
+		).toBe("/state/ns/logs");
 		expect(() =>
 			requireSdlStatePath({
 				env: { HOME: "/home/tester", JI_LOG_DIR: "relative/logs" },

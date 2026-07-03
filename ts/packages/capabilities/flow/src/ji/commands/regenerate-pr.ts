@@ -21,8 +21,8 @@ import {
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
-const PR_DESCRIPTION_MODEL_ENV = "JI_DEV_PR_DESCRIPTION_MODEL";
-const PR_DESCRIPTION_PROMPT_ENV = "JI_DEV_PR_DESCRIPTION_PROMPT";
+const PR_DESCRIPTION_MODEL_ENV = "NS_DEV_PR_DESCRIPTION_MODEL";
+const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ji/prompts/pr-description.md";
 const DEFAULT_PR_DESCRIPTION_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
@@ -55,7 +55,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
 		// result block (success / failure / refusal), the same house-style block
 		// `branch-latest-commit` uses — there is no per-step journey to stream and no subprocess
-		// transcript to mine for cause markers. Spec: `.ji/objectives/cli-ux-north-star/house-style.md`.
+		// transcript to mine for cause markers. Spec: `.ns/objectives/cli-ux-north-star/house-style.md`.
 		const caps = resolveFlowStreamCaps(ctx);
 		const runtime = createSdlPrDescriptionRuntime(ctx);
 		const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({

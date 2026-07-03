@@ -197,7 +197,7 @@ export function buildStackMapModelFromGraph(
 	const model: StackMapModel = {
 		title: "jicc stack map",
 		diagnostics: [
-			"Loaded from `ji slot gt exec stack-map-branches --format json`.",
+			"Loaded from `ns slot gt exec stack-map-branches --format json`.",
 			...graph.warnings,
 			...(options.diagnostics ?? []),
 		].filter((diagnostic) => diagnostic.length > 0),
@@ -235,13 +235,13 @@ async function loadStackMapGraph(
 	cwd: string,
 ): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
 	const result = await runCommand(
-		"ji",
+		"ns",
 		["slot", "gt", "exec", "stack-map-branches", "--format", "json"],
 		{ cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
 	const parsed = parseStackMapMachineEnvelopeData(
 		result.stdout,
-		"ji slot gt exec stack-map-branches JSON",
+		"ns slot gt exec stack-map-branches JSON",
 	);
 	if (parsed.type === "failure") {
 		return {
@@ -288,12 +288,12 @@ function parseStackMapGraphData(
 	data: unknown,
 ): { type: "success"; data: StackMapGraphData } | { type: "failure"; message: string } {
 	if (typeof data !== "object" || data === null || Array.isArray(data))
-		return { type: "failure", message: "ji slot gt stack-map data was not an object." };
+		return { type: "failure", message: "ns slot gt stack-map data was not an object." };
 	const parsed = stackMapGraphDataSchema.safeParse(data);
 	if (!parsed.success) {
 		return {
 			type: "failure",
-			message: "ji slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
+			message: "ns slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
 		};
 	}
 	return {

@@ -1,7 +1,7 @@
 import { shellQuote } from "@ji/core/exec";
 import { truncatedSha256Digest } from "@ji/core/primitives";
 
-const HARNESS_SESSION_ENTRY_TYPE = "ji-harness-session-id";
+const HARNESS_SESSION_ENTRY_TYPE = "ns-harness-session-id";
 const HARNESS_SESSION_ENV = "HARNESS_SESSION_ID";
 
 interface CustomSessionEntry {

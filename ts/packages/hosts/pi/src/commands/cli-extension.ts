@@ -17,7 +17,7 @@ import type { SdlConfirmOptions } from "@ji/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 
-export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "ji-cli-command-output";
+export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "ns-cli-command-output";
 
 type OutputStreamName = "stdout" | "stderr";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";

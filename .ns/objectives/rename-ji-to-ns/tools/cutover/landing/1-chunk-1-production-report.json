@@ -1,0 +1,2549 @@
+{
+ "summary": {
+  "simpleFilesChanged": 98,
+  "simpleTotal": 98,
+  "changesetsDone": 11,
+  "changesetsTotal": 11,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 125
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": "docs-site/lib/extensions-catalog.ts",
+   "note": "Line 82 sourcePath \".pi/extensions/ji.ts\" is now stale (the actual file was moved to .pi/extensions/ns.ts per the brief's own file-move note), but the file-specific note explicitly scopes this file's work to 'rename only' the two named command hints and says 'do NOT reconcile pre-existing drift' — left sourcePath untouched per that explicit scoping."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+   "note": "@ji/core/command, @ji/core/machine-envelope, @ji/core/primitives, @ji/capability-kit/cmux/types import specifiers left verbatim — package scope is a DO NOT TOUCH phase-two surface per the brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+   "note": "Left all @ji/* import specifiers (lines 17, 23, 24, 30-35) untouched — package scope is an explicit DO-NOT-TOUCH phase-two surface per the brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/push.ts",
+   "note": "Left @ji/core, @ji/kernel/sdk, @ji/capability-kit/git import specifiers untouched — DO NOT TOUCH per brief (package scope survivor)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/push.ts",
+   "note": "File-specific note mentioned a '../../submit/ji-runtime.ts import :18' phase-two survivor, but no such import exists in the current file content (line 18 is `type GitGateway,`); nothing to skip there since the referenced code isn't present."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts",
+   "note": "Line 26 REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\" left untouched per file-specific note: keep byte-equal with twin file"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts",
+   "note": "@ji/* import specifiers, SdlCommand/SdlExtensionApi type names, and 'SDL-managed' prose left untouched: DO NOT TOUCH phase-two/identity survivors"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/land.ts",
+   "note": "@ji/kernel, @ji/core, @ji/clinkr import specifiers and @ji/pi prose mention (lines 1,2,3,5,25,135) — DO NOT TOUCH: package scope is phase-two"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts",
+   "note": "Line 1 import specifier \"@ji/core/command\" left untouched — package scope is a phase-two DO NOT TOUCH surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts",
+   "note": "Lines 3, 12, 25 (@ji/core/command, @ji/capability-kit/graphite/metadata import specifiers) left untouched: package-scope imports are explicitly DO NOT TOUCH (phase-two, PR-5 owns @ji/* scope)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts",
+   "note": "Line 1: import { formatCommand } from \"@ji/core/command\" left untouched — package scope @ji/* is explicitly a DO NOT TOUCH phase-two surface."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "note": "Line 21 sourcePackage: \"@ji/flow/pi\" left untouched - package scope is a DO NOT TOUCH phase-two surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "note": "Lines 1,4,5,6 @ji/* imports left untouched - phase-two surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Line 27: GENERATED_BODY_MARKER = \"<!-- generated-by: ji-dev pr-description v1 -->\" left unchanged — the file-specific note enumerates only lines 25,26,28,29,30 for renaming and omits line 27; this is a distinct legacy marker (not the managed begin/end marker or the generator-version constant) so its exclusion was treated as deliberate rather than an oversight."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Lines 5,10,11,12,13,14,15: @ji/capability-kit and @ji/core import specifiers left untouched — these are the @ji/* package scope, explicitly DO NOT TOUCH (phase-two) per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/core/objective-selection-flow.ts",
+   "note": "Line 1 import \"@ji/core/exec\" left untouched — package scope is DO NOT TOUCH per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/pi/extension.ts",
+   "note": "@ji/* import specifiers (lines 1,3,8-9,11-12,32,43-46) left untouched — phase-two DO NOT TOUCH package scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/pi/extension.ts",
+   "note": "sourcePackage: \"@ji/objective/pi\" values (lines 417, 430, 445) left untouched — same phase-two package-scope rule"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "note": "Line 10 `@ji/core/primitives` import specifier left untouched — package scope is a phase-two DO NOT TOUCH surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+   "note": "Lines 4-7 @ji/core and @ji/capability-kit import specifiers left untouched — DO NOT TOUCH: package scope per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/jicc/src/objective-tab.ts",
+   "note": "@ji/core and @ji/objective/api import specifiers left untouched — DO NOT TOUCH per brief (package scope is phase-two)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/jicc/src/stack-map-model-loader.ts",
+   "note": "@ji/core/machine-envelope and @ji/core/primitives imports (lines 1-2) left untouched — @ji/* package scope is an explicit phase-two survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/jicc/src/stack-map-model-loader.ts",
+   "note": "\"jicc stack map\" title strings (lines 198, 522) left untouched — jicc package/dir name is a phase-two survivor per the file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
+   "note": "@ji/core/timers and @ji/core/time-format import specifiers left untouched — package scope @ji/* is phase-two DO NOT TOUCH"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-trace.ts",
+   "note": "Line 4: `@ji/capability-kit/xdg` import specifier and `requireSdlStatePath` identifier left untouched — DO NOT TOUCH list covers @ji/* package scope and sdl-named identifiers (phase-two surfaces)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "note": "@ji/core/primitives and @ji/kernel/sdk import specifiers left untouched — package scope is a phase-two DO NOT TOUCH surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "note": "SdlConfirmOptions type identifier left untouched — Sdl-prefixed identifiers are phase-two DO NOT TOUCH survivors"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/core/pr/extension.ts",
+   "note": "Left `@ji/core/primitives` import and `sourcePackage: \"@ji/pi\"` (lines 6, 70, 82) untouched — these are @ji/* package-scope references, explicitly DO NOT TOUCH per brief (phase-two surface)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/core/pr/feedback-download.ts",
+   "note": "Line 1 `@ji/core/primitives` import specifier — phase-two @ji/* package scope, left untouched per DO NOT TOUCH list"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+   "note": "Lines 1-2: `@ji/core/exec` and `@ji/core/primitives` import specifiers are DO NOT TOUCH (package scope @ji/*, phase-two surface)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "Line 8: PI_AGENT_DEFINITION_SCHEMA = \"ji.pi-agent.v1\" — dot-separated schema literal, not an anchored form in the rename list (not a `.ji/` path, not a `ji:*` namespace, not a CLI/env/ref form); left verbatim."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "findSdlPiAgentsDir identifier (line 44/61) — TS identifier containing sdl/ji; DO-NOT-TOUCH per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "@ji/core and @ji/capability-kit import specifiers (lines 4-6) — package scope, DO-NOT-TOUCH per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "note": "Line 3: `@ji/clinkr` import specifier is a package-scope reference — explicitly DO NOT TOUCH per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "note": "Line 44: 'sdl checkout' prose is brand prose outside root onboarding docs — defers per brief, left verbatim."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/package.json",
+   "note": "Line 14 \"ji\": { (extension-manifest key) — explicitly a phase-two survivor per file-specific note, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/package.json",
+   "note": "Line 2 \"name\": \"@ji/kernel\" — package scope survivor per brief DO NOT TOUCH list, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/package.json",
+   "note": "Lines 42-43 \"@ji/clinkr\" / \"@ji/core\" workspace deps — package scope survivors, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "note": "Left `pathSdl` identifier name unchanged as instructed by the file-specific note (stale identifier stays)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "note": "Lines 2-4 `@ji/core/*` and `@ji/pi/*` import specifiers left untouched — DO NOT TOUCH phase-two package scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "note": "Line 1: `@ji/capability-kit/git` import specifier is DO-NOT-TOUCH (package scope, phase-two)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+   "note": "@ji/core/primitives, @ji/core/exec, @ji/capability-kit/git, @ji/plans import specifiers left untouched — package scope is a DO NOT TOUCH phase-two surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
+   "note": "@ji/pi/commands, @ji/pi/parity/extension imports, and sourcePackage: \"@ji/branch-context/pi\" fields left untouched — @ji/* package scope is DO NOT TOUCH (phase-two)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+   "note": "Lines 10,18,19,20,27,28,31,32: @ji/* import specifiers — DO NOT TOUCH per brief (phase-two package scope rename)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "note": "@ji/clinkr and @ji/core/cli-theme import specifiers left verbatim (package scope, DO NOT TOUCH)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "note": "SdlCommandIo identifier in JSDoc left verbatim (identifier survivor, DO NOT TOUCH)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/autobranch.ts",
+   "note": "src/ji/ path segment in filename left untouched (survivor per brief)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/autobranch.ts",
+   "note": "@ji/core, @ji/kernel, @ji/capability-kit import specifiers left untouched (phase-two DO NOT TOUCH)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/autobranch.ts",
+   "note": "SdlCommand, SdlExtensionApi, SdlCommandIo, runWithSdlCommandIo, commandIoFromSdlExtensionApi identifiers left untouched (contain sdl, phase-two DO NOT TOUCH)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts",
+   "note": "Left @ji/core, @ji/kernel/sdk import specifiers untouched — phase-two survivor per DO NOT TOUCH list"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts",
+   "note": "Left src/ji/ path segment (file's own directory path) untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/cp.ts",
+   "note": "Left all @ji/* import specifiers (lines 1-3, 14) untouched — DO NOT TOUCH per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/cp.ts",
+   "note": "Left src/ji/ path segment and createSdlCheckpointRuntime/SdlCommand/SdlProgressPhaseListener identifiers untouched — phase-two survivors per brief and file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/land.ts",
+   "note": "@ji/kernel/command-io, @ji/kernel/sdk, @ji/clinkr package scope imports - phase-two DO NOT TOUCH"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/land.ts",
+   "note": "SdlCommand/SdlCommandIo/SdlExtensionApi/SdlNotifyLevel/SdlProgressPhaseEvent identifiers - contain sdl in casing, phase-two DO NOT TOUCH"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/commands/land.ts",
+   "note": "src/ji/ path segment in file's own directory - explicitly left per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts",
+   "note": "`@ji/clinkr`, `@ji/core/cli-theme`, `@ji/kernel/sdk` import specifiers left untouched (DO NOT TOUCH: @ji/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts",
+   "note": "`src/ji/presentation/` path segment in file path/comments left untouched (DO NOT TOUCH: src/ji/ path segments)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts",
+   "note": "Left `import type { Caps } from \"@ji/clinkr\";` unchanged — @ji/* package scope is a DO NOT TOUCH phase-two surface."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts",
+   "note": "Left `src/ji/presentation` path context unchanged per file-specific note instruction."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/worktree.ts",
+   "note": "@ji/capability-kit, @ji/core, @ji/kernel import specifiers left untouched — DO NOT TOUCH: package scope is phase-two"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/worktree.ts",
+   "note": "src/ji/ file path (implied by module location) left untouched — DO NOT TOUCH: src/ji/ path segments are phase-two"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/ji/worktree.ts",
+   "note": "SdlExtensionApi, SdlCliExecAdapter, createSdlCliExecAdapter, execSdlCommand, execSdlGit, createCliExecAdapter, execExtensionCommand identifiers left untouched — DO NOT TOUCH: TS identifiers containing sdl/ji are phase-two"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/preflight.ts",
+   "note": "Line 144: \"@ji/flow land preflight planning...\" — @ji/ is the package scope, explicitly listed as DO NOT TOUCH (phase-two surface); left verbatim."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+   "note": "Line 8 `@ji/clinkr` and line 9/4 `@ji/core/cli-theme` package scope references left untouched — DO NOT TOUCH per brief (package scope survivors)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+   "note": "@ji/core and @ji/capability-kit import specifiers left untouched — DO NOT TOUCH phase-two surface (@ji/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "note": "`@ji/clinkr`, `@ji/clinkr/stream`, `@ji/kernel/sdk` import specifiers left untouched — package scope is explicit DO NOT TOUCH (phase-two)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+   "note": "Left `@ji/core/primitives` and `@ji/core/terminal-escapes` import specifiers untouched — package scope @ji/* is DO-NOT-TOUCH (phase-two)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "note": "Line 1 `@ji/core/terminal-escapes` import left untouched — @ji/* package scope is an explicit phase-two DO NOT TOUCH item."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+   "note": "Line 1 `@ji/core/result` and line 5 `@ji/capability-kit/gateway-result` imports left untouched — `@ji/*` package scope is explicitly DO NOT TOUCH (phase-two surface)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "note": "CLAUDE_HANDOFF_LAUNCH_TOOL_NAME identifier left untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/create.ts",
+   "note": "Line 3 `@ji/pi/skills/expansion` import specifier left untouched — DO NOT TOUCH per brief (package scope, phase-two)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/launch-flow.ts",
+   "note": "Lines 1, 4, 14: @ji/core and @ji/pi import specifiers left untouched — explicitly in the DO NOT TOUCH phase-two list (package scope @ji/*)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "note": "sourcePackage: \"@ji/handoff/pi\" (lines 30, 43, 56, 68, 82) left as-is: @ji/* package scope is explicitly DO NOT TOUCH (phase-two)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "note": "import specifiers \"@ji/pi/commands/ack\" and \"@ji/pi/parity/extension\" left as-is: @ji/* package scope import specifiers are DO NOT TOUCH (phase-two)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "note": "@ji/core/primitives, @ji/pi/runtime/primitives, @ji/capability-kit/cmux/focused-terminal-tab import specifiers (lines 6, 8, 9) — package scope @ji/* is DO NOT TOUCH per brief (phase-two surface)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+   "note": "Left `@ji/capability-kit/ji-command` import (line 9) untouched — package scope/import specifier, phase-two DO NOT TOUCH"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+   "note": "Left all other @ji/* imports (clinkr, core/primitives, core/time, kernel/sdk) untouched — package scope survivors"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+   "note": "Left `\"./sdl/commands/exec-runner-step\"` export-subpath reference untouched — explicitly called out as survivor in file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+   "note": "Left `../../pi/child-session/pi-child-session-gateway.ts` relative import comment (mentions @ji/pi peer) untouched — package scope survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+   "note": "Line 1 `@ji/kernel/sdk` import specifier left untouched — package scope `@ji/*` is explicitly phase-two DO NOT TOUCH."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "note": "Lines 2 and 10: `@ji/core/primitives` and `@ji/core/command` import specifiers — DO NOT TOUCH per brief (package scope is phase-two)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/ji/command-face.ts",
+   "note": "`@ji/clinkr` and `@ji/kernel` import specifiers, and the `src/ji/` path segment: left untouched per file-specific note (phase-two survivors)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+   "note": "Line 1 `@ji/core/command` and `@ji/clinkr` import specifiers left untouched — package scope is an explicit DO NOT TOUCH survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+   "note": "Line 1: `@ji/clinkr` package scope import — DO NOT TOUCH per brief (phase-two surface)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+   "note": "Line 1: import from \"@ji/clinkr\" left untouched — package scope rename is a DO NOT TOUCH phase-two surface."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capability-kit/src/git/testing.ts",
+   "note": "Line 53 fake email default \"ji-test@example.com\" left untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capability-kit/src/git/testing.ts",
+   "note": "Line 6 @ji/core/primitives import left untouched per file-specific note (phase-two survivor)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capability-kit/src/git/testing.ts",
+   "note": "Line 54 \"SDL Test\" username default left as-is — not an enumerated anchored form in the brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capability-kit/src/kit/text-generation.ts",
+   "note": "Line 1 import from \"@ji/core/model-slug\" left untouched — @ji/* package scope is a DO NOT TOUCH phase-two surface"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capability-kit/src/kit/text-generation.ts",
+   "note": "LEGACY_CHANGES_MODEL_ENV value \"PI_DRAFT_MODEL\" left untouched — not a JI_* env var name, out of scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/jicc/src/stack-map-effects.ts",
+   "note": "Line 3 `@ji/core/exec` and line 9 `@ji/slot/api` — package scope import specifiers, DO NOT TOUCH per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/jicc/src/stack-map-effects.ts",
+   "note": "Line 30/121/155/159/160 `jicc`/`JICC_CLI_ENTRYPOINT_PATH`/`buildJiccCmuxReportBootstrapCommand` — jicc is a distinct survivor product/bin name, not an anchored ji->ns rename form."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/extensions/loader.ts",
+   "note": "SdlExtensionContributionLoadResult, loadSdlExtensionContribution, loadSdlUserModuleDefault identifiers and 'SDL extension contribution' prose left untouched — DO NOT TOUCH list bans sdl-named TS identifiers and brand prose outside root onboarding docs"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/runtime/module-loader.ts",
+   "note": "Lines 67-69 join(CCC_SRC_DIR, \"ji\", ...) left untouched per file-specific note (src/ji path segments that did not move)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/runtime/module-loader.ts",
+   "note": "`@ji/*` package scope specifiers throughout (SDK_SPECIFIER, CCC_AUTOSLOT_SPECIFIER, etc.) left untouched per DO NOT TOUCH phase-two rule"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/runtime/module-loader.ts",
+   "note": "`./ji/commands/` SDL_COMMAND_EXPORT_PREFIX left untouched — src-dir path fragment, phase-two DO NOT TOUCH"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/runtime/module-loader.ts",
+   "note": "sdl-prefixed identifiers (createSdlJiti, loadSdlUserModuleDefault, SDL_SDK_DIR, etc.) left untouched — identifiers containing sdl/ji are DO NOT TOUCH per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "note": "Line 1 `@ji/pi/parity/extension` import — DO NOT TOUCH per brief (package scope @ji/*)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "note": "`/pr:download-feedback` slash-token on line 13 left untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "note": "Lines 3-14 and 20: `@ji/core/exec`, `@ji/core/primitives`, `@ji/pi/commands/ack`, `@ji/pi/commands/args`, `@ji/pi/models/call`, `@ji/pi/parity/extension`, `@ji/pi/runtime/command-host`, `@ji/pi/runtime/machine-envelope` import specifiers left untouched — brief's DO NOT TOUCH list explicitly protects `@ji/*` package scope and every import specifier containing it."
+  },
+  {
+   "tier": "complex",
+   "id": "cs1-workspace-globs",
+   "note": "@ji/* workspace deps, jicc, and ji-ts-workspace name in package.json — phase-two survivors per brief, not this window's targets"
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-shell-cd-directive",
+   "note": "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts:28 uses env key JI_CD_DIRECTIVE_FILE -- a leftover brand env-var NAME that per the brief should become NS_CD_DIRECTIVE_FILE, but this file is OUTSIDE my changeset so I did not touch it; it does not break (createSlotClient is mocked and the env is only forwarded/asserted, not read through activeCdDirectivePath), but the flow-package changeset owner should rename it."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-shell-cd-directive",
+   "note": "Brand PROSE in describe()/it() labels within my test files (\"sdl shell CLI\", \"sdl slot CLI\", \"shows canonical SDL shell integration\", \"the owning sdl entrypoint\", \"uses the sdl directive file\") left verbatim per the branding-row deferral rule."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-shell-cd-directive",
+   "note": "@ji/* import specifiers in all 9 files (e.g. @ji/clinkr, @ji/kernel/cli, @ji/capability-kit/shell-support, @ji/capability-kit/ji-command) and the src/ji/ path of extension.ts left verbatim -- phase-two DO NOT TOUCH."
+  },
+  {
+   "tier": "complex",
+   "id": "test",
+   "note": "test reason"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-xdg-and-slot-paths",
+   "note": "xdg-path.test.ts JI_ROOT and JI_LOG_DIR override-env names (:65,67,88,92,101,102,109,115,116,119) left verbatim — the changeset instruction scoped this file to only the state/ji path fixtures (:61,81,112); these override-env names are the resolveSdlXdgPath fan-out (8 files/19 sites) explicitly deferred to PR-6"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-xdg-and-slot-paths",
+   "note": "submit.ts ../../submit/ji-runtime.ts relative import kept — ji-*.ts filenames are phase-two survivors (explicit exception in the changeset)"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-xdg-and-slot-paths",
+   "note": "scenarios.test.ts src/ji/commands/land.ts import path segment and all @ji/* imports kept — phase-two package-scope/src-path survivors"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-xdg-and-slot-paths",
+   "note": "helpers.test.ts legacy /Users/me/.slots/... paths and /tmp/sdl-tools fixtures left untouched — non-brand .slots and sdl tokens, not ji/slots anchored forms"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-xdg-and-slot-paths",
+   "note": "Did not run the test suite — cross-changeset land-stack assertions I renamed depend on source strings owned by other changesets and only reconcile post-merge; edits are string-literal-only and cannot break types"
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-pi-namespace-core",
+   "note": "Kept the @ji/handoff/pi, @ji/objective/pi, @ji/core/command import specifiers and @ji/flow/pi sourcePackage as phase-two package-scope survivors (DO NOT TOUCH)."
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-pi-namespace-core",
+   "note": "Kept describe(\"sdl Pi extension\"), test title 'exposes only nested flow SDL lifecycle mirrors', 'routes sdl flow ...' labels, and sourceModule: \"sdl-extension\" as sdl brand-prose/identifier survivors."
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-pi-namespace-core",
+   "note": "Kept the sdl:* absence-assertion tombstones (sdl:changes, sdl:cp, ...) verbatim since they prove the prior rename happened."
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-pi-namespace-core",
+   "note": "Went slightly beyond the changeset's line enumeration in ji-extension.ts (cliName, cli:, notes:, .ji/extensions JSDoc): these are unambiguous leftover-JI CLI-name/repo-state forms mandated by the brief's cardinal RENAME list, the file is exclusively this changeset's, and cliName drives the test's 'ji flow cp:'-style description assertions (via cli-extension.ts:197) so it had to rename for internal consistency."
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-justfile-shim",
+   "note": "Left all 'sdl checkout'/'no sdl checkout found' prose verbatim in template and tests — sdl is a historical survivor, not in-window"
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-justfile-shim",
+   "note": "Left areg-branded tempdir prefixes (areg-shim-render-, etc.) and the ts/packages/tools/areg/src/cli.ts CLI_REL_PATH assertions unchanged — not ji brand tokens"
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-justfile-shim",
+   "note": "Kept the negative 'asdl'/'ts/packages/areg/src/cli.ts' guard assertions verbatim — they are typo/path-regression guards, not ji forms"
+  },
+  {
+   "tier": "complex",
+   "id": "cs7-backup-refs",
+   "note": "Left all @ji/* import specifiers (Caps from @ji/clinkr, @ji/clinkr/testing, @ji/capability-kit/git, @ji/kernel/sdk, @ji/core/test-kit, @ji/ccc/land) untouched — phase-two package-scope surface per DO NOT TOUCH list."
+  },
+  {
+   "tier": "complex",
+   "id": "cs7-backup-refs",
+   "note": "Left the comment referencing @ji/flow/api untouched — it's a package-scope import path reference, not a renamable anchored form."
+  },
+  {
+   "tier": "complex",
+   "id": "cs7-backup-refs",
+   "note": "Did not touch flow/src/land/land.ts:68 (the byte-equal twin of constants.ts:1's COMMAND_NAME) since it is not in this changeset's file list; brief states it is a separate entry owned elsewhere and must stay byte-equal to whatever constants.ts ends up with."
+  },
+  {
+   "tier": "complex",
+   "id": "cs8-repo-identity",
+   "note": "example-spec.mjs:183 .ji/objectives path — the changeset instruction explicitly cited only line :14 for this rename, but I applied the same .ji→.ns anchor rule to this second identical-pattern occurrence for internal consistency; flagging in case the brief intended only the single cited line."
+  },
+  {
+   "tier": "complex",
+   "id": "cs9-agents-chain",
+   "note": "AGENTS.md :43 backticked `objective list` — left verbatim; it carries no `ji` anchor (bare subcommand reference in prose, not a `ji …` command line), so there is nothing to rename per anchored-forms rule"
+  },
+  {
+   "tier": "complex",
+   "id": "cs9-agents-chain",
+   "note": "AGENTS.md `areg skill find <name> --format json` lines (:68,:79,:81) — the invocations themselves contain no `ji` token; only the adjacent brand prose 'For ji first-party skills' was in-window and was renamed"
+  },
+  {
+   "tier": "complex",
+   "id": "cs11-graphite-command-channel",
+   "note": "Left the 'controlled SDL flow exec command' / 'unrelated sdl invocations' comment prose in graphite-command-channel.ts verbatim per the changeset instruction (branding-row survivor prose)."
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": "/Users/schrockn/code/sdl-tools/.gitignore",
+   "changed": true,
+   "replacements": [
+    {
+     "before": ".ji/tmp",
+     "after": ".ns/tmp"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": ".pi/extensions/objective-autopilot.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Submit uses ji flow submit --no-restack",
+     "after": "Submit uses ns flow submit --no-restack"
+    },
+    {
+     "before": "if (objective.startsWith(\".ji/objectives/\")) return objective;\n\treturn path.join(\".ji\", \"objectives\", objective);",
+     "after": "if (objective.startsWith(\".ns/objectives/\")) return objective;\n\treturn path.join(\".ns\", \"objectives\", objective);"
+    },
+    {
+     "before": "use `ji branch-context exec from-plan --branch-creation graphite ...` or `/ji:branch-context:from-plan --graphite ...`",
+     "after": "use `ns branch-context exec from-plan --branch-creation graphite ...` or `/ns:branch-context:from-plan --graphite ...`"
+    },
+    {
+     "before": "!file.startsWith(\".ji/objectives/\")",
+     "after": "!file.startsWith(\".ns/objectives/\")"
+    },
+    {
+     "before": "command: \"ji\", args: [\"flow\", \"submit\", \"--no-restack\"]",
+     "after": "command: \"ns\", args: [\"flow\", \"submit\", \"--no-restack\"]"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "docs-site/lib/extensions-catalog.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "commandHint: \"/ji:code:checkpoint\",",
+     "after": "commandHint: \"/ns:code:checkpoint\","
+    },
+    {
+     "before": "commandHint: \"/ji:branch-context:impl-attached-plan\",",
+     "after": "commandHint: \"/ns:branch-context:impl-attached-plan\","
+    }
+   ],
+   "skipped": [
+    "Line 82 sourcePath \".pi/extensions/ji.ts\" is now stale (the actual file was moved to .pi/extensions/ns.ts per the brief's own file-move note), but the file-specific note explicitly scopes this file's work to 'rename only' the two named command hints and says 'do NOT reconcile pre-existing drift' — left sourcePath untouched per that explicit scoping."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/address/src/core/feedback-summary.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "[\"<!-- ji-reviewer:\", \"ji_reviewer_marker\"],",
+     "after": "[\"<!-- ns-reviewer:\", \"ns_reviewer_marker\"],"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "$XDG_STATE_HOME/ji/enriched-plan/... defaulting to $HOME/.local/state/ji/enriched-plan/.... No legacy ~/.ji/enriched-plan fallback is read or written.",
+     "after": "$XDG_STATE_HOME/ns/enriched-plan/... defaulting to $HOME/.local/state/ns/enriched-plan/.... No fallback path is read or written; only $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md is used."
+    },
+    {
+     "before": "join(repoRoot, \".ji\") / assertSafeDirectory(sdlPath, \".ji\") / assertSafeDirectory(promptDir, \".ji/prompts\") / assertSafeFile(promptPath, `.ji/prompts/${WRITE_PLAN_PROMPT_NAME}.md`)",
+     "after": "join(repoRoot, \".ns\") / assertSafeDirectory(sdlPath, \".ns\") / assertSafeDirectory(promptDir, \".ns/prompts\") / assertSafeFile(promptPath, `.ns/prompts/${WRITE_PLAN_PROMPT_NAME}.md`)"
+    },
+    {
+     "before": "repoPromptPath: join(repoRoot, \".ji\", \"prompts\", ...)",
+     "after": "repoPromptPath: join(repoRoot, \".ns\", \"prompts\", ...)"
+    },
+    {
+     "before": "tool description/promptSnippet/promptGuidelines referencing `$XDG_STATE_HOME/ji/enriched-plan/...` and `$HOME/.local/state/ji/enriched-plan/...`",
+     "after": "same strings updated to `$XDG_STATE_HOME/ns/enriched-plan/...` and `$HOME/.local/state/ns/enriched-plan/...`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const ACTIVE_OBJECTIVE_PREFIX = \".ji/objectives/\";\nconst ACTIVE_OBJECTIVE_ROOT = \".ji/objectives\";\nconst ARCHIVE_OBJECTIVE_ROOT = \".ji/objective-archive\";",
+     "after": "const ACTIVE_OBJECTIVE_PREFIX = \".ns/objectives/\";\nconst ACTIVE_OBJECTIVE_ROOT = \".ns/objectives\";\nconst ARCHIVE_OBJECTIVE_ROOT = \".ns/objective-archive\";"
+    },
+    {
+     "before": "\"Pass an Objective slug or .ji/objectives/<slug> path.\" (line 74)",
+     "after": "\"Pass an Objective slug or .ns/objectives/<slug> path.\""
+    },
+    {
+     "before": "\"Objective selector must be a slug or a .ji/objectives/<slug> path using forward slashes.\"",
+     "after": "\"Objective selector must be a slug or a .ns/objectives/<slug> path using forward slashes.\""
+    },
+    {
+     "before": "command: \"ji\",",
+     "after": "command: \"ns\","
+    },
+    {
+     "before": "\"Pass an Objective slug or path below .ji/objectives/<slug>.\" (line 255)",
+     "after": "\"Pass an Objective slug or path below .ns/objectives/<slug>.\""
+    },
+    {
+     "before": "\"Objective path must be inside the current repo's .ji/objectives directory.\"",
+     "after": "\"Objective path must be inside the current repo's .ns/objectives directory.\""
+    },
+    {
+     "before": "\"Archived Objective paths are not supported; pass an active .ji/objectives/<slug> path.\"",
+     "after": "\"Archived Objective paths are not supported; pass an active .ns/objectives/<slug> path.\""
+    },
+    {
+     "before": "\"Pass an Objective slug or path below .ji/objectives/<slug>.\" (line 278)",
+     "after": "\"Pass an Objective slug or path below .ns/objectives/<slug>.\""
+    },
+    {
+     "before": "\"Pass an Objective slug or .ji/objectives/<slug> path.\" (line 281)",
+     "after": "\"Pass an Objective slug or .ns/objectives/<slug> path.\""
+    }
+   ],
+   "skipped": [
+    "@ji/core/command, @ji/core/machine-envelope, @ji/core/primitives, @ji/capability-kit/cmux/types import specifiers left verbatim — package scope is a DO NOT TOUCH phase-two surface per the brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "formatCommand(\"ji\", [",
+     "after": "formatCommand(\"ns\", ["
+    },
+    {
+     "before": "No saved plan from /ji:plan:save was found in the current session branch.\", \"Run /ji:plan:save first, then rerun the dispatch command.",
+     "after": "No saved plan from /ns:plan:save was found in the current session branch.\", \"Run /ns:plan:save first, then rerun the dispatch command."
+    },
+    {
+     "before": "Run /ji:plan:save first, then rerun /${config.commandName}.",
+     "after": "Run /ns:plan:save first, then rerun /${config.commandName}."
+    }
+   ],
+   "skipped": [
+    "Left all @ji/* import specifiers (lines 17, 23, 24, 30-35) untouched — package scope is an explicit DO-NOT-TOUCH phase-two surface per the brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/commands/push.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "gt submit / ji flow submit runs fail ... Use `ji flow submit` / `/ji:flow:submit`",
+     "after": "gt submit / ns flow submit runs fail ... Use `ns flow submit` / `/ns:flow:submit`"
+    },
+    {
+     "before": "`ji flow push` did not run `git push` ... use `ji flow submit` / `/ji:flow:submit`",
+     "after": "`ns flow push` did not run `git push` ... use `ns flow submit` / `/ns:flow:submit`"
+    },
+    {
+     "before": "`ji flow push` requires a clean worktree ... use `ji flow submit` / `/ji:flow:submit`",
+     "after": "`ns flow push` requires a clean worktree ... use `ns flow submit` / `/ns:flow:submit`"
+    },
+    {
+     "before": "prefer `ji flow submit`; if this push moved a PR branch",
+     "after": "prefer `ns flow submit`; if this push moved a PR branch"
+    },
+    {
+     "before": "needs the Graphite submit flow; use `ji flow submit` / `/ji:flow:submit`",
+     "after": "needs the Graphite submit flow; use `ns flow submit` / `/ns:flow:submit`"
+    }
+   ],
+   "skipped": [
+    "Left @ji/core, @ji/kernel/sdk, @ji/capability-kit/git import specifiers untouched — DO NOT TOUCH per brief (package scope survivor).",
+    "File-specific note mentioned a '../../submit/ji-runtime.ts import :18' phase-two survivor, but no such import exists in the current file content (line 18 is `type GitGateway,`); nothing to skip there since the referenced code isn't present."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "JI_DEV_PR_DESCRIPTION_MODEL",
+     "after": "NS_DEV_PR_DESCRIPTION_MODEL"
+    },
+    {
+     "before": "JI_DEV_PR_DESCRIPTION_PROMPT",
+     "after": "NS_DEV_PR_DESCRIPTION_PROMPT"
+    },
+    {
+     "before": "Spec: `.ji/objectives/cli-ux-north-star/house-style.md`.",
+     "after": "Spec: `.ns/objectives/cli-ux-north-star/house-style.md`."
+    }
+   ],
+   "skipped": [
+    "Line 26 REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\" left untouched per file-specific note: keep byte-equal with twin file",
+    "@ji/* import specifiers, SdlCommand/SdlExtensionApi type names, and 'SDL-managed' prose left untouched: DO NOT TOUCH phase-two/identity survivors"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/land.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const COMMAND_NAME = \"ji:flow:land\";",
+     "after": "const COMMAND_NAME = \"ns:flow:land\";"
+    }
+   ],
+   "skipped": [
+    "@ji/kernel, @ji/core, @ji/clinkr import specifiers and @ji/pi prose mention (lines 1,2,3,5,25,135) — DO NOT TOUCH: package scope is phase-two"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "formatCommand(\"ji\", [\"slot\", \"free\", \"--wt\", slotName])  (line 81, diagnostics.displayCommand fallback)",
+     "after": "formatCommand(\"ns\", [\"slot\", \"free\", \"--wt\", slotName])"
+    },
+    {
+     "before": "const freeCommand = formatCommand(\"ji\", [\"slot\", \"free\", \"--wt\", options.slotName]);  (line 130)",
+     "after": "const freeCommand = formatCommand(\"ns\", [\"slot\", \"free\", \"--wt\", options.slotName]);"
+    },
+    {
+     "before": "return `Run ${formatCommand(\"ji\", [...])}...`  (line 148)",
+     "after": "return `Run ${formatCommand(\"ns\", [...])}...`"
+    }
+   ],
+   "skipped": [
+    "Line 1 import specifier \"@ji/core/command\" left untouched — package scope is a phase-two DO NOT TOUCH surface"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`",
+     "after": "`ns flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`"
+    },
+    {
+     "before": "`ji flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`",
+     "after": "`ns flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`"
+    },
+    {
+     "before": "rerun /ji:flow:land.` (in derivePathToTrunk suggestedAction)",
+     "after": "rerun /ns:flow:land.`"
+    },
+    {
+     "before": "rerun /ji:flow:land.` (in formatForkViolations suggestedAction)",
+     "after": "rerun /ns:flow:land.`"
+    }
+   ],
+   "skipped": [
+    "Lines 3, 12, 25 (@ji/core/command, @ji/capability-kit/graphite/metadata import specifiers) left untouched: package-scope imports are explicitly DO NOT TOUCH (phase-two, PR-5 owns @ji/* scope)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "formatCommand(\"ji\", [\"slot\", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ji:flow:land.",
+     "after": "formatCommand(\"ns\", [\"slot\", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ns:flow:land."
+    },
+    {
+     "before": "manually, inspect PR heads, and rerun /ji:flow:land.",
+     "after": "manually, inspect PR heads, and rerun /ns:flow:land."
+    },
+    {
+     "before": "const commandDisplay = formatCommand(\"ji\", [\"slot\", ...freeArgs]);",
+     "after": "const commandDisplay = formatCommand(\"ns\", [\"slot\", ...freeArgs]);"
+    },
+    {
+     "before": "manually if appropriate, then rerun /ji:flow:land --yes.",
+     "after": "manually if appropriate, then rerun /ns:flow:land --yes."
+    },
+    {
+     "before": "\"ji slot free completed, but landing branches are still checked out in other worktrees.\"",
+     "after": "\"ns slot free completed, but landing branches are still checked out in other worktrees.\""
+    },
+    {
+     "before": "worktree checkouts manually, then rerun /ji:flow:land.",
+     "after": "worktree checkouts manually, then rerun /ns:flow:land."
+    },
+    {
+     "before": "blocking landing-branch worktrees manually, then rerun /ji:flow:land.",
+     "after": "blocking landing-branch worktrees manually, then rerun /ns:flow:land."
+    },
+    {
+     "before": "resolve the merge rejection, then rerun /ji:flow:land from the desired branch.",
+     "after": "resolve the merge rejection, then rerun /ns:flow:land from the desired branch."
+    }
+   ],
+   "skipped": [
+    "Line 1: import { formatCommand } from \"@ji/core/command\" left untouched — package scope @ji/* is explicitly a DO NOT TOUCH phase-two surface."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "pi.exec(\"ji\", [\"slot\", \"gt\", \"exec\", \"stack-branches\", ...])",
+     "after": "pi.exec(\"ns\", [\"slot\", \"gt\", \"exec\", \"stack-branches\", ...])"
+    },
+    {
+     "before": "`Could not parse ji slot gt exec stack-branches JSON: ${parsedJson.message}`",
+     "after": "`Could not parse ns slot gt exec stack-branches JSON: ${parsedJson.message}`"
+    },
+    {
+     "before": "`Unexpected ji slot gt exec stack-branches JSON shape: ${envelope.error.message}`",
+     "after": "`Unexpected ns slot gt exec stack-branches JSON shape: ${envelope.error.message}`"
+    },
+    {
+     "before": "`ji slot gt exec stack-branches failed with status ${envelope.data.status}`",
+     "after": "`ns slot gt exec stack-branches failed with status ${envelope.data.status}`"
+    }
+   ],
+   "skipped": [
+    "Line 21 sourcePackage: \"@ji/flow/pi\" left untouched - package scope is a DO NOT TOUCH phase-two surface",
+    "Lines 1,4,5,6 @ji/* imports left untouched - phase-two surface"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const PR_DESCRIPTION_PROMPT_ENV = \"JI_DEV_PR_DESCRIPTION_PROMPT\";",
+     "after": "export const PR_DESCRIPTION_PROMPT_ENV = \"NS_DEV_PR_DESCRIPTION_PROMPT\";"
+    },
+    {
+     "before": "export const REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\";",
+     "after": "export const REPO_PR_DESCRIPTION_PROMPT_PATH = \".ns/prompts/pr-description.md\";"
+    },
+    {
+     "before": "export const MANAGED_BODY_BEGIN_MARKER = \"<!-- ji-pr-description:begin\";\nexport const MANAGED_BODY_END_MARKER = \"<!-- ji-pr-description:end -->\";",
+     "after": "export const MANAGED_BODY_BEGIN_MARKER = \"<!-- ns-pr-description:begin\";\nexport const MANAGED_BODY_END_MARKER = \"<!-- ns-pr-description:end -->\";"
+    },
+    {
+     "before": "export const PR_DESCRIPTION_GENERATOR_VERSION = \"ji-pr-description-v2\";",
+     "after": "export const PR_DESCRIPTION_GENERATOR_VERSION = \"ns-pr-description-v2\";"
+    }
+   ],
+   "skipped": [
+    "Line 27: GENERATED_BODY_MARKER = \"<!-- generated-by: ji-dev pr-description v1 -->\" left unchanged — the file-specific note enumerates only lines 25,26,28,29,30 for renaming and omits line 27; this is a distinct legacy marker (not the managed begin/end marker or the generator-version constant) so its exclusion was treated as deliberate rather than an oversight.",
+    "Lines 5,10,11,12,13,14,15: @ji/capability-kit and @ji/core import specifiers left untouched — these are the @ji/* package scope, explicitly DO NOT TOUCH (phase-two) per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/fake-storage.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "/** Place the record under `.ji/objective-archive` instead of the active root. */",
+     "after": "/** Place the record under `.ns/objective-archive` instead of the active root. */"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/objective-picker.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "parts[0] !== \".ji\" || parts[1] !== \"objectives\"",
+     "after": "parts[0] !== \".ns\" || parts[1] !== \"objectives\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/objective-selection-flow.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"--\", \".ji/objectives\"] (diff args, line 217)",
+     "after": "\"--\", \".ns/objectives\"]"
+    },
+    {
+     "before": "\"--\", \".ji/objectives\"] (status args, line 238)",
+     "after": "\"--\", \".ns/objectives\"]"
+    },
+    {
+     "before": "\"No active Objectives. Create one with /ji:objective:create.\"",
+     "after": "\"No active Objectives. Create one with /ns:objective:create.\""
+    }
+   ],
+   "skipped": [
+    "Line 1 import \"@ji/core/exec\" left untouched — package scope is DO NOT TOUCH per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/storage.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const ACTIVE_OBJECTIVE_ROOT = \".ji/objectives\";\nexport const OBJECTIVE_ARCHIVE_ROOT = \".ji/objective-archive\";",
+     "after": "export const ACTIVE_OBJECTIVE_ROOT = \".ns/objectives\";\nexport const OBJECTIVE_ARCHIVE_ROOT = \".ns/objective-archive\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/pi/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "await pi.exec(\n\t\t\t\"ji\",",
+     "after": "await pi.exec(\n\t\t\t\"ns\","
+    },
+    {
+     "before": "cli: \"ji objective list\",",
+     "after": "cli: \"ns objective list\","
+    },
+    {
+     "before": "cli: \"ji objective exec read-objective plus direct Objective Markdown creation\",",
+     "after": "cli: \"ns objective exec read-objective plus direct Objective Markdown creation\","
+    },
+    {
+     "before": "cli: `ji objective ${spec.cliSubcommand}`,",
+     "after": "cli: `ns objective ${spec.cliSubcommand}`,"
+    }
+   ],
+   "skipped": [
+    "@ji/* import specifiers (lines 1,3,8-9,11-12,32,43-46) left untouched — phase-two DO NOT TOUCH package scope",
+    "sourcePackage: \"@ji/objective/pi\" values (lines 417, 430, 445) left untouched — same phase-two package-scope rule"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "[\"ji\", \"JI\"],",
+     "after": "[\"ns\", \"NS\"],"
+    },
+    {
+     "before": "return `.ji/reviews/${key}/review.md`;",
+     "after": "return `.ns/reviews/${key}/review.md`;"
+    }
+   ],
+   "skipped": [
+    "Line 10 `@ji/core/primitives` import specifier left untouched — package scope is a phase-two DO NOT TOUCH surface"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const SDL_DIRNAME = \".ji\";",
+     "after": "const SDL_DIRNAME = \".ns\";"
+    },
+    {
+     "before": "options.reviewsDir ?? \"/repo/.ji/reviews\";",
+     "after": "options.reviewsDir ?? \"/repo/.ns/reviews\";"
+    }
+   ],
+   "skipped": [
+    "Lines 4-7 @ji/core and @ji/capability-kit import specifiers left untouched — DO NOT TOUCH: package scope per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/jicc/src/objective-tab.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "deps.runCommand(\"ji\", args, {",
+     "after": "deps.runCommand(\"ns\", args, {"
+    },
+    {
+     "before": "formatInlineCommandFailure(\"ji objective list\", result)",
+     "after": "formatInlineCommandFailure(\"ns objective list\", result)"
+    }
+   ],
+   "skipped": [
+    "@ji/core and @ji/objective/api import specifiers left untouched — DO NOT TOUCH per brief (package scope is phase-two)"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/jicc/src/stack-map-model-loader.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"Loaded from `ji slot gt exec stack-map-branches --format json`.\",",
+     "after": "\"Loaded from `ns slot gt exec stack-map-branches --format json`.\","
+    },
+    {
+     "before": "await runCommand(\n\t\t\"ji\",\n\t\t[\"slot\", \"gt\", \"exec\", \"stack-map-branches\", \"--format\", \"json\"],",
+     "after": "await runCommand(\n\t\t\"ns\",\n\t\t[\"slot\", \"gt\", \"exec\", \"stack-map-branches\", \"--format\", \"json\"],"
+    },
+    {
+     "before": "\"ji slot gt exec stack-map-branches JSON\",",
+     "after": "\"ns slot gt exec stack-map-branches JSON\","
+    },
+    {
+     "before": "message: \"ji slot gt stack-map data was not an object.\"",
+     "after": "message: \"ns slot gt stack-map data was not an object.\""
+    },
+    {
+     "before": "message: \"ji slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.\",",
+     "after": "message: \"ns slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.\","
+    }
+   ],
+   "skipped": [
+    "@ji/core/machine-envelope and @ji/core/primitives imports (lines 1-2) left untouched — @ji/* package scope is an explicit phase-two survivor",
+    "\"jicc stack map\" title strings (lines 198, 522) left untouched — jicc package/dir name is a phase-two survivor per the file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/ack.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = \"ji-command-ack\"",
+     "after": "IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = \"ns-command-ack\""
+    },
+    {
+     "before": "IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = \"ji-command-progress\"",
+     "after": "IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = \"ns-command-progress\""
+    },
+    {
+     "before": "IMMEDIATE_COMMAND_ACK_STATUS_KEY = \"ji-command-ack\"",
+     "after": "IMMEDIATE_COMMAND_ACK_STATUS_KEY = \"ns-command-ack\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "LIVE_PROGRESS_STATUS_ID = \"ji-cli-command\";",
+     "after": "LIVE_PROGRESS_STATUS_ID = \"ns-cli-command\";"
+    },
+    {
+     "before": "LIVE_PROGRESS_WIDGET_ID = \"ji-cli-command-output\";",
+     "after": "LIVE_PROGRESS_WIDGET_ID = \"ns-cli-command-output\";"
+    }
+   ],
+   "skipped": [
+    "@ji/core/timers and @ji/core/time-format import specifiers left untouched — package scope @ji/* is phase-two DO NOT TOUCH"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-trace.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const TRACE_ENV = \"JI_PI_CLI_TRACE\";",
+     "after": "const TRACE_ENV = \"NS_PI_CLI_TRACE\";"
+    },
+    {
+     "before": "const TRACE_OUTPUT_ENV = \"JI_PI_CLI_TRACE_OUTPUT\";",
+     "after": "const TRACE_OUTPUT_ENV = \"NS_PI_CLI_TRACE_OUTPUT\";"
+    },
+    {
+     "before": "const TRACE_PATH_ENV = \"JI_PI_CLI_TRACE_PATH\";",
+     "after": "const TRACE_PATH_ENV = \"NS_PI_CLI_TRACE_PATH\";"
+    },
+    {
+     "before": "const DEFAULT_TRACE_FILENAME = \"ji-pi-cli-command-extension.jsonl\";",
+     "after": "const DEFAULT_TRACE_FILENAME = \"ns-pi-cli-command-extension.jsonl\";"
+    }
+   ],
+   "skipped": [
+    "Line 4: `@ji/capability-kit/xdg` import specifier and `requireSdlStatePath` identifier left untouched — DO NOT TOUCH list covers @ji/* package scope and sdl-named identifiers (phase-two surfaces)."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"ji-cli-command-output\";",
+     "after": "export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"ns-cli-command-output\";"
+    }
+   ],
+   "skipped": [
+    "@ji/core/primitives and @ji/kernel/sdk import specifiers left untouched — package scope is a phase-two DO NOT TOUCH surface",
+    "SdlConfirmOptions type identifier left untouched — Sdl-prefixed identifiers are phase-two DO NOT TOUCH survivors"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/core/pr/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "cli: \"ji address exec download-feedback\",",
+     "after": "cli: \"ns address exec download-feedback\","
+    },
+    {
+     "before": "cli: \"ji slot gt exec stack-branches --downstack + ji address exec map-branch-prs + ji address exec download-feedback\",",
+     "after": "cli: \"ns slot gt exec stack-branches --downstack + ns address exec map-branch-prs + ns address exec download-feedback\","
+    },
+    {
+     "before": "pi.exec(\"ji\", [\"slot\", \"gt\", \"exec\", \"stack-branches\", ...]) ... label: \"ji slot gt exec stack-branches\"",
+     "after": "pi.exec(\"ns\", [\"slot\", \"gt\", \"exec\", \"stack-branches\", ...]) ... label: \"ns slot gt exec stack-branches\""
+    },
+    {
+     "before": "pi.exec(\"ji\", [\"address\", \"exec\", \"map-branch-prs\", ...]) ... label: \"ji address exec map-branch-prs\"",
+     "after": "pi.exec(\"ns\", [\"address\", \"exec\", \"map-branch-prs\", ...]) ... label: \"ns address exec map-branch-prs\""
+    }
+   ],
+   "skipped": [
+    "Left `@ji/core/primitives` import and `sourcePackage: \"@ji/pi\"` (lines 6, 70, 82) untouched — these are @ji/* package-scope references, explicitly DO NOT TOUCH per brief (phase-two surface)."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/core/pr/feedback-download.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "{ command: \"ji\", baseArgs: [\"address\"] }",
+     "after": "{ command: \"ns\", baseArgs: [\"address\"] }"
+    },
+    {
+     "before": "label: \"ji address exec download-feedback JSON\",",
+     "after": "label: \"ns address exec download-feedback JSON\","
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/core/primitives` import specifier — phase-two @ji/* package scope, left untouched per DO NOT TOUCH list"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const HARNESS_SESSION_ENTRY_TYPE = \"ji-harness-session-id\";",
+     "after": "const HARNESS_SESSION_ENTRY_TYPE = \"ns-harness-session-id\";"
+    }
+   ],
+   "skipped": [
+    "Lines 1-2: `@ji/core/exec` and `@ji/core/primitives` import specifiers are DO NOT TOUCH (package scope @ji/*, phase-two surface)."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "markers: [join(\".ji\", \"pi\", \"agents\")],",
+     "after": "markers: [join(\".ns\", \"pi\", \"agents\")],"
+    },
+    {
+     "before": "return join(root, \".ji\", \"pi\", \"agents\");",
+     "after": "return join(root, \".ns\", \"pi\", \"agents\");"
+    },
+    {
+     "before": "throw new Error(`Could not find .ji/pi/agents while walking up from ${cwd}.`);",
+     "after": "throw new Error(`Could not find .ns/pi/agents while walking up from ${cwd}.`);"
+    }
+   ],
+   "skipped": [
+    "Line 8: PI_AGENT_DEFINITION_SCHEMA = \"ji.pi-agent.v1\" — dot-separated schema literal, not an anchored form in the rename list (not a `.ji/` path, not a `ji:*` namespace, not a CLI/env/ref form); left verbatim.",
+    "findSdlPiAgentsDir identifier (line 44/61) — TS identifier containing sdl/ji; DO-NOT-TOUCH per brief.",
+    "@ji/core and @ji/capability-kit import specifiers (lines 4-6) — package scope, DO-NOT-TOUCH per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "join(repoRoot.value, \".ji\", \"prompts\", `${request.name}.md`)",
+     "after": "join(repoRoot.value, \".ns\", \"prompts\", `${request.name}.md`)"
+    }
+   ],
+   "skipped": [
+    "Line 3: `@ji/clinkr` import specifier is a package-scope reference — explicitly DO NOT TOUCH per brief.",
+    "Line 44: 'sdl checkout' prose is brand prose outside root onboarding docs — defers per brief, left verbatim."
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/package.json",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"bin\": {\n\t\t\"ji\": \"./src/cli/index.ts\"\n\t},",
+     "after": "\"bin\": {\n\t\t\"ns\": \"./src/cli/index.ts\"\n\t},"
+    }
+   ],
+   "skipped": [
+    "Line 14 \"ji\": { (extension-manifest key) — explicitly a phase-two survivor per file-specific note, left untouched",
+    "Line 2 \"name\": \"@ji/kernel\" — package scope survivor per brief DO NOT TOUCH list, left untouched",
+    "Lines 42-43 \"@ji/clinkr\" / \"@ji/core\" workspace deps — package scope survivors, left untouched"
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "// `exec-<name>` is mounted as hidden `ji <group> exec <name>` so agent-only",
+     "after": "// `exec-<name>` is mounted as hidden `ns <group> exec <name>` so agent-only"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "this.pi.exec(\"which\", [\"ji\"], {",
+     "after": "this.pi.exec(\"which\", [\"ns\"], {"
+    },
+    {
+     "before": "this.runner = { command: \"ji\", baseArgs: [\"address\"] };",
+     "after": "this.runner = { command: \"ns\", baseArgs: [\"address\"] };"
+    },
+    {
+     "before": "message: \"Could not find ji. Expected `ji` on PATH (installed with `just install-tools`).\",",
+     "after": "message: \"Could not find ns. Expected `ns` on PATH (installed with `just install-tools`).\","
+    }
+   ],
+   "skipped": [
+    "Left `pathSdl` identifier name unchanged as instructed by the file-specific note (stale identifier stays)",
+    "Lines 2-4 `@ji/core/*` and `@ji/pi/*` import specifiers left untouched — DO NOT TOUCH phase-two package scope"
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-previews/preview-checks-command.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "await options.runtime.pi.exec(\n\t\t\"ji\",",
+     "after": "await options.runtime.pi.exec(\n\t\t\"ns\","
+    },
+    {
+     "before": "label: \"ji address exec pr-checks\",",
+     "after": "label: \"ns address exec pr-checks\","
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-previews/preview-feedback-command.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "label: \"ji address exec download-feedback\",",
+     "after": "label: \"ns address exec download-feedback\","
+    },
+    {
+     "before": "label: `ji address exec pr-review-threads #${options.prNumber}`,",
+     "after": "label: `ns address exec pr-review-threads #${options.prNumber}`,"
+    },
+    {
+     "before": "options.runtime.pi.exec(\"ji\", options.args, {",
+     "after": "options.runtime.pi.exec(\"ns\", options.args, {"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/thermo-council/constants.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "HEAD:.ji/reviews/thermonuclear-review/review.md",
+     "after": "HEAD:.ns/reviews/thermonuclear-review/review.md"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/thermo-council/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": ".ji/reviews/thermonuclear-review/review.md",
+     "after": ".ns/reviews/thermonuclear-review/review.md"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/thermo-council/prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "## Canonical Rubric: .ji/reviews/thermonuclear-review/review.md",
+     "after": "## Canonical Rubric: .ns/reviews/thermonuclear-review/review.md"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "close review threads with `ji address exec close-review-threads --thread-ids-json",
+     "after": "close review threads with `ns address exec close-review-threads --thread-ids-json"
+    }
+   ],
+   "skipped": [
+    "Line 1: `@ji/capability-kit/git` import specifier is DO-NOT-TOUCH (package scope, phase-two)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Use ji aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+     "after": "Use ns aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "attach it with `ji branch-context exec from-plan`,",
+     "after": "attach it with `ns branch-context exec from-plan`,"
+    }
+   ],
+   "skipped": [
+    "@ji/core/primitives, @ji/core/exec, @ji/capability-kit/git, @ji/plans import specifiers left untouched — package scope is a DO NOT TOUCH phase-two surface"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "cli: \"ji branch-context exec from-plan\",",
+     "after": "cli: \"ns branch-context exec from-plan\","
+    },
+    {
+     "before": "cli: \"ji branch-context exec load\",",
+     "after": "cli: \"ns branch-context exec load\","
+    }
+   ],
+   "skipped": [
+    "@ji/pi/commands, @ji/pi/parity/extension imports, and sourcePackage: \"@ji/branch-context/pi\" fields left untouched — @ji/* package scope is DO NOT TOUCH (phase-two)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"2. Then run `!ji flow submit`.\",",
+     "after": "\"2. Then run `!ns flow submit`.\","
+    }
+   ],
+   "skipped": [
+    "Lines 10,18,19,20,27,28,31,32: @ji/* import specifiers — DO NOT TOUCH per brief (phase-two package scope rename)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/sidebar.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const SIDEBAR_MODEL_ENV = \"JI_CCC_SIDEBAR_MODEL\";",
+     "after": "const SIDEBAR_MODEL_ENV = \"NS_CCC_SIDEBAR_MODEL\";"
+    },
+    {
+     "before": "notify(ctx, \"Pass an Objective slug or .ji/objectives/<slug> path.\", \"warning\");",
+     "after": "notify(ctx, \"Pass an Objective slug or .ns/objectives/<slug> path.\", \"warning\");"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/ji/autoslot-presentation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "the copyable `ji slot co <branch>`",
+     "after": "the copyable `ns slot co <branch>`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji slot checkout --current` requires a clean worktree.",
+     "after": "`ns slot checkout --current` requires a clean worktree."
+    },
+    {
+     "before": "but ji slot checkout failed.",
+     "after": "but ns slot checkout failed."
+    },
+    {
+     "before": "guidance: `ji slot co ${slot.target.branchName}`,",
+     "after": "guidance: `ns slot co ${slot.target.branchName}`,"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "the copyable `ji slot co <branch>`",
+     "after": "the copyable `ns slot co <branch>`"
+    }
+   ],
+   "skipped": [
+    "@ji/clinkr and @ji/core/cli-theme import specifiers left verbatim (package scope, DO NOT TOUCH)",
+    "SdlCommandIo identifier in JSDoc left verbatim (identifier survivor, DO NOT TOUCH)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/commands/autobranch.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "If the worktree is clean, use `ji flow branch-latest-commit`",
+     "after": "If the worktree is clean, use `ns flow branch-latest-commit`"
+    },
+    {
+     "before": "commandLabel: \"`ji flow autobranch`\",",
+     "after": "commandLabel: \"`ns flow autobranch`\","
+    },
+    {
+     "before": "headline: \"`ji flow autobranch` requires pending worktree changes and did not run.\",",
+     "after": "headline: \"`ns flow autobranch` requires pending worktree changes and did not run.\","
+    },
+    {
+     "before": "\"Use `ji flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.\",",
+     "after": "\"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.\","
+    }
+   ],
+   "skipped": [
+    "src/ji/ path segment in filename left untouched (survivor per brief)",
+    "@ji/core, @ji/kernel, @ji/capability-kit import specifiers left untouched (phase-two DO NOT TOUCH)",
+    "SdlCommand, SdlExtensionApi, SdlCommandIo, runWithSdlCommandIo, commandIoFromSdlExtensionApi identifiers left untouched (contain sdl, phase-two DO NOT TOUCH)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Use `ji flow autobranch` instead when pending dirty worktree changes should be moved to a new branch.",
+     "after": "Use `ns flow autobranch` instead when pending dirty worktree changes should be moved to a new branch."
+    },
+    {
+     "before": "commandLabel: \"`ji flow branch-latest-commit`\",",
+     "after": "commandLabel: \"`ns flow branch-latest-commit`\","
+    },
+    {
+     "before": "headline: \"`ji flow branch-latest-commit` requires a clean worktree and did not run.\",",
+     "after": "headline: \"`ns flow branch-latest-commit` requires a clean worktree and did not run.\","
+    },
+    {
+     "before": "\"Use `ji flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.\",",
+     "after": "\"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.\","
+    }
+   ],
+   "skipped": [
+    "Left @ji/core, @ji/kernel/sdk import specifiers untouched — phase-two survivor per DO NOT TOUCH list",
+    "Left src/ji/ path segment (file's own directory path) untouched per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/commands/cp.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "title: \"ji flow cp\",",
+     "after": "title: \"ns flow cp\","
+    }
+   ],
+   "skipped": [
+    "Left all @ji/* import specifiers (lines 1-3, 14) untouched — DO NOT TOUCH per brief",
+    "Left src/ji/ path segment and createSdlCheckpointRuntime/SdlCommand/SdlProgressPhaseListener identifiers untouched — phase-two survivors per brief and file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/commands/land.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const BASE_LAND_TITLE = \"ji flow land\";",
+     "after": "const BASE_LAND_TITLE = \"ns flow land\";"
+    }
+   ],
+   "skipped": [
+    "@ji/kernel/command-io, @ji/kernel/sdk, @ji/clinkr package scope imports - phase-two DO NOT TOUCH",
+    "SdlCommand/SdlCommandIo/SdlExtensionApi/SdlNotifyLevel/SdlProgressPhaseEvent identifiers - contain sdl in casing, phase-two DO NOT TOUCH",
+    "src/ji/ path segment in file's own directory - explicitly left per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": ".ji/objectives/cli-ux-north-star/house-style.md",
+     "after": ".ns/objectives/cli-ux-north-star/house-style.md"
+    }
+   ],
+   "skipped": [
+    "`@ji/clinkr`, `@ji/core/cli-theme`, `@ji/kernel/sdk` import specifiers left untouched (DO NOT TOUCH: @ji/* package scope)",
+    "`src/ji/presentation/` path segment in file path/comments left untouched (DO NOT TOUCH: src/ji/ path segments)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji flow autobranch` and `ji flow branch-latest-commit` both load the same",
+     "after": "`ns flow autobranch` and `ns flow branch-latest-commit` both load the same"
+    },
+    {
+     "before": "e.g. \"`ji flow autobranch`\".",
+     "after": "e.g. \"`ns flow autobranch`\"."
+    }
+   ],
+   "skipped": [
+    "Left `import type { Caps } from \"@ji/clinkr\";` unchanged — @ji/* package scope is a DO NOT TOUCH phase-two surface.",
+    "Left `src/ji/presentation` path context unchanged per file-specific note instruction."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/ji/worktree.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "prefix: \"ji-extension-cp-commit-\"",
+     "after": "prefix: \"ns-extension-cp-commit-\""
+    }
+   ],
+   "skipped": [
+    "@ji/capability-kit, @ji/core, @ji/kernel import specifiers left untouched — DO NOT TOUCH: package scope is phase-two",
+    "src/ji/ file path (implied by module location) left untouched — DO NOT TOUCH: src/ji/ path segments are phase-two",
+    "SdlExtensionApi, SdlCliExecAdapter, createSdlCliExecAdapter, execSdlCommand, execSdlGit, createCliExecAdapter, execExtensionCommand identifiers left untouched — DO NOT TOUCH: TS identifiers containing sdl/ji are phase-two"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/preflight.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun /ji:flow:land.",
+     "after": "rerun /ns:flow:land."
+    }
+   ],
+   "skipped": [
+    "Line 144: \"@ji/flow land preflight planning...\" — @ji/ is the package scope, explicitly listed as DO NOT TOUCH (phase-two surface); left verbatim."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun /ji:flow:land if appropriate",
+     "after": "rerun /ns:flow:land if appropriate (applied at all 12 occurrences: lines 114, 123, 222, 239, 285, 313, 449, 466, 604, 673, 920, 928, 929)"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "// Flow-local facade for the `ji flow land` CLI surface.",
+     "after": "// Flow-local facade for the `ns flow land` CLI surface."
+    }
+   ],
+   "skipped": [
+    "Line 8 `@ji/clinkr` and line 9/4 `@ji/core/cli-theme` package scope references left untouched — DO NOT TOUCH per brief (package scope survivors)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun /ji:flow:land --yes.` (line 51)",
+     "after": "rerun /ns:flow:land --yes.`"
+    },
+    {
+     "before": "rerun /ji:flow:land --yes.` (line 54)",
+     "after": "rerun /ns:flow:land --yes.`"
+    },
+    {
+     "before": "rerun /ji:flow:land.` (line 69)",
+     "after": "rerun /ns:flow:land.`"
+    },
+    {
+     "before": "rerun /ji:flow:land.` (line 86)",
+     "after": "rerun /ns:flow:land.`"
+    },
+    {
+     "before": "rerun /ji:flow:land.` (line 100)",
+     "after": "rerun /ns:flow:land.`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "check out a branch before running /ji:flow:land.",
+     "after": "check out a branch before running /ns:flow:land."
+    },
+    {
+     "before": "Could not resolve current branch before running /ji:flow:land.",
+     "after": "Could not resolve current branch before running /ns:flow:land."
+    }
+   ],
+   "skipped": [
+    "@ji/core and @ji/capability-kit import specifiers left untouched — DO NOT TOUCH phase-two surface (@ji/* package scope)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "in `.ji/objectives/cli-ux-north-star/house-style.md`.",
+     "after": "in `.ns/objectives/cli-ux-north-star/house-style.md`."
+    }
+   ],
+   "skipped": [
+    "`@ji/clinkr`, `@ji/clinkr/stream`, `@ji/kernel/sdk` import specifiers left untouched — package scope is explicit DO NOT TOUCH (phase-two)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "prefix: \"ji-dev-pr-body-\"",
+     "after": "prefix: \"ns-dev-pr-body-\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun `ji flow submit`. (trunk_out_of_date message)",
+     "after": "rerun `ns flow submit`."
+    },
+    {
+     "before": "delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ji flow submit`.",
+     "after": "same with `ns flow submit`"
+    },
+    {
+     "before": "Otherwise, commit real changes to it, then rerun `ji flow submit`.",
+     "after": "same with `ns flow submit`"
+    },
+    {
+     "before": "delete it, then rerun `ji flow submit`:",
+     "after": "delete it, then rerun `ns flow submit`:"
+    },
+    {
+     "before": "Otherwise, commit real changes to ${branchName}, then rerun `ji flow submit`.",
+     "after": "same with `ns flow submit`"
+    },
+    {
+     "before": "Fix:    run `gt sync` (or `gt get`), then rerun `ji flow submit`.",
+     "after": "same with `ns flow submit`"
+    },
+    {
+     "before": "Bypass: `ji flow submit --force` skips Graphite's remote-update check.",
+     "after": "Bypass: `ns flow submit --force` ..."
+    },
+    {
+     "before": "reparent ${affectedBranch} onto a trunk that already contains them, then rerun `ji flow submit`.",
+     "after": "same with `ns flow submit`"
+    }
+   ],
+   "skipped": [
+    "Left `@ji/core/primitives` and `@ji/core/terminal-escapes` import specifiers untouched — package scope @ji/* is DO-NOT-TOUCH (phase-two)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "run `ji flow regenerate-pr` if needed.",
+     "after": "run `ns flow regenerate-pr` if needed."
+    },
+    {
+     "before": "rerun `ji flow submit`.\" (line 133)",
+     "after": "rerun `ns flow submit`.\" (line 133)"
+    },
+    {
+     "before": "If confirmed, ji flow submit will run:",
+     "after": "If confirmed, ns flow submit will run:"
+    },
+    {
+     "before": "rerun `ji flow submit`.\" (line 167, identical text to 133)",
+     "after": "rerun `ns flow submit`.\" (line 167)"
+    },
+    {
+     "before": "rerun `ji flow submit`.\" (conflict variant, line 181)",
+     "after": "rerun `ns flow submit`.\" (line 181)"
+    },
+    {
+     "before": "Graphite still needs a restack after `ji flow submit` already ran...",
+     "after": "Graphite still needs a restack after `ns flow submit` already ran... (line 187)"
+    },
+    {
+     "before": "then rerun `ji flow submit`.` (line 189)",
+     "after": "then rerun `ns flow submit`.` (line 189)"
+    },
+    {
+     "before": "rerun ji flow submit after resolving the Graphite failure. (line 245)",
+     "after": "rerun ns flow submit after resolving the Graphite failure. (line 245)"
+    },
+    {
+     "before": "`ji flow submit` checkpoints outstanding worktree changes... (line 317)",
+     "after": "`ns flow submit` checkpoints outstanding worktree changes... (line 317)"
+    },
+    {
+     "before": "rerun `ji flow submit` after resolving the reported issue. (line 318)",
+     "after": "rerun `ns flow submit` after resolving the reported issue. (line 318)"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/core/terminal-escapes` import left untouched — @ji/* package scope is an explicit phase-two DO NOT TOUCH item."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Checkout the branch and run `ji flow regenerate-pr` to regenerate its PR description.",
+     "after": "Checkout the branch and run `ns flow regenerate-pr` to regenerate its PR description."
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/core/result` and line 5 `@ji/capability-kit/gateway-result` imports left untouched — `@ji/*` package scope is explicitly DO NOT TOUCH (phase-two surface)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/text-generation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const PR_DESCRIPTION_MODEL_ENV = \"JI_DEV_PR_DESCRIPTION_MODEL\";",
+     "after": "export const PR_DESCRIPTION_MODEL_ENV = \"NS_DEV_PR_DESCRIPTION_MODEL\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before ji handoff create succeeds.",
+     "after": "do not call it before ns handoff create succeeds."
+    }
+   ],
+   "skipped": [
+    "CLAUDE_HANDOFF_LAUNCH_TOOL_NAME identifier left untouched per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/create-prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "ji handoff create --slug",
+     "after": "ns handoff create --slug"
+    },
+    {
+     "before": "If \\`ji handoff create\\` is unavailable",
+     "after": "If \\`ns handoff create\\` is unavailable"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/create.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'",
+     "after": "`ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'"
+    }
+   ],
+   "skipped": [
+    "Line 3 `@ji/pi/skills/expansion` import specifier left untouched — DO NOT TOUCH per brief (package scope, phase-two)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/launch-flow.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`Store the exact final Markdown content through /dev/stdin with \\`ji handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\\`. Do not create a temporary artifact file.`",
+     "after": "`Store the exact final Markdown content through /dev/stdin with \\`ns handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\\`. Do not create a temporary artifact file.`"
+    },
+    {
+     "before": "`If \\`ji handoff create\\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`",
+     "after": "`If \\`ns handoff create\\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`"
+    },
+    {
+     "before": "`After \\`ji handoff create\\` succeeds, call ${copy.toolName} with ...`",
+     "after": "`After \\`ns handoff create\\` succeeds, call ${copy.toolName} with ...`"
+    }
+   ],
+   "skipped": [
+    "Lines 1, 4, 14: @ji/core and @ji/pi import specifiers left untouched — explicitly in the DO NOT TOUCH phase-two list (package scope @ji/*)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "cli: \"ji handoff create\",",
+     "after": "cli: \"ns handoff create\","
+    },
+    {
+     "before": "stored through `ji handoff create` after model confirmation.",
+     "after": "stored through `ns handoff create` after model confirmation."
+    },
+    {
+     "before": "cli: \"ji handoff pickup\",",
+     "after": "cli: \"ns handoff pickup\","
+    },
+    {
+     "before": "cli: \"ji handoff list\",",
+     "after": "cli: \"ns handoff list\","
+    }
+   ],
+   "skipped": [
+    "sourcePackage: \"@ji/handoff/pi\" (lines 30, 43, 56, 68, 82) left as-is: @ji/* package scope is explicitly DO NOT TOUCH (phase-two)",
+    "import specifiers \"@ji/pi/commands/ack\" and \"@ji/pi/parity/extension\" left as-is: @ji/* package scope import specifiers are DO NOT TOUCH (phase-two)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/self.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before ji handoff create succeeds.",
+     "after": "do not call it before ns handoff create succeeds."
+    },
+    {
+     "before": "toolCallInstruction: `After \\`ji handoff create\\` succeeds, call ...",
+     "after": "toolCallInstruction: `After \\`ns handoff create\\` succeeds, call ..."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before ji handoff create succeeds.",
+     "after": "do not call it before ns handoff create succeeds."
+    }
+   ],
+   "skipped": [
+    "@ji/core/primitives, @ji/pi/runtime/primitives, @ji/capability-kit/cmux/focused-terminal-tab import specifiers (lines 6, 8, 9) — package scope @ji/* is DO NOT TOUCH per brief (phase-two surface)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/operations/check-items.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji objective check`",
+     "after": "`ns objective check`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": ".ji/extensions/objective/package.json",
+     "after": ".ns/extensions/objective/package.json"
+    },
+    {
+     "before": ".ji/extensions/objective/src/commands/exec-runner-step.ts",
+     "after": ".ns/extensions/objective/src/commands/exec-runner-step.ts"
+    }
+   ],
+   "skipped": [
+    "Left `@ji/capability-kit/ji-command` import (line 9) untouched — package scope/import specifier, phase-two DO NOT TOUCH",
+    "Left all other @ji/* imports (clinkr, core/primitives, core/time, kernel/sdk) untouched — package scope survivors",
+    "Left `\"./sdl/commands/exec-runner-step\"` export-subpath reference untouched — explicitly called out as survivor in file-specific note",
+    "Left `../../pi/child-session/pi-child-session-gateway.ts` relative import comment (mentions @ji/pi peer) untouched — package scope survivor"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const SDL_RUNNER_PI_BIN_ENV = \"JI_RUNNER_PI_BIN\";",
+     "after": "export const SDL_RUNNER_PI_BIN_ENV = \"NS_RUNNER_PI_BIN\";"
+    },
+    {
+     "before": "/** Host environment; `JI_RUNNER_PI_BIN` overrides the `pi` binary. */",
+     "after": "/** Host environment; `NS_RUNNER_PI_BIN` overrides the `pi` binary. */"
+    },
+    {
+     "before": "return await mkdtemp(join(tmpdir(), \"ji-objective-runner-\"));",
+     "after": "return await mkdtemp(join(tmpdir(), \"ns-objective-runner-\"));"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Alias for ji roaster review list.",
+     "after": "Alias for ns roaster review list."
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/kernel/sdk` import specifier left untouched — package scope `@ji/*` is explicitly phase-two DO NOT TOUCH."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const SLOT_DIAGNOSTIC_LOG_ENV = \"JI_SLOT_DIAGNOSTIC_LOG\";",
+     "after": "export const SLOT_DIAGNOSTIC_LOG_ENV = \"NS_SLOT_DIAGNOSTIC_LOG\";"
+    }
+   ],
+   "skipped": [
+    "Lines 2 and 10: `@ji/core/primitives` and `@ji/core/command` import specifiers — DO NOT TOUCH per brief (package scope is phase-two)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/ji/command-face.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "The supported user-facing surface is `ji slot ...`,",
+     "after": "The supported user-facing surface is `ns slot ...`,"
+    }
+   ],
+   "skipped": [
+    "`@ji/clinkr` and `@ji/kernel` import specifiers, and the `src/ji/` path segment: left untouched per file-specific note (phase-two survivors)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/checkout.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Check out a branch before running `ji slot checkout --current`.",
+     "after": "Check out a branch before running `ns slot checkout --current`."
+    },
+    {
+     "before": "Commit or stash before running `ji slot checkout --current`.",
+     "after": "Commit or stash before running `ns slot checkout --current`."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Pass a command after --, e.g. `ji slot foreach -- git clean -fd`.",
+     "after": "Pass a command after --, e.g. `ns slot foreach -- git clean -fd`."
+    },
+    {
+     "before": "\"ji slot foreach requires --yes in JSON mode.\"",
+     "after": "\"ns slot foreach requires --yes in JSON mode.\""
+    },
+    {
+     "before": "`ji slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`",
+     "after": "`ns slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/core/command` and `@ji/clinkr` import specifiers left untouched — package scope is an explicit DO NOT TOUCH survivor"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Run \\`ji slot free --wt ${slotName}\\` to clear the stale assignment.",
+     "after": "Run \\`ns slot free --wt ${slotName}\\` to clear the stale assignment."
+    }
+   ],
+   "skipped": [
+    "Line 1: `@ji/clinkr` package scope import — DO NOT TOUCH per brief (phase-two surface)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Run `ji slot checkout <branch>` for the branch you want.",
+     "after": "Run `ns slot checkout <branch>` for the branch you want."
+    }
+   ],
+   "skipped": [
+    "Line 1: import from \"@ji/clinkr\" left untouched — package scope rename is a DO NOT TOUCH phase-two surface."
+   ]
+  },
+  {
+   "file": "ts/packages/capability-kit/src/git/testing.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "options.prefix ?? \"ji-git-test-\"",
+     "after": "options.prefix ?? \"ns-git-test-\""
+    }
+   ],
+   "skipped": [
+    "Line 53 fake email default \"ji-test@example.com\" left untouched per file-specific note",
+    "Line 6 @ji/core/primitives import left untouched per file-specific note (phase-two survivor)",
+    "Line 54 \"SDL Test\" username default left as-is — not an enumerated anchored form in the brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capability-kit/src/kit/text-generation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"JI_CHECKPOINT_MODEL\"",
+     "after": "\"NS_CHECKPOINT_MODEL\""
+    },
+    {
+     "before": "\"JI_DEV_CHECKPOINT_MODEL\"",
+     "after": "\"NS_DEV_CHECKPOINT_MODEL\""
+    },
+    {
+     "before": "\"JI_CHANGES_MODEL\"",
+     "after": "\"NS_CHANGES_MODEL\""
+    },
+    {
+     "before": "\"JI_SUBMIT_FAILURE_MODEL\"",
+     "after": "\"NS_SUBMIT_FAILURE_MODEL\""
+    }
+   ],
+   "skipped": [
+    "Line 1 import from \"@ji/core/model-slug\" left untouched — @ji/* package scope is a DO NOT TOUCH phase-two surface",
+    "LEGACY_CHANGES_MODEL_ENV value \"PI_DRAFT_MODEL\" left untouched — not a JI_* env var name, out of scope"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/jicc/src/stack-map-effects.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "return `ji slot checkout failed (${failure.errorType}): ${failure.message}`;",
+     "after": "return `ns slot checkout failed (${failure.errorType}): ${failure.message}`;"
+    }
+   ],
+   "skipped": [
+    "Line 3 `@ji/core/exec` and line 9 `@ji/slot/api` — package scope import specifiers, DO NOT TOUCH per brief.",
+    "Line 30/121/155/159/160 `jicc`/`JICC_CLI_ENTRYPOINT_PATH`/`buildJiccCmuxReportBootstrapCommand` — jicc is a distinct survivor product/bin name, not an anchored ji->ns rename form."
+   ]
+  },
+  {
+   "file": "/Users/schrockn/code/sdl-tools/ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --format json`",
+     "after": "`ns address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --format json`"
+    },
+    {
+     "before": "`ji address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --body <BODY> --format json`",
+     "after": "`ns address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --body <BODY> --format json`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/runtime/parity-extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "use `ji:flow:changes`, not `/ji:flow:changes`",
+     "after": "use `ns:flow:changes`, not `/ns:flow:changes`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/infra/core/src/primitives/model-slug.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const SLUG_MODEL_ENV = \"JI_SLUG_MODEL\";",
+     "after": "export const SLUG_MODEL_ENV = \"NS_SLUG_MODEL\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/infra/core/src/test-kit/index.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "prefix = \"ji-test-\"",
+     "after": "prefix = \"ns-test-\""
+    },
+    {
+     "before": "prefix = \".ji-test-\"",
+     "after": "prefix = \".ns-test-\""
+    },
+    {
+     "before": "options.prefix ?? \"ji-git-repo-\"",
+     "after": "options.prefix ?? \"ns-git-repo-\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/kernel/src/extensions/loader.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"ji_extension_contribution_import_failed\"",
+     "after": "\"ns_extension_contribution_import_failed\""
+    }
+   ],
+   "skipped": [
+    "SdlExtensionContributionLoadResult, loadSdlExtensionContribution, loadSdlUserModuleDefault identifiers and 'SDL extension contribution' prose left untouched — DO NOT TOUCH list bans sdl-named TS identifiers and brand prose outside root onboarding docs"
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/src/runtime/module-loader.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "resolving dependency copies from\n * `.ji/extensions`.",
+     "after": "resolving dependency copies from\n * `.ns/extensions`."
+    }
+   ],
+   "skipped": [
+    "Lines 67-69 join(CCC_SRC_DIR, \"ji\", ...) left untouched per file-specific note (src/ji path segments that did not move)",
+    "`@ji/*` package scope specifiers throughout (SDK_SPECIFIER, CCC_AUTOSLOT_SPECIFIER, etc.) left untouched per DO NOT TOUCH phase-two rule",
+    "`./ji/commands/` SDL_COMMAND_EXPORT_PREFIX left untouched — src-dir path fragment, phase-two DO NOT TOUCH",
+    "sdl-prefixed identifiers (createSdlJiti, loadSdlUserModuleDefault, SDL_SDK_DIR, etc.) left untouched — identifiers containing sdl/ji are DO NOT TOUCH per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "ji address exec download-feedback manually",
+     "after": "ns address exec download-feedback manually"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@ji/pi/parity/extension` import — DO NOT TOUCH per brief (package scope @ji/*)",
+    "`/pr:download-feedback` slash-token on line 13 left untouched per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`ji address exec close-review-threads --thread-ids-json",
+     "after": "`ns address exec close-review-threads --thread-ids-json"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"Use ji address exec download-feedback --format json, then ji address exec pr-review-threads --pr-number <n> --format json.\",",
+     "after": "\"Use ns address exec download-feedback --format json, then ns address exec pr-review-threads --pr-number <n> --format json.\","
+    },
+    {
+     "before": "fallback: \"Use ji address exec pr-checks [--pr-number <n>] --format json.\",",
+     "after": "fallback: \"Use ns address exec pr-checks [--pr-number <n>] --format json.\","
+    }
+   ],
+   "skipped": [
+    "Lines 3-14 and 20: `@ji/core/exec`, `@ji/core/primitives`, `@ji/pi/commands/ack`, `@ji/pi/commands/args`, `@ji/pi/models/call`, `@ji/pi/parity/extension`, `@ji/pi/runtime/command-host`, `@ji/pi/runtime/machine-envelope` import specifiers left untouched — brief's DO NOT TOUCH list explicitly protects `@ji/*` package scope and every import specifier containing it."
+   ]
+  },
+  {
+   "file": "ts/vitest.shared.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`../.ji/reviews/*/tools/*/test/${testPath}**/*.test.ts`,",
+     "after": "`../.ns/reviews/*/tools/*/test/${testPath}**/*.test.ts`,"
+    }
+   ],
+   "skipped": []
+  }
+ ],
+ "complex": [
+  {
+   "id": "cs1-workspace-globs",
+   "files": [
+    "ts/pnpm-workspace.yaml",
+    "ts/package.json",
+    "ts/tsconfig.json"
+   ],
+   "changed": true,
+   "summary": "Renamed the workspace glob `../.ji/reviews/*/tools/*` → `../.ns/reviews/*/tools/*` byte-identically across all three build configs: pnpm-workspace.yaml packages list (line 4), package.json workspaces array (line 53), and tsconfig.json include (the two lines 34-35, both src and test glob suffixes). Left all phase-two survivors untouched: the `@ji/*` workspace devDependencies, the `jicc` dependency, and the `ji-ts-workspace` package name identifier.",
+   "skipped": [
+    "@ji/* workspace deps, jicc, and ji-ts-workspace name in package.json — phase-two survivors per brief, not this window's targets"
+   ]
+  },
+  {
+   "id": "cs2-shell-cd-directive",
+   "changed": true,
+   "files": [
+    "ts/packages/kernel/src/cli/shell.ts",
+    "ts/packages/kernel/src/cli/completion.ts",
+    "ts/packages/capabilities/slot/src/ji/extension.ts",
+    "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts",
+    "ts/packages/capabilities/slot/src/core/index.ts",
+    "ts/packages/kernel/test/scenario/shell-cli.test.ts",
+    "ts/packages/kernel/test/integration/slot-alias-cli.test.ts",
+    "ts/packages/capabilities/slot/test/unit/cd-directive.test.ts",
+    "ts/packages/capabilities/slot/test/unit/api.test.ts"
+   ],
+   "summary": "Renamed the shell-integration / cd-directive brand surface from ji to ns across the whole cs2 changeset, keeping the two hardcoded sides consistent. (1) kernel/src/cli/shell.ts: sentinel marker string VALUES \":17-18\" -> \"# >>> ns shell integration >>>\" / \"# <<< ns shell integration <<<\" (left the stale sdlShellIntegration*Marker identifiers verbatim), all \"ji shell integration\" install/confirm/render prose -> ns, and commandName \"ji\" -> \"ns\" :92. (2) completion.ts:22 commandName \"ji\" -> \"ns\". (3) slot/src/ji/extension.ts: the re-hardcoded markers :107-108 (now byte-equal with kernel), wrapper commandName :159, and all install prose -> ns. (4) cd-directive.ts: the owner-decided identifier exception -- export const SDL_CD_DIRECTIVE_FILE = \"JI_CD_DIRECTIVE_FILE\" -> export const NS_CD_DIRECTIVE_FILE = \"NS_CD_DIRECTIVE_FILE\", plus its use in activeCdDirectivePath :36; SLOT_CD_DIRECTIVE_FILE untouched. (5) core/index.ts:10 re-export updated to NS_CD_DIRECTIVE_FILE. Tests: shell-cli.test.ts wrapper assertions (JI_CD_DIRECTIVE_FILE -> NS_, command ji -> command ns, wrapper-internal _ji_destination/_ji_cd_directive_file -> _ns_ which are derived from commandName, marker regex, and the brand mkdtemp prefix ji-shell-home- -> ns-shell-home-); slot-alias-cli.test.ts wrapper assertions (ji() -> ns(), JI_CD_DIRECTIVE_FILE -> NS_, command ji -> ns) PLUS two CLI-name assertions that were ALREADY stale because kernel/package.json's bin key is already \"ns\" in this tree -- entry_point \"bin ji\" -> \"bin ns\" :14 and \"Usage: ji slot\" -> \"Usage: ns slot\" :22 (binName/root program name both derive from that bin key); cd-directive.test.ts import + fixture value /tmp/ji-directive -> /tmp/ns-directive; api.test.ts import + both env fixture keys. Verified: all 4 affected test files pass (19 tests) and pnpm run check typechecks clean; grep confirms zero remaining SDL_CD_DIRECTIVE_FILE / JI_CD_DIRECTIVE_FILE symbols and no leftover ji brand tokens in the 9 files.",
+   "skipped": [
+    "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts:28 uses env key JI_CD_DIRECTIVE_FILE -- a leftover brand env-var NAME that per the brief should become NS_CD_DIRECTIVE_FILE, but this file is OUTSIDE my changeset so I did not touch it; it does not break (createSlotClient is mocked and the env is only forwarded/asserted, not read through activeCdDirectivePath), but the flow-package changeset owner should rename it.",
+    "Brand PROSE in describe()/it() labels within my test files (\"sdl shell CLI\", \"sdl slot CLI\", \"shows canonical SDL shell integration\", \"the owning sdl entrypoint\", \"uses the sdl directive file\") left verbatim per the branding-row deferral rule.",
+    "@ji/* import specifiers in all 9 files (e.g. @ji/clinkr, @ji/kernel/cli, @ji/capability-kit/shell-support, @ji/capability-kit/ji-command) and the src/ji/ path of extension.ts left verbatim -- phase-two DO NOT TOUCH."
+   ]
+  },
+  {
+   "id": "test",
+   "changed": true,
+   "files": [
+    "a"
+   ],
+   "summary": "test",
+   "skipped": [
+    "test reason"
+   ]
+  },
+  {
+   "id": "cs4-xdg-and-slot-paths",
+   "files": [
+    "ts/packages/infra/core/src/config/xdg-path.ts",
+    "ts/packages/capabilities/flow/src/ji/commands/submit.ts",
+    "ts/packages/capabilities/flow/src/land/stack/worktrees.ts",
+    "ts/packages/capabilities/aretro/src/payloads/root.ts",
+    "ts/packages/infra/core/test/xdg-path.test.ts",
+    "ts/packages/capability-kit/test/unit/xdg.test.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-helpers.test.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the anchored ji→ns forms across the XDG segment, its hand-rolled bypasses, and the managed-slot-path regex + fixtures as one unit. xdg-path.ts:67 XDG segment \"ji\"→\"ns\" (resolveSdlXdgPath identifier left verbatim). submit.ts: NS_SUBMIT_FAILURE_LOG_DIR value, all NS_* env-name description prose, the XDG \"ji\"→\"ns\" segments and .ji→.ns cwd fallback (:305/309/311), the \"ns flow submit\" title/message/prompt strings, the \"ns-submit-failure-\" mkdtemp prefix, and both raw-log header strings — keeping the ../../submit/ji-runtime.ts import and @ji/* imports. worktrees.ts:76 regex ji\\/slots→ns\\/slots (escaping + match semantics preserved). aretro root.ts: JI_PAYLOAD_ROOT/JI_PAYLOAD_SESSION_ID values→NS_* (SDL_* identifiers held constant), tmpdir join \"ji\"→\"ns\". Tests: xdg-path.test.ts state/ji→state/ns fixtures (:61/:81/:112); capability-kit xdg.test.ts share/ji→share/ns; both land-stack test files — /Users/me/.local/state/ji/slots and Windows Local\\ji\\slots fixture families, /ji:flow:land→/ns:flow:land, topology + ji-flow/ji-slot command assertions, step(\"ji\",…)/call.command===\"ji\" argv, and \"ns flow land\" title strings.",
+   "skipped": [
+    "xdg-path.test.ts JI_ROOT and JI_LOG_DIR override-env names (:65,67,88,92,101,102,109,115,116,119) left verbatim — the changeset instruction scoped this file to only the state/ji path fixtures (:61,81,112); these override-env names are the resolveSdlXdgPath fan-out (8 files/19 sites) explicitly deferred to PR-6",
+    "submit.ts ../../submit/ji-runtime.ts relative import kept — ji-*.ts filenames are phase-two survivors (explicit exception in the changeset)",
+    "scenarios.test.ts src/ji/commands/land.ts import path segment and all @ji/* imports kept — phase-two package-scope/src-path survivors",
+    "helpers.test.ts legacy /Users/me/.slots/... paths and /tmp/sdl-tools fixtures left untouched — non-brand .slots and sdl tokens, not ji/slots anchored forms",
+    "Did not run the test suite — cross-changeset land-stack assertions I renamed depend on source strings owned by other changesets and only reconcile post-merge; edits are string-literal-only and cannot break types"
+   ]
+  },
+  {
+   "id": "cs5-pi-namespace-core",
+   "changed": true,
+   "files": [
+    "ts/packages/infra/core/src/primitives/command.ts",
+    "ts/packages/capabilities/objective/src/core/objective-command-specs.ts",
+    "ts/packages/capabilities/handoff/src/pi/command-constants.ts",
+    "ts/packages/hosts/command-backed-skill-registry/src/index.ts",
+    "ts/packages/capabilities/flow/src/pi/ji-extension.ts",
+    "ts/packages/hosts/pi/src/commands/events.ts",
+    "ts/packages/capabilities/flow/test/pi/ji-extension.test.ts",
+    "ts/packages/hosts/pi/test/commands/pi-command-surfaces.test.ts"
+   ],
+   "summary": "Renamed the ji:* Pi command namespace to ns:* across the exported-constant/template-literal/mixed-registry surfaces, keeping the publicly-exported name set in sync with its asserting tests. command.ts: six ji:branch-context:*/ji:plan:* constants -> ns:*. objective-command-specs.ts: the templated ObjectiveCommandName type, the ObjectiveCreateCommandName literal type, the OBJECTIVE_CREATE_COMMAND_NAME constant, and the objectiveCommandName template interpolation -> ns:objective:*. handoff command-constants.ts: ji:handoff:create/pickup -> ns:* (handoff:list/ccc:handoff-tab/handoff:self left as survivors). command-backed-skill-registry index.ts: surfaces ns:objective:refresh/review-briefing, ns:cli:design, ns:flow:autobranch/branch-latest-commit/cp/submit, ns:typescript:style-tripwire, plus the four ji-flow-* skillName values -> ns-flow-* (agreeing with the mv'd skill dirs); sdl-cli-design/sdl-typescript-style-tripwire skillNames and @ji/* imports left as survivors. flow ji-extension.ts: surface template ji:flow:${name} and piNamespace ji:flow -> ns:flow; and, since the verify pass hunts leftover JI and the file is exclusively this changeset's, the CLI-name forms cliName:\\\"ji\\\"->\\\"ns\\\", the parity cli:`ji ...`/notes prose, and the JSDoc repo-state path .ji/extensions -> .ns/extensions. events.ts: ji:pi-extension-command:finished -> ns:*. Tests: ji-extension.test.ts flow-key exact-set + description assertions -> ns:flow:*/\\\"ns flow ...\\\" (the sdl:* absence tombstones and sdl/SDL describe/test prose labels left verbatim), and its FakePi ji-command-ack/ji-command-progress machine keys -> ns-* to match ack.ts which another changeset already renamed to ns-*; pi-command-surfaces.test.ts constant-value assertions and the /ns:branch-context:impl-attached-plan formatted-command assertion updated to follow the re-exported command.ts constants.",
+   "skipped": [
+    "Kept the @ji/handoff/pi, @ji/objective/pi, @ji/core/command import specifiers and @ji/flow/pi sourcePackage as phase-two package-scope survivors (DO NOT TOUCH).",
+    "Kept describe(\"sdl Pi extension\"), test title 'exposes only nested flow SDL lifecycle mirrors', 'routes sdl flow ...' labels, and sourceModule: \"sdl-extension\" as sdl brand-prose/identifier survivors.",
+    "Kept the sdl:* absence-assertion tombstones (sdl:changes, sdl:cp, ...) verbatim since they prove the prior rename happened.",
+    "Went slightly beyond the changeset's line enumeration in ji-extension.ts (cliName, cli:, notes:, .ji/extensions JSDoc): these are unambiguous leftover-JI CLI-name/repo-state forms mandated by the brief's cardinal RENAME list, the file is exclusively this changeset's, and cliName drives the test's 'ji flow cp:'-style description assertions (via cli-extension.ts:197) so it had to rename for internal consistency."
+   ]
+  },
+  {
+   "id": "cs6-justfile-shim",
+   "changed": true,
+   "files": [
+    "justfile",
+    "ts/scripts/render-cli-shim-core.ts",
+    "ts/scripts/source-cli-shim-template",
+    "ts/scripts/render-cli-shim.mjs",
+    "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts",
+    "ts/packages/tools/areg/test/integration/source-cli-shim-runtime.test.ts"
+   ],
+   "summary": "Renamed the ji shim install pipeline to ns in lockstep across the template, renderer, justfile, and both areg tests. render-cli-shim-core.ts: TOKEN_PREFIX @@JI_ -> @@NS_, all five @@JI_*@@ replacement-map keys -> @@NS_*, and the 'invalid JI_FALLBACK_MODE' error text -> NS_FALLBACK_MODE. source-cli-shim-template: the five @@JI_*@@ placeholders -> @@NS_* and the brand prose 'runs a ji TypeScript CLI' -> 'runs a ns TypeScript CLI' (sdl-checkout prose left verbatim). render-cli-shim.mjs: REQUIRED_ENV_VARS and every env read (JI_TEMPLATE/OUTPUT/TOOL/CANONICAL_CHECKOUT/CLI_REL_PATH/INSTALL_HINT + JI_FALLBACK_MODE) -> NS_*. justfile: install-ji recipe -> install-ns (name, _install-ts-shim 'ji'->'ns' arg, install-hint text, venv cleanup rm/echo), the six JI_* env assignments in _install-ts-shim -> NS_*, .ji-workspace-ready.stamp -> .ns-, .ji/reviews -> .ns/reviews, retired-bin `ji branch-context` comment+echo -> ns, and install-tools recipe deps + echo (install-ni ref and 'via ji branch-context') -> ns. Both areg tests: env-object keys JI_* -> NS_*, the @@JI_ absence assertions -> @@NS_, 'invalid JI_FALLBACK_MODE' -> NS_, and the /tmp/ji fixture path -> /tmp/ns.",
+   "skipped": [
+    "Left all 'sdl checkout'/'no sdl checkout found' prose verbatim in template and tests — sdl is a historical survivor, not in-window",
+    "Left areg-branded tempdir prefixes (areg-shim-render-, etc.) and the ts/packages/tools/areg/src/cli.ts CLI_REL_PATH assertions unchanged — not ji brand tokens",
+    "Kept the negative 'asdl'/'ts/packages/areg/src/cli.ts' guard assertions verbatim — they are typo/path-regression guards, not ji forms"
+   ]
+  },
+  {
+   "id": "cs7-backup-refs",
+   "files": [
+    "ts/packages/capabilities/flow/src/land/stack/constants.ts",
+    "ts/packages/capabilities/ccc/test/land-command.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the refs/ji/* backup-ref namespace constants (BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE) to refs/ns/* in constants.ts, plus the twin-B' COMMAND_NAME literal 'ji:flow:land' -> 'ns:flow:land' in the same file (owned whole-file per brief; the byte-equal twin in flow/src/land/land.ts:68 is out of scope for this changeset). In land-command.test.ts, updated the FLOW_LAND_BACKUP_REF_NAMESPACE/FLOW_LAND_BACKUP_PREV_REF_NAMESPACE fixture strings to refs/ns/*, every 'ji:flow:land' command-key lookup/assertion to 'ns:flow:land', the slot XDG path fixtures '.local/state/ji/slots/...' to '.../state/ns/slots/...', the 'ji' subprocess argv literal (both in step() and the expected exec-call object) to 'ns', and the backticked confirmation-message assertion '$ ji slot free --wt slot-01' to '$ ns slot free --wt slot-01' — treating the whole file as this changeset's to keep all in-window ji literals consistent with the renamed constants and avoid split ownership of one file.",
+   "skipped": [
+    "Left all @ji/* import specifiers (Caps from @ji/clinkr, @ji/clinkr/testing, @ji/capability-kit/git, @ji/kernel/sdk, @ji/core/test-kit, @ji/ccc/land) untouched — phase-two package-scope surface per DO NOT TOUCH list.",
+    "Left the comment referencing @ji/flow/api untouched — it's a package-scope import path reference, not a renamable anchored form.",
+    "Did not touch flow/src/land/land.ts:68 (the byte-equal twin of constants.ts:1's COMMAND_NAME) since it is not in this changeset's file list; brief states it is a separate entry owned elsewhere and must stay byte-equal to whatever constants.ts ends up with."
+   ]
+  },
+  {
+   "id": "cs8-repo-identity",
+   "files": [
+    "docs-site/lib/geistdocs/nav.ts",
+    "CLAUDE.md",
+    "README.md",
+    "skills/architecture-topology-report/scripts/example-spec.mjs"
+   ],
+   "changed": true,
+   "summary": "Applied the ADR-0026 repo-identity verdict (nseng-ai/ns) across four files: nav.ts owner \"dagster-io\"→\"nseng-ai\" and repo \"sdl-tools\"→\"ns\" (aligning both identity fields with origin per orchestrator ruling); CLAUDE.md title \"# SDL\"→\"# ns\"; README.md title \"# sdl\"→\"# ns\"; example-spec.mjs repo field \"sdl-tools\"→\"ns\" and both .ji/objectives→.ns/objectives path literals (lines 14 and 183 — the second instance wasn't explicitly cited in the brief but matches the same anchored .ji/<anything>→.ns/<anything> pattern as line 14, so I renamed it too for consistency). Left the sdl-extension-architecture objective slug, all @ji/* strings, ji.tier dotted manifest prose, and \"SDL Extension Architecture target\" prose narration untouched per the DO NOT TOUCH list.",
+   "skipped": [
+    "example-spec.mjs:183 .ji/objectives path — the changeset instruction explicitly cited only line :14 for this rename, but I applied the same .ji→.ns anchor rule to this second identical-pattern occurrence for internal consistency; flagging in case the brief intended only the single cited line."
+   ]
+  },
+  {
+   "id": "cs9-agents-chain",
+   "files": [
+    "AGENTS.md",
+    ".github/workflows/roaster.yml"
+   ],
+   "changed": true,
+   "summary": "Renamed the ji→ns brand across the two operative day-one surfaces. AGENTS.md: title \"# ji Agent Instructions\"→\"# ns\" (:1), section \"## What ji is\"→\"## What ns is\" (:3), brand prose \"ji is private…\" (:5,:13) and \"ji is self-hosting\" (:25)→ns, backticked CLI `ji`→`ns` and `/ji:*`→`/ns:*` (:5), `.ji/*` repo-state path→`.ns/*` (:25), the operative command line `ji objective exec load-orientations --format md`→`ns …` (:32), and brand prose \"For ji first-party skills\"→\"For ns first-party skills\" (:68). roaster.yml: all 3 `ji roaster …` invocations→`ns roaster …` (:59 review list, :123 review run, :132 exec publish-findings). Final grep confirms zero remaining `ji` byte sequences in either file.",
+   "skipped": [
+    "AGENTS.md :43 backticked `objective list` — left verbatim; it carries no `ji` anchor (bare subcommand reference in prose, not a `ji …` command line), so there is nothing to rename per anchored-forms rule",
+    "AGENTS.md `areg skill find <name> --format json` lines (:68,:79,:81) — the invocations themselves contain no `ji` token; only the adjacent brand prose 'For ji first-party skills' was in-window and was renamed"
+   ]
+  },
+  {
+   "changed": true,
+   "files": [
+    "/Users/schrockn/code/sdl-tools/skills-lock.json",
+    "/Users/schrockn/code/sdl-tools/.pi/settings.json"
+   ],
+   "id": "cs10-skills-lock-pi-settings",
+   "summary": "Renamed the four ji-flow-* skills-lock.json entries (keys + \"source\" paths) to ns-flow-* while preserving computedHash values verbatim, and updated the corresponding four \"-skills/ji-flow-*\" entries in .pi/settings.json to \"-skills/ns-flow-*\". Verified both files remain valid JSON and no ji-flow references remain in either file.",
+   "skipped": []
+  },
+  {
+   "id": "cs11-graphite-command-channel",
+   "files": [
+    "ts/packages/capabilities/flow/src/land/stack/graphite-command-channel.ts",
+    "ts/packages/capabilities/flow/src/land/stack/land-context-adapter.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the typed-literal contract `command: \"ji\"` -> `command: \"ns\"` in graphite-command-channel.ts (interface field, returned object, and the `command === \"ji\"` guard), updated the corresponding `formatCommand(\"ji\", args)` call, and updated the `/ji:flow:land` comment namespace to `/ns:flow:land`. In land-context-adapter.ts, updated the matching `formatCommand(\"ji\", [\"slot\", ...freeArgs])` and `command: \"ji\"` pair in freeSlots() to `ns` so the typed contract stays consistent across both files.",
+   "skipped": [
+    "Left the 'controlled SDL flow exec command' / 'unrelated sdl invocations' comment prose in graphite-command-channel.ts verbatim per the changeset instruction (branding-row survivor prose)."
+   ]
+  }
+ ],
+ "verify": []
+}

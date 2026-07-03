@@ -9,7 +9,7 @@ import { mapFromRecordOrMap, type ExplicitUndefined } from "@ji/core/primitives"
 import type { ReviewCatalogFailure, RoasterResult } from "../core/failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
-const SDL_DIRNAME = ".ji";
+const SDL_DIRNAME = ".ns";
 const REVIEWS_DIRNAME = "reviews";
 
 export interface ReviewSource {
@@ -135,7 +135,7 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 		this.reviewSourceFailuresByKey = mapFromRecordOrMap(options.reviewSourceFailuresByKey);
 		this.reviewKeys = options.reviewKeys === undefined ? null : [...options.reviewKeys];
 		this.listReviewKeysFailure = options.listReviewKeysFailure ?? null;
-		this.reviewsDirValue = options.reviewsDir ?? "/repo/.ji/reviews";
+		this.reviewsDirValue = options.reviewsDir ?? "/repo/.ns/reviews";
 	}
 
 	async listReviewKeys(_options: {

@@ -25,7 +25,7 @@ import type {
 
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
-const SIDEBAR_MODEL_ENV = "JI_CCC_SIDEBAR_MODEL";
+const SIDEBAR_MODEL_ENV = "NS_CCC_SIDEBAR_MODEL";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for cmux sidebar",
@@ -218,7 +218,7 @@ async function resolveObjectiveSidebarSlug(
 	}
 
 	if (ctx.hasUI !== true || ctx.ui.select === undefined) {
-		notify(ctx, "Pass an Objective slug or .ji/objectives/<slug> path.", "warning");
+		notify(ctx, "Pass an Objective slug or .ns/objectives/<slug> path.", "warning");
 		return undefined;
 	}
 
