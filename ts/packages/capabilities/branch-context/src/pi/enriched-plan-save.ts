@@ -71,11 +71,7 @@ External research/context contract:
 <!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
 Refactor execution strategy:
 - If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
-- For TypeScript symbol/API refactors, prefer deterministic AST/codemod tooling when a suitable repo tool exists; use \`ts-morph-analyze\` for AST inspection before designing broad TypeScript changes.
-- Prefer deterministic AST/codemod tooling for purely syntactic refactors when a suitable repo or installed skill tool exists.
-- For 1-4 files or semantic doc/spec changes, prefer reading affected sections and making precise edits; do not recommend opaque ad hoc \`text.replace()\` scripts for semantic changes.
-- For 5+ file-local edits, especially mixed code/docs/tests or prose-aware refactors, recommend \`refactor-swarm\`.
-- Require a final grep or equivalent stale-terminology check when changing names/concepts.
+- Apply the canonical guidance in \`skills/enriched-plan-save/references/refactor-execution-strategy.md\`, including the final stale-terminology grep/equivalent check when changing names or concepts.
 <!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 
 Recommended saved plan sections:
@@ -165,7 +161,7 @@ Save/no-save decision:
 Final plan requirements:
 - Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
 <!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
-- If the plan includes same-shape edits across multiple files, explicitly choose an execution strategy: deterministic AST/codemod tooling for fitting TypeScript syntax work, \`ts-morph-analyze\` for AST inspection, precise edits for 1-4 files or semantic docs/specs, and \`refactor-swarm\` for 5+ file-local prose-aware or mixed code/docs/tests edits.
+- If the plan includes same-shape edits across multiple files, explicitly choose an execution strategy and apply \`skills/enriched-plan-save/references/refactor-execution-strategy.md\`.
 <!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 - Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
 - Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;

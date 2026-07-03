@@ -24,7 +24,7 @@ interface UpdateHarnessOptions {
 	npxFailures?: Readonly<Record<string, AregErrorInfo>>;
 	npxFailure?: AregErrorInfo;
 	npxMissing?: boolean;
-	ghMissing?: boolean;
+	isGhMissing?: boolean;
 	github?: FakeAregGithubGatewayOptions;
 }
 
@@ -40,7 +40,7 @@ interface UpdateRun {
 function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}): UpdateRun {
 	const host = new FakeAregHostGateway({
 		tools: {
-			gh: options.ghMissing === true ? null : "/fake/bin/gh",
+			gh: options.isGhMissing === true ? null : "/fake/bin/gh",
 			npx: options.npxMissing === true ? null : "/fake/bin/npx",
 		},
 	});
@@ -180,7 +180,7 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("dry-run plans updates without checking host tools, source preflight, or calling npx skills", async () => {
-		const run = runUpdate(["--dry-run"], { npxMissing: true, ghMissing: true });
+		const run = runUpdate(["--dry-run"], { npxMissing: true, isGhMissing: true });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain(
@@ -211,7 +211,7 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("missing gh fails before source preflight and npx checks", async () => {
-		const run = runUpdate([], { ghMissing: true, npxMissing: true });
+		const run = runUpdate([], { isGhMissing: true, npxMissing: true });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("Required host tool is missing: gh");
