@@ -74,11 +74,16 @@ type GraphiteMaintenanceOutcome =
 
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
-type MaintenanceStepControl = "continue" | GraphiteMaintenanceHalt | undefined;
+type MaintenanceStepControl = "proceed" | "continue" | GraphiteMaintenanceHalt;
 
 interface AppliedMaintenanceStep {
 	readonly warnings: readonly BranchMaintenanceWarning[];
 	readonly control: MaintenanceStepControl;
+}
+
+interface MaintenanceStepRecorder {
+	readonly getWarnings: () => readonly BranchMaintenanceWarning[];
+	readonly apply: (outcome: RecordableMaintenanceOutcome, branch: string) => MaintenanceStepControl;
 }
 
 function failOrWarn(
@@ -160,12 +165,12 @@ function applyMaintenanceStep(options: {
 	readonly warnings: readonly BranchMaintenanceWarning[];
 }): AppliedMaintenanceStep {
 	const { outcome, branch, warnings } = options;
-	if (outcome === undefined) return { warnings, control: undefined };
+	if (outcome === undefined) return { warnings, control: "proceed" };
 	switch (outcome.kind) {
 		case "proceed":
 		case "submit":
 		case "skip-submit":
-			return { warnings, control: undefined };
+			return { warnings, control: "proceed" };
 		case "halt":
 			return { warnings, control: outcome };
 		case "skip":
@@ -179,6 +184,20 @@ function applyMaintenanceStep(options: {
 		default:
 			assertNever(outcome);
 	}
+}
+
+function createMaintenanceStepRecorder(): MaintenanceStepRecorder {
+	let warnings: readonly BranchMaintenanceWarning[] = [];
+	return {
+		getWarnings() {
+			return warnings;
+		},
+		apply(outcome, branch) {
+			const step = applyMaintenanceStep({ outcome, branch, warnings });
+			warnings = step.warnings;
+			return step.control;
+		},
+	};
 }
 
 function withMaintenanceBranch(
@@ -326,28 +345,25 @@ export async function performGraphiteMaintenance(
 		commandOptions: options,
 		maintenance,
 	};
-	let refreshFailureWarnings: readonly BranchMaintenanceWarning[] = [];
+	const refreshFailureRecorder = createMaintenanceStepRecorder();
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
-		const guardStep = applyMaintenanceStep({
-			outcome: await guardMaintenanceBranch(branchOperationContext),
-			branch: maintenanceBranch,
-			warnings: refreshFailureWarnings,
-		});
-		refreshFailureWarnings = guardStep.warnings;
-		if (guardStep.control === "continue") continue;
-		if (guardStep.control !== undefined) return guardStep.control;
+		const guardControl = refreshFailureRecorder.apply(
+			await guardMaintenanceBranch(branchOperationContext),
+			maintenanceBranch,
+		);
+		if (guardControl === "continue") continue;
+		if (guardControl !== "proceed") return guardControl;
 
-		const refreshStep = applyMaintenanceStep({
-			outcome: await refreshMaintenanceBranch(branchOperationContext),
-			branch: maintenanceBranch,
-			warnings: refreshFailureWarnings,
-		});
-		refreshFailureWarnings = refreshStep.warnings;
-		if (refreshStep.control === "continue") continue;
-		if (refreshStep.control !== undefined) return refreshStep.control;
+		const refreshControl = refreshFailureRecorder.apply(
+			await refreshMaintenanceBranch(branchOperationContext),
+			maintenanceBranch,
+		);
+		if (refreshControl === "continue") continue;
+		if (refreshControl !== "proceed") return refreshControl;
 	}
 
+	const refreshFailureWarnings = refreshFailureRecorder.getWarnings();
 	if (refreshFailureWarnings.length > 0) {
 		return {
 			kind: "skip",
@@ -366,27 +382,20 @@ export async function performGraphiteMaintenance(
 	const deletion = await deleteLocalGraphiteBranchAfterLanding(operationContext);
 	if (deletion.kind !== "proceed") return deletion;
 
-	let postDeleteWarnings: readonly BranchMaintenanceWarning[] = [];
+	const postDeleteRecorder = createMaintenanceStepRecorder();
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
-		const restackStep = applyMaintenanceStep({
-			outcome: await restackMaintenanceBranch(branchOperationContext),
-			branch: maintenanceBranch,
-			warnings: postDeleteWarnings,
-		});
-		postDeleteWarnings = restackStep.warnings;
-		if (restackStep.control === "continue") continue;
-		if (restackStep.control !== undefined) return restackStep.control;
+		const restackControl = postDeleteRecorder.apply(
+			await restackMaintenanceBranch(branchOperationContext),
+			maintenanceBranch,
+		);
+		if (restackControl === "continue") continue;
+		if (restackControl !== "proceed") return restackControl;
 
 		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
-		const submitCheckStep = applyMaintenanceStep({
-			outcome: submitCheck,
-			branch: maintenanceBranch,
-			warnings: postDeleteWarnings,
-		});
-		postDeleteWarnings = submitCheckStep.warnings;
-		if (submitCheckStep.control === "continue") continue;
-		if (submitCheckStep.control !== undefined) return submitCheckStep.control;
+		const submitCheckControl = postDeleteRecorder.apply(submitCheck, maintenanceBranch);
+		if (submitCheckControl === "continue") continue;
+		if (submitCheckControl !== "proceed") return submitCheckControl;
 
 		const refreshExpected = await refreshExpectedShaAfterRestack(branchOperationContext);
 		if (refreshExpected) return refreshExpected;
@@ -399,16 +408,15 @@ export async function performGraphiteMaintenance(
 		}
 
 		setStatus(ctx, `submitting ${maintenanceBranch}...`);
-		const submittedStep = applyMaintenanceStep({
-			outcome: await submitMaintenanceBranch(branchOperationContext),
-			branch: maintenanceBranch,
-			warnings: postDeleteWarnings,
-		});
-		postDeleteWarnings = submittedStep.warnings;
-		if (submittedStep.control === "continue") continue;
-		if (submittedStep.control !== undefined) return submittedStep.control;
+		const submittedControl = postDeleteRecorder.apply(
+			await submitMaintenanceBranch(branchOperationContext),
+			maintenanceBranch,
+		);
+		if (submittedControl === "continue") continue;
+		if (submittedControl !== "proceed") return submittedControl;
 	}
 
+	const postDeleteWarnings = postDeleteRecorder.getWarnings();
 	if (postDeleteWarnings.length > 0) {
 		return {
 			kind: "skip",

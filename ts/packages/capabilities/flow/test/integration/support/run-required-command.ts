@@ -12,7 +12,6 @@ export interface RunRequiredCommandOptions {
 
 export interface RequiredCommandRunnerOptions {
 	readonly failureContext: string;
-	readonly timeoutMs?: number;
 }
 
 export function createRequiredCommandRunner(
@@ -24,7 +23,7 @@ export function createRequiredCommandRunner(
 		const result = await runCommand(commandOptions.command, commandOptions.args, {
 			cwd: commandOptions.cwd,
 			env: commandOptions.env,
-			timeout: options.timeoutMs ?? DEFAULT_REQUIRED_COMMAND_TIMEOUT_MS,
+			timeout: DEFAULT_REQUIRED_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code === 0 && !result.killed) return result;
 		throw new Error(
