@@ -70,7 +70,6 @@ export async function createSdlObjectiveRunnerCoreContext(
 		graphite: overrides?.graphite ?? new RealGraphiteBranchGateway(commands),
 		outputFormat: ctx.outputFormat ?? "human",
 		writeStdout: ctx.stdout ?? (() => {}),
-		writeStderr: ctx.stderr ?? (() => {}),
 		phase: (label) => {
 			ctx.commandIo.phase(label);
 		},
@@ -90,6 +89,8 @@ export async function createSdlObjectiveRunnerContext(
 		...core,
 		childSession:
 			overrides?.childSession ?? composition.createChildSessionGateway({ env: ctx.env }),
+		// ADR0024-LEGACY-DELETE(field): legacy runner-step streams child progress.
+		writeStderr: ctx.stderr ?? (() => {}),
 	};
 }
 

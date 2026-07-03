@@ -55,8 +55,8 @@ export interface VerifyRunnerStepOptions {
  * surface as failed checks with the error as detail. The mode-inapplicable
  * branch check is represented explicitly as skipped. When verification passes,
  * the gate leaves the exact runner commit candidate staged for commit. If the
- * gate fails at or after candidate staging, the index may contain the staged
- * candidate for recovery/inspection.
+ * cached diff check fails after staging, the gate makes a best-effort attempt to
+ * unstage the candidate while preserving the worktree for recovery.
  */
 export async function verifyRunnerStep(
 	ctx: ObjectiveRunnerCoreContext,
@@ -227,10 +227,14 @@ async function stageCandidateAndDiffCheck(
 		cwd: ctx.repoRoot,
 	});
 	if (commandSucceeded(result)) return { id: "diff-check", status: "passed" };
+	const diffCheckDetail = `git diff --cached --check failed: ${formatCommandDetails(result)}`;
+	const reset = await ctx.commands.exec("git", ["reset", "--"], { cwd: ctx.repoRoot });
 	return {
 		id: "diff-check",
 		status: "failed",
-		detail: `git diff --cached --check failed: ${formatCommandDetails(result)}`,
+		detail: commandSucceeded(reset)
+			? diffCheckDetail
+			: `${diffCheckDetail}\nBest-effort unstage failed: ${formatCommandDetails(reset)}`,
 	};
 }
 

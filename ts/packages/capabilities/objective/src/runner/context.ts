@@ -26,15 +26,13 @@ export type RunnerFilePresenceResult =
  * (Graphite tracking check, raw command exec for `git diff --check`) and the
  * presentation seams the step contract requires: `writeStdout` is a tactical
  * Runner Checkpoint stream for human/markdown modes until clinkr owns non-ok
- * stdout artifacts, `writeStderr` streams live progress, and `phase` mirrors
- * `SdlCommandIo.phase` transient phase text.
+ * stdout artifacts, and `phase` mirrors `SdlCommandIo.phase` transient phase text.
  */
 export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
 	graphite: GraphiteBranchGateway;
 	commands: CommandExecApi;
-	outputFormat?: ClinkrFormat;
+	outputFormat: ClinkrFormat;
 	writeStdout(text: string): void;
-	writeStderr(text: string): void;
 	/** Transient, human-facing phase text. Non-contractual wording. */
 	phase(label: string): void;
 	/** Minimal text-file read seam for actual content reads (`--guidance @file`, facts, reports). */
@@ -51,4 +49,6 @@ export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
  */
 export interface ObjectiveRunnerContext extends ObjectiveRunnerCoreContext {
 	childSession: ChildSessionGateway;
+	/** ADR0024-LEGACY-DELETE(field): legacy runner-step streams child progress. */
+	writeStderr(text: string): void;
 }

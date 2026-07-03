@@ -284,6 +284,11 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const diffCheck = exit.data?.gateChecks.find((check) => check.id === "diff-check");
 		expect(diffCheck?.status).toBe("failed");
 		expect(diffCheck?.detail).toContain("trailing whitespace");
+		expect(api.execCalls.map((call) => call.args)).toEqual([
+			["diff", "--cached", "--quiet", "--exit-code"],
+			["diff", "--cached", "--check"],
+			["reset", "--"],
+		]);
 		expect(api.runnerGit.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 		expect(api.runnerGit.commitCalls).toEqual([]);
 	});

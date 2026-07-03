@@ -4,10 +4,10 @@
  * child dispatch — the parent harness owns the implementation session; the
  * facts this command emits are replayed verbatim to `runner-finish`.
  */
-import { isAbsolute, relative, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { isPathInside, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
@@ -70,7 +70,7 @@ export async function runRunnerBegin(
 		return usageError("--report-path is required.", { argument: "report-path" });
 	}
 	const reportPath = resolve(ctx.cwd, request.reportPath);
-	if (isPathInsideRepo(reportPath, ctx.repoRoot)) {
+	if (isPathInside(ctx.repoRoot, reportPath)) {
 		return usageError(
 			`Report path ${reportPath} is inside the repository worktree; choose a path outside the repo so the report can never enter the gate's changed paths or the runner commit.`,
 			{ argument: "report-path" },
@@ -151,9 +151,4 @@ export function renderRunnerBegin(result: RunnerBeginResult): string {
 	}
 	lines.push("", "## Subagent prompt", "", "````text", result.prompt, "````");
 	return lines.join("\n");
-}
-
-export function isPathInsideRepo(path: string, repoRoot: string): boolean {
-	const relativePath = relative(repoRoot, path);
-	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }

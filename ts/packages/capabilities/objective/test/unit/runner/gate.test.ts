@@ -256,6 +256,41 @@ describe("verifyRunnerStep", () => {
 		const check = checkById(outcome.checks).get("diff-check");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("trailing whitespace");
+		expect(ctx.execCalls).toEqual([
+			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
+			{ command: "git", args: ["diff", "--cached", "--check"] },
+			{ command: "git", args: ["reset", "--"] },
+		]);
+		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
+	});
+
+	test("reports unstage failure without masking the cached diff-check failure", async () => {
+		const ctx = gateContext({
+			execResults: [
+				{},
+				{ code: 2, stderr: "trailing whitespace" },
+				{ code: 128, stderr: "index locked" },
+			],
+		});
+
+		const outcome = await verifyRunnerStep(ctx, {
+			mode: "default",
+			report: report(),
+			baseBranch: "main",
+			headAtDispatch: DEFAULT_HEAD,
+		});
+
+		expect(outcome.hasPassed).toBe(false);
+		const check = checkById(outcome.checks).get("diff-check");
+		expect(check?.status).toBe("failed");
+		expect(check?.detail).toContain("trailing whitespace");
+		expect(check?.detail).toContain("Best-effort unstage failed");
+		expect(check?.detail).toContain("index locked");
+		expect(ctx.execCalls).toEqual([
+			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
+			{ command: "git", args: ["diff", "--cached", "--check"] },
+			{ command: "git", args: ["reset", "--"] },
+		]);
 		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 	});
 
