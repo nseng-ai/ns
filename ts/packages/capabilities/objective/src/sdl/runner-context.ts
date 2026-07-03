@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import type { GitGateway } from "@sdl/capability-kit/git";
@@ -13,6 +13,7 @@ import type { ChildSessionGateway } from "../runner/child-session.ts";
 import type {
 	ObjectiveRunnerContext,
 	ObjectiveRunnerCoreContext,
+	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../runner/context.ts";
 import { createSdlObjectiveContext } from "./context.ts";
@@ -45,6 +46,7 @@ export interface ObjectiveRunnerOverrides {
 	/** ADR0024-LEGACY-DELETE(field): consumed only by the legacy factory. */
 	childSession?: ChildSessionGateway;
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
+	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
 }
 
 /**
@@ -73,6 +75,7 @@ export async function createSdlObjectiveRunnerCoreContext(
 			ctx.commandIo.phase(label);
 		},
 		readTextFile: overrides?.readTextFile ?? readRunnerTextFile,
+		filePresence: overrides?.filePresence ?? runnerFilePresence,
 	};
 }
 
@@ -101,6 +104,7 @@ function readObjectiveRunnerOverrides(ctx: SdlExtensionApi): ObjectiveRunnerOver
 		storage: overrides.storage,
 		childSession: overrides.childSession,
 		readTextFile: overrides.readTextFile,
+		filePresence: overrides.filePresence,
 	});
 }
 
@@ -110,4 +114,18 @@ async function readRunnerTextFile(path: string): Promise<RunnerTextFileReadResul
 	} catch (error) {
 		return { type: "error", message: formatErrorMessage(error) };
 	}
+}
+
+async function runnerFilePresence(path: string): Promise<RunnerFilePresenceResult> {
+	try {
+		await stat(path);
+		return { type: "present" };
+	} catch (error) {
+		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
+		return { type: "error", message: formatErrorMessage(error) };
+	}
+}
+
+function isNodeErrorCode(error: unknown, code: string): boolean {
+	return typeof error === "object" && error !== null && (error as { code?: unknown }).code === code;
 }

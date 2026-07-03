@@ -263,7 +263,6 @@ export async function runRunnerStep(
 		mode,
 		subject: commitSubject,
 		...optionalEntry("body", report.commitBody),
-		changedPaths: gate.changedPaths,
 	});
 	if (commit.type === "error") {
 		return emitMalfunction(commit.code, `Runner commit failed: ${commit.message}`, {

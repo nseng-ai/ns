@@ -18,6 +18,7 @@ import {
 import { ObjectiveStorage } from "../../../src/core/storage.ts";
 import type {
 	ObjectiveRunnerContext,
+	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../../../src/runner/context.ts";
 // ADR0024-LEGACY-DELETE(import, plus the childScripts option, the
@@ -137,8 +138,11 @@ export interface RunnerFakesOptions {
 	childScripts?: readonly FakeChildSessionScript[];
 	/** Overrides for every `ctx.commands.exec` result (defaults to exit 0). */
 	execResult?: Partial<ExecResult>;
+	/** Per-call `ctx.commands.exec` overrides; the last value repeats once exhausted. */
+	execResults?: readonly Partial<ExecResult>[];
 	trunkBranch?: string;
 	textFiles?: Readonly<Record<string, string>>;
+	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
 }
 
 export interface RunnerFakesContext extends ObjectiveRunnerContext {
@@ -158,6 +162,8 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 	const execCalls: RecordedExecCall[] = [];
 	const gitState = options.git ?? {};
 	const execResult = options.execResult ?? {};
+	const execResults = [...(options.execResults ?? [])];
+	let execResultIndex = 0;
 	const textFiles = options.textFiles ?? {};
 	return {
 		cwd: "/repo",
@@ -173,7 +179,16 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 		commands: {
 			async exec(command, args) {
 				execCalls.push({ command, args: [...args] });
-				return { stdout: "", stderr: "", code: 0, killed: false, ...execResult };
+				const sequenced = nextFromSequence(execResults, execResultIndex);
+				execResultIndex = sequenced.nextIndex;
+				return {
+					stdout: "",
+					stderr: "",
+					code: 0,
+					killed: false,
+					...execResult,
+					...sequenced.value,
+				};
 			},
 		},
 		childSession: new FakeChildSessionGateway(options.childScripts ?? []),
@@ -190,6 +205,10 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 			const content = textFiles[path];
 			if (content === undefined) return { type: "error", message: `Unreadable file: ${path}` };
 			return { type: "ok", content };
+		},
+		async filePresence(path): Promise<RunnerFilePresenceResult> {
+			if (options.filePresence !== undefined) return await options.filePresence(path);
+			return Object.hasOwn(textFiles, path) ? { type: "present" } : { type: "missing" };
 		},
 		stdoutChunks,
 		stderrChunks,

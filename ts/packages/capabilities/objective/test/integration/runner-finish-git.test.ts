@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -71,6 +71,22 @@ function createIntegrationCoreContext(seededRepo: TempGitRepo): IntegrationCoreC
 			try {
 				return { type: "ok", content: await readFile(path, "utf8") };
 			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return { type: "error", message };
+			}
+		},
+		async filePresence(path) {
+			try {
+				await stat(path);
+				return { type: "present" };
+			} catch (error) {
+				if (
+					typeof error === "object" &&
+					error !== null &&
+					(error as { code?: unknown }).code === "ENOENT"
+				) {
+					return { type: "missing" };
+				}
 				const message = error instanceof Error ? error.message : String(error);
 				return { type: "error", message };
 			}
@@ -162,6 +178,72 @@ test(
 		expect(failedIds).toContain("head-unchanged");
 		expect(failedIds).toContain("worktree-dirty");
 		expect(workRepo.runGit(["rev-list", "--count", "HEAD"]).trim()).toBe("3"); // initial + seed + runner commit
+	},
+	TEST_TIMEOUT_MS,
+);
+
+test(
+	"untracked whitespace-broken work fails the cached diff gate without a runner commit",
+	async () => {
+		repo = createSeededRepo();
+		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		const workRepo = repo;
+		const ctx = createIntegrationCoreContext(workRepo);
+		const reportPath = join(scratchDir, "step-1-report.json");
+
+		const facts = expectBeginOk(
+			await runRunnerBegin(ctx, { slug: SLUG, recover: false, reportPath }),
+		);
+
+		workRepo.runGit(["switch", "-c", CHILD_BRANCH]);
+		writeFileSync(join(workRepo.path, "trailing.txt"), "trailing whitespace \n", "utf8");
+		writeFileSync(reportPath, readyReportJson(), "utf8");
+
+		const exit = await runRunnerFinish(ctx, { slug: SLUG, facts: JSON.stringify(facts) });
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		expect(exit.data?.status).toBe("verification-failed");
+		const diffCheck = exit.data?.gateChecks.find((check) => check.id === "diff-check");
+		expect(diffCheck?.status).toBe("failed");
+		expect(diffCheck?.detail).toContain("trailing.txt");
+
+		const headMessage = workRepo.runGit(["log", "-1", "--format=%B"]);
+		expect(headMessage).not.toContain("Objective-Runner-Step");
+		expect(workRepo.runGit(["rev-list", "--count", "HEAD"]).trim()).toBe("2");
+		expect(workRepo.runGit(["status", "--porcelain"])).toContain("trailing.txt");
+	},
+	TEST_TIMEOUT_MS,
+);
+
+test(
+	"pre-staged child work fails index-clean without a runner commit",
+	async () => {
+		repo = createSeededRepo();
+		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		const workRepo = repo;
+		const ctx = createIntegrationCoreContext(workRepo);
+		const reportPath = join(scratchDir, "step-1-report.json");
+
+		const facts = expectBeginOk(
+			await runRunnerBegin(ctx, { slug: SLUG, recover: false, reportPath }),
+		);
+
+		workRepo.runGit(["switch", "-c", CHILD_BRANCH]);
+		writeFileSync(join(workRepo.path, "staged.txt"), "staged by child\n", "utf8");
+		workRepo.runGit(["add", "staged.txt"]);
+		writeFileSync(reportPath, readyReportJson(), "utf8");
+
+		const exit = await runRunnerFinish(ctx, { slug: SLUG, facts: JSON.stringify(facts) });
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		expect(exit.data?.status).toBe("verification-failed");
+		const indexClean = exit.data?.gateChecks.find((check) => check.id === "index-clean");
+		expect(indexClean?.status).toBe("failed");
+
+		const headMessage = workRepo.runGit(["log", "-1", "--format=%B"]);
+		expect(headMessage).not.toContain("Objective-Runner-Step");
+		expect(workRepo.runGit(["rev-list", "--count", "HEAD"]).trim()).toBe("2");
+		expect(workRepo.runGit(["status", "--porcelain"])).toContain("staged.txt");
 	},
 	TEST_TIMEOUT_MS,
 );

@@ -6,7 +6,10 @@ import { optionalEntries } from "@sdl/core/primitives";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
-import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
+import type {
+	RunnerFilePresenceResult,
+	RunnerTextFileReadResult,
+} from "../../src/runner/context.ts";
 import { objectiveExecRunnerBeginSdlCommand } from "../../src/sdl/commands/exec-runner-begin.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
 import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/sdl-command-harness.ts";
@@ -44,6 +47,7 @@ function missingReportFileReader(
 interface ScenarioOptions {
 	git?: SequencedGitGatewayState;
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
+	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
 	outputFormat?: "human" | "json" | "markdown";
 }
 
@@ -53,6 +57,7 @@ function makeApi(options: ScenarioOptions = {}): FakeObjectiveSdlApi {
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: openObjectiveStorage(),
 		readTextFile: options.readTextFile ?? missingReportFileReader(),
+		filePresence: options.filePresence ?? (async () => ({ type: "missing" })),
 		...optionalEntries({ outputFormat: options.outputFormat }),
 	});
 }
@@ -209,9 +214,9 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		}
 	});
 
-	test("an already-existing report file is refused (stale-report replay guard)", async () => {
+	test("an already-existing report path is refused (stale-report replay guard)", async () => {
 		const api = makeApi({
-			readTextFile: missingReportFileReader({ [REPORT_PATH]: '{"status":"stop"}' }),
+			filePresence: async () => ({ type: "present" }),
 		});
 
 		const exit = await runObjectiveCommand(
@@ -223,6 +228,24 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		expect(exit.type).toBe("usageError");
 		if (exit.type !== "usageError") throw new Error("expected usageError exit");
 		expect(exit.message).toContain("already exists");
+	});
+
+	test("report-path presence errors fail closed", async () => {
+		const api = makeApi({
+			filePresence: async () => ({ type: "error", message: "EACCES: permission denied" }),
+		});
+
+		const exit = await runObjectiveCommand(
+			objectiveExecRunnerBeginSdlCommand,
+			{ slug: SLUG, reportPath: REPORT_PATH },
+			{ api },
+		);
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") throw new Error("expected failure exit");
+		expect(exit.errorType).toBe("report-path-presence-failed");
+		expect(exit.message).toContain("EACCES");
+		expect(api.phases).toEqual([]);
 	});
 
 	test("unreadable @file guidance is a usage error", async () => {

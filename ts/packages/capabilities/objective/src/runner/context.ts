@@ -12,6 +12,11 @@ export type RunnerTextFileReadResult =
 	| { type: "ok"; content: string }
 	| { type: "error"; message: string };
 
+export type RunnerFilePresenceResult =
+	| { type: "present" }
+	| { type: "missing" }
+	| { type: "error"; message: string };
+
 /**
  * Dependency surface for the runner's deterministic bookends (ADR 0024):
  * preconditions, prompt/facts production, verification gate, commit, and
@@ -32,8 +37,10 @@ export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
 	writeStderr(text: string): void;
 	/** Transient, human-facing phase text. Non-contractual wording. */
 	phase(label: string): void;
-	/** Minimal text-file read seam; used for `--guidance @file` resolution. */
+	/** Minimal text-file read seam for actual content reads (`--guidance @file`, facts, reports). */
 	readTextFile(path: string): Promise<RunnerTextFileReadResult>;
+	/** Presence seam for fresh-path guards; unreadable occupied paths must not look missing. */
+	filePresence(path: string): Promise<RunnerFilePresenceResult>;
 }
 
 /**
