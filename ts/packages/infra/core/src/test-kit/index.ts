@@ -9,6 +9,16 @@ export interface TempDirTracker {
 	cleanup(): Promise<void>;
 }
 
+export interface TempGitRepo {
+	readonly repoDir: string;
+	readonly tempDir: string;
+}
+
+export interface TempGitRepoOptions {
+	readonly prefix?: string;
+	readonly repoName?: string;
+}
+
 export interface TempRepoSkill {
 	readonly repoDir: string;
 	readonly skillDir: string;
@@ -19,6 +29,7 @@ export interface TempRepoSkillOptions {
 	readonly skillName: string;
 	readonly markdown: string;
 	readonly prefix?: string;
+	readonly skillRoot?: string;
 }
 
 export interface Deferred<T> {
@@ -91,21 +102,34 @@ export async function markGitRepo(repoDir: string): Promise<void> {
 	await mkdir(join(repoDir, ".git"), { recursive: true });
 }
 
+export async function withTempGitRepo<T>(
+	options: TempGitRepoOptions,
+	callback: (repo: TempGitRepo) => Promise<T>,
+): Promise<T> {
+	const tempDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? "sdl-git-repo-")));
+	const repoDir = options.repoName === undefined ? tempDir : join(tempDir, options.repoName);
+	await markGitRepo(repoDir);
+	const realRepoDir = await realpath(repoDir);
+	try {
+		return await callback({ repoDir: realRepoDir, tempDir });
+	} finally {
+		await rm(tempDir, { recursive: true, force: true });
+	}
+}
+
 export async function withTempRepoSkill<T>(
 	options: TempRepoSkillOptions,
 	callback: (skill: TempRepoSkill) => Promise<T>,
 ): Promise<T> {
-	const repoDir = await realpath(
-		await mkdtemp(join(tmpdir(), options.prefix ?? `${options.skillName}-repo-`)),
+	return await withTempGitRepo(
+		{ prefix: options.prefix ?? `${options.skillName}-repo-` },
+		async ({ repoDir }) => {
+			const skillRoot = options.skillRoot ?? "skills";
+			const skillDir = join(repoDir, skillRoot, options.skillName);
+			const skillPath = join(skillDir, "SKILL.md");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(skillPath, options.markdown, "utf8");
+			return await callback({ repoDir, skillDir, skillPath });
+		},
 	);
-	const skillDir = join(repoDir, "skills", options.skillName);
-	const skillPath = join(skillDir, "SKILL.md");
-	await markGitRepo(repoDir);
-	await mkdir(skillDir, { recursive: true });
-	await writeFile(skillPath, options.markdown, "utf8");
-	try {
-		return await callback({ repoDir, skillDir, skillPath });
-	} finally {
-		await rm(repoDir, { recursive: true, force: true });
-	}
 }

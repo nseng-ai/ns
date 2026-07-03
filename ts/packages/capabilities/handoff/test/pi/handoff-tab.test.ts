@@ -1,5 +1,6 @@
 import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
+import { withTempRepoSkill } from "@sdl/core/test-kit";
 import { describe, expect, test } from "vitest";
 
 import handoffExtension, {
@@ -19,7 +20,7 @@ import {
 	runCommand,
 	skillCommandInfo,
 	step,
-	withTempSkill,
+	HANDOFF_CREATE_SKILL_MARKDOWN,
 } from "./handoff-test-fakes.ts";
 
 const HANDOFF_CONTENT = `# Handoff: Associate Sessions With Branches
@@ -70,46 +71,56 @@ describe("handoff-tab extension", () => {
 	});
 
 	test("handoff-tab command queues create prompt with content-derived slug instructions", async () => {
-		await withTempSkill(async (skillPath, repoDir) => {
-			const result = await runCommand(
-				"ccc:handoff-tab",
-				"finish handoff tab implementation",
-				[branchStep(), cmuxIdentifyStep()],
-				{ cwd: repoDir },
-				[skillCommandInfo(skillPath)],
-			);
+		await withTempRepoSkill(
+			{
+				skillName: "handoff-create",
+				markdown: HANDOFF_CREATE_SKILL_MARKDOWN,
+				prefix: "handoff-create-skill-",
+			},
+			async ({ skillPath, repoDir }) => {
+				const result = await runCommand(
+					"ccc:handoff-tab",
+					"finish handoff tab implementation",
+					[branchStep(), cmuxIdentifyStep()],
+					{ cwd: repoDir },
+					[skillCommandInfo(skillPath)],
+				);
 
-			result.pi.assertDone();
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
-				["git", ["branch", "--show-current"]],
-				["cmux", ["identify", "--json", "--id-format", "both"]],
-			]);
-			expect(result.notifications).toEqual([
-				{ message: "Starting ccc:handoff-tab workflow with content-derived slug…", level: "info" },
-			]);
-			// The generic command ack is suppressed by default; this command owns its status.
-			expect(result.statuses).toEqual(["checking cmux context…", undefined]);
-			expect(result.pi.progressMessages).toEqual([]);
-			expect(result.pi.ackMessages).toEqual([]);
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessageCalls[0]?.options).toEqual({ deliverAs: "followUp" });
-			const prompt = result.pi.sentUserMessages[0] ?? "";
-			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
-			expect(prompt).toContain("finish handoff tab implementation");
-			expect(prompt).toContain(`- Branch: ${BRANCH}`);
-			expect(prompt).toContain("- Namespace: handoff");
-			expect(prompt).toContain("derive_handoff_slug_from_content");
-			expect(prompt).not.toContain("finish-handoff-tab-implementation.md");
-			expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");
-			expect(prompt).toContain(
-				`sdl handoff create --slug <returned-slug> --branch ${BRANCH} --file /dev/stdin`,
-			);
-			expect(prompt).toContain(
-				"After `sdl handoff create` succeeds, call handoff_tab_launch with `branch` set",
-			);
-			expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
-		});
+				result.pi.assertDone();
+				expect(result.waitForIdleCalls()).toBe(1);
+				expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
+					["git", ["branch", "--show-current"]],
+					["cmux", ["identify", "--json", "--id-format", "both"]],
+				]);
+				expect(result.notifications).toEqual([
+					{
+						message: "Starting ccc:handoff-tab workflow with content-derived slug…",
+						level: "info",
+					},
+				]);
+				// The generic command ack is suppressed by default; this command owns its status.
+				expect(result.statuses).toEqual(["checking cmux context…", undefined]);
+				expect(result.pi.progressMessages).toEqual([]);
+				expect(result.pi.ackMessages).toEqual([]);
+				expect(result.pi.sentUserMessages).toHaveLength(1);
+				expect(result.pi.sentUserMessageCalls[0]?.options).toEqual({ deliverAs: "followUp" });
+				const prompt = result.pi.sentUserMessages[0] ?? "";
+				expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
+				expect(prompt).toContain("finish handoff tab implementation");
+				expect(prompt).toContain(`- Branch: ${BRANCH}`);
+				expect(prompt).toContain("- Namespace: handoff");
+				expect(prompt).toContain("derive_handoff_slug_from_content");
+				expect(prompt).not.toContain("finish-handoff-tab-implementation.md");
+				expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");
+				expect(prompt).toContain(
+					`sdl handoff create --slug <returned-slug> --branch ${BRANCH} --file /dev/stdin`,
+				);
+				expect(prompt).toContain(
+					"After `sdl handoff create` succeeds, call handoff_tab_launch with `branch` set",
+				);
+				expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
+			},
+		);
 	});
 
 	test("handoff-tab command delegates slug collision handling to generated prompt", async () => {

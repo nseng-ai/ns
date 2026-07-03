@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, test } from "vitest";
 
+import { withTempRepoSkill } from "@sdl/core/test-kit";
+
 import handoffExtension, {
 	HANDOFF_LIST_MESSAGE_TYPE,
 	buildCreateHandoffPrompt,
@@ -27,7 +29,7 @@ import {
 	listStep,
 	runCommand,
 	skillCommandInfo,
-	withTempSkill,
+	HANDOFF_CREATE_SKILL_MARKDOWN,
 	type CustomMessage,
 } from "./handoff-test-fakes.ts";
 
@@ -100,27 +102,34 @@ describe("handoff extension", () => {
 	});
 
 	test("create command expands the handoff-create skill when available", async () => {
-		await withTempSkill(async (skillPath, repoDir) => {
-			const result = await runCommand(
-				"handoff:create",
-				"resume extension frontend work",
-				[],
-				{ cwd: repoDir },
-				[skillCommandInfo(skillPath)],
-			);
+		await withTempRepoSkill(
+			{
+				skillName: "handoff-create",
+				markdown: HANDOFF_CREATE_SKILL_MARKDOWN,
+				prefix: "handoff-create-skill-",
+			},
+			async ({ skillPath, repoDir }) => {
+				const result = await runCommand(
+					"handoff:create",
+					"resume extension frontend work",
+					[],
+					{ cwd: repoDir },
+					[skillCommandInfo(skillPath)],
+				);
 
-			result.pi.assertDone();
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				`<skill name="handoff-create" location="${skillPath}">`,
-			);
-			expect(result.pi.sentUserMessages[0]).toContain("Create a handoff from the skill body.");
-			expect(result.pi.sentUserMessages[0]).toContain("resume extension frontend work");
-			expect(result.notifications).toEqual([
-				{ message: "Starting handoff create workflow…", level: "info" },
-			]);
-		});
+				result.pi.assertDone();
+				expect(result.waitForIdleCalls()).toBe(1);
+				expect(result.pi.sentUserMessages).toHaveLength(1);
+				expect(result.pi.sentUserMessages[0]).toContain(
+					`<skill name="handoff-create" location="${skillPath}">`,
+				);
+				expect(result.pi.sentUserMessages[0]).toContain("Create a handoff from the skill body.");
+				expect(result.pi.sentUserMessages[0]).toContain("resume extension frontend work");
+				expect(result.notifications).toEqual([
+					{ message: "Starting handoff create workflow…", level: "info" },
+				]);
+			},
+		);
 	});
 
 	test("create fallback uses the handoff namespace and semantic slug key", async () => {

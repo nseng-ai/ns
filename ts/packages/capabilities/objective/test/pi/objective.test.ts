@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
-import { markGitRepo, ScriptedQueue } from "@sdl/core/test-kit";
+import { ScriptedQueue, withTempRepoSkill } from "@sdl/core/test-kit";
 import type {
 	ObjectiveClient,
 	ObjectiveListResult,
@@ -273,24 +270,6 @@ function skillCommandInfo(skillName: string, skillPath: string, baseDir: string)
 			baseDir,
 		},
 	};
-}
-
-async function withTempSkill<T>(
-	skillName: string,
-	markdown: string,
-	callback: (skillPath: string, skillDir: string) => Promise<T>,
-): Promise<T> {
-	const repoDir = await mkdtemp(join(tmpdir(), `${skillName}-`));
-	const skillDir = join(repoDir, "skills", skillName);
-	const skillPath = join(skillDir, "SKILL.md");
-	await markGitRepo(repoDir);
-	await mkdir(skillDir, { recursive: true });
-	await writeFile(skillPath, markdown, "utf8");
-	try {
-		return await callback(skillPath, skillDir);
-	} finally {
-		await rm(repoDir, { recursive: true, force: true });
-	}
 }
 
 type ObjectiveCommandContextOptions = {
@@ -619,10 +598,13 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
-		await withTempSkill(
-			"objective-stack-impl",
-			STACK_SKILL_MARKDOWN,
-			async (skillPath, skillDir) => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-stack-impl",
+				markdown: STACK_SKILL_MARKDOWN,
+				prefix: "objective-stack-impl-",
+			},
+			async ({ skillPath, skillDir }) => {
 				const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
 					skillCommandInfo("objective-stack-impl", skillPath, skillDir),
 				]);
@@ -668,10 +650,13 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("empty args load active candidates with objective list json and git evidence", async () => {
-		await withTempSkill(
-			"objective-stack-impl",
-			STACK_SKILL_MARKDOWN,
-			async (skillPath, skillDir) => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-stack-impl",
+				markdown: STACK_SKILL_MARKDOWN,
+				prefix: "objective-stack-impl-",
+			},
+			async ({ skillPath, skillDir }) => {
 				const result = await runObjectiveStackImpl(
 					"",
 					[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
@@ -698,10 +683,13 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("changed Objective grouping matches objective-next", async () => {
-		await withTempSkill(
-			"objective-stack-impl",
-			STACK_SKILL_MARKDOWN,
-			async (skillPath, skillDir) => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-stack-impl",
+				markdown: STACK_SKILL_MARKDOWN,
+				prefix: "objective-stack-impl-",
+			},
+			async ({ skillPath, skillDir }) => {
 				const result = await runObjectiveStackImpl(
 					"",
 					[
@@ -728,10 +716,13 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
-		await withTempSkill(
-			"objective-stack-impl",
-			STACK_SKILL_MARKDOWN,
-			async (skillPath, skillDir) => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-stack-impl",
+				markdown: STACK_SKILL_MARKDOWN,
+				prefix: "objective-stack-impl-",
+			},
+			async ({ skillPath, skillDir }) => {
 				const result = await runObjectiveStackImpl(
 					"",
 					[
@@ -1330,14 +1321,10 @@ describe("objective command shared selection policy", () => {
 
 describe("objective command prompt details", () => {
 	test("expanded skill block appears in an objective prompt for an explicit slug", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "objective-next-skill-"));
-		const skillDir = join(dir, "skills", "objective-next");
-		const skillPath = join(skillDir, "SKILL.md");
-		await markGitRepo(dir);
-		await mkdir(skillDir, { recursive: true });
-		await writeFile(
-			skillPath,
-			`---
+		await withTempRepoSkill(
+			{
+				skillName: "objective-next",
+				markdown: `---
 name: objective-next
 hidden-frontmatter-token: do-not-include
 ---
@@ -1346,31 +1333,29 @@ hidden-frontmatter-token: do-not-include
 
 Use the selected Objective.
 `,
-			"utf8",
+				prefix: "objective-next-skill-",
+			},
+			async ({ repoDir, skillDir, skillPath }) => {
+				const result = await runObjectiveCommand("objective:next", "bravo", [], { cwd: repoDir }, [
+					skillCommandInfo("objective-next", skillPath, skillDir),
+				]);
+
+				result.pi.assertDone();
+				const prompt = result.pi.sentUserMessages[0] ?? "";
+				expect(prompt).toContain(`<skill name="objective-next" location="${skillPath}">`);
+				expect(prompt).toContain(`References are relative to ${skillDir}.`);
+				expect(prompt).toContain("# Objective Next Skill\n\nUse the selected Objective.");
+				expect(prompt).not.toContain("hidden-frontmatter-token");
+				expect(prompt).toContain(
+					"Run objective-next for this explicitly selected Objective slug or path:",
+				);
+				expect(prompt).toContain("```text\nbravo\n```");
+				expect(result.notifications).toContainEqual({
+					message: "Invoking objective-next for bravo.",
+					level: "info",
+				});
+			},
 		);
-
-		try {
-			const result = await runObjectiveCommand("objective:next", "bravo", [], { cwd: dir }, [
-				skillCommandInfo("objective-next", skillPath, skillDir),
-			]);
-
-			result.pi.assertDone();
-			const prompt = result.pi.sentUserMessages[0] ?? "";
-			expect(prompt).toContain(`<skill name="objective-next" location="${skillPath}">`);
-			expect(prompt).toContain(`References are relative to ${skillDir}.`);
-			expect(prompt).toContain("# Objective Next Skill\n\nUse the selected Objective.");
-			expect(prompt).not.toContain("hidden-frontmatter-token");
-			expect(prompt).toContain(
-				"Run objective-next for this explicitly selected Objective slug or path:",
-			);
-			expect(prompt).toContain("```text\nbravo\n```");
-			expect(result.notifications).toContainEqual({
-				message: "Invoking objective-next for bravo.",
-				level: "info",
-			});
-		} finally {
-			await rm(dir, { recursive: true, force: true });
-		}
 	});
 
 	test("objective:next fallback prompt requires a work-left estimate", async () => {
