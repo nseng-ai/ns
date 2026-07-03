@@ -106,9 +106,7 @@ describe("enriched-plan-commands", () => {
 		expect(pi.sentUserMessages[0]).toContain(
 			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
-		expect(pi.sentUserMessages[0]).toContain(
-			"No legacy ~/.ns/enriched-plan fallback is read or written",
-		);
+		expect(pi.sentUserMessages[0]).toContain("No fallback path is read or written");
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
 		expect(pi.sentUserMessages[0]).toContain("External research/context contract");
 		expect(pi.sentUserMessages[0]).not.toContain("create_brmem_plan_branch_from_file");

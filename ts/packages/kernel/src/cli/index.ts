@@ -102,7 +102,7 @@ interface SdlCliBuildState {
 const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 	metaUrl: new URL("../cli.ts", import.meta.url).href,
 	runtime: "typescript",
-	description: "Source Development Lifecycle tools.",
+	description: "ns tools.",
 	prepareRun: async ({ args, deps, cwd, env, stdout, stderr, io }) => {
 		const injectedContext = deps.context;
 		const resolvedStdout = deps.stdout ?? injectedContext?.stdout ?? stdout;
