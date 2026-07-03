@@ -288,7 +288,7 @@ export async function performGraphiteMaintenance(
 		const refresh = await landContext.graphite.refreshBranchFromRemote({
 			repoRoot,
 			branch: maintenance.branch,
-			checkoutConflict: maintenance.kind === "optional-descendant" ? "defer" : "fail",
+			checkedOutConflictHandling: maintenance.kind === "optional-descendant" ? "defer" : "fail",
 		});
 		if (refresh.type !== "success") {
 			if (maintenance.kind === "required-next-landing") {
@@ -382,7 +382,7 @@ export async function performGraphiteMaintenance(
 	const deletion = await landContext.graphite.deleteLocalBranch({
 		repoRoot,
 		branch,
-		checkedOutConflict: maintenance.kind === "none" ? "retain" : "fail",
+		checkedOutConflictHandling: maintenance.kind === "none" ? "retain" : "fail",
 	});
 	switch (deletion.type) {
 		case "deleted":

@@ -7,7 +7,7 @@ import type {
 	PrintAwareLandStackCommandContext,
 	StackSnapshot,
 } from "./stack/types.ts";
-import type { LandGithubPrFactsGateway, LandingFailure, PullRequestFacts } from "./types.ts";
+import type { LandGithubPrGateway, LandingFailure, PullRequestFacts } from "./types.ts";
 
 export interface ValidPullRequestView {
 	number: number;
@@ -19,7 +19,7 @@ export interface ValidPullRequestView {
 }
 
 interface RunIsolatedFastPathLandingOptions {
-	github: LandGithubPrFactsGateway;
+	github: LandGithubPrGateway;
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;

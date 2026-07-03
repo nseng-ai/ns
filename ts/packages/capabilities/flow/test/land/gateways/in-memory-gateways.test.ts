@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	createInMemoryLandContext,
 	InMemoryLandGitGateway,
-	InMemoryLandGithubPrFactsGateway,
+	InMemoryLandGithubPrGateway,
 	InMemoryLandGraphiteGateway,
 	InMemoryLandWorktreeSlotFactsGateway,
 	pullRequestFacts,
@@ -150,7 +150,7 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 			localBranches: [{ name: "feature/land-core", sha: FEATURE_SHA }],
 			branchContainsParents: { "feature/child|feature/land-core": false },
 		});
-		const github = new InMemoryLandGithubPrFactsGateway({
+		const github = new InMemoryLandGithubPrGateway({
 			pullRequests: [
 				pullRequestFacts({ number: 7, headRefName: "feature/closed", state: "CLOSED" }),
 			],

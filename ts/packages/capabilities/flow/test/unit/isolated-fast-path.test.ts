@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { runIsolatedFastPathLanding } from "../../src/land/isolated-fast-path.ts";
 import type {
-	LandGithubPrFactsGateway,
+	LandGithubPrGateway,
 	LandResult,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
@@ -23,7 +23,7 @@ interface Notification {
 	readonly level?: NotifyLevel;
 }
 
-class RecordingGithubGateway implements LandGithubPrFactsGateway {
+class RecordingGithubGateway implements LandGithubPrGateway {
 	readonly pullRequestFactsCalls: Array<{ repoRoot: string; branchOrNumber: string }> = [];
 	readonly squashMergePullRequestCalls: Array<{ repoRoot: string; pullRequest: PullRequestFacts }> =
 		[];
