@@ -750,25 +750,35 @@ function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspecti
 	};
 }
 
-function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindSkillInspection {
+interface SkillInspectionCore {
+	name: string;
+	baseRelativePath: string;
+	skillDir: AregPathState;
+	skillMd: AregTextFileState;
+}
+
+function copySkillInspectionCore(skill: SkillInspectionCore): SkillInspectionCore {
 	return {
 		name: skill.name,
-		sourceType: skill.sourceType,
 		baseRelativePath: skill.baseRelativePath,
 		skillDir: copyPathState(skill.skillDir),
 		skillMd: copyTextFileState(skill.skillMd),
+	};
+}
+
+function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindSkillInspection {
+	return {
+		...copySkillInspectionCore(skill),
+		sourceType: skill.sourceType,
 		openaiPolicy: copyTextFileState(skill.openaiPolicy),
 	};
 }
 
 function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindSkillInspection {
 	return {
-		name: skill.name,
+		...copySkillInspectionCore(skill),
 		root: skill.root,
 		sourceType: skill.sourceType,
-		baseRelativePath: skill.baseRelativePath,
-		skillDir: copyPathState(skill.skillDir),
-		skillMd: copyTextFileState(skill.skillMd),
 	};
 }
 
@@ -777,12 +787,9 @@ function skillKindSkillToFindSkill(
 ): AregSkillFindSkillInspection {
 	const descriptor = skillLookupDescriptorForSourceType(skill.sourceType);
 	return {
-		name: skill.name,
+		...copySkillInspectionCore(skill),
 		root: descriptor.root,
 		sourceType: descriptor.sourceType,
-		baseRelativePath: skill.baseRelativePath,
-		skillDir: copyPathState(skill.skillDir),
-		skillMd: copyTextFileState(skill.skillMd),
 	};
 }
 
@@ -791,7 +798,7 @@ function missingSkillKindSkill(name: string): AregSkillKindSkillInspection {
 	return {
 		name,
 		sourceType: "repo",
-		baseRelativePath: `skills/${name}`,
+		baseRelativePath: skillLookupBaseRelativePath("skills", name),
 		skillDir: missing,
 		skillMd: missing,
 		openaiPolicy: missing,

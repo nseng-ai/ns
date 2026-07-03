@@ -148,7 +148,7 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 	const lookupIo = skillLookupIoOptions(options);
 	const projectRoot = await resolveSkillLookupProjectRoot({
 		cwd: options.cwd,
-		...(lookupIo.statPath === undefined ? {} : { statPath: lookupIo.statPath }),
+		...lookupIo,
 	});
 	const lookup = await resolveExactSkillLookup({
 		projectDir: projectRoot,

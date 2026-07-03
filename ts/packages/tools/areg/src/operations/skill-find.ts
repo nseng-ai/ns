@@ -4,6 +4,7 @@ import {
 	SKILL_LOOKUP_ROOTS,
 	SKILL_LOOKUP_SOURCE_TYPES,
 	buildSkillLookupSearchedRoots,
+	skillLookupFileRelativePath,
 	skillLookupRootRank,
 	type SkillLookupRoot,
 } from "@sdl/pi/skills/lookup";
@@ -155,7 +156,7 @@ function toSkillFindMatch(
 	skill: AregSkillFindSkillInspection,
 	isPreferred: boolean,
 ): SkillFindMatch {
-	const skillFileRelativePath = `${skill.baseRelativePath}/SKILL.md`;
+	const skillFileRelativePath = skillLookupFileRelativePath(skill.root, skill.name);
 	const skillFilePath = toProjectPath(projectDir, skillFileRelativePath);
 	const frontmatter = parseSkillFindFrontmatter(skillFileRelativePath, skill.skillMd);
 	return {
