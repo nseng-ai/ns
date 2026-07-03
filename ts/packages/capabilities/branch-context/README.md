@@ -1,6 +1,6 @@
 # @ji/branch-context
 
-`@ji/branch-context` owns the SDL `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ji branch-context ...`.
+`@ji/branch-context` owns the ji `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ji branch-context ...`.
 
 ## Plan contract trial rollback
 

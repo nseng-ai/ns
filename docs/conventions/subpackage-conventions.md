@@ -19,7 +19,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 - **API** hosts the package's Capability API (`@ji/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
-- **Host surfaces** are thin adapters consumed by exactly one host: `ji` by the SDL CLI kernel wiring, `pi` by the Pi host stack, `repo-local-ji-extension` by kernel extension loading. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
+- **Host surfaces** are thin adapters consumed by exactly one host: `ji` by the ji CLI kernel wiring, `pi` by the Pi host stack, `repo-local-ji-extension` by kernel extension loading. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package.
 
 ## Naming rules

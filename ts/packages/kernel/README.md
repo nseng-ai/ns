@@ -1,12 +1,12 @@
-# sdl
+# ji
 
-`sdl` is the Source Development Lifecycle CLI. It is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling.
+`ji` is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling. The package still carries `@sdl/kernel` naming until the package-scope sweep lands.
 
-The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@ji/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
+The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@ji/ccc` may continue to own repo-specific orchestration internals, but ji owns the public lifecycle command surface once a workflow moves to `ji`.
 
 ## Command ownership and hard cutover
 
-Migrated lifecycle commands target one deliberate SDL command surface. Generic extension commands may be flat (`ji <name>`), but this repository's current lifecycle flow commands are grouped:
+Migrated lifecycle commands target one deliberate ji command surface. Generic extension commands may be flat (`ji <name>`), but this repository's current lifecycle flow commands are grouped:
 
 - CLI: `ji flow <name>`
 - Pi, when a mirror exists: `/ji:flow:<name>`
@@ -15,7 +15,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 
 ## Slot extension command face
 
-`ji slot ...` is contributed by the bundled `@ji/slot` SDL extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary SDL help/parsing paths. `@ji/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `ji slot`, including navigation commands and agent-facing `ji slot gt exec ...` helpers.
+`ji slot ...` is contributed by the bundled `@ji/slot` ji extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary ji help/parsing paths. `@ji/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `ji slot`, including navigation commands and agent-facing `ji slot gt exec ...` helpers.
 
 Parent-shell directory changes require opt-in shell integration because a child process cannot `cd` its parent shell:
 
@@ -31,7 +31,7 @@ ji slot shell install --shell zsh
 
 ## Shell completion
 
-SDL ships first-party shell completion built on the Clinkr completion engine. Completion is a Clinkr primitive: Clinkr owns the static command/option/value planner over its own surface metadata, and SDL is the proving consumer that wires it to a dynamic command catalog. Commander.js deliberately does not provide completion, so SDL does not depend on a Commander completion plugin.
+ji ships first-party shell completion built on the Clinkr completion engine. Completion is a Clinkr primitive: Clinkr owns the static command/option/value planner over its own surface metadata, and ji is the proving consumer that wires it to a dynamic command catalog. Commander.js deliberately does not provide completion, so ji does not depend on a Commander completion plugin.
 
 ### Supported shells
 
@@ -52,13 +52,13 @@ eval "$(ji completion zsh)"
 ji completion fish | source
 ```
 
-Each `ji completion <shell>` command prints a setup script that registers a completion hook for `ji`. The script does not embed a snapshot of the command tree; it calls back into SDL at completion time so suggestions always reflect the current built-in, XDG global, and project-local command catalog.
+Each `ji completion <shell>` command prints a setup script that registers a completion hook for `ji`. The script does not embed a snapshot of the command tree; it calls back into ji at completion time so suggestions always reflect the current built-in, XDG global, and project-local command catalog.
 
 ### How it resolves candidates
 
 The generated script invokes the hidden resolver `ji completion exec resolve <words...>`, which prints completion candidates as newline-delimited values on stdout, one per line. Descriptions are intentionally omitted in this first bridge; stdout is candidate values only.
 
-Resolution preserves SDL's lazy extension loading:
+Resolution preserves ji's lazy extension loading:
 
 - Top-level completion is built from side-effect-light catalog metadata (built-in table, filesystem entries, JSON manifests) and does not eager-load command modules.
 - Selected-command option and value completion imports only the selected command, matching `ji <cmd> --help` and `--json-schema` behavior.
@@ -77,21 +77,21 @@ The proving consumer is `ji slot checkout` / `ji slot co`, which complete local 
 
 - bash, zsh, and fish only; no PowerShell completion.
 - No Carapace spec export backend.
-- No rich file/directory completion helper API; shell-native file completion remains the fallback when SDL has no candidate.
+- No rich file/directory completion helper API; shell-native file completion remains the fallback when ji has no candidate.
 - Candidate descriptions are omitted from the newline resolver output.
 - Standalone `slot` completion is not supported; install completion for `ji`, not for a `slot` executable.
 
 ### No compatibility aliases
 
-SDL does not retain old or renamed command names as compatibility aliases for autocomplete convenience. Completion reflects the current canonical command surface only; migrated workflows delete old names rather than keeping hidden aliases to satisfy habit or tab completion.
+ji does not retain old or renamed command names as compatibility aliases for autocomplete convenience. Completion reflects the current canonical command surface only; migrated workflows delete old names rather than keeping hidden aliases to satisfy habit or tab completion.
 
-## SDL extensions
+## ji extensions
 
-SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later.
+ji treats project-specific lifecycle behavior as first-class. ji extensions can contribute command entries today and are expected to grow additional contribution points later.
 
-The SDL kernel owns the stable host mechanics: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, the execution context, and the public author API. It should not own repository workflow policy such as checkpoint wording, PR-description prompts, Graphite submit orchestration, or project-specific GitHub behavior unless that policy has deliberately become a reusable kernel service.
+The ji kernel owns the stable host mechanics: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, the execution context, and the public author API. It should not own repository workflow policy such as checkpoint wording, PR-description prompts, Graphite submit orchestration, or project-specific GitHub behavior unless that policy has deliberately become a reusable kernel service.
 
-Project-local SDL extensions own repo-specific command behavior. In this repository, flow commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under the grouped `.ji/extensions/flow/` package; their presence here does not make them universal built-in SDL commands.
+Project-local ji extensions own repo-specific command behavior. In this repository, flow commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under the grouped `.ji/extensions/flow/` package; their presence here does not make them universal built-in ji commands.
 
 Bundled first-party extensions are used for reusable capability-owned commands such as Slot. A workflow should become bundled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
 
@@ -111,7 +111,7 @@ Global and project roots support these one-level entry shapes:
 .ji/extensions/package-name/package.json
 ```
 
-Direct files and directory indexes infer one SDL command-entry name from the file or directory name. Top-level help eager-loads these non-package extension modules to show their explicit command summaries; if an import fails, help keeps the command visible with a generic placeholder and prints a warning. Package manifests provide top-level help metadata without executing TypeScript:
+Direct files and directory indexes infer one ji command-entry name from the file or directory name. Top-level help eager-loads these non-package extension modules to show their explicit command summaries; if an import fails, help keeps the command visible with a generic placeholder and prints a warning. Package manifests provide top-level help metadata without executing TypeScript:
 
 ```json
 {
@@ -130,7 +130,7 @@ Direct files and directory indexes infer one SDL command-entry name from the fil
 
 Manifest command entries require `name`, `description`, and a relative POSIX-style `entry` path to a `.ts` or `.js` file. `fullDescription` is optional and defaults to `description`.
 
-SDL extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current SDL surface.
+ji extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current ji surface.
 
 ```ts
 import { defineExtension, ok } from "@ji/kernel/sdk";
@@ -153,36 +153,36 @@ Command path segments must match `[a-z][a-z0-9-]*`. Manifest `path` entries can 
 
 Duplicate command names within one extension root are errors. Across roots, higher-precedence sources override lower-precedence sources: project overrides XDG global and built-in; XDG global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 
-Discovery is side-effect-light: `ji --version`, `ji --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Top-level help (`ji`, `ji --help`, and `ji -h`) additionally imports and validates non-package direct-file and directory-index extension modules so the command list can show their real summaries; package manifest commands are not imported for the listing. Malformed discovery entries and help-time import failures that do not affect a selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution when a command is selected, including selected-command help and JSON schema.
+Discovery is side-effect-light: `ji --version`, `ji --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Top-level help (`ji`, `ji --help`, and `ji -h`) additionally imports and validates non-package direct-file and directory-index extension modules so the command list can show their real summaries; package manifest commands are not imported for the listing. Malformed discovery entries and help-time import failures that do not affect a selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. ji imports and validates exactly one external ji extension contribution when a command is selected, including selected-command help and JSON schema.
 
 The legacy `.ji/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/ji:*` mirrors are not part of this first general extension-loading slice. In this repository, exact `/ji:flow:*` mirrors delegate to the grouped project-local `ji flow` lifecycle commands: changes, cp, autobranch, branch-latest-commit, autoslot, submit, regenerate-pr, push, land, and pull-trunk. Arbitrary SDL extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
+Dynamic Pi `/ji:*` mirrors are not part of this first general extension-loading slice. In this repository, exact `/ji:flow:*` mirrors delegate to the grouped project-local `ji flow` lifecycle commands: changes, cp, autobranch, branch-latest-commit, autoslot, submit, regenerate-pr, push, land, and pull-trunk. Arbitrary ji extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
 
-## SDL extension API
+## ji extension API
 
-SDL extension authors import the SDK surface, including schema builder `z`, from the `@ji/kernel/sdk` subpath:
+ji extension authors import the SDK surface, including schema builder `z`, from the `@ji/kernel/sdk` subpath:
 
 ```ts
 import { defineExtension, failed, ok, z } from "@ji/kernel/sdk";
 import type { SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
 ```
 
-`@ji/kernel/sdk` is the SDL author SDK subpackage and the SDK layer; `@ji/kernel` is the host/kernel container that loads extensions. That `@ji/kernel/sdk` subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
+`@ji/kernel/sdk` is the ji author SDK subpackage and the SDK layer; `@ji/kernel` is the host/kernel container that loads extensions. That `@ji/kernel/sdk` subpath is the public author API for ji extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
 
-SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
+ji command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal ji implementation modules.
 
-Single-file SDL extension modules such as `.ji/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@ji/kernel/sdk` or another documented package export; do not create a package → extension dependency.
+Single-file ji extension modules such as `.ji/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@ji/kernel/sdk` or another documented package export; do not create a package → extension dependency.
 
 The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.ji/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@ji/kernel/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
 ## Internal workspace exports and Capability APIs
 
-The author SDK is the `@ji/kernel/sdk` subpath. Remaining `@ji/kernel` subpaths are narrow `ji.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
+The author SDK is the `@ji/kernel/sdk` subpath. Remaining `@ji/kernel` subpaths are narrow `ji.internalWorkspaceExports` for ji-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
 
 SDK-independent domain primitives that used to live behind `@ji/kernel/*` internal subpaths now live as precise `@ji/capability-kit/*` subpaths. Those helpers are internal workspace building blocks for first-party capability code, not public SDK author API.
 
-Consumer capability packages use Capability APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@ji/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
+Consumer capability packages use Capability APIs, not the ji SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@ji/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
 
 ## Flow capability-area maturity
 
@@ -190,7 +190,7 @@ The grouped flow extension uses a conservative maturity ladder for repeated comm
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
 2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `@ji/flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
-3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@ji/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@ji/capability-kit/*` subpaths unless and until a separate decision promotes them to `@ji/kernel/sdk`.
+3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. ji-owned kernel/presentation seams stay under `@ji/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@ji/capability-kit/*` subpaths unless and until a separate decision promotes them to `@ji/kernel/sdk`.
 4. **Public SDK:** a separately approved promotion into `@ji/kernel/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
 This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `@ji/flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
@@ -204,7 +204,7 @@ ji flow cp
 ji flow cp --dry-run
 ```
 
-In this repository, `ji flow cp` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/cp`; it is not a universal built-in SDL command.
+In this repository, `ji flow cp` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/cp`; it is not a universal built-in ji command.
 
 Behavior:
 
@@ -231,13 +231,13 @@ ji flow autobranch
 ji flow autobranch --slug <slug>
 ```
 
-In this repository, `ji flow autobranch` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/autobranch`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `ji flow autobranch` / `/ji:flow:autobranch`.
+In this repository, `ji flow autobranch` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/autobranch`; it is not a universal built-in ji command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `ji flow autobranch` / `/ji:flow:autobranch`.
 
 Behavior:
 
 - stashes tracked and untracked changes, creates a Graphite branch with `gt create`, restores the stash, and creates a checkpoint commit;
 - refuses clean worktrees with guidance to use `ji flow branch-latest-commit` for latest-commit splitting;
-- derives branch slugs with the SDL slug model unless `--slug` is supplied;
+- derives branch slugs with the ji slug model unless `--slug` is supplied;
 - generates checkpoint messages with the same `[cp]` checkpoint-message policy as `ji flow cp`.
 
 Environment:
@@ -263,7 +263,7 @@ Behavior:
 
 - requires a clean worktree and refuses pending changes with guidance to use `ji flow autobranch` for dirty worktree changes;
 - moves the latest eligible unpushed single-parent commit onto a new Graphite child branch using the existing recovery branch, source reset, `gt create`, child hard reset, HEAD verification, and cleanup transaction;
-- derives branch slugs with the SDL slug model unless `--slug` is supplied;
+- derives branch slugs with the ji slug model unless `--slug` is supplied;
 - stays local-only: it does not push, publish, submit, or update PRs.
 
 When the latest commit belongs on its own Graphite child branch, agents should use `ji flow branch-latest-commit --slug <slug>` instead of manually running `git reset HEAD^` plus `gt create`.
@@ -327,7 +327,7 @@ Pi exposes the same capability as `/ji:flow:submit`. `/dev:submit`, `/submit`, a
 
 ## `regenerate-pr`
 
-Regenerate the current branch PR title and SDL-managed generated body region.
+Regenerate the current branch PR title and ji-managed generated body region.
 
 ```bash
 ji flow regenerate-pr [--force]
@@ -338,7 +338,7 @@ Behavior:
 - resolves the current branch PR through `gh pr view --json number,url,title,body,headRefName,baseRefName`;
 - computes the same stable patch id as `gh pr diff <number> | git patch-id --stable`;
 - asks the configured PR-description model for a fresh title and body even when `ji flow submit` would skip the PR as unchanged;
-- replaces or inserts only the SDL-managed generated body region and preserves human PR body text outside that region;
+- replaces or inserts only the ji-managed generated body region and preserves human PR body text outside that region;
 - asks for confirmation immediately before `gh pr edit`; if confirmation is declined or unavailable, GitHub is not edited;
 - accepts `--force` as a compatibility no-op that does not bypass confirmation.
 
@@ -354,14 +354,14 @@ Pi exposes the same capability as `/ji:flow:regenerate-pr`. `ji pr-regen`, `/ji:
 Use these cut lines when deciding where a lifecycle workflow belongs:
 
 - **Kernel service:** discovery, loading, precedence, command presentation, execution/context primitives, and small author helpers with proven reuse or explicit necessity.
-- **Project-local extension:** repo-specific workflow policy, prompts, external command choreography, and command names that should travel with this checkout but not every SDL installation.
+- **Project-local extension:** repo-specific workflow policy, prompts, external command choreography, and command names that should travel with this checkout but not every ji installation.
 - **Future bundled extension:** reusable first-party workflow behavior whose portable contract has been proven outside a single repository; still out of scope for the current command-first migration.
 - **Internal workspace export:** package-to-package sharing during migration, not an author API and not a reason for `.ji/extensions/*.ts` files to import implementation modules.
 
 ## Testing future command migrations
 
-Future SDL command slices should update tests and docs with the command surface change:
+Future ji command slices should update tests and docs with the command surface change:
 
-- SDL CLI scenario tests should cover the user-facing surface being introduced, such as `ji flow <name>` for this repository's grouped flow commands or `ji <name>` for a flat extension entry.
+- ji CLI scenario tests should cover the user-facing surface being introduced, such as `ji flow <name>` for this repository's grouped flow commands or `ji <name>` for a flat extension entry.
 - Pi registration and parity tests should cover the exact mirror, such as `/ji:flow:<name>` for grouped flow commands, when a command is exposed in Pi.
 - Source searches should prove stale old command names and `/code:<name>` surfaces were deleted or are mentioned only as explicitly labeled migration-away context.

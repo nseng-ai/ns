@@ -143,7 +143,7 @@ Project-local Pi commands:
 /handoff:list [--branch <branch> | --all]
 ```
 
-Portable SDL command face:
+Portable ji command face:
 
 ```text
 ji handoff list [--branch <branch>|--all] [--include-deleted]

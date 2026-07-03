@@ -1,8 +1,8 @@
-# SDL Agent Instructions
+# ji Agent Instructions
 
-## What SDL is
+## What ji is
 
-SDL (Source Development Lifecycle) is private, unreleased, agent-first tooling for running multi-session, multi-branch software work in a git-native way. It gives agents and humans a shared set of capabilities — durable planning **Objectives**, worktree **slots**, **branch-context** and branch memory, directed **handoffs**, and Graphite-based PR stacking — surfaced both as CLIs (`ji`, `slot`, `brmem`, …) and as Pi `/ji:*` slash-commands. Assume you are one of many agents starting cold on this repo: orient yourself with the docs below before acting.
+ji is private, unreleased, agent-first tooling for running multi-session, multi-branch software work in a git-native way. It gives agents and humans a shared set of capabilities — durable planning **Objectives**, worktree **slots**, **branch-context** and branch memory, directed **handoffs**, and Graphite-based PR stacking — surfaced both as CLIs (`ji`, `slot`, `brmem`, …) and as Pi `/ji:*` slash-commands. Assume you are one of many agents starting cold on this repo: orient yourself with the docs below before acting.
 
 ## Scope
 
@@ -10,7 +10,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 
 ## Repo facts
 
-- SDL is private, unreleased software; breaking changes are allowed.
+- ji is private, unreleased software; breaking changes are allowed.
 - First-party implementation is TypeScript on Node 24+.
 - Package workspace: `ts/` with pnpm.
 - Default repo validation entrypoint: `just`.
@@ -22,7 +22,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 - Durable state should be git-native: refs, branches, GitHub issues/PRs where collaboration warrants; avoid hidden databases/ad-hoc state files.
 - Keep units small and testable: pure transformations plus Gateway interfaces for external I/O.
 - Port thoughtfully; do not copy abstractions unchanged when simpler designs fit.
-- SDL is self-hosting: this repo both develops the platform and is its first consumer. Before deciding whether new code is a platform capability (tested `ts/packages/*`) or a consumer instance (a `.ji/*` artifact), read `docs/conventions/platform-and-consumer.md`; provisional consumer artifacts must carry an explicit promotion path.
+- ji is self-hosting: this repo both develops the platform and is its first consumer. Before deciding whether new code is a platform capability (tested `ts/packages/*`) or a consumer instance (a `.ji/*` artifact), read `docs/conventions/platform-and-consumer.md`; provisional consumer artifacts must carry an explicit promotion path.
 
 ## Major initiatives — load before non-trivial work
 
@@ -65,7 +65,7 @@ objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 
 - Use a skill when the user names it or the task matches its description. Multiple named skills mean use all; do not carry skills across turns unless re-mentioned.
 - Read the skill's `SKILL.md` progressively; resolve relative paths from the skill directory; load only needed `references/`; prefer scripts/assets/templates over retyping large blocks.
-- For SDL first-party skills, `skills/<name>/SKILL.md` is canonical. If a repo skill is named in docs or another skill but absent from the prompt's available-skill inventory, run `areg skill find <name> --format json`; if it succeeds, read the returned preferred `SKILL.md` path. If it returns suggestions, ask/choose deliberately rather than auto-loading a fuzzy match.
+- For ji first-party skills, `skills/<name>/SKILL.md` is canonical. If a repo skill is named in docs or another skill but absent from the prompt's available-skill inventory, run `areg skill find <name> --format json`; if it succeeds, read the returned preferred `SKILL.md` path. If it returns suggestions, ask/choose deliberately rather than auto-loading a fuzzy match.
 - If a named skill is missing or unreadable, say so briefly and continue with the best fallback.
 - Before creating, editing, installing, renaming, publishing skills, or touching `skills/` or `.agents/skills/`, read `docs/conventions/skill-conventions.md`.
 - Review boundary: real directories under `.agents/skills/` are vendored third-party code. Review agents ignore embedded upstream code for normal lint/type/cleanup expectations and flag only integration-boundary issues unless explicitly asked to review the vendored dependency itself.

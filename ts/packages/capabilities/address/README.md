@@ -29,7 +29,7 @@ ADR 0016 keeps dependency direction as `@ji/address` → `@ji/core`: lower type 
 
 ## Distribution
 
-Address operations are mounted into the repo-local SDL extension command face as `ji address exec ...`; nothing is bundled or published:
+Address operations are mounted into the repo-local ji extension command face as `ji address exec ...`; nothing is bundled or published:
 
 - **Install**: `just install-tools` installs the `ji` shim.
 - **Dispatch**: inside an sdl checkout (any worktree), `ji address exec ...` loads `.ji/extensions/address` and invokes this package's operation handlers.

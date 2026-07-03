@@ -26,11 +26,11 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [refactor-swarm-workflow](patterns/refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](patterns/subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
 - [Harness skill/command/prompt invocation mechanics](research/harness-skill-invocation.md): how Claude Code, Codex, and Pi discover, surface, and gate skills/commands — invocation-control flags, ambient context cost, read roots, and namespacing — input to `areg` command conversion.
-- [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, SDL-owned overlays, invocation semantics, and future update checklist.
+- [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ji-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](patterns/thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Package extraction refactors](patterns/package-extraction-refactors.md): checklist for moving code into a new package while preserving dependency direction, public import boundaries, tests, docs, and validation evidence.
 - [Roaster package README](../ts/packages/capabilities/roaster/README.md): how to configure `.ji/reviews/<key>/review.md`, run Roaster locally, and understand CI discovery/execution.
 - [Roaster and `@pierre/diffs`](roaster-pierre-diffs.md): the roaster diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
-- [XDG Base Directory Specification](research/xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ASDL's git-native storage principle.
+- [XDG Base Directory Specification](research/xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ji's git-native storage principle.
 
 Agents should consult this README first, then follow the narrowest relevant link instead of scanning the whole repository.

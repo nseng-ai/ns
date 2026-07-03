@@ -44,7 +44,7 @@ If the CLI says a restack is required:
 ji flow submit --restack
 ```
 
-Automatic checkpointing uses SDL checkpoint environment variables:
+Automatic checkpointing uses ji checkpoint environment variables:
 
 - `JI_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
 - `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset.
@@ -55,7 +55,7 @@ PR description generation uses:
 - `JI_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
 - `.ji/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 
-Submit failure interpretation uses `JI_SUBMIT_FAILURE_MODEL`, defaulting to the standard SDL fast model.
+Submit failure interpretation uses `JI_SUBMIT_FAILURE_MODEL`, defaulting to the standard ji fast model.
 
 To regenerate the current branch PR explicitly, run:
 

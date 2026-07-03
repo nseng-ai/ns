@@ -1,6 +1,6 @@
 # @ji/slot
 
-`@ji/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled SDL extension contribution for `ji slot ...`. The supported command-line surface is **only** through the SDL binary:
+`@ji/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled ji extension contribution for `ji slot ...`. The supported command-line surface is **only** through the ji binary:
 
 ```bash
 ji slot list
@@ -8,11 +8,11 @@ ji slot checkout feature-x
 ji slot gt exec stack-branches --format json
 ```
 
-The package does not expose or install a top-level `slot` executable. The SDL kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@ji/slot/api` rather than parsing command output.
+The package does not expose or install a top-level `slot` executable. The ji kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@ji/slot/api` rather than parsing command output.
 
 ## Installation
 
-Install the SDL tool shim with the repository tool installation flow, then invoke Slot commands as `ji slot ...`. There is no `just install-slot` recipe and no supported `$HOME/.local/bin/slot` shim.
+Install the ji tool shim with the repository tool installation flow, then invoke Slot commands as `ji slot ...`. There is no `just install-slot` recipe and no supported `$HOME/.local/bin/slot` shim.
 
 ## Core commands
 
@@ -37,12 +37,12 @@ ji slot shell install --shell zsh
 ji slot shell install --shell bash
 ```
 
-`ji slot shell` installs the canonical SDL shell wrapper. The wrapper defines `ji()`, uses `JI_CD_DIRECTIVE_FILE`, invokes `command ji "$@"`, and lets successful human-output navigation commands such as `ji slot checkout`, `ji slot goto`, `ji slot gt up`, and `ji slot gt down` move the parent shell.
+`ji slot shell` installs the canonical ji shell wrapper. The wrapper defines `ji()`, uses `JI_CD_DIRECTIVE_FILE`, invokes `command ji "$@"`, and lets successful human-output navigation commands such as `ji slot checkout`, `ji slot goto`, `ji slot gt up`, and `ji slot gt down` move the parent shell.
 
 `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 
-During the extension-contract transition, the Slot SDL extension uses the current `@ji/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+During the extension-contract transition, the Slot ji extension uses the current `@ji/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
 
 ## Completion
 
-Standalone Slot completion is not supported. Use SDL-level shell completion when available; do not install completion for a `slot` command.
+Standalone Slot completion is not supported. Use ji-level shell completion when available; do not install completion for a `slot` command.

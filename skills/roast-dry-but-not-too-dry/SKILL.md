@@ -16,7 +16,7 @@ Use explicit automation only when the user asks for isolated runner execution or
 ji roaster review run dry-but-not-too-dry
 ```
 
-In Pi-hosted sessions, use this skill's same review instructions or the same SDL command face above; no separate Roaster runner alias is required.
+In Pi-hosted sessions, use this skill's same review instructions or the same ji command face above; no separate Roaster runner alias is required.
 
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 

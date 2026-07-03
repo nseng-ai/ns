@@ -1,6 +1,6 @@
 # `@ji/kernel/sdk` — Reference
 
-`@ji/kernel/sdk` is the public author API for SDL extensions — the one package you import from to write an SDL extension; this document is the complete reference for its exports. `@ji/kernel/sdk` is the SDK layer; `@ji/kernel` is the host/kernel that loads extensions.
+`@ji/kernel/sdk` is the public author API for ji extensions — the one package you import from to write an ji extension; this document is the complete reference for its exports. `@ji/kernel/sdk` is the SDK layer; `@ji/kernel` is the host/kernel that loads extensions.
 
 Import the SDK's own surface from the package itself:
 
@@ -9,11 +9,11 @@ import { defineExtension, failed, ok, z } from "@ji/kernel/sdk";
 import type { SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
 ```
 
-Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the SDL host.
+Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ji host.
 
-Do not import SDL implementation modules (`@ji/kernel/*`, `@ji/core/*`, `@ji/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
+Do not import ji implementation modules (`@ji/kernel/*`, `@ji/core/*`, `@ji/clinkr/*`) from ji extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-Capability APIs such as `@ji/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@ji/kernel/sdk` and not general SDL extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
+Capability APIs such as `@ji/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@ji/kernel/sdk` and not general ji extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
 
 For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `@ji/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@ji/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
@@ -27,7 +27,7 @@ The exports are grouped by the role they play when authoring a command: you **de
 
 ### `defineExtension()`
 
-Declares an SDL extension. The default export of every SDL extension module is a call to `defineExtension()`.
+Declares a ji extension. The default export of every ji extension module is a call to `defineExtension()`.
 
 ```ts
 function defineExtension(extension: SdlExtension): SdlExtension;
@@ -65,7 +65,7 @@ export default defineExtension({
 
 ### `SdlExtension`
 
-The shape of an SDL extension.
+The shape of a ji extension.
 
 ```ts
 interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
@@ -75,13 +75,13 @@ interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCom
 
 **Fields.**
 
-- `commands?` — the extension's command contributions. Omit it for an extension that contributes no commands to the current SDL surface.
+- `commands?` — the extension's command contributions. Omit it for an extension that contributes no commands to the current ji surface.
 
 **Example.**
 
 ```ts
 // A commandless extension is valid — it simply contributes nothing to the
-// current SDL surface.
+// current ji surface.
 export default defineExtension({});
 ```
 
@@ -164,7 +164,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 - `schema?` — a Zod object schema (`SdlCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
-- `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the SDL kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
+- `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the ji kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
 - `completionProvider?` — optional shell-completion hook for dynamic values. It receives the `SdlExtensionApi` and a Clinkr completion request (`current`, `previous`, command `args`, and `positionalIndex`). Its candidates are appended to static command/option/enum candidates and deduped. Completion stdout remains candidate-only; provider failures are omitted from stdout, keep resolver exit code `0`, and may be reported concisely on stderr.
 - `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `SdlResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
 
@@ -235,7 +235,7 @@ export default defineExtension({
 });
 ```
 
-The user-facing setup, resolver behavior, supported shells, and limitations for SDL shell completion are documented in [`../README.md`](../README.md) under "Shell completion".
+The user-facing setup, resolver behavior, supported shells, and limitations for ji shell completion are documented in [`../README.md`](../README.md) under "Shell completion".
 
 ### `SdlCommandSchema`
 
@@ -304,7 +304,7 @@ interface PositionalSpec {
 
 ## Extension manifest schemas
 
-SDL package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ji`, and command-entry fields are accepted and preserved.
+ji package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ji`, and command-entry fields are accepted and preserved.
 
 ### `sdlExtensionManifestCommandSchema`
 
@@ -320,7 +320,7 @@ const command = sdlExtensionManifestCommandSchema.parse({
 });
 ```
 
-Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain SDL kernel responsibilities.
+Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain ji kernel responsibilities.
 
 ### `sdlExtensionManifestSchema` / `sdlExtensionPackageManifestSchema`
 
@@ -465,7 +465,7 @@ return failed("Working tree is dirty; commit or stash first.", 2);
 
 ### `SdlExtensionApi`
 
-The capabilities a command receives as the first argument to `run`. SDL owns the host environment; the command owns the exact external commands, prompts, and policy it applies.
+The capabilities a command receives as the first argument to `run`. ji owns the host environment; the command owns the exact external commands, prompts, and policy it applies.
 
 ```ts
 interface SdlExtensionApi {
@@ -710,4 +710,4 @@ import { z } from "@ji/kernel/sdk";
 const schema = z.object({ slug: z.string().optional() });
 ```
 
-Using the SDK export keeps schemas on the same Zod identity as the SDL host at runtime.
+Using the SDK export keeps schemas on the same Zod identity as the ji host at runtime.

@@ -41,7 +41,7 @@ The `@ji/ccc/pi` subpackage that wires CCC workflows into Pi/cmux presentation b
 *Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic local Pi-tool package.
 
 **Pi command namespace**:
-The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/ji:flow:*` names SDL lifecycle mirrors; `/ji:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
+The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/ji:flow:*` names ji lifecycle mirrors; `/ji:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:

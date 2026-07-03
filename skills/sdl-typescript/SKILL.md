@@ -120,7 +120,7 @@ Review guidance:
 
 Follow the portable `typescript-style` rule: first-party dependencies must be encoded as typed
 fields, parameters, gateway methods, or curated APIs instead of implicit string-keyed bags.
-In SDL, `SdlExtensionApi.extensions` remains available only for genuinely project-local or
+In ji, `SdlExtensionApi.extensions` remains available only for genuinely project-local or
 extension-owned dynamic data. Do not use it to transport first-party SDK/capability values between
 packages; promote those values to typed SDK fields, Capability API parameters, or gateway seams. For
 example, prefer `ctx.renderCapabilities: RenderCapabilities` over
@@ -128,7 +128,7 @@ example, prefer `ctx.renderCapabilities: RenderCapabilities` over
 
 ## Time seams
 
-Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@ji/core/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@ji/core/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@ji/core/time`, `unrefTimerScheduler` from `@ji/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@ji/core/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
+Production ji TypeScript should not hand-roll raw timers. Use `Clock` from `@ji/core/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@ji/core/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@ji/core/time`, `unrefTimerScheduler` from `@ji/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@ji/core/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
 
 ## Hard bans enforced by TypeScript style guard tests
 

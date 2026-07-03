@@ -1,6 +1,6 @@
 # TypeScript Agent Instructions (`ts/`)
 
-Rules for working under `ts/`, the pnpm workspace holding SDL's first-party TypeScript packages. Read this before editing any `.ts` file here. Deeper packages may add their own nested `AGENTS.md` (for example `ts/packages/capabilities/ccc/AGENTS.md`); read the nearest applicable one as well. Repo-wide rules and orientation live in the root `AGENTS.md`.
+Rules for working under `ts/`, the pnpm workspace holding ji's first-party TypeScript packages. Read this before editing any `.ts` file here. Deeper packages may add their own nested `AGENTS.md` (for example `ts/packages/capabilities/ccc/AGENTS.md`); read the nearest applicable one as well. Repo-wide rules and orientation live in the root `AGENTS.md`.
 
 ## TypeScript
 
@@ -15,7 +15,7 @@ Before creating a workspace package, declaring or renaming `ji.subpackages` entr
 
 ## Time seams
 
-Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in SDL-owned TypeScript logic. Inject/use `Clock` from `@ji/core/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@ji/core/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@ji/core/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@ji/core/time/testing`. Use `unrefTimerScheduler` from `@ji/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke.
+Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in ji-owned TypeScript logic. Inject/use `Clock` from `@ji/core/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@ji/core/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@ji/core/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@ji/core/time/testing`. Use `unrefTimerScheduler` from `@ji/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke.
 
 ## Formatting and validation
 
