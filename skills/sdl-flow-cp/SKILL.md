@@ -1,16 +1,16 @@
 ---
-name: code-checkpoint
+name: sdl-flow-cp
 disable-model-invocation: true
-description: "Command: code-checkpoint"
+description: "Command: sdl-flow-cp"
 allowed-tools:
-  - "Bash(ji cp*)"
+  - "Bash(ji flow cp*)"
 metadata:
   internal: true
 ---
 
-# code-checkpoint
+# sdl-flow-cp
 
-Create a quick checkpoint commit for the current git diff by delegating to the shared `ji cp` CLI. This is the cross-harness path for `/ji:flow:cp` and `/ji:code:checkpoint`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
+Create a quick checkpoint commit for the current git diff by delegating to the shared `ji flow cp` CLI. This is the cross-harness path for `/ji:flow:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
 
 ## When to use
 
@@ -23,7 +23,7 @@ Do **not** use for milestone commits, PR-ready commits, or anything that should 
 Run:
 
 ```bash
-ji cp
+ji flow cp
 ```
 
 The CLI owns the deterministic behavior:
@@ -43,10 +43,10 @@ Text generation is controlled by the CLI environment:
 
 ## Failure handling
 
-If `ji cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
+If `ji flow cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
 
 ## Rules
 
-- Never hand-roll the checkpoint commit when `ji cp` is available.
+- Never hand-roll the checkpoint commit when `ji flow cp` is available.
 - Never run `git commit --amend` or `git commit --no-verify` for this workflow.
 - Do not add Co-Authored-By trailers to checkpoint commits unless the user explicitly asks for a hand-authored commit instead.

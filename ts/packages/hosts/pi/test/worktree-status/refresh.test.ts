@@ -144,7 +144,7 @@ describe("worktree status refresh lifecycle", () => {
 
 		harness.advanceMs(WORKTREE_STATUS_DORMANT_AFTER_MS / 2);
 		await pi.emitCommandFinished({
-			commandName: "ji:changes",
+			commandName: "ji:flow:changes",
 			cwd: "/repo",
 			source: "ji flow changes",
 			status: "completed",
