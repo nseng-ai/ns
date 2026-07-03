@@ -17,6 +17,7 @@ import type {
 	PullRequestSnapshot,
 } from "../../src/land/stack/types.ts";
 import { backupRefSteps } from "./land-stack-backup-ref-fixtures.ts";
+import { createMergeFeatureASteps } from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -47,6 +48,8 @@ const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
 
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
+const mergeFeatureA = createMergeFeatureASteps(TOPOLOGY_ARGS);
+
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
 	{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
@@ -64,12 +67,6 @@ const DB_SINGLE_BRANCH = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
 	{ branch: "feature-a", parent: TRUNK, children: [] },
 ]);
-
-const BRANCH_SHAS: Record<string, string> = {
-	"feature-a": SHA_A,
-	"feature-b": SHA_B,
-	[DESCENDANT]: SHA_C,
-};
 
 type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
 
@@ -366,44 +363,6 @@ function guardShaStep(branch: string, sha: string): ScriptedExec {
 	});
 }
 
-function postRestackSubmitCheckSteps(options: {
-	branch: string;
-	sha: string;
-	prNumber: number;
-	base: string;
-	state?: string;
-	isDraft?: boolean;
-}): ScriptedExec[] {
-	return [
-		guardShaStep(options.branch, options.sha),
-		step("gh", ["pr", "view", options.branch, "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: options.prNumber,
-					branch: options.branch,
-					base: options.base,
-					sha: options.sha,
-					...(options.state === undefined ? {} : { state: options.state }),
-					...(options.isDraft === undefined ? {} : { isDraft: options.isDraft }),
-				}),
-			),
-		}),
-	];
-}
-
-function submitUpdateStep(branch: string): ScriptedExec {
-	return step("gt", [
-		"submit",
-		"--branch",
-		branch,
-		"--no-stack",
-		"--update-only",
-		"--no-edit",
-		"--no-ai",
-		"--no-interactive",
-	]);
-}
-
 function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
 	return step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 		stdout: `${metadataDbJson([{ branch, children }])}\n`,
@@ -471,105 +430,6 @@ function featureStackPreflight(
 			? [step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees })]
 			: []),
 	];
-}
-
-function mergeFeatureA(
-	options: {
-		mergeCode?: number;
-		verifyState?: string;
-		includeCleanup?: boolean;
-		refreshTarget?: string | null;
-		postRestackRefresh?: string | null;
-		title?: string;
-		body?: string | null;
-	} = {},
-): ScriptedExec[] {
-	const includeCleanup = options.includeCleanup ?? true;
-	const steps = [
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${SHA_A}\n`,
-		}),
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 101,
-					branch: "feature-a",
-					base: TRUNK,
-					sha: SHA_A,
-					...(options.title === undefined ? {} : { title: options.title }),
-					...(options.body === undefined ? {} : { body: options.body }),
-				}),
-			),
-		}),
-		step(
-			"gh",
-			expectedSquashMergeArgs({
-				number: 101,
-				sha: SHA_A,
-				...(options.title === undefined ? {} : { title: options.title }),
-				...(options.body === undefined ? {} : { body: options.body }),
-			}),
-			{
-				code: options.mergeCode ?? 0,
-				stderr: options.mergeCode ? "merge blocked" : "",
-			},
-		),
-	];
-	if (options.mergeCode) {
-		return steps;
-	}
-	steps.push(
-		step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 101,
-					branch: "feature-a",
-					base: TRUNK,
-					sha: SHA_A,
-					state: options.verifyState ?? "MERGED",
-					mergedAt: options.verifyState === "OPEN" ? null : "2026-05-22T00:00:00Z",
-				}),
-			),
-		}),
-	);
-	if (includeCleanup) {
-		const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
-		if (refreshTarget) {
-			steps.push(
-				guardShaStep(refreshTarget, SHA_B),
-				step("gt", [
-					"get",
-					refreshTarget,
-					"--downstack",
-					"--no-restack",
-					"--no-checkout",
-					"--force",
-					"--no-interactive",
-				]),
-			);
-		}
-		steps.push(
-			childrenRecheckStep("feature-a", ["feature-b"]),
-			step("gt", ["delete", "feature-a", "-f", "-q"]),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: "feature-a",
-			}),
-		);
-		// post-restack refresh of the next forced-refresh target (the auto-maintained
-		// descendant); skipped-maintenance scenarios pass null because there is no
-		// later gt get to guard.
-		const postRestackRefresh =
-			options.postRestackRefresh === undefined ? DESCENDANT : options.postRestackRefresh;
-		if (postRestackRefresh) {
-			steps.push(guardShaStep(postRestackRefresh, BRANCH_SHAS[postRestackRefresh] ?? SHA_C));
-		}
-		steps.push(submitUpdateStep("feature-b"));
-	}
-	return steps;
 }
 
 function singleBranchPreflightWithRefs(options: {
@@ -707,18 +567,22 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});
 
-	test("refuses to land when the current branch has multiple children", async () => {
+	test("allows the current branch to have multiple descendant roots", async () => {
 		const { pi, notifications } = await runLandStack(
-			"--yes",
-			repoIntro({ dbRows: DB_FORKED_CURRENT }),
+			"--dry-run",
+			featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
 		);
 
 		pi.assertDone();
-		expect(notifications[0]?.level).toBe("error");
+		expect(notifications[0]?.level).toBe("info");
 		expect(notifications[0]?.message).toContain(
-			"current branch feature-b has 2 children (feature-c, feature-d); /ji:flow:land supports at most one descendant chain target.",
+			"Will leave open and try to restack/update after target PRs land:",
 		);
-		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+		expect(notifications[0]?.message).toContain("feature-c");
+		expect(notifications[0]?.message).toContain("feature-d");
+		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
+			false,
+		);
 	});
 
 	test("refuses when the current branch is not tracked in Graphite metadata", async () => {

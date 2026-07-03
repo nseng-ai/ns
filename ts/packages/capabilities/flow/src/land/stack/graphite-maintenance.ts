@@ -44,7 +44,7 @@ interface GraphiteMaintenanceStep {
 
 type NextGraphiteMaintenance =
 	| { kind: "required-next-landing"; branch: string }
-	| { kind: "optional-descendant"; branch: string }
+	| { kind: "optional-descendants"; branches: readonly string[] }
 	| { kind: "skip-descendant" }
 	| { kind: "none" };
 
@@ -186,25 +186,24 @@ async function refreshExpectedShaAfterRestack(
 ): Promise<GraphiteMaintenanceOutcome | undefined> {
 	const { runtime, repoRoot, plan, prNumber, maintenanceBranch, state } = options;
 	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
-	// expectation for the next iteration's forced refresh target; comparing against
-	// the pre-restack SHA would false-positive on every 3+ branch stack.
-	const nextGetTarget = nextForcedRefreshBranchAfterMaintaining(plan, maintenanceBranch);
-	if (nextGetTarget === undefined) return undefined;
-
-	const refreshedSha = await loadLocalSha(runtime.commands, repoRoot, nextGetTarget);
-	if (refreshedSha.type === "failure") {
-		return {
-			kind: "halt",
-			failure: landStackFailure(
-				`PR #${prNumber} merged, but could not re-read local branch ${nextGetTarget} after restack.\n${refreshedSha.failure.message}`,
-				{
-					failedBranch: nextGetTarget,
-					suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
-				},
-			),
-		};
+	// expectation for later forced refresh targets; comparing against pre-restack
+	// SHAs would false-positive on every 3+ branch stack and on forked descendants.
+	for (const refreshTarget of forcedRefreshBranchesAfterMaintaining(plan, maintenanceBranch)) {
+		const refreshedSha = await loadLocalSha(runtime.commands, repoRoot, refreshTarget);
+		if (refreshedSha.type === "failure") {
+			return {
+				kind: "halt",
+				failure: landStackFailure(
+					`PR #${prNumber} merged, but could not re-read local branch ${refreshTarget} after restack.\n${refreshedSha.failure.message}`,
+					{
+						failedBranch: refreshTarget,
+						suggestedAction: `Inspect local branch ${refreshTarget}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+					},
+				),
+			};
+		}
+		state.expectedShas.set(refreshTarget, refreshedSha.value);
 	}
-	state.expectedShas.set(nextGetTarget, refreshedSha.value);
 	return undefined;
 }
 
@@ -247,48 +246,49 @@ export async function performGraphiteMaintenance(
 	const maintenance = nextGraphiteMaintenance(plan, index);
 	const severity: MaintenanceSeverity =
 		maintenance.kind === "required-next-landing" ? "fail" : "warn";
+	const maintenanceBranches = maintenanceBranchesFor(maintenance);
 
-	if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
+	for (const maintenanceBranch of maintenanceBranches) {
 		// Guard every forced refresh: gt get --force resets the local branch to remote
 		// state, so refuse if the branch moved since this run snapshotted it.
-		const guardSha = await loadLocalSha(pi, repoRoot, maintenance.branch);
+		const guardSha = await loadLocalSha(pi, repoRoot, maintenanceBranch);
 		if (guardSha.type === "failure") {
 			return failOrWarn(severity, {
 				failure: landStackFailure(
-					`PR #${prNumber} merged, but could not verify local branch ${maintenance.branch} before refreshing it.\n${guardSha.failure.message}`,
+					`PR #${prNumber} merged, but could not verify local branch ${maintenanceBranch} before refreshing it.\n${guardSha.failure.message}`,
 					{
-						failedBranch: maintenance.branch,
-						suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+						failedBranch: maintenanceBranch,
+						suggestedAction: `Inspect local branch ${maintenanceBranch}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 					},
 				),
 				warning: {
-					message: `All target PRs were merged, but local branch ${maintenance.branch} could not be verified before optional descendant maintenance; local branch ${branch} cleanup and descendant restack/update were skipped.`,
-					suggestedAction: `Inspect local branch ${maintenance.branch}, then restack/update it and delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+					message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be verified before optional descendant maintenance; local branch ${branch} cleanup and descendant restack/update were skipped.`,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, then restack/update it and delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			});
 		}
-		const expectedSha = state.expectedShas.get(maintenance.branch);
+		const expectedSha = state.expectedShas.get(maintenanceBranch);
 		if (expectedSha !== guardSha.value) {
 			const expectedDisplay = expectedSha === undefined ? "(unrecorded)" : shortSha(expectedSha);
-			const movedMessage = `local branch ${maintenance.branch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing gt get --force to avoid clobbering local commits`;
+			const movedMessage = `local branch ${maintenanceBranch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing gt get --force to avoid clobbering local commits`;
 			return failOrWarn(severity, {
 				failure: landStackFailure(`PR #${prNumber} merged, but ${movedMessage}.`, {
-					failedBranch: maintenance.branch,
-					suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 				}),
 				warning: {
 					message: `All target PRs were merged, but ${movedMessage}; local branch ${branch} cleanup and descendant restack/update were skipped.`,
-					suggestedAction: `Inspect local branch ${maintenance.branch}, then restack/update it and delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, then restack/update it and delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			});
 		}
 
-		options.commandStream?.note(`Refreshing stack through ${maintenance.branch}...`);
-		setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
+		options.commandStream?.note(`Refreshing stack through ${maintenanceBranch}...`);
+		setStatus(ctx, `refreshing stack through ${maintenanceBranch}...`);
 		const refresh = await landContext.graphite.refreshBranchFromRemote({
 			repoRoot,
-			branch: maintenance.branch,
-			checkedOutConflictHandling: maintenance.kind === "optional-descendant" ? "defer" : "fail",
+			branch: maintenanceBranch,
+			checkedOutConflictHandling: maintenance.kind === "optional-descendants" ? "defer" : "fail",
 		});
 		if (refresh.type !== "success") {
 			if (maintenance.kind === "required-next-landing") {
@@ -296,7 +296,7 @@ export async function performGraphiteMaintenance(
 					kind: "halt",
 					failure: graphiteRefreshFailure({
 						prNumber,
-						maintenanceBranch: maintenance.branch,
+						maintenanceBranch,
 						getCommandDisplay: refresh.commandDisplay,
 						got: refresh.result,
 					}),
@@ -305,12 +305,12 @@ export async function performGraphiteMaintenance(
 
 			if (refresh.type === "checkout-conflict") {
 				options.commandStream?.note(
-					`Deferred optional descendant maintenance for ${maintenance.branch} because ${formatCheckedOutElsewhere(refresh)}.\nRun ${refresh.commandDisplay} manually when that worktree is free.`,
+					`Deferred optional descendant maintenance for ${maintenanceBranch} because ${formatCheckedOutElsewhere(refresh)}.\nRun ${refresh.commandDisplay} manually when that worktree is free.`,
 				);
 				return {
 					kind: "skip",
 					warning: optionalDescendantRefreshDeferredWarning(
-						maintenance.branch,
+						maintenanceBranch,
 						branch,
 						refresh.commandDisplay,
 						refresh,
@@ -321,10 +321,10 @@ export async function performGraphiteMaintenance(
 			return {
 				kind: "skip",
 				warning: {
-					message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenance.branch} failed; local branch ${branch} cleanup and descendant restack/update were skipped.`,
+					message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenanceBranch} failed; local branch ${branch} cleanup and descendant restack/update were skipped.`,
 					commandDisplay: refresh.commandDisplay,
 					result: refresh.result,
-					suggestedAction: `Run ${refresh.commandDisplay} manually, restack/update ${maintenance.branch}, and delete local branch ${branch} when safe.`,
+					suggestedAction: `Run ${refresh.commandDisplay} manually, restack/update ${maintenanceBranch}, and delete local branch ${branch} when safe.`,
 				},
 			};
 		}
@@ -337,7 +337,7 @@ export async function performGraphiteMaintenance(
 	// Re-check the branch's Graphite children right before the forced delete: a
 	// child that appeared since planning means another stack now depends on it.
 	const skippedScope =
-		maintenance.kind === "optional-descendant"
+		maintenance.kind === "optional-descendants"
 			? `local branch ${branch} cleanup and descendant restack/update were`
 			: `local branch ${branch} cleanup was`;
 	const children = await landContext.graphite.branchChildren({
@@ -356,9 +356,7 @@ export async function performGraphiteMaintenance(
 	}
 	const childrenNow = children.value;
 	const allowedChildren = new Set(state.deletedBranches);
-	if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
-		allowedChildren.add(maintenance.branch);
-	}
+	for (const maintenanceBranch of maintenanceBranches) allowedChildren.add(maintenanceBranch);
 	const unexpectedChildren = childrenNow.filter((child) => !allowedChildren.has(child));
 	if (unexpectedChildren.length > 0) {
 		return failOrWarn(severity, {
@@ -399,67 +397,70 @@ export async function performGraphiteMaintenance(
 					prNumber,
 					commandDisplay: deletion.commandDisplay,
 					result: deletion.result,
-					isOptionalDescendant: maintenance.kind === "optional-descendant",
+					isOptionalDescendant: maintenance.kind === "optional-descendants",
 				}),
 			);
 		default:
 			assertNever(deletion);
 	}
 
-	if (maintenance.kind !== "required-next-landing" && maintenance.kind !== "optional-descendant") {
-		return { kind: "proceed" };
-	}
+	if (maintenanceBranches.length === 0) return { kind: "proceed" };
 
-	setStatus(ctx, `restacking ${maintenance.branch}...`);
-	const restacked = await landContext.graphite.restackUpstack({
-		repoRoot,
-		branch: maintenance.branch,
-	});
-	if (restacked.type === "failure") {
-		return failOrWarn(severity, {
-			failure: landStackFailure(formatRestackFailureMessage(prNumber, maintenance.branch, true), {
-				commandDisplay: restacked.commandDisplay,
-				result: restacked.result,
-				failedBranch: maintenance.branch,
-				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /ji:flow:land if appropriate.`,
-			}),
-			warning: {
-				message: formatRestackFailureMessage(prNumber, maintenance.branch, false),
-				commandDisplay: restacked.commandDisplay,
-				result: restacked.result,
-				suggestedAction: `Resolve restack failures for ${maintenance.branch}, then update that PR manually.`,
-			},
+	for (const maintenanceBranch of maintenanceBranches) {
+		setStatus(ctx, `restacking ${maintenanceBranch}...`);
+		const restacked = await landContext.graphite.restackUpstack({
+			repoRoot,
+			branch: maintenanceBranch,
 		});
+		if (restacked.type === "failure") {
+			return failOrWarn(severity, {
+				failure: landStackFailure(formatRestackFailureMessage(prNumber, maintenanceBranch, true), {
+					commandDisplay: restacked.commandDisplay,
+					result: restacked.result,
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ji:flow:land if appropriate.`,
+				}),
+				warning: {
+					message: formatRestackFailureMessage(prNumber, maintenanceBranch, false),
+					commandDisplay: restacked.commandDisplay,
+					result: restacked.result,
+					suggestedAction: `Resolve restack failures for ${maintenanceBranch}, then update that PR manually.`,
+				},
+			});
+		}
+
+		const maintenanceContext: MaintenanceBranchContext = {
+			landContext,
+			runtime,
+			repoRoot,
+			plan,
+			prNumber,
+			maintenanceBranch,
+			severity,
+			state,
+		};
+		const submitCheck = await checkSubmitMaintenanceBranch({
+			...maintenanceContext,
+			landedBranch: branch,
+		});
+		if (submitCheck.kind === "halt" || submitCheck.kind === "skip") return submitCheck;
+
+		const refreshExpected = await refreshExpectedShaAfterRestack(maintenanceContext);
+		if (refreshExpected) return refreshExpected;
+
+		if (submitCheck.kind === "skip-submit") {
+			options.commandStream?.note(
+				`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`,
+			);
+			continue;
+		}
+
+		setStatus(ctx, `submitting ${maintenanceBranch}...`);
+		const submitted = await submitMaintenanceBranch(maintenanceContext);
+		if (submitted.kind !== "proceed") return submitted;
 	}
 
-	const maintenanceContext: MaintenanceBranchContext = {
-		landContext,
-		runtime,
-		repoRoot,
-		plan,
-		prNumber,
-		maintenanceBranch: maintenance.branch,
-		severity,
-		state,
-	};
-	const submitCheck = await checkSubmitMaintenanceBranch({
-		...maintenanceContext,
-		landedBranch: branch,
-	});
-	if (submitCheck.kind === "halt" || submitCheck.kind === "skip") return submitCheck;
-
-	const refreshExpected = await refreshExpectedShaAfterRestack(maintenanceContext);
-	if (refreshExpected) return refreshExpected;
-
-	if (submitCheck.kind === "skip-submit") {
-		options.commandStream?.note(
-			`Skipped gt submit for ${maintenance.branch}; PR metadata already current.`,
-		);
-		return { kind: "proceed" };
-	}
-
-	setStatus(ctx, `submitting ${maintenance.branch}...`);
-	return await submitMaintenanceBranch(maintenanceContext);
+	return { kind: "proceed" };
 }
 
 function optionalDescendantRefreshDeferredWarning(
@@ -503,7 +504,10 @@ function nextGraphiteMaintenance(plan: FlowLandingPlan, index: number): NextGrap
 	}
 
 	if (plan.descendantMaintenance.kind === "auto") {
-		return { kind: "optional-descendant", branch: plan.descendantMaintenance.targetBranch };
+		return {
+			kind: "optional-descendants",
+			branches: descendantMaintenanceTargetBranches(plan.descendantMaintenance),
+		};
 	}
 	if (plan.descendantMaintenance.kind === "skipped") {
 		return { kind: "skip-descendant" };
@@ -511,20 +515,35 @@ function nextGraphiteMaintenance(plan: FlowLandingPlan, index: number): NextGrap
 	return { kind: "none" };
 }
 
-function nextForcedRefreshBranchAfterMaintaining(
+function maintenanceBranchesFor(maintenance: NextGraphiteMaintenance): readonly string[] {
+	if (maintenance.kind === "required-next-landing") return [maintenance.branch];
+	if (maintenance.kind === "optional-descendants") return maintenance.branches;
+	return [];
+}
+
+function descendantMaintenanceTargetBranches(
+	maintenance: Extract<DescendantMaintenancePlan, { kind: "auto" | "skipped" }>,
+): readonly string[] {
+	return maintenance.targetBranches;
+}
+
+function forcedRefreshBranchesAfterMaintaining(
 	plan: FlowLandingPlan,
 	maintainedBranch: string,
-): string | undefined {
+): readonly string[] {
+	const lastLandingBranch = plan.stack.landingBranches.at(-1);
+	if (maintainedBranch === lastLandingBranch && plan.descendantMaintenance.kind === "auto") {
+		return descendantMaintenanceTargetBranches(plan.descendantMaintenance);
+	}
+
 	const futureRefreshOrder = [
 		...plan.stack.landingBranches,
 		...plan.stack.remainingLandingBranches,
-		...(plan.descendantMaintenance.kind === "auto"
-			? [plan.descendantMaintenance.targetBranch]
-			: []),
 	];
 	const maintainedIndex = futureRefreshOrder.indexOf(maintainedBranch);
-	if (maintainedIndex < 0) return undefined;
-	return futureRefreshOrder[maintainedIndex + 1];
+	if (maintainedIndex < 0) return [];
+	const next = futureRefreshOrder[maintainedIndex + 1];
+	return next === undefined ? [] : [next];
 }
 
 function skippedDescendantMaintenanceWarning(

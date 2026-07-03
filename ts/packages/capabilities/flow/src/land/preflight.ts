@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import type {
@@ -111,6 +112,7 @@ export async function buildStackLandingPlan(
 	const descendantMaintenance = buildDescendantMaintenancePlan(
 		descendantBranches,
 		descendantConflicts.value,
+		stack.descendantRootBranches,
 	);
 	return landSuccess({
 		repoRoot: shape.value.repoRoot,
@@ -196,6 +198,10 @@ export function scopeStackSnapshot(
 		landingTargetBranch,
 		landingBranches: boundedLandingBranches,
 		remainingLandingBranches,
+		...optionalEntry(
+			"descendantRootBranches",
+			stack.descendantRootBranches === undefined ? undefined : [...stack.descendantRootBranches],
+		),
 		warnings: stack.warnings.map(copyWarning),
 	};
 }
@@ -480,20 +486,24 @@ async function classifyConflict(
 export function buildDescendantMaintenancePlan(
 	descendantBranches: readonly string[],
 	conflicts: readonly WorktreeConflict[],
+	descendantRootBranches: readonly string[] | undefined = undefined,
 ): DescendantMaintenancePlan {
 	if (descendantBranches.length === 0) return { type: "none", branches: [] };
-	const targetBranch = descendantBranches[0] ?? "";
+	const targetBranches =
+		descendantRootBranches === undefined || descendantRootBranches.length === 0
+			? [descendantBranches[0] ?? ""]
+			: [...descendantRootBranches];
 	const blockingConflicts = conflicts.filter((conflict) => conflict.type !== "current");
 	if (blockingConflicts.length > 0) {
 		return {
 			type: "skipped",
 			branches: descendantBranches,
-			targetBranch,
+			targetBranches,
 			conflicts: blockingConflicts,
 			reason: "descendant branches are checked out elsewhere",
 		};
 	}
-	return { type: "auto", branches: descendantBranches, targetBranch };
+	return { type: "auto", branches: descendantBranches, targetBranches };
 }
 
 export async function collectSubmitRestackRequirements(

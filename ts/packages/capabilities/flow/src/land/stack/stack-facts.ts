@@ -193,6 +193,7 @@ export async function loadStackSnapshot(
 
 	const descendantBranches = deriveDescendantSubtree(reconciled, current);
 	if (descendantBranches.type === "failure") return descendantBranches;
+	const descendantRootBranches = [...(reconciled.get(current)?.children ?? [])];
 
 	return success({
 		trunk,
@@ -202,6 +203,7 @@ export async function loadStackSnapshot(
 		landingBranches: landingBranches.value,
 		remainingLandingBranches: [],
 		descendantBranches: descendantBranches.value,
+		descendantRootBranches,
 		warnings: [
 			...trunkMarkerWarnings(reconciled, trunk),
 			...staleMetadataBranchWarnings(droppedBranches),

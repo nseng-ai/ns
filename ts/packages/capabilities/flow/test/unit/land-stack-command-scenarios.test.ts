@@ -24,6 +24,7 @@ import {
 	BACKUP_ROTATION_STEP,
 	backupRefSteps,
 } from "./land-stack-backup-ref-fixtures.ts";
+import { createMergeFeatureASteps } from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -62,11 +63,15 @@ const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
 
+const SHA_D = "dddddddddddddddddddddddddddddddddddddddd";
+
 const GIT_COMMON_DIR = `${ROOT}/.git`;
 
 const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
 
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
+
+const mergeFeatureA = createMergeFeatureASteps(TOPOLOGY_ARGS);
 
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
@@ -81,6 +86,14 @@ const DB_TO_CURRENT = metadataDbJson([
 	{ branch: "feature-b", parent: "feature-a", children: [] },
 ]);
 
+const DB_FORKED_CURRENT = metadataDbJson([
+	{ branch: TRUNK, children: ["feature-a"], trunk: true },
+	{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+	{ branch: "feature-b", parent: "feature-a", children: [DESCENDANT, "feature-d"] },
+	{ branch: DESCENDANT, parent: "feature-b", children: [] },
+	{ branch: "feature-d", parent: "feature-b", children: [] },
+]);
+
 const DB_SINGLE_BRANCH = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
 	{ branch: "feature-a", parent: TRUNK, children: [] },
@@ -90,6 +103,7 @@ const BRANCH_SHAS: Record<string, string> = {
 	"feature-a": SHA_A,
 	"feature-b": SHA_B,
 	[DESCENDANT]: SHA_C,
+	"feature-d": SHA_D,
 };
 
 function numberedBranch(index: number): string {
@@ -705,105 +719,6 @@ function featureStackPreflight(
 	];
 }
 
-function mergeFeatureA(
-	options: {
-		mergeCode?: number;
-		verifyState?: string;
-		includeCleanup?: boolean;
-		refreshTarget?: string | null;
-		postRestackRefresh?: string | null;
-		title?: string;
-		body?: string | null;
-	} = {},
-): ScriptedExec[] {
-	const includeCleanup = options.includeCleanup ?? true;
-	const steps = [
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${SHA_A}\n`,
-		}),
-		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 101,
-					branch: "feature-a",
-					base: TRUNK,
-					sha: SHA_A,
-					...(options.title === undefined ? {} : { title: options.title }),
-					...(options.body === undefined ? {} : { body: options.body }),
-				}),
-			),
-		}),
-		step(
-			"gh",
-			expectedSquashMergeArgs({
-				number: 101,
-				sha: SHA_A,
-				...(options.title === undefined ? {} : { title: options.title }),
-				...(options.body === undefined ? {} : { body: options.body }),
-			}),
-			{
-				code: options.mergeCode ?? 0,
-				stderr: options.mergeCode ? "merge blocked" : "",
-			},
-		),
-	];
-	if (options.mergeCode) {
-		return steps;
-	}
-	steps.push(
-		step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 101,
-					branch: "feature-a",
-					base: TRUNK,
-					sha: SHA_A,
-					state: options.verifyState ?? "MERGED",
-					mergedAt: options.verifyState === "OPEN" ? null : "2026-05-22T00:00:00Z",
-				}),
-			),
-		}),
-	);
-	if (includeCleanup) {
-		const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
-		if (refreshTarget) {
-			steps.push(
-				guardShaStep(refreshTarget, SHA_B),
-				step("gt", [
-					"get",
-					refreshTarget,
-					"--downstack",
-					"--no-restack",
-					"--no-checkout",
-					"--force",
-					"--no-interactive",
-				]),
-			);
-		}
-		steps.push(
-			childrenRecheckStep("feature-a", ["feature-b"]),
-			step("gt", ["delete", "feature-a", "-f", "-q"]),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: "feature-a",
-			}),
-		);
-		// post-restack refresh of the next forced-refresh target (the auto-maintained
-		// descendant); skipped-maintenance scenarios pass null because there is no
-		// later gt get to guard.
-		const postRestackRefresh =
-			options.postRestackRefresh === undefined ? DESCENDANT : options.postRestackRefresh;
-		if (postRestackRefresh) {
-			steps.push(guardShaStep(postRestackRefresh, BRANCH_SHAS[postRestackRefresh] ?? SHA_C));
-		}
-		steps.push(submitUpdateStep("feature-b"));
-	}
-	return steps;
-}
-
 function mergeFeatureBThroughVerification(): ScriptedExec[] {
 	return [
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
@@ -851,6 +766,50 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 			base: "feature-b",
 		}),
 		submitUpdateStep(DESCENDANT),
+	];
+}
+
+function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
+	return [
+		...mergeFeatureBThroughVerification(),
+		guardShaStep(DESCENDANT, SHA_C),
+		step("gt", [
+			"get",
+			DESCENDANT,
+			"--downstack",
+			"--no-restack",
+			"--no-checkout",
+			"--force",
+			"--no-interactive",
+		]),
+		guardShaStep("feature-d", SHA_D),
+		step("gt", [
+			"get",
+			"feature-d",
+			"--downstack",
+			"--no-restack",
+			"--no-checkout",
+			"--force",
+			"--no-interactive",
+		]),
+		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
+		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
+		...postRestackSubmitCheckSteps({
+			branch: DESCENDANT,
+			sha: SHA_C,
+			prNumber: 103,
+			base: "feature-b",
+		}),
+		submitUpdateStep(DESCENDANT),
+		step("gt", ["restack", "--branch", "feature-d", "--upstack", "--no-interactive"]),
+		...postRestackSubmitCheckSteps({
+			branch: "feature-d",
+			sha: SHA_D,
+			prNumber: 104,
+			base: "feature-b",
+		}),
+		submitUpdateStep("feature-d"),
 	];
 }
 
@@ -1371,6 +1330,37 @@ describe("land-stack command scenarios", () => {
 			"Landed 2 PRs: #101 feature-a, #102 feature-b.",
 		);
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
+	});
+
+	test("happy path restacks and updates multiple descendant roots above the current branch", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
+				shas: BRANCH_SHAS,
+			}),
+			...mergeFeatureA({ postRestackRefresh: [DESCENDANT, "feature-d"] }),
+			...mergeFeatureBWithForkedDescendants(),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gt" && call.args[0] === "get")
+				.map((call) => call.args[1]),
+		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gt" && call.args[0] === "restack")
+				.map((call) => call.args[2]),
+		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gt" && call.args[0] === "submit")
+				.map((call) => call.args[2]),
+		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
 	});
 
 	test("rotates backup refs before pruning current stale refs and writing new snapshots", async () => {
