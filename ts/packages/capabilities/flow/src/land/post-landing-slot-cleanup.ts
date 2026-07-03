@@ -8,11 +8,7 @@ import {
 import { completed, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
 import type { LandRuntime } from "./stack/land-runtime.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
-import type {
-	LandingShape,
-	PrintAwareLandStackCommandContext,
-	ParsedArgs,
-} from "./stack/types.ts";
+import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
 
