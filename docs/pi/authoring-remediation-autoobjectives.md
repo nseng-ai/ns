@@ -189,8 +189,8 @@ ns objective exec runner-step <slug> [--guidance <text|@file>] [--model <m>] [--
 
 driven by a judging parent — the `objective-autorun` skill is the entry point
 for running the backlog as repeated steps, and `objective-runner-step` is the
-per-step parent playbook. (The earlier `/objective:autopilot` Pi command is
-frozen legacy slated for deletion; do not use it.)
+per-step parent playbook. (The earlier `/objective:autopilot` Pi command has
+been retired in favor of `/objective:autorun`.)
 
 Each step dispatches a **fresh child session** that does exactly one coherent
 slice for *this* Objective and leaves the work uncommitted; the runner then
