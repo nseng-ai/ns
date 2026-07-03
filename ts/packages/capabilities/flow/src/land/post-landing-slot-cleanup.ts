@@ -1,8 +1,11 @@
-import { formatCommand, type ExecResult } from "@sdl/core/command";
-import { formatGraphiteOperation } from "./stack/graphite-command-channel.ts";
+import { formatCommand } from "@sdl/core/command";
+import {
+	deleteLocalBranchOperation,
+	formatGraphiteOperation,
+} from "./stack/graphite-command-channel.ts";
 import { completed, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
-import type { LandContext, LandingFailure, ManagedSlotWorktree } from "./api.ts";
+import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
 import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
@@ -72,23 +75,21 @@ export async function runPostLandingSlotCleanup({
 			slots: [managedSlot],
 		});
 		if (freeResult.type === "failure") {
-			const execResult = execResultFromLandingFailure(freeResult.failure);
+			const diagnostics = boundaryFailureDiagnostics(freeResult.failure);
 			const landFailure = landStackFailure(`PRs were landed, but freeing ${slotName} failed.`, {
 				commandDisplay:
-					displayCommandFromLandingFailure(freeResult.failure) ??
-					formatCommand("sdl", ["slot", "free", "--wt", slotName]),
-				...(execResult === undefined ? {} : { result: execResult }),
+					diagnostics.displayCommand ?? formatCommand("sdl", ["slot", "free", "--wt", slotName]),
+				...(diagnostics.execResult === undefined ? {} : { result: diagnostics.execResult }),
 				suggestedAction,
 			});
 			return presentFailureOutcome(ctx, landFailure);
 		}
 
 		setStatus(ctx, `deleting ${shape.stack.actualCurrentBranch}...`);
-		const deleteOperation = {
-			kind: "delete-local-branch",
+		const deleteOperation = deleteLocalBranchOperation({
 			branch: shape.stack.actualCurrentBranch,
 			checkedOutConflictHandling: "fail",
-		} as const;
+		});
 		const deletion = await landContext.graphite.deleteLocalBranch({
 			repoRoot: shape.repoRoot,
 			branch: shape.stack.actualCurrentBranch,
@@ -127,10 +128,9 @@ function formatPostLandingCleanupDetails(options: {
 	slotName: string;
 }): string {
 	const freeCommand = formatCommand("sdl", ["slot", "free", "--wt", options.slotName]);
-	const deleteCommand = formatGraphiteOperation({
-		kind: "delete-local-branch",
-		branch: options.branch,
-	});
+	const deleteCommand = formatGraphiteOperation(
+		deleteLocalBranchOperation({ branch: options.branch }),
+	);
 	return [
 		"Post-landing --free cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
 		"",
@@ -145,15 +145,5 @@ function formatPostLandingCleanupDetails(options: {
 }
 
 function postLandingCleanupSuggestedAction(slotName: string, branch: string): string {
-	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatGraphiteOperation({ kind: "delete-local-branch", branch })} when safe.`;
-}
-
-function displayCommandFromLandingFailure(failureValue: LandingFailure): string | undefined {
-	if (failureValue.type !== "boundary") return undefined;
-	return failureValue.displayCommand;
-}
-
-function execResultFromLandingFailure(failureValue: LandingFailure): ExecResult | undefined {
-	if (failureValue.type !== "boundary") return undefined;
-	return failureValue.execResult;
+	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatGraphiteOperation(deleteLocalBranchOperation({ branch }))} when safe.`;
 }

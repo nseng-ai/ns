@@ -1,3 +1,4 @@
+import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import type {
 	BranchLandingPlan,
@@ -536,10 +537,6 @@ function operationInProgressLabel(
 ): string {
 	if (operation === "cherry-pick") return "A cherry-pick";
 	return `A ${operation}`;
-}
-
-function shortSha(sha: string): string {
-	return sha.slice(0, 7);
 }
 
 function copyWarning(warning: LandingWarning): LandingWarning {

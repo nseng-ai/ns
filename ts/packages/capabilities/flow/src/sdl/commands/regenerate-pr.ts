@@ -1,3 +1,5 @@
+import { createSdlClinkrInteraction } from "@sdl/capability-kit";
+import { confirmInteractiveOrUsageError } from "@sdl/clinkr";
 import { renderResultBlock, renderResultBlockFromMessage } from "@sdl/core/cli-theme";
 import {
 	defineExtension,
@@ -93,27 +95,36 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		}
 
 		if (!request.force) {
-			// A missing confirmation channel is a usage error for non-interactive callers: they must
-			// pass `--force` to authorize editing GitHub without a prompt. No `gh pr edit` runs.
-			if (ctx.confirm === undefined) {
+			const confirmationMessage = formatConfirmationMessage({ generated: prepared });
+			const confirmation = await confirmInteractiveOrUsageError(
+				createSdlClinkrInteraction(ctx, {
+					title: "Regenerate PR metadata?",
+					formatMessage: () => confirmationMessage,
+				}),
+				{
+					nonInteractive: {
+						message: "Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
+						missingFlag: "--force",
+						howToSupply: "Pass --force to regenerate and edit GitHub without prompting.",
+					},
+					confirmation: {
+						message: confirmationMessage,
+						defaultAnswer: "no",
+					},
+				},
+			);
+			if ("errorType" in confirmation) {
 				return failed(
 					renderResultBlock(caps, {
 						kind: "refusal",
-						headline: "Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
+						headline: confirmation.message,
 						cwd: ctx.cwd,
 					}),
 					2,
 				);
 			}
-
-			// Keep the confirmation body plain prose — confirmation surfaces are not guaranteed to render
-			// ANSI, and the prompt is not a machine contract (house-style §7.3, plan PR 4 step 3).
-			const confirmed = await ctx.confirm(
-				"Regenerate PR metadata?",
-				formatConfirmationMessage({ generated: prepared }),
-			);
-			if (!confirmed) {
-				// Declined confirmation is a warn refusal: the user opted out, GitHub stays untouched.
+			if (confirmation.type !== "confirmed") {
+				// Declined/aborted confirmation is a warn refusal: GitHub stays untouched.
 				return failed(
 					renderResultBlock(caps, {
 						kind: "refusal",

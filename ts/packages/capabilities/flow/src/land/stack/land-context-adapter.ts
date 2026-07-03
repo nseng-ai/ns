@@ -1,6 +1,12 @@
 import { formatCommand } from "@sdl/core/command";
 import { formatCommandForDisplay } from "./command-stream.ts";
-import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../api.ts";
+import {
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
+	landSuccess,
+	toWarningNotifications,
+} from "../api.ts";
 import type {
 	LandContext,
 	LandGraphiteCommandResult,
@@ -97,7 +103,7 @@ export function createLandContext(
 				if (stack.type === "failure") return toLandResult(stack, "graphite", "stack-shape");
 				return landSuccess({
 					...stack.value,
-					warnings: stack.value.warnings.map((message) => ({ level: "warning", message })),
+					warnings: toWarningNotifications(stack.value.warnings),
 				});
 			},
 			prepareSubmitUpdate: async ({ repoRoot, branch }) =>

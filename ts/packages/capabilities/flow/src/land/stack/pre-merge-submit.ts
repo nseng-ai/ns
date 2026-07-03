@@ -1,36 +1,42 @@
-import { collectSubmitRestackRequirements } from "../api.ts";
+import { collectSubmitRestackRequirements, toWarningNotifications } from "../api.ts";
 import type { LandContext, LandingFailure } from "../api.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
 	confirmPreMergeMaintenance,
 	optionalField,
-	type PreMergeMaintenanceOptions,
+	type PreMergeConfirmation,
 } from "./pre-merge-confirmation.ts";
-import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
+import {
+	formatGraphiteOperation,
+	formatSubmitUpdateCommandLines,
+	restackTargetForSubmit,
+	restackUpstackOperation,
+	submitUpdateOperation,
+} from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
 import { setStatus } from "./presentation.ts";
-import type { FlowLandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
+import type {
+	FlowLandingPlan,
+	LandStackCommandContext,
+	PrSubmitRequirement,
+	RestackRequirement,
+} from "./types.ts";
 
-export interface PreMergeSubmitMaintenanceOptions extends PreMergeMaintenanceOptions {
+export interface PreMergeSubmitMaintenanceOptions {
+	readonly ctx: LandStackCommandContext;
+	readonly plan: FlowLandingPlan;
 	readonly landContext: LandContext;
+	readonly confirmation?: PreMergeConfirmation;
 }
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	options: PreMergeSubmitMaintenanceOptions,
 ): Promise<LandStackOutcome> {
 	const { ctx, landContext, plan } = options;
-	const submitOperation = {
-		kind: "submit-update",
-		branch: plan.stack.landingTargetBranch,
-	} as const;
+	const submitOperation = submitUpdateOperation({ branch: plan.stack.landingTargetBranch });
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
-	const commandLines = restackTarget
-		? [
-				formatGraphiteOperation({ kind: "restack-upstack", branch: restackTarget }),
-				formatGraphiteOperation(submitOperation),
-			]
-		: [formatGraphiteOperation(submitOperation)];
+	const commandLines = formatSubmitUpdateCommandLines(plan);
 	const manualCommandText = commandLines.map((commandLine) => `\`${commandLine}\``).join(" then ");
 	const actionName = restackTarget ? "restack + submit/update" : "submit/update";
 
@@ -51,7 +57,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	if (restackTarget) {
-		const restackOperation = { kind: "restack-upstack", branch: restackTarget } as const;
+		const restackOperation = restackUpstackOperation(restackTarget);
 		setStatus(ctx, `restacking ${restackTarget}...`);
 		const restacked = await landContext.graphite.prepareRestackForSubmit({
 			repoRoot: plan.repoRoot,
@@ -68,7 +74,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		setStatus(ctx, "verifying restack...");
 		const remainingRestack = await collectSubmitRestackRequirements(landContext, plan.repoRoot, {
 			...plan.stack,
-			warnings: plan.stack.warnings.map((message) => ({ level: "warning" as const, message })),
+			warnings: toWarningNotifications(plan.stack.warnings),
 		});
 		if (remainingRestack.type === "failure") {
 			return failure(toLandStackFailure(remainingRestack.failure));
@@ -108,17 +114,8 @@ function preMergeGraphiteFailure(
 }
 
 export function formatSubmitUpdateDetails(plan: FlowLandingPlan): string {
-	const submitOperation = {
-		kind: "submit-update",
-		branch: plan.stack.landingTargetBranch,
-	} as const;
 	const restackTarget = restackTargetForSubmit(plan);
-	const commands = restackTarget
-		? [
-				formatGraphiteOperation({ kind: "restack-upstack", branch: restackTarget }),
-				formatGraphiteOperation(submitOperation),
-			]
-		: [formatGraphiteOperation(submitOperation)];
+	const commands = formatSubmitUpdateCommandLines(plan);
 	const lines = [
 		restackTarget
 			? "Local branch reachability shows this stack needs restack before submit/update, and GitHub PR metadata is behind local refs. Run restack then submit/update before merging?"

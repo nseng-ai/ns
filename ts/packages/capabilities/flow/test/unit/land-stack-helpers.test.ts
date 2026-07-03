@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
+import { shortSha } from "../../src/commit-display/index.ts";
 import { outputTail } from "../../src/land/stack/command-exec.ts";
 import {
 	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
 	isGtDeleteMissingBranch,
 	parseGitCheckedOutElsewhere,
-	shortSha,
 	stripAnsi,
 } from "../../src/land/stack/graphite-command-channel.ts";
 import { landStackFailure, type LandStackResult } from "../../src/land/stack/errors.ts";

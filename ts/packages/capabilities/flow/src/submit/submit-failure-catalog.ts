@@ -6,7 +6,7 @@ import {
 	formatFailureCatalogEntry,
 } from "../phase-stream/failure-catalog.ts";
 import type { SubmitCommandOutput } from "./submit.ts";
-import { formatItemCount } from "./submit-formatting.ts";
+import { formatItemCount } from "./submit-format.ts";
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
 

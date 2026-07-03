@@ -1,7 +1,6 @@
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
-import { formatItemCount } from "./submit-formatting.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	formatCurrentPrVerificationFailureCause,
@@ -21,6 +20,10 @@ const CURRENT_PR_TIMEOUT_MS = 60_000;
 const RESTACK_TIMEOUT_MS = 600_000;
 const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
 const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
+
+export function formatItemCount(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
+}
 
 export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],

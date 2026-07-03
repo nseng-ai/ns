@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "@sdl/core/command";
+import { formatCommand } from "@sdl/core/command";
 import {
 	completed,
 	failure,
@@ -13,7 +13,7 @@ import {
 	type GraphiteMaintenanceOptions,
 } from "./graphite-maintenance.ts";
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
-import { validateStrictMergeGate } from "../api.ts";
+import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
 import type {
@@ -156,29 +156,18 @@ function stackMergeRejectedFailure(
 	pr: PullRequestSnapshot,
 	branch: string,
 ): LandStackFailure {
-	const result = execResultFromLandingFailure(landFailureValue);
-	const commandDisplay = commandDisplayFromLandingFailure(landFailureValue);
+	const { displayCommand, execResult } = boundaryFailureDiagnostics(landFailureValue);
 	return landStackFailure("Merge rejected; stopping stack landing immediately.", {
-		...(result === undefined
+		...(execResult === undefined
 			? {}
 			: {
-					...(commandDisplay === undefined ? {} : { commandDisplay }),
-					result,
+					...(displayCommand === undefined ? {} : { commandDisplay: displayCommand }),
+					result: execResult,
 				}),
 		failedBranch: branch,
 		failedPr: pr.number,
 		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.`,
 	});
-}
-
-function commandDisplayFromLandingFailure(failureValue: LandingFailure): string | undefined {
-	if (failureValue.type !== "boundary") return undefined;
-	return failureValue.displayCommand;
-}
-
-function execResultFromLandingFailure(failureValue: LandingFailure): ExecResult | undefined {
-	if (failureValue.type !== "boundary") return undefined;
-	return failureValue.execResult;
 }
 
 export interface PrepareMergeLoopStateOptions {

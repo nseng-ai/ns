@@ -10,7 +10,7 @@ import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
-import { formatItemCount } from "./submit-formatting.ts";
+import { formatItemCount } from "./submit-format.ts";
 
 export type SubmitPrDescriptionGenerationResult =
 	| {

@@ -4,15 +4,12 @@ import {
 	truncateDisplayLine,
 } from "@sdl/core/terminal-presentation";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
+import { shortSha } from "../../commit-display/index.ts";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
-import {
-	formatGraphiteOperation,
-	restackTargetForSubmit,
-	shortSha,
-} from "./graphite-command-channel.ts";
+import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement } from "./landing-plan.ts";
 import type {
 	CommandStreamMessageDetails,

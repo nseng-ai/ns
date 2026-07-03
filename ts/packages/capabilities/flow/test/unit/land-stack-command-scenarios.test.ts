@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { stripAnsi } from "../../src/land/stack/graphite-command-channel.ts";
@@ -23,7 +24,12 @@ import {
 	BACKUP_ROTATION_STEP,
 	backupRefSteps,
 } from "./land-stack-backup-ref-fixtures.ts";
-import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
+import {
+	formatLiveBranchTips,
+	metadataDbJson,
+	TOPOLOGY_COMMAND,
+	topologyArgs,
+} from "./land-test-helpers.ts";
 
 const PR_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
@@ -364,16 +370,6 @@ function metadataBranchNames(dbRows: string): string[] {
 		.filter((name): name is string => typeof name === "string");
 }
 
-function formatLiveBranchTips(branches: readonly string[]): string {
-	if (branches.length === 0) return "";
-	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
-}
-
-function formatLiveBranchTip(branch: string): string {
-	if (branch.includes("\t")) return branch;
-	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
-}
-
 function repoIntro(
 	options: {
 		current?: string;
@@ -391,17 +387,9 @@ function repoIntro(
 		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
-		step(
-			"git",
-			[
-				"for-each-ref",
-				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-				"refs/heads",
-			],
-			{
-				stdout: formatLiveBranchTips(liveBranches),
-			},
-		),
+		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
+			stdout: formatLiveBranchTips(liveBranches),
+		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }
@@ -423,17 +411,9 @@ function domainRepoIntro(
 		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
-		step(
-			"git",
-			[
-				"for-each-ref",
-				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-				"refs/heads",
-			],
-			{
-				stdout: formatLiveBranchTips(liveBranches),
-			},
-		),
+		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
+			stdout: formatLiveBranchTips(liveBranches),
+		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }

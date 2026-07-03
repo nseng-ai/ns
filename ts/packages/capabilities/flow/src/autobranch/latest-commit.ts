@@ -1,3 +1,4 @@
+import { shortSha } from "../commit-display/index.ts";
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
@@ -47,10 +48,6 @@ export interface LatestCommitAutobranchInput {
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	onPhase?: (message: string) => void;
 	now?: () => number;
-}
-
-function shortSha(sha: string): string {
-	return sha.slice(0, 7);
 }
 
 export async function createLatestCommitAutobranchFlow(

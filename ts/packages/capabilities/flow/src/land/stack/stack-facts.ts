@@ -11,6 +11,7 @@ import {
 	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
 	trunkOperation,
+	untrackLocalBranchOperation,
 	type LandGraphiteCommandChannel,
 } from "./graphite-command-channel.ts";
 import {
@@ -151,7 +152,7 @@ export interface LoadStackSnapshotOptions {
 	metadataDbPath: string;
 	current: string;
 	trunk: string;
-	liveLocalBranches?: readonly string[] | ReadonlySet<string>;
+	liveLocalBranches?: readonly string[];
 }
 
 export async function loadStackSnapshot(
@@ -236,7 +237,7 @@ export async function loadLiveLocalBranches(
 function loadLiveLocalBranchNames(options: {
 	readonly pi: LandStackExtensionAPI;
 	readonly repoRoot: string;
-	readonly liveLocalBranches?: readonly string[] | ReadonlySet<string>;
+	readonly liveLocalBranches?: readonly string[];
 }): Promise<LandStackResult<ReadonlySet<string>>> {
 	if (options.liveLocalBranches !== undefined) {
 		return Promise.resolve(success(new Set(options.liveLocalBranches)));
@@ -250,7 +251,7 @@ function loadLiveLocalBranchNames(options: {
 function staleMetadataBranchWarnings(droppedBranches: readonly string[]): string[] {
 	if (droppedBranches.length === 0) return [];
 	const cleanup = droppedBranches
-		.map((branch) => formatGraphiteOperation({ kind: "untrack-local-branch", branch }))
+		.map((branch) => formatGraphiteOperation(untrackLocalBranchOperation(branch)))
 		.join("\n");
 	return [
 		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,

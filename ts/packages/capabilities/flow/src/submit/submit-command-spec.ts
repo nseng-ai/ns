@@ -16,6 +16,11 @@ export interface SubmitCommandSpecOptions {
 	shouldForce: boolean;
 }
 
+export interface SubmitCommandDisplays {
+	submitCommandDisplay: string;
+	submitDryRunCommandDisplay: string;
+}
+
 export function buildSubmitArgs(options: SubmitCommandSpecOptions): string[] {
 	return [
 		...SUBMIT_BASE_ARGS,
@@ -26,4 +31,19 @@ export function buildSubmitArgs(options: SubmitCommandSpecOptions): string[] {
 
 export function formatSubmitCommandDisplay(options: SubmitCommandSpecOptions): string {
 	return formatCommand("gt", buildSubmitArgs(options));
+}
+
+export function formatSubmitCommandDisplays(options: {
+	shouldForce: boolean;
+}): SubmitCommandDisplays {
+	return {
+		submitCommandDisplay: formatSubmitCommandDisplay({
+			isDryRun: false,
+			shouldForce: options.shouldForce,
+		}),
+		submitDryRunCommandDisplay: formatSubmitCommandDisplay({
+			isDryRun: true,
+			shouldForce: options.shouldForce,
+		}),
+	};
 }
