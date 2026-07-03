@@ -6,6 +6,8 @@ Implement the Objective Runner step workflow accepted in ADR 0022 (`docs/adr/002
 
 ADR 0022 is the durable record of the design contract (invocation surface, gateway boundaries, child report contract, five-part verification gate, commit trailers, checkpoint zones, parent-initiated recovery, parent-side Semantic Updates). This Objective owns delivering it and records the implementation-level decisions the ADR does not carry.
 
+ADR 0024 supersedes ADR 0022 in part after dogfooding: the invocation surface decomposes into two Pi-free bookends (`sdl objective exec runner-begin` / `runner-finish`) around a parent-dispatched harness subagent, and the child report moves from a marker block to a JSON file. The gate, provenance trailers, checkpoint trust model, recovery philosophy, and parental Semantic Update judgment stand unchanged. This Objective now completes through the decomposed flow; the legacy blocking `runner-step` and its child-session machinery are deleted as the final slice alongside the frozen autopilot extension.
+
 ## Scope
 
 - Grow the shared `GitGateway` contract (`ts/packages/infra/git/src/contract.ts`) with the neutral mutation surface the runner needs — porcelain-derived status facts, staging, commit — with `InMemoryGitGateway` fake parity (precedent: `createBranchAtHead`).

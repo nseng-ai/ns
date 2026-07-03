@@ -1,75 +1,98 @@
 ---
 name: objective-runner-step
 disable-model-invocation: true
-description: "Parent playbook for running one verified Objective implementation step via `sdl objective exec runner-step`. Use when driving an Objective forward step by step with runner checkpoints, recovering a failed runner step with --recover, or interpreting a Runner Checkpoint. For tracking edits use objective-update; for advice on what to do next use objective-next."
+description: "Parent playbook for running one verified Objective implementation step via `sdl objective exec runner-begin`, a harness subagent, and `sdl objective exec runner-finish` (ADR 0024). Use when driving an Objective forward step by step with runner checkpoints, recovering a failed runner step with --recover, or interpreting a Runner Checkpoint. For tracking edits use objective-update; for advice on what to do next use objective-next."
 ---
 
 # objective-runner-step
 
-Run one verified implementation step of an sdl Objective through a dispatched child session, then decide what happens next. You are the **parent**: the runner executes exactly one step and stops; every between-step decision — continue, recover, update tracking, ask the human — is yours.
+Run one verified implementation step of an sdl Objective through a dispatched subagent, then decide what happens next. You are the **parent**: you begin the step, dispatch the subagent, finish the step, and make every between-step decision — continue, recover, update tracking, ask the human. The implementation session runs as a harness subagent you can watch live; the CLI owns only the deterministic bookends.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, and storage model; this step is self-contained for its own happy path.
 
-## What one step does
+## The three-phase step (ADR 0024)
 
-```bash
-sdl objective exec runner-step <slug> [--recover] [--guidance <text|@file>] [--model <m>] [--timeout <seconds>]
-```
+One step = begin → dispatch → finish. Use the harness scratchpad for the two artifacts; both MUST live outside the repository worktree, and every attempt needs a **fresh** report path (begin refuses an existing file).
 
-The command dispatches a child session to implement one focused slice of the Objective, deterministically verifies the repository state the child left behind, creates the local commit itself (the child never commits), and prints a **Runner Checkpoint** to stdout. Runner-produced commits carry provenance trailers: `Objective-Runner-Step: <slug>`, plus `Objective-Runner-Mode: recover` for recovered attempts.
+1. **Begin** — fast, read-only, LBYL:
 
-Flags:
+   ```bash
+   sdl objective exec runner-begin <slug> [--recover] [--guidance <text|@file>] \
+     --report-path <scratch>/step-<n>-report.json --format json > <scratch>/step-<n>-facts.json
+   ```
 
-- `<slug>` — the Objective slug (required positional).
-- `--recover` — repair the dirty tree a failed step left behind instead of starting a fresh slice.
-- `--guidance <value>` — parent judgment passed verbatim to the child. A value starting with `@` is always a file path (resolved against the current directory; unreadable file is a usage error); otherwise inline text. Valid in both modes.
-- `--model <value>` — model override for the child session.
-- `--timeout <value>` — child session timeout in seconds (default 3600). A timed-out child is a runner malfunction.
-- `--format json` — emit the full machine result (including `checkpointMarkdown`) instead of the human checkpoint.
+   On exit 0 the facts file holds the machine envelope: `data.prompt` (the subagent prompt), `data.baseBranch`, `data.headAtDispatch`, `data.reportPath`. Non-zero means nothing was dispatched: exit 1 is a precondition refusal (read the message), exit 2 a usage error (bad slug, report path inside the repo or already existing, unreadable `@file` guidance).
+
+2. **Dispatch a subagent** in this same worktree with `data.prompt` **verbatim** — no additions; guidance already went through begin. The subagent implements one slice on its own branch, leaves every change uncommitted, writes its JSON report to the report path, and returns a short summary. Treat that summary as chatter: the report file is the contract. **While it runs, do not touch the worktree — no edits, no commits, no branch switches.** The `head-unchanged` gate check fails the step loudly if anything moved.
+
+3. **Finish** — the deterministic verdict, run by you, exactly once:
+
+   ```bash
+   sdl objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
+   ```
+
+   The report path defaults from the facts (`--report @path` overrides). Finish validates the report fail-closed, runs the verification gate, creates the runner-owned commit with provenance trailers (`Objective-Runner-Step: <slug>`, plus `Objective-Runner-Mode: recover` for recovered attempts), and prints the **Runner Checkpoint** to stdout. **Finish is terminal**: never re-run it after `committed` — a second run deterministically fails verification (`head-unchanged`, `worktree-dirty`) by design.
+
+Flags on begin:
+
+- `<slug>` — the Objective slug (required positional on both commands).
+- `--recover` — repair the dirty tree a failed step left behind instead of starting a fresh slice. Mode travels in the facts; finish has no recover flag.
+- `--guidance <value>` — parent judgment woven into the subagent prompt. A value starting with `@` is always a file path (resolved against the current directory; unreadable file is a usage error); otherwise inline text. Valid in both modes.
+- `--report-path <path>` — where the subagent must write its JSON report. Must not already exist and must resolve outside the repository worktree.
+
+Model choice and timeout are yours at dispatch time — they are harness concerns, not CLI flags.
 
 ## Expectations before you run it
 
-- **Blocking and slow.** One invocation runs a full child implementation session — typically minutes, up to the timeout. Run it in the background and follow the stderr stream rather than waiting on a silent foreground call.
-- **stderr is live progress, stdout is the contract.** Child activity streams to stderr and is never part of the contract: elapsed-stamped activity lines (turns, tool calls with argument summaries, assistant/thinking previews) plus a `still running` heartbeat every 30s carrying turn count, tool-call counters, and the age of the last real activity. The checkpoint Markdown is the only stdout in every terminal state that produces one. To capture cleanly: `sdl objective exec runner-step <slug> > checkpoint.md 2> progress.log`, then tail `progress.log` while it runs.
-- **The heartbeat, not silence, is the hang signal.** A quiet stretch with a fresh `last:` in the heartbeat is a child inside a long tool call; a heartbeat whose `last:` age keeps growing far beyond normal tool time is the thing to worry about.
-- **Run from the branch you want as the step's base.** The child creates its own implementation branch off the current branch via the Branch Context/Graphite path. Stacking is emergent: the runner holds no cross-step state, so the next step simply runs from the branch the previous step produced (where the command leaves you).
-- **Preconditions are checked up front (LBYL).** Default mode refuses unless the Objective is open, the worktree is clean, and HEAD is on a named branch. `--recover` inverts the worktree requirement: it refuses unless the tree is dirty and the branch is not trunk. A refusal exits 1 with a message only — no checkpoint, nothing dispatched.
+- **Run begin from the branch you want as the step's base.** The subagent creates its own implementation branch off the current branch via the Branch Context/Graphite path. Stacking is emergent: the runner holds no cross-step state, so the next step simply begins from the branch the previous step's commit left you on.
+- **Preconditions are checked up front (LBYL).** Default mode refuses unless the Objective is open, the worktree is clean, and HEAD is on a named branch. `--recover` inverts the worktree requirement: it refuses unless the tree is dirty and the branch is not trunk. A refusal exits 1 with a message only — nothing dispatched.
+- **The facts file is the step's identity.** Save begin's stdout verbatim and replay it to finish untouched. Finish cross-checks the slug and takes mode, base branch, and dispatch-time HEAD from it.
 
 ## Reading the Runner Checkpoint
 
 The checkpoint has two labeled zones with different trust levels:
 
-- **`## Verified facts (runner-attested)`** — trust these. Every line (mode, status, branch, commit, changed paths, gate checks, usage, diagnostics) is something the runner itself observed or performed.
-- **`## Child-reported narrative (unverified claims)`** — the child's own report (Summary, Objective Impact, Risks/Blockers, Follow-Ups, Validation), verbatim. Treat it as claims, not facts. The Validation section describes what the child says it ran; nothing there is runner-attested.
+- **`## Verified facts (runner-attested)`** — trust these. Every line (mode, status, branch, commit, changed paths, gate checks, diagnostics) is something the runner itself observed or performed.
+- **`## Child-reported narrative (unverified claims)`** — the subagent's own report (Summary, Objective Impact, Risks/Blockers, Follow-Ups, Validation), verbatim. Treat it as claims, not facts. The Validation section describes what the subagent says it ran; nothing there is runner-attested.
 
-The checkpoint title carries the typed status: `committed`, `stop`, `blocked`, `verification-failed`, or `malfunction`. On `verification-failed`, the verified zone lists each gate check as passed/failed/skipped (branch invariants, Graphite tracking, dirty worktree, `git diff --check`, HEAD unchanged) — read those results, not the narrative, to understand what went wrong.
+The checkpoint title carries the typed status: `committed`, `stop`, `blocked`, `verification-failed`, or `malfunction`. On `verification-failed`, the verified zone lists each gate check as passed/failed/skipped (branch invariants, Graphite tracking, dirty worktree, `git diff --check`, HEAD unchanged) — read those results, not the narrative, to understand what went wrong. `stop`/`blocked` checkpoints include the live changed paths, so a stopping subagent that left droppings is visible.
 
 ## Exit codes
 
-| Exit | Meaning                                                                                                                                                                                                                                                                                     | stdout                                                                                            |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| 0    | `committed` (step verified and committed) or `stop` (child deliberately stopped; see the child-reported reason)                                                                                                                                                                             | checkpoint                                                                                        |
-| 1    | `blocked` (child reported it cannot proceed) or `verification-failed` (gate checks failed); also precondition refusals (dirty tree in default mode, clean tree or trunk in `--recover`, closed Objective, detached HEAD)                                                                    | checkpoint for blocked/verification-failed; refusals print a message only, nothing was dispatched |
-| 2    | Usage error (invalid/unknown slug, unreadable `@file` guidance — nothing dispatched, no checkpoint) or runner malfunction (child startup failure, timeout, nonzero child exit, unparseable/incomplete child report, commit failure — best-effort `malfunction` checkpoint with diagnostics) | malfunction checkpoint when one could be produced                                                 |
+**runner-begin**
+
+| Exit | Meaning                                                                                                                         |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Facts + prompt emitted; nothing dispatched yet                                                                                  |
+| 1    | Precondition refusal (dirty tree in default mode; clean tree or trunk in `--recover`; closed Objective; detached HEAD)          |
+| 2    | Usage error (invalid/unknown slug, missing/existing/in-repo report path, unreadable `@file` guidance) or infrastructure failure |
+
+**runner-finish**
+
+| Exit | Meaning                                                                                                                                                   | stdout                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 0    | `committed` (step verified and committed) or `stop` (subagent deliberately stopped; see the child-reported reason)                                        | checkpoint                                        |
+| 1    | `blocked` (subagent reported it cannot proceed) or `verification-failed` (gate checks failed)                                                             | checkpoint                                        |
+| 2    | Usage error (missing/malformed facts, slug mismatch, non-ok saved envelope — nothing judged) or malfunction (missing/invalid report file, commit failure) | malfunction checkpoint when one could be produced |
 
 ## Post-checkpoint playbook
 
-After every invocation, read the checkpoint and make an explicit decision:
+After every finish, read the checkpoint and make an explicit decision:
 
-- **`committed`** — review the verified facts (branch, commit, changed paths) and the claimed narrative. If the work should continue, invoke the next step from the branch the step produced. Apply the Semantic Update judgment below first.
-- **`verification-failed` or `blocked`** — the worktree is left exactly as the child left it. Choose one:
-  1. **Re-dispatch with `--recover`** (the biased default): sharpen `--guidance` using the failed gate checks and diagnostics — say what went wrong and what the child must do differently. Recovery repairs on the same non-trunk branch; judgment stays in the parent, token burn in the child.
+- **`committed`** — review the verified facts (branch, commit, changed paths) and the claimed narrative. If the work should continue, begin the next step from the branch the step produced. Apply the Semantic Update judgment below first.
+- **`verification-failed` or `blocked`** — the worktree is left exactly as the subagent left it. Choose one:
+  1. **Re-dispatch with `--recover`** (the biased default): run begin again with `--recover`, sharpened `--guidance` naming the failed gate checks and what must change, and a **new report path**; then dispatch and finish again. Recovery repairs on the same non-trunk branch; judgment stays with you, token burn in the subagent.
   2. **Hand-fix**: make the remaining changes yourself and commit them yourself (the runner will not commit a step it did not verify).
-  3. **Reset**: discard the attempt (e.g. `git checkout -- .` / delete the branch) and re-run a fresh default-mode step with better guidance.
+  3. **Reset**: discard the attempt (e.g. `git checkout -- .` / delete the branch) and begin a fresh default-mode step with better guidance.
   4. **Escalate**: stop and ask the human when the failure signals a design problem, repeated identical failures, or anything outside the Objective's stated scope.
-- **`stop`** — the child concluded the step should not proceed (see the child-reported reason). Decide whether to re-scope, re-run with guidance, or consult the human.
-- **`malfunction`** — infrastructure or contract failure, not a work outcome. Read the diagnostics; check the worktree state before doing anything else. Repeated malfunctions are a reason to escalate, not retry blindly.
+- **`stop`** — the subagent concluded the step should not proceed (see the child-reported reason and the live changed paths). Decide whether to re-scope, re-run with guidance, or consult the human.
+- **`malfunction`** — contract failure, not a work outcome: the report file is missing or invalid, or the commit failed. Read the diagnostics; check the worktree state before doing anything else. Repeated malfunctions are a reason to escalate, not retry blindly.
 
-One slice per invocation, one attempt per invocation. There are no loops inside the runner; iteration is you re-invoking with better guidance.
+One slice per step, one attempt per dispatch. There are no loops inside the runner; iteration is you re-running begin with better guidance.
 
 ## Semantic Updates: your judgment, not the runner's
 
-The runner never touches Objective tracking, and the child is not instructed to update it. After a checkpoint, judge whether the step had **material Objective impact** — meaningful progress, decisions, risks, blockers, assumption changes, plan changes, or completion evidence. If so, record it through the `objective-update` skill and commit that update yourself. Routine step summaries are not Objective updates; most committed steps need none.
+The runner never touches Objective tracking, and the subagent is not instructed to update it. After a checkpoint, judge whether the step had **material Objective impact** — meaningful progress, decisions, risks, blockers, assumption changes, plan changes, or completion evidence. If so, record it through the `objective-update` skill and commit that update yourself, **between steps only** — never between begin and finish, where any commit fails the gate's `head-unchanged` check. Routine step summaries are not Objective updates; most committed steps need none.
 
 ## Hard boundaries
 
@@ -77,7 +100,9 @@ The runner will never, in any mode:
 
 - push, submit, publish, or merge anything — no PR ever leaves your machine from a runner step;
 - update Objective tracking or write Semantic Updates;
-- commit on trunk, amend, or accept a commit the child made itself (a child that committed on its own fails verification);
+- commit on trunk, amend, or accept a commit the subagent made itself (a subagent that committed on its own fails verification);
 - run more than one slice, retry on its own, or carry state between steps.
 
-If you need any of those, do them yourself as the parent, through the normal workflows.
+And you, the parent, never mutate the worktree between begin and finish — the gate makes violations loud, not silent.
+
+If you need any of those, do them yourself as the parent, through the normal workflows. The legacy blocking `sdl objective exec runner-step` still exists during the transition but no skill flow uses it; it is scheduled for deletion.
