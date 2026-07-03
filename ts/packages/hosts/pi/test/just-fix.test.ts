@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { markGitRepo } from "@sdl/core/test-kit";
+
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 
 const ROOT = "/repo";
@@ -159,7 +161,7 @@ describe("just-fix extension", () => {
 		const dir = await mkdtemp(join(tmpdir(), "code-just-fix-skill-"));
 		const skillDir = join(dir, "skills", "code-just-fix");
 		const skillPath = join(skillDir, "SKILL.md");
-		await mkdir(join(dir, ".git"), { recursive: true });
+		await markGitRepo(dir);
 		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			skillPath,

@@ -6,7 +6,8 @@ import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import {
 	resolveExactSkillLookup,
 	resolveSkillLookupProjectRoot,
-	type SkillLookupPathStat,
+	skillLookupIoOptions,
+	type SkillLookupIo,
 } from "./lookup.ts";
 
 export interface SkillCommandInfo {
@@ -40,11 +41,9 @@ export interface SkillPathExpansionOptions extends SkillExpansionOptions {
 	skillPath: string;
 }
 
-export interface RepoSkillPathResolveOptions {
+export interface RepoSkillPathResolveOptions extends SkillLookupIo {
 	cwd: string;
 	skillName: string;
-	statPath?: (path: string) => Promise<SkillLookupPathStat>;
-	realpathPath?: (path: string) => Promise<string>;
 }
 
 export interface RepoSkillExpansionOptions extends SkillExpansionOptions {
@@ -82,7 +81,7 @@ export interface RepoSkillPromptTurnContext extends SkillPromptTurnContext {
 	cwd: string;
 }
 
-export interface InvokeRepoSkillPromptTurnOptions {
+export interface InvokeRepoSkillPromptTurnOptions extends SkillLookupIo {
 	host: RepoSkillPromptTurnHost;
 	ctx: RepoSkillPromptTurnContext;
 	skillName: string;
@@ -90,8 +89,6 @@ export interface InvokeRepoSkillPromptTurnOptions {
 	fallbackMessage: string;
 	buildPrompt(skillBlock: string | undefined): string;
 	readTextFile?: (path: string) => Promise<string>;
-	statPath?: (path: string) => Promise<SkillLookupPathStat>;
-	realpathPath?: (path: string) => Promise<string>;
 }
 
 export interface BuildSkillInvocationPromptOptions {
@@ -148,15 +145,15 @@ export async function expandSkillBlock(
 }
 
 export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
+	const lookupIo = skillLookupIoOptions(options);
 	const projectRoot = await resolveSkillLookupProjectRoot({
 		cwd: options.cwd,
-		...(options.statPath === undefined ? {} : { statPath: options.statPath }),
+		...(lookupIo.statPath === undefined ? {} : { statPath: lookupIo.statPath }),
 	});
 	const lookup = await resolveExactSkillLookup({
 		projectDir: projectRoot,
 		skillName: options.skillName,
-		...(options.statPath === undefined ? {} : { statPath: options.statPath }),
-		...(options.realpathPath === undefined ? {} : { realpathPath: options.realpathPath }),
+		...lookupIo,
 	});
 	if (lookup.type === "found") return lookup.skillFilePath;
 	if (lookup.type === "error") throw new Error(lookup.message);
@@ -224,8 +221,7 @@ export async function invokeRepoSkillPromptTurn(
 		const skillPath = await resolveRepoSkillPath({
 			cwd: ctx.cwd,
 			skillName,
-			...(options.statPath === undefined ? {} : { statPath: options.statPath }),
-			...(options.realpathPath === undefined ? {} : { realpathPath: options.realpathPath }),
+			...skillLookupIoOptions(options),
 		});
 		skill = await expandSkillBlockFromPath({
 			skillName,

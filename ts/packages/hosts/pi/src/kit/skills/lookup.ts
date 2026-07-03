@@ -37,6 +37,11 @@ export interface SkillLookupPathStat {
 	isSymbolicLink(): boolean;
 }
 
+export interface SkillLookupIo {
+	statPath?: (path: string) => Promise<SkillLookupPathStat>;
+	realpathPath?: (path: string) => Promise<string>;
+}
+
 export interface SkillLookupSearchedRoot {
 	root: SkillLookupRoot;
 	sourceType: SkillLookupSourceType;
@@ -68,16 +73,13 @@ export interface FailedSkillLookup {
 
 export type SkillLookupResult = FoundSkillLookup | MissingSkillLookup | FailedSkillLookup;
 
-export interface ResolveExactSkillLookupOptions {
+export interface ResolveExactSkillLookupOptions extends SkillLookupIo {
 	projectDir: string;
 	skillName: string;
-	statPath?: (path: string) => Promise<SkillLookupPathStat>;
-	realpathPath?: (path: string) => Promise<string>;
 }
 
-export interface ResolveSkillLookupProjectRootOptions {
+export interface ResolveSkillLookupProjectRootOptions extends Pick<SkillLookupIo, "statPath"> {
 	cwd: string;
-	statPath?: (path: string) => Promise<SkillLookupPathStat>;
 }
 
 export function skillLookupDescriptorForRoot(root: SkillLookupRoot): SkillLookupRootDescriptor {
@@ -98,12 +100,27 @@ export function skillLookupRootRank(root: SkillLookupRoot): number {
 	return SKILL_LOOKUP_ROOT_RANKS.get(root) ?? SKILL_LOOKUP_ROOT_DESCRIPTORS.length;
 }
 
+export function skillLookupBaseRelativePath(root: SkillLookupRoot, skillName: string): string {
+	return `${root}/${skillName}`;
+}
+
+export function skillLookupFileRelativePath(root: SkillLookupRoot, skillName: string): string {
+	return `${skillLookupBaseRelativePath(root, skillName)}/SKILL.md`;
+}
+
+export function skillLookupIoOptions(options: SkillLookupIo): SkillLookupIo {
+	return {
+		...(options.statPath === undefined ? {} : { statPath: options.statPath }),
+		...(options.realpathPath === undefined ? {} : { realpathPath: options.realpathPath }),
+	};
+}
+
 export function buildSkillLookupSearchedRoots(
 	projectDir: string,
 	skillName: string,
 ): SkillLookupSearchedRoot[] {
 	return SKILL_LOOKUP_ROOT_DESCRIPTORS.map((descriptor) => {
-		const searchedRelativePath = `${descriptor.root}/${skillName}/SKILL.md`;
+		const searchedRelativePath = skillLookupFileRelativePath(descriptor.root, skillName);
 		return {
 			root: descriptor.root,
 			sourceType: descriptor.sourceType,
@@ -139,8 +156,8 @@ export async function resolveExactSkillLookup(
 	const searchedRoots = buildSkillLookupSearchedRoots(projectDir, options.skillName);
 
 	for (const descriptor of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
-		const baseRelativePath = `${descriptor.root}/${options.skillName}`;
-		const skillFileRelativePath = `${baseRelativePath}/SKILL.md`;
+		const baseRelativePath = skillLookupBaseRelativePath(descriptor.root, options.skillName);
+		const skillFileRelativePath = skillLookupFileRelativePath(descriptor.root, options.skillName);
 		const basePath = join(projectDir, descriptor.root, options.skillName);
 		const skillFilePath = join(basePath, "SKILL.md");
 		const normalizedSkillFilePath = resolve(skillFilePath);

@@ -1,8 +1,4 @@
-import {
-	SKILL_LOOKUP_ROOT_DESCRIPTORS,
-	skillLookupDescriptorForRoot,
-	skillLookupDescriptorForSourceType,
-} from "@sdl/pi/skills/lookup";
+import { SKILL_LOOKUP_ROOT_DESCRIPTORS } from "@sdl/pi/skills/lookup";
 import type {
 	SkillLookupRoot,
 	SkillLookupRootDescriptor,
@@ -154,16 +150,6 @@ export const AREG_SKILL_KIND_ROOT_DESCRIPTORS = SKILL_LOOKUP_ROOT_DESCRIPTORS.fi
 	(descriptor): descriptor is AregSkillKindRootDescriptor =>
 		descriptor.sourceType === "repo" || descriptor.sourceType === "vendored",
 );
-
-export function skillFindDescriptorForRoot(root: AregSkillFindRoot): AregSkillFindRootDescriptor {
-	return skillLookupDescriptorForRoot(root);
-}
-
-export function skillFindDescriptorForSourceType(
-	sourceType: AregSkillFindSourceType,
-): AregSkillFindRootDescriptor {
-	return skillLookupDescriptorForSourceType(sourceType);
-}
 
 export function skillKindDescriptorForSourceType(
 	sourceType: AregSkillKindSourceType,

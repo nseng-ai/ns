@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { markGitRepo } from "@sdl/core/test-kit";
+
 import {
 	buildFencedTextBlock,
 	buildSkillInvocationPrompt,
@@ -78,10 +80,6 @@ function skillCommand(skillName: string, path: string, baseDir?: string): SkillC
 			...(baseDir === undefined ? {} : { baseDir }),
 		},
 	};
-}
-
-async function markGitRepo(repo: string): Promise<void> {
-	await mkdir(join(repo, ".git"), { recursive: true });
 }
 
 describe("expandSkillBlock", () => {

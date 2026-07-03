@@ -3,6 +3,7 @@ import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	SKILL_LOOKUP_ROOTS,
 	SKILL_LOOKUP_SOURCE_TYPES,
+	skillLookupFileRelativePath,
 	skillLookupRootRank,
 	type SkillLookupRoot,
 } from "@sdl/pi/skills/lookup";
@@ -144,7 +145,7 @@ export function renderSkillFind(result: SkillFindResult): string {
 
 function buildSkillFindSearchedRoots(projectDir: string, query: string): SkillFindSearchedRoot[] {
 	return SKILL_LOOKUP_ROOT_DESCRIPTORS.map((descriptor) => {
-		const searchedRelativePath = `${descriptor.root}/${query}/SKILL.md`;
+		const searchedRelativePath = skillLookupFileRelativePath(descriptor.root, query);
 		return {
 			root: descriptor.root,
 			sourceType: descriptor.sourceType,
