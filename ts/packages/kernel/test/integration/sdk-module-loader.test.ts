@@ -23,8 +23,8 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	const textGenerationModule = await jiti.import<
 		typeof import("@sdl/capability-kit/text-generation")
 	>("@sdl/capability-kit/text-generation");
-	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("SDL_CHECKPOINT_MODEL");
-	expect(textGenerationModule.CHANGES_MODEL_ENV).toBe("SDL_CHANGES_MODEL");
+	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("JI_CHECKPOINT_MODEL");
+	expect(textGenerationModule.CHANGES_MODEL_ENV).toBe("JI_CHANGES_MODEL");
 	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");
 	expect(typeof textGenerationModule.selectCheckpointModelRef).toBe("function");
 	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");

@@ -65,7 +65,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		surface: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		workflow: "Download current PR feedback into the Pi editor as a triage prompt",
 		parity: "FULL",
-		cli: "sdl address exec download-feedback",
+		cli: "ji address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi",
 		sourceModule: "pr",
@@ -77,7 +77,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		workflow:
 			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one triage prompt",
 		parity: "FULL",
-		cli: "sdl slot gt exec stack-branches --downstack + sdl address exec map-branch-prs + sdl address exec download-feedback",
+		cli: "ji slot gt exec stack-branches --downstack + ji address exec map-branch-prs + ji address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi",
 		sourceModule: "pr",
@@ -303,7 +303,7 @@ async function loadStackBranches(
 	ctx: ExtensionContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
 	const result = await pi.exec(
-		"sdl",
+		"ji",
 		["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 		{
 			cwd: ctx.cwd,
@@ -311,7 +311,7 @@ async function loadStackBranches(
 		},
 	);
 	const parsed = parseEnvelopeWithSchema({
-		label: "sdl slot gt exec stack-branches",
+		label: "ji slot gt exec stack-branches",
 		result,
 		schema: stackBranchesDataSchema,
 		allowFailureData: true,
@@ -330,12 +330,12 @@ async function mapStackBranchesToPrs(
 > {
 	const branchesJson = JSON.stringify({ branches });
 	const result = await pi.exec(
-		"sdl",
+		"ji",
 		["address", "exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"],
 		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
 	const parsed = parseEnvelopeWithSchema({
-		label: "sdl address exec map-branch-prs",
+		label: "ji address exec map-branch-prs",
 		result,
 		schema: mapBranchPrsDataSchema,
 		// map-branch-prs uses exit 1 for partial branch coverage; stack feedback can

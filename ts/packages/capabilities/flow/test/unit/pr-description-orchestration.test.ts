@@ -139,7 +139,7 @@ describe("orchestratePrDescription", () => {
 			version: "2",
 			patchId: "patch-1",
 			promptHash: hashPrDescriptionPrompt(GENERATION.promptText),
-			generator: "sdl-pr-description-v2",
+			generator: "ji-pr-description-v2",
 		});
 		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
 		const textGeneration = new ScriptedTextGenerator([]);
@@ -200,7 +200,7 @@ describe("orchestratePrDescription", () => {
 			version: "2",
 			patchId: "patch-1",
 			promptHash: hashPrDescriptionPrompt(GENERATION.promptText),
-			generator: "sdl-pr-description-v2",
+			generator: "ji-pr-description-v2",
 		});
 		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
 		const textGeneration = new ScriptedTextGenerator([

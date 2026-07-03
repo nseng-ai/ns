@@ -154,7 +154,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		);
 		this.files = new Map([
 			["skills-lock.json", normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} })],
-			["sdl.toml", normalizeTextFileState(options.sdlToml ?? { type: "missing" })],
+			["ji.toml", normalizeTextFileState(options.sdlToml ?? { type: "missing" })],
 			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
 			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
 			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
@@ -213,7 +213,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: this.projectDir,
 			projectPathState: copyPathState(this.projectPathState),
 			lockfile: this.fileState("skills-lock.json"),
-			sdlToml: this.fileState("sdl.toml"),
+			sdlToml: this.fileState("ji.toml"),
 			aregJson: this.fileState("areg.json"),
 		};
 	}

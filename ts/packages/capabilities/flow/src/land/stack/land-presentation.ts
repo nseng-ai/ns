@@ -1,4 +1,4 @@
-// Flow-local facade for the `sdl flow land` CLI surface.
+// Flow-local facade for the `ji flow land` CLI surface.
 //
 // `land` reports typed settled outcomes at the Flow CLI edge. The generic finite block layout now
 // lives in `@sdl/core/cli-theme` because the repeated shape was proven across Flow and CCC; land keeps this

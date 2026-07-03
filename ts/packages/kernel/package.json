@@ -11,7 +11,7 @@
 		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
 		"./sdk": "./src/sdk/index.ts"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "sdk",
 		"subpackages": [
 			"cli",
@@ -30,7 +30,7 @@
 		]
 	},
 	"bin": {
-		"sdl": "./src/cli/index.ts"
+		"ji": "./src/cli/index.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

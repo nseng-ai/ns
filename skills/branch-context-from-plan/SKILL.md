@@ -1,7 +1,7 @@
 ---
 name: branch-context-from-plan
 disable-model-invocation: true
-description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context as a named Markdown key — "from plan", "create a branch and attach branch context", "branch this saved plan", "attach this plan to a branch" — or to continue a Pi `/sdl:branch-context:from-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context as a named Markdown key — "from plan", "create a branch and attach branch context", "branch this saved plan", "attach this plan to a branch" — or to continue a Pi `/ji:branch-context:from-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
 # branch-context-from-plan
@@ -19,7 +19,7 @@ enriched-plan exec resolve [absolute-or-home-plan-file.md] --format json
 Create and attach:
 
 ```bash
-sdl branch-context exec from-plan \
+ji branch-context exec from-plan \
   --slug <branch-context-slug> \
   --plan-file <absolute-or-home-plan-file.md> \
   [--branch <target-branch>] \
@@ -34,7 +34,7 @@ The plan is attached under Branch Memory namespace `branch-context`, key `<branc
 
 1. Resolve the saved plan first if a path is given or none is known.
 2. Derive `<branch-context-slug>` from plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This drives the default target branch and the attached-plan key `<branch-context-slug>.md`.
-3. Choose the branch creation method before invoking `sdl branch-context exec from-plan`. In this repo, include `--branch-creation graphite` unless the user explicitly requested plain Git. For precedence and Graphite method details, see the `branch-context` umbrella's `references/lifecycle.md` (`## Branch creation policy`).
+3. Choose the branch creation method before invoking `ji branch-context exec from-plan`. In this repo, include `--branch-creation graphite` unless the user explicitly requested plain Git. For precedence and Graphite method details, see the `branch-context` umbrella's `references/lifecycle.md` (`## Branch creation policy`).
 4. Pass `--branch` only when the user requested a specific target branch; the attached-plan key still comes from `<branch-context-slug>.md`, not the target branch name.
 5. Parse the standard Clinkr JSON envelope and report `data.branch`, `data.branchCreation`, `data.namespace`, `data.key`, `data.refName`, `data.commit`, `data.sourceFile`, and `data.slug`.
 

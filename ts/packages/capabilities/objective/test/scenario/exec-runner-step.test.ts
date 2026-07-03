@@ -389,14 +389,14 @@ describe("sdl objective exec runner-step scenarios", () => {
 			git: new SequencedGitGateway(happyGitState()),
 			graphite: new InMemoryGraphiteBranchGateway({}),
 			storage: openObjectiveStorage(),
-			env: { SDL_RUNNER_PI_BIN: "/fake/pi" },
+			env: { JI_RUNNER_PI_BIN: "/fake/pi" },
 		});
 
 		const exit = await runObjectiveCommand(command, { slug: SLUG }, { api });
 
 		expect(exit.type).toBe("ok");
 		expect(inits).toHaveLength(1);
-		expect(inits[0]?.env.SDL_RUNNER_PI_BIN).toBe("/fake/pi");
+		expect(inits[0]?.env.JI_RUNNER_PI_BIN).toBe("/fake/pi");
 		expect(childSession.dispatchCalls).toHaveLength(1);
 	});
 });

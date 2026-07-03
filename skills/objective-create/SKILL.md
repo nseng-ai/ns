@@ -1,12 +1,12 @@
 ---
 name: objective-create
 disable-model-invocation: true
-description: "Create a new Objective record under .sdl/objectives/<slug>/. Use when starting to track a new unit of planned work: 'create an objective', 'start an objective for X', 'turn this into a tracked objective', or scaffolding a new objective's thesis/scope/roadmap. To act on an Objective that already exists, use objective-next (recommend work), objective-update (record progress), or objective-close (finish it)."
+description: "Create a new Objective record under .ji/objectives/<slug>/. Use when starting to track a new unit of planned work: 'create an objective', 'start an objective for X', 'turn this into a tracked objective', or scaffolding a new objective's thesis/scope/roadmap. To act on an Objective that already exists, use objective-next (recommend work), objective-update (record progress), or objective-close (finish it)."
 ---
 
 # objective-create
 
-Create a new Objective record under `.sdl/objectives/<slug>/`.
+Create a new Objective record under `.ji/objectives/<slug>/`.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
@@ -15,7 +15,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 Active root only for newly created records:
 
 ```text
-.sdl/objectives/<slug>/
+.ji/objectives/<slug>/
   objective.md
   roadmap.md
   orientation.md  # optional; cross-cutting Objectives only
@@ -25,7 +25,7 @@ Active root only for newly created records:
 Also check the archive root before creating a slug:
 
 ```text
-.sdl/objective-archive/<slug>/
+.ji/objective-archive/<slug>/
 ```
 
 `objective.md` required headings:
@@ -67,13 +67,13 @@ Roadmap item quality:
 ## Slug and path
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing files.
-- Use only `.sdl/objectives/<slug>/`. Do not create records under `docs/objectives/` or other locations.
+- Use only `.ji/objectives/<slug>/`. Do not create records under `docs/objectives/` or other locations.
 - Treat the slug directory as durable identity. Command/product/prose renames should update an existing Objective's title and body, not create a new slug.
-- Before creating a slug that appears to be a rename or replacement of existing work, run `sdl objective list --minimal --status all --format md`; if it shows a likely existing Objective, stop and ask whether the user meant `objective-update`, a direct read with `sdl objective exec read-objective <slug> --format md`, or an explicit slug migration.
+- Before creating a slug that appears to be a rename or replacement of existing work, run `ji objective list --minimal --status all --format md`; if it shows a likely existing Objective, stop and ask whether the user meant `objective-update`, a direct read with `ji objective exec read-objective <slug> --format md`, or an explicit slug migration.
 - Do not add registries, YAML/frontmatter, UUIDs, hidden attachment metadata, or state-machine behavior.
-- If `.sdl/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read with `sdl objective exec read-objective <slug> --format md`; never overwrite. Use `sdl objective exec read-objective <slug> --format md` to check active records: it returns a `not_found` envelope when the slug has no active record, and otherwise emits the existing record.
-- If `.sdl/objective-archive/<slug>/` exists, stop and ask whether the user wants to unarchive instead of creating a duplicate slug. Use `sdl objective archive <slug> --unarchive` when unarchive is the right intent.
-- Objective records are Markdown; read and edit Markdown directly. Use `sdl objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
+- If `.ji/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read with `ji objective exec read-objective <slug> --format md`; never overwrite. Use `ji objective exec read-objective <slug> --format md` to check active records: it returns a `not_found` envelope when the slug has no active record, and otherwise emits the existing record.
+- If `.ji/objective-archive/<slug>/` exists, stop and ask whether the user wants to unarchive instead of creating a duplicate slug. Use `ji objective archive <slug> --unarchive` when unarchive is the right intent.
+- Objective records are Markdown; read and edit Markdown directly. Use `ji objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
 
 ## Workflow
 
@@ -88,14 +88,14 @@ Roadmap item quality:
    - Numbered menus should include the recommended path first, the main alternative(s) next, and a final stop option only after the slug has been explicitly confirmed. The stop option must be exactly `Stop and create Objective <slug>`, including the confirmed slug verbatim. If the slug is not confirmed yet, omit the stop option and resolve slug confirmation first. Use domain-specific labels so the choices are concrete (for example: `1) Skill-only steelthread`, `2) Dedicated CLI commands`, `3) Stop and create Objective objective-create-stop-option-guidance`). Tell the user they can answer with a number or a custom correction.
    - Focus especially on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or execution policy when relevant.
    - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Objective.
-4. Create `.sdl/objectives/<slug>/`, `.sdl/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
+4. Create `.ji/objectives/<slug>/`, `.ji/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
 5. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section and execution-friendly sections only when requested or made relevant by the interview.
 6. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
 7. Do not create an initial update file. Do not create `closed.md`.
 
 ## Stop / ask
 
-- The slug is missing, unconfirmed, invalid-looking, or points outside `.sdl/objectives/`.
+- The slug is missing, unconfirmed, invalid-looking, or points outside `.ji/objectives/`.
 - The target Objective directory already exists.
 - The requested Objective looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
 - The user has not provided enough durable context to avoid inventing thesis, scope, completion criteria, assumptions, risks, or requested execution policy.

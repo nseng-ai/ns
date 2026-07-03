@@ -26,7 +26,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		const help = runWithRealObjectiveExtension({ args: ["objective", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl objective");
+		expect(output).toContain("Usage: ji objective");
 		expect(output).toContain("list");
 		expect(output).toContain("check");
 		expect(output).toContain("archive");
@@ -41,7 +41,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		const listHelp = runWithRealObjectiveExtension({ args: ["objective", "list", "--help"], cwd });
 		expect(await listHelp.exit).toBe(0);
 		const listOutput = listHelp.stdout.join("");
-		expect(listOutput).toContain("Usage: sdl objective list");
+		expect(listOutput).toContain("Usage: ji objective list");
 		expect(listOutput).toContain("--names");
 		expect(listOutput).toContain("--status");
 		expect(listOutput).toContain("--minimal");
@@ -51,7 +51,7 @@ describe("checked-in Objective SDL extension loading", () => {
 			cwd,
 		});
 		expect(await checkHelp.exit).toBe(0);
-		expect(checkHelp.stdout.join("")).toContain("Usage: sdl objective check [options] [slug]");
+		expect(checkHelp.stdout.join("")).toContain("Usage: ji objective check [options] [slug]");
 
 		const archiveHelp = runWithRealObjectiveExtension({
 			args: ["objective", "archive", "--help"],
@@ -70,7 +70,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		});
 		expect(await readHelp.exit).toBe(0);
 		expect(readHelp.stdout.join("")).toContain(
-			"Usage: sdl objective exec read-objective [options] [slug]",
+			"Usage: ji objective exec read-objective [options] [slug]",
 		);
 
 		const candidatesHelp = runWithRealObjectiveExtension({
@@ -78,7 +78,7 @@ describe("checked-in Objective SDL extension loading", () => {
 			cwd,
 		});
 		expect(await candidatesHelp.exit).toBe(0);
-		expect(candidatesHelp.stdout.join("")).toContain("Usage: sdl objective exec list-candidates");
+		expect(candidatesHelp.stdout.join("")).toContain("Usage: ji objective exec list-candidates");
 
 		const usageHelp = runWithRealObjectiveExtension({
 			args: ["objective", "exec", "runner-subagent-usage", "--help"],
@@ -86,7 +86,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		});
 		expect(await usageHelp.exit).toBe(0);
 		expect(usageHelp.stdout.join("")).toContain(
-			"Usage: sdl objective exec runner-subagent-usage [options] [session-files...]",
+			"Usage: ji objective exec runner-subagent-usage [options] [session-files...]",
 		);
 
 		const orientationsHelp = runWithRealObjectiveExtension({
@@ -95,7 +95,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		});
 		expect(await orientationsHelp.exit).toBe(0);
 		expect(orientationsHelp.stdout.join("")).toContain(
-			"Usage: sdl objective exec load-orientations",
+			"Usage: ji objective exec load-orientations",
 		);
 		expect(orientationsHelp.stdout.join("")).toContain("Load active Objective orientation files");
 
@@ -105,7 +105,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		});
 		expect(await trackingGateHelp.exit).toBe(0);
 		expect(trackingGateHelp.stdout.join("")).toContain(
-			"Usage: sdl objective exec tracking-gate [options] [slug]",
+			"Usage: ji objective exec tracking-gate [options] [slug]",
 		);
 	});
 
@@ -174,7 +174,7 @@ describe("checked-in Objective SDL extension loading", () => {
 });
 
 async function createObjectiveProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-objective-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-objective-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInObjectiveExtension(directory);
 	await writeObjectiveRecord(directory, "demo-objective");
@@ -182,7 +182,7 @@ async function createObjectiveProject(): Promise<string> {
 }
 
 async function writeObjectiveRecord(projectRoot: string, slug: string): Promise<void> {
-	const recordRoot = join(projectRoot, ".sdl", "objectives", slug);
+	const recordRoot = join(projectRoot, ".ji", "objectives", slug);
 	await mkdir(join(recordRoot, "updates"), { recursive: true });
 	await writeFile(
 		join(recordRoot, "objective.md"),
@@ -251,6 +251,6 @@ function objectiveGitResponses(cwd: string): ScriptedExecResponse[] {
 		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "git symbolic-ref --short refs/remotes/origin/HEAD", result: { code: 1 } },
 		{ match: "git rev-parse --verify refs/heads/main", result: { stdout: "abc123\n" } },
-		{ match: "git status --porcelain -- .sdl/objectives/demo-objective", result: { stdout: "" } },
+		{ match: "git status --porcelain -- .ji/objectives/demo-objective", result: { stdout: "" } },
 	];
 }

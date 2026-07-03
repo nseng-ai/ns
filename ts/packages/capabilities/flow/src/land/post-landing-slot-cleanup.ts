@@ -78,7 +78,7 @@ export async function runPostLandingSlotCleanup({
 			const diagnostics = boundaryFailureDiagnostics(freeResult.failure);
 			const landFailure = landStackFailure(`PRs were landed, but freeing ${slotName} failed.`, {
 				commandDisplay:
-					diagnostics.displayCommand ?? formatCommand("sdl", ["slot", "free", "--wt", slotName]),
+					diagnostics.displayCommand ?? formatCommand("ji", ["slot", "free", "--wt", slotName]),
 				...(diagnostics.execResult === undefined ? {} : { result: diagnostics.execResult }),
 				suggestedAction,
 			});
@@ -127,7 +127,7 @@ function formatPostLandingCleanupDetails(options: {
 	repoRoot: string;
 	slotName: string;
 }): string {
-	const freeCommand = formatCommand("sdl", ["slot", "free", "--wt", options.slotName]);
+	const freeCommand = formatCommand("ji", ["slot", "free", "--wt", options.slotName]);
 	const deleteCommand = formatGraphiteOperation(
 		deleteLocalBranchOperation({ branch: options.branch }),
 	);
@@ -145,5 +145,5 @@ function formatPostLandingCleanupDetails(options: {
 }
 
 function postLandingCleanupSuggestedAction(slotName: string, branch: string): string {
-	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatGraphiteOperation(deleteLocalBranchOperation({ branch }))} when safe.`;
+	return `Run ${formatCommand("ji", ["slot", "free", "--wt", slotName])}, then ${formatGraphiteOperation(deleteLocalBranchOperation({ branch }))} when safe.`;
 }

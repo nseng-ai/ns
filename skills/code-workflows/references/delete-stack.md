@@ -27,7 +27,7 @@ safety and making PR/remote cleanup intentional.
 - Do not use `slot free --all` for this workflow. It can close PRs and
   force-delete local branches but does not delete remotes or clean Graphite
   metadata.
-- Treat `sdl slot gt free-stack` as unrelated restack tooling, not this deletion
+- Treat `ji slot gt free-stack` as unrelated restack tooling, not this deletion
   workflow.
 - Re-run `gt delete --help` in-session before final deletion; Graphite CLI
   semantics can change.
@@ -49,7 +49,7 @@ For the common/current-stack deletion case, discover the current Graphite stack
 with structured output instead of parsing human Graphite text:
 
 ```bash
-sdl slot gt exec stack-branches
+ji slot gt exec stack-branches
 ```
 
 Use that helper output as the machine-readable branch list for the current stack.

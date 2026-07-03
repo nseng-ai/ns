@@ -37,7 +37,7 @@ describe("branch-context extension with real Branch Memory", () => {
 			const planFile = await createPlanFile();
 			const pi = new StdinDroppingPi();
 			registerBranchContextExtension(pi);
-			const command = pi.commands.get("sdl:branch-context:from-plan");
+			const command = pi.commands.get("ji:branch-context:from-plan");
 			if (command === undefined) throw new Error("missing branch-context command");
 
 			await command.handler(planFile, createContext([], { cwd: repo.path }).ctx);

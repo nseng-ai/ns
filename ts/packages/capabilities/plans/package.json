@@ -23,7 +23,7 @@
 		"@sdl/core": "workspace:*",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "capability"
 	}
 }

@@ -21,7 +21,7 @@ export async function loadSdlExtensionContribution(
 		return {
 			ok: false,
 			diagnostic: diagnostic(
-				"sdl_extension_contribution_import_failed",
+				"ji_extension_contribution_import_failed",
 				`Failed to load SDL extension contribution ${modulePath}.\n${formatUnknownError(error)}`,
 				modulePath,
 			),

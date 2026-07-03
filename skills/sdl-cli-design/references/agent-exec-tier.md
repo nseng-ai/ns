@@ -37,7 +37,7 @@ for AI agents", Speakeasy, Agent Layer (see the survey).
   prompt. For a hidden `exec` command that performs an external/destructive write,
   the required operation arguments themselves are sufficient explicit intent
   (ADR 0015 #2) — a separate `--yes`/confirmation flag is not required (e.g.
-  `sdl address exec reply-review-thread`). Where a command does gate on a flag,
+  `ji address exec reply-review-thread`). Where a command does gate on a flag,
   fail fast non-interactively with a `usageError` naming it rather than prompting.
   This carve-out is scoped to agent-only hidden `exec`; human-facing Tier 2
   destructive commands still require `--yes`/`-y`.

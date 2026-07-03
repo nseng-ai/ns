@@ -141,7 +141,7 @@ function exactExistingBranchResponse(branchName: string): ScriptedExecResponse[]
 	];
 }
 
-// Subprocess script for `sdl flow branch-latest-commit` with an explicit `slug: "demo-branch"` (which
+// Subprocess script for `ji flow branch-latest-commit` with an explicit `slug: "demo-branch"` (which
 // skips model slug generation) on source branch `feature`, up to and including the source-branch reset
 // — the prefix shared by the success and Graphite-create-failure paths. The scripted fake consumes
 // each response once, so duplicated commands (status/upstream/show-current/rev-parse) list one entry
@@ -276,7 +276,7 @@ export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFak
 	});
 }
 
-// Subprocess script for `sdl flow autobranch --slug move-work` on a DIRTY source branch `feature/source`,
+// Subprocess script for `ji flow autobranch --slug move-work` on a DIRTY source branch `feature/source`,
 // up to and including the stash list — the prefix shared by the success and Graphite-create-failure
 // paths. The transaction stamps the stash message with `Date.now()`, so the test must pin the clock
 // (e.g. `vi.setSystemTime(new Date(123456789))`) for the regex/stash-list subject to line up.
@@ -350,7 +350,7 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 	];
 }
 
-// `sdl flow autoslot` wraps Flow autobranch + slot-checkout orchestration through `runFlowCli`.
+// `ji flow autoslot` wraps Flow autobranch + slot-checkout orchestration through `runFlowCli`.
 // The happy path moves a managed slot via a real `SlotClient` (filesystem/git side effects), which is
 // out of the default fake lane. These flow scenarios exercise the wrapper end-to-end on the outcomes
 // that settle BEFORE slot checkout: caps resolution, house-style rendering, and stdout/stderr routing

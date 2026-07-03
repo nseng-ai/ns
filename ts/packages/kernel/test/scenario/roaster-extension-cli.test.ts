@@ -42,7 +42,7 @@ describe("Roaster SDL command face", () => {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: sdl roaster review");
+		expect(help).toContain("Usage: ji roaster review");
 		expect(help).toContain("list");
 		expect(help).toContain("ls");
 		expect(help).toContain("log");
@@ -60,7 +60,7 @@ describe("Roaster SDL command face", () => {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: sdl roaster review list");
+		expect(help).toContain("Usage: ji roaster review list");
 		expect(help).toContain("--applicable");
 		expect(help).toContain("--ci");
 		expect(help).toContain("--base-ref");

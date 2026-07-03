@@ -59,7 +59,7 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 	if (!(await repoCtx.git.pathExists(record.path)))
 		return failure(
 			"worktree-missing",
-			`Worktree for ${slotName} is missing at ${record.path}. Run \`sdl slot free --wt ${slotName}\` to clear the stale assignment.`,
+			`Worktree for ${slotName} is missing at ${record.path}. Run \`ji slot free --wt ${slotName}\` to clear the stale assignment.`,
 		);
 	const navigation = await prepareNavigation(repoCtx, record.path, {
 		shouldCopyClipboard: request.clipboard,

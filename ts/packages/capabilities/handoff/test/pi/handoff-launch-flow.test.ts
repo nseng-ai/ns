@@ -67,7 +67,7 @@ describe("handoff launch flow helpers", () => {
 			expect(prompt).toContain("This is a /handoff:test request.");
 			expect(prompt).toContain("finish the widget");
 			expect(prompt).toContain(`- Branch: ${BRANCH}`);
-			expect(prompt).toContain("After `sdl handoff create` succeeds, call handoff_test_launch");
+			expect(prompt).toContain("After `ji handoff create` succeeds, call handoff_test_launch");
 			expect(prompt).toContain(`test launch ${BRANCH}`);
 		});
 	});

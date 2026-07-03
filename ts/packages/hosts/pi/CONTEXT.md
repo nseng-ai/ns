@@ -41,11 +41,11 @@ The `@sdl/ccc/pi` subpackage that wires CCC workflows into Pi/cmux presentation 
 *Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic local Pi-tool package.
 
 **Pi command namespace**:
-The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/sdl:flow:*` names SDL lifecycle mirrors; `/sdl:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
+The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/ji:flow:*` names SDL lifecycle mirrors; `/ji:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:
-The Pi-owned slash-command presentation for Branch Context workflows, including `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/sdl:branch-context:impl-attached-plan <attached-key>` for Pi sessions or CCC Pi launch commands. Branch Context domain/API behavior stays in `@sdl/branch-context/api`; saved-plan selection behavior stays in `@sdl/plans/api`.
+The Pi-owned slash-command presentation for Branch Context workflows, including `/ji:branch-context:from-plan`, `/ji:branch-context:upstack-impl-from-plan`, `/ji:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/ji:branch-context:impl-attached-plan <attached-key>` for Pi sessions or CCC Pi launch commands. Branch Context domain/API behavior stays in `@sdl/branch-context/api`; saved-plan selection behavior stays in `@sdl/plans/api`.
 *Avoid*: Branch Context domain owner, attached-plan storage semantics, Saved Plan domain owner, Capability API replacement.
 
 **Thin capability mirror**:
@@ -53,7 +53,7 @@ A host-resident Pi command surface whose durable lifecycle, selection, storage, 
 *Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
 
 **PR feedback Pi presentation residue**:
-The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Local Pi-tool package `@sdl-local/pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`sdl address exec ...` / `@sdl/address/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
+The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Local Pi-tool package `@sdl-local/pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`ji address exec ...` / `@sdl/address/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
 *Avoid*: Pi-native tool candidate, PR feedback domain owner, Address Capability API owner.
 
 **Immediate command acknowledgement**:

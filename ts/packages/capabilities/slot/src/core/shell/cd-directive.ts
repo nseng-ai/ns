@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export const SLOT_CD_DIRECTIVE_FILE = "SLOT_CD_DIRECTIVE_FILE";
-export const SDL_CD_DIRECTIVE_FILE = "SDL_CD_DIRECTIVE_FILE";
+export const SDL_CD_DIRECTIVE_FILE = "JI_CD_DIRECTIVE_FILE";
 
 export type CdDirectiveResult =
 	| { status: "inactive"; path: string | null }

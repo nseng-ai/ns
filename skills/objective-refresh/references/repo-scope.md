@@ -24,14 +24,14 @@ Scopes are not separate skills. This reference documents how an agent should gro
 
 This is an explicitly Graphite/topology workflow. It depends on Graphite plumbing to learn stack topology and worktree placement:
 
-- `sdl slot gt exec stack-map-branches --format json` for the full branch graph and worktree map.
+- `ji slot gt exec stack-map-branches --format json` for the full branch graph and worktree map.
 - `gt trunk`, `gt parent --no-interactive`, or `gt children --no-interactive` only when a single edge is needed.
 
 Never parse human-facing `gt ls`, `gt log`, or `gt branch info` output for machine topology decisions. If Graphite metadata is missing or stale, degrade affected Objectives rather than guessing.
 
 ## Objective surfaces and invariants
 
-Active Objectives live under `.sdl/objectives/<slug>/`:
+Active Objectives live under `.ji/objectives/<slug>/`:
 
 - `objective.md` contains durable purpose, boundaries, completion criteria, assumptions/risks, open questions, and optional closure context.
 - `roadmap.md` contains ordered semantic work using only `[ ]`, `[~]`, and `[x]` states.
@@ -58,7 +58,7 @@ Per-Objective unsafe cases degrade to recommendations and do not stop the whole 
 ### 1. Inventory
 
 ```bash
-sdl objective list --status open --format json
+ji objective list --status open --format json
 ```
 
 The current CLI contract returns `.data.trunkBranch` and `.data.records[]`; records include `slug` and `updatedBranches`. If this JSON shape has drifted, inspect the live command output and update the skill text to match rather than guessing.
@@ -70,7 +70,7 @@ Note: attribution is committed divergence only. Uncommitted-only edits on a bran
 ### 2. Topology and worktree map
 
 ```bash
-sdl slot gt exec stack-map-branches --format json
+ji slot gt exec stack-map-branches --format json
 ```
 
 The current command returns `.data.branches[]`, `.data.slots[]`, `.data.trunk`, and `.data.warnings[]`. Build these indexes:
@@ -86,7 +86,7 @@ If the topology command fails entirely, stop. If individual branches have warnin
 `updatedBranches` is intentionally conservative and can be inflated by branches cut from an older trunk. A branch is a genuine owner for a slug only if its three-dot diff against trunk is non-empty for that Objective directory:
 
 ```bash
-git -C <wt> diff --quiet <trunk>...<branch> -- .sdl/objectives/<slug>/
+git -C <wt> diff --quiet <trunk>...<branch> -- .ji/objectives/<slug>/
 ```
 
 Drop non-topology branches, `backup/*` branches, branches without reliable metadata, and branches that fail the genuine-owner diff. Preserve the evidence in the report so users can see which apparent owners were staleness artifacts.
@@ -107,7 +107,7 @@ Find a stack leaf by walking children in the topology graph to the descendant wi
 For a candidate leaf with worktree `<wt>` and slug `<slug>`:
 
 ```bash
-git -C <wt> status --porcelain -- .sdl/objectives/<slug>/
+git -C <wt> status --porcelain -- .ji/objectives/<slug>/
 ```
 
 Any output means the target is dirty under this slug; degrade that Objective/target and write nothing there.
@@ -132,7 +132,7 @@ Branch/context scope owns target due-checks, aggregate commit behavior, and fina
 For multi-owner Objectives, scope each target to that branch's own three-dot diff:
 
 ```bash
-git -C <wt> diff <trunk>...<branch> -- .sdl/objectives/<slug>/roadmap.md .sdl/objectives/<slug>/objective.md
+git -C <wt> diff <trunk>...<branch> -- .ji/objectives/<slug>/roadmap.md .ji/objectives/<slug>/objective.md
 ```
 
 Compare owning branches at the hunk/section level:

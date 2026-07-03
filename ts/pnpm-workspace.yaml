@@ -1,7 +1,7 @@
 packages:
   - packages/*
   - packages/*/*
-  - ../.sdl/reviews/*/tools/*
+  - ../.ji/reviews/*/tools/*
 
 allowBuilds:
   '@google/genai': true

@@ -16,7 +16,7 @@ const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed sing
 
 This command requires a clean worktree. It creates a local-only Graphite branch with \`gt create\`, resets the source branch to the commit parent, hard-resets the new child branch to the original commit SHA, verifies HEAD, and cleans up recovery evidence. It does not push, publish, submit, or update PRs.
 
-Use \`sdl flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
+Use \`ji flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
 
 Environment:
   ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.`;
@@ -47,7 +47,7 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 				renderPendingWorktreeFailure(caps, {
 					error: loaded.error,
 					cwd: ctx.cwd,
-					commandLabel: "`sdl flow branch-latest-commit`",
+					commandLabel: "`ji flow branch-latest-commit`",
 				}),
 			);
 		}
@@ -57,12 +57,12 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 			return failed(
 				renderGitResultBlock(caps, {
 					kind: "refusal",
-					headline: "`sdl flow branch-latest-commit` requires a clean worktree and did not run.",
+					headline: "`ji flow branch-latest-commit` requires a clean worktree and did not run.",
 					command: "git status --porcelain=v1",
 					cwd: snapshot.root,
 					detail: snapshot.status,
 					guidance:
-						"Use `sdl flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
+						"Use `ji flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
 				}),
 			);
 		}

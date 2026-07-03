@@ -59,7 +59,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "host",
 		"subpackages": [
 			"kit",

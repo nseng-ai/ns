@@ -38,14 +38,14 @@ function registerInvestigateWithFakeDefinition(
 
 function fakeInvestigatorAgentDefinition(): PiAgentDefinition {
 	return {
-		schema: "sdl.pi-agent.v1",
+		schema: "ji.pi-agent.v1",
 		name: "investigator",
 		toolName: "investigate",
 		label: "Investigator",
 		description: "Run a fixture investigation.",
 		promptGuidelines: [],
 		body: "Investigate this prompt:\n\n{{prompt}}",
-		filePath: "/fixture/.sdl/pi/agents/investigator.md",
+		filePath: "/fixture/.ji/pi/agents/investigator.md",
 	};
 }
 

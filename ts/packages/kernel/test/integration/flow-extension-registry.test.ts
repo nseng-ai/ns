@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("checked-in flow SDL extension registry loading", () => {
 	test("real loader discovers and imports every checked-in flow command entry", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "sdl-flow-extension-registry-"));
+		const directory = await mkdtemp(join(tmpdir(), "ji-flow-extension-registry-"));
 		tempDirs.push(directory);
 		const cwd = join(directory, "project");
 		const homeDir = join(directory, "home");
@@ -28,7 +28,7 @@ describe("checked-in flow SDL extension registry loading", () => {
 		const catalog = await loadSdlCommandCatalog({
 			cwd,
 			homeDir,
-			env: { SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS: "1" },
+			env: { JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS: "1" },
 		});
 
 		expect(catalog.diagnostics).toEqual([]);
@@ -55,7 +55,7 @@ describe("checked-in flow SDL extension registry loading", () => {
 	});
 
 	test("checked-in flow exec operation is hidden from flow help but invocable through exec help", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "sdl-flow-extension-help-"));
+		const directory = await mkdtemp(join(tmpdir(), "ji-flow-extension-help-"));
 		tempDirs.push(directory);
 		const cwd = join(directory, "project");
 		installCheckedInFlowExtension(cwd);

@@ -2,14 +2,14 @@
 
 Routed from the root `AGENTS.md` ("Architecture rules" section). Read before deciding whether new code is a platform capability or a consumer instance.
 
-SDL is **self-hosting**: the same `sdl-tools` repo that **develops** the platform is also its **first consumer**. The roaster engine, objectives, handoffs, branch-context, and review loaders are capabilities built here — and the concrete `.sdl/reviews/*` and `.sdl/objectives/*` instances that exercise those capabilities are authored and run here too. Dogfooding is not incidental; it is the default state of the repo. Because both live side by side, developer-hat and consumer-hat get conflated constantly. This doc exists to make the distinction explicit.
+SDL is **self-hosting**: the same `sdl-tools` repo that **develops** the platform is also its **first consumer**. The roaster engine, objectives, handoffs, branch-context, and review loaders are capabilities built here — and the concrete `.ji/reviews/*` and `.ji/objectives/*` instances that exercise those capabilities are authored and run here too. Dogfooding is not incidental; it is the default state of the repo. Because both live side by side, developer-hat and consumer-hat get conflated constantly. This doc exists to make the distinction explicit.
 
 ## The two hats
 
 Ask which of these you are doing:
 
 - **Platform (developer hat):** changing a *capability* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/capabilities/roaster`, `ts/packages/capabilities/objective`), is tested, and ships to every consumer of that capability.
-- **Consumer (consumer hat):** changing an *instance* — one concrete artifact that a capability loads and runs. Lives in `.sdl/*` (for example a single `.sdl/reviews/<slug>/review.md` review or a `.sdl/objectives/<slug>/` objective). It is configuration and content, not capability.
+- **Consumer (consumer hat):** changing an *instance* — one concrete artifact that a capability loads and runs. Lives in `.ji/*` (for example a single `.ji/reviews/<slug>/review.md` review or a `.ji/objectives/<slug>/` objective). It is configuration and content, not capability.
 
 Rule of thumb: if your change alters what the tool *can do*, it is platform; if it alters one thing the tool *is currently doing to this repo*, it is consumer.
 

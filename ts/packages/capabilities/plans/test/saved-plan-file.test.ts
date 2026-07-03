@@ -32,10 +32,10 @@ const ROOT = "/repo";
 describe("defaultPlanStoreRoot", () => {
 	test("uses XDG state root and ignores relative XDG values", () => {
 		expect(defaultPlanStoreRoot({ HOME: "/home/tester", XDG_STATE_HOME: "/state" })).toBe(
-			"/state/sdl/enriched-plan",
+			"/state/ji/enriched-plan",
 		);
 		expect(defaultPlanStoreRoot({ HOME: "/home/tester", XDG_STATE_HOME: "relative" })).toBe(
-			"/home/tester/.local/state/sdl/enriched-plan",
+			"/home/tester/.local/state/ji/enriched-plan",
 		);
 	});
 });
@@ -145,7 +145,7 @@ describe("writeSavedPlanFile", () => {
 				tempHome,
 				".local",
 				"state",
-				"sdl",
+				"ji",
 				"enriched-plan",
 				"gh--owner--repo",
 				encodeBranchForPlanPath(sourceBranch),
@@ -162,7 +162,7 @@ describe("writeSavedPlanFile", () => {
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
 		const legacyPath = join(
 			tempHome,
-			".sdl",
+			".ji",
 			"enriched-plan",
 			"gh--owner--repo",
 			branchKey,
@@ -185,7 +185,7 @@ describe("writeSavedPlanFile", () => {
 				tempHome,
 				".local",
 				"state",
-				"sdl",
+				"ji",
 				"enriched-plan",
 				"gh--owner--repo",
 				branchKey,

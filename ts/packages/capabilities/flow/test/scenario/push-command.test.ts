@@ -19,7 +19,7 @@ describe("flow push command outcomes", () => {
 		const stdout = stripAnsi(run.stdout.join(""));
 		expect(stdout).toContain("`git push` completed successfully.");
 		expect(stdout).toContain("Command: git push");
-		expect(stdout).toContain("For Graphite-tracked PR branches, prefer `sdl flow submit`");
+		expect(stdout).toContain("For Graphite-tracked PR branches, prefer `ji flow submit`");
 		expect(stdout).not.toContain("Everything up-to-date");
 		expect(stdout).not.toContain("stdout:");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
@@ -40,8 +40,8 @@ describe("flow push command outcomes", () => {
 		expect(stderr).toContain("did not run `git push`");
 		expect(stderr).toContain(" M src/app.ts");
 		expect(stderr).toContain("?? notes.md");
-		expect(stderr).toContain("sdl flow submit");
-		expect(stderr).toContain("/sdl:flow:submit");
+		expect(stderr).toContain("ji flow submit");
+		expect(stderr).toContain("/ji:flow:submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
@@ -88,8 +88,8 @@ describe("flow push command outcomes", () => {
 		expect(stderr).toContain("Exit: 1");
 		expect(stderr).toContain("rejected update");
 		expect(stderr).toContain("non-fast-forward");
-		expect(stderr).toContain("sdl flow submit");
-		expect(stderr).toContain("/sdl:flow:submit");
+		expect(stderr).toContain("ji flow submit");
+		expect(stderr).toContain("/ji:flow:submit");
 		expect(stderr).toContain("Graphite-tracked PR branches");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });

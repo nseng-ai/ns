@@ -44,7 +44,7 @@
 	"devDependencies": {
 		"@sdl/pi": "workspace:*"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "capability",
 		"subpackages": [
 			"api",

@@ -49,12 +49,12 @@ new or touched code while preserving local conventions.
 - **Follow the project's import suffix convention.** Strip-only Node/Bun projects often use `.ts` in
   relative imports; compiled ESM projects may require `.js`; bundled projects may omit suffixes. Do not
   mix conventions within a package.
-- **Preserve first-party import names for greppability.** `SDL_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`:
+- **Preserve first-party import names for greppability.** `JI_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`:
   do not use `as` in import declarations for monorepo-owned symbols (relative paths, workspace
   packages, or project-local path aliases). Import the source name and update the source/exported name
   if it is wrong. Third-party import aliases are allowed when they make an external API fit the local
   vocabulary and are used consistently.
-- **Do not hide import aliases in local constants.** `SDL_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS`: do not
+- **Do not hide import aliases in local constants.** `JI_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS`: do not
   write `const LocalName = ImportedName` / `export const LocalName = ImportedName` for imported bindings
   just to rename them. Use the first-party source name directly, or use an import alias when the binding
   comes from a third-party package.
@@ -87,7 +87,7 @@ Full reasoning: `references/type-system.md`.
   signatures and use conditional types to expose only legal config for that tag.
 - **Use `satisfies` for object literals.** It checks shape without widening away useful literal
   inference. Use `as const satisfies T` for config tables.
-- **Do not launder types through `as unknown as T`.** `SDL_TS_BAN_AS_UNKNOWN_AS`: a double-cast hides
+- **Do not launder types through `as unknown as T`.** `JI_TS_BAN_AS_UNKNOWN_AS`: a double-cast hides
   the exact boundary that needs modeling. Build a complete value, derive the type from the source of
   truth, add a narrow runtime assertion, or isolate a single justified library seam instead.
 - **Use Zod-first validation at external boundaries.** External, HTTP, model, tool, and config input
@@ -105,7 +105,7 @@ Full reasoning: `references/type-system.md`.
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
 - **Expose deliberate extension points.** Empty interfaces plus declaration merging can let apps extend
-  a core event/message union without forking it. `SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS`: an empty
+  a core event/message union without forking it. `JI_TS_BAN_EMPTY_INTERFACE_EXTENDS`: an empty
   `interface Child extends Parent {}` is not an extension point; it is a type alias with worse
   greppability, so write `type Child = Parent` unless the interface adds real members.
 

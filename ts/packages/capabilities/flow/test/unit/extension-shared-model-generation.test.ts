@@ -77,7 +77,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowChangesSummary(
 			{
-				env: { SDL_CHANGES_MODEL: "openai-codex/custom-changes" },
+				env: { JI_CHANGES_MODEL: "openai-codex/custom-changes" },
 				textGenerator,
 			},
 			{
@@ -104,7 +104,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				env: { SDL_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
+				env: { JI_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
 				textGenerator,
 			},
 			{
@@ -132,7 +132,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				env: { SDL_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
+				env: { JI_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
 				textGenerator,
 			},
 			{

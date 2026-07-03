@@ -6,17 +6,17 @@ Deterministic branch-retrospective evidence collection for `branch-retro` and ot
 
 Aretro is exposed through the SDL extension command face:
 
-- `sdl aretro exec collect-evidence` — collect compact factual session evidence in a Clinkr envelope.
-- `sdl aretro exec read-evidence-detail` — read one targeted value from a sanitized payload artifact.
+- `ji aretro exec collect-evidence` — collect compact factual session evidence in a Clinkr envelope.
+- `ji aretro exec read-evidence-detail` — read one targeted value from a sanitized payload artifact.
 
 The standalone `aretro` binary is retired. This package intentionally does not expose `@sdl/aretro/api`; there is no current in-process Capability API consumer.
 
 ## Usage
 
 ```bash
-sdl aretro exec collect-evidence --repo /path/to/repo --branch feat/x --format json
+ji aretro exec collect-evidence --repo /path/to/repo --branch feat/x --format json
 
-sdl aretro exec read-evidence-detail \
+ji aretro exec read-evidence-detail \
   --payload-path /path/to/payload.raw.json \
   --json-pointer /data/evidence_items/0 \
   --format json

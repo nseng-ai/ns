@@ -214,7 +214,7 @@ async function objectiveDiffChangedSlugs(
 	options: ObjectiveDiffChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
-	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".sdl/objectives"];
+	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".ji/objectives"];
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
@@ -235,7 +235,7 @@ async function objectiveStatusChangedSlugs(
 	options: ObjectiveStatusChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx } = options;
-	const args = ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"];
+	const args = ["status", "--porcelain=v1", "-z", "--", ".ji/objectives"];
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,

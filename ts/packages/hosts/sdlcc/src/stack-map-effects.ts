@@ -217,7 +217,7 @@ async function checkoutSlot(
 }
 
 function formatSlotCheckoutFailure(failure: SlotCheckoutFailure): string {
-	return `sdl slot checkout failed (${failure.errorType}): ${failure.message}`;
+	return `ji slot checkout failed (${failure.errorType}): ${failure.message}`;
 }
 
 function slotTargetFromAssignment(

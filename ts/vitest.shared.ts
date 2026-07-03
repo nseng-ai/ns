@@ -4,7 +4,7 @@ export function testGlobsFor(subdir?: string): readonly [string, string, string]
 	return [
 		`packages/*/test/${testPath}**/*.test.ts`,
 		`packages/*/*/test/${testPath}**/*.test.ts`,
-		`../.sdl/reviews/*/tools/*/test/${testPath}**/*.test.ts`,
+		`../.ji/reviews/*/tools/*/test/${testPath}**/*.test.ts`,
 	] as const;
 }
 

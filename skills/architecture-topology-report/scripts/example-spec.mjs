@@ -11,11 +11,11 @@ export default {
   date: "2026-06-28",
   intro:
     `The actual runtime dependency graph extracted from <span class="font-mono text-sm">package.json</span> files, scored against the
-     end-state in <span class="font-mono text-sm">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 · 0012 · 0016).
+     end-state in <span class="font-mono text-sm">.ji/objectives/sdl-extension-architecture</span> (ADR 0009 · 0012 · 0016).
      The question is not "find refactors" — it is <em>how well are we tracking toward the architecture we said we wanted.</em>
      Since the last reading the headline cycle is gone; the new measure is the declared-tier guard.`,
 
-  // Tier lanes come from declared package.json `sdl.tier` values. Node color is the tier in
+  // Tier lanes come from declared package.json `ji.tier` values. Node color is the tier in
   // the default package view; the subpackage-circle drill-down keeps the tier hue, shaded
   // per enclosing package. Add a `tiers` object only for explicit presentation overrides.
 
@@ -87,7 +87,7 @@ export default {
       evidence: `<span class="font-mono text-xs">@sdl/capability-kit</span> exists (180 LOC); consumed by <span class="font-mono text-xs">flow, handoff, objective</span>. <span class="font-mono text-xs">runPushCore</span>/<span class="font-mono text-xs">runCpCore</span> are gateway-injected with fake-gateway unit coverage.` },
     { invariant: `Capability API convention (<span class="font-mono text-xs">@sdl/&lt;cap&gt;/api</span>), gateway-core rule, and deep-import/cycle guard documented + enforced`,
       status: "holds", statusKind: "holds",
-      evidence: `6 capabilities ship <span class="font-mono text-xs">/api</span> (<span class="font-mono text-xs">pr-address, slot, plans, branch-context, handoff, objective</span>); guarded by <span class="font-mono text-xs">SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT</span>.` },
+      evidence: `6 capabilities ship <span class="font-mono text-xs">/api</span> (<span class="font-mono text-xs">pr-address, slot, plans, branch-context, handoff, objective</span>); guarded by <span class="font-mono text-xs">JI_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT</span>.` },
     { invariant: `All nine capabilities are above-SDK Capabilities (command face + gateway-injected core), each via a completed child Objective (flow excepted)`,
       status: "6 / 9", statusKind: "partial",
       evidence: `Done: <span class="font-mono text-xs">flow</span>(ref) + closed children <span class="font-mono text-xs">slot, branch-context, plans, objective, handoff</span>. Pending: <span class="font-mono text-xs">pr-address, roaster, aretro</span> — no child Objective, no kit dependency, no gateway-injected core.` },
@@ -181,5 +181,5 @@ export default {
   },
 
   provenance:
-    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (33 packages, cycles = []); target invariants read from <span class="font-mono">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
+    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (33 packages, cycles = []); target invariants read from <span class="font-mono">.ji/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
 };

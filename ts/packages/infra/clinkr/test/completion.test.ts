@@ -274,22 +274,22 @@ describe("clinkr shell completion helpers", () => {
 	test("renders dynamic resolver setup scripts for supported shells", () => {
 		const resolverCommand = ["completion", "exec", "resolve"];
 		const bash = renderClinkrCompletionScript({
-			commandName: "sdl",
+			commandName: "ji",
 			shell: "bash",
 			resolverCommand,
 		});
-		const zsh = renderClinkrCompletionScript({ commandName: "sdl", shell: "zsh", resolverCommand });
+		const zsh = renderClinkrCompletionScript({ commandName: "ji", shell: "zsh", resolverCommand });
 		const fish = renderClinkrCompletionScript({
-			commandName: "sdl",
+			commandName: "ji",
 			shell: "fish",
 			resolverCommand,
 		});
 
-		expect(bash).toContain("complete -F _sdl_completion 'sdl'");
-		expect(bash).toContain("'sdl' 'completion' 'exec' 'resolve' --");
-		expect(zsh).toContain("compdef _sdl_completion 'sdl'");
-		expect(zsh).toContain("'sdl' 'completion' 'exec' 'resolve' --");
-		expect(fish).toContain("complete -c 'sdl'");
-		expect(fish).toContain("'sdl' 'completion' 'exec' 'resolve' --");
+		expect(bash).toContain("complete -F _ji_completion 'ji'");
+		expect(bash).toContain("'ji' 'completion' 'exec' 'resolve' --");
+		expect(zsh).toContain("compdef _ji_completion 'ji'");
+		expect(zsh).toContain("'ji' 'completion' 'exec' 'resolve' --");
+		expect(fish).toContain("complete -c 'ji'");
+		expect(fish).toContain("'ji' 'completion' 'exec' 'resolve' --");
 	});
 });

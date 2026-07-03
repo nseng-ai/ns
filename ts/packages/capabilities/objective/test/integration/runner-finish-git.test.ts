@@ -32,8 +32,8 @@ afterEach(() => {
 
 /** Temp repo with a committed Objective record, so the tree starts clean. */
 function createSeededRepo(): TempGitRepo {
-	const seeded = createTempGitRepo({ prefix: "sdl-objective-runner-finish-git-" });
-	const recordDir = join(seeded.path, ".sdl", "objectives", SLUG);
+	const seeded = createTempGitRepo({ prefix: "ji-objective-runner-finish-git-" });
+	const recordDir = join(seeded.path, ".ji", "objectives", SLUG);
 	mkdirSync(recordDir, { recursive: true });
 	writeFileSync(
 		join(recordDir, "objective.md"),
@@ -122,7 +122,7 @@ test(
 	"begin → simulated subagent → finish commits the work with provenance trailers",
 	async () => {
 		repo = createSeededRepo();
-		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		scratchDir = mkdtempSync(join(tmpdir(), "ji-runner-finish-scratch-"));
 		const workRepo = repo;
 		const ctx = createIntegrationCoreContext(workRepo);
 		const reportPath = join(scratchDir, "step-1-report.json");
@@ -186,7 +186,7 @@ test(
 	"untracked whitespace-broken work fails the cached diff gate without a runner commit",
 	async () => {
 		repo = createSeededRepo();
-		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		scratchDir = mkdtempSync(join(tmpdir(), "ji-runner-finish-scratch-"));
 		const workRepo = repo;
 		const ctx = createIntegrationCoreContext(workRepo);
 		const reportPath = join(scratchDir, "step-1-report.json");
@@ -220,7 +220,7 @@ test(
 	"pre-staged child work fails index-clean without a runner commit",
 	async () => {
 		repo = createSeededRepo();
-		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		scratchDir = mkdtempSync(join(tmpdir(), "ji-runner-finish-scratch-"));
 		const workRepo = repo;
 		const ctx = createIntegrationCoreContext(workRepo);
 		const reportPath = join(scratchDir, "step-1-report.json");
@@ -253,7 +253,7 @@ test(
 	"a parent that commits between begin and finish fails head-unchanged loudly",
 	async () => {
 		repo = createSeededRepo();
-		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		scratchDir = mkdtempSync(join(tmpdir(), "ji-runner-finish-scratch-"));
 		const workRepo = repo;
 		const ctx = createIntegrationCoreContext(workRepo);
 		const reportPath = join(scratchDir, "step-1-report.json");
@@ -291,7 +291,7 @@ test(
 	"begin refuses a report path inside the repo and an already-written report file",
 	async () => {
 		repo = createSeededRepo();
-		scratchDir = mkdtempSync(join(tmpdir(), "sdl-runner-finish-scratch-"));
+		scratchDir = mkdtempSync(join(tmpdir(), "ji-runner-finish-scratch-"));
 		const workRepo = repo;
 		const ctx = createIntegrationCoreContext(workRepo);
 

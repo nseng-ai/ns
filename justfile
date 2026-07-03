@@ -60,12 +60,12 @@ docs-check: docs-install
 
 js-test: ts-test
 
-# Install the sdl shim to ~/.local/bin so `sdl` on PATH runs the
+# Install the ji shim to ~/.local/bin so `ji` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-sdl: (_install-ts-shim "sdl" "ts/packages/kernel/src/cli/index.ts" "just install-sdl or just install-tools")
-    rm -f "{{justfile_directory()}}/.venv/bin/sdl"
-    @echo "removed stale project venv sdl script if present"
+install-ji: (_install-ts-shim "ji" "ts/packages/kernel/src/cli/index.ts" "just install-ji or just install-tools")
+    rm -f "{{justfile_directory()}}/.venv/bin/ji"
+    @echo "removed stale project venv ji script if present"
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
@@ -96,20 +96,20 @@ install-packagechk: (_install-ts-shim "packagechk" "ts/packages/tools/packagechk
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
-    SDL_TOOL="{{tool}}" \
-    SDL_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
-    SDL_CLI_REL_PATH="{{cli_rel_path}}" \
-    SDL_INSTALL_HINT="{{install_hint}}" \
-    SDL_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
-    SDL_OUTPUT="$HOME/.local/bin/{{tool}}" \
+    JI_TOOL="{{tool}}" \
+    JI_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
+    JI_CLI_REL_PATH="{{cli_rel_path}}" \
+    JI_INSTALL_HINT="{{install_hint}}" \
+    JI_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
+    JI_OUTPUT="$HOME/.local/bin/{{tool}}" \
       node "{{justfile_directory()}}/ts/scripts/render-cli-shim.mjs"
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
-# Retired: Branch Context is exposed through `sdl branch-context ...`, not a
+# Retired: Branch Context is exposed through `ji branch-context ...`, not a
 # standalone `branch-context` binary.
 link-branch-context:
-    @echo "branch-context standalone binary is retired; use: sdl branch-context ..." >&2
+    @echo "branch-context standalone binary is retired; use: ji branch-context ..." >&2
     @exit 2
 
 _remove-stale-branch-context-bin:
@@ -130,8 +130,8 @@ topology *args:
     {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
 
 # Install public tools via TypeScript source shims.
-install-tools: _remove-stale-branch-context-bin install-sdl install-brmem install-areg install-vibechk install-packagechk
-    @echo "installed: sdl, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via sdl branch-context"
+install-tools: _remove-stale-branch-context-bin install-ji install-brmem install-areg install-vibechk install-packagechk
+    @echo "installed: ji, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via ji branch-context"
 
 clean-stale-node-modules-leftovers:
     node {{justfile_directory()}}/scripts/clean-stale-node-modules-leftovers.mjs

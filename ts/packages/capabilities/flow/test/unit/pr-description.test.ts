@@ -73,7 +73,7 @@ describe("PR description helpers", () => {
 			version: "2" as const,
 			patchId: "patch-1",
 			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "sdl-pr-description-v2",
+			generator: "ji-pr-description-v2",
 		};
 		const region = formatManagedGeneratedRegion("Generated body", metadata);
 
@@ -98,7 +98,7 @@ describe("PR description helpers", () => {
 			version: "2" as const,
 			patchId: "patch-1",
 			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "sdl-pr-description-v2",
+			generator: "ji-pr-description-v2",
 		};
 
 		expect(replaceOrInsertGeneratedRegion("Human note", "Generated body", metadata)).toBe(
@@ -111,7 +111,7 @@ describe("PR description helpers", () => {
 			version: "2" as const,
 			patchId: "patch-1",
 			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "sdl-pr-description-v2",
+			generator: "ji-pr-description-v2",
 		};
 		const region = formatManagedGeneratedRegion("Generated body", metadata);
 
@@ -125,7 +125,7 @@ describe("PR description helpers", () => {
 			version: "2" as const,
 			patchId: "patch-1",
 			promptHash: hashPrDescriptionPrompt("prompt"),
-			generator: "sdl-pr-description-v2",
+			generator: "ji-pr-description-v2",
 		};
 
 		expect(
@@ -250,8 +250,8 @@ describe("PR description helpers", () => {
 	});
 
 	test("resolves prompts env path before repo override before builtin", async () => {
-		const root = join(tmpdir(), `sdl-dev-pr-prompt-${randomUUID()}`);
-		const repoPromptDir = join(root, "repo", ".sdl", "prompts");
+		const root = join(tmpdir(), `ji-dev-pr-prompt-${randomUUID()}`);
+		const repoPromptDir = join(root, "repo", ".ji", "prompts");
 		await mkdir(repoPromptDir, { recursive: true });
 		await writeFile(join(repoPromptDir, "pr-description.md"), "repo prompt", "utf8");
 		const envPath = join(root, "env.md");

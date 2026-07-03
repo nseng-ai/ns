@@ -10,7 +10,7 @@ import { createManualTimerScheduler } from "@sdl/core/time/testing";
 const tempDirs: string[] = [];
 
 function writeChildScript(contents: string): string {
-	const directory = mkdtempSync(join(tmpdir(), "sdl-core-exec-"));
+	const directory = mkdtempSync(join(tmpdir(), "ji-core-exec-"));
 	tempDirs.push(directory);
 	const path = join(directory, "child.cjs");
 	writeFileSync(path, contents);
@@ -102,7 +102,7 @@ setTimeout(() => process.exit(0), 30);
 	});
 
 	test("startup error returns 127, stderr, and explicit startupError", async () => {
-		const result = await runCommand("__sdl_core_missing_command_for_test__", []);
+		const result = await runCommand("__ji_core_missing_command_for_test__", []);
 
 		expect(result.code).toBe(127);
 		expect(result.stderr.length).toBeGreaterThan(0);

@@ -5,7 +5,7 @@
 //
 // Packages are npm/workspace distribution units. Topology circles are package
 // root/remainder circles plus subpackage circles declared in package manifests
-// at sdl.subpackages. Edges are RUNTIME package manifest edges for the package
+// at ji.subpackages. Edges are RUNTIME package manifest edges for the package
 // graph and static TypeScript import/export edges for the circle graph.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -155,11 +155,11 @@ for (const f of files) {
     continue;
   }
   if (!d.name) continue;
-  const tier = d.sdl?.tier;
+  const tier = d.ji?.tier;
   if (typeof tier !== "string") {
-    manifestErrors.push(`${d.name} (${f}) is missing sdl.tier; known tiers: ${TIERS.join(", ")}`);
+    manifestErrors.push(`${d.name} (${f}) is missing ji.tier; known tiers: ${TIERS.join(", ")}`);
   } else if (!TIER_SET.has(tier)) {
-    manifestErrors.push(`${d.name} (${f}) has unknown sdl.tier ${JSON.stringify(tier)}; known tiers: ${TIERS.join(", ")}`);
+    manifestErrors.push(`${d.name} (${f}) has unknown ji.tier ${JSON.stringify(tier)}; known tiers: ${TIERS.join(", ")}`);
   }
   const deps = {};
   for (const k of ["dependencies", "peerDependencies", "devDependencies"]) {
@@ -257,8 +257,8 @@ function isAllowedPiSubpackagePeerEdge(from, to) {
   if (pkgs[from]?.tier !== "capability") return false;
   const manifest = manifests[from];
   return (
-    Array.isArray(manifest?.sdl?.subpackages) &&
-    manifest.sdl.subpackages.includes("pi") &&
+    Array.isArray(manifest?.ji?.subpackages) &&
+    manifest.ji.subpackages.includes("pi") &&
     manifest?.peerDependencies?.["@sdl/pi"] !== undefined &&
     manifest?.peerDependenciesMeta?.["@sdl/pi"]?.optional === true
   );
@@ -315,7 +315,7 @@ function discoverTopologyCircles() {
 }
 
 function declaredSubpackages(manifest) {
-  const value = manifest?.sdl?.subpackages;
+  const value = manifest?.ji?.subpackages;
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => typeof entry === "string" && entry !== "");
 }
@@ -469,7 +469,7 @@ const out = {
     packageCount: names.size,
     topologyCircleCount: circles.length,
     edgeKinds: "package graph: runtime (dependencies + peerDependencies); circle graph: static TypeScript imports/exports",
-    topologyCircleConvention: "package root/remainder circle plus manifest-declared sdl.subpackages circles",
+    topologyCircleConvention: "package root/remainder circle plus manifest-declared ji.subpackages circles",
     tiers: TIERS,
     tierPolicy: Object.fromEntries(Object.entries(TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
   },

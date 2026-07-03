@@ -239,21 +239,21 @@ describe("in-memory git gateway", () => {
 	test("models reusable git facts and records call logs", async () => {
 		const controller = new AbortController();
 		const git = new InMemoryGitGateway({
-			dirtyPaths: [".sdl/objectives"],
+			dirtyPaths: [".ji/objectives"],
 			localBranchTips: ["feature/a", { name: "feature/b", headIso: "2026-06-15T12:00:00+00:00" }],
 			treeOids: {
-				"HEAD|.sdl/objectives": "tree-head",
-				"main|.sdl/objectives": null,
+				"HEAD|.ji/objectives": "tree-head",
+				"main|.ji/objectives": null,
 			},
 			changedPaths: {
-				"main..HEAD|.sdl/objectives": [".sdl/objectives/a/objective.md"],
+				"main..HEAD|.ji/objectives": [".ji/objectives/a/objective.md"],
 			},
 		});
 
 		expect(
 			await git.hasUncommittedChangesUnder({
 				cwd: ROOT,
-				relativePath: "./.sdl/objectives/",
+				relativePath: "./.ji/objectives/",
 				signal: controller.signal,
 			}),
 		).toEqual({ ok: true, value: true });
@@ -268,7 +268,7 @@ describe("in-memory git gateway", () => {
 			await git.treeOidsAtRefs({
 				cwd: ROOT,
 				refs: ["HEAD", "main"],
-				relativePath: ".sdl/objectives",
+				relativePath: ".ji/objectives",
 			}),
 		).toEqual({
 			ok: true,
@@ -278,48 +278,48 @@ describe("in-memory git gateway", () => {
 			await git.changedPathsUnder({
 				cwd: ROOT,
 				revisionRange: "main..HEAD",
-				relativePath: ".sdl/objectives",
+				relativePath: ".ji/objectives",
 			}),
 		).toEqual({
 			ok: true,
-			value: [".sdl/objectives/a/objective.md"],
+			value: [".ji/objectives/a/objective.md"],
 		});
 		expect(git.hasUncommittedChangesUnderCalls).toEqual([
-			{ cwd: ROOT, relativePath: "./.sdl/objectives/", signal: controller.signal },
+			{ cwd: ROOT, relativePath: "./.ji/objectives/", signal: controller.signal },
 		]);
 		expect(git.listLocalBranchTipsCalls).toEqual([{ cwd: ROOT }]);
 		expect(git.treeOidsAtRefsCalls).toEqual([
-			{ cwd: ROOT, refs: ["HEAD", "main"], relativePath: ".sdl/objectives" },
+			{ cwd: ROOT, refs: ["HEAD", "main"], relativePath: ".ji/objectives" },
 		]);
 		expect(git.changedPathsUnderCalls).toEqual([
-			{ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".sdl/objectives" },
+			{ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".ji/objectives" },
 		]);
 	});
 
 	test("models reusable git fact failures and immutable snapshots", async () => {
 		const explicitError = { code: "custom_git_fact_failure", message: "Custom git fact failure." };
 		const git = new InMemoryGitGateway({
-			dirtyPathFailures: { ".sdl/objectives": explicitError },
+			dirtyPathFailures: { ".ji/objectives": explicitError },
 			localBranchTipsFailure: explicitError,
-			treeOids: { "HEAD|.sdl/objectives": explicitError },
-			changedPaths: { "main..HEAD|.sdl/objectives": explicitError },
+			treeOids: { "HEAD|.ji/objectives": explicitError },
+			changedPaths: { "main..HEAD|.ji/objectives": explicitError },
 		});
 
 		expect(
-			await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".sdl/objectives" }),
+			await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".ji/objectives" }),
 		).toEqual({ ok: false, error: explicitError });
 		expect(await git.listLocalBranchTips({ cwd: ROOT })).toEqual({
 			ok: false,
 			error: explicitError,
 		});
 		expect(
-			await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".sdl/objectives" }),
+			await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".ji/objectives" }),
 		).toEqual({ ok: false, error: explicitError });
 		expect(
 			await git.changedPathsUnder({
 				cwd: ROOT,
 				revisionRange: "main..HEAD",
-				relativePath: ".sdl/objectives",
+				relativePath: ".ji/objectives",
 			}),
 		).toEqual({ ok: false, error: explicitError });
 
@@ -328,10 +328,10 @@ describe("in-memory git gateway", () => {
 		mutableTreeCalls[0]?.refs.push("mutated");
 
 		expect(treeCalls).toEqual([
-			{ cwd: ROOT, refs: ["HEAD", "mutated"], relativePath: ".sdl/objectives" },
+			{ cwd: ROOT, refs: ["HEAD", "mutated"], relativePath: ".ji/objectives" },
 		]);
 		expect(git.treeOidsAtRefsCalls).toEqual([
-			{ cwd: ROOT, refs: ["HEAD"], relativePath: ".sdl/objectives" },
+			{ cwd: ROOT, refs: ["HEAD"], relativePath: ".ji/objectives" },
 		]);
 	});
 

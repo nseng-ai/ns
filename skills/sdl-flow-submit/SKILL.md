@@ -3,14 +3,14 @@ name: sdl-flow-submit
 disable-model-invocation: true
 description: "Command: sdl-flow-submit"
 allowed-tools:
-  - "Bash(sdl flow submit*)"
+  - "Bash(ji flow submit*)"
 metadata:
   internal: true
 ---
 
 # sdl-flow-submit
 
-Submit or update the current Graphite stack by delegating to the repo-local `sdl flow submit` command. This is the cross-harness path for `/sdl:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
+Submit or update the current Graphite stack by delegating to the repo-local `ji flow submit` command. This is the cross-harness path for `/ji:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 
 ## When to use
 
@@ -21,12 +21,12 @@ Use only when the user explicitly asks to submit or update the current Graphite 
 Run from the repository root:
 
 ```bash
-sdl flow submit
+ji flow submit
 ```
 
 The CLI owns the orchestration:
 
-- if the worktree is dirty, first creates a checkpoint with `sdl flow cp`;
+- if the worktree is dirty, first creates a checkpoint with `ji flow cp`;
 - checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
@@ -41,29 +41,29 @@ If the CLI says a restack is required:
 - in a non-interactive/headless invocation, rerun only with explicit user approval:
 
 ```bash
-sdl flow submit --restack
+ji flow submit --restack
 ```
 
 Automatic checkpointing uses SDL checkpoint environment variables:
 
-- `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
-- `SDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
+- `JI_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset.
 
 PR description generation uses:
 
-- `SDL_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
-- `SDL_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
-- `.sdl/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
+- `JI_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
+- `JI_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
+- `.ji/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 
-Submit failure interpretation uses `SDL_SUBMIT_FAILURE_MODEL`, defaulting to the standard SDL fast model.
+Submit failure interpretation uses `JI_SUBMIT_FAILURE_MODEL`, defaulting to the standard SDL fast model.
 
 To regenerate the current branch PR explicitly, run:
 
 ```bash
-sdl flow regenerate-pr
+ji flow regenerate-pr
 ```
 
-`sdl flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl flow regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
+`ji flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `ji flow regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
 
 ## Failure handling
 
@@ -73,4 +73,4 @@ Surface CLI output directly, including any `AI interpretation` section. Do not b
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `sdl flow submit` or explicit `sdl flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.
+- It edits PR titles/bodies through `ji flow submit` or explicit `ji flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.

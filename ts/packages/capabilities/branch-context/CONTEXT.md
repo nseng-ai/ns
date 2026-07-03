@@ -27,5 +27,5 @@ The curated `@sdl/branch-context/api` surface used by downstream consumer packag
 *Avoid*: private source import, command shell, root barrel contract, Pi slash-command registry
 
 **Branch Context Presentation Boundary**:
-Concrete Pi slash-command registration, command names such as `/sdl:branch-context:impl-attached-plan`, and launch-command formatting are owned by Pi/CCC presentation code, not by `@sdl/branch-context`. Branch Context must not depend on the Pi package because Pi is a Presentation Host above capabilities; importing Pi would pull host-specific command surfaces into the Branch Context provider boundary.
+Concrete Pi slash-command registration, command names such as `/ji:branch-context:impl-attached-plan`, and launch-command formatting are owned by Pi/CCC presentation code, not by `@sdl/branch-context`. Branch Context must not depend on the Pi package because Pi is a Presentation Host above capabilities; importing Pi would pull host-specific command surfaces into the Branch Context provider boundary.
 *Avoid*: Capability API command-name export, duplicated Pi command string in Branch Context, host-specific launch formatter

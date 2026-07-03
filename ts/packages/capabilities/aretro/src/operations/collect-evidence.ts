@@ -225,7 +225,7 @@ function withPayloadDetailBounds(outputBounds: OutputBoundsDto): OutputBoundsDto
 		detail: {
 			mode: "payload",
 			guidance:
-				"Use sdl aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+				"Use ji aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
 			locatorHints: [...DETAIL_LOCATOR_HINTS],
 		},
 	};

@@ -60,7 +60,7 @@ export class NoAttachedBranchContextEntriesError extends Error {
 			[
 				`No branch-context entries on branch \`${branch}\`.`,
 				"",
-				"Create a saved plan with `enriched-plan exec save`, attach it with `sdl branch-context exec from-plan`,",
+				"Create a saved plan with `enriched-plan exec save`, attach it with `ji branch-context exec from-plan`,",
 				"or provide a branch/key that already has a canonical plan.",
 			].join("\n"),
 		);

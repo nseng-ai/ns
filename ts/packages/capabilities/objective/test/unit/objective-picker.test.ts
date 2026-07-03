@@ -14,13 +14,13 @@ import {
 
 describe("parseObjectiveDiffChangedSlugs", () => {
 	test("modified Objective path produces a slug", () => {
-		expect(parseObjectiveDiffChangedSlugs("M\t.sdl/objectives/alpha/objective.md\n")).toEqual([
+		expect(parseObjectiveDiffChangedSlugs("M\t.ji/objectives/alpha/objective.md\n")).toEqual([
 			"alpha",
 		]);
 	});
 
 	test("deleted Objective path produces a slug", () => {
-		expect(parseObjectiveDiffChangedSlugs("D\t.sdl/objectives/alpha/roadmap.md\n")).toEqual([
+		expect(parseObjectiveDiffChangedSlugs("D\t.ji/objectives/alpha/roadmap.md\n")).toEqual([
 			"alpha",
 		]);
 	});
@@ -28,7 +28,7 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 	test("rename includes old and new slugs", () => {
 		expect(
 			parseObjectiveDiffChangedSlugs(
-				"R100\t.sdl/objectives/bravo/objective.md\t.sdl/objectives/charlie/objective.md\n",
+				"R100\t.ji/objectives/bravo/objective.md\t.ji/objectives/charlie/objective.md\n",
 			),
 		).toEqual(["bravo", "charlie"]);
 	});
@@ -36,7 +36,7 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 	test("copy includes old and new slugs", () => {
 		expect(
 			parseObjectiveDiffChangedSlugs(
-				"C075\t.sdl/objectives/delta/roadmap.md\t.sdl/objectives/echo/roadmap.md\n",
+				"C075\t.ji/objectives/delta/roadmap.md\t.ji/objectives/echo/roadmap.md\n",
 			),
 		).toEqual(["delta", "echo"]);
 	});
@@ -46,14 +46,14 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 	});
 
 	test("Objective root without slug is ignored", () => {
-		expect(parseObjectiveDiffChangedSlugs("M\t.sdl/objectives\n")).toEqual([]);
+		expect(parseObjectiveDiffChangedSlugs("M\t.ji/objectives\n")).toEqual([]);
 	});
 
 	test("duplicate slugs are deduplicated and sorted", () => {
 		const stdout = [
-			"M\t.sdl/objectives/zeta/objective.md",
-			"M\t.sdl/objectives/alpha/objective.md",
-			"D\t.sdl/objectives/zeta/roadmap.md",
+			"M\t.ji/objectives/zeta/objective.md",
+			"M\t.ji/objectives/alpha/objective.md",
+			"D\t.ji/objectives/zeta/roadmap.md",
 		].join("\n");
 
 		expect(parseObjectiveDiffChangedSlugs(stdout)).toEqual(["alpha", "zeta"]);
@@ -66,26 +66,26 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 
 describe("parseObjectiveStatusChangedSlugs", () => {
 	test("modified Objective path produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs(" M .sdl/objectives/alpha/objective.md\0")).toEqual([
+		expect(parseObjectiveStatusChangedSlugs(" M .ji/objectives/alpha/objective.md\0")).toEqual([
 			"alpha",
 		]);
 	});
 
 	test("deleted Objective path produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs(" D .sdl/objectives/alpha/roadmap.md\0")).toEqual([
+		expect(parseObjectiveStatusChangedSlugs(" D .ji/objectives/alpha/roadmap.md\0")).toEqual([
 			"alpha",
 		]);
 	});
 
 	test("untracked Objective file produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs("?? .sdl/objectives/bravo/objective.md\0")).toEqual([
+		expect(parseObjectiveStatusChangedSlugs("?? .ji/objectives/bravo/objective.md\0")).toEqual([
 			"bravo",
 		]);
 	});
 
 	test("archive-root paths are ignored", () => {
 		expect(
-			parseObjectiveStatusChangedSlugs(" M .sdl/objective-archive/alpha/objective.md\0"),
+			parseObjectiveStatusChangedSlugs(" M .ji/objective-archive/alpha/objective.md\0"),
 		).toEqual([]);
 	});
 
@@ -95,9 +95,9 @@ describe("parseObjectiveStatusChangedSlugs", () => {
 
 	test("duplicate slugs are deduplicated and sorted", () => {
 		const stdout = [
-			" M .sdl/objectives/zeta/objective.md",
-			" A .sdl/objectives/alpha/objective.md",
-			" D .sdl/objectives/zeta/roadmap.md",
+			" M .ji/objectives/zeta/objective.md",
+			" A .ji/objectives/alpha/objective.md",
+			" D .ji/objectives/zeta/roadmap.md",
 			"",
 		].join("\0");
 
@@ -106,13 +106,13 @@ describe("parseObjectiveStatusChangedSlugs", () => {
 
 	test("rename includes old and new slugs", () => {
 		const stdout =
-			"R  .sdl/objectives/new-name/objective.md\0.sdl/objectives/old-name/objective.md\0";
+			"R  .ji/objectives/new-name/objective.md\0.ji/objectives/old-name/objective.md\0";
 
 		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["new-name", "old-name"]);
 	});
 
 	test("copy includes old and new slugs", () => {
-		const stdout = "C  .sdl/objectives/echo/objective.md\0.sdl/objectives/delta/objective.md\0";
+		const stdout = "C  .ji/objectives/echo/objective.md\0.ji/objectives/delta/objective.md\0";
 
 		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["delta", "echo"]);
 	});
@@ -225,7 +225,7 @@ describe("Objective picker policy", () => {
 function objectiveList(slugs: string[]): ObjectiveList {
 	return {
 		trunkBranch: "master",
-		rootPath: ".sdl/objectives",
+		rootPath: ".ji/objectives",
 		statusFilter: "active",
 		namesOnly: false,
 		records: slugs.map((slug) => record(slug)),

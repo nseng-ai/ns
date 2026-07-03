@@ -18,7 +18,7 @@ Avoid: putting Roaster domain behavior in the SDL kernel, Pi host, or generic in
 
 ### SDL Command Face
 
-The canonical user-facing command surface for Roaster: `sdl roaster ...`, including `sdl roaster review list`, `sdl roaster review run <key>`, `sdl roaster review log`, `sdl roaster roast list`, and hidden automation leaves under `sdl roaster exec ...`.
+The canonical user-facing command surface for Roaster: `ji roaster ...`, including `ji roaster review list`, `ji roaster review run <key>`, `ji roaster review log`, `ji roaster roast list`, and hidden automation leaves under `ji roaster exec ...`.
 
 Avoid: teaching the removed standalone `roaster` binary as an active compatibility surface or canonical invocation path.
 
@@ -30,7 +30,7 @@ Avoid: importing private `@sdl/roaster/src/...` modules or treating the broad pa
 
 ### Review definition
 
-A Markdown catalog entry at `.sdl/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Roaster should check. Sibling assets under that folder are not separate Review definitions.
+A Markdown catalog entry at `.ji/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Roaster should check. Sibling assets under that folder are not separate Review definitions.
 
 Avoid: calling review definitions GitHub PR reviews, or treating the catalog key as a GitHub review identity.
 
@@ -72,6 +72,6 @@ Avoid: calling review logs durable Objective updates or changing the namespace/k
 
 ### GitHub publication boundary
 
-The explicit guarded write boundary that publishes Roaster findings to GitHub, currently exposed through `sdl roaster exec publish-findings` for automation.
+The explicit guarded write boundary that publishes Roaster findings to GitHub, currently exposed through `ji roaster exec publish-findings` for automation.
 
 Avoid: implying ordinary review runs publish comments, or performing live publication validation without explicit confirmation.

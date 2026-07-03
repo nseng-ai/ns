@@ -20,14 +20,14 @@ export function collectPackageTierLayeringViolations(
 		left.name.localeCompare(right.name),
 	)) {
 		if (metadata.rawSdlTier === undefined) {
-			violations.push(buildTierMetadataViolation(metadata, "missing sdl.tier"));
+			violations.push(buildTierMetadataViolation(metadata, "missing ji.tier"));
 			continue;
 		}
 		if (metadata.sdlTier === undefined) {
 			violations.push(
 				buildTierMetadataViolation(
 					metadata,
-					`unknown sdl.tier ${JSON.stringify(metadata.rawSdlTier)}`,
+					`unknown ji.tier ${JSON.stringify(metadata.rawSdlTier)}`,
 				),
 			);
 		}
@@ -108,7 +108,7 @@ function buildTierMetadataViolation(
 }
 
 function findSdlTierPosition(metadata: PackageMetadata): TextPosition {
-	const sdlOffset = metadata.manifestContent.indexOf('"sdl"');
+	const sdlOffset = metadata.manifestContent.indexOf('"ji"');
 	if (sdlOffset >= 0) {
 		const tierOffset = metadata.manifestContent.indexOf('"tier"', sdlOffset);
 		if (tierOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, tierOffset);

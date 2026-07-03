@@ -8,12 +8,12 @@ import { isAbsolute, join } from "node:path";
 import { PayloadError } from "./errors.ts";
 import { isSafeSegment } from "./segments.ts";
 
-export const SDL_PAYLOAD_ROOT_ENV = "SDL_PAYLOAD_ROOT";
-export const SDL_PAYLOAD_SESSION_ID_ENV = "SDL_PAYLOAD_SESSION_ID";
+export const SDL_PAYLOAD_ROOT_ENV = "JI_PAYLOAD_ROOT";
+export const SDL_PAYLOAD_SESSION_ID_ENV = "JI_PAYLOAD_SESSION_ID";
 
 export function defaultPayloadRoot(options?: { tempDir?: string }): string {
 	const baseTempDir = options?.tempDir ?? tmpdir();
-	return join(baseTempDir, "sdl");
+	return join(baseTempDir, "ji");
 }
 
 export function resolvePayloadRoot(options?: {

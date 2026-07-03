@@ -1,6 +1,6 @@
 # Subpackage conventions
 
-Read this before creating a workspace package, declaring or renaming entries in `sdl.subpackages`, adding `exports` entries to a container package, or restructuring a container package's `src/` layout.
+Read this before creating a workspace package, declaring or renaming entries in `ji.subpackages`, adding `exports` entries to a container package, or restructuring a container package's `src/` layout.
 
 Decision record: ADR 0022 (container packages, manifest-declared subpackages) and ADR 0023 (subpackage kinds, edge-significance rank). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
 
@@ -37,11 +37,11 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 ## Adding or consolidating
 
-When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `sdl.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage). A container package mid-conversion may declare `sdl.remainder: true` per ADR 0022; a properly formed container has no remainder.
+When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `ji.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage). A container package mid-conversion may declare `ji.remainder: true` per ADR 0022; a properly formed container has no remainder.
 
 When consolidating an existing package:
 
 1. Fold layer entries (`operations`, `gateways`, `commands`, `shared`, `shell`) into the feature, `api`, or host surface that owns them.
 2. Merge crumb entries that anchor no distinct edge class into their nearest owner.
 3. Move per-feature host adapters into the host-surface subpackage.
-4. Update `sdl.subpackages` and the `exports` map together; the topology report (`skills/architecture-topology-report`) is the fastest way to eyeball the result.
+4. Update `ji.subpackages` and the `exports` map together; the topology report (`skills/architecture-topology-report`) is the fastest way to eyeball the result.

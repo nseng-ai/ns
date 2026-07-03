@@ -155,7 +155,7 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 	}
 
 	addObjectiveRecord(record: FakeObjectiveRecordOptions): void {
-		const root = `.sdl/objectives/${record.slug}`;
+		const root = `.ji/objectives/${record.slug}`;
 		this.addDirectory(root);
 		if (record.objectiveMd !== null)
 			this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);

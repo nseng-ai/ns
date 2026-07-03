@@ -249,7 +249,7 @@ function usage(): string {
 		"Usage: /objective:autopilot <objective-slug-or-path> [--iterations N] [--submit] [--dry-run] [--model provider/model]",
 		"",
 		"Runs up to N fresh-child Objective iterations. The parent verifies live repo state and owns commit/submit.",
-		"Default iterations: 1. Submission requires --submit. Submit uses sdl flow submit --no-restack; --dry-run never commits or submits.",
+		"Default iterations: 1. Submission requires --submit. Submit uses ji flow submit --no-restack; --dry-run never commits or submits.",
 	].join("\n");
 }
 
@@ -350,8 +350,8 @@ async function collectRepoChangeFacts(env: AutopilotEnv): Promise<RepoChangeFact
 }
 
 function objectiveDirectory(objective: string): string {
-	if (objective.startsWith(".sdl/objectives/")) return objective;
-	return path.join(".sdl", "objectives", objective);
+	if (objective.startsWith(".ji/objectives/")) return objective;
+	return path.join(".ji", "objectives", objective);
 }
 
 async function assertInitialGuards(env: AutopilotEnv, objective: string): Promise<string> {
@@ -487,7 +487,7 @@ Rules:
 - First load and follow the objective-next workflow for the explicit Objective above. Run objective-next for this Objective; do not auto-select a different Objective.
 - If objective-next stops, asks for a human, finds no substantive work, or says ready-to-close, stop and report status: stop.
 - Before implementation, create and save an implementation plan as usual.
-- Create the implementation branch with the repo's branch-context Graphite creation path: use \`sdl branch-context exec from-plan --branch-creation graphite ...\` or \`/sdl:branch-context:from-plan --graphite ...\`.
+- Create the implementation branch with the repo's branch-context Graphite creation path: use \`ji branch-context exec from-plan --branch-creation graphite ...\` or \`/ji:branch-context:from-plan --graphite ...\`.
 - ${describeBranchContextGraphiteCreationSteps(parentBranch)}
 - Attach branch context only through the branch-context workflow after Graphite tracking succeeds. If branch-context Graphite creation or \`gt track\` fails, stop and report the failed command plus recovery guidance; do not continue on an untracked implementation branch.
 - Implement the attached plan on the implementation branch.
@@ -747,7 +747,7 @@ async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<RepoC
 			command: formatCommand("git", ["diff", "--check"]),
 		});
 	}
-	const nonObjectiveChanges = facts.changedFiles.some((file) => !file.startsWith(".sdl/objectives/"));
+	const nonObjectiveChanges = facts.changedFiles.some((file) => !file.startsWith(".ji/objectives/"));
 	if (nonObjectiveChanges && report.objectiveTracking.length === 0) {
 		throw new AutopilotPhaseError("verification", "Material changes were made, but the report contains no Objective tracking evidence.", {
 			changedFiles: facts.changedFiles,
@@ -946,7 +946,7 @@ async function commitAndMaybeSubmit(options: CommitAndMaybeSubmitOptions): Promi
 	}
 	if (!shouldSubmit) return { commitOutput, recoveryNotes };
 	try {
-		const submitOutput = await execChecked({ env, command: "sdl", args: ["flow", "submit", "--no-restack"] });
+		const submitOutput = await execChecked({ env, command: "ji", args: ["flow", "submit", "--no-restack"] });
 		return { commitOutput, submitOutput, recoveryNotes };
 	} catch (error) {
 		throw new AutopilotPhaseError("submit", error instanceof Error ? error.message : String(error), {

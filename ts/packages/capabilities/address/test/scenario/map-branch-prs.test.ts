@@ -57,7 +57,7 @@ function mapArgs(args: readonly string[] = []): string[] {
 	return ["exec", "map-branch-prs", ...args, "--format", "json"];
 }
 
-describe("sdl address exec map-branch-prs", () => {
+describe("ji address exec map-branch-prs", () => {
 	test("maps all branches to open PRs in input order with exit 0", async () => {
 		const run = runScenario(mapArgs(), {
 			prFeedback: stackedPrFeedback(),

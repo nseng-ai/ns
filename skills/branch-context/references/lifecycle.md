@@ -15,7 +15,7 @@ Use this reference to keep branch-context storage, slugs, branches, and workflow
 - **Attached plan**: the canonical implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context`, under a named Markdown key.
 - **Local plan store**: the machine-local pre-branch file store for saved plans.
 - **Branch Memory namespace `branch-context`**: the branch-scoped storage location for attached plans, not the pre-branch saved-plan store.
-- **Saved-plan filename slug**: the local filename stem in the Local plan store. `sdl branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md` as the attached key.
+- **Saved-plan filename slug**: the local filename stem in the Local plan store. `ji branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md` as the attached key.
 - **Branch-context slug**: the implementation slug derived before create. It drives the default target branch and from-plan attached key `<branch-context-slug>.md`.
 - **Source branch plan file**: one saved plan scoped to the repository and source branch where planning happened.
 - **Branch context**: the branch's standing working context stored in Branch Memory namespace `branch-context`. A plan can be the founding entry, but branch context is not a special branch type.
@@ -25,8 +25,8 @@ Use this reference to keep branch-context storage, slugs, branches, and workflow
 
 ```text
 Local plan store:
-$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
-(default $HOME/.local/state/sdl/enriched-plan/...)
+$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
+(default $HOME/.local/state/ji/enriched-plan/...)
 
 Attached plan:
 Branch Memory namespace: branch-context
@@ -50,27 +50,27 @@ Pi slash commands and SDL CLI commands are equal first-class workflow surfaces o
 
 Pi surfaces:
 
-- `/sdl:plan:save`
-- `/sdl:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
-- `/sdl:branch-context:from-plan`
-- `/sdl:branch-context:upstack-impl-from-plan`
-- `/sdl:branch-context:impl-attached-plan`
+- `/ji:plan:save`
+- `/ji:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
+- `/ji:branch-context:from-plan`
+- `/ji:branch-context:upstack-impl-from-plan`
+- `/ji:branch-context:impl-attached-plan`
 
 CLI surfaces:
 
 - `enriched-plan list` for read-only local saved-plan store inspection
 - `enriched-plan exec save`
 - `enriched-plan exec resolve`
-- `sdl branch-context exec from-plan`
-- `sdl branch-context exec attach`
-- `sdl branch-context exec list`
-- `sdl branch-context exec check`
-- `sdl branch-context exec delete`
-- `sdl branch-context exec load [<key>]`
+- `ji branch-context exec from-plan`
+- `ji branch-context exec attach`
+- `ji branch-context exec list`
+- `ji branch-context exec check`
+- `ji branch-context exec delete`
+- `ji branch-context exec load [<key>]`
 
 ## Branch creation policy
 
-Choose the branch creation method before invoking `sdl branch-context exec from-plan`. Policy precedence is:
+Choose the branch creation method before invoking `ji branch-context exec from-plan`. Policy precedence is:
 
 1. Explicit user request. Users or harnesses may say `--graphite`, `--plain-git`, or plain-language equivalents; direct CLI invocations translate these to `--branch-creation graphite` or `--branch-creation plain-git`.
 2. Wrapper/harness default, such as a Pi adapter-provided branch creation method.

@@ -10,22 +10,22 @@ describe("Pi replacement helpers", () => {
 	test("uses specialized replacements before derived names", () => {
 		expect(verifyPiReplacement("branch-context-from-plan", { verifiedSurfaces: [] })).toEqual({
 			verified: false,
-			surface: "sdl:branch-context:from-plan",
+			surface: "ji:branch-context:from-plan",
 		});
 		expect(
 			verifyPiReplacement("branch-context-from-plan", {
-				verifiedSurfaces: ["sdl:branch-context:from-plan"],
+				verifiedSurfaces: ["ji:branch-context:from-plan"],
 			}),
 		).toEqual({
 			verified: true,
-			surface: "sdl:branch-context:from-plan",
+			surface: "ji:branch-context:from-plan",
 		});
 	});
 
 	test("derives replacements with longest namespace prefixes and first-hyphen fallback", () => {
 		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("objective:stack-impl");
 		expect(derivePiReplacementCommand("branch-context-impl-extra")).toBe(
-			"sdl:branch-context:impl-attached-plan-extra",
+			"ji:branch-context:impl-attached-plan-extra",
 		);
 		expect(derivePiReplacementCommand("foo-bar-baz")).toBe("foo:bar-baz");
 		expect(derivePiReplacementCommand("plain")).toBeUndefined();

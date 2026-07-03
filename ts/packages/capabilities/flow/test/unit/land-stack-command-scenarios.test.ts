@@ -41,10 +41,10 @@ const TRUNK = "main";
 describe("flow land live progress", () => {
 	test("formats merged target PR counter without implying cleanup has finished", () => {
 		expect(formatLandProgressTitle({ landedPrs: 8, totalPrs: 11 })).toBe(
-			"sdl flow land — 8/11 target PRs merged",
+			"ji flow land — 8/11 target PRs merged",
 		);
-		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("sdl flow land — 1 target PR merged");
-		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("sdl flow land — 2 target PRs merged");
+		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("ji flow land — 1 target PR merged");
+		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("ji flow land — 2 target PRs merged");
 	});
 
 	test("uses settled merge wording scoped to target PRs", () => {
@@ -1175,7 +1175,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("--dry-run treats descendant sdl slot checkouts as skipped maintenance", async () => {
-		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
+		const descendantSlotPath = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-07";
 		const { pi, notifications, confirmations } = await runLandStack(
 			"--dry-run",
 			featureStackPreflight({
@@ -1447,7 +1447,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
-		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
+		const descendantSlotPath = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-07";
 		const script = [
 			...featureStackPreflight({
 				worktrees: worktreeOutput([
@@ -1549,8 +1549,8 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("landing-scope managed slot cleanup is targeted and leaves descendant slots alone", async () => {
-		const landingSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01";
-		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
+		const landingSlotPath = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01";
+		const descendantSlotPath = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-07";
 		const initialWorktrees = worktreeOutput([
 			{ path: ROOT, branch: CURRENT },
 			{ path: landingSlotPath, branch: "feature-a" },
@@ -1558,7 +1558,7 @@ describe("land-stack command scenarios", () => {
 		]);
 		const script = [
 			...featureStackPreflight({ worktrees: initialWorktrees }),
-			step("sdl", ["slot", "free", "--wt", "slot-01"]),
+			step("ji", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([
@@ -1581,8 +1581,7 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations[0]?.message).not.toContain("slot-07 feature-c");
 		expect(
 			pi.execCalls.some(
-				(call) =>
-					call.command === "sdl" && sameArgs(call.args, ["slot", "free", "--wt", "slot-01"]),
+				(call) => call.command === "ji" && sameArgs(call.args, ["slot", "free", "--wt", "slot-01"]),
 			),
 		).toBe(true);
 		expect(
@@ -1599,7 +1598,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("non-interactive descendant-only slot conflict proceeds with --yes", async () => {
-		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
+		const descendantSlotPath = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-07";
 		const script = [
 			...featureStackPreflight({
 				worktrees: worktreeOutput([
@@ -2448,7 +2447,7 @@ describe("land-stack command scenarios", () => {
 		const slotWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
 			{
-				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				path: "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01",
 				branch: "feature-a",
 			},
 		]);
@@ -2465,7 +2464,7 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A, worktrees: slotWorktrees }),
 			submitRestackRecheckStep({ stdout: `${SHA_C}\n` }),
-			step("sdl", ["slot", "free", "--wt", "slot-01"]),
+			step("ji", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -2507,7 +2506,7 @@ describe("land-stack command scenarios", () => {
 			"Run gt restack + submit/update?",
 		]);
 		const slotIndex = pi.execCalls.findIndex(
-			(call) => call.command === "sdl" && call.args[0] === "slot",
+			(call) => call.command === "ji" && call.args[0] === "slot",
 		);
 		const restackIndex = pi.execCalls.findIndex(
 			(call) => call.command === "gt" && call.args[0] === "restack",
@@ -2564,7 +2563,7 @@ describe("land-stack command scenarios", () => {
 		const slotWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
 			{
-				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				path: "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01",
 				branch: "feature-a",
 			},
 		]);
@@ -2581,7 +2580,7 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A, worktrees: slotWorktrees }),
 			submitRestackRecheckStep(),
-			step("sdl", ["slot", "free", "--wt", "slot-01"]),
+			step("ji", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -2661,13 +2660,13 @@ describe("land-stack command scenarios", () => {
 		const managedWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
 			{
-				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				path: "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01",
 				branch: "feature-a",
 			},
 		]);
 		const script = [
 			...singleBranchPreflight(managedWorktrees),
-			step("sdl", ["slot", "free", "--wt", "slot-01"]),
+			step("ji", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -2683,9 +2682,9 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations).toHaveLength(1);
 		expect(confirmations[0]?.title).toBe("Free landing slots?");
 		expect(confirmations[0]?.message).toContain("slot-01 feature-a");
-		expect(confirmations[0]?.message).toContain("Command: sdl slot free --wt slot-01");
+		expect(confirmations[0]?.message).toContain("Command: ji slot free --wt slot-01");
 		expect(
-			pi.execCalls.findIndex((call) => call.command === "sdl" && call.args[0] === "slot"),
+			pi.execCalls.findIndex((call) => call.command === "ji" && call.args[0] === "slot"),
 		).toBeLessThan(
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
 		);
@@ -2703,7 +2702,7 @@ describe("land-stack command scenarios", () => {
 		const managedWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
 			{
-				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				path: "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01",
 				branch: "feature-a",
 			},
 		]);

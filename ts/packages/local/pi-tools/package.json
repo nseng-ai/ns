@@ -37,7 +37,7 @@
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/local/pi-tools/test"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "local-pi-tool",
 		"subpackages": [
 			"backing-skill-commands",

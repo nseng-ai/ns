@@ -54,7 +54,7 @@ export function formatSubmitSuccessText(
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
 	const lines = [
 		"Submit succeeded, but no PR URLs were detected in output.",
-		"PR descriptions were not generated. Checkout a branch and run `sdl flow regenerate-pr` if needed.",
+		"PR descriptions were not generated. Checkout a branch and run `ji flow regenerate-pr` if needed.",
 	];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
@@ -130,7 +130,7 @@ export function formatRestackRequiredOutput(): string {
 	return [
 		"Graphite needs a restack before submitting, but automatic restack was disabled or unavailable. Nothing was submitted.",
 		"",
-		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ji flow submit`.",
 	].join("\n");
 }
 
@@ -144,7 +144,7 @@ export function formatRestackConfirmationPrompt(
 			"Graphite dry-run says restack is required before submission.",
 			"Run `gt restack --downstack --no-interactive` now, then continue with submit?",
 			"",
-			"If confirmed, sdl flow submit will run:",
+			"If confirmed, ji flow submit will run:",
 			"$ gt restack --downstack --no-interactive",
 			`$ ${commands.submitCommandDisplay}`,
 			"",
@@ -164,7 +164,7 @@ export function formatRestackDeclinedOutput(): string {
 	return [
 		"Restack was declined, so nothing was submitted.",
 		"",
-		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ji flow submit`.",
 	].join("\n");
 }
 
@@ -178,15 +178,15 @@ export function formatRestackConflictOutput(conflictedFiles: string[]): string {
 		"`gt restack --downstack` hit merge conflicts, so nothing was submitted.",
 		...fileLines,
 		"",
-		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `sdl flow submit`.",
+		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `ji flow submit`.",
 	].join("\n");
 }
 
 export function formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay: string): string {
 	return [
-		"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+		"Graphite still needs a restack after `ji flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
 		"",
-		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`sdl flow submit\`.`,
+		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`ji flow submit\`.`,
 	].join("\n");
 }
 
@@ -242,7 +242,7 @@ export function formatSubmitFailureOutput(
 		...(prewrittenMetadata.length === 0
 			? []
 			: [
-					"Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure.",
+					"Local PR metadata commit messages were prepared before submit; rerun ji flow submit after resolving the Graphite failure.",
 				]),
 		"",
 		`$ ${submitCommandDisplay}`,
@@ -314,8 +314,8 @@ function currentPrVerificationFailure(
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {
 	return [
-		"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
-		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl flow submit` after resolving the reported issue.",
+		"`ji flow submit` checkpoints outstanding worktree changes before submitting.",
+		"If the branch still has no PR, inspect the Graphite output above and rerun `ji flow submit` after resolving the reported issue.",
 	];
 }
 

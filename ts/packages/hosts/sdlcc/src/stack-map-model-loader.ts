@@ -197,7 +197,7 @@ export function buildStackMapModelFromGraph(
 	const model: StackMapModel = {
 		title: "sdlcc stack map",
 		diagnostics: [
-			"Loaded from `sdl slot gt exec stack-map-branches --format json`.",
+			"Loaded from `ji slot gt exec stack-map-branches --format json`.",
 			...graph.warnings,
 			...(options.diagnostics ?? []),
 		].filter((diagnostic) => diagnostic.length > 0),
@@ -235,13 +235,13 @@ async function loadStackMapGraph(
 	cwd: string,
 ): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
 	const result = await runCommand(
-		"sdl",
+		"ji",
 		["slot", "gt", "exec", "stack-map-branches", "--format", "json"],
 		{ cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
 	const parsed = parseStackMapMachineEnvelopeData(
 		result.stdout,
-		"sdl slot gt exec stack-map-branches JSON",
+		"ji slot gt exec stack-map-branches JSON",
 	);
 	if (parsed.type === "failure") {
 		return {
@@ -288,13 +288,12 @@ function parseStackMapGraphData(
 	data: unknown,
 ): { type: "success"; data: StackMapGraphData } | { type: "failure"; message: string } {
 	if (typeof data !== "object" || data === null || Array.isArray(data))
-		return { type: "failure", message: "sdl slot gt stack-map data was not an object." };
+		return { type: "failure", message: "ji slot gt stack-map data was not an object." };
 	const parsed = stackMapGraphDataSchema.safeParse(data);
 	if (!parsed.success) {
 		return {
 			type: "failure",
-			message:
-				"sdl slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
+			message: "ji slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
 		};
 	}
 	return {

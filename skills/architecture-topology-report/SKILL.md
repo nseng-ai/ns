@@ -121,7 +121,7 @@ Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @sdl/capability-k
   and clicking a package node zooms into that single package's internal circle graph.
   Override the source folder with `--src-dir`.
 
-The script reads each workspace package's declared `sdl.tier`, validates it against the
+The script reads each workspace package's declared `ji.tier`, validates it against the
 canonical tier taxonomy (kept in sync with the style-guard `packageTierValues` /
 `packageTierAllowedTargets` / `allowedPackageTierDebtEdges`), emits `packages[name].tier`, and
 reports computed `tierViolations` over runtime package edges — each tagged `severity: "hard"`,
@@ -200,7 +200,7 @@ toggle — static import edges, tier-hue fills shaded per enclosing package — 
 package node to isolate that package's internal circle graph; node area ∝ LOC, tier lanes/filters,
 layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace), **Mermaid** before/after cycle diagrams
 in finding cards, and **hand-built Tailwind** for the tier stack, verdict strip, and scorecard. Tier
-presentation comes from declared `sdl.tier`; package color is separate from tier. The generator marks
+presentation comes from declared `ji.tier`; package color is separate from tier. The generator marks
 an edge `cycle: true` when both endpoints sit in a circle/package SCC.
 
 Only drop to a hand-built page (the raw scaffold is still in the reference) if a report needs

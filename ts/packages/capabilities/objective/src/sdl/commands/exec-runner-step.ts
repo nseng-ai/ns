@@ -3,8 +3,8 @@
  * Deleting it also requires removing its non-commentable registrations:
  * the `"./sdl/commands/exec-runner-step"` entry in this package's
  * package.json `exports`, the `exec-runner-step` entry in
- * `.sdl/extensions/objective/package.json`, and the stub
- * `.sdl/extensions/objective/src/commands/exec-runner-step.ts`.
+ * `.ji/extensions/objective/package.json`, and the stub
+ * `.ji/extensions/objective/src/commands/exec-runner-step.ts`.
  */
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import { usageError } from "@sdl/clinkr";

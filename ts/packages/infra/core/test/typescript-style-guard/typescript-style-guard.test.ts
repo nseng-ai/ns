@@ -79,8 +79,8 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 			]),
 	},
 	{
-		name: ".sdl/extensions",
-		includes: (path) => isInDirectory(path, ".sdl/extensions"),
+		name: ".ji/extensions",
+		includes: (path) => isInDirectory(path, ".ji/extensions"),
 	},
 	{
 		name: "docs-site",
@@ -88,7 +88,7 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 	},
 	{
 		name: "top-level TS configs and other source files",
-		includes: (path) => !isInAnyDirectory(path, ["ts/packages", ".sdl/extensions", "docs-site"]),
+		includes: (path) => !isInAnyDirectory(path, ["ts/packages", ".ji/extensions", "docs-site"]),
 	},
 ];
 
@@ -560,12 +560,12 @@ describe("TypeScript style guard package tier layering rules", () => {
 		{
 			name: "missing tier is rejected",
 			tiers: new Map([...baseTiers, ["@sdl/ccc", undefined]]),
-			expectedTextIncludes: "missing sdl.tier",
+			expectedTextIncludes: "missing ji.tier",
 		},
 		{
 			name: "unknown tier is rejected",
 			tiers: new Map([...baseTiers, ["@sdl/ccc", "mystery-tier"]]),
-			expectedTextIncludes: "unknown sdl.tier",
+			expectedTextIncludes: "unknown ji.tier",
 		},
 		{
 			name: "capability to host is rejected",
@@ -973,7 +973,7 @@ describe("TypeScript style guard subpackage declaration conformance", () => {
 				BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
 			]);
 			expect(violations[0]?.path).toBe("synthetic/core/src/index.ts");
-			expect(violations[0]?.text).toContain("without sdl.remainder");
+			expect(violations[0]?.text).toContain("without ji.remainder");
 		});
 	});
 
@@ -1205,7 +1205,7 @@ function setsAreEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): bo
 }
 
 function withTempRepo(run: (repoRoot: string) => void): void {
-	const repoRoot = mkdtempSync(join(tmpdir(), "sdl-subpackage-guard-"));
+	const repoRoot = mkdtempSync(join(tmpdir(), "ji-subpackage-guard-"));
 	try {
 		run(repoRoot);
 	} finally {
@@ -1232,7 +1232,7 @@ function buildSyntheticSubpackageMetadata(
 	const packageName = "@sdl/core";
 	const manifest: PackageManifest = {
 		name: packageName,
-		sdl: {
+		ji: {
 			tier: "neutral-infra",
 			subpackages: options.subpackages,
 			...(options.remainder ? { remainder: true } : {}),
@@ -1266,7 +1266,7 @@ function buildLocalSpaceSyntheticMetadata(
 				name: syntheticPackage.name,
 				private: syntheticPackage.privateValue,
 				dependencies: syntheticPackage.dependencies ?? {},
-				sdl: { tier: "local-pi-tool" },
+				ji: { tier: "local-pi-tool" },
 			};
 			return [
 				syntheticPackage.name,
@@ -1373,7 +1373,7 @@ function buildSyntheticManifest(
 ): PackageManifest {
 	return {
 		name: packageName,
-		...(rawSdlTier === undefined ? {} : { sdl: { tier: rawSdlTier } }),
+		...(rawSdlTier === undefined ? {} : { ji: { tier: rawSdlTier } }),
 		...(Object.keys(fields.devDependencies).length === 0
 			? {}
 			: { devDependencies: fields.devDependencies }),

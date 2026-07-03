@@ -17,7 +17,7 @@ export const sdlExtensionManifestSchema = z.looseObject({
 
 export const sdlExtensionPackageManifestSchema = z.looseObject({
 	description: z.string().optional(),
-	sdl: sdlExtensionManifestSchema.optional(),
+	ji: sdlExtensionManifestSchema.optional(),
 });
 
 export type SdlExtensionManifestCommand = z.infer<typeof sdlExtensionManifestCommandSchema>;

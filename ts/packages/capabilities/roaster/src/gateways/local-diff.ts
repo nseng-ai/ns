@@ -112,7 +112,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 	): Promise<RoasterResult<readonly string[]>> {
 		if (options.excludeGlobs !== undefined) return { type: "ok", value: options.excludeGlobs };
 
-		const path = join(repoRoot, "sdl.toml");
+		const path = join(repoRoot, "ji.toml");
 		let source: string;
 		try {
 			source = await readFile(path, "utf8");
@@ -120,7 +120,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			if (isMissingFileError(caught)) return { type: "ok", value: [] };
 			return error({
 				type: "project-config-invalid",
-				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
+				message: `Failed to read ji.toml: ${formatErrorMessage(caught)}`,
 			});
 		}
 

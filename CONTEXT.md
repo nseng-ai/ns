@@ -25,11 +25,11 @@ The role of an **Objective** as human-readable context and ordered work guidance
 *Avoid*: Workflow controller, state machine, task database
 
 **Active Objective Root**:
-The checked-in repository directory `.sdl/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows.
+The checked-in repository directory `.ji/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows.
 *Avoid*: open objectives directory, hidden local cache, archive root
 
 **Objective Archive Root**:
-The checked-in repository directory `.sdl/objective-archive/` that parks Objective records outside normal active discovery without changing their slug, prose, updates, or closure marker.
+The checked-in repository directory `.ji/objective-archive/` that parks Objective records outside normal active discovery without changing their slug, prose, updates, or closure marker.
 *Avoid*: deletion, closed objective root, hidden cache
 
 **Archived Objective**:
@@ -139,7 +139,7 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ji.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer
 
 **Published package**:
@@ -155,7 +155,7 @@ A **Published package** whose architecture units are **Subpackages** rather than
 *Avoid*: meta-package, bundle package, namespace package, monorepo folder
 
 **Subpackage**:
-A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `sdl.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage. Every declared subpackage is an **API subpackage**, **Testing subpackage**, **Host-surface subpackage**, or **Feature subpackage** (ADR 0023); internal layers are folders, not subpackages.
+A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `ji.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage. Every declared subpackage is an **API subpackage**, **Testing subpackage**, **Host-surface subpackage**, or **Feature subpackage** (ADR 0023); internal layers are folders, not subpackages.
 *Avoid*: published package, topology circle, npm package, source folder, internal package, layer
 
 **API subpackage**:
@@ -175,7 +175,7 @@ A **Subpackage** naming a real domain vertical of a **Container package** (for e
 *Avoid*: internal layer, operations, gateways, shared, module folder
 
 **Remainder subpackage**:
-The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `sdl.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
+The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `ji.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
 *Avoid*: miscellaneous folder, hidden subpackage, sentinel entry, `.` subpackage, debt label
 
 **Local space**:

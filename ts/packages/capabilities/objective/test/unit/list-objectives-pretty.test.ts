@@ -30,7 +30,7 @@ function caps(
 function result(parts: Partial<ObjectiveListResult>): ObjectiveListResult {
 	return {
 		trunkBranch: "master",
-		rootPath: ".sdl/objectives",
+		rootPath: ".ji/objectives",
 		statusFilter: "all",
 		namesOnly: false,
 		records: [],

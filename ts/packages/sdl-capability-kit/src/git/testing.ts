@@ -35,7 +35,7 @@ export interface TempGitRepoRunOptions {
 }
 
 export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo {
-	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "sdl-git-test-"));
+	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "ji-git-test-"));
 	const runGit = (args: readonly string[], runOptions: TempGitRepoRunOptions = {}): string => {
 		const result = spawnSync("git", [...args], {
 			cwd: path,
@@ -50,7 +50,7 @@ export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo
 	};
 
 	runGit(["init", "-b", "main"]);
-	runGit(["config", "user.email", options.userEmail ?? "sdl-test@example.com"]);
+	runGit(["config", "user.email", options.userEmail ?? "ji-test@example.com"]);
 	runGit(["config", "user.name", options.userName ?? "SDL Test"]);
 	writeFileSync(join(path, "README.md"), options.readmeText ?? "test repo\n", "utf8");
 	runGit(["add", "README.md"]);

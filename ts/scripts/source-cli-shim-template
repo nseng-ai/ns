@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @@SDL_TOOL@@ — runs an sdl TypeScript CLI from source.
+# @@JI_TOOL@@ — runs a ji TypeScript CLI from source.
 #
 # Rendered by TypeScript tool install recipes and skill-local source runners.
 # The installer replaces this template's placeholders with shell-quoted literal
@@ -8,11 +8,11 @@
 # In both modes, sources from the caller's current sdl checkout win first.
 set -euo pipefail
 
-tool=@@SDL_TOOL@@
-canonical_checkout=@@SDL_CANONICAL_CHECKOUT@@
-cli_rel_path=@@SDL_CLI_REL_PATH@@
-install_hint=@@SDL_INSTALL_HINT@@
-fallback_mode=@@SDL_FALLBACK_MODE@@
+tool=@@JI_TOOL@@
+canonical_checkout=@@JI_CANONICAL_CHECKOUT@@
+cli_rel_path=@@JI_CLI_REL_PATH@@
+install_hint=@@JI_INSTALL_HINT@@
+fallback_mode=@@JI_FALLBACK_MODE@@
 
 run_checkout() {
   local checkout="$1"

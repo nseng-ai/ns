@@ -1,7 +1,7 @@
 ---
 name: objective-runner-step
 disable-model-invocation: true
-description: "Parent playbook for running one verified Objective implementation step via `sdl objective exec runner-begin`, a harness subagent, and `sdl objective exec runner-finish` (ADR 0024). Use when driving an Objective forward step by step with runner checkpoints, recovering a failed runner step with --recover, or interpreting a Runner Checkpoint. For tracking edits use objective-update; for advice on what to do next use objective-next."
+description: "Parent playbook for running one verified Objective implementation step via `ji objective exec runner-begin`, a harness subagent, and `ji objective exec runner-finish` (ADR 0024). Use when driving an Objective forward step by step with runner checkpoints, recovering a failed runner step with --recover, or interpreting a Runner Checkpoint. For tracking edits use objective-update; for advice on what to do next use objective-next."
 ---
 
 # objective-runner-step
@@ -17,7 +17,7 @@ One step = begin → dispatch → finish. Use the harness scratchpad for the two
 1. **Begin** — fast, read-only, LBYL:
 
    ```bash
-   sdl objective exec runner-begin <slug> [--recover] [--guidance <text|@file>] \
+   ji objective exec runner-begin <slug> [--recover] [--guidance <text|@file>] \
      --report-path <scratch>/step-<n>-report.json --format json > <scratch>/step-<n>-facts.json
    ```
 
@@ -28,7 +28,7 @@ One step = begin → dispatch → finish. Use the harness scratchpad for the two
 3. **Finish** — the deterministic verdict, run by you, exactly once:
 
    ```bash
-   sdl objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
+   ji objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
    ```
 
    The report path defaults from the facts (`--report @path` overrides). Finish validates the report fail-closed, runs the verification gate, creates the runner-owned commit with provenance trailers (`Objective-Runner-Step: <slug>`, plus `Objective-Runner-Mode: recover` for recovered attempts), and prints the **Runner Checkpoint** to stdout. **Finish is terminal**: never re-run it after `committed` — a second run deterministically fails verification (`head-unchanged`, `worktree-dirty`) by design.
@@ -105,4 +105,4 @@ The runner will never, in any mode:
 
 And you, the parent, never mutate the worktree between begin and finish — the gate makes violations loud, not silent.
 
-If you need any of those, do them yourself as the parent, through the normal workflows. The legacy blocking `sdl objective exec runner-step` still exists during the transition but no skill flow uses it; it is scheduled for deletion.
+If you need any of those, do them yourself as the parent, through the normal workflows. The legacy blocking `ji objective exec runner-step` still exists during the transition but no skill flow uses it; it is scheduled for deletion.

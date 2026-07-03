@@ -21,7 +21,7 @@
 		"@sdl/core": "workspace:*",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "standalone-tool"
 	}
 }

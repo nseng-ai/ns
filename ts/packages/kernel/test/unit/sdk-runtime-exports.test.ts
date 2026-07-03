@@ -132,7 +132,7 @@ describe("@sdl/kernel/sdk runtime exports", () => {
 		const parsed = sdlExtensionPackageManifestSchema.parse({
 			description: "Package description.",
 			private: true,
-			sdl: {
+			ji: {
 				description: "SDL commands.",
 				group: "flow",
 				owner: "repo-local",
@@ -151,9 +151,9 @@ describe("@sdl/kernel/sdk runtime exports", () => {
 		});
 
 		expect(parsed.private).toBe(true);
-		expect(parsed.sdl?.owner).toBe("repo-local");
-		expect(parsed.sdl?.commands?.[0]).toMatchObject({ futureField: "kept" });
-		expect(sdlExtensionManifestCommandSchema.parse(parsed.sdl?.commands?.[0])).toMatchObject({
+		expect(parsed.ji?.owner).toBe("repo-local");
+		expect(parsed.ji?.commands?.[0]).toMatchObject({ futureField: "kept" });
+		expect(sdlExtensionManifestCommandSchema.parse(parsed.ji?.commands?.[0])).toMatchObject({
 			name: "changes",
 			futureField: "kept",
 		});

@@ -482,7 +482,7 @@ export async function makeNamedPlanFile(
 
 export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): Promise<string> {
 	const dir = await makeTempDir();
-	const promptDir = join(dir, ".sdl", "prompts");
+	const promptDir = join(dir, ".ji", "prompts");
 	await mkdir(promptDir, { recursive: true });
 	await writeFile(join(promptDir, "plans-write.md"), content, "utf8");
 	return dir;
@@ -491,9 +491,9 @@ export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): 
 export async function makeRepoPromptSymlink(): Promise<string> {
 	const dir = await makeTempDir();
 	const target = await makeTempDir("branch-context-prompt-target-");
-	await mkdir(join(dir, ".sdl", "prompts"), { recursive: true });
+	await mkdir(join(dir, ".ji", "prompts"), { recursive: true });
 	await writeFile(join(target, "plans-write.md"), "linked prompt\n", "utf8");
-	await symlink(join(target, "plans-write.md"), join(dir, ".sdl", "prompts", "plans-write.md"));
+	await symlink(join(target, "plans-write.md"), join(dir, ".ji", "prompts", "plans-write.md"));
 	return dir;
 }
 

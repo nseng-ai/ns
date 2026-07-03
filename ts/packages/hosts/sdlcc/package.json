@@ -20,7 +20,7 @@
 		"@sdl/slot": "workspace:*",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "host"
 	}
 }

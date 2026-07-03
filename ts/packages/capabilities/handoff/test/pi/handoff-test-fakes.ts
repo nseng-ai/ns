@@ -88,17 +88,17 @@ export class FakePi implements ExtensionAPI {
 		this.commandInfos = [...commandInfos];
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
-				if (customType === "sdl-command-ack") return;
+				if (customType === "ji-command-ack") return;
 				this.renderers.set(customType, renderer);
 			};
 		}
 		if (options.sendMessage ?? true) {
 			this.sendMessage = (message: CustomMessage): void => {
-				if (message.customType === "sdl-command-ack") {
+				if (message.customType === "ji-command-ack") {
 					this.ackMessages.push(message);
 					return;
 				}
-				if (message.customType === "sdl-command-progress") {
+				if (message.customType === "ji-command-progress") {
 					this.progressMessages.push(message);
 					return;
 				}

@@ -33,7 +33,7 @@ command-local `code`/`type`/`status`/`kind` discriminants) are **kebab-case** fo
 SDL-owned contracts — e.g. `registry-check-failed`, `branch-context-error`,
 `dry-run`. No snake_case and no aliases (ADR 0010). Known external strings
 (GitHub/Anthropic/Pi/git wire values) keep their exact spelling and are modeled as
-TypeScript literal unions. `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` guards the
+TypeScript literal unions. `JI_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` guards the
 `failure(...)` error type and `errorType` literal cases.
 
 Per-command schemas: `buildSuccessMachineEnvelopeSchema(dataSchema)`,
@@ -142,6 +142,6 @@ shortcut around machine envelopes.
 
 - Survey: `docs/agent-era-cli-design-survey.md` (competing positions + sources).
 - Gap audit:
-  `.sdl/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
+  `.ji/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
 - ADRs: `docs/adr/0010`–`0015`.
 - Exec-subgroup + scenario-test conventions: root `AGENTS.md`.

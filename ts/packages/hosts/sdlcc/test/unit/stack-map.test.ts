@@ -111,7 +111,7 @@ describe("buildStackMapModelFromGraph", () => {
 
 		expect(model.title).toBe("sdlcc stack map");
 		expect(model.diagnostics).toContain(
-			"Loaded from `sdl slot gt exec stack-map-branches --format json`.",
+			"Loaded from `ji slot gt exec stack-map-branches --format json`.",
 		);
 		expect(model.diagnostics).toContain("graph warning");
 		expect(model.trunk.children.map((branch) => branch.name)).toEqual([
@@ -139,7 +139,7 @@ describe("loadStackMapModel", () => {
 				options: CommandOptions = {},
 			): Promise<CommandOutput> => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				if (command === "sdl")
+				if (command === "ji")
 					return successJson({ status: "ok", exitCode: 0, data: stackMapGraphFixture() });
 				if (command === "cmux")
 					return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
@@ -149,7 +149,7 @@ describe("loadStackMapModel", () => {
 
 		expect(calls.sort()).toEqual([
 			"/repo$ cmux tree --json --all",
-			"/repo$ sdl slot gt exec stack-map-branches --format json",
+			"/repo$ ji slot gt exec stack-map-branches --format json",
 		]);
 		expect(model.trunk.children.map((branch) => branch.name)).toEqual([
 			"feature/a",
@@ -168,7 +168,7 @@ describe("loadStackMapModel", () => {
 		const model = await loadStackMapModel({
 			cwd: "/repo",
 			runCommand: async (command: string): Promise<CommandOutput> => {
-				if (command === "sdl")
+				if (command === "ji")
 					return successJson({
 						status: "ok",
 						exitCode: 0,
@@ -182,7 +182,7 @@ describe("loadStackMapModel", () => {
 		expect(model.currentBranch).toBe("stack-unavailable");
 		expect(model.diagnostics).toContain("Could not load real Graphite stack data.");
 		expect(model.diagnostics).toContain(
-			"sdl slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
+			"ji slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
 		);
 	});
 });
@@ -471,7 +471,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 		expect(calls[0]).toContain(
 			"/repo/slot-02$ cmux new-workspace --name feature/child-with-longer-name",
 		);
-		expect(calls.join("\n")).not.toContain("sdl slot checkout");
+		expect(calls.join("\n")).not.toContain("ji slot checkout");
 	});
 
 	test("reports peer API checkout failures", async () => {
@@ -497,7 +497,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 
 		await expect(executor.openNew("feature/current")).resolves.toEqual({
 			type: "failed",
-			message: "sdl slot checkout failed (no-available-slot): No free slots.",
+			message: "ji slot checkout failed (no-available-slot): No free slots.",
 		});
 		expect(calls).toEqual([]);
 	});

@@ -49,21 +49,21 @@ const SDL_FLOW_COMMANDS = [
 export const sdlExtensionParity = definePiSurfaceParity(
 	SDL_FLOW_COMMANDS.map((command) => ({
 		kind: "command" as const,
-		surface: `sdl:flow:${command.name}`,
+		surface: `ji:flow:${command.name}`,
 		workflow: command.description.replace(/\.$/, ""),
 		parity: "FULL" as const,
-		cli: `sdl ${command.displayName}`,
+		cli: `ji ${command.displayName}`,
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "sdl-flow/pi" as const,
 		sourceModule: "sdl-extension",
-		notes: `Pi command delegates to sdl ${command.displayName} through registerCliCommandExtension; flat lifecycle mirrors are intentionally not registered.`,
+		notes: `Pi command delegates to ji ${command.displayName} through registerCliCommandExtension; flat lifecycle mirrors are intentionally not registered.`,
 	})),
 );
 
 export interface SdlExtensionOptions {
 	/**
 	 * Seam for the SDL CLI runner. Defaults to the real {@link runCli}, which
-	 * discovers and dynamically imports project-local `.sdl/extensions` commands.
+	 * discovers and dynamically imports project-local `.ji/extensions` commands.
 	 * Tests inject a fake to exercise the Pi command bridge (argv routing and
 	 * output rendering) without standing up a temporary SDL extension project.
 	 */
@@ -72,8 +72,8 @@ export interface SdlExtensionOptions {
 
 export default function sdlExtension(pi: SdlExtensionAPI, options: SdlExtensionOptions = {}): void {
 	registerCliCommandExtension(pi, {
-		cliName: "sdl",
-		piNamespace: "sdl:flow",
+		cliName: "ji",
+		piNamespace: "ji:flow",
 		commands: SDL_FLOW_COMMANDS,
 		runCli: options.runCli ?? runCli,
 	});

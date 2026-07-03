@@ -1,7 +1,7 @@
 import { GRAPHITE_BRANCH_METADATA_QUERY } from "@sdl/capability-kit/graphite/metadata";
 
 export const TOPOLOGY_QUERY = GRAPHITE_BRANCH_METADATA_QUERY;
-export const TOPOLOGY_COMMAND = "sdl";
+export const TOPOLOGY_COMMAND = "ji";
 
 export function topologyArgs(dbPath: string): string[] {
 	return ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath];

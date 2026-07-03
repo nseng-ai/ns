@@ -1,0 +1,68 @@
+{
+	"ji": {
+		"description": "Inspect and address GitHub pull request feedback.",
+		"group": "address",
+		"commands": [
+			{
+				"name": "exec-download-feedback",
+				"description": "Download current PR feedback as an LM-ready Markdown triage prompt.",
+				"entry": "./src/commands/exec-download-feedback.ts"
+			},
+			{
+				"name": "exec-map-branch-prs",
+				"description": "Map local branches to open PRs.",
+				"entry": "./src/commands/exec-map-branch-prs.ts"
+			},
+			{
+				"name": "exec-pr-details",
+				"description": "Return structured details for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-details.ts"
+			},
+			{
+				"name": "exec-branch-pr",
+				"description": "Return the open GitHub PR for a branch.",
+				"entry": "./src/commands/exec-branch-pr.ts"
+			},
+			{
+				"name": "exec-open-prs",
+				"description": "List open GitHub PRs.",
+				"entry": "./src/commands/exec-open-prs.ts"
+			},
+			{
+				"name": "exec-pr-reviews",
+				"description": "Return PR-level review bodies for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-reviews.ts"
+			},
+			{
+				"name": "exec-pr-review-threads",
+				"description": "Return hydrated review threads for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-review-threads.ts"
+			},
+			{
+				"name": "exec-pr-discussion-comments",
+				"description": "Return PR discussion comments for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-discussion-comments.ts"
+			},
+			{
+				"name": "exec-pr-checks",
+				"description": "Return normalized GitHub PR checks for one PR or the current branch PR.",
+				"entry": "./src/commands/exec-pr-checks.ts"
+			},
+			{
+				"name": "exec-reply-review-thread",
+				"description": "Reply to one GitHub PR review thread.",
+				"entry": "./src/commands/exec-reply-review-thread.ts"
+			},
+			{
+				"name": "exec-resolve-review-thread",
+				"description": "Resolve one GitHub PR review thread.",
+				"entry": "./src/commands/exec-resolve-review-thread.ts"
+			},
+			{
+				"name": "exec-close-review-threads",
+				"description": "Reply to and/or resolve GitHub PR review threads in bulk.",
+				"entry": "./src/commands/exec-close-review-threads.ts"
+			}
+		]
+	}
+}

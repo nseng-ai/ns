@@ -44,7 +44,7 @@
 		"typescript": "catalog:",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "neutral-infra",
 		"subpackages": [
 			"time",

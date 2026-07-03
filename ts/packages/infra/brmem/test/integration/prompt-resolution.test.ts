@@ -10,8 +10,8 @@ describe("RealBrmemPromptResolver integration", () => {
 	it("resolves the repository root and checks prompt existence in a throwaway repository", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const promptPath = join(repo.path, ".sdl", "prompts", "foo.md");
-			mkdirSync(join(repo.path, ".sdl", "prompts"), { recursive: true });
+			const promptPath = join(repo.path, ".ji", "prompts", "foo.md");
+			mkdirSync(join(repo.path, ".ji", "prompts"), { recursive: true });
 			writeFileSync(promptPath, "prompt\n", "utf8");
 
 			const resolver = new RealBrmemPromptResolver({
@@ -21,9 +21,9 @@ describe("RealBrmemPromptResolver integration", () => {
 				type: "ok",
 				value: realpathSync(repo.path),
 			});
-			expect(resolver.globalPromptRoots()).toEqual(["/tmp/brmem-home/.config/sdl/brmem/prompts"]);
+			expect(resolver.globalPromptRoots()).toEqual(["/tmp/brmem-home/.config/ji/brmem/prompts"]);
 			expect(await resolver.fileExists(promptPath)).toBe(true);
-			expect(await resolver.fileExists(join(repo.path, ".sdl", "prompts", "missing.md"))).toBe(
+			expect(await resolver.fileExists(join(repo.path, ".ji", "prompts", "missing.md"))).toBe(
 				false,
 			);
 		} finally {

@@ -1,7 +1,7 @@
 ---
 name: enriched-plan-save
 disable-model-invocation: true
-description: Use when a user explicitly wants to write and save a Saved plan/source-branch plan file as an enriched plan for later branch-context attachment — "write a plan", "save an enriched plan", "prepare a plan for a fresh implementation session" — or to continue a Pi `/sdl:plan:save` or `/sdl:plan:grill-and-save` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to write and save a Saved plan/source-branch plan file as an enriched plan for later branch-context attachment — "write a plan", "save an enriched plan", "prepare a plan for a fresh implementation session" — or to continue a Pi `/ji:plan:save` or `/ji:plan:grill-and-save` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
 # enriched-plan-save

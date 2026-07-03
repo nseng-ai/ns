@@ -4,12 +4,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { renderCliShim } from "./render-cli-shim-core.ts";
 
 const REQUIRED_ENV_VARS = [
-	"SDL_TEMPLATE",
-	"SDL_OUTPUT",
-	"SDL_TOOL",
-	"SDL_CANONICAL_CHECKOUT",
-	"SDL_CLI_REL_PATH",
-	"SDL_INSTALL_HINT",
+	"JI_TEMPLATE",
+	"JI_OUTPUT",
+	"JI_TOOL",
+	"JI_CANONICAL_CHECKOUT",
+	"JI_CLI_REL_PATH",
+	"JI_INSTALL_HINT",
 ];
 
 function envValue(name) {
@@ -27,14 +27,14 @@ async function main() {
 		return 2;
 	}
 
-	const templatePath = envValue("SDL_TEMPLATE");
+	const templatePath = envValue("JI_TEMPLATE");
 	const result = renderCliShim({
 		template: await readFile(templatePath, "utf8"),
-		tool: envValue("SDL_TOOL"),
-		canonicalCheckout: envValue("SDL_CANONICAL_CHECKOUT"),
-		cliRelPath: envValue("SDL_CLI_REL_PATH"),
-		installHint: envValue("SDL_INSTALL_HINT"),
-		fallbackMode: process.env.SDL_FALLBACK_MODE,
+		tool: envValue("JI_TOOL"),
+		canonicalCheckout: envValue("JI_CANONICAL_CHECKOUT"),
+		cliRelPath: envValue("JI_CLI_REL_PATH"),
+		installHint: envValue("JI_INSTALL_HINT"),
+		fallbackMode: process.env.JI_FALLBACK_MODE,
 		templateLabel: templatePath,
 	});
 	if (result.type === "failure") {
@@ -42,7 +42,7 @@ async function main() {
 		return result.exitCode;
 	}
 
-	await writeFile(envValue("SDL_OUTPUT"), result.rendered, "utf8");
+	await writeFile(envValue("JI_OUTPUT"), result.rendered, "utf8");
 	return 0;
 }
 

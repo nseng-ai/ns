@@ -64,7 +64,7 @@ export function resolveSdlXdgPath(options: XdgPathOptions): Result<string, XdgPa
 
 	const home = resolveXdgHome(options.kind, options.env);
 	if (!home.ok) return home;
-	return ok(join(home.value, "sdl", ...(options.segments ?? [])));
+	return ok(join(home.value, "ji", ...(options.segments ?? [])));
 }
 
 export function requireXdgPath(result: Result<string, XdgPathError>): string {

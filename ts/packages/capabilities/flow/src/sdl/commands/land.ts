@@ -111,7 +111,7 @@ export interface LandLiveProgressState {
 	landedPrs: number;
 }
 
-const BASE_LAND_TITLE = "sdl flow land";
+const BASE_LAND_TITLE = "ji flow land";
 
 export function formatLandProgressTitle(state: LandLiveProgressState): string {
 	if (state.totalPrs !== undefined) {

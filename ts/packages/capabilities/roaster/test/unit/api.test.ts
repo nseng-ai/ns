@@ -97,7 +97,7 @@ function runtimeWithFakes(
 				new FakeReviewCatalogGateway({
 					reviewSourcesByKey: options.sources ?? { [REVIEW_KEY]: sampleSource() },
 					...(options.keys === undefined ? {} : { reviewKeys: options.keys }),
-					reviewsDir: "/repo/.sdl/reviews",
+					reviewsDir: "/repo/.ji/reviews",
 				}),
 			localDiff: new FakeLocalDiffGateway({
 				defaultDiff: { type: "ok", value: options.diff ?? diffForPath("src/app.ts") },
@@ -286,7 +286,7 @@ describe("@sdl/roaster/api", () => {
 				reviewCatalog: new FakeReviewCatalogGateway({
 					listReviewKeysFailure: {
 						type: "reviews-dir-missing",
-						message: "No reviews directory at /repo/.sdl/reviews.",
+						message: "No reviews directory at /repo/.ji/reviews.",
 					},
 				}),
 			}),
@@ -298,7 +298,7 @@ describe("@sdl/roaster/api", () => {
 			ok: false,
 			failure: {
 				errorType: "reviews-dir-missing",
-				message: "No reviews directory at /repo/.sdl/reviews.",
+				message: "No reviews directory at /repo/.ji/reviews.",
 			},
 		});
 	});

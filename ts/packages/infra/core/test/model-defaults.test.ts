@@ -10,7 +10,7 @@ import {
 	resolveModelRef,
 } from "../src/primitives/model-slug.ts";
 
-const ENV_VAR = "SDL_TEST_MODEL";
+const ENV_VAR = "JI_TEST_MODEL";
 
 describe("parseModelRef", () => {
 	test("splits provider and modelId on the first slash", () => {

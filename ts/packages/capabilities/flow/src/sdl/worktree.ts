@@ -40,7 +40,7 @@ export async function createCommitWithPreparedMessage(
 	message: string,
 ): Promise<{ summary: string } | { error: string }> {
 	return await withTemporaryFile(
-		{ prefix: "sdl-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
+		{ prefix: "ji-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
 		async (messagePath) => {
 			const add = await execSdlGit(ctx, ["add", "-A"], 30_000);
 			if (add.code !== 0) {

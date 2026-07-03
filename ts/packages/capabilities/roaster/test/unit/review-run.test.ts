@@ -26,7 +26,7 @@ describe("runRoasterReview", () => {
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
-			join(repoRoot, "sdl.toml"),
+			join(repoRoot, "ji.toml"),
 			'[roaster.diff]\nexclude = ["generated/**"]\n[roaster.model_profiles]\ndeep = "opus"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
@@ -80,7 +80,7 @@ describe("runRoasterReview", () => {
 		});
 		expect(outcome.progress.modelProfile).toBe("deep");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("opus");
-		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.sdl/reviews/typescript-style");
+		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.ji/reviews/typescript-style");
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");

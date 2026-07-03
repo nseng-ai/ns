@@ -11,7 +11,7 @@ import {
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",
-	rootPath: ".sdl/objectives",
+	rootPath: ".ji/objectives",
 	statusFilter: "active",
 	namesOnly: false,
 	updatedBranchesIncluded: true,
@@ -32,7 +32,7 @@ describe("renderObjectiveListHuman", () => {
 	test("renders the full human table with branch attribution continuations", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
-			rootPath: ".sdl/objectives",
+			rootPath: ".ji/objectives",
 			statusFilter: "all",
 			namesOnly: false,
 			updatedBranchesIncluded: true,
@@ -56,7 +56,7 @@ describe("renderObjectiveListHuman", () => {
 
 		expect(renderObjectiveListHuman(result, { canEmitAnsi: false }).split("\n")).toEqual([
 			"Objective records in this checkout",
-			"Root: .sdl/objectives",
+			"Root: .ji/objectives",
 			"Status filter: all",
 			"",
 			"OBJECTIVE        STATUS    LATEST UPDATE         UPDATED BRANCHES",
@@ -121,16 +121,16 @@ describe("objective list helpers", () => {
 				{ name: "feat/same-tree", headIso: "2026-05-04T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.sdl/objectives": "trunk-tree",
-				"feat/newer|.sdl/objectives": "newer-tree",
-				"feat/older|.sdl/objectives": "older-tree",
-				"feat/same-tree|.sdl/objectives": "trunk-tree",
+				"master|.ji/objectives": "trunk-tree",
+				"feat/newer|.ji/objectives": "newer-tree",
+				"feat/older|.ji/objectives": "older-tree",
+				"feat/same-tree|.ji/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master...feat/newer|.sdl/objectives": [".sdl/objectives/alpha/objective.md"],
-				"master...feat/older|.sdl/objectives": [
-					".sdl/objectives/alpha/roadmap.md",
-					".sdl/objectives/branch-only/objective.md",
+				"master...feat/newer|.ji/objectives": [".ji/objectives/alpha/objective.md"],
+				"master...feat/older|.ji/objectives": [
+					".ji/objectives/alpha/roadmap.md",
+					".ji/objectives/branch-only/objective.md",
 				],
 			},
 		});
@@ -157,11 +157,11 @@ describe("objective list helpers", () => {
 				{ name: "feat/stale", headIso: "2026-05-02T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.sdl/objectives": "newer-trunk-tree",
-				"feat/stale|.sdl/objectives": "older-branch-tree",
+				"master|.ji/objectives": "newer-trunk-tree",
+				"feat/stale|.ji/objectives": "older-branch-tree",
 			},
 			changedPaths: {
-				"master...feat/stale|.sdl/objectives": [],
+				"master...feat/stale|.ji/objectives": [],
 			},
 		});
 

@@ -7,9 +7,9 @@ import {
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
 
-export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = "sdl-command-ack";
-export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = "sdl-command-progress";
-export const IMMEDIATE_COMMAND_ACK_STATUS_KEY = "sdl-command-ack";
+export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = "ji-command-ack";
+export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = "ji-command-progress";
+export const IMMEDIATE_COMMAND_ACK_STATUS_KEY = "ji-command-ack";
 
 const acknowledgedCommandsByContext = new WeakMap<WeakKey, Set<string>>();
 

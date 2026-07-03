@@ -2,7 +2,7 @@ import type { GithubPrDiscussionComment } from "../api.ts";
 
 const BODY_MARKERS: ReadonlyArray<readonly [marker: string, label: string]> = [
 	["<!-- roaster:", "roaster_marker"],
-	["<!-- sdl-reviewer:", "sdl_reviewer_marker"],
+	["<!-- ji-reviewer:", "ji_reviewer_marker"],
 	["[vc]:", "vercel_marker"],
 	["app.graphite.com/github/pr/", "graphite_link"],
 	["static.graphite.dev", "graphite_static_asset"],

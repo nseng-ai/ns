@@ -687,7 +687,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(notifications[0]?.message).toContain("Landing path expects feature-a -> feature-b");
 		expect(notifications[0]?.message).toContain("side (subtree: side -> side-2)");
 		expect(commandMessagesText(messages)).toContain(
-			"Land or move the sibling stack first (e.g. gt move --onto main), then rerun /sdl:flow:land.",
+			"Land or move the sibling stack first (e.g. gt move --onto main), then rerun /ji:flow:land.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] !== "trunk")).toBe(
@@ -716,7 +716,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		pi.assertDone();
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain(
-			"current branch feature-b has 2 children (feature-c, feature-d); /sdl:flow:land supports at most one descendant chain target.",
+			"current branch feature-b has 2 children (feature-c, feature-d); /ji:flow:land supports at most one descendant chain target.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});

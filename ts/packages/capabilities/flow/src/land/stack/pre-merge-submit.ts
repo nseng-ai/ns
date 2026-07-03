@@ -48,10 +48,10 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		nonInteractiveMessage: [
 			`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 			details,
-			`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+			`No PRs were landed. Run ${manualCommandText} manually, then rerun /ji:flow:land --yes.`,
 		].join("\n"),
 		nonInteractiveFailureOptions: {
-			suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+			suggestedAction: `Run ${manualCommandText} manually, then rerun /ji:flow:land --yes.`,
 		},
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
@@ -66,7 +66,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		if (restacked.type === "failure") {
 			return failure(
 				preMergeGraphiteFailure(restacked.failure, {
-					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
+					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ji:flow:land.`,
 				}),
 			);
 		}
@@ -83,7 +83,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			return failure(
 				landStackFailure(formatRemainingSubmitRestackRequirements(remainingRestack.value), {
 					suggestedAction:
-						"Free or detach the holding worktrees, restack the stack, then rerun /sdl:flow:land.",
+						"Free or detach the holding worktrees, restack the stack, then rerun /ji:flow:land.",
 				}),
 			);
 		}
@@ -97,7 +97,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	if (result.type === "failure") {
 		return failure(
 			preMergeGraphiteFailure(result.failure, {
-				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
+				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ji:flow:land.`,
 			}),
 		);
 	}

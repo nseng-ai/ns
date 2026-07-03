@@ -2,7 +2,7 @@
 
 This tree is part architecture map and part migration task list.
 
-Structure *inside* a container package — which units earn `sdl.subpackages` rank, naming, and importer rules — is governed by [`docs/subpackage-conventions.md`](../../docs/subpackage-conventions.md) (ADR 0022/0023).
+Structure *inside* a container package — which units earn `ji.subpackages` rank, naming, and importer rules — is governed by [`docs/subpackage-conventions.md`](../../docs/subpackage-conventions.md) (ADR 0022/0023).
 
 ## Top-level packages
 

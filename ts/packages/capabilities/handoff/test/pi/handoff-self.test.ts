@@ -54,7 +54,7 @@ describe("handoff:self extension", () => {
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
 		expect(prompt).toContain("derive_handoff_slug_from_content");
 		expect(prompt).toContain(`workflow_id: ${workflowId}`);
-		expect(prompt).toContain("After `sdl handoff create` succeeds, call handoff_self_queue_pickup");
+		expect(prompt).toContain("After `ji handoff create` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain("do not clear context or pick up the handoff");
 		expect(prompt).toContain(
 			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.",
@@ -435,9 +435,9 @@ describe("handoff:self pure helpers", () => {
 		expect(prompt).toContain("This is a /handoff:self request.");
 		expect(prompt).toContain("workflow_id: <workflow-id>");
 		expect(prompt).toContain(
-			"If `sdl handoff create` reports an existing artifact, stop; do not overwrite and do not clear context or pick up the handoff.",
+			"If `ji handoff create` reports an existing artifact, stop; do not overwrite and do not clear context or pick up the handoff.",
 		);
-		expect(prompt).toContain("After `sdl handoff create` succeeds, call handoff_self_queue_pickup");
+		expect(prompt).toContain("After `ji handoff create` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain(
 			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.",
 		);

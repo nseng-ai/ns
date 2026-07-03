@@ -124,7 +124,7 @@ In SDL, `SdlExtensionApi.extensions` remains available only for genuinely projec
 extension-owned dynamic data. Do not use it to transport first-party SDK/capability values between
 packages; promote those values to typed SDK fields, Capability API parameters, or gateway seams. For
 example, prefer `ctx.renderCapabilities: RenderCapabilities` over
-`ctx.extensions?.["sdl.clinkr.caps"]`.
+`ctx.extensions?.["ji.clinkr.caps"]`.
 
 ## Time seams
 
@@ -135,16 +135,16 @@ Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sd
 The repository TypeScript style guard tests run adversarial self-review cases and enforce these uniquely
 greppable rules through `just ts-test-typescript-style-guard`:
 
-- `SDL_TS_BAN_AS_UNKNOWN_AS`: `as unknown as T` is banned everywhere in TypeScript, including tests. It
+- `JI_TS_BAN_AS_UNKNOWN_AS`: `as unknown as T` is banned everywhere in TypeScript, including tests. It
   launders the type instead of modeling the fixture or boundary honestly.
-- `SDL_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`: first-party import aliases are banned for relative imports,
+- `JI_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`: first-party import aliases are banned for relative imports,
   `@sdl/*` workspace packages, and project-local aliases such as docs-site `@/`. Preserve source names so
   `rg SymbolName` remains reliable. Third-party import aliases are allowed when used consistently.
-- `SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS`: empty `interface X extends Y {}` aliases are banned. Use
+- `JI_TS_BAN_EMPTY_INTERFACE_EXTENDS`: empty `interface X extends Y {}` aliases are banned. Use
   `type X = Y` unless the interface adds real members.
-- `SDL_TS_BAN_RAW_PRODUCTION_TIMERS`: raw production timers are banned outside timer adapter modules and tests. Use `Clock`, `TimerScheduler`, and `unrefTimerScheduler` seams instead.
+- `JI_TS_BAN_RAW_PRODUCTION_TIMERS`: raw production timers are banned outside timer adapter modules and tests. Use `Clock`, `TimerScheduler`, and `unrefTimerScheduler` seams instead.
 
-Review-only hard ban: `SDL_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` means do not work around alias bans with
+Review-only hard ban: `JI_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` means do not work around alias bans with
 `const LocalName = ImportedName`; use the first-party source name or a third-party import alias. This is
 not enforced mechanically because legitimate constants can share the same AST shape.
 

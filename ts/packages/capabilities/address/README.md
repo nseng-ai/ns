@@ -1,6 +1,6 @@
 # @sdl/address
 
-TypeScript package for the Address Capability API and `sdl address exec ...` command face: LM-ready PR feedback download plus shared PR feedback primitives.
+TypeScript package for the Address Capability API and `ji address exec ...` command face: LM-ready PR feedback download plus shared PR feedback primitives.
 
 The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, batch mutation orchestration, checkpoints, finalization, and detail lookup — is retired and deleted from the current CLI.
 
@@ -8,8 +8,8 @@ The old addressing workflow engine — payload sessions, classification, plannin
 
 The retained foundation is:
 
-- `sdl address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
-- `sdl address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
+- `ji address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
+- `ji address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
 - Mutation primitives: `reply-review-thread`, `resolve-review-thread`, and `close-review-threads`.
 
@@ -29,22 +29,22 @@ ADR 0016 keeps dependency direction as `@sdl/address` → `@sdl/core`: lower typ
 
 ## Distribution
 
-Address operations are mounted into the repo-local SDL extension command face as `sdl address exec ...`; nothing is bundled or published:
+Address operations are mounted into the repo-local SDL extension command face as `ji address exec ...`; nothing is bundled or published:
 
-- **Install**: `just install-tools` installs the `sdl` shim.
-- **Dispatch**: inside an sdl checkout (any worktree), `sdl address exec ...` loads `.sdl/extensions/address` and invokes this package's operation handlers.
+- **Install**: `just install-tools` installs the `ji` shim.
+- **Dispatch**: inside an sdl checkout (any worktree), `ji address exec ...` loads `.ji/extensions/address` and invokes this package's operation handlers.
 - **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`).
 
 ## Local usage
 
 ```bash
-sdl address exec download-feedback --pr-number <pr-number> --format json
-sdl address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
-sdl address exec pr-checks [--pr-number <pr-number>] --format json
-sdl address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
-sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json
-sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "Fixed and validated." --format json
-printf '%s' '{"threadIds":["<THREAD_ID>"]}' | sdl address exec close-review-threads --format json
+ji address exec download-feedback --pr-number <pr-number> --format json
+ji address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+ji address exec pr-checks [--pr-number <pr-number>] --format json
+ji address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+ji address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID>"]}' | ji address exec close-review-threads --format json
 ```
 
 ## Validation

@@ -189,7 +189,7 @@ function makeLandStackPi(env: NodeJS.ProcessEnv): LandStackExtensionAPI {
 	return {
 		async exec(command, args, options = {}) {
 			if (
-				command === "sdl" &&
+				command === "ji" &&
 				args[0] === "flow" &&
 				args[1] === "exec" &&
 				args[2] === "read-graphite-branch-metadata" &&

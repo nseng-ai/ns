@@ -16,7 +16,7 @@ import {
 } from "../../src/extensions/registry.ts";
 
 const tempDirs: string[] = [];
-const previousFirstPartyExtensionSetting = process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+const previousFirstPartyExtensionSetting = process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 
 interface Workspace {
 	cwd: string;
@@ -24,26 +24,26 @@ interface Workspace {
 }
 
 async function createWorkspace(): Promise<Workspace> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-extension-registry-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-extension-registry-"));
 	tempDirs.push(directory);
 	return { cwd: join(directory, "project"), homeDir: join(directory, "home") };
 }
 
 function writeProjectExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.cwd, ".sdl", "extensions", fileName), source);
+	writeFile(join(workspace.cwd, ".ji", "extensions", fileName), source);
 }
 
 function writeGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".local", "share", "sdl", "extensions", fileName), source);
+	writeFile(join(workspace.homeDir, ".local", "share", "ji", "extensions", fileName), source);
 }
 
 function writeLegacyGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".sdl", "extensions", fileName), source);
+	writeFile(join(workspace.homeDir, ".ji", "extensions", fileName), source);
 }
 
 function writeProjectManifest(workspace: Workspace, packageName: string, manifest: unknown): void {
 	writeFile(
-		join(workspace.cwd, ".sdl", "extensions", packageName, "package.json"),
+		join(workspace.cwd, ".ji", "extensions", packageName, "package.json"),
 		JSON.stringify(manifest),
 	);
 }
@@ -69,15 +69,15 @@ export default defineExtension({
 }
 
 beforeAll(() => {
-	process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+	process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
 });
 
 afterAll(() => {
 	if (previousFirstPartyExtensionSetting === undefined) {
-		delete process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		delete process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 		return;
 	}
-	process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;
+	process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;
 });
 
 afterEach(() => {
@@ -99,7 +99,7 @@ describe("extension registry", () => {
 
 	test("bundled first-party manifests contribute commands without kernel imports", async () => {
 		const workspace = await createWorkspace();
-		delete process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		delete process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 		try {
 			const loaded = await loadSdlCommandCatalog({
 				cwd: workspace.cwd,
@@ -113,7 +113,7 @@ describe("extension registry", () => {
 				source: { level: "first-party" },
 			});
 		} finally {
-			process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+			process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
 		}
 	});
 
@@ -205,7 +205,7 @@ describe("extension registry", () => {
 	test("manifest metadata customizes catalog help without importing command entries", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			sdl: {
+			ji: {
 				commands: [
 					{
 						name: "hello",
@@ -217,7 +217,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "hello.ts"),
+			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import during discovery');\n",
 		);
 
@@ -258,7 +258,7 @@ describe("extension registry", () => {
 	test("listing command infos preserve package manifest metadata without importing", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			sdl: {
+			ji: {
 				commands: [
 					{
 						name: "hello",
@@ -270,7 +270,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "hello.ts"),
+			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import package commands for listing');\n",
 		);
 
@@ -293,7 +293,7 @@ describe("extension registry", () => {
 	test("catalog carries manifest group metadata", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "handoff", {
-			sdl: {
+			ji: {
 				description: "Coordinate handoff artifacts.",
 				group: "handoff",
 				commands: [
@@ -307,7 +307,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "handoff", "src", "list.ts"),
+			join(workspace.cwd, ".ji", "extensions", "handoff", "src", "list.ts"),
 			commandEntry("list", "list"),
 		);
 
@@ -331,13 +331,13 @@ describe("extension registry", () => {
 	test("listing command infos preserve manifest group metadata without importing modules", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "handoff", {
-			sdl: {
+			ji: {
 				group: "handoff",
 				commands: [{ name: "create", description: "Create handoffs.", entry: "./src/create.ts" }],
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "handoff", "src", "create.ts"),
+			join(workspace.cwd, ".ji", "extensions", "handoff", "src", "create.ts"),
 			"throw new Error('group manifest entries should not load for listing');\n",
 		);
 
@@ -377,7 +377,7 @@ describe("extension registry", () => {
 		]);
 		expect(loaded.diagnostics).toEqual([
 			expect.objectContaining({
-				code: "sdl_extension_contribution_import_failed",
+				code: "ji_extension_contribution_import_failed",
 				commandName: "hello",
 			}),
 		]);
@@ -405,7 +405,7 @@ describe("extension registry", () => {
 	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			sdl: {
+			ji: {
 				commands: [
 					{ name: "hello", description: "Say hello.", entry: "./src/commands.ts" },
 					{ name: "bye", description: "Say bye.", entry: "./src/commands.ts" },
@@ -413,7 +413,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "commands.ts"),
+			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "commands.ts"),
 			`
 import { defineExtension, ok } from "@sdl/kernel/sdk";
 
@@ -461,10 +461,10 @@ export default defineExtension({
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "one.ts", commandEntry("one", "one"));
 		writeProjectManifest(workspace, "pkg", {
-			sdl: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
+			ji: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "one.ts"),
+			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "one.ts"),
 			commandEntry("one", "pkg"),
 		);
 
@@ -480,13 +480,13 @@ export default defineExtension({
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "handoff.ts", commandEntry("handoff", "top"));
 		writeProjectManifest(workspace, "handoff", {
-			sdl: {
+			ji: {
 				group: "handoff",
 				commands: [{ name: "list", description: "List", entry: "./src/list.ts" }],
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".sdl", "extensions", "handoff", "src", "list.ts"),
+			join(workspace.cwd, ".ji", "extensions", "handoff", "src", "list.ts"),
 			commandEntry("list", "list"),
 		);
 
@@ -520,7 +520,7 @@ export default defineExtension({
 		const command = await loadSelectedSdlCommand(selected);
 		expect(command).toMatchObject({
 			ok: false,
-			diagnostic: { code: "sdl_extension_contribution_import_failed", commandName: "throws" },
+			diagnostic: { code: "ji_extension_contribution_import_failed", commandName: "throws" },
 		});
 	});
 
