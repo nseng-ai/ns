@@ -53,7 +53,7 @@ Each context-writing phase is expected to explicitly invoke `grill-me` for focus
 - Do not create or reserve context slots for historical or absent package names such as `sdl-initiatives` or `sdl-reviewer` unless tracked implementation returns as a real package.
 - Do not invent a documentation generator, linter, registry, YAML/frontmatter schema, UUIDs, or hidden Objective state. The Markdown contexts and map are the contract.
 - Do not auto-generate glossaries from AST/source scans. Source inspection is evidence; the value is human-led vocabulary choice and ambiguity resolution.
-- Do not turn package-context phases into broad implementation projects. If a context session reveals code/docs/product terminology mismatch, record the mismatch and handle any required alignment as a focused follow-up rather than expanding the context slice.
+- Do not turn package-context phases into broad implementation projects. If a context session reveals obvious, source-backed drift that is small/local and needs no new terminology or product decision, fix it inline. If the mismatch is broad, ambiguous, or decision-bearing, record it and handle any required alignment as a focused follow-up rather than expanding the context slice.
 - Do not write ADRs unless the `grill-with-docs` three-criteria bar fires: hard to reverse, surprising without context, and a real trade-off.
 
 ## Completion Criteria
@@ -67,7 +67,7 @@ Progress is keepable when:
 - A `CONTEXT.md`, `CONTEXT-MAP.md`, ADR, or related `grill-with-docs`-maintained file better reflects current checked-in repo reality.
 - Canonical terms, relationships, and `Avoid:` aliases are sharper and easier for contributors or agents to apply.
 - Cross-context terminology collisions are resolved locally or recorded concisely in the map.
-- Stale ontology claims are removed or rebaselined from source evidence.
+- Stale ontology claims are removed or rebaselined from source evidence, including opportunistic fixes for obvious drift that are small, local, and decision-free.
 
 Do not keep changes that:
 
@@ -110,7 +110,7 @@ Assumptions:
 
 Risks:
 
-- Inventory drift remains the dominant risk and has materialized again since the last rebaseline: `clinkr` graduated out of `@sdl/core` into the standalone `@sdl/clinkr` package (`ts/packages/infra/clinkr`), the public SDL extension API was extracted from a `@sdl/sdl/sdk` subpath into the standalone `sdl-sdk` package (`ts/packages/sdl-sdk`), and `@sdl/extension-kit` was renamed to `@sdl/capability-kit` (`ts/packages/sdl-capability-kit`). The tree is now 24 packages, not 23. Mitigation: handle drift as focused rebaseline/update phases against current source, never by silently widening an unrelated package session.
+- Inventory drift remains the dominant risk and has materialized again since the last rebaseline: `clinkr` graduated out of `@sdl/core` into the standalone `@sdl/clinkr` package (`ts/packages/infra/clinkr`), the public SDL extension API was extracted from a `@sdl/sdl/sdk` subpath into the standalone `sdl-sdk` package (`ts/packages/sdl-sdk`), and `@sdl/extension-kit` was renamed to `@sdl/capability-kit` (`ts/packages/sdl-capability-kit`). The tree is now 24 packages, not 23. Mitigation: fix obvious, source-backed drift inline when it is small/local and decision-free; handle broader drift as focused rebaseline/update phases against current source, never by silently widening an unrelated package session.
 - Map-vs-tree count drift (re-opened): `CONTEXT-MAP.md`'s Inventory Baseline says **23 repo-local packages** with two unscoped exceptions, but the tree now has **24** with three unscoped exceptions (`sdlcc`, `sdl-flow`, `sdl-sdk`). The map's Planned section is correct (its five Planned names all exist), but its Inventory Baseline count and naming-exception note lag again. Mitigation: re-derive the count and refresh the map's Inventory Baseline; record per-package decisions for the undecided packages; do not let the baseline drift silently.
 - Undecided packages absent from the map's Contexts sections (open): `@sdl/core`, `@sdl/clinkr`, `@sdl/pr-address`, `@sdl/autobranch`, `@sdl/domain-primitives-transitional`, `@sdl/capability-kit`, `sdlcc`, `sdl-flow`, and `sdl-sdk` have no recorded planned/accepted/out-of-scope decision. Mitigation: record an explicit decision per package rather than leaving silent absence.
 - Cross-context ambiguity can grow into unresolved debate. Mitigation: local contexts pick package-local canonical terms; the map records only concise resolved collisions, not open-ended discussion.
