@@ -1,11 +1,11 @@
 import { configDefaults, defineConfig } from "vitest/config";
 
-import { allSpecializedTestGlobs, sharedTestConfig, testGlobsFor } from "./vitest.shared.ts";
+import { allSpecializedTestGlobs, defaultTestGlobs, sharedTestConfig } from "./vitest.shared.ts";
 
 export default defineConfig({
 	test: {
 		...sharedTestConfig,
-		include: [...testGlobsFor()],
+		include: [...defaultTestGlobs()],
 		exclude: [...configDefaults.exclude, ...allSpecializedTestGlobs()],
 	},
 });

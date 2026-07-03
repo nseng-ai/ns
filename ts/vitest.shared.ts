@@ -4,30 +4,49 @@ const PACKAGE_TEST_ROOT_GLOBS = [
 	"../.ji/reviews/*/tools/*/test",
 ] as const;
 
-export function testGlobsFor(subdir?: string): ReadonlyArray<string> {
-	if (subdir === undefined) {
-		return PACKAGE_TEST_ROOT_GLOBS.map((testRoot) => `${testRoot}/**/*.test.ts`);
-	}
-
-	return PACKAGE_TEST_ROOT_GLOBS.flatMap((testRoot) => [
-		`${testRoot}/${subdir}/**/*.test.ts`,
-		`${testRoot}/**/${subdir}/**/*.test.ts`,
-	]);
+export interface SpecializedTestGlobFamilies {
+	readonly direct: ReadonlyArray<string>;
+	readonly nested: ReadonlyArray<string>;
 }
 
-export const SPECIALIZED_TEST_GLOBS_BY_CATEGORY = {
-	integration: testGlobsFor("integration"),
-	"typescript-style-guard": testGlobsFor("typescript-style-guard"),
+export function defaultTestGlobs(): ReadonlyArray<string> {
+	return PACKAGE_TEST_ROOT_GLOBS.map((testRoot) => `${testRoot}/**/*.test.ts`);
+}
+
+function specializedTestGlobFamiliesFor(subdir: string): SpecializedTestGlobFamilies {
+	return {
+		direct: PACKAGE_TEST_ROOT_GLOBS.map((testRoot) => `${testRoot}/${subdir}/**/*.test.ts`),
+		nested: PACKAGE_TEST_ROOT_GLOBS.map((testRoot) => `${testRoot}/**/${subdir}/**/*.test.ts`),
+	};
+}
+
+export const SPECIALIZED_TEST_GLOB_FAMILIES_BY_CATEGORY = {
+	integration: specializedTestGlobFamiliesFor("integration"),
+	"typescript-style-guard": specializedTestGlobFamiliesFor("typescript-style-guard"),
 } as const;
 
-export type SpecializedTestCategory = keyof typeof SPECIALIZED_TEST_GLOBS_BY_CATEGORY;
+export type SpecializedTestCategory = keyof typeof SPECIALIZED_TEST_GLOB_FAMILIES_BY_CATEGORY;
+
+export function globFamiliesForTestCategory(
+	category: SpecializedTestCategory,
+): SpecializedTestGlobFamilies {
+	return SPECIALIZED_TEST_GLOB_FAMILIES_BY_CATEGORY[category];
+}
 
 export function globsForTestCategory(category: SpecializedTestCategory): ReadonlyArray<string> {
-	return SPECIALIZED_TEST_GLOBS_BY_CATEGORY[category];
+	return flattenSpecializedTestGlobFamilies(globFamiliesForTestCategory(category));
 }
 
 export function allSpecializedTestGlobs(): ReadonlyArray<string> {
-	return Object.values(SPECIALIZED_TEST_GLOBS_BY_CATEGORY).flat();
+	return Object.values(SPECIALIZED_TEST_GLOB_FAMILIES_BY_CATEGORY).flatMap(
+		flattenSpecializedTestGlobFamilies,
+	);
+}
+
+function flattenSpecializedTestGlobFamilies(
+	families: SpecializedTestGlobFamilies,
+): ReadonlyArray<string> {
+	return [...families.direct, ...families.nested];
 }
 
 export const sharedTestConfig = {
