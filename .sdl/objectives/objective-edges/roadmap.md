@@ -33,10 +33,16 @@
       keeping the STATUS word "open" with a footer legend; `--minimal` shows both facts;
       no-frontmatter records render byte-identically; full `just` green. Live before/after
       output for the two seed records lands with the seed row.
-- [ ] Skill updates: objective-create, objective-update, and objective-close own edge
+- [x] Skill updates: objective-create, objective-update, and objective-close own edge
       mutation and blocked judgment — close flows re-judge edge counterparts' Blocked Sentences,
       update flows re-judge the record's own sentence; add hidden `sdl objective exec` helpers
       only where a skill needs a deterministic assist.
+      Evidence: branch `objective-edges-skill-updates` (runner step commit); umbrella `objective`
+      skill gained a Record Frontmatter grounding section; the three step skills document the
+      mirrored two-file edit, own-sentence and counterpart re-judgment, and post-edit
+      `sdl objective check`; "No YAML/frontmatter" non-goals now carry the blocked+edges
+      exception. No hidden exec helper added — per-slug check already gives the deterministic
+      mirror verification; the parked mutation-CLI row stays the escalation path.
 - [ ] Seed the live instances: encode the `checkout-free-sdl-distribution ↔
   ship-objectives-to-customers` edge with perspective-correct annotations on both sides and a
       Blocked Sentence on `ship-objectives-to-customers`.
