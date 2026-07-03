@@ -138,11 +138,9 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("Do not include secrets");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(prompt).toContain("Refactor execution strategy");
-		expect(prompt).toContain("deterministic AST/codemod tooling");
-		expect(prompt).toContain("`ts-morph-analyze`");
-		expect(prompt).toContain("`text.replace()`");
-		expect(prompt).toContain("`refactor-swarm`");
-		expect(prompt).toContain("stale-terminology check");
+		expect(prompt).toContain("skills/enriched-plan-save/references/refactor-execution-strategy.md");
+		expect(prompt).toContain("same-shape edits across multiple files");
+		expect(prompt).toContain("stale-terminology grep/equivalent check");
 		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
 		expect(prompt).toContain("Recommended saved plan sections");
 		expect(prompt).toContain("External/off-repo research context");
@@ -181,14 +179,16 @@ describe("buildWritePlanPrompt", () => {
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("ji flow cp");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("deterministic AST/codemod tooling");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`ts-morph-analyze`");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`text.replace()`");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`refactor-swarm`");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain(
+			"skills/enriched-plan-save/references/refactor-execution-strategy.md",
+		);
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("same-shape edits across multiple files");
 		expect(checkedInContent).toContain("Refactor execution strategy:");
-		expect(checkedInContent).toContain("`ts-morph-analyze`");
-		expect(checkedInContent).toContain("semantic doc/spec changes");
-		expect(checkedInContent).toContain("stale-terminology check");
+		expect(checkedInContent).toContain(
+			"skills/enriched-plan-save/references/refactor-execution-strategy.md",
+		);
+		expect(checkedInContent).toContain("same-shape edits across multiple files");
+		expect(checkedInContent).toContain("stale-terminology grep/equivalent check");
 		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
 		expect(checkedInContent).toContain("Subagent orchestration opportunities:");
 		expect(checkedInContent).toContain(
@@ -263,10 +263,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
-		expect(prompt).toContain("deterministic AST/codemod tooling");
-		expect(prompt).toContain("`ts-morph-analyze`");
-		expect(prompt).toContain("`refactor-swarm`");
-		expect(prompt).toContain("precise edits for 1-4 files");
+		expect(prompt).toContain("skills/enriched-plan-save/references/refactor-execution-strategy.md");
+		expect(prompt).toContain("same-shape edits across multiple files");
+		expect(prompt).toContain("explicitly choose an execution strategy");
 		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
 		expect(prompt).toContain("Do not create a branch or write Branch Memory");
 		expect(prompt).not.toContain("GRILL_UI_CONTRACT");

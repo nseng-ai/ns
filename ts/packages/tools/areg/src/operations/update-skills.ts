@@ -3,6 +3,7 @@ import type { Result } from "@ji/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
+import type { AregGithubSkillFileResult, AregGithubSkillListResult } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { parseInspectedLockfile, type LockfileSkill } from "./lockfile.ts";
 import { resolveProjectAgents } from "./project-agents.ts";
@@ -45,13 +46,13 @@ export const updateSkillsResultSchema = z.object({
 
 export type UpdateSkillsRequest = z.infer<typeof updateSkillsRequestSchema>;
 export type UpdateSkillsResult = z.infer<typeof updateSkillsResultSchema>;
-interface SelectedUpdate {
-	skill: string;
-	source: string;
+interface SelectedUpdate extends z.infer<typeof selectedUpdateSchema> {
 	skillPath?: string;
 }
 
 type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
+
+type PreflightOutcome = { ok: true } | { ok: false; code: string; message: string };
 
 export async function runUpdateSkills(
 	ctx: AregCliContext,
@@ -220,45 +221,71 @@ async function preflightSelectedUpdate(
 			path: update.skillPath,
 			env: ctx.env,
 		});
-		return githubPreflightResult(update, result);
+		return preflightOutcomeResult(update, normalizeSkillFilePreflightResult(result));
 	}
 
 	const result = await ctx.github.listSkillDirectoryNames({ repo: update.source, env: ctx.env });
 	if (result.type === "ok") {
 		if (result.skillNames.includes(update.skill)) return { ok: true, value: undefined };
-		return {
+		return preflightOutcomeResult(update, {
 			ok: false,
-			error: {
-				code: "skill_source_preflight_failed",
-				message: `${update.skill} was not found in ${update.source}/skills before update`,
-			},
-		};
+			code: "skill_source_preflight_failed",
+			message: "not found in skills directory before update",
+		});
 	}
-	return githubPreflightResult(update, result);
+	return preflightOutcomeResult(update, normalizeSkillListPreflightError(result));
 }
 
-function githubPreflightResult(
-	update: SelectedUpdate,
-	result:
-		| Awaited<ReturnType<AregCliContext["github"]["checkSkillFile"]>>
-		| Awaited<ReturnType<AregCliContext["github"]["listSkillDirectoryNames"]>>,
-): Result<undefined> {
-	if (result.type === "found") return { ok: true, value: undefined };
-	if (result.type === "ok") return { ok: true, value: undefined };
-	if (result.type === "error") {
-		return {
-			ok: false,
-			error: {
+function normalizeSkillFilePreflightResult(result: AregGithubSkillFileResult): PreflightOutcome {
+	switch (result.type) {
+		case "found":
+			return { ok: true };
+		case "missing":
+		case "auth-error":
+			return {
+				ok: false,
+				code: "skill_source_preflight_failed",
+				message: result.message,
+			};
+		case "error":
+			return {
+				ok: false,
 				code: result.error.code,
-				message: `${update.skill} from ${update.source}: ${result.error.message}`,
-			},
-		};
+				message: result.error.message,
+			};
 	}
+}
+
+function normalizeSkillListPreflightError(
+	result: Exclude<AregGithubSkillListResult, { type: "ok" }>,
+): PreflightOutcome {
+	switch (result.type) {
+		case "missing":
+		case "auth-error":
+			return {
+				ok: false,
+				code: "skill_source_preflight_failed",
+				message: result.message,
+			};
+		case "error":
+			return {
+				ok: false,
+				code: result.error.code,
+				message: result.error.message,
+			};
+	}
+}
+
+function preflightOutcomeResult(
+	update: SelectedUpdate,
+	outcome: PreflightOutcome,
+): Result<undefined> {
+	if (outcome.ok) return { ok: true, value: undefined };
 	return {
 		ok: false,
 		error: {
-			code: "skill_source_preflight_failed",
-			message: `${update.skill} from ${update.source}: ${result.message}`,
+			code: outcome.code,
+			message: `${update.skill} from ${update.source}: ${outcome.message}`,
 		},
 	};
 }
