@@ -7,7 +7,6 @@ export {
 	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-	specializedCommandBackedSkill,
 	specializedCommandBackedSkillsFromSpecs,
 } from "@ji/core/command";
 export type {

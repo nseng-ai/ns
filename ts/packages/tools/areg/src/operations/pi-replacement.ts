@@ -1,7 +1,5 @@
 import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
 
-export { commandBackedSkillSurface as lookupPiReplacementCommand } from "@ji/command-backed-skill-registry";
-
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];
 }

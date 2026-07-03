@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit } from "@ji/clinkr";
+import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
 import { optionalEntries, optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
@@ -21,7 +22,6 @@ import {
 	type DoctorSkillFindingSeverity,
 } from "./doctor-skills-severity.ts";
 import { parsePiSettings } from "./pi-settings.ts";
-import { lookupPiReplacementCommand } from "./pi-replacement.ts";
 import { collectCheckSkillInspections, collectSkillKindInspections } from "./project-inspection.ts";
 import { buildSkillKindRecords, type SkillKindRecord } from "./skill-kind-inference.ts";
 import { isAgentsSkillMirror, isClaudeSkillMirror } from "./skill-mirror-conventions.ts";
@@ -354,7 +354,7 @@ function replacementFindings(
 	}
 	for (const skill of [...excludedSkills].sort()) {
 		if (records.some((record) => record.skill === skill)) continue;
-		const surface = lookupPiReplacementCommand(skill);
+		const surface = commandBackedSkillSurface(skill);
 		findings.push(
 			replacementFinding(skill, surface, {
 				code: "excluded-skill-without-replacement",

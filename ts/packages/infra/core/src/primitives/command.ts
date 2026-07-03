@@ -114,22 +114,19 @@ export interface CommandBackedSkillRegistration {
 	kind: CommandBackedSkillRegistrationKind;
 }
 
-export function specializedCommandBackedSkill(
-	skillName: string,
-	surface: string,
-): CommandBackedSkillRegistration {
-	return { skillName, surface, kind: "specialized-command" };
-}
-
 export interface SpecializedCommandBackedSkillSpec {
 	skillName: string;
-	commandName: string;
+	surface: string;
 }
 
 export function specializedCommandBackedSkillsFromSpecs(
 	specs: readonly SpecializedCommandBackedSkillSpec[],
 ): readonly CommandBackedSkillRegistration[] {
-	return specs.map((spec) => specializedCommandBackedSkill(spec.skillName, spec.commandName));
+	return specs.map((spec) => ({
+		skillName: spec.skillName,
+		surface: spec.surface,
+		kind: "specialized-command",
+	}));
 }
 
 export interface CommandPrefix {

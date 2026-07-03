@@ -37,8 +37,9 @@ describe("Objective Pi extension parity metadata", () => {
 		});
 	});
 
-	test("derives CLI parity text from explicit Objective CLI subcommands", () => {
+	test("derives command names and CLI parity text from explicit Objective CLI subcommands", () => {
 		for (const spec of objectiveCommandSpecs) {
+			expect(spec.commandName).toBe(`ji:objective:${spec.cliSubcommand}`);
 			expect(objectiveParity).toContainEqual(
 				expect.objectContaining({
 					surface: spec.commandName,
