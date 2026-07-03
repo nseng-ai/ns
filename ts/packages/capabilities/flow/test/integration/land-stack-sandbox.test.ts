@@ -68,11 +68,18 @@ interface SandboxPr {
 	mergedAt: string | null;
 }
 
+interface SandboxPrOptions {
+	readonly number: number;
+	readonly branch: string;
+	readonly baseRefName: string;
+	readonly headRefOid: string;
+}
+
 interface SandboxTopologyRow {
 	branch: string;
 	parent?: string;
 	children?: string[];
-	trunk?: boolean;
+	isTrunk?: boolean;
 }
 
 interface SandboxCommandLogEntry {
@@ -87,7 +94,7 @@ interface SandboxState {
 	commandLog: SandboxCommandLogEntry[];
 	gtGetFailures?: Record<string, { code: number; stderr: string }>;
 	gtRestackFailures?: Record<string, { code: number; stderr: string }>;
-	allowDeletingCurrentBranch?: boolean;
+	canDeleteCurrentBranch?: boolean;
 }
 
 interface Sandbox {
@@ -96,6 +103,24 @@ interface Sandbox {
 	statePath: string;
 	env: NodeJS.ProcessEnv;
 	shas: Record<string, string>;
+}
+
+interface GitFixture {
+	repoRoot: string;
+	env: NodeJS.ProcessEnv;
+}
+
+interface CreateBranchWithCommitOptions {
+	readonly git: GitFixture;
+	readonly branch: string;
+	readonly startPoint: string;
+}
+
+interface CommitFileOptions {
+	readonly git: GitFixture;
+	readonly path: string;
+	readonly content: string;
+	readonly message: string;
 }
 
 interface Notification {
@@ -199,9 +224,7 @@ describe("land stack sandbox integration", () => {
 					expect(branches).toContain(FEATURE_B);
 					expect(branches).toContain(FEATURE_C);
 					expect(branches).toContain(FEATURE_D);
-					expect(
-						result.notifications.map((notification) => notification.message).join("\n"),
-					).toContain(
+					expect(notificationText(result)).toContain(
 						"gt get feature-c --downstack --no-restack --no-checkout --force --no-interactive",
 					);
 				},
@@ -217,7 +240,7 @@ describe("land stack sandbox integration", () => {
 				{
 					currentBranch: FEATURE_B,
 					state: {
-						allowDeletingCurrentBranch: true,
+						canDeleteCurrentBranch: true,
 						gtRestackFailures: {
 							[FEATURE_C]: { code: 1, stderr: "restack failed\n" },
 						},
@@ -238,11 +261,9 @@ describe("land stack sandbox integration", () => {
 					);
 					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toContain(FEATURE_B);
 
-					const notificationText = result.notifications
-						.map((notification) => notification.message)
-						.join("\n");
-					expect(notificationText).toContain(FEATURE_C);
-					expect(notificationText).not.toContain(`descendant branch ${FEATURE_D} was left`);
+					const messages = notificationText(result);
+					expect(messages).toContain(FEATURE_C);
+					expect(messages).not.toContain(`descendant branch ${FEATURE_D} was left`);
 
 					const branches = await localBranches(sandbox);
 					expect(branches).not.toContain(FEATURE_B);
@@ -262,7 +283,7 @@ describe("land stack sandbox integration", () => {
 					currentBranch: FEATURE_B,
 					state: {
 						topology: [
-							{ branch: TRUNK, children: [FEATURE_A], trunk: true },
+							{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 							{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B, FEATURE_C] },
 							{ branch: FEATURE_B, parent: FEATURE_A, children: [] },
 							{ branch: FEATURE_C, parent: FEATURE_A, children: [] },
@@ -273,9 +294,9 @@ describe("land stack sandbox integration", () => {
 					const result = await executeSandboxLanding(sandbox);
 
 					expect(result.outcome.type).toBe("failure");
-					expect(
-						result.notifications.map((notification) => notification.message).join("\n"),
-					).toContain("Refusing to land: the stack forks at feature-a.");
+					expect(notificationText(result)).toContain(
+						"Refusing to land: the stack forks at feature-a.",
+					);
 					const log = await readCommandLog(sandbox);
 					expect(commandArgs(log, "gh", "pr", "merge")).toEqual([]);
 					expect(commandArgs(log, "gt", "get")).toEqual([]);
@@ -301,7 +322,7 @@ describe("land stack sandbox integration", () => {
 					currentBranch: FEATURE_A,
 					state: {
 						topology: [
-							{ branch: TRUNK, children: [FEATURE_A], trunk: true },
+							{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 							{ branch: FEATURE_A, parent: TRUNK, children: [ROGUE] },
 							{ branch: ROGUE, parent: FEATURE_A, children: [] },
 						],
@@ -321,9 +342,7 @@ describe("land stack sandbox integration", () => {
 					expect(commandArgs(log, "gt", "delete")).toEqual([]);
 					const branches = await localBranches(sandbox);
 					expect(branches).toContain(FEATURE_A);
-					expect(
-						result.notifications.map((notification) => notification.message).join("\n"),
-					).toContain("Inspect the unexpected children");
+					expect(notificationText(result)).toContain("Inspect the unexpected children");
 				},
 			);
 		},
@@ -366,6 +385,10 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	return { outcome, notifications };
 }
 
+function notificationText(result: { readonly notifications: readonly Notification[] }): string {
+	return result.notifications.map((notification) => notification.message).join("\n");
+}
+
 async function withSandbox(
 	options: { currentBranch: string; state?: Partial<SandboxState> },
 	run: (sandbox: Sandbox) => Promise<void>,
@@ -384,7 +407,8 @@ async function withSandbox(
 		await mkdir(repoRoot, { recursive: true });
 		await mkdir(binDir, { recursive: true });
 		await writeShims(binDir);
-		const shas = await initializeGitStack(repoRoot, env, options.currentBranch);
+		const git = { repoRoot, env } satisfies GitFixture;
+		const shas = await initializeGitStack(git, options.currentBranch);
 		await writeState(statePath, buildInitialState(shas, options.state));
 		await run({ tempRoot, repoRoot, statePath, env, shas });
 	} finally {
@@ -398,73 +422,81 @@ async function withSandbox(
 }
 
 async function initializeGitStack(
-	repoRoot: string,
-	env: NodeJS.ProcessEnv,
+	git: GitFixture,
 	currentBranch: string,
 ): Promise<Record<string, string>> {
-	await runRequiredCommand({ cwd: repoRoot, env, command: "git", args: ["init", "-b", TRUNK] });
 	await runRequiredCommand({
-		cwd: repoRoot,
-		env,
+		cwd: git.repoRoot,
+		env: git.env,
+		command: "git",
+		args: ["init", "-b", TRUNK],
+	});
+	await runRequiredCommand({
+		cwd: git.repoRoot,
+		env: git.env,
 		command: "git",
 		args: ["config", "user.email", "test@example.com"],
 	});
 	await runRequiredCommand({
-		cwd: repoRoot,
-		env,
+		cwd: git.repoRoot,
+		env: git.env,
 		command: "git",
 		args: ["config", "user.name", "SDL Test"],
 	});
-	await commitFile(repoRoot, env, "README.md", "initial\n", "initial");
-	await createBranchWithCommit(repoRoot, env, FEATURE_A, TRUNK);
-	await createBranchWithCommit(repoRoot, env, FEATURE_B, FEATURE_A);
-	await createBranchWithCommit(repoRoot, env, FEATURE_C, FEATURE_B);
-	await createBranchWithCommit(repoRoot, env, FEATURE_D, FEATURE_B);
+	await commitFile({ git, path: "README.md", content: "initial\n", message: "initial" });
+	await createBranchWithCommit({ git, branch: FEATURE_A, startPoint: TRUNK });
+	await createBranchWithCommit({ git, branch: FEATURE_B, startPoint: FEATURE_A });
+	await createBranchWithCommit({ git, branch: FEATURE_C, startPoint: FEATURE_B });
+	await createBranchWithCommit({ git, branch: FEATURE_D, startPoint: FEATURE_B });
 	await runRequiredCommand({
-		cwd: repoRoot,
-		env,
+		cwd: git.repoRoot,
+		env: git.env,
 		command: "git",
 		args: ["checkout", currentBranch],
 	});
 	return {
-		[FEATURE_A]: await revParse(repoRoot, env, FEATURE_A),
-		[FEATURE_B]: await revParse(repoRoot, env, FEATURE_B),
-		[FEATURE_C]: await revParse(repoRoot, env, FEATURE_C),
-		[FEATURE_D]: await revParse(repoRoot, env, FEATURE_D),
+		[FEATURE_A]: await revParse(git, FEATURE_A),
+		[FEATURE_B]: await revParse(git, FEATURE_B),
+		[FEATURE_C]: await revParse(git, FEATURE_C),
+		[FEATURE_D]: await revParse(git, FEATURE_D),
 	};
 }
 
-async function createBranchWithCommit(
-	repoRoot: string,
-	env: NodeJS.ProcessEnv,
-	branch: string,
-	startPoint: string,
-): Promise<void> {
+async function createBranchWithCommit(options: CreateBranchWithCommitOptions): Promise<void> {
 	await runRequiredCommand({
-		cwd: repoRoot,
-		env,
+		cwd: options.git.repoRoot,
+		env: options.git.env,
 		command: "git",
-		args: ["checkout", "-b", branch, startPoint],
+		args: ["checkout", "-b", options.branch, options.startPoint],
 	});
-	await commitFile(repoRoot, env, `${branch}.txt`, `${branch}\n`, branch);
+	await commitFile({
+		git: options.git,
+		path: `${options.branch}.txt`,
+		content: `${options.branch}\n`,
+		message: options.branch,
+	});
 }
 
-async function commitFile(
-	repoRoot: string,
-	env: NodeJS.ProcessEnv,
-	path: string,
-	content: string,
-	message: string,
-): Promise<void> {
-	await writeFile(join(repoRoot, path), content);
-	await runRequiredCommand({ cwd: repoRoot, env, command: "git", args: ["add", path] });
-	await runRequiredCommand({ cwd: repoRoot, env, command: "git", args: ["commit", "-m", message] });
+async function commitFile(options: CommitFileOptions): Promise<void> {
+	await writeFile(join(options.git.repoRoot, options.path), options.content);
+	await runRequiredCommand({
+		cwd: options.git.repoRoot,
+		env: options.git.env,
+		command: "git",
+		args: ["add", options.path],
+	});
+	await runRequiredCommand({
+		cwd: options.git.repoRoot,
+		env: options.git.env,
+		command: "git",
+		args: ["commit", "-m", options.message],
+	});
 }
 
-async function revParse(repoRoot: string, env: NodeJS.ProcessEnv, ref: string): Promise<string> {
+async function revParse(git: GitFixture, ref: string): Promise<string> {
 	const result = await runRequiredCommand({
-		cwd: repoRoot,
-		env,
+		cwd: git.repoRoot,
+		env: git.env,
 		command: "git",
 		args: ["rev-parse", ref],
 	});
@@ -477,13 +509,33 @@ function buildInitialState(
 ): SandboxState {
 	return {
 		prs: overrides.prs ?? {
-			[FEATURE_A]: pr(101, FEATURE_A, TRUNK, shas[FEATURE_A] ?? ""),
-			[FEATURE_B]: pr(102, FEATURE_B, FEATURE_A, shas[FEATURE_B] ?? ""),
-			[FEATURE_C]: pr(103, FEATURE_C, FEATURE_B, shas[FEATURE_C] ?? ""),
-			[FEATURE_D]: pr(104, FEATURE_D, FEATURE_B, shas[FEATURE_D] ?? ""),
+			[FEATURE_A]: pr({
+				number: 101,
+				branch: FEATURE_A,
+				baseRefName: TRUNK,
+				headRefOid: shas[FEATURE_A] ?? "",
+			}),
+			[FEATURE_B]: pr({
+				number: 102,
+				branch: FEATURE_B,
+				baseRefName: FEATURE_A,
+				headRefOid: shas[FEATURE_B] ?? "",
+			}),
+			[FEATURE_C]: pr({
+				number: 103,
+				branch: FEATURE_C,
+				baseRefName: FEATURE_B,
+				headRefOid: shas[FEATURE_C] ?? "",
+			}),
+			[FEATURE_D]: pr({
+				number: 104,
+				branch: FEATURE_D,
+				baseRefName: FEATURE_B,
+				headRefOid: shas[FEATURE_D] ?? "",
+			}),
 		},
 		topology: overrides.topology ?? [
-			{ branch: TRUNK, children: [FEATURE_A], trunk: true },
+			{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 			{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
 			{ branch: FEATURE_B, parent: FEATURE_A, children: [FEATURE_C, FEATURE_D] },
 			{ branch: FEATURE_C, parent: FEATURE_B, children: [] },
@@ -495,24 +547,24 @@ function buildInitialState(
 		...(overrides.gtRestackFailures === undefined
 			? {}
 			: { gtRestackFailures: overrides.gtRestackFailures }),
-		...(overrides.allowDeletingCurrentBranch === undefined
+		...(overrides.canDeleteCurrentBranch === undefined
 			? {}
-			: { allowDeletingCurrentBranch: overrides.allowDeletingCurrentBranch }),
+			: { canDeleteCurrentBranch: overrides.canDeleteCurrentBranch }),
 	};
 }
 
-function pr(number: number, branch: string, baseRefName: string, headRefOid: string): SandboxPr {
+function pr(options: SandboxPrOptions): SandboxPr {
 	return {
-		number,
-		title: `PR ${number}`,
-		body: `Body for PR ${number}`,
+		number: options.number,
+		title: `PR ${options.number}`,
+		body: `Body for PR ${options.number}`,
 		state: "OPEN",
 		isDraft: false,
-		headRefName: branch,
-		baseRefName,
-		headRefOid,
+		headRefName: options.branch,
+		baseRefName: options.baseRefName,
+		headRefOid: options.headRefOid,
 		mergeStateStatus: "CLEAN",
-		url: `https://example.test/pr/${number}`,
+		url: `https://example.test/pr/${options.number}`,
 		mergedAt: null,
 	};
 }
@@ -536,12 +588,7 @@ function commandArgs(
 	command: string,
 	...prefix: string[]
 ): string[][] {
-	return log
-		.filter(
-			(entry) =>
-				entry.command === command && prefix.every((part, index) => entry.args[index] === part),
-		)
-		.map((entry) => entry.args);
+	return log.filter((entry) => matchesCommand(entry, command, prefix)).map((entry) => entry.args);
 }
 
 function commandIndex(
@@ -549,10 +596,15 @@ function commandIndex(
 	command: string,
 	prefix: readonly string[],
 ): number {
-	return log.findIndex(
-		(entry) =>
-			entry.command === command && prefix.every((part, index) => entry.args[index] === part),
-	);
+	return log.findIndex((entry) => matchesCommand(entry, command, prefix));
+}
+
+function matchesCommand(
+	entry: SandboxCommandLogEntry,
+	command: string,
+	prefix: readonly string[],
+): boolean {
+	return entry.command === command && prefix.every((part, index) => entry.args[index] === part);
 }
 
 async function readCommandLog(sandbox: Sandbox): Promise<SandboxCommandLogEntry[]> {
@@ -615,7 +667,7 @@ function metadataRows() {
     branch_name: row.branch,
     parent_branch_name: row.parent || null,
     children: row.children ? JSON.stringify(row.children) : null,
-    validation_result: row.trunk ? "TRUNK" : "VALID",
+    validation_result: row.isTrunk ? "TRUNK" : "VALID",
   }));
 }
 
@@ -657,7 +709,7 @@ if (command === "gt") {
   if (args[0] === "delete") {
     const branch = args[1];
     if (currentBranch() === branch) {
-      if (!state.allowDeletingCurrentBranch) {
+      if (!state.canDeleteCurrentBranch) {
         finish(1, "", "fatal: '" + branch + "' is already checked out at '" + process.cwd() + "'\\n");
       }
       git(["checkout", "main"]);
