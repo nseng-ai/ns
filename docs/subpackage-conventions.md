@@ -37,7 +37,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 ## Adding or consolidating
 
-When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `ji.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage). A container package mid-conversion may declare `ji.remainder: true` per ADR 0022; a properly formed container has no remainder.
+When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `ji.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage); the TypeScript style guard enforces this via `JI_TS_EXPORTS_SUBPACKAGE_CONFORMANCE`. A container package mid-conversion may declare `ji.remainder: true` per ADR 0022; a properly formed container has no remainder.
 
 When consolidating an existing package:
 
