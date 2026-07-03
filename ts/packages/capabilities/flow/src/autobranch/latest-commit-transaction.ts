@@ -1,6 +1,9 @@
 import type { CommandResult } from "./shared.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
-import { defineFailureCatalog } from "../phase-stream/failure-catalog.ts";
+import {
+	defineFailureCatalog,
+	formatFailureCatalogEntry,
+} from "../phase-stream/failure-catalog.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
@@ -331,105 +334,73 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 	undefined
 >()({
 	backup_branch_name_unavailable: {
-		arm: "backup_branch_name_unavailable",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(
-				failure,
-				"backup_branch_name_unavailable",
-			);
-			return `Could not find an available recovery branch name for ${result.sourceBranch}; refusing to move latest commit.`;
-		},
+		message: (failure) =>
+			`Could not find an available recovery branch name for ${failure.sourceBranch}; refusing to move latest commit.`,
 	},
 	backup_create_failed: {
-		arm: "backup_create_failed",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(failure, "backup_create_failed");
-			return ["Failed to create recovery branch before moving latest commit.", result.error].join(
-				"\n",
-			);
-		},
+		message: (failure) =>
+			["Failed to create recovery branch before moving latest commit.", failure.error].join("\n"),
 	},
 	source_reset_failed: {
-		arm: "source_reset_failed",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(failure, "source_reset_failed");
-			return [
+		message: (failure) =>
+			[
 				"Failed to reset source branch before Graphite branch creation.",
-				`Recovery branch: ${result.backupBranch}`,
-				result.error,
-				formatSourceResetCleanup(result),
-			].join("\n");
-		},
+				`Recovery branch: ${failure.backupBranch}`,
+				failure.error,
+				formatSourceResetCleanup(failure),
+			].join("\n"),
 	},
 	graphite_create_failed: {
-		arm: "graphite_create_failed",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(failure, "graphite_create_failed");
-			return [
+		message: (failure) =>
+			[
 				"Failed to create Graphite branch after resetting source branch.",
-				`Recovery branch: ${result.backupBranch}`,
-				result.createError,
-				result.restored
+				`Recovery branch: ${failure.backupBranch}`,
+				failure.createError,
+				failure.restored
 					? "Restored source branch to the original HEAD."
-					: `Could not restore source branch: ${result.restoreError}`,
-				formatCreatedBranchCleanup(result),
-			].join("\n");
-		},
+					: `Could not restore source branch: ${failure.restoreError}`,
+				formatCreatedBranchCleanup(failure),
+			].join("\n"),
 	},
 	transaction_upstream_check_failed: {
-		arm: "transaction_upstream_check_failed",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(
-				failure,
-				"transaction_upstream_check_failed",
-			);
-			return `Could not re-check whether HEAD is already in the current branch upstream before moving the latest commit.\n${result.error}`;
-		},
+		message: (failure) =>
+			`Could not re-check whether HEAD is already in the current branch upstream before moving the latest commit.\n${failure.error}`,
 	},
 	pushed_head_refusal: {
-		arm: "pushed_head_refusal",
 		verdict: "refusal",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(failure, "pushed_head_refusal");
-			return `Refusing to move latest commit because upstream ${result.upstream} now contains HEAD.`;
-		},
+		message: (failure) =>
+			`Refusing to move latest commit because upstream ${failure.upstream} now contains HEAD.`,
 	},
 	branch_reset_failed: {
-		arm: "branch_reset_failed",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(failure, "branch_reset_failed");
-			return [
-				`Created Graphite branch ${result.branchName}, but failed to move it to the original commit.`,
-				`Recovery branch: ${result.backupBranch}`,
-				result.resetError,
-				result.restored
+		message: (failure) =>
+			[
+				`Created Graphite branch ${failure.branchName}, but failed to move it to the original commit.`,
+				`Recovery branch: ${failure.backupBranch}`,
+				failure.resetError,
+				failure.restored
 					? "Restored source branch to the original HEAD."
-					: `Could not restore source branch: ${result.restoreError}`,
-				formatCreatedBranchCleanup(result),
-			].join("\n");
-		},
+					: `Could not restore source branch: ${failure.restoreError}`,
+				formatCreatedBranchCleanup(failure),
+			].join("\n"),
 	},
 	head_verify_failed: {
-		arm: "head_verify_failed",
 		verdict: "failure",
-		message: (failure) => {
-			const result = expectLatestCommitTransactionFailureKind(failure, "head_verify_failed");
-			return [
-				`Created Graphite branch ${result.branchName}, but HEAD verification failed after moving it.`,
-				`Expected original commit, found: ${result.actualHead}`,
-				`Recovery branch: ${result.backupBranch}`,
-				result.restored
+		message: (failure) =>
+			[
+				`Created Graphite branch ${failure.branchName}, but HEAD verification failed after moving it.`,
+				`Expected original commit, found: ${failure.actualHead}`,
+				`Recovery branch: ${failure.backupBranch}`,
+				failure.restored
 					? "Restored source branch to the original HEAD."
-					: `Could not restore source branch: ${result.restoreError}`,
-				formatCreatedBranchCleanup(result),
-			].join("\n");
-		},
+					: `Could not restore source branch: ${failure.restoreError}`,
+				formatCreatedBranchCleanup(failure),
+			].join("\n"),
 	},
 });
 
@@ -442,19 +413,7 @@ export function classifyLatestCommitTransactionFailure(
 export function formatLatestCommitTransactionFailure(
 	result: LatestCommitTransactionFailure,
 ): string {
-	return latestCommitTransactionFailureCatalog[result.kind].message(result, undefined);
-}
-
-function expectLatestCommitTransactionFailureKind<K extends LatestCommitTransactionFailure["kind"]>(
-	failure: LatestCommitTransactionFailure,
-	kind: K,
-): Extract<LatestCommitTransactionFailure, { kind: K }> {
-	if (failure.kind !== kind) {
-		throw new Error(
-			`Latest-commit transaction failure catalog mismatch: expected ${kind}, got ${failure.kind}`,
-		);
-	}
-	return failure as Extract<LatestCommitTransactionFailure, { kind: K }>;
+	return formatFailureCatalogEntry(latestCommitTransactionFailureCatalog, result, undefined);
 }
 
 function formatSourceResetCleanup(result: SourceResetFailureRecovery): string {

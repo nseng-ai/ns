@@ -89,52 +89,52 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		this.branches = new Map((state.localBranches ?? []).map((branch) => [branch.name, branch.sha]));
 		this.branchContainsParents = new Map(Object.entries(state.branchContainsParents ?? {}));
 		this.shouldDefaultBranchContainParent = state.shouldDefaultBranchContainParent ?? true;
-		this.listLocalBranchesFailure = copyOptionalBoundaryFailure(state.listLocalBranchesFailure);
+		this.listLocalBranchesFailure = cloneOptionalData(state.listLocalBranchesFailure);
 		this.localBranchExistsFailures = new Map(
 			Object.entries(state.localBranchExistsFailures ?? {}).map(([branch, failure]) => [
 				branch,
-				copyBoundaryFailure(failure),
+				cloneData(failure),
 			]),
 		);
 		this.localBranchShaFailures = new Map(
 			Object.entries(state.localBranchShaFailures ?? {}).map(([branch, failure]) => [
 				branch,
-				copyBoundaryFailure(failure),
+				cloneData(failure),
 			]),
 		);
-		this.snapshotBackupRefsFailure = copyOptionalBoundaryFailure(state.snapshotBackupRefsFailure);
+		this.snapshotBackupRefsFailure = cloneOptionalData(state.snapshotBackupRefsFailure);
 	}
 
 	get resolveRepoRootCalls(): readonly LandRepoRootCall[] {
-		return this.resolveRepoRootLog.map(copyRepoRootCall);
+		return cloneData(this.resolveRepoRootLog);
 	}
 
 	get currentBranchCalls(): readonly LandRepoCall[] {
-		return this.currentBranchLog.map(copyRepoCall);
+		return cloneData(this.currentBranchLog);
 	}
 
 	get workingTreeStatusCalls(): readonly LandRepoCall[] {
-		return this.workingTreeStatusLog.map(copyRepoCall);
+		return cloneData(this.workingTreeStatusLog);
 	}
 
 	get localBranchExistsCalls(): readonly LandBranchCall[] {
-		return this.localBranchExistsLog.map(copyBranchCall);
+		return cloneData(this.localBranchExistsLog);
 	}
 
 	get localBranchShaCalls(): readonly LandBranchCall[] {
-		return this.localBranchShaLog.map(copyBranchCall);
+		return cloneData(this.localBranchShaLog);
 	}
 
 	get listLocalBranchesCalls(): readonly LandRepoCall[] {
-		return this.listLocalBranchesLog.map(copyRepoCall);
+		return cloneData(this.listLocalBranchesLog);
 	}
 
 	get branchContainsParentCalls(): readonly LandBranchContainsParentCall[] {
-		return this.branchContainsParentLog.map(copyBranchContainsParentCall);
+		return cloneData(this.branchContainsParentLog);
 	}
 
 	get snapshotBackupRefsCalls(): readonly LandSnapshotBackupRefsCall[] {
-		return this.snapshotBackupRefsLog.map(copySnapshotBackupRefsCall);
+		return cloneData(this.snapshotBackupRefsLog);
 	}
 
 	async resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>> {
@@ -169,7 +169,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 			phase: "preflight",
 			code: "working_tree_status_failed",
 			message: "Could not read working tree status.",
-			copyValue: copyWorkingTreeStatus,
+			copyValue: cloneData,
 		});
 	}
 
@@ -179,7 +179,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	}): Promise<LandOutcome> {
 		this.localBranchExistsLog.push({ repoRoot: request.repoRoot, branch: request.branch });
 		const failure = this.localBranchExistsFailures.get(request.branch);
-		if (failure !== undefined) return { type: "failure", failure: copyBoundaryFailure(failure) };
+		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
 		if (!this.branches.has(request.branch)) {
 			return {
 				type: "failure",
@@ -201,7 +201,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	}): Promise<LandResult<string>> {
 		this.localBranchShaLog.push({ repoRoot: request.repoRoot, branch: request.branch });
 		const failure = this.localBranchShaFailures.get(request.branch);
-		if (failure !== undefined) return { type: "failure", failure: copyBoundaryFailure(failure) };
+		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
 		const sha = this.branches.get(request.branch);
 		if (sha === undefined) {
 			return {
@@ -222,7 +222,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	}): Promise<LandResult<readonly LocalBranchTip[]>> {
 		this.listLocalBranchesLog.push({ repoRoot: request.repoRoot });
 		if (this.listLocalBranchesFailure !== undefined) {
-			return { type: "failure", failure: copyBoundaryFailure(this.listLocalBranchesFailure) };
+			return { type: "failure", failure: cloneData(this.listLocalBranchesFailure) };
 		}
 		return {
 			type: "success",
@@ -257,7 +257,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 			branches: [...request.branches],
 		});
 		if (this.snapshotBackupRefsFailure !== undefined) {
-			return { type: "failure", failure: copyBoundaryFailure(this.snapshotBackupRefsFailure) };
+			return { type: "failure", failure: cloneData(this.snapshotBackupRefsFailure) };
 		}
 
 		const shas = new Map<string, string>();
@@ -337,23 +337,23 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	constructor(state: InMemoryLandGraphiteGatewayState = {}) {
 		this.trunkState = state.trunk ?? "main";
 		this.metadataDbPathState = state.metadataDbPath ?? "/repo/.git/graphite.db";
-		this.stackShapeState = copyValueState(state.stackShape ?? stackSnapshot(), copyStackSnapshot);
+		this.stackShapeState = copyValueState(state.stackShape ?? stackSnapshot(), cloneData);
 		this.submitUpdateResults = new Map(
 			Object.entries(state.submitUpdateResults ?? {}).map(([branch, result]) => [
 				branch,
-				copyOperationState(result),
+				cloneData(result),
 			]),
 		);
 		this.restackForSubmitResults = new Map(
 			Object.entries(state.restackForSubmitResults ?? {}).map(([branch, result]) => [
 				branch,
-				copyOperationState(result),
+				cloneData(result),
 			]),
 		);
 		this.restackUpstackResults = new Map(
 			Object.entries(state.restackUpstackResults ?? {}).map(([branch, result]) => [
 				branch,
-				copyOperationState(result),
+				cloneData(result),
 			]),
 		);
 		this.branchChildrenByBranch = new Map(
@@ -362,47 +362,47 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 				[...children],
 			]),
 		);
-		this.branchChildrenFailure = copyOptionalBoundaryFailure(state.branchChildrenFailure);
+		this.branchChildrenFailure = cloneOptionalData(state.branchChildrenFailure);
 	}
 
 	get trunkCalls(): readonly LandRepoCall[] {
-		return this.trunkLog.map(copyRepoCall);
+		return cloneData(this.trunkLog);
 	}
 
 	get metadataDbPathCalls(): readonly LandRepoCall[] {
-		return this.metadataDbPathLog.map(copyRepoCall);
+		return cloneData(this.metadataDbPathLog);
 	}
 
 	get stackShapeCalls(): readonly LandStackShapeCall[] {
-		return this.stackShapeLog.map(copyStackShapeCall);
+		return cloneData(this.stackShapeLog);
 	}
 
 	get prepareSubmitUpdateCalls(): readonly LandBranchCall[] {
-		return this.prepareSubmitUpdateLog.map(copyBranchCall);
+		return cloneData(this.prepareSubmitUpdateLog);
 	}
 
 	get prepareRestackForSubmitCalls(): readonly LandBranchCall[] {
-		return this.prepareRestackForSubmitLog.map(copyBranchCall);
+		return cloneData(this.prepareRestackForSubmitLog);
 	}
 
 	get refreshBranchFromRemoteCalls(): readonly LandRefreshBranchFromRemoteCall[] {
-		return this.refreshBranchFromRemoteLog.map(copyRefreshBranchFromRemoteCall);
+		return cloneData(this.refreshBranchFromRemoteLog);
 	}
 
 	get deleteLocalBranchCalls(): readonly LandDeleteLocalBranchCall[] {
-		return this.deleteLocalBranchLog.map(copyDeleteLocalBranchCall);
+		return cloneData(this.deleteLocalBranchLog);
 	}
 
 	get restackUpstackCalls(): readonly LandBranchCall[] {
-		return this.restackUpstackLog.map(copyBranchCall);
+		return cloneData(this.restackUpstackLog);
 	}
 
 	get submitUpdateCalls(): readonly LandSubmitUpdateCall[] {
-		return this.submitUpdateLog.map(copySubmitUpdateCall);
+		return cloneData(this.submitUpdateLog);
 	}
 
 	get branchChildrenCalls(): readonly LandBranchChildrenCall[] {
-		return this.branchChildrenLog.map(copyBranchChildrenCall);
+		return cloneData(this.branchChildrenLog);
 	}
 
 	async trunk(request: { readonly repoRoot: string }): Promise<LandResult<string>> {
@@ -447,7 +447,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 			phase: "stack-shape",
 			code: "stack_shape_failed",
 			message: "Could not inspect stack shape.",
-			copyValue: copyStackSnapshot,
+			copyValue: cloneData,
 		});
 	}
 
@@ -525,7 +525,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 			branch: request.branch,
 		});
 		if (this.branchChildrenFailure !== undefined) {
-			return { type: "failure", failure: copyBoundaryFailure(this.branchChildrenFailure) };
+			return { type: "failure", failure: cloneData(this.branchChildrenFailure) };
 		}
 		return { type: "success", value: [...(this.branchChildrenByBranch.get(request.branch) ?? [])] };
 	}
@@ -558,30 +558,27 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 	constructor(state: InMemoryLandGithubPrFactsGatewayState = {}) {
 		const entries: [string, PullRequestFacts][] = [];
 		for (const pr of state.pullRequests ?? []) {
-			const copied = copyPullRequestFacts(pr);
+			const copied = cloneData(pr);
 			entries.push([copied.headRefName, copied], [String(copied.number), copied]);
 		}
 		this.pullRequests = new Map(entries);
 		this.failures = new Map(
-			Object.entries(state.failures ?? {}).map(([key, failure]) => [
-				key,
-				copyBoundaryFailure(failure),
-			]),
+			Object.entries(state.failures ?? {}).map(([key, failure]) => [key, cloneData(failure)]),
 		);
 		this.squashMergeResults = new Map(
 			Object.entries(state.squashMergeResults ?? {}).map(([key, result]) => [
 				key,
-				copyValueState(result, copySquashMergePullRequestResult),
+				copyValueState(result, cloneData),
 			]),
 		);
 	}
 
 	get pullRequestFactsCalls(): readonly LandPullRequestFactsCall[] {
-		return this.pullRequestFactsLog.map(copyPullRequestFactsCall);
+		return cloneData(this.pullRequestFactsLog);
 	}
 
 	get squashMergePullRequestCalls(): readonly LandSquashMergePullRequestCall[] {
-		return this.squashMergePullRequestLog.map(copySquashMergePullRequestCall);
+		return cloneData(this.squashMergePullRequestLog);
 	}
 
 	async pullRequestFacts(request: {
@@ -593,7 +590,7 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 			branchOrNumber: request.branchOrNumber,
 		});
 		const failure = this.failures.get(request.branchOrNumber);
-		if (failure !== undefined) return { type: "failure", failure: copyBoundaryFailure(failure) };
+		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
 		const pr = this.pullRequests.get(request.branchOrNumber);
 		if (pr === undefined) {
 			return {
@@ -606,7 +603,7 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 				}),
 			};
 		}
-		return { type: "success", value: copyPullRequestFacts(pr) };
+		return { type: "success", value: cloneData(pr) };
 	}
 
 	async squashMergePullRequest(request: {
@@ -615,7 +612,7 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 	}): Promise<LandResult<SquashMergePullRequestResult>> {
 		this.squashMergePullRequestLog.push({
 			repoRoot: request.repoRoot,
-			pullRequest: copyPullRequestFacts(request.pullRequest),
+			pullRequest: cloneData(request.pullRequest),
 		});
 		return valueResult({
 			state: this.squashMergeResults.get(String(request.pullRequest.number)) ?? {
@@ -626,7 +623,7 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 			phase: "merge",
 			code: "squash_merge_failed",
 			message: "Squash merge failed.",
-			copyValue: copySquashMergePullRequestResult,
+			copyValue: cloneData,
 		});
 	}
 }
@@ -659,33 +656,33 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 	private readonly freeSlotsLog: LandFreeSlotsCall[] = [];
 
 	constructor(state: InMemoryLandWorktreeSlotFactsGatewayState = {}) {
-		this.worktreeEntries = (state.worktrees ?? []).map(copyWorktreeEntry);
+		this.worktreeEntries = cloneData(state.worktrees ?? []);
 		this.classifications = new Map(
 			Object.entries(state.classifications ?? {}).map(([path, classification]) => [
 				path,
-				copyWorktreeClassification(classification),
+				cloneData(classification),
 			]),
 		);
-		this.worktreesFailure = copyOptionalBoundaryFailure(state.worktreesFailure);
-		this.freeSlotsFailure = copyOptionalBoundaryFailure(state.freeSlotsFailure);
+		this.worktreesFailure = cloneOptionalData(state.worktreesFailure);
+		this.freeSlotsFailure = cloneOptionalData(state.freeSlotsFailure);
 		this.classifyFailures = new Map(
 			Object.entries(state.classifyFailures ?? {}).map(([path, failure]) => [
 				path,
-				copyBoundaryFailure(failure),
+				cloneData(failure),
 			]),
 		);
 	}
 
 	get worktreesCalls(): readonly LandRepoCall[] {
-		return this.worktreesLog.map(copyRepoCall);
+		return cloneData(this.worktreesLog);
 	}
 
 	get classifyWorktreeCalls(): readonly LandClassifyWorktreeCall[] {
-		return this.classifyWorktreeLog.map(copyClassifyWorktreeCall);
+		return cloneData(this.classifyWorktreeLog);
 	}
 
 	get freeSlotsCalls(): readonly LandFreeSlotsCall[] {
-		return this.freeSlotsLog.map(copyFreeSlotsCall);
+		return cloneData(this.freeSlotsLog);
 	}
 
 	async worktrees(request: {
@@ -693,8 +690,8 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 	}): Promise<LandResult<readonly WorktreeEntry[]>> {
 		this.worktreesLog.push({ repoRoot: request.repoRoot });
 		if (this.worktreesFailure !== undefined)
-			return { type: "failure", failure: copyBoundaryFailure(this.worktreesFailure) };
-		return { type: "success", value: this.worktreeEntries.map(copyWorktreeEntry) };
+			return { type: "failure", failure: cloneData(this.worktreesFailure) };
+		return { type: "success", value: cloneData(this.worktreeEntries) };
 	}
 
 	async classifyWorktree(request: {
@@ -708,12 +705,10 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 			...(request.branch === undefined ? {} : { branch: request.branch }),
 		});
 		const failure = this.classifyFailures.get(request.path);
-		if (failure !== undefined) return { type: "failure", failure: copyBoundaryFailure(failure) };
+		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
 		return {
 			type: "success",
-			value: copyWorktreeClassification(
-				this.classifications.get(request.path) ?? { type: "manual-worktree" },
-			),
+			value: cloneData(this.classifications.get(request.path) ?? { type: "manual-worktree" }),
 		};
 	}
 
@@ -723,11 +718,11 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 	}): Promise<LandResult<readonly ManagedSlotWorktree[]>> {
 		this.freeSlotsLog.push({
 			repoRoot: request.repoRoot,
-			slots: request.slots.map(copyManagedSlotWorktree),
+			slots: cloneData(request.slots),
 		});
 		if (this.freeSlotsFailure !== undefined)
-			return { type: "failure", failure: copyBoundaryFailure(this.freeSlotsFailure) };
-		return { type: "success", value: request.slots.map(copyManagedSlotWorktree) };
+			return { type: "failure", failure: cloneData(this.freeSlotsFailure) };
+		return { type: "success", value: cloneData(request.slots) };
 	}
 }
 
@@ -805,11 +800,11 @@ interface ValueResultOptions<T> {
 }
 
 function valueResult<T>(options: ValueResultOptions<T>): LandResult<T> {
-	const copyValue = options.copyValue ?? ((value: T) => value);
+	const copyValue = options.copyValue ?? cloneData;
 	if (isFailureState(options.state)) {
 		return {
 			type: "failure",
-			failure: copyOptionalBoundaryFailure(options.state.failure) ?? boundaryFailure(options),
+			failure: cloneOptionalData(options.state.failure) ?? boundaryFailure(options),
 		};
 	}
 	return { type: "success", value: copyValue(options.state) };
@@ -820,7 +815,7 @@ function operationOutcome(state: OperationState | undefined): LandOutcome {
 	return {
 		type: "failure",
 		failure:
-			copyOptionalBoundaryFailure(state.failure) ??
+			cloneOptionalData(state.failure) ??
 			boundaryFailure({
 				source: "graphite",
 				phase: "submit-preparation",
@@ -849,21 +844,16 @@ function isFailureState<T>(state: ValueState<T>): state is FailureState {
 	return typeof state === "object" && state !== null && "type" in state && state.type === "failure";
 }
 
-function copyOperationState(state: OperationState): OperationState {
-	if (state.type === "success") return { type: "success" };
-	return {
-		type: "failure",
-		...(state.failure === undefined ? {} : { failure: copyBoundaryFailure(state.failure) }),
-	};
+function cloneData<T>(value: T): T {
+	return structuredClone(value);
+}
+
+function cloneOptionalData<T>(value: T | undefined): T | undefined {
+	return value === undefined ? undefined : cloneData(value);
 }
 
 function copyValueState<T>(state: ValueState<T>, copyValue: (value: T) => T): ValueState<T> {
-	if (isFailureState(state)) {
-		return {
-			type: "failure",
-			...(state.failure === undefined ? {} : { failure: copyBoundaryFailure(state.failure) }),
-		};
-	}
+	if (isFailureState(state)) return cloneData(state);
 	return copyValue(state);
 }
 
@@ -885,178 +875,5 @@ function boundaryFailure(options: BoundaryFailureOptions): LandingBoundaryFailur
 		phase: options.phase,
 		code: options.code,
 		message: options.message,
-	};
-}
-
-function copyOptionalBoundaryFailure(
-	failure: LandingBoundaryFailure | undefined,
-): LandingBoundaryFailure | undefined {
-	return failure === undefined ? undefined : copyBoundaryFailure(failure);
-}
-
-function copyBoundaryFailure(failure: LandingBoundaryFailure): LandingBoundaryFailure {
-	return {
-		type: "boundary",
-		phase: failure.phase,
-		source: failure.source,
-		code: failure.code,
-		message: failure.message,
-		...(failure.displayCommand === undefined ? {} : { displayCommand: failure.displayCommand }),
-		...(failure.details === undefined ? {} : { details: { ...failure.details } }),
-	};
-}
-
-function copyWorkingTreeStatus(status: WorkingTreeStatus): WorkingTreeStatus {
-	return {
-		isClean: status.isClean,
-		...(status.inProgressOperation === undefined
-			? {}
-			: { inProgressOperation: status.inProgressOperation }),
-	};
-}
-
-function copyPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
-	return {
-		number: pr.number,
-		title: pr.title,
-		body: pr.body,
-		state: pr.state,
-		isDraft: pr.isDraft,
-		headRefName: pr.headRefName,
-		baseRefName: pr.baseRefName,
-		headRefOid: pr.headRefOid,
-		...(pr.mergeStateStatus === undefined ? {} : { mergeStateStatus: pr.mergeStateStatus }),
-		...(pr.url === undefined ? {} : { url: pr.url }),
-		...(pr.mergedAt === undefined ? {} : { mergedAt: pr.mergedAt }),
-	};
-}
-
-function copySquashMergePullRequestResult(
-	result: SquashMergePullRequestResult,
-): SquashMergePullRequestResult {
-	return { stdout: result.stdout, stderr: result.stderr };
-}
-
-function copyStackSnapshot(snapshot: StackSnapshot): StackSnapshot {
-	return {
-		trunk: snapshot.trunk,
-		current: snapshot.current,
-		actualCurrentBranch: snapshot.actualCurrentBranch,
-		landingTargetBranch: snapshot.landingTargetBranch,
-		landingBranches: [...snapshot.landingBranches],
-		remainingLandingBranches: [...snapshot.remainingLandingBranches],
-		descendantBranches: [...snapshot.descendantBranches],
-		warnings: snapshot.warnings.map((warning) => ({ ...warning })),
-	};
-}
-
-function copyWorktreeEntry(entry: WorktreeEntry): WorktreeEntry {
-	return {
-		path: entry.path,
-		...(entry.branch === undefined ? {} : { branch: entry.branch }),
-	};
-}
-
-function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree {
-	return {
-		type: "managed-slot",
-		branch: slot.branch,
-		path: slot.path,
-		...(slot.slotName === undefined ? {} : { slotName: slot.slotName }),
-	};
-}
-
-function copyWorktreeClassification(
-	classification: WorktreeClassification,
-): WorktreeClassification {
-	if (classification.type === "managed-slot")
-		return { type: "managed-slot", slotName: classification.slotName };
-	return { type: classification.type };
-}
-
-function copyRepoRootCall(call: LandRepoRootCall): LandRepoRootCall {
-	return { cwd: call.cwd };
-}
-
-function copyRepoCall(call: LandRepoCall): LandRepoCall {
-	return { repoRoot: call.repoRoot };
-}
-
-function copyBranchCall(call: LandBranchCall): LandBranchCall {
-	return { repoRoot: call.repoRoot, branch: call.branch };
-}
-
-function copyBranchContainsParentCall(
-	call: LandBranchContainsParentCall,
-): LandBranchContainsParentCall {
-	return { repoRoot: call.repoRoot, branch: call.branch, parent: call.parent };
-}
-
-function copySnapshotBackupRefsCall(call: LandSnapshotBackupRefsCall): LandSnapshotBackupRefsCall {
-	return { repoRoot: call.repoRoot, branches: [...call.branches] };
-}
-
-function copyStackShapeCall(call: LandStackShapeCall): LandStackShapeCall {
-	return {
-		repoRoot: call.repoRoot,
-		metadataDbPath: call.metadataDbPath,
-		current: call.current,
-		trunk: call.trunk,
-		liveLocalBranches: [...call.liveLocalBranches],
-	};
-}
-
-function copyRefreshBranchFromRemoteCall(
-	call: LandRefreshBranchFromRemoteCall,
-): LandRefreshBranchFromRemoteCall {
-	return {
-		repoRoot: call.repoRoot,
-		branch: call.branch,
-		checkoutConflict: call.checkoutConflict,
-	};
-}
-
-function copyDeleteLocalBranchCall(call: LandDeleteLocalBranchCall): LandDeleteLocalBranchCall {
-	return {
-		repoRoot: call.repoRoot,
-		branch: call.branch,
-		checkedOutConflict: call.checkedOutConflict,
-	};
-}
-
-function copySubmitUpdateCall(call: LandSubmitUpdateCall): LandSubmitUpdateCall {
-	return { repoRoot: call.repoRoot, branch: call.branch, force: call.force };
-}
-
-function copyBranchChildrenCall(call: LandBranchChildrenCall): LandBranchChildrenCall {
-	return {
-		repoRoot: call.repoRoot,
-		metadataDbPath: call.metadataDbPath,
-		branch: call.branch,
-	};
-}
-
-function copyPullRequestFactsCall(call: LandPullRequestFactsCall): LandPullRequestFactsCall {
-	return { repoRoot: call.repoRoot, branchOrNumber: call.branchOrNumber };
-}
-
-function copySquashMergePullRequestCall(
-	call: LandSquashMergePullRequestCall,
-): LandSquashMergePullRequestCall {
-	return { repoRoot: call.repoRoot, pullRequest: copyPullRequestFacts(call.pullRequest) };
-}
-
-function copyClassifyWorktreeCall(call: LandClassifyWorktreeCall): LandClassifyWorktreeCall {
-	return {
-		repoRoot: call.repoRoot,
-		path: call.path,
-		...(call.branch === undefined ? {} : { branch: call.branch }),
-	};
-}
-
-function copyFreeSlotsCall(call: LandFreeSlotsCall): LandFreeSlotsCall {
-	return {
-		repoRoot: call.repoRoot,
-		slots: call.slots.map(copyManagedSlotWorktree),
 	};
 }

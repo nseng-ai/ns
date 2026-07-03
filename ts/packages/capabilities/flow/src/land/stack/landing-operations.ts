@@ -1,5 +1,4 @@
 import { formatCommand, type ExecResult } from "@sdl/core/command";
-import { formatCommandForDisplay } from "./command-stream.ts";
 import {
 	completed,
 	failure,
@@ -163,47 +162,28 @@ function stackMergeRejectedFailure(
 	branch: string,
 ): LandStackFailure {
 	const result = execResultFromLandingFailure(landFailureValue);
+	const commandDisplay = commandDisplayFromLandingFailure(landFailureValue);
 	return landStackFailure("Merge rejected; stopping stack landing immediately.", {
 		...(result === undefined
 			? {}
-			: { commandDisplay: formatCommandForDisplay("gh", squashMergeArgs(pr)), result }),
+			: {
+					...(commandDisplay === undefined ? {} : { commandDisplay }),
+					result,
+				}),
 		failedBranch: branch,
 		failedPr: pr.number,
 		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.`,
 	});
 }
 
+function commandDisplayFromLandingFailure(failureValue: LandingFailure): string | undefined {
+	if (failureValue.type !== "boundary") return undefined;
+	return failureValue.displayCommand;
+}
+
 function execResultFromLandingFailure(failureValue: LandingFailure): ExecResult | undefined {
 	if (failureValue.type !== "boundary") return undefined;
-	const result = failureValue.details?.execResult;
-	if (!isExecResult(result)) return undefined;
-	return result;
-}
-
-function isExecResult(value: unknown): value is ExecResult {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-	const result = value as Partial<ExecResult>;
-	return (
-		typeof result.stdout === "string" &&
-		typeof result.stderr === "string" &&
-		typeof result.code === "number" &&
-		typeof result.killed === "boolean"
-	);
-}
-
-export function squashMergeArgs(pr: PullRequestSnapshot): string[] {
-	return [
-		"pr",
-		"merge",
-		String(pr.number),
-		"--squash",
-		"--match-head-commit",
-		pr.headRefOid,
-		"--subject",
-		pr.title,
-		"--body",
-		pr.body ?? "",
-	];
+	return failureValue.execResult;
 }
 
 export interface PrepareMergeLoopStateOptions {

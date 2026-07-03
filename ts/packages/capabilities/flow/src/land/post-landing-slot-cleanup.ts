@@ -155,18 +155,5 @@ function displayCommandFromLandingFailure(failureValue: LandingFailure): string 
 
 function execResultFromLandingFailure(failureValue: LandingFailure): ExecResult | undefined {
 	if (failureValue.type !== "boundary") return undefined;
-	const result = failureValue.details?.execResult;
-	if (!isExecResult(result)) return undefined;
-	return result;
-}
-
-function isExecResult(value: unknown): value is ExecResult {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-	const result = value as Partial<ExecResult>;
-	return (
-		typeof result.stdout === "string" &&
-		typeof result.stderr === "string" &&
-		typeof result.code === "number" &&
-		typeof result.killed === "boolean"
-	);
+	return failureValue.execResult;
 }

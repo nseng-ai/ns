@@ -1,6 +1,7 @@
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
-import { notifyPrintAware, setStatus } from "./stack/presentation.ts";
+import { toLandStackFailure } from "./stack/landing-plan.ts";
+import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import type {
 	LandingShape,
 	PrintAwareLandStackCommandContext,
@@ -135,13 +136,7 @@ function presentLandingFailure(
 	ctx: PrintAwareLandStackCommandContext,
 	landingFailure: LandingFailure,
 ): LandStackOutcome {
-	notifyPrintAware({
-		ctx,
-		message: landingFailure.message,
-		level: "error",
-		kind: "failure",
-	});
-	return failure(landStackFailure(landingFailure.message));
+	return presentFailureOutcome(ctx, toLandStackFailure(landingFailure));
 }
 
 function mergedVerificationFailure(options: {

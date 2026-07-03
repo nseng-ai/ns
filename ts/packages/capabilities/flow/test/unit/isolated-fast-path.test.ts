@@ -98,6 +98,58 @@ describe("isolated fast-path landing", () => {
 		});
 	});
 
+	test("preserves boundary failure diagnostics from the gateway", async () => {
+		const notifications: Notification[] = [];
+		const github = new RecordingGithubGateway({
+			initialPullRequest: pullRequestFacts({ state: "OPEN", mergedAt: null }),
+			verifiedPullRequest: pullRequestFacts({ state: "OPEN", mergedAt: null }),
+			mergeResult: {
+				type: "failure",
+				failure: {
+					type: "boundary",
+					phase: "merge",
+					source: "github",
+					code: "squash_merge_failed",
+					message: "Merge rejected.",
+					displayCommand: "gh pr merge 101 --body '<PR body>'",
+					execResult: {
+						stdout: "",
+						stderr: "merge rejected\n",
+						code: 1,
+						killed: false,
+					},
+					suggestedAction: "Inspect PR #101.",
+				},
+			},
+		});
+
+		const outcome = await runIsolatedFastPathLanding({
+			github,
+			ctx: createContext(notifications),
+			target: isolatedShape(),
+			isDryRun: false,
+		});
+
+		expect(outcome).toEqual({
+			type: "failure",
+			failure: expect.objectContaining({
+				message: "Merge rejected.",
+				commandDisplay: "gh pr merge 101 --body '<PR body>'",
+				result: {
+					stdout: "",
+					stderr: "merge rejected\n",
+					code: 1,
+					killed: false,
+				},
+				suggestedAction: "Inspect PR #101.",
+			}),
+		});
+		expect(notifications.at(-1)).toMatchObject({
+			level: "error",
+			message: "land stopped: Merge rejected.",
+		});
+	});
+
 	test("stops post-landing cleanup when merge verification does not report MERGED", async () => {
 		const notifications: Notification[] = [];
 		const github = new RecordingGithubGateway({
