@@ -87,7 +87,7 @@ export default {
       evidence: `<span class="font-mono text-xs">@ji/capability-kit</span> exists (180 LOC); consumed by <span class="font-mono text-xs">flow, handoff, objective</span>. <span class="font-mono text-xs">runPushCore</span>/<span class="font-mono text-xs">runCpCore</span> are gateway-injected with fake-gateway unit coverage.` },
     { invariant: `Capability API convention (<span class="font-mono text-xs">@ji/&lt;cap&gt;/api</span>), gateway-core rule, and deep-import/cycle guard documented + enforced`,
       status: "holds", statusKind: "holds",
-      evidence: `6 capabilities ship <span class="font-mono text-xs">/api</span> (<span class="font-mono text-xs">pr-address, slot, plans, branch-context, handoff, objective</span>); guarded by <span class="font-mono text-xs">JI_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT</span>.` },
+      evidence: `6 capabilities ship <span class="font-mono text-xs">/api</span> (<span class="font-mono text-xs">pr-address, slot, plans, branch-context, handoff, objective</span>); guarded by <span class="font-mono text-xs">NS_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT</span>.` },
     { invariant: `All nine capabilities are above-SDK Capabilities (command face + gateway-injected core), each via a completed child Objective (flow excepted)`,
       status: "6 / 9", statusKind: "partial",
       evidence: `Done: <span class="font-mono text-xs">flow</span>(ref) + closed children <span class="font-mono text-xs">slot, branch-context, plans, objective, handoff</span>. Pending: <span class="font-mono text-xs">pr-address, roaster, aretro</span> — no child Objective, no kit dependency, no gateway-injected core.` },

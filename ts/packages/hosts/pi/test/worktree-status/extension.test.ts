@@ -554,7 +554,7 @@ describe("worktree status extension registration and rendering", () => {
 				return new Map([
 					...statuses,
 					["worktree-status", "[gt] future format that should be ignored\n[gh] stale text"],
-					["ji-flow-changes", "/ns:flow:changes running CLI command (23s)"],
+					["ns-flow-changes", "/ns:flow:changes running CLI command (23s)"],
 				]);
 			},
 		});

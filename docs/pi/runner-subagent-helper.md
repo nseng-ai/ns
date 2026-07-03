@@ -37,7 +37,7 @@ The `dispatch_runner_subagent` tool is backed by `.ns/pi/agents/runner.md`. The 
 
 Supported frontmatter fields for this slice:
 
-- `schema`: must be `ji.pi-agent.v1`.
+- `schema`: must be `ns.pi-agent.v1`.
 - `name`: must be `runner`.
 - `toolName`: must be `dispatch_runner_subagent`.
 - `label` and `description`: shown through `pi.registerTool`.

@@ -62,9 +62,9 @@ describe("XDG path helpers", () => {
 		expect(
 			resolveSdlXdgPath({
 				kind: "state",
-				env: { HOME: "/home/tester", JI_ROOT: "~/sdl-root" },
+				env: { HOME: "/home/tester", NS_ROOT: "~/sdl-root" },
 				segments: ["logs"],
-				overrideEnv: "JI_ROOT",
+				overrideEnv: "NS_ROOT",
 			}),
 		).toEqual({ ok: true, value: "/home/tester/sdl-root/logs" });
 	});
@@ -85,11 +85,11 @@ describe("XDG path helpers", () => {
 	});
 
 	test("resolvePathOverride rejects relative overrides after optional tilde expansion", () => {
-		expect(resolvePathOverride({ env: { JI_ROOT: "relative/root" }, name: "JI_ROOT" })).toEqual({
+		expect(resolvePathOverride({ env: { NS_ROOT: "relative/root" }, name: "NS_ROOT" })).toEqual({
 			ok: false,
 			error: expect.objectContaining({ code: "override-not-absolute" }),
 		});
-		expect(resolvePathOverride({ env: { JI_ROOT: "" }, name: "JI_ROOT" })).toEqual({
+		expect(resolvePathOverride({ env: { NS_ROOT: "" }, name: "NS_ROOT" })).toEqual({
 			ok: true,
 			value: undefined,
 		});
@@ -98,24 +98,24 @@ describe("XDG path helpers", () => {
 	test("requireSdlStatePath treats overrides as complete paths and falls back to SDL state", () => {
 		expect(
 			requireSdlStatePath({
-				env: { HOME: "/home/tester", JI_LOG_DIR: "~/logs" },
-				overrideEnvName: "JI_LOG_DIR",
+				env: { HOME: "/home/tester", NS_LOG_DIR: "~/logs" },
+				overrideEnvName: "NS_LOG_DIR",
 				segments: ["logs"],
 			}),
 		).toBe("/home/tester/logs");
 		expect(
 			requireSdlStatePath({
 				env: { HOME: "/home/tester", XDG_STATE_HOME: "/state" },
-				overrideEnvName: "JI_LOG_DIR",
+				overrideEnvName: "NS_LOG_DIR",
 				segments: ["logs"],
 			}),
 		).toBe("/state/ns/logs");
 		expect(() =>
 			requireSdlStatePath({
-				env: { HOME: "/home/tester", JI_LOG_DIR: "relative/logs" },
-				overrideEnvName: "JI_LOG_DIR",
+				env: { HOME: "/home/tester", NS_LOG_DIR: "relative/logs" },
+				overrideEnvName: "NS_LOG_DIR",
 				segments: ["logs"],
 			}),
-		).toThrow("JI_LOG_DIR must be an absolute path");
+		).toThrow("NS_LOG_DIR must be an absolute path");
 	});
 });

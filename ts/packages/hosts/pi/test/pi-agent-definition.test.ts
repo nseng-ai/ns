@@ -17,7 +17,7 @@ describe("Pi agent definitions", () => {
 		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.ns/pi/agents/runner.md");
 
 		expect(parsed).toEqual({
-			schema: "ji.pi-agent.v1",
+			schema: "ns.pi-agent.v1",
 			name: "runner",
 			toolName: "dispatch_runner_subagent",
 			label: "Dispatch Forked Pi Session",
@@ -34,38 +34,38 @@ describe("Pi agent definitions", () => {
 
 	test("rejects missing opening frontmatter delimiter", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("schema: ji.pi-agent.v1\n---\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("schema: ns.pi-agent.v1\n---\nBody", "/agent.md"),
 		).toThrow(/opening frontmatter delimiter/);
 	});
 
 	test("rejects missing closing frontmatter delimiter", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("---\nschema: ji.pi-agent.v1\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("---\nschema: ns.pi-agent.v1\nBody", "/agent.md"),
 		).toThrow(/closing frontmatter delimiter/);
 	});
 
 	test("requires exact first-line frontmatter fences", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("\n---\nschema: ji.pi-agent.v1\n---\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("\n---\nschema: ns.pi-agent.v1\n---\nBody", "/agent.md"),
 		).toThrow(/opening frontmatter delimiter/);
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("--- \nschema: ji.pi-agent.v1\n---\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("--- \nschema: ns.pi-agent.v1\n---\nBody", "/agent.md"),
 		).toThrow(/opening frontmatter delimiter/);
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("---\nschema: ji.pi-agent.v1\n--- \nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("---\nschema: ns.pi-agent.v1\n--- \nBody", "/agent.md"),
 		).toThrow(/closing frontmatter delimiter/);
 	});
 
 	test("rejects the wrong schema", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown(definitionMarkdown({ schema: "ji.pi-agent.v2" }), "/agent.md"),
-		).toThrow(/expected ji\.pi-agent\.v1/);
+			parsePiAgentDefinitionMarkdown(definitionMarkdown({ schema: "ns.pi-agent.v2" }), "/agent.md"),
+		).toThrow(/expected ns\.pi-agent\.v1/);
 	});
 
 	test("rejects missing required fields with the field name and file path", () => {
 		const raw = [
 			"---",
-			"schema: ji.pi-agent.v1",
+			"schema: ns.pi-agent.v1",
 			"name: runner",
 			"toolName: dispatch_runner_subagent",
 			"description: Launch a focused forked Pi process.",
@@ -167,7 +167,7 @@ function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 	return (
 		[
 			"---",
-			`schema: ${options.schema ?? "ji.pi-agent.v1"}`,
+			`schema: ${options.schema ?? "ns.pi-agent.v1"}`,
 			`name: ${options.name ?? "runner"}`,
 			`toolName: ${options.toolName ?? "dispatch_runner_subagent"}`,
 			`label: ${options.label ?? "Dispatch Forked Pi Session"}`,

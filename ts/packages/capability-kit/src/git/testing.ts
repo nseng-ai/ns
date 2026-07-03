@@ -50,7 +50,7 @@ export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo
 	};
 
 	runGit(["init", "-b", "main"]);
-	runGit(["config", "user.email", options.userEmail ?? "ji-test@example.com"]);
+	runGit(["config", "user.email", options.userEmail ?? "ns-test@example.com"]);
 	runGit(["config", "user.name", options.userName ?? "SDL Test"]);
 	writeFileSync(join(path, "README.md"), options.readmeText ?? "test repo\n", "utf8");
 	runGit(["add", "README.md"]);
