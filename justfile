@@ -133,6 +133,12 @@ topology *args:
 install-tools: _remove-stale-branch-context-bin install-sdl install-brmem install-areg install-vibechk install-packagechk
     @echo "installed: sdl, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via sdl branch-context"
 
+clean-stale-node-modules-leftovers:
+    node {{justfile_directory()}}/scripts/clean-stale-node-modules-leftovers.mjs
+
+clean-stale-node-modules-leftovers-apply:
+    node {{justfile_directory()}}/scripts/clean-stale-node-modules-leftovers.mjs --apply
+
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
     find . -type d -name "__pycache__" -exec rm -rf {} + || true
