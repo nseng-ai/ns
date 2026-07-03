@@ -1,5 +1,5 @@
-import type { SdlCommandIo } from "@sdl/kernel/sdk";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import type { SdlCommandIo } from "@ji/kernel/sdk";
+import { formatErrorMessage } from "@ji/core/primitives";
 import {
 	LandStackCommandStream,
 	createLandUiCommandIo,

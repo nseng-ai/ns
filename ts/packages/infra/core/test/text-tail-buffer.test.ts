@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { BoundedTextTailBuffer } from "@sdl/core/text-tail-buffer";
+import { BoundedTextTailBuffer } from "@ji/core/text-tail-buffer";
 
 describe("BoundedTextTailBuffer", () => {
 	test("keeps text unchanged while it fits in the byte limit", () => {

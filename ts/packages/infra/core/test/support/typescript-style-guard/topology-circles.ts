@@ -18,7 +18,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@sdl/core/typescript-analysis";
+} from "@ji/core/typescript-analysis";
 import { type PackageMetadata } from "./package-metadata.ts";
 import { type SourceRuleViolation } from "./source-rules.ts";
 
@@ -454,5 +454,5 @@ function isAllowedPiSubpackageCircleEdge(
 	from: TopologyCircleFact,
 	to: TopologyCircleFact,
 ): boolean {
-	return from.tier === "capability" && from.component === "pi" && to.packageName === "@sdl/pi";
+	return from.tier === "capability" && from.component === "pi" && to.packageName === "@ji/pi";
 }

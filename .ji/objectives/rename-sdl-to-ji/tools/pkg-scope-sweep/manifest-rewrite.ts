@@ -9,7 +9,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PACKAGE_NAME_MAP, PHANTOM_DEPENDENCY_KEYS, renameSpecifier } from "./rename-map.ts";
+import { PACKAGE_NAME_MAP, renameSpecifier } from "./rename-map.ts";
 
 const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(TOOL_DIR, "..", "..", "..", "..", "..");
@@ -34,7 +34,6 @@ function renamePathValue(value: string): string {
 
 function rewriteDependencySection(section: JsonObject): JsonObject {
 	const entries = Object.entries(section)
-		.filter(([key]) => !PHANTOM_DEPENDENCY_KEYS.includes(key))
 		.map(([key, value]) => [renamePackageName(key), value] as const);
 	entries.sort(([a], [b]) => a.localeCompare(b));
 	return Object.fromEntries(entries);
@@ -84,13 +83,7 @@ function rewriteManifest(manifest: JsonObject): JsonObject {
 		} else if (key === "scripts" && value !== null && typeof value === "object") {
 			rewritten[key] = rewriteScripts(value as JsonObject);
 		} else if (key === "ji" && value !== null && typeof value === "object") {
-			const jiField = { ...(value as JsonObject) };
-			if (Array.isArray(jiField["subpackages"])) {
-				jiField["subpackages"] = jiField["subpackages"].map((entry) =>
-					entry === "sdl" ? "ji" : entry
-				);
-			}
-			rewritten[key] = jiField;
+			rewritten[key] = rewriteJiField(value);
 		} else if (
 			(key === "main" || key === "types" || key === "module") && typeof value === "string"
 		) {
@@ -114,9 +107,33 @@ function walkManifests(directory: string, files: string[]): void {
 	}
 }
 
+// Deep-rewrite the `ji` manifest field: `"sdl"` subpackage entries become
+// `"ji"`, and any nested `./`-relative path value (e.g. command `entry`)
+// goes through the specifier rename. Command `path` segments (CLI words)
+// are left alone by construction: bare words are not specifier-shaped.
+function rewriteJiField(value: unknown): unknown {
+	if (typeof value === "string") {
+		if (value === "sdl") {
+			return "ji";
+		}
+		return renamePathValue(value);
+	}
+	if (Array.isArray(value)) {
+		return value.map(rewriteJiField);
+	}
+	if (value !== null && typeof value === "object") {
+		return Object.fromEntries(
+			Object.entries(value as JsonObject).map(([key, entry]) => [key, rewriteJiField(entry)]),
+		);
+	}
+	return value;
+}
+
 function listManifests(): string[] {
 	const files: string[] = [];
 	walkManifests(join(REPO_ROOT, "ts"), files);
+	// .ji/reviews/*/tools/* packages are workspace members via ts/pnpm-workspace.yaml globs.
+	walkManifests(join(REPO_ROOT, ".ji", "reviews"), files);
 	return files.sort();
 }
 

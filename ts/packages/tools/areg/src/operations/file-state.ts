@@ -1,5 +1,5 @@
-import { optionalEntry } from "@sdl/core/primitives";
-import { resultErr, type Result } from "@sdl/core/result";
+import { optionalEntry } from "@ji/core/primitives";
+import { resultErr, type Result } from "@ji/core/result";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
 

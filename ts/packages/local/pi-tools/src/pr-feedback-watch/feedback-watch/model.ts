@@ -1,4 +1,4 @@
-import type { GithubPrIdentity } from "@sdl/capability-kit/github/identity";
+import type { GithubPrIdentity } from "@ji/capability-kit/github/identity";
 
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
 

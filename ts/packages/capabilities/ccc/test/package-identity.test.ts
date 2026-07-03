@@ -5,7 +5,7 @@ import { CCC_PACKAGE_IDENTITY } from "../src/api/index.ts";
 describe("CCC package identity", () => {
 	test("records the private orchestration package boundary", () => {
 		expect(CCC_PACKAGE_IDENTITY).toMatchObject({
-			packageName: "@sdl/ccc",
+			packageName: "@ji/ccc",
 			vocabularyName: "CCC",
 			expandedName: "Cmux Command and Control",
 			visibility: "private-workspace",

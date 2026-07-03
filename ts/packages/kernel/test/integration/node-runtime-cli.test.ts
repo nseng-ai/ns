@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@sdl/core/cli-runtime/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@ji/core/cli-runtime/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "ji Node runtime CLI entrypoint",
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "not_contains", text: "cp" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @sdl/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
+		"runtime: typescript\nentry_point: @ji/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
 });

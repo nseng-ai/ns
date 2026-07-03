@@ -28,8 +28,8 @@ import {
 	type ExtensionDiscoveryDiagnostic,
 } from "./discovery.ts";
 import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
-import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg-path";
+import type { ExplicitUndefined } from "@ji/core/primitives";
+import { requireXdgPath, resolveSdlXdgPath } from "@ji/core/xdg-path";
 import type { SdlCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = SdlCommandSourceLevel;

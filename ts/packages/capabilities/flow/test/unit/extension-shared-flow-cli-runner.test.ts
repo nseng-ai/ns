@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/command";
-import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
-import type { SdlExecOptions, SdlExtensionApi } from "@sdl/kernel/sdk";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/command";
+import { noopSdlCommandIo, noopSdlProgress } from "@ji/kernel/sdk";
+import type { SdlExecOptions, SdlExtensionApi } from "@ji/kernel/sdk";
 interface ExecCall {
 	command: string;
 	args: string[];
@@ -198,7 +198,7 @@ describe("project extension shared Flow CLI runner", () => {
 });
 
 async function loadFlowCliRunnerModule() {
-	return await import("../../src/sdl/flow-cli-runner.ts");
+	return await import("../../src/ji/flow-cli-runner.ts");
 }
 
 function createFakeApi(results: readonly ExecResult[]): {

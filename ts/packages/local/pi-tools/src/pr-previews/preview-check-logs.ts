@@ -1,9 +1,9 @@
-import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
-import { optionalEntry } from "@sdl/core/primitives";
+import { DEFAULT_FAST_MODEL } from "@ji/core/model-slug";
+import { optionalEntry } from "@ji/core/primitives";
 
-import { callPiModelText } from "@sdl/pi/models/call";
-import { loadGhCommand } from "@sdl/pi/shared/gh-command";
-import { splitTextLines } from "@sdl/pi/shared/text-lines";
+import { callPiModelText } from "@ji/pi/models/call";
+import { loadGhCommand } from "@ji/pi/shared/gh-command";
+import { splitTextLines } from "@ji/pi/shared/text-lines";
 import type { ExtensionAPI, ExtensionContext } from "./extension.ts";
 import type { PrPreviewCheck } from "./preview-checks-model.ts";
 

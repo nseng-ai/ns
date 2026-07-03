@@ -1,5 +1,5 @@
-import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

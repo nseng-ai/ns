@@ -1,8 +1,8 @@
-import { formatErrorMessage, optionalEntries } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries } from "@ji/core/primitives";
 import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "../api/index.ts";
 
-import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
-import { buildFencedTextBlock } from "@sdl/pi/skills/expansion";
+import { isRecord, stringField } from "@ji/pi/runtime/primitives";
+import { buildFencedTextBlock } from "@ji/pi/skills/expansion";
 import { formatPickupHandoffCommand } from "./identity.ts";
 import { currentBranch } from "./branch-resolution.ts";
 import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
@@ -11,7 +11,7 @@ import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
 import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./create-skill.ts";
 import { checkHandoffExists } from "./handoff-existence.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type { ExpandedSkillBlock } from "@sdl/pi/skills/expansion";
+import type { ExpandedSkillBlock } from "@ji/pi/skills/expansion";
 import type {
 	CommandContext,
 	ExtensionAPI,

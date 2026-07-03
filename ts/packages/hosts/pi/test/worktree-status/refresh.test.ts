@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { createManualTimerHarness } from "@sdl/core/time/testing";
-import type { LocalWorktreeStatus } from "@sdl/pi/worktree-status";
+import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+import { createManualTimerHarness } from "@ji/core/time/testing";
+import type { LocalWorktreeStatus } from "@ji/pi/worktree-status";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventHandler,
 	type PiExtensionCommandFinishedEvent,
-} from "@sdl/pi/commands/events";
+} from "@ji/pi/commands/events";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,

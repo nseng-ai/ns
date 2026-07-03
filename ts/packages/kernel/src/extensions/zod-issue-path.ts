@@ -1,13 +1,13 @@
-import type { ZodIssueLike } from "@sdl/core/primitives";
+import type { ZodIssueLike } from "@ji/core/primitives";
 
 /**
  * Kernel-local classifier for routing Zod issues by structural path shape.
  *
- * This intentionally stays private to `@sdl/kernel`: it is a small, policy-free
+ * This intentionally stays private to `@ji/kernel`: it is a small, policy-free
  * path-matching utility shared by `extension-discovery.ts` and
  * `command-registry.ts` to avoid raw `issue.path[N]` indexing at call sites.
  * It is not exported from the package and should not be promoted to
- * `@sdl/core/primitives` unless a second package needs it.
+ * `@ji/core/primitives` unless a second package needs it.
  */
 
 export type ZodIssuePathPatternSegment = string | { readonly type: "number" };

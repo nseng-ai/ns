@@ -1,6 +1,6 @@
-import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
-import { optionalEntries } from "@sdl/core/primitives";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { createFakeClinkrInteraction } from "@ji/clinkr/testing";
+import { optionalEntries } from "@ji/core/primitives";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";

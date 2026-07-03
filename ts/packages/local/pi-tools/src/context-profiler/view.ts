@@ -16,7 +16,7 @@ import {
 } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
-import { clamp, fitToWidth, reconcileScroll } from "@sdl/pi/terminal/layout";
+import { clamp, fitToWidth, reconcileScroll } from "@ji/pi/terminal/layout";
 import type { BundlePersistenceState } from "./bundle.ts";
 import type { InterrogationAttachment } from "./interrogation-controller.ts";
 import {

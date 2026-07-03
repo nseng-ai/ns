@@ -1,11 +1,11 @@
 import process from "node:process";
 
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
 import type { SessionSource } from "./sessions/source.ts";
 import { PiJsonlSessionSource } from "./sessions/pi-jsonl-source.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import type { ExplicitUndefined } from "@ji/core/primitives";
 
 export interface AretroCliContext {
 	cwd: string;

@@ -1,4 +1,4 @@
-# @sdl/slot
+# @ji/slot
 
 This context captures Slot language for the Git-worktree-backed slot pool and the boundary between Slot command usage, in-process Capability API composition, SDL-owned shell integration, and Graphite-aware slot helpers.
 
@@ -31,8 +31,8 @@ The canonical result shape describing where a branch was placed or already lives
 The `ji slot ...` command surface — the user- and agent-facing commands mounted as `ji slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
 
 **Slot Capability API**:
-The curated `@sdl/slot/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules.
-*Avoid*: command output parsing, `@sdl/slot/src/...` import, package-root convenience import, `ctx`-passing API
+The curated `@ji/slot/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules.
+*Avoid*: command output parsing, `@ji/slot/src/...` import, package-root convenience import, `ctx`-passing API
 
 **Checkout Side-Effect Policy**:
 The rule that **Slot Capability API** checkout side effects are explicit opt-ins, while safe in-process defaults do not copy to the clipboard or write parent-shell navigation directives.
@@ -48,7 +48,7 @@ A short-lived file-based signal that carries the destination path from an SDL ch
 
 **Slot Shell Mount**:
 The compatibility `ji slot shell ...` command group that exposes the same SDL-owned parent-shell integration as `ji shell ...` from within the Slot command tree.
-*Avoid*: Slot-owned shell installer, separate `slot()` wrapper, `@sdl/slot/shell-support`
+*Avoid*: Slot-owned shell installer, separate `slot()` wrapper, `@ji/slot/shell-support`
 
 **Slot Graphite Command Group**:
 The `ji slot gt ...` command surface for Graphite-aware Slot navigation, stack release, and hidden skill/agent helpers.

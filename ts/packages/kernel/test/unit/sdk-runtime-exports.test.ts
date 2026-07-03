@@ -19,7 +19,7 @@ import {
 	truncateTextHeadTail,
 	z,
 	type SdlCommand,
-} from "@sdl/kernel/sdk";
+} from "@ji/kernel/sdk";
 
 const runtimeExports = {
 	defineExtension,
@@ -59,7 +59,7 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"z",
 ] as const;
 
-describe("@sdl/kernel/sdk runtime exports", () => {
+describe("@ji/kernel/sdk runtime exports", () => {
 	test("exposes the intended runtime author surface", () => {
 		expect(Object.keys(runtimeExports).sort()).toEqual([...EXPECTED_RUNTIME_EXPORTS].sort());
 	});
@@ -94,13 +94,13 @@ describe("@sdl/kernel/sdk runtime exports", () => {
 			repoLocalSdlCommandDescriptor({
 				command,
 				manifestPath: ["review", "list"],
-				packageExportPrefix: "@sdl/example/commands",
+				packageExportPrefix: "@ji/example/commands",
 			}),
 		).toEqual({
 			command,
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/list.ts",
-			packageExport: "@sdl/example/commands/list",
+			packageExport: "@ji/example/commands/list",
 		});
 	});
 
@@ -117,14 +117,14 @@ describe("@sdl/kernel/sdk runtime exports", () => {
 				command,
 				manifestName: "review-list",
 				manifestPath: ["review", "list"],
-				packageExportPrefix: "@sdl/example/commands",
+				packageExportPrefix: "@ji/example/commands",
 			}),
 		).toEqual({
 			command,
 			manifestName: "review-list",
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/review-list.ts",
-			packageExport: "@sdl/example/commands/review-list",
+			packageExport: "@ji/example/commands/review-list",
 		});
 	});
 

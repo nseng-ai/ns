@@ -1,7 +1,7 @@
 export {
 	parseMachineEnvelopeData,
 	parseMachineEnvelopeDataWithFailureData,
-} from "@sdl/core/machine-envelope";
+} from "@ji/core/machine-envelope";
 
 export type {
 	MachineEnvelopeDataParseFailure,
@@ -11,4 +11,4 @@ export type {
 	MachineEnvelopeDataWithFailureDataResult,
 	MachineEnvelopeParseOptions,
 	ParseMachineEnvelopeDataWithFailureDataOptions,
-} from "@sdl/core/machine-envelope";
+} from "@ji/core/machine-envelope";

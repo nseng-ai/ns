@@ -1,1 +1,1 @@
-export { default } from "sdl-flow/commands/autoslot";
+export { default } from "@ji/flow/commands/autoslot";

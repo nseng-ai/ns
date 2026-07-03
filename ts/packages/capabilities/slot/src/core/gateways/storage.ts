@@ -1,4 +1,4 @@
-import { ensurePrivateDirectory } from "@sdl/capability-kit/xdg";
+import { ensurePrivateDirectory } from "@ji/capability-kit/xdg";
 
 export interface SlotStorageGateway {
 	ensureDir(path: string): Promise<void>;

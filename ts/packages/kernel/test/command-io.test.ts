@@ -1,4 +1,4 @@
-import { optionalEntries } from "@sdl/core/primitives";
+import { optionalEntries } from "@ji/core/primitives";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -7,8 +7,8 @@ import {
 	createCommandIo,
 	runWithSdlCommandIo,
 } from "../src/runtime/command-io.ts";
-import { noopSdlProgress } from "@sdl/kernel/sdk";
-import type { SdlExtensionApi } from "@sdl/kernel/sdk";
+import { noopSdlProgress } from "@ji/kernel/sdk";
+import type { SdlExtensionApi } from "@ji/kernel/sdk";
 
 function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 	const commandIo = createCliCommandIo(

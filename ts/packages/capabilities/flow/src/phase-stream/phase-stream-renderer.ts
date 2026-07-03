@@ -1,6 +1,6 @@
-import type { Caps } from "@sdl/clinkr";
-import { SPINNER_FRAME_MS, type FrameRenderer, type StreamSink } from "@sdl/clinkr/stream";
-import { bold, dim, ellipsisFor, statusLine, truncatePlain } from "@sdl/core/cli-theme";
+import type { Caps } from "@ji/clinkr";
+import { SPINNER_FRAME_MS, type FrameRenderer, type StreamSink } from "@ji/clinkr/stream";
+import { bold, dim, ellipsisFor, statusLine, truncatePlain } from "@ji/core/cli-theme";
 
 import type { PhaseView } from "./phase-stream-state.ts";
 

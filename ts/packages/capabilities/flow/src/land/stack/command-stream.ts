@@ -1,14 +1,14 @@
-import { createCommandIo } from "@sdl/kernel/command-io";
-import type { SdlCommandIo } from "@sdl/kernel/sdk";
-import { type ExecResult, formatCommand, runNormalizedExecResult } from "@sdl/core/command";
-import { formatElapsedMs } from "@sdl/core/time-format";
+import { createCommandIo } from "@ji/kernel/command-io";
+import type { SdlCommandIo } from "@ji/kernel/sdk";
+import { type ExecResult, formatCommand, runNormalizedExecResult } from "@ji/core/command";
+import { formatElapsedMs } from "@ji/core/time-format";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@sdl/core/terminal-presentation";
+} from "@ji/core/terminal-presentation";
 import { commandStreamOutputLines } from "./command-exec.ts";
 import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";

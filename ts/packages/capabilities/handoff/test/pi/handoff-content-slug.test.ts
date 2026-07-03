@@ -1,12 +1,12 @@
-import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
-import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
+import { DEFAULT_FAST_MODEL } from "@ji/core/model-slug";
+import { buildSlugModelArgs } from "@ji/capability-kit/model-slug";
 import { describe, expect, test } from "vitest";
 import {
 	buildHandoffContentSlugPrompt,
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
 } from "../../src/pi/content-slug.ts";
-import type { ExecResult } from "@sdl/core/command";
+import type { ExecResult } from "@ji/core/command";
 import type { ExtensionAPI } from "../../src/pi/extension.ts";
 
 const CWD = "/repo";

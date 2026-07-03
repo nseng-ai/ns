@@ -1,6 +1,6 @@
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { CommandExecApi, ExecResult } from "@sdl/core/command";
-import { runGitHubCliAsExecResult } from "@sdl/capability-kit/github/cli";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import type { CommandExecApi, ExecResult } from "@ji/core/command";
+import { runGitHubCliAsExecResult } from "@ji/capability-kit/github/cli";
 import { z } from "zod";
 
 import {
@@ -9,7 +9,7 @@ import {
 	type SlotDiagnosticSink,
 } from "../diagnostics.ts";
 import { parseJsonObject } from "../json.ts";
-import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@ji/core/primitives";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;

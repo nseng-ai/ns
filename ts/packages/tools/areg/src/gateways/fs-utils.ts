@@ -1,6 +1,6 @@
 import { lstat, readlink } from "node:fs/promises";
 
-import { errorCodeFromUnknown, isPathInside } from "@sdl/core/primitives";
+import { errorCodeFromUnknown, isPathInside } from "@ji/core/primitives";
 
 import type { AregPathState } from "../gateways.ts";
 

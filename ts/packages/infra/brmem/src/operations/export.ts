@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 
-import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@ji/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

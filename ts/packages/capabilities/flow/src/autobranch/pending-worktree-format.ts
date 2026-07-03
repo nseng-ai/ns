@@ -1,7 +1,7 @@
 import {
 	formatPendingWorktreeCommandDetails,
 	type PendingWorktreeError,
-} from "@sdl/capability-kit/pending-worktree";
+} from "@ji/capability-kit/pending-worktree";
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
 	const details = formatPendingWorktreeCommandDetails(error.result);

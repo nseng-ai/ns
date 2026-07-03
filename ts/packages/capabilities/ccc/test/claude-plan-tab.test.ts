@@ -6,8 +6,8 @@ import {
 	buildClaudePlanLaunchCommand,
 	buildClaudePlanTabTitle,
 	extractLastAssistantText,
-} from "@sdl/ccc/api";
-import { registerCccClaudePlanTabCommand } from "@sdl/ccc/pi";
+} from "@ji/ccc/api";
+import { registerCccClaudePlanTabCommand } from "@ji/ccc/pi";
 import {
 	FakeCommandContext,
 	FakePi,

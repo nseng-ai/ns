@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 
-import type { Clock } from "@sdl/core/clock";
-import type { TimerScheduler } from "@sdl/core/timers";
+import type { Clock } from "@ji/core/clock";
+import type { TimerScheduler } from "@ji/core/timers";
 
 import type {
 	RunnerSubagentDispatcherDependencies,

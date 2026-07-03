@@ -1,6 +1,6 @@
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-import { clamp } from "@sdl/pi/terminal/layout";
+import { clamp } from "@ji/pi/terminal/layout";
 
 /**
  * Overlay sizing shared by PR preview modals. The host overlay clips rendered

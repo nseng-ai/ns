@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/kernel",
+	"name": "@ji/kernel",
 	"version": "0.1.0",
 	"private": true,
 	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
@@ -39,8 +39,8 @@
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
 		"jiti": "catalog:",
 		"zod": "catalog:"
 	}

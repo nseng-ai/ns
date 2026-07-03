@@ -17,7 +17,7 @@ import type {
 	GitRevisionRangePathParams,
 	GitStagePathsParams,
 	GitStatusPathFacts,
-} from "@sdl/capability-kit/git";
+} from "@ji/capability-kit/git";
 import {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,

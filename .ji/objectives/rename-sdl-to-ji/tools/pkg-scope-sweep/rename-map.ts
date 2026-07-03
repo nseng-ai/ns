@@ -25,12 +25,9 @@ export const PACKAGE_NAME_MAP: Readonly<Record<string, string>> = {
 	sdlcc: "jicc",
 	"@sdl-local/pi-tools": "@internal/pi-tools",
 	"sdl-ts-workspace": "ji-ts-workspace",
+	// Workspace member living under .ji/reviews/*/tools/* (glob in ts/pnpm-workspace.yaml).
+	"@sdl/review-reinvention-scanner": "@ji/review-reinvention-scanner",
 };
-
-// Dangling dependency key with no backing workspace package; dropped, not renamed.
-export const PHANTOM_DEPENDENCY_KEYS: readonly string[] = [
-	"@sdl/review-reinvention-scanner",
-];
 
 // Path segments renamed inside specifiers, export subpaths, and export values.
 // Keys match one whole `/`-separated segment.

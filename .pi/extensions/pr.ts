@@ -3,7 +3,7 @@ import prPreviewsExtension from "../../ts/packages/local/pi-tools/src/pr-preview
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
 const prFeedbackWatchExtension = await importTypeScriptWorkspaceDefault(
-	"@sdl-local/pi-tools/pr-feedback-watch/extension",
+	"@internal/pi-tools/pr-feedback-watch/extension",
 );
 
 export default function prProjectExtension(pi) {

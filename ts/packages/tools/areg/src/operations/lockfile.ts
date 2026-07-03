@@ -1,5 +1,5 @@
-import { formatErrorMessage, formatZodIssue, optionalEntry } from "@sdl/core/primitives";
-import { resultErr, type Result } from "@sdl/core/result";
+import { formatErrorMessage, formatZodIssue, optionalEntry } from "@ji/core/primitives";
+import { resultErr, type Result } from "@ji/core/result";
 import { z } from "zod";
 
 import type { AregTextFileState } from "../gateways.ts";

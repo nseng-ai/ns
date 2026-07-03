@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/core/command";
+import { formatCommand } from "@ji/core/command";
 import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,

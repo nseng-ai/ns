@@ -1,5 +1,5 @@
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { CommandExecApi, ExecResult } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import type { CommandExecApi, ExecResult } from "@ji/core/exec";
 
 import { runVibechkCommand } from "./exec-util.ts";
 import type { Metrics } from "./models.ts";

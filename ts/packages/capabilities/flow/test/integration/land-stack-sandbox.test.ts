@@ -33,8 +33,8 @@ import { delimiter, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand } from "@sdl/core/exec";
-import { optionalEntry } from "@sdl/core/primitives";
+import { runCommand } from "@ji/core/exec";
+import { optionalEntry } from "@ji/core/primitives";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import type {
 	LandStackCommandContext,
@@ -403,7 +403,7 @@ async function withSandbox(
 	options: { currentBranch: string; state?: Partial<SandboxState> },
 	run: (sandbox: Sandbox) => Promise<void>,
 ): Promise<void> {
-	const tempRoot = await mkdtemp(join(tmpdir(), "sdl-flow-land-sandbox-"));
+	const tempRoot = await mkdtemp(join(tmpdir(), "ji-flow-land-sandbox-"));
 	const repoRoot = join(tempRoot, "repo");
 	const binDir = join(tempRoot, "bin");
 	const statePath = join(tempRoot, "state.json");

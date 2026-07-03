@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { runAvailableBrmemCommand } from "@sdl/capability-kit/brmem-cli";
+import { runAvailableBrmemCommand } from "@ji/capability-kit/brmem-cli";
 import {
 	execApiToCommandRunner,
 	type ExecOptions,
@@ -10,35 +10,35 @@ import {
 	piExecApiToCommandExecApi,
 	type PiExecResultLike,
 	tailText,
-} from "@sdl/core/command";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import { runGitHubCli } from "@sdl/capability-kit/github/cli";
-import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/capability-kit/github/identity";
+} from "@ji/core/command";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
+import { runGitHubCli } from "@ji/capability-kit/github/cli";
+import { githubRepositoryIdentityFromRemoteUrl } from "@ji/capability-kit/github/identity";
 import {
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJsonResult,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
-} from "@sdl/capability-kit/github/pr-status";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import { formatElapsedMs } from "@sdl/core/time-format";
-import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
+} from "@ji/capability-kit/github/pr-status";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { formatElapsedMs } from "@ji/core/time-format";
+import { parseMachineEnvelopeData } from "@ji/pi/runtime/machine-envelope";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksFromDetails,
 	safeTerminalHyperlink,
 	truncateDisplayLine,
-} from "@sdl/pi/terminal/presentation";
+} from "@ji/pi/terminal/presentation";
 
 import {
 	loadGraphiteMetadataStatusInWorker,
 	type GraphiteMetadataStatus,
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
-} from "@sdl/capability-kit/graphite/status";
+} from "@ji/capability-kit/graphite/status";
 
 import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 

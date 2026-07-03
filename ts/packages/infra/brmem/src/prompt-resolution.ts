@@ -1,12 +1,12 @@
 import { access } from "node:fs/promises";
 import process from "node:process";
 
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import type { CommandExecApi } from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
 
-import { resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
+import { resolveSdlXdgPath } from "@ji/capability-kit/xdg";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import type { BrmemEnvOption } from "./env.ts";

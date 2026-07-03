@@ -2,7 +2,7 @@
 
 `sdl` is the Source Development Lifecycle CLI. It is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling.
 
-The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@sdl/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
+The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@ji/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
 
 ## Command ownership and hard cutover
 
@@ -15,7 +15,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 
 ## Slot extension command face
 
-`ji slot ...` is contributed by the bundled `@sdl/slot` SDL extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary SDL help/parsing paths. `@sdl/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `ji slot`, including navigation commands and agent-facing `ji slot gt exec ...` helpers.
+`ji slot ...` is contributed by the bundled `@ji/slot` SDL extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary SDL help/parsing paths. `@ji/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `ji slot`, including navigation commands and agent-facing `ji slot gt exec ...` helpers.
 
 Parent-shell directory changes require opt-in shell integration because a child process cannot `cd` its parent shell:
 
@@ -27,7 +27,7 @@ ji slot shell show --shell zsh
 ji slot shell install --shell zsh
 ```
 
-`ji shell` is the canonical kernel-owned shell integration. The Slot extension contributes `ji slot shell ...` compatibility aliases that install the same canonical `ji()` wrapper. The wrapper uses `JI_CD_DIRECTIVE_FILE` and invokes `command ji "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@sdl/slot/api` rather than parsing `ji slot --format json` output.
+`ji shell` is the canonical kernel-owned shell integration. The Slot extension contributes `ji slot shell ...` compatibility aliases that install the same canonical `ji()` wrapper. The wrapper uses `JI_CD_DIRECTIVE_FILE` and invokes `command ji "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@ji/slot/api` rather than parsing `ji slot --format json` output.
 
 ## Shell completion
 
@@ -133,7 +133,7 @@ Manifest command entries require `name`, `description`, and a relative POSIX-sty
 SDL extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current SDL surface.
 
 ```ts
-import { defineExtension, ok } from "@sdl/kernel/sdk";
+import { defineExtension, ok } from "@ji/kernel/sdk";
 
 export default defineExtension({
 	commands: [
@@ -161,39 +161,39 @@ Dynamic Pi `/ji:*` mirrors are not part of this first general extension-loading 
 
 ## SDL extension API
 
-SDL extension authors import the SDK surface, including schema builder `z`, from the `@sdl/kernel/sdk` subpath:
+SDL extension authors import the SDK surface, including schema builder `z`, from the `@ji/kernel/sdk` subpath:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@sdl/kernel/sdk";
-import type { SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
+import { defineExtension, failed, ok, z } from "@ji/kernel/sdk";
+import type { SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
 ```
 
-`@sdl/kernel/sdk` is the SDL author SDK subpackage and the SDK layer; `@sdl/kernel` is the host/kernel container that loads extensions. That `@sdl/kernel/sdk` subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
+`@ji/kernel/sdk` is the SDL author SDK subpackage and the SDK layer; `@ji/kernel` is the host/kernel container that loads extensions. That `@ji/kernel/sdk` subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 
-Single-file SDL extension modules such as `.ji/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@sdl/kernel/sdk` or another documented package export; do not create a package → extension dependency.
+Single-file SDL extension modules such as `.ji/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@ji/kernel/sdk` or another documented package export; do not create a package → extension dependency.
 
-The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.ji/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@sdl/kernel/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
+The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.ji/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@ji/kernel/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
 ## Internal workspace exports and Capability APIs
 
-The author SDK is the `@sdl/kernel/sdk` subpath. Remaining `@sdl/kernel` subpaths are narrow `ji.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
+The author SDK is the `@ji/kernel/sdk` subpath. Remaining `@ji/kernel` subpaths are narrow `ji.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
 
-SDK-independent domain primitives that used to live behind `@sdl/kernel/*` internal subpaths now live as precise `@sdl/capability-kit/*` subpaths. Those helpers are internal workspace building blocks for first-party capability code, not public SDK author API.
+SDK-independent domain primitives that used to live behind `@ji/kernel/*` internal subpaths now live as precise `@ji/capability-kit/*` subpaths. Those helpers are internal workspace building blocks for first-party capability code, not public SDK author API.
 
-Consumer capability packages use Capability APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@sdl/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
+Consumer capability packages use Capability APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@ji/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
 
 ## Flow capability-area maturity
 
 The grouped flow extension uses a conservative maturity ladder for repeated command-author seams:
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
-2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
-3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@sdl/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@sdl/capability-kit/*` subpaths unless and until a separate decision promotes them to `@sdl/kernel/sdk`.
-4. **Public SDK:** a separately approved promotion into `@sdl/kernel/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
+2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `@ji/flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
+3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@ji/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@ji/capability-kit/*` subpaths unless and until a separate decision promotes them to `@ji/kernel/sdk`.
+4. **Public SDK:** a separately approved promotion into `@ji/kernel/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
-This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `sdl-flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
+This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `@ji/flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
 
 ## `cp`
 
@@ -204,7 +204,7 @@ ji flow cp
 ji flow cp --dry-run
 ```
 
-In this repository, `ji flow cp` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `sdl-flow/commands/cp`; it is not a universal built-in SDL command.
+In this repository, `ji flow cp` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/cp`; it is not a universal built-in SDL command.
 
 Behavior:
 
@@ -231,7 +231,7 @@ ji flow autobranch
 ji flow autobranch --slug <slug>
 ```
 
-In this repository, `ji flow autobranch` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `sdl-flow/commands/autobranch`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `ji flow autobranch` / `/ji:flow:autobranch`.
+In this repository, `ji flow autobranch` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/autobranch`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `ji flow autobranch` / `/ji:flow:autobranch`.
 
 Behavior:
 
@@ -257,7 +257,7 @@ ji flow branch-latest-commit
 ji flow branch-latest-commit --slug <slug>
 ```
 
-In this repository, `ji flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `sdl-flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
+In this repository, `ji flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.ji/extensions/flow`, with implementation owned by `@ji/flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
 
 Behavior:
 

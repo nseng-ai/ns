@@ -1,15 +1,15 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
 import {
 	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
 	type CliCommandInfo,
 	type CliCommandRunDeps,
 	type ParsedCliCommandArgs,
-} from "@sdl/pi/commands/cli-extension";
-import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
-import type { ExecResult } from "@sdl/core/command";
-import { formatErrorMessage } from "@sdl/core/primitives";
-import { notifyCommandUi } from "@sdl/pi/commands/helpers";
+} from "@ji/pi/commands/cli-extension";
+import { parseMachineEnvelopeData } from "@ji/pi/runtime/machine-envelope";
+import type { ExecResult } from "@ji/core/command";
+import { formatErrorMessage } from "@ji/core/primitives";
+import { notifyCommandUi } from "@ji/pi/commands/helpers";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -29,21 +29,21 @@ import {
 	type ObjectiveCreateCommandSpec,
 	type ObjectiveListParsedArgs,
 } from "../api/index.ts";
-import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { definePiSurfaceParity } from "@ji/pi/parity/extension";
 import {
 	buildFencedTextBlock,
 	expandRepoSkillBlock,
 	invokeRepoSkillPromptTurn,
-} from "@sdl/pi/skills/expansion";
+} from "@ji/pi/skills/expansion";
 import type {
 	AutocompleteItem,
 	CommandContext,
 	ExecOptions,
 	ExtensionAPI,
-} from "@sdl/pi/runtime/types";
+} from "@ji/pi/runtime/types";
 
-export type { CommandContext, NotifyLevel, SessionStartContext } from "@sdl/pi/runtime/types";
-export type { ExecResult } from "@sdl/core/command";
+export type { CommandContext, NotifyLevel, SessionStartContext } from "@ji/pi/runtime/types";
+export type { ExecResult } from "@ji/core/command";
 export {
 	completeObjectiveListArgs,
 	parseObjectiveListArgTokens,
@@ -414,7 +414,7 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "ji objective list",
 		skill: "objective",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/objective/pi",
+		sourcePackage: "@ji/objective/pi",
 		sourceModule: "objective",
 		notes:
 			"Pi command uses the Objective Capability API in-process and keeps output format controlled by the Objective Pi adapter.",
@@ -427,7 +427,7 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "ji objective exec read-objective plus direct Objective Markdown creation",
 		skill: objectiveCreateCommandSpec.skillName,
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/objective/pi",
+		sourcePackage: "@ji/objective/pi",
 		sourceModule: "objective",
 		notes:
 			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
@@ -442,7 +442,7 @@ export const objectiveParity = definePiSurfaceParity([
 				cli: `ji objective ${spec.commandName.slice("objective:".length)}`,
 				skill: spec.skillName,
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@sdl/objective/pi",
+				sourcePackage: "@ji/objective/pi",
 				sourceModule: "objective",
 				notes:
 					"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",

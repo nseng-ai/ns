@@ -1,7 +1,7 @@
-import { formatErrorMessage } from "@sdl/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
-import { systemTimerScheduler } from "@sdl/core/time";
-import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
+import { formatErrorMessage } from "@ji/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@ji/core/timers";
+import { systemTimerScheduler } from "@ji/core/time";
+import { isRecord, stringField } from "@ji/pi/runtime/primitives";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,

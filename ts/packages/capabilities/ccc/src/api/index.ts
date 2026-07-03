@@ -1,5 +1,5 @@
 export const CCC_PACKAGE_IDENTITY = {
-	packageName: "@sdl/ccc",
+	packageName: "@ji/ccc",
 	vocabularyName: "CCC",
 	expandedName: "Cmux Command and Control",
 	visibility: "private-workspace",

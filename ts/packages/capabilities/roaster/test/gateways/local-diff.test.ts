@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { ScriptedCommandExecApi } from "@ji/core/exec/testing";
 
 import {
 	FakeLocalDiffGateway,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { runCli } from "@sdl/kernel/cli";
+import { runCli } from "@ji/kernel/cli";
 
 describe("sdl slot CLI", () => {
 	it("keeps CLI metadata on the owning sdl entrypoint", async () => {
@@ -11,7 +11,7 @@ describe("sdl slot CLI", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @ji/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 	});
 

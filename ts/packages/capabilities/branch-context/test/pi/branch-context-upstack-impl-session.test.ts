@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { formatImplBranchContextCommand } from "@sdl/pi/commands";
-import { NoSavedPlanAvailableError } from "@sdl/plans/api";
+import { formatImplBranchContextCommand } from "@ji/pi/commands";
+import { NoSavedPlanAvailableError } from "@ji/plans/api";
 import registerBranchContextExtension from "../../src/pi/extension.ts";
 
 import {

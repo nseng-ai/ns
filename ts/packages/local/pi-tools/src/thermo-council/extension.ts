@@ -1,4 +1,4 @@
-import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { definePiSurfaceParity } from "@ji/pi/parity/extension";
 import { THERMO_COUNCIL_COMMAND_NAME } from "./constants.ts";
 import { runThermoCouncilCommand } from "./orchestrator.ts";
 import type { ThermoCouncilExtensionAPI } from "./types.ts";
@@ -37,7 +37,7 @@ export const thermoCouncilParity = definePiSurfaceParity([
 		fallback:
 			"Non-Pi agents should run the portable thermonuclear review rubric directly from .ji/reviews/thermonuclear-review/review.md or use the Thermostack skill for a single-agent review/branch proposal workflow.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl-local/pi-tools/thermo-council",
+		sourcePackage: "@internal/pi-tools/thermo-council",
 		sourceModule: "thermo-council",
 		notes:
 			"The command is Pi-specific because it orchestrates multiple Pi runner subagents, model refs, terminal capture tools, and session-local presentation.",

@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 import { writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import type { ExplicitUndefined } from "@ji/core/primitives";
 
 export const SLOT_CD_DIRECTIVE_FILE = "SLOT_CD_DIRECTIVE_FILE";
 export const SDL_CD_DIRECTIVE_FILE = "JI_CD_DIRECTIVE_FILE";

@@ -1,4 +1,4 @@
-import type { BrmemResult } from "@sdl/brmem";
+import type { BrmemResult } from "@ji/brmem";
 
 import {
 	deleteHandoffArtifact,

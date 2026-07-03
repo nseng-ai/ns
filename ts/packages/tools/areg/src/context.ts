@@ -1,8 +1,8 @@
-import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import { readStdinLine } from "@sdl/core/cli-runtime";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@ji/clinkr";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
+import { readStdinLine } from "@ji/core/cli-runtime";
 
 import type {
 	AregGithubGateway,

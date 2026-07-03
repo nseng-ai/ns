@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/areg",
+	"name": "@ji/areg",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,10 +16,10 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/areg/test"
 	},
 	"dependencies": {
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/pi": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/pi": "workspace:*",
 		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},

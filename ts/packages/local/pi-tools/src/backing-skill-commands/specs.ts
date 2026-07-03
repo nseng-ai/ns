@@ -2,7 +2,7 @@ import {
 	derivePiReplacementSurface,
 	genericCommandStyleSkillNames,
 	KNOWN_PI_COMMAND_NAMESPACES,
-} from "@sdl/pi/commands";
+} from "@ji/pi/commands";
 
 export interface DerivedPiCommand {
 	surface: string;

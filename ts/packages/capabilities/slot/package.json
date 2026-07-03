@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/slot",
+	"name": "@ji/slot",
 	"version": "0.1.0",
 	"files": [
 		"src"
@@ -8,18 +8,18 @@
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
-		"./command-face": "./src/sdl/command-face.ts",
-		"./extension": "./src/sdl/extension.ts"
+		"./command-face": "./src/ji/command-face.ts",
+		"./extension": "./src/ji/extension.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/slot/test"
 	},
 	"dependencies": {
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ji": {
@@ -29,7 +29,7 @@
 			"api",
 			"core",
 			"lifecycle",
-			"sdl"
+			"ji"
 		],
 		"commands": [
 			{
@@ -38,7 +38,7 @@
 					"list"
 				],
 				"description": "List worktree pool slots derived from Git worktree state.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -46,7 +46,7 @@
 					"ls"
 				],
 				"description": "Alias for list.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -54,7 +54,7 @@
 					"checkout"
 				],
 				"description": "Check out a branch into an available pool slot worktree.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -62,7 +62,7 @@
 					"co"
 				],
 				"description": "Alias for checkout.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -70,7 +70,7 @@
 					"goto"
 				],
 				"description": "Print/copy a cd command for an assigned slot.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -78,7 +78,7 @@
 					"claim"
 				],
 				"description": "Move a local branch into the current managed slot or lowest available slot.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -86,7 +86,7 @@
 					"free"
 				],
 				"description": "Free assigned slots back to the pool.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -94,7 +94,7 @@
 					"foreach"
 				],
 				"description": "Run a command in every managed slot worktree.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -102,7 +102,7 @@
 					"gc"
 				],
 				"description": "Free slots whose pull requests have closed or merged.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -110,7 +110,7 @@
 					"init"
 				],
 				"description": "Initialize the worktree pool with N detached slots at trunk.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -118,7 +118,7 @@
 					"resize"
 				],
 				"description": "Grow or shrink the worktree pool to --size slots.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -127,7 +127,7 @@
 					"up"
 				],
 				"description": "Print/copy a cd command for the immediate upstack Graphite branch.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -136,7 +136,7 @@
 					"down"
 				],
 				"description": "Print/copy a cd command for the immediate downstack Graphite branch.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -145,7 +145,7 @@
 					"free-stack"
 				],
 				"description": "Release every assigned slot in the current Graphite stack except the current branch.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -155,7 +155,7 @@
 					"stack-branches"
 				],
 				"description": "Emit the current Graphite stack branch list for skill/agent invocation.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -165,7 +165,7 @@
 					"stack-map-branches"
 				],
 				"description": "Emit a Graphite branch graph and slot rows for stack-map skill/agent invocation.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -174,7 +174,7 @@
 					"show"
 				],
 				"description": "Print the parent-shell wrapper script.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			},
 			{
 				"path": [
@@ -183,7 +183,7 @@
 					"install"
 				],
 				"description": "Install the parent-shell wrapper in the detected or selected rc file.",
-				"entry": "./src/sdl/extension.ts"
+				"entry": "./src/ji/extension.ts"
 			}
 		]
 	}

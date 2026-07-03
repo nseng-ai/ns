@@ -1,1 +1,1 @@
-export { default } from "@sdl/address/sdl/commands/exec-pr-discussion-comments";
+export { default } from "@ji/address/ji/commands/exec-pr-discussion-comments";

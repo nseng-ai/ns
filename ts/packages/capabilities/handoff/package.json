@@ -1,17 +1,17 @@
 {
-	"name": "@sdl/handoff",
+	"name": "@ji/handoff",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
 		"./identity": "./src/core/identity.ts",
 		"./api": "./src/api/index.ts",
-		"./sdl/commands/list": "./src/sdl/commands/list.ts",
-		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
-		"./sdl/commands/gc": "./src/sdl/commands/gc.ts",
-		"./sdl/commands/create": "./src/sdl/commands/create.ts",
-		"./sdl/commands/pickup": "./src/sdl/commands/pickup.ts",
-		"./repo-local-sdl-extension": "./src/sdl/repo-local-sdl-extension.ts",
+		"./ji/commands/list": "./src/ji/commands/list.ts",
+		"./ji/commands/delete": "./src/ji/commands/delete.ts",
+		"./ji/commands/gc": "./src/ji/commands/gc.ts",
+		"./ji/commands/create": "./src/ji/commands/create.ts",
+		"./ji/commands/pickup": "./src/ji/commands/pickup.ts",
+		"./repo-local-sdl-extension": "./src/ji/repo-local-ji-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -23,11 +23,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/handoff/test"
 	},
 	"dependencies": {
-		"@sdl/brmem": "workspace:*",
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
+		"@ji/brmem": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ji": {
@@ -35,19 +35,19 @@
 		"subpackages": [
 			"api",
 			"core",
-			"sdl",
+			"ji",
 			"pi"
 		]
 	},
 	"peerDependencies": {
-		"@sdl/pi": "workspace:*"
+		"@ji/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@sdl/pi": {
+		"@ji/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@sdl/pi": "workspace:*"
+		"@ji/pi": "workspace:*"
 	}
 }

@@ -1,4 +1,4 @@
-import { defineExtension } from "@sdl/kernel/sdk";
+import { defineExtension } from "@ji/kernel/sdk";
 
 import { type ReviewListRequest } from "../operations/cli-operations.ts";
 import { createReviewListCommand } from "./review-list.ts";

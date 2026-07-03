@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@sdl/capability-kit/github/pr-status";
-import { githubCheckRun } from "@sdl/capability-kit/github/testing";
-import { ScriptedQueue } from "@sdl/core/test-kit";
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/capability-kit/graphite/status";
+import { githubWorktreePrStatusQuery } from "@ji/capability-kit/github/pr-status";
+import { githubCheckRun } from "@ji/capability-kit/github/testing";
+import { ScriptedQueue } from "@ji/core/test-kit";
+import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+import { optionalEntries, optionalEntry } from "@ji/core/primitives";
+import type { GraphiteMetadataWorkerDiagnostic } from "@ji/capability-kit/graphite/status";
 import {
 	formatGhStatus,
 	formatGtStatus,
@@ -25,8 +25,8 @@ import {
 	type StatusTheme,
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
-} from "@sdl/pi/worktree-status";
-import type { GraphiteMetadataStatus } from "@sdl/capability-kit/graphite/status";
+} from "@ji/pi/worktree-status";
+import type { GraphiteMetadataStatus } from "@ji/capability-kit/graphite/status";
 
 const ROOT = "/repo";
 const HEAD_OID = "abc123";

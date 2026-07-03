@@ -1,8 +1,8 @@
-import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
-import { formatCommandDetails } from "@sdl/core/command";
+import type { CommandResult } from "@ji/capability-kit/checkpoint-flow";
+import { formatCommandDetails } from "@ji/core/command";
 
 export type { CommandResult };
-import { truncateTextHead } from "@sdl/core/text-truncation";
+import { truncateTextHead } from "@ji/core/text-truncation";
 
 export type AutobranchExec = (
 	command: string,

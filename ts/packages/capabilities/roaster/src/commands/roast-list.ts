@@ -1,4 +1,4 @@
-import { defineExtension } from "@sdl/kernel/sdk";
+import { defineExtension } from "@ji/kernel/sdk";
 
 import {
 	renderRoastSkillList,
@@ -7,7 +7,7 @@ import {
 	runRoastSkillList,
 	type RoastSkillListRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../sdl/command.ts";
+import { roasterSdlCommand } from "../ji/command.ts";
 
 const ROAST_LIST_DESCRIPTION = `List Roaster review-skill command entries generated from review definitions.`;
 

@@ -5,7 +5,7 @@ import process from "node:process";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { defaultCommandResolver, NodeCommandExecApi } from "@sdl/core/exec";
+import { defaultCommandResolver, NodeCommandExecApi } from "@ji/core/exec";
 
 const tempDirs: string[] = [];
 const originalPath = process.env.PATH;

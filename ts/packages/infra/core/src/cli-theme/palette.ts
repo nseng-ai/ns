@@ -7,7 +7,7 @@
 // We drive the rung explicitly off `caps.colorDepth` (already resolved by caps.ts), with no auto-
 // detection from a styling library.
 
-import type { Caps } from "@sdl/clinkr";
+import type { Caps } from "@ji/clinkr";
 
 const RESET = "\x1b[0m";
 const DIM = "\x1b[2m";

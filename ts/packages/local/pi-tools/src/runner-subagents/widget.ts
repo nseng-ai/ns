@@ -1,4 +1,4 @@
-import type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
+import type { WidgetRuntimeContext } from "@ji/pi/runtime/tool-types";
 
 import {
 	emptyRunnerSubagentActivity,
@@ -14,7 +14,7 @@ import {
 	runnerSubagentSessionFile,
 } from "./presentation.ts";
 
-export type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
+export type { WidgetRuntimeContext } from "@ji/pi/runtime/tool-types";
 
 export interface RunnerSubagentWidgetOptions {
 	fallbackTitle?: string;

@@ -11,9 +11,9 @@ import type {
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
 	GithubStatusChecks,
-} from "@sdl/address/api";
-import type { Result } from "@sdl/core/result";
-import { createDeferred } from "@sdl/core/test-kit";
+} from "@ji/address/api";
+import type { Result } from "@ji/core/result";
+import { createDeferred } from "@ji/core/test-kit";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";

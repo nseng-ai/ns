@@ -1,4 +1,4 @@
-import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { definePiSurfaceParity } from "@ji/pi/parity/extension";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "pr:watch-feedback";
 
@@ -12,7 +12,7 @@ export const prFeedbackWatchParity = definePiSurfaceParity([
 		fallback:
 			"Use /pr:download-feedback or ji address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl-local/pi-tools/pr-feedback-watch",
+		sourcePackage: "@internal/pi-tools/pr-feedback-watch",
 		sourceModule: "pr-feedback-watch",
 		notes:
 			"Pi owns opt-in live polling and prompt injection; pr-address owns portable read-only feedback download and normalization.",

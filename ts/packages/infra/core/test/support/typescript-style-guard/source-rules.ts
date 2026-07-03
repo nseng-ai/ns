@@ -12,7 +12,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@sdl/core/typescript-analysis";
+} from "@ji/core/typescript-analysis";
 import {
 	packageNameForPath,
 	packageNameForSpecifier,
@@ -162,7 +162,7 @@ function isPrivateCapabilityPeerImport(
 	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
 	if (importedPackageMetadata?.sdlTier === "neutral-infra") return false;
 	if (importedPackageMetadata?.sdlTier === "capability-kit") return false;
-	if (importedPackageName === "@sdl/kernel") return false;
+	if (importedPackageName === "@ji/kernel") return false;
 	if (importedPackageMetadata?.sdlTier !== "capability") return false;
 
 	const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);
@@ -184,10 +184,10 @@ function isFirstPartyModuleSpecifier(specifier: string): boolean {
 		specifier.startsWith(".") ||
 		specifier.startsWith("/") ||
 		specifier.startsWith("@/") ||
-		specifier.startsWith("@sdl/") ||
-		specifier.startsWith("@sdl-local/") ||
-		specifier === "sdlcc" ||
-		specifier.startsWith("sdlcc/")
+		specifier.startsWith("@ji/") ||
+		specifier.startsWith("@internal/") ||
+		specifier === "jicc" ||
+		specifier.startsWith("jicc/")
 	);
 }
 

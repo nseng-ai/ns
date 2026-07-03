@@ -6,12 +6,12 @@ import {
 	type ClinkrExit,
 	type ClinkrGroup,
 	type ClinkrHandler,
-} from "@sdl/clinkr";
-import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
-import type { SdlCommand, SdlExtensionApi } from "@sdl/kernel/sdk";
-import type { GitResult } from "@sdl/capability-kit/git";
+} from "@ji/clinkr";
+import { createSdlDomainCommand } from "@ji/capability-kit/ji-command";
+import type { SdlCommand, SdlExtensionApi } from "@ji/kernel/sdk";
+import type { GitResult } from "@ji/capability-kit/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
-import { errorDetailText } from "@sdl/core/result";
+import { errorDetailText } from "@ji/core/result";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions, RepoContextResult } from "./core/gateways.ts";

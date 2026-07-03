@@ -1,1 +1,1 @@
-export { default } from "@sdl/branch-context/sdl/commands/attach";
+export { default } from "@ji/branch-context/ji/commands/attach";

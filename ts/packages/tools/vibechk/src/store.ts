@@ -5,7 +5,7 @@ import {
 	ensurePrivateDirectory,
 	resolvePathOverride,
 	resolveXdgHome,
-} from "@sdl/capability-kit/xdg";
+} from "@ji/capability-kit/xdg";
 
 import type { LoadedBundle, RunBundle } from "./models.ts";
 import { encodeRunBundle, parseRunBundle } from "./models.ts";

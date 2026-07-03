@@ -8,21 +8,21 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	const jiti = createSdlJiti();
 
 	const pendingWorktreeModule = await jiti.import<
-		typeof import("@sdl/capability-kit/pending-worktree")
-	>("@sdl/capability-kit/pending-worktree");
+		typeof import("@ji/capability-kit/pending-worktree")
+	>("@ji/capability-kit/pending-worktree");
 	expect(typeof pendingWorktreeModule.loadPendingWorktreeSnapshot).toBe("function");
 	expect(typeof pendingWorktreeModule.formatPendingWorktreeCommandDetails).toBe("function");
 
 	const checkpointFlowModule = await jiti.import<
-		typeof import("@sdl/capability-kit/checkpoint-flow")
-	>("@sdl/capability-kit/checkpoint-flow");
+		typeof import("@ji/capability-kit/checkpoint-flow")
+	>("@ji/capability-kit/checkpoint-flow");
 	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
 	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
 	expect(typeof checkpointFlowModule.createCommitWithPreparedMessage).toBe("function");
 
 	const textGenerationModule = await jiti.import<
-		typeof import("@sdl/capability-kit/text-generation")
-	>("@sdl/capability-kit/text-generation");
+		typeof import("@ji/capability-kit/text-generation")
+	>("@ji/capability-kit/text-generation");
 	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("JI_CHECKPOINT_MODEL");
 	expect(textGenerationModule.CHANGES_MODEL_ENV).toBe("JI_CHANGES_MODEL");
 	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");
@@ -30,51 +30,51 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");
 
 	const coreModelSlugModule =
-		await jiti.import<typeof import("@sdl/core/model-slug")>("@sdl/core/model-slug");
+		await jiti.import<typeof import("@ji/core/model-slug")>("@ji/core/model-slug");
 	expect(typeof coreModelSlugModule.parseModelRef).toBe("function");
 
 	const modelSlugModule = await jiti.import<{ deriveSlugWithModel: unknown }>(
-		"@sdl/capability-kit/model-slug",
+		"@ji/capability-kit/model-slug",
 	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
 	const addressDownloadFeedbackModule = await jiti.import<{
 		default: { commands?: readonly { name: string }[] };
-	}>("@sdl/address/sdl/commands/exec-download-feedback");
+	}>("@ji/address/ji/commands/exec-download-feedback");
 	expect(addressDownloadFeedbackModule.default.commands?.map((command) => command.name)).toEqual([
 		"exec-download-feedback",
 	]);
 
 	const aretroCollectEvidenceModule = await jiti.import<{
 		aretroExecCollectEvidenceSdlCommand: { name: string };
-	}>("@sdl/aretro/sdl/commands/exec-collect-evidence");
+	}>("@ji/aretro/ji/commands/exec-collect-evidence");
 	expect(aretroCollectEvidenceModule.aretroExecCollectEvidenceSdlCommand.name).toBe(
 		"exec-collect-evidence",
 	);
 
 	const branchContextFromPlanModule = await jiti.import<{
 		default: { commands?: readonly { name: string }[] };
-	}>("@sdl/branch-context/sdl/commands/from-plan");
+	}>("@ji/branch-context/ji/commands/from-plan");
 	expect(branchContextFromPlanModule.default.commands?.map((command) => command.name)).toEqual([
 		"from-plan",
 	]);
 
 	const handoffListModule = await jiti.import<{
 		handoffListSdlCommand: { name: string };
-	}>("@sdl/handoff/sdl/commands/list");
+	}>("@ji/handoff/ji/commands/list");
 	expect(handoffListModule.handoffListSdlCommand.name).toBe("list");
 
 	const objectiveListModule = await jiti.import<{
 		objectiveListSdlCommand: { name: string };
-	}>("@sdl/objective/sdl/commands/list");
+	}>("@ji/objective/ji/commands/list");
 	expect(objectiveListModule.objectiveListSdlCommand.name).toBe("list");
 
 	// jiti tripwire: this command's module graph includes the real Pi
 	// child-session adapter and must load without pulling the optional
-	// @sdl/pi peer (the adapter spawns the pi binary; it imports no Pi code).
+	// @ji/pi peer (the adapter spawns the pi binary; it imports no Pi code).
 	const objectiveRunnerStepModule = await jiti.import<{
 		default: { commands?: readonly { name: string }[] };
-	}>("@sdl/objective/sdl/commands/exec-runner-step");
+	}>("@ji/objective/ji/commands/exec-runner-step");
 	expect(objectiveRunnerStepModule.default.commands?.map((command) => command.name)).toEqual([
 		"exec-runner-step",
 	]);

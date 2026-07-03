@@ -1,4 +1,4 @@
-import { formatShellArg } from "@sdl/core/exec";
+import { formatShellArg } from "@ji/core/exec";
 
 const TOKEN_PREFIX = "@@JI_";
 

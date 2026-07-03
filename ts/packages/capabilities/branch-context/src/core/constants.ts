@@ -1,4 +1,4 @@
-import { buildPlanFileName, validatePlanSlug } from "@sdl/plans";
+import { buildPlanFileName, validatePlanSlug } from "@ji/plans";
 
 export const BRANCH_CONTEXT_NAMESPACE = "branch-context";
 export const UNSUPPORTED_ATTACHED_PLAN_KEY = "plan.md";

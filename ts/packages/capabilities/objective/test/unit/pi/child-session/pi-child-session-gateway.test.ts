@@ -2,7 +2,7 @@
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 
-import { createManualClock, createManualTimerHarness } from "@sdl/core/time/testing";
+import { createManualClock, createManualTimerHarness } from "@ji/core/time/testing";
 import { describe, expect, test } from "vitest";
 
 import type {

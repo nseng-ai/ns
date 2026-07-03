@@ -21,4 +21,4 @@ export type {
 	ToolDefinition,
 	ToolResult,
 	TuiHandle,
-} from "@sdl/pi/runtime/extension-types";
+} from "@ji/pi/runtime/extension-types";

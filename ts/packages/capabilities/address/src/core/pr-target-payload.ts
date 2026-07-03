@@ -1,4 +1,4 @@
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import type { GithubPrSummary } from "../api.ts";

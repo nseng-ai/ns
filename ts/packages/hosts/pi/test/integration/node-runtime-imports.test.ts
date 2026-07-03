@@ -14,31 +14,31 @@ const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.met
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
-	"@sdl/capability-kit/graphite/status",
-	"@sdl/core/exec",
-	"@sdl/branch-context",
-	"@sdl/plans",
-	"@sdl/kernel/cli",
+	"@ji/capability-kit/graphite/status",
+	"@ji/core/exec",
+	"@ji/branch-context",
+	"@ji/plans",
+	"@ji/kernel/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
-	"@sdl/core/exec",
-	"@sdl/branch-context",
-	"@sdl/plans",
-	"@sdl/capability-kit/checkpoint-flow",
+	"@ji/core/exec",
+	"@ji/branch-context",
+	"@ji/plans",
+	"@ji/capability-kit/checkpoint-flow",
 ] as const;
 
 const SDL_EXPORT_IMPORTS = [
-	"@sdl/capability-kit/checkpoint-flow",
-	"@sdl/capability-kit/checkpoint-message",
-	"@sdl/core/exec",
-	"@sdl/kernel/cli",
-	"@sdl/kernel/context",
-	"@sdl/capability-kit/pending-worktree",
-	"@sdl/kernel/pi-text-generation",
-	"@sdl/kernel/sdk",
-	"@sdl/capability-kit/text-generation",
-	"@sdl/capability-kit/text-repair",
+	"@ji/capability-kit/checkpoint-flow",
+	"@ji/capability-kit/checkpoint-message",
+	"@ji/core/exec",
+	"@ji/kernel/cli",
+	"@ji/kernel/context",
+	"@ji/capability-kit/pending-worktree",
+	"@ji/kernel/pi-text-generation",
+	"@ji/kernel/sdk",
+	"@ji/capability-kit/text-generation",
+	"@ji/capability-kit/text-repair",
 ] as const;
 
 interface NodeEvalOptions {

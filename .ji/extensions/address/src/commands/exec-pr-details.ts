@@ -1,1 +1,1 @@
-export { default } from "@sdl/address/sdl/commands/exec-pr-details";
+export { default } from "@ji/address/ji/commands/exec-pr-details";

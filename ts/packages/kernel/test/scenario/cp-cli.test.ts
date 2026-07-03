@@ -5,13 +5,13 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@sdl/kernel/cli";
+import { listSdlCommands } from "@ji/kernel/cli";
 
 import {
 	runCliWithFakes,
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
-} from "./sdl-cli-fakes.ts";
+} from "./ji-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -119,7 +119,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @ji/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -231,7 +231,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "@sdl/kernel/sdk";
+import { defineExtension, ok } from "@ji/kernel/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", summary: "Legacy hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });

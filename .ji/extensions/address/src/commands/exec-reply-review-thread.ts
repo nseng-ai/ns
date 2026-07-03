@@ -1,1 +1,1 @@
-export { default } from "@sdl/address/sdl/commands/exec-reply-review-thread";
+export { default } from "@ji/address/ji/commands/exec-reply-review-thread";

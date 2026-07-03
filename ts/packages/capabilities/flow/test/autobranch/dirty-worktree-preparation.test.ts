@@ -3,8 +3,8 @@ import {
 	prepareAutobranchPlan,
 	type AutobranchPreparationInput,
 } from "../../src/autobranch/dirty-worktree.ts";
-import { MAX_BRANCH_SLUG_LENGTH } from "@sdl/core/branch-slug";
-import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
+import { MAX_BRANCH_SLUG_LENGTH } from "@ji/core/branch-slug";
+import { buildSlugModelArgs } from "@ji/capability-kit/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
 	eventIndex,

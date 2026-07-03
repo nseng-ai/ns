@@ -1,24 +1,24 @@
 import { join } from "node:path";
 
-import { flowAutobranchCommand } from "../../src/sdl/commands/autobranch.ts";
-import { flowAutoslotCommand } from "../../src/sdl/commands/autoslot.ts";
-import { flowBranchLatestCommitCommand } from "../../src/sdl/commands/branch-latest-commit.ts";
-import { flowChangesCommand } from "../../src/sdl/commands/changes.ts";
-import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/sdl/commands/exec-read-graphite-branch-metadata.ts";
-import { flowCpCommand } from "../../src/sdl/commands/cp.ts";
-import { flowPullTrunkCommand } from "../../src/sdl/commands/pull-trunk.ts";
-import { flowPushCommand } from "../../src/sdl/commands/push.ts";
-import { flowRegeneratePrCommand } from "../../src/sdl/commands/regenerate-pr.ts";
-import { flowSubmitCommand } from "../../src/sdl/commands/submit.ts";
-import type { SdlCommand, SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
-import { failed } from "@sdl/kernel/sdk";
+import { flowAutobranchCommand } from "../../src/ji/commands/autobranch.ts";
+import { flowAutoslotCommand } from "../../src/ji/commands/autoslot.ts";
+import { flowBranchLatestCommitCommand } from "../../src/ji/commands/branch-latest-commit.ts";
+import { flowChangesCommand } from "../../src/ji/commands/changes.ts";
+import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ji/commands/exec-read-graphite-branch-metadata.ts";
+import { flowCpCommand } from "../../src/ji/commands/cp.ts";
+import { flowPullTrunkCommand } from "../../src/ji/commands/pull-trunk.ts";
+import { flowPushCommand } from "../../src/ji/commands/push.ts";
+import { flowRegeneratePrCommand } from "../../src/ji/commands/regenerate-pr.ts";
+import { flowSubmitCommand } from "../../src/ji/commands/submit.ts";
+import type { SdlCommand, SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
+import { failed } from "@ji/kernel/sdk";
 
 import {
 	ScriptedSdlTestContext,
 	type RunWithFakesDefaults,
 	type ScriptedExecResponse,
 	type TestState,
-} from "./sdl-cli-fakes.ts";
+} from "./ji-cli-fakes.ts";
 
 interface RunFlowCommandWithFakesOptions {
 	request?: unknown;

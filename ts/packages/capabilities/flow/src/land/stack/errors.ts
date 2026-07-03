@@ -1,4 +1,4 @@
-import type { ExecResult } from "@sdl/core/command";
+import type { ExecResult } from "@ji/core/command";
 import type { NotifyLevel } from "./types.ts";
 
 export interface LandStackFailureOptions {

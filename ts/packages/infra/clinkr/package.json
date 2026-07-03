@@ -1,27 +1,27 @@
 {
-  "name": "@sdl/clinkr",
-  "version": "0.1.0",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./completion": "./src/completion.ts",
-    "./raw": "./src/raw/index.ts",
-    "./stream": "./src/stream/index.ts",
-    "./testing": "./src/testing/index.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/clinkr/test"
-  },
-  "dependencies": {
-    "commander": "catalog:",
-    "log-update": "catalog:",
-    "zod": "catalog:"
-  },
-  "ji": {
-    "tier": "neutral-infra"
-  }
+	"name": "@ji/clinkr",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./completion": "./src/completion.ts",
+		"./raw": "./src/raw/index.ts",
+		"./stream": "./src/stream/index.ts",
+		"./testing": "./src/testing/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/clinkr/test"
+	},
+	"dependencies": {
+		"commander": "catalog:",
+		"log-update": "catalog:",
+		"zod": "catalog:"
+	},
+	"ji": {
+		"tier": "neutral-infra"
+	}
 }

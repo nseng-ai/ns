@@ -1,5 +1,5 @@
-import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@sdl/clinkr";
-import { dim, paint, renderResultBlock } from "@sdl/core/cli-theme";
+import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@ji/clinkr";
+import { dim, paint, renderResultBlock } from "@ji/core/cli-theme";
 
 import type { NavigationResultFields } from "./navigation-result.ts";
 

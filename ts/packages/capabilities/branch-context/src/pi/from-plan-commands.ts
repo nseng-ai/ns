@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 
-import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { setRuntimeStatus } from "@sdl/pi/runtime/status";
+import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { setRuntimeStatus } from "@ji/pi/runtime/status";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
 	runBranchContextGtUpstackImplLaunch,
@@ -12,7 +12,7 @@ import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "@sdl/pi/commands";
+} from "@ji/pi/commands";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextOutputMessage,
@@ -31,13 +31,13 @@ import {
 	type BranchCreationMethod,
 	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
-} from "@sdl/branch-context/api";
+} from "@ji/branch-context/api";
 import {
 	NoSavedPlanAvailableError,
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
-} from "@sdl/plans/api";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
+} from "@ji/plans/api";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@ji/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,

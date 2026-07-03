@@ -1,4 +1,4 @@
-import { failure, negative, ok, usageError } from "@sdl/clinkr";
+import { failure, negative, ok, usageError } from "@ji/clinkr";
 import { z } from "zod";
 
 import type { AretroCliContext } from "../context.ts";

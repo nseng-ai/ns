@@ -1,6 +1,6 @@
-import { prepareEntryContentFromSource } from "@sdl/brmem";
-import { failure, ok } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { prepareEntryContentFromSource } from "@ji/brmem";
+import { failure, ok } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import { createHandoffArtifact, prepareHandoffCreation } from "../artifact-storage.ts";

@@ -4,16 +4,16 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
-import { createManualClock } from "@sdl/core/time/testing";
+import type { ExecOptions, ExecResult } from "@ji/core/exec";
+import { createManualClock } from "@ji/core/time/testing";
 
-import type { ThinkingLevel } from "@sdl/pi/runtime/types";
+import type { ThinkingLevel } from "@ji/pi/runtime/types";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
-} from "@sdl-local/pi-tools/runner-subagents";
-import type { RunnerSubagentDispatcherDependencies } from "@sdl-local/pi-tools/runner-subagents/process";
+} from "@internal/pi-tools/runner-subagents";
+import type { RunnerSubagentDispatcherDependencies } from "@internal/pi-tools/runner-subagents/process";
 import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
@@ -28,7 +28,7 @@ import {
 	jsonLine,
 	sessionMessageLine,
 	waitForSpawn,
-} from "@sdl-local/pi-tools/runner-subagents/testing";
+} from "@internal/pi-tools/runner-subagents/testing";
 
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";

@@ -1,12 +1,12 @@
-import { NodeCommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@ji/core/exec";
 import {
 	type CommandExecApi,
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway, GitOperationResult, GitResult } from "@sdl/capability-kit/git";
+} from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway, GitOperationResult, GitResult } from "@ji/capability-kit/git";
 
 import { isMissingExecutableError, runVibechkCommand } from "./exec-util.ts";
 import type { GitProvenance } from "./models.ts";

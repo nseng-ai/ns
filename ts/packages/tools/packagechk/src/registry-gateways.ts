@@ -1,6 +1,6 @@
-import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
-import type { TimerScheduler } from "@sdl/core/timers";
-import { systemTimerScheduler } from "@sdl/core/time";
+import { formatErrorMessage, isRecord } from "@ji/core/primitives";
+import type { TimerScheduler } from "@ji/core/timers";
+import { systemTimerScheduler } from "@ji/core/time";
 
 import {
 	availableResult,

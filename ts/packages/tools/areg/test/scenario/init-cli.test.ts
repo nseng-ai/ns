@@ -1,6 +1,6 @@
-import type { ConfirmationResult } from "@sdl/clinkr";
-import type { FakeClinkrInteraction } from "@sdl/clinkr/testing";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
+import type { ConfirmationResult } from "@ji/clinkr";
+import type { FakeClinkrInteraction } from "@ji/clinkr/testing";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ji/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";

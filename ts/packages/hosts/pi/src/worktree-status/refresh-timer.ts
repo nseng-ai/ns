@@ -1,5 +1,5 @@
-import type { Clock } from "@sdl/core/clock";
-import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import type { Clock } from "@ji/core/clock";
+import type { ScheduledTimer, TimerScheduler } from "@ji/core/timers";
 
 export const WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS = 10_000;
 

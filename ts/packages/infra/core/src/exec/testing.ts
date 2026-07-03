@@ -1,6 +1,6 @@
-import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/command";
-import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@ji/core/command";
+import { optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { ScriptedQueue } from "@ji/core/test-kit";
 
 export interface DropExecOptionsFields {
 	readonly shouldDropEnv?: boolean;

@@ -12,7 +12,7 @@ import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
 import { createFindingsReview, createLocalDiff } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 
 const REVIEW_SOURCE = `---
 description: Review TypeScript diffs.

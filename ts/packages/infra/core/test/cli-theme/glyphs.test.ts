@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Caps } from "@sdl/clinkr";
+import type { Caps } from "@ji/clinkr";
 import {
 	ellipsisFor,
 	glyph,

@@ -9,7 +9,7 @@
  * failure never blocks the deterministic view.
  */
 
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
 import type {
 	BeforeAgentStartEvent,
 	ContextEvent,
@@ -44,7 +44,7 @@ import {
 import { bundleStatusBarText } from "./render.ts";
 import type { SegmentationState } from "./segmentation.ts";
 import { ProfilerView } from "./view.ts";
-import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { definePiSurfaceParity } from "@ji/pi/parity/extension";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 
@@ -57,7 +57,7 @@ export const contextProfilerParity = definePiSurfaceParity([
 		fallback:
 			"Use a saved context-profiler bundle and the context-bundle-analysis skill for offline prose analysis outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl-local/pi-tools/context-profiler",
+		sourcePackage: "@internal/pi-tools/context-profiler",
 		sourceModule: "context-profiler",
 		notes:
 			"Live context overlay and interrogation UI are Pi session primitives; frozen bundle analysis has a portable skill path.",

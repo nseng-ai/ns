@@ -1,6 +1,6 @@
-import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@ji/clinkr";
 import { z } from "zod";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntry } from "@ji/core/primitives";
 
 import type { SlotCliContext } from "../../../core/context.ts";
 import { buildSlotInventory, findByBranch, poolSize } from "../../../core/inventory.ts";

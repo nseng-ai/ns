@@ -1,5 +1,5 @@
-import { renderDestructiveResultBlock } from "@sdl/core/cli-theme";
-import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
+import { renderDestructiveResultBlock } from "@ji/core/cli-theme";
+import { failure, ok, type RenderCapabilities } from "@ji/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";

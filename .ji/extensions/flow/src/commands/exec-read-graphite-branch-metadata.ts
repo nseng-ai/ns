@@ -1,1 +1,1 @@
-export { default } from "sdl-flow/commands/exec-read-graphite-branch-metadata";
+export { default } from "@ji/flow/commands/exec-read-graphite-branch-metadata";

@@ -76,11 +76,11 @@ function isAllowedPiSubpackagePeerEdge(
 	edge: { readonly from: string; readonly to: string; readonly field: string },
 	metadataByName: ReadonlyMap<string, PackageMetadata>,
 ): boolean {
-	if (edge.to !== "@sdl/pi" || edge.field !== "peerDependencies") return false;
+	if (edge.to !== "@ji/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
 	if (metadata?.sdlTier !== "capability") return false;
 	if (!metadata.sdlSubpackages.includes("pi")) return false;
-	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@sdl/pi");
+	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@ji/pi");
 }
 
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {

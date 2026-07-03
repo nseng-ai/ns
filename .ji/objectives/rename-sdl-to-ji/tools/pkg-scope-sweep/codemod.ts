@@ -23,7 +23,7 @@ const REPO_ROOT = join(TOOL_DIR, "..", "..", "..", "..", "..");
 const requireFromWorkspace = createRequire(join(REPO_ROOT, "ts", "package.json"));
 const ts: typeof tsNamespace = requireFromWorkspace("typescript");
 
-const SCAN_ROOTS = ["ts", ".pi"];
+const SCAN_ROOTS = ["ts", ".pi", ".ji/reviews", ".ji/extensions"];
 
 const EXCLUDED_FROM_MODE_B: readonly string[] = [
 	"ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",

@@ -52,7 +52,7 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	/** Markdown rendering for the ok variant; falls back to human rendering when absent. */
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
-	/** Rendered commands cannot opt into raw mode; use `@sdl/clinkr/raw`. */
+	/** Rendered commands cannot opt into raw mode; use `@ji/clinkr/raw`. */
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;

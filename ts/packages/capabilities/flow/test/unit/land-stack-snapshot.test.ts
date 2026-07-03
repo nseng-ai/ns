@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { formatCommand, type ExecResult } from "@sdl/core/command";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import { formatCommand, type ExecResult } from "@ji/core/command";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ji/capability-kit/git";
+import { ScriptedQueue } from "@ji/core/test-kit";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type { LandStackExtensionAPI, StackSnapshot } from "../../src/land/stack/types.ts";

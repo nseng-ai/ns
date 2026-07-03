@@ -1,4 +1,4 @@
-import { brmemError, brmemOk, validateEntryKey, type BrmemResult } from "@sdl/brmem";
+import { brmemError, brmemOk, validateEntryKey, type BrmemResult } from "@ji/brmem";
 
 export const HANDOFF_NAMESPACE = "handoff";
 export const HANDOFF_KEY_SUFFIX = ".md";

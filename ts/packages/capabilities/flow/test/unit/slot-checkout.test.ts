@@ -1,4 +1,4 @@
-import type { SlotClient, SlotClientOptions } from "@sdl/slot/api";
+import type { SlotClient, SlotClientOptions } from "@ji/slot/api";
 import { describe, expect, it, vi } from "vitest";
 
 const slotClient: SlotClient = {
@@ -16,7 +16,7 @@ const createSlotClient = vi.fn((options: SlotClientOptions) => {
 	return slotClient;
 });
 
-vi.mock("@sdl/slot/api", () => ({
+vi.mock("@ji/slot/api", () => ({
 	createSlotClient,
 }));
 vi.resetModules();

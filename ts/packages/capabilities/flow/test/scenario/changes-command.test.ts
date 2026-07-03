@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runFlowChangesCommandWithFakes } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
 
 function runChangesWithFakes(options: Parameters<typeof runFlowChangesCommandWithFakes>[0] = {}) {
 	return runFlowChangesCommandWithFakes(options);

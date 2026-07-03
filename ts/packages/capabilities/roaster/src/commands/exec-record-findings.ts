@@ -1,4 +1,4 @@
-import { defineExtension } from "@sdl/kernel/sdk";
+import { defineExtension } from "@ji/kernel/sdk";
 
 import { reviewRunResultSchema } from "../core/models.ts";
 import {
@@ -7,7 +7,7 @@ import {
 	runRecordFindings,
 	type RecordFindingsRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../sdl/command.ts";
+import { roasterSdlCommand } from "../ji/command.ts";
 
 const EXEC_RECORD_FINDINGS_DESCRIPTION = `Record same-session Roaster findings from stdin.
 

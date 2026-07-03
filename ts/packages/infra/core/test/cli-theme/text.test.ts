@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Caps } from "@sdl/clinkr";
+import type { Caps } from "@ji/clinkr";
 import { paint } from "../../src/cli-theme/palette.ts";
 import { padCell, padPlain, truncatePlain, visibleWidth } from "../../src/cli-theme/text.ts";
 

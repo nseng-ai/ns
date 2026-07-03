@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 import { describe, expect, it } from "vitest";
 
 import type { AretroCliContext } from "../../src/context.ts";

@@ -1,5 +1,5 @@
-import { encodeBranchName } from "@sdl/brmem";
-import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@sdl/core/test-kit";
+import { encodeBranchName } from "@ji/brmem";
+import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@ji/core/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,

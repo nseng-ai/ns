@@ -1,6 +1,6 @@
-import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
-import { cell, paint, renderBufferedReport, renderTable } from "@sdl/core/cli-theme";
+import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
+import { cell, paint, renderBufferedReport, renderTable } from "@ji/core/cli-theme";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";

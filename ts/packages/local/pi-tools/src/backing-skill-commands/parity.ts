@@ -1,4 +1,4 @@
-import { definePiSurfaceParity, type PiSurfaceParity } from "@sdl/pi/parity/extension";
+import { definePiSurfaceParity, type PiSurfaceParity } from "@ji/pi/parity/extension";
 
 import { genericBackingSkillCommandSpecs } from "./specs.ts";
 
@@ -12,7 +12,7 @@ export const backingSkillCommandsParity = definePiSurfaceParity(
 			skill: spec.skillName,
 			cli: "n/a: backing skills are the agent-neutral route",
 			ownerObjective: "cross-harness-parity",
-			sourcePackage: "@sdl-local/pi-tools/backing-skill-commands",
+			sourcePackage: "@internal/pi-tools/backing-skill-commands",
 			sourceModule: "backing-skill-commands",
 			notes:
 				"Generated from the same command-style skill inventory used for live command registration.",

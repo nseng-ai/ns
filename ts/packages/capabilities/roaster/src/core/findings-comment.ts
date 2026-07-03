@@ -1,4 +1,4 @@
-import { truncatedSha256Digest } from "@sdl/core/primitives";
+import { truncatedSha256Digest } from "@ji/core/primitives";
 
 import { formatOmittedReviewInputFile } from "./input-coverage-formatting.ts";
 import {

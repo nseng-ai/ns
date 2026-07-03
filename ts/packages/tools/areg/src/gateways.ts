@@ -1,13 +1,13 @@
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupDescriptorForSourceType,
-} from "@sdl/pi/skills/lookup";
+} from "@ji/pi/skills/lookup";
 import type {
 	SkillLookupRoot,
 	SkillLookupRootDescriptor,
 	SkillLookupSourceType,
-} from "@sdl/pi/skills/lookup";
-import type { ErrorInfo, Result } from "@sdl/core/result";
+} from "@ji/pi/skills/lookup";
+import type { ErrorInfo, Result } from "@ji/core/result";
 
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
 export type AregHostToolName = (typeof AREG_HOST_TOOL_NAMES)[number];

@@ -1,8 +1,8 @@
-import { ok, type Caps, type RenderCapabilities } from "@sdl/clinkr";
+import { ok, type Caps, type RenderCapabilities } from "@ji/clinkr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "@sdl/kernel/sdk";
-import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
+import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "@ji/kernel/sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@ji/kernel/sdk";
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({ __contextOptions: options }));
 
@@ -18,7 +18,7 @@ vi.mock("../../src/lifecycle/operations/index.ts", async (importActual) => {
 	};
 });
 
-const slotExtension = (await import("../../src/sdl/extension.ts")).default;
+const slotExtension = (await import("../../src/ji/extension.ts")).default;
 
 const colorCaps: Caps = {
 	isTty: true,

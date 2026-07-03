@@ -18,8 +18,8 @@ const DIM = "\x1b[2m";
 const ERROR = "\x1b[38;2;248;81;73m";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸"] as const;
 
-// Local ANSI fixtures are intentional here: @sdl/clinkr owns generic stream mechanics, while
-// @sdl/core/cli-theme depends on @sdl/clinkr and owns the exact house-style palette tests. Importing the
+// Local ANSI fixtures are intentional here: @ji/clinkr owns generic stream mechanics, while
+// @ji/core/cli-theme depends on @ji/clinkr and owns the exact house-style palette tests. Importing the
 // theme package from this Clinkr test would create a reverse package edge, so these fixed literals only
 // exercise sink behavior at the writer/cursor/onOutput seams.
 function caps(

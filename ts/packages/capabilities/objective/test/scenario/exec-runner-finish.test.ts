@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@sdl/clinkr";
-import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
-import { optionalEntries } from "@sdl/core/primitives";
-import type { ExecResult } from "@sdl/kernel/sdk";
+import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@ji/clinkr";
+import { InMemoryGraphiteBranchGateway } from "@ji/capability-kit/graphite/testing";
+import { optionalEntries } from "@ji/core/primitives";
+import type { ExecResult } from "@ji/kernel/sdk";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
-import { objectiveExecRunnerFinishSdlCommand } from "../../src/sdl/commands/exec-runner-finish.ts";
+import { objectiveExecRunnerFinishSdlCommand } from "../../src/ji/commands/exec-runner-finish.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
-import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/sdl-command-harness.ts";
+import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ji-command-harness.ts";
 
 const SLUG = "demo-objective";
 const REPORT_PATH = "/scratch/step-1-report.json";

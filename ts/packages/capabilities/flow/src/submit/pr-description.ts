@@ -2,17 +2,17 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
 import {
 	parseManagedRegion,
 	replaceMalformedManagedRegionFromBegin,
 	replaceManagedRegion,
-} from "@sdl/core/managed-region";
-import { formatErrorMessage, sha256Digest } from "@sdl/core/primitives";
-import { normalizeTextOutput, trimOuterBlankLines } from "@sdl/core/text-normalization";
-import { truncateTextHeadTail } from "@sdl/core/text-truncation";
-import { prepareRepairedText } from "@sdl/capability-kit/text-repair";
-import { formatElapsedMs } from "@sdl/core/time-format";
+} from "@ji/core/managed-region";
+import { formatErrorMessage, sha256Digest } from "@ji/core/primitives";
+import { normalizeTextOutput, trimOuterBlankLines } from "@ji/core/text-normalization";
+import { truncateTextHeadTail } from "@ji/core/text-truncation";
+import { prepareRepairedText } from "@ji/capability-kit/text-repair";
+import { formatElapsedMs } from "@ji/core/time-format";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import {

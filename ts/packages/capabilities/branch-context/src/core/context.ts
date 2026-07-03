@@ -1,12 +1,12 @@
-import { RealGitBrmemGateway, type BrmemGateway } from "@sdl/brmem";
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { CommandExecApi, StdinCapableCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import { RealGitBrmemGateway, type BrmemGateway } from "@ji/brmem";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import type { CommandExecApi, StdinCapableCommandExecApi } from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
 import {
 	RealGraphiteBranchGateway,
 	type GraphiteBranchGateway,
-} from "@sdl/capability-kit/graphite/branch";
+} from "@ji/capability-kit/graphite/branch";
 
 export interface BranchContextContext {
 	commands: CommandExecApi;

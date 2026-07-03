@@ -1,22 +1,22 @@
-import { runCommand } from "@sdl/core/exec";
-import type { CommandRunner, ExecResult } from "@sdl/core/command";
-import type { SdlProgressPhaseListener } from "@sdl/kernel/sdk";
-import { formatElapsedMs } from "@sdl/core/time-format";
-import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
-import type { TextRepairProgressEvent } from "@sdl/capability-kit/text-repair";
+import { runCommand } from "@ji/core/exec";
+import type { CommandRunner, ExecResult } from "@ji/core/command";
+import type { SdlProgressPhaseListener } from "@ji/kernel/sdk";
+import { formatElapsedMs } from "@ji/core/time-format";
+import { createSdlCommandRunner } from "@ji/capability-kit/command-runner";
+import type { TextRepairProgressEvent } from "@ji/capability-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "@sdl/capability-kit/checkpoint-flow";
-import type { SdlExtensionApi } from "@sdl/kernel/sdk";
+} from "@ji/capability-kit/checkpoint-flow";
+import type { SdlExtensionApi } from "@ji/kernel/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "@sdl/capability-kit/pending-worktree";
-import { selectCheckpointModelRef, type TextGenerator } from "@sdl/capability-kit/text-generation";
+} from "@ji/capability-kit/pending-worktree";
+import { selectCheckpointModelRef, type TextGenerator } from "@ji/capability-kit/text-generation";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<

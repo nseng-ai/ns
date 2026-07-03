@@ -1,4 +1,4 @@
-import { GRILL_ASK_TOOL_NAME } from "@sdl/pi/grill/surfaces";
+import { GRILL_ASK_TOOL_NAME } from "@ji/pi/grill/surfaces";
 import type { GrillAskRemainingEstimate, GrillAskToolContext } from "./extension.ts";
 
 export type GrillAskProgressSource = "session-branch" | "session-branch-unscoped" | "unavailable";

@@ -1,5 +1,5 @@
-import type { Caps } from "@sdl/clinkr";
-import { SPINNER_FRAME_MS, type StreamSink } from "@sdl/clinkr/stream";
+import type { Caps } from "@ji/clinkr";
+import { SPINNER_FRAME_MS, type StreamSink } from "@ji/clinkr/stream";
 
 export interface PhaseStreamLifecycle {
 	startLiveRegion(): void;

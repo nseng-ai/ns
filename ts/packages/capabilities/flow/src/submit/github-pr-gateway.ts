@@ -1,11 +1,11 @@
-import { runCommand } from "@sdl/core/exec";
-import type { CommandRunner, ExecResult } from "@sdl/core/command";
-import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@sdl/capability-kit/github/cli";
-import type { TimerScheduler } from "@sdl/core/timers";
-import { systemTimerScheduler } from "@sdl/core/time";
-import { isRecord } from "@sdl/core/primitives";
-import { withTemporaryFile } from "@sdl/capability-kit/temp-files";
-import { commandFailure, err, ok, type GatewayResult } from "@sdl/capability-kit/gateway-result";
+import { runCommand } from "@ji/core/exec";
+import type { CommandRunner, ExecResult } from "@ji/core/command";
+import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@ji/capability-kit/github/cli";
+import type { TimerScheduler } from "@ji/core/timers";
+import { systemTimerScheduler } from "@ji/core/time";
+import { isRecord } from "@ji/core/primitives";
+import { withTemporaryFile } from "@ji/capability-kit/temp-files";
+import { commandFailure, err, ok, type GatewayResult } from "@ji/capability-kit/gateway-result";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;

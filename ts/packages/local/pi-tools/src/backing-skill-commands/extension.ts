@@ -3,7 +3,7 @@ export {
 	KNOWN_PI_COMMAND_NAMESPACES,
 	SPECIALIZED_PI_COMMAND_SURFACES,
 	SPECIALIZED_SKILL_REPLACEMENTS,
-} from "@sdl/pi/commands";
+} from "@ji/pi/commands";
 
 export { backingSkillCommandsParity } from "./parity.ts";
 export { derivePiReplacementCommand, genericBackingSkillCommandSpecs } from "./specs.ts";

@@ -1,4 +1,4 @@
-import { negative, type ClinkrExit } from "@sdl/clinkr";
+import { negative, type ClinkrExit } from "@ji/clinkr";
 
 import { pythonStringRepr } from "./format.ts";
 

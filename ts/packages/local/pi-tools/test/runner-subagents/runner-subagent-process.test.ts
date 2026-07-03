@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualClock, createManualTimerScheduler } from "@sdl/core/time/testing";
+import { createManualClock, createManualTimerScheduler } from "@ji/core/time/testing";
 
 import {
 	normalizeChildToolAllowlist,

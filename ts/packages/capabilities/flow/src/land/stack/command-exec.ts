@@ -3,7 +3,7 @@ import {
 	formatOutputSection,
 	runNormalizedExecResult,
 	tailText,
-} from "@sdl/core/command";
+} from "@ji/core/command";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,

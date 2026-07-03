@@ -1,4 +1,4 @@
-# @sdl/ccc Agent Notes
+# @ji/ccc Agent Notes
 
 ## Cross CLI/Pi Progress Output
 

@@ -1,6 +1,6 @@
-# @sdl/brmem
+# @ji/brmem
 
-`@sdl/brmem` is the TypeScript implementation of the public standalone `brmem` CLI and reusable library for the Branch Memory System.
+`@ji/brmem` is the TypeScript implementation of the public standalone `brmem` CLI and reusable library for the Branch Memory System.
 
 It implements the current operation set:
 
@@ -43,7 +43,7 @@ Expected runtime diagnostics include:
 
 ```text
 runtime: typescript
-entry_point: @sdl/brmem bin brmem -> ts/packages/infra/brmem/src/cli.ts
+entry_point: @ji/brmem bin brmem -> ts/packages/infra/brmem/src/cli.ts
 ```
 
 ## Garbage-collect stale Branch Memory Snapshot Refs

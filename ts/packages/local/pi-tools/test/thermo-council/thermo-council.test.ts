@@ -4,15 +4,15 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentDispatcherDependencies } from "@sdl-local/pi-tools/runner-subagents/process";
-import type { RuntimeResultV1 } from "@sdl-local/pi-tools/runner-subagents/runtime";
-import { createRuntimeConfig } from "@sdl-local/pi-tools/runner-subagents/runtime";
+import type { RunnerSubagentDispatcherDependencies } from "@internal/pi-tools/runner-subagents/process";
+import type { RuntimeResultV1 } from "@internal/pi-tools/runner-subagents/runtime";
+import { createRuntimeConfig } from "@internal/pi-tools/runner-subagents/runtime";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type JsonObject,
 	type RunnerSubagentCompletedResult,
 	type RunnerSubagentStoppedWithoutTerminalResult,
-} from "@sdl-local/pi-tools/runner-subagents";
+} from "@internal/pi-tools/runner-subagents";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
@@ -33,7 +33,7 @@ import {
 	createFakeRunnerSubagentDispatcher,
 	jsonLine,
 	type SpawnCall,
-} from "@sdl-local/pi-tools/runner-subagents/testing";
+} from "@internal/pi-tools/runner-subagents/testing";
 
 interface RegisteredCommand {
 	readonly description?: string;

@@ -1,18 +1,18 @@
 {
-	"name": "@sdl/branch-context",
+	"name": "@ji/branch-context",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
-		"./sdl/commands/attach": "./src/sdl/commands/attach.ts",
-		"./sdl/commands/check": "./src/sdl/commands/check.ts",
-		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
-		"./sdl/commands/from-plan": "./src/sdl/commands/from-plan.ts",
-		"./sdl/commands/list": "./src/sdl/commands/list.ts",
-		"./sdl/commands/load": "./src/sdl/commands/load.ts",
+		"./ji/commands/attach": "./src/ji/commands/attach.ts",
+		"./ji/commands/check": "./src/ji/commands/check.ts",
+		"./ji/commands/delete": "./src/ji/commands/delete.ts",
+		"./ji/commands/from-plan": "./src/ji/commands/from-plan.ts",
+		"./ji/commands/list": "./src/ji/commands/list.ts",
+		"./ji/commands/load": "./src/ji/commands/load.ts",
 		"./testing": "./src/testing/index.ts",
-		"./repo-local-sdl-extension": "./src/sdl/repo-local-sdl-extension.ts",
+		"./repo-local-sdl-extension": "./src/ji/repo-local-ji-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -25,24 +25,24 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
-		"@sdl/brmem": "workspace:*",
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
-		"@sdl/plans": "workspace:*",
+		"@ji/brmem": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/kernel": "workspace:*",
+		"@ji/plans": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {
-		"@sdl/pi": "workspace:*"
+		"@ji/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@sdl/pi": {
+		"@ji/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@sdl/pi": "workspace:*"
+		"@ji/pi": "workspace:*"
 	},
 	"ji": {
 		"tier": "capability",
@@ -50,7 +50,7 @@
 			"api",
 			"core",
 			"testing",
-			"sdl",
+			"ji",
 			"pi"
 		]
 	}

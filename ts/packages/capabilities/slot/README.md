@@ -1,6 +1,6 @@
-# @sdl/slot
+# @ji/slot
 
-`@sdl/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled SDL extension contribution for `ji slot ...`. The supported command-line surface is **only** through the SDL binary:
+`@ji/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled SDL extension contribution for `ji slot ...`. The supported command-line surface is **only** through the SDL binary:
 
 ```bash
 ji slot list
@@ -8,7 +8,7 @@ ji slot checkout feature-x
 ji slot gt exec stack-branches --format json
 ```
 
-The package does not expose or install a top-level `slot` executable. The SDL kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@sdl/slot/api` rather than parsing command output.
+The package does not expose or install a top-level `slot` executable. The SDL kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@ji/slot/api` rather than parsing command output.
 
 ## Installation
 
@@ -41,7 +41,7 @@ ji slot shell install --shell bash
 
 `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 
-During the extension-contract transition, the Slot SDL extension uses the current `@sdl/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+During the extension-contract transition, the Slot SDL extension uses the current `@ji/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
 
 ## Completion
 

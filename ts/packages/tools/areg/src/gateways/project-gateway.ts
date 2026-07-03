@@ -2,18 +2,18 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { formatErrorMessage } from "@sdl/core/primitives";
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
+import { formatErrorMessage } from "@ji/core/primitives";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
+import { deriveVisiblePiReplacementSurfaces } from "@ji/pi/commands";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForSourceType,
 	skillLookupFileRelativePath,
 	type SkillLookupSourceType,
-} from "@sdl/pi/skills/lookup";
+} from "@ji/pi/skills/lookup";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
 import type {
@@ -54,7 +54,7 @@ import { classifyResolvedSkillKindInspection } from "./skill-kind-classification
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 	"ts/packages/local/pi-tools/src/backing-skill-commands/extension.ts";
-// AREG imports only the neutral @sdl/pi/commands surface, not project-local
+// AREG imports only the neutral @ji/pi/commands surface, not project-local
 // Pi extension entrypoints.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
 

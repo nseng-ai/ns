@@ -1,5 +1,5 @@
-import { type ExecOutputListener, type ExecOutputStream } from "@sdl/core/command";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import { type ExecOutputListener, type ExecOutputStream } from "@ji/core/command";
+import type { GitGateway } from "@ji/capability-kit/git";
 
 import type { GithubPrGateway, TextGenerator } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
@@ -35,7 +35,7 @@ import {
 } from "./submit-pr-descriptions.ts";
 import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "@sdl/kernel/sdk";
+import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "@ji/kernel/sdk";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";
 

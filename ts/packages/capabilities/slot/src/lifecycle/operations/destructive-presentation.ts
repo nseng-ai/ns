@@ -1,6 +1,6 @@
-import type { RenderCapabilities } from "@sdl/clinkr";
-import { renderDestructiveResultBlock, type ResultBlockKind } from "@sdl/core/cli-theme";
-import { optionalEntries } from "@sdl/core/primitives";
+import type { RenderCapabilities } from "@ji/clinkr";
+import { renderDestructiveResultBlock, type ResultBlockKind } from "@ji/core/cli-theme";
+import { optionalEntries } from "@ji/core/primitives";
 
 export type SlotDestructiveResultKind = ResultBlockKind;
 

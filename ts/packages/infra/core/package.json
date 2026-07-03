@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/core",
+	"name": "@ji/core",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -40,7 +40,7 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/core/test"
 	},
 	"dependencies": {
-		"@sdl/clinkr": "workspace:*",
+		"@ji/clinkr": "workspace:*",
 		"typescript": "catalog:",
 		"zod": "catalog:"
 	},

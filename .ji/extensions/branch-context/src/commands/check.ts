@@ -1,1 +1,1 @@
-export { default } from "@sdl/branch-context/sdl/commands/check";
+export { default } from "@ji/branch-context/ji/commands/check";

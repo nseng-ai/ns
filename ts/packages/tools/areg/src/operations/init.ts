@@ -6,8 +6,8 @@ import {
 	ok,
 	usageError,
 	type ClinkrExit,
-} from "@sdl/clinkr";
-import { resultErr, type Result } from "@sdl/core/result";
+} from "@ji/clinkr";
+import { resultErr, type Result } from "@ji/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

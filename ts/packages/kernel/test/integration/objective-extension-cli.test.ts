@@ -9,7 +9,7 @@ import {
 	parseJsonOutput,
 	runCliWithFakes,
 	type ScriptedExecResponse,
-} from "../scenario/sdl-cli-fakes.ts";
+} from "../scenario/ji-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 

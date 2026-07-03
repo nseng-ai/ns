@@ -1,1 +1,1 @@
-export { default } from "@sdl/address/sdl/commands/exec-branch-pr";
+export { default } from "@ji/address/ji/commands/exec-branch-pr";

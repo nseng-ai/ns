@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { runCliWithFakes, type RunWithFakesOptions } from "../scenario/sdl-cli-fakes.ts";
+import { runCliWithFakes, type RunWithFakesOptions } from "../scenario/ji-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -26,7 +26,7 @@ describe("sdl completion CLI extension loader integration", () => {
 	test("project extension command schema is importable for selected option completion", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			`import { defineExtension, ok, z } from "@sdl/kernel/sdk";
+			`import { defineExtension, ok, z } from "@ji/kernel/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",
@@ -51,7 +51,7 @@ export default defineExtension({
 	test("unrelated broken extension is not imported for selected valid command completion", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			`import { defineExtension, ok, z } from "@sdl/kernel/sdk";
+			`import { defineExtension, ok, z } from "@ji/kernel/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",
@@ -77,7 +77,7 @@ export default defineExtension({
 	test("selected dynamic completion provider runs through the real extension loader", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			`import { defineExtension, ok, z } from "@sdl/kernel/sdk";
+			`import { defineExtension, ok, z } from "@ji/kernel/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",

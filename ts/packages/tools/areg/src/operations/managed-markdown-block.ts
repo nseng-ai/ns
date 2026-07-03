@@ -1,5 +1,5 @@
-import { managedRegionBounds } from "@sdl/core/managed-region";
-import { resultErr, type Result } from "@sdl/core/result";
+import { managedRegionBounds } from "@ji/core/managed-region";
+import { resultErr, type Result } from "@ji/core/result";
 
 export interface ManagedMarkers {
 	start: string;

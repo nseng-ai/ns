@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
+import { ClinkrGroup } from "@ji/clinkr";
+import { defineCli, type CliEntrypointDeps } from "@ji/core/cli-runtime";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {
