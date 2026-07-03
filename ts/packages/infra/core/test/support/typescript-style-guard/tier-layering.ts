@@ -7,7 +7,7 @@ import {
 } from "./config.ts";
 import { collectExtensionManifestWorkspaceEdges } from "./dependency-graph.ts";
 import { lineAndColumnForOffset, type TextPosition } from "./json-diagnostics.ts";
-import type { PackageMetadata } from "./package-metadata.ts";
+import { isRecord, type PackageMetadata } from "./package-metadata.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
 
 export function collectPackageTierLayeringViolations(
@@ -87,10 +87,6 @@ function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boo
 	if (!isRecord(peerDependenciesMeta)) return false;
 	const entry = peerDependenciesMeta[packageName];
 	return isRecord(entry) && entry.optional === true;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function buildTierMetadataViolation(

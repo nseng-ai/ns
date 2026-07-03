@@ -1,6 +1,7 @@
 import { BAN_EXPORTS_SUBPACKAGE_CONFORMANCE } from "./config.ts";
-import { type PackageMetadata } from "./package-metadata.ts";
+import { isRecord, type PackageMetadata } from "./package-metadata.ts";
 import { type SourceRuleViolation } from "./source-rules.ts";
+import { belongsToDeclaredSubpackage, formatDeclaredSubpackageUnits } from "./subpackage-paths.ts";
 
 export interface ExportsSubpackageConformanceOptions {
 	readonly packageMetadataByName: ReadonlyMap<string, PackageMetadata>;
@@ -45,22 +46,11 @@ function collectStringLeaves(value: unknown): string[] {
 	return Object.values(value).flatMap(collectStringLeaves);
 }
 
-function belongsToDeclaredSubpackage(
-	pathWithinSrc: string,
-	subpackages: readonly string[],
-): boolean {
-	return subpackages.some(
-		(subpackage) => pathWithinSrc === subpackage || pathWithinSrc.startsWith(`${subpackage}/`),
-	);
-}
-
 function buildExportTargetViolation(
 	metadata: PackageMetadata,
 	exportTarget: ExportTarget,
 ): SourceRuleViolation {
-	const declaredUnits = metadata.sdlSubpackages
-		.map((subpackage) => `src/${subpackage}/`)
-		.join(", ");
+	const declaredUnits = formatDeclaredSubpackageUnits(metadata.sdlSubpackages);
 	return {
 		rule: BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 		path: metadata.packageJsonPath,
@@ -71,8 +61,4 @@ function buildExportTargetViolation(
 			`which does not resolve inside a declared subpackage (${declaredUnits}). Either root ` +
 			`the target under a declared subpackage or declare its subpackage in sdl.subpackages.`,
 	};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
 }

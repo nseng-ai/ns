@@ -111,6 +111,6 @@ function isPackageManifest(value: unknown): value is PackageManifest {
 	return isRecord(value) && typeof value.name === "string";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }

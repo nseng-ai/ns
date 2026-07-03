@@ -1,10 +1,11 @@
 import { existsSync, statSync } from "node:fs";
-import { join, normalize, relative } from "node:path";
+import { join, relative } from "node:path";
 
 import { BAN_SUBPACKAGE_DECLARATION_CONFORMANCE } from "./config.ts";
 import { findTypeScriptSourceFiles } from "./file-discovery.ts";
 import { type PackageMetadata } from "./package-metadata.ts";
 import { type SourceRuleViolation } from "./source-rules.ts";
+import { belongsToDeclaredSubpackage, formatDeclaredSubpackageUnits } from "./subpackage-paths.ts";
 
 export interface SubpackageDeclarationConformanceOptions {
 	readonly repoRoot: string;
@@ -57,9 +58,7 @@ function buildSourceFileViolation(
 	repoRoot: string,
 	sourceFile: string,
 ): SourceRuleViolation {
-	const declaredUnits = metadata.sdlSubpackages
-		.map((subpackage) => `src/${subpackage}/`)
-		.join(", ");
+	const declaredUnits = formatDeclaredSubpackageUnits(metadata.sdlSubpackages);
 	const sourcePath = relative(repoRoot, sourceFile);
 	return {
 		rule: BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
@@ -73,15 +72,6 @@ function buildSourceFileViolation(
 	};
 }
 
-function belongsToDeclaredSubpackage(sourcePath: string, subpackages: readonly string[]): boolean {
-	const normalizedPath = toPosix(normalize(sourcePath));
-	return subpackages.some((subpackage) => normalizedPath.startsWith(`${subpackage}/`));
-}
-
 function directoryExists(path: string): boolean {
 	return existsSync(path) && statSync(path).isDirectory();
-}
-
-function toPosix(path: string): string {
-	return path.split("\\").join("/");
 }
