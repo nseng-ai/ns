@@ -280,8 +280,12 @@ ts/packages/capabilities/objective/src/core/objective-selection-flow.ts
 ts/packages/capabilities/objective/src/core/storage.ts
 ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts
 ts/packages/capabilities/objective/src/pi/extension.ts
+ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts
+ts/packages/capabilities/objective/test/integration/runner-finish-git.test.ts
 ts/packages/capabilities/objective/test/integration/runner-step-git.test.ts
 ts/packages/capabilities/objective/test/pi/objective.test.ts
+ts/packages/capabilities/objective/test/scenario/exec-runner-begin.test.ts
+ts/packages/capabilities/objective/test/scenario/exec-runner-finish.test.ts
 ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts
 ts/packages/capabilities/objective/test/unit/api.test.ts
 ts/packages/capabilities/objective/test/unit/list-candidates.test.ts

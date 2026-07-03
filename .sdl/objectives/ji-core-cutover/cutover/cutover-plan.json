@@ -320,6 +320,10 @@
      "hint": "Three in-window forms: (1) the env var NAME string value at line ~32 \u2014 SDL_RUNNER_PI_BIN_ENV = \"SDL_RUNNER_PI_BIN\" renames its VALUE to \"JI_RUNNER_PI_BIN\" (the identifier SDL_RUNNER_PI_BIN_ENV survives); (2) the doc-comment mention `SDL_RUNNER_PI_BIN` at ~:66 follows the value; (3) the brand-named tmpdir prefix \"sdl-objective-runner-\" at ~:222 renames to \"ji-objective-runner-\" (owner decision 2026-07-02: brand-named prefixes rename; package-derived survive). [Hand-classified 2026-07-02 during dry-run-1 fold: post-restack drift file.]"
     },
     {
+     "path": "ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts",
+     "hint": "Doc-comment path prose only: lines 6-7 `.sdl/extensions/objective/package.json` and `.sdl/extensions/objective/src/commands/exec-runner-step.ts` -> `.ji/extensions/...`. Leave the `\"./sdl/commands/exec-runner-step\"` exports-subpath literal (src/sdl layout is a survivor), all `@sdl/*` imports, and identifiers untouched. File is marked ADR0024-LEGACY-DELETE (objective-runner decomposition) but is live at the window."
+    },
+    {
      "path": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
      "hint": "Line 6: `Alias for sdl roaster review list.` -> `Alias for ji roaster review list.` (operative CLI reference)."
     },
@@ -660,172 +664,181 @@
      "id": "cohort-tests-6",
      "files": [
       "ts/packages/capabilities/handoff/test/pi/handoff.test.ts",
+      "ts/packages/capabilities/objective/test/integration/runner-finish-git.test.ts",
       "ts/packages/capabilities/objective/test/integration/runner-step-git.test.ts",
       "ts/packages/capabilities/objective/test/pi/objective.test.ts",
+      "ts/packages/capabilities/objective/test/scenario/exec-runner-begin.test.ts",
+      "ts/packages/capabilities/objective/test/scenario/exec-runner-finish.test.ts",
       "ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts",
       "ts/packages/capabilities/objective/test/unit/api.test.ts",
       "ts/packages/capabilities/objective/test/unit/list-candidates.test.ts",
-      "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts",
-      "ts/packages/capabilities/objective/test/unit/list-objectives.test.ts",
-      "ts/packages/capabilities/objective/test/unit/load-orientations.test.ts",
-      "ts/packages/capabilities/objective/test/unit/objective-list-json.test.ts"
+      "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-7",
      "files": [
+      "ts/packages/capabilities/objective/test/unit/list-objectives.test.ts",
+      "ts/packages/capabilities/objective/test/unit/load-orientations.test.ts",
+      "ts/packages/capabilities/objective/test/unit/objective-list-json.test.ts",
       "ts/packages/capabilities/objective/test/unit/objective-picker.test.ts",
       "ts/packages/capabilities/objective/test/unit/objective-storage.test.ts",
       "ts/packages/capabilities/objective/test/unit/pi/child-session/pi-child-session-gateway.test.ts",
       "ts/packages/capabilities/objective/test/unit/runner/prompt.test.ts",
       "ts/packages/capabilities/objective/test/unit/runner/run-step.test.ts",
       "ts/packages/capabilities/objective/test/unit/tracking-gate.test.ts",
-      "ts/packages/capabilities/plans/test/plan-primitives.test.ts",
-      "ts/packages/capabilities/plans/test/saved-plan-file.test.ts",
-      "ts/packages/capabilities/roaster/test/gateways/local-diff.test.ts",
-      "ts/packages/capabilities/roaster/test/gateways/review-catalog.test.ts"
+      "ts/packages/capabilities/plans/test/plan-primitives.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-8",
      "files": [
+      "ts/packages/capabilities/plans/test/saved-plan-file.test.ts",
+      "ts/packages/capabilities/roaster/test/gateways/local-diff.test.ts",
+      "ts/packages/capabilities/roaster/test/gateways/review-catalog.test.ts",
       "ts/packages/capabilities/roaster/test/gateways/review-runner.test.ts",
       "ts/packages/capabilities/roaster/test/unit/api.test.ts",
       "ts/packages/capabilities/roaster/test/unit/context.test.ts",
       "ts/packages/capabilities/roaster/test/unit/findings-publication.test.ts",
       "ts/packages/capabilities/roaster/test/unit/models.test.ts",
       "ts/packages/capabilities/roaster/test/unit/project-config.test.ts",
-      "ts/packages/capabilities/roaster/test/unit/record-findings.test.ts",
-      "ts/packages/capabilities/roaster/test/unit/review-definition.test.ts",
-      "ts/packages/capabilities/roaster/test/unit/review-log.test.ts",
-      "ts/packages/capabilities/roaster/test/unit/review-run.test.ts"
+      "ts/packages/capabilities/roaster/test/unit/record-findings.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-9",
      "files": [
+      "ts/packages/capabilities/roaster/test/unit/review-definition.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/review-log.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/review-run.test.ts",
       "ts/packages/capabilities/roaster/test/unit/review-runner-prompt.test.ts",
       "ts/packages/capabilities/roaster/test/unit/skill-reviews.test.ts",
       "ts/packages/capabilities/slot/test/gateways/real-pr-gateway.test.ts",
       "ts/packages/capabilities/slot/test/scenario/gt-navigation-cli.test.ts",
       "ts/packages/capabilities/slot/test/unit/api.test.ts",
       "ts/packages/capabilities/slot/test/unit/cd-directive.test.ts",
-      "ts/packages/capabilities/slot/test/unit/context.test.ts",
-      "ts/packages/hosts/pi/test/cli-command-extension.test.ts",
-      "ts/packages/hosts/pi/test/harness-session.test.ts",
-      "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts"
+      "ts/packages/capabilities/slot/test/unit/context.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-10",
      "files": [
+      "ts/packages/hosts/pi/test/cli-command-extension.test.ts",
+      "ts/packages/hosts/pi/test/harness-session.test.ts",
+      "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts",
       "ts/packages/hosts/pi/test/investigate.test.ts",
       "ts/packages/hosts/pi/test/just-fix.test.ts",
       "ts/packages/hosts/pi/test/parity.test.ts",
       "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
       "ts/packages/hosts/pi/test/pr-download-feedback.test.ts",
       "ts/packages/hosts/pi/test/worktree-status/extension.test.ts",
-      "ts/packages/hosts/pi/test/worktree-status/refresh.test.ts",
-      "ts/packages/hosts/pi/test/worktree-status/worktree-status.test.ts",
-      "ts/packages/hosts/sdlcc/test/unit/cli.test.ts",
-      "ts/packages/hosts/sdlcc/test/unit/objective-tab.test.ts"
+      "ts/packages/hosts/pi/test/worktree-status/refresh.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-11",
      "files": [
+      "ts/packages/hosts/pi/test/worktree-status/worktree-status.test.ts",
+      "ts/packages/hosts/sdlcc/test/unit/cli.test.ts",
+      "ts/packages/hosts/sdlcc/test/unit/objective-tab.test.ts",
       "ts/packages/hosts/sdlcc/test/unit/stack-map.test.ts",
       "ts/packages/infra/brmem/test/gateways/prompt-resolution.test.ts",
       "ts/packages/infra/brmem/test/integration/prompt-resolution.test.ts",
       "ts/packages/infra/brmem/test/scenario/resolve-prompt-operation.test.ts",
       "ts/packages/infra/brmem/test/support/run-scenario.ts",
       "ts/packages/infra/clinkr/test/completion.test.ts",
-      "ts/packages/infra/core/test/cli-runtime/cli-entry.test.ts",
-      "ts/packages/infra/core/test/cli-theme/package-boundary.test.ts",
-      "ts/packages/infra/core/test/cli-theme/result-block.test.ts",
-      "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts"
+      "ts/packages/infra/core/test/cli-runtime/cli-entry.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-12",
      "files": [
+      "ts/packages/infra/core/test/cli-theme/package-boundary.test.ts",
+      "ts/packages/infra/core/test/cli-theme/result-block.test.ts",
+      "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts",
       "ts/packages/infra/core/test/exec/unit/exec.test.ts",
       "ts/packages/infra/core/test/model-defaults.test.ts",
       "ts/packages/infra/core/test/support/typescript-style-guard/config.ts",
       "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts",
       "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts",
       "ts/packages/kernel/test/integration/aretro-extension-cli.test.ts",
-      "ts/packages/kernel/test/integration/completion-cli.test.ts",
-      "ts/packages/kernel/test/integration/extension-loader-cli.test.ts",
-      "ts/packages/kernel/test/integration/flow-extension-cli.test.ts",
-      "ts/packages/kernel/test/integration/flow-extension-registry.test.ts"
+      "ts/packages/kernel/test/integration/completion-cli.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-13",
      "files": [
+      "ts/packages/kernel/test/integration/extension-loader-cli.test.ts",
+      "ts/packages/kernel/test/integration/flow-extension-cli.test.ts",
+      "ts/packages/kernel/test/integration/flow-extension-registry.test.ts",
       "ts/packages/kernel/test/integration/handoff-extension-registry.test.ts",
       "ts/packages/kernel/test/integration/objective-extension-cli.test.ts",
       "ts/packages/kernel/test/integration/roaster-extension-cli.test.ts",
       "ts/packages/kernel/test/integration/sdk-module-loader.test.ts",
       "ts/packages/kernel/test/integration/slot-alias-cli.test.ts",
       "ts/packages/kernel/test/scenario/changes-cli.test.ts",
-      "ts/packages/kernel/test/scenario/completion-cli.test.ts",
-      "ts/packages/kernel/test/scenario/cp-cli.test.ts",
-      "ts/packages/kernel/test/scenario/handoff-cli-contract.test.ts",
-      "ts/packages/kernel/test/scenario/regenerate-pr-cli.test.ts"
+      "ts/packages/kernel/test/scenario/completion-cli.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-14",
      "files": [
+      "ts/packages/kernel/test/scenario/cp-cli.test.ts",
+      "ts/packages/kernel/test/scenario/handoff-cli-contract.test.ts",
+      "ts/packages/kernel/test/scenario/regenerate-pr-cli.test.ts",
       "ts/packages/kernel/test/scenario/roaster-extension-cli.test.ts",
       "ts/packages/kernel/test/scenario/shell-cli.test.ts",
       "ts/packages/kernel/test/scenario/submit-cli.test.ts",
       "ts/packages/kernel/test/unit/extension-loader.test.ts",
       "ts/packages/local/pi-tools/test/backing-skill-commands/backing-skill-commands.test.ts",
       "ts/packages/local/pi-tools/test/pr-feedback-watch/pr-feedback-watch.test.ts",
-      "ts/packages/local/pi-tools/test/pr-previews/pr-preview-commands.test.ts",
-      "ts/packages/local/pi-tools/test/pr-previews/pr-preview-feedback-view.test.ts",
-      "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts",
-      "ts/packages/local/pi-tools/test/thermo-council/thermo-council.test.ts"
+      "ts/packages/local/pi-tools/test/pr-previews/pr-preview-commands.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-15",
      "files": [
+      "ts/packages/local/pi-tools/test/pr-previews/pr-preview-feedback-view.test.ts",
+      "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts",
+      "ts/packages/local/pi-tools/test/thermo-council/thermo-council.test.ts",
       "ts/packages/sdl-capability-kit/test/git/git-gateway.test.ts",
       "ts/packages/sdl-capability-kit/test/git/integration/testing-create-temp-git-repo.test.ts",
       "ts/packages/sdl-capability-kit/test/git/local-ref-reader.test.ts",
       "ts/packages/sdl-capability-kit/test/github/github-status.test.ts",
       "ts/packages/sdl-capability-kit/test/graphite/integration/status.test.ts",
       "ts/packages/sdl-capability-kit/test/unit/checkpoint-message.test.ts",
-      "ts/packages/sdl-capability-kit/test/unit/git-testing.test.ts",
-      "ts/packages/sdl-capability-kit/test/unit/model-slug.test.ts",
-      "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts",
-      "ts/packages/sdl-capability-kit/test/unit/temp-files.test.ts"
+      "ts/packages/sdl-capability-kit/test/unit/git-testing.test.ts"
      ],
      "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
     },
     {
      "id": "cohort-tests-16",
      "files": [
+      "ts/packages/sdl-capability-kit/test/unit/model-slug.test.ts",
+      "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts",
+      "ts/packages/sdl-capability-kit/test/unit/temp-files.test.ts",
       "ts/packages/tools/areg/test/gateways/real-gateways.test.ts",
       "ts/packages/tools/areg/test/integration/source-cli-shim-runtime.test.ts",
       "ts/packages/tools/areg/test/scenario/init-cli.test.ts",
       "ts/packages/tools/areg/test/scenario/skill-kind-list-show-cli.test.ts",
       "ts/packages/tools/areg/test/scenario/update-skills-cli.test.ts",
       "ts/packages/tools/areg/test/unit/check-frontmatter.test.ts",
-      "ts/packages/tools/areg/test/unit/init-helpers.test.ts",
+      "ts/packages/tools/areg/test/unit/init-helpers.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-17",
+     "files": [
       "ts/packages/tools/areg/test/unit/pi-replacement.test.ts",
       "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts"
      ],
@@ -1189,8 +1202,8 @@
   }
  ],
  "baselines": {
-  "atSdlFileCount": 940,
-  "srcSdlOccurrences": 153
+  "atSdlFileCount": 949,
+  "srcSdlOccurrences": 158
  },
  "skips": [
   {

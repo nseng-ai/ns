@@ -55,7 +55,17 @@
       pipeline branch had been restacked onto refactored trunk): post-restack drift
       absorbed — cs9-graphite-command-channel added for the typed argv-channel pair,
       submit-failure-catalog.ts + pi-child-session-gateway.ts hand-classified,
-      retired command-exec.ts anchor removed, lists re-frozen. Row stays open for
+      retired command-exec.ts anchor removed, lists re-frozen. Second §A pass ran
+      2026-07-02 (post objective-runner begin/finish decomposition, ADR
+      0024-objective-runner-begin-finish-decomposition): 4 new candidates — 3 runner
+      test files auto-bucketed to chunk-2 cohorts, `exec-runner-step.ts`
+      hand-classified simple (doc-comment `.sdl/extensions/` paths; file is
+      ADR0024-LEGACY-DELETE but live at the window); 2 stale simple decisions pruned
+      (the shim pair, covered by cs8 since the fold); plan re-assembled green —
+      122 simple / 9 changesets / 30 cohorts / 28 skips / 22 invariants, baselines
+      re-frozen at 949 `@sdl/` files / 158 src-dir survivor lines; all 476 work-list
+      paths verified to exist pre-mv. See update
+      `2026-07-02-objective-runner-drift-absorbed.md`. Row stays open for
       the SAME-DAY re-run at the real landing window.
 - [ ] Execute the landing in one window on a dedicated branch: `git mv .sdl .ji`, run
       the workflow over the ATOMIC list, `pnpm install` to regenerate lockfile/shims,

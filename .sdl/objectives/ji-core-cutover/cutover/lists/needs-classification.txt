@@ -58,6 +58,7 @@ ts/packages/capabilities/handoff/src/pi/registration.ts
 ts/packages/capabilities/handoff/src/pi/self.ts
 ts/packages/capabilities/handoff/src/pi/tab.ts
 ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts
+ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts
 ts/packages/capabilities/roaster/src/commands/review-ls.ts
 ts/packages/capabilities/slot/src/core/diagnostics.ts
 ts/packages/capabilities/slot/src/core/index.ts
