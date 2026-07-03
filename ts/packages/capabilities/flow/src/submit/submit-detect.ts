@@ -6,6 +6,10 @@ import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
 } from "../changes/git-porcelain.ts";
+import type {
+	SubmitPreflightFailureCause,
+	SubmitSemanticFailureCause,
+} from "./submit-failure-catalog.ts";
 
 export interface SubmitOutputLike {
 	stdout: string;
@@ -13,28 +17,6 @@ export interface SubmitOutputLike {
 	startupError?: string;
 	killed?: boolean;
 }
-
-export type SubmitSemanticFailureCause = {
-	kind: "empty_branch_skipped";
-	branchName?: string;
-};
-
-export interface RemoteSyncDiagnostics {
-	upstream: string;
-	aheadCount?: number;
-	behindCount?: number;
-	remoteOnlyCommits?: readonly string[];
-}
-
-export type SubmitPreflightFailureCause =
-	| { kind: "trunk_out_of_date" }
-	| { kind: "merged_pr_not_in_trunk" }
-	| {
-			kind: "remote_updated_outside_graphite";
-			branchName?: string;
-			remoteSync?: RemoteSyncDiagnostics;
-	  }
-	| SubmitSemanticFailureCause;
 
 export function joinOutput(output: Pick<SubmitOutputLike, "stdout" | "stderr">): string {
 	return `${output.stdout}\n${output.stderr}`;

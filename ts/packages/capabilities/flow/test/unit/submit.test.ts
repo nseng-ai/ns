@@ -5,8 +5,14 @@ import {
 	parseGtLogStack,
 	parseParentBranch,
 	RealSubmitMetadataGateway,
+	runSubmitCommand,
+	type GithubPrGateway,
+	type SubmitGateway,
+	type SubmitMetadataGateway,
+	type TextGenerator,
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { ScriptedCommandRunner, startupErrorStep, step } from "@sdl/core/exec/testing";
 
 describe("RealSubmitGateway", () => {
@@ -616,6 +622,93 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		runner.assertDone();
 	});
 });
+
+describe("runSubmitCommand", () => {
+	test("formats gateway-domain preflight failures without Graphite stderr fixtures", async () => {
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => ({
+				kind: "failed",
+				cause: { kind: "trunk_out_of_date" },
+				output: { stdout: "", stderr: "", exitCode: 1 },
+			}),
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => unexpectedCall("submitCurrentStack"),
+			verifyCurrentPr: async () => unexpectedCall("verifyCurrentPr"),
+		};
+
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway: unusedSubmitMetadataGateway,
+			restack: false,
+			force: false,
+			prDescription: {
+				githubPr: unusedGithubPrGateway,
+				textGenerator: unusedTextGenerator,
+				git: unusedGitGateway,
+				env: {},
+			},
+		});
+
+		expect(result).toMatchObject({
+			exitCode: 1,
+			stdout: "",
+			failurePresentation: "deterministic",
+		});
+		expect(result.stderr).toBe(
+			[
+				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
+				"",
+				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
+				"",
+			].join("\n"),
+		);
+	});
+});
+
+const unusedSubmitMetadataGateway: SubmitMetadataGateway = {
+	inspectSubmitStack: async () => unexpectedCall("inspectSubmitStack"),
+	ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
+	amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
+};
+
+const unusedGithubPrGateway: GithubPrGateway = {
+	viewCurrentBranchPr: async () => unexpectedCall("viewCurrentBranchPr"),
+	viewPr: async () => unexpectedCall("viewPr"),
+	getPrCommitMessages: async () => unexpectedCall("getPrCommitMessages"),
+	getPrDiff: async () => unexpectedCall("getPrDiff"),
+	stablePatchIdForPr: async () => unexpectedCall("stablePatchIdForPr"),
+	editPr: async () => unexpectedCall("editPr"),
+};
+
+const unusedTextGenerator: TextGenerator = {
+	generateText: async () => unexpectedCall("generateText"),
+};
+
+const unusedGitGateway: GitGateway = {
+	repoRoot: async () => unexpectedCall("repoRoot"),
+	optionalRepoRoot: async () => unexpectedCall("optionalRepoRoot"),
+	currentBranch: async () => unexpectedCall("currentBranch"),
+	isInsideWorkTree: async () => unexpectedCall("isInsideWorkTree"),
+	trunkBranch: async () => unexpectedCall("trunkBranch"),
+	originUrl: async () => unexpectedCall("originUrl"),
+	headCommit: async () => unexpectedCall("headCommit"),
+	gitPath: async () => unexpectedCall("gitPath"),
+	validateBranchRef: async () => unexpectedCall("validateBranchRef"),
+	localBranchPresence: async () => unexpectedCall("localBranchPresence"),
+	createBranchAtHead: async () => unexpectedCall("createBranchAtHead"),
+	hasUncommittedChangesUnder: async () => unexpectedCall("hasUncommittedChangesUnder"),
+	listLocalBranchTips: async () => unexpectedCall("listLocalBranchTips"),
+	treeOidsAtRefs: async () => unexpectedCall("treeOidsAtRefs"),
+	changedPathsUnder: async () => unexpectedCall("changedPathsUnder"),
+	statusPaths: async () => unexpectedCall("statusPaths"),
+	stagePaths: async () => unexpectedCall("stagePaths"),
+	commit: async () => unexpectedCall("commit"),
+};
+
+function unexpectedCall(name: string): never {
+	throw new Error(`Unexpected test call: ${name}`);
+}
 
 describe("RealSubmitMetadataGateway", () => {
 	test("parses Graphite stack and branch metadata facts", () => {
