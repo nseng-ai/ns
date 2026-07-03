@@ -3,6 +3,7 @@ import {
 	activeRecordRelativePath,
 	archivedRecordRelativePath,
 	isValidObjectiveSlug,
+	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveStorage,
 	type ObjectiveStorageResult,
 } from "../storage.ts";
@@ -34,82 +35,14 @@ export interface ObjectiveEdgeLintOptions {
 export async function objectiveEdgeLintChecks(
 	options: ObjectiveEdgeLintOptions,
 ): Promise<ObjectiveStorageResult<readonly ObjectiveCheckItem[]>> {
-	const path = `${options.recordRelativePath}/objective.md`;
-	const frontmatterState = classifyRecordFrontmatter(options.document);
-	if (frontmatterState.type === "absent") return { ok: true, value: [] };
-	if (frontmatterState.type === "malformed") {
-		return {
-			ok: true,
-			value: [violation(path, "objective.md Record Frontmatter parses", frontmatterState.message)],
-		};
-	}
-
-	const violations: ObjectiveCheckItem[] = [];
-	const frontmatter = frontmatterState.frontmatter;
-	if (frontmatter.blocked !== null && frontmatter.blocked.trim() === "") {
-		violations.push(
-			violation(
-				path,
-				"objective.md blocked sentence is non-empty",
-				"blocked: is present but carries no sentence",
-			),
-		);
-	}
-
-	const seenEndpoints = new Set<string>();
-	for (const edge of frontmatter.edges) {
-		const endpoint = edge.objective;
-		if (edge.annotation.trim() === "") {
-			violations.push(
-				violation(
-					path,
-					`objective.md edge ${endpoint} has annotation`,
-					"annotation: is present but carries no sentence",
-				),
-			);
-		}
-		if (!isValidObjectiveSlug(endpoint)) {
-			violations.push(
-				violation(
-					path,
-					`objective.md edge ${endpoint} has a valid slug`,
-					"objective: is not a single record slug",
-				),
-			);
-			continue;
-		}
-		if (endpoint === options.slug) {
-			violations.push(
-				violation(
-					path,
-					`objective.md edge ${endpoint} links a distinct record`,
-					"edge endpoint is the record itself",
-				),
-			);
-			continue;
-		}
-		if (seenEndpoints.has(endpoint)) {
-			violations.push(
-				violation(
-					path,
-					`objective.md edge ${endpoint} appears once`,
-					"duplicate entry for the same record pair",
-				),
-			);
-			continue;
-		}
-		seenEndpoints.add(endpoint);
-
-		const mirror = await mirrorViolation({
-			storage: options.storage,
-			slug: options.slug,
-			path,
-			endpoint,
-		});
-		if (!mirror.ok) return mirror;
-		if (mirror.value !== null) violations.push(mirror.value);
-	}
-	return { ok: true, value: violations };
+	return await lintObjectiveRecordFrontmatterState({
+		storage: options.storage,
+		slug: options.slug,
+		state: recordFrontmatterStateFromDocument({
+			recordRelativePath: options.recordRelativePath,
+			document: options.document,
+		}),
+	});
 }
 
 export interface ObjectiveEdgeSweepReport {
@@ -142,28 +75,232 @@ export async function sweepObjectiveEdgeLint(
 
 	const violations: ObjectiveCheckItem[] = [];
 	for (const target of targets) {
-		const read = await storage.readObjectiveRecordDocument(target.recordRelativePath);
-		const path = `${target.recordRelativePath}/objective.md`;
-		if (read.type === "missing") {
-			violations.push(
-				objectiveMdExistsCheck({ recordRelativePath: target.recordRelativePath, isPresent: false }),
-			);
-			continue;
-		}
-		if (read.type === "unreadable") {
-			violations.push(objectiveMdReadableCheck({ path, read }));
-			continue;
-		}
-		const lint = await objectiveEdgeLintChecks({
+		const state = await readObjectiveRecordFrontmatterState({
+			storage,
+			recordRelativePath: target.recordRelativePath,
+		});
+		if (!state.ok) return state;
+		const lint = await lintObjectiveRecordFrontmatterState({
 			storage,
 			slug: target.slug,
-			recordRelativePath: target.recordRelativePath,
-			document: read.document,
+			state: state.value,
 		});
 		if (!lint.ok) return lint;
 		violations.push(...lint.value);
 	}
 	return { ok: true, value: { recordCount: targets.length, violations } };
+}
+
+type ObjectiveRecordFrontmatterState =
+	| { type: "missing"; recordRelativePath: string; path: string }
+	| { type: "unreadable"; recordRelativePath: string; path: string; message: string }
+	| { type: "absent"; recordRelativePath: string; path: string; document: ObjectiveRecordDocument }
+	| {
+			type: "malformed";
+			recordRelativePath: string;
+			path: string;
+			document: ObjectiveRecordDocument;
+			message: string;
+	  }
+	| {
+			type: "parsed";
+			recordRelativePath: string;
+			path: string;
+			document: ObjectiveRecordDocument;
+			frontmatter: ObjectiveRecordFrontmatter;
+	  };
+
+interface ReadObjectiveRecordFrontmatterStateOptions {
+	storage: ObjectiveStorage;
+	recordRelativePath: string;
+}
+
+async function readObjectiveRecordFrontmatterState(
+	options: ReadObjectiveRecordFrontmatterStateOptions,
+): Promise<ObjectiveStorageResult<ObjectiveRecordFrontmatterState>> {
+	const read = await options.storage.readObjectiveRecordDocument(options.recordRelativePath);
+	return {
+		ok: true,
+		value: recordFrontmatterStateFromRead({
+			recordRelativePath: options.recordRelativePath,
+			read,
+		}),
+	};
+}
+
+interface RecordFrontmatterStateFromReadOptions {
+	recordRelativePath: string;
+	read: ObjectiveRecordDocumentReadResult;
+}
+
+function recordFrontmatterStateFromRead(
+	options: RecordFrontmatterStateFromReadOptions,
+): ObjectiveRecordFrontmatterState {
+	const path = `${options.recordRelativePath}/objective.md`;
+	if (options.read.type === "missing") {
+		return { type: "missing", recordRelativePath: options.recordRelativePath, path };
+	}
+	if (options.read.type === "unreadable") {
+		return {
+			type: "unreadable",
+			recordRelativePath: options.recordRelativePath,
+			path,
+			message: options.read.message,
+		};
+	}
+	return recordFrontmatterStateFromDocument({
+		recordRelativePath: options.recordRelativePath,
+		document: options.read.document,
+	});
+}
+
+interface RecordFrontmatterStateFromDocumentOptions {
+	recordRelativePath: string;
+	document: ObjectiveRecordDocument;
+}
+
+function recordFrontmatterStateFromDocument(
+	options: RecordFrontmatterStateFromDocumentOptions,
+): ObjectiveRecordFrontmatterState {
+	const path = `${options.recordRelativePath}/objective.md`;
+	const frontmatterState = classifyRecordFrontmatter(options.document);
+	if (frontmatterState.type === "absent") {
+		return {
+			type: "absent",
+			recordRelativePath: options.recordRelativePath,
+			path,
+			document: options.document,
+		};
+	}
+	if (frontmatterState.type === "malformed") {
+		return {
+			type: "malformed",
+			recordRelativePath: options.recordRelativePath,
+			path,
+			document: options.document,
+			message: frontmatterState.message,
+		};
+	}
+	return {
+		type: "parsed",
+		recordRelativePath: options.recordRelativePath,
+		path,
+		document: options.document,
+		frontmatter: frontmatterState.frontmatter,
+	};
+}
+
+interface LintObjectiveRecordFrontmatterStateOptions {
+	storage: ObjectiveStorage;
+	slug: string;
+	state: ObjectiveRecordFrontmatterState;
+}
+
+async function lintObjectiveRecordFrontmatterState(
+	options: LintObjectiveRecordFrontmatterStateOptions,
+): Promise<ObjectiveStorageResult<readonly ObjectiveCheckItem[]>> {
+	if (options.state.type === "missing") {
+		return {
+			ok: true,
+			value: [
+				objectiveMdExistsCheck({
+					recordRelativePath: options.state.recordRelativePath,
+					isPresent: false,
+				}),
+			],
+		};
+	}
+	if (options.state.type === "unreadable") {
+		return {
+			ok: true,
+			value: [
+				objectiveMdReadableCheck({
+					path: options.state.path,
+					read: { type: "unreadable", message: options.state.message },
+				}),
+			],
+		};
+	}
+	if (options.state.type === "absent") return { ok: true, value: [] };
+	if (options.state.type === "malformed") {
+		return {
+			ok: true,
+			value: [
+				violation(
+					options.state.path,
+					"objective.md Record Frontmatter parses",
+					options.state.message,
+				),
+			],
+		};
+	}
+
+	const violations: ObjectiveCheckItem[] = [];
+	const frontmatter = options.state.frontmatter;
+	if (frontmatter.blocked !== null && frontmatter.blocked.trim() === "") {
+		violations.push(
+			violation(
+				options.state.path,
+				"objective.md blocked sentence is non-empty",
+				"blocked: is present but carries no sentence",
+			),
+		);
+	}
+
+	const seenEndpoints = new Set<string>();
+	for (const edge of frontmatter.edges) {
+		const endpoint = edge.objective;
+		if (edge.annotation.trim() === "") {
+			violations.push(
+				violation(
+					options.state.path,
+					`objective.md edge ${endpoint} has annotation`,
+					"annotation: is present but carries no sentence",
+				),
+			);
+		}
+		if (!isValidObjectiveSlug(endpoint)) {
+			violations.push(
+				violation(
+					options.state.path,
+					`objective.md edge ${endpoint} has a valid slug`,
+					"objective: is not a single record slug",
+				),
+			);
+			continue;
+		}
+		if (endpoint === options.slug) {
+			violations.push(
+				violation(
+					options.state.path,
+					`objective.md edge ${endpoint} links a distinct record`,
+					"edge endpoint is the record itself",
+				),
+			);
+			continue;
+		}
+		if (seenEndpoints.has(endpoint)) {
+			violations.push(
+				violation(
+					options.state.path,
+					`objective.md edge ${endpoint} appears once`,
+					"duplicate entry for the same record pair",
+				),
+			);
+			continue;
+		}
+		seenEndpoints.add(endpoint);
+
+		const mirror = await mirrorViolation({
+			storage: options.storage,
+			slug: options.slug,
+			path: options.state.path,
+			endpoint,
+		});
+		if (!mirror.ok) return mirror;
+		if (mirror.value !== null) violations.push(mirror.value);
+	}
+	return { ok: true, value: violations };
 }
 
 interface MirrorViolationOptions {
@@ -191,36 +328,37 @@ async function mirrorViolation(
 	}
 
 	const label = `objective.md edge ${endpoint} is mirrored`;
-	const counterpart = await storage.readObjectiveRecordDocument(counterpartPath.value);
-	if (counterpart.type === "missing") {
+	const counterpart = await readObjectiveRecordFrontmatterState({
+		storage,
+		recordRelativePath: counterpartPath.value,
+	});
+	if (!counterpart.ok) return counterpart;
+	if (counterpart.value.type === "missing") {
 		return { ok: true, value: violation(path, label, "counterpart objective.md is missing") };
 	}
-	if (counterpart.type === "unreadable") {
+	if (counterpart.value.type === "unreadable") {
 		return {
 			ok: true,
 			value: violation(
 				path,
 				label,
-				`counterpart objective.md is unreadable: ${counterpart.message}`,
+				`counterpart objective.md is unreadable: ${counterpart.value.message}`,
 			),
 		};
 	}
-	const counterpartFrontmatter = classifyRecordFrontmatter(counterpart.document);
-	if (counterpartFrontmatter.type === "absent") {
+	if (counterpart.value.type === "absent") {
 		return {
 			ok: true,
 			value: violation(path, label, "counterpart has no Record Frontmatter"),
 		};
 	}
-	if (counterpartFrontmatter.type === "malformed") {
+	if (counterpart.value.type === "malformed") {
 		return {
 			ok: true,
 			value: violation(path, label, "counterpart Record Frontmatter is malformed"),
 		};
 	}
-	const hasMirror = counterpartFrontmatter.frontmatter.edges.some(
-		(edge) => edge.objective === slug,
-	);
+	const hasMirror = counterpart.value.frontmatter.edges.some((edge) => edge.objective === slug);
 	if (!hasMirror) {
 		return {
 			ok: true,

@@ -1,7 +1,16 @@
-import { failure, ok, type ClinkrExit, type RenderCapabilities } from "@ji/clinkr";
+import {
+	failure,
+	ok,
+	resolveRenderCapabilities,
+	resolveSettledNonInteractiveCaps,
+	type Caps,
+	type ClinkrExit,
+	type RenderCapabilities,
+} from "@ji/clinkr";
 import { z } from "zod";
 
 import type { GitGateway } from "@ji/capability-kit/git";
+import { glyph, type GlyphName, type Intent } from "@ji/core/cli-theme";
 import { renderTextTable, type TextTableColumn } from "@ji/core/text-table";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -149,10 +158,13 @@ export function renderObjectiveListHuman(
 		return removeOneTrailingNewline(parts.join(""));
 	}
 	const includeUpdatedBranches = result.updatedBranchesIncluded === true;
+	const renderCaps = resolveRenderCapabilities(caps);
 	parts.push(
 		`${renderTextTable({
 			columns: humanTableColumns(includeUpdatedBranches),
-			rows: result.records.map((record) => humanRecordCells(record, includeUpdatedBranches)),
+			rows: result.records.map((record) =>
+				humanRecordCells(record, includeUpdatedBranches, renderCaps),
+			),
 			canEmitAnsi: caps.canEmitAnsi,
 			shouldDrawRule: true,
 			headerStyle: "bold-cyan",
@@ -180,8 +192,9 @@ export function renderObjectiveListMarkdown(result: ObjectiveListResult): string
 		return removeOneTrailingNewline(parts.join(""));
 	}
 	parts.push("\n", markdownTableHeader(result), markdownTableSeparator(result));
+	const markdownCaps = resolveSettledNonInteractiveCaps();
 	for (const record of result.records) {
-		parts.push(markdownRecordRow(record, result.updatedBranchesIncluded === true));
+		parts.push(markdownRecordRow(record, result.updatedBranchesIncluded === true, markdownCaps));
 	}
 	if (result.updatedBranchesTruncated === true) {
 		parts.push(
@@ -303,15 +316,33 @@ export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
 	return records.map((record) => record.slug).join("\n");
 }
 
-// Blocked renders as a sub-state of open — the word "open" stays, the glyph and the
-// "(blocked)" qualifier mark the sub-state — never as a third lifecycle status.
-function statusLabel(record: ObjectiveListRecord): string {
-	if (record.status === "closed") return "✓ closed";
-	if (record.isBlocked === true) return "⊘ open (blocked)";
-	return "○ open";
+export interface ObjectiveStatusPresentation {
+	glyphName: Extract<GlyphName, "open" | "done" | "blocked">;
+	intent: Intent;
+	word: "open" | "closed";
+	qualifier: "" | " (blocked)";
 }
 
-function edgeCountCell(record: ObjectiveListRecord): string {
+// Blocked renders as a sub-state of open — the word "open" stays, the glyph and the
+// "(blocked)" qualifier mark the sub-state — never as a third lifecycle status.
+export function objectiveStatusPresentation(
+	record: ObjectiveListRecord,
+): ObjectiveStatusPresentation {
+	if (record.status === "closed") {
+		return { glyphName: "done", intent: "success", word: "closed", qualifier: "" };
+	}
+	if (record.isBlocked === true) {
+		return { glyphName: "blocked", intent: "warn", word: "open", qualifier: " (blocked)" };
+	}
+	return { glyphName: "open", intent: "accent", word: "open", qualifier: "" };
+}
+
+function recordStatusCell(record: ObjectiveListRecord, caps: Caps): string {
+	const presentation = objectiveStatusPresentation(record);
+	return `${glyph(caps, presentation.glyphName)} ${presentation.word}${presentation.qualifier}`;
+}
+
+export function edgeCountCell(record: ObjectiveListRecord): string {
 	if (record.edgeCount === undefined) return "";
 	return String(record.edgeCount);
 }
@@ -340,16 +371,21 @@ function humanTableColumns(shouldIncludeUpdatedBranches: boolean): TextTableColu
 	return columns;
 }
 
-function humanRecordCells(
-	record: ObjectiveListRecord,
-	shouldIncludeUpdatedBranches: boolean,
-): string[] {
-	const cells = [
+function baseRecordCells(record: ObjectiveListRecord, caps: Caps): string[] {
+	return [
 		record.slug,
-		statusLabel(record),
+		recordStatusCell(record, caps),
 		formatLatestUpdate(record),
 		edgeCountCell(record),
 	];
+}
+
+function humanRecordCells(
+	record: ObjectiveListRecord,
+	shouldIncludeUpdatedBranches: boolean,
+	caps: Caps,
+): string[] {
+	const cells = baseRecordCells(record, caps);
 	if (shouldIncludeUpdatedBranches) cells.push(humanUpdatedBranchesCell(record));
 	return cells;
 }
@@ -376,13 +412,9 @@ function markdownTableSeparator(result: ObjectiveListResult): string {
 function markdownRecordRow(
 	record: ObjectiveListRecord,
 	shouldIncludeUpdatedBranches: boolean,
+	caps: Caps,
 ): string {
-	const cells = [
-		record.slug,
-		statusLabel(record),
-		formatLatestUpdate(record),
-		edgeCountCell(record),
-	];
+	const cells = baseRecordCells(record, caps);
 	if (shouldIncludeUpdatedBranches) cells.push(formatUpdatedBranches(record));
 	return `| ${cells.join(" | ")} |\n`;
 }

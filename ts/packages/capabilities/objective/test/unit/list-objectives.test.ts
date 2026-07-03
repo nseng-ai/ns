@@ -96,7 +96,35 @@ describe("renderObjectiveListHuman", () => {
 		const lines = renderObjectiveListMarkdown(result).split("\n");
 		expect(lines).toContain("| objective | status | latest update | edges |");
 		expect(lines).toContain("| alpha | ⊘ open (blocked) | — | 2 |");
-		expect(lines).toContain("| bravo | ○ open | — |  |");
+		expect(lines).toContain("| bravo | ● open | — |  |");
+	});
+
+	test("human status cells use canonical ASCII glyph fallbacks", () => {
+		const result: ObjectiveListResult = {
+			trunkBranch: "master",
+			rootPath: ".ji/objectives",
+			statusFilter: "all",
+			namesOnly: false,
+			records: [
+				{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+				{
+					slug: "blocked",
+					status: "open",
+					isBlocked: true,
+					latestUpdateIso: null,
+					hasOutstandingChanges: false,
+				},
+				{ slug: "closed", status: "closed", latestUpdateIso: null, hasOutstandingChanges: false },
+			],
+		};
+
+		const output = renderObjectiveListHuman(result, {
+			canEmitAnsi: false,
+			caps: { isTty: false, colorDepth: "none", columns: 80, canRenderUnicode: false },
+		});
+		expect(output).toContain("o open");
+		expect(output).toContain("! open (blocked)");
+		expect(output).toContain("v closed");
 	});
 
 	test("draws a header rule and stays plain when color is disabled", () => {
