@@ -132,9 +132,13 @@ stated. Validation baseline for every row: the Definition of Progress suite in
   Slice 7 (stack merge loop onto gateways) delivered 2026-07-02 (runner
   step, commit `8f60ae783` on `flow-map-slice7-merge-loop-gateway`) — see
   `updates/2026-07-02T211745Z-extraction-slice-7-merge-loop.md`; zero
-  gateway or assertion changes. Next: slice 8 (post-merge Graphite
-  maintenance — RISKIEST; map-named `LandGraphiteGateway` methods only;
-  every destructive guard and severity preserved).
+  gateway or assertion changes. Slice 8 (post-merge Graphite maintenance)
+  delivered 2026-07-02 (runner step, commit `b111629c0` on
+  `flow-map-slice8-graphite-maintenance-gateway`) — see
+  `updates/2026-07-02T213710Z-extraction-slice-8-graphite-maintenance.md`;
+  the five map-named methods exactly, guards as typed policy parameters,
+  all argv pins unchanged. Next: slice 9 (post-landing slot cleanup via
+  `freeSlots` + `deleteLocalBranch`).
   Slice gate (replaces the human preview; every check must hold to
   keep a slice):
   - land scenario tests pass; argv assertions stay byte-for-byte for

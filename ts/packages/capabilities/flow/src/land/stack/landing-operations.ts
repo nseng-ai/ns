@@ -329,6 +329,7 @@ export async function runMergeLoop(
 		options.commandStream?.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		const maintenance = await performGraphiteMaintenance({
+			landContext: options.landContext,
 			runtime,
 			ctx,
 			plan,

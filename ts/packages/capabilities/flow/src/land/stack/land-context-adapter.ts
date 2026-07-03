@@ -2,6 +2,9 @@ import { formatCommand } from "@sdl/core/command";
 import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../api.ts";
 import type {
 	LandContext,
+	LandGraphiteCommandResult,
+	LandGraphiteDeleteLocalBranchResult,
+	LandGraphiteRefreshBranchResult,
 	LandingFailure,
 	LandOutcome,
 	LandResult,
@@ -19,7 +22,7 @@ import {
 	SLOT_TIMEOUT_MS,
 } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
-import { resolveMetadataDbPath } from "./graphite-topology.ts";
+import { loadGraphiteTopology, resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
 	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
@@ -94,6 +97,24 @@ export function createLandContext(
 				prepareSubmitUpdate({ graphite, repoRoot, branch }),
 			prepareRestackForSubmit: async ({ repoRoot, branch }) =>
 				prepareRestackForSubmit({ graphite, repoRoot, branch }),
+			refreshBranchFromRemote: async ({ repoRoot, branch, checkoutConflict }) =>
+				refreshBranchFromRemote({ graphite, repoRoot, branch, checkoutConflict }),
+			deleteLocalBranch: async ({ repoRoot, branch, checkedOutConflict }) =>
+				deleteLocalBranch({ graphite, repoRoot, branch, checkedOutConflict }),
+			restackUpstack: async ({ repoRoot, branch }) =>
+				runGraphiteMutation({
+					graphite,
+					repoRoot,
+					operation: { kind: "restack-upstack", branch },
+				}),
+			submitUpdate: async ({ repoRoot, branch, force }) =>
+				runGraphiteMutation({
+					graphite,
+					repoRoot,
+					operation: { kind: "submit-update", branch, force },
+				}),
+			branchChildren: async ({ repoRoot, metadataDbPath, branch }) =>
+				loadBranchChildren({ pi, repoRoot, metadataDbPath, branch }),
 		},
 		github: {
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
@@ -165,6 +186,98 @@ interface FreeSlotsOptions {
 	readonly pi: LandStackExtensionAPI;
 	readonly repoRoot: string;
 	readonly slots: readonly ManagedSlotWorktree[];
+}
+
+async function refreshBranchFromRemote(options: {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly branch: string;
+	readonly checkoutConflict: "fail" | "defer";
+}): Promise<LandGraphiteRefreshBranchResult> {
+	const operation = {
+		kind: "get-downstack-no-checkout",
+		branch: options.branch,
+		checkoutConflict: options.checkoutConflict,
+	} as const;
+	const commandDisplay = formatGraphiteOperation(operation);
+	const result = await options.graphite.run({
+		operation,
+		cwd: options.repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
+	if (result.result.code === 0) return { type: "success", result: result.result };
+	if (result.checkoutConflict !== undefined) {
+		return {
+			type: "checkout-conflict",
+			branch: result.checkoutConflict.branch,
+			path: result.checkoutConflict.path,
+			commandDisplay,
+			result: result.result,
+		};
+	}
+	return { type: "failure", commandDisplay, result: result.result };
+}
+
+async function deleteLocalBranch(options: {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly branch: string;
+	readonly checkedOutConflict: "fail" | "retain";
+}): Promise<LandGraphiteDeleteLocalBranchResult> {
+	const operation = {
+		kind: "delete-local-branch",
+		branch: options.branch,
+		checkedOutConflict: options.checkedOutConflict,
+	} as const;
+	const result = await options.graphite.run({
+		operation,
+		cwd: options.repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
+	switch (result.kind) {
+		case "deleted":
+			return { type: "deleted" };
+		case "retained":
+			return { type: "retained", branch: result.branch, path: result.path };
+		case "failed":
+			return {
+				type: "failed",
+				commandDisplay: formatGraphiteOperation(operation),
+				result: result.result,
+			};
+	}
+}
+
+async function runGraphiteMutation(options: {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly operation: Extract<
+		LandGraphiteOperation,
+		{ readonly kind: "submit-update" | "restack-upstack" }
+	>;
+}): Promise<LandGraphiteCommandResult> {
+	const result = await options.graphite.run({
+		operation: options.operation,
+		cwd: options.repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
+	if (result.code === 0) return { type: "success", result };
+	return {
+		type: "failure",
+		commandDisplay: formatGraphiteOperation(options.operation),
+		result,
+	};
+}
+
+async function loadBranchChildren(options: {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly metadataDbPath: string;
+	readonly branch: string;
+}): Promise<LandResult<readonly string[]>> {
+	const topology = await loadGraphiteTopology(options.pi, options.repoRoot, options.metadataDbPath);
+	if (topology.type === "failure") return toLandResult(topology, "graphite");
+	return landSuccess([...(topology.value.get(options.branch)?.children ?? [])]);
 }
 
 async function prepareSubmitUpdate(options: {

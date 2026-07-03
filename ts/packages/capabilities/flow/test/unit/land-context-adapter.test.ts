@@ -34,6 +34,28 @@ const BACKUP_ROTATION_ARGS = [
 	".",
 	`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
 ];
+const GT_MUTATION_TIMEOUT_MS = 600_000;
+const REFRESH_ARGS = [
+	"get",
+	"feature-b",
+	"--downstack",
+	"--no-restack",
+	"--no-checkout",
+	"--force",
+	"--no-interactive",
+];
+const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
+const SUBMIT_FORCE_ARGS = [
+	"submit",
+	"--branch",
+	"feature-b",
+	"--no-stack",
+	"--update-only",
+	"--no-edit",
+	"--no-ai",
+	"--no-interactive",
+	"--force",
+];
 
 interface ExecCall {
 	command: string;
@@ -221,6 +243,75 @@ describe("land context adapter facts", () => {
 				],
 				options: { cwd: ROOT, timeout: 30000 },
 			},
+		]);
+		pi.assertDone();
+	});
+
+	test("runs post-merge Graphite maintenance methods with the existing argv", async () => {
+		const pi = new FakePi([
+			step("gt", REFRESH_ARGS),
+			step("gt", ["delete", "feature-a", "-f", "-q"], {
+				code: 1,
+				stderr: "fatal: 'feature-a' is already checked out at '/repo-slot'\n",
+			}),
+			step("gt", RESTACK_ARGS),
+			step("gt", SUBMIT_FORCE_ARGS),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+				stdout: `${metadataDbJson([{ branch: "feature-a", children: ["feature-b"] }])}\n`,
+			}),
+		]);
+		const context = createLandContext(pi);
+
+		await expect(
+			context.graphite.refreshBranchFromRemote({
+				repoRoot: ROOT,
+				branch: "feature-b",
+				checkoutConflict: "fail",
+			}),
+		).resolves.toMatchObject({ type: "success" });
+		await expect(
+			context.graphite.deleteLocalBranch({
+				repoRoot: ROOT,
+				branch: "feature-a",
+				checkedOutConflict: "retain",
+			}),
+		).resolves.toEqual({ type: "retained", branch: "feature-a", path: "/repo-slot" });
+		await expect(
+			context.graphite.restackUpstack({ repoRoot: ROOT, branch: "feature-b" }),
+		).resolves.toMatchObject({ type: "success" });
+		await expect(
+			context.graphite.submitUpdate({ repoRoot: ROOT, branch: "feature-b", force: true }),
+		).resolves.toMatchObject({ type: "success" });
+		await expect(
+			context.graphite.branchChildren({
+				repoRoot: ROOT,
+				metadataDbPath: DB_PATH,
+				branch: "feature-a",
+			}),
+		).resolves.toEqual({ type: "success", value: ["feature-b"] });
+
+		expect(pi.execCalls).toEqual([
+			{
+				command: "gt",
+				args: REFRESH_ARGS,
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
+			{
+				command: "gt",
+				args: ["delete", "feature-a", "-f", "-q"],
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
+			{
+				command: "gt",
+				args: RESTACK_ARGS,
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
+			{
+				command: "gt",
+				args: SUBMIT_FORCE_ARGS,
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
+			{ command: TOPOLOGY_COMMAND, args: TOPOLOGY_ARGS, options: { cwd: ROOT, timeout: 30_000 } },
 		]);
 		pi.assertDone();
 	});
