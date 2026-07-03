@@ -1,3 +1,4 @@
+// ADR0024-LEGACY-DELETE(whole file): tests for the legacy blocking runner-step machinery.
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 

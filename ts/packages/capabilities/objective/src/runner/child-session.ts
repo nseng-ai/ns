@@ -1,4 +1,7 @@
 /**
+ * ADR0024-LEGACY-DELETE(whole file): child dispatch left the CLI (ADR 0024);
+ * the decomposed bookends need no session gateway. Deleted with `runner-step`.
+ *
  * Contract for dispatching one child implementation session and observing it.
  *
  * The runner core depends only on this interface; the real Pi adapter lives in

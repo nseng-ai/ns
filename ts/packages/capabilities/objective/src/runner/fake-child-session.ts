@@ -1,3 +1,5 @@
+// ADR0024-LEGACY-DELETE(whole file): scripted fake for the legacy child-session
+// gateway; deleted with `runner-step` and the gateway contract.
 import type {
 	ChildSessionEvent,
 	ChildSessionGateway,

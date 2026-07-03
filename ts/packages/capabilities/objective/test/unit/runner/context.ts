@@ -20,13 +20,18 @@ import type {
 	ObjectiveRunnerContext,
 	RunnerTextFileReadResult,
 } from "../../../src/runner/context.ts";
+// ADR0024-LEGACY-DELETE(import, plus the childScripts option, the
+// childSession members of RunnerFakesContext, and childReportText below).
 import {
 	FakeChildSessionGateway,
 	type FakeChildSessionScript,
 } from "../../../src/runner/testing.ts";
+// ADR0024-LEGACY-DELETE(import): marker constants feed only childReportText below.
 import {
 	OBJECTIVE_RUNNER_REPORT_BEGIN,
 	OBJECTIVE_RUNNER_REPORT_END,
+} from "../../../src/runner/report-marker.ts";
+import {
 	RUNNER_REPORT_SECTION_TITLES,
 	type RunnerReportSectionTitle,
 	type RunnerReportStatus,
@@ -205,7 +210,12 @@ export interface ChildReportTextOptions {
 	omitSections?: readonly RunnerReportSectionTitle[];
 }
 
-/** Builds a well-formed child report block wrapped in surrounding chatter. */
+/**
+ * ADR0024-LEGACY-DELETE(function + ChildReportTextOptions): builds the legacy
+ * marker-block report; only legacy runner-step tests consume it.
+ *
+ * Builds a well-formed child report block wrapped in surrounding chatter.
+ */
 export function childReportText(options: ChildReportTextOptions = {}): string {
 	const status = options.status ?? "ready-for-parent-commit";
 	const lines = [

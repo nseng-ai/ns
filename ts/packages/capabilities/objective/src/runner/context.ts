@@ -37,7 +37,8 @@ export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
 }
 
 /**
- * Legacy `runner-step` surface: the core bookend context plus in-CLI child
+ * ADR0024-LEGACY-DELETE(this interface + the ChildSessionGateway import):
+ * legacy `runner-step` surface — the core bookend context plus in-CLI child
  * dispatch. Deleted with the blocking command once the decomposed flow has
  * dogfooding mileage (ADR 0024).
  */
