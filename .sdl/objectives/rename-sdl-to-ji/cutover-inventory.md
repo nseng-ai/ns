@@ -256,21 +256,29 @@ Non-Goals.
 
 ## Open design questions (answer before the landing window)
 
-- **Q1 — package.json manifest key:** does the `"sdl": {group, commands, tier,
-  subpackages}` metadata key rename to `"ji"`? Touches
-  `kernel/src/extensions/discovery.ts`, every `.sdl/extensions/*/package.json`, every
-  workspace package.json carrying `sdl.tier`, the areg/style-guard readers, and
-  `skills/architecture-topology-report/scripts/extract-graph.mjs`. Objective scope is
-  silent on it. Either answer works; it must be consistent in one commit.
-- **Q2 — `sdl.toml`:** the repo config file read by areg (a NON-renamed binary) and
-  roaster (`areg/src/{gateways,operations/init,…}.ts`,
-  `roaster/src/{operations/review-run,gateways/local-diff}.ts`). Rename to `ji.toml` (it
-  is brand-named) or leave (it is areg's config)? Objective scope is silent.
-- **Q3 — "no legacy `~/.sdl/enriched-plan` fallback" prose:** live production strings +
-  three test assertions + docs (`enriched-plan-save.ts:99`,
-  `branch-context-workflow.md:49`, ADR 0005). Rewrite to `~/.ji/…`, generalize, or
-  retire the sentence — decide explicitly; it is active text, not historical.
-- **Q4 — small-fry brand literals:** aretro tmpdir segment (`payloads/root.ts:16`),
-  internal event key (`events.ts:1`), `.pi/extensions/sdl.ts` filename, `src/sdl/`
-  source-subdirectory convention ("SDL Command Face" — likely the package-scope sweep's
-  problem, but name the decision).
+**Resolved 2026-07-02 by the owner: everything renames to ji** — no sdl-brand literal
+survives. Decisions recorded per question below and in
+`.sdl/objectives/ji-core-cutover/objective.md` (Open Questions) plus its Semantic
+Update `2026-07-02-q1-q4-resolved-everything-is-ji.md`.
+
+- **Q1 — package.json manifest key — RESOLVED: rename to `"ji"`.** The
+  `"sdl": {group, commands, tier, subpackages}` metadata key (including `sdl.tier`
+  fields) becomes `"ji"`. Touches `kernel/src/extensions/discovery.ts`, every
+  `.sdl/extensions/*/package.json`, every workspace package.json carrying `sdl.tier`,
+  the areg/style-guard readers, and
+  `skills/architecture-topology-report/scripts/extract-graph.mjs` — all consistent in
+  one ATOMIC commit.
+- **Q2 — `sdl.toml` — RESOLVED: rename to `ji.toml`.** It is brand-named; areg staying
+  un-renamed does not exempt its config filename. Update the areg and roaster readers
+  (`areg/src/{gateways,operations/init,…}.ts`,
+  `roaster/src/{operations/review-run,gateways/local-diff}.ts`) in the same landing.
+- **Q3 — "no legacy `~/.sdl/enriched-plan` fallback" prose — RESOLVED: rewrite to
+  `~/.ji/…`.** Keep the no-fallback sentence, pointed at the ji path, at the live
+  sites (`enriched-plan-save.ts:99`, the three test assertions,
+  `branch-context-workflow.md:49`, ADR 0005).
+- **Q4 — small-fry brand literals — RESOLVED: all become ji.** Aretro tmpdir segment
+  (`payloads/root.ts:16`), internal event key → `"ji:pi-extension-command:finished"`
+  (`events.ts:1`), `.pi/extensions/sdl.ts` → `.pi/extensions/ji.ts`. The `src/sdl/`
+  source-subdirectory convention ("SDL Command Face") also renames to `src/ji/` but
+  executes in the package-scope sweep row, not the cutover window. POST ordering for
+  the event key (if deferred) stands.
