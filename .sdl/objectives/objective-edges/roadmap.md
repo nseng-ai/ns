@@ -43,11 +43,15 @@
       `sdl objective check`; "No YAML/frontmatter" non-goals now carry the blocked+edges
       exception. No hidden exec helper added — per-slug check already gives the deterministic
       mirror verification; the parked mutation-CLI row stays the escalation path.
-- [ ] Seed the live instances: encode the `checkout-free-sdl-distribution ↔
+- [x] Seed the live instances: encode the `checkout-free-sdl-distribution ↔
   ship-objectives-to-customers` edge with perspective-correct annotations on both sides and a
       Blocked Sentence on `ship-objectives-to-customers`.
       Evidence: `sdl objective check` repo-wide sweep passes; both records render the edge count
       and blocked status in `sdl objective list`.
+      Evidence: branch `objective-edges-seed-records` (runner step commit); both per-slug checks
+      and the 120-record `--all` sweep pass with the live frontmatter; list renders EDGES 1 on
+      both records and `⊘ open (blocked)` on `ship-objectives-to-customers`. The motivating
+      drift case is now machine-checked — the feature's acceptance test is met.
 - [ ] Vocabulary: root `CONTEXT.md` system terms (Objective Edge, Edge Annotation, Blocked
       Sentence, Record Frontmatter, State/status-cluster line for blocked-as-substate-of-open)
       and `@sdl/objective` `CONTEXT.md` surface terms (edge linting in check, EDGES column).
