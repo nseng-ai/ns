@@ -2,6 +2,8 @@
 edges:
   - objective: ship-objectives-to-customers
     annotation: Split out of that Objective (2026-07-01); it consumes checkout-free `sdl` as a hard dependency and is its first external consumer.
+  - objective: rename-ji-to-ns
+    annotation: Owns the publish name this Objective ships under — the external package target is @nseng-ai/ns, superseding @nseng-ai/ji; its core cutover must land before the first publish.
 ---
 
 # Checkout-Free `ji` Distribution
