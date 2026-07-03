@@ -14,11 +14,20 @@ export interface RunnerRecoverContext {
 	changedPaths: readonly string[];
 }
 
+/**
+ * How the child returns its report: a marker-delimited block in its final
+ * message (legacy `runner-step`) or a JSON document written to a
+ * begin-chosen file path (`runner-begin`, ADR 0024). The marker arm is
+ * deleted with the legacy command.
+ */
+export type RunnerReportChannel = { type: "marker" } | { type: "json-file"; reportPath: string };
+
 export interface BuildRunnerChildPromptOptions {
 	slug: string;
 	objectivePath: string;
 	mode: RunnerStepMode;
 	baseBranch: string;
+	reportChannel: RunnerReportChannel;
 	guidance?: string;
 	recoverContext?: RunnerRecoverContext;
 }
@@ -42,7 +51,7 @@ export function buildRunnerChildPrompt(options: BuildRunnerChildPromptOptions): 
 	if (options.recoverContext !== undefined) {
 		parts.push("", recoverPreamble(options.recoverContext));
 	}
-	parts.push("", "Rules:", rules(options), "", reportContract(options.mode));
+	parts.push("", "Rules:", rules(options), "", reportContract(options.mode, options.reportChannel));
 	if (options.guidance !== undefined) {
 		parts.push("", "Parent guidance (follow it within the rules above):", options.guidance);
 	}
@@ -66,9 +75,18 @@ function rules(options: BuildRunnerChildPromptOptions): string {
 		...branchRules,
 		`- ${RUNNER_GRAPHITE_STACK_NAVIGATION_RULE}`,
 		"- Leave ALL changes uncommitted. Never run `git commit`, `git commit --amend`, `git push`, or anything that submits, merges, or publishes; the runner owns staging and commit.",
-		"- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the `## Validation` section of your report.",
-		"- Finish your final response with exactly one report block in the format below.",
+		`- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the ${
+			options.reportChannel.type === "marker" ? "`## Validation`" : "`validation`"
+		} section of your report.`,
+		finalReportRule(options.reportChannel),
 	].join("\n");
+}
+
+function finalReportRule(reportChannel: RunnerReportChannel): string {
+	if (reportChannel.type === "marker") {
+		return "- Finish your final response with exactly one report block in the format below.";
+	}
+	return `- Finish by writing your report as a single JSON document to \`${reportChannel.reportPath}\` — create exactly that file, containing only the JSON document (no markdown fences, no commentary). The path is outside the repository on purpose; never add it to git. Then end your final response with a 1-3 sentence summary of what you did; the summary is informational only, the JSON file is the contract.`;
 }
 
 function recoverPreamble(recoverContext: RunnerRecoverContext): string {
@@ -85,7 +103,10 @@ function recoverPreamble(recoverContext: RunnerRecoverContext): string {
 	return parts.join("\n");
 }
 
-function reportContract(mode: RunnerStepMode): string {
+function reportContract(mode: RunnerStepMode, reportChannel: RunnerReportChannel): string {
+	if (reportChannel.type === "json-file") {
+		return jsonReportContract(mode, reportChannel.reportPath);
+	}
 	const branchLine =
 		mode === "recover" ? "branch: <the current branch>" : "branch: <your implementation branch>";
 	return [
@@ -116,5 +137,30 @@ function reportContract(mode: RunnerStepMode): string {
 		"## Validation",
 		"<commands you ran with results, including any deterministic fixes performed>",
 		OBJECTIVE_RUNNER_REPORT_END,
+	].join("\n");
+}
+
+function jsonReportContract(mode: RunnerStepMode, reportPath: string): string {
+	const branchValue = mode === "recover" ? "<the current branch>" : "<your implementation branch>";
+	return [
+		`Report file format (a single JSON document at \`${reportPath}\`; all fields and all five sections are mandatory unless marked optional; keep it concise):`,
+		"",
+		"```json",
+		"{",
+		'  "status": "<ready-for-parent-commit | stop | blocked>",',
+		`  "branch": "${branchValue}",`,
+		'  "roadmapItems": ["<roadmap item this slice advanced>"],',
+		'  "commitSubject": "<proposed commit subject line; required when status is ready-for-parent-commit>",',
+		'  "commitBody": "<optional commit body; omit the field when you have none>",',
+		'  "stopReason": "<why, when status is stop or blocked; omit otherwise>",',
+		'  "sections": {',
+		'    "summary": "<what you did>",',
+		'    "objectiveImpact": "<claimed impact on the Objective roadmap>",',
+		'    "risksBlockers": "<risks or blockers, or \'none\'>",',
+		'    "followUps": "<follow-up work you deferred, or \'none\'>",',
+		'    "validation": "<commands you ran with results, including any deterministic fixes performed>"',
+		"  }",
+		"}",
+		"```",
 	].join("\n");
 }

@@ -13,19 +13,20 @@ export type RunnerTextFileReadResult =
 	| { type: "error"; message: string };
 
 /**
- * Dependency surface for one Objective Runner step.
+ * Dependency surface for the runner's deterministic bookends (ADR 0024):
+ * preconditions, prompt/facts production, verification gate, commit, and
+ * checkpoint rendering. No child dispatch.
  *
  * Extends the plain Objective CLI context with the runner's injected gateways
- * (Graphite tracking check, raw command exec for `git diff --check`, child
- * session dispatch) and the presentation seams the step contract requires:
- * `writeStdout` is a tactical Runner Checkpoint stream for human/markdown modes
- * until clinkr owns non-ok stdout artifacts, `writeStderr` streams live progress,
- * and `phase` mirrors `SdlCommandIo.phase` transient phase text.
+ * (Graphite tracking check, raw command exec for `git diff --check`) and the
+ * presentation seams the step contract requires: `writeStdout` is a tactical
+ * Runner Checkpoint stream for human/markdown modes until clinkr owns non-ok
+ * stdout artifacts, `writeStderr` streams live progress, and `phase` mirrors
+ * `SdlCommandIo.phase` transient phase text.
  */
-export interface ObjectiveRunnerContext extends ObjectiveCliContext {
+export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
 	graphite: GraphiteBranchGateway;
 	commands: CommandExecApi;
-	childSession: ChildSessionGateway;
 	outputFormat?: ClinkrFormat;
 	writeStdout(text: string): void;
 	writeStderr(text: string): void;
@@ -33,4 +34,13 @@ export interface ObjectiveRunnerContext extends ObjectiveCliContext {
 	phase(label: string): void;
 	/** Minimal text-file read seam; used for `--guidance @file` resolution. */
 	readTextFile(path: string): Promise<RunnerTextFileReadResult>;
+}
+
+/**
+ * Legacy `runner-step` surface: the core bookend context plus in-CLI child
+ * dispatch. Deleted with the blocking command once the decomposed flow has
+ * dogfooding mileage (ADR 0024).
+ */
+export interface ObjectiveRunnerContext extends ObjectiveRunnerCoreContext {
+	childSession: ChildSessionGateway;
 }

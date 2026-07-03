@@ -1,7 +1,7 @@
 import type { GitCurrentBranchResult } from "@sdl/capability-kit/git";
 import { commandSucceeded, formatCommandDetails } from "@sdl/core/exec";
 
-import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
+import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 import type { RunnerReport } from "./report.ts";
 
 export const GATE_CHECK_IDS = [
@@ -55,7 +55,7 @@ export interface VerifyRunnerStepOptions {
  * branch check is represented explicitly as skipped.
  */
 export async function verifyRunnerStep(
-	ctx: ObjectiveRunnerContext,
+	ctx: ObjectiveRunnerCoreContext,
 	options: VerifyRunnerStepOptions,
 ): Promise<GateOutcome> {
 	const { mode, report, baseBranch, headAtDispatch } = options;
@@ -160,7 +160,7 @@ function branchCheck(
 }
 
 async function graphiteTrackedCheck(
-	ctx: ObjectiveRunnerContext,
+	ctx: ObjectiveRunnerCoreContext,
 	branch: string | null,
 	branchUnknownDetail: string,
 ): Promise<GateCheckResult> {
@@ -177,7 +177,7 @@ async function graphiteTrackedCheck(
 	return { id: "graphite-tracked", status: "passed" };
 }
 
-async function diffCheck(ctx: ObjectiveRunnerContext): Promise<GateCheckResult> {
+async function diffCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateCheckResult> {
 	const result = await ctx.commands.exec("git", ["diff", "--check"], { cwd: ctx.repoRoot });
 	if (commandSucceeded(result)) return { id: "diff-check", status: "passed" };
 	return {
@@ -188,7 +188,7 @@ async function diffCheck(ctx: ObjectiveRunnerContext): Promise<GateCheckResult> 
 }
 
 async function headUnchangedCheck(
-	ctx: ObjectiveRunnerContext,
+	ctx: ObjectiveRunnerCoreContext,
 	headAtDispatch: string,
 ): Promise<GateCheckResult> {
 	const head = await ctx.git.headCommit({ cwd: ctx.repoRoot });

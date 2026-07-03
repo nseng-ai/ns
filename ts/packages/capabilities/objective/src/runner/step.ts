@@ -109,6 +109,7 @@ export async function runRunnerStep(
 		objectivePath,
 		mode,
 		baseBranch,
+		reportChannel: { type: "marker" },
 		...optionalEntry("guidance", request.guidance),
 		...(mode === "recover" ? { recoverContext: { branch: baseBranch, changedPaths } } : {}),
 	});

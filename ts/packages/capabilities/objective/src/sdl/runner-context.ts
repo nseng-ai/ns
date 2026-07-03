@@ -10,7 +10,11 @@ import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";
 import type { ChildSessionGateway } from "../runner/child-session.ts";
-import type { ObjectiveRunnerContext, RunnerTextFileReadResult } from "../runner/context.ts";
+import type {
+	ObjectiveRunnerContext,
+	ObjectiveRunnerCoreContext,
+	RunnerTextFileReadResult,
+} from "../runner/context.ts";
 import { createSdlObjectiveContext } from "./context.ts";
 
 /**
@@ -37,10 +41,15 @@ export interface ObjectiveRunnerOverrides {
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
 }
 
-export async function createSdlObjectiveRunnerContext(
+/**
+ * Context for the decomposed runner bookends (`runner-begin`/`runner-finish`,
+ * ADR 0024): everything the legacy runner context carries except child
+ * dispatch. Reads the same `ctx.extensions.objectiveRunner` overrides; a
+ * `childSession` override is simply ignored here.
+ */
+export async function createSdlObjectiveRunnerCoreContext(
 	ctx: SdlExtensionApi,
-	composition: ObjectiveRunnerComposition,
-): Promise<ObjectiveRunnerContext> {
+): Promise<ObjectiveRunnerCoreContext> {
 	const overrides = readObjectiveRunnerOverrides(ctx);
 	const base = await createSdlObjectiveContext(
 		ctx,
@@ -51,8 +60,6 @@ export async function createSdlObjectiveRunnerContext(
 		...base,
 		commands,
 		graphite: overrides?.graphite ?? new RealGraphiteBranchGateway(commands),
-		childSession:
-			overrides?.childSession ?? composition.createChildSessionGateway({ env: ctx.env }),
 		outputFormat: ctx.outputFormat ?? "human",
 		writeStdout: ctx.stdout ?? (() => {}),
 		writeStderr: ctx.stderr ?? (() => {}),
@@ -60,6 +67,19 @@ export async function createSdlObjectiveRunnerContext(
 			ctx.commandIo.phase(label);
 		},
 		readTextFile: overrides?.readTextFile ?? readRunnerTextFile,
+	};
+}
+
+export async function createSdlObjectiveRunnerContext(
+	ctx: SdlExtensionApi,
+	composition: ObjectiveRunnerComposition,
+): Promise<ObjectiveRunnerContext> {
+	const overrides = readObjectiveRunnerOverrides(ctx);
+	const core = await createSdlObjectiveRunnerCoreContext(ctx);
+	return {
+		...core,
+		childSession:
+			overrides?.childSession ?? composition.createChildSessionGateway({ env: ctx.env }),
 	};
 }
 
