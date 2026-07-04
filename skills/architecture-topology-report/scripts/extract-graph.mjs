@@ -40,7 +40,7 @@ const PRETTY = arg("pretty", false);
 const OUT = arg("out", false);
 
 // Canonical taxonomy — kept in sync with the workspace source of truth:
-// ts/packages/infra/core/test/support/typescript-style-guard/config.ts
+// ts/packages/internal/typescript-style-guard/src/config.ts
 // (`packageTierValues`, `packageTierAllowedTargets`, `allowedPackageTierDebtEdges`).
 const TIERS = [
   "capability",
@@ -51,6 +51,7 @@ const TIERS = [
   "capability-pi",
   "standalone-tool",
   "internal-pi-tool",
+  "internal-tool",
 ];
 const TIER_SET = new Set(TIERS);
 const TIER_POLICY = {
@@ -62,6 +63,7 @@ const TIER_POLICY = {
   "capability-pi": new Set(["capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
   "standalone-tool": new Set(["standalone-tool", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
   "internal-pi-tool": new Set(["internal-pi-tool", "host", "neutral-infra"]),
+  "internal-tool": new Set(["internal-tool", "neutral-infra"]),
 };
 const ALLOWED_DEBT_EDGES = new Map([
   ["@ns/ccc\0@ns/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],

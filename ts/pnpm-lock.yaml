@@ -526,6 +526,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@internal/typescript-style-guard':
+        specifier: workspace:*
+        version: link:../../internal/typescript-style-guard
 
   packages/internal/pi-tools:
     dependencies:
@@ -553,6 +557,18 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/internal/typescript-style-guard:
+    dependencies:
+      '@ns/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 3.3.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/kernel:
     dependencies:

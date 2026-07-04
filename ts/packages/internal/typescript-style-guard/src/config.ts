@@ -35,6 +35,7 @@ export const packageTierValues = [
 	"capability-pi",
 	"standalone-tool",
 	"internal-pi-tool",
+	"internal-tool",
 ] as const;
 
 export type PackageTier = (typeof packageTierValues)[number];
@@ -64,6 +65,7 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"neutral-infra",
 	]),
 	"internal-pi-tool": new Set(["internal-pi-tool", "host", "neutral-infra"]),
+	"internal-tool": new Set(["internal-tool", "neutral-infra"]),
 };
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([

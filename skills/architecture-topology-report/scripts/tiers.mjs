@@ -2,7 +2,7 @@
 // browser-side D3 renderer (build-report.mjs) and the deterministic spec
 // synthesizer (synthesize-spec.mjs). Keep the palette in sync with the workspace
 // source of truth:
-//   ts/packages/infra/core/test/support/typescript-style-guard/config.ts
+//   ts/packages/internal/typescript-style-guard/src/config.ts
 //   (`packageTierValues`).
 
 export const TIERS = {
@@ -14,6 +14,7 @@ export const TIERS = {
   "capability-pi": { fill: "#bae6fd", stroke: "#0284c7", name: "capability Pi" },
   "standalone-tool": { fill: "#f1f5f9", stroke: "#94a3b8", name: "standalone tool" },
   "internal-pi-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "internal pi tool" },
+  "internal-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "internal tool" },
 };
 
 // Defensive fallback for any tier not in the registry above (should not happen
@@ -25,6 +26,7 @@ export const FALLBACK_TIER = "standalone-tool";
 // the graph and to end-of-list ordering in the synthesized tier stack.
 export const TIER_RANK = [
   "internal-pi-tool",
+  "internal-tool",
   "standalone-tool",
   "capability-pi",
   "host",
