@@ -4,6 +4,10 @@ import { formatCommand, type ExecResult } from "@ns/core/command";
 import { ScriptedQueue } from "@ns/core/test-kit";
 import { stripAnsi } from "../../src/land/stack/graphite-command-channel.ts";
 import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
+import {
+	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
+	batchedPullRequestFactsGraphqlArgs,
+} from "../../src/land/stack/pr-facts.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { formatLandProgressTitle } from "../../src/ns/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
@@ -458,26 +462,57 @@ function numberedPreflight(options: {
 			dbRows: numberedDb(start, options.end, { current: options.current }),
 		}),
 		...cleanRepoChecks(),
-		...planBranches.map((branch) => {
-			const index = Number(branch.replace("feature-", ""));
-			const localSha = numberedSha(index);
-			const prSha = options.prShaOverrides?.[index] ?? localSha;
-			return step("gh", ["pr", "view", branch, "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 200 + index,
-						branch,
-						base: index === start ? TRUNK : numberedBranch(index - 1),
-						sha: prSha,
-						title: `PR ${200 + index}`,
-					}),
-				),
-			});
+		...numberedPreflightPrSteps({
+			start,
+			planBranches,
+			...(options.prShaOverrides === undefined ? {} : { prShaOverrides: options.prShaOverrides }),
 		}),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: worktreeOutput([{ path: ROOT, branch: currentBranch }]),
 		}),
 	];
+}
+
+function numberedPreflightPrSteps(options: {
+	start: number;
+	planBranches: readonly string[];
+	prShaOverrides?: Record<number, string>;
+}): ScriptedExec[] {
+	const prs = options.planBranches.map((branch) => {
+		const index = Number(branch.replace("feature-", ""));
+		const localSha = numberedSha(index);
+		const prSha = options.prShaOverrides?.[index] ?? localSha;
+		return prSnapshot({
+			number: 200 + index,
+			branch,
+			base: index === options.start ? TRUNK : numberedBranch(index - 1),
+			sha: prSha,
+			title: `PR ${200 + index}`,
+		});
+	});
+	if (options.planBranches.length > 2) {
+		return [
+			step("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS, {
+				stdout: `${JSON.stringify({ nameWithOwner: "owner/repo" })}\n`,
+			}),
+			step(
+				"gh",
+				batchedPullRequestFactsGraphqlArgs({ owner: "owner", name: "repo" }, options.planBranches),
+				{ stdout: batchedPrStdout(prs) },
+			),
+		];
+	}
+	return prs.map((pr) =>
+		step("gh", ["pr", "view", pr.headRefName, "--json", PR_FIELDS], { stdout: prStdout(pr) }),
+	);
+}
+
+function batchedPrStdout(prs: readonly PullRequestSnapshot[]): string {
+	return `${JSON.stringify({
+		data: {
+			repository: Object.fromEntries(prs.map((pr, index) => [`b${index}`, { nodes: [pr] }])),
+		},
+	})}\n`;
 }
 
 function backupRefStepsForNumberedBranches(start: number, end: number): ScriptedExec[] {
@@ -1029,32 +1064,32 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 163,
+					calls: 154,
 					failures: 3,
 					categories: {
 						graphite: 54,
-						"github-cli": 54,
+						"github-cli": 45,
 						"github-api": 0,
 						git: 55,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 65, restRequests: 0, rateLimitCost: 65 },
+					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 66 },
 				},
 			},
 			{
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 359,
+					calls: 336,
 					failures: 3,
 					categories: {
 						graphite: 124,
-						"github-cli": 124,
+						"github-cli": 101,
 						"github-api": 0,
 						git: 111,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 149, restRequests: 0, rateLimitCost: 149 },
+					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 150 },
 				},
 			},
 		] as const;

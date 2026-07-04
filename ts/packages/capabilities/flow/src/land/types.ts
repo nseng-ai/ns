@@ -395,6 +395,10 @@ export interface LandGithubPrGateway {
 		readonly repoRoot: string;
 		readonly branchOrNumber: string;
 	}): Promise<LandResult<PullRequestFacts>>;
+	pullRequestFactsByBranch?(request: {
+		readonly repoRoot: string;
+		readonly branches: readonly string[];
+	}): Promise<LandResult<ReadonlyMap<string, PullRequestFacts>>>;
 	squashMergePullRequest(request: {
 		readonly repoRoot: string;
 		readonly pullRequest: PullRequestFacts;

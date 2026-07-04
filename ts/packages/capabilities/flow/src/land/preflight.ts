@@ -272,6 +272,15 @@ async function loadBranchPlans(
 	landingBranches: readonly string[],
 	localBranchShas: ReadonlyMap<string, string>,
 ): Promise<LandResult<readonly BranchLandingPlan[]>> {
+	if (context.github.pullRequestFactsByBranch !== undefined && landingBranches.length > 2) {
+		const prs = await context.github.pullRequestFactsByBranch({
+			repoRoot,
+			branches: landingBranches,
+		});
+		if (prs.type === "failure") return prs;
+		return branchPlansFromPrMap(landingBranches, localBranchShas, prs.value);
+	}
+
 	const branchPlans: BranchLandingPlan[] = [];
 	for (const branch of landingBranches) {
 		const localSha = localBranchShas.get(branch);
@@ -279,6 +288,30 @@ async function loadBranchPlans(
 		const pr = await context.github.pullRequestFacts({ repoRoot, branchOrNumber: branch });
 		if (pr.type === "failure") return pr;
 		branchPlans.push({ branch, localSha, pr: pr.value });
+	}
+	return landSuccess(branchPlans);
+}
+
+function branchPlansFromPrMap(
+	landingBranches: readonly string[],
+	localBranchShas: ReadonlyMap<string, string>,
+	prs: ReadonlyMap<string, PullRequestFacts>,
+): LandResult<readonly BranchLandingPlan[]> {
+	const branchPlans: BranchLandingPlan[] = [];
+	for (const branch of landingBranches) {
+		const localSha = localBranchShas.get(branch);
+		if (localSha === undefined) return missingLocalBranchFailure(branch);
+		const pr = prs.get(branch);
+		if (pr === undefined) {
+			return landFailure({
+				type: "boundary",
+				phase: "preflight",
+				source: "github",
+				code: "pull_request_batch_missing_branch",
+				message: `Batched GitHub PR facts did not include ${branch}.`,
+			});
+		}
+		branchPlans.push({ branch, localSha, pr });
 	}
 	return landSuccess(branchPlans);
 }
