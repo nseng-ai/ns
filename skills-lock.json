@@ -204,6 +204,26 @@
       "sourceType": "local",
       "computedHash": "74d0b8301bb601a6bbf02874193b05c7a5cea205f044b0705a24ab39151c03c7"
     },
+    "ns-flow-autobranch": {
+      "source": "skills/ns-flow-autobranch",
+      "sourceType": "local",
+      "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
+    },
+    "ns-flow-branch-latest-commit": {
+      "source": "skills/ns-flow-branch-latest-commit",
+      "sourceType": "local",
+      "computedHash": "c969e1054813322299f73c0b3a2af3c6dac473b70bd7e19e0fefc66f21df021b"
+    },
+    "ns-flow-cp": {
+      "source": "skills/ns-flow-cp",
+      "sourceType": "local",
+      "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
+    },
+    "ns-flow-submit": {
+      "source": "skills/ns-flow-submit",
+      "sourceType": "local",
+      "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
+    },
     "objective": {
       "source": "skills/objective",
       "sourceType": "local",
@@ -223,6 +243,11 @@
       "source": "skills/objective-create",
       "sourceType": "local",
       "computedHash": "059e3d47258c0840c43e2d322351b150d4ecf03c36b1e8875a730da7f5c418e5"
+    },
+    "objective-critique": {
+      "source": "skills/objective-critique",
+      "sourceType": "local",
+      "computedHash": "a70be9eadda040b62d25f66f3f1c19ef6f34cd82fd6a989adab2b0e8f1c0a4a0"
     },
     "objective-next": {
       "source": "skills/objective-next",
@@ -330,26 +355,6 @@
       "source": "skills/sdl-cli-design",
       "sourceType": "local",
       "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
-    },
-    "ns-flow-autobranch": {
-      "source": "skills/ns-flow-autobranch",
-      "sourceType": "local",
-      "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
-    },
-    "ns-flow-branch-latest-commit": {
-      "source": "skills/ns-flow-branch-latest-commit",
-      "sourceType": "local",
-      "computedHash": "c969e1054813322299f73c0b3a2af3c6dac473b70bd7e19e0fefc66f21df021b"
-    },
-    "ns-flow-cp": {
-      "source": "skills/ns-flow-cp",
-      "sourceType": "local",
-      "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
-    },
-    "ns-flow-submit": {
-      "source": "skills/ns-flow-submit",
-      "sourceType": "local",
-      "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
     },
     "sdl-typescript": {
       "source": "skills/sdl-typescript",
