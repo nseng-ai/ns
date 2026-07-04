@@ -106,6 +106,14 @@ export const WRITE_PLAN_COMMAND_NAME = "ns:plan:save";
 export const WRITE_GRILLED_PLAN_COMMAND_NAME = "ns:plan:grill-and-save";
 export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "ns:plan:impl-current";
 
+/**
+ * First tokens of hyphenated skill names that act as Pi command namespaces.
+ *
+ * When a command-style skill has no entry in {@link SPECIALIZED_SKILL_REPLACEMENTS},
+ * `derivePiReplacementSurface` splits its name on the longest matching namespace
+ * here: skill `objective-create` → command `objective:create`. A skill whose
+ * leading token is not listed falls back to splitting on its first hyphen.
+ */
 export const KNOWN_PI_COMMAND_NAMESPACES = [
 	"branch-context",
 	"enriched-plan",
@@ -130,6 +138,15 @@ export const KNOWN_PI_COMMAND_NAMESPACES = [
 	"stack",
 ] as const;
 
+/**
+ * Repo-local skills that Pi surfaces as slash commands instead of native
+ * skill invocations.
+ *
+ * Each name here is expected to resolve to a command surface via
+ * `derivePiReplacementSurface`; Pi hides the skill and exposes the derived
+ * command, and areg verifies the replacement command actually exists. A skill
+ * absent from this list keeps its ordinary `/skill:<name>` surface.
+ */
 export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"branch-context-from-plan",
 	"branch-context-impl",
@@ -195,6 +212,16 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"writing-great-skills",
 ] as const;
 
+/**
+ * Skill-name → command-surface overrides where mechanical namespace
+ * derivation would produce the wrong command.
+ *
+ * Covers renames (`pytest` → `python:pytest`, `skillx` → `skill:x`),
+ * multi-segment surfaces the single-split rule cannot reach
+ * (`ns-flow-cp` → `ns:flow:cp`), and skills bound to the shared command-name
+ * constants above. Matching is exact name first, then longest-prefix, so an
+ * entry also claims derived variants of skills named `<entry>-<suffix>`.
+ */
 export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"branch-context-from-plan": BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	"branch-context-impl": IMPL_BRANCH_CONTEXT_COMMAND_NAME,
@@ -220,6 +247,12 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	skillx: "skill:x",
 } as const satisfies Record<string, string>;
 
+/**
+ * Command surfaces already claimed by {@link SPECIALIZED_SKILL_REPLACEMENTS}.
+ * Generic derivation for other skills must not collide with these;
+ * `genericCommandStyleSkillNames` filters out any skill whose derived surface
+ * lands in this set.
+ */
 export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(
 	Object.values(SPECIALIZED_SKILL_REPLACEMENTS),
 );
