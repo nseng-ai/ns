@@ -24,6 +24,8 @@ export const roasterReviewRunCommand = roasterSdlCommand({
 		modelProfile: { short: "-p" },
 		baseRef: { short: "-b" },
 		logBranch: { short: "-l" },
+		priorFindingsPrNumber: {},
+		priorFindingsCap: {},
 	},
 	resultSchema: reviewRunResultSchema,
 	renderHuman: (data, _caps) => renderReviewRun(data),

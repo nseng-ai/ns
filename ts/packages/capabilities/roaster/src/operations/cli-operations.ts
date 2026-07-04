@@ -14,6 +14,7 @@ import {
 	type PublicationError,
 	type PublishFindingsResult,
 } from "../core/findings-publication.ts";
+import { gatherPriorFindingsContext } from "../core/prior-findings-context.ts";
 import {
 	ROASTER_REVIEW_LOG_NAMESPACE,
 	type ReviewLogEntry,
@@ -22,8 +23,10 @@ import {
 import {
 	postInlineFindingsResultSchema,
 	reviewFindingsPayloadSchema,
+	priorFindingsPromptContextSchema,
 	reviewRunResultSchema,
 	reviewUsageTotalInputTokens,
+	type PriorFindingsPromptContext,
 	type ReviewDefinition,
 	type ReviewFindingsPayload,
 	type ReviewRunResult,
@@ -35,6 +38,7 @@ import { loadRoastSkillEntries, roastReviewPathForKey } from "../core/skill-revi
 import { loadReviewExecutionContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
+const DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP = 50;
 
 export const reviewListRequestSchema = z.object({
 	applicable: z
@@ -90,6 +94,16 @@ export const reviewRunRequestSchema = z.object({
 	logBranch: nonBlankStringSchema
 		.optional()
 		.describe("Branch Memory branch for the review log. Defaults to the current branch."),
+	priorFindingsPrNumber: z
+		.int()
+		.positive()
+		.optional()
+		.describe("Opt in to PR prior-findings context gathering for this pull request."),
+	priorFindingsCap: z
+		.int()
+		.positive()
+		.optional()
+		.describe("Maximum prior findings to include when PR context gathering is enabled."),
 });
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
@@ -290,6 +304,7 @@ export async function runReviewByKey(
 	ctx: RoasterRuntime,
 	request: ReviewRunRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
+	const priorFindingsContext = await loadPriorFindingsPromptContext(ctx, request);
 	return clinkrExitFromReviewRunOutcome(
 		ctx,
 		await runRoasterReview(ctx, {
@@ -299,9 +314,34 @@ export async function runReviewByKey(
 				modelProfile: request.modelProfile,
 				baseRef: request.baseRef,
 				logBranch: request.logBranch,
+				priorFindingsContext,
 			}),
 		}),
 	);
+}
+
+async function loadPriorFindingsPromptContext(
+	ctx: RoasterRuntime,
+	request: ReviewRunRequest,
+): Promise<PriorFindingsPromptContext | undefined> {
+	if (request.priorFindingsPrNumber === undefined) return undefined;
+
+	const cap = request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP;
+	const result = await gatherPriorFindingsContext(ctx.priorFindingsGateway, {
+		...environmentOptions(ctx.runScope),
+		prNumber: request.priorFindingsPrNumber,
+		reviewName: request.key,
+		cap,
+	});
+	if (result.type === "without-context") {
+		ctx.stderr(`prior-findings context: ${result.message} Continuing with context-free review.\n`);
+		return undefined;
+	}
+
+	ctx.stderr(
+		`prior-findings context: loaded ${result.context.findings.length} findings for PR #${result.context.prNumber} review ${result.context.reviewName}.\n`,
+	);
+	return priorFindingsPromptContextSchema.parse(result.context);
 }
 
 export function clinkrExitFromReviewRunOutcome(

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { Result } from "@ns/core/result";
 
 import {
 	catalogOptions,
@@ -6,6 +7,13 @@ import {
 	environmentOptions,
 } from "../../src/core/context.ts";
 import type { RoasterResult } from "../../src/core/failures.ts";
+import type {
+	PriorFindingsContextGithubGateway,
+	PriorFindingsDiscussionComment,
+	PriorFindingsGatewayFailure,
+	PriorFindingsPrOptions,
+	PriorFindingsReviewThread,
+} from "../../src/core/prior-findings-context.ts";
 import type { ReviewRunnerGateway, RunReviewOptions } from "../../src/gateways/review-runner.ts";
 import type {
 	FindPrDiscussionCommentByMarkerOptions,
@@ -86,6 +94,25 @@ class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
 	}
 }
 
+class RecordingPriorFindingsContextGithubGateway implements PriorFindingsContextGithubGateway {
+	readonly discussionCommentCalls: PriorFindingsPrOptions[] = [];
+	readonly reviewThreadCalls: PriorFindingsPrOptions[] = [];
+
+	async getPrDiscussionComments(
+		options: PriorFindingsPrOptions,
+	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
+		this.discussionCommentCalls.push(options);
+		return { ok: true, value: [] };
+	}
+
+	async getPrReviewThreads(
+		options: PriorFindingsPrOptions,
+	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
+		this.reviewThreadCalls.push(options);
+		return { ok: true, value: [] };
+	}
+}
+
 class RecordingGitHubGateway implements RoasterGitHubGateway {
 	readonly optionsCalls: GitHubGatewayOptions[] = [];
 	readonly markerCalls: FindPrDiscussionCommentByMarkerOptions[] = [];
@@ -146,6 +173,7 @@ describe("createRoasterRuntime", () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
+		const priorFindingsGateway = new RecordingPriorFindingsContextGithubGateway();
 		const reviewRunner = new RecordingReviewRunnerGateway();
 		const env = { ROASTER_TEST: "1" };
 		const signal = new AbortController().signal;
@@ -154,6 +182,7 @@ describe("createRoasterRuntime", () => {
 			localDiff,
 			reviewCatalog,
 			github,
+			priorFindingsGateway,
 			reviewRunner,
 			cwd: "/repo",
 			env,
@@ -171,6 +200,7 @@ describe("createRoasterRuntime", () => {
 		expect(ctx.reviewCatalog).toBe(reviewCatalog);
 		expect(ctx.reviewLog).toBe(context.reviewLog);
 		expect(ctx.github).toBe(github);
+		expect(ctx.priorFindingsGateway).toBe(priorFindingsGateway);
 		expect(ctx.reviewRunner).toBe(reviewRunner);
 		expect(ctx.runScope).toEqual({ cwd: "/repo", env, signal });
 
@@ -197,6 +227,8 @@ describe("createRoasterRuntime", () => {
 		});
 		await ctx.github.addPrDiscussionComment(47, "body", runOptions);
 		await ctx.github.updatePrDiscussionComment(1, "body", runOptions);
+		await ctx.priorFindingsGateway.getPrDiscussionComments({ ...runOptions, prNumber: 47 });
+		await ctx.priorFindingsGateway.getPrReviewThreads({ ...runOptions, prNumber: 47 });
 
 		ctx.stderr("diagnostic");
 		expect(await ctx.stdin()).toBe("envelope");
@@ -219,6 +251,12 @@ describe("createRoasterRuntime", () => {
 			marker: "<!-- roaster:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
+		expect(priorFindingsGateway.discussionCommentCalls).toEqual([
+			{ cwd: "/repo", env, signal, prNumber: 47 },
+		]);
+		expect(priorFindingsGateway.reviewThreadCalls).toEqual([
+			{ cwd: "/repo", env, signal, prNumber: 47 },
+		]);
 		for (const options of github.optionsCalls) {
 			expect(options.cwd).toBe("/repo");
 			expect(options.env).toBe(env);

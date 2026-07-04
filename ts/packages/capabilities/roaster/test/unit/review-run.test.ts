@@ -2,15 +2,34 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { resultOk, type Result } from "@ns/core/result";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterRuntime } from "../../src/core/context.ts";
+import {
+	buildFindingsCommentMachineState,
+	renderFindingsComment,
+	type LastReviewedHeadState,
+} from "../../src/core/findings-comment.ts";
+import type {
+	PriorFindingsContextGithubGateway,
+	PriorFindingsDiscussionComment,
+	PriorFindingsGatewayFailure,
+	PriorFindingsPrOptions,
+	PriorFindingsReviewThread,
+} from "../../src/core/prior-findings-context.ts";
+import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
+import { runReviewByKey } from "../../src/operations/cli-operations.ts";
 import { runRoasterReview } from "../../src/operations/review-run.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
-import { createFindingsReview, createLocalDiff } from "../../src/core/models.ts";
+import {
+	createFindingsReview,
+	createLocalDiff,
+	type ReviewFinding,
+} from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 
@@ -21,6 +40,20 @@ model_profile: deep
 
 Flag concrete maintainability issues.
 `;
+
+const WARNING_FINDING: ReviewFinding = {
+	path: "src/file.ts",
+	line: 10,
+	severity: "warning",
+	summary: "Example finding",
+	details: "Example details.",
+};
+
+const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
+	headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	baseRef: "main",
+	baseMergeBaseSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+};
 
 describe("runRoasterReview", () => {
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
@@ -84,6 +117,71 @@ describe("runRoasterReview", () => {
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");
+	});
+
+	test("keeps review runs PR-free unless prior-findings PR context is requested", async () => {
+		const priorFindingsGateway = new RecordingPriorFindingsContextGithubGateway({
+			discussionComments: [priorFindingsSummaryComment()],
+		});
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createRoasterRuntime(
+			fakeRoasterContext({
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				priorFindingsGateway,
+				reviewRunner,
+			}),
+		);
+
+		const exit = await runReviewByKey(ctx, { key: "typescript-style" });
+
+		expect(exit.type).toBe("ok");
+		expect(priorFindingsGateway.discussionCommentCalls).toEqual([]);
+		expect(priorFindingsGateway.reviewThreadCalls).toEqual([]);
+		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toBeUndefined();
+	});
+
+	test("gathers prior-findings context for opt-in PR review runs", async () => {
+		const priorFindingsGateway = new RecordingPriorFindingsContextGithubGateway({
+			discussionComments: [priorFindingsSummaryComment()],
+		});
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const stderr: string[] = [];
+		const ctx = createRoasterRuntime(
+			fakeRoasterContext({
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				priorFindingsGateway,
+				reviewRunner,
+				stderr: (text) => stderr.push(text),
+			}),
+		);
+
+		const exit = await runReviewByKey(ctx, {
+			key: "typescript-style",
+			priorFindingsPrNumber: 123,
+			priorFindingsCap: 7,
+		});
+
+		expect(exit.type).toBe("ok");
+		expect(priorFindingsGateway.discussionCommentCalls).toEqual([
+			{ cwd: "/repo", env: {}, prNumber: 123 },
+		]);
+		expect(priorFindingsGateway.reviewThreadCalls).toEqual([
+			{ cwd: "/repo", env: {}, prNumber: 123 },
+		]);
+		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toMatchObject({
+			prNumber: 123,
+			reviewName: "typescript-style",
+			cap: 7,
+			lastReviewedHead: LAST_REVIEWED_HEAD,
+			findings: [{ finding: WARNING_FINDING, resolutionStatus: "unknown" }],
+		});
+		expect(stderr.join("")).toContain(
+			"prior-findings context: loaded 1 findings for PR #123 review typescript-style.",
+		);
 	});
 
 	test("does not write a review log when the runner fails", async () => {
@@ -152,4 +250,58 @@ function gitGateway(repoRoot: string): InMemoryGitGateway {
 		headCommit: "abc123",
 		existingBranches: ["feature", "main"],
 	});
+}
+
+interface RecordingPriorFindingsContextGithubGatewayOptions {
+	readonly discussionComments?: readonly PriorFindingsDiscussionComment[];
+	readonly reviewThreads?: readonly PriorFindingsReviewThread[];
+}
+
+class RecordingPriorFindingsContextGithubGateway implements PriorFindingsContextGithubGateway {
+	readonly discussionCommentCalls: PriorFindingsPrOptions[] = [];
+	readonly reviewThreadCalls: PriorFindingsPrOptions[] = [];
+	private readonly discussionComments: readonly PriorFindingsDiscussionComment[];
+	private readonly reviewThreads: readonly PriorFindingsReviewThread[];
+
+	constructor(options: RecordingPriorFindingsContextGithubGatewayOptions = {}) {
+		this.discussionComments = options.discussionComments ?? [];
+		this.reviewThreads = options.reviewThreads ?? [];
+	}
+
+	async getPrDiscussionComments(
+		options: PriorFindingsPrOptions,
+	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
+		this.discussionCommentCalls.push(options);
+		return resultOk(this.discussionComments);
+	}
+
+	async getPrReviewThreads(
+		options: PriorFindingsPrOptions,
+	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
+		this.reviewThreadCalls.push(options);
+		return resultOk(this.reviewThreads);
+	}
+}
+
+function priorFindingsSummaryComment(): PriorFindingsDiscussionComment {
+	const payload = {
+		reviewName: "typescript-style",
+		baseRef: "main",
+		modelProfile: "deep",
+		count: 1,
+		findings: [WARNING_FINDING],
+		inputCoverage: null,
+		errorType: null,
+		errorMessage: null,
+	};
+	return {
+		id: 1,
+		author: ROASTER_BOT_LOGIN,
+		body: renderFindingsComment(payload, {
+			machineState: buildFindingsCommentMachineState({
+				payload,
+				lastReviewedHead: LAST_REVIEWED_HEAD,
+			}),
+		}),
+	};
 }
