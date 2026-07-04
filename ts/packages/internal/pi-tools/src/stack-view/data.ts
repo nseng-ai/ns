@@ -14,7 +14,7 @@
  */
 import { isAbsolute, resolve } from "node:path";
 
-import type { CommandExecApi } from "./exec.ts";
+import type { CommandExecApi, StackViewExecContext } from "./exec.ts";
 import {
 	deriveStatus,
 	type StackViewModel,
@@ -32,9 +32,7 @@ import {
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import { commandSucceeded } from "@nseng-ai/foundation/exec";
 
-export interface LoadStackViewParams {
-	execApi: CommandExecApi;
-	cwd: string;
+export interface LoadStackViewParams extends StackViewExecContext {
 	/**
 	 * Test seam. The default `RealGraphiteStackGateway` reads Graphite's sqlite
 	 * metadata db through filesystem/sqlite access that does NOT route through
@@ -116,7 +114,7 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 	// The identity→PR chain must be sequential (the query needs owner/repo), but
 	// the per-branch objective diffs are independent and run alongside it.
 	const [identityAndPrs, objectiveSlugsByRow] = await Promise.all([
-		loadIdentityAndPrs(execApi, cwd, orderedBranches),
+		loadIdentityAndPrs({ execApi, cwd }, orderedBranches),
 		Promise.all(
 			orderedBranches.map(async (branch, index) => {
 				const parentBranch = parentBranches[index] ?? stack.trunk;
@@ -177,16 +175,14 @@ function orderStackBranches(stack: StackInfo): string[] {
  * step becomes a whole-load `error` with the failing step named.
  */
 async function loadIdentityAndPrs(
-	execApi: CommandExecApi,
-	cwd: string,
+	context: StackViewExecContext,
 	branches: string[],
 ): Promise<IdentityAndPrsResult> {
-	const identity = await fetchRepoIdentity({ execApi, cwd });
+	const identity = await fetchRepoIdentity(context);
 	if (identity.type !== "ok") return { type: "error", message: repoIdentityErrorMessage(identity) };
 
 	const stackPrs = await fetchStackPrs({
-		execApi,
-		cwd,
+		...context,
 		branches,
 		owner: identity.owner,
 		repo: identity.repo,
@@ -196,32 +192,50 @@ async function loadIdentityAndPrs(
 	return { type: "ok", owner: identity.owner, repo: identity.repo, prs: stackPrs.prs };
 }
 
+type CommonFetchFailure = {
+	type: "exec-error" | "invalid-json" | "schema-mismatch";
+	message?: string;
+};
+
+function commonFetchErrorMessage(
+	failure: CommonFetchFailure,
+	messages: {
+		execPrefix: string;
+		invalidJsonPrefix: string;
+		schemaMismatch: string;
+	},
+): string {
+	switch (failure.type) {
+		case "exec-error":
+			return `${messages.execPrefix}: ${failure.message ?? "unknown error"}`;
+		case "invalid-json":
+			return `${messages.invalidJsonPrefix}: ${failure.message ?? "unknown error"}`;
+		case "schema-mismatch":
+			return messages.schemaMismatch;
+	}
+}
+
 function repoIdentityErrorMessage(
 	identity: Exclude<Awaited<ReturnType<typeof fetchRepoIdentity>>, { type: "ok" }>,
 ): string {
-	switch (identity.type) {
-		case "exec-error":
-			return `Could not identify the GitHub repository: ${identity.message}`;
-		case "invalid-json":
-			return `GitHub repository identity was not valid JSON: ${identity.message}`;
-		case "schema-mismatch":
-			return "GitHub returned an unexpected shape for the repository identity";
-	}
+	return commonFetchErrorMessage(identity, {
+		execPrefix: "Could not identify the GitHub repository",
+		invalidJsonPrefix: "GitHub repository identity was not valid JSON",
+		schemaMismatch: "GitHub returned an unexpected shape for the repository identity",
+	});
 }
 
 function stackPrsErrorMessage(
 	stackPrs: Exclude<Awaited<ReturnType<typeof fetchStackPrs>>, { type: "ok" }>,
 ): string {
-	switch (stackPrs.type) {
-		case "exec-error":
-			return `Could not query stack pull requests: ${stackPrs.message}`;
-		case "invalid-json":
-			return `Stack pull-request response was not valid JSON: ${stackPrs.message}`;
-		case "graphql-errors":
-			return `GitHub returned GraphQL errors for the stack pull-request query: ${stackPrs.messages.join("; ")}`;
-		case "schema-mismatch":
-			return "GitHub returned an unexpected shape for the stack pull-request query";
+	if (stackPrs.type === "graphql-errors") {
+		return `GitHub returned GraphQL errors for the stack pull-request query: ${stackPrs.messages.join("; ")}`;
 	}
+	return commonFetchErrorMessage(stackPrs, {
+		execPrefix: "Could not query stack pull requests",
+		invalidJsonPrefix: "Stack pull-request response was not valid JSON",
+		schemaMismatch: "GitHub returned an unexpected shape for the stack pull-request query",
+	});
 }
 
 interface BuildStackViewPrParams {

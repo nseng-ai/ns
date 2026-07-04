@@ -5,19 +5,37 @@
  * (kept off the public parity surface). The default ack delivery is `"none"`, so
  * the registered handler runs straight through after a no-op acknowledgement.
  */
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { PiModelRegistryLike } from "@ns/pi/models/call";
+import { AuthStorage, ModelRegistry, type Theme } from "@earendil-works/pi-coding-agent";
 import { describe, expect, test } from "vitest";
 
 import registerStackViewExtension, {
 	type CommandContext,
+	type ComposeControllerHandle,
 	type ExtensionAPI,
 } from "../../src/stack-view/extension.ts";
+import type { ComposeControllerOptions } from "../../src/stack-view/compose-controller.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
 import type { LoadStackViewResult } from "../../src/stack-view/data.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
 import { identityTheme } from "./stack-view-test-themes.ts";
+
+const ESC = "\x1b";
+const CTRL_Y = "\x19";
+
+const TEST_MODEL: Model<Api> = {
+	id: "m",
+	name: "test model",
+	api: "anthropic-messages",
+	provider: "p",
+	baseUrl: "https://example.invalid",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 100_000,
+	maxTokens: 4_096,
+};
 
 interface RecordingEngine {
 	port: StackEnrichmentPort;
@@ -61,17 +79,35 @@ interface CapturedCommand {
 	handler: (args: string, ctx: CommandContext) => Promise<void> | void;
 }
 
-/** Minimal ExtensionAPI that captures the registered command handler. */
-function fakeHost(): { pi: ExtensionAPI; command: () => CapturedCommand; sentMessages: unknown[] } {
+/** One entry in the ordered host delivery log: a rendered snapshot or a user message. */
+type HostDelivery =
+	| { type: "message"; message: unknown }
+	| { type: "userMessage"; content: string; options?: { deliverAs?: "steer" | "followUp" } };
+
+/** Minimal ExtensionAPI that captures the registered command handler and an ordered delivery log. */
+function fakeHost(): {
+	pi: ExtensionAPI;
+	command: () => CapturedCommand;
+	sentMessages: unknown[];
+	deliveries: HostDelivery[];
+} {
 	let captured: CapturedCommand | undefined;
 	const sentMessages: unknown[] = [];
+	const deliveries: HostDelivery[] = [];
 	const pi: ExtensionAPI = {
 		registerCommand(_name, options) {
 			captured = { handler: options.handler };
 		},
-		sendUserMessage() {},
+		sendUserMessage(content, options) {
+			deliveries.push(
+				options === undefined
+					? { type: "userMessage", content }
+					: { type: "userMessage", content, options },
+			);
+		},
 		sendMessage(message) {
 			sentMessages.push(message);
+			deliveries.push({ type: "message", message });
 		},
 		registerMessageRenderer() {},
 		async exec() {
@@ -85,6 +121,7 @@ function fakeHost(): { pi: ExtensionAPI; command: () => CapturedCommand; sentMes
 			return captured;
 		},
 		sentMessages,
+		deliveries,
 	};
 }
 
@@ -119,23 +156,33 @@ function okLoader(): () => Promise<LoadStackViewResult> {
 	return async () => ({ type: "ok", model: fakeModel() });
 }
 
-function fakeRegistry(): PiModelRegistryLike {
-	return {
-		find: () => undefined,
-		getApiKeyAndHeaders: async () => ({ ok: false, error: "unused" }),
-	};
+function testRegistry(): ModelRegistry {
+	return ModelRegistry.inMemory(AuthStorage.inMemory());
 }
 
 function fakeTui(): TUI {
-	return { terminal: { rows: 30 }, requestRender() {} } as TUI;
+	const terminal = { rows: 30 } satisfies Partial<TUI["terminal"]>;
+	const tui = { terminal: terminal as TUI["terminal"], requestRender() {} } satisfies Partial<TUI>;
+	return tui as TUI;
 }
 
 /** An interactive ctx whose overlay immediately settles via `settleKey` so the loop exits. */
 function interactiveCtx(settleKey = "q"): CommandContext {
+	return scriptedCtx([[settleKey]], TEST_MODEL);
+}
+
+/**
+ * An interactive ctx that plays a per-overlay key script: `scripts[i]` drives the
+ * `i`-th `ctx.ui.custom` invocation (later invocations default to `["q"]`). `model`
+ * gates whether the compose option is offered — pass `undefined` for no model.
+ */
+function scriptedCtx(scripts: string[][], model: Model<Api> | undefined): CommandContext {
+	let call = 0;
 	return {
 		cwd: "/repo",
 		hasUI: true,
-		modelRegistry: fakeRegistry(),
+		model,
+		modelRegistry: testRegistry(),
 		waitForIdle: async () => {},
 		ui: {
 			notify() {},
@@ -148,9 +195,11 @@ function interactiveCtx(settleKey = "q"): CommandContext {
 					done: (value: T) => void,
 				) => Component,
 			): Promise<T> {
+				const keys = scripts[call] ?? ["q"];
+				call += 1;
 				return new Promise<T>((resolve) => {
 					const component = factory(fakeTui(), identityTheme(), undefined, resolve);
-					component.handleInput?.(settleKey);
+					for (const key of keys) component.handleInput?.(key);
 				});
 			},
 		},
@@ -174,12 +223,59 @@ function nonInteractiveCtx(): CommandContext {
 	return {
 		cwd: "/repo",
 		hasUI: false,
-		modelRegistry: fakeRegistry(),
+		model: TEST_MODEL,
+		modelRegistry: testRegistry(),
 		waitForIdle: async () => {},
 		ui: {
 			notify() {},
 			setStatus() {},
 		},
+	};
+}
+
+/** A fake compose controller handle: settable draft, records dispose. */
+function fakeComposeController(draft: string | null): {
+	handle: ComposeControllerHandle;
+	disposeCalls: () => number;
+} {
+	let disposeCalls = 0;
+	const handle: ComposeControllerHandle = {
+		get transcript() {
+			return { entries: [], isStreaming: false };
+		},
+		get draft() {
+			return draft;
+		},
+		get unavailableReason() {
+			return null;
+		},
+		send: async () => {},
+		abortTurn: async () => {},
+		dispose: () => {
+			disposeCalls += 1;
+		},
+	};
+	return { handle, disposeCalls: () => disposeCalls };
+}
+
+interface RecordingComposeFactory {
+	factory: (options: ComposeControllerOptions) => ComposeControllerHandle;
+	controllers: Array<{ disposeCalls: () => number; stackBranch: string }>;
+}
+
+/** A compose-controller factory that hands out fake controllers and records each. */
+function recordingComposeFactory(draft: string | null): RecordingComposeFactory {
+	const controllers: Array<{ disposeCalls: () => number; stackBranch: string }> = [];
+	return {
+		factory: (options) => {
+			const controller = fakeComposeController(draft);
+			controllers.push({
+				disposeCalls: controller.disposeCalls,
+				stackBranch: options.stackModel.currentBranch,
+			});
+			return controller.handle;
+		},
+		controllers,
 	};
 }
 
@@ -227,5 +323,91 @@ describe("stack-view extension enrichment wiring", () => {
 
 		expect(engines).toHaveLength(0);
 		expect(host.sentMessages).toHaveLength(1); // the plain snapshot
+	});
+});
+
+describe("stack-view extension compose wiring", () => {
+	test("compose-inject sends the snapshot before delivering the draft as a follow-up", async () => {
+		const host = fakeHost();
+		const compose = recordingComposeFactory("drafted message");
+		registerStackViewExtension(host.pi, {
+			loadStackView: okLoader(),
+			composeControllerFactory: compose.factory,
+		});
+
+		// Enter compose (build the controller), then Ctrl+Y to accept & inject.
+		await host.command().handler("", scriptedCtx([["p", CTRL_Y]], TEST_MODEL));
+
+		expect(compose.controllers).toHaveLength(1);
+		expect(host.deliveries).toEqual([
+			{ type: "message", message: expect.anything() },
+			{ type: "userMessage", content: "drafted message", options: { deliverAs: "followUp" } },
+		]);
+	});
+
+	test("refresh disposes the compose controller; a new one is built on the next entry", async () => {
+		const host = fakeHost();
+		const compose = recordingComposeFactory(null);
+		registerStackViewExtension(host.pi, {
+			loadStackView: okLoader(),
+			composeControllerFactory: compose.factory,
+		});
+
+		// First overlay: enter compose (controller #1), Esc to browse, then refresh.
+		// Second overlay: enter compose again (controller #2), Esc to browse, close.
+		await host.command().handler(
+			"",
+			scriptedCtx(
+				[
+					["p", ESC, "r"],
+					["p", ESC, "q"],
+				],
+				TEST_MODEL,
+			),
+		);
+
+		expect(compose.controllers).toHaveLength(2);
+		expect(compose.controllers[0]?.disposeCalls()).toBe(1);
+	});
+
+	test("re-entering compose after an open outcome disposes the prior controller", async () => {
+		const host = fakeHost();
+		const compose = recordingComposeFactory(null);
+		registerStackViewExtension(host.pi, {
+			loadStackView: okLoader(),
+			composeControllerFactory: compose.factory,
+		});
+
+		// First overlay: enter compose (controller #1), Esc, `o` opens the PR URL
+		// (the loop continues without disposing anything itself). Second overlay:
+		// enter compose again — createPort must release controller #1 first.
+		await host.command().handler(
+			"",
+			scriptedCtx(
+				[
+					["p", ESC, "o"],
+					["p", ESC, "q"],
+				],
+				TEST_MODEL,
+			),
+		);
+
+		expect(compose.controllers).toHaveLength(2);
+		expect(compose.controllers[0]?.disposeCalls()).toBe(1);
+		expect(compose.controllers[1]?.disposeCalls()).toBe(1); // the finally teardown
+	});
+
+	test("offers no compose option when the session has no model", async () => {
+		const host = fakeHost();
+		const compose = recordingComposeFactory("unused");
+		registerStackViewExtension(host.pi, {
+			loadStackView: okLoader(),
+			composeControllerFactory: compose.factory,
+		});
+
+		// `p` is inert without a model; `q` closes the overlay so the loop exits.
+		await host.command().handler("", scriptedCtx([["p", "q"]], undefined));
+
+		expect(compose.controllers).toHaveLength(0);
 	});
 });

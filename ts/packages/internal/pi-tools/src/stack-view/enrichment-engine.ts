@@ -25,7 +25,12 @@ import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 
 import { checkLogUnavailableReason, fetchCheckLogTail } from "./check-logs.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
-import { buildCheckSummaryPrompt, buildThreadSummaryPrompt } from "./enrichment-prompts.ts";
+import {
+	CHECK_LOG_TAIL_MAX_CHARS,
+	buildCheckSummaryPrompt,
+	buildThreadSummaryPrompt,
+	type ModelPromptText,
+} from "./enrichment-prompts.ts";
 import type { EnrichmentEntry, EnrichmentStore } from "./enrichment-store.ts";
 import type { CommandExecApi } from "./exec.ts";
 import type {
@@ -201,24 +206,13 @@ export function createStackEnrichmentEngine(
 		prNumber: number;
 		thread: StackViewThreadDetail;
 	}): Promise<SettledEntry> {
-		if (registry === undefined) {
-			degraded = MODEL_REGISTRY_UNAVAILABLE_REASON;
-			return { state: "failed" };
-		}
 		const prompt = buildThreadSummaryPrompt({ prNumber: task.prNumber, thread: task.thread });
-		const result = await callModelText({
-			registry,
-			provider: DEFAULT_FAST_MODEL.provider,
-			modelId: DEFAULT_FAST_MODEL.modelId,
-			systemPrompt: prompt.systemPrompt,
-			userText: prompt.userText,
-			reasoning: "minimal",
+		return summarizeWithModel({
+			prompt,
 			maxTokens: THREAD_MAX_TOKENS,
 			timeoutMs: THREAD_TASK_TIMEOUT_MS,
 			signal: taskSignal(THREAD_TASK_TIMEOUT_MS),
 		});
-		if (!result.ok) return { state: "failed" };
-		return { state: "ready", summary: result.text.trim() };
 	}
 
 	async function runCheckTask(task: { entry: StackViewCheckEntry }): Promise<SettledEntry> {
@@ -236,19 +230,38 @@ export function createStackEnrichmentEngine(
 			cwd,
 			entry: task.entry,
 			signal,
+			maxChars: CHECK_LOG_TAIL_MAX_CHARS,
 		});
 		if (!logResult.ok) return { state: "failed" };
 		const prompt = buildCheckSummaryPrompt({ entry: task.entry, logTail: logResult.logTail });
+		return summarizeWithModel({
+			prompt,
+			maxTokens: CHECK_MAX_TOKENS,
+			timeoutMs: CHECK_TASK_TIMEOUT_MS,
+			signal,
+		});
+	}
+
+	async function summarizeWithModel(options: {
+		prompt: ModelPromptText;
+		maxTokens: number;
+		timeoutMs: number;
+		signal: AbortSignal;
+	}): Promise<SettledEntry> {
+		if (registry === undefined) {
+			degraded = MODEL_REGISTRY_UNAVAILABLE_REASON;
+			return { state: "failed" };
+		}
 		const result = await callModelText({
 			registry,
 			provider: DEFAULT_FAST_MODEL.provider,
 			modelId: DEFAULT_FAST_MODEL.modelId,
-			systemPrompt: prompt.systemPrompt,
-			userText: prompt.userText,
+			systemPrompt: options.prompt.systemPrompt,
+			userText: options.prompt.userText,
 			reasoning: "minimal",
-			maxTokens: CHECK_MAX_TOKENS,
-			timeoutMs: CHECK_TASK_TIMEOUT_MS,
-			signal,
+			maxTokens: options.maxTokens,
+			timeoutMs: options.timeoutMs,
+			signal: options.signal,
 		});
 		if (!result.ok) return { state: "failed" };
 		return { state: "ready", summary: result.text.trim() };
