@@ -56,7 +56,7 @@ export function collectInternalSpaceAdmissionViolations(
 			path: edge.path,
 			line: edge.line,
 			column: edge.column,
-			text: `${edge.from} must not depend on internal-space package ${edge.to}; ${INTERNAL_SPACE_SCOPE} packages are private repo-local Pi tools with no outside workspace dependents.`,
+			text: `${edge.from} must not depend on internal-space package ${edge.to}; ${INTERNAL_SPACE_SCOPE} packages are private repo-local implementation packages, and runtime workspace dependencies on them must stay inside internal space.`,
 		});
 	}
 

@@ -748,7 +748,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
 		const retiredTimePackageName = "@ns/" + "time";
 
-		expect(coreMetadata.sdlSubpackages).toContain("time");
+		expect(coreMetadata.nsSubpackages).toContain("time");
 		expect(circles.has("@ns/core/time")).toBe(true);
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
 	});
@@ -1364,10 +1364,10 @@ function buildSyntheticSubpackageMetadata(
 				packageJsonPath: `${options.packageDir}/package.json`,
 				manifest,
 				manifestContent: JSON.stringify(manifest, null, 2),
-				sdlTier: "neutral-infra",
-				rawSdlTier: "neutral-infra",
-				sdlSubpackages: options.subpackages,
-				sdlRemainder: options.remainder,
+				nsTier: "neutral-infra",
+				rawNsTier: "neutral-infra",
+				nsSubpackages: options.subpackages,
+				nsRemainder: options.remainder,
 				exportSubpaths:
 					options.exports === undefined ? new Set(["."]) : collectExportSubpaths(options.exports),
 			},
@@ -1394,10 +1394,10 @@ function buildInternalSpaceSyntheticMetadata(
 					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
 					manifest,
 					manifestContent: JSON.stringify(manifest, null, 2),
-					sdlTier: "internal-pi-tool",
-					rawSdlTier: "internal-pi-tool",
-					sdlSubpackages: [],
-					sdlRemainder: false,
+					nsTier: "internal-pi-tool",
+					rawNsTier: "internal-pi-tool",
+					nsSubpackages: [],
+					nsRemainder: false,
 					exportSubpaths: new Set(["."]),
 				},
 			];
@@ -1431,20 +1431,20 @@ function buildSyntheticPackageMetadata(
 	for (const packageName of [...packageNames].sort()) {
 		const fields = dependenciesByPackage.get(packageName);
 		if (fields === undefined) throw new Error(`Unknown synthetic package ${packageName}`);
-		const rawSdlTier = tiersByPackage.has(packageName)
+		const rawNsTier = tiersByPackage.has(packageName)
 			? tiersByPackage.get(packageName)
 			: "capability";
-		const manifest = buildSyntheticManifest(packageName, fields, rawSdlTier);
+		const manifest = buildSyntheticManifest(packageName, fields, rawNsTier);
 		metadataByName.set(packageName, {
 			name: packageName,
 			packageDir: `synthetic/${packageName}`,
 			packageJsonPath: `synthetic/${packageName}/package.json`,
 			manifest,
 			manifestContent: JSON.stringify(manifest, null, 2),
-			sdlTier: isSyntheticPackageTier(rawSdlTier) ? rawSdlTier : undefined,
-			rawSdlTier,
-			sdlSubpackages: [],
-			sdlRemainder: false,
+			nsTier: isSyntheticPackageTier(rawNsTier) ? rawNsTier : undefined,
+			rawNsTier,
+			nsSubpackages: [],
+			nsRemainder: false,
 			exportSubpaths: new Set(["."]),
 		});
 	}
@@ -1487,11 +1487,11 @@ function emptySyntheticDependencyFields(): SyntheticDependencyFields {
 function buildSyntheticManifest(
 	packageName: string,
 	fields: SyntheticDependencyFields,
-	rawSdlTier: SyntheticTier,
+	rawNsTier: SyntheticTier,
 ): PackageManifest {
 	return {
 		name: packageName,
-		...(rawSdlTier === undefined ? {} : { ns: { tier: rawSdlTier } }),
+		...(rawNsTier === undefined ? {} : { ns: { tier: rawNsTier } }),
 		...(Object.keys(fields.devDependencies).length === 0
 			? {}
 			: { devDependencies: fields.devDependencies }),

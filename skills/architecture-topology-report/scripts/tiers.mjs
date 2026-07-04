@@ -4,7 +4,7 @@ import {
   allowedPackageTierDebtEdgeEntries,
   packageTierDefinitions,
   tierRank,
-} from "../../../ts/packages/internal/typescript-style-guard/src/package-tier-taxonomy.mjs";
+} from "../../../ts/packages/internal/typescript-style-guard/src/package-tier-taxonomy.ts";
 
 export const PACKAGE_TIER_IDS = packageTierDefinitions.map((tier) => tier.id);
 export const PACKAGE_TIER_POLICY = Object.fromEntries(
@@ -25,9 +25,7 @@ export const FALLBACK_TIER = "standalone-tool";
 export const TIER_RANK = Array.from(tierRank);
 
 // Short display name for a package id (drops the well-known scope prefixes).
-export const label = (id) =>
-  id
-    .replace(/^@sdl-local\/pi-tools\//, "lpt:")
-    .replace(/^@sdl-local\//, "local:")
-    .replace(/^@sdl\//, "")
-    .replace(/^sdl-/, "");
+export const label = (id) => {
+  if (id === "@internal/pi-tools") return "ipt";
+  return id.replace(/^@internal\/pi-tools\//, "ipt:").replace(/^@ns\//, "");
+};

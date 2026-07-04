@@ -76,18 +76,18 @@ export function discoverTopologyCircles(
 ): Map<string, TopologyCircleFact> {
 	const circles = new Map<string, TopologyCircleFact>();
 	for (const metadata of packageMetadataByName.values()) {
-		if (metadata.sdlTier === undefined) continue;
+		if (metadata.nsTier === undefined) continue;
 		const sourceDir = join(repoRoot, metadata.packageDir, "src");
 		if (!existsSync(sourceDir)) continue;
 		circles.set(metadata.name, {
 			id: metadata.name,
 			packageName: metadata.name,
 			component: ".",
-			tier: metadata.sdlTier,
+			tier: metadata.nsTier,
 			path: relative(repoRoot, sourceDir),
 		});
 
-		for (const component of metadata.sdlSubpackages) {
+		for (const component of metadata.nsSubpackages) {
 			const componentDir = join(sourceDir, component);
 			if (!directoryExists(componentDir)) continue;
 			const id = `${metadata.name}/${component}`;
@@ -96,7 +96,7 @@ export function discoverTopologyCircles(
 				id,
 				packageName: metadata.name,
 				component,
-				tier: metadata.sdlTier,
+				tier: metadata.nsTier,
 				path: relative(repoRoot, componentDir),
 			});
 		}
@@ -436,7 +436,7 @@ function requiredCircle(
 }
 
 function isCircleGuardEnabledPackage(metadata: PackageMetadata): boolean {
-	return metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;
+	return metadata.nsSubpackages.length > 0 || metadata.nsRemainder;
 }
 
 function directoryExists(path: string): boolean {

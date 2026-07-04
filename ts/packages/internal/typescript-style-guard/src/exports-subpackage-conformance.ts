@@ -14,12 +14,12 @@ export function collectExportsSubpackageConformanceViolations(
 ): SourceRuleViolation[] {
 	const violations: SourceRuleViolation[] = [];
 	for (const metadata of options.packageMetadataByName.values()) {
-		if (metadata.sdlSubpackages.length === 0) continue;
-		if (metadata.sdlRemainder) continue;
+		if (metadata.nsSubpackages.length === 0) continue;
+		if (metadata.nsRemainder) continue;
 		for (const exportTarget of collectExportTargets(metadata.manifest.exports)) {
 			if (!exportTarget.target.startsWith(SRC_TARGET_PREFIX)) continue;
 			const pathWithinSrc = exportTarget.target.slice(SRC_TARGET_PREFIX.length);
-			if (belongsToDeclaredSubpackage(pathWithinSrc, metadata.sdlSubpackages)) continue;
+			if (belongsToDeclaredSubpackage(pathWithinSrc, metadata.nsSubpackages)) continue;
 			violations.push(buildExportTargetViolation(metadata, exportTarget));
 		}
 	}
@@ -51,7 +51,7 @@ function buildExportTargetViolation(
 	metadata: PackageMetadata,
 	exportTarget: ExportTarget,
 ): SourceRuleViolation {
-	const declaredUnits = formatDeclaredSubpackageUnits(metadata.sdlSubpackages);
+	const declaredUnits = formatDeclaredSubpackageUnits(metadata.nsSubpackages);
 	return {
 		rule: BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 		path: metadata.packageJsonPath,

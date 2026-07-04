@@ -1,9 +1,8 @@
 import {
 	allowedPackageTierDebtEdgeEntries,
 	packageTierDefinitions,
-	tierRank,
 	type PackageTierId,
-} from "@internal/typescript-style-guard/package-tier-taxonomy";
+} from "./package-tier-taxonomy.ts";
 
 export const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".cts"]);
 export const skippedDirectoryNames = new Set([
@@ -37,7 +36,7 @@ export const packageTierValues: readonly PackageTierId[] = packageTierDefinition
 	(tier) => tier.id,
 );
 
-export type PackageTier = (typeof packageTierValues)[number];
+export type PackageTier = PackageTierId;
 
 export const packageTierSet: ReadonlySet<string> = new Set(packageTierValues);
 
@@ -48,50 +47,10 @@ export const allowedPackageTierDebtEdges = new Map<string, string>(
 	allowedPackageTierDebtEdgeEntries,
 );
 
-validatePackageTierTaxonomy();
-
 function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> {
-	const targets: Partial<Record<PackageTier, ReadonlySet<PackageTier>>> = {};
+	const targets = {} as Record<PackageTier, ReadonlySet<PackageTier>>;
 	for (const tier of packageTierDefinitions) targets[tier.id] = new Set(tier.allowedTargets);
-	return completePackageTierRecord(targets);
-}
-
-function completePackageTierRecord(
-	record: Partial<Record<PackageTier, ReadonlySet<PackageTier>>>,
-): Record<PackageTier, ReadonlySet<PackageTier>> {
-	for (const tierId of packageTierValues) {
-		if (record[tierId] === undefined) throw new Error(`Package tier ${tierId} is missing policy.`);
-	}
-	return record as Record<PackageTier, ReadonlySet<PackageTier>>;
-}
-
-function validatePackageTierTaxonomy(): void {
-	const seenTierIds = new Set<string>();
-	for (const tier of packageTierDefinitions) {
-		if (seenTierIds.has(tier.id)) throw new Error(`Duplicate package tier id: ${tier.id}`);
-		seenTierIds.add(tier.id);
-		for (const target of tier.allowedTargets) {
-			if (!packageTierSet.has(target)) {
-				throw new Error(`Package tier ${tier.id} allows unknown target tier: ${target}`);
-			}
-		}
-	}
-
-	const rankedTierIds = new Set<string>();
-	for (const tierId of tierRank) {
-		if (!packageTierSet.has(tierId))
-			throw new Error(`Tier rank references unknown package tier: ${tierId}`);
-		if (rankedTierIds.has(tierId)) throw new Error(`Tier rank repeats package tier: ${tierId}`);
-		rankedTierIds.add(tierId);
-	}
-	if (rankedTierIds.size !== packageTierSet.size) {
-		throw new Error("Tier rank must cover every package tier exactly once.");
-	}
-
-	for (const [edge, reason] of allowedPackageTierDebtEdgeEntries) {
-		if (edge === "" || reason === "")
-			throw new Error("Package tier debt edges must include an edge key and reason.");
-	}
+	return targets;
 }
 
 export const capabilityPackageNames = new Set([

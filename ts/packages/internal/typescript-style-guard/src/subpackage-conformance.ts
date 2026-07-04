@@ -20,11 +20,11 @@ export function collectSubpackageDeclarationConformanceViolations(
 		if (!isDeclaringPackage(metadata)) continue;
 		const sourceDir = join(options.repoRoot, metadata.packageDir, "src");
 		violations.push(...collectMissingSubpackageDirectoryViolations(metadata, options.repoRoot));
-		if (metadata.sdlRemainder) continue;
+		if (metadata.nsRemainder) continue;
 		if (!directoryExists(sourceDir)) continue;
 		for (const sourceFile of findTypeScriptSourceFiles(sourceDir)) {
 			const sourcePath = relative(sourceDir, sourceFile);
-			if (belongsToDeclaredSubpackage(sourcePath, metadata.sdlSubpackages)) continue;
+			if (belongsToDeclaredSubpackage(sourcePath, metadata.nsSubpackages)) continue;
 			violations.push(buildSourceFileViolation(metadata, options.repoRoot, sourceFile));
 		}
 	}
@@ -32,7 +32,7 @@ export function collectSubpackageDeclarationConformanceViolations(
 }
 
 function isDeclaringPackage(metadata: PackageMetadata): boolean {
-	return metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;
+	return metadata.nsSubpackages.length > 0 || metadata.nsRemainder;
 }
 
 function collectMissingSubpackageDirectoryViolations(
@@ -40,7 +40,7 @@ function collectMissingSubpackageDirectoryViolations(
 	repoRoot: string,
 ): SourceRuleViolation[] {
 	const sourceDir = join(repoRoot, metadata.packageDir, "src");
-	return metadata.sdlSubpackages
+	return metadata.nsSubpackages
 		.filter((subpackage) => !directoryExists(join(sourceDir, subpackage)))
 		.map((subpackage) => ({
 			rule: BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
@@ -58,7 +58,7 @@ function buildSourceFileViolation(
 	repoRoot: string,
 	sourceFile: string,
 ): SourceRuleViolation {
-	const declaredUnits = formatDeclaredSubpackageUnits(metadata.sdlSubpackages);
+	const declaredUnits = formatDeclaredSubpackageUnits(metadata.nsSubpackages);
 	const sourcePath = relative(repoRoot, sourceFile);
 	return {
 		rule: BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
