@@ -166,13 +166,15 @@ into a bad refactor.
 
 ### Decide the autonomy ceiling explicitly
 
-Pick where the runner stops on the human↔autonomous axis and write it as prose,
-not a permission bit. The seed Objective chose **full pipeline up to PR
-submission, never landing**: a runner may pick a cluster, fix it, validate, and
-`gt submit` a PR per slice without asking each time, but a human reviews and
-merges. State the keep/leave rule (local commits on a feature branch via the
-`gt` workflow, never on `main`/`master`) and the hard "what will not happen"
-list (no land/merge, no deploy, no GitHub mutation beyond opening the PR).
+Pick where the parent-led run stops on the human↔autonomous axis and write it
+as prose, not a permission bit. The seed Objective chose **local runner stack,
+parent-mediated PR submission, never landing**: runner steps may pick a cluster,
+fix it, validate, and produce local commits, but the runner itself never pushes,
+submits, opens PRs, or performs GitHub writes. A parent or human may submit a PR
+per slice later through the normal workflow, and a human reviews and merges.
+State the keep/leave rule (local commits on a feature branch via the `gt`
+workflow, never on `main`/`master`) and the hard "what will not happen" list (no
+runner push/submit/PR, no land/merge, no deploy, no external mutation).
 
 For a structural/quality backlog, also state **no observable behavior change**
 as a non-goal and require existing-or-focused tests to confirm parity per slice.
@@ -180,17 +182,13 @@ as a non-goal and require existing-or-focused tests to confirm parity per slice.
 ## Step 6 — Execute the backlog with Objective Runner steps
 
 Authoring stops at a runnable record; execution is a separate surface. The
-supported runner for a remediation autoobjective is the Objective Runner step
-workflow (ADR 0022): each step is one invocation of
-
-```text
-ns objective exec runner-step <slug> [--guidance <text|@file>] [--model <m>] [--timeout <seconds>]
-```
-
-driven by a judging parent — the `objective-autorun` skill is the entry point
-for running the backlog as repeated steps, and `objective-runner-step` is the
-per-step parent playbook. (The earlier `/objective:autopilot` Pi command has
-been retired in favor of `/objective:autorun`.)
+supported runner for a remediation autoobjective is the Objective Runner
+begin/finish workflow (ADR 0024), normally launched through
+`/objective:autorun [<slug>] [scope / step budget / standing guidance]`. The
+`objective-autorun` skill is the entry point for running the backlog as repeated
+steps, and `objective-runner-step` is the per-step parent playbook. (The earlier
+`/objective:autopilot` Pi command has been retired in favor of
+`/objective:autorun`.)
 
 Each step dispatches a **fresh child session** that does exactly one coherent
 slice for *this* Objective and leaves the work uncommitted; the runner then
@@ -243,7 +241,8 @@ playbook end to end:
 ```text
 .ns/objectives/code-smell-roaster-remediation/
   objective.md     # scope = 162 findings; no-behavior-change non-goal;
-                   #   Definition of Progress + Runner Policy (submit, never land)
+                   #   Definition of Progress + Runner Policy (local runner stack,
+                   #   parent-mediated submit, never land)
   roadmap.md       # 21 cluster rows, severity splits, cross-Objective overlap flags
   references/
     README.md       # sweep provenance, severity legend, 21-row cluster table

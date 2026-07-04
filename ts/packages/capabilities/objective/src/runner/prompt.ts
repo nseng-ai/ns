@@ -118,10 +118,11 @@ function rules(
 	const branchRules =
 		options.mode === "recover"
 			? [
-					"- Stay on the current branch. Do not create branches, switch branches, or reset the worktree; repair the existing attempt in place.",
+					"- Stay on the current dirty implementation branch. Do not create branches, switch branches, or reset the worktree; repair the existing attempt in place.",
 				]
 			: [
 					`- Create your own implementation branch before changing files. ${describeBranchContextGraphiteCreationSteps(options.baseBranch)}`,
+					"- You own only that implementation branch for this step; the parent owns the base branch choice and any later step stacking decisions.",
 					"- After creating the implementation branch, do not switch branches again for the rest of the step.",
 				];
 	return [
@@ -130,7 +131,7 @@ function rules(
 		"- Load Objective context yourself: follow the repo's objective-next workflow and existing skills for this Objective. Do not expect Objective content in this prompt.",
 		...branchRules,
 		`- ${RUNNER_GRAPHITE_STACK_NAVIGATION_RULE}`,
-		"- Leave ALL changes uncommitted. Never run `git commit`, `git commit --amend`, `git push`, or anything that submits, merges, or publishes; the runner owns staging and commit.",
+		"- Leave ALL changes uncommitted. Never run `git commit`, `git commit --amend`, `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or anything that submits, merges, publishes, opens PRs, or writes to external systems; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision.",
 		`- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the ${reportDescriptor.validationSectionLabel} section of your report.`,
 		reportDescriptor.finalReportRule,
 	].join("\n");

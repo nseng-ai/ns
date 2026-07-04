@@ -23,15 +23,15 @@ One step = begin → dispatch → finish. Use the harness scratchpad for the two
 
    On exit 0 the facts file holds the machine envelope: `data.prompt` (the subagent prompt), `data.baseBranch`, `data.headAtDispatch`, `data.reportPath`. Non-zero means nothing was dispatched: exit 1 is a precondition refusal (read the message), exit 2 a usage error (bad slug, report path inside the repo or already existing, unreadable `@file` guidance).
 
-2. **Dispatch a subagent** in this same worktree with `data.prompt` **verbatim** — no additions; guidance already went through begin. The subagent implements one slice on its own branch, leaves every change uncommitted, writes its JSON report to the report path, and returns a short summary. Treat that summary as chatter: the report file is the contract. **While it runs, do not touch the worktree — no edits, no commits, no branch switches.** The `head-unchanged` gate check fails the step loudly if anything moved.
+2. **Dispatch a subagent** in this same worktree with `data.prompt` **verbatim** — no additions; guidance already went through begin. The subagent owns exactly one implementation branch for exactly one slice, leaves every change uncommitted, writes its JSON report to the report path, and returns a short summary. Treat that summary as chatter: the report file is the contract. **While it runs, do not touch the worktree — no edits, no commits, no branch switches.** The `head-unchanged` gate check fails the step loudly if anything moved.
 
-3. **Finish** — the deterministic verdict, run by you, exactly once:
+3. **Finish** — the deterministic verdict and local commit handoff, run by you, exactly once:
 
    ```bash
    ns objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
    ```
 
-   The report path defaults from the facts (`--report @path` overrides). Finish validates the report fail-closed, runs the verification gate, creates the runner-owned commit with provenance trailers (`Objective-Runner-Step: <slug>`, plus `Objective-Runner-Mode: recover` for recovered attempts), and prints the **Runner Checkpoint** to stdout. **Finish is terminal**: never re-run it after `committed` — a second run deterministically fails verification (`head-unchanged`, `worktree-dirty`) by design.
+   The report path defaults from the facts (`--report @path` overrides). Finish validates the report fail-closed, runs the verification gate, creates the runner-owned **local-only** commit with provenance trailers (`Objective-Runner-Step: <slug>`, plus `Objective-Runner-Mode: recover` for recovered attempts), and prints the **Runner Checkpoint** to stdout. That checkpoint is the handoff from runner to parent: the parent judges the commit and any later Objective update, push, submit, PR, or human handoff decision. **Finish is terminal**: never re-run it after `committed` — a second run deterministically fails verification (`head-unchanged`, `worktree-dirty`) by design.
 
 Flags on begin:
 
@@ -44,7 +44,7 @@ Model choice and timeout are yours at dispatch time — they are harness concern
 
 ## Expectations before you run it
 
-- **Run begin from the branch you want as the step's base.** The subagent creates its own implementation branch off the current branch via the Branch Context/Graphite path. Stacking is emergent: the runner holds no cross-step state, so the next step simply begins from the branch the previous step's commit left you on.
+- **Run begin from the branch you want as the step's base.** The parent owns that base-branch choice and the decision to start another step. The subagent creates and owns only its implementation branch for this one step via the Branch Context/Graphite path. The runner owns verification, staging, and the local commit handoff. Stacking is emergent: the runner holds no cross-step state, so the next step simply begins from the branch the previous step's commit left you on.
 - **Preconditions are checked up front (LBYL).** Default mode refuses unless the Objective is open, the worktree is clean, and HEAD is on a named branch. `--recover` inverts the worktree requirement: it refuses unless the tree is dirty and the branch is not trunk. A refusal exits 1 with a message only — nothing dispatched.
 - **The facts file is the step's identity.** Save begin's stdout verbatim and replay it to finish untouched. Finish cross-checks the slug and takes mode, base branch, and dispatch-time HEAD from it.
 
@@ -98,11 +98,11 @@ The runner never touches Objective tracking, and the subagent is not instructed 
 
 The runner will never, in any mode:
 
-- push, submit, publish, or merge anything — no PR ever leaves your machine from a runner step;
+- push, submit, publish, merge, open PRs, or perform write-capable external actions — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR ever leaves your machine from a runner step;
 - update Objective tracking or write Semantic Updates;
 - commit on trunk, amend, or accept a commit the subagent made itself (a subagent that committed on its own fails verification);
 - run more than one slice, retry on its own, or carry state between steps.
 
 And you, the parent, never mutate the worktree between begin and finish — the gate makes violations loud, not silent.
 
-If you need any of those, do them yourself as the parent, through the normal workflows. The legacy blocking `ns objective exec runner-step` still exists during the transition but no skill flow uses it; it is scheduled for deletion.
+If you need any of those, do them yourself as the parent after the checkpoint, through the normal workflows and only when separately authorized. The legacy blocking `ns objective exec runner-step` still exists during the transition but no skill flow uses it; it is scheduled for deletion.
