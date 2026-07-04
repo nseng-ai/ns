@@ -28,6 +28,7 @@ Download / stack plumbing:
 
 - `download-feedback`
 - `map-branch-prs`
+- `branch-pr-checks --branches-json '{"branches":["<branch>"]}'`
 
 Read primitives:
 

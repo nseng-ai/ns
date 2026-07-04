@@ -211,19 +211,39 @@ function stackBranchesData(branches: readonly string[]): object {
 	};
 }
 
-function mapBranchPrsData(branches: readonly string[]): object {
+type BranchPrChecksEntryFixture =
+	| { branch: string; status: "missing" | "ambiguous" }
+	| { branch: string; status?: "found"; prNumber: number; checkName?: string };
+
+function branchPrChecksData(entries: readonly BranchPrChecksEntryFixture[]): object {
 	return {
-		branchPrs: branches.map((branch, index) => ({
-			branch,
-			pr_number: 700 + index,
-			title: branch,
-			url: `https://example.test/pull/${700 + index}`,
-			head_ref_name: branch,
-			base_ref_name: "main",
-		})),
-		missingBranches: [],
-		ambiguousBranches: [],
-		summary: { requested: branches.length, matched: branches.length, missing: 0, ambiguous: 0 },
+		entries: entries.map((entry) => {
+			if (!("prNumber" in entry)) {
+				return { branch: entry.branch, status: entry.status };
+			}
+			const checks = previewChecksData(
+				entry.prNumber,
+				entry.branch,
+				entry.checkName ?? "typescript",
+			) as {
+				target: object;
+				counts: object;
+				checks: object[];
+			};
+			return {
+				branch: entry.branch,
+				status: "found",
+				target: checks.target,
+				counts: checks.counts,
+				checks: checks.checks,
+			};
+		}),
+		summary: {
+			requested: entries.length,
+			matched: entries.filter((entry) => "prNumber" in entry).length,
+			missing: entries.filter((entry) => entry.status === "missing").length,
+			ambiguous: entries.filter((entry) => entry.status === "ambiguous").length,
+		},
 	};
 }
 
@@ -390,13 +410,18 @@ describe("PR preview commands", () => {
 });
 
 describe("/pr:preview-checks", () => {
-	test("loads stack branches, maps PRs, loads checks for every stack PR, then opens overlay", async () => {
+	test("loads stack branches then all stack PR checks in one batched call before opening overlay", async () => {
 		const branches = ["feature/base", "feature/top"];
 		const pi = new FakePi([
 			execResult({ stdout: envelope(stackBranchesData(branches)) }),
-			execResult({ stdout: envelope(mapBranchPrsData(branches)) }),
-			execResult({ stdout: envelope(previewChecksData(700, "feature/base", "typescript")) }),
-			execResult({ stdout: envelope(previewChecksData(701, "feature/top", "docs-build")) }),
+			execResult({
+				stdout: envelope(
+					branchPrChecksData([
+						{ branch: "feature/base", prNumber: 700 },
+						{ branch: "feature/top", prNumber: 701, checkName: "docs-build" },
+					]),
+				),
+			}),
 		]);
 
 		const ctx = await runChecksPreviewCommand({ pi });
@@ -408,24 +433,56 @@ describe("/pr:preview-checks", () => {
 				args: [
 					"address",
 					"exec",
-					"map-branch-prs",
+					"branch-pr-checks",
 					"--branches-json",
 					JSON.stringify({ branches }),
 					"--format",
 					"json",
 				],
 			},
-			{
-				command: "ns",
-				args: ["address", "exec", "pr-checks", "--pr-number", "700", "--format", "json"],
-			},
-			{
-				command: "ns",
-				args: ["address", "exec", "pr-checks", "--pr-number", "701", "--format", "json"],
-			},
 		]);
 		expect(ctx.customCalls).toHaveLength(1);
 		expect(ctx.customCalls[0]?.options).toMatchObject({ overlay: true });
+	});
+
+	test("renders unmapped stack branches from a negative batched envelope", async () => {
+		const branches = ["feature/base", "feature/unmapped"];
+		const pi = new FakePi([
+			execResult({ stdout: envelope(stackBranchesData(branches)) }),
+			execResult({
+				code: 1,
+				stdout: negativeEnvelope(
+					branchPrChecksData([
+						{ branch: "feature/base", prNumber: 700 },
+						{ branch: "feature/unmapped", status: "missing" },
+					]),
+				),
+			}),
+		]);
+
+		const ctx = await runChecksPreviewCommand({ pi });
+
+		expect(pi.calls).toHaveLength(2);
+		expect(ctx.customCalls).toHaveLength(1);
+		expect(ctx.notifications).toEqual([]);
+	});
+
+	test("falls back to the single current-branch view when the batched call hard-fails", async () => {
+		const branches = ["feature/base"];
+		const pi = new FakePi([
+			execResult({ stdout: envelope(stackBranchesData(branches)) }),
+			execResult({ code: 2, stdout: "", stderr: "gh exploded" }),
+			execResult({ stdout: envelope(previewChecksData(700, "feature/base")) }),
+		]);
+
+		const ctx = await runChecksPreviewCommand({ pi });
+
+		expect(pi.calls.map((call) => call.args.slice(0, 3))).toEqual([
+			["slot", "gt", "exec"],
+			["address", "exec", "branch-pr-checks"],
+			["address", "exec", "pr-checks"],
+		]);
+		expect(ctx.customCalls).toHaveLength(1);
 	});
 
 	test("explicit PR number skips stack discovery", async () => {

@@ -25,12 +25,15 @@ function graphqlArgs(fields: readonly GraphqlField[], query: string): string[] {
 	];
 }
 
-function repoPrFields(prNumber: number): GraphqlField[] {
+function repoFields(): GraphqlField[] {
 	return [
 		{ flag: "-F", name: "owner", value: "{owner}" },
 		{ flag: "-F", name: "repo", value: "{repo}" },
-		{ flag: "-F", name: "number", value: prNumber },
 	];
+}
+
+function repoPrFields(prNumber: number): GraphqlField[] {
+	return [...repoFields(), { flag: "-F", name: "number", value: prNumber }];
 }
 
 export function discussionCommentPageArgs(
@@ -65,6 +68,20 @@ export function reviewThreadPageArgs(
 
 export function prChecksArgs(prNumber: number): string[] {
 	return graphqlArgs(repoPrFields(prNumber), prChecksQuery);
+}
+
+export function branchPrChecksArgs(branches: readonly string[]): string[] {
+	return graphqlArgs(
+		[
+			...repoFields(),
+			...branches.map((branch, index) => ({
+				flag: "-f" as const,
+				name: `branch${index}`,
+				value: branch,
+			})),
+		],
+		branchPrChecksQuery(branches.length),
+	);
 }
 
 export function reviewThreadCommentPageArgs(threadId: string, commentCursor: string): string[] {

@@ -73,6 +73,36 @@ export const prChecksResultSchema = z.object({
 	checks: z.array(prCheckEntrySchema),
 });
 
+const branchPrChecksFoundEntrySchema = z.object({
+	branch: z.string(),
+	status: z.literal("found"),
+	target: prTargetPayloadSchema,
+	counts: prChecksCountsSchema,
+	checks: z.array(prCheckEntrySchema),
+});
+
+const branchPrChecksMissingEntrySchema = z.object({
+	branch: z.string(),
+	status: z.literal("missing"),
+});
+
+const branchPrChecksAmbiguousEntrySchema = z.object({
+	branch: z.string(),
+	status: z.literal("ambiguous"),
+	candidates: z.array(mapBranchPrsEntrySchema),
+});
+
+export const branchPrChecksResultSchema = z.object({
+	entries: z.array(
+		z.discriminatedUnion("status", [
+			branchPrChecksFoundEntrySchema,
+			branchPrChecksMissingEntrySchema,
+			branchPrChecksAmbiguousEntrySchema,
+		]),
+	),
+	summary: mapBranchPrsSummarySchema,
+});
+
 const downloadFeedbackCountsSchema = z.object({
 	includedReviewThreads: z.int(),
 	includedReviews: z.int(),

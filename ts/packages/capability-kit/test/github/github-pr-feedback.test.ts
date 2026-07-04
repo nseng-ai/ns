@@ -5,12 +5,14 @@ import { RealGithubPrFeedbackGateway } from "@ns/capability-kit/github/pr-feedba
 import { ScriptedCommandRunner, step } from "@ns/core/exec/testing";
 
 import {
+	branchPrChecksArgs,
 	discussionCommentPageArgs,
 	resolveReviewThreadsArgs,
 	reviewThreadCommentPageArgs,
 	reviewThreadPageArgs,
 } from "../../src/github/pr-feedback/args.ts";
 import {
+	branchPrChecksQuery,
 	discussionCommentsQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
@@ -69,6 +71,24 @@ function thread(overrides: Record<string, unknown> = {}): Record<string, unknown
 		comments: { nodes: [comment()], pageInfo: { hasNextPage: false, endCursor: null } },
 		...overrides,
 	};
+}
+
+function branchPrNode(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const number = typeof overrides.number === "number" ? overrides.number : 101;
+	return {
+		number,
+		title: `PR ${number}`,
+		url: `https://github.com/acme/repo/pull/${number}`,
+		headRefName: "feature/base",
+		headRefOid: `abc${number}`,
+		baseRefName: "main",
+		statusCheckRollup: null,
+		...overrides,
+	};
+}
+
+function branchPrChecksResponse(aliases: Record<string, unknown>): string {
+	return JSON.stringify({ data: { repository: aliases } });
 }
 
 function withoutKey(record: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -1162,6 +1182,262 @@ describe("RealGithubPrFeedbackGateway", () => {
 			type: "resolve_failed",
 			reply: { ok: true, value: { comment: { id: 88 } } },
 			resolve: { ok: false, error: { code: "github_pr_feedback_gh_failed" } },
+		});
+		runner.assertDone();
+	});
+
+	test("builds batched branch PR checks GraphQL args", () => {
+		const query = branchPrChecksQuery(2);
+
+		expect(branchPrChecksArgs(["feature/base", "feature/top"])).toEqual([
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-f",
+			"branch0=feature/base",
+			"-f",
+			"branch1=feature/top",
+			"-f",
+			`query=${query}`,
+		]);
+		expect(query).toContain(
+			"query($owner: String!, $repo: String!, $branch0: String!, $branch1: String!)",
+		);
+		expect(query).toContain(
+			"b0: pullRequests(first: 2, states: OPEN, headRefName: $branch0, orderBy: { field: UPDATED_AT, direction: DESC })",
+		);
+		expect(query).toContain("b1: pullRequests(first: 2, states: OPEN, headRefName: $branch1");
+		expect(query).toContain("number title url headRefName headRefOid baseRefName");
+		expect(query).toContain(
+			"checkSuite { workflowRun { databaseId runNumber runAttempt createdAt updatedAt workflow { name } } }",
+		);
+		expect(() => branchPrChecksQuery(0)).toThrow("must be positive");
+	});
+
+	test("fetches branch PRs and checks in a single aliased GraphQL query", async () => {
+		const args = branchPrChecksArgs(["feature/base", "feature/top"]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								number: 101,
+								headRefName: "feature/base",
+								statusCheckRollup: {
+									contexts: {
+										pageInfo: { hasNextPage: true },
+										nodes: [
+											{
+												__typename: "CheckRun",
+												name: "typescript",
+												status: "COMPLETED",
+												conclusion: "FAILURE",
+												checkSuite: { workflowRun: { workflow: { name: "ci" } } },
+											},
+											{ __typename: "StatusContext", context: "lint", state: "SUCCESS" },
+										],
+									},
+								},
+							}),
+						],
+					},
+					b1: { nodes: [branchPrNode({ number: 102, headRefName: "feature/top" })] },
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		const result = await gateway.getBranchPrChecks({
+			cwd: "/repo",
+			branches: ["feature/base", "feature/top"],
+		});
+		expect(result).toMatchObject({
+			ok: true,
+			value: [
+				{
+					branch: "feature/base",
+					type: "found",
+					pr: {
+						number: 101,
+						title: "PR 101",
+						headRefName: "feature/base",
+						baseRefName: "main",
+						state: "OPEN",
+						headRefOid: "abc101",
+					},
+					checks: {
+						counts: { passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: true },
+					},
+				},
+				{
+					branch: "feature/top",
+					type: "found",
+					pr: { number: 102 },
+					checks: { counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false } },
+				},
+			],
+		});
+		runner.assertDone();
+	});
+
+	test("keeps only the latest workflow run per batched branch entry", async () => {
+		const args = branchPrChecksArgs(["feature/base"]);
+		const supersededRun = {
+			__typename: "CheckRun",
+			name: "typescript",
+			status: "COMPLETED",
+			conclusion: "FAILURE",
+			checkSuite: {
+				workflowRun: { databaseId: 1, runNumber: 1, runAttempt: 1, workflow: { name: "ci" } },
+			},
+		};
+		const latestRun = {
+			__typename: "CheckRun",
+			name: "typescript",
+			status: "COMPLETED",
+			conclusion: "SUCCESS",
+			checkSuite: {
+				workflowRun: { databaseId: 2, runNumber: 2, runAttempt: 1, workflow: { name: "ci" } },
+			},
+		};
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								headRefName: "feature/base",
+								statusCheckRollup: {
+									contexts: {
+										pageInfo: { hasNextPage: false },
+										nodes: [supersededRun, latestRun],
+									},
+								},
+							}),
+						],
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: true,
+			value: [
+				{
+					type: "found",
+					checks: {
+						counts: { passing: 1, failing: 0 },
+						checks: [{ name: "typescript", conclusion: "SUCCESS" }],
+					},
+				},
+			],
+		});
+		runner.assertDone();
+	});
+
+	test("reports missing, ambiguous, and checkless branches from one batched query", async () => {
+		const args = branchPrChecksArgs(["gone", "doubled", "quiet"]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: branchPrChecksResponse({
+					b0: { nodes: [] },
+					b1: {
+						nodes: [
+							branchPrNode({ number: 201, headRefName: "doubled" }),
+							branchPrNode({ number: 202, headRefName: "doubled" }),
+						],
+					},
+					b2: { nodes: [branchPrNode({ number: 203, headRefName: "quiet" })] },
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["gone", "doubled", "quiet"] }),
+		).toMatchObject({
+			ok: true,
+			value: [
+				{ branch: "gone", type: "missing" },
+				{
+					branch: "doubled",
+					type: "ambiguous",
+					candidates: [{ number: 201 }, { number: 202 }],
+				},
+				{
+					branch: "quiet",
+					type: "found",
+					checks: { counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false } },
+				},
+			],
+		});
+		runner.assertDone();
+	});
+
+	test("rejects malformed batched branch PR checks responses", async () => {
+		const args = branchPrChecksArgs(["feature/base", "feature/top"]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: branchPrChecksResponse({
+					b0: { nodes: [branchPrNode({ headRefName: "feature/base" })] },
+				}),
+			}),
+			step("gh", args, {
+				stdout: branchPrChecksResponse({
+					b0: { nodes: [branchPrNode({ headRefName: "feature/base" })] },
+					b1: { nodes: [branchPrNode({ headRefName: "feature/other" })] },
+				}),
+			}),
+			step("gh", args, { exitCode: 1, stderr: "boom" }),
+			step("gh", args, {
+				stdout: JSON.stringify({
+					data: { repository: { b0: { nodes: [] }, b1: { nodes: [] } } },
+					errors: [{ message: "Field 'pullRequests' is broken" }],
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+		const params = { cwd: "/repo", branches: ["feature/base", "feature/top"] } as const;
+
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_response_invalid",
+				details: { operation: "getBranchPrChecks" },
+			},
+		});
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_response_invalid",
+				details: { operation: "getBranchPrChecks" },
+			},
+		});
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_gh_failed", details: { stderr: "boom" } },
+		});
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_graphql_failed" },
+		});
+		runner.assertDone();
+	});
+
+	test("returns no outcomes for an empty branch list without calling gh", async () => {
+		const runner = new ScriptedCommandRunner([]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getBranchPrChecks({ cwd: "/repo", branches: [] })).toEqual({
+			ok: true,
+			value: [],
 		});
 		runner.assertDone();
 	});

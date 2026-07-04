@@ -1,4 +1,5 @@
 import type {
+	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackGateway,
@@ -60,6 +61,10 @@ export interface InMemoryPrFeedbackState {
 		| Record<number, readonly GithubPrDiscussionComment[]>;
 	checks?: ReadonlyMap<number, GithubStatusChecks> | Record<number, GithubStatusChecks>;
 	checksFailurePrNumbers?: ReadonlySet<number>;
+	ambiguousBranchPrs?:
+		| ReadonlyMap<string, readonly GithubPrSummary[]>
+		| Record<string, readonly GithubPrSummary[]>;
+	branchPrChecksFailure?: GithubPrFeedbackFailure;
 	listOpenPrsFailure?: GithubPrFeedbackFailure;
 	lookupFailureBranches?: ReadonlySet<string>;
 	lookupFailurePrNumbers?: ReadonlySet<number>;
@@ -95,6 +100,8 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	private readonly discussionComments: ReadonlyMap<number, readonly GithubPrDiscussionComment[]>;
 	private readonly checks: ReadonlyMap<number, GithubStatusChecks>;
 	private readonly checksFailurePrNumbers: ReadonlySet<number>;
+	private readonly ambiguousBranchPrs: ReadonlyMap<string, readonly GithubPrSummary[]>;
+	private readonly branchPrChecksFailure: GithubPrFeedbackFailure | undefined;
 	private readonly listOpenPrsFailure: GithubPrFeedbackFailure | undefined;
 	private readonly lookupFailureBranches: ReadonlySet<string>;
 	private readonly lookupFailurePrNumbers: ReadonlySet<number>;
@@ -125,6 +132,8 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		this.discussionComments = numberMap(state.discussionComments);
 		this.checks = numberMap(state.checks);
 		this.checksFailurePrNumbers = state.checksFailurePrNumbers ?? new Set();
+		this.ambiguousBranchPrs = stringMap(state.ambiguousBranchPrs);
+		this.branchPrChecksFailure = state.branchPrChecksFailure;
 		this.listOpenPrsFailure = state.listOpenPrsFailure;
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
 		this.lookupFailurePrNumbers = state.lookupFailurePrNumbers ?? new Set();
@@ -234,6 +243,38 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 				},
 			),
 		};
+	}
+
+	async getBranchPrChecks(
+		params: GithubPrFeedbackOptions & { readonly branches: readonly string[] },
+	): Promise<Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure>> {
+		if (this.branchPrChecksFailure !== undefined)
+			return { ok: false, error: clone(this.branchPrChecksFailure) };
+		const outcomes: GithubBranchPrChecksOutcome[] = [];
+		for (const branch of params.branches) {
+			const ambiguous = this.ambiguousBranchPrs.get(branch);
+			if (ambiguous !== undefined) {
+				outcomes.push({ branch, type: "ambiguous", candidates: clone([...ambiguous]) });
+				continue;
+			}
+			const pr = this.prsByBranch.get(branch);
+			if (pr === undefined || pr.state !== "OPEN") {
+				outcomes.push({ branch, type: "missing" });
+				continue;
+			}
+			outcomes.push({
+				branch,
+				type: "found",
+				pr: clone(pr),
+				checks: clone(
+					this.checks.get(pr.number) ?? {
+						counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+						checks: [],
+					},
+				),
+			});
+		}
+		return { ok: true, value: outcomes };
 	}
 
 	async replyToReviewThread(

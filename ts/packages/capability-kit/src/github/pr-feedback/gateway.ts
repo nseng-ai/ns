@@ -7,6 +7,7 @@ import { optionalEntry, type MaybePromise, type ExplicitUndefined } from "@ns/co
 import type { Result } from "@ns/core/result";
 
 import {
+	branchPrChecksArgs,
 	discussionCommentPageArgs,
 	prChecksArgs,
 	replyToReviewThreadArgs,
@@ -37,8 +38,11 @@ import {
 	type GithubPrFeedbackFailureContext,
 } from "./parsing.ts";
 import {
+	ghBranchPrChecksResponseSchema,
 	ghDiscussionCommentsResponseSchema,
 	ghPrChecksResponseSchema,
+	type GhBranchPrChecksNode,
+	type GhBranchPrChecksResponse,
 	ghReplyReviewThreadResponseSchema,
 	ghResolveReviewThreadResponseSchema,
 	ghResolveReviewThreadsResponseSchema,
@@ -51,6 +55,7 @@ import {
 	type GhReviewThread,
 } from "./schemas.ts";
 import type {
+	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackCursorContextFields,
 	GithubPrFeedbackFailure,
@@ -228,6 +233,72 @@ export class RealGithubPrFeedbackGateway {
 				hasMore: contexts?.pageInfo.hasNextPage ?? false,
 			}),
 		);
+	}
+
+	async getBranchPrChecks(
+		params: GithubPrFeedbackOptions & { readonly branches: readonly string[] },
+	): Promise<Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure>> {
+		if (params.branches.length === 0) return feedbackOk([]);
+		const result = await this.runGhGraphqlJson({
+			operation: "getBranchPrChecks",
+			args: branchPrChecksArgs(params.branches),
+			params,
+			schema: ghBranchPrChecksResponseSchema,
+		});
+		if (!result.ok) return result;
+		return this.normalizeBranchPrChecksResponse(result.value, params.branches);
+	}
+
+	private normalizeBranchPrChecksResponse(
+		response: GhBranchPrChecksResponse,
+		branches: readonly string[],
+	): Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure> {
+		const outcomes: GithubBranchPrChecksOutcome[] = [];
+		for (const [index, branch] of branches.entries()) {
+			const alias = `b${index}`;
+			const connection = response.data.repository[alias];
+			if (connection === undefined || connection === null) {
+				return feedbackErr(
+					failureFromMessage({
+						code: "github_pr_feedback_response_invalid",
+						operation: "getBranchPrChecks",
+						message: `GitHub branch PR checks response did not include ${alias}.nodes for branch ${branch}.`,
+					}),
+				);
+			}
+			if (connection.nodes.length === 0) {
+				outcomes.push({ branch, type: "missing" });
+				continue;
+			}
+			if (connection.nodes.length > 1) {
+				outcomes.push({
+					branch,
+					type: "ambiguous",
+					candidates: connection.nodes.map(branchPrSummaryFromNode),
+				});
+				continue;
+			}
+			const node = connection.nodes[0];
+			if (node === undefined || node.headRefName !== branch) {
+				return feedbackErr(
+					failureFromMessage({
+						code: "github_pr_feedback_response_invalid",
+						operation: "getBranchPrChecks",
+						message: `GitHub branch PR checks response ${alias} headRefName did not match branch ${branch}.`,
+					}),
+				);
+			}
+			const contexts = node.statusCheckRollup?.contexts;
+			outcomes.push({
+				branch,
+				type: "found",
+				pr: branchPrSummaryFromNode(node),
+				checks: normalizeGithubStatusChecks(contexts?.nodes ?? [], {
+					hasMore: contexts?.pageInfo.hasNextPage ?? false,
+				}),
+			});
+		}
+		return feedbackOk(outcomes);
 	}
 
 	async replyToReviewThread(
@@ -495,6 +566,18 @@ export class RealGithubPrFeedbackGateway {
 			...(options.params.signal === undefined ? {} : { signal: options.params.signal }),
 		});
 	}
+}
+
+function branchPrSummaryFromNode(node: GhBranchPrChecksNode): GithubPrSummary {
+	return {
+		number: node.number,
+		title: node.title,
+		url: node.url,
+		headRefName: node.headRefName,
+		baseRefName: node.baseRefName,
+		state: "OPEN",
+		headRefOid: node.headRefOid ?? null,
+	};
 }
 
 function isExactPrLookupMiss(result: ExecResult, operation: "getPr" | "getPrForBranch"): boolean {

@@ -78,21 +78,20 @@ const stackBranchesDataSchema = z.looseObject({
 	current: z.string(),
 });
 
-const branchPrEntrySchema = z.looseObject({
-	branch: z.string(),
-	pr_number: z.number().int(),
-	title: z.string(),
-	url: z.string(),
-	head_ref_name: z.string(),
-	base_ref_name: z.string(),
-});
+const branchPrChecksEntrySchema = z.discriminatedUnion("status", [
+	z.looseObject({
+		branch: z.string(),
+		status: z.literal("found"),
+		target: previewChecksTargetSchema,
+		counts: previewChecksCountsSchema,
+		checks: z.array(previewCheckSchema),
+	}),
+	z.looseObject({ branch: z.string(), status: z.literal("missing") }),
+	z.looseObject({ branch: z.string(), status: z.literal("ambiguous") }),
+]);
 
-const mapBranchPrsDataSchema = z.looseObject({
-	branchPrs: z.array(branchPrEntrySchema),
-	missingBranches: z.array(z.string()),
-	ambiguousBranches: z.array(
-		z.looseObject({ branch: z.string(), candidates: z.array(branchPrEntrySchema) }),
-	),
+const branchPrChecksDataSchema = z.looseObject({
+	entries: z.array(branchPrChecksEntrySchema),
 });
 
 type ParsedPrNumberArgs =
@@ -100,7 +99,7 @@ type ParsedPrNumberArgs =
 	| { type: "invalid"; message: string };
 type PreviewChecksData = z.output<typeof previewChecksDataSchema>;
 type StackBranchesData = z.output<typeof stackBranchesDataSchema>;
-type MapBranchPrsData = z.output<typeof mapBranchPrsDataSchema>;
+type BranchPrChecksData = z.output<typeof branchPrChecksDataSchema>;
 
 interface PrPreviewChecksCommandOptions {
 	statusKey: string;
@@ -213,25 +212,15 @@ async function loadStackPreviewChecksViewModel(options: {
 	if (stack.type === "error" || stack.value.branches.length === 0) {
 		return await fallbackToSinglePreviewChecksViewModel(options);
 	}
-	const mapping = await execMapBranchPrs({ ...options, branches: stack.value.branches });
-	if (mapping.type === "error") return await fallbackToSinglePreviewChecksViewModel(options);
+	const checksResult = await execBranchPrChecks({ ...options, branches: stack.value.branches });
+	if (checksResult.type === "error") return await fallbackToSinglePreviewChecksViewModel(options);
 
-	const entries: PrPreviewChecksStackEntry[] = [];
-	for (const branch of stack.value.branches) {
-		const pr = mapping.value.branchPrs.find((entry) => entry.branch === branch);
-		if (pr === undefined) {
-			entries.push(unmappedStackEntry(branch));
-			continue;
-		}
-		const checks = await execPrChecks({
-			runtime: options.runtime,
-			ctx: options.ctx,
-			args: ["--pr-number", String(pr.pr_number)],
-			label: `ns address exec pr-checks #${pr.pr_number}`,
-		});
-		if (checks.type === "error") return checks;
-		entries.push(buildPreviewChecksStackEntry(checks.value, fallbackTargetFromBranchPr(pr)));
-	}
+	const entriesByBranch = new Map(checksResult.value.entries.map((entry) => [entry.branch, entry]));
+	const entries = stack.value.branches.map((branch) => {
+		const entry = entriesByBranch.get(branch);
+		if (entry === undefined || entry.status !== "found") return unmappedStackEntry(branch);
+		return buildPreviewChecksStackEntry(entry, fallbackTargetForUnmappedBranch(branch));
+	});
 	if (entries.length === 0) return await fallbackToSinglePreviewChecksViewModel(options);
 	return { type: "ok", value: buildStackPreviewChecksViewModel(stack.value, entries) };
 }
@@ -284,17 +273,17 @@ async function execStackBranches(options: {
 	});
 }
 
-async function execMapBranchPrs(options: {
+async function execBranchPrChecks(options: {
 	runtime: PrPreviewChecksCommandRuntime;
 	ctx: ExtensionContext;
 	branches: readonly string[];
-}): Promise<CommandResult<MapBranchPrsData>> {
+}): Promise<CommandResult<BranchPrChecksData>> {
 	const result = await options.runtime.pi.exec(
 		"ns",
 		[
 			"address",
 			"exec",
-			"map-branch-prs",
+			"branch-pr-checks",
 			"--branches-json",
 			JSON.stringify({ branches: options.branches }),
 			"--format",
@@ -306,9 +295,9 @@ async function execMapBranchPrs(options: {
 		},
 	);
 	return options.runtime.parseEnvelopeWithSchema({
-		label: "ns address exec map-branch-prs",
+		label: "ns address exec branch-pr-checks",
 		result,
-		schema: mapBranchPrsDataSchema,
+		schema: branchPrChecksDataSchema,
 		allowFailureData: true,
 	});
 }
@@ -347,7 +336,7 @@ function buildStackPreviewChecksViewModel(
 }
 
 function buildPreviewChecksStackEntry(
-	data: PreviewChecksData,
+	data: Pick<PreviewChecksData, "target" | "counts" | "checks">,
 	fallback: PrPreviewChecksTarget,
 ): PrPreviewChecksStackEntry {
 	return {
@@ -396,20 +385,6 @@ function fallbackTargetFromPreviewData(
 	};
 }
 
-function fallbackTargetFromBranchPr(
-	entry: z.output<typeof branchPrEntrySchema>,
-): PrPreviewChecksTarget {
-	return {
-		pr_number: entry.pr_number,
-		title: entry.title,
-		url: entry.url,
-		branch: entry.branch,
-		head_ref_name: entry.head_ref_name,
-		base_ref_name: entry.base_ref_name,
-		head_ref_oid: null,
-	};
-}
-
 function fallbackTargetForUnmappedBranch(branch: string): PrPreviewChecksTarget {
 	return {
 		pr_number: null,
@@ -434,7 +409,7 @@ function emptyPreviewTarget(): PrPreviewChecksTarget {
 	};
 }
 
-function checksCounts(data: PreviewChecksData): PrPreviewChecksCounts {
+function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksCounts {
 	return {
 		passing: data.counts.passing,
 		pending: data.counts.pending,

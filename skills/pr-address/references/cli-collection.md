@@ -31,6 +31,17 @@ ns slot gt exec stack-branches --format json \
 
 The stack command should then call `download-feedback` once per discovered PR. Do not route stack feedback through the retired stack-address or payload-session workflows.
 
+### `branch-pr-checks`
+
+`/pr:preview-checks` uses batched checks discovery: one GitHub GraphQL request resolves every branch's open PR and its normalized checks. Input matches `map-branch-prs` (`--branches-json` or stdin):
+
+```bash
+ns slot gt exec stack-branches --format json \
+  | ns address exec branch-pr-checks --format json
+```
+
+The result is an `entries` array in request order; each entry is `status: "found"` (with `target`, `counts`, `checks`), `"missing"` (no open PR), or `"ambiguous"` (multiple open PRs; up to two `candidates` are reported). Exit semantics: 0 when every branch maps to one open PR; 1 with full `data` when any branch is missing/ambiguous; 2 on invalid input or gateway failure.
+
 ## Read primitives
 
 Use these when an agent needs structured current PR state instead of parsing downloaded Markdown:
