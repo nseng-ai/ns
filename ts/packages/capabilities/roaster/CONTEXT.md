@@ -64,47 +64,23 @@ An inline PR review comment for a finding that can be placed on a changed line.
 
 Avoid: treating every finding as inline-commentable.
 
-### Finding fingerprint
+### Prior-findings context
 
-A stable Roaster identity for one Finding within a review, derived from review key and finding content/location so publish-time suppression can recognize previously surfaced work.
+The bounded set of previously surfaced Findings for one review key on a PR, each with its review-thread resolution status, supplied to a review run as optional prompt input so the model avoids re-raising already-surfaced work.
 
-Avoid: GitHub comment id, line number alone, summary alone.
+Avoid: Publication ledger, Review cache, full comment transcript, mandatory input for local runs.
 
-### Publication ledger
+### Last-reviewed head
 
-Branch-scoped Roaster state recording Finding fingerprints that have already been surfaced for a review, used by the GitHub publication boundary to suppress repeated findings in both summary and inline output.
+The head commit (and reviewed base ref) recorded machine-readably in the Findings comment when a review publishes, used by later runs to distinguish regions changed since the last round from already-reviewed ones.
 
-Avoid: Review log, Review cache, GitHub comment history as the only source of truth.
+Avoid: cache key, input filter (review input stays whole-diff), base SHA alone.
 
 ### Review log
 
 A Branch Memory record of a Roaster run under the `roaster` namespace and `reviews/<review-key>/...` key path.
 
 Avoid: calling review logs durable Objective updates or changing the namespace/key path when changing user-facing terminology.
-
-### Review cache
-
-The machine-readable store of reusable Roaster review compute results, keyed by a review-cache identity so an equivalent review run can skip repeated LLM execution.
-
-Avoid: using Review log for cache identity or treating human/audit run history as the reusable compute artifact.
-
-### Review cache record
-
-One structured reusable Roaster review compute result in the Review cache, distinct from a Review log entry even when both are backed by Branch Memory.
-
-Avoid: rendered markdown log, findings comment, GitHub PR review.
-
-### Review cache identity
-
-The full execution-contract key for a Review cache record: normalized full filtered PR-diff hash after Roaster exclusions, Review definition content hash, resolved model/profile, and Roaster prompt/schema/cache-version identity, with commit SHAs and bounded prompt-input coverage retained as audit fields rather than key fields.
-
-Avoid: branch name, PR number, review key alone, base SHA as the cache key, bounded prompt input as the primary diff identity.
-
-### Canonical reviewed diff
-
-The exact full filtered Git diff text produced by Roaster's canonical diff command shape, with only minimal byte-level normalization before hashing for the Review cache identity.
-
-Avoid: semantic patch-id, parsed/re-rendered diff, treating a parsed diff summary as the cache-key material.
 
 ### GitHub publication boundary
 
