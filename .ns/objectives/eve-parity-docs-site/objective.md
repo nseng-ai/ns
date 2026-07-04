@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: ship-objectives-to-customers
+    annotation: Provides the published docs-site shell that customer Objective onboarding content lands on; that objective gates its publication on this site being publishable.
+---
+
 # eve-parity docs site
 
 ## Thesis
