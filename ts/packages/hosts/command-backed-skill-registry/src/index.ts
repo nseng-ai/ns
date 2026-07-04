@@ -15,6 +15,14 @@ export type {
 	CommandBackedSkillRegistrationKind,
 } from "@ns/core/command";
 
+/**
+ * Single source of truth for repo-local skills that Pi surfaces as slash
+ * commands instead of ordinary `/skill:<name>` invocations.
+ *
+ * Keep each mapping explicit: several surfaces intentionally do not follow a
+ * mechanical split of the skill name, and provider-owned command packages
+ * contribute their own specialized rows through this registry.
+ */
 const COMMAND_BACKED_SKILL_REGISTRY = [
 	{
 		skillName: "branch-context-from-plan",
