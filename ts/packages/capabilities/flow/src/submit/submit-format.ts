@@ -73,7 +73,7 @@ function formatSubmitSuccessStatuses(
 	) {
 		statuses.push("description updated");
 	}
-	const preview = descriptions.previews.find((candidate) => candidate.link.url === link.url);
+	const preview = findMatchingLink(descriptions.previews, link, (candidate) => candidate.link);
 	if (preview !== undefined) {
 		statuses.push(`new title: ${preview.title}`);
 		if (preview.descriptionFirstLine !== "") {
@@ -84,7 +84,15 @@ function formatSubmitSuccessStatuses(
 }
 
 function hasMatchingLink(links: readonly SubmitPrLink[], target: SubmitPrLink): boolean {
-	return links.some((link) => link.url === target.url);
+	return findMatchingLink(links, target, (link) => link) !== undefined;
+}
+
+function findMatchingLink<T>(
+	items: readonly T[],
+	target: SubmitPrLink,
+	linkForItem: (item: T) => SubmitPrLink,
+): T | undefined {
+	return items.find((item) => linkForItem(item).url === target.url);
 }
 
 function formatSubmitOutputTail(stdout: string, stderr: string): string {

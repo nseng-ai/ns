@@ -9,20 +9,20 @@ import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
-import type { SubmitPrDescriptionPreview } from "./submit-pr-description-summary.ts";
+import type {
+	SubmitPrDescriptionPreview,
+	SubmitPrDescriptionSummary,
+} from "./submit-pr-description-summary.ts";
+import type {
+	PrDescriptionContent,
+	PrDescriptionOrchestrationResult,
+} from "./pr-description-orchestration.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| {
-			ok: true;
-			generated: SubmitPrLink[];
-			skipped: SubmitPrLink[];
-			prewritten: SubmitPrLink[];
-			prewriteFallbacks: SubmitPrLink[];
-			previews: SubmitPrDescriptionPreview[];
-	  }
+	| ({ ok: true } & SubmitPrDescriptionSummary)
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -102,43 +102,76 @@ export async function generateSubmitPrDescriptions(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
-		switch (result.type) {
-			case "skipped":
-				skipped.push(link);
-				break;
-			case "matched_prewritten":
-				prewritten.push(link);
-				break;
-			case "updated":
-				prewriteFallbacks.push(link);
-				break;
-			case "generated":
-				generated.push(link);
-				input.onProgress?.(`finished PR #${number} description`);
-				break;
-			case "failed":
-				failures.push({
-					link,
-					number,
-					reason: result.reason,
-					...(result.diagnostic === undefined ? {} : { diagnostic: result.diagnostic }),
-				});
-				break;
-		}
-
-		if (
-			result.type === "matched_prewritten" ||
-			result.type === "updated" ||
-			result.type === "generated"
-		) {
-			previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
-		}
+		collectPrDescriptionResult({
+			result,
+			link,
+			number,
+			generated,
+			skipped,
+			prewritten,
+			prewriteFallbacks,
+			previews,
+			failures,
+			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+		});
 	}
 
 	if (failures.length > 0) {
 		return { ok: false, failures };
 	}
 	return { ok: true, generated, skipped, prewritten, prewriteFallbacks, previews };
+}
+
+function collectPrDescriptionResult(input: {
+	result: PrDescriptionOrchestrationResult;
+	link: SubmitPrLink;
+	number: number;
+	generated: SubmitPrLink[];
+	skipped: SubmitPrLink[];
+	prewritten: SubmitPrLink[];
+	prewriteFallbacks: SubmitPrLink[];
+	previews: SubmitPrDescriptionPreview[];
+	failures: PrDescriptionFailure[];
+	onProgress?: (message: string) => void;
+}): void {
+	switch (input.result.type) {
+		case "skipped":
+			input.skipped.push(input.link);
+			break;
+		case "matched_prewritten":
+			collectPrDescriptionSuccess(input.prewritten, input.previews, input.link, input.result);
+			break;
+		case "updated":
+			collectPrDescriptionSuccess(
+				input.prewriteFallbacks,
+				input.previews,
+				input.link,
+				input.result,
+			);
+			break;
+		case "generated":
+			collectPrDescriptionSuccess(input.generated, input.previews, input.link, input.result);
+			input.onProgress?.(`finished PR #${input.number} description`);
+			break;
+		case "failed":
+			input.failures.push({
+				link: input.link,
+				number: input.number,
+				reason: input.result.reason,
+				...(input.result.diagnostic === undefined ? {} : { diagnostic: input.result.diagnostic }),
+			});
+			break;
+	}
+}
+
+function collectPrDescriptionSuccess(
+	links: SubmitPrLink[],
+	previews: SubmitPrDescriptionPreview[],
+	link: SubmitPrLink,
+	content: PrDescriptionContent,
+): void {
+	links.push(link);
+	previews.push(prDescriptionPreview(link, content.title, content.descriptionBody));
 }
 
 function prDescriptionPreview(
