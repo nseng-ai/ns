@@ -2,6 +2,8 @@
 
 ## Work
 
+Subobjective order and rationale for this umbrella Objective live in `objective.md`'s Thesis (the four Objective Edges are in its frontmatter); the list is not restated here to avoid drift.
+
 - [x] Decide the npm-distribution structure: split checkout-free `ji` publishing into its own Objective, or keep it as this Objective's spine. **Resolved 2026-07-01: SPLIT** into `checkout-free-sdl-distribution`; consumed here as a hard dependency.
   - Notes: gates sequencing; the long pole either way. Checkout-free `ji` benefits every capability, so it is its own Objective, not this spine.
 - [ ] **Dependency (owned by `checkout-free-sdl-distribution`):** make the `ji` CLI publishable and checkout-free — drop `private` on `@ji/kernel` and its required runtime workspace deps, replace the source-path module loader (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ji/objective` and its hidden `exec` surface are bundled, produce a bundle with no `ts/node_modules` precondition, and publish a versioned package to npm.

@@ -2,6 +2,8 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import { optionalEntry } from "@ns/core/primitives";
+
 import {
 	splitObjectiveRecordDocument,
 	type ObjectiveRecordDocument,
@@ -101,9 +103,7 @@ export function projectObjectiveRecordDocumentReadResult(
 	if (read.type !== "ok") return { objectiveMd: read };
 	return {
 		objectiveMd: { type: "ok", content: read.content },
-		...(read.document.frontmatter === undefined
-			? {}
-			: { recordFrontmatter: read.document.frontmatter }),
+		...optionalEntry("recordFrontmatter", read.document.frontmatter),
 	};
 }
 
