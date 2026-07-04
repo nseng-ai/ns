@@ -8,7 +8,10 @@ import {
 	ghAuthorSchema,
 	normalizeAuthor,
 	parseGithubJson,
+	RealGithubPrFeedbackGateway,
 	withNumericGithubIdentity,
+	type GithubPrFeedbackFailure,
+	type GithubPrReviewThread,
 } from "@ns/capability-kit/github/pr-feedback";
 import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
 import { withTemporaryJsonFile } from "@ns/capability-kit/temp-files";
@@ -70,6 +73,10 @@ export interface RoasterGitHubGateway {
 		prNumber: number,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRReviewComment[]>>;
+	getPrReviewThreads(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly GithubPrReviewThread[]>>;
 	createPrReview(
 		prNumber: number,
 		comments: readonly PRInlineCommentInput[],
@@ -92,9 +99,11 @@ export interface RoasterGitHubGateway {
 
 export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 	private readonly execApi: CommandExecApi;
+	private readonly feedback: RealGithubPrFeedbackGateway;
 
 	constructor(execApi: CommandExecApi) {
 		this.execApi = execApi;
+		this.feedback = new RealGithubPrFeedbackGateway(execApiToCommandRunner(execApi));
 	}
 
 	async getPrChangedFiles(
@@ -142,6 +151,18 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 				body: comment.body,
 			})),
 		};
+	}
+
+	async getPrReviewThreads(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
+		const result = await this.feedback.getPrReviewThreads({
+			...options,
+			prNumber,
+		});
+		if (!result.ok) return error(convertFeedbackFailure(result.error));
+		return { type: "ok", value: result.value };
 	}
 
 	async createPrReview(
@@ -290,6 +311,7 @@ export interface CreatedReviewLogEntry {
 export interface FakeRoasterGitHubGatewayOptions {
 	readonly changedFilesByPr?: ReadonlyMap<number, readonly PRChangedFile[]>;
 	readonly reviewCommentsByPr?: ReadonlyMap<number, readonly PRReviewComment[]>;
+	readonly reviewThreadsByPr?: ReadonlyMap<number, readonly GithubPrReviewThread[]>;
 	readonly discussionCommentsByPr?: ReadonlyMap<
 		number,
 		readonly (PRDiscussionComment & { readonly author: string })[]
@@ -299,16 +321,22 @@ export interface FakeRoasterGitHubGatewayOptions {
 export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 	private readonly changedFilesByPr = new Map<number, PRChangedFile[]>();
 	private readonly reviewCommentsByPr = new Map<number, PRReviewComment[]>();
+	private readonly reviewThreadsByPr = new Map<number, GithubPrReviewThread[]>();
 	private readonly discussionCommentsByPr = new Map<
 		number,
 		Array<PRDiscussionComment & { readonly author: string }>
 	>();
+	private readonly markerCallsInternal: FindPrDiscussionCommentByMarkerOptions[] = [];
+	private readonly reviewThreadCallsInternal: Array<
+		GitHubGatewayOptions & { readonly prNumber: number }
+	> = [];
 	private readonly createdReviewsInternal: CreatedReviewLogEntry[] = [];
 	private nextCommentId = 1;
 
 	constructor(options: FakeRoasterGitHubGatewayOptions = {}) {
 		copyMapArray(options.changedFilesByPr, this.changedFilesByPr, copyChangedFile);
 		copyMapArray(options.reviewCommentsByPr, this.reviewCommentsByPr, copyReviewComment);
+		copyMapArray(options.reviewThreadsByPr, this.reviewThreadsByPr, copyReviewThread);
 		copyMapArray(
 			options.discussionCommentsByPr,
 			this.discussionCommentsByPr,
@@ -333,6 +361,17 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 		};
 	}
 
+	async getPrReviewThreads(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
+		this.reviewThreadCallsInternal.push({ ...copyGitHubGatewayOptions(options), prNumber });
+		return {
+			type: "ok",
+			value: (this.reviewThreadsByPr.get(prNumber) ?? []).map(copyReviewThread),
+		};
+	}
+
 	async createPrReview(
 		prNumber: number,
 		comments: readonly PRInlineCommentInput[],
@@ -345,6 +384,7 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 	async findPrDiscussionCommentByMarker(
 		options: FindPrDiscussionCommentByMarkerOptions,
 	): Promise<RoasterResult<PRDiscussionComment | null>> {
+		this.markerCallsInternal.push(copyFindPrDiscussionCommentByMarkerOptions(options));
 		const comment = (this.discussionCommentsByPr.get(options.prNumber) ?? []).find(
 			(item) => item.author === options.authorLogin && item.body.includes(options.marker),
 		);
@@ -393,6 +433,17 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 			comments: entry.comments.map(copyInlineCommentInput),
 		}));
 	}
+
+	markerCalls(): readonly FindPrDiscussionCommentByMarkerOptions[] {
+		return this.markerCallsInternal.map(copyFindPrDiscussionCommentByMarkerOptions);
+	}
+
+	reviewThreadCalls(): ReadonlyArray<GitHubGatewayOptions & { readonly prNumber: number }> {
+		return this.reviewThreadCallsInternal.map((call) => ({
+			...copyGitHubGatewayOptions(call),
+			prNumber: call.prNumber,
+		}));
+	}
 }
 
 function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): RoasterResult<T> {
@@ -422,6 +473,31 @@ function normalizeDiscussionComment(
 	};
 }
 
+function convertFeedbackFailure(failure: GithubPrFeedbackFailure): GitHubGatewayFailure {
+	const displayCommand = failure.displayCommand ?? failure.details?.displayCommand;
+	return {
+		type: githubFailureTypeForFeedbackFailure(failure),
+		message:
+			displayCommand === undefined ? failure.message : `${failure.message} (${displayCommand})`,
+	};
+}
+
+function githubFailureTypeForFeedbackFailure(
+	failure: GithubPrFeedbackFailure,
+): GitHubGatewayFailure["type"] {
+	switch (failure.code) {
+		case "github_pr_feedback_json_parse_failed":
+			return "github-json-invalid";
+		case "github_pr_feedback_response_invalid":
+		case "github_pr_feedback_pagination_invalid":
+			return "github-response-invalid";
+		case "github_pr_feedback_gh_failed":
+		case "github_pr_feedback_startup_failed":
+		case "github_pr_feedback_graphql_failed":
+			return "github-cli-failed";
+	}
+}
+
 function error(errorValue: GitHubGatewayFailure): RoasterResult<never> {
 	return { type: "error", error: errorValue };
 }
@@ -438,8 +514,39 @@ function copyReviewComment(comment: PRReviewComment): PRReviewComment {
 	return { author: comment.author, body: comment.body };
 }
 
+function copyReviewThread(thread: GithubPrReviewThread): GithubPrReviewThread {
+	return {
+		id: thread.id,
+		path: thread.path,
+		line: thread.line,
+		startLine: thread.startLine,
+		isResolved: thread.isResolved,
+		isOutdated: thread.isOutdated,
+		comments: thread.comments.map((comment) => ({ ...comment })),
+	};
+}
+
 function copyInlineCommentInput(comment: PRInlineCommentInput): PRInlineCommentInput {
 	return { path: comment.path, line: comment.line, body: comment.body };
+}
+
+function copyGitHubGatewayOptions(options: GitHubGatewayOptions): GitHubGatewayOptions {
+	return {
+		cwd: options.cwd,
+		...(options.env === undefined ? {} : { env: options.env }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	};
+}
+
+function copyFindPrDiscussionCommentByMarkerOptions(
+	options: FindPrDiscussionCommentByMarkerOptions,
+): FindPrDiscussionCommentByMarkerOptions {
+	return {
+		...copyGitHubGatewayOptions(options),
+		prNumber: options.prNumber,
+		marker: options.marker,
+		authorLogin: options.authorLogin,
+	};
 }
 
 function copyAuthoredDiscussionComment(

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { formatOmittedReviewInputFile } from "./input-coverage-formatting.ts";
 import {
 	type InlinePostingStatus,
+	type LastReviewedHeadState,
+	lastReviewedHeadStateSchema,
 	reviewFindingSchema,
 	type ReviewFinding,
 	type ReviewInputCoverage,
@@ -39,11 +41,7 @@ export interface FindingsPayload {
 	readonly errorMessage: string | null;
 }
 
-export interface LastReviewedHeadState {
-	readonly headSha: string;
-	readonly baseRef: string;
-	readonly baseMergeBaseSha: string;
-}
+export type { LastReviewedHeadState } from "./models.ts";
 
 export interface PriorFindingRecord {
 	readonly id: string;
@@ -70,14 +68,6 @@ export interface FindingsCommentMachineStateOptions {
 	readonly lastReviewedHead?: LastReviewedHeadState | null;
 	readonly cap?: number;
 }
-
-const lastReviewedHeadStateSchema = z
-	.object({
-		headSha: z.string().trim().min(1),
-		baseRef: z.string().trim().min(1),
-		baseMergeBaseSha: z.string().trim().min(1),
-	})
-	.strict();
 
 const priorFindingRecordSchema = z
 	.object({
@@ -278,6 +268,7 @@ function mergePriorFindingRecords(options: {
 	for (const finding of options.current) {
 		const id = priorFindingId(options.reviewName, finding);
 		const existing = recordsById.get(id);
+		// Refresh insertion order so cap pruning keeps re-confirmed findings over stale ones.
 		if (existing !== undefined) recordsById.delete(id);
 		recordsById.set(id, {
 			id,

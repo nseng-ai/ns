@@ -1,3 +1,4 @@
+import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -17,7 +18,6 @@ import type { ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts"
 import {
 	createFindingsReview,
 	createLocalDiff,
-	type ReviewRunnerRequest,
 	type LocalDiff,
 	type PRChangedFile,
 	type PRDiscussionComment,
@@ -25,9 +25,9 @@ import {
 	type PRReviewComment,
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
+	type ReviewRunnerRequest,
 } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
-import { FakePriorFindingsContextGithubGateway } from "../support/fake-prior-findings-context-gateway.ts";
 
 const sampleReviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
@@ -90,6 +90,7 @@ class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
 class RecordingGitHubGateway implements RoasterGitHubGateway {
 	readonly optionsCalls: GitHubGatewayOptions[] = [];
 	readonly markerCalls: FindPrDiscussionCommentByMarkerOptions[] = [];
+	readonly reviewThreadCalls: Array<GitHubGatewayOptions & { readonly prNumber: number }> = [];
 
 	async getPrChangedFiles(
 		_prNumber: number,
@@ -104,6 +105,14 @@ class RecordingGitHubGateway implements RoasterGitHubGateway {
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRReviewComment[]>> {
 		this.optionsCalls.push(options);
+		return { type: "ok", value: [] };
+	}
+
+	async getPrReviewThreads(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
+		this.reviewThreadCalls.push({ ...options, prNumber });
 		return { type: "ok", value: [] };
 	}
 
@@ -147,7 +156,6 @@ describe("createRoasterRuntime", () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
-		const priorFindingsGateway = new FakePriorFindingsContextGithubGateway();
 		const reviewRunner = new RecordingReviewRunnerGateway();
 		const env = { ROASTER_TEST: "1" };
 		const signal = new AbortController().signal;
@@ -156,7 +164,6 @@ describe("createRoasterRuntime", () => {
 			localDiff,
 			reviewCatalog,
 			github,
-			priorFindingsGateway,
 			reviewRunner,
 			cwd: "/repo",
 			env,
@@ -174,7 +181,6 @@ describe("createRoasterRuntime", () => {
 		expect(ctx.reviewCatalog).toBe(reviewCatalog);
 		expect(ctx.reviewLog).toBe(context.reviewLog);
 		expect(ctx.github).toBe(github);
-		expect(ctx.priorFindingsGateway).toBe(priorFindingsGateway);
 		expect(ctx.reviewRunner).toBe(reviewRunner);
 		expect(ctx.runScope).toEqual({ cwd: "/repo", env, signal });
 
@@ -192,6 +198,7 @@ describe("createRoasterRuntime", () => {
 		);
 		await ctx.github.getPrChangedFiles(47, runOptions);
 		await ctx.github.getPrReviewComments(47, runOptions);
+		await ctx.github.getPrReviewThreads(47, runOptions);
 		await ctx.github.createPrReview(47, [], runOptions);
 		await ctx.github.findPrDiscussionCommentByMarker({
 			...runOptions,
@@ -201,8 +208,6 @@ describe("createRoasterRuntime", () => {
 		});
 		await ctx.github.addPrDiscussionComment(47, "body", runOptions);
 		await ctx.github.updatePrDiscussionComment(1, "body", runOptions);
-		await ctx.priorFindingsGateway.getPrDiscussionComments({ ...runOptions, prNumber: 47 });
-		await ctx.priorFindingsGateway.getPrReviewThreads({ ...runOptions, prNumber: 47 });
 
 		ctx.stderr("diagnostic");
 		expect(await ctx.stdin()).toBe("envelope");
@@ -225,12 +230,7 @@ describe("createRoasterRuntime", () => {
 			marker: "<!-- roaster:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
-		expect(priorFindingsGateway.discussionCommentCalls).toEqual([
-			{ cwd: "/repo", env, signal, prNumber: 47 },
-		]);
-		expect(priorFindingsGateway.reviewThreadCalls).toEqual([
-			{ cwd: "/repo", env, signal, prNumber: 47 },
-		]);
+		expect(github.reviewThreadCalls[0]).toEqual({ cwd: "/repo", env, signal, prNumber: 47 });
 		for (const options of github.optionsCalls) {
 			expect(options.cwd).toBe("/repo");
 			expect(options.env).toBe(env);

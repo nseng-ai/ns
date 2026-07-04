@@ -144,19 +144,21 @@ export const diffReviewTargetSchema = z
 	.strict();
 export type DiffReviewTarget = z.infer<typeof diffReviewTargetSchema>;
 
+export const lastReviewedHeadStateSchema = z
+	.object({
+		headSha: nonBlankStringSchema,
+		baseRef: nonBlankStringSchema,
+		baseMergeBaseSha: nonBlankStringSchema,
+	})
+	.strict();
+export type LastReviewedHeadState = z.infer<typeof lastReviewedHeadStateSchema>;
+
 export const priorFindingsPromptContextSchema = z
 	.object({
 		prNumber: z.int().positive(),
 		reviewName: nonBlankStringSchema,
 		summaryCommentId: z.int().positive(),
-		lastReviewedHead: z
-			.object({
-				headSha: nonBlankStringSchema,
-				baseRef: nonBlankStringSchema,
-				baseMergeBaseSha: nonBlankStringSchema,
-			})
-			.strict()
-			.nullable(),
+		lastReviewedHead: lastReviewedHeadStateSchema.nullable(),
 		cap: z.int().positive(),
 		stampedFindingCount: nonNegativeIntegerSchema,
 		omittedByContextCap: nonNegativeIntegerSchema,
@@ -177,6 +179,7 @@ export const priorFindingsPromptContextSchema = z
 	})
 	.strict();
 export type PriorFindingsPromptContext = z.infer<typeof priorFindingsPromptContextSchema>;
+export type PriorFindingsPromptContextEntry = PriorFindingsPromptContext["findings"][number];
 
 export const reviewRunnerRequestSchema = z
 	.object({

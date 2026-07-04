@@ -8,14 +8,12 @@ import {
 	type ReviewRunnerGateway,
 } from "../../src/gateways/review-runner.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
-import type { PriorFindingsContextGithubGateway } from "../../src/core/prior-findings-context.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import {
 	FakeReviewCatalogGateway,
 	type ReviewCatalogGateway,
 } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/review-log.ts";
-import { FakePriorFindingsContextGithubGateway } from "./fake-prior-findings-context-gateway.ts";
 
 export interface FakeRoasterContextOptions {
 	readonly execApi?: CommandExecApi;
@@ -24,7 +22,6 @@ export interface FakeRoasterContextOptions {
 	readonly reviewCatalog?: ReviewCatalogGateway;
 	readonly reviewLog?: ReviewLogGateway;
 	readonly github?: RoasterGitHubGateway;
-	readonly priorFindingsGateway?: PriorFindingsContextGithubGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
@@ -54,8 +51,6 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
 		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
 		github: options.github ?? new FakeRoasterGitHubGateway(),
-		priorFindingsGateway:
-			options.priorFindingsGateway ?? new FakePriorFindingsContextGithubGateway(),
 		reviewRunner: options.reviewRunner ?? new FakeReviewRunnerGateway(),
 		cwd: options.cwd ?? "/repo",
 		env: options.env ?? {},

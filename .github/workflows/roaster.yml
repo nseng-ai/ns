@@ -128,7 +128,6 @@ jobs:
             --base-ref "$BASE_REF" \
             --log-branch "$GITHUB_HEAD_REF" \
             --prior-findings-pr-number "$PR_NUMBER" \
-            --prior-findings-cap 50 \
             --format json) || status=$?
 
           echo "--- roaster envelope ---"
