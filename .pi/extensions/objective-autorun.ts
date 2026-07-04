@@ -90,11 +90,28 @@ interface RunObjectiveRunnerStepOptions {
 	readonly ctx: ToolContext;
 }
 
+interface RunnerScratchPaths {
+	readonly reportPath: string;
+	readonly factsPath: string;
+}
+
 interface StepToolResultOptions {
 	readonly text: string;
 	readonly phase: RunnerStepPhase;
 	readonly details?: Record<string, unknown>;
 	readonly subagent?: RunnerSubagentResult;
+}
+
+interface DiagnosticFailureTextOptions {
+	readonly header: string;
+	readonly message: string | undefined;
+	readonly sections: readonly DiagnosticTailSection[];
+}
+
+interface DiagnosticTailSection {
+	readonly label: string;
+	readonly text: string;
+	readonly omitIfEmpty?: boolean;
 }
 
 interface ExtensionAPI {
@@ -234,8 +251,10 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 	const stepDir = await mkdtemp(join(scratchRoot, "step-"));
 	await chmod(stepDir, 0o700);
 	const guidancePath = join(stepDir, "guidance.md");
-	const reportPath = join(stepDir, "report.json");
-	const factsPath = join(stepDir, "facts.json");
+	const scratchPaths = {
+		reportPath: join(stepDir, "report.json"),
+		factsPath: join(stepDir, "facts.json"),
+	} satisfies RunnerScratchPaths;
 
 	const pushWidget = (phase: RunnerStepPhase, update?: RunnerSubagentUpdate): void => {
 		const lines = [`objective ${slug} · step ${stepNumber} · ${phase}`];
@@ -250,8 +269,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 			details: {
 				...details,
 				phase,
-				reportPath,
-				factsPath,
+				...scratchPaths,
 				...optionalEntry(
 					"subagent",
 					subagent === undefined ? undefined : subagentDetails(subagent),
@@ -275,14 +293,14 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 					"--guidance",
 					`@${guidancePath}`,
 					"--report-path",
-					reportPath,
+					scratchPaths.reportPath,
 					"--format",
 					"json",
 				],
 				{ cwd: ctx.cwd },
 			),
 		);
-		await writeFile(factsPath, beginExec.stdout, { encoding: "utf8", mode: 0o600 });
+		await writeFile(scratchPaths.factsPath, beginExec.stdout, { encoding: "utf8", mode: 0o600 });
 
 		const beginParsed = parseMachineEnvelopeData(beginExec.stdout, {
 			label: "runner-begin envelope",
@@ -322,22 +340,30 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		const finishExec = normalizeExecResult(
 			await pi.exec(
 				"sdl",
-				["objective", "exec", "runner-finish", slug, "--facts", `@${factsPath}`, "--format", "json"],
+				[
+					"objective",
+					"exec",
+					"runner-finish",
+					slug,
+					"--facts",
+					`@${scratchPaths.factsPath}`,
+					"--format",
+					"json",
+				],
 				{ cwd: ctx.cwd },
 			),
 		);
 		const checkpoint = extractCheckpointData(finishExec.stdout);
 		if (checkpoint === undefined) {
 			return stepToolResult({
-				text: [
-					`runner-finish produced no parseable checkpoint envelope for objective ${slug} (exit ${finishExec.code}). Treat this as a malfunction: read the diagnostics below and check the worktree before anything else.`,
-					"",
-					"stdout tail:",
-					tailText(finishExec.stdout, { maxChars: MAX_FAILURE_TAIL_CHARS }),
-					"",
-					"stderr tail:",
-					tailText(finishExec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS }),
-				].join("\n"),
+				text: formatDiagnosticFailureText({
+					header: `runner-finish produced no parseable checkpoint envelope for objective ${slug} (exit ${finishExec.code}). Treat this as a malfunction: read the diagnostics below and check the worktree before anything else.`,
+					message: undefined,
+					sections: [
+						{ label: "stdout", text: finishExec.stdout },
+						{ label: "stderr", text: finishExec.stderr },
+					],
+				}),
 				phase: "finish",
 				details: { exitCode: finishExec.code },
 				subagent,
@@ -366,18 +392,27 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 	}
 
 	function beginFailureResult(exec: ExecResult, envelopeMessage: string | undefined): ToolResult {
-		const stderrTail = tailText(exec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS });
-		const lines = [
-			`runner-begin refused or failed for objective ${slug} (exit ${exec.code}). Nothing was dispatched; the parent decides the next move.`,
-		];
-		if (envelopeMessage !== undefined) lines.push("", envelopeMessage);
-		if (stderrTail.length > 0) lines.push("", "stderr tail:", stderrTail);
 		return stepToolResult({
-			text: lines.join("\n"),
+			text: formatDiagnosticFailureText({
+				header: `runner-begin refused or failed for objective ${slug} (exit ${exec.code}). Nothing was dispatched; the parent decides the next move.`,
+				message: envelopeMessage,
+				sections: [{ label: "stderr", text: exec.stderr, omitIfEmpty: true }],
+			}),
 			phase: "begin",
 			details: { exitCode: exec.code },
 		});
 	}
+}
+
+function formatDiagnosticFailureText(options: DiagnosticFailureTextOptions): string {
+	const lines = [options.header];
+	if (options.message !== undefined) lines.push("", options.message);
+	for (const section of options.sections) {
+		const sectionTail = tailText(section.text, { maxChars: MAX_FAILURE_TAIL_CHARS });
+		if (section.omitIfEmpty === true && sectionTail.length === 0) continue;
+		lines.push("", `${section.label} tail:`, sectionTail);
+	}
+	return lines.join("\n");
 }
 
 interface CheckpointEnvelopeData {
