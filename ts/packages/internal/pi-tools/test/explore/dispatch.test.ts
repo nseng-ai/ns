@@ -8,6 +8,7 @@ import {
 } from "../../src/explore/contract.ts";
 import {
 	createExplorerDispatcher,
+	isExplorerTransientFailureResult,
 	type DispatchExplorerSubagentOptions,
 	type ExplorerDispatcherDependencies,
 } from "../../src/explore/dispatch.ts";
@@ -18,11 +19,13 @@ import {
 	makeErrorResult,
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
+	makeProtocolErrorResult,
+	makeStoppedWithoutUsefulTextResult,
+	stoppedProgress,
 	waitForSpawn,
 } from "../../src/explore/testing.ts";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
-	isRunnerSubagentTransientFailureResult,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
@@ -61,7 +64,7 @@ function flagValue(args: readonly string[], flag: string): string | undefined {
 }
 
 function makeResultWithStatus(status: RunnerSubagentStatus): RunnerSubagentResult {
-	const progress = { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 5 } as const;
+	const progress = stoppedProgress();
 	switch (status) {
 		case "completed":
 			return {
@@ -92,13 +95,7 @@ function makeResultWithStatus(status: RunnerSubagentStatus): RunnerSubagentResul
 				progress,
 			};
 		case "protocol-error":
-			return {
-				status,
-				diagnostic: "protocol diagnostic",
-				protocolError: { message: "protocol diagnostic" },
-				elapsedMs: 5,
-				progress,
-			};
+			return makeProtocolErrorResult("protocol diagnostic");
 		default: {
 			const exhaustive: never = status;
 			return exhaustive;
@@ -150,15 +147,8 @@ describe("dispatchExplorerSubagent", () => {
 	});
 
 	test("fails over on protocol-error results", async () => {
-		const protocolError: RunnerSubagentResult = {
-			status: "protocol-error",
-			diagnostic: "Malformed child JSON event.",
-			protocolError: { message: "Malformed child JSON event." },
-			elapsedMs: 5,
-			progress: { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 5 },
-		};
 		const recording = createRecordingExplorerDispatch([
-			protocolError,
+			makeProtocolErrorResult("Malformed child JSON event."),
 			makeFinalTextResult("## Start Here"),
 		]);
 		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
@@ -169,13 +159,9 @@ describe("dispatchExplorerSubagent", () => {
 	});
 
 	test("does not fail over on unusable-text statuses", async () => {
-		const stopped: RunnerSubagentResult = {
-			status: "stopped-without-useful-text",
-			diagnostic: "Forked Pi process stopped without useful final text.",
-			elapsedMs: 5,
-			progress: { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 5 },
-		};
-		const recording = createRecordingExplorerDispatch([stopped]);
+		const recording = createRecordingExplorerDispatch([
+			makeStoppedWithoutUsefulTextResult("Forked Pi process stopped without useful final text."),
+		]);
 		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
@@ -202,14 +188,17 @@ describe("dispatchExplorerSubagent", () => {
 		expect(outcome.failover).toBeUndefined();
 	});
 
-	test("short-circuits before dispatch when the caller already aborted", async () => {
+	test("lets the runner-subagent dispatcher handle already-aborted callers", async () => {
 		const controller = new AbortController();
 		controller.abort("user cancelled");
-		const recording = createRecordingExplorerDispatch([]);
-		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
-		const outcome = await dispatch({}, anthropicCtx, explorerIntent({ signal: controller.signal }));
+		const runner = createFakeRunnerSubagentDispatcher();
+		const pi: RunnerSubagentPi = {
+			[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies,
+		};
+		const dispatch = explorerDispatcher();
+		const outcome = await dispatch(pi, anthropicCtx, explorerIntent({ signal: controller.signal }));
 
-		expect(recording.calls).toHaveLength(0);
+		expect(runner.calls).toHaveLength(0);
 		expect(outcome.result.status).toBe("cancelled");
 		if (outcome.result.status !== "cancelled") return;
 		expect(outcome.result.reason).toBe("user cancelled");
@@ -217,7 +206,6 @@ describe("dispatchExplorerSubagent", () => {
 			state: "stopped",
 			toolCount: 0,
 			turnCount: 0,
-			elapsedMs: 0,
 		});
 		expect(outcome.failover).toBeUndefined();
 	});
@@ -280,7 +268,7 @@ describe("dispatchExplorerSubagent", () => {
 		expect(outcome.result.status).toBe("final-text");
 	});
 
-	test("keeps runner-subagent transient failure policy explicit", () => {
+	test("keeps explorer transient failure policy explicit", () => {
 		const expected = {
 			completed: false,
 			blocked: false,
@@ -303,9 +291,7 @@ describe("dispatchExplorerSubagent", () => {
 			"protocol-error",
 		];
 		for (const status of statuses) {
-			expect(isRunnerSubagentTransientFailureResult(makeResultWithStatus(status))).toBe(
-				expected[status],
-			);
+			expect(isExplorerTransientFailureResult(makeResultWithStatus(status))).toBe(expected[status]);
 		}
 	});
 });

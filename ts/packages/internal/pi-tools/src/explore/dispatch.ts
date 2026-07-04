@@ -6,15 +6,12 @@ import {
 import { isProviderAuthConfigured } from "@nseng-ai/pi/runtime/auth";
 
 import {
-	createRunnerSubagentCancelledResult,
 	dispatchRunnerSubagent,
-	isRunnerSubagentTransientFailureResult,
 	type RunnerSubagentContext,
 	type RunnerSubagentOptions,
 	type RunnerSubagentPi,
 	type RunnerSubagentProgressCallback,
 	type RunnerSubagentResult,
-	type RunnerSubagentTransientFailureStatus,
 } from "../runner-subagents/extension-api.ts";
 import { EXPLORER_AGENT_NAME, EXPLORER_READ_ONLY_TOOLS } from "./contract.ts";
 import {
@@ -55,12 +52,17 @@ export interface ExplorerDispatchOutcome {
 	definition: PiAgentDefinition;
 	launchPlan: ExplorerLaunchPlan;
 	failover?: {
-		firstAttemptStatus: RunnerSubagentTransientFailureStatus;
+		firstAttemptStatus: ExplorerTransientFailureStatus;
 		firstAttemptDiagnostic: string;
 	};
 }
 
-const defaultExplorerDispatcher = createExplorerDispatcher();
+const EXPLORER_TRANSIENT_FAILURE_STATUSES = ["error", "protocol-error"] as const;
+export type ExplorerTransientFailureStatus = (typeof EXPLORER_TRANSIENT_FAILURE_STATUSES)[number];
+type ExplorerTransientFailureResult = Extract<
+	RunnerSubagentResult,
+	{ status: ExplorerTransientFailureStatus }
+>;
 
 export function createExplorerDispatcher(
 	dependencies: ExplorerDispatcherDependencies = {},
@@ -79,20 +81,6 @@ export function createExplorerDispatcher(
 			...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
 			isProviderAuthConfigured: authProbe,
 		});
-		const abortSignals = explorerAbortSignals(ctx, intent);
-
-		if (abortSignals.some((signal) => signal.aborted)) {
-			const reason = abortReason(abortSignals);
-			return {
-				result: createRunnerSubagentCancelledResult({
-					title: intent.title,
-					...(reason === undefined ? {} : { reason }),
-				}),
-				definition,
-				launchPlan,
-			};
-		}
-
 		const childPrompt = composePiAgentPrompt(definition, {
 			title: intent.title,
 			prompt: intent.prompt,
@@ -111,11 +99,13 @@ export function createExplorerDispatcher(
 			ctx,
 			launchPlan.kind === "cheap" ? { ...baseOptions, model: launchPlan.model } : baseOptions,
 		);
-		if (!shouldFailoverExplorerDispatch({ launchPlan, result: firstResult, abortSignals })) {
+		const failoverInput: ShouldFailoverExplorerDispatchInput = {
+			launchPlan,
+			result: firstResult,
+			abortSignals: [ctx.signal, intent.signal],
+		};
+		if (!shouldFailoverExplorerDispatch(failoverInput)) {
 			return { result: firstResult, definition, launchPlan };
-		}
-		if (!isRunnerSubagentTransientFailureResult(firstResult)) {
-			throw new Error("Explorer failover predicate accepted a non-transient result.");
 		}
 
 		const failoverResult = await dispatch(pi, ctx, baseOptions);
@@ -124,25 +114,19 @@ export function createExplorerDispatcher(
 			definition,
 			launchPlan,
 			failover: {
-				firstAttemptStatus: firstResult.status,
-				firstAttemptDiagnostic: firstResult.diagnostic,
+				firstAttemptStatus: failoverInput.result.status,
+				firstAttemptDiagnostic: failoverInput.result.diagnostic,
 			},
 		};
 	};
 }
 
-export async function dispatchExplorerSubagent(
-	pi: RunnerSubagentPi,
-	ctx: RunnerSubagentContext,
-	intent: DispatchExplorerSubagentOptions,
-): Promise<ExplorerDispatchOutcome> {
-	return await defaultExplorerDispatcher(pi, ctx, intent);
-}
+export const dispatchExplorerSubagent: ExplorerDispatcher = createExplorerDispatcher();
 
 interface ShouldFailoverExplorerDispatchInput {
 	launchPlan: ExplorerLaunchPlan;
 	result: RunnerSubagentResult;
-	abortSignals: readonly AbortSignal[];
+	abortSignals: ReadonlyArray<AbortSignal | undefined>;
 }
 
 /**
@@ -150,32 +134,22 @@ interface ShouldFailoverExplorerDispatchInput {
  * runs honor the caller's intent, and stopped-without-* statuses mean the child ran but
  * produced unusable output — a prompt problem a different model will not fix.
  */
-function shouldFailoverExplorerDispatch(input: ShouldFailoverExplorerDispatchInput): boolean {
+function shouldFailoverExplorerDispatch(
+	input: ShouldFailoverExplorerDispatchInput,
+): input is ShouldFailoverExplorerDispatchInput & { result: ExplorerTransientFailureResult } {
 	return (
 		input.launchPlan.kind === "cheap" &&
-		!input.abortSignals.some((signal) => signal.aborted) &&
-		isRunnerSubagentTransientFailureResult(input.result)
+		!hasAbortedSignal(input.abortSignals) &&
+		isExplorerTransientFailureResult(input.result)
 	);
 }
 
-function explorerAbortSignals(
-	ctx: RunnerSubagentContext,
-	intent: DispatchExplorerSubagentOptions,
-): AbortSignal[] {
-	const signals: AbortSignal[] = [];
-	for (const signal of [ctx.signal, intent.signal]) {
-		if (signal !== undefined && !signals.includes(signal)) signals.push(signal);
-	}
-	return signals;
+export function isExplorerTransientFailureResult(
+	result: RunnerSubagentResult,
+): result is ExplorerTransientFailureResult {
+	return EXPLORER_TRANSIENT_FAILURE_STATUSES.some((status) => status === result.status);
 }
 
-function abortReason(signals: readonly AbortSignal[]): string | undefined {
-	for (const signal of signals) {
-		if (!signal.aborted) continue;
-		const reason = signal.reason as unknown;
-		if (typeof reason === "string") return reason;
-		if (reason instanceof Error) return reason.message;
-		if (reason !== undefined) return String(reason);
-	}
-	return undefined;
+function hasAbortedSignal(signals: ReadonlyArray<AbortSignal | undefined>): boolean {
+	return signals.some((signal) => signal?.aborted === true);
 }

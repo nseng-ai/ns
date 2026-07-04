@@ -29,16 +29,18 @@ function workspaceRoot(): string {
 }
 
 describe("explorer contract", () => {
-	test("the real explorer prompt contains every scout section header", () => {
+	test("the real explorer prompt scout section headings match the contract", () => {
 		const root = workspaceRoot();
 		const explorerAgentPath = join(root, EXPLORER_AGENT_REPO_RELATIVE_PATH);
 		const explorerAgentMarkdown = readFileSync(explorerAgentPath, "utf8");
 		const definition = parsePiAgentDefinitionMarkdown(explorerAgentMarkdown, explorerAgentPath);
+		const bodyHeadings = definition.body
+			.split("\n")
+			.filter((line) => line.startsWith("## "))
+			.slice(0, EXPLORER_SCOUT_SECTION_HEADERS.length);
 
 		expect(definition.schema).toBe(PI_AGENT_DEFINITION_SCHEMA);
-		for (const header of EXPLORER_SCOUT_SECTION_HEADERS) {
-			expect(definition.body).toContain(`\n${header}\n`);
-		}
+		expect(bodyHeadings).toEqual([...EXPLORER_SCOUT_SECTION_HEADERS]);
 	});
 
 	test("the real explorer agent definition loads from the workspace root", () => {

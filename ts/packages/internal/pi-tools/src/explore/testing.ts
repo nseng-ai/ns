@@ -10,11 +10,14 @@ import type {
 	RunnerSubagentOptions,
 	RunnerSubagentPi,
 	RunnerSubagentProgress,
+	RunnerSubagentProtocolErrorResult,
 	RunnerSubagentResult,
+	RunnerSubagentStoppedWithoutUsefulTextResult,
 } from "../runner-subagents/extension-api.ts";
 import {
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
+	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "./contract.ts";
 import type { DispatchSubagentFn } from "./dispatch.ts";
@@ -46,12 +49,12 @@ export function makeExplorerAgentDefinition(
 			"",
 			"{{prompt}}",
 		].join("\n"),
-		filePath: "/fake/.ns/pi/agents/explorer.md",
+		filePath: `/fake/${EXPLORER_AGENT_REPO_RELATIVE_PATH}`,
 		...overrides,
 	};
 }
 
-function stoppedProgress(): RunnerSubagentProgress {
+export function stoppedProgress(): RunnerSubagentProgress {
 	return { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 5 };
 }
 
@@ -69,6 +72,27 @@ export function makeErrorResult(diagnostic: string): RunnerSubagentErrorResult {
 		status: "error",
 		diagnostic,
 		error: { message: diagnostic },
+		elapsedMs: 5,
+		progress: stoppedProgress(),
+	};
+}
+
+export function makeProtocolErrorResult(diagnostic: string): RunnerSubagentProtocolErrorResult {
+	return {
+		status: "protocol-error",
+		diagnostic,
+		protocolError: { message: diagnostic },
+		elapsedMs: 5,
+		progress: stoppedProgress(),
+	};
+}
+
+export function makeStoppedWithoutUsefulTextResult(
+	diagnostic: string,
+): RunnerSubagentStoppedWithoutUsefulTextResult {
+	return {
+		status: "stopped-without-useful-text",
+		diagnostic,
 		elapsedMs: 5,
 		progress: stoppedProgress(),
 	};

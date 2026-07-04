@@ -33,13 +33,6 @@ export type RunnerSubagentStatus =
 	| RunnerSubagentFinalTextStatus
 	| RunnerSubagentFailureStatus;
 
-export const RUNNER_SUBAGENT_TRANSIENT_FAILURE_STATUSES = [
-	"error",
-	"protocol-error",
-] as const satisfies readonly RunnerSubagentFailureStatus[];
-export type RunnerSubagentTransientFailureStatus =
-	(typeof RUNNER_SUBAGENT_TRANSIENT_FAILURE_STATUSES)[number];
-
 export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 	name: string;
 	status: RunnerSubagentTerminalStatus;
@@ -235,39 +228,6 @@ export type RunnerSubagentResult<TInput = unknown> =
 	| RunnerSubagentCancelledResult
 	| RunnerSubagentErrorResult
 	| RunnerSubagentProtocolErrorResult;
-
-export interface CreateRunnerSubagentCancelledResultOptions {
-	title?: string;
-	reason?: string;
-	diagnostic?: string;
-}
-
-export function createRunnerSubagentCancelledResult(
-	options: CreateRunnerSubagentCancelledResultOptions = {},
-): RunnerSubagentCancelledResult {
-	const progress: RunnerSubagentProgress = {
-		state: "stopped",
-		toolCount: 0,
-		turnCount: 0,
-		elapsedMs: 0,
-		...(options.title === undefined ? {} : { title: options.title }),
-	};
-	return {
-		status: "cancelled",
-		diagnostic:
-			options.diagnostic ?? "Forked Pi process cancelled before launch by parent abort signal.",
-		elapsedMs: 0,
-		progress,
-		...(options.title === undefined ? {} : { title: options.title }),
-		...(options.reason === undefined ? {} : { reason: options.reason }),
-	};
-}
-
-export function isRunnerSubagentTransientFailureResult(
-	result: RunnerSubagentResult,
-): result is Extract<RunnerSubagentResult, { status: RunnerSubagentTransientFailureStatus }> {
-	return RUNNER_SUBAGENT_TRANSIENT_FAILURE_STATUSES.some((status) => status === result.status);
-}
 
 export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {
 	switch (result.status) {

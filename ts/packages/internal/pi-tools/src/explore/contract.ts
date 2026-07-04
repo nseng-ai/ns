@@ -1,5 +1,5 @@
 export const EXPLORER_AGENT_NAME = "explorer";
-export const EXPLORER_AGENT_REPO_RELATIVE_PATH = ".ji/pi/agents/explorer.md";
+export const EXPLORER_AGENT_REPO_RELATIVE_PATH = ".ns/pi/agents/explorer.md";
 export const EXPLORE_TOOL_NAME = "explore";
 
 /**

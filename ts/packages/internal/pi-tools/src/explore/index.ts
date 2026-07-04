@@ -23,4 +23,5 @@ export {
 	type ExplorerDispatcher,
 	type ExplorerDispatcherDependencies,
 	type ExplorerDispatchOutcome,
+	type ExplorerTransientFailureStatus,
 } from "./dispatch.ts";
