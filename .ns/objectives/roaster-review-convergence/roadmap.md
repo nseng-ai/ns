@@ -2,7 +2,8 @@
 
 ## Work
 
-- [ ] Write the ADR: generation-time convergence, GitHub-as-durable-state, compute layering (PR context optional), and the rejected cache/ledger design with parity and fingerprint-drift evidence
+- [x] Write the ADR: generation-time convergence, GitHub-as-durable-state, compute layering (PR context optional), and the rejected cache/ledger design with parity and fingerprint-drift evidence
+  - Evidence: `docs/adr/0027-roaster-generation-time-review-convergence.md` added on local branch `roaster-review-convergence/adr-generation-convergence`; `just dprint-check` and `just docs-check` passed.
 - [ ] Stamp the Last-reviewed head (PR head SHA — not CI's merge-commit `HEAD` — + reviewed base ref and its merge-base SHA) and the cumulative capped Prior-findings block machine-readably in the summary Findings comment at publish, surviving the body overwrite
 - [ ] Build Prior-findings context gathering: read the stamped findings block + review-thread resolution status (reusing the `@ns/capability-kit/github/pr-feedback` GraphQL surface) for a review key on a PR, with an explicit cap; degrade to a context-free review on gathering failure
 - [ ] Thread Prior-findings context and changed-since-Last-reviewed-head guidance into the review prompt as an optional input; keep `ns roaster review run` PR-free by default
