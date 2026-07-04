@@ -72,7 +72,7 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	if (poolSize(inventory) === 0)
 		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const resolved = resolveTargets(repoCtx, request, inventory);
-	if (!hasFreeTargetSelector(request))
+	if (!resolved.hasSelector)
 		return failure(
 			"missing-slot-arg",
 			"Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.",
@@ -213,21 +213,22 @@ function freeSuccessHeadline(targetCount: number): string {
 	return targetCount === 0 ? "No slots freed." : `Freed ${targetCount} slot(s).`;
 }
 
-function hasFreeTargetSelector(request: FreeRequest): boolean {
-	return (
-		request.num.length > 0 || request.wt.length > 0 || request.branch.length > 0 || request.current
-	);
-}
-
 function resolveTargets(
 	ctx: RepoSlotContext,
 	request: FreeRequest,
 	inventory: SlotInventory,
-): { slotNames: readonly string[]; errors: readonly string[]; skipped: readonly string[] } {
+): {
+	slotNames: readonly string[];
+	errors: readonly string[];
+	skipped: readonly string[];
+	hasSelector: boolean;
+} {
 	const slotNames: string[] = [];
 	const errors: string[] = [];
 	const skipped: string[] = [];
+	let hasSelector = false;
 	for (const raw of request.num) {
+		hasSelector = true;
 		const parsed = /^\d+$/.test(raw) ? Number(raw) : null;
 		const result =
 			parsed === null
@@ -237,11 +238,13 @@ function resolveTargets(
 		else errors.push(result.message);
 	}
 	for (const wt of request.wt) {
+		hasSelector = true;
 		const result = resolveWt(wt);
 		if (result.type === "ok") slotNames.push(result.slotName);
 		else errors.push(result.message);
 	}
 	for (const branch of request.branch) {
+		hasSelector = true;
 		const match = findByBranch(inventory, branch);
 		if (match?.kind === "slot") slotNames.push(match.record.slotName);
 		else if (match?.kind === "main")
@@ -251,11 +254,12 @@ function resolveTargets(
 		else skipped.push(`Branch '${branch}' is not assigned to a managed slot; nothing to free.`);
 	}
 	if (request.current) {
+		hasSelector = true;
 		const result = resolveCurrent(ctx.cwd);
 		if (result.type === "ok") slotNames.push(result.slotName);
 		else errors.push(result.message);
 	}
-	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped };
+	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped, hasSelector };
 }
 
 function createFreeAllProgressReporter(
