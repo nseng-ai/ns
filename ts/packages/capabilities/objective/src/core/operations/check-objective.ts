@@ -107,7 +107,6 @@ export const checkObjectiveResultSchema = z.discriminatedUnion("status", [
 
 export type CheckObjectiveRequest = z.infer<typeof checkObjectiveRequestSchema>;
 export type CheckObjectiveResult = z.infer<typeof checkObjectiveResultSchema>;
-export type { ObjectiveCheckItem } from "./check-items.ts";
 type CheckObjectiveStatus = CheckObjectiveResult["status"];
 
 export async function runCheckObjective(
