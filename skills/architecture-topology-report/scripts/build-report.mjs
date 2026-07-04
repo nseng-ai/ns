@@ -27,7 +27,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { FALLBACK_TIER, label, TIERS } from "./tiers.mjs";
+import { FALLBACK_TIER, label, TIER_RANK, TIERS } from "./tiers.mjs";
 import { synthesizeSpec } from "./synthesize-spec.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -244,6 +244,7 @@ function GRAPH_RENDERER() {
   // three toolbars live out here and persist across view switches.
   const DATA = JSON.parse(document.getElementById("graphdata").textContent);
   const TIERS = window.__TIERS__;
+  const TIER_RANK = window.__TIER_RANK__;
   const svg = d3.select("#depgraph"), el = svg.node();
   let W = el.clientWidth || 900, H = 820;
   svg.attr("viewBox", [0, 0, W, H]);
@@ -324,7 +325,6 @@ function GRAPH_RENDERER() {
     // Canonical architectural stacking (consumers → foundation): consumers and tools at
     // the top, the SDK and gateway backends in the middle, neutral infra at the bottom.
     // Tiers absent from this list fall back to mean-depth ordering.
-    const TIER_RANK = ["internal-pi-tool", "internal-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"];
     const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
     const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
     const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
@@ -673,7 +673,7 @@ function renderKeystone(s) {
 
 // ── 6. assemble the page ────────────────────────────────────────────────────
 function renderHtml(s, analysis, graphData) {
-  const rendererJs = `window.__TIERS__=${JSON.stringify(TIERS)};\n(${GRAPH_RENDERER.toString()})();`;
+  const rendererJs = `window.__TIERS__=${JSON.stringify(TIERS)};\nwindow.__TIER_RANK__=${JSON.stringify(TIER_RANK)};\n(${GRAPH_RENDERER.toString()})();`;
   return `<!doctype html>
 <html lang="en">
   <head>
