@@ -84,10 +84,11 @@ export function renderGoto(
 	result: GotoResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	const operationSuffix = result.operation === null ? "" : ` (${result.operation} in progress)`;
+	const hasOperation = result.operation !== null;
+	const operationSuffix = hasOperation ? ` (${result.operation} in progress)` : "";
 	const headline =
 		result.branchName === null
-			? `${result.slotName}${operationSuffix === "" ? " (available)" : operationSuffix}`
+			? `${result.slotName}${hasOperation ? operationSuffix : " (available)"}`
 			: `${result.slotName} -> ${result.branchName}${operationSuffix}`;
 	return renderSlotNavigationSuccess({ ...result, headline }, caps);
 }
