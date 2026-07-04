@@ -11,6 +11,8 @@ import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "../gateways
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
+import { RealPriorFindingsContextGithubGateway } from "../gateways/prior-findings-context.ts";
+import type { PriorFindingsContextGithubGateway } from "./prior-findings-context.ts";
 import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
@@ -22,6 +24,7 @@ export interface RoasterContext {
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
+	readonly priorFindingsGateway: PriorFindingsContextGithubGateway;
 	readonly reviewRunner: ReviewRunnerGateway;
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
@@ -41,6 +44,7 @@ export interface CreateRealRoasterContextOptions {
 	readonly execApi?: CommandExecApi;
 	readonly gitGateway?: GitGateway;
 	readonly reviewLog?: ReviewLogGateway;
+	readonly priorFindingsGateway?: PriorFindingsContextGithubGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
 }
 
@@ -68,6 +72,7 @@ export interface RoasterRuntime {
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
+	readonly priorFindingsGateway: PriorFindingsContextGithubGateway;
 	readonly reviewRunner: ReviewRunnerGateway;
 	readonly stdin: () => Promise<string>;
 	readonly stderr: (text: string) => void;
@@ -83,6 +88,8 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
 		reviewLog: options.reviewLog ?? new RealReviewLogGateway({ execApi }),
 		github: new RealRoasterGitHubGateway(execApi),
+		priorFindingsGateway:
+			options.priorFindingsGateway ?? new RealPriorFindingsContextGithubGateway(execApi),
 		reviewRunner: options.reviewRunner ?? new ClaudeCodeProcessReviewRunner({ execApi }),
 		cwd: options.cwd,
 		env: options.env,
@@ -101,6 +108,7 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 		reviewCatalog: context.reviewCatalog,
 		reviewLog: context.reviewLog,
 		github: context.github,
+		priorFindingsGateway: context.priorFindingsGateway,
 		reviewRunner: context.reviewRunner,
 		stdin: context.stdin,
 		stderr: context.stderr,

@@ -116,13 +116,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName --jq .baseRefName)
+          pr_context=$(gh pr view "$PR_NUMBER" --json baseRefName,headRefOid)
+          BASE_REF=$(jq -r .baseRefName <<< "$pr_context")
+          PR_HEAD_SHA=$(jq -r .headRefOid <<< "$pr_context")
           git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git fetch origin "$PR_HEAD_SHA"
+          BASE_MERGE_BASE_SHA=$(git merge-base "origin/$BASE_REF" "$PR_HEAD_SHA")
 
           status=0
           output=$(ns roaster review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --log-branch "$GITHUB_HEAD_REF" \
+            --prior-findings-pr-number "$PR_NUMBER" \
+            --prior-findings-cap 50 \
             --format json) || status=$?
 
           echo "--- roaster envelope ---"
@@ -133,6 +139,8 @@ jobs:
             --pr-number "$PR_NUMBER" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --review-name "$REVIEW_KEY" \
-            --base-ref "$BASE_REF"
+            --base-ref "$BASE_REF" \
+            --reviewed-head-sha "$PR_HEAD_SHA" \
+            --reviewed-base-merge-base-sha "$BASE_MERGE_BASE_SHA"
 
           exit "$status"
