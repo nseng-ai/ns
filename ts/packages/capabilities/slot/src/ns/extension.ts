@@ -274,8 +274,8 @@ export default defineExtension({
 		}),
 		slotCommand({
 			name: "goto",
-			summary: "Print/copy a cd command for an assigned slot.",
-			description: "Print/copy a cd command for an assigned slot.",
+			summary: "Print/copy a cd command for a slot worktree.",
+			description: "Print/copy a cd command for a slot worktree.",
 			schema: gotoRequestSchema,
 			options: gotoOptionSpecs,
 			resultSchema: gotoResultSchema,

@@ -93,14 +93,51 @@ describe("slot goto CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting-slot-args" });
 	});
 
-	it("returns negative for an unassigned slot", async () => {
+	it("goes to an unassigned slot by number", async () => {
 		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
+			git: { worktrees: [slotWorktree("slot-01")] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				slotName: "slot-01",
+				branchName: null,
+				operation: null,
+				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
+			},
+		});
+	});
+
+	it("goes to an unassigned slot by worktree name", async () => {
+		const run = runScenario(["goto", "--wt", "slot-02", "--format", "json"], {
+			git: { worktrees: [slotWorktree("slot-01", "a"), slotWorktree("slot-02")] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: { slotName: "slot-02", branchName: null },
+		});
+	});
+
+	it("renders an unassigned slot as available in human navigation output", async () => {
+		const run = runScenario(["goto", "-n", "1"], {
+			git: { worktrees: [slotWorktree("slot-01")] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ slot-01 (available)",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
+		]);
+	});
+
+	it("returns negative for a slot outside the managed pool", async () => {
+		const run = runScenario(["goto", "--wt", "slot-02", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 1,
-			message: "slot-01 is not currently assigned. Run `slot list` to see the pool.",
+			message: "slot-02 is not in the managed slot pool. Run `slot list` to see the pool.",
 		});
 	});
 
