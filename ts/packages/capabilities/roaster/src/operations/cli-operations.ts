@@ -121,6 +121,14 @@ export const publishFindingsRequestSchema = z.object({
 	runUrl: z.string().optional().describe("GitHub Actions run URL to include in the activity log."),
 	reviewName: z.string().optional().describe("Fallback review key for failed run envelopes."),
 	baseRef: z.string().optional().describe("Fallback base ref for failed run envelopes."),
+	reviewedHeadSha: z
+		.string()
+		.optional()
+		.describe("PR head commit SHA reviewed by this publish, for Last-reviewed stamping."),
+	reviewedBaseMergeBaseSha: z
+		.string()
+		.optional()
+		.describe("Merge-base SHA for the reviewed base ref and PR head."),
 });
 
 export const publishFindingsResultSchema = z
@@ -518,6 +526,7 @@ export async function publishFindingsFromRequest(
 			fallbackReviewName: request.reviewName,
 			fallbackBaseRef: request.baseRef,
 		}),
+		...lastReviewedHeadOptions(request),
 	});
 }
 
@@ -587,6 +596,26 @@ function loadDiffFromRequest(
 		...environmentOptions(ctx.runScope),
 		...optionalEntry("baseRef", baseRef),
 	});
+}
+
+function lastReviewedHeadOptions(request: PublishFindingsRequest): {
+	readonly lastReviewedHead?: {
+		readonly headSha: string;
+		readonly baseRef: string;
+		readonly baseMergeBaseSha: string;
+	};
+} {
+	if (request.reviewedHeadSha === undefined || request.reviewedBaseMergeBaseSha === undefined)
+		return {};
+	const baseRef = request.baseRef?.trim();
+	if (baseRef === undefined || baseRef === "") return {};
+	return {
+		lastReviewedHead: {
+			headSha: request.reviewedHeadSha,
+			baseRef,
+			baseMergeBaseSha: request.reviewedBaseMergeBaseSha,
+		},
+	};
 }
 
 function renderPublishFindingsDiagnostics(

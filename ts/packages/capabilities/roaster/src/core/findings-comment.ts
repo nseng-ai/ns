@@ -1,8 +1,10 @@
 import { truncatedSha256Digest } from "@ns/core/primitives";
+import { z } from "zod";
 
 import { formatOmittedReviewInputFile } from "./input-coverage-formatting.ts";
 import {
 	type InlinePostingStatus,
+	reviewFindingSchema,
 	type ReviewFinding,
 	type ReviewInputCoverage,
 } from "./models.ts";
@@ -10,6 +12,11 @@ import { roasterReviewDisplayRole } from "./review-display.ts";
 
 const SUMMARY_MARKER_RE = /^<!-- (roaster:[^ ]+) -->$/;
 const INLINE_MARKER_PREFIX = "roaster-inline";
+const MACHINE_STATE_START = "<!-- roaster-state:v1";
+const MACHINE_STATE_END = "-->";
+const MACHINE_STATE_LINE_WIDTH = 100;
+// Keep the newest exact-finding records when long-running PRs exceed the durable comment budget.
+export const PRIOR_FINDINGS_STATE_CAP = 50;
 const ACTIVITY_LOG_HEADING = "### Activity Log";
 const ACTIVITY_LOG_CAP = 10;
 const OMITTED_INPUT_FILES_RENDER_LIMIT = 10;
@@ -32,6 +39,69 @@ export interface FindingsPayload {
 	readonly errorMessage: string | null;
 }
 
+export interface LastReviewedHeadState {
+	readonly headSha: string;
+	readonly baseRef: string;
+	readonly baseMergeBaseSha: string;
+}
+
+export interface PriorFindingRecord {
+	readonly id: string;
+	readonly finding: ReviewFinding;
+	readonly firstSeenHeadSha: string | null;
+	readonly lastSeenHeadSha: string | null;
+}
+
+export interface PriorFindingsState {
+	readonly cap: number;
+	readonly prunedCount: number;
+	readonly findings: readonly PriorFindingRecord[];
+}
+
+export interface FindingsCommentMachineState {
+	readonly version: 1;
+	readonly lastReviewedHead: LastReviewedHeadState | null;
+	readonly priorFindings: PriorFindingsState;
+}
+
+export interface FindingsCommentMachineStateOptions {
+	readonly existingBody?: string;
+	readonly payload: FindingsPayload;
+	readonly lastReviewedHead?: LastReviewedHeadState | null;
+	readonly cap?: number;
+}
+
+const lastReviewedHeadStateSchema = z
+	.object({
+		headSha: z.string().trim().min(1),
+		baseRef: z.string().trim().min(1),
+		baseMergeBaseSha: z.string().trim().min(1),
+	})
+	.strict();
+
+const priorFindingRecordSchema = z
+	.object({
+		id: z.string().trim().min(1),
+		finding: reviewFindingSchema,
+		firstSeenHeadSha: z.string().trim().min(1).nullable(),
+		lastSeenHeadSha: z.string().trim().min(1).nullable(),
+	})
+	.strict();
+
+const findingsCommentMachineStateSchema = z
+	.object({
+		version: z.literal(1),
+		lastReviewedHead: lastReviewedHeadStateSchema.nullable(),
+		priorFindings: z
+			.object({
+				cap: z.int().positive(),
+				prunedCount: z.int().min(0),
+				findings: z.array(priorFindingRecordSchema),
+			})
+			.strict(),
+	})
+	.strict();
+
 export interface FindingsCommentBodyParseError {
 	readonly type: "findings_comment_body_parse_error";
 	readonly message: string;
@@ -48,13 +118,16 @@ export type FindingsCommentBodyParseResult =
 
 export function renderFindingsComment(
 	payload: FindingsPayload,
-	options: { readonly inlineStatus?: InlinePostingStatus | null } = {},
+	options: {
+		readonly inlineStatus?: InlinePostingStatus | null;
+		readonly machineState?: FindingsCommentMachineState | null;
+	} = {},
 ): string {
-	const lines = [
-		summaryMarkerForReview(payload.reviewName),
-		renderFindingsCommentHeading(payload),
-		"",
-	];
+	const lines = [summaryMarkerForReview(payload.reviewName)];
+	if (options.machineState !== undefined && options.machineState !== null) {
+		lines.push(...renderFindingsCommentMachineState(options.machineState));
+	}
+	lines.push(renderFindingsCommentHeading(payload), "");
 	if (options.inlineStatus !== undefined && options.inlineStatus !== null) {
 		lines.push(...renderInlinePostingStatus(options.inlineStatus), "");
 	}
@@ -81,6 +154,54 @@ export function parseFindingsCommentBody(raw: string): FindingsCommentBodyParseR
 	if (match === null)
 		return commentBodyError("first line of body must be a `<!-- roaster:<key> -->` marker");
 	return { type: "ok", parsed: { marker: `<!-- ${match[1]} -->`, body: raw } };
+}
+
+export function buildFindingsCommentMachineState(
+	options: FindingsCommentMachineStateOptions,
+): FindingsCommentMachineState {
+	const cap = options.cap ?? PRIOR_FINDINGS_STATE_CAP;
+	const existingState =
+		options.existingBody === undefined
+			? null
+			: parseFindingsCommentMachineState(options.existingBody);
+	const currentHeadSha = options.lastReviewedHead?.headSha ?? null;
+	const findings = mergePriorFindingRecords({
+		reviewName: options.payload.reviewName,
+		existing: existingState?.priorFindings.findings ?? [],
+		current: options.payload.findings,
+		currentHeadSha,
+		cap,
+	});
+	return {
+		version: 1,
+		lastReviewedHead: options.lastReviewedHead ?? existingState?.lastReviewedHead ?? null,
+		priorFindings: {
+			cap,
+			prunedCount: (existingState?.priorFindings.prunedCount ?? 0) + findings.prunedCount,
+			findings: findings.records,
+		},
+	};
+}
+
+export function parseFindingsCommentMachineState(raw: string): FindingsCommentMachineState | null {
+	const lines = raw.split(/\r?\n/u);
+	const startIndex = lines.findIndex((line) => line.trim() === MACHINE_STATE_START);
+	if (startIndex === -1) return null;
+	const endIndex = lines.findIndex(
+		(line, index) => index > startIndex && line.trim() === MACHINE_STATE_END,
+	);
+	if (endIndex === -1) return null;
+	const encoded = lines
+		.slice(startIndex + 1, endIndex)
+		.map((line) => line.trim())
+		.join("");
+	if (encoded === "") return null;
+	const decoded = decodeBase64Url(encoded);
+	if (decoded === null) return null;
+	const data = parseJson(decoded);
+	if (data === null) return null;
+	const parsed = findingsCommentMachineStateSchema.safeParse(data);
+	return parsed.success ? parsed.data : null;
 }
 
 export function inlineMarkerForFinding(reviewName: string, finding: ReviewFinding): string {
@@ -134,6 +255,83 @@ export function preserveActivityLog(
 			...entries.map((entry) => `- ${entry}`),
 		].join("\n") + "\n"
 	);
+}
+
+function renderFindingsCommentMachineState(state: FindingsCommentMachineState): string[] {
+	const encoded = encodeBase64Url(JSON.stringify(state));
+	return [
+		MACHINE_STATE_START,
+		...chunkString(encoded, MACHINE_STATE_LINE_WIDTH),
+		MACHINE_STATE_END,
+	];
+}
+
+function mergePriorFindingRecords(options: {
+	readonly reviewName: string;
+	readonly existing: readonly PriorFindingRecord[];
+	readonly current: readonly ReviewFinding[];
+	readonly currentHeadSha: string | null;
+	readonly cap: number;
+}): { readonly records: readonly PriorFindingRecord[]; readonly prunedCount: number } {
+	const recordsById = new Map<string, PriorFindingRecord>();
+	for (const record of options.existing) recordsById.set(record.id, record);
+	for (const finding of options.current) {
+		const id = priorFindingId(options.reviewName, finding);
+		const existing = recordsById.get(id);
+		if (existing !== undefined) recordsById.delete(id);
+		recordsById.set(id, {
+			id,
+			finding,
+			firstSeenHeadSha: existing?.firstSeenHeadSha ?? options.currentHeadSha,
+			lastSeenHeadSha: options.currentHeadSha,
+		});
+	}
+	const records = [...recordsById.values()];
+	const prunedCount = Math.max(0, records.length - options.cap);
+	return { records: records.slice(-options.cap), prunedCount };
+}
+
+function priorFindingId(reviewName: string, finding: ReviewFinding): string {
+	const digestInput = [
+		"prior-finding-v1",
+		reviewName,
+		finding.path ?? "",
+		finding.line === null ? "" : String(finding.line),
+		finding.severity,
+		finding.summary,
+		finding.details,
+	].join("\0");
+	return truncatedSha256Digest(digestInput).slice(0, 32);
+}
+
+function encodeBase64Url(value: string): string {
+	return Buffer.from(value, "utf8").toString("base64url");
+}
+
+function decodeBase64Url(value: string): string | null {
+	try {
+		return Buffer.from(value, "base64url").toString("utf8");
+	} catch {
+		// Malformed legacy/comment state should not block publishing a fresh summary.
+		return null;
+	}
+}
+
+function chunkString(value: string, width: number): readonly string[] {
+	const chunks: string[] = [];
+	for (let index = 0; index < value.length; index += width) {
+		chunks.push(value.slice(index, index + width));
+	}
+	return chunks;
+}
+
+function parseJson(raw: string): unknown | null {
+	try {
+		return JSON.parse(raw);
+	} catch {
+		// Malformed legacy/comment state should not block publishing a fresh summary.
+		return null;
+	}
 }
 
 function renderFindingsCommentHeading(payload: FindingsPayload): string {
