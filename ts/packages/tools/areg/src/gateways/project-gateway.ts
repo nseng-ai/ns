@@ -55,7 +55,7 @@ import { classifyResolvedSkillKindInspection } from "./skill-kind-classification
 
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
-	"ts/packages/local/pi-tools/src/backing-skill-commands/extension.ts";
+	"ts/packages/internal/pi-tools/src/backing-skill-commands/extension.ts";
 // AREG reads the composed command-backed skill catalog without importing
 // the project-local Pi extension entrypoint.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = visibleCommandBackedReplacementSurfaces();

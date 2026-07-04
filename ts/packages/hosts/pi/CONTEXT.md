@@ -1,6 +1,6 @@
 # @ns/pi
 
-`@ns/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages or capability-pi packages stacked above `@ns/pi`; Pi-native standalone tools may live in Local Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@ns/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@ns/ccc/pi` subpackage imports CCC core APIs and neutral `@ns/pi/...` helpers so there are no direct `@ns/ccc` imports from `@ns/pi/...` and no `@ns/pi` import or declaration of `@ns/ccc`.
+`@ns/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages or capability-pi packages stacked above `@ns/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@ns/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@ns/ccc/pi` subpackage imports CCC core APIs and neutral `@ns/pi/...` helpers so there are no direct `@ns/ccc` imports from `@ns/pi/...` and no `@ns/pi` import or declaration of `@ns/ccc`.
 
 ## Language
 
@@ -20,9 +20,9 @@ A thin project-local extension file whose job is to register Pi commands or tool
 A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, CCC, Handoff, and Objective Pi presentation now live in each capability's `pi` subpackage; Branch Context still lives in its capability-pi package pending conversion.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
-**Local Pi-tool package**:
-A private workspace package under `ts/packages/local/pi-tools/src/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, `@internal/pi-tools/backing-skill-commands`, `@internal/pi-tools/pr-previews`, or the dispatch-focused `@internal/pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@ns/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@ns/pi` import of the tool package.
-*Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
+**Internal Pi-tool package**:
+A private workspace package under `ts/packages/internal/pi-tools/src/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, `@internal/pi-tools/backing-skill-commands`, `@internal/pi-tools/pr-previews`, or the dispatch-focused `@internal/pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@ns/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@ns/pi` import of the tool package.
+*Avoid*: Local Pi-tool package, Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
 A curated `@ns/pi/...` package export for helper code intentionally reusable by other workspace packages, capability-pi packages, or extracted Pi-tool packages, including command acknowledgement, command UI helpers, command I/O, command names, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `grill/surfaces`, `models/*`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/expansion`, `terminal/*`, and `shared/*`.
@@ -38,7 +38,7 @@ The private TypeScript workspace package at `ts/packages/capabilities/ccc/` for 
 
 **CCC Pi subpackage**:
 The `@ns/ccc/pi` subpackage that wires CCC workflows into Pi/cmux presentation by importing CCC core APIs and neutral `@ns/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@ns/pi` itself still must not import or declare `@ns/ccc`.
-*Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic local Pi-tool package.
+*Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic internal Pi-tool package.
 
 **Pi command namespace**:
 The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/ns:flow:*` names ji lifecycle mirrors; `/ns:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
@@ -53,7 +53,7 @@ A host-resident Pi command surface whose durable lifecycle, selection, storage, 
 *Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
 
 **PR feedback Pi presentation residue**:
-The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Local Pi-tool package `@internal/pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`ns address exec ...` / `@ns/address/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
+The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Internal Pi-tool package `@internal/pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`ns address exec ...` / `@ns/address/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
 *Avoid*: Pi-native tool candidate, PR feedback domain owner, Address Capability API owner.
 
 **Immediate command acknowledgement**:

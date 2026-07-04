@@ -11,7 +11,7 @@ This package contains unified Pi runtime helper and extension modules. Keep exte
 
 Other workspace packages may import curated neutral `@ns/pi/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/pi/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.
 
-`@ns/pi/shared/*` exports are curated neutral infrastructure helpers for Pi-hosted code and extracted Local Pi-tool packages. A Local Pi-tool package may import helpers such as `@ns/pi/shared/exec-gateway` or `@ns/pi/shared/gh-command` when the helper is host/runtime infrastructure. Do not invert the dependency by making `@ns/pi` import Local Pi-tool packages, and do not move tool-specific PR feedback/watch/preview domain behavior into `@ns/pi/shared/*` just to deduplicate it.
+`@ns/pi/shared/*` exports are curated neutral infrastructure helpers for Pi-hosted code and extracted Internal Pi-tool packages. A Internal Pi-tool package may import helpers such as `@ns/pi/shared/exec-gateway` or `@ns/pi/shared/gh-command` when the helper is host/runtime infrastructure. Do not invert the dependency by making `@ns/pi` import Internal Pi-tool packages, and do not move tool-specific PR feedback/watch/preview domain behavior into `@ns/pi/shared/*` just to deduplicate it.
 
 ## Process I/O
 
@@ -19,8 +19,8 @@ Extension modules must not import `node:child_process` or perform synchronous pr
 
 Canonical seams:
 
-- `ts/packages/local/pi-tools/src/runner-subagents/curated-context.ts` uses `CuratedContextExecGit` for git evidence.
-- `ts/packages/local/pi-tools/src/runner-subagents/subagent-process.ts` is the async-spawn adapter seam for runner subagents; module logic depends on injected process functions.
+- `ts/packages/internal/pi-tools/src/runner-subagents/curated-context.ts` uses `CuratedContextExecGit` for git evidence.
+- `ts/packages/internal/pi-tools/src/runner-subagents/subagent-process.ts` is the async-spawn adapter seam for runner subagents; module logic depends on injected process functions.
 - `src/claude/interactive-spawn.ts` is the designated interactive Claude Code adapter seam. It may import `node:child_process` and use synchronous `spawnSync` only while the TUI is stopped; the event-loop freeze is intentional because the terminal is handed to the interactive child, matching Pi's upstream interactive-shell pattern. Module logic must depend on the injected `RunInteractiveClaude` type, never on this adapter.
 - The injected host `ctx.exec` author-facing result shape lives in `@ns/kernel/sdk`. The command-execution gateway lives in `@ns/core/exec`: pure command types/helpers are re-exported from `@ns/core/command`, and the real Node child-process adapter (`runCommand`, `NodeCommandExecApi`) lives in `@ns/core/exec` itself.
 

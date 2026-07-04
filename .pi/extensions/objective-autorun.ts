@@ -36,11 +36,11 @@ import {
 	isRecord,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-} from "../../ts/packages/local/pi-tools/src/runner-subagents/index.ts";
+} from "../../ts/packages/internal/pi-tools/src/runner-subagents/index.ts";
 import {
 	formatRunnerSubagentActivityWidgetLines,
 	setRunnerSubagentWidget,
-} from "../../ts/packages/local/pi-tools/src/runner-subagents/widget.ts";
+} from "../../ts/packages/internal/pi-tools/src/runner-subagents/widget.ts";
 import {
 	buildFencedTextBlock,
 	formatZodError,
@@ -57,7 +57,7 @@ import {
 // Bare "zod" is not resolvable from .pi/extensions (no node_modules ancestry at the repo root);
 // resolve it through the ts workspace package that declares it, matching .pi/lib/workspace-packages.ts.
 const requireFromPiTools = createRequire(
-	new URL("../../ts/packages/local/pi-tools/package.json", import.meta.url),
+	new URL("../../ts/packages/internal/pi-tools/package.json", import.meta.url),
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
 

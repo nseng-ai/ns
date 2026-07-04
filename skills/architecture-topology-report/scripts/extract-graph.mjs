@@ -50,7 +50,7 @@ const TIERS = [
   "host",
   "capability-pi",
   "standalone-tool",
-  "local-pi-tool",
+  "internal-pi-tool",
 ];
 const TIER_SET = new Set(TIERS);
 const TIER_POLICY = {
@@ -61,7 +61,7 @@ const TIER_POLICY = {
   host: new Set(["capability", "sdk", "capability-kit", "neutral-infra"]),
   "capability-pi": new Set(["capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
   "standalone-tool": new Set(["standalone-tool", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
-  "local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
+  "internal-pi-tool": new Set(["internal-pi-tool", "host", "neutral-infra"]),
 };
 const ALLOWED_DEBT_EDGES = new Map([
   ["@ns/ccc\0@ns/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
@@ -76,7 +76,7 @@ const ALLOWED_DEBT_EDGES = new Map([
   ],
   [
     "@internal/pi-tools\0@ns/capability-kit",
-    "Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
+    "Internal Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when internal-pi-tool helper placement is settled.",
   ],
 ]);
 

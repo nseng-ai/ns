@@ -18,7 +18,7 @@ export const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "NS_TS_BAN_CAPABILITY_PRIVATE_
 export const BAN_SNAKE_CASE_CLI_MACHINE_VALUE = "NS_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE";
 export const BAN_RAW_PRODUCTION_TIMERS = "NS_TS_BAN_RAW_PRODUCTION_TIMERS";
 export const BAN_EXTENSION_DEPENDENCY_CYCLE = "NS_TS_BAN_EXTENSION_DEPENDENCY_CYCLE";
-export const BAN_LOCAL_SPACE_ADMISSION = "NS_TS_LOCAL_SPACE_ADMISSION";
+export const BAN_INTERNAL_SPACE_ADMISSION = "NS_TS_INTERNAL_SPACE_ADMISSION";
 export const BAN_PACKAGE_TIER_LAYERING = "NS_TS_PACKAGE_TIER_LAYERING";
 export const BAN_TOPOLOGY_CIRCLE_LAYERING = "NS_TS_TOPOLOGY_CIRCLE_LAYERING";
 export const BAN_TOPOLOGY_CIRCLE_CYCLE = "NS_TS_TOPOLOGY_CIRCLE_CYCLE";
@@ -34,7 +34,7 @@ export const packageTierValues = [
 	"host",
 	"capability-pi",
 	"standalone-tool",
-	"local-pi-tool",
+	"internal-pi-tool",
 ] as const;
 
 export type PackageTier = (typeof packageTierValues)[number];
@@ -63,7 +63,7 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"sdk",
 		"neutral-infra",
 	]),
-	"local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
+	"internal-pi-tool": new Set(["internal-pi-tool", "host", "neutral-infra"]),
 };
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([
@@ -81,7 +81,7 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 	],
 	[
 		"@internal/pi-tools\0@ns/capability-kit",
-		"Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
+		"Internal Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when internal-pi-tool helper placement is settled.",
 	],
 ]);
 

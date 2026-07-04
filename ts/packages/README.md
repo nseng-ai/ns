@@ -17,7 +17,7 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 - `capabilities/` contains first-party capabilities that are already in the category directory, including standalone capabilities and converted/certified capability extensions.
 - `hosts/` contains presentation/runtime hosts such as Pi and `nscc`.
 - `capability-pi/` contains Pi command/presentation packages attached to first-party capabilities. They depend on the owning capability APIs plus neutral Pi host helper subpaths, and project-local `.pi/extensions/*` discovery adapters import them directly.
-- `local/` contains private, project-local Pi-native tools under the reserved `@internal/*` scope. They are not ji capabilities, not public CLIs, and not distribution packages. They are registered only through this repository's `.pi/extensions/*` discovery adapters.
+- `internal/` contains private, project-local Pi-native tools under the reserved `@internal/*` scope. They are not ji capabilities, not public CLIs, and not distribution packages. They are registered only through this repository's `.pi/extensions/*` discovery adapters.
 - `tools/` contains standalone tools that are off the capability-extension completion axis.
 
 Package names, public import specifiers, binary names, and workspace dependency names are independent of this filesystem taxonomy and should remain stable unless an explicit package-rename plan says otherwise.

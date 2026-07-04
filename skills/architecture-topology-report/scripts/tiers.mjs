@@ -13,7 +13,7 @@ export const TIERS = {
   host: { fill: "#475569", stroke: "#0f172a", name: "presentation host" },
   "capability-pi": { fill: "#bae6fd", stroke: "#0284c7", name: "capability Pi" },
   "standalone-tool": { fill: "#f1f5f9", stroke: "#94a3b8", name: "standalone tool" },
-  "local-pi-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "local pi tool" },
+  "internal-pi-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "internal pi tool" },
 };
 
 // Defensive fallback for any tier not in the registry above (should not happen
@@ -24,7 +24,7 @@ export const FALLBACK_TIER = "standalone-tool";
 // browser-side renderer. Tiers absent here fall back to mean-depth ordering in
 // the graph and to end-of-list ordering in the synthesized tier stack.
 export const TIER_RANK = [
-  "local-pi-tool",
+  "internal-pi-tool",
   "standalone-tool",
   "capability-pi",
   "host",
