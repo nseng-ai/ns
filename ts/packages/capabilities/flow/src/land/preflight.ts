@@ -13,6 +13,7 @@ import type {
 	LandingRequest,
 	LandingShape,
 	LandingWarning,
+	LocalBranchTip,
 	PrSubmitRequirement,
 	PullRequestFacts,
 	RestackRequirement,
@@ -25,6 +26,10 @@ import type {
 export interface BuildStackLandingPlanOptions {
 	readonly shouldAllowSubmitRequiredState?: boolean;
 	readonly landingBranchLimit?: number;
+}
+
+interface LoadedLandingShape extends LandingShape {
+	readonly localBranches: readonly LocalBranchTip[];
 }
 
 export async function buildStackLandingPlan(
@@ -49,15 +54,18 @@ export async function buildStackLandingPlan(
 	const cleanRepo = await assertCleanRepo(context, shape.value.repoRoot);
 	if (cleanRepo.type === "failure") return cleanRepo;
 
-	for (const branch of stack.landingBranches) {
-		const branchExists = await context.git.localBranchExists({
-			repoRoot: shape.value.repoRoot,
-			branch,
-		});
-		if (branchExists.type === "failure") return branchExists;
-	}
+	const localBranchShas = new Map(
+		shape.value.localBranches.map((branch) => [branch.name, branch.sha]),
+	);
+	const branchPresence = validateLandingBranchesPresent(stack.landingBranches, localBranchShas);
+	if (branchPresence.type === "failure") return branchPresence;
 
-	const branchPlans = await loadBranchPlans(context, shape.value.repoRoot, stack.landingBranches);
+	const branchPlans = await loadBranchPlans(
+		context,
+		shape.value.repoRoot,
+		stack.landingBranches,
+		localBranchShas,
+	);
 	if (branchPlans.type === "failure") return branchPlans;
 
 	const initialPreflight = validateInitialPrPreflight(branchPlans.value, stack.trunk, {
@@ -205,7 +213,7 @@ export function scopeStackSnapshot(
 async function loadLandingShape(
 	context: LandContext,
 	cwd: string,
-): Promise<LandResult<LandingShape>> {
+): Promise<LandResult<LoadedLandingShape>> {
 	const repoRoot = await context.git.resolveRepoRoot({ cwd });
 	if (repoRoot.type === "failure") return repoRoot;
 	const current = await context.git.currentBranch({ repoRoot: repoRoot.value });
@@ -230,6 +238,7 @@ async function loadLandingShape(
 		trunk: trunk.value,
 		metadataDbPath: metadataDbPath.value,
 		stack: stack.value,
+		localBranches: branches.value,
 	});
 }
 
@@ -261,16 +270,40 @@ async function loadBranchPlans(
 	context: LandContext,
 	repoRoot: string,
 	landingBranches: readonly string[],
+	localBranchShas: ReadonlyMap<string, string>,
 ): Promise<LandResult<readonly BranchLandingPlan[]>> {
 	const branchPlans: BranchLandingPlan[] = [];
 	for (const branch of landingBranches) {
-		const localSha = await context.git.localBranchSha({ repoRoot, branch });
-		if (localSha.type === "failure") return localSha;
+		const localSha = localBranchShas.get(branch);
+		if (localSha === undefined) return missingLocalBranchFailure(branch);
 		const pr = await context.github.pullRequestFacts({ repoRoot, branchOrNumber: branch });
 		if (pr.type === "failure") return pr;
-		branchPlans.push({ branch, localSha: localSha.value, pr: pr.value });
+		branchPlans.push({ branch, localSha, pr: pr.value });
 	}
 	return landSuccess(branchPlans);
+}
+
+function validateLandingBranchesPresent(
+	landingBranches: readonly string[],
+	localBranchShas: ReadonlyMap<string, string>,
+): LandOutcome {
+	for (const branch of landingBranches) {
+		if (!localBranchShas.has(branch)) return landOutcomeFailure(missingLocalBranch(branch));
+	}
+	return landCompleted();
+}
+
+function missingLocalBranchFailure(branch: string): LandResult<never> {
+	return landFailure(missingLocalBranch(branch));
+}
+
+function missingLocalBranch(branch: string): LandingDomainFailure {
+	return domainFailure({
+		phase: "preflight",
+		reason: "local-branch-missing",
+		message: `Local branch ${branch} does not exist; refusing to start stack landing.`,
+		failedBranch: branch,
+	});
 }
 
 export function validateInitialPrPreflight(

@@ -241,7 +241,13 @@ function formatLiveBranchTips(branches: readonly string[]): string {
 
 function formatLiveBranchTip(branch: string): string {
 	if (branch.includes("\t")) return branch;
-	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
+	return `${branch}\t${shaForLiveBranchTip(branch)}\t2026-01-01T00:00:00Z`;
+}
+
+function shaForLiveBranchTip(branch: string): string {
+	if (branch === CURRENT) return SHA_CURRENT;
+	if (branch === CHILD_BRANCH) return SHA_CHILD;
+	return "0".repeat(40);
 }
 
 function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[] {
@@ -423,10 +429,6 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 	return [
 		...domainGraphiteShapeSteps(DB_WITH_DESCENDANT),
 		...cleanRepoChecks(),
-		step("git", ["show-ref", "--verify", `refs/heads/${CURRENT}`]),
-		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
-			stdout: `${SHA_CURRENT}\n`,
-		}),
 		step("gh", ["pr", "view", CURRENT, "--json", STACK_PR_VIEW_FIELDS], {
 			stdout: stackPrView(),
 		}),

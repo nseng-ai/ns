@@ -77,10 +77,8 @@ describe("@ns/flow land stack preflight planning", () => {
 		});
 		expect(graphite.prepareSubmitUpdateCalls).toEqual([]);
 		expect(graphite.prepareRestackForSubmitCalls).toEqual([]);
-		expect(git.localBranchShaCalls).toEqual([
-			{ repoRoot: ROOT, branch: "feature-a" },
-			{ repoRoot: ROOT, branch: "feature-b" },
-		]);
+		expect(git.listLocalBranchesCalls).toEqual([{ repoRoot: ROOT }]);
+		expect(git.localBranchShaCalls).toEqual([]);
 	});
 
 	test("gates on clean repo before PR preflight", async () => {

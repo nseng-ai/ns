@@ -294,6 +294,7 @@ function repoIntro(
 		trunk?: string;
 		dbRows?: string;
 		liveBranches?: string[];
+		branchShaOverrides?: Record<string, string>;
 	} = {},
 ): ScriptedExec[] {
 	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
@@ -306,10 +307,34 @@ function repoIntro(
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
 		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
-			stdout: formatLiveBranchTips(liveBranches),
+			stdout: formatLiveBranchTips(
+				liveBranches.map((branch) => liveBranchTipForTest(branch, options.branchShaOverrides)),
+			),
 		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
+}
+
+function liveBranchTipForTest(
+	branch: string,
+	shaOverrides: Record<string, string> | undefined,
+): string {
+	if (branch.includes("\t")) return branch;
+	const sha = shaOverrides?.[branch] ?? testShaForBranch(branch);
+	return `${branch}\t${sha}\t2026-01-01T00:00:00Z`;
+}
+
+function testShaForBranch(branch: string): string {
+	switch (branch) {
+		case "feature-a":
+			return SHA_A;
+		case "feature-b":
+			return SHA_B;
+		case DESCENDANT:
+			return SHA_C;
+		default:
+			return "0".repeat(40);
+	}
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
@@ -323,20 +348,10 @@ function cleanRepoChecks(): ScriptedExec[] {
 	];
 }
 
-function localBranchChecks(branches: string[]): ScriptedExec[] {
-	return branches.map((branch) => step("git", ["show-ref", "--verify", `refs/heads/${branch}`]));
-}
-
 function initialBranchPlans(options: { featureBBase?: string } = {}): ScriptedExec[] {
 	return [
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${SHA_A}\n`,
-		}),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
-		}),
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
-			stdout: `${SHA_B}\n`,
 		}),
 		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 			stdout: prStdout(
@@ -364,7 +379,6 @@ function featureStackPreflight(
 	return [
 		...repoIntro({ dbRows }),
 		...cleanRepoChecks(),
-		...localBranchChecks(["feature-a", "feature-b"]),
 		...initialBranchPlans(
 			options.featureBBase === undefined ? {} : { featureBBase: options.featureBBase },
 		),
@@ -382,12 +396,12 @@ function singleBranchPreflightWithRefs(options: {
 	dbRows?: string;
 }): ScriptedExec[] {
 	return [
-		...repoIntro({ current: "feature-a", dbRows: options.dbRows ?? DB_SINGLE_BRANCH }),
-		...cleanRepoChecks(),
-		...localBranchChecks(["feature-a"]),
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${options.localSha}\n`,
+		...repoIntro({
+			current: "feature-a",
+			dbRows: options.dbRows ?? DB_SINGLE_BRANCH,
+			branchShaOverrides: { "feature-a": options.localSha },
 		}),
+		...cleanRepoChecks(),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 			stdout: prStdout(
 				prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha }),
