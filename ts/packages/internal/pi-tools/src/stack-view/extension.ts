@@ -15,9 +15,21 @@ import { z } from "zod";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
+import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 import { commandSucceeded } from "@nseng-ai/foundation/exec";
 import { loadStackView, type LoadStackViewResult } from "./data.ts";
-import { stackViewExecApi, type ExecOptions, type ExecResult } from "./exec.ts";
+import { createEnrichmentStore, type EnrichmentStore } from "./enrichment-store.ts";
+import {
+	createStackEnrichmentEngine,
+	type CreateStackEnrichmentEngineOptions,
+	type StackEnrichmentPort,
+} from "./enrichment-engine.ts";
+import {
+	stackViewExecApi,
+	type CommandExecApi,
+	type ExecOptions,
+	type ExecResult,
+} from "./exec.ts";
 import { buildSummaryPrompt, renderPlainSnapshot } from "./render.ts";
 import type { StackViewModel } from "./types.ts";
 import { runStackViewOverlayUi, type StackViewUiResult } from "./overlay-ui.ts";
@@ -34,6 +46,12 @@ type NotifyLevel = "info" | "warning" | "error";
 export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
+	/**
+	 * The host's Pi model registry, used to drive cheap-model enrichment summaries.
+	 * Typed structurally to keep this extension decoupled from pi-coding-agent's
+	 * concrete `ModelRegistry`; the real host context satisfies the shape.
+	 */
+	modelRegistry: PiModelRegistryLike;
 	waitForIdle(): Promise<void>;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
@@ -108,25 +126,69 @@ export const stackViewParity = definePiSurfaceParity([
 	},
 ] as const);
 
-export function registerStackViewExtension(pi: ExtensionAPI): void {
+/** Factory for the enrichment engine; a test seam kept off the public parity surface. */
+type StackEnrichmentEngineFactory = (
+	options: CreateStackEnrichmentEngineOptions,
+) => StackEnrichmentPort;
+
+/** The stack loader signature; a test seam matching {@link loadStackView}. */
+type LoadStackViewFn = (options: {
+	execApi: CommandExecApi;
+	cwd: string;
+}) => Promise<LoadStackViewResult>;
+
+/**
+ * Per-invocation collaborators for {@link handleStackViewCommand}. `store` is
+ * shared across invocations (memoization survives overlay reopen); `engineFactory`
+ * and `loadStackView` are internal test seams, kept off the public parity surface.
+ */
+interface StackViewCommandDeps {
+	store: EnrichmentStore;
+	engineFactory: StackEnrichmentEngineFactory;
+	loadStackView: LoadStackViewFn;
+}
+
+/** Registration options; every field is an internal test seam only. */
+export interface RegisterStackViewExtensionOptions {
+	engineFactory?: StackEnrichmentEngineFactory;
+	loadStackView?: LoadStackViewFn;
+}
+
+export function registerStackViewExtension(
+	pi: ExtensionAPI,
+	options: RegisterStackViewExtensionOptions = {},
+): void {
 	pi.registerMessageRenderer?.(STACK_VIEW_SNAPSHOT_MESSAGE_TYPE, renderStackViewSnapshotMessage);
+
+	// One store per registration so enrichment memoization survives overlay
+	// close/reopen within a session; each command invocation builds a fresh engine
+	// over this shared, store-memoized state.
+	const deps: StackViewCommandDeps = {
+		store: createEnrichmentStore(),
+		engineFactory: options.engineFactory ?? createStackEnrichmentEngine,
+		loadStackView: options.loadStackView ?? loadStackView,
+	};
 
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: STACK_VIEW_COMMAND_NAME,
 		commandDefinition: {
 			description: "Show the current Graphite stack as an interactive merge-readiness panel.",
-			handler: async (_args, ctx) => handleStackViewCommand(pi, ctx),
+			handler: async (_args, ctx) => handleStackViewCommand(pi, ctx, deps),
 		},
 	});
 }
 
 export default registerStackViewExtension;
 
-async function handleStackViewCommand(pi: ExtensionAPI, ctx: CommandContext): Promise<void> {
+async function handleStackViewCommand(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	deps: StackViewCommandDeps,
+): Promise<void> {
 	await ctx.waitForIdle();
 
-	const loaded = await loadStackViewWithStatus(pi, ctx);
+	const loaded = await loadStackViewWithStatus(pi, ctx, deps.loadStackView);
 	if (loaded.type === "not-on-stack") {
 		ctx.ui.notify(loaded.reason, "info");
 		return;
@@ -138,65 +200,78 @@ async function handleStackViewCommand(pi: ExtensionAPI, ctx: CommandContext): Pr
 
 	let model = loaded.model;
 
-	// No interactive UI: emit the plain snapshot and stop.
+	// No interactive UI: emit the plain snapshot and stop. The engine is never
+	// created or touched on this path.
 	if (!ctx.hasUI || ctx.ui.custom === undefined) {
 		sendSnapshotMessage(pi, ctx, model);
 		return;
 	}
 
-	let selectedIndex: number | undefined;
-	for (;;) {
-		let result: StackViewUiResult | undefined;
-		try {
-			result = await runStackViewOverlayUi(
-				model,
-				ctx,
-				selectedIndex === undefined ? {} : { selectedIndex },
-			);
-		} catch {
-			// Custom UI support can be absent or drift across Pi runtimes; fall back
-			// to the durable plain snapshot rather than failing the command.
-			sendSnapshotMessage(pi, ctx, model);
-			return;
-		}
-		if (result === undefined) {
-			sendSnapshotMessage(pi, ctx, model);
-			return;
-		}
-
-		selectedIndex = result.selectedIndex;
-		const outcome = result.outcome;
-
-		if (outcome.action === "open") {
-			await openGraphiteUrl(pi, ctx, outcome.url);
-			continue;
-		}
-
-		if (outcome.action === "refresh") {
-			const previousBranch = model.prs[selectedIndex]?.branch;
-			const reloaded = await loadStackViewWithStatus(pi, ctx);
-			if (reloaded.type === "not-on-stack") {
-				ctx.ui.notify(reloaded.reason, "info");
+	// One engine per invocation, reused across refreshes: its store-memoized keys
+	// make reuse cheap, and the model is passed per `ensureRow` call. Abort in the
+	// finally so in-flight background work is cancelled once the loop exits.
+	const engine = deps.engineFactory({
+		store: deps.store,
+		execApi: stackViewExecApi(pi),
+		cwd: ctx.cwd,
+		registry: ctx.modelRegistry,
+	});
+	try {
+		let selectedIndex: number | undefined;
+		for (;;) {
+			let result: StackViewUiResult | undefined;
+			try {
+				result = await runStackViewOverlayUi(model, ctx, {
+					...(selectedIndex === undefined ? {} : { selectedIndex }),
+					enrichment: engine,
+				});
+			} catch {
+				// Custom UI support can be absent or drift across Pi runtimes; fall back
+				// to the durable plain snapshot rather than failing the command.
+				sendSnapshotMessage(pi, ctx, model);
 				return;
 			}
-			if (reloaded.type === "error") {
-				ctx.ui.notify(reloaded.message, "error");
+			if (result === undefined) {
+				sendSnapshotMessage(pi, ctx, model);
 				return;
 			}
-			model = reloaded.model;
-			selectedIndex = reselectByBranch(model, previousBranch, selectedIndex);
-			continue;
-		}
 
-		if (outcome.action === "summarize") {
+			selectedIndex = result.selectedIndex;
+			const outcome = result.outcome;
+
+			if (outcome.action === "open") {
+				await openGraphiteUrl(pi, ctx, outcome.url);
+				continue;
+			}
+
+			if (outcome.action === "refresh") {
+				const previousBranch = model.prs[selectedIndex]?.branch;
+				const reloaded = await loadStackViewWithStatus(pi, ctx, deps.loadStackView);
+				if (reloaded.type === "not-on-stack") {
+					ctx.ui.notify(reloaded.reason, "info");
+					return;
+				}
+				if (reloaded.type === "error") {
+					ctx.ui.notify(reloaded.message, "error");
+					return;
+				}
+				model = reloaded.model;
+				selectedIndex = reselectByBranch(model, previousBranch, selectedIndex);
+				continue;
+			}
+
+			if (outcome.action === "summarize") {
+				sendSnapshotMessage(pi, ctx, model);
+				pi.sendUserMessage(buildSummaryPrompt(model));
+				return;
+			}
+
+			// close
 			sendSnapshotMessage(pi, ctx, model);
-			pi.sendUserMessage(buildSummaryPrompt(model));
 			return;
 		}
-
-		// close
-		sendSnapshotMessage(pi, ctx, model);
-		return;
+	} finally {
+		engine.abort();
 	}
 }
 
@@ -204,10 +279,11 @@ async function handleStackViewCommand(pi: ExtensionAPI, ctx: CommandContext): Pr
 async function loadStackViewWithStatus(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
+	load: LoadStackViewFn,
 ): Promise<LoadStackViewResult> {
 	ctx.ui.setStatus(STACK_VIEW_COMMAND_NAME, "loading stack…");
 	try {
-		return await loadStackView({ execApi: stackViewExecApi(pi), cwd: ctx.cwd });
+		return await load({ execApi: stackViewExecApi(pi), cwd: ctx.cwd });
 	} finally {
 		ctx.ui.setStatus(STACK_VIEW_COMMAND_NAME, undefined);
 	}

@@ -13,7 +13,14 @@
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 import { clamp } from "@nseng-ai/pi/terminal/layout";
-import type { StackViewModel, StackViewPr } from "./types.ts";
+import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
+import type { EnrichmentEntry } from "./enrichment-store.ts";
+import type {
+	StackViewCheckEntry,
+	StackViewModel,
+	StackViewPr,
+	StackViewThreadDetail,
+} from "./types.ts";
 
 /**
  * Overlay height budget. Duplicated locally from the pr-previews overlay
@@ -146,7 +153,10 @@ export type StackDetailRole =
 	| "check-failing"
 	| "check-pending"
 	| "thread"
-	| "passing"
+	| "summary-pending"
+	| "thread-summary"
+	| "check-why"
+	| "check-passing"
 	| "truncation-note"
 	| "objectives"
 	| "placeholder"
@@ -162,8 +172,18 @@ export interface StackDetailRow {
  * Build the detail-pane rows for the selected stack row. Empty sections are
  * omitted entirely. A missing or PR-less row renders a placeholder (plus its
  * objectives line, if any).
+ *
+ * When an `enrichment` snapshot is supplied it progressively augments the bare
+ * rows: each unresolved thread and each failing check gains a summary follow-on
+ * row keyed by {@link threadEnrichmentKey} / {@link checkEnrichmentKey} — a
+ * `…summarizing` placeholder while `pending`, an `↳ asks:` / `↳ why:` line once
+ * `ready`, and nothing when `failed` or absent (the bare row degrades cleanly).
+ * Passing check entries are listed under their own `PASSING CHECKS` section.
  */
-export function buildStackDetailRows(pr: StackViewPr | undefined): StackDetailRow[] {
+export function buildStackDetailRows(
+	pr: StackViewPr | undefined,
+	enrichment?: ReadonlyMap<string, EnrichmentEntry>,
+): StackDetailRow[] {
 	if (pr === undefined) return [{ role: "placeholder", text: "(no PR selected)" }];
 	if (pr.number === null) {
 		const rows: StackDetailRow[] = [
@@ -179,10 +199,10 @@ export function buildStackDetailRows(pr: StackViewPr | undefined): StackDetailRo
 	if (pr.graphiteUrl.length > 0) rows.push({ role: "url", text: pr.graphiteUrl });
 	rows.push({ role: "spacer", text: "" });
 
-	appendFailingChecks(rows, pr);
-	appendUnresolvedThreads(rows, pr);
+	appendFailingChecks(rows, pr, enrichment);
+	appendUnresolvedThreads(rows, pr, enrichment);
 	appendPendingChecks(rows, pr);
-	if (pr.checks.passing > 0) rows.push({ role: "passing", text: `✓ ${pr.checks.passing} passing` });
+	appendPassingChecks(rows, pr);
 
 	if (pr.objectiveSlugs.length > 0) {
 		rows.push({ role: "spacer", text: "" });
@@ -191,12 +211,52 @@ export function buildStackDetailRows(pr: StackViewPr | undefined): StackDetailRo
 	return rows;
 }
 
-function appendFailingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
+function appendFailingChecks(
+	rows: StackDetailRow[],
+	pr: StackViewPr,
+	enrichment?: ReadonlyMap<string, EnrichmentEntry>,
+): void {
 	const failing = pr.checkEntries.filter((entry) => entry.bucket === "failing");
 	if (failing.length === 0) return;
 	rows.push({ role: "section", text: `FAILING CHECKS (${failing.length})` });
-	for (const entry of failing)
+	for (const entry of failing) {
 		rows.push({ role: "check-failing", text: `✗ ${checkEntryLabel(entry)}` });
+		appendCheckWhy(rows, entry, enrichment);
+	}
+}
+
+/** Append the enrichment follow-on rows for one failing check, if any. */
+function appendCheckWhy(
+	rows: StackDetailRow[],
+	entry: StackViewCheckEntry,
+	enrichment: ReadonlyMap<string, EnrichmentEntry> | undefined,
+): void {
+	if (enrichment === undefined) return;
+	const result = enrichment.get(checkEnrichmentKey(entry));
+	if (result === undefined) return;
+	if (result.state === "pending") {
+		rows.push({ role: "summary-pending", text: "  …summarizing" });
+		return;
+	}
+	if (result.state !== "ready") return; // failed: the bare ✗ row degrades.
+	const lines = result.summary
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0)
+		.slice(0, 3);
+	const [first, ...rest] = lines;
+	if (first === undefined) return;
+	rows.push({ role: "check-why", text: `  ↳ why: ${first}` });
+	for (const line of rest) rows.push({ role: "check-why", text: `     ${line}` });
+}
+
+/** List completed passing check entries under their own section; omitted when zero. */
+function appendPassingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
+	const passing = pr.checkEntries.filter((entry) => entry.bucket === "passing");
+	if (passing.length === 0) return;
+	rows.push({ role: "section", text: `PASSING CHECKS (${passing.length})` });
+	for (const entry of passing)
+		rows.push({ role: "check-passing", text: `✓ ${checkEntryLabel(entry)}` });
 }
 
 function appendPendingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
@@ -211,17 +271,41 @@ function checkEntryLabel(entry: { name: string; workflowName: string | null }): 
 	return entry.workflowName === null ? entry.name : `${entry.name} (${entry.workflowName})`;
 }
 
-function appendUnresolvedThreads(rows: StackDetailRow[], pr: StackViewPr): void {
+function appendUnresolvedThreads(
+	rows: StackDetailRow[],
+	pr: StackViewPr,
+	enrichment?: ReadonlyMap<string, EnrichmentEntry>,
+): void {
 	const unresolvedCount = pr.threads.total - pr.threads.resolved;
 	if (unresolvedCount <= 0) return;
 	rows.push({ role: "section", text: `UNRESOLVED THREADS (${unresolvedCount})` });
 	for (const thread of pr.unresolvedThreads) {
 		rows.push({ role: "thread", text: formatThreadLocation(thread) });
+		appendThreadSummary(rows, thread, enrichment);
 	}
 	const missing = unresolvedCount - pr.unresolvedThreads.length;
 	if (missing > 0) {
 		rows.push({ role: "truncation-note", text: `… ${missing} more not fetched` });
 	}
+}
+
+/** Append the enrichment follow-on row for one unresolved thread, if any. */
+function appendThreadSummary(
+	rows: StackDetailRow[],
+	thread: StackViewThreadDetail,
+	enrichment: ReadonlyMap<string, EnrichmentEntry> | undefined,
+): void {
+	if (enrichment === undefined) return;
+	const key = threadEnrichmentKey(thread);
+	if (key === null) return;
+	const result = enrichment.get(key);
+	if (result === undefined) return;
+	if (result.state === "pending") {
+		rows.push({ role: "summary-pending", text: "  …summarizing" });
+		return;
+	}
+	if (result.state !== "ready") return; // failed: the bare thread row degrades.
+	rows.push({ role: "thread-summary", text: `  ↳ asks: ${collapseWhitespace(result.summary)}` });
 }
 
 function formatThreadLocation(thread: {
