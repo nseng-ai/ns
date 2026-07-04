@@ -1,27 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	buildSummaryPrompt,
-	renderPlainSnapshot,
-	renderStackFooter,
-	renderStackRows,
-	renderStackView,
-	type StackViewRenderParams,
-	type StackViewRenderPrimitives,
-	type StackViewRenderTheme,
-} from "../../src/stack-view/render.ts";
+import { buildSummaryPrompt, renderPlainSnapshot } from "../../src/stack-view/render.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
-
-// A theme that wraps every styling hook in greppable delimiters so tests can
-// assert both the styled text and the color/emphasis key that was applied.
-const bracketTheme: StackViewRenderTheme = {
-	fg: (color, text) => `[${color}]${text}[/]`,
-	bg: (color, text) => `{${color}}${text}{/}`,
-	bold: (text) => `<b>${text}</b>`,
-};
-
-// An empty theme exercises the all-optional fallback path (identity styling).
-const plainTheme: StackViewRenderTheme = {};
 
 function pr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 	return {
@@ -35,6 +15,8 @@ function pr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 		body: "Body text.",
 		threads: { resolved: 0, total: 0 },
 		checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+		checkEntries: [],
+		unresolvedThreads: [],
 		status: "ready",
 		objectiveSlugs: [],
 		...overrides,
@@ -77,284 +59,7 @@ function model(overrides: Partial<StackViewModel> = {}): StackViewModel {
 	};
 }
 
-function params(overrides: Partial<StackViewRenderParams> = {}): StackViewRenderParams {
-	return {
-		model: model(),
-		selectedIndex: 1,
-		width: 80,
-		theme: bracketTheme,
-		...overrides,
-	};
-}
-
-const ANSI_PATTERN = /\[[0-9;]*m/;
-
-describe("renderStackRows", () => {
-	test("emits one line per PR followed by the dim trunk row", () => {
-		const lines = renderStackRows(params({ theme: plainTheme, selectedIndex: 5 }));
-
-		expect(lines).toHaveLength(4);
-		expect(lines[0]).toContain("#103 Top change");
-		expect(lines[1]).toContain("#102 Mid change");
-		expect(lines[2]).toContain("#101 Base change");
-		const trunkLine = lines[3]!;
-		expect(trunkLine).toContain("─ master");
-		expect(trunkLine.startsWith("  ")).toBe(true);
-		expect(trunkLine).not.toContain("▸");
-	});
-
-	test("dims the trunk row via the theme and never marks it selectable", () => {
-		const lines = renderStackRows(params({ selectedIndex: 99 }));
-
-		expect(lines[3]).toBe("  [dim]─ master[/]");
-	});
-
-	test("selected row gets the ▸ marker and focus background", () => {
-		const lines = renderStackRows(params({ selectedIndex: 0 }));
-
-		expect(lines[0]!.includes("▸")).toBe(true);
-		expect(lines[0]).toContain("{selectedBg}");
-		// A non-selected row uses leading spaces instead of the ▸ marker.
-		expect(lines[2]!.startsWith("▸")).toBe(false);
-	});
-
-	test("selected label is styled accent + bold", () => {
-		const lines = renderStackRows(params({ selectedIndex: 0 }));
-
-		expect(lines[0]).toContain("[accent]<b>#103 Top change</b>[/]");
-	});
-
-	test("current-branch row gets an accent * cue and others do not", () => {
-		const lines = renderStackRows(params({ selectedIndex: 0 }));
-
-		// mid-feature is the current branch (index 1) but not selected here.
-		expect(lines[1]).toContain("[accent]*[/]");
-		expect(lines[2]).not.toContain("[accent]*[/]");
-	});
-
-	test("selected current row carries both ▸ and the * cue", () => {
-		const lines = renderStackRows(params({ selectedIndex: 1 }));
-
-		expect(lines[1]!.includes("▸")).toBe(true);
-		expect(lines[1]).toContain("[accent]*[/]");
-	});
-
-	test("renders #N title for PR rows and (no PR) branch for rows without a PR", () => {
-		const lines = renderStackRows(
-			params({
-				theme: plainTheme,
-				selectedIndex: 5,
-				model: model({
-					currentBranch: "orphan",
-					prs: [pr({ branch: "orphan", number: null, status: "no-pr" })],
-				}),
-			}),
-		);
-
-		expect(lines[0]).toContain("(no PR) orphan");
-		expect(lines[0]).not.toContain("#");
-	});
-
-	describe("threads badge", () => {
-		test("is omitted when total is zero", () => {
-			const lines = renderStackRows(params({ selectedIndex: 5, model: model({ prs: [pr()] }) }));
-
-			expect(lines[0]).not.toContain("💬");
-		});
-
-		test("uses warning styling while threads remain unresolved", () => {
-			const lines = renderStackRows(
-				params({
-					selectedIndex: 5,
-					model: model({ prs: [pr({ threads: { resolved: 1, total: 3 } })] }),
-				}),
-			);
-
-			expect(lines[0]).toContain("[warning]💬 1/3[/]");
-		});
-
-		test("uses muted styling once all threads are resolved", () => {
-			const lines = renderStackRows(
-				params({
-					selectedIndex: 5,
-					model: model({ prs: [pr({ threads: { resolved: 3, total: 3 } })] }),
-				}),
-			);
-
-			expect(lines[0]).toContain("[muted]💬 3/3[/]");
-		});
-	});
-
-	describe("checks badge precedence", () => {
-		function rowFor(checks: StackViewPr["checks"]): string {
-			return renderStackRows(
-				params({ selectedIndex: 5, model: model({ prs: [pr({ checks })] }) }),
-			)[0]!;
-		}
-
-		test("failing wins even when checks are also pending", () => {
-			const line = rowFor({ passing: 1, failing: 2, pending: 2, total: 5 });
-			expect(line).toContain("[error]✗ 2/5[/]");
-			expect(line).not.toContain("⋯");
-			expect(line).not.toContain("✓");
-		});
-
-		test("pending shows when none are failing", () => {
-			const line = rowFor({ passing: 2, failing: 0, pending: 3, total: 5 });
-			expect(line).toContain("[warning]⋯ 3/5[/]");
-			expect(line).not.toContain("✗");
-		});
-
-		test("all passing shows the success check", () => {
-			const line = rowFor({ passing: 5, failing: 0, pending: 0, total: 5 });
-			expect(line).toContain("[success]✓ 5/5[/]");
-		});
-
-		test("is omitted when there are no checks", () => {
-			const line = rowFor({ passing: 0, failing: 0, pending: 0, total: 0 });
-			expect(line).not.toContain("✓");
-			expect(line).not.toContain("✗");
-			expect(line).not.toContain("⋯");
-		});
-	});
-
-	describe("status words", () => {
-		function statusRow(status: StackViewPr["status"], number: number | null = 101): string {
-			return renderStackRows(
-				params({ selectedIndex: 5, model: model({ prs: [pr({ status, number })] }) }),
-			)[0]!;
-		}
-
-		test("draft", () => expect(statusRow("draft")).toContain("[muted]draft[/]"));
-		test("checks failing", () =>
-			expect(statusRow("checks-failing")).toContain("[error]checks failing[/]"));
-		test("unresolved", () => expect(statusRow("unresolved")).toContain("[warning]unresolved[/]"));
-		test("ready", () => expect(statusRow("ready")).toContain("[success]ready[/]"));
-		test("no-pr", () => expect(statusRow("no-pr", null)).toContain("[dim]no-pr[/]"));
-	});
-});
-
-describe("width behavior", () => {
-	test("every plain-theme line stays within a narrow width", () => {
-		const width = 24;
-		const lines = renderStackRows(
-			params({
-				theme: plainTheme,
-				width,
-				selectedIndex: 1,
-				model: model({
-					prs: [
-						pr({ branch: "top-feature", number: 103, title: "Top change" }),
-						pr({
-							branch: "mid-feature",
-							number: 102,
-							title: "A rather long middle title that overflows the panel",
-							threads: { resolved: 1, total: 4 },
-							checks: { passing: 1, failing: 1, pending: 1, total: 3 },
-							status: "checks-failing",
-						}),
-						pr({ branch: "base-feature", number: 101, title: "Base change" }),
-					],
-				}),
-			}),
-		);
-
-		expect(lines.every((line) => line.length <= width)).toBe(true);
-	});
-
-	test("overlong titles are truncated with an ellipsis", () => {
-		const width = 28;
-		const lines = renderStackRows(
-			params({
-				theme: plainTheme,
-				width,
-				selectedIndex: 5,
-				model: model({
-					prs: [
-						pr({
-							number: 101,
-							title: "This title is far too long to ever fit inside the panel width",
-						}),
-					],
-				}),
-			}),
-		);
-
-		expect(lines[0]).toContain("…");
-		expect(lines[0]!.length).toBeLessThanOrEqual(width);
-	});
-});
-
-describe("renderStackFooter", () => {
-	test("shows the selected PR's Graphite URL", () => {
-		const lines = renderStackFooter(params({ selectedIndex: 0 }));
-
-		expect(lines[0]).toBe("[accent]https://gt/103[/]");
-	});
-
-	test("shows a dim placeholder when the selected row has no PR / no URL", () => {
-		const lines = renderStackFooter(
-			params({
-				selectedIndex: 0,
-				model: model({ prs: [pr({ number: null, graphiteUrl: "", status: "no-pr" })] }),
-			}),
-		);
-
-		expect(lines[0]).toBe("[dim](no Graphite URL for this row)[/]");
-	});
-
-	test("shows a dim placeholder for an out-of-range selection", () => {
-		const lines = renderStackFooter(params({ selectedIndex: 42 }));
-
-		expect(lines[0]).toBe("[dim](no Graphite URL for this row)[/]");
-	});
-
-	test("renders an objectives block when the slug map is non-empty", () => {
-		const lines = renderStackFooter(
-			params({
-				model: model({
-					objectivesBySlug: new Map([
-						["auth-revamp", [12, 34]],
-						["render-layer", [56]],
-					]),
-				}),
-			}),
-		);
-		const output = lines.join("\n");
-
-		expect(output).toContain("[muted]Objectives:[/]");
-		expect(output).toContain("[text]auth-revamp (#12, #34)[/]");
-		expect(output).toContain("[text]render-layer (#56)[/]");
-	});
-
-	test("omits the objectives block when the slug map is empty", () => {
-		const lines = renderStackFooter(params());
-
-		expect(lines.join("\n")).not.toContain("Objectives:");
-	});
-
-	test("ends with the dim key legend", () => {
-		const lines = renderStackFooter(params());
-
-		expect(lines[lines.length - 1]).toBe(
-			"[dim]↑/↓ move · o open · s summarize · r refresh · q close[/]",
-		);
-	});
-});
-
-describe("renderStackView", () => {
-	test("composes rows, a blank spacer, then the footer", () => {
-		const config = params({ theme: plainTheme, width: 80, selectedIndex: 1 });
-		const rows = renderStackRows(config);
-		const footer = renderStackFooter(config);
-		const view = renderStackView(config);
-
-		expect(view).toHaveLength(rows.length + 1 + footer.length);
-		expect(view.slice(0, rows.length)).toEqual(rows);
-		expect(view[rows.length]).toBe("");
-		expect(view.slice(rows.length + 1)).toEqual(footer);
-	});
-});
+const ANSI_PATTERN = /\[[0-9;]*m/;
 
 describe("renderPlainSnapshot", () => {
 	test("renders a heading with repo and trunk", () => {
@@ -418,10 +123,175 @@ describe("renderPlainSnapshot", () => {
 
 	test("contains no ANSI escape sequences", () => {
 		const snapshot = renderPlainSnapshot(
-			model({ objectivesBySlug: new Map([["auth-revamp", [12]]]) }),
+			model({
+				objectivesBySlug: new Map([["auth-revamp", [12]]]),
+				prs: [
+					pr({
+						branch: "solo",
+						number: 101,
+						title: "Solo change",
+						checks: { passing: 0, failing: 1, pending: 1, total: 2 },
+						status: "checks-failing",
+						checkEntries: [
+							{ name: "build", workflowName: "CI", bucket: "failing" },
+							{ name: "lint", workflowName: null, bucket: "pending" },
+						],
+						// total-resolved equals the detail count so no `[+k more]` suffix
+						// (which legitimately contains `[`) muddies the no-ANSI invariant.
+						threads: { resolved: 0, total: 1 },
+						unresolvedThreads: [{ path: "src/a.ts", line: 10, author: "alice" }],
+					}),
+				],
+			}),
 		);
 
 		expect(ANSI_PATTERN.test(snapshot)).toBe(false);
+		expect(snapshot).not.toContain("[");
+	});
+
+	describe("detail lines", () => {
+		test("emits a failing line with workflow-name suffixes, comma-joined", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							checkEntries: [
+								{ name: "build", workflowName: "CI", bucket: "failing" },
+								{ name: "typecheck", workflowName: null, bucket: "failing" },
+								{ name: "unit", workflowName: "CI", bucket: "passing" },
+							],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain("  failing: build (CI), typecheck");
+		});
+
+		test("emits a pending line using the same name formatting", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							checkEntries: [{ name: "deploy", workflowName: "Release", bucket: "pending" }],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain("  pending: deploy (Release)");
+		});
+
+		test("omits failing and pending lines when there are no such entries", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							checkEntries: [{ name: "unit", workflowName: null, bucket: "passing" }],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).not.toContain("  failing:");
+			expect(snapshot).not.toContain("  pending:");
+		});
+
+		test("emits an unresolved line as `path:line · author`, semicolon-joined", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							threads: { resolved: 0, total: 2 },
+							unresolvedThreads: [
+								{ path: "src/a.ts", line: 10, author: "alice" },
+								{ path: "src/b.ts", line: 22, author: "bob" },
+							],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain("  unresolved: src/a.ts:10 · alice; src/b.ts:22 · bob");
+		});
+
+		test("drops the line when line is null and drops the author when author is null", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							threads: { resolved: 0, total: 3 },
+							unresolvedThreads: [
+								{ path: "src/a.ts", line: null, author: "alice" },
+								{ path: "src/b.ts", line: 5, author: null },
+								{ path: "", line: 7, author: "carol" },
+							],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain(
+				"  unresolved: src/a.ts · alice; src/b.ts:5; (file unknown):7 · carol",
+			);
+		});
+
+		test("appends [+k more] when total-resolved exceeds the detail count", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							threads: { resolved: 1, total: 5 },
+							unresolvedThreads: [{ path: "src/a.ts", line: 10, author: "alice" }],
+						}),
+					],
+				}),
+			);
+
+			// total 5 - resolved 1 = 4 unresolved, minus 1 detail listed = 3 hidden.
+			expect(snapshot).toContain("  unresolved: src/a.ts:10 · alice [+3 more]");
+		});
+
+		test("omits the [+k more] suffix when the detail count covers all unresolved", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							threads: { resolved: 0, total: 1 },
+							unresolvedThreads: [{ path: "src/a.ts", line: 10, author: "alice" }],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain("  unresolved: src/a.ts:10 · alice");
+			expect(snapshot).not.toContain("more]");
+		});
+
+		test("omits the unresolved line when there are no thread details", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [pr({ branch: "solo", threads: { resolved: 0, total: 3 }, unresolvedThreads: [] })],
+				}),
+			);
+
+			expect(snapshot).not.toContain("  unresolved:");
+		});
 	});
 });
 
@@ -467,17 +337,5 @@ describe("buildSummaryPrompt", () => {
 		const prompt = buildSummaryPrompt(model());
 
 		expect(prompt).toContain("Objectives edited by this stack:\n- None recorded.");
-	});
-});
-
-describe("injected primitives", () => {
-	test("a custom truncateToWidth is used for every emitted line", () => {
-		const primitives: StackViewRenderPrimitives = {
-			truncateToWidth: (value) => `${value}##CUT##`,
-		};
-		const lines = renderStackRows(params({ theme: plainTheme, primitives }));
-
-		expect(lines.length).toBeGreaterThan(0);
-		expect(lines.every((line) => line.includes("##CUT##"))).toBe(true);
 	});
 });

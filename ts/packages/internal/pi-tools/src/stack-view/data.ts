@@ -248,6 +248,8 @@ function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
 			body: "",
 			threads: { resolved: 0, total: 0 },
 			checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+			checkEntries: [],
+			unresolvedThreads: [],
 			status: noPrStatus(),
 			objectiveSlugs,
 		};
@@ -263,6 +265,8 @@ function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
 		body: prData.body,
 		threads: prData.threads,
 		checks: prData.checks,
+		checkEntries: prData.checkEntries,
+		unresolvedThreads: prData.unresolvedThreads,
 		status: deriveStatus({
 			number: prData.number,
 			isDraft: prData.isDraft,

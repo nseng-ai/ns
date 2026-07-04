@@ -8,6 +8,8 @@
  * The `ExtensionAPI` / `CommandContext` types below are deliberately narrowed to
  * only the host capabilities stack-view actually uses.
  */
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { Component, TUI } from "@earendil-works/pi-tui";
 import { z } from "zod";
 
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
@@ -18,11 +20,7 @@ import { loadStackView, type LoadStackViewResult } from "./data.ts";
 import { stackViewExecApi, type ExecOptions, type ExecResult } from "./exec.ts";
 import { buildSummaryPrompt, renderPlainSnapshot } from "./render.ts";
 import type { StackViewModel } from "./types.ts";
-import {
-	runStackViewInlineUi,
-	type StackViewCustomComponent,
-	type StackViewUiResult,
-} from "./inline-ui.ts";
+import { runStackViewOverlayUi, type StackViewUiResult } from "./overlay-ui.ts";
 
 /** The `/stack:view` slash-command name (also its `setStatus` key). */
 export const STACK_VIEW_COMMAND_NAME = "stack:view";
@@ -42,11 +40,11 @@ export interface CommandContext {
 		setStatus(key: string, value: string | undefined): void;
 		custom?<T>(
 			factory: (
-				tui: unknown,
-				theme: unknown,
+				tui: TUI,
+				theme: Theme,
 				keybindings: unknown,
 				done: (value: T) => void,
-			) => StackViewCustomComponent,
+			) => Component,
 			options?: unknown,
 		): Promise<T>;
 	};
@@ -106,7 +104,7 @@ export const stackViewParity = definePiSurfaceParity([
 		sourcePackage: "@internal/pi-tools/stack-view",
 		sourceModule: "stack-view",
 		notes:
-			"Vibecoded v1 is Pi-native interactive session UI (inline panel, keyboard navigation, transcript snapshot). Promotion path: a future @nseng-ai/stackview capability with an 'ns stack view' CLI, at which point this record graduates from WAIVED.",
+			"Vibecoded v1 is Pi-native interactive session UI (modal overlay panel, keyboard navigation, transcript snapshot). Promotion path: a future @nseng-ai/stackview capability with an 'ns stack view' CLI, at which point this record graduates from WAIVED.",
 	},
 ] as const);
 
@@ -150,7 +148,7 @@ async function handleStackViewCommand(pi: ExtensionAPI, ctx: CommandContext): Pr
 	for (;;) {
 		let result: StackViewUiResult | undefined;
 		try {
-			result = await runStackViewInlineUi(
+			result = await runStackViewOverlayUi(
 				model,
 				ctx,
 				selectedIndex === undefined ? {} : { selectedIndex },
@@ -300,6 +298,18 @@ const stackViewPrThreadsSchema = z.object({
 	total: z.number(),
 });
 
+const stackViewCheckEntrySchema = z.object({
+	name: z.string(),
+	workflowName: z.string().nullable(),
+	bucket: z.enum(["passing", "failing", "pending"]),
+});
+
+const stackViewThreadDetailSchema = z.object({
+	path: z.string(),
+	line: z.number().nullable(),
+	author: z.string().nullable(),
+});
+
 const stackViewPrSchema = z.object({
 	branch: z.string(),
 	parentBranch: z.string(),
@@ -311,6 +321,8 @@ const stackViewPrSchema = z.object({
 	body: z.string(),
 	threads: stackViewPrThreadsSchema,
 	checks: stackViewPrChecksSchema,
+	checkEntries: z.array(stackViewCheckEntrySchema),
+	unresolvedThreads: z.array(stackViewThreadDetailSchema),
 	status: z.enum(["draft", "checks-failing", "unresolved", "ready", "no-pr"]),
 	objectiveSlugs: z.array(z.string()),
 });
