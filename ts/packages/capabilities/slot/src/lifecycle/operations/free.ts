@@ -72,7 +72,7 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	if (poolSize(inventory) === 0)
 		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const resolved = resolveTargets(repoCtx, request, inventory);
-	if (resolved.slotNames.length === 0 && resolved.errors.length === 0)
+	if (!resolved.hasSelector)
 		return failure(
 			"missing-slot-arg",
 			"Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.",
@@ -217,10 +217,17 @@ function resolveTargets(
 	ctx: RepoSlotContext,
 	request: FreeRequest,
 	inventory: SlotInventory,
-): { slotNames: readonly string[]; errors: readonly string[]; skipped: readonly string[] } {
+): {
+	slotNames: readonly string[];
+	errors: readonly string[];
+	skipped: readonly string[];
+	hasSelector: boolean;
+} {
 	const slotNames: string[] = [];
 	const errors: string[] = [];
 	const skipped: string[] = [];
+	const hasSelector =
+		request.num.length > 0 || request.wt.length > 0 || request.branch.length > 0 || request.current;
 	for (const raw of request.num) {
 		const parsed = /^\d+$/.test(raw) ? Number(raw) : null;
 		const result =
@@ -249,7 +256,7 @@ function resolveTargets(
 		if (result.type === "ok") slotNames.push(result.slotName);
 		else errors.push(result.message);
 	}
-	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped };
+	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped, hasSelector };
 }
 
 function createFreeAllProgressReporter(
