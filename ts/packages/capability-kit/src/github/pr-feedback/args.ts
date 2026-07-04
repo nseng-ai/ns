@@ -1,4 +1,5 @@
 import {
+	branchPrChecksQuery,
 	discussionCommentsQuery,
 	prChecksQuery,
 	replyToReviewThreadMutation,

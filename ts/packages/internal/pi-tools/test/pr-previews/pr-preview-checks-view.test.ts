@@ -18,6 +18,10 @@ import {
 	PrPreviewChecksView,
 	type PrPreviewChecksViewModel,
 } from "../../src/pr-previews/preview-checks-view.ts";
+import {
+	PREVIEW_OVERLAY_MARGIN,
+	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
+} from "../../src/pr-previews/preview-view-utilities.ts";
 import { identityTheme, taggingTheme } from "./preview-test-themes.ts";
 
 describe("PR checks preview vertical layout", () => {
@@ -49,6 +53,106 @@ describe("PR checks preview vertical layout", () => {
 		expect(text).toContain("PR #102: feature/top");
 		expect(text).toContain("Selected stack PR checks");
 		expect(selectedDetailsText(view)).toContain("typescript");
+	});
+
+	test("keeps shortcut footer inside the host overlay budget", () => {
+		const terminalRows = 40;
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(terminalRows),
+			theme: identityTheme(),
+			model: stackPreviewModel([
+				stackEntry("feature/base", 101, [previewCheck("base-check")]),
+				stackEntry("feature/top", 102, [previewCheck("top-check")]),
+			]),
+			onClose: () => {},
+		});
+
+		const rendered = view.render(120);
+		const overlayRows = Math.min(
+			Math.floor(terminalRows * PREVIEW_OVERLAY_MAX_HEIGHT_RATIO),
+			terminalRows - 2 * PREVIEW_OVERLAY_MARGIN,
+		);
+
+		expect(rendered).toHaveLength(overlayRows);
+		expect(rendered.at(-2)).toContain("↑↓/jk PRs");
+		expect(rendered.at(-1)).toContain("└");
+	});
+
+	test("navigates stack PRs with j/k before drilling into checks", () => {
+		const baseCheck = previewCheck("base-check");
+		const topCheck = { ...previewCheck("top-check"), bucket: "passing" } satisfies PrPreviewCheck;
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: stackPreviewModel([
+				stackEntry("feature/base", 101, [baseCheck]),
+				stackEntry("feature/top", 102, [topCheck]),
+			]),
+			onClose: () => {},
+		});
+
+		expect(renderText(view)).toContain("◆ PR #101");
+		expect(renderText(view)).toContain("↑↓/jk PRs");
+		expect(selectedDetailsText(view)).toContain("base-check");
+
+		view.handleInput("j");
+		expect(renderText(view)).toContain("◆ PR #102");
+		expect(selectedDetailsText(view)).toContain("top-check");
+
+		view.handleInput("k");
+		expect(renderText(view)).toContain("◆ PR #101");
+		expect(selectedDetailsText(view)).toContain("base-check");
+	});
+
+	test("drills into checks with enter and returns to PRs with h", () => {
+		const alpha = previewCheck("alpha-check");
+		const beta = { ...previewCheck("beta-check"), bucket: "passing" } satisfies PrPreviewCheck;
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: stackPreviewModel([
+				stackEntry("feature/base", 101, [alpha, beta]),
+				stackEntry("feature/top", 102, [previewCheck("top-check")]),
+			]),
+			onClose: () => {},
+		});
+
+		view.handleInput("\r");
+		expect(renderText(view)).toContain("←/h or tab PR list");
+		view.handleInput("j");
+		expect(selectedDetailsText(view)).toContain("beta-check");
+		expect(renderText(view)).toContain("◆ PR #101");
+
+		view.handleInput("h");
+		view.handleInput("j");
+		expect(renderText(view)).toContain("◆ PR #102");
+		expect(selectedDetailsText(view)).toContain("top-check");
+	});
+
+	test("keeps l for log summaries only after drilling into checks", () => {
+		const loadCalls: string[] = [];
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: stackPreviewModel([
+				stackEntry("feature/base", 101, [previewCheck("alpha-check")]),
+				stackEntry("feature/top", 102, [previewCheck("top-check")]),
+			]),
+			onClose: () => {},
+			onLoadLogs: (check) => {
+				loadCalls.push(check.name);
+				return Promise.resolve([`summary for ${check.name}`]);
+			},
+		});
+
+		view.handleInput("l");
+		expect(loadCalls).toEqual([]);
+		view.handleInput("l");
+		expect(loadCalls).toEqual(["alpha-check"]);
+
+		view.handleInput("\t");
+		view.handleInput("j");
+		expect(renderText(view)).toContain("◆ PR #102");
 	});
 
 	test("derives gh job log args from GitHub Actions job URLs", () => {
@@ -297,9 +401,9 @@ function stackEntry(
 	};
 }
 
-function fakeTui(): TUI {
+function fakeTui(rows = 18): TUI {
 	return {
-		terminal: { rows: 18 },
+		terminal: { rows },
 		requestRender() {},
 	} as TUI;
 }

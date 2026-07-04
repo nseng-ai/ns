@@ -18,6 +18,8 @@ import {
 } from "./preview-checks-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@ns/pi/terminal/layout";
 import {
+	PREVIEW_OVERLAY_MARGIN,
+	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
 	parseCheckLogSummaryMarkdownLine,
 	sliceWrappedDetailLinesForViewport,
 	wrapDetailLines,
@@ -42,6 +44,7 @@ type CheckLogCacheEntry =
 	| { type: "loading" }
 	| { type: "loaded"; lines: readonly string[] }
 	| { type: "failed"; lines: readonly string[] };
+type PreviewFocusedPane = "stack" | "checks";
 
 export type {
 	PrPreviewChecksCounts,
@@ -78,6 +81,7 @@ export class PrPreviewChecksView implements Component {
 		| ((check: PrPreviewCheck, options: PrPreviewCheckLogLoadOptions) => Promise<readonly string[]>)
 		| undefined;
 	private readonly logLoadTimeoutMs: number;
+	private focusedPane: PreviewFocusedPane;
 	private selectedTargetIndex: number;
 	private selectedCheckIndex: number;
 	private stackScroll: number;
@@ -92,6 +96,7 @@ export class PrPreviewChecksView implements Component {
 		this.onClose = options.onClose;
 		this.onLoadLogs = options.onLoadLogs;
 		this.logLoadTimeoutMs = options.logLoadTimeoutMs ?? DEFAULT_LOG_LOAD_TIMEOUT_MS;
+		this.focusedPane = previewChecksStackEntries(options.model).length > 1 ? "stack" : "checks";
 		this.selectedTargetIndex = initialTargetIndex(options.model);
 		this.selectedCheckIndex = 0;
 		this.stackScroll = 0;
@@ -103,13 +108,10 @@ export class PrPreviewChecksView implements Component {
 	render(width: number): string[] {
 		const safeWidth = Math.max(MIN_RENDER_WIDTH, width);
 		const innerWidth = Math.max(1, safeWidth - 2);
-		const height = Math.max(10, this.terminalRows());
+		const height = this.modalRows();
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
-		const footer = this.color(
-			"dim",
-			"←→ stack · ↑↓/jk checks · l summarize logs · PgUp/PgDn scroll details · q/esc close",
-		);
-		const chromeRows = 2 + header.length + 1 + 1;
+		const footer = this.color("dim", this.footerText());
+		const chromeRows = 2 + header.length + 1 + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
 		const body = this.renderBody(innerWidth, bodyRows);
 		return [
@@ -117,6 +119,7 @@ export class PrPreviewChecksView implements Component {
 			...header.map((line) => this.boxLine(line, innerWidth)),
 			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			...body.map((line) => this.boxLine(line, innerWidth)),
+			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			this.boxLine(footer, innerWidth),
 			this.border({ left: "└", fill: "─", right: "┘", width: safeWidth }),
 		].map((line) => fitToWidth(line, width));
@@ -127,20 +130,24 @@ export class PrPreviewChecksView implements Component {
 			this.onClose();
 			return;
 		}
-		if (matchesKey(data, Key.right)) {
-			this.moveStackSelection(1);
-			return;
-		}
-		if (matchesKey(data, Key.left)) {
-			this.moveStackSelection(-1);
+		if (matchesKey(data, Key.tab)) {
+			this.toggleFocusedPane();
 			return;
 		}
 		if (matchesKey(data, Key.down) || data === "j") {
-			this.moveCheckSelection(1);
+			this.moveFocusedSelection(1);
 			return;
 		}
 		if (matchesKey(data, Key.up) || data === "k") {
-			this.moveCheckSelection(-1);
+			this.moveFocusedSelection(-1);
+			return;
+		}
+		if (matchesKey(data, Key.right) || matchesKey(data, Key.enter)) {
+			this.descendToChecks();
+			return;
+		}
+		if (matchesKey(data, Key.left) || data === "h") {
+			this.ascendToStack();
 			return;
 		}
 		if (matchesKey(data, Key.pageDown) || data === " ") {
@@ -152,6 +159,10 @@ export class PrPreviewChecksView implements Component {
 			return;
 		}
 		if (data === "l") {
+			if (this.focusedPane === "stack") {
+				this.descendToChecks();
+				return;
+			}
 			void this.loadSelectedCheckLogs();
 		}
 	}
@@ -160,6 +171,18 @@ export class PrPreviewChecksView implements Component {
 
 	private terminalRows(): number {
 		return this.tui.terminal.rows ?? FALLBACK_TERMINAL_ROWS;
+	}
+
+	/**
+	 * Number of rows the modal may render before the host overlay clips it. Mirrors
+	 * the TUI's `maxHeight = min(floor(rows * ratio), rows - 2 * margin)` so the
+	 * footer and bottom border stay inside the visible overlay.
+	 */
+	private modalRows(): number {
+		const rows = this.terminalRows();
+		const available = Math.max(1, rows - 2 * PREVIEW_OVERLAY_MARGIN);
+		const budget = Math.min(Math.floor(rows * PREVIEW_OVERLAY_MAX_HEIGHT_RATIO), available);
+		return Math.max(1, budget);
 	}
 
 	private renderBody(width: number, rows: number): string[] {
@@ -327,7 +350,8 @@ export class PrPreviewChecksView implements Component {
 		const prefix = actualIndex === this.selectedTargetIndex ? "◆ " : "◇ ";
 		const row = fitToWidth(`${prefix}${buildStackEntryRowLabel(entry)}`, width);
 		if (actualIndex !== this.selectedTargetIndex) return this.color("muted", row);
-		return this.theme.bg("selectedBg", this.color("accent", row));
+		const highlighted = this.color("accent", row);
+		return this.focusedPane === "stack" ? this.theme.bg("selectedBg", highlighted) : highlighted;
 	}
 
 	private renderCheckRow(check: PrPreviewCheck, actualIndex: number, width: number): string {
@@ -338,7 +362,48 @@ export class PrPreviewChecksView implements Component {
 			const colored = this.color(presentation.color, row);
 			return presentation.bold ? this.theme.bold(colored) : colored;
 		}
-		return this.theme.bg("selectedBg", this.color("accent", row));
+		const highlighted = this.color("accent", row);
+		return this.focusedPane === "checks" ? this.theme.bg("selectedBg", highlighted) : highlighted;
+	}
+
+	private hasStackPane(): boolean {
+		return previewChecksStackEntries(this.model).length > 1;
+	}
+
+	private footerText(): string {
+		if (!this.hasStackPane()) {
+			return "↑↓/jk checks · l summarize logs · PgUp/PgDn scroll details · q/esc close";
+		}
+		if (this.focusedPane === "stack") {
+			return "↑↓/jk PRs · →/enter open checks · tab switch pane · q/esc close";
+		}
+		return "↑↓/jk checks · ←/h or tab PR list · l summarize logs · PgUp/PgDn details · q/esc close";
+	}
+
+	private toggleFocusedPane(): void {
+		if (!this.hasStackPane()) return;
+		this.focusedPane = this.focusedPane === "stack" ? "checks" : "stack";
+		this.tui.requestRender();
+	}
+
+	private moveFocusedSelection(delta: number): void {
+		if (this.focusedPane === "stack") {
+			this.moveStackSelection(delta);
+			return;
+		}
+		this.moveCheckSelection(delta);
+	}
+
+	private descendToChecks(): void {
+		if (this.focusedPane !== "stack") return;
+		this.focusedPane = "checks";
+		this.tui.requestRender();
+	}
+
+	private ascendToStack(): void {
+		if (!this.hasStackPane() || this.focusedPane === "stack") return;
+		this.focusedPane = "stack";
+		this.tui.requestRender();
 	}
 
 	private moveStackSelection(delta: number): void {

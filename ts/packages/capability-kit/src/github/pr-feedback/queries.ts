@@ -51,6 +51,40 @@ query($owner: String!, $repo: String!, $number: Int!) {
   }
 }`;
 
+export function branchPrChecksQuery(count: number): string {
+	if (!Number.isSafeInteger(count) || count <= 0) {
+		throw new Error(`Branch PR checks batch size must be positive; got ${count}`);
+	}
+	const variables = Array.from({ length: count }, (_, index) => `$branch${index}: String!`).join(
+		", ",
+	);
+	const fields = Array.from(
+		{ length: count },
+		(_, index) =>
+			`    b${index}: pullRequests(first: 2, states: OPEN, headRefName: $branch${index}, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      nodes {
+        number title url headRefName headRefOid baseRefName
+        statusCheckRollup {
+          contexts(first: 100) {
+            pageInfo { hasNextPage }
+            nodes {
+              __typename
+              ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { databaseId runNumber runAttempt createdAt updatedAt workflow { name } } } }
+              ... on StatusContext { context state createdAt targetUrl }
+            }
+          }
+        }
+      }
+    }`,
+	).join("\n");
+	return `
+query($owner: String!, $repo: String!, ${variables}) {
+  repository(owner: $owner, name: $repo) {
+${fields}
+  }
+}`;
+}
+
 export const reviewThreadCommentsQuery = `
 query($threadId: ID!, $commentCursor: String) {
   node(id: $threadId) {
