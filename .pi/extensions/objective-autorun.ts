@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -44,7 +44,11 @@ import {
 	formatRunnerSubagentActivityWidgetLines,
 	setRunnerSubagentWidget,
 } from "../../ts/packages/local/pi-tools/src/runner-subagents/widget.ts";
-import { formatZodError } from "../../ts/packages/infra/core/src/primitives/primitives.ts";
+import {
+	formatZodError,
+	optionalEntries,
+	optionalEntry,
+} from "../../ts/packages/infra/core/src/primitives/primitives.ts";
 import {
 	normalizeExecResult,
 	tailText,
@@ -77,6 +81,20 @@ interface CommandContext {
 		setStatus(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
+}
+
+interface RunObjectiveRunnerStepOptions {
+	readonly pi: ExtensionAPI;
+	readonly params: unknown;
+	readonly signal: AbortSignal | undefined;
+	readonly ctx: ToolContext;
+}
+
+interface StepToolResultOptions {
+	readonly text: string;
+	readonly phase: RunnerStepPhase;
+	readonly details?: Record<string, unknown>;
+	readonly subagent?: RunnerSubagentResult;
 }
 
 interface ExtensionAPI {
@@ -153,7 +171,7 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 			"Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop.",
 		parameters: OBJECTIVE_RUNNER_STEP_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
-			runObjectiveRunnerStep(pi, params, signal, ctx),
+			runObjectiveRunnerStep({ pi, params, signal, ctx }),
 	});
 }
 
@@ -198,12 +216,8 @@ async function runAutorunCommand(pi: ExtensionAPI, args: string, ctx: CommandCon
 	await pi.sendUserMessage(prompt);
 }
 
-async function runObjectiveRunnerStep(
-	pi: ExtensionAPI,
-	params: unknown,
-	signal: AbortSignal | undefined,
-	ctx: ToolContext,
-): Promise<ToolResult> {
+async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): Promise<ToolResult> {
+	const { pi, params, signal, ctx } = options;
 	const parsedInput = objectiveRunnerStepInputSchema.safeParse(params);
 	if (!parsedInput.success) throw new Error(formatZodError(parsedInput.error));
 	const input: ObjectiveRunnerStepInput = parsedInput.data;
@@ -222,21 +236,15 @@ async function runObjectiveRunnerStep(
 	const guidancePath = join(stepDir, "guidance.md");
 	const reportPath = join(stepDir, "report.json");
 	const factsPath = join(stepDir, "facts.json");
-	await writeFile(guidancePath, input.guidance, { encoding: "utf8", mode: 0o600 });
 
 	const pushWidget = (phase: RunnerStepPhase, update?: RunnerSubagentUpdate): void => {
-		setRunnerSubagentWidget(ctx, WIDGET_KEY, [
-			`objective ${slug} · step ${stepNumber} · ${phase}`,
-			...(update === undefined ? [] : formatRunnerSubagentActivityWidgetLines(update)),
-		]);
+		const lines = [`objective ${slug} · step ${stepNumber} · ${phase}`];
+		if (update !== undefined) lines.push(...formatRunnerSubagentActivityWidgetLines(update));
+		setRunnerSubagentWidget(ctx, WIDGET_KEY, lines);
 	};
 
-	function stepToolResult(
-		text: string,
-		phase: RunnerStepPhase,
-		details: Record<string, unknown> = {},
-		subagent?: RunnerSubagentResult,
-	): ToolResult {
+	function stepToolResult(options: StepToolResultOptions): ToolResult {
+		const { text, phase, details = {}, subagent } = options;
 		return {
 			content: [{ type: "text", text }],
 			details: {
@@ -244,12 +252,16 @@ async function runObjectiveRunnerStep(
 				phase,
 				reportPath,
 				factsPath,
-				...(subagent === undefined ? {} : { subagent: subagentDetails(subagent) }),
+				...optionalEntry(
+					"subagent",
+					subagent === undefined ? undefined : subagentDetails(subagent),
+				),
 			},
 		};
 	}
 
 	try {
+		await writeFile(guidancePath, input.guidance, { encoding: "utf8", mode: 0o600 });
 		pushWidget("begin");
 		const beginExec = normalizeExecResult(
 			await pi.exec(
@@ -287,22 +299,21 @@ async function runObjectiveRunnerStep(
 		pushWidget("subagent");
 		const subagent = await dispatchRunnerSubagent(
 			pi,
-			{ cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }) },
+			{ cwd: ctx.cwd, ...optionalEntry("signal", signal) },
 			{
 				title: input.title ?? `objective ${slug} step ${stepNumber}`,
 				prompt,
 				returnMode: "final-text",
-				...(input.model === undefined ? {} : { model: input.model }),
+				...optionalEntry("model", input.model),
 				onProgress: (update) => pushWidget("subagent", update),
 			},
 		);
 		if (subagent.status === "cancelled" || signal?.aborted === true) {
-			return stepToolResult(
-				`Runner step cancelled between runner-begin and runner-finish for objective ${slug}. runner-finish was NOT run, so no checkpoint was judged and the worktree may hold uncommitted subagent changes. Inspect the worktree, then recover by calling ${TOOL_NAME} again with recover: true and sharpened guidance.`,
-				"subagent",
-				{},
+			return stepToolResult({
+				text: `Runner step cancelled between runner-begin and runner-finish for objective ${slug}. runner-finish was NOT run, so no checkpoint was judged and the worktree may hold uncommitted subagent changes. Inspect the worktree, then recover by calling ${TOOL_NAME} again with recover: true and sharpened guidance.`,
+				phase: "subagent",
 				subagent,
-			);
+			});
 		}
 
 		// Every non-cancelled outcome proceeds to finish — the report file, not the final text, is
@@ -317,8 +328,8 @@ async function runObjectiveRunnerStep(
 		);
 		const checkpoint = extractCheckpointData(finishExec.stdout);
 		if (checkpoint === undefined) {
-			return stepToolResult(
-				[
+			return stepToolResult({
+				text: [
 					`runner-finish produced no parseable checkpoint envelope for objective ${slug} (exit ${finishExec.code}). Treat this as a malfunction: read the diagnostics below and check the worktree before anything else.`,
 					"",
 					"stdout tail:",
@@ -327,16 +338,16 @@ async function runObjectiveRunnerStep(
 					"stderr tail:",
 					tailText(finishExec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS }),
 				].join("\n"),
-				"finish",
-				{ exitCode: finishExec.code },
+				phase: "finish",
+				details: { exitCode: finishExec.code },
 				subagent,
-			);
+			});
 		}
 
-		return stepToolResult(
-			checkpoint.checkpointMarkdown,
-			"finish",
-			{
+		return stepToolResult({
+			text: checkpoint.checkpointMarkdown,
+			phase: "finish",
+			details: {
 				exitCode: finishExec.code,
 				status: checkpoint.data.status,
 				mode: checkpoint.data.mode,
@@ -348,22 +359,24 @@ async function runObjectiveRunnerStep(
 				stopReason: checkpoint.data.stopReason,
 			},
 			subagent,
-		);
+		});
 	} finally {
 		setRunnerSubagentWidget(ctx, WIDGET_KEY, undefined);
+		await rm(stepDir, { recursive: true, force: true });
 	}
 
 	function beginFailureResult(exec: ExecResult, envelopeMessage: string | undefined): ToolResult {
 		const stderrTail = tailText(exec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS });
-		return stepToolResult(
-			[
-				`runner-begin refused or failed for objective ${slug} (exit ${exec.code}). Nothing was dispatched; the parent decides the next move.`,
-				...(envelopeMessage === undefined ? [] : ["", envelopeMessage]),
-				...(stderrTail.length === 0 ? [] : ["", "stderr tail:", stderrTail]),
-			].join("\n"),
-			"begin",
-			{ exitCode: exec.code },
-		);
+		const lines = [
+			`runner-begin refused or failed for objective ${slug} (exit ${exec.code}). Nothing was dispatched; the parent decides the next move.`,
+		];
+		if (envelopeMessage !== undefined) lines.push("", envelopeMessage);
+		if (stderrTail.length > 0) lines.push("", "stderr tail:", stderrTail);
+		return stepToolResult({
+			text: lines.join("\n"),
+			phase: "begin",
+			details: { exitCode: exec.code },
+		});
 	}
 }
 
@@ -394,7 +407,6 @@ function subagentDetails(result: RunnerSubagentResult): Record<string, unknown> 
 	const sessionFile = result.sessionFile ?? result.progress.sessionFile;
 	return {
 		status: result.status,
-		...(sessionFile === undefined ? {} : { sessionFile }),
-		...(result.usage === undefined ? {} : { usage: result.usage }),
+		...optionalEntries({ sessionFile, usage: result.usage }),
 	};
 }
