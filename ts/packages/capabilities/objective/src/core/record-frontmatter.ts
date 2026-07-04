@@ -17,11 +17,9 @@ export const objectiveRecordEdgeSchema = z.strictObject({
 });
 
 export const objectiveRecordFrontmatterSchema = z.strictObject({
-	blocked: z.string().nullable(),
-	edges: z.array(objectiveRecordEdgeSchema),
+	blocked: z.string().nullable().default(null),
+	edges: z.array(objectiveRecordEdgeSchema).default([]),
 });
-
-const objectiveRecordFrontmatterInputSchema = objectiveRecordFrontmatterSchema.partial();
 
 export const objectiveRecordFrontmatterParseSchema = z.discriminatedUnion("type", [
 	z.strictObject({ type: z.literal("frontmatter"), frontmatter: objectiveRecordFrontmatterSchema }),
@@ -78,7 +76,7 @@ export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDo
 		);
 	}
 
-	const validated = objectiveRecordFrontmatterInputSchema.safeParse(parsed ?? {});
+	const validated = objectiveRecordFrontmatterSchema.safeParse(parsed ?? {});
 	if (!validated.success) {
 		return malformedFrontmatterDocument(
 			`frontmatter does not match the blocked/edges schema: ${formatZodError(validated.error)}`,
@@ -89,10 +87,7 @@ export function splitObjectiveRecordDocument(content: string): ObjectiveRecordDo
 	return {
 		frontmatter: {
 			type: "frontmatter",
-			frontmatter: {
-				blocked: validated.data.blocked ?? null,
-				edges: validated.data.edges ?? [],
-			},
+			frontmatter: validated.data,
 		},
 		body,
 	};

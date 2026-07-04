@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
+import { optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -15,7 +16,6 @@ import {
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
-	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
@@ -195,16 +195,20 @@ export async function readObjectiveRecord(
 		updateCount: updates.value.length,
 	};
 	const objectiveDocument = await storage.readObjectiveRecordDocument(relativePath);
-	const objectiveMd = objectiveMarkdownReadResult(objectiveDocument);
-	const recordFrontmatter =
-		objectiveDocument.type === "ok" ? objectiveDocument.document.frontmatter : undefined;
+	const objectiveProjection =
+		objectiveDocument.type === "ok"
+			? {
+					objectiveMd: { type: "ok" as const, content: objectiveDocument.content },
+					recordFrontmatter: objectiveDocument.document.frontmatter,
+				}
+			: { objectiveMd: objectiveDocument, recordFrontmatter: undefined };
 	return {
 		type: "ok",
 		value: {
 			...facts,
-			...(recordFrontmatter === undefined ? {} : { recordFrontmatter }),
+			...optionalEntry("recordFrontmatter", objectiveProjection.recordFrontmatter),
 			markdownFiles: {
-				objectiveMd,
+				objectiveMd: objectiveProjection.objectiveMd,
 				roadmapMd: await storage.readMarkdownFile(`${relativePath}/roadmap.md`),
 				updates: await Promise.all(
 					updates.value.map(async (update) => ({
@@ -238,13 +242,6 @@ function emptyResult(options: {
 		updates: [],
 		updateCount: 0,
 	};
-}
-
-function objectiveMarkdownReadResult(
-	read: ObjectiveRecordDocumentReadResult,
-): ObjectiveMarkdownReadResult {
-	if (read.type !== "ok") return read;
-	return { type: "ok", content: read.content };
 }
 
 function appendMarkdownFile(

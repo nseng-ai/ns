@@ -109,13 +109,17 @@ export class ObjectiveStorage {
 	}
 
 	async activeRecordExists(slug: string): Promise<ObjectiveStorageResult<boolean>> {
-		const kind = await this.gateway.pathKind(activeRecordRelativePath(slug));
-		if (!kind.ok) return kind;
-		return { ok: true, value: kind.value === "directory" };
+		return await this.recordDirectoryExists(activeRecordRelativePath(slug));
 	}
 
 	async archivedRecordExists(slug: string): Promise<ObjectiveStorageResult<boolean>> {
-		const kind = await this.gateway.pathKind(archivedRecordRelativePath(slug));
+		return await this.recordDirectoryExists(archivedRecordRelativePath(slug));
+	}
+
+	private async recordDirectoryExists(
+		relativePath: string,
+	): Promise<ObjectiveStorageResult<boolean>> {
+		const kind = await this.gateway.pathKind(relativePath);
 		if (!kind.ok) return kind;
 		return { ok: true, value: kind.value === "directory" };
 	}
