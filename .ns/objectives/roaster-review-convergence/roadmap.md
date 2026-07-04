@@ -8,8 +8,11 @@
 - [ ] Thread Prior-findings context and changed-since-Last-reviewed-head guidance into the review prompt as an optional input; keep `ns roaster review run` PR-free by default
 - [ ] Write the convergence prompt instructions with the anchoring guard; unit-test prompt assembly
 - [ ] Wire PR context into the CI matrix review jobs (existing `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write`; no permission changes)
+  - Policy: direct execution; no new permissions or triggers — any change needing them is ask-first.
+  - Evidence: workflow diff references only existing env/permissions; touched TS validated with targeted tests.
 - [ ] Validate empirically on representative PRs: resolve→resubmit does not re-raise surfaced findings on unchanged code (including rephrased variants), and new work still gets full-strength review
       Evidence: targeted tests and relevant repo checks passed.
+  - Policy: steer first — needs real PRs, LLM compute, and GitHub writes; a human drives this slice.
 
 ## Parked
 

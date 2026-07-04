@@ -95,6 +95,76 @@ cannot converge a non-deterministic generator; conditioning the generator can.
 - `ns roaster review run` without PR context still works unchanged.
 - Evidence: targeted tests and relevant repo checks passed.
 
+## Definition of Progress
+
+Progress is keepable when it does one or more of:
+
+- Advances one roadmap Work slice as tested code in
+  `ts/packages/capabilities/roaster` (or adjacent prompt-assembly/publish
+  code), preserving compute layering: the core `ns roaster review run` path
+  stays runnable with no PR context and no GitHub dependency.
+- Adds or extends the Last-reviewed head stamping, Prior-findings context
+  gathering, or convergence prompt instructions with unit tests covering the
+  new behavior (prompt assembly must be unit-tested, including the anchoring
+  guard and the no-context case).
+- Wires PR context into the CI matrix review jobs using only the existing
+  `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write` surface.
+- Lands the ADR draft capturing generation-time convergence,
+  GitHub-as-durable-state, compute layering, and the cache/ledger rejection
+  rationale.
+
+Do not keep changes that:
+
+- Couple the core review run path to GitHub or make PR context a required
+  input.
+- Add CI permissions (especially `contents: write`), new workflow triggers,
+  or draft-gating changes.
+- Remove or weaken the existing sha256 inline-marker exact-match dedupe at
+  the publication boundary.
+- Reintroduce Non-Goal machinery: compute caching/memoization, Fingerprint
+  Publication ledger, Branch Memory origin distribution, or hard input-level
+  delta filtering.
+- Mutate real GitHub PRs (comments, threads, reviews) as a side effect of
+  tests or local validation.
+
+Useful evidence: targeted Vitest runs for touched roaster modules,
+prompt-assembly unit tests exercising with-context and no-context inputs,
+typecheck/lint/format per `ts/AGENTS.md`, and — for workflow edits — a diff
+showing only existing env/permissions are referenced.
+
+## Runner Policy
+
+This Objective is execution-friendly for the Objective Runner
+(`objective-autorun` / `runner-begin` → `runner-finish`) under the boundaries
+below.
+
+- **Direct execution is allowed when:** implementing a roadmap Work slice as
+  code plus tests under `ts/`, writing the ADR under `docs/adr/`, or editing
+  `.github/workflows/roaster.yml` within the existing permission/trigger
+  surface — all validated locally before the step commits.
+- **Steer or ask first when:** a slice needs new CI permissions or triggers;
+  a change would alter `ns roaster review run`'s default no-context behavior
+  (PR-context fetch stays opt-in via flag unless a human approves
+  default-on); the summary-comment or marker format change risks breaking
+  compatibility with comments already published on open PRs; or the slice is
+  the empirical validation row (real PRs, LLM compute, GitHub writes — human
+  drives it).
+- **Open Questions:** the runner may pick a conservative Prior-findings cap
+  and a resolved-vs-unresolved prompt treatment on its own, recording the
+  rationale in the ADR or a Semantic Update; the local default-fetch
+  question is reserved to a human (default stays opt-in).
+- **How work may change files and be left:** local edits committed by the
+  runner on stacked feature branches, never on `main`/`master`; no pushes,
+  PR submission, or publishing — the run ends with local branches handed
+  back to the normal Graphite/flow workflow.
+- **Validation before keeping work:** targeted Vitest plus
+  typecheck/lint/format for touched packages per `ts/AGENTS.md`; full `just`
+  when a change is broad. Workflow YAML has no local runner — validate by
+  inspection against the existing workflow and keep the change minimal.
+- **What will not happen unless explicitly requested:** running reviews
+  against real GitHub PRs, mutating GitHub state, submitting/landing/merging
+  PRs, adding CI permissions, deploying, or publishing.
+
 ## Assumptions and Risks
 
 Assumptions:
