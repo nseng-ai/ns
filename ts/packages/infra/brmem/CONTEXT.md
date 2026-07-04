@@ -51,3 +51,11 @@ A destination Entry that would be replaced by a Namespace Copy unless the caller
 **Export**:
 A filesystem materialization of selected Branch Memory Entries as UTF-8 files under an output directory.
 *Avoid*: checkout, copy, snapshot, restore.
+
+**Branch Memory Pull**:
+A remote synchronization operation that fetches a Snapshot Ref and Entry-union-merges the remote Snapshot into the local Snapshot for one Namespace and branch, failing or requiring an explicit strategy when both sides changed the same Entry Key differently.
+*Avoid*: raw git pull, line merge, overwriting local Branch Memory.
+
+**Branch Memory Push**:
+A remote synchronization operation that publishes a local Snapshot Ref for one Namespace and branch to a remote, rejecting remote changes that require a prior **Branch Memory Pull**.
+*Avoid*: force push, overwrite, implicit conflict resolution.
