@@ -105,7 +105,7 @@ export interface LandStackExtensionAPI {
 export interface ParsedArgs {
 	shouldSkipConfirmation: boolean;
 	isDryRun: boolean;
-	shouldFreeSlot: boolean;
+	shouldPreserveSlot: boolean;
 	shouldForceCleanup: boolean;
 	shouldShowHelp: boolean;
 	shouldStreamVerboseOutput: boolean;

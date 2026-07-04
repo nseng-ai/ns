@@ -26,13 +26,11 @@ import {
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
 	dryRun: z.boolean().optional().describe("Show what would land without merging PRs."),
-	free: z
+	preserve: z
 		.boolean()
 		.optional()
-		.describe(
-			"After successful landing, free the current managed slot and delete the landed local branch.",
-		),
-	force: z.boolean().optional().describe("Skip the post-landing --free confirmation."),
+		.describe("Keep the current managed slot and landed local branch after successful landing."),
+	force: z.boolean().optional().describe("Skip the post-landing cleanup confirmation."),
 	verbose: z
 		.boolean()
 		.optional()
@@ -47,7 +45,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 	options: {
 		yes: { short: "-y" },
 		dryRun: { short: "-n" },
-		free: { short: "-F" },
+		preserve: { short: "-p" },
 		force: { short: "-f" },
 		verbose: { short: "-v" },
 	},
@@ -59,7 +57,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 		const rawArgs = [
 			request.yes === true ? "--yes" : undefined,
 			request.dryRun === true ? "--dry-run" : undefined,
-			request.free === true ? "--free" : undefined,
+			request.preserve === true ? "--preserve" : undefined,
 			request.force === true ? "--force" : undefined,
 			request.verbose === true ? "--verbose" : undefined,
 		].filter((arg): arg is string => arg !== undefined);

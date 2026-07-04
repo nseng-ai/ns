@@ -504,7 +504,7 @@ describe("code land command registration", () => {
 		expect(command?.getArgumentCompletions?.("--")).toEqual([
 			{ value: "--yes", label: "--yes" },
 			{ value: "--dry-run", label: "--dry-run" },
-			{ value: "--free", label: "--free" },
+			{ value: "--preserve", label: "--preserve" },
 			{ value: "--force", label: "--force" },
 			{ value: "--verbose", label: "--verbose" },
 			{ value: "--help", label: "--help" },
@@ -750,7 +750,7 @@ describe("code land command", () => {
 		pi.assertDone();
 	});
 
-	test("--free --force frees the current managed slot and deletes the local Graphite branch after fast-path landing", async () => {
+	test("--force frees the current managed slot and deletes the local Graphite branch after fast-path landing", async () => {
 		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
@@ -764,7 +764,7 @@ describe("code land command", () => {
 		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({ cwd: slotRoot });
 
-		await command?.handler("--free --force", context.ctx);
+		await command?.handler("--force", context.ctx);
 
 		expect(context.confirmations).toEqual([]);
 		expect(pi.execCalls.slice(-2)).toEqual([
@@ -786,7 +786,7 @@ describe("code land command", () => {
 		pi.assertDone();
 	});
 
-	test("--free asks before post-landing cleanup", async () => {
+	test("post-landing cleanup asks by default", async () => {
 		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
@@ -798,7 +798,7 @@ describe("code land command", () => {
 		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({ cwd: slotRoot });
 
-		await command?.handler("--free", context.ctx);
+		await command?.handler("", context.ctx);
 
 		expect(context.confirmations).toEqual([
 			{

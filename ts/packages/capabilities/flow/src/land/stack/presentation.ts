@@ -137,18 +137,18 @@ function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan)
 export function usage(): string {
 	return [
 		"Usage:",
-		`/${COMMAND_NAME} [--yes] [--dry-run] [--free] [--force] [--verbose] [--help]`,
+		`/${COMMAND_NAME} [--yes] [--dry-run] [--preserve] [--force] [--verbose] [--help]`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
-		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup retains a branch that is still checked out in this worktree unless --free is requested from a managed slot.",
+		"After successful landing, this command frees the current managed slot and deletes the landed local branch by default; use --preserve to keep them.",
 		"",
 		"Options:",
-		"  --yes, -y       Skip stack/global landing confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
+		"  --yes, -y       Skip stack/global landing and post-landing cleanup confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
 		"  --dry-run       Show the full stack path plan and exit before mutating refs or PRs.",
-		"  --free          After successful landing, free the current managed slot and delete the landed local branch.",
-		"  --force, -f     Skip the post-landing --free confirmation.",
+		"  --preserve, -p  Keep the current managed slot and landed local branch after successful landing.",
+		"  --force, -f     Skip the post-landing cleanup confirmation.",
 		"  --verbose       Stream raw GitHub/Graphite subprocess output while landing.",
 		"  --help, -h      Show this help.",
 	].join("\n");
