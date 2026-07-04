@@ -68,7 +68,7 @@ function tierEdgeViolation(
 	fromTier: PackageTier,
 	toTier: PackageTier,
 ): TierEdgeViolation | undefined {
-	if (packageTierAllowedTargets[fromTier]?.has(toTier)) return undefined;
+	if (packageTierAllowedTargets[fromTier].has(toTier)) return undefined;
 	return { severity: "hard", policy: `${fromTier}-must-not-depend-on-${toTier}` };
 }
 

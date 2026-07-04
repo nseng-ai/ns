@@ -2,7 +2,8 @@ import {
 	allowedPackageTierDebtEdgeEntries,
 	packageTierDefinitions,
 	tierRank,
-} from "./package-tier-taxonomy.mjs";
+	type PackageTierId,
+} from "@internal/typescript-style-guard/package-tier-taxonomy";
 
 export const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".cts"]);
 export const skippedDirectoryNames = new Set([
@@ -32,20 +33,37 @@ export const BAN_SUBPACKAGE_DECLARATION_CONFORMANCE = "NS_TS_SUBPACKAGE_DECLARAT
 export const BAN_EXPORTS_SUBPACKAGE_CONFORMANCE = "NS_TS_EXPORTS_SUBPACKAGE_CONFORMANCE";
 export const ADVISORY_OPTIONAL_UNDEFINED_PROPERTY = "NS_TS_ADVISORY_OPTIONAL_UNDEFINED_PROPERTY";
 
-export const packageTierValues = packageTierDefinitions.map((tier) => tier.id);
+export const packageTierValues: readonly PackageTierId[] = packageTierDefinitions.map(
+	(tier) => tier.id,
+);
 
-export type PackageTier = string;
+export type PackageTier = (typeof packageTierValues)[number];
 
-export const packageTierSet = new Set<string>(packageTierValues);
+export const packageTierSet: ReadonlySet<string> = new Set(packageTierValues);
 
 export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> =
-	Object.fromEntries(packageTierDefinitions.map((tier) => [tier.id, new Set(tier.allowedTargets)]));
+	buildPackageTierAllowedTargets();
 
 export const allowedPackageTierDebtEdges = new Map<string, string>(
 	allowedPackageTierDebtEdgeEntries,
 );
 
 validatePackageTierTaxonomy();
+
+function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> {
+	const targets: Partial<Record<PackageTier, ReadonlySet<PackageTier>>> = {};
+	for (const tier of packageTierDefinitions) targets[tier.id] = new Set(tier.allowedTargets);
+	return completePackageTierRecord(targets);
+}
+
+function completePackageTierRecord(
+	record: Partial<Record<PackageTier, ReadonlySet<PackageTier>>>,
+): Record<PackageTier, ReadonlySet<PackageTier>> {
+	for (const tierId of packageTierValues) {
+		if (record[tierId] === undefined) throw new Error(`Package tier ${tierId} is missing policy.`);
+	}
+	return record as Record<PackageTier, ReadonlySet<PackageTier>>;
+}
 
 function validatePackageTierTaxonomy(): void {
 	const seenTierIds = new Set<string>();
