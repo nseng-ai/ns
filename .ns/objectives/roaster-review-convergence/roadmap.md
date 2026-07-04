@@ -12,9 +12,9 @@
   - Evidence: local branch `roaster-review-convergence/prompt-context` adds optional prompt context plumbing and changed-since guidance while preserving no-context prompt behavior.
 - [x] Write the convergence prompt instructions with the anchoring guard; unit-test prompt assembly
   - Evidence: prompt tests cover no-context behavior, with-context convergence instructions, resolved/unresolved treatment, Last-reviewed fallback, and the anchoring guard.
-- [ ] Wire PR context into the CI matrix review jobs (existing `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write`; no permission changes)
+- [x] Wire PR context into the CI matrix review jobs (existing `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write`; no permission changes)
   - Policy: direct execution; no new permissions or triggers — any change needing them is ask-first.
-  - Evidence: workflow diff references only existing env/permissions; touched TS validated with targeted tests.
+  - Evidence: local branch `roaster-review-convergence/ci-pr-context` wires opt-in prior context and publish stamping through existing `PR_NUMBER`/`GH_TOKEN`; workflow diff adds no permissions or triggers; touched TS passed targeted and broad repo checks.
 - [ ] Validate empirically on representative PRs: resolve→resubmit does not re-raise surfaced findings on unchanged code (including rephrased variants), a content-preserving `gt restack` force-push re-raises nothing, and new work still gets full-strength review
       Evidence: targeted tests and relevant repo checks passed.
   - Policy: steer first — needs real PRs, LLM compute, and GitHub writes; a human drives this slice.
