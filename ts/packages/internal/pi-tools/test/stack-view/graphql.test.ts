@@ -60,18 +60,90 @@ function checkRun(name: string, status: string, conclusion: string | null): unkn
 	};
 }
 
+/** A CheckRun carrying a `checkSuite.workflowRun.workflow.name` so `workflowName` projects. */
+function checkRunWithWorkflow(
+	name: string,
+	workflowName: string,
+	status: string,
+	conclusion: string | null,
+): unknown {
+	return {
+		__typename: "CheckRun",
+		name,
+		status,
+		conclusion,
+		startedAt: null,
+		completedAt: null,
+		detailsUrl: null,
+		checkSuite: {
+			workflowRun: {
+				databaseId: null,
+				runNumber: null,
+				runAttempt: null,
+				createdAt: null,
+				updatedAt: null,
+				workflow: { name: workflowName },
+			},
+		},
+	};
+}
+
 function statusContext(context: string, state: string): unknown {
 	return { __typename: "StatusContext", context, state, createdAt: null, targetUrl: null };
+}
+
+interface ThreadNodeOverrides {
+	isResolved?: boolean;
+	path?: string;
+	line?: number | null;
+	originalLine?: number | null;
+	author?: string | null;
+	comments?: unknown;
+}
+
+/**
+ * One review-thread node in the fetched `reviewThreads.nodes` shape. By default a
+ * single comment authored by `octocat` is attached; pass an explicit `comments`
+ * (including `undefined`) to model a missing connection, an empty `nodes`, or a
+ * null author. Omit `path` to model a file-level thread with no path.
+ */
+function threadNode(overrides: ThreadNodeOverrides = {}): unknown {
+	const node: Record<string, unknown> = {
+		isResolved: overrides.isResolved ?? false,
+		line: overrides.line ?? null,
+		originalLine: overrides.originalLine ?? null,
+	};
+	if ("path" in overrides) node.path = overrides.path;
+	if ("comments" in overrides) {
+		node.comments = overrides.comments;
+	} else {
+		node.comments = { nodes: [{ author: { login: overrides.author ?? "octocat" } }] };
+	}
+	return node;
 }
 
 function threadsConnection(
 	resolved: number,
 	unresolved: number,
 	totalCount?: number,
-): { totalCount: number; nodes: { isResolved: boolean }[] } {
+): { totalCount: number; nodes: unknown[] } {
 	const nodes = [
-		...Array.from({ length: resolved }, () => ({ isResolved: true })),
-		...Array.from({ length: unresolved }, () => ({ isResolved: false })),
+		...Array.from({ length: resolved }, (_value, index) =>
+			threadNode({
+				isResolved: true,
+				path: `resolved/${index}.ts`,
+				line: index + 1,
+				author: `resolver${index}`,
+			}),
+		),
+		...Array.from({ length: unresolved }, (_value, index) =>
+			threadNode({
+				isResolved: false,
+				path: `unresolved/${index}.ts`,
+				line: index + 1,
+				author: `author${index}`,
+			}),
+		),
 	];
 	return { totalCount: totalCount ?? nodes.length, nodes };
 }
@@ -171,6 +243,13 @@ describe("buildStackPrQuery", () => {
 		const query = buildStackPrQuery(["bellend"]);
 		expect(query).toContain('headRefName: "bell\\u0007end"');
 	});
+
+	it("selects per-thread detail (path/line/originalLine and the first comment's author)", () => {
+		const query = buildStackPrQuery(["main"]);
+		expect(query).toContain(
+			"reviewThreads(first:100){totalCount nodes{isResolved path line originalLine comments(first:1){nodes{author{login}}}}}",
+		);
+	});
 });
 
 describe("parseStackPrResponse happy path", () => {
@@ -225,6 +304,13 @@ describe("parseStackPrResponse happy path", () => {
 			reviewDecision: "REVIEW_REQUIRED",
 			threads: { resolved: 2, total: 3 },
 			checks: { passing: 2, failing: 1, pending: 1, total: 4 },
+			checkEntries: [
+				{ name: "build", workflowName: null, bucket: "passing" },
+				{ name: "unit", workflowName: null, bucket: "passing" },
+				{ name: "e2e", workflowName: null, bucket: "failing" },
+				{ name: "lint", workflowName: null, bucket: "pending" },
+			],
+			unresolvedThreads: [{ path: "unresolved/0.ts", line: 1, author: "author0" }],
 		});
 		expect(second).toEqual({
 			number: 22,
@@ -235,6 +321,11 @@ describe("parseStackPrResponse happy path", () => {
 			reviewDecision: null,
 			threads: { resolved: 3, total: 3 },
 			checks: { passing: 1, failing: 0, pending: 1, total: 2 },
+			checkEntries: [
+				{ name: "ci/deploy", workflowName: null, bucket: "passing" },
+				{ name: "ci/security", workflowName: null, bucket: "pending" },
+			],
+			unresolvedThreads: [],
 		});
 	});
 
@@ -276,7 +367,131 @@ describe("parseStackPrResponse happy path", () => {
 			reviewDecision: null,
 			threads: { resolved: 0, total: 0 },
 			checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+			checkEntries: [],
+			unresolvedThreads: [],
 		});
+	});
+});
+
+describe("parseStackPrResponse unresolved-thread detail", () => {
+	function parseOne(reviewThreads: unknown) {
+		const response = repoResponse({ b0: aliasNode(prNode({ reviewThreads })) });
+		const result = parseStackPrResponse(response, ["only"]);
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") throw new Error("expected ok result");
+		return result.prs[0];
+	}
+
+	it("extracts only unresolved threads, excluding resolved ones", () => {
+		const pr = parseOne({
+			totalCount: 3,
+			nodes: [
+				threadNode({ isResolved: true, path: "resolved.ts", line: 1, author: "alice" }),
+				threadNode({ isResolved: false, path: "src/a.ts", line: 12, author: "bob" }),
+				threadNode({ isResolved: false, path: "src/b.ts", line: 34, author: "carol" }),
+			],
+		});
+		expect(pr?.unresolvedThreads).toEqual([
+			{ path: "src/a.ts", line: 12, author: "bob" },
+			{ path: "src/b.ts", line: 34, author: "carol" },
+		]);
+	});
+
+	it("falls back to originalLine when line is null, and to null when both are null", () => {
+		const pr = parseOne({
+			totalCount: 2,
+			nodes: [
+				threadNode({
+					isResolved: false,
+					path: "src/a.ts",
+					line: null,
+					originalLine: 7,
+					author: "bob",
+				}),
+				threadNode({
+					isResolved: false,
+					path: "src/b.ts",
+					line: null,
+					originalLine: null,
+					author: "carol",
+				}),
+			],
+		});
+		expect(pr?.unresolvedThreads).toEqual([
+			{ path: "src/a.ts", line: 7, author: "bob" },
+			{ path: "src/b.ts", line: null, author: "carol" },
+		]);
+	});
+
+	it("defaults a missing path to the empty string", () => {
+		const pr = parseOne({
+			totalCount: 1,
+			nodes: [threadNode({ isResolved: false, line: 3, author: "bob" })],
+		});
+		expect(pr?.unresolvedThreads).toEqual([{ path: "", line: 3, author: "bob" }]);
+	});
+
+	it("yields a null author when comments are missing, empty, or carry a null author", () => {
+		const pr = parseOne({
+			totalCount: 3,
+			nodes: [
+				threadNode({ isResolved: false, path: "src/a.ts", line: 1, comments: undefined }),
+				threadNode({ isResolved: false, path: "src/b.ts", line: 2, comments: { nodes: [] } }),
+				threadNode({
+					isResolved: false,
+					path: "src/c.ts",
+					line: 3,
+					comments: { nodes: [{ author: null }] },
+				}),
+			],
+		});
+		expect(pr?.unresolvedThreads).toEqual([
+			{ path: "src/a.ts", line: 1, author: null },
+			{ path: "src/b.ts", line: 2, author: null },
+			{ path: "src/c.ts", line: 3, author: null },
+		]);
+	});
+});
+
+describe("parseStackPrResponse check entries", () => {
+	function parseChecks(checkNodes: unknown[]) {
+		const response = repoResponse({
+			b0: aliasNode(prNode({ commits: commitsConnection(checkNodes) })),
+		});
+		const result = parseStackPrResponse(response, ["only"]);
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") throw new Error("expected ok result");
+		return result.prs[0];
+	}
+
+	it("projects a CheckRun's name, workflow name, and bucket", () => {
+		const pr = parseChecks([
+			checkRunWithWorkflow("typecheck", "CI", "COMPLETED", "SUCCESS"),
+			checkRunWithWorkflow("e2e", "CI", "COMPLETED", "FAILURE"),
+		]);
+		expect(pr?.checkEntries).toEqual([
+			{ name: "typecheck", workflowName: "CI", bucket: "passing" },
+			{ name: "e2e", workflowName: "CI", bucket: "failing" },
+		]);
+	});
+
+	it("projects a StatusContext's context as the name with a null workflow name", () => {
+		const pr = parseChecks([statusContext("ci/deploy", "SUCCESS")]);
+		expect(pr?.checkEntries).toEqual([
+			{ name: "ci/deploy", workflowName: null, bucket: "passing" },
+		]);
+	});
+
+	it("folds an unknown-bucket check into the pending bucket on the entry", () => {
+		const pr = parseChecks([
+			checkRun("ok", "COMPLETED", "SUCCESS"),
+			// Unrecognized conclusion -> unknown bucket -> folded to pending.
+			checkRun("mystery", "COMPLETED", "SOMETHING_NEW"),
+		]);
+		expect(pr?.checkEntries).toEqual([
+			{ name: "ok", workflowName: null, bucket: "passing" },
+			{ name: "mystery", workflowName: null, bucket: "pending" },
+		]);
 	});
 });
 
