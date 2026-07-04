@@ -21,6 +21,7 @@ export const inlineFallbackReasonValues = [
 	"patch-unavailable",
 	"line-not-in-diff",
 ] as const;
+export const priorFindingResolutionStatusValues = ["resolved", "unresolved", "unknown"] as const;
 export const inlinePostingOutcomeValues = [
 	"posted",
 	"skipped-duplicate",
@@ -143,12 +144,47 @@ export const diffReviewTargetSchema = z
 	.strict();
 export type DiffReviewTarget = z.infer<typeof diffReviewTargetSchema>;
 
+export const priorFindingsPromptContextSchema = z
+	.object({
+		prNumber: z.int().positive(),
+		reviewName: nonBlankStringSchema,
+		summaryCommentId: z.int().positive(),
+		lastReviewedHead: z
+			.object({
+				headSha: nonBlankStringSchema,
+				baseRef: nonBlankStringSchema,
+				baseMergeBaseSha: nonBlankStringSchema,
+			})
+			.strict()
+			.nullable(),
+		cap: z.int().positive(),
+		stampedFindingCount: nonNegativeIntegerSchema,
+		omittedByContextCap: nonNegativeIntegerSchema,
+		cumulativePrunedCount: nonNegativeIntegerSchema,
+		findings: z.array(
+			z
+				.object({
+					id: nonBlankStringSchema,
+					finding: reviewFindingSchema,
+					firstSeenHeadSha: nonBlankStringSchema.nullable(),
+					lastSeenHeadSha: nonBlankStringSchema.nullable(),
+					resolutionStatus: z.enum(priorFindingResolutionStatusValues),
+					reviewThreadIds: z.array(nonBlankStringSchema),
+					hasOutdatedReviewThread: z.boolean(),
+				})
+				.strict(),
+		),
+	})
+	.strict();
+export type PriorFindingsPromptContext = z.infer<typeof priorFindingsPromptContextSchema>;
+
 export const reviewRunnerRequestSchema = z
 	.object({
 		model: nonBlankStringSchema,
 		reviewDefinition: reviewDefinitionSchema,
 		reviewDir: nonBlankStringSchema,
 		target: diffReviewTargetSchema,
+		priorFindingsContext: priorFindingsPromptContextSchema.optional(),
 	})
 	.strict();
 export type ReviewRunnerRequest = z.infer<typeof reviewRunnerRequestSchema>;
