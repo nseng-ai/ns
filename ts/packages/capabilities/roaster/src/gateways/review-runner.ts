@@ -133,6 +133,9 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			reviewDefinition: request.reviewDefinition,
 			reviewDir: request.reviewDir,
 			target: request.target,
+			...(request.priorFindingsContext === undefined
+				? {}
+				: { priorFindingsContext: request.priorFindingsContext }),
 		});
 		const args = buildClaudeCodeArgs({
 			model: request.model,

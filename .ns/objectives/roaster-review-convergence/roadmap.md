@@ -8,8 +8,10 @@
   - Evidence: local branch `roaster-review-convergence/publish-summary-stamps` adds a `roaster-state:v1` block, preserves the existing summary marker, carries prior findings across body overwrite, and validates with targeted roaster tests/checks.
 - [x] Build Prior-findings context gathering: read the stamped findings block + review-thread resolution status (reusing the `@ns/capability-kit/github/pr-feedback` GraphQL surface) for a review key on a PR, with an explicit cap; degrade to a context-free review on gathering failure
   - Evidence: local branch `roaster-review-convergence/prior-findings-context` adds the optional gatherer, `pr-feedback` adapter, fake-driven unit tests, and roaster/package validation.
-- [ ] Thread Prior-findings context and changed-since-Last-reviewed-head guidance into the review prompt as an optional input; keep `ns roaster review run` PR-free by default
-- [ ] Write the convergence prompt instructions with the anchoring guard; unit-test prompt assembly
+- [x] Thread Prior-findings context and changed-since-Last-reviewed-head guidance into the review prompt as an optional input; keep `ns roaster review run` PR-free by default
+  - Evidence: local branch `roaster-review-convergence/prompt-context` adds optional prompt context plumbing and changed-since guidance while preserving no-context prompt behavior.
+- [x] Write the convergence prompt instructions with the anchoring guard; unit-test prompt assembly
+  - Evidence: prompt tests cover no-context behavior, with-context convergence instructions, resolved/unresolved treatment, Last-reviewed fallback, and the anchoring guard.
 - [ ] Wire PR context into the CI matrix review jobs (existing `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write`; no permission changes)
   - Policy: direct execution; no new permissions or triggers — any change needing them is ask-first.
   - Evidence: workflow diff references only existing env/permissions; touched TS validated with targeted tests.

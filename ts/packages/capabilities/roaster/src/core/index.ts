@@ -23,6 +23,7 @@ export {
 	createLocalDiff,
 	reviewExecutionResponseSchema,
 	reviewFindingsPayloadSchema,
+	type PriorFindingsPromptContext,
 	type ReviewExecutionResponse,
 	type ReviewFindingsPayload,
 	type ReviewRunnerRequest,

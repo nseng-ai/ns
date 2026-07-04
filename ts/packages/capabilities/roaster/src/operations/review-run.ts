@@ -16,6 +16,7 @@ import { renderReviewLogMarkdown, type ReviewLogWriteResult } from "../gateways/
 import {
 	reviewRunResultSchema,
 	type LocalDiff,
+	type PriorFindingsPromptContext,
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
 	type ReviewRunResult,
@@ -35,6 +36,7 @@ export interface RunRoasterReviewRequest {
 	readonly modelProfile?: string;
 	readonly baseRef?: string;
 	readonly logBranch?: string;
+	readonly priorFindingsContext?: PriorFindingsPromptContext;
 }
 
 export type RunRoasterReviewOutcome =
@@ -117,6 +119,9 @@ export async function runRoasterReview(
 			reviewDefinition: definition,
 			reviewDir: dirname(source.path),
 			target: { localDiff: diff },
+			...(request.priorFindingsContext === undefined
+				? {}
+				: { priorFindingsContext: request.priorFindingsContext }),
 		},
 		environmentOptions(ctx.runScope),
 	);

@@ -183,6 +183,37 @@ describe("roaster domain schemas", () => {
 			reviewDefinition,
 			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },
+			priorFindingsContext: {
+				prNumber: 123,
+				reviewName: "typescript-style",
+				summaryCommentId: 456,
+				lastReviewedHead: {
+					headSha: "head-abc",
+					baseRef: "main",
+					baseMergeBaseSha: "merge-base-def",
+				},
+				cap: 10,
+				stampedFindingCount: 1,
+				omittedByContextCap: 0,
+				cumulativePrunedCount: 0,
+				findings: [
+					{
+						id: "finding-1",
+						finding: {
+							path: "src/app.ts",
+							line: 1,
+							severity: "warning",
+							summary: "Use a narrower type.",
+							details: "The prior review already surfaced this.",
+						},
+						firstSeenHeadSha: "old-head",
+						lastSeenHeadSha: "head-abc",
+						resolutionStatus: "unresolved",
+						reviewThreadIds: ["thread-1"],
+						hasOutdatedReviewThread: false,
+					},
+				],
+			},
 		});
 		const response = reviewExecutionResponseSchema.parse({
 			payload: createFindingsReview([]),
@@ -191,6 +222,7 @@ describe("roaster domain schemas", () => {
 		});
 
 		expect(request.target.localDiff.baseRef).toBe("main");
+		expect(request.priorFindingsContext?.findings[0]?.resolutionStatus).toBe("unresolved");
 		expect(response.payload.count).toBe(0);
 	});
 

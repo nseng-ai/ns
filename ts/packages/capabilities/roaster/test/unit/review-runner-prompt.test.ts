@@ -9,7 +9,11 @@ import {
 	renderPromptFence,
 	systemPromptFindings,
 } from "../../src/gateways/review-runner-prompt.ts";
-import { createLocalDiff, type ReviewDefinition } from "../../src/core/models.ts";
+import {
+	createLocalDiff,
+	type PriorFindingsPromptContext,
+	type ReviewDefinition,
+} from "../../src/core/models.ts";
 
 const reviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
@@ -64,7 +68,7 @@ describe("Claude Code harness prompt assembly", () => {
 		expect(assembled.promptText.endsWith("\n")).toBe(false);
 	});
 
-	test("renders no changed paths and collision-free diff fences", () => {
+	test("renders no changed paths and collision-free diff fences without convergence context by default", () => {
 		const localDiff = createLocalDiff({ baseRef: "main", diffText: "added ``` fence", files: [] });
 
 		const assembled = assembleReviewPrompt({
@@ -74,9 +78,63 @@ describe("Claude Code harness prompt assembly", () => {
 		});
 
 		expect(assembled.promptText).toContain("(no changed paths reported)");
+		expect(assembled.promptText).not.toContain("Prior review convergence context");
+		expect(assembled.promptText).not.toContain("Do not re-raise a previously surfaced finding");
 		expect(renderPromptFence("added ``` fence", { language: "diff" })).toBe(
 			"````diff\nadded ``` fence\n````",
 		);
+	});
+
+	test("threads prior findings convergence context into prompt assembly", () => {
+		const localDiff = createLocalDiff({
+			baseRef: "main",
+			diffText: "diff --git a/src/app.ts b/src/app.ts\n+const value = 1;\n",
+			files: [],
+		});
+
+		const assembled = assembleReviewPrompt({
+			reviewDefinition,
+			reviewDir: "/repo/.ns/reviews/typescript-style",
+			target: { localDiff },
+			priorFindingsContext: priorFindingsContext(),
+		});
+
+		expect(assembled.promptText).toContain("Prior review convergence context:");
+		expect(assembled.promptText).toContain("- Last-reviewed head: head-abc");
+		expect(assembled.promptText).toContain("- Last-reviewed base merge-base: merge-base-def");
+		expect(assembled.promptText).toContain("range-diff semantics");
+		expect(assembled.promptText).toContain("Do not re-raise a previously surfaced finding");
+		expect(assembled.promptText).toContain(
+			"[unresolved] src/app.ts:12 warning: Prefer nullish coalescing.",
+		);
+		expect(assembled.promptText).toContain("Unresolved prior findings are already known feedback");
+		expect(assembled.promptText).toContain(
+			"[resolved] src/old.ts:file info: Remove stale comment.",
+		);
+		expect(assembled.promptText).toContain(
+			"Resolved prior findings are considered addressed for unchanged code",
+		);
+		expect(assembled.promptText).toContain(
+			"Anchoring guard: suppress only the same underlying prior issue",
+		);
+		expect(assembled.promptText).toContain(
+			"Still surface genuinely new issues, including issues in the same file, nearby lines, or code adjacent to a prior finding.",
+		);
+	});
+
+	test("falls back to prior-findings-only guidance without a last-reviewed head", () => {
+		const localDiff = createLocalDiff({ baseRef: "main", diffText: "diff", files: [] });
+
+		const assembled = assembleReviewPrompt({
+			reviewDefinition,
+			reviewDir: "/repo/.ns/reviews/typescript-style",
+			target: { localDiff },
+			priorFindingsContext: priorFindingsContext({ lastReviewedHead: null }),
+		});
+
+		expect(assembled.promptText).toContain("- Last-reviewed head: unavailable.");
+		expect(assembled.promptText).toContain("fall back to Prior-findings-only convergence");
+		expect(assembled.promptText).toContain("Review the supplied diff normally for new issues");
 	});
 
 	test("caps changed path metadata for large reviews", () => {
@@ -116,6 +174,61 @@ describe("Claude Code harness prompt assembly", () => {
 		);
 	});
 });
+
+function priorFindingsContext(
+	overrides: Partial<Pick<PriorFindingsPromptContext, "lastReviewedHead">> = {},
+): PriorFindingsPromptContext {
+	const lastReviewedHead =
+		"lastReviewedHead" in overrides
+			? overrides.lastReviewedHead
+			: {
+					headSha: "head-abc",
+					baseRef: "main",
+					baseMergeBaseSha: "merge-base-def",
+				};
+	return {
+		prNumber: 123,
+		reviewName: "typescript-style",
+		summaryCommentId: 456,
+		lastReviewedHead,
+		cap: 10,
+		stampedFindingCount: 3,
+		omittedByContextCap: 1,
+		cumulativePrunedCount: 2,
+		findings: [
+			{
+				id: "finding-unresolved",
+				finding: {
+					path: "src/app.ts",
+					line: 12,
+					severity: "warning",
+					summary: "Prefer nullish coalescing.",
+					details: "The previous review flagged `||` defaulting here.",
+				},
+				firstSeenHeadSha: "old-head-1",
+				lastSeenHeadSha: "head-abc",
+				resolutionStatus: "unresolved",
+				reviewThreadIds: ["thread-1"],
+				hasOutdatedReviewThread: false,
+			},
+			{
+				id: "finding-resolved",
+				finding: {
+					path: "src/old.ts",
+					line: null,
+					severity: "info",
+					summary: "Remove stale comment.",
+					details: "The previous review considered this a cleanup-only finding.",
+				},
+				firstSeenHeadSha: "old-head-2",
+				lastSeenHeadSha: "head-abc",
+				resolutionStatus: "resolved",
+				reviewThreadIds: [],
+				hasOutdatedReviewThread: true,
+			},
+		],
+	};
+}
 
 describe("Claude Code harness schema and model support", () => {
 	test.each(["sonnet", "opus", "haiku", "claude-3-5-sonnet"])(
