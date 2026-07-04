@@ -56,8 +56,6 @@ export function collectPackageTierLayeringViolations(
 	return violations;
 }
 
-export { packageEdgeKey } from "./package-tier-taxonomy.ts";
-
 interface TierEdgeViolation {
 	readonly severity: "hard" | "debt";
 	readonly policy: string;
