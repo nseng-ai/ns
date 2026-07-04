@@ -375,6 +375,7 @@ export async function runSubmitCommand(
 					skipped: descriptionResult.skipped,
 					prewritten: descriptionResult.prewritten,
 					prewriteFallbacks: descriptionResult.prewriteFallbacks,
+					previews: descriptionResult.previews,
 				})
 			: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);

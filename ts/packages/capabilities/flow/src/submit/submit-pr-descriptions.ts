@@ -19,8 +19,15 @@ export type SubmitPrDescriptionGenerationResult =
 			skipped: SubmitPrLink[];
 			prewritten: SubmitPrLink[];
 			prewriteFallbacks: SubmitPrLink[];
+			previews: SubmitPrDescriptionPreview[];
 	  }
 	| { ok: false; failures: PrDescriptionFailure[] };
+
+export interface SubmitPrDescriptionPreview {
+	link: SubmitPrLink;
+	title: string;
+	descriptionFirstLine: string;
+}
 
 export interface PrDescriptionFailure {
 	link: SubmitPrLink;
@@ -40,6 +47,7 @@ export async function generateSubmitPrDescriptions(input: {
 	const skipped: SubmitPrLink[] = [];
 	const prewritten: SubmitPrLink[] = [];
 	const prewriteFallbacks: SubmitPrLink[] = [];
+	const previews: SubmitPrDescriptionPreview[] = [];
 	const failures: PrDescriptionFailure[] = [];
 	const prewrittenByBranch = new Map(
 		(input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]),
@@ -104,12 +112,15 @@ export async function generateSubmitPrDescriptions(input: {
 				break;
 			case "matched_prewritten":
 				prewritten.push(link);
+				previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 				break;
 			case "updated":
 				prewriteFallbacks.push(link);
+				previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 				break;
 			case "generated":
 				generated.push(link);
+				previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 				input.onProgress?.(`finished PR #${number} description`);
 				break;
 			case "failed":
@@ -126,7 +137,28 @@ export async function generateSubmitPrDescriptions(input: {
 	if (failures.length > 0) {
 		return { ok: false, failures };
 	}
-	return { ok: true, generated, skipped, prewritten, prewriteFallbacks };
+	return { ok: true, generated, skipped, prewritten, prewriteFallbacks, previews };
+}
+
+function prDescriptionPreview(
+	link: SubmitPrLink,
+	title: string,
+	descriptionBody: string,
+): SubmitPrDescriptionPreview {
+	return {
+		link,
+		title: title.trim(),
+		descriptionFirstLine: firstNonEmptyLine(descriptionBody),
+	};
+}
+
+function firstNonEmptyLine(text: string): string {
+	return (
+		text
+			.split(/\r?\n/u)
+			.map((line) => line.trim())
+			.find((line) => line !== "") ?? ""
+	);
 }
 
 export function formatPrDescriptionFailureText(

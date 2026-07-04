@@ -32,6 +32,7 @@ export function formatSubmitSuccessText(
 		skipped: readonly SubmitPrLink[];
 		prewritten: readonly SubmitPrLink[];
 		prewriteFallbacks: readonly SubmitPrLink[];
+		previews: readonly SubmitPrDescriptionPreview[];
 	},
 ): string {
 	const lines = [`Submitted ${formatItemCount(prLinks.length, "PR", "PRs")}:`];
@@ -63,12 +64,19 @@ export function formatSubmitSuccessFallbackText(stdout: string, stderr: string):
 	return lines.join("\n");
 }
 
+interface SubmitPrDescriptionPreview {
+	link: SubmitPrLink;
+	title: string;
+	descriptionFirstLine: string;
+}
+
 function formatSubmitSuccessStatuses(
 	link: SubmitPrLink,
 	descriptions: {
 		generated: readonly SubmitPrLink[];
 		prewritten: readonly SubmitPrLink[];
 		prewriteFallbacks: readonly SubmitPrLink[];
+		previews: readonly SubmitPrDescriptionPreview[];
 	},
 ): string[] {
 	const statuses: string[] = [];
@@ -80,6 +88,13 @@ function formatSubmitSuccessStatuses(
 		hasMatchingLink(descriptions.prewriteFallbacks, link)
 	) {
 		statuses.push("description updated");
+	}
+	const preview = descriptions.previews.find((candidate) => candidate.link.url === link.url);
+	if (preview !== undefined) {
+		statuses.push(`new title: ${preview.title}`);
+		if (preview.descriptionFirstLine !== "") {
+			statuses.push(`new description: ${preview.descriptionFirstLine}`);
+		}
 	}
 	return statuses;
 }

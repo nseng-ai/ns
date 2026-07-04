@@ -50,6 +50,7 @@ export type PrDescriptionUpdateResult =
 			pr: GithubPrDetails;
 			title: string;
 			body: string;
+			descriptionBody: string;
 			promptSource: PromptSource;
 	  }
 	| {
@@ -77,9 +78,15 @@ export interface PrDescriptionOrchestrationOptions extends PrDescriptionUpdateOp
 
 export type PrDescriptionOrchestrationResult =
 	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
-	| { type: "matched_prewritten"; pr: GithubPrDetails }
-	| { type: "updated"; pr: GithubPrDetails; title: string }
-	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
+	| { type: "matched_prewritten"; pr: GithubPrDetails; title: string; descriptionBody: string }
+	| { type: "updated"; pr: GithubPrDetails; title: string; descriptionBody: string }
+	| {
+			type: "generated";
+			pr: GithubPrDetails;
+			title: string;
+			descriptionBody: string;
+			promptSource: PromptSource;
+	  }
 	| Extract<PrDescriptionUpdateResult, { type: "failed" }>;
 
 export async function preparePrDescriptionUpdateForCurrentBranch(
@@ -174,6 +181,7 @@ export async function preparePrDescriptionUpdate(
 		pr,
 		title: prepared.title,
 		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		descriptionBody: prepared.body,
 		promptSource: generation.promptSource,
 	};
 }
@@ -245,6 +253,7 @@ export async function orchestratePrDescription(
 		type: "generated",
 		pr,
 		title: prepared.title,
+		descriptionBody: prepared.descriptionBody,
 		promptSource: prepared.promptSource,
 	};
 }
@@ -256,7 +265,12 @@ async function reconcilePrewrittenPr(params: {
 }): Promise<PrDescriptionOrchestrationResult> {
 	params.options.onProgress?.(`validating prewritten metadata for PR #${params.pr.number}`);
 	if (prMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
-		return { type: "matched_prewritten", pr: params.pr };
+		return {
+			type: "matched_prewritten",
+			pr: params.pr,
+			title: params.metadata.title,
+			descriptionBody: params.metadata.body,
+		};
 	}
 
 	params.options.onProgress?.(`updating PR #${params.pr.number} with prewritten metadata`);
@@ -267,7 +281,12 @@ async function reconcilePrewrittenPr(params: {
 		body: appendGeneratedMarker(params.metadata.body),
 	});
 	if (edited.ok) {
-		return { type: "updated", pr: params.pr, title: params.metadata.title };
+		return {
+			type: "updated",
+			pr: params.pr,
+			title: params.metadata.title,
+			descriptionBody: params.metadata.body,
+		};
 	}
 
 	return {
