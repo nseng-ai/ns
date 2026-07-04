@@ -32,6 +32,17 @@ export interface PrDescriptionFailure {
 	diagnostic?: ErrorInfo;
 }
 
+interface PrDescriptionAccumulator {
+	generated: SubmitPrLink[];
+	skipped: SubmitPrLink[];
+	prewritten: SubmitPrLink[];
+	prewriteFallbacks: SubmitPrLink[];
+	previews: SubmitPrDescriptionPreview[];
+	failures: PrDescriptionFailure[];
+}
+
+type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbacks";
+
 export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
@@ -39,12 +50,7 @@ export async function generateSubmitPrDescriptions(input: {
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	onProgress?: (message: string) => void;
 }): Promise<SubmitPrDescriptionGenerationResult> {
-	const generated: SubmitPrLink[] = [];
-	const skipped: SubmitPrLink[] = [];
-	const prewritten: SubmitPrLink[] = [];
-	const prewriteFallbacks: SubmitPrLink[] = [];
-	const previews: SubmitPrDescriptionPreview[] = [];
-	const failures: PrDescriptionFailure[] = [];
+	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
 	const prewrittenByBranch = new Map(
 		(input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]),
 	);
@@ -66,7 +72,7 @@ export async function generateSubmitPrDescriptions(input: {
 		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
-			failures.push({
+			accumulator = collectPrDescriptionFailure(accumulator, {
 				link,
 				number,
 				reason: viewed.error.message,
@@ -84,7 +90,11 @@ export async function generateSubmitPrDescriptions(input: {
 				git: input.prDescription.git,
 			});
 			if (!resolvedGeneration.ok) {
-				failures.push({ link, number, reason: resolvedGeneration.error });
+				accumulator = collectPrDescriptionFailure(accumulator, {
+					link,
+					number,
+					reason: resolvedGeneration.error,
+				});
 				continue;
 			}
 			generation = resolvedGeneration;
@@ -102,87 +112,134 @@ export async function generateSubmitPrDescriptions(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
-		collectPrDescriptionResult({
+		accumulator = collectPrDescriptionResult({
 			result,
 			link,
 			number,
-			generated,
-			skipped,
-			prewritten,
-			prewriteFallbacks,
-			previews,
-			failures,
+			accumulator,
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 	}
 
-	if (failures.length > 0) {
-		return { ok: false, failures };
+	if (accumulator.failures.length > 0) {
+		return { ok: false, failures: accumulator.failures };
 	}
-	return { ok: true, generated, skipped, prewritten, prewriteFallbacks, previews };
+	return {
+		ok: true,
+		generated: accumulator.generated,
+		skipped: accumulator.skipped,
+		prewritten: accumulator.prewritten,
+		prewriteFallbacks: accumulator.prewriteFallbacks,
+		previews: accumulator.previews,
+	};
+}
+
+function createPrDescriptionAccumulator(): PrDescriptionAccumulator {
+	return {
+		generated: [],
+		skipped: [],
+		prewritten: [],
+		prewriteFallbacks: [],
+		previews: [],
+		failures: [],
+	};
 }
 
 function collectPrDescriptionResult(input: {
 	result: PrDescriptionOrchestrationResult;
 	link: SubmitPrLink;
 	number: number;
-	generated: SubmitPrLink[];
-	skipped: SubmitPrLink[];
-	prewritten: SubmitPrLink[];
-	prewriteFallbacks: SubmitPrLink[];
-	previews: SubmitPrDescriptionPreview[];
-	failures: PrDescriptionFailure[];
+	accumulator: PrDescriptionAccumulator;
 	onProgress?: (message: string) => void;
-}): void {
+}): PrDescriptionAccumulator {
 	switch (input.result.type) {
 		case "skipped":
-			input.skipped.push(input.link);
-			break;
+			return {
+				...input.accumulator,
+				skipped: [...input.accumulator.skipped, input.link],
+			};
 		case "matched_prewritten":
-			collectPrDescriptionSuccess(input.prewritten, input.previews, input.link, input.result);
-			break;
+			return collectPrDescriptionSuccess({
+				accumulator: input.accumulator,
+				bucketName: "prewritten",
+				link: input.link,
+				content: input.result,
+			});
 		case "updated":
-			collectPrDescriptionSuccess(
-				input.prewriteFallbacks,
-				input.previews,
-				input.link,
-				input.result,
-			);
-			break;
-		case "generated":
-			collectPrDescriptionSuccess(input.generated, input.previews, input.link, input.result);
+			return collectPrDescriptionSuccess({
+				accumulator: input.accumulator,
+				bucketName: "prewriteFallbacks",
+				link: input.link,
+				content: input.result,
+			});
+		case "generated": {
+			const accumulator = collectPrDescriptionSuccess({
+				accumulator: input.accumulator,
+				bucketName: "generated",
+				link: input.link,
+				content: input.result,
+			});
 			input.onProgress?.(`finished PR #${input.number} description`);
-			break;
+			return accumulator;
+		}
 		case "failed":
-			input.failures.push({
+			return collectPrDescriptionFailure(input.accumulator, {
 				link: input.link,
 				number: input.number,
 				reason: input.result.reason,
 				...(input.result.diagnostic === undefined ? {} : { diagnostic: input.result.diagnostic }),
 			});
-			break;
 	}
 }
 
-function collectPrDescriptionSuccess(
-	links: SubmitPrLink[],
-	previews: SubmitPrDescriptionPreview[],
-	link: SubmitPrLink,
-	content: PrDescriptionContent,
-): void {
-	links.push(link);
-	previews.push(prDescriptionPreview(link, content.title, content.descriptionBody));
+function collectPrDescriptionFailure(
+	accumulator: PrDescriptionAccumulator,
+	failure: PrDescriptionFailure,
+): PrDescriptionAccumulator {
+	return {
+		...accumulator,
+		failures: [...accumulator.failures, failure],
+	};
+}
+
+function collectPrDescriptionSuccess(input: {
+	accumulator: PrDescriptionAccumulator;
+	bucketName: PrDescriptionLinkBucketName;
+	link: SubmitPrLink;
+	content: PrDescriptionContent;
+}): PrDescriptionAccumulator {
+	const preview = prDescriptionPreview(input.link, input.content.title, input.content.previewBody);
+	switch (input.bucketName) {
+		case "generated":
+			return {
+				...input.accumulator,
+				generated: [...input.accumulator.generated, input.link],
+				previews: [...input.accumulator.previews, preview],
+			};
+		case "prewritten":
+			return {
+				...input.accumulator,
+				prewritten: [...input.accumulator.prewritten, input.link],
+				previews: [...input.accumulator.previews, preview],
+			};
+		case "prewriteFallbacks":
+			return {
+				...input.accumulator,
+				prewriteFallbacks: [...input.accumulator.prewriteFallbacks, input.link],
+				previews: [...input.accumulator.previews, preview],
+			};
+	}
 }
 
 function prDescriptionPreview(
 	link: SubmitPrLink,
 	title: string,
-	descriptionBody: string,
+	previewBody: string,
 ): SubmitPrDescriptionPreview {
 	return {
 		link,
 		title: title.trim(),
-		descriptionFirstLine: firstNonEmptyLine(descriptionBody) ?? "",
+		descriptionFirstLine: firstNonEmptyLine(previewBody),
 	};
 }
 

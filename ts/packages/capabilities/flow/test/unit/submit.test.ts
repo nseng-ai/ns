@@ -12,8 +12,26 @@ import {
 	type TextGenerator,
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
+import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
 import type { GitGateway } from "@ns/capability-kit/git";
 import { ScriptedCommandRunner, startupErrorStep, step } from "@ns/core/exec/testing";
+
+describe("formatSubmitSuccessText", () => {
+	test("omits the description preview line when no first line is available", () => {
+		const link = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
+
+		const output = formatSubmitSuccessText([link], {
+			generated: [link],
+			skipped: [],
+			prewritten: [],
+			prewriteFallbacks: [],
+			previews: [{ link, title: "Generated title", descriptionFirstLine: undefined }],
+		});
+
+		expect(output).toContain("new title: Generated title");
+		expect(output).not.toContain("new description:");
+	});
+});
 
 describe("RealSubmitGateway", () => {
 	test("checkSubmitReadiness invokes Graphite dry-run submit", async () => {

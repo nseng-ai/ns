@@ -76,7 +76,7 @@ function formatSubmitSuccessStatuses(
 	const preview = findMatchingLink(descriptions.previews, link, (candidate) => candidate.link);
 	if (preview !== undefined) {
 		statuses.push(`new title: ${preview.title}`);
-		if (preview.descriptionFirstLine !== "") {
+		if (preview.descriptionFirstLine !== undefined) {
 			statuses.push(`new description: ${preview.descriptionFirstLine}`);
 		}
 	}

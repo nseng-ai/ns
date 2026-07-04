@@ -27,7 +27,7 @@ export interface PrewrittenPrMetadata {
 
 export interface PrDescriptionContent {
 	title: string;
-	descriptionBody: string;
+	previewBody: string;
 }
 
 export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
@@ -53,7 +53,7 @@ export type PrDescriptionUpdateResult =
 	| ({
 			type: "prepared";
 			pr: GithubPrDetails;
-			body: string;
+			mergedBody: string;
 			promptSource: PromptSource;
 	  } & PrDescriptionContent)
 	| {
@@ -181,8 +181,8 @@ export async function preparePrDescriptionUpdate(
 		type: "prepared",
 		pr,
 		title: prepared.title,
-		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
-		descriptionBody: prepared.body,
+		mergedBody: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		previewBody: prepared.body,
 		promptSource: generation.promptSource,
 	};
 }
@@ -196,7 +196,7 @@ export async function applyPreparedPrDescriptionUpdate(input: {
 		cwd: input.cwd,
 		number: input.update.pr.number,
 		title: input.update.title,
-		body: input.update.body,
+		body: input.update.mergedBody,
 	});
 	if (edited.ok) return { ok: true };
 	return { ok: false, reason: edited.error.message, diagnostic: edited.error };
@@ -254,7 +254,7 @@ export async function orchestratePrDescription(
 		type: "generated",
 		pr,
 		title: prepared.title,
-		descriptionBody: prepared.descriptionBody,
+		previewBody: prepared.previewBody,
 		promptSource: prepared.promptSource,
 	};
 }
@@ -270,7 +270,7 @@ async function reconcilePrewrittenPr(params: {
 			type: "matched_prewritten",
 			pr: params.pr,
 			title: params.metadata.title,
-			descriptionBody: params.metadata.body,
+			previewBody: params.metadata.body,
 		};
 	}
 
@@ -286,7 +286,7 @@ async function reconcilePrewrittenPr(params: {
 			type: "updated",
 			pr: params.pr,
 			title: params.metadata.title,
-			descriptionBody: params.metadata.body,
+			previewBody: params.metadata.body,
 		};
 	}
 
