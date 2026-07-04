@@ -44,5 +44,12 @@
       (subprocess remains the default). Non-blocking for completion.
 - [ ] Consolidation assessment: whether the chosen substrate can subsume
       `dispatchRunnerSubagent` and thermo-council's orchestration. Expected to park.
+- [ ] Apply the 2026-07-04 critique changes
+      (`updates/2026-07-04-objective-critique.md`): fix the stale `.ji/` explorer path
+      in `contract.ts`/`testing.ts` (2 of 17 explore tests currently fail) and correct
+      the item-2 evidence above; record the home-directory-guard child-bypass decision
+      in Assumptions and Risks; soften the Thesis's "no result context economy" claim
+      and note the Anthropic-only cheap-model policy. Blocks item 3 (item-2 evidence
+      must pass before the fan-out tool builds on this layer).
 
 ## Parked
