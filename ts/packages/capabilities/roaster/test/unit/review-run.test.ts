@@ -2,15 +2,16 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterRuntime } from "../../src/core/context.ts";
 import {
 	buildFindingsCommentMachineState,
 	renderFindingsComment,
+	summaryMarkerForReview,
 	type LastReviewedHeadState,
 } from "../../src/core/findings-comment.ts";
-import type { PriorFindingsDiscussionComment } from "../../src/core/prior-findings-context.ts";
 import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
 import { runReviewByKey } from "../../src/operations/cli-operations.ts";
 import { runRoasterReview } from "../../src/operations/review-run.ts";
@@ -18,14 +19,14 @@ import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
+import { FakeRoasterGitHubGateway } from "../../src/gateways/github.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
+	type PRDiscussionComment,
 	type ReviewFinding,
 } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
-import { FakePriorFindingsContextGithubGateway } from "../support/fake-prior-findings-context-gateway.ts";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 
 const REVIEW_SOURCE = `---
 description: Review TypeScript diffs.
@@ -114,8 +115,8 @@ describe("runRoasterReview", () => {
 	});
 
 	test("keeps review runs PR-free unless prior-findings PR context is requested", async () => {
-		const priorFindingsGateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [priorFindingsSummaryComment()],
+		const github = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [priorFindingsSummaryComment()]]]),
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const ctx = createRoasterRuntime(
@@ -123,7 +124,7 @@ describe("runRoasterReview", () => {
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
-				priorFindingsGateway,
+				github,
 				reviewRunner,
 			}),
 		);
@@ -131,14 +132,14 @@ describe("runRoasterReview", () => {
 		const exit = await runReviewByKey(ctx, { key: "typescript-style" });
 
 		expect(exit.type).toBe("ok");
-		expect(priorFindingsGateway.discussionCommentCalls).toEqual([]);
-		expect(priorFindingsGateway.reviewThreadCalls).toEqual([]);
+		expect(github.markerCalls()).toEqual([]);
+		expect(github.reviewThreadCalls()).toEqual([]);
 		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toBeUndefined();
 	});
 
 	test("gathers prior-findings context for opt-in PR review runs", async () => {
-		const priorFindingsGateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [priorFindingsSummaryComment()],
+		const github = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [priorFindingsSummaryComment()]]]),
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const stderr: string[] = [];
@@ -147,7 +148,7 @@ describe("runRoasterReview", () => {
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
-				priorFindingsGateway,
+				github,
 				reviewRunner,
 				stderr: (text) => stderr.push(text),
 			}),
@@ -160,12 +161,16 @@ describe("runRoasterReview", () => {
 		});
 
 		expect(exit.type).toBe("ok");
-		expect(priorFindingsGateway.discussionCommentCalls).toEqual([
-			{ cwd: "/repo", env: {}, prNumber: 123 },
+		expect(github.markerCalls()).toEqual([
+			{
+				cwd: "/repo",
+				env: {},
+				prNumber: 123,
+				marker: summaryMarkerForReview("typescript-style"),
+				authorLogin: ROASTER_BOT_LOGIN,
+			},
 		]);
-		expect(priorFindingsGateway.reviewThreadCalls).toEqual([
-			{ cwd: "/repo", env: {}, prNumber: 123 },
-		]);
+		expect(github.reviewThreadCalls()).toEqual([{ cwd: "/repo", env: {}, prNumber: 123 }]);
 		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toMatchObject({
 			prNumber: 123,
 			reviewName: "typescript-style",
@@ -246,7 +251,7 @@ function gitGateway(repoRoot: string): InMemoryGitGateway {
 	});
 }
 
-function priorFindingsSummaryComment(): PriorFindingsDiscussionComment {
+function priorFindingsSummaryComment(): PRDiscussionComment & { readonly author: string } {
 	const payload = {
 		reviewName: "typescript-style",
 		baseRef: "main",

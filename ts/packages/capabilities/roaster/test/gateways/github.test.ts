@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
+import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/command";
 import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
 
@@ -19,9 +20,31 @@ describe("FakeRoasterGitHubGateway", () => {
 		const reviewComments: readonly PRReviewComment[] = [
 			{ author: "github-actions[bot]", body: "<!-- roaster-inline:review:abc -->" },
 		];
+		const reviewThreads: readonly GithubPrReviewThread[] = [
+			{
+				id: "thread-1",
+				path: "src/app.ts",
+				line: 1,
+				startLine: null,
+				isResolved: false,
+				isOutdated: false,
+				comments: [
+					{
+						id: 20,
+						body: "<!-- roaster-inline:review:abc -->",
+						author: "github-actions[bot]",
+						path: "src/app.ts",
+						line: 1,
+						startLine: null,
+						createdAt: "2026-01-01T00:00:00Z",
+					},
+				],
+			},
+		];
 		const gateway = new FakeRoasterGitHubGateway({
 			changedFilesByPr: new Map([[7, changedFiles]]),
 			reviewCommentsByPr: new Map([[7, reviewComments]]),
+			reviewThreadsByPr: new Map([[7, reviewThreads]]),
 			discussionCommentsByPr: new Map([
 				[7, [{ id: 10, body: "<!-- roaster:review -->\nold", author: "github-actions[bot]" }]],
 			]),
@@ -35,6 +58,11 @@ describe("FakeRoasterGitHubGateway", () => {
 			type: "ok",
 			value: reviewComments,
 		});
+		expect(await gateway.getPrReviewThreads(7, { cwd: "/repo" })).toEqual({
+			type: "ok",
+			value: reviewThreads,
+		});
+		expect(gateway.reviewThreadCalls()).toEqual([{ cwd: "/repo", prNumber: 7 }]);
 		const inlineComments: readonly PRInlineCommentInput[] = [
 			{ path: "src/app.ts", line: 1, body: "inline" },
 		];

@@ -17,7 +17,6 @@ export {
 	type ReviewRunnerGateway,
 	type RunReviewOptions,
 } from "../gateways/review-runner.ts";
-export { RealPriorFindingsContextGithubGateway } from "../gateways/prior-findings-context.ts";
 export {
 	createFindingsReview,
 	createLocalDiff,
@@ -36,11 +35,6 @@ export {
 	type PriorFindingContextEntry,
 	type PriorFindingResolutionStatus,
 	type PriorFindingsContext,
-	type PriorFindingsContextGithubGateway,
-	type PriorFindingsDiscussionComment,
-	type PriorFindingsGatewayFailure,
-	type PriorFindingsPrOptions,
-	type PriorFindingsReviewThread,
 } from "./prior-findings-context.ts";
 export {
 	runRoasterReview,

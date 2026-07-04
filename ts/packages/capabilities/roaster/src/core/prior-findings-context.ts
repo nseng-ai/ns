@@ -1,89 +1,24 @@
-import type { ExplicitUndefined } from "@ns/core/primitives";
-import type { ErrorInfo, Result } from "@ns/core/result";
+import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback";
 
+import type { GitHubGatewayFailure, RoasterFailure } from "./failures.ts";
 import {
 	inlineMarkerForFinding,
-	parseFindingsCommentBody,
 	parseFindingsCommentMachineState,
 	summaryMarkerForReview,
-	type LastReviewedHeadState,
 	type PriorFindingRecord,
 } from "./findings-comment.ts";
-import type { ReviewFinding } from "./models.ts";
+import type { PriorFindingsPromptContext, PriorFindingsPromptContextEntry } from "./models.ts";
 import { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
+import type { GitHubGatewayOptions, RoasterGitHubGateway } from "../gateways/github.ts";
 
-export type PriorFindingResolutionStatus = "resolved" | "unresolved" | "unknown";
+export type PriorFindingResolutionStatus = PriorFindingsPromptContextEntry["resolutionStatus"];
+export type PriorFindingContextEntry = PriorFindingsPromptContextEntry;
+export type PriorFindingsContext = PriorFindingsPromptContext;
 
-export interface PriorFindingsGatewayOptions {
-	readonly cwd: string;
-	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-}
-
-export interface PriorFindingsPrOptions extends PriorFindingsGatewayOptions {
-	readonly prNumber: number;
-}
-
-export type PriorFindingsGatewayOperation = "getPrDiscussionComments" | "getPrReviewThreads";
-
-export interface PriorFindingsGatewayFailureDetails {
-	readonly operation: PriorFindingsGatewayOperation;
-	readonly prNumber: number;
-	readonly displayCommand?: string;
-}
-
-export interface PriorFindingsGatewayFailure extends ErrorInfo<PriorFindingsGatewayFailureDetails> {
-	readonly code: string;
-	readonly details: PriorFindingsGatewayFailureDetails;
-}
-
-export interface PriorFindingsDiscussionComment {
-	readonly id: number;
-	readonly body: string;
-	readonly author: string;
-}
-
-export interface PriorFindingsReviewThreadComment {
-	readonly body: string;
-}
-
-export interface PriorFindingsReviewThread {
-	readonly id: string;
-	readonly isResolved: boolean;
-	readonly isOutdated: boolean;
-	readonly comments: readonly PriorFindingsReviewThreadComment[];
-}
-
-export interface PriorFindingsContextGithubGateway {
-	getPrDiscussionComments(
-		options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>>;
-	getPrReviewThreads(
-		options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>>;
-}
-
-export interface PriorFindingContextEntry {
-	readonly id: string;
-	readonly finding: ReviewFinding;
-	readonly firstSeenHeadSha: string | null;
-	readonly lastSeenHeadSha: string | null;
-	readonly resolutionStatus: PriorFindingResolutionStatus;
-	readonly reviewThreadIds: readonly string[];
-	readonly hasOutdatedReviewThread: boolean;
-}
-
-export interface PriorFindingsContext {
-	readonly prNumber: number;
-	readonly reviewName: string;
-	readonly summaryCommentId: number;
-	readonly lastReviewedHead: LastReviewedHeadState | null;
-	readonly cap: number;
-	readonly stampedFindingCount: number;
-	readonly omittedByContextCap: number;
-	readonly cumulativePrunedCount: number;
-	readonly findings: readonly PriorFindingContextEntry[];
-}
+type PriorFindingsContextGateway = Pick<
+	RoasterGitHubGateway,
+	"findPrDiscussionCommentByMarker" | "getPrReviewThreads"
+>;
 
 export type PriorFindingsContextMissingReason =
 	| "invalid-cap"
@@ -93,22 +28,22 @@ export type PriorFindingsContextMissingReason =
 	| "github-read-failed";
 
 export type GatherPriorFindingsContextResult =
-	| { readonly type: "with-context"; readonly context: PriorFindingsContext }
+	| { readonly type: "with-context"; readonly context: PriorFindingsPromptContext }
 	| {
 			readonly type: "without-context";
 			readonly reason: PriorFindingsContextMissingReason;
 			readonly message: string;
-			readonly error?: PriorFindingsGatewayFailure;
+			readonly error?: GitHubGatewayFailure;
 	  };
 
-export interface GatherPriorFindingsContextOptions extends PriorFindingsGatewayOptions {
+export interface GatherPriorFindingsContextOptions extends GitHubGatewayOptions {
 	readonly prNumber: number;
 	readonly reviewName: string;
 	readonly cap: number;
 }
 
 export async function gatherPriorFindingsContext(
-	gateway: PriorFindingsContextGithubGateway,
+	gateway: PriorFindingsContextGateway,
 	options: GatherPriorFindingsContextOptions,
 ): Promise<GatherPriorFindingsContextResult> {
 	if (!Number.isInteger(options.cap) || options.cap <= 0) {
@@ -118,28 +53,29 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const prOptions = prGatewayOptions(options);
-	const discussionComments = await gateway.getPrDiscussionComments(prOptions);
-	if (!discussionComments.ok) {
+	const githubOptions = gitHubOptions(options);
+	const marker = summaryMarkerForReview(options.reviewName);
+	const summaryComment = await gateway.findPrDiscussionCommentByMarker({
+		...githubOptions,
+		prNumber: options.prNumber,
+		marker,
+		authorLogin: ROASTER_BOT_LOGIN,
+	});
+	if (summaryComment.type === "error") {
 		return withoutContext(
 			"github-read-failed",
-			`Could not read PR discussion comments for prior findings: ${discussionComments.error.message}`,
-			discussionComments.error,
+			`Could not read PR discussion comments for prior findings: ${summaryComment.error.message}`,
+			githubGatewayFailure(summaryComment.error),
 		);
 	}
-
-	const marker = summaryMarkerForReview(options.reviewName);
-	const summaryComment = discussionComments.value.find(
-		(comment) => comment.author === ROASTER_BOT_LOGIN && hasSummaryMarker(comment.body, marker),
-	);
-	if (summaryComment === undefined) {
+	if (summaryComment.value === null) {
 		return withoutContext(
 			"summary-comment-missing",
 			`No roaster Findings summary comment for review ${options.reviewName} was found on PR #${options.prNumber}.`,
 		);
 	}
 
-	const machineState = parseFindingsCommentMachineState(summaryComment.body);
+	const machineState = parseFindingsCommentMachineState(summaryComment.value.body);
 	if (machineState === null) {
 		return withoutContext(
 			"machine-state-missing",
@@ -155,43 +91,35 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const reviewThreads = await gateway.getPrReviewThreads(prOptions);
-	if (!reviewThreads.ok) {
+	const reviewThreads = await gateway.getPrReviewThreads(options.prNumber, githubOptions);
+	if (reviewThreads.type === "error") {
 		return withoutContext(
 			"github-read-failed",
 			`Could not read PR review threads for prior-finding resolution status: ${reviewThreads.error.message}`,
-			reviewThreads.error,
+			githubGatewayFailure(reviewThreads.error),
 		);
 	}
 
 	const cappedFindings = stampedFindings.slice(-options.cap);
-	return {
-		type: "with-context",
-		context: {
-			prNumber: options.prNumber,
-			reviewName: options.reviewName,
-			summaryCommentId: summaryComment.id,
-			lastReviewedHead: machineState.lastReviewedHead,
-			cap: options.cap,
-			stampedFindingCount: stampedFindings.length,
-			omittedByContextCap: stampedFindings.length - cappedFindings.length,
-			cumulativePrunedCount: machineState.priorFindings.prunedCount,
-			findings: cappedFindings.map((record) =>
-				contextEntryForRecord(options.reviewName, record, reviewThreads.value),
-			),
-		},
+	const context: PriorFindingsPromptContext = {
+		prNumber: options.prNumber,
+		reviewName: options.reviewName,
+		summaryCommentId: summaryComment.value.id,
+		lastReviewedHead: machineState.lastReviewedHead,
+		cap: options.cap,
+		stampedFindingCount: stampedFindings.length,
+		omittedByContextCap: stampedFindings.length - cappedFindings.length,
+		cumulativePrunedCount: machineState.priorFindings.prunedCount,
+		findings: cappedFindings.map((record) =>
+			contextEntryForRecord(options.reviewName, record, reviewThreads.value),
+		),
 	};
+	return { type: "with-context", context };
 }
 
-function hasSummaryMarker(body: string, marker: string): boolean {
-	const parsed = parseFindingsCommentBody(body);
-	return parsed.type === "ok" && parsed.parsed.marker === marker;
-}
-
-function prGatewayOptions(options: GatherPriorFindingsContextOptions): PriorFindingsPrOptions {
+function gitHubOptions(options: GatherPriorFindingsContextOptions): GitHubGatewayOptions {
 	return {
 		cwd: options.cwd,
-		prNumber: options.prNumber,
 		...(options.env === undefined ? {} : { env: options.env }),
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	};
@@ -200,7 +128,7 @@ function prGatewayOptions(options: GatherPriorFindingsContextOptions): PriorFind
 function contextEntryForRecord(
 	reviewName: string,
 	record: PriorFindingRecord,
-	reviewThreads: readonly PriorFindingsReviewThread[],
+	reviewThreads: readonly GithubPrReviewThread[],
 ): PriorFindingContextEntry {
 	const marker = inlineMarkerForFinding(reviewName, record.finding);
 	const matchingThreads = reviewThreads.filter((thread) =>
@@ -218,16 +146,27 @@ function contextEntryForRecord(
 }
 
 function resolutionStatusForThreads(
-	threads: readonly PriorFindingsReviewThread[],
+	threads: readonly GithubPrReviewThread[],
 ): PriorFindingResolutionStatus {
 	if (threads.length === 0) return "unknown";
 	return threads.some((thread) => !thread.isResolved) ? "unresolved" : "resolved";
 }
 
+function githubGatewayFailure(error: RoasterFailure): GitHubGatewayFailure {
+	if (
+		error.type === "github-cli-failed" ||
+		error.type === "github-json-invalid" ||
+		error.type === "github-response-invalid"
+	) {
+		return { type: error.type, message: error.message };
+	}
+	return { type: "github-cli-failed", message: error.message };
+}
+
 function withoutContext(
 	reason: PriorFindingsContextMissingReason,
 	message: string,
-	error?: PriorFindingsGatewayFailure,
+	error?: GitHubGatewayFailure,
 ): GatherPriorFindingsContextResult {
 	return {
 		type: "without-context",

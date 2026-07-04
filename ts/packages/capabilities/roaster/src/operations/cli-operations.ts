@@ -24,7 +24,6 @@ import {
 import {
 	postInlineFindingsResultSchema,
 	reviewFindingsPayloadSchema,
-	priorFindingsPromptContextSchema,
 	reviewRunResultSchema,
 	reviewUsageTotalInputTokens,
 	type PriorFindingsPromptContext,
@@ -333,7 +332,7 @@ async function loadPriorFindingsPromptContext(
 	const priorFindingsRequest = priorFindingsRequestFromReviewRunRequest(request);
 	if (priorFindingsRequest === null) return undefined;
 
-	const result = await gatherPriorFindingsContext(ctx.priorFindingsGateway, {
+	const result = await gatherPriorFindingsContext(ctx.github, {
 		...environmentOptions(ctx.runScope),
 		prNumber: priorFindingsRequest.prNumber,
 		reviewName: request.key,
@@ -347,7 +346,7 @@ async function loadPriorFindingsPromptContext(
 	ctx.stderr(
 		`prior-findings context: loaded ${result.context.findings.length} findings for PR #${result.context.prNumber} review ${result.context.reviewName}.\n`,
 	);
-	return priorFindingsPromptContextSchema.parse(result.context);
+	return result.context;
 }
 
 function priorFindingsRequestFromReviewRunRequest(

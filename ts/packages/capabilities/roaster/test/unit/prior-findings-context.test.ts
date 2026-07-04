@@ -1,5 +1,7 @@
+import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback";
 import { describe, expect, test } from "vitest";
 
+import type { GitHubGatewayFailure, RoasterResult } from "../../src/core/failures.ts";
 import {
 	buildFindingsCommentMachineState,
 	inlineMarkerForFinding,
@@ -8,15 +10,10 @@ import {
 	type FindingsPayload,
 	type LastReviewedHeadState,
 } from "../../src/core/findings-comment.ts";
-import type { ReviewFinding } from "../../src/core/models.ts";
-import {
-	gatherPriorFindingsContext,
-	type PriorFindingsDiscussionComment,
-	type PriorFindingsGatewayFailure,
-	type PriorFindingsReviewThread,
-} from "../../src/core/prior-findings-context.ts";
+import type { PRDiscussionComment, ReviewFinding } from "../../src/core/models.ts";
+import { gatherPriorFindingsContext } from "../../src/core/prior-findings-context.ts";
 import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
-import { FakePriorFindingsContextGithubGateway } from "../support/fake-prior-findings-context-gateway.ts";
+import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
 
 const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 	headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -51,20 +48,25 @@ const ERROR_FINDING: ReviewFinding = {
 describe("gatherPriorFindingsContext", () => {
 	test("reads stamped prior findings and hydrates review-thread resolution status", async () => {
 		const body = summaryBody([WARNING_FINDING, INFO_FINDING], { reviewName: "typescript-style" });
-		const gateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [summaryComment({ body })],
-			reviewThreads: [
-				reviewThread({
-					id: "thread-resolved",
-					isResolved: true,
-					body: inlineMarkerForFinding("typescript-style", WARNING_FINDING),
-				}),
-				reviewThread({
-					id: "thread-unresolved",
-					isResolved: false,
-					body: inlineMarkerForFinding("typescript-style", INFO_FINDING),
-				}),
-			],
+		const gateway = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
+			reviewThreadsByPr: new Map([
+				[
+					123,
+					[
+						reviewThread({
+							id: "thread-resolved",
+							isResolved: true,
+							body: inlineMarkerForFinding("typescript-style", WARNING_FINDING),
+						}),
+						reviewThread({
+							id: "thread-unresolved",
+							isResolved: false,
+							body: inlineMarkerForFinding("typescript-style", INFO_FINDING),
+						}),
+					],
+				],
+			]),
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 10 }));
@@ -99,9 +101,9 @@ describe("gatherPriorFindingsContext", () => {
 		const body = summaryBody([WARNING_FINDING, INFO_FINDING, ERROR_FINDING], {
 			reviewName: "typescript-style",
 		});
-		const gateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [summaryComment({ body })],
-			reviewThreads: [],
+		const gateway = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
+			reviewThreadsByPr: new Map([[123, []]]),
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 2 }));
@@ -121,9 +123,9 @@ describe("gatherPriorFindingsContext", () => {
 	});
 
 	test("degrades to context-free review when the summary comment is missing", async () => {
-		const gateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [summaryComment({ body: "ordinary comment" })],
-			reviewThreads: [],
+		const gateway = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [summaryComment({ body: "ordinary comment" })]]]),
+			reviewThreadsByPr: new Map([[123, []]]),
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 10 }));
@@ -136,9 +138,9 @@ describe("gatherPriorFindingsContext", () => {
 
 	test("degrades to context-free review when state parsing fails", async () => {
 		const body = `${summaryMarkerForReview("typescript-style")}\n## roaster`;
-		const gateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [summaryComment({ body })],
-			reviewThreads: [],
+		const gateway = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
+			reviewThreadsByPr: new Map([[123, []]]),
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 10 }));
@@ -151,9 +153,9 @@ describe("gatherPriorFindingsContext", () => {
 
 	test("degrades to context-free review when review-thread hydration fails", async () => {
 		const body = summaryBody([WARNING_FINDING], { reviewName: "typescript-style" });
-		const gateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [summaryComment({ body })],
-			reviewThreadsFailure: failure("getPrReviewThreads", "GraphQL failed"),
+		const gateway = new FailingReviewThreadsGateway({
+			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
+			failure: { type: "github-cli-failed", message: "GraphQL failed" },
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 10 }));
@@ -166,9 +168,9 @@ describe("gatherPriorFindingsContext", () => {
 	});
 
 	test("rejects invalid caps without reading GitHub", async () => {
-		const gateway = new FakePriorFindingsContextGithubGateway({
-			discussionComments: [summaryComment({ body: "unused" })],
-			reviewThreads: [],
+		const gateway = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([[123, [summaryComment({ body: "unused" })]]]),
+			reviewThreadsByPr: new Map([[123, []]]),
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 0 }));
@@ -177,7 +179,8 @@ describe("gatherPriorFindingsContext", () => {
 			type: "without-context",
 			reason: "invalid-cap",
 		});
-		expect(gateway.calls()).toEqual([]);
+		expect(gateway.markerCalls()).toEqual([]);
+		expect(gateway.reviewThreadCalls()).toEqual([]);
 	});
 });
 
@@ -218,7 +221,9 @@ function request(options: { readonly cap: number }) {
 	};
 }
 
-function summaryComment(options: { readonly body: string }): PriorFindingsDiscussionComment {
+function summaryComment(options: {
+	readonly body: string;
+}): PRDiscussionComment & { readonly author: string } {
 	return { id: 1, author: ROASTER_BOT_LOGIN, body: options.body };
 }
 
@@ -227,22 +232,45 @@ function reviewThread(options: {
 	readonly isResolved: boolean;
 	readonly body: string;
 	readonly isOutdated?: boolean;
-}): PriorFindingsReviewThread {
+}): GithubPrReviewThread {
 	return {
 		id: options.id,
+		path: "src/app.ts",
+		line: 12,
+		startLine: null,
 		isResolved: options.isResolved,
 		isOutdated: options.isOutdated ?? false,
-		comments: [{ body: options.body }],
+		comments: [
+			{
+				id: 1,
+				body: options.body,
+				author: ROASTER_BOT_LOGIN,
+				path: "src/app.ts",
+				line: 12,
+				startLine: null,
+				createdAt: "2026-01-01T00:00:00Z",
+			},
+		],
 	};
 }
 
-function failure(
-	operation: PriorFindingsGatewayFailure["details"]["operation"],
-	message: string,
-): PriorFindingsGatewayFailure {
-	return {
-		code: "fake_failure",
-		message,
-		details: { operation, prNumber: 123 },
-	};
+class FailingReviewThreadsGateway extends FakeRoasterGitHubGateway {
+	private readonly failure: GitHubGatewayFailure;
+
+	constructor(
+		options: ConstructorParameters<typeof FakeRoasterGitHubGateway>[0] & {
+			readonly failure: GitHubGatewayFailure;
+		},
+	) {
+		super(options);
+		this.failure = options.failure;
+	}
+
+	override async getPrReviewThreads(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
+		await super.getPrReviewThreads(prNumber, options);
+		return { type: "error", error: this.failure };
+	}
 }
