@@ -2,12 +2,9 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
-import { optionalEntry } from "@ns/core/primitives";
-
 import {
 	splitObjectiveRecordDocument,
 	type ObjectiveRecordDocument,
-	type ObjectiveRecordFrontmatterParse,
 } from "./record-frontmatter.ts";
 
 export const ACTIVE_OBJECTIVE_ROOT = ".ns/objectives";
@@ -84,28 +81,6 @@ type ObjectiveMarkdownOkReadResult = Extract<ObjectiveMarkdownReadResult, { type
 export type ObjectiveRecordDocumentReadResult =
 	| ObjectiveMarkdownNonOkReadResult
 	| (ObjectiveMarkdownOkReadResult & { document: ObjectiveRecordDocument });
-
-export interface ObjectiveRecordDocumentMarkdownProjection {
-	objectiveMd: ObjectiveMarkdownReadResult;
-	recordFrontmatter?: ObjectiveRecordFrontmatterParse;
-}
-
-/**
- * Narrow the internal record-document read shape for public read-result serialization.
- * `ObjectiveRecordDocumentReadResult` carries parsed `document` data for content-shaped
- * readers, but public `objectiveMd` output must not leak that internal document. The
- * projected `objectiveMd.content` intentionally remains the verbatim file text;
- * `document.body` is the frontmatter-stripped content for heading lints and similar readers.
- */
-export function projectObjectiveRecordDocumentReadResult(
-	read: ObjectiveRecordDocumentReadResult,
-): ObjectiveRecordDocumentMarkdownProjection {
-	if (read.type !== "ok") return { objectiveMd: read };
-	return {
-		objectiveMd: { type: "ok", content: read.content },
-		...optionalEntry("recordFrontmatter", read.document.frontmatter),
-	};
-}
 
 export interface ObjectiveStorageGateway {
 	pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>>;
