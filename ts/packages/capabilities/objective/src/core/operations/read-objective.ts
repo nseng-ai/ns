@@ -14,7 +14,6 @@ import {
 	objectiveFilesSchema,
 	objectiveMarkdownReadResultSchema,
 	objectiveUpdateFileSchema,
-	projectObjectiveRecordDocumentReadResult,
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
@@ -191,14 +190,23 @@ export async function readObjectiveRecord(
 		updateCount: updates.value.length,
 	};
 	const objectiveDocument = await storage.readObjectiveRecordDocument(relativePath);
-	const objectiveProjection = projectObjectiveRecordDocumentReadResult(objectiveDocument);
+	// `readObjectiveRecordDocument` carries parsed `document` data for content-shaped readers,
+	// but public `objectiveMd` output must not leak that internal document. `objectiveMd.content`
+	// intentionally remains the verbatim file text; `document.body` is the frontmatter-stripped
+	// content for heading lints and similar readers.
+	const objectiveMd: ObjectiveMarkdownReadResult =
+		objectiveDocument.type === "ok"
+			? { type: "ok", content: objectiveDocument.content }
+			: objectiveDocument;
+	const recordFrontmatter =
+		objectiveDocument.type === "ok" ? objectiveDocument.document.frontmatter : undefined;
 	return {
 		type: "ok",
 		value: {
 			...facts,
-			...optionalEntry("recordFrontmatter", objectiveProjection.recordFrontmatter),
+			...optionalEntry("recordFrontmatter", recordFrontmatter),
 			markdownFiles: {
-				objectiveMd: objectiveProjection.objectiveMd,
+				objectiveMd,
 				roadmapMd: await storage.readMarkdownFile(`${relativePath}/roadmap.md`),
 				updates: await Promise.all(
 					updates.value.map(async (update) => ({
