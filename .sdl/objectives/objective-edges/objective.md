@@ -134,7 +134,10 @@ Risks:
   `sdl objective check --all` (short `-a`), scoped to edge/blocked structural lint only —
   a full-check sweep cannot gate CI while 41/120 legacy records fail old update-heading
   lints; no-slug behavior is unchanged.
-- Glyph and styling for the blocked STATUS indicator in `sdl objective list`.
+- ~~Glyph and styling for the blocked STATUS indicator~~ Resolved by the list-rendering
+  slice: `⊘` (U+2298, ascii fallback `!`) with warn intent, keeping the STATUS word `open`
+  so blocked reads as a sub-state; pretty surface adds a footer legend, table/markdown
+  surfaces render `⊘ open (blocked)`.
 - Whether any consumer needs frontmatter awareness beyond stripping (for example,
   `load-orientations` or Pi presentation surfaces).
 - ADR number and final title at landing time.
