@@ -2,27 +2,20 @@ import type { CommandExecApi } from "@ns/core/command";
 import type { GitGateway } from "@ns/capability-kit/git";
 import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
-import { resultOk, type Result } from "@ns/core/result";
-
 import type { RoasterContext } from "../../src/core/context.ts";
 import {
 	FakeReviewRunnerGateway,
 	type ReviewRunnerGateway,
 } from "../../src/gateways/review-runner.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
-import type {
-	PriorFindingsContextGithubGateway,
-	PriorFindingsDiscussionComment,
-	PriorFindingsGatewayFailure,
-	PriorFindingsPrOptions,
-	PriorFindingsReviewThread,
-} from "../../src/core/prior-findings-context.ts";
+import type { PriorFindingsContextGithubGateway } from "../../src/core/prior-findings-context.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import {
 	FakeReviewCatalogGateway,
 	type ReviewCatalogGateway,
 } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/review-log.ts";
+import { FakePriorFindingsContextGithubGateway } from "./fake-prior-findings-context-gateway.ts";
 
 export interface FakeRoasterContextOptions {
 	readonly execApi?: CommandExecApi;
@@ -62,7 +55,7 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
 		github: options.github ?? new FakeRoasterGitHubGateway(),
 		priorFindingsGateway:
-			options.priorFindingsGateway ?? new EmptyPriorFindingsContextGithubGateway(),
+			options.priorFindingsGateway ?? new FakePriorFindingsContextGithubGateway(),
 		reviewRunner: options.reviewRunner ?? new FakeReviewRunnerGateway(),
 		cwd: options.cwd ?? "/repo",
 		env: options.env ?? {},
@@ -71,18 +64,4 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		stdout: options.stdout ?? (() => undefined),
 		stderr: options.stderr ?? (() => undefined),
 	};
-}
-
-class EmptyPriorFindingsContextGithubGateway implements PriorFindingsContextGithubGateway {
-	async getPrDiscussionComments(
-		_options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
-		return resultOk([]);
-	}
-
-	async getPrReviewThreads(
-		_options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
-		return resultOk([]);
-	}
 }

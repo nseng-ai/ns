@@ -105,7 +105,6 @@ export interface GatherPriorFindingsContextOptions extends PriorFindingsGatewayO
 	readonly prNumber: number;
 	readonly reviewName: string;
 	readonly cap: number;
-	readonly summaryAuthorLogin?: string;
 }
 
 export async function gatherPriorFindingsContext(
@@ -130,9 +129,8 @@ export async function gatherPriorFindingsContext(
 	}
 
 	const marker = summaryMarkerForReview(options.reviewName);
-	const summaryAuthorLogin = options.summaryAuthorLogin ?? ROASTER_BOT_LOGIN;
 	const summaryComment = discussionComments.value.find(
-		(comment) => comment.author === summaryAuthorLogin && hasSummaryMarker(comment.body, marker),
+		(comment) => comment.author === ROASTER_BOT_LOGIN && hasSummaryMarker(comment.body, marker),
 	);
 	if (summaryComment === undefined) {
 		return withoutContext(

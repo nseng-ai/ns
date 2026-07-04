@@ -1,0 +1,4 @@
+- Last-reviewed head: {last_reviewed_head}
+- Last-reviewed base ref: {last_reviewed_base_ref}
+- Last-reviewed base merge-base: {last_reviewed_base_merge_base}
+- Changed-since guidance: review regions changed since that Last-reviewed PR delta at full strength. Compare PR deltas with range-diff semantics (prior base-merge-base..head versus the current base..head), not raw old-head..new-head, because a Graphite restack can rewrite commits without changing the PR's own content. If you cannot determine changed-since status, fall back to Prior-findings-only convergence.

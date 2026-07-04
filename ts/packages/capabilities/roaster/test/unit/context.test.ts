@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import type { Result } from "@ns/core/result";
 
 import {
 	catalogOptions,
@@ -7,13 +6,6 @@ import {
 	environmentOptions,
 } from "../../src/core/context.ts";
 import type { RoasterResult } from "../../src/core/failures.ts";
-import type {
-	PriorFindingsContextGithubGateway,
-	PriorFindingsDiscussionComment,
-	PriorFindingsGatewayFailure,
-	PriorFindingsPrOptions,
-	PriorFindingsReviewThread,
-} from "../../src/core/prior-findings-context.ts";
 import type { ReviewRunnerGateway, RunReviewOptions } from "../../src/gateways/review-runner.ts";
 import type {
 	FindPrDiscussionCommentByMarkerOptions,
@@ -35,6 +27,7 @@ import {
 	type ReviewExecutionResponse,
 } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { FakePriorFindingsContextGithubGateway } from "../support/fake-prior-findings-context-gateway.ts";
 
 const sampleReviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
@@ -91,25 +84,6 @@ class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
 			type: "ok",
 			value: { payload: createFindingsReview([]), usage: null, inputCoverage: null },
 		};
-	}
-}
-
-class RecordingPriorFindingsContextGithubGateway implements PriorFindingsContextGithubGateway {
-	readonly discussionCommentCalls: PriorFindingsPrOptions[] = [];
-	readonly reviewThreadCalls: PriorFindingsPrOptions[] = [];
-
-	async getPrDiscussionComments(
-		options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
-		this.discussionCommentCalls.push(options);
-		return { ok: true, value: [] };
-	}
-
-	async getPrReviewThreads(
-		options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
-		this.reviewThreadCalls.push(options);
-		return { ok: true, value: [] };
 	}
 }
 
@@ -173,7 +147,7 @@ describe("createRoasterRuntime", () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
-		const priorFindingsGateway = new RecordingPriorFindingsContextGithubGateway();
+		const priorFindingsGateway = new FakePriorFindingsContextGithubGateway();
 		const reviewRunner = new RecordingReviewRunnerGateway();
 		const env = { ROASTER_TEST: "1" };
 		const signal = new AbortController().signal;

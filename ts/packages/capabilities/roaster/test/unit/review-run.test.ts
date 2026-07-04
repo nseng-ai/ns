@@ -2,7 +2,6 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { resultOk, type Result } from "@ns/core/result";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterRuntime } from "../../src/core/context.ts";
@@ -11,13 +10,7 @@ import {
 	renderFindingsComment,
 	type LastReviewedHeadState,
 } from "../../src/core/findings-comment.ts";
-import type {
-	PriorFindingsContextGithubGateway,
-	PriorFindingsDiscussionComment,
-	PriorFindingsGatewayFailure,
-	PriorFindingsPrOptions,
-	PriorFindingsReviewThread,
-} from "../../src/core/prior-findings-context.ts";
+import type { PriorFindingsDiscussionComment } from "../../src/core/prior-findings-context.ts";
 import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
 import { runReviewByKey } from "../../src/operations/cli-operations.ts";
 import { runRoasterReview } from "../../src/operations/review-run.ts";
@@ -31,6 +24,7 @@ import {
 	type ReviewFinding,
 } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { FakePriorFindingsContextGithubGateway } from "../support/fake-prior-findings-context-gateway.ts";
 import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 
 const REVIEW_SOURCE = `---
@@ -120,7 +114,7 @@ describe("runRoasterReview", () => {
 	});
 
 	test("keeps review runs PR-free unless prior-findings PR context is requested", async () => {
-		const priorFindingsGateway = new RecordingPriorFindingsContextGithubGateway({
+		const priorFindingsGateway = new FakePriorFindingsContextGithubGateway({
 			discussionComments: [priorFindingsSummaryComment()],
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
@@ -143,7 +137,7 @@ describe("runRoasterReview", () => {
 	});
 
 	test("gathers prior-findings context for opt-in PR review runs", async () => {
-		const priorFindingsGateway = new RecordingPriorFindingsContextGithubGateway({
+		const priorFindingsGateway = new FakePriorFindingsContextGithubGateway({
 			discussionComments: [priorFindingsSummaryComment()],
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
@@ -250,37 +244,6 @@ function gitGateway(repoRoot: string): InMemoryGitGateway {
 		headCommit: "abc123",
 		existingBranches: ["feature", "main"],
 	});
-}
-
-interface RecordingPriorFindingsContextGithubGatewayOptions {
-	readonly discussionComments?: readonly PriorFindingsDiscussionComment[];
-	readonly reviewThreads?: readonly PriorFindingsReviewThread[];
-}
-
-class RecordingPriorFindingsContextGithubGateway implements PriorFindingsContextGithubGateway {
-	readonly discussionCommentCalls: PriorFindingsPrOptions[] = [];
-	readonly reviewThreadCalls: PriorFindingsPrOptions[] = [];
-	private readonly discussionComments: readonly PriorFindingsDiscussionComment[];
-	private readonly reviewThreads: readonly PriorFindingsReviewThread[];
-
-	constructor(options: RecordingPriorFindingsContextGithubGatewayOptions = {}) {
-		this.discussionComments = options.discussionComments ?? [];
-		this.reviewThreads = options.reviewThreads ?? [];
-	}
-
-	async getPrDiscussionComments(
-		options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
-		this.discussionCommentCalls.push(options);
-		return resultOk(this.discussionComments);
-	}
-
-	async getPrReviewThreads(
-		options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
-		this.reviewThreadCalls.push(options);
-		return resultOk(this.reviewThreads);
-	}
 }
 
 function priorFindingsSummaryComment(): PriorFindingsDiscussionComment {

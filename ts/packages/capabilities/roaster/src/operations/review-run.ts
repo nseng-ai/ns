@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage } from "@ns/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";
 import {
@@ -119,9 +119,7 @@ export async function runRoasterReview(
 			reviewDefinition: definition,
 			reviewDir: dirname(source.path),
 			target: { localDiff: diff },
-			...(request.priorFindingsContext === undefined
-				? {}
-				: { priorFindingsContext: request.priorFindingsContext }),
+			...optionalEntry("priorFindingsContext", request.priorFindingsContext),
 		},
 		environmentOptions(ctx.runScope),
 	);
