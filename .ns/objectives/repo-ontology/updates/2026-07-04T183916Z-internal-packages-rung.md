@@ -17,3 +17,7 @@ The repo-ontology inventory baseline that keys off the `local/` role directory, 
 
 - Upcoming inventory change (not yet landed): a later PR in this same stack adds the first new resident package `@internal/typescript-style-guard` under `ts/packages/internal/`, extracted from the subpackage conformance machinery. That will change the workspace package count and the `internal/` roster — flag it as upcoming and rebaseline the count when it lands rather than now.
 - Rebaseline the repo-ontology record's directory-role name, canonical term, and platform-and-consumer rung count against HEAD in a confirmed session.
+
+## Amendment (2026-07-04, later PR in this stack)
+
+The upcoming inventory change flagged above has now landed: `@internal/typescript-style-guard` (tier `internal-tool`) was added under `ts/packages/internal/`, so the workspace package count increased by one and `internal/` now has two residents — `@internal/pi-tools` is no longer the sole resident (superseding the "no package count has changed yet" / "sole resident" statements above).

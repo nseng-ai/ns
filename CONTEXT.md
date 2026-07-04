@@ -161,7 +161,7 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `internal-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, `internal-pi-tool`, and `internal-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer
 
 **Published package**:

@@ -1,0 +1,30 @@
+{
+	"name": "@internal/typescript-style-guard",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./config": "./src/config.ts",
+		"./dependency-graph": "./src/dependency-graph.ts",
+		"./exports-subpackage-conformance": "./src/exports-subpackage-conformance.ts",
+		"./file-discovery": "./src/file-discovery.ts",
+		"./internal-space": "./src/internal-space.ts",
+		"./optional-undefined-audit": "./src/optional-undefined-audit.ts",
+		"./package-metadata": "./src/package-metadata.ts",
+		"./source-rules": "./src/source-rules.ts",
+		"./subpackage-conformance": "./src/subpackage-conformance.ts",
+		"./tier-layering": "./src/tier-layering.ts",
+		"./topology-circles": "./src/topology-circles.ts"
+	},
+	"dependencies": {
+		"@ns/core": "workspace:*",
+		"jsonc-parser": "catalog:",
+		"typescript": "catalog:"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.typescript-style-guard.config.ts"
+	},
+	"ns": {
+		"tier": "internal-tool"
+	}
+}

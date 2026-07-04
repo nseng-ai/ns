@@ -26,24 +26,24 @@ import {
 	type DeferredTopologyCircleCycle,
 	type ManifestDependencyField,
 	type PackageTier,
-} from "../support/typescript-style-guard/config.ts";
-import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
-import { collectExportsSubpackageConformanceViolations } from "../support/typescript-style-guard/exports-subpackage-conformance.ts";
-import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
-import { collectInternalSpaceAdmissionViolations } from "../support/typescript-style-guard/internal-space.ts";
+} from "@internal/typescript-style-guard/config";
+import { collectExtensionDependencyCycleViolations } from "@internal/typescript-style-guard/dependency-graph";
+import { collectExportsSubpackageConformanceViolations } from "@internal/typescript-style-guard/exports-subpackage-conformance";
+import { findTypeScriptSourceFiles } from "@internal/typescript-style-guard/file-discovery";
+import { collectInternalSpaceAdmissionViolations } from "@internal/typescript-style-guard/internal-space";
 import {
 	collectExportSubpaths,
 	loadPackageMetadata,
 	type PackageManifest,
 	type PackageMetadata,
-} from "../support/typescript-style-guard/package-metadata.ts";
-import { collectOptionalUndefinedPropertyCandidates } from "../support/typescript-style-guard/optional-undefined-audit.ts";
+} from "@internal/typescript-style-guard/package-metadata";
+import { collectOptionalUndefinedPropertyCandidates } from "@internal/typescript-style-guard/optional-undefined-audit";
 import {
 	collectViolations,
 	type SourceRuleViolation,
-} from "../support/typescript-style-guard/source-rules.ts";
-import { collectPackageTierLayeringViolations } from "../support/typescript-style-guard/tier-layering.ts";
-import { collectSubpackageDeclarationConformanceViolations } from "../support/typescript-style-guard/subpackage-conformance.ts";
+} from "@internal/typescript-style-guard/source-rules";
+import { collectPackageTierLayeringViolations } from "@internal/typescript-style-guard/tier-layering";
+import { collectSubpackageDeclarationConformanceViolations } from "@internal/typescript-style-guard/subpackage-conformance";
 import {
 	collectTopologyCircleCycleComponents,
 	collectTopologyCircleCycleViolations,
@@ -52,7 +52,7 @@ import {
 	discoverTopologyCircles,
 	type TopologyCircleFact,
 	type TopologyCircleSourceFile,
-} from "../support/typescript-style-guard/topology-circles.ts";
+} from "@internal/typescript-style-guard/topology-circles";
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(TEST_FILE), "../../../../../..");
