@@ -237,9 +237,9 @@ Risks:
 
 ## Open Questions
 
-- Cap and pruning policy for Prior-findings context on long-running PRs (the
-  summary comment's Activity Log caps at 10 entries today; the findings list
-  needs its own bound).
+- Resolved for the publish stamp: the v1 durable Prior-findings block keeps
+  the 50 newest exact-finding records and carries a cumulative pruned count;
+  revisit only if empirical validation shows the cap is too small.
 - Should resolved and unresolved prior findings get different prompt treatment
   (e.g. unresolved = "still open — do not repeat, may reference")?
 - Should local `ns roaster review run` fetch PR context by default when a PR
