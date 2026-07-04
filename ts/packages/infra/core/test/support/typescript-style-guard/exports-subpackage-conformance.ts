@@ -42,6 +42,7 @@ function collectExportTargets(exportsField: unknown): ExportTarget[] {
 
 function collectStringLeaves(value: unknown): string[] {
 	if (typeof value === "string") return [value];
+	if (Array.isArray(value)) return value.flatMap(collectStringLeaves);
 	if (!isRecord(value)) return [];
 	return Object.values(value).flatMap(collectStringLeaves);
 }
@@ -59,6 +60,6 @@ function buildExportTargetViolation(
 		text:
 			`Package ${metadata.name} exports "${exportTarget.subpath}" -> ${exportTarget.target}, ` +
 			`which does not resolve inside a declared subpackage (${declaredUnits}). Either root ` +
-			`the target under a declared subpackage or declare its subpackage in sdl.subpackages.`,
+			`the target under a declared subpackage or declare its subpackage in ns.subpackages.`,
 	};
 }
