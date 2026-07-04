@@ -3,7 +3,6 @@ import { execApiToCommandRunner } from "@ns/core/command";
 import {
 	RealGithubPrFeedbackGateway,
 	type GithubPrFeedbackFailure,
-	type GithubPrFeedbackOptions,
 } from "@ns/capability-kit/github/pr-feedback";
 import { resultErr, resultOk, type Result } from "@ns/core/result";
 
@@ -26,7 +25,7 @@ export class RealPriorFindingsContextGithubGateway implements PriorFindingsConte
 	async getPrDiscussionComments(
 		options: PriorFindingsPrOptions,
 	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
-		const result = await this.feedback.getPrDiscussionComments(feedbackOptions(options));
+		const result = await this.feedback.getPrDiscussionComments(options);
 		if (!result.ok)
 			return resultErr(convertFailure(result.error, "getPrDiscussionComments", options));
 		return resultOk(
@@ -41,7 +40,7 @@ export class RealPriorFindingsContextGithubGateway implements PriorFindingsConte
 	async getPrReviewThreads(
 		options: PriorFindingsPrOptions,
 	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
-		const result = await this.feedback.getPrReviewThreads(feedbackOptions(options));
+		const result = await this.feedback.getPrReviewThreads(options);
 		if (!result.ok) return resultErr(convertFailure(result.error, "getPrReviewThreads", options));
 		return resultOk(
 			result.value.map((thread) => ({
@@ -52,17 +51,6 @@ export class RealPriorFindingsContextGithubGateway implements PriorFindingsConte
 			})),
 		);
 	}
-}
-
-function feedbackOptions(options: PriorFindingsPrOptions): GithubPrFeedbackOptions & {
-	readonly prNumber: number;
-} {
-	return {
-		cwd: options.cwd,
-		prNumber: options.prNumber,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	};
 }
 
 function convertFailure(

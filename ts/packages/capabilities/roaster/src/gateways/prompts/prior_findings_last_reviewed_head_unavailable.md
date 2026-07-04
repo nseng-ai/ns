@@ -1,0 +1,2 @@
+- Last-reviewed head: unavailable.
+- Changed-since guidance: the prior reviewed PR delta cannot be identified, so fall back to Prior-findings-only convergence. Review the supplied diff normally for new issues while suppressing the same prior findings absent material worsening.

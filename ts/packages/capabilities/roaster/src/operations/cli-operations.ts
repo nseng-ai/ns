@@ -11,6 +11,7 @@ import {
 } from "../core/failures.ts";
 import {
 	publishFindings,
+	type LastReviewedHeadState,
 	type PublicationError,
 	type PublishFindingsResult,
 } from "../core/findings-publication.ts";
@@ -107,6 +108,11 @@ export const reviewRunRequestSchema = z.object({
 });
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
+
+interface PriorFindingsRequestOptions {
+	readonly prNumber: number;
+	readonly cap: number;
+}
 
 export const reviewLogRequestSchema = z.object({
 	key: z.string().optional().describe("Review key filter."),
@@ -324,14 +330,14 @@ async function loadPriorFindingsPromptContext(
 	ctx: RoasterRuntime,
 	request: ReviewRunRequest,
 ): Promise<PriorFindingsPromptContext | undefined> {
-	if (request.priorFindingsPrNumber === undefined) return undefined;
+	const priorFindingsRequest = priorFindingsRequestFromReviewRunRequest(request);
+	if (priorFindingsRequest === null) return undefined;
 
-	const cap = request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP;
 	const result = await gatherPriorFindingsContext(ctx.priorFindingsGateway, {
 		...environmentOptions(ctx.runScope),
-		prNumber: request.priorFindingsPrNumber,
+		prNumber: priorFindingsRequest.prNumber,
 		reviewName: request.key,
-		cap,
+		cap: priorFindingsRequest.cap,
 	});
 	if (result.type === "without-context") {
 		ctx.stderr(`prior-findings context: ${result.message} Continuing with context-free review.\n`);
@@ -342,6 +348,16 @@ async function loadPriorFindingsPromptContext(
 		`prior-findings context: loaded ${result.context.findings.length} findings for PR #${result.context.prNumber} review ${result.context.reviewName}.\n`,
 	);
 	return priorFindingsPromptContextSchema.parse(result.context);
+}
+
+function priorFindingsRequestFromReviewRunRequest(
+	request: ReviewRunRequest,
+): PriorFindingsRequestOptions | null {
+	if (request.priorFindingsPrNumber === undefined) return null;
+	return {
+		prNumber: request.priorFindingsPrNumber,
+		cap: request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP,
+	};
 }
 
 export function clinkrExitFromReviewRunOutcome(
@@ -639,11 +655,7 @@ function loadDiffFromRequest(
 }
 
 function lastReviewedHeadOptions(request: PublishFindingsRequest): {
-	readonly lastReviewedHead?: {
-		readonly headSha: string;
-		readonly baseRef: string;
-		readonly baseMergeBaseSha: string;
-	};
+	readonly lastReviewedHead?: LastReviewedHeadState;
 } {
 	if (request.reviewedHeadSha === undefined || request.reviewedBaseMergeBaseSha === undefined)
 		return {};

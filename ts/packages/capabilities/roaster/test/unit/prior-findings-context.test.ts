@@ -1,4 +1,3 @@
-import { resultErr, resultOk, type Result } from "@ns/core/result";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -12,13 +11,12 @@ import {
 import type { ReviewFinding } from "../../src/core/models.ts";
 import {
 	gatherPriorFindingsContext,
-	type PriorFindingsContextGithubGateway,
 	type PriorFindingsDiscussionComment,
 	type PriorFindingsGatewayFailure,
-	type PriorFindingsPrOptions,
 	type PriorFindingsReviewThread,
 } from "../../src/core/prior-findings-context.ts";
 import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
+import { FakePriorFindingsContextGithubGateway } from "../support/fake-prior-findings-context-gateway.ts";
 
 const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 	headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -183,49 +181,6 @@ describe("gatherPriorFindingsContext", () => {
 	});
 });
 
-interface FakePriorFindingsContextGithubGatewayOptions {
-	readonly discussionComments?: readonly PriorFindingsDiscussionComment[];
-	readonly reviewThreads?: readonly PriorFindingsReviewThread[];
-	readonly discussionCommentsFailure?: PriorFindingsGatewayFailure;
-	readonly reviewThreadsFailure?: PriorFindingsGatewayFailure;
-}
-
-class FakePriorFindingsContextGithubGateway implements PriorFindingsContextGithubGateway {
-	private readonly discussionComments: readonly PriorFindingsDiscussionComment[];
-	private readonly reviewThreads: readonly PriorFindingsReviewThread[];
-	private readonly discussionCommentsFailure: PriorFindingsGatewayFailure | undefined;
-	private readonly reviewThreadsFailure: PriorFindingsGatewayFailure | undefined;
-	private readonly callsInternal: string[] = [];
-
-	constructor(options: FakePriorFindingsContextGithubGatewayOptions = {}) {
-		this.discussionComments = (options.discussionComments ?? []).map(copyDiscussionComment);
-		this.reviewThreads = (options.reviewThreads ?? []).map(copyReviewThread);
-		this.discussionCommentsFailure = options.discussionCommentsFailure;
-		this.reviewThreadsFailure = options.reviewThreadsFailure;
-	}
-
-	async getPrDiscussionComments(
-		_options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsDiscussionComment[], PriorFindingsGatewayFailure>> {
-		this.callsInternal.push("getPrDiscussionComments");
-		if (this.discussionCommentsFailure !== undefined)
-			return resultErr(this.discussionCommentsFailure);
-		return resultOk(this.discussionComments.map(copyDiscussionComment));
-	}
-
-	async getPrReviewThreads(
-		_options: PriorFindingsPrOptions,
-	): Promise<Result<readonly PriorFindingsReviewThread[], PriorFindingsGatewayFailure>> {
-		this.callsInternal.push("getPrReviewThreads");
-		if (this.reviewThreadsFailure !== undefined) return resultErr(this.reviewThreadsFailure);
-		return resultOk(this.reviewThreads.map(copyReviewThread));
-	}
-
-	calls(): readonly string[] {
-		return [...this.callsInternal];
-	}
-}
-
 function summaryBody(
 	findings: readonly ReviewFinding[],
 	options: { readonly reviewName: string },
@@ -289,20 +244,5 @@ function failure(
 		code: "fake_failure",
 		message,
 		details: { operation, prNumber: 123 },
-	};
-}
-
-function copyDiscussionComment(
-	comment: PriorFindingsDiscussionComment,
-): PriorFindingsDiscussionComment {
-	return { id: comment.id, author: comment.author, body: comment.body };
-}
-
-function copyReviewThread(thread: PriorFindingsReviewThread): PriorFindingsReviewThread {
-	return {
-		id: thread.id,
-		isResolved: thread.isResolved,
-		isOutdated: thread.isOutdated,
-		comments: thread.comments.map((comment) => ({ body: comment.body })),
 	};
 }
