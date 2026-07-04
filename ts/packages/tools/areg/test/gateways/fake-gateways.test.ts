@@ -197,6 +197,91 @@ describe("areg gateway fakes", () => {
 		});
 	});
 
+	test("project fake mirrors the delete-symlink gateway contract", async () => {
+		const project: AregProjectGateway = new FakeAregProjectGateway({
+			localSkills: [
+				{
+					name: "demo",
+					agentsPath: { type: "symlink", target: "../../skills/demo" },
+					claudePath: { type: "symlink", target: "../../.agents/skills/demo" },
+				},
+				{ name: "real-dir", agentsPath: { type: "directory" } },
+				{
+					name: "wrong-target",
+					claudePath: { type: "symlink", target: "../../elsewhere/wrong-target" },
+				},
+			],
+		});
+
+		const inspected = await project.inspectSkillKindSkill({
+			projectDir: "/repo",
+			skillName: "demo",
+			env: {},
+		});
+		expect(inspected).toMatchObject({
+			agentsPath: { type: "symlink", target: "../../skills/demo" },
+			claudePath: { type: "symlink", target: "../../.agents/skills/demo" },
+		});
+
+		const request = (relativePath: string, description: string) => ({
+			projectDir: "/repo",
+			relativePath,
+			description,
+			policy: "skill-kind" as const,
+			env: {},
+		});
+		expect(await project.deleteSymlink(request("skills/demo", "skill directory"))).toMatchObject({
+			ok: false,
+			error: { code: "skill-kind-delete-symlink-refused" },
+		});
+		expect(
+			await project.preflightDeleteSymlink(
+				request(".agents/skills/missing", "agents skill mirror symlink"),
+			),
+		).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-missing" } });
+		expect(
+			await project.deleteSymlink(
+				request(".agents/skills/real-dir", "agents skill mirror symlink"),
+			),
+		).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-not-symlink" } });
+		expect(
+			await project.deleteSymlink(
+				request(".claude/skills/wrong-target", "Claude skill mirror symlink"),
+			),
+		).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-wrong-target" } });
+
+		expect(
+			await project.preflightDeleteSymlink(
+				request(".claude/skills/demo", "Claude skill mirror symlink"),
+			),
+		).toEqual({ ok: true });
+		expect(
+			await project.deleteSymlink(request(".claude/skills/demo", "Claude skill mirror symlink")),
+		).toEqual({ ok: true });
+		expect(
+			await project.deleteSymlink(request(".agents/skills/demo", "agents skill mirror symlink")),
+		).toEqual({ ok: true });
+		const afterDelete = await project.inspectSkillKindSkill({
+			projectDir: "/repo",
+			skillName: "demo",
+			env: {},
+		});
+		expect(afterDelete.agentsPath).toEqual({ type: "missing" });
+		expect(afterDelete.claudePath).toEqual({ type: "missing" });
+		expect(
+			(project as FakeAregProjectGateway)
+				.operations()
+				.filter((operation) => operation.type === "delete-symlink")
+				.map((operation) => operation.relativePath),
+		).toEqual([
+			"skills/demo",
+			".agents/skills/real-dir",
+			".claude/skills/wrong-target",
+			".claude/skills/demo",
+			".agents/skills/demo",
+		]);
+	});
+
 	test("project fake classifies skill-kind spec inspection failures", async () => {
 		const project: AregProjectGateway = new FakeAregProjectGateway({
 			localSkills: [

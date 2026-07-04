@@ -3,6 +3,7 @@ import type { Result } from "@ns/core/result";
 import { transformSkillFrontmatter } from "./frontmatter.ts";
 import {
 	DISABLE_MODEL_INVOCATION_KEY,
+	KIND_PROPERTIES,
 	USER_INVOCABLE_KEY,
 	type SkillInvocationKind,
 } from "./skill-kind-inference.ts";
@@ -46,8 +47,9 @@ export function desiredFrontmatter(
 	kind: SkillInvocationKind,
 ): Readonly<Record<string, string | undefined>> {
 	return {
-		[DISABLE_MODEL_INVOCATION_KEY]:
-			kind === "invoke-only" || kind === "command-backed" ? "true" : undefined,
+		[DISABLE_MODEL_INVOCATION_KEY]: KIND_PROPERTIES[kind].disableModelInvocation
+			? "true"
+			: undefined,
 		[USER_INVOCABLE_KEY]: kind === "ambient-only" ? "false" : undefined,
 	};
 }

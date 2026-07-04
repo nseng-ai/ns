@@ -386,6 +386,130 @@ describe("real areg gateways", () => {
 		}
 	});
 
+	test("skill-kind gateway inspects mirrors and deletes convention mirror symlinks", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-kind-symlink."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(path.join(project, "skills", "demo"), { recursive: true });
+			await mkdir(path.join(project, ".agents", "skills"), { recursive: true });
+			await mkdir(path.join(project, ".claude", "skills"), { recursive: true });
+			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
+			await symlink(
+				path.join("..", "..", "skills", "demo"),
+				path.join(project, ".agents", "skills", "demo"),
+			);
+			await symlink(
+				path.join("..", "..", ".agents", "skills", "demo"),
+				path.join(project, ".claude", "skills", "demo"),
+			);
+			const gateway = new RealAregProjectGateway();
+
+			const inspected = await gateway.inspectSkillKindSkill({
+				projectDir: project,
+				skillName: "demo",
+				env: {},
+			});
+			expect(inspected).toMatchObject({
+				agentsPath: { type: "symlink", target: "../../skills/demo" },
+				claudePath: { type: "symlink", target: "../../.agents/skills/demo" },
+			});
+
+			// Refusals before any deletion happens.
+			expect(
+				await gateway.deleteSymlink({
+					projectDir: project,
+					relativePath: "skills/demo",
+					description: "skill directory",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-refused" } });
+			expect(
+				await gateway.deleteSymlink({
+					projectDir: project,
+					relativePath: "../outside",
+					description: "outside path",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-refused" } });
+			expect(
+				await gateway.preflightDeleteSymlink({
+					projectDir: project,
+					relativePath: ".agents/skills/missing",
+					description: "agents skill mirror symlink",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-missing" } });
+
+			await mkdir(path.join(project, ".agents", "skills", "real-dir"), { recursive: true });
+			expect(
+				await gateway.deleteSymlink({
+					projectDir: project,
+					relativePath: ".agents/skills/real-dir",
+					description: "agents skill mirror symlink",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-not-symlink" } });
+
+			await symlink(
+				path.join("..", "..", "elsewhere", "demo"),
+				path.join(project, ".claude", "skills", "wrong-target"),
+			);
+			expect(
+				await gateway.deleteSymlink({
+					projectDir: project,
+					relativePath: ".claude/skills/wrong-target",
+					description: "Claude skill mirror symlink",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-wrong-target" } });
+			expect(await lstat(path.join(project, ".claude", "skills", "wrong-target"))).toBeDefined();
+
+			// Happy path: preflight then delete both convention mirrors.
+			expect(
+				await gateway.preflightDeleteSymlink({
+					projectDir: project,
+					relativePath: ".claude/skills/demo",
+					description: "Claude skill mirror symlink",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toEqual({ ok: true });
+			expect(
+				await gateway.deleteSymlink({
+					projectDir: project,
+					relativePath: ".claude/skills/demo",
+					description: "Claude skill mirror symlink",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toEqual({ ok: true });
+			expect(
+				await gateway.deleteSymlink({
+					projectDir: project,
+					relativePath: ".agents/skills/demo",
+					description: "agents skill mirror symlink",
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toEqual({ ok: true });
+			await expect(lstat(path.join(project, ".claude", "skills", "demo"))).rejects.toMatchObject({
+				code: "ENOENT",
+			});
+			await expect(lstat(path.join(project, ".agents", "skills", "demo"))).rejects.toMatchObject({
+				code: "ENOENT",
+			});
+			// The canonical skill directory is untouched.
+			expect(await lstat(path.join(project, "skills", "demo"))).toBeDefined();
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
 	test("update project inspection reads only update inputs", async () => {
 		const root = await mkdtemp(path.join(os.tmpdir(), "areg-update."));
 		try {

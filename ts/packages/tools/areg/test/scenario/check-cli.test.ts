@@ -350,8 +350,8 @@ describe("areg check CLI", () => {
 		expect(run.stderr.join("")).toContain("expected /code:workflows");
 	});
 
-	test("reports missing registry row for excluded command-backed skill", async () => {
-		const run = runScenario(["check"], {
+	test("reports mirrors-present drift for excluded unlisted-candidate skill", async () => {
+		const run = runScenario(["check", "--format", "json"], {
 			project: project({
 				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
 				piSettings: { skills: ["-skills/custom-command"] },
@@ -368,9 +368,95 @@ describe("areg check CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain(
-			"Pi skill is excluded but no verified replacement command exists; expected a registered command-backed replacement",
+		const body = JSON.parse(run.stdout.join(""));
+		expect(body.data.issues).toEqual([
+			expect.objectContaining({
+				skill: "custom-command",
+				code: "unlisted-mirrors-present",
+				message: expect.stringContaining(
+					".agents/skills/custom-command and .claude/skills/custom-command still exist(s)",
+				),
+			}),
+		]);
+		expect(body.data.issues[0].message).toContain("areg skill apply unlisted custom-command");
+		expect(body.data.issues[0].message).toContain("COMMAND_BACKED_SKILL_REGISTRY");
+	});
+
+	test("healthy unlisted skill passes without mirror assertions", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { "setup-hidden": localEntry("setup-hidden") } },
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				checkSkills: [
+					localSkill("setup-hidden", {
+						agentsPath: { type: "missing" },
+						claudePath: { type: "missing" },
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+					}),
+				],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("All skills OK.\n");
+	});
+
+	test("degraded unlisted states stay red on every single failure", async () => {
+		// Missing sidecar: mirror assertions still fire alongside the invoke-only issue.
+		const missingSidecar = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { "setup-hidden": localEntry("setup-hidden") } },
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				checkSkills: [
+					localSkill("setup-hidden", {
+						agentsPath: { type: "missing" },
+						claudePath: { type: "missing" },
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n",
+						},
+					}),
+				],
+			}),
+		});
+		expect(await missingSidecar.exit).toBe(1);
+		const missingSidecarErrors = missingSidecar.stderr.join("");
+		expect(missingSidecarErrors).toContain(
+			"skills/setup-hidden/agents/openai.yaml missing for invoke-only skill",
 		);
+		expect(missingSidecarErrors).toContain(".agents/skills/setup-hidden does not exist");
+		expect(missingSidecarErrors).toContain(".claude/skills/setup-hidden does not exist");
+
+		// One mirror present: mirror assertions run and the drift issue fires.
+		const oneMirror = runScenario(["check", "--format", "json"], {
+			project: project({
+				lockfile: { version: 1, skills: { "setup-hidden": localEntry("setup-hidden") } },
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				checkSkills: [
+					localSkill("setup-hidden", {
+						agentsPath: { type: "missing" },
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+					}),
+				],
+			}),
+		});
+		expect(await oneMirror.exit).toBe(1);
+		const oneMirrorIssues = JSON.parse(oneMirror.stdout.join("")).data.issues;
+		expect(oneMirrorIssues).toEqual([
+			expect.objectContaining({ code: "agents-missing" }),
+			expect.objectContaining({
+				code: "unlisted-mirrors-present",
+				message: expect.stringContaining(".claude/skills/setup-hidden still exist(s)"),
+			}),
+		]);
 	});
 
 	test("reports orphan, dangling, and AGENTS/CLAUDE pairing failures", async () => {

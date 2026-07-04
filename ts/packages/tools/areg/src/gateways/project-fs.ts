@@ -4,6 +4,10 @@ import path from "node:path";
 import { formatErrorMessage } from "@ns/core/primitives";
 
 import type { AregErrorInfo, AregProjectMutationPolicy, AregTextFileState } from "../gateways.ts";
+import {
+	classifySkillMirrorSymlinkState,
+	expectedMirrorTarget,
+} from "../operations/skill-mirror-conventions.ts";
 import { errorInfo } from "./errors.ts";
 import { inspectPath, isPathAtOrBelow } from "./fs-utils.ts";
 import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
@@ -215,6 +219,33 @@ export async function validateSkillKindDeleteTarget(
 			error: errorInfo("skill-kind-not-file", `${target} exists but is not a file.`),
 		};
 	return await requirePathAtOrBelow(target, projectRoot, description);
+}
+
+/**
+ * Validates a skill-mirror symlink deletion target. This is intentionally
+ * narrower than the skill-kind write/delete path policy: only exact
+ * `.agents/skills/<name>` / `.claude/skills/<name>` symlinks pointing at the
+ * convention target are deletable, and containment is checked through the
+ * parent directory's realpath (not through the link itself).
+ */
+export async function validateSkillKindDeleteSymlinkTarget(
+	target: string,
+	projectRoot: string,
+	relativePath: string,
+	description: string,
+): Promise<WriteTargetValidationResult> {
+	const expectedTarget = expectedMirrorTarget(relativePath);
+	if (expectedTarget !== undefined) {
+		const parentCheck = await requirePathAtOrBelow(
+			path.dirname(target),
+			projectRoot,
+			"Parent directory",
+		);
+		if (!parentCheck.ok) return parentCheck;
+	}
+	const state = expectedTarget === undefined ? undefined : await inspectPath(target);
+	const failure = classifySkillMirrorSymlinkState(relativePath, state, description, target);
+	return failure === undefined ? { ok: true } : { ok: false, error: failure };
 }
 
 export async function validateSkillKindRemoveDirTarget(

@@ -18,6 +18,11 @@ interface ProjectRemoveEmptyDirPlan {
 	description: string;
 }
 
+interface ProjectDeleteSymlinkPlan {
+	relativePath: string;
+	description: string;
+}
+
 interface BaseApplyProjectMutationPlanRequest {
 	ctx: AregCliContext;
 	projectDir: string;
@@ -32,12 +37,14 @@ type ApplyProjectMutationPlanRequest =
 	| (BaseApplyProjectMutationPlanRequest & {
 			policy: "skill-kind";
 			deletes: readonly ProjectDeletePlan[];
+			deleteSymlinks: readonly ProjectDeleteSymlinkPlan[];
 			removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
 	  });
 
 export const PROJECT_FILE_MUTATION_OPERATION_TYPES = [
 	"write",
 	"delete",
+	"delete-symlink",
 	"remove-empty-dir",
 ] as const;
 export const PROJECT_MUTATION_OPERATION_TYPES = [
@@ -85,11 +92,21 @@ interface RemoveEmptyDirOperation extends ProjectMutationOperationBase {
 	plan: ProjectRemoveEmptyDirPlan;
 }
 
-type ProjectMutationOperation = WriteOperation | DeleteOperation | RemoveEmptyDirOperation;
+interface DeleteSymlinkOperation extends ProjectMutationOperationBase {
+	type: "delete-symlink";
+	plan: ProjectDeleteSymlinkPlan;
+}
+
+type ProjectMutationOperation =
+	| WriteOperation
+	| DeleteOperation
+	| DeleteSymlinkOperation
+	| RemoveEmptyDirOperation;
 
 interface ApplyProjectMutationPlanSuccessFields {
 	writtenRelativePaths: readonly string[];
 	deletedRelativePaths: readonly string[];
+	deletedSymlinkRelativePaths: readonly string[];
 	removedEmptyDirRelativePaths: readonly string[];
 	operationStatuses: readonly ProjectMutationOperationStatusRecord[];
 }
@@ -97,6 +114,7 @@ interface ApplyProjectMutationPlanSuccessFields {
 interface AppliedProjectMutationPaths {
 	writtenRelativePaths: string[];
 	deletedRelativePaths: string[];
+	deletedSymlinkRelativePaths: string[];
 	removedEmptyDirRelativePaths: string[];
 }
 
@@ -148,6 +166,7 @@ export async function applyProjectMutationPlan(
 			ok: true,
 			writtenRelativePaths: [],
 			deletedRelativePaths: [],
+			deletedSymlinkRelativePaths: [],
 			removedEmptyDirRelativePaths: [],
 			operationStatuses: preflightStatuses,
 		};
@@ -155,6 +174,7 @@ export async function applyProjectMutationPlan(
 
 	const writtenRelativePaths: string[] = [];
 	const deletedRelativePaths: string[] = [];
+	const deletedSymlinkRelativePaths: string[] = [];
 	const removedEmptyDirRelativePaths: string[] = [];
 	const operationStatuses: ProjectMutationOperationStatusRecord[] = [];
 	for (let index = 0; index < operations.length; index += 1) {
@@ -170,12 +190,18 @@ export async function applyProjectMutationPlan(
 				error: result.error,
 				writtenRelativePaths,
 				deletedRelativePaths,
+				deletedSymlinkRelativePaths,
 				removedEmptyDirRelativePaths,
 				operationStatuses,
 			};
 		}
 		const status = operationHandler(operation).recordSuccess(
-			{ writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths },
+			{
+				writtenRelativePaths,
+				deletedRelativePaths,
+				deletedSymlinkRelativePaths,
+				removedEmptyDirRelativePaths,
+			},
 			operation,
 			result,
 		);
@@ -186,6 +212,7 @@ export async function applyProjectMutationPlan(
 		ok: true,
 		writtenRelativePaths,
 		deletedRelativePaths,
+		deletedSymlinkRelativePaths,
 		removedEmptyDirRelativePaths,
 		operationStatuses,
 	};
@@ -211,6 +238,14 @@ function flattenProjectMutationPlan(
 			plan,
 		}),
 	);
+	const deleteSymlinks = request.deleteSymlinks.map(
+		(plan): DeleteSymlinkOperation => ({
+			type: "delete-symlink",
+			relativePath: plan.relativePath,
+			description: plan.description,
+			plan,
+		}),
+	);
 	const removeEmptyDirs = request.removeEmptyDirs.map(
 		(plan): RemoveEmptyDirOperation => ({
 			type: "remove-empty-dir",
@@ -219,7 +254,7 @@ function flattenProjectMutationPlan(
 			plan,
 		}),
 	);
-	return [...writes, ...deletes, ...removeEmptyDirs];
+	return [...writes, ...deletes, ...deleteSymlinks, ...removeEmptyDirs];
 }
 
 const PROJECT_MUTATION_OPERATION_HANDLERS = {
@@ -275,6 +310,30 @@ const PROJECT_MUTATION_OPERATION_HANDLERS = {
 			return "applied";
 		},
 	},
+	"delete-symlink": {
+		async preflight(request, operation) {
+			return await request.ctx.project.preflightDeleteSymlink({
+				projectDir: request.projectDir,
+				relativePath: operation.plan.relativePath,
+				description: operation.plan.description,
+				policy: "skill-kind",
+				env: request.ctx.env,
+			});
+		},
+		async apply(request, operation) {
+			return await request.ctx.project.deleteSymlink({
+				projectDir: request.projectDir,
+				relativePath: operation.plan.relativePath,
+				description: operation.plan.description,
+				policy: "skill-kind",
+				env: request.ctx.env,
+			});
+		},
+		recordSuccess(paths, operation) {
+			paths.deletedSymlinkRelativePaths.push(operation.relativePath);
+			return "applied";
+		},
+	},
 	"remove-empty-dir": {
 		async preflight(request, operation) {
 			return await request.ctx.project.preflightRemoveEmptyDir({
@@ -326,6 +385,7 @@ function emptyFailure(
 		error,
 		writtenRelativePaths: [],
 		deletedRelativePaths: [],
+		deletedSymlinkRelativePaths: [],
 		removedEmptyDirRelativePaths: [],
 		operationStatuses,
 	};

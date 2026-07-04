@@ -55,6 +55,7 @@ describe("applyProjectMutationPlan", () => {
 				},
 			],
 			deletes: [{ relativePath: ".pi/settings.json", description: "Pi settings" }],
+			deleteSymlinks: [],
 			removeEmptyDirs: [],
 		});
 
@@ -63,6 +64,7 @@ describe("applyProjectMutationPlan", () => {
 			error: { code: "preflight-denied" },
 			writtenRelativePaths: [],
 			deletedRelativePaths: [],
+			deletedSymlinkRelativePaths: [],
 			removedEmptyDirRelativePaths: [],
 			operationStatuses: [
 				{ type: "write", path: "skills/demo/SKILL.md", status: "not-attempted" },
@@ -109,6 +111,7 @@ describe("applyProjectMutationPlan", () => {
 				},
 			],
 			deletes: [{ relativePath: ".pi/settings.json", description: "Pi settings" }],
+			deleteSymlinks: [],
 			removeEmptyDirs: [],
 		});
 
@@ -117,6 +120,7 @@ describe("applyProjectMutationPlan", () => {
 			error: { code: "write-failed" },
 			writtenRelativePaths: ["skills/demo/SKILL.md"],
 			deletedRelativePaths: [],
+			deletedSymlinkRelativePaths: [],
 			removedEmptyDirRelativePaths: [],
 			operationStatuses: [
 				{ type: "write", path: "skills/demo/SKILL.md", status: "applied" },
@@ -131,5 +135,73 @@ describe("applyProjectMutationPlan", () => {
 		});
 		expect(project.text("skills/demo/SKILL.md")).toBe("demo");
 		expect(project.text("skills/demo/agents/openai.yaml")).toBeUndefined();
+	});
+
+	test("delete-symlink operations run through the symlink gateway primitives", async () => {
+		const project = new FakeAregProjectGateway({
+			localSkills: [
+				{
+					name: "demo",
+					agentsPath: { type: "symlink", target: "../../skills/demo" },
+					claudePath: { type: "symlink", target: "../../.agents/skills/demo" },
+				},
+			],
+		});
+
+		const result = await applyProjectMutationPlan({
+			ctx: context(project),
+			projectDir: "/repo",
+			policy: "skill-kind",
+			writes: [],
+			deletes: [],
+			deleteSymlinks: [
+				{ relativePath: ".claude/skills/demo", description: "Claude skill mirror symlink" },
+				{ relativePath: ".agents/skills/demo", description: "agents skill mirror symlink" },
+			],
+			removeEmptyDirs: [],
+		});
+
+		expect(result).toMatchObject({
+			ok: true,
+			deletedSymlinkRelativePaths: [".claude/skills/demo", ".agents/skills/demo"],
+			operationStatuses: [
+				{ type: "delete-symlink", path: ".claude/skills/demo", status: "applied" },
+				{ type: "delete-symlink", path: ".agents/skills/demo", status: "applied" },
+			],
+		});
+		const skill = await project.inspectSkillKindSkill({
+			projectDir: "/repo",
+			skillName: "demo",
+			env: {},
+		});
+		expect(skill.agentsPath).toEqual({ type: "missing" });
+		expect(skill.claudePath).toEqual({ type: "missing" });
+	});
+
+	test("delete-symlink preflight refuses missing mirrors before mutation", async () => {
+		const project = new FakeAregProjectGateway({
+			localSkills: [{ name: "demo" }],
+		});
+
+		const result = await applyProjectMutationPlan({
+			ctx: context(project),
+			projectDir: "/repo",
+			policy: "skill-kind",
+			writes: [],
+			deletes: [],
+			deleteSymlinks: [
+				{ relativePath: ".agents/skills/demo", description: "agents skill mirror symlink" },
+			],
+			removeEmptyDirs: [],
+		});
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "skill-kind-delete-symlink-missing" },
+			deletedSymlinkRelativePaths: [],
+		});
+		expect(project.operations().map((operation) => operation.type)).toEqual([
+			"preflight-delete-symlink",
+		]);
 	});
 });

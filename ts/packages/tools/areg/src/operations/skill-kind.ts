@@ -27,6 +27,7 @@ import {
 	inspectionAfterPlannedApply,
 	operationStatusesForPlans,
 	plannedDeletes,
+	plannedDeleteSymlinks,
 	plannedRemoveEmptyDirs,
 	plannedWrites,
 	toApplyResult,
@@ -60,6 +61,8 @@ const skillKindArtifactFactsSchema = z.object({
 	userInvocableKeyPresent: z.boolean(),
 	userInvocableFalse: z.boolean(),
 	piExcluded: z.boolean(),
+	agentsMirror: z.boolean(),
+	claudeMirror: z.boolean(),
 });
 
 const skillKindReplacementSchema = z.object({
@@ -190,7 +193,7 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	skillGroup.command({
 		name: "apply",
 		description:
-			"Apply the managed artifacts for a skill invocation kind. This reconciles managed artifacts to the requested kind. It is not a historical undo system; use git to roll back exact previous file contents.",
+			"Apply the managed artifacts for a skill invocation kind. This reconciles managed artifacts to the requested kind. The unlisted kind additionally deletes the .agents/skills and .claude/skills mirror symlinks so the skill disappears from every harness typeahead. It is not a historical undo system; use git to roll back exact previous file contents.",
 		schema: skillKindApplyRequestSchema,
 		positionals: { kind: { position: 0 }, skills: { position: 1 } },
 		options: { yes: { short: "-y" } },
@@ -314,6 +317,7 @@ export async function runSkillKindApply(
 		policy: "skill-kind",
 		writes: plans.flatMap(plannedWrites),
 		deletes: plans.flatMap(plannedDeletes),
+		deleteSymlinks: plans.flatMap(plannedDeleteSymlinks),
 		removeEmptyDirs: plans.flatMap(plannedRemoveEmptyDirs),
 	});
 	if (!applyResult.ok) {
@@ -400,6 +404,8 @@ export function renderSkillKindShow(result: SkillKindShowResult): string {
 		`- agents/openai.yaml: ${presence(record.artifacts.codexSidecar)}`,
 		`- user-invocable:false: ${presence(record.artifacts.userInvocableFalse)}`,
 		`- Pi skill exclusion: ${presence(record.artifacts.piExcluded)}`,
+		`- .agents/skills mirror: ${presence(record.artifacts.agentsMirror)}`,
+		`- .claude/skills mirror: ${presence(record.artifacts.claudeMirror)}`,
 		`- Pi replacement: ${record.replacement.label}`,
 	];
 	if (record.notes.length > 0) {
@@ -456,6 +462,8 @@ function toSkillKindRecordResult(record: SkillKindRecord): SkillKindRecordResult
 			userInvocableKeyPresent: record.artifacts.hasUserInvocableKey,
 			userInvocableFalse: record.artifacts.isUserInvocableFalse,
 			piExcluded: record.artifacts.isPiExcluded,
+			agentsMirror: record.artifacts.hasAgentsMirror,
+			claudeMirror: record.artifacts.hasClaudeMirror,
 		},
 		replacement: {
 			verified: record.replacement.verified,
@@ -480,6 +488,8 @@ function renderApplyOperation(
 			return `${dryRun ? "Would skip" : "Skipped"} ${operation.path}: ${operation.reason ?? "already current"}`;
 		case "delete":
 			return `${dryRun ? "Would delete" : "Deleted"} ${operation.path}`;
+		case "delete-symlink":
+			return `${dryRun ? "Would delete symlink" : "Deleted symlink"} ${operation.path}`;
 		case "remove-empty-dir":
 			if (dryRun) return `Would remove ${operation.path} if empty`;
 			return operation.isApplied ? `Removed ${operation.path}` : undefined;
@@ -505,6 +515,8 @@ function emptyShowResult(projectDir: string, skillName: string): SkillKindShowRe
 				userInvocableKeyPresent: false,
 				userInvocableFalse: false,
 				piExcluded: false,
+				agentsMirror: false,
+				claudeMirror: false,
 			},
 			replacement: { verified: false, label: "replacement-missing" },
 			notes: [],

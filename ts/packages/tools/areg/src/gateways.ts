@@ -193,6 +193,8 @@ export interface AregSkillKindSkillInspection {
 	skillDir: AregPathState;
 	skillMd: AregTextFileState;
 	openaiPolicy: AregTextFileState;
+	agentsPath: AregPathState;
+	claudePath: AregPathState;
 }
 
 export interface AregReplacementInspection {
@@ -273,7 +275,7 @@ export interface AregProjectTextWriteRequest {
 	env: NodeJS.ProcessEnv;
 }
 
-export interface AregProjectFileDeleteRequest {
+export interface AregProjectManagedTargetRequest {
 	projectDir: string;
 	relativePath: string;
 	description: string;
@@ -281,13 +283,9 @@ export interface AregProjectFileDeleteRequest {
 	env: NodeJS.ProcessEnv;
 }
 
-export interface AregProjectRemoveEmptyDirRequest {
-	projectDir: string;
-	relativePath: string;
-	description: string;
-	policy: "skill-kind";
-	env: NodeJS.ProcessEnv;
-}
+export type AregProjectFileDeleteRequest = AregProjectManagedTargetRequest;
+export type AregProjectRemoveEmptyDirRequest = AregProjectManagedTargetRequest;
+export type AregProjectSymlinkDeleteRequest = AregProjectManagedTargetRequest;
 
 export type AregProjectMutationResult = { ok: true } | { ok: false; error: AregErrorInfo };
 export type AregProjectRemoveEmptyDirResult =
@@ -319,11 +317,15 @@ export interface AregProjectGateway {
 	resolveSkillKindSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
 	preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
 	preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
+	preflightDeleteSymlink(
+		request: AregProjectSymlinkDeleteRequest,
+	): Promise<AregProjectMutationResult>;
 	preflightRemoveEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectMutationResult>;
 	writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
 	deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
+	deleteSymlink(request: AregProjectSymlinkDeleteRequest): Promise<AregProjectMutationResult>;
 	removeEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectRemoveEmptyDirResult>;
@@ -344,6 +346,11 @@ export interface AregSkillKindTextWritePlan {
 }
 
 export interface AregSkillKindDeletePlan {
+	relativePath: string;
+	description: string;
+}
+
+export interface AregSkillKindDeleteSymlinkPlan {
 	relativePath: string;
 	description: string;
 }

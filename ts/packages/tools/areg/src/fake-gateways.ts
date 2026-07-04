@@ -32,6 +32,7 @@ import type {
 	AregProjectMutationResult,
 	AregProjectRemoveEmptyDirRequest,
 	AregProjectRemoveEmptyDirResult,
+	AregProjectSymlinkDeleteRequest,
 	AregProjectTextWriteRequest,
 	AregPromptGateway,
 	AregSkillFindRootsInspection,
@@ -50,6 +51,7 @@ import type {
 	AregToolCheckResult,
 } from "./gateways.ts";
 import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-classification.ts";
+import { classifySkillMirrorSymlinkState } from "./operations/skill-mirror-conventions.ts";
 
 export type FakeAregProjectOperation =
 	| { type: "inspect-project-base"; cwd: string; projectPath: string }
@@ -65,9 +67,11 @@ export type FakeAregProjectOperation =
 	| { type: "resolve-skill-kind-spec"; projectDir: string; spec: string; cwd: string }
 	| ({ type: "preflight-write-text-file" } & Omit<AregProjectTextWriteRequest, "env">)
 	| ({ type: "preflight-delete-file" } & Omit<AregProjectFileDeleteRequest, "env">)
+	| ({ type: "preflight-delete-symlink" } & Omit<AregProjectSymlinkDeleteRequest, "env">)
 	| ({ type: "preflight-remove-empty-dir" } & Omit<AregProjectRemoveEmptyDirRequest, "env">)
 	| ({ type: "write-text-file" } & Omit<AregProjectTextWriteRequest, "env">)
 	| ({ type: "delete-file" } & Omit<AregProjectFileDeleteRequest, "env">)
+	| ({ type: "delete-symlink" } & Omit<AregProjectSymlinkDeleteRequest, "env">)
 	| ({ type: "remove-empty-dir" } & Omit<AregProjectRemoveEmptyDirRequest, "env">);
 
 export interface FakeAregCheckSkillOptions {
@@ -87,6 +91,8 @@ export interface FakeAregSkillKindSkillOptions {
 	skillDir?: AregPathState;
 	skillMd?: AregTextFileState | string;
 	openaiPolicy?: AregTextFileState | string;
+	agentsPath?: AregPathState;
+	claudePath?: AregPathState;
 }
 
 export interface FakeAregSkillFindSkillOptions {
@@ -359,6 +365,22 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
 	}
 
+	async preflightDeleteSymlink(
+		request: AregProjectSymlinkDeleteRequest,
+	): Promise<AregProjectMutationResult> {
+		this.log.push({
+			type: "preflight-delete-symlink",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			description: request.description,
+			policy: request.policy,
+		});
+		const failure =
+			this.preflightFailure(request.relativePath) ??
+			this.deleteSymlinkContractFailure(request.relativePath, request.description);
+		return failure === undefined ? { ok: true } : { ok: false, error: failure };
+	}
+
 	async preflightRemoveEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectMutationResult> {
@@ -411,6 +433,28 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return { ok: true };
 	}
 
+	async deleteSymlink(
+		request: AregProjectSymlinkDeleteRequest,
+	): Promise<AregProjectMutationResult> {
+		this.log.push({
+			type: "delete-symlink",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			description: request.description,
+			policy: request.policy,
+		});
+		const failure =
+			this.mutationFailure(request.relativePath) ??
+			this.deleteSymlinkContractFailure(request.relativePath, request.description);
+		if (failure !== undefined) return { ok: false, error: failure };
+		const skill = this.skillForMirrorRelativePath(request.relativePath);
+		if (skill !== undefined) {
+			if (request.relativePath.startsWith(".agents/")) skill.agentsPath = { type: "missing" };
+			if (request.relativePath.startsWith(".claude/")) skill.claudePath = { type: "missing" };
+		}
+		return { ok: true };
+	}
+
 	async removeEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectRemoveEmptyDirResult> {
@@ -451,6 +495,23 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private mutationFailure(relativePath: string): AregErrorInfo | undefined {
 		const failure = this.mutationFailures.get(relativePath) ?? this.mutationFailures.get("*");
 		return failure === undefined ? undefined : copyErrorInfo(failure);
+	}
+
+	private skillForMirrorRelativePath(
+		relativePath: string,
+	): AregSkillKindSkillInspection | undefined {
+		const skillName = relativePath.split("/")[2];
+		return this.localSkills.find((candidate) => candidate.name === skillName);
+	}
+
+	private deleteSymlinkContractFailure(
+		relativePath: string,
+		description: string,
+	): AregErrorInfo | undefined {
+		const target = `${this.projectDir}/${relativePath}`;
+		const skill = this.skillForMirrorRelativePath(relativePath);
+		const state = relativePath.startsWith(".agents/") ? skill?.agentsPath : skill?.claudePath;
+		return classifySkillMirrorSymlinkState(relativePath, state, description, target);
 	}
 }
 
@@ -772,6 +833,8 @@ function copyFakeSkillKindSkill(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
 		),
 		openaiPolicy: normalizeTextFileState(skill.openaiPolicy ?? { type: "missing" }),
+		agentsPath: copyPathState(skill.agentsPath ?? { type: "missing" }),
+		claudePath: copyPathState(skill.claudePath ?? { type: "missing" }),
 	};
 }
 
@@ -808,6 +871,8 @@ function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindS
 		...copySkillInspectionCore(skill),
 		sourceType: skill.sourceType,
 		openaiPolicy: copyTextFileState(skill.openaiPolicy),
+		agentsPath: copyPathState(skill.agentsPath),
+		claudePath: copyPathState(skill.claudePath),
 	};
 }
 
@@ -839,6 +904,8 @@ function missingSkillKindSkill(name: string): AregSkillKindSkillInspection {
 		skillDir: missing,
 		skillMd: missing,
 		openaiPolicy: missing,
+		agentsPath: missing,
+		claudePath: missing,
 	};
 }
 

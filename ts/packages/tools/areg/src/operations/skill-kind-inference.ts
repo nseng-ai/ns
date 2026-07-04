@@ -17,6 +17,7 @@ export const SKILL_INVOCATION_KINDS = [
 	"invoke-only",
 	"command-backed",
 	"ambient-only",
+	"unlisted",
 ] as const;
 export const INFERRED_SKILL_INVOCATION_KINDS = [
 	...SKILL_INVOCATION_KINDS,
@@ -24,8 +25,8 @@ export const INFERRED_SKILL_INVOCATION_KINDS = [
 	"inconsistent",
 ] as const;
 export const MODEL_INVOCATION_STATUSES = ["enabled", "disabled", "mixed"] as const;
-export const NATIVE_DIRECT_STATUSES = ["enabled", "partial", "mixed"] as const;
-export const PI_EXTENSION_STATUSES = ["n/a", "enabled", "missing"] as const;
+export const NATIVE_DIRECT_STATUSES = ["enabled", "partial", "hidden", "mixed"] as const;
+export const PI_EXTENSION_STATUSES = ["n/a", "enabled", "excluded", "missing"] as const;
 export const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 export const USER_INVOCABLE_KEY = "user-invocable";
 export const MANAGED_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n";
@@ -37,12 +38,28 @@ export type ModelInvocationStatus = (typeof MODEL_INVOCATION_STATUSES)[number];
 export type NativeDirectStatus = (typeof NATIVE_DIRECT_STATUSES)[number];
 export type PiExtensionStatus = (typeof PI_EXTENSION_STATUSES)[number];
 
+export interface SkillKindProperties {
+	disableModelInvocation: boolean;
+	codexSidecar: boolean;
+	piExcluded: boolean;
+}
+
+export const KIND_PROPERTIES: Record<SkillInvocationKind, SkillKindProperties> = {
+	normal: { disableModelInvocation: false, codexSidecar: false, piExcluded: false },
+	"invoke-only": { disableModelInvocation: true, codexSidecar: true, piExcluded: false },
+	"command-backed": { disableModelInvocation: true, codexSidecar: true, piExcluded: true },
+	"ambient-only": { disableModelInvocation: false, codexSidecar: false, piExcluded: false },
+	unlisted: { disableModelInvocation: true, codexSidecar: true, piExcluded: true },
+};
+
 export interface SkillKindArtifactFacts {
 	isModelInvocationDisabled: boolean;
 	hasCodexSidecar: boolean;
 	hasUserInvocableKey: boolean;
 	isUserInvocableFalse: boolean;
 	isPiExcluded: boolean;
+	hasAgentsMirror: boolean;
+	hasClaudeMirror: boolean;
 }
 
 export interface SkillKindReplacementInfo {
@@ -85,6 +102,8 @@ export function inferSkillKindRecord(options: {
 	frontmatter: FrontmatterInspection;
 	hasCodexSidecar: boolean;
 	isPiExcluded: boolean;
+	hasAgentsMirror: boolean;
+	hasClaudeMirror: boolean;
 	replacement: PiReplacementVerification;
 }): SkillKindRecord {
 	const isModelInvocationDisabled = truthyFrontmatterValue(
@@ -100,6 +119,8 @@ export function inferSkillKindRecord(options: {
 		hasUserInvocableKey,
 		isUserInvocableFalse,
 		isPiExcluded: options.isPiExcluded,
+		hasAgentsMirror: options.hasAgentsMirror,
+		hasClaudeMirror: options.hasClaudeMirror,
 	};
 	const kind = inferKind(artifacts, options.replacement);
 	const replacementEvidenceText = options.replacement.verified
@@ -120,10 +141,11 @@ export function inferSkillKindRecord(options: {
 		kind,
 		modelInvocation: modelInvocationStatus(artifacts),
 		nativeDirect: nativeDirectStatus(kind, artifacts),
-		piExtension: piExtensionStatus(artifacts, options.replacement),
+		piExtension: piExtensionStatus(kind, artifacts, options.replacement),
 		artifacts,
 		replacement,
 		notes: buildNotes({
+			skillName: options.skillName,
 			kind,
 			artifacts,
 			userInvocableValue: options.frontmatter.fields[USER_INVOCABLE_KEY],
@@ -166,6 +188,8 @@ export function buildSkillKindRecords(
 				frontmatter: frontmatter.value,
 				hasCodexSidecar: skill.openaiPolicy.type === "file",
 				isPiExcluded: piSettings.value.exclusions.includes(`-skills/${skill.name}`),
+				hasAgentsMirror: skill.agentsPath.type !== "missing",
+				hasClaudeMirror: skill.claudePath.type !== "missing",
 				replacement,
 			}),
 		);
@@ -210,6 +234,13 @@ function inferKind(
 	)
 		return "command-backed";
 	if (
+		isUnlistedCandidate(artifacts, replacement.surface) &&
+		artifacts.isPiExcluded &&
+		!artifacts.hasAgentsMirror &&
+		!artifacts.hasClaudeMirror
+	)
+		return "unlisted";
+	if (
 		artifacts.isModelInvocationDisabled &&
 		artifacts.hasCodexSidecar &&
 		!artifacts.isPiExcluded &&
@@ -238,6 +269,18 @@ function inferKind(
 	return "inconsistent";
 }
 
+export function isUnlistedCandidate(
+	artifacts: SkillKindArtifactFacts,
+	replacementSurface: string | undefined,
+): boolean {
+	return (
+		artifacts.isModelInvocationDisabled &&
+		artifacts.hasCodexSidecar &&
+		!artifacts.hasUserInvocableKey &&
+		replacementSurface === undefined
+	);
+}
+
 function modelInvocationStatus(artifacts: SkillKindArtifactFacts): ModelInvocationStatus {
 	if (artifacts.isModelInvocationDisabled && artifacts.hasCodexSidecar) return "disabled";
 	if (artifacts.isModelInvocationDisabled || artifacts.hasCodexSidecar) return "mixed";
@@ -249,20 +292,24 @@ function nativeDirectStatus(
 	artifacts: SkillKindArtifactFacts,
 ): NativeDirectStatus {
 	if (kind === "normal" || kind === "invoke-only") return "enabled";
+	if (kind === "unlisted") return "hidden";
 	if (kind === "command-backed" || kind === "ambient-only") return "partial";
 	if (artifacts.hasUserInvocableKey || artifacts.isPiExcluded) return "mixed";
 	return "enabled";
 }
 
 function piExtensionStatus(
+	kind: InferredSkillInvocationKind,
 	artifacts: SkillKindArtifactFacts,
 	replacement: PiReplacementVerification,
 ): PiExtensionStatus {
 	if (!artifacts.isPiExcluded) return "n/a";
+	if (kind === "unlisted") return "excluded";
 	return replacement.verified ? "enabled" : "missing";
 }
 
 function buildNotes(options: {
+	skillName: string;
 	kind: InferredSkillInvocationKind;
 	artifacts: SkillKindArtifactFacts;
 	userInvocableValue: string | undefined;
@@ -285,8 +332,16 @@ function buildNotes(options: {
 	) {
 		notes.push("user-invocable:false is mixed with explicit-only or Pi-exclusion artifacts.");
 	}
-	if (options.artifacts.isPiExcluded && !options.replacement.verified)
+	if (
+		options.artifacts.isPiExcluded &&
+		!options.replacement.verified &&
+		options.kind !== "unlisted"
+	)
 		notes.push("Pi skill exclusion is present without a verified replacement command.");
+	if (options.kind === "unlisted")
+		notes.push(
+			`unlisted hides this skill from all harness typeaheads; canonical source remains skills/${options.skillName}/.`,
+		);
 	if (options.kind === "ambient-only")
 		notes.push(
 			"ambient-only disables Claude native direct invocation; Pi and Codex native direct invocation are not enforced.",
