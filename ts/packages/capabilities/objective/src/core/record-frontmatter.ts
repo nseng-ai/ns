@@ -16,6 +16,8 @@ export const objectiveRecordEdgeSchema = z.strictObject({
 	annotation: z.string(),
 });
 
+// This schema deliberately serves both raw frontmatter YAML and normalized read output:
+// missing `blocked` and `edges` keys default to `null` and `[]`, while unknown keys stay rejected.
 export const objectiveRecordFrontmatterSchema = z.strictObject({
 	blocked: z.string().nullable().default(null),
 	edges: z.array(objectiveRecordEdgeSchema).default([]),
