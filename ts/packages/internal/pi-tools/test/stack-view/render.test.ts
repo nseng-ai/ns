@@ -1,7 +1,40 @@
 import { describe, expect, test } from "vitest";
 
 import { buildSummaryPrompt, renderPlainSnapshot } from "../../src/stack-view/render.ts";
-import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
+import type {
+	StackViewCheckEntry,
+	StackViewModel,
+	StackViewPr,
+	StackViewThreadDetail,
+} from "../../src/stack-view/types.ts";
+
+/** Build a check entry, defaulting the detail-only fields the render layer ignores. */
+function checkEntry(overrides: Partial<StackViewCheckEntry> = {}): StackViewCheckEntry {
+	return {
+		name: "check",
+		workflowName: null,
+		bucket: "passing",
+		status: null,
+		conclusion: null,
+		detailsUrl: null,
+		identity: null,
+		...overrides,
+	};
+}
+
+/** Build a thread detail, defaulting the comment/id fields the render layer ignores. */
+function threadDetail(overrides: Partial<StackViewThreadDetail> = {}): StackViewThreadDetail {
+	return {
+		id: null,
+		path: "",
+		line: null,
+		author: null,
+		comments: [],
+		lastCommentId: null,
+		totalComments: 0,
+		...overrides,
+	};
+}
 
 function pr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 	return {
@@ -133,13 +166,13 @@ describe("renderPlainSnapshot", () => {
 						checks: { passing: 0, failing: 1, pending: 1, total: 2 },
 						status: "checks-failing",
 						checkEntries: [
-							{ name: "build", workflowName: "CI", bucket: "failing" },
-							{ name: "lint", workflowName: null, bucket: "pending" },
+							checkEntry({ name: "build", workflowName: "CI", bucket: "failing" }),
+							checkEntry({ name: "lint", workflowName: null, bucket: "pending" }),
 						],
 						// total-resolved equals the detail count so no `[+k more]` suffix
 						// (which legitimately contains `[`) muddies the no-ANSI invariant.
 						threads: { resolved: 0, total: 1 },
-						unresolvedThreads: [{ path: "src/a.ts", line: 10, author: "alice" }],
+						unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 10, author: "alice" })],
 					}),
 				],
 			}),
@@ -158,9 +191,9 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							checkEntries: [
-								{ name: "build", workflowName: "CI", bucket: "failing" },
-								{ name: "typecheck", workflowName: null, bucket: "failing" },
-								{ name: "unit", workflowName: "CI", bucket: "passing" },
+								checkEntry({ name: "build", workflowName: "CI", bucket: "failing" }),
+								checkEntry({ name: "typecheck", workflowName: null, bucket: "failing" }),
+								checkEntry({ name: "unit", workflowName: "CI", bucket: "passing" }),
 							],
 						}),
 					],
@@ -177,7 +210,9 @@ describe("renderPlainSnapshot", () => {
 					prs: [
 						pr({
 							branch: "solo",
-							checkEntries: [{ name: "deploy", workflowName: "Release", bucket: "pending" }],
+							checkEntries: [
+								checkEntry({ name: "deploy", workflowName: "Release", bucket: "pending" }),
+							],
 						}),
 					],
 				}),
@@ -193,7 +228,7 @@ describe("renderPlainSnapshot", () => {
 					prs: [
 						pr({
 							branch: "solo",
-							checkEntries: [{ name: "unit", workflowName: null, bucket: "passing" }],
+							checkEntries: [checkEntry({ name: "unit", workflowName: null, bucket: "passing" })],
 						}),
 					],
 				}),
@@ -212,8 +247,8 @@ describe("renderPlainSnapshot", () => {
 							branch: "solo",
 							threads: { resolved: 0, total: 2 },
 							unresolvedThreads: [
-								{ path: "src/a.ts", line: 10, author: "alice" },
-								{ path: "src/b.ts", line: 22, author: "bob" },
+								threadDetail({ path: "src/a.ts", line: 10, author: "alice" }),
+								threadDetail({ path: "src/b.ts", line: 22, author: "bob" }),
 							],
 						}),
 					],
@@ -232,9 +267,9 @@ describe("renderPlainSnapshot", () => {
 							branch: "solo",
 							threads: { resolved: 0, total: 3 },
 							unresolvedThreads: [
-								{ path: "src/a.ts", line: null, author: "alice" },
-								{ path: "src/b.ts", line: 5, author: null },
-								{ path: "", line: 7, author: "carol" },
+								threadDetail({ path: "src/a.ts", line: null, author: "alice" }),
+								threadDetail({ path: "src/b.ts", line: 5, author: null }),
+								threadDetail({ path: "", line: 7, author: "carol" }),
 							],
 						}),
 					],
@@ -254,7 +289,7 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							threads: { resolved: 1, total: 5 },
-							unresolvedThreads: [{ path: "src/a.ts", line: 10, author: "alice" }],
+							unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 10, author: "alice" })],
 						}),
 					],
 				}),
@@ -272,7 +307,7 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							threads: { resolved: 0, total: 1 },
-							unresolvedThreads: [{ path: "src/a.ts", line: 10, author: "alice" }],
+							unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 10, author: "alice" })],
 						}),
 					],
 				}),

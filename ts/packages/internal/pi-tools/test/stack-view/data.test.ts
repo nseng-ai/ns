@@ -309,11 +309,23 @@ function passingCheckRunNode(name: string, workflowName: string): unknown {
 /** An unresolved review-thread node carrying detail, in the fetched reviewThreads.nodes shape. */
 function unresolvedThreadNode(path: string, line: number, author: string): unknown {
 	return {
+		id: `rt-${author}`,
 		isResolved: false,
 		path,
 		line,
 		originalLine: null,
-		comments: { nodes: [{ author: { login: author } }] },
+		comments: {
+			totalCount: 1,
+			nodes: [
+				{
+					id: `c-${author}`,
+					body: "a comment",
+					author: { login: author },
+					createdAt: "2026-02-02T00:00:00Z",
+				},
+			],
+		},
+		lastComment: { nodes: [{ id: `c-${author}` }] },
 	};
 }
 
@@ -570,8 +582,35 @@ describe("loadStackView happy path", () => {
 				body: "",
 				threads: { resolved: 0, total: 1 },
 				checks: { passing: 1, failing: 0, pending: 0, total: 1 },
-				checkEntries: [{ name: "build", workflowName: "CI", bucket: "passing" }],
-				unresolvedThreads: [{ path: "src/top.ts", line: 5, author: "reviewer" }],
+				checkEntries: [
+					{
+						name: "build",
+						workflowName: "CI",
+						bucket: "passing",
+						status: "COMPLETED",
+						conclusion: "SUCCESS",
+						detailsUrl: null,
+						identity: "check-run:CI:build",
+					},
+				],
+				unresolvedThreads: [
+					{
+						id: "rt-reviewer",
+						path: "src/top.ts",
+						line: 5,
+						author: "reviewer",
+						comments: [
+							{
+								id: "c-reviewer",
+								author: "reviewer",
+								body: "a comment",
+								createdAt: "2026-02-02T00:00:00Z",
+							},
+						],
+						lastCommentId: "c-reviewer",
+						totalComments: 1,
+					},
+				],
 				status: "draft",
 				objectiveSlugs: ["alpha"],
 			},
