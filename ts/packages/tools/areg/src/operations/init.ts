@@ -268,7 +268,7 @@ export async function runInit(
 		agents: [...agents],
 		bootstrapRepo: BOOTSTRAP_REPO,
 		bootstrapSkills: [...BOOTSTRAP_SKILLS],
-		writtenFiles: [...apply.writtenRelativePaths],
+		writtenFiles: [...apply.appliedPaths.written],
 		skippedFiles: textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
 	});
 }

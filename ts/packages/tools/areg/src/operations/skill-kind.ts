@@ -343,7 +343,7 @@ export async function runSkillKindApply(
 				toApplyResult(
 					operation,
 					true,
-					applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath),
+					applyResult.appliedPaths.removedEmptyDir.includes(operation.relativePath),
 				),
 			),
 		})),

@@ -39,17 +39,37 @@ export type NativeDirectStatus = (typeof NATIVE_DIRECT_STATUSES)[number];
 export type PiExtensionStatus = (typeof PI_EXTENSION_STATUSES)[number];
 
 export interface SkillKindProperties {
-	disableModelInvocation: boolean;
-	codexSidecar: boolean;
-	piExcluded: boolean;
+	shouldDisableModelInvocation: boolean;
+	hasCodexSidecar: boolean;
+	isPiExcluded: boolean;
 }
 
 export const KIND_PROPERTIES: Record<SkillInvocationKind, SkillKindProperties> = {
-	normal: { disableModelInvocation: false, codexSidecar: false, piExcluded: false },
-	"invoke-only": { disableModelInvocation: true, codexSidecar: true, piExcluded: false },
-	"command-backed": { disableModelInvocation: true, codexSidecar: true, piExcluded: true },
-	"ambient-only": { disableModelInvocation: false, codexSidecar: false, piExcluded: false },
-	unlisted: { disableModelInvocation: true, codexSidecar: true, piExcluded: true },
+	normal: {
+		shouldDisableModelInvocation: false,
+		hasCodexSidecar: false,
+		isPiExcluded: false,
+	},
+	"invoke-only": {
+		shouldDisableModelInvocation: true,
+		hasCodexSidecar: true,
+		isPiExcluded: false,
+	},
+	"command-backed": {
+		shouldDisableModelInvocation: true,
+		hasCodexSidecar: true,
+		isPiExcluded: true,
+	},
+	"ambient-only": {
+		shouldDisableModelInvocation: false,
+		hasCodexSidecar: false,
+		isPiExcluded: false,
+	},
+	unlisted: {
+		shouldDisableModelInvocation: true,
+		hasCodexSidecar: true,
+		isPiExcluded: true,
+	},
 };
 
 export interface SkillKindArtifactFacts {

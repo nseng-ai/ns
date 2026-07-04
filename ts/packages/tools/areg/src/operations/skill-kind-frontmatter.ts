@@ -47,7 +47,7 @@ export function desiredFrontmatter(
 	kind: SkillInvocationKind,
 ): Readonly<Record<string, string | undefined>> {
 	return {
-		[DISABLE_MODEL_INVOCATION_KEY]: KIND_PROPERTIES[kind].disableModelInvocation
+		[DISABLE_MODEL_INVOCATION_KEY]: KIND_PROPERTIES[kind].shouldDisableModelInvocation
 			? "true"
 			: undefined,
 		[USER_INVOCABLE_KEY]: kind === "ambient-only" ? "false" : undefined,

@@ -275,7 +275,7 @@ export function planSidecarOperations(
 ): Result<readonly PlannedApplyOperation[]> {
 	const relativePath = `${skill.baseRelativePath}/agents/openai.yaml`;
 	const agentsDir = `${skill.baseRelativePath}/agents`;
-	const shouldExist = KIND_PROPERTIES[kind].codexSidecar;
+	const shouldExist = KIND_PROPERTIES[kind].hasCodexSidecar;
 	if (shouldExist) {
 		if (skill.openaiPolicy.type === "symlink")
 			return err({
@@ -372,7 +372,7 @@ export function planPiSettingsOperation(
 ): Result<PlannedApplyOperation> {
 	const relativePath = ".pi/settings.json";
 	const entry = `-skills/${skillName}`;
-	const shouldExclude = KIND_PROPERTIES[kind].piExcluded;
+	const shouldExclude = KIND_PROPERTIES[kind].isPiExcluded;
 	const currentExclusions = settings.exclusions;
 	const hasEntry = currentExclusions.includes(entry);
 	if (shouldExclude && hasEntry)
@@ -408,25 +408,23 @@ export function planPiSettingsOperation(
 }
 
 export function hasDeletionPrompt(plan: SkillKindApplyPlan): boolean {
-	return plan.operations.some(
-		(operation) =>
-			operation.type === "delete" ||
-			operation.type === "delete-symlink" ||
-			operation.type === "remove-empty-dir",
-	);
+	return plan.operations.some(isDeletionOperation);
 }
 
 export function deletionPrompt(plan: SkillKindApplyPlan): string {
 	const paths = plan.operations
-		.filter(
-			(operation) =>
-				operation.type === "delete" ||
-				operation.type === "delete-symlink" ||
-				operation.type === "remove-empty-dir",
-		)
+		.filter(isDeletionOperation)
 		.map((operation) => `- ${operation.relativePath}`)
 		.join("\n");
 	return `Apply ${plan.kind} to ${plan.skill} will delete managed artifacts:\n${paths}\nContinue?`;
+}
+
+function isDeletionOperation(operation: PlannedApplyOperation): boolean {
+	return (
+		operation.type === "delete" ||
+		operation.type === "delete-symlink" ||
+		operation.type === "remove-empty-dir"
+	);
 }
 
 export function plannedWrites(plan: SkillKindApplyPlan): readonly AregSkillKindTextWritePlan[] {

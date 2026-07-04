@@ -51,7 +51,10 @@ import type {
 	AregToolCheckResult,
 } from "./gateways.ts";
 import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-classification.ts";
-import { classifySkillMirrorSymlinkState } from "./operations/skill-mirror-conventions.ts";
+import {
+	classifySkillMirrorSymlinkState,
+	parseSkillMirrorRelativePath,
+} from "./operations/skill-mirror-conventions.ts";
 
 export type FakeAregProjectOperation =
 	| { type: "inspect-project-base"; cwd: string; projectPath: string }
@@ -447,10 +450,11 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			this.mutationFailure(request.relativePath) ??
 			this.deleteSymlinkContractFailure(request.relativePath, request.description);
 		if (failure !== undefined) return { ok: false, error: failure };
-		const skill = this.skillForMirrorRelativePath(request.relativePath);
-		if (skill !== undefined) {
-			if (request.relativePath.startsWith(".agents/")) skill.agentsPath = { type: "missing" };
-			if (request.relativePath.startsWith(".claude/")) skill.claudePath = { type: "missing" };
+		const mirror = parseSkillMirrorRelativePath(request.relativePath);
+		const skill = mirror === undefined ? undefined : this.skillForMirrorName(mirror.skillName);
+		if (skill !== undefined && mirror !== undefined) {
+			if (mirror.mirrorKind === "agents") skill.agentsPath = { type: "missing" };
+			if (mirror.mirrorKind === "claude") skill.claudePath = { type: "missing" };
 		}
 		return { ok: true };
 	}
@@ -497,10 +501,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return failure === undefined ? undefined : copyErrorInfo(failure);
 	}
 
-	private skillForMirrorRelativePath(
-		relativePath: string,
-	): AregSkillKindSkillInspection | undefined {
-		const skillName = relativePath.split("/")[2];
+	private skillForMirrorName(skillName: string): AregSkillKindSkillInspection | undefined {
 		return this.localSkills.find((candidate) => candidate.name === skillName);
 	}
 
@@ -509,8 +510,14 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		description: string,
 	): AregErrorInfo | undefined {
 		const target = `${this.projectDir}/${relativePath}`;
-		const skill = this.skillForMirrorRelativePath(relativePath);
-		const state = relativePath.startsWith(".agents/") ? skill?.agentsPath : skill?.claudePath;
+		const mirror = parseSkillMirrorRelativePath(relativePath);
+		const skill = mirror === undefined ? undefined : this.skillForMirrorName(mirror.skillName);
+		const state =
+			mirror === undefined
+				? undefined
+				: mirror.mirrorKind === "agents"
+					? skill?.agentsPath
+					: skill?.claudePath;
 		return classifySkillMirrorSymlinkState(relativePath, state, description, target);
 	}
 }
