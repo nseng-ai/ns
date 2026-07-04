@@ -302,12 +302,29 @@ const stackViewCheckEntrySchema = z.object({
 	name: z.string(),
 	workflowName: z.string().nullable(),
 	bucket: z.enum(["passing", "failing", "pending"]),
+	// Additive fields: old persisted snapshots omit these, so default them.
+	status: z.string().nullable().default(null),
+	conclusion: z.string().nullable().default(null),
+	detailsUrl: z.string().nullable().default(null),
+	identity: z.string().nullable().default(null),
+});
+
+const stackViewThreadCommentSchema = z.object({
+	id: z.string(),
+	author: z.string().nullable(),
+	body: z.string(),
+	createdAt: z.string().nullable(),
 });
 
 const stackViewThreadDetailSchema = z.object({
 	path: z.string(),
 	line: z.number().nullable(),
 	author: z.string().nullable(),
+	// Additive fields: old persisted snapshots omit these, so default them.
+	id: z.string().nullable().default(null),
+	comments: z.array(stackViewThreadCommentSchema).default([]),
+	lastCommentId: z.string().nullable().default(null),
+	totalComments: z.number().default(0),
 });
 
 const stackViewPrSchema = z.object({
@@ -341,7 +358,7 @@ type SerializedStackViewModel = z.infer<typeof serializedStackViewModelSchema>;
 const stackViewSnapshotDetailsSchema = z.object({ model: serializedStackViewModelSchema });
 
 /** Rebuild a {@link StackViewModel} from message `details`; `undefined` on any shape mismatch. */
-function stackViewModelFromDetails(details: unknown): StackViewModel | undefined {
+export function stackViewModelFromDetails(details: unknown): StackViewModel | undefined {
 	const parsed = stackViewSnapshotDetailsSchema.safeParse(details);
 	if (!parsed.success) return undefined;
 	const model = parsed.data.model;

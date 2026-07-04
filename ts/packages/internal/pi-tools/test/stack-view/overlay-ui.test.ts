@@ -2,7 +2,12 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { describe, expect, test } from "vitest";
 
-import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
+import type {
+	StackViewCheckEntry,
+	StackViewModel,
+	StackViewPr,
+	StackViewThreadDetail,
+} from "../../src/stack-view/types.ts";
 import {
 	buildStackDetailRows,
 	buildStackRollupSegments,
@@ -128,12 +133,12 @@ describe("overlay-model units", () => {
 					threads: { resolved: 1, total: 3 },
 					checks: { passing: 2, failing: 1, pending: 1, total: 4 },
 					checkEntries: [
-						{ name: "lint", workflowName: "CI", bucket: "failing" },
-						{ name: "unit", workflowName: null, bucket: "pending" },
+						checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" }),
+						checkEntry({ name: "unit", workflowName: null, bucket: "pending" }),
 					],
 					unresolvedThreads: [
-						{ path: "src/a.ts", line: 10, author: "alice" },
-						{ path: "src/b.ts", line: null, author: "bob" },
+						threadDetail({ path: "src/a.ts", line: 10, author: "alice" }),
+						threadDetail({ path: "src/b.ts", line: null, author: "bob" }),
 					],
 					objectiveSlugs: ["obj-a", "obj-b"],
 				}),
@@ -167,7 +172,7 @@ describe("overlay-model units", () => {
 			const rows = buildStackDetailRows(
 				prFixture({
 					threads: { resolved: 0, total: 1 },
-					unresolvedThreads: [{ path: "", line: 5, author: null }],
+					unresolvedThreads: [threadDetail({ path: "", line: 5, author: null })],
 				}),
 			);
 			expect(rows.map((row) => row.text)).toContain("(file unknown):5");
@@ -177,7 +182,7 @@ describe("overlay-model units", () => {
 			const rows = buildStackDetailRows(
 				prFixture({
 					threads: { resolved: 0, total: 3 },
-					unresolvedThreads: [{ path: "src/a.ts", line: 1, author: "alice" }],
+					unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 1, author: "alice" })],
 				}),
 			);
 			const truncation = rows.find((row) => row.role === "truncation-note");
@@ -296,11 +301,9 @@ describe("StackViewOverlay detail pane", () => {
 					branch: "feature/1",
 					title: "First",
 					checks: { passing: 0, failing: 20, pending: 0, total: 20 },
-					checkEntries: Array.from({ length: 20 }, (_unused, index) => ({
-						name: `check-${index}`,
-						workflowName: null,
-						bucket: "failing" as const,
-					})),
+					checkEntries: Array.from({ length: 20 }, (_unused, index) =>
+						checkEntry({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
+					),
 				}),
 				prFixture({ number: 2, branch: "feature/2", title: "Second" }),
 			],
@@ -319,11 +322,9 @@ describe("StackViewOverlay detail pane", () => {
 			branch: "feature/1",
 			title: "Long",
 			checks: { passing: 0, failing: 40, pending: 0, total: 40 },
-			checkEntries: Array.from({ length: 40 }, (_unused, index) => ({
-				name: `check-${index}`,
-				workflowName: null,
-				bucket: "failing" as const,
-			})),
+			checkEntries: Array.from({ length: 40 }, (_unused, index) =>
+				checkEntry({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
+			),
 		});
 		const view = newView(modelFixture({ currentBranch: "feature/1", prs: [pr] }), {
 			initialIndex: 0,
@@ -576,12 +577,40 @@ function bigModel(): StackViewModel {
 				status: "checks-failing",
 				threads: { resolved: 1, total: 2 },
 				checks: { passing: 1, failing: 1, pending: 0, total: 2 },
-				checkEntries: [{ name: "lint", workflowName: "CI", bucket: "failing" }],
-				unresolvedThreads: [{ path: "src/a.ts", line: 4, author: "alice" }],
+				checkEntries: [checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" })],
+				unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 4, author: "alice" })],
 			}),
 			prFixture({ number: 2, branch: "feature/2", title: "Second", status: "ready" }),
 		],
 	});
+}
+
+/** Build a check entry, defaulting the detail-only fields the overlay model ignores. */
+function checkEntry(overrides: Partial<StackViewCheckEntry> = {}): StackViewCheckEntry {
+	return {
+		name: "check",
+		workflowName: null,
+		bucket: "passing",
+		status: null,
+		conclusion: null,
+		detailsUrl: null,
+		identity: null,
+		...overrides,
+	};
+}
+
+/** Build a thread detail, defaulting the comment/id fields the overlay model ignores. */
+function threadDetail(overrides: Partial<StackViewThreadDetail> = {}): StackViewThreadDetail {
+	return {
+		id: null,
+		path: "",
+		line: null,
+		author: null,
+		comments: [],
+		lastCommentId: null,
+		totalComments: 0,
+		...overrides,
+	};
 }
 
 function prFixture(overrides: Partial<StackViewPr> = {}): StackViewPr {

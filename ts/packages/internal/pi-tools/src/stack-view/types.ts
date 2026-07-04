@@ -27,13 +27,37 @@ export interface StackViewCheckEntry {
 	name: string;
 	workflowName: string | null;
 	bucket: StackViewCheckBucket;
+	/** Raw CheckRun status (e.g. `COMPLETED`); null for status contexts or when absent. */
+	status: string | null;
+	/** Raw CheckRun conclusion (e.g. `SUCCESS`); null for status contexts or when absent. */
+	conclusion: string | null;
+	/** External details URL for the check; null when absent. */
+	detailsUrl: string | null;
+	/** Normalized identity string from `normalizeGithubStatusChecks`; null when absent. */
+	identity: string | null;
+}
+
+/** One fetched review-thread comment for the detail pane and summaries. */
+export interface StackViewThreadComment {
+	id: string;
+	author: string | null;
+	body: string;
+	createdAt: string | null;
 }
 
 /** One unresolved review thread for the detail pane. `line` is null for file-level comments. */
 export interface StackViewThreadDetail {
+	/** The ReviewThread GraphQL node id; null defensively on parse misses. */
+	id: string | null;
 	path: string;
 	line: number | null;
 	author: string | null;
+	/** First N fetched comments on the thread. */
+	comments: StackViewThreadComment[];
+	/** Id of the thread's last comment (from a `comments(last:1)` alias); a later memoization key. */
+	lastCommentId: string | null;
+	/** Honest total comment count from the connection's totalCount. */
+	totalComments: number;
 }
 
 /**
