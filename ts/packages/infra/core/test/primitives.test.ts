@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	buildFencedTextBlock,
 	finiteNumberField,
 	formatErrorMessage,
 	formatZodError,
@@ -106,6 +107,12 @@ describe("formatZodError", () => {
 				],
 			}),
 		).toBe("<root>: Required; count: Expected number");
+	});
+});
+
+describe("buildFencedTextBlock", () => {
+	test("builds fences longer than embedded backticks", () => {
+		expect(buildFencedTextBlock("has ``` inside")).toBe("````text\nhas ``` inside\n````");
 	});
 });
 

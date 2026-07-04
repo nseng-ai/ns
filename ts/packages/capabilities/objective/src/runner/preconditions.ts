@@ -27,7 +27,7 @@ export interface CheckRunnerPreconditionsOptions {
 }
 
 export interface ResolveRunnerStepIdentityOptions {
-	slug?: string | undefined;
+	slug?: string;
 	recover: boolean;
 }
 

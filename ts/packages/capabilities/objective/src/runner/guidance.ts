@@ -1,20 +1,10 @@
-import { resolve } from "node:path";
-
+import { resolveAtPrefixedValue, type ReadAtPrefixedValueResult } from "./at-prefixed-value.ts";
 import type { RunnerTextFileReadResult } from "./context.ts";
-
-export type ResolveAtPrefixedValueResult =
-	| { type: "ok"; content: string }
-	| { type: "unreadable-file"; path: string; message: string };
-
-export interface ResolveAtPrefixedValueOptions {
-	cwd: string;
-	value: string;
-	readTextFile(path: string): Promise<RunnerTextFileReadResult>;
-}
 
 export type ResolveGuidanceResult =
 	/** Resolved guidance text; `guidance` is omitted when none was requested. */
-	{ type: "ok"; guidance?: string } | { type: "unreadable-file"; path: string; message: string };
+	| { type: "ok"; guidance?: string }
+	| Extract<ReadAtPrefixedValueResult, { type: "unreadable-file" }>;
 
 export interface ResolveGuidanceOptions {
 	cwd: string;
@@ -55,15 +45,4 @@ export function guidanceUsageProblem(
 		message: `Could not read guidance file ${result.path}: ${result.message}`,
 		argument: "guidance",
 	};
-}
-
-/** `@`-prefixed values are file paths resolved against cwd; otherwise inline. */
-export async function resolveAtPrefixedValue(
-	options: ResolveAtPrefixedValueOptions,
-): Promise<ResolveAtPrefixedValueResult> {
-	if (!options.value.startsWith("@")) return { type: "ok", content: options.value };
-	const path = resolve(options.cwd, options.value.slice(1));
-	const read = await options.readTextFile(path);
-	if (read.type === "error") return { type: "unreadable-file", path, message: read.message };
-	return { type: "ok", content: read.content };
 }

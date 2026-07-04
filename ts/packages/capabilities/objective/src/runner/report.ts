@@ -40,8 +40,6 @@ export interface RunnerReport {
 
 export const RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON =
 	"required when status is ready-for-parent-commit";
-export const RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_MESSAGE =
-	"Required when status is ready-for-parent-commit.";
 
 export interface BuildRunnerReportOptions {
 	status: RunnerReportStatus;

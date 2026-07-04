@@ -217,11 +217,18 @@ async function indexCleanCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateChe
 	};
 }
 
-function candidateChecksSkipped(detail: string): GateCheckResult[] {
+function candidateCheckPair(
+	stage: Omit<GateCheckResult, "id">,
+	diff: Omit<GateCheckResult, "id">,
+): GateCheckResult[] {
 	return [
-		{ id: "stage-candidate", status: "skipped", detail },
-		{ id: "diff-check", status: "skipped", detail },
+		{ id: "stage-candidate", ...stage },
+		{ id: "diff-check", ...diff },
 	];
+}
+
+function candidateChecksSkipped(detail: string): GateCheckResult[] {
+	return candidateCheckPair({ status: "skipped", detail }, { status: "skipped", detail });
 }
 
 async function stageCandidateAndDiffCheck(
@@ -230,40 +237,34 @@ async function stageCandidateAndDiffCheck(
 ): Promise<GateCheckResult[]> {
 	const staged = await ctx.git.stagePaths({ cwd: ctx.repoRoot, paths: changedPaths });
 	if (!staged.ok) {
-		return [
+		return candidateCheckPair(
 			{
-				id: "stage-candidate",
 				status: "failed",
 				detail: `Could not stage runner commit candidate: ${staged.error.message}`,
 			},
 			{
-				id: "diff-check",
 				status: "skipped",
 				detail: "stage-candidate failed; cached diff check not run.",
 			},
-		];
+		);
 	}
 	const result = await ctx.commands.exec("git", ["diff", "--cached", "--check"], {
 		cwd: ctx.repoRoot,
 	});
 	if (commandSucceeded(result)) {
-		return [
-			{ id: "stage-candidate", status: "passed" },
-			{ id: "diff-check", status: "passed" },
-		];
+		return candidateCheckPair({ status: "passed" }, { status: "passed" });
 	}
 	const diffCheckDetail = `git diff --cached --check failed: ${formatCommandDetails(result)}`;
 	const reset = await ctx.commands.exec("git", ["reset", "--"], { cwd: ctx.repoRoot });
-	return [
-		{ id: "stage-candidate", status: "passed" },
+	return candidateCheckPair(
+		{ status: "passed" },
 		{
-			id: "diff-check",
 			status: "failed",
 			detail: commandSucceeded(reset)
 				? diffCheckDetail
 				: `${diffCheckDetail}\nBest-effort unstage failed: ${formatCommandDetails(reset)}`,
 		},
-	];
+	);
 }
 
 async function headUnchangedCheck(

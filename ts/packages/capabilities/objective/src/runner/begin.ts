@@ -64,7 +64,10 @@ export async function runRunnerBegin(
 	ctx: ObjectiveRunnerCoreContext,
 	request: RunnerBeginRequest,
 ): Promise<ClinkrExit<RunnerBeginResult>> {
-	const identity = resolveRunnerStepIdentity(request);
+	const identity = resolveRunnerStepIdentity({
+		recover: request.recover,
+		...optionalEntry("slug", request.slug),
+	});
 	if (identity.type === "usage-error") {
 		return usageError(identity.message, { argument: identity.argument });
 	}

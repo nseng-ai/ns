@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { withTempGitRepo, withTempRepoSkill } from "@ns/core/test-kit";
 
 import {
-	buildFencedTextBlock,
 	buildSkillInvocationPrompt,
 	expandRepoSkillBlock,
 	expandSkillBlock,
@@ -411,10 +410,6 @@ describe("repo skill expansion", () => {
 				).rejects.toThrow("resolves outside repository root");
 			},
 		);
-	});
-
-	test("builds fences longer than embedded backticks", () => {
-		expect(buildFencedTextBlock("has ``` inside")).toBe("````text\nhas ``` inside\n````");
 	});
 
 	test("builds skill invocation prompts with optional routes and initial requests", () => {

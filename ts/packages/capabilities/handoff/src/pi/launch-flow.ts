@@ -1,8 +1,7 @@
-import { formatErrorMessage, optionalEntries } from "@ns/core/primitives";
+import { buildFencedTextBlock, formatErrorMessage, optionalEntries } from "@ns/core/primitives";
 import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "../api/index.ts";
 
 import { isRecord, stringField } from "@ns/pi/runtime/primitives";
-import { buildFencedTextBlock } from "@ns/pi/skills/expansion";
 import { formatPickupHandoffCommand } from "./identity.ts";
 import { currentBranch } from "./branch-resolution.ts";
 import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";

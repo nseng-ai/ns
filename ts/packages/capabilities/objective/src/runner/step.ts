@@ -90,7 +90,10 @@ export async function runRunnerStep(
 	ctx: ObjectiveRunnerContext,
 	request: RunnerStepRequest,
 ): Promise<ClinkrExit<RunnerStepResult>> {
-	const identity = resolveRunnerStepIdentity(request);
+	const identity = resolveRunnerStepIdentity({
+		recover: request.recover,
+		...optionalEntry("slug", request.slug),
+	});
 	if (identity.type === "usage-error") {
 		return usageError(identity.message, { argument: identity.argument });
 	}

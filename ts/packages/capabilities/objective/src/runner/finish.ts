@@ -9,8 +9,6 @@
  * building) are deliberately duplicated, not shared: step.ts is deleted with
  * the legacy blocking command once the decomposed flow has dogfooding mileage.
  */
-import { resolve } from "node:path";
-
 import { failure, negative, ok, usageError, type ClinkrExit } from "@ns/clinkr";
 import { isPathInside, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
@@ -23,7 +21,11 @@ import {
 } from "./checkpoint.ts";
 import { commitRunnerStep } from "./commit.ts";
 import type { ObjectiveRunnerCoreContext } from "./context.ts";
-import { resolveAtPrefixedValue } from "./guidance.ts";
+import {
+	parseAtPrefixedValue,
+	readAtPrefixedValue,
+	resolveAtPrefixedValue,
+} from "./at-prefixed-value.ts";
 import {
 	gateCheckResultSchema,
 	verifyRunnerStep,
@@ -183,20 +185,14 @@ export async function runRunnerFinish(
 	};
 
 	const reportSource = request.report ?? `@${facts.reportPath}`;
-	if (reportSource.startsWith("@")) {
-		const reportPath = resolve(ctx.cwd, reportSource.slice(1));
-		if (isPathInside(ctx.repoRoot, reportPath)) {
-			return usageError(
-				`Report path ${reportPath} is inside the repository worktree; runner reports must live outside the repo.`,
-				{ argument: "report" },
-			);
-		}
+	const parsedReportSource = parseAtPrefixedValue({ cwd: ctx.cwd, value: reportSource });
+	if (parsedReportSource.type === "file" && isPathInside(ctx.repoRoot, parsedReportSource.path)) {
+		return usageError(
+			`Report path ${parsedReportSource.path} is inside the repository worktree; runner reports must live outside the repo.`,
+			{ argument: "report" },
+		);
 	}
-	const reportText = await resolveAtPrefixedValue({
-		cwd: ctx.cwd,
-		value: reportSource,
-		readTextFile: ctx.readTextFile,
-	});
+	const reportText = await readAtPrefixedValue(parsedReportSource, ctx.readTextFile);
 	if (reportText.type === "unreadable-file") {
 		return emitMalfunction(
 			"report-missing",

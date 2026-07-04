@@ -283,8 +283,6 @@ export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOp
 	return `${options.skillBlock}\n\n${invocation}`;
 }
 
-export { buildFencedTextBlock };
-
 function skillPromptTurnSuccessMessage(
 	message: InvokeSkillPromptTurnOptions["successMessage"],
 	skill: ExpandedSkillBlock,

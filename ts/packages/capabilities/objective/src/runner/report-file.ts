@@ -13,7 +13,7 @@ import { z } from "zod";
 import {
 	buildRunnerReport,
 	requiresCommitSubject,
-	RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_MESSAGE,
+	RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON,
 	RUNNER_REPORT_STATUSES,
 	type ParseRunnerReportResult,
 } from "./report.ts";
@@ -41,7 +41,7 @@ export const runnerReportJsonSchema = z
 			ctx.addIssue({
 				code: "custom",
 				path: ["commitSubject"],
-				message: RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_MESSAGE,
+				message: commitSubjectRequiredMessage(),
 			});
 		}
 	});
@@ -70,6 +70,10 @@ export function parseRunnerReportJson(text: string): ParseRunnerReportResult {
 		};
 	}
 	return { type: "ok", report: buildRunnerReportFromJson(result.data) };
+}
+
+function commitSubjectRequiredMessage(): string {
+	return `${RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON.slice(0, 1).toUpperCase()}${RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON.slice(1)}.`;
 }
 
 function buildRunnerReportFromJson(data: z.infer<typeof runnerReportJsonSchema>) {

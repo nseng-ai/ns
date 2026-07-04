@@ -13,13 +13,15 @@ const RUNNER_GRAPHITE_STACK_NAVIGATION_RULE =
 	"Do not run `gt create`, `gt checkout`, `gt restack`, or any command whose purpose is to rebase/reorder or navigate the Graphite stack; after Graphite tracking succeeds, use plain `git switch` instead of `gt checkout` because Graphite checkout may demand a restack when a downstack branch is behind trunk. If a branch appears to need restacking, report it and stop.";
 
 interface ReportFieldDescriptor {
-	markerLine: string;
-	jsonLine: string;
+	key: string;
+	value: string;
+	markerValue: "raw" | "placeholder";
+	markerShape: "scalar" | "bullet-list";
+	jsonShape: "string" | "array";
 }
 
 interface ReportSectionDescriptor {
-	markerHeading: string;
-	jsonKey: string;
+	title: string;
 	placeholder: string;
 }
 
@@ -30,25 +32,21 @@ interface ReportChannelDescriptor {
 }
 
 const REPORT_SECTION_DESCRIPTORS: readonly ReportSectionDescriptor[] = [
-	{ markerHeading: "## Summary", jsonKey: "summary", placeholder: "<what you did>" },
+	{ title: "Summary", placeholder: "<what you did>" },
 	{
-		markerHeading: "## Objective Impact",
-		jsonKey: "objectiveImpact",
+		title: "Objective Impact",
 		placeholder: "<claimed impact on the Objective roadmap>",
 	},
 	{
-		markerHeading: "## Risks/Blockers",
-		jsonKey: "risksBlockers",
+		title: "Risks/Blockers",
 		placeholder: "<risks or blockers, or 'none'>",
 	},
 	{
-		markerHeading: "## Follow-Ups",
-		jsonKey: "followUps",
+		title: "Follow-Ups",
 		placeholder: "<follow-up work you deferred, or 'none'>",
 	},
 	{
-		markerHeading: "## Validation",
-		jsonKey: "validation",
+		title: "Validation",
 		placeholder: "<commands you ran with results, including any deterministic fixes performed>",
 	},
 ] as const;
@@ -169,33 +167,88 @@ function reportChannelDescriptor(reportChannel: RunnerReportChannel): ReportChan
 }
 
 function reportFieldDescriptors(mode: RunnerStepMode): readonly ReportFieldDescriptor[] {
-	const branchMarkerValue =
-		mode === "recover" ? "<the current branch>" : "<your implementation branch>";
+	const branchValue = mode === "recover" ? "the current branch" : "your implementation branch";
 	return [
 		{
-			markerLine: "status: ready-for-parent-commit | stop | blocked",
-			jsonLine: '  "status": "<ready-for-parent-commit | stop | blocked>",',
-		},
-		{ markerLine: `branch: ${branchMarkerValue}`, jsonLine: `  "branch": "${branchMarkerValue}",` },
-		{
-			markerLine: "roadmapItems:\n- <roadmap item this slice advanced>",
-			jsonLine: '  "roadmapItems": ["<roadmap item this slice advanced>"],',
+			key: "status",
+			value: "ready-for-parent-commit | stop | blocked",
+			markerValue: "raw",
+			markerShape: "scalar",
+			jsonShape: "string",
 		},
 		{
-			markerLine:
-				"commitSubject: <proposed commit subject line; required when status is ready-for-parent-commit>",
-			jsonLine:
-				'  "commitSubject": "<proposed commit subject line; required when status is ready-for-parent-commit>",',
+			key: "branch",
+			value: branchValue,
+			markerValue: "placeholder",
+			markerShape: "scalar",
+			jsonShape: "string",
 		},
 		{
-			markerLine: "commitBody:\n- <optional commit body bullet; omit the field when you have none>",
-			jsonLine: '  "commitBody": "<optional commit body; omit the field when you have none>",',
+			key: "roadmapItems",
+			value: "roadmap item this slice advanced",
+			markerValue: "placeholder",
+			markerShape: "bullet-list",
+			jsonShape: "array",
 		},
 		{
-			markerLine: "stopReason: <why, when status is stop or blocked; omit otherwise>",
-			jsonLine: '  "stopReason": "<why, when status is stop or blocked; omit otherwise>",',
+			key: "commitSubject",
+			value: "proposed commit subject line; required when status is ready-for-parent-commit",
+			markerValue: "placeholder",
+			markerShape: "scalar",
+			jsonShape: "string",
+		},
+		{
+			key: "commitBody",
+			value: "optional commit body; omit the field when you have none",
+			markerValue: "placeholder",
+			markerShape: "bullet-list",
+			jsonShape: "string",
+		},
+		{
+			key: "stopReason",
+			value: "why, when status is stop or blocked; omit otherwise",
+			markerValue: "placeholder",
+			markerShape: "scalar",
+			jsonShape: "string",
 		},
 	];
+}
+
+function markerFieldLines(field: ReportFieldDescriptor): readonly string[] {
+	const value = markerFieldValue(field);
+	if (field.markerShape === "bullet-list") return [`${field.key}:`, `- ${value}`];
+	return [`${field.key}: ${value}`];
+}
+
+function markerFieldValue(field: ReportFieldDescriptor): string {
+	if (field.markerValue === "raw") return field.value;
+	return placeholder(field.value);
+}
+
+function jsonFieldLine(field: ReportFieldDescriptor): string {
+	const value = placeholder(field.value);
+	if (field.jsonShape === "array") return `  "${field.key}": ["${value}"],`;
+	return `  "${field.key}": "${value}",`;
+}
+
+function placeholder(value: string): string {
+	return `<${value}>`;
+}
+
+function jsonKeyFromTitle(title: string): string {
+	return title
+		.split(/[^A-Za-z0-9]+/u)
+		.filter((part) => part.length > 0)
+		.map((part, index) => (index === 0 ? lowerFirst(part) : upperFirst(lowerFirst(part))))
+		.join("");
+}
+
+function lowerFirst(value: string): string {
+	return `${value.slice(0, 1).toLowerCase()}${value.slice(1)}`;
+}
+
+function upperFirst(value: string): string {
+	return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 }
 
 function markerReportContract(mode: RunnerStepMode): string {
@@ -204,10 +257,10 @@ function markerReportContract(mode: RunnerStepMode): string {
 		"",
 		OBJECTIVE_RUNNER_REPORT_BEGIN,
 	];
-	for (const field of reportFieldDescriptors(mode)) lines.push(...field.markerLine.split("\n"));
+	for (const field of reportFieldDescriptors(mode)) lines.push(...markerFieldLines(field));
 	lines.push("");
 	for (const section of REPORT_SECTION_DESCRIPTORS) {
-		lines.push(section.markerHeading, section.placeholder, "");
+		lines.push(`## ${section.title}`, section.placeholder, "");
 	}
 	lines.push(OBJECTIVE_RUNNER_REPORT_END);
 	return lines.join("\n");
@@ -216,11 +269,11 @@ function markerReportContract(mode: RunnerStepMode): string {
 function jsonReportContract(mode: RunnerStepMode, reportPath: string): string {
 	const sectionLines = REPORT_SECTION_DESCRIPTORS.map((section, index) => {
 		const comma = index === REPORT_SECTION_DESCRIPTORS.length - 1 ? "" : ",";
-		return `    "${section.jsonKey}": "${section.placeholder}"${comma}`;
+		return `    "${jsonKeyFromTitle(section.title)}": "${section.placeholder}"${comma}`;
 	});
 	const jsonContent = [
 		"{",
-		...reportFieldDescriptors(mode).map((field) => field.jsonLine),
+		...reportFieldDescriptors(mode).map((field) => jsonFieldLine(field)),
 		'  "sections": {',
 		...sectionLines,
 		"  }",

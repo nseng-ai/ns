@@ -1,4 +1,4 @@
-import { buildFencedTextBlock } from "@ns/pi/skills/expansion";
+import { buildFencedTextBlock } from "@ns/core/primitives";
 
 import type {
 	ThermoCouncilReviewerOutcome,
