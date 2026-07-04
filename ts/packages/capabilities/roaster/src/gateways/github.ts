@@ -530,7 +530,7 @@ function copyInlineCommentInput(comment: PRInlineCommentInput): PRInlineCommentI
 	return { path: comment.path, line: comment.line, body: comment.body };
 }
 
-function copyGitHubGatewayOptions(options: GitHubGatewayOptions): GitHubGatewayOptions {
+export function copyGitHubGatewayOptions(options: GitHubGatewayOptions): GitHubGatewayOptions {
 	return {
 		cwd: options.cwd,
 		...(options.env === undefined ? {} : { env: options.env }),

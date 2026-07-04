@@ -108,11 +108,6 @@ export const reviewRunRequestSchema = z.object({
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
 
-interface PriorFindingsRequestOptions {
-	readonly prNumber: number;
-	readonly cap: number;
-}
-
 export const reviewLogRequestSchema = z.object({
 	key: z.string().optional().describe("Review key filter."),
 });
@@ -329,14 +324,14 @@ async function loadPriorFindingsPromptContext(
 	ctx: RoasterRuntime,
 	request: ReviewRunRequest,
 ): Promise<PriorFindingsPromptContext | undefined> {
-	const priorFindingsRequest = priorFindingsRequestFromReviewRunRequest(request);
-	if (priorFindingsRequest === null) return undefined;
+	if (request.priorFindingsPrNumber === undefined) return undefined;
+	const priorFindingsCap = request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP;
 
 	const result = await gatherPriorFindingsContext(ctx.github, {
 		...environmentOptions(ctx.runScope),
-		prNumber: priorFindingsRequest.prNumber,
+		prNumber: request.priorFindingsPrNumber,
 		reviewName: request.key,
-		cap: priorFindingsRequest.cap,
+		cap: priorFindingsCap,
 	});
 	if (result.type === "without-context") {
 		ctx.stderr(`prior-findings context: ${result.message} Continuing with context-free review.\n`);
@@ -347,16 +342,6 @@ async function loadPriorFindingsPromptContext(
 		`prior-findings context: loaded ${result.context.findings.length} findings for PR #${result.context.prNumber} review ${result.context.reviewName}.\n`,
 	);
 	return result.context;
-}
-
-function priorFindingsRequestFromReviewRunRequest(
-	request: ReviewRunRequest,
-): PriorFindingsRequestOptions | null {
-	if (request.priorFindingsPrNumber === undefined) return null;
-	return {
-		prNumber: request.priorFindingsPrNumber,
-		cap: request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP,
-	};
 }
 
 export function clinkrExitFromReviewRunOutcome(

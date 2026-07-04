@@ -195,15 +195,7 @@ export function parseFindingsCommentMachineState(raw: string): FindingsCommentMa
 }
 
 export function inlineMarkerForFinding(reviewName: string, finding: ReviewFinding): string {
-	const digestInput = [
-		reviewName,
-		finding.path ?? "",
-		finding.line === null ? "" : String(finding.line),
-		finding.severity,
-		finding.summary,
-		finding.details,
-	].join("\0");
-	const digest = truncatedSha256Digest(digestInput).slice(0, 16);
+	const digest = truncatedSha256Digest(findingDigestInput(reviewName, finding)).slice(0, 16);
 	return `<!-- ${INLINE_MARKER_PREFIX}:${reviewName}:${digest} -->`;
 }
 
@@ -283,8 +275,18 @@ function mergePriorFindingRecords(options: {
 }
 
 function priorFindingId(reviewName: string, finding: ReviewFinding): string {
-	const digestInput = [
-		"prior-finding-v1",
+	return truncatedSha256Digest(
+		findingDigestInput(reviewName, finding, { prefix: "prior-finding-v1" }),
+	).slice(0, 32);
+}
+
+function findingDigestInput(
+	reviewName: string,
+	finding: ReviewFinding,
+	options: { readonly prefix?: string } = {},
+): string {
+	return [
+		...(options.prefix === undefined ? [] : [options.prefix]),
 		reviewName,
 		finding.path ?? "",
 		finding.line === null ? "" : String(finding.line),
@@ -292,7 +294,6 @@ function priorFindingId(reviewName: string, finding: ReviewFinding): string {
 		finding.summary,
 		finding.details,
 	].join("\0");
-	return truncatedSha256Digest(digestInput).slice(0, 32);
 }
 
 function encodeBase64Url(value: string): string {
@@ -426,7 +427,7 @@ function findingTableRow(finding: ReviewFinding): string {
 	return `| ${SEVERITY_LABELS[finding.severity]} | \`${finding.path ?? "—"}\` | ${lineDisplay(finding.line)} | ${finding.summary} |`;
 }
 
-function findingLocation(finding: ReviewFinding): string {
+export function findingLocation(finding: ReviewFinding): string {
 	const path = finding.path ?? "unknown path";
 	return finding.line === null ? path : `${path}:${finding.line}`;
 }
