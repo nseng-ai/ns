@@ -37,16 +37,36 @@ export function backupRefSteps(
 			stdout: staleCurrentRefs.join("\n"),
 		}),
 		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
-		...branches.flatMap((branch) => {
-			const sha = shas[branch] ?? DEFAULT_BACKUP_REF_SHA;
-			return [
-				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
-					stdout: `${sha}\n`,
-				}),
-				step("git", ["update-ref", `${BACKUP_REF_NAMESPACE}/${branch}`, sha]),
-			];
+		step("git", backupSnapshotListArgs(branches), {
+			stdout: branches
+				.map((branch) => `${localBranchRef(branch)}\t${shas[branch] ?? DEFAULT_BACKUP_REF_SHA}`)
+				.join("\n"),
 		}),
+		step("git", backupSnapshotFetchArgs(branches, shas)),
 	];
+}
+
+export function backupSnapshotListArgs(branches: readonly string[]): string[] {
+	return ["for-each-ref", "--format=%(refname)%09%(objectname)", ...branches.map(localBranchRef)];
+}
+
+export function backupSnapshotFetchArgs(
+	branches: readonly string[],
+	shas: Record<string, string> = DEFAULT_BACKUP_REF_SHAS,
+): string[] {
+	return [
+		"fetch",
+		"--quiet",
+		"--no-tags",
+		".",
+		...branches.map(
+			(branch) => `+${shas[branch] ?? DEFAULT_BACKUP_REF_SHA}:${BACKUP_REF_NAMESPACE}/${branch}`,
+		),
+	];
+}
+
+function localBranchRef(branch: string): string {
+	return `refs/heads/${branch}`;
 }
 
 function step(

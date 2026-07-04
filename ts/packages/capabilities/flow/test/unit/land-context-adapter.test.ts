@@ -205,28 +205,33 @@ describe("land context adapter facts", () => {
 
 	test("snapshots backup refs with the existing rotate-prune-write git argv", async () => {
 		const oldRef = `${BACKUP_REF_NAMESPACE}/old`;
+		const backupSnapshotListArgs = [
+			"for-each-ref",
+			"--format=%(refname)%09%(objectname)",
+			"refs/heads/feature-a",
+			"refs/heads/feature-b",
+		];
+		const backupSnapshotFetchArgs = [
+			"fetch",
+			"--quiet",
+			"--no-tags",
+			".",
+			`+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:${BACKUP_REF_NAMESPACE}/feature-a`,
+			`+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:${BACKUP_REF_NAMESPACE}/feature-b`,
+		];
 		const pi = new FakePi([
 			step("git", BACKUP_ROTATION_ARGS),
 			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
 				stdout: `${oldRef}\n`,
 			}),
 			step("git", ["update-ref", "-d", oldRef]),
-			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-				stdout: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+			step("git", backupSnapshotListArgs, {
+				stdout: [
+					"refs/heads/feature-a\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					"refs/heads/feature-b\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				].join("\n"),
 			}),
-			step("git", [
-				"update-ref",
-				`${BACKUP_REF_NAMESPACE}/feature-a`,
-				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			]),
-			step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
-				stdout: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
-			}),
-			step("git", [
-				"update-ref",
-				`${BACKUP_REF_NAMESPACE}/feature-b`,
-				"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-			]),
+			step("git", backupSnapshotFetchArgs),
 		]);
 		const context = createTestLandContext(pi);
 
@@ -256,30 +261,12 @@ describe("land context adapter facts", () => {
 			},
 			{
 				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"],
+				args: backupSnapshotListArgs,
 				options: { cwd: ROOT, timeout: 30000 },
 			},
 			{
 				command: "git",
-				args: [
-					"update-ref",
-					`${BACKUP_REF_NAMESPACE}/feature-a`,
-					"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-				],
-				options: { cwd: ROOT, timeout: 30000 },
-			},
-			{
-				command: "git",
-				args: ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"],
-				options: { cwd: ROOT, timeout: 30000 },
-			},
-			{
-				command: "git",
-				args: [
-					"update-ref",
-					`${BACKUP_REF_NAMESPACE}/feature-b`,
-					"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				],
+				args: backupSnapshotFetchArgs,
 				options: { cwd: ROOT, timeout: 30000 },
 			},
 		]);

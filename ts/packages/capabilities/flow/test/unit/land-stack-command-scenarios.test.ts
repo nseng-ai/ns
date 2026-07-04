@@ -27,6 +27,8 @@ import {
 	BACKUP_ROTATION_ARGS,
 	BACKUP_ROTATION_STEP,
 	backupRefSteps,
+	backupSnapshotFetchArgs,
+	backupSnapshotListArgs,
 } from "./land-stack-backup-ref-fixtures.ts";
 import {
 	createChildrenRecheckStep,
@@ -1027,13 +1029,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 183,
+					calls: 163,
 					failures: 3,
 					categories: {
 						graphite: 54,
 						"github-cli": 54,
 						"github-api": 0,
-						git: 75,
+						git: 55,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 65, restRequests: 0, rateLimitCost: 65 },
@@ -1043,13 +1045,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 407,
+					calls: 359,
 					failures: 3,
 					categories: {
 						graphite: 124,
 						"github-cli": 124,
 						"github-api": 0,
-						git: 159,
+						git: 111,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 149, restRequests: 0, rateLimitCost: 149 },
@@ -1226,14 +1228,12 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		expect(
-			pi.execCalls
-				.filter((call) => call.command === "git" && call.args[0] === "update-ref")
-				.map((call) => call.args[1]),
-		).toEqual([
-			`${BACKUP_REF_NAMESPACE}/feature-a`,
-			`${BACKUP_REF_NAMESPACE}/feature-b`,
-			`${BACKUP_REF_NAMESPACE}/${DESCENDANT}`,
-		]);
+			pi.execCalls.some(
+				(call) =>
+					call.command === "git" &&
+					sameArgs(call.args, backupSnapshotFetchArgs(["feature-a", "feature-b", DESCENDANT])),
+			),
+		).toBe(true);
 		expect(
 			pi.execCalls
 				.filter(
@@ -1438,16 +1438,23 @@ describe("land-stack command scenarios", () => {
 			(call) =>
 				call.command === "git" && sameArgs(call.args, ["update-ref", "-d", staleCurrentRef]),
 		);
-		const snapshotIndex = pi.execCalls.findIndex(
+		const snapshotListIndex = pi.execCalls.findIndex(
 			(call, index) =>
 				index > staleDeleteIndex &&
 				call.command === "git" &&
-				sameArgs(call.args, ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"]),
+				sameArgs(call.args, backupSnapshotListArgs(["feature-a"])),
+		);
+		const snapshotWriteIndex = pi.execCalls.findIndex(
+			(call, index) =>
+				index > snapshotListIndex &&
+				call.command === "git" &&
+				sameArgs(call.args, backupSnapshotFetchArgs(["feature-a"])),
 		);
 		expect(rotationIndex).toBeGreaterThanOrEqual(0);
 		expect(staleListIndex).toBeGreaterThan(rotationIndex);
 		expect(staleDeleteIndex).toBeGreaterThan(staleListIndex);
-		expect(snapshotIndex).toBeGreaterThan(staleDeleteIndex);
+		expect(snapshotListIndex).toBeGreaterThan(staleDeleteIndex);
+		expect(snapshotWriteIndex).toBeGreaterThan(snapshotListIndex);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
@@ -1475,6 +1482,31 @@ describe("land-stack command scenarios", () => {
 			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
 				code: 1,
 				stderr: "cannot list refs",
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		expect(commandMessagesText(messages)).toContain("no PRs were landed");
+		expect(
+			pi.execCalls.some(
+				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
+			),
+		).toBe(false);
+	});
+
+	test("backup ref batched snapshot failure stops before landing any PRs", async () => {
+		const script = [
+			...singleBranchPreflight(""),
+			BACKUP_ROTATION_STEP,
+			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE]),
+			step("git", backupSnapshotListArgs(["feature-a"]), {
+				stdout: `refs/heads/feature-a\t${SHA_A}\n`,
+			}),
+			step("git", backupSnapshotFetchArgs(["feature-a"]), {
+				code: 1,
+				stderr: "cannot write backup refs",
 			}),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
