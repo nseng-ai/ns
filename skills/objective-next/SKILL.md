@@ -14,7 +14,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 Active root: `.ns/objectives/<slug>/`. Archived records under `.ns/objective-archive/<slug>/` are not active work candidates.
 
-- `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
+- `objective.md`: optional Record Frontmatter carrying only `blocked` and `edges` (ADR 0025); `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only; semantic rows may include indented prose guidance.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
 - `orientation.md`: optional, agent-facing standing rule; present only for cross-cutting Objectives.
@@ -61,6 +61,18 @@ Then:
 
 The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into. If the tracking-gate command itself fails because the extension is unavailable or the git evidence cannot be collected, report the failure and ask whether to proceed with a degraded manual read; do not silently fall back to ad hoc shell.
 
+## Blocked Objectives
+
+A `blocked:` sentence in Record Frontmatter means the record is blocked — a sub-state of open, not a reason to stop. Do not treat it as closed, and do not ignore it.
+
+1. Read the Blocked Sentence and the record's `edges:` entries. Edges are mirrored and kind-less; direction and causality live only in the Edge Annotation prose.
+2. Judge which edge counterpart, if any, the Blocked Sentence points at. If one plausibly does, read that counterpart's `objective.md` and `roadmap.md` enough to name the concrete work that would unblock the selected Objective.
+3. Shape the recommendation with judgment rather than a fixed rule:
+   - If a counterpart Objective would unblock this one, recommend advancing it — name the counterpart slug and the specific unblocking step — alongside any work within the selected Objective the blocker does not gate.
+   - If the blocker is external and no counterpart applies, say so, and recommend only non-gated work or state that no useful work remains until the gate clears.
+   - If evidence shows the Blocked Sentence is stale (the blocker already satisfied), route through the `objective-update` workflow for the selected Objective to clear it, then continue.
+4. Execution paths stay scoped to the selected slug. To execute unblocking work under a counterpart Objective, restart Objective resolution with that counterpart as the explicit selection; do not silently switch Objectives mid-flow.
+
 ## Conditional references
 
 After selecting and reading the Objective, if the user asks to execute/advance/run work, gives a clear affirmative confirmation to a current-session recommendation, or if the selected Objective/roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose, read `references/confirmed-execution.md` before interpreting execution basis or offering/running execution.
@@ -87,11 +99,12 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
 3. Apply the Tracking Gate by running `ns objective exec tracking-gate <slug> --format json`. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence and a fresh tracking-gate run. If the gate is ambiguous and the user confirms update-and-continue, do the same.
 4. Load conditional references only when their routing conditions apply.
-5. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
-6. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
-7. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
-8. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
-9. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
+5. If Record Frontmatter carries a `blocked:` sentence, apply the Blocked Objectives guidance: traverse the record's edges to find the counterpart Objective that would unblock it, if one exists, and let that shape the recommendation.
+6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
+7. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
+8. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
+9. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
+10. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
 
 ## Recommend-only output
 
@@ -111,11 +124,13 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 - The Tracking Gate finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
 - Execution basis is relevant but ambiguous for the selected slice; load `references/confirmed-execution.md` and recommend or steer instead of executing.
+- Requested execution would advance work the Blocked Sentence clearly gates; steer toward the unblocking counterpart Objective or the external gate instead.
 - Requested execution would exceed durable policy, recommendation-continuation scope, preview scope, validation boundaries, or permissions for external systems / write-capable actions.
 
 ## Verify
 
 - Name the selected slug and identify the roadmap item or narrative basis for the recommendation, steering question, or execution preview.
+- If the record is blocked, confirm the response named the Blocked Sentence and either the unblocking counterpart Objective or why no edge counterpart applies.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
 - If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.
 - If Objective tracking changed, confirm it was meaningful and stayed under the selected slug.
