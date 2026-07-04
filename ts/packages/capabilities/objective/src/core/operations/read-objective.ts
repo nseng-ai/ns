@@ -12,7 +12,9 @@ import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts
 import {
 	emptyObjectiveFiles,
 	objectiveFilesSchema,
+	objectiveMarkdownReadResultSchema,
 	objectiveUpdateFileSchema,
+	projectObjectiveRecordDocumentReadResult,
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
@@ -24,12 +26,6 @@ import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objec
 export const readObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to read."),
 });
-
-export const objectiveMarkdownReadResultSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("missing") }),
-	z.object({ type: z.literal("ok"), content: z.string() }),
-	z.object({ type: z.literal("unreadable"), message: z.string() }),
-]);
 
 export const readObjectiveBaseResultSchema = z.object({
 	error: z.string().nullable(),
@@ -195,13 +191,7 @@ export async function readObjectiveRecord(
 		updateCount: updates.value.length,
 	};
 	const objectiveDocument = await storage.readObjectiveRecordDocument(relativePath);
-	const objectiveProjection =
-		objectiveDocument.type === "ok"
-			? {
-					objectiveMd: { type: "ok" as const, content: objectiveDocument.content },
-					recordFrontmatter: objectiveDocument.document.frontmatter,
-				}
-			: { objectiveMd: objectiveDocument, recordFrontmatter: undefined };
+	const objectiveProjection = projectObjectiveRecordDocumentReadResult(objectiveDocument);
 	return {
 		type: "ok",
 		value: {

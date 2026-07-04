@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: ship-objectives-to-customers
+    annotation: Customer Objective shipping is the first external consumer of the `ji skills` provisioning surface, pulling objective skills into customer harness roots.
+---
+
 # Reusable Skill Management Subsystem
 
 ## Thesis

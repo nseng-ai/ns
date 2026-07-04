@@ -2,9 +2,12 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import { optionalEntry } from "@ns/core/primitives";
+
 import {
 	splitObjectiveRecordDocument,
 	type ObjectiveRecordDocument,
+	type ObjectiveRecordFrontmatterParse,
 } from "./record-frontmatter.ts";
 
 export const ACTIVE_OBJECTIVE_ROOT = ".ns/objectives";
@@ -67,10 +70,13 @@ export type ObjectiveStorageResult<T> =
 	| { ok: true; value: T }
 	| { ok: false; error: ObjectiveStorageError };
 
-export type ObjectiveMarkdownReadResult =
-	| { type: "missing" }
-	| { type: "ok"; content: string }
-	| { type: "unreadable"; message: string };
+export const objectiveMarkdownReadResultSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("missing") }),
+	z.object({ type: z.literal("ok"), content: z.string() }),
+	z.object({ type: z.literal("unreadable"), message: z.string() }),
+]);
+
+export type ObjectiveMarkdownReadResult = z.infer<typeof objectiveMarkdownReadResultSchema>;
 
 type ObjectiveMarkdownNonOkReadResult = Exclude<ObjectiveMarkdownReadResult, { type: "ok" }>;
 type ObjectiveMarkdownOkReadResult = Extract<ObjectiveMarkdownReadResult, { type: "ok" }>;
@@ -78,6 +84,28 @@ type ObjectiveMarkdownOkReadResult = Extract<ObjectiveMarkdownReadResult, { type
 export type ObjectiveRecordDocumentReadResult =
 	| ObjectiveMarkdownNonOkReadResult
 	| (ObjectiveMarkdownOkReadResult & { document: ObjectiveRecordDocument });
+
+export interface ObjectiveRecordDocumentMarkdownProjection {
+	objectiveMd: ObjectiveMarkdownReadResult;
+	recordFrontmatter?: ObjectiveRecordFrontmatterParse;
+}
+
+/**
+ * Narrow the internal record-document read shape for public read-result serialization.
+ * `ObjectiveRecordDocumentReadResult` carries parsed `document` data for content-shaped
+ * readers, but public `objectiveMd` output must not leak that internal document. The
+ * projected `objectiveMd.content` intentionally remains the verbatim file text;
+ * `document.body` is the frontmatter-stripped content for heading lints and similar readers.
+ */
+export function projectObjectiveRecordDocumentReadResult(
+	read: ObjectiveRecordDocumentReadResult,
+): ObjectiveRecordDocumentMarkdownProjection {
+	if (read.type !== "ok") return { objectiveMd: read };
+	return {
+		objectiveMd: { type: "ok", content: read.content },
+		...optionalEntry("recordFrontmatter", read.document.frontmatter),
+	};
+}
 
 export interface ObjectiveStorageGateway {
 	pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>>;

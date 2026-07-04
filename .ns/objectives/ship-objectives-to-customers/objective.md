@@ -3,6 +3,12 @@ blocked: First external publish is gated on the checkout-free-sdl-distribution h
 edges:
   - objective: checkout-free-sdl-distribution
     annotation: Consumed as a hard dependency; checkout-free npm distribution of `ji` must land before objectives ship externally.
+  - objective: skill-management-subsystem
+    annotation: Consumed for skill delivery; customer onboarding requires objective skills provisioned into Claude Code, Codex, and Pi harness roots via its `ji skills` surface.
+  - objective: cross-harness-parity
+    annotation: Consumes its reachability contract (shared CLI + skill, Pi additive); onboarding must reach all three harnesses through that doctrine.
+  - objective: eve-parity-docs-site
+    annotation: Consumes the docs-site shell it owns; customer onboarding needs publishable installation, quickstart, and concept docs on that substrate.
 ---
 
 # Ship Objectives to Customers
@@ -15,7 +21,14 @@ Shipping Objectives externally means a customer with no SDL checkout and no dev 
 
 **Naming (ADR 0024, `rename-sdl-to-ji`):** the shipped customer surface is the `ji` CLI, and the core cutover has landed — the repo's binary is now `ji`, consumer dirs are `.ji/` (`.ji/objectives/`, `.ji/extensions/`), config is `ji.toml`, and the package-scope sweep renamed the packages this Objective touches to `@ji/kernel` (`ts/packages/kernel`), `@ji/objective` (`ts/packages/capabilities/objective`), and `@ji/core` (`ts/packages/infra/core`). All new surface this Objective builds stays ji-named — `ji init`, `ji skills`, `ji objective …`, `ji:objectives:*` block markers, the `@ji/init` package. The rename changed names only: the CLI is still run-from-source (the kernel bin points at raw `src/cli/index.ts`), so the checkout-free gap is unchanged.
 
-This Objective owns the end-to-end customer onboarding thread. The long pole (checkout-free npm distribution of `ji`) was split into the dedicated `checkout-free-sdl-distribution` Objective (decided 2026-07-01) and is consumed here as a hard dependency. This Objective also depends on in-flight work for skill bundling (`skill-management-subsystem`), the documentation site (`eve-parity-docs-site`), and cross-harness reachability (`cross-harness-parity`).
+This Objective owns the end-to-end customer onboarding thread. Treat it as the parent/umbrella Objective for the customer Objective shipment: its formal Objective Edges identify subobjectives whose delivered scope is consumed here. The sequencing order is:
+
+1. `checkout-free-sdl-distribution` — first and currently blocking; customers need an installable `ji` before any external onboarding can be real.
+2. `skill-management-subsystem` — next concrete dependency; once the package/bundle shape exists, objective skills need a first-party `ji skills` provisioning path into harness roots.
+3. `cross-harness-parity` — then prove the workflow contract across Claude Code, Codex, and Pi; Pi remains additive over shared CLI + skill reachability.
+4. `eve-parity-docs-site` — final launch substrate; publishable docs can progress in parallel, but final customer docs should reflect the stabilized install/init/skill surfaces.
+
+This ordering is guidance in parent prose, not an edge taxonomy: Objective Edges remain kind-less, and this record's `blocked` sentence stays focused on the checkout-free hard gate unless another subobjective actively blocks the next useful parent slice.
 
 ## Scope
 
