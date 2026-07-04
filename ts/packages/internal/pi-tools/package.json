@@ -36,10 +36,10 @@
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/local/pi-tools/test"
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/internal/pi-tools/test"
 	},
 	"ns": {
-		"tier": "local-pi-tool",
+		"tier": "internal-pi-tool",
 		"subpackages": [
 			"backing-skill-commands",
 			"context-profiler",

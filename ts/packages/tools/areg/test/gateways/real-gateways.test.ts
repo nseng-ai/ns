@@ -159,7 +159,15 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, ".claude", "skills", "claude-only"), { recursive: true });
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
 			await mkdir(
-				path.join(project, "ts", "packages", "local", "pi-tools", "src", "backing-skill-commands"),
+				path.join(
+					project,
+					"ts",
+					"packages",
+					"internal",
+					"pi-tools",
+					"src",
+					"backing-skill-commands",
+				),
 				{
 					recursive: true,
 				},
@@ -195,7 +203,7 @@ describe("real areg gateways", () => {
 					project,
 					"ts",
 					"packages",
-					"local",
+					"internal",
 					"pi-tools",
 					"src",
 					"backing-skill-commands",

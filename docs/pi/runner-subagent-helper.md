@@ -10,7 +10,7 @@ In terminal-capture mode, completion is a terminal capture, not a queued slash c
 
 ## Architecture
 
-The helper API lives in `ts/packages/local/pi-tools/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/local/pi-tools/src/runner-subagents/`. The generic LLM tool extension is `ts/packages/local/pi-tools/src/runner-subagents/extension.ts`, which registers `dispatch_runner_subagent` in final-text mode.
+The helper API lives in `ts/packages/internal/pi-tools/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/internal/pi-tools/src/runner-subagents/`. The generic LLM tool extension is `ts/packages/internal/pi-tools/src/runner-subagents/extension.ts`, which registers `dispatch_runner_subagent` in final-text mode.
 
 The process runner launches a subagent shaped like:
 
@@ -99,7 +99,7 @@ Do not use `pi.sendMessage(...)` for transient subagent progress: custom message
 
 ## Agent-facing dispatch tool
 
-The project-local shim `.pi/extensions/dispatch-runner-subagent.ts` loads `ts/packages/local/pi-tools/src/runner-subagents/extension.ts`, registering the `dispatch_runner_subagent` tool.
+The project-local shim `.pi/extensions/dispatch-runner-subagent.ts` loads `ts/packages/internal/pi-tools/src/runner-subagents/extension.ts`, registering the `dispatch_runner_subagent` tool.
 
 That tool always uses final-text mode. It requires:
 

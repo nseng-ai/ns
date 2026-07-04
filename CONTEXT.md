@@ -161,7 +161,7 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `internal-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer
 
 **Published package**:
@@ -200,9 +200,9 @@ A **Subpackage** naming a real domain vertical of a **Container package** (for e
 The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `ns.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
 *Avoid*: miscellaneous folder, hidden subpackage, sentinel entry, `.` subpackage, debt label
 
-**Local space**:
-The private workspace area for repo-local Pi-tool packages: packages under `ts/packages/local/` using the `@internal/*` scope, marked private, and without outside workspace dependents.
-*Avoid*: experimental area, staging area, sandbox, public package namespace
+**Internal space**:
+The private workspace area for repo-local Pi-tool packages: packages under `ts/packages/internal/` using the `@internal/*` scope, marked private, and without outside workspace dependents.
+*Avoid*: Local space, experimental area, staging area, sandbox, public package namespace
 
 **Topology circle**:
 An architecture topology graph node representing an architecture unit: a **Standalone package**, a **Container package**'s declared **Subpackage**, or its declared **Remainder subpackage** during conversion. Topology circles preserve architectural granularity inside coarse published packages and are sourced from manifests, not directory auto-discovery.

@@ -204,7 +204,7 @@ function completedOutcome(
 					confidence: "likely",
 					severity: "high",
 					validationHints: [
-						"pnpm --dir ts vitest run packages/local/pi-tools/test/thermo-council/thermo-council.test.ts",
+						"pnpm --dir ts vitest run packages/internal/pi-tools/test/thermo-council/thermo-council.test.ts",
 					],
 				},
 			],
