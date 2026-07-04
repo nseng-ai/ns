@@ -305,13 +305,13 @@ describe("areg skill apply CLI", () => {
 	});
 
 	test("apply unlisted refuses skills with a registered replacement surface", async () => {
-		const run = runScenario(["skill", "apply", "--yes", "unlisted", "setup-dprint"], {
-			project: { localSkills: [skill("setup-dprint")] },
+		const run = runScenario(["skill", "apply", "--yes", "unlisted", "branch-retro"], {
+			project: { localSkills: [skill("branch-retro")] },
 		});
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain(
-			"still has a COMMAND_BACKED_SKILL_REGISTRY entry (/setup:dprint); remove the registry entry first",
+			"still has a COMMAND_BACKED_SKILL_REGISTRY entry (/branch:retro); remove the registry entry first",
 		);
 		expect(run.stdout.join("")).toBe("");
 	});
@@ -493,21 +493,21 @@ describe("areg skill apply CLI", () => {
 
 	test("whole-batch planning preserves shared Pi settings writes across multiple skills", async () => {
 		const project = new FakeAregProjectGateway({
-			replacementSurfaces: ["setup:dprint", "setup:graphite"],
-			localSkills: [skill("setup-dprint"), skill("setup-graphite")],
+			replacementSurfaces: ["branch:retro", "changelog:update"],
+			localSkills: [skill("branch-retro"), skill("changelog-update")],
 		});
 
 		const result = await runSkillKindApply(contextWithProject(project), {
 			path: ".",
 			kind: "command-backed",
-			skills: ["setup-dprint", "setup-graphite"],
+			skills: ["branch-retro", "changelog-update"],
 			dryRun: false,
 			yes: false,
 		});
 
 		expect(result.type).toBe("ok");
 		expect(project.text(".pi/settings.json")).toBe(
-			`${JSON.stringify({ skills: ["-skills/setup-dprint", "-skills/setup-graphite"] }, null, 2)}\n`,
+			`${JSON.stringify({ skills: ["-skills/branch-retro", "-skills/changelog-update"] }, null, 2)}\n`,
 		);
 	});
 

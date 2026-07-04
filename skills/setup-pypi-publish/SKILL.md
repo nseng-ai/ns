@@ -1,9 +1,9 @@
 ---
 name: setup-pypi-publish
 disable-model-invocation: true
-# Full description commented out to save tokens (coding agents inject skill descriptions into every session):
-# "Set up PyPI publishing for a Python project using uv build and uvx uv-publish. Use when adding publish support, setting up PyPI auth, adding build/publish justfile recipes, or fixing auth problems with uv publish."
-description: "Command: setup-pypi-publish"
+description: "Set up PyPI publishing for a Python project using uv build and uvx uv-publish. Use when adding publish support, setting up PyPI auth, adding build/publish justfile recipes, or fixing auth problems with uv publish."
+metadata:
+  category: project-setup
 allowed-tools:
   - "Bash(ls *)"
   - "Bash(test -f *)"

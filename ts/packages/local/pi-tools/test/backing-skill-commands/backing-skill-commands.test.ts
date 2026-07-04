@@ -169,8 +169,6 @@ describe("command-backed skill registry", () => {
 		expect(surfaces).toContain("ns:handoff:create");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
-		expect(surfaces).toContain("setup:dprint");
-		expect(surfaces).toContain("setup:python-gh-ci");
 		expect(surfaces).toContain("dignified:python");
 		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).toContain("skill:x");
