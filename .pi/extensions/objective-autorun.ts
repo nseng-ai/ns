@@ -133,7 +133,11 @@ interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResultLike>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<PiExecResultLike>;
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -145,7 +149,11 @@ Everything else in the objective-autorun skill still binds you: derive thin, jud
 
 const objectiveRunnerStepInputSchema = z
 	.object({
-		objective: z.string().trim().min(1).describe("Objective slug to run one decomposed runner step for."),
+		objective: z
+			.string()
+			.trim()
+			.min(1)
+			.describe("Objective slug to run one decomposed runner step for."),
 		guidance: z
 			.string()
 			.trim()
@@ -164,8 +172,15 @@ const objectiveRunnerStepInputSchema = z
 			.trim()
 			.min(1)
 			.optional()
-			.describe("Optional fully-qualified provider/model override for the implementation subagent."),
-		title: z.string().trim().min(1).optional().describe("Optional display label for the live progress widget."),
+			.describe(
+				"Optional fully-qualified provider/model override for the implementation subagent.",
+			),
+		title: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe("Optional display label for the live progress widget."),
 	})
 	.strict();
 
@@ -201,7 +216,11 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 	});
 }
 
-async function runAutorunCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function runAutorunCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	const explicitArgs = args.trim();
 	const selectedArgs =
 		explicitArgs.length === 0 ? await chooseAutorunObjective(pi, ctx) : explicitArgs;
@@ -212,8 +231,7 @@ async function runAutorunCommand(pi: ExtensionAPI, args: string, ctx: CommandCon
 		const skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
 		skillBlock = skill.block;
 	} catch {
-		skillBlock =
-			`The repo ${SKILL_NAME} skill (skills/${SKILL_NAME}/SKILL.md) could not be expanded inline; read it from the repo and follow it as the loop contract before proceeding.`;
+		skillBlock = `The repo ${SKILL_NAME} skill (skills/${SKILL_NAME}/SKILL.md) could not be expanded inline; read it from the repo and follow it as the loop contract before proceeding.`;
 		sendCommandProgressOrNotify({
 			host: pi,
 			ctx,
@@ -243,8 +261,7 @@ async function chooseAutorunObjective(
 			command: string,
 			args: readonly string[],
 			options?: { cwd?: string; timeout?: number },
-		): Promise<ExecResult> =>
-			normalizeExecResult(await pi.exec(command, [...args], options)),
+		): Promise<ExecResult> => normalizeExecResult(await pi.exec(command, [...args], options)),
 	};
 	const slug = await chooseActiveObjectiveSlug(
 		selectionHost,
@@ -329,7 +346,10 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 			stdoutTail: { maxChars: MAX_FAILURE_TAIL_CHARS },
 		});
 		if (beginParsed.type !== "valid" || beginExec.code !== 0) {
-			return beginFailureResult(beginExec, beginParsed.type === "valid" ? undefined : beginParsed.message);
+			return beginFailureResult(
+				beginExec,
+				beginParsed.type === "valid" ? undefined : beginParsed.message,
+			);
 		}
 		const prompt = beginParsed.data.prompt;
 		if (typeof prompt !== "string" || prompt.length === 0) {
