@@ -9,7 +9,11 @@ import {
 } from "./findings-comment.ts";
 import type { PriorFindingsPromptContext, PriorFindingsPromptContextEntry } from "./models.ts";
 import { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
-import type { GitHubGatewayOptions, RoasterGitHubGateway } from "../gateways/github.ts";
+import {
+	copyGitHubGatewayOptions,
+	type GitHubGatewayOptions,
+	type RoasterGitHubGateway,
+} from "../gateways/github.ts";
 
 export type PriorFindingResolutionStatus = PriorFindingsPromptContextEntry["resolutionStatus"];
 export type PriorFindingContextEntry = PriorFindingsPromptContextEntry;
@@ -53,7 +57,7 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const githubOptions = gitHubOptions(options);
+	const githubOptions = copyGitHubGatewayOptions(options);
 	const marker = summaryMarkerForReview(options.reviewName);
 	const summaryComment = await gateway.findPrDiscussionCommentByMarker({
 		...githubOptions,
@@ -115,14 +119,6 @@ export async function gatherPriorFindingsContext(
 		),
 	};
 	return { type: "with-context", context };
-}
-
-function gitHubOptions(options: GatherPriorFindingsContextOptions): GitHubGatewayOptions {
-	return {
-		cwd: options.cwd,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	};
 }
 
 function contextEntryForRecord(

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { findingLocation } from "../core/findings-comment.ts";
 import type {
 	PriorFindingsPromptContext,
 	ReviewRunnerRequest,
@@ -123,7 +124,7 @@ function renderPriorFindingEntry(
 ): readonly string[] {
 	const finding = entry.finding;
 	return [
-		`${index + 1}. [${entry.resolutionStatus}] ${finding.path ?? "unknown path"}:${finding.line ?? "file"} ${finding.severity}: ${compactPromptText(finding.summary)}`,
+		`${index + 1}. [${entry.resolutionStatus}] ${findingLocation(finding)} ${finding.severity}: ${compactPromptText(finding.summary)}`,
 		`   Details: ${compactPromptText(finding.details)}`,
 		`   Finding id: ${entry.id}`,
 		`   First seen head: ${entry.firstSeenHeadSha ?? "unknown"}; last seen head: ${entry.lastSeenHeadSha ?? "unknown"}`,

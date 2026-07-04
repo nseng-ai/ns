@@ -15,14 +15,17 @@ import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
-export interface RoasterContext {
-	readonly execApi: CommandExecApi;
+export interface RoasterGateways {
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
 	readonly reviewRunner: ReviewRunnerGateway;
+}
+
+export interface RoasterContext extends RoasterGateways {
+	readonly execApi: CommandExecApi;
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
@@ -61,14 +64,8 @@ export interface RoasterCatalogOptions {
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface RoasterRuntime {
+export interface RoasterRuntime extends RoasterGateways {
 	readonly runScope: RoasterRunScope;
-	readonly gitGateway: GitGateway;
-	readonly localDiff: LocalDiffGateway;
-	readonly reviewCatalog: ReviewCatalogGateway;
-	readonly reviewLog: ReviewLogGateway;
-	readonly github: RoasterGitHubGateway;
-	readonly reviewRunner: ReviewRunnerGateway;
 	readonly stdin: () => Promise<string>;
 	readonly stderr: (text: string) => void;
 }
@@ -96,12 +93,7 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 	return {
 		runScope: runScopeFromContext(context),
-		gitGateway: context.gitGateway,
-		localDiff: context.localDiff,
-		reviewCatalog: context.reviewCatalog,
-		reviewLog: context.reviewLog,
-		github: context.github,
-		reviewRunner: context.reviewRunner,
+		...roasterGateways(context),
 		stdin: context.stdin,
 		stderr: context.stderr,
 	};
@@ -118,6 +110,17 @@ export function catalogOptions(scope: RoasterRunScope): RoasterCatalogOptions {
 	return {
 		cwd: scope.cwd,
 		...(scope.signal === undefined ? {} : { signal: scope.signal }),
+	};
+}
+
+function roasterGateways(context: RoasterGateways): RoasterGateways {
+	return {
+		gitGateway: context.gitGateway,
+		localDiff: context.localDiff,
+		reviewCatalog: context.reviewCatalog,
+		reviewLog: context.reviewLog,
+		github: context.github,
+		reviewRunner: context.reviewRunner,
 	};
 }
 

@@ -108,9 +108,7 @@ describe("Claude Code harness prompt assembly", () => {
 			"[unresolved] src/app.ts:12 warning: Prefer nullish coalescing.",
 		);
 		expect(assembled.promptText).toContain("Unresolved prior findings are already known feedback");
-		expect(assembled.promptText).toContain(
-			"[resolved] src/old.ts:file info: Remove stale comment.",
-		);
+		expect(assembled.promptText).toContain("[resolved] src/old.ts info: Remove stale comment.");
 		expect(assembled.promptText).toContain(
 			"Resolved prior findings are considered addressed for unchanged code",
 		);
