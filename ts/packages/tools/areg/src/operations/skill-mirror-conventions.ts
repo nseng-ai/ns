@@ -28,6 +28,40 @@ export function claudeSkillMirrorRelativePath(skillName: string): string {
 	return `.claude/skills/${skillName}`;
 }
 
+export type SkillMirrorKind = "agents" | "claude";
+
+export interface SkillMirrorRelativePathInfo {
+	mirrorKind: SkillMirrorKind;
+	skillName: string;
+	expectedTarget: string;
+}
+
+/**
+ * Returns parsed mirror information for an exact areg-managed skill mirror
+ * location, or undefined when the path is not a valid mirror path.
+ */
+export function parseSkillMirrorRelativePath(
+	relativePath: string,
+): SkillMirrorRelativePathInfo | undefined {
+	const parts = relativePath.split("/");
+	if (parts.length !== 3 || parts[1] !== "skills") return undefined;
+	const skillName = parts[2];
+	if (skillName === undefined || !isPlainSkillNameSegment(skillName)) return undefined;
+	if (parts[0] === ".agents")
+		return {
+			mirrorKind: "agents",
+			skillName,
+			expectedTarget: expectedAgentsSkillSymlinkTarget(skillName),
+		};
+	if (parts[0] === ".claude")
+		return {
+			mirrorKind: "claude",
+			skillName,
+			expectedTarget: expectedClaudeSkillSymlinkTarget(skillName),
+		};
+	return undefined;
+}
+
 /**
  * Returns true when the relative path is exactly an areg-managed skill mirror
  * location: `.agents/skills/<name>` or `.claude/skills/<name>` with a plain
@@ -42,13 +76,7 @@ export function isSkillMirrorRelativePath(relativePath: string): boolean {
  * undefined when the path is not a valid skill mirror location.
  */
 export function expectedMirrorTarget(relativePath: string): string | undefined {
-	const parts = relativePath.split("/");
-	if (parts.length !== 3 || parts[1] !== "skills") return undefined;
-	const skillName = parts[2];
-	if (skillName === undefined || !isPlainSkillNameSegment(skillName)) return undefined;
-	if (parts[0] === ".agents") return expectedAgentsSkillSymlinkTarget(skillName);
-	if (parts[0] === ".claude") return expectedClaudeSkillSymlinkTarget(skillName);
-	return undefined;
+	return parseSkillMirrorRelativePath(relativePath)?.expectedTarget;
 }
 
 /**

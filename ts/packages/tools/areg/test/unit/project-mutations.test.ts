@@ -62,10 +62,7 @@ describe("applyProjectMutationPlan", () => {
 		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "preflight-denied" },
-			writtenRelativePaths: [],
-			deletedRelativePaths: [],
-			deletedSymlinkRelativePaths: [],
-			removedEmptyDirRelativePaths: [],
+			appliedPaths: { written: [], deleted: [], deletedSymlink: [], removedEmptyDir: [] },
 			operationStatuses: [
 				{ type: "write", path: "skills/demo/SKILL.md", status: "not-attempted" },
 				{
@@ -118,10 +115,12 @@ describe("applyProjectMutationPlan", () => {
 		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "write-failed" },
-			writtenRelativePaths: ["skills/demo/SKILL.md"],
-			deletedRelativePaths: [],
-			deletedSymlinkRelativePaths: [],
-			removedEmptyDirRelativePaths: [],
+			appliedPaths: {
+				written: ["skills/demo/SKILL.md"],
+				deleted: [],
+				deletedSymlink: [],
+				removedEmptyDir: [],
+			},
 			operationStatuses: [
 				{ type: "write", path: "skills/demo/SKILL.md", status: "applied" },
 				{
@@ -163,7 +162,7 @@ describe("applyProjectMutationPlan", () => {
 
 		expect(result).toMatchObject({
 			ok: true,
-			deletedSymlinkRelativePaths: [".claude/skills/demo", ".agents/skills/demo"],
+			appliedPaths: { deletedSymlink: [".claude/skills/demo", ".agents/skills/demo"] },
 			operationStatuses: [
 				{ type: "delete-symlink", path: ".claude/skills/demo", status: "applied" },
 				{ type: "delete-symlink", path: ".agents/skills/demo", status: "applied" },
@@ -198,7 +197,7 @@ describe("applyProjectMutationPlan", () => {
 		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "skill-kind-delete-symlink-missing" },
-			deletedSymlinkRelativePaths: [],
+			appliedPaths: { deletedSymlink: [] },
 		});
 		expect(project.operations().map((operation) => operation.type)).toEqual([
 			"preflight-delete-symlink",
