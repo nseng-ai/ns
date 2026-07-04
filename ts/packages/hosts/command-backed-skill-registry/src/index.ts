@@ -60,21 +60,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "context:bundle-analysis",
 		kind: "generic-backing-skill",
 	},
-	{
-		skillName: "create-bun-typescript-project",
-		surface: "create:bun-typescript-project",
-		kind: "generic-backing-skill",
-	},
-	{
-		skillName: "create-python-dev-cli",
-		surface: "create:python-dev-cli",
-		kind: "generic-backing-skill",
-	},
-	{
-		skillName: "create-python-package",
-		surface: "create:python-package",
-		kind: "generic-backing-skill",
-	},
 	{ skillName: "dignified-python", surface: "dignified:python", kind: "generic-backing-skill" },
 	{
 		skillName: "dignified-python-tripwire",
@@ -160,11 +145,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "ns:typescript:style-tripwire",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "setup-dprint", surface: "setup:dprint", kind: "generic-backing-skill" },
-	{ skillName: "setup-dprint-gh-ci", surface: "setup:dprint-gh-ci", kind: "generic-backing-skill" },
-	{ skillName: "setup-graphite", surface: "setup:graphite", kind: "generic-backing-skill" },
-	{ skillName: "setup-pypi-publish", surface: "setup:pypi-publish", kind: "generic-backing-skill" },
-	{ skillName: "setup-python-gh-ci", surface: "setup:python-gh-ci", kind: "generic-backing-skill" },
 	{ skillName: "skill-audit", surface: "skill:audit", kind: "generic-backing-skill" },
 	{
 		skillName: "skill-audit-improved",
