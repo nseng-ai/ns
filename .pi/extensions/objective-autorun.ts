@@ -24,10 +24,7 @@ import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,
 } from "../../ts/packages/hosts/pi/src/commands/ack.ts";
-import {
-	buildFencedTextBlock,
-	expandRepoSkillBlock,
-} from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
+import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
@@ -45,6 +42,7 @@ import {
 	setRunnerSubagentWidget,
 } from "../../ts/packages/local/pi-tools/src/runner-subagents/widget.ts";
 import {
+	buildFencedTextBlock,
 	formatZodError,
 	optionalEntries,
 	optionalEntry,
