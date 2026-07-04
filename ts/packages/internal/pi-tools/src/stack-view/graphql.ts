@@ -25,7 +25,7 @@ import type {
 	StackViewThreadComment,
 	StackViewThreadDetail,
 } from "./types.ts";
-import type { CommandExecApi } from "./exec.ts";
+import type { StackViewExecContext } from "./exec.ts";
 import { normalizeGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
@@ -60,9 +60,7 @@ export type FetchStackPrsResult =
 	| { type: "graphql-errors"; messages: readonly string[] }
 	| { type: "schema-mismatch" };
 
-export interface FetchStackPrsParams {
-	execApi: CommandExecApi;
-	cwd: string;
+export interface FetchStackPrsParams extends StackViewExecContext {
 	branches: string[];
 	owner: string;
 	repo: string;
@@ -75,10 +73,7 @@ export type FetchRepoIdentityResult =
 	| { type: "invalid-json"; message: string }
 	| { type: "schema-mismatch" };
 
-export interface FetchRepoIdentityParams {
-	execApi: CommandExecApi;
-	cwd: string;
-}
+export type FetchRepoIdentityParams = StackViewExecContext;
 
 /**
  * The CheckRun/StatusContext field selection for `statusCheckRollup.contexts.nodes`.
@@ -279,7 +274,7 @@ function threadCountsFromNode(
 	// `resolved` counts only the fetched nodes (first 100). When `totalCount`
 	// exceeds the fetched node count the resolved figure degrades gracefully
 	// (it can only under-count), so `total` stays honest via the larger of the two.
-	return { resolved, total: Math.max(reviewThreads.totalCount, reviewThreads.nodes.length) };
+	return { resolved, total: honestTotal(reviewThreads.totalCount, reviewThreads.nodes.length) };
 }
 
 /**
@@ -305,14 +300,16 @@ function unresolvedThreadDetailsFromNode(
 				author: comments[0]?.author ?? null,
 				comments,
 				lastCommentId: thread.lastComment?.nodes[0]?.id ?? null,
-				// `totalComments` stays honest via the larger of the connection's
-				// `totalCount` and the fetched node count (it can only under-count).
-				totalComments: Math.max(thread.comments?.totalCount ?? 0, comments.length),
+				totalComments: honestTotal(thread.comments?.totalCount ?? 0, comments.length),
 			};
 		});
 }
 
 /** Map the fetched comment nodes into the plain {@link StackViewThreadComment} shape (missing scalars → ""/null). */
+function honestTotal(totalCount: number, fetchedLength: number): number {
+	return Math.max(totalCount, fetchedLength);
+}
+
 function commentsFromThread(
 	comments: z.infer<typeof reviewThreadCommentsSchema> | null | undefined,
 ): StackViewThreadComment[] {

@@ -10,25 +10,36 @@
  * header. Row ordering follows the model — `model.prs` is top-of-stack first —
  * and the trunk is carried separately on `model.trunk`.
  */
-import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
-
+import {
+	PREVIEW_OVERLAY_MARGIN,
+	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
+	sliceWrappedDetailLinesForViewport,
+	wrapDetailLines,
+	type WrappedDetailViewport,
+	type WrappedDetailViewportOptions,
+} from "../pr-previews/preview-view-utilities.ts";
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
+import {
+	CHECK_BUCKET_DISPLAY,
+	checkBucketForCounts,
+	entriesForCheckBucket,
+	formatCheckEntryLabel,
+	formatThreadDetailLabel,
+	stackRowLabel,
+	statusWord,
+} from "./format.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";
 import type {
+	StackViewCheckBucket,
 	StackViewCheckEntry,
 	StackViewModel,
 	StackViewPr,
 	StackViewThreadDetail,
 } from "./types.ts";
 
-/**
- * Overlay height budget. Duplicated locally from the pr-previews overlay
- * constants rather than imported: the stack-view subpackage stays decoupled from
- * `src/pr-previews`, so we mirror the same host-overlay clip budget here.
- */
-export const STACK_OVERLAY_MAX_HEIGHT_RATIO = 0.85;
-export const STACK_OVERLAY_MARGIN = 1;
+export const STACK_OVERLAY_MAX_HEIGHT_RATIO = PREVIEW_OVERLAY_MAX_HEIGHT_RATIO;
+export const STACK_OVERLAY_MARGIN = PREVIEW_OVERLAY_MARGIN;
 
 /** The rollup bucket a single stack row lands in for the header tally. */
 export type StackRollupBucket = "failing" | "unresolved" | "pending" | "ready" | "draft" | "no-pr";
@@ -90,17 +101,18 @@ export interface StackRowCells {
 	label: string;
 	threads: string;
 	checks: string;
+	checkBucket: StackViewCheckBucket | null;
 	statusWord: string;
 }
 
 /** Format one stack row into its list cells. Empty strings mean "render nothing". */
 export function formatStackRowCells(pr: StackViewPr): StackRowCells {
 	return {
-		label:
-			pr.number === null ? `(no PR) ${pr.branch}` : `#${pr.number} ${collapseWhitespace(pr.title)}`,
+		label: stackRowLabel(pr),
 		threads: formatThreadsCell(pr),
 		checks: formatChecksCell(pr),
-		statusWord: statusWord(pr),
+		checkBucket: checkBucketForCounts(pr.checks),
+		statusWord: statusWord(pr.status),
 	};
 }
 
@@ -115,22 +127,6 @@ function formatChecksCell(pr: StackViewPr): string {
 	if (failing > 0) return `✗ ${failing}/${total}`;
 	if (pending > 0) return `⋯ ${pending}/${total}`;
 	return `✓ ${passing}/${total}`;
-}
-
-/** The one-word status label. Kept local to the overlay model; do not import render.ts. */
-function statusWord(pr: StackViewPr): string {
-	switch (pr.status) {
-		case "draft":
-			return "draft";
-		case "checks-failing":
-			return "checks failing";
-		case "unresolved":
-			return "unresolved";
-		case "ready":
-			return "ready";
-		case "no-pr":
-			return "no-pr";
-	}
 }
 
 /**
@@ -216,13 +212,11 @@ function appendFailingChecks(
 	pr: StackViewPr,
 	enrichment?: ReadonlyMap<string, EnrichmentEntry>,
 ): void {
-	const failing = pr.checkEntries.filter((entry) => entry.bucket === "failing");
-	if (failing.length === 0) return;
-	rows.push({ role: "section", text: `FAILING CHECKS (${failing.length})` });
-	for (const entry of failing) {
-		rows.push({ role: "check-failing", text: `✗ ${checkEntryLabel(entry)}` });
-		appendCheckWhy(rows, entry, enrichment);
-	}
+	appendCheckSection(rows, pr, {
+		bucket: "failing",
+		heading: "FAILING CHECKS",
+		onEntry: (entry) => appendCheckWhy(rows, entry, enrichment),
+	});
 }
 
 /** Append the enrichment follow-on rows for one failing check, if any. */
@@ -231,44 +225,47 @@ function appendCheckWhy(
 	entry: StackViewCheckEntry,
 	enrichment: ReadonlyMap<string, EnrichmentEntry> | undefined,
 ): void {
-	if (enrichment === undefined) return;
-	const result = enrichment.get(checkEnrichmentKey(entry));
-	if (result === undefined) return;
-	if (result.state === "pending") {
-		rows.push({ role: "summary-pending", text: "  …summarizing" });
-		return;
-	}
-	if (result.state !== "ready") return; // failed: the bare ✗ row degrades.
-	const lines = result.summary
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0)
-		.slice(0, 3);
-	const [first, ...rest] = lines;
-	if (first === undefined) return;
-	rows.push({ role: "check-why", text: `  ↳ why: ${first}` });
-	for (const line of rest) rows.push({ role: "check-why", text: `     ${line}` });
+	appendEnrichmentFollowOn(rows, checkEnrichmentKey(entry), enrichment, (summary) => {
+		const lines = summary
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0)
+			.slice(0, 3);
+		const [first, ...rest] = lines;
+		if (first === undefined) return [];
+		return [
+			{ role: "check-why", text: `  ↳ why: ${first}` },
+			...rest.map((line) => ({ role: "check-why" as const, text: `     ${line}` })),
+		];
+	});
 }
 
 /** List completed passing check entries under their own section; omitted when zero. */
 function appendPassingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
-	const passing = pr.checkEntries.filter((entry) => entry.bucket === "passing");
-	if (passing.length === 0) return;
-	rows.push({ role: "section", text: `PASSING CHECKS (${passing.length})` });
-	for (const entry of passing)
-		rows.push({ role: "check-passing", text: `✓ ${checkEntryLabel(entry)}` });
+	appendCheckSection(rows, pr, { bucket: "passing", heading: "PASSING CHECKS" });
 }
 
 function appendPendingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
-	const pending = pr.checkEntries.filter((entry) => entry.bucket === "pending");
-	if (pending.length === 0) return;
-	rows.push({ role: "section", text: `PENDING CHECKS (${pending.length})` });
-	for (const entry of pending)
-		rows.push({ role: "check-pending", text: `⋯ ${checkEntryLabel(entry)}` });
+	appendCheckSection(rows, pr, { bucket: "pending", heading: "PENDING CHECKS" });
 }
 
-function checkEntryLabel(entry: { name: string; workflowName: string | null }): string {
-	return entry.workflowName === null ? entry.name : `${entry.name} (${entry.workflowName})`;
+function appendCheckSection(
+	rows: StackDetailRow[],
+	pr: StackViewPr,
+	options: {
+		bucket: StackViewCheckBucket;
+		heading: string;
+		onEntry?: (entry: StackViewCheckEntry) => void;
+	},
+): void {
+	const entries = entriesForCheckBucket(pr.checkEntries, options.bucket);
+	if (entries.length === 0) return;
+	const display = CHECK_BUCKET_DISPLAY[options.bucket];
+	rows.push({ role: "section", text: `${options.heading} (${entries.length})` });
+	for (const entry of entries) {
+		rows.push({ role: display.role, text: `${display.glyph} ${formatCheckEntryLabel(entry)}` });
+		options.onEntry?.(entry);
+	}
 }
 
 function appendUnresolvedThreads(
@@ -280,7 +277,7 @@ function appendUnresolvedThreads(
 	if (unresolvedCount <= 0) return;
 	rows.push({ role: "section", text: `UNRESOLVED THREADS (${unresolvedCount})` });
 	for (const thread of pr.unresolvedThreads) {
-		rows.push({ role: "thread", text: formatThreadLocation(thread) });
+		rows.push({ role: "thread", text: formatThreadDetailLabel(thread) });
 		appendThreadSummary(rows, thread, enrichment);
 	}
 	const missing = unresolvedCount - pr.unresolvedThreads.length;
@@ -295,27 +292,28 @@ function appendThreadSummary(
 	thread: StackViewThreadDetail,
 	enrichment: ReadonlyMap<string, EnrichmentEntry> | undefined,
 ): void {
-	if (enrichment === undefined) return;
 	const key = threadEnrichmentKey(thread);
 	if (key === null) return;
+	appendEnrichmentFollowOn(rows, key, enrichment, (summary) => [
+		{ role: "thread-summary", text: `  ↳ asks: ${collapseWhitespace(summary)}` },
+	]);
+}
+
+function appendEnrichmentFollowOn(
+	rows: StackDetailRow[],
+	key: string,
+	enrichment: ReadonlyMap<string, EnrichmentEntry> | undefined,
+	formatReady: (summary: string) => StackDetailRow[],
+): void {
+	if (enrichment === undefined) return;
 	const result = enrichment.get(key);
 	if (result === undefined) return;
 	if (result.state === "pending") {
 		rows.push({ role: "summary-pending", text: "  …summarizing" });
 		return;
 	}
-	if (result.state !== "ready") return; // failed: the bare thread row degrades.
-	rows.push({ role: "thread-summary", text: `  ↳ asks: ${collapseWhitespace(result.summary)}` });
-}
-
-function formatThreadLocation(thread: {
-	path: string;
-	line: number | null;
-	author: string | null;
-}): string {
-	const location = thread.path.length === 0 ? "(file unknown)" : thread.path;
-	const withLine = thread.line === null ? location : `${location}:${thread.line}`;
-	return thread.author === null ? withLine : `${withLine} · ${thread.author}`;
+	if (result.state !== "ready") return;
+	rows.push(...formatReady(result.summary));
 }
 
 function appendObjectives(rows: StackDetailRow[], pr: StackViewPr): void {
@@ -327,44 +325,49 @@ function collapseWhitespace(value: string): string {
 	return value.replace(/\s+/g, " ").trim();
 }
 
-/** Viewport slice for the detail pane. Duplicated locally from the pr-previews idiom. */
-export interface StackDetailViewportOptions {
+/** Viewport slice for the detail pane. */
+export type StackDetailViewportOptions = WrappedDetailViewportOptions;
+
+/** The visible slice of wrapped detail lines plus the resolved scroll bounds. */
+export type StackDetailViewport = WrappedDetailViewport;
+
+export interface AnchoredStackViewportOptions {
 	lines: readonly string[];
 	width: number;
 	rows: number;
 	scroll: number;
+	anchor: "start" | "end";
 }
 
-/** The visible slice of wrapped detail lines plus the resolved scroll bounds. */
-export interface StackDetailViewport {
+export interface AnchoredStackViewport {
 	lines: string[];
 	scroll: number;
 	maxScroll: number;
 }
 
 /**
- * Wrap each detail line to `width`, preserving blank lines. Mirrors the
- * pr-previews `wrapDetailLines` idiom; duplicated to keep the subpackage
- * decoupled.
+ * Wrap each detail line to `width`, preserving blank lines, via the shared
+ * pr-previews viewport helper.
  */
 export function wrapStackDetailLines(lines: readonly string[], width: number): string[] {
-	return lines.flatMap((line) => {
-		if (line === "") return [""];
-		const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
-		return wrapped.length === 0 ? [""] : wrapped;
-	});
+	return wrapDetailLines(lines, width);
 }
 
 /** Wrap the detail lines, clamp the scroll to the wrapped bounds, and slice the visible rows. */
 export function sliceStackDetailLinesForViewport(
 	options: StackDetailViewportOptions,
 ): StackDetailViewport {
+	return sliceWrappedDetailLinesForViewport(options);
+}
+
+export function sliceAnchoredStackLinesForViewport(
+	options: AnchoredStackViewportOptions,
+): AnchoredStackViewport {
+	if (options.anchor === "start") return sliceWrappedDetailLinesForViewport(options);
 	const wrapped = wrapStackDetailLines(options.lines, options.width);
 	const maxScroll = Math.max(0, wrapped.length - options.rows);
 	const scroll = clamp(options.scroll, 0, maxScroll);
-	return {
-		lines: wrapped.slice(scroll, scroll + options.rows),
-		scroll,
-		maxScroll,
-	};
+	const end = wrapped.length - scroll;
+	const start = Math.max(0, end - options.rows);
+	return { lines: wrapped.slice(start, end), scroll, maxScroll };
 }

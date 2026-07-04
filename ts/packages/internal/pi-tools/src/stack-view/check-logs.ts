@@ -1,11 +1,7 @@
 /**
  * GitHub Actions job-log plumbing for the stack-view enrichment engine. These
- * helpers are deliberate local duplicates of the pr-previews check-log helpers
- * (`src/pr-previews/preview-check-logs.ts`) rather than imports: the stack-view
- * subpackage stays decoupled from `src/pr-previews`, mirroring the same idiom
- * `overlay-model.ts:19-22` uses for the overlay clip-budget constants. The small
- * amount of URL-parsing and `gh run view` plumbing is cheaper to mirror than to
- * couple the two tool subpackages.
+ * helpers reuse the shared GitHub Actions job URL parser from the pr-previews
+ * tooling and keep stack-view-specific availability wording local.
  *
  * Error model matches the rest of stack-view: failures are returned as typed
  * discriminated-union values, never thrown.
@@ -13,24 +9,12 @@
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
+import { githubActionsJobLogArgs } from "../pr-previews/preview-check-logs.ts";
+import { CHECK_LOG_TAIL_MAX_CHARS } from "./enrichment-prompts.ts";
 import type { CommandExecApi } from "./exec.ts";
 import type { StackViewCheckEntry } from "./types.ts";
 
-/** Default log-tail budget; only the final N characters are kept for the summarizer. */
-const DEFAULT_MAX_LOG_TAIL_CHARS = 40_000;
-
-/** Parse a GitHub Actions job URL into `gh run view` args; null when not an Actions job URL. */
-export function githubActionsJobLogArgs(detailsUrl: string): string[] | null {
-	const parsed =
-		/^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/job\/(\d+)(?:\b|[/?#])/u.exec(
-			detailsUrl,
-		);
-	if (parsed === null) return null;
-	const runId = parsed[1];
-	const jobId = parsed[2];
-	if (runId === undefined || jobId === undefined) return null;
-	return ["run", "view", runId, "--job", jobId, "--log"];
-}
+export { githubActionsJobLogArgs } from "../pr-previews/preview-check-logs.ts";
 
 /**
  * LBYL reason a check's logs cannot be fetched; null when fetchable. Guards, in
@@ -103,7 +87,7 @@ export async function fetchCheckLogTail(
 	}
 
 	const output = result.stdout.trim();
-	const maxChars = options.maxChars ?? DEFAULT_MAX_LOG_TAIL_CHARS;
+	const maxChars = options.maxChars ?? CHECK_LOG_TAIL_MAX_CHARS;
 	const logTail = output.length > maxChars ? output.slice(-maxChars) : output;
 	return { ok: true, logTail };
 }

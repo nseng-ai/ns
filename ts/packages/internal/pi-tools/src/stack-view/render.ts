@@ -8,13 +8,16 @@
  * Row ordering follows the model: `model.prs` is top-of-stack first, and the
  * trunk is carried separately on `model.trunk`.
  */
-import type {
-	StackViewCheckEntry,
-	StackViewModel,
-	StackViewPr,
-	StackViewPrStatus,
-	StackViewThreadDetail,
-} from "./types.ts";
+import { buildFencedTextBlock } from "@ns/core/primitives";
+
+import {
+	entriesForCheckBucket,
+	formatCheckEntryLabel,
+	formatThreadDetailLabel,
+	stackRowLabel,
+	statusWord,
+} from "./format.ts";
+import type { StackViewModel, StackViewPr } from "./types.ts";
 
 /**
  * Plain-text (no ANSI, no theme) markdown-ish snapshot for the on-close
@@ -30,27 +33,27 @@ export function renderPlainSnapshot(model: StackViewModel): string {
 
 	for (const row of model.prs) {
 		const marker = row.branch === model.currentBranch ? "* " : "- ";
-		lines.push(`${marker}${plainRowLabel(row)} — ${plainRowMeta(row)}`);
+		lines.push(`${marker}${stackRowLabel(row)} — ${plainRowMeta(row)}`);
 		lines.push(`  branch: ${row.branch}`);
 		if (row.number !== null && row.graphiteUrl.length > 0) {
 			lines.push(`  ${row.graphiteUrl}`);
 		}
 
-		const failing = row.checkEntries.filter((entry) => entry.bucket === "failing");
+		const failing = entriesForCheckBucket(row.checkEntries, "failing");
 		if (failing.length > 0) {
-			lines.push(`  failing: ${failing.map(checkEntryLabel).join(", ")}`);
+			lines.push(`  failing: ${failing.map(formatCheckEntryLabel).join(", ")}`);
 		}
 
 		if (row.unresolvedThreads.length > 0) {
-			const items = row.unresolvedThreads.map(threadDetailLabel).join("; ");
+			const items = row.unresolvedThreads.map(formatThreadDetailLabel).join("; ");
 			const hidden = row.threads.total - row.threads.resolved - row.unresolvedThreads.length;
 			const suffix = hidden > 0 ? ` [+${hidden} more]` : "";
 			lines.push(`  unresolved: ${items}${suffix}`);
 		}
 
-		const pending = row.checkEntries.filter((entry) => entry.bucket === "pending");
+		const pending = entriesForCheckBucket(row.checkEntries, "pending");
 		if (pending.length > 0) {
-			lines.push(`  pending: ${pending.map(checkEntryLabel).join(", ")}`);
+			lines.push(`  pending: ${pending.map(formatCheckEntryLabel).join(", ")}`);
 		}
 	}
 	lines.push(`- ─ trunk: ${model.trunk}`);
@@ -92,11 +95,11 @@ export function buildSummaryPrompt(model: StackViewModel): string {
 	bottomUp.forEach((row, index) => {
 		lines.push(`## PR ${index + 1} of ${bottomUp.length}`);
 		lines.push(`Branch: ${row.branch}`);
-		lines.push(`Title: ${plainRowLabel(row)}`);
+		lines.push(`Title: ${stackRowLabel(row)}`);
 		lines.push("Description:");
-		lines.push("<<<description");
-		lines.push(row.body.trim().length > 0 ? row.body.trim() : "(no description)");
-		lines.push("description>>>");
+		lines.push(
+			buildFencedTextBlock(row.body.trim().length > 0 ? row.body.trim() : "(no description)"),
+		);
 		lines.push("");
 	});
 
@@ -113,11 +116,6 @@ export function buildSummaryPrompt(model: StackViewModel): string {
 	return lines.join("\n");
 }
 
-function plainRowLabel(row: StackViewPr): string {
-	if (row.number === null) return `(no PR) ${row.branch}`;
-	return `#${row.number} ${singleLine(row.title)}`;
-}
-
 function plainRowMeta(row: StackViewPr): string {
 	const parts: string[] = [];
 	if (row.threads.total > 0) {
@@ -128,38 +126,6 @@ function plainRowMeta(row: StackViewPr): string {
 	}
 	parts.push(statusWord(row.status));
 	return parts.join(", ");
-}
-
-/** Plain merge-readiness word for the snapshot meta line. */
-function statusWord(status: StackViewPrStatus): string {
-	switch (status) {
-		case "draft":
-			return "draft";
-		case "checks-failing":
-			return "checks failing";
-		case "unresolved":
-			return "unresolved";
-		case "ready":
-			return "ready";
-		case "no-pr":
-			return "no-pr";
-	}
-}
-
-/** Named-check label: `name` plus ` (workflowName)` when a workflow name is present. */
-function checkEntryLabel(entry: StackViewCheckEntry): string {
-	return entry.workflowName !== null ? `${entry.name} (${entry.workflowName})` : entry.name;
-}
-
-/**
- * Unresolved-thread label: `path:line · author`. An empty path renders as
- * `(file unknown)`, a null line drops the `:line`, and a null author drops the
- * ` · author` suffix.
- */
-function threadDetailLabel(thread: StackViewThreadDetail): string {
-	const location = thread.path.length > 0 ? thread.path : "(file unknown)";
-	const withLine = thread.line !== null ? `${location}:${thread.line}` : location;
-	return thread.author !== null ? `${withLine} · ${thread.author}` : withLine;
 }
 
 /**
@@ -174,8 +140,4 @@ function objectiveDisplayLines(model: StackViewModel): string[] {
 		lines.push(refs.length > 0 ? `${slug} (${refs})` : slug);
 	}
 	return lines;
-}
-
-function singleLine(value: string): string {
-	return value.replace(/\s+/g, " ").trim();
 }

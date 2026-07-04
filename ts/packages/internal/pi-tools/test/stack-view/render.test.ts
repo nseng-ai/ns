@@ -1,40 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import { buildSummaryPrompt, renderPlainSnapshot } from "../../src/stack-view/render.ts";
-import type {
-	StackViewCheckEntry,
-	StackViewModel,
-	StackViewPr,
-	StackViewThreadDetail,
-} from "../../src/stack-view/types.ts";
-
-/** Build a check entry, defaulting the detail-only fields the render layer ignores. */
-function checkEntry(overrides: Partial<StackViewCheckEntry> = {}): StackViewCheckEntry {
-	return {
-		name: "check",
-		workflowName: null,
-		bucket: "passing",
-		status: null,
-		conclusion: null,
-		detailsUrl: null,
-		identity: null,
-		...overrides,
-	};
-}
-
-/** Build a thread detail, defaulting the comment/id fields the render layer ignores. */
-function threadDetail(overrides: Partial<StackViewThreadDetail> = {}): StackViewThreadDetail {
-	return {
-		id: null,
-		path: "",
-		line: null,
-		author: null,
-		comments: [],
-		lastCommentId: null,
-		totalComments: 0,
-		...overrides,
-	};
-}
+import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
+import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";
 
 function pr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 	return {
@@ -166,13 +134,15 @@ describe("renderPlainSnapshot", () => {
 						checks: { passing: 0, failing: 1, pending: 1, total: 2 },
 						status: "checks-failing",
 						checkEntries: [
-							checkEntry({ name: "build", workflowName: "CI", bucket: "failing" }),
-							checkEntry({ name: "lint", workflowName: null, bucket: "pending" }),
+							checkEntryFixture({ name: "build", workflowName: "CI", bucket: "failing" }),
+							checkEntryFixture({ name: "lint", workflowName: null, bucket: "pending" }),
 						],
 						// total-resolved equals the detail count so no `[+k more]` suffix
 						// (which legitimately contains `[`) muddies the no-ANSI invariant.
 						threads: { resolved: 0, total: 1 },
-						unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 10, author: "alice" })],
+						unresolvedThreads: [
+							threadDetailFixture({ path: "src/a.ts", line: 10, author: "alice" }),
+						],
 					}),
 				],
 			}),
@@ -191,9 +161,9 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							checkEntries: [
-								checkEntry({ name: "build", workflowName: "CI", bucket: "failing" }),
-								checkEntry({ name: "typecheck", workflowName: null, bucket: "failing" }),
-								checkEntry({ name: "unit", workflowName: "CI", bucket: "passing" }),
+								checkEntryFixture({ name: "build", workflowName: "CI", bucket: "failing" }),
+								checkEntryFixture({ name: "typecheck", workflowName: null, bucket: "failing" }),
+								checkEntryFixture({ name: "unit", workflowName: "CI", bucket: "passing" }),
 							],
 						}),
 					],
@@ -211,7 +181,7 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							checkEntries: [
-								checkEntry({ name: "deploy", workflowName: "Release", bucket: "pending" }),
+								checkEntryFixture({ name: "deploy", workflowName: "Release", bucket: "pending" }),
 							],
 						}),
 					],
@@ -228,7 +198,9 @@ describe("renderPlainSnapshot", () => {
 					prs: [
 						pr({
 							branch: "solo",
-							checkEntries: [checkEntry({ name: "unit", workflowName: null, bucket: "passing" })],
+							checkEntries: [
+								checkEntryFixture({ name: "unit", workflowName: null, bucket: "passing" }),
+							],
 						}),
 					],
 				}),
@@ -247,8 +219,8 @@ describe("renderPlainSnapshot", () => {
 							branch: "solo",
 							threads: { resolved: 0, total: 2 },
 							unresolvedThreads: [
-								threadDetail({ path: "src/a.ts", line: 10, author: "alice" }),
-								threadDetail({ path: "src/b.ts", line: 22, author: "bob" }),
+								threadDetailFixture({ path: "src/a.ts", line: 10, author: "alice" }),
+								threadDetailFixture({ path: "src/b.ts", line: 22, author: "bob" }),
 							],
 						}),
 					],
@@ -267,9 +239,9 @@ describe("renderPlainSnapshot", () => {
 							branch: "solo",
 							threads: { resolved: 0, total: 3 },
 							unresolvedThreads: [
-								threadDetail({ path: "src/a.ts", line: null, author: "alice" }),
-								threadDetail({ path: "src/b.ts", line: 5, author: null }),
-								threadDetail({ path: "", line: 7, author: "carol" }),
+								threadDetailFixture({ path: "src/a.ts", line: null, author: "alice" }),
+								threadDetailFixture({ path: "src/b.ts", line: 5, author: null }),
+								threadDetailFixture({ path: "", line: 7, author: "carol" }),
 							],
 						}),
 					],
@@ -289,7 +261,9 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							threads: { resolved: 1, total: 5 },
-							unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 10, author: "alice" })],
+							unresolvedThreads: [
+								threadDetailFixture({ path: "src/a.ts", line: 10, author: "alice" }),
+							],
 						}),
 					],
 				}),
@@ -307,7 +281,9 @@ describe("renderPlainSnapshot", () => {
 						pr({
 							branch: "solo",
 							threads: { resolved: 0, total: 1 },
-							unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 10, author: "alice" })],
+							unresolvedThreads: [
+								threadDetailFixture({ path: "src/a.ts", line: 10, author: "alice" }),
+							],
 						}),
 					],
 				}),
@@ -346,16 +322,16 @@ describe("buildSummaryPrompt", () => {
 		expect(prompt).toContain("## PR 3 of 3");
 	});
 
-	test("wraps each PR body in description delimiters", () => {
+	test("wraps each PR body in collision-safe fences", () => {
 		const prompt = buildSummaryPrompt(model({ prs: [pr({ body: "Meaningful body." })] }));
 
-		expect(prompt).toContain("<<<description\nMeaningful body.\ndescription>>>");
+		expect(prompt).toContain("```text\nMeaningful body.\n```");
 	});
 
 	test("uses (no description) for an empty body", () => {
 		const prompt = buildSummaryPrompt(model({ prs: [pr({ body: "   \n  " })] }));
 
-		expect(prompt).toContain("<<<description\n(no description)\ndescription>>>");
+		expect(prompt).toContain("```text\n(no description)\n```");
 	});
 
 	test("lists objectives when present", () => {
