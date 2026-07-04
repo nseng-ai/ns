@@ -15,7 +15,7 @@ import {
 } from "./status-fixtures.ts";
 
 const CURRENT_SDL_TOOLS_METADATA_FIXTURE = new URL(
-	"../fixtures/graphite-metadata/sdl-tools-current.graphite_metadata.db",
+	"./fixtures/graphite-metadata/sdl-tools-current.graphite_metadata.db",
 	import.meta.url,
 );
 const sqliteAvailable = spawnSync("sqlite3", ["--version"], { encoding: "utf8" }).status === 0;
