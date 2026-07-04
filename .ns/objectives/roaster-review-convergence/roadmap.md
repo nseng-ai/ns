@@ -6,7 +6,8 @@
   - Evidence: `docs/adr/0027-roaster-generation-time-review-convergence.md` added on local branch `roaster-review-convergence/adr-generation-convergence`; `just dprint-check` and `just docs-check` passed.
 - [x] Stamp the Last-reviewed head (PR head SHA — not CI's merge-commit `HEAD` — + reviewed base ref and its merge-base SHA) and the cumulative capped Prior-findings block machine-readably in the summary Findings comment at publish, surviving the body overwrite
   - Evidence: local branch `roaster-review-convergence/publish-summary-stamps` adds a `roaster-state:v1` block, preserves the existing summary marker, carries prior findings across body overwrite, and validates with targeted roaster tests/checks.
-- [ ] Build Prior-findings context gathering: read the stamped findings block + review-thread resolution status (reusing the `@ns/capability-kit/github/pr-feedback` GraphQL surface) for a review key on a PR, with an explicit cap; degrade to a context-free review on gathering failure
+- [x] Build Prior-findings context gathering: read the stamped findings block + review-thread resolution status (reusing the `@ns/capability-kit/github/pr-feedback` GraphQL surface) for a review key on a PR, with an explicit cap; degrade to a context-free review on gathering failure
+  - Evidence: local branch `roaster-review-convergence/prior-findings-context` adds the optional gatherer, `pr-feedback` adapter, fake-driven unit tests, and roaster/package validation.
 - [ ] Thread Prior-findings context and changed-since-Last-reviewed-head guidance into the review prompt as an optional input; keep `ns roaster review run` PR-free by default
 - [ ] Write the convergence prompt instructions with the anchoring guard; unit-test prompt assembly
 - [ ] Wire PR context into the CI matrix review jobs (existing `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write`; no permission changes)
