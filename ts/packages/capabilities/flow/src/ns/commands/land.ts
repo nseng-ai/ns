@@ -3,6 +3,11 @@ import type {
 	LandLiveProgressEvent,
 	LandLiveProgressSink,
 } from "../../land/stack/command-stream.ts";
+import {
+	landCommandOptionSpecs,
+	landCommandSchemaShape,
+	landRawArgsFromCommandRequest,
+} from "../../land/stack/flags.ts";
 import { createCommandIo } from "@ns/kernel/command-io";
 import {
 	defineExtension,
@@ -23,44 +28,20 @@ import {
 	resolveFlowStreamCaps,
 } from "../../phase-stream/phase-stream.ts";
 
-const landSchema = z.object({
-	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
-	dryRun: z.boolean().optional().describe("Show what would land without merging PRs."),
-	preserve: z
-		.boolean()
-		.optional()
-		.describe("Keep the current managed slot and landed local branch after successful landing."),
-	force: z.boolean().optional().describe("Skip the post-landing cleanup confirmation."),
-	verbose: z
-		.boolean()
-		.optional()
-		.describe("Stream raw GitHub/Graphite subprocess output while landing."),
-});
+const landSchema = z.object(landCommandSchemaShape(z));
 
 export const flowLandCommand: SdlCommand<typeof landSchema> = {
 	name: "land",
 	summary: "Land the current PR or Graphite stack into trunk.",
 	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
-	options: {
-		yes: { short: "-y" },
-		dryRun: { short: "-n" },
-		preserve: { short: "-p" },
-		force: { short: "-f" },
-		verbose: { short: "-v" },
-	},
+	options: landCommandOptionSpecs(),
 	run: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
 		// path is never given caps and stays ANSI-free.
 		const caps = resolveFlowStreamCaps(ctx);
-		const rawArgs = [
-			request.yes === true ? "--yes" : undefined,
-			request.dryRun === true ? "--dry-run" : undefined,
-			request.preserve === true ? "--preserve" : undefined,
-			request.force === true ? "--force" : undefined,
-			request.verbose === true ? "--verbose" : undefined,
-		].filter((arg): arg is string => arg !== undefined);
+		const rawArgs = landRawArgsFromCommandRequest(request);
 		const progress = createLandCliProgress(ctx, caps);
 		try {
 			return await runFlowCli({

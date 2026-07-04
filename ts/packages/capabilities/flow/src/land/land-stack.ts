@@ -17,6 +17,7 @@ import {
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./stack/errors.ts";
+import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
 import { buildLandingPlan } from "./stack/landing-plan.ts";
 import { presentLandStackFailure, type LandingSession } from "./stack/landing-coordination.ts";
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
@@ -49,9 +50,8 @@ export function registerLandStackRenderer(
 export function landArgumentCompletions(
 	prefix: string,
 ): Array<{ value: string; label: string }> | null {
-	const options = ["--yes", "--dry-run", "--preserve", "--force", "--verbose", "--help"];
 	const token = prefix.trim().split(/\s+/).pop() ?? "";
-	const filtered = options.filter((option) => option.startsWith(token));
+	const filtered = landCompletionFlags().filter((option) => option.startsWith(token));
 	return filtered.length > 0 ? filtered.map((option) => ({ value: option, label: option })) : null;
 }
 
@@ -120,21 +120,11 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 
 	for (const part of parts) {
-		if (part === "--yes" || part === "-y") {
-			parsed.shouldSkipConfirmation = true;
-		} else if (part === "--dry-run") {
-			parsed.isDryRun = true;
-		} else if (part === "--preserve" || part === "-p") {
-			parsed.shouldPreserveSlot = true;
-		} else if (part === "--force" || part === "-f") {
-			parsed.shouldForceCleanup = true;
-		} else if (part === "--help" || part === "-h") {
-			parsed.shouldShowHelp = true;
-		} else if (part === "--verbose") {
-			parsed.shouldStreamVerboseOutput = true;
-		} else {
+		const parsedFlag = parseLandFlagToken(part);
+		if (parsedFlag === undefined) {
 			return failure(landStackFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`));
 		}
+		parsed[parsedFlag] = true;
 	}
 
 	return success(parsed);

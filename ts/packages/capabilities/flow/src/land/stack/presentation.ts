@@ -9,6 +9,7 @@ import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./co
 import { formatCommandDetails } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
+import { landUsageOptionRows, landUsageTokens } from "./flags.ts";
 import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement } from "./landing-plan.ts";
 import type {
@@ -137,7 +138,7 @@ function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan)
 export function usage(): string {
 	return [
 		"Usage:",
-		`/${COMMAND_NAME} [--yes] [--dry-run] [--preserve] [--force] [--verbose] [--help]`,
+		`/${COMMAND_NAME} ${landUsageTokens().join(" ")}`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
@@ -145,13 +146,12 @@ export function usage(): string {
 		"After successful landing, this command frees the current managed slot and deletes the landed local branch by default; use --preserve to keep them.",
 		"",
 		"Options:",
-		"  --yes, -y       Skip stack/global landing and post-landing cleanup confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
-		"  --dry-run       Show the full stack path plan and exit before mutating refs or PRs.",
-		"  --preserve, -p  Keep the current managed slot and landed local branch after successful landing.",
-		"  --force, -f     Skip the post-landing cleanup confirmation.",
-		"  --verbose       Stream raw GitHub/Graphite subprocess output while landing.",
-		"  --help, -h      Show this help.",
+		...landUsageOptionRows().map(formatUsageOptionRow),
 	].join("\n");
+}
+
+function formatUsageOptionRow(row: { aliases: readonly string[]; description: string }): string {
+	return `  ${row.aliases.join(", ").padEnd(15, " ")} ${row.description}`;
 }
 
 export function formatSuccessSummary(
