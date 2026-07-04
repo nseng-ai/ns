@@ -240,7 +240,8 @@ Risks:
 - Resolved for the publish stamp: the v1 durable Prior-findings block keeps
   the 50 newest exact-finding records and carries a cumulative pruned count;
   revisit only if empirical validation shows the cap is too small.
-- Should resolved and unresolved prior findings get different prompt treatment
-  (e.g. unresolved = "still open — do not repeat, may reference")?
+- Resolved for prompt v1: unresolved prior findings are already-known
+  feedback and resolved prior findings are considered addressed for unchanged
+  code; neither should be repeated absent material worsening.
 - Should local `ns roaster review run` fetch PR context by default when a PR
   exists, or opt-in via flag?
