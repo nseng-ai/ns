@@ -3,9 +3,11 @@ import { describe, expect, test } from "vitest";
 import { createRoasterRuntime } from "../../src/core/context.ts";
 import type { RoasterResult } from "../../src/core/failures.ts";
 import {
+	buildFindingsCommentMachineState,
 	extractInlineMarkers,
 	inlineMarkerForFinding,
 	parseFindingsCommentBody,
+	parseFindingsCommentMachineState,
 	parseFindingsPayloadResult,
 	preserveActivityLog,
 	publishFindings,
@@ -13,6 +15,7 @@ import {
 	renderInlineBody,
 	summaryMarkerForReview,
 	type FindingsPayload,
+	type LastReviewedHeadState,
 } from "../../src/core/findings-publication.ts";
 import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
 import type {
@@ -30,6 +33,11 @@ const WARNING_FINDING: ReviewFinding = {
 	severity: "warning",
 	summary: "Avoid broad casts",
 	details: "Validate the payload before casting it.",
+};
+const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
+	headSha: "1111111111111111111111111111111111111111",
+	baseRef: "main",
+	baseMergeBaseSha: "2222222222222222222222222222222222222222",
 };
 
 describe("findings comment markers", () => {
@@ -89,6 +97,57 @@ describe("renderFindingsComment", () => {
 		const body = renderFindingsComment(payload({ count: 0, findings: [] }));
 
 		expect(body).toContain("**No findings** against base `main`. ✅");
+	});
+
+	test("renders a parseable machine state after the summary marker", () => {
+		const findingsPayload = payload({ count: 1, findings: [WARNING_FINDING] });
+		const machineState = buildFindingsCommentMachineState({
+			payload: findingsPayload,
+			lastReviewedHead: LAST_REVIEWED_HEAD,
+		});
+		const body = renderFindingsComment(findingsPayload, { machineState });
+
+		expect(body.startsWith("<!-- roaster:typescript-style -->\n")).toBe(true);
+		expect(parseFindingsCommentBody(body).type).toBe("ok");
+		expect(parseFindingsCommentMachineState(body)).toMatchObject({
+			version: 1,
+			lastReviewedHead: LAST_REVIEWED_HEAD,
+			priorFindings: { cap: 50, prunedCount: 0 },
+		});
+	});
+
+	test("keeps the most recent capped union of prior findings", () => {
+		const first = finding({ summary: "first" });
+		const second = finding({ summary: "second" });
+		const third = finding({ summary: "third" });
+		const existingState = buildFindingsCommentMachineState({
+			payload: payload({ count: 2, findings: [first, second] }),
+			lastReviewedHead: LAST_REVIEWED_HEAD,
+			cap: 2,
+		});
+		const existingBody = renderFindingsComment(payload({ count: 2, findings: [first, second] }), {
+			machineState: existingState,
+		});
+
+		const nextState = buildFindingsCommentMachineState({
+			existingBody,
+			payload: payload({ count: 2, findings: [second, third] }),
+			lastReviewedHead: {
+				...LAST_REVIEWED_HEAD,
+				headSha: "3333333333333333333333333333333333333333",
+			},
+			cap: 2,
+		});
+
+		expect(nextState.priorFindings.prunedCount).toBe(1);
+		expect(nextState.priorFindings.findings.map((record) => record.finding.summary)).toEqual([
+			"second",
+			"third",
+		]);
+		expect(nextState.priorFindings.findings[0]?.firstSeenHeadSha).toBe(LAST_REVIEWED_HEAD.headSha);
+		expect(nextState.priorFindings.findings[0]?.lastSeenHeadSha).toBe(
+			"3333333333333333333333333333333333333333",
+		);
 	});
 
 	test("renders findings, null line display, inline status, and input coverage", () => {
@@ -324,6 +383,74 @@ describe("publishFindings", () => {
 			});
 		}
 	});
+
+	test("posts Last-reviewed head state and current findings in the machine block", async () => {
+		const github = new FakeRoasterGitHubGateway();
+		const runtime = createRoasterRuntime(fakeRoasterContext({ github }));
+
+		const result = await publishFindings(runtime, {
+			prNumber: 47,
+			envelope: buildFindingsEnvelope([WARNING_FINDING]),
+			lastReviewedHead: LAST_REVIEWED_HEAD,
+		});
+
+		expect(result.type).toBe("ok");
+		const written = await github.findPrDiscussionCommentByMarker({
+			cwd: "/repo",
+			prNumber: 47,
+			marker: "<!-- roaster:typescript-style -->",
+			authorLogin: "github-actions[bot]",
+		});
+		expect(written.type).toBe("ok");
+		if (written.type === "ok") {
+			const state = parseFindingsCommentMachineState(written.value?.body ?? "");
+			expect(state?.lastReviewedHead).toEqual(LAST_REVIEWED_HEAD);
+			expect(state?.priorFindings.findings.map((record) => record.finding)).toEqual([
+				WARNING_FINDING,
+			]);
+		}
+	});
+
+	test("carries prior findings forward when the rendered summary body is overwritten", async () => {
+		const existingState = buildFindingsCommentMachineState({
+			payload: payload({ count: 1, findings: [WARNING_FINDING] }),
+			lastReviewedHead: LAST_REVIEWED_HEAD,
+		});
+		const existingBody = renderFindingsComment(payload({ count: 1, findings: [WARNING_FINDING] }), {
+			machineState: existingState,
+		});
+		const github = new FakeRoasterGitHubGateway({
+			discussionCommentsByPr: new Map([
+				[47, [{ id: 10, body: existingBody, author: "github-actions[bot]" }]],
+			]),
+		});
+		const runtime = createRoasterRuntime(fakeRoasterContext({ github }));
+
+		const result = await publishFindings(runtime, {
+			prNumber: 47,
+			envelope: buildFindingsEnvelope([]),
+			lastReviewedHead: {
+				...LAST_REVIEWED_HEAD,
+				headSha: "3333333333333333333333333333333333333333",
+			},
+		});
+
+		expect(result.type).toBe("ok");
+		const written = await github.findPrDiscussionCommentByMarker({
+			cwd: "/repo",
+			prNumber: 47,
+			marker: "<!-- roaster:typescript-style -->",
+			authorLogin: "github-actions[bot]",
+		});
+		expect(written.type).toBe("ok");
+		if (written.type === "ok") {
+			expect(written.value?.body).toContain("**No findings** against base `main`. ✅");
+			const state = parseFindingsCommentMachineState(written.value?.body ?? "");
+			expect(state?.priorFindings.findings.map((record) => record.finding.summary)).toEqual([
+				"Avoid broad casts",
+			]);
+		}
+	});
 });
 
 describe("preserveActivityLog", () => {
@@ -368,4 +495,8 @@ function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
 		errorMessage: null,
 		...overrides,
 	};
+}
+
+function finding(overrides: Partial<ReviewFinding>): ReviewFinding {
+	return { ...WARNING_FINDING, ...overrides };
 }

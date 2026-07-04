@@ -10,16 +10,22 @@ import { z } from "zod";
 import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
 import type { RoasterGitHubGateway } from "../gateways/github.ts";
 import {
+	buildFindingsCommentMachineState,
 	parseFindingsCommentBody,
 	preserveActivityLog,
 	renderFindingsComment,
+	summaryMarkerForReview,
 	type FindingsPayload,
+	type LastReviewedHeadState,
 } from "./findings-comment.ts";
 export {
+	buildFindingsCommentMachineState,
 	extractInlineMarkers,
 	inlineMarkerForFinding,
 	parseFindingsCommentBody,
+	parseFindingsCommentMachineState,
 	preserveActivityLog,
+	PRIOR_FINDINGS_STATE_CAP,
 	renderFindingsComment,
 	renderInlineBody,
 	summaryMarkerForReview,
@@ -27,8 +33,13 @@ export {
 export type {
 	FindingsCommentBodyParseError,
 	FindingsCommentBodyParseResult,
+	FindingsCommentMachineState,
+	FindingsCommentMachineStateOptions,
 	FindingsPayload,
+	LastReviewedHeadState,
 	ParsedFindingsCommentBody,
+	PriorFindingRecord,
+	PriorFindingsState,
 } from "./findings-comment.ts";
 import { postInlineFindings } from "./inline-publication.ts";
 import { reviewRunResultSchema, type PostInlineFindingsResult } from "./models.ts";
@@ -97,6 +108,7 @@ export interface PublishFindingsOptions {
 	readonly runUrl?: string;
 	readonly fallbackReviewName?: string;
 	readonly fallbackBaseRef?: string;
+	readonly lastReviewedHead?: LastReviewedHeadState;
 }
 
 export type PublicationFailurePhase =
@@ -143,22 +155,29 @@ export async function publishFindings(
 		prNumber: options.prNumber,
 		runScope: ctx.runScope,
 	});
-	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus });
-	const parsedBody = parseFindingsCommentBody(renderedBody);
-	if (parsedBody.type === "error")
-		return publicationError("comment-body-parse", "invalid-comment-body", parsedBody.error.message);
-
+	const marker = summaryMarkerForReview(parsed.payload.reviewName);
 	const existing = await ctx.github.findPrDiscussionCommentByMarker({
 		...environmentOptions(ctx.runScope),
 		prNumber: options.prNumber,
-		marker: parsedBody.parsed.marker,
+		marker,
 		authorLogin: ROASTER_BOT_LOGIN,
 	});
 	if (existing.type === "error")
 		return publicationError("summary-lookup", "github-lookup-failed", existing.error.message);
 
+	const existingBody = existing.value?.body ?? "";
+	const machineState = buildFindingsCommentMachineState({
+		existingBody,
+		payload: parsed.payload,
+		lastReviewedHead: options.lastReviewedHead ?? null,
+	});
+	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus, machineState });
+	const parsedBody = parseFindingsCommentBody(renderedBody);
+	if (parsedBody.type === "error")
+		return publicationError("comment-body-parse", "invalid-comment-body", parsedBody.error.message);
+
 	const nextBody = preserveActivityLog(
-		existing.value?.body ?? "",
+		existingBody,
 		parsedBody.parsed.body,
 		activityLogEntry(options.runUrl),
 	);
