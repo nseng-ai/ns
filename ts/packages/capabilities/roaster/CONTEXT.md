@@ -64,6 +64,18 @@ An inline PR review comment for a finding that can be placed on a changed line.
 
 Avoid: treating every finding as inline-commentable.
 
+### Prior-findings context
+
+The bounded set of previously surfaced Findings for one review key on a PR, each with its review-thread resolution status, supplied to a review run as optional prompt input so the model avoids re-raising already-surfaced work.
+
+Avoid: Publication ledger, Review cache, full comment transcript, mandatory input for local runs.
+
+### Last-reviewed head
+
+The head commit (and reviewed base ref) recorded machine-readably in the Findings comment when a review publishes, used by later runs to distinguish regions changed since the last round from already-reviewed ones.
+
+Avoid: cache key, input filter (review input stays whole-diff), base SHA alone.
+
 ### Review log
 
 A Branch Memory record of a Roaster run under the `roaster` namespace and `reviews/<review-key>/...` key path.
