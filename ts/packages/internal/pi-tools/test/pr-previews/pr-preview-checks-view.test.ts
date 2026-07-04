@@ -11,6 +11,7 @@ import {
 import {
 	buildCheckRowLabel,
 	type PrPreviewCheck,
+	type PrPreviewChecksStackEntry,
 } from "../../src/pr-previews/preview-checks-model.ts";
 import {
 	checkListRows,
@@ -24,6 +25,30 @@ describe("PR checks preview vertical layout", () => {
 		expect(checkListRows({ totalRows: 20, checkCount: 12 })).toBe(11);
 		expect(checkListRows({ totalRows: 8, checkCount: 12 })).toBe(4);
 		expect(checkListRows({ totalRows: 8, checkCount: 1 })).toBe(1);
+	});
+
+	test("renders stack PRs above checks and details", () => {
+		const firstCheck = previewCheck("typescript");
+		const secondCheck = {
+			...previewCheck("docs-build"),
+			bucket: "passing",
+		} satisfies PrPreviewCheck;
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: stackPreviewModel([
+				stackEntry("feature/base", 101, [firstCheck]),
+				stackEntry("feature/top", 102, [secondCheck]),
+			]),
+			onClose: () => {},
+		});
+
+		const text = renderText(view);
+		expect(text).toContain("Stack checks preview · 2 PRs");
+		expect(text).toContain("PR #101: feature/base");
+		expect(text).toContain("PR #102: feature/top");
+		expect(text).toContain("Selected stack PR checks");
+		expect(selectedDetailsText(view)).toContain("typescript");
 	});
 
 	test("derives gh job log args from GitHub Actions job URLs", () => {
@@ -232,6 +257,42 @@ function previewModel(checks: readonly PrPreviewCheck[]): PrPreviewChecksViewMod
 		},
 		counts: { failing: checks.length, pending: 0, unknown: 0, passing: 0 },
 		fetchedAt: new Date("2026-06-25T00:00:00Z"),
+		checks,
+	};
+}
+
+function stackPreviewModel(stack: readonly PrPreviewChecksStackEntry[]): PrPreviewChecksViewModel {
+	const first = stack[0] ?? stackEntry("feature/checks", 123, []);
+	return {
+		target: first.target,
+		counts: { failing: 1, pending: 0, unknown: 0, passing: 1 },
+		fetchedAt: new Date("2026-06-25T00:00:00Z"),
+		checks: stack.flatMap((entry) => [...entry.checks]),
+		stack,
+	};
+}
+
+function stackEntry(
+	branch: string,
+	prNumber: number,
+	checks: readonly PrPreviewCheck[],
+): PrPreviewChecksStackEntry {
+	return {
+		target: {
+			pr_number: prNumber,
+			title: branch,
+			url: null,
+			branch,
+			head_ref_name: branch,
+			base_ref_name: "main",
+			head_ref_oid: null,
+		},
+		counts: {
+			failing: checks.filter((check) => check.bucket === "failing").length,
+			pending: checks.filter((check) => check.bucket === "pending").length,
+			unknown: checks.filter((check) => check.bucket === "unknown").length,
+			passing: checks.filter((check) => check.bucket === "passing").length,
+		},
 		checks,
 	};
 }

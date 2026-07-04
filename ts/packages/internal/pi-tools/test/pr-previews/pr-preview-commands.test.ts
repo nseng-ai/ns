@@ -171,6 +171,62 @@ function previewDownloadData(overrides: { prNumber?: number; counts?: object } =
 	};
 }
 
+function previewChecksData(prNumber: number, branch: string, checkName = "typescript"): object {
+	return {
+		found: true,
+		target: {
+			pr_number: prNumber,
+			title: `PR ${prNumber}`,
+			url: `https://example.test/pull/${prNumber}`,
+			branch,
+			head_ref_name: branch,
+			base_ref_name: "main",
+			head_ref_oid: null,
+		},
+		counts: { passing: 0, pending: 0, failing: 1, unknown: 0, hasMore: false },
+		checks: [
+			{
+				bucket: "failing",
+				kind: "check_run",
+				name: checkName,
+				workflow_name: "ci",
+				status: "COMPLETED",
+				conclusion: "FAILURE",
+				state: null,
+				started_at: null,
+				completed_at: null,
+				created_at: null,
+				details_url: null,
+				target_url: null,
+				identity: `check-run:ci:${checkName}`,
+			},
+		],
+	};
+}
+
+function stackBranchesData(branches: readonly string[]): object {
+	return {
+		branches,
+		current: branches.at(-1) ?? "main",
+	};
+}
+
+function mapBranchPrsData(branches: readonly string[]): object {
+	return {
+		branchPrs: branches.map((branch, index) => ({
+			branch,
+			pr_number: 700 + index,
+			title: branch,
+			url: `https://example.test/pull/${700 + index}`,
+			head_ref_name: branch,
+			base_ref_name: "main",
+		})),
+		missingBranches: [],
+		ambiguousBranches: [],
+		summary: { requested: branches.length, matched: branches.length, missing: 0, ambiguous: 0 },
+	};
+}
+
 function previewThreadsData(threadCount = 1): object {
 	return {
 		reviewThreads: Array.from({ length: threadCount }, (_unused, index) => ({
@@ -301,6 +357,15 @@ async function runPreviewCommand(options: RunPreviewCommandOptions): Promise<Fak
 	});
 }
 
+async function runChecksPreviewCommand(options: RunPreviewCommandOptions): Promise<FakeContext> {
+	return await runRegisteredCommand({
+		pi: options.pi,
+		commandName: PR_PREVIEW_CHECKS_COMMAND_NAME,
+		...(options.rawArgs === undefined ? {} : { rawArgs: options.rawArgs }),
+		...(options.ctx === undefined ? {} : { ctx: options.ctx }),
+	});
+}
+
 async function runRegisteredCommand(options: RunRegisteredCommandOptions): Promise<FakeContext> {
 	const ctx = options.ctx ?? new FakeContext();
 	const rawArgs = options.rawArgs ?? "";
@@ -320,6 +385,59 @@ describe("PR preview commands", () => {
 		expect([...pi.commands.keys()]).toEqual([
 			PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 			PR_PREVIEW_CHECKS_COMMAND_NAME,
+		]);
+	});
+});
+
+describe("/pr:preview-checks", () => {
+	test("loads stack branches, maps PRs, loads checks for every stack PR, then opens overlay", async () => {
+		const branches = ["feature/base", "feature/top"];
+		const pi = new FakePi([
+			execResult({ stdout: envelope(stackBranchesData(branches)) }),
+			execResult({ stdout: envelope(mapBranchPrsData(branches)) }),
+			execResult({ stdout: envelope(previewChecksData(700, "feature/base", "typescript")) }),
+			execResult({ stdout: envelope(previewChecksData(701, "feature/top", "docs-build")) }),
+		]);
+
+		const ctx = await runChecksPreviewCommand({ pi });
+
+		expect(pi.calls).toEqual([
+			{ command: "ns", args: ["slot", "gt", "exec", "stack-branches", "--format", "json"] },
+			{
+				command: "ns",
+				args: [
+					"address",
+					"exec",
+					"map-branch-prs",
+					"--branches-json",
+					JSON.stringify({ branches }),
+					"--format",
+					"json",
+				],
+			},
+			{
+				command: "ns",
+				args: ["address", "exec", "pr-checks", "--pr-number", "700", "--format", "json"],
+			},
+			{
+				command: "ns",
+				args: ["address", "exec", "pr-checks", "--pr-number", "701", "--format", "json"],
+			},
+		]);
+		expect(ctx.customCalls).toHaveLength(1);
+		expect(ctx.customCalls[0]?.options).toMatchObject({ overlay: true });
+	});
+
+	test("explicit PR number skips stack discovery", async () => {
+		const pi = new FakePi(execResult({ stdout: envelope(previewChecksData(456, "feature/pr")) }));
+
+		await runChecksPreviewCommand({ pi, rawArgs: "456" });
+
+		expect(pi.calls).toEqual([
+			{
+				command: "ns",
+				args: ["address", "exec", "pr-checks", "--pr-number", "456", "--format", "json"],
+			},
 		]);
 	});
 });

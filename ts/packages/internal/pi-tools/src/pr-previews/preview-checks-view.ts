@@ -3,11 +3,16 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import {
+	aggregatePreviewChecksCounts,
 	bucketPresentation,
+	countsSummary,
 	buildCheckDetailRows,
 	buildCheckRowLabel,
+	buildStackEntryRowLabel,
+	previewChecksStackEntries,
 	type PrPreviewChecksDetailRow,
 	type PrPreviewCheck,
+	type PrPreviewChecksStackEntry,
 	type PrPreviewChecksViewModel,
 	type PrPreviewStatusColor,
 } from "./preview-checks-model.ts";
@@ -73,7 +78,9 @@ export class PrPreviewChecksView implements Component {
 		| ((check: PrPreviewCheck, options: PrPreviewCheckLogLoadOptions) => Promise<readonly string[]>)
 		| undefined;
 	private readonly logLoadTimeoutMs: number;
-	private selectedIndex: number;
+	private selectedTargetIndex: number;
+	private selectedCheckIndex: number;
+	private stackScroll: number;
 	private listScroll: number;
 	private detailScroll: number;
 	private readonly logCache: Map<PrPreviewCheck, CheckLogCacheEntry>;
@@ -85,7 +92,9 @@ export class PrPreviewChecksView implements Component {
 		this.onClose = options.onClose;
 		this.onLoadLogs = options.onLoadLogs;
 		this.logLoadTimeoutMs = options.logLoadTimeoutMs ?? DEFAULT_LOG_LOAD_TIMEOUT_MS;
-		this.selectedIndex = 0;
+		this.selectedTargetIndex = initialTargetIndex(options.model);
+		this.selectedCheckIndex = 0;
+		this.stackScroll = 0;
 		this.listScroll = 0;
 		this.detailScroll = 0;
 		this.logCache = new Map();
@@ -98,7 +107,7 @@ export class PrPreviewChecksView implements Component {
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
-			"↑↓/jk select · l summarize logs · PgUp/PgDn scroll details · q/esc close",
+			"←→ stack · ↑↓/jk checks · l summarize logs · PgUp/PgDn scroll details · q/esc close",
 		);
 		const chromeRows = 2 + header.length + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
@@ -118,12 +127,20 @@ export class PrPreviewChecksView implements Component {
 			this.onClose();
 			return;
 		}
+		if (matchesKey(data, Key.right)) {
+			this.moveStackSelection(1);
+			return;
+		}
+		if (matchesKey(data, Key.left)) {
+			this.moveStackSelection(-1);
+			return;
+		}
 		if (matchesKey(data, Key.down) || data === "j") {
-			this.moveSelection(1);
+			this.moveCheckSelection(1);
 			return;
 		}
 		if (matchesKey(data, Key.up) || data === "k") {
-			this.moveSelection(-1);
+			this.moveCheckSelection(-1);
 			return;
 		}
 		if (matchesKey(data, Key.pageDown) || data === " ") {
@@ -146,26 +163,76 @@ export class PrPreviewChecksView implements Component {
 	}
 
 	private renderBody(width: number, rows: number): string[] {
-		if (this.model.checks.length === 0) return this.renderEmptyBody(width, rows);
-		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.checks.length - 1);
-		const listRows = checkListRows({ totalRows: rows, checkCount: this.model.checks.length });
-		const detailRows = Math.max(1, rows - listRows - 2);
+		const entries = previewChecksStackEntries(this.model);
+		if (entries.length === 1 && entries[0]?.checks.length === 0)
+			return this.renderEmptyBody(width, rows);
+		this.selectedTargetIndex = clamp(this.selectedTargetIndex, 0, entries.length - 1);
+		const selectedEntry = entries[this.selectedTargetIndex];
+		if (selectedEntry === undefined) return this.renderEmptyBody(width, rows);
+		this.selectedCheckIndex = clamp(
+			this.selectedCheckIndex,
+			0,
+			Math.max(0, selectedEntry.checks.length - 1),
+		);
+
+		const shouldRenderStack = entries.length > 1;
+		const stackRows = shouldRenderStack
+			? stackListRows({ totalRows: rows, stackCount: entries.length })
+			: 0;
+		const rowsAfterStack = Math.max(1, rows - stackRows - (shouldRenderStack ? 2 : 0));
+		const listRows =
+			selectedEntry.checks.length === 0
+				? 1
+				: checkListRows({ totalRows: rowsAfterStack, checkCount: selectedEntry.checks.length });
+		const detailRows = Math.max(1, rowsAfterStack - listRows - 2);
+		this.stackScroll = reconcileScroll({
+			scroll: this.stackScroll,
+			anchor: this.selectedTargetIndex,
+			areaHeight: Math.max(1, stackRows),
+			totalLines: entries.length,
+		});
 		this.listScroll = reconcileScroll({
 			scroll: this.listScroll,
-			anchor: this.selectedIndex,
+			anchor: this.selectedCheckIndex,
 			areaHeight: listRows,
-			totalLines: this.model.checks.length,
+			totalLines: selectedEntry.checks.length,
 		});
 		return [
-			...this.renderCheckListLines(width, listRows),
+			...(shouldRenderStack
+				? [
+						...this.renderStackListLines(entries, width, stackRows),
+						this.color("dim", "─".repeat(Math.max(1, width))),
+						this.color("muted", "Selected stack PR checks"),
+					]
+				: []),
+			...this.renderCheckListLines(selectedEntry, width, listRows),
 			this.color("dim", "─".repeat(Math.max(1, width))),
 			this.color("muted", "Selected check details"),
-			...this.renderSelectedCheckDetailLines(width, detailRows),
+			...this.renderSelectedCheckDetailLines(selectedEntry, width, detailRows),
 		];
 	}
 
-	private renderCheckListLines(width: number, rows: number): string[] {
-		const visibleChecks = this.model.checks.slice(this.listScroll, this.listScroll + rows);
+	private renderStackListLines(
+		entries: readonly PrPreviewChecksStackEntry[],
+		width: number,
+		rows: number,
+	): string[] {
+		const visibleEntries = entries.slice(this.stackScroll, this.stackScroll + rows);
+		return Array.from({ length: rows }, (_unused, row) => {
+			const entry = visibleEntries[row];
+			if (entry === undefined) return "";
+			return this.renderStackRow(entry, this.stackScroll + row, width);
+		});
+	}
+
+	private renderCheckListLines(
+		entry: PrPreviewChecksStackEntry,
+		width: number,
+		rows: number,
+	): string[] {
+		if (entry.checks.length === 0)
+			return [this.color("muted", "  No checks returned for this stack PR.")];
+		const visibleChecks = entry.checks.slice(this.listScroll, this.listScroll + rows);
 		return Array.from({ length: rows }, (_unused, row) => {
 			const check = visibleChecks[row];
 			if (check === undefined) return "";
@@ -173,8 +240,12 @@ export class PrPreviewChecksView implements Component {
 		});
 	}
 
-	private renderSelectedCheckDetailLines(width: number, rows: number): string[] {
-		const detailLines = this.renderDetailLines(this.model.checks[this.selectedIndex]);
+	private renderSelectedCheckDetailLines(
+		entry: PrPreviewChecksStackEntry,
+		width: number,
+		rows: number,
+	): string[] {
+		const detailLines = this.renderDetailLines(entry.checks[this.selectedCheckIndex]);
 		const viewport = sliceWrappedDetailLinesForViewport({
 			lines: detailLines,
 			width,
@@ -248,10 +319,21 @@ export class PrPreviewChecksView implements Component {
 		}
 	}
 
+	private renderStackRow(
+		entry: PrPreviewChecksStackEntry,
+		actualIndex: number,
+		width: number,
+	): string {
+		const prefix = actualIndex === this.selectedTargetIndex ? "◆ " : "◇ ";
+		const row = fitToWidth(`${prefix}${buildStackEntryRowLabel(entry)}`, width);
+		if (actualIndex !== this.selectedTargetIndex) return this.color("muted", row);
+		return this.theme.bg("selectedBg", this.color("accent", row));
+	}
+
 	private renderCheckRow(check: PrPreviewCheck, actualIndex: number, width: number): string {
-		const prefix = actualIndex === this.selectedIndex ? "> " : "  ";
+		const prefix = actualIndex === this.selectedCheckIndex ? "> " : "  ";
 		const row = fitToWidth(`${prefix}${buildCheckRowLabel(check)}`, width);
-		if (actualIndex !== this.selectedIndex) {
+		if (actualIndex !== this.selectedCheckIndex) {
 			const presentation = bucketPresentation(check.bucket);
 			const colored = this.color(presentation.color, row);
 			return presentation.bold ? this.theme.bold(colored) : colored;
@@ -259,11 +341,24 @@ export class PrPreviewChecksView implements Component {
 		return this.theme.bg("selectedBg", this.color("accent", row));
 	}
 
-	private moveSelection(delta: number): void {
-		if (this.model.checks.length === 0) return;
-		const next = clamp(this.selectedIndex + delta, 0, this.model.checks.length - 1);
-		if (next === this.selectedIndex) return;
-		this.selectedIndex = next;
+	private moveStackSelection(delta: number): void {
+		const entries = previewChecksStackEntries(this.model);
+		if (entries.length <= 1) return;
+		const next = clamp(this.selectedTargetIndex + delta, 0, entries.length - 1);
+		if (next === this.selectedTargetIndex) return;
+		this.selectedTargetIndex = next;
+		this.selectedCheckIndex = 0;
+		this.listScroll = 0;
+		this.detailScroll = 0;
+		this.tui.requestRender();
+	}
+
+	private moveCheckSelection(delta: number): void {
+		const entry = previewChecksStackEntries(this.model)[this.selectedTargetIndex];
+		if (entry === undefined || entry.checks.length === 0) return;
+		const next = clamp(this.selectedCheckIndex + delta, 0, entry.checks.length - 1);
+		if (next === this.selectedCheckIndex) return;
+		this.selectedCheckIndex = next;
 		this.detailScroll = 0;
 		this.tui.requestRender();
 	}
@@ -274,7 +369,8 @@ export class PrPreviewChecksView implements Component {
 	}
 
 	private async loadSelectedCheckLogs(): Promise<void> {
-		const check = this.model.checks[this.selectedIndex];
+		const entry = previewChecksStackEntries(this.model)[this.selectedTargetIndex];
+		const check = entry?.checks[this.selectedCheckIndex];
 		if (check === undefined || this.onLoadLogs === undefined) return;
 		const cached = this.logCache.get(check);
 		if (cached?.type === "loading") return;
@@ -317,6 +413,12 @@ export class PrPreviewChecksView implements Component {
 	}
 }
 
+export function stackListRows(options: { totalRows: number; stackCount: number }): number {
+	const availableRows = Math.max(1, Math.floor(options.totalRows * 0.35));
+	const preferredRows = Math.max(2, Math.floor(options.totalRows * 0.22));
+	return clamp(Math.min(options.stackCount, preferredRows), 1, availableRows);
+}
+
 export function checkListRows(options: { totalRows: number; checkCount: number }): number {
 	const availableRows = Math.max(1, options.totalRows - 3);
 	const preferredRows = Math.max(4, Math.floor(options.totalRows * 0.55));
@@ -324,12 +426,21 @@ export function checkListRows(options: { totalRows: number; checkCount: number }
 }
 
 export function buildPreviewHeaderLines(model: PrPreviewChecksViewModel): string[] {
+	const entries = previewChecksStackEntries(model);
+	if (entries.length > 1) {
+		const counts = aggregatePreviewChecksCounts(entries);
+		const current = model.target.head_ref_name ?? model.target.branch ?? "?";
+		return [
+			`Stack checks preview · ${entries.length} PRs · current ${current}`,
+			`checks ${countsSummary(counts)} · snapshot ${model.fetchedAt.toISOString()}`,
+		];
+	}
 	const head = model.target.head_ref_name ?? model.target.branch ?? "?";
 	const base = model.target.base_ref_name ?? "?";
 	const counts = model.counts;
 	return [
 		`PR #${model.target.pr_number}: ${model.target.title ?? "(untitled)"}`,
-		`${head} → ${base} · checks ${counts.failing} failing / ${counts.pending} pending / ${counts.unknown} unknown / ${counts.passing} passing${counts.hasMore === true ? " · more not shown" : ""} · snapshot ${model.fetchedAt.toISOString()}`,
+		`${head} → ${base} · checks ${countsSummary(counts)} · snapshot ${model.fetchedAt.toISOString()}`,
 	];
 }
 
@@ -340,6 +451,16 @@ export function buildEmptyStateLines(model: PrPreviewChecksViewModel): string[] 
 		"",
 		"This preview is read-only. It does not fetch logs or inject session text.",
 	];
+}
+
+function initialTargetIndex(model: PrPreviewChecksViewModel): number {
+	const entries = previewChecksStackEntries(model);
+	const modelBranch = model.target.head_ref_name ?? model.target.branch;
+	if (modelBranch === null) return 0;
+	const index = entries.findIndex(
+		(entry) => (entry.target.head_ref_name ?? entry.target.branch) === modelBranch,
+	);
+	return index === -1 ? 0 : index;
 }
 
 function createLogLoadSignal(timeoutMs: number): AbortSignal {

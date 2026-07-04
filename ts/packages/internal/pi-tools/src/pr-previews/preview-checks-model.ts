@@ -4,7 +4,7 @@ export type PrPreviewCheckBucket = "failing" | "pending" | "unknown" | "passing"
 export type PrPreviewCheckKind = "check_run" | "status_context" | "unknown";
 
 export interface PrPreviewChecksTarget {
-	pr_number: number;
+	pr_number: number | null;
 	title: string | null;
 	url: string | null;
 	branch: string | null;
@@ -37,11 +37,18 @@ export interface PrPreviewCheck {
 	identity: string | null;
 }
 
+export interface PrPreviewChecksStackEntry {
+	target: PrPreviewChecksTarget;
+	counts: PrPreviewChecksCounts;
+	checks: readonly PrPreviewCheck[];
+}
+
 export interface PrPreviewChecksViewModel {
 	target: PrPreviewChecksTarget;
 	counts: PrPreviewChecksCounts;
 	fetchedAt: Date;
 	checks: readonly PrPreviewCheck[];
+	stack?: readonly PrPreviewChecksStackEntry[];
 }
 
 export interface PrPreviewChecksDetailRow {
@@ -85,6 +92,26 @@ export function sortPreviewChecks(checks: readonly PrPreviewCheck[]): PrPreviewC
 	});
 }
 
+export function previewChecksStackEntries(
+	model: PrPreviewChecksViewModel,
+): readonly PrPreviewChecksStackEntry[] {
+	if (model.stack !== undefined && model.stack.length > 0) return model.stack;
+	return [{ target: model.target, counts: model.counts, checks: model.checks }];
+}
+
+export function buildStackEntryRowLabel(entry: PrPreviewChecksStackEntry): string {
+	const targetName = `PR #${entry.target.pr_number ?? "?"}: ${entry.target.title ?? entry.target.head_ref_name ?? entry.target.branch ?? "(unmapped branch)"}`;
+	const branch = entry.target.head_ref_name ?? entry.target.branch;
+	const route = branch === null ? null : `${branch} → ${entry.target.base_ref_name ?? "?"}`;
+	return [targetName, route, countsSummary(entry.counts)]
+		.filter((part): part is string => part !== null)
+		.join(" · ");
+}
+
+export function countsSummary(counts: PrPreviewChecksCounts): string {
+	return `${counts.failing} failing / ${counts.pending} pending / ${counts.unknown} unknown / ${counts.passing} passing${counts.hasMore === true ? " · more not shown" : ""}`;
+}
+
 export function buildCheckRowLabel(check: PrPreviewCheck): string {
 	const title = stripTerminalEscapes(check.name);
 	return [
@@ -96,6 +123,21 @@ export function buildCheckRowLabel(check: PrPreviewCheck): string {
 	]
 		.filter((part): part is string => part !== null)
 		.join(" · ");
+}
+
+export function aggregatePreviewChecksCounts(
+	entries: readonly PrPreviewChecksStackEntry[],
+): PrPreviewChecksCounts {
+	return entries.reduce<PrPreviewChecksCounts>(
+		(counts, entry) => ({
+			passing: counts.passing + entry.counts.passing,
+			pending: counts.pending + entry.counts.pending,
+			failing: counts.failing + entry.counts.failing,
+			unknown: counts.unknown + entry.counts.unknown,
+			...(counts.hasMore === true || entry.counts.hasMore === true ? { hasMore: true } : {}),
+		}),
+		{ passing: 0, pending: 0, failing: 0, unknown: 0 },
+	);
 }
 
 export function buildCheckDetailRows(
