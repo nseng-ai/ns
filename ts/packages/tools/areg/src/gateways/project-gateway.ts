@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, realpath, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { RealGitGateway } from "@ns/capability-kit/git";
@@ -26,6 +26,7 @@ import type {
 	AregProjectMutationResult,
 	AregProjectRemoveEmptyDirRequest,
 	AregProjectRemoveEmptyDirResult,
+	AregProjectSymlinkDeleteRequest,
 	AregProjectTextWriteRequest,
 	AregSkillFindRootsInspection,
 	AregSkillFindSkillInspection,
@@ -45,6 +46,7 @@ import {
 	resolveAllowedWriteTarget,
 	resolveExistingDirectory,
 	toProjectPath,
+	validateSkillKindDeleteSymlinkTarget,
 	validateSkillKindDeleteTarget,
 	validateSkillKindRemoveDirTarget,
 	validateWriteTarget,
@@ -173,6 +175,13 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		return target.type === "error" ? { ok: false, error: target.error } : { ok: true };
 	}
 
+	async preflightDeleteSymlink(
+		request: AregProjectSymlinkDeleteRequest,
+	): Promise<AregProjectMutationResult> {
+		const target = await resolveDeleteSymlinkTarget(request);
+		return target.type === "error" ? { ok: false, error: target.error } : { ok: true };
+	}
+
 	async preflightRemoveEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectMutationResult> {
@@ -236,6 +245,25 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		}
 	}
 
+	async deleteSymlink(
+		request: AregProjectSymlinkDeleteRequest,
+	): Promise<AregProjectMutationResult> {
+		const target = await resolveDeleteSymlinkTarget(request);
+		if (target.type === "error") return { ok: false, error: target.error };
+		try {
+			await unlink(target.value);
+			return { ok: true };
+		} catch (error) {
+			return {
+				ok: false,
+				error: errorInfo(
+					"skill-kind-delete-symlink-failed",
+					`Failed to delete ${request.description} at ${target.value}: ${formatErrorMessage(error)}`,
+				),
+			};
+		}
+	}
+
 	async removeEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectRemoveEmptyDirResult> {
@@ -288,6 +316,31 @@ async function resolveDeleteFileTarget(
 	);
 	if (!validation.ok) return { type: "error", error: validation.error };
 	return { type: "ok", value: target.value };
+}
+
+async function resolveDeleteSymlinkTarget(
+	request: AregProjectSymlinkDeleteRequest,
+): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
+	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
+	if (path.isAbsolute(request.relativePath) || request.relativePath.split("/").includes("..")) {
+		return {
+			type: "error",
+			error: errorInfo(
+				"skill-kind-delete-symlink-refused",
+				`Refusing to delete ${request.description}: unsafe target ${request.relativePath}.`,
+			),
+		};
+	}
+	const target = toProjectPath(projectRoot.value, request.relativePath);
+	const validation = await validateSkillKindDeleteSymlinkTarget(
+		target,
+		projectRoot.value,
+		request.relativePath,
+		request.description,
+	);
+	if (!validation.ok) return { type: "error", error: validation.error };
+	return { type: "ok", value: target };
 }
 
 async function resolveRemoveEmptyDirTarget(
@@ -509,6 +562,8 @@ async function inspectSkillKindSkill(
 	const repoSkillMd = await inspectTextFile(
 		toProjectPath(projectDir, skillLookupFileRelativePath(repoDescriptor.root, name)),
 	);
+	const agentsPath = await inspectPath(toProjectPath(projectDir, `.agents/skills/${name}`));
+	const claudePath = await inspectPath(toProjectPath(projectDir, `.claude/skills/${name}`));
 	if (repoDir.type !== "missing" || repoSkillMd.type !== "missing") {
 		return {
 			name,
@@ -517,6 +572,8 @@ async function inspectSkillKindSkill(
 			skillDir: repoDir,
 			skillMd: repoSkillMd,
 			openaiPolicy: await inspectTextFile(path.join(repoBase, "agents", "openai.yaml")),
+			agentsPath,
+			claudePath,
 		};
 	}
 	const vendoredDescriptor = skillKindDescriptorForSourceType("vendored");
@@ -533,6 +590,8 @@ async function inspectSkillKindSkill(
 			toProjectPath(projectDir, skillLookupFileRelativePath(vendoredDescriptor.root, name)),
 		),
 		openaiPolicy: await inspectTextFile(path.join(vendoredBase, "agents", "openai.yaml")),
+		agentsPath,
+		claudePath,
 	};
 }
 

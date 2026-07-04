@@ -23,6 +23,8 @@ const sampleSkillKindListResult: SkillKindListResult = {
 				userInvocableKeyPresent: false,
 				userInvocableFalse: false,
 				piExcluded: false,
+				agentsMirror: false,
+				claudeMirror: false,
 			},
 			replacement: { verified: false, label: "replacement-missing" },
 			notes: ["diagnostic note"],
@@ -77,7 +79,10 @@ describe("areg skill list/show CLI", () => {
 						{ openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" },
 					),
 					skill("ambient", AMBIENT_ONLY_SKILL),
-					skill("broken", "---\nname: broken\ndisable-model-invocation: true\n---\n"),
+					skill("broken", "---\nname: broken\ndisable-model-invocation: true\n---\n", {
+						agentsPath: { type: "symlink", target: "../../skills/broken" },
+						claudePath: { type: "symlink", target: "../../.agents/skills/broken" },
+					}),
 				],
 			},
 		});
@@ -100,6 +105,25 @@ describe("areg skill list/show CLI", () => {
 		expect(output).toMatch(
 			/^broken\s+inconsistent\s+mixed\s+mixed\s+missing\s+.*disable-model-invocation is present but agents\/openai\.yaml is missing\./mu,
 		);
+	});
+
+	test("list reports unlisted skills with hidden and excluded status columns", async () => {
+		const run = runScenario(["skill", "list"], {
+			project: {
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				localSkills: [
+					skill("setup-hidden", "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n", {
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					}),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toMatch(/^setup-hidden\s+unlisted\s+disabled\s+hidden\s+excluded\s+/mu);
+		expect(output).toContain("unlisted hides this skill from all harness typeaheads");
+		expect(output).not.toContain("without a verified replacement command");
 	});
 
 	test("list renderer propagates ANSI capability", () => {
@@ -135,6 +159,8 @@ describe("areg skill list/show CLI", () => {
 						userInvocableKeyPresent: false,
 						userInvocableFalse: false,
 						piExcluded: false,
+						agentsMirror: false,
+						claudeMirror: false,
 					},
 					replacement: {
 						verified: false,
@@ -155,6 +181,8 @@ describe("areg skill list/show CLI", () => {
 						userInvocableKeyPresent: false,
 						userInvocableFalse: false,
 						piExcluded: false,
+						agentsMirror: false,
+						claudeMirror: false,
 					},
 					replacement: {
 						verified: false,
@@ -199,9 +227,46 @@ describe("areg skill list/show CLI", () => {
 				"- agents/openai.yaml: present",
 				"- user-invocable:false: absent",
 				"- Pi skill exclusion: present",
+				"- .agents/skills mirror: absent",
+				"- .claude/skills mirror: absent",
 				"- Pi replacement: replacement-verified:ns:branch-context:from-plan",
 			].join("\n"),
 		);
+	});
+
+	test("show renders unlisted mirrors and suppresses replacement-advice noise", async () => {
+		const run = runScenario(["skill", "show", "setup-hidden"], {
+			project: {
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				localSkills: [
+					skill("setup-hidden", "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n", {
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					}),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain(
+			[
+				"Skill: setup-hidden",
+				"Kind: unlisted",
+				"model-invocation: disabled",
+				"native-direct: hidden",
+				"pi-extension: excluded",
+				"Artifacts:",
+				"- disable-model-invocation: present",
+				"- agents/openai.yaml: present",
+				"- user-invocable:false: absent",
+				"- Pi skill exclusion: present",
+				"- .agents/skills mirror: absent",
+				"- .claude/skills mirror: absent",
+				"- Pi replacement: replacement-missing",
+			].join("\n"),
+		);
+		expect(output).toContain("unlisted hides this skill from all harness typeaheads");
+		expect(output).not.toContain("without a verified replacement command");
 	});
 
 	test("fails when frontmatter or target project are invalid", async () => {

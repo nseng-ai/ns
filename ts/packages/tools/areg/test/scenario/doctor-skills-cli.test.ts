@@ -215,6 +215,60 @@ describe("areg doctor skills CLI", () => {
 		]);
 	});
 
+	test("does not report replacement drift for healthy unlisted skills", async () => {
+		const run = runScenario(["doctor", "skills"], {
+			project: {
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				skillsDirectoryNames: ["setup-hidden"],
+				checkSkills: [
+					localCheckSkill("setup-hidden", {
+						agentsPath: { type: "missing" },
+						claudePath: { type: "missing" },
+					}),
+				],
+				localSkills: [
+					skill("setup-hidden", {
+						skillMd: "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n",
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					}),
+				],
+				piSkillInventory: { skillNames: ["setup-hidden"], isApproximation: false, source: "test" },
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("No skill registry drift found.\n");
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("still reports replacement drift for degraded unlisted-like skills", async () => {
+		const run = runScenario(["doctor", "skills", "--format", "json"], {
+			project: {
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				skillsDirectoryNames: ["setup-hidden"],
+				localSkills: [
+					skill("setup-hidden", {
+						skillMd: "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n",
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+						agentsPath: { type: "symlink", target: "../../skills/setup-hidden" },
+						claudePath: { type: "symlink", target: "../../.agents/skills/setup-hidden" },
+					}),
+				],
+				piSkillInventory: { skillNames: ["setup-hidden"], isApproximation: false, source: "test" },
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const findings = JSON.parse(run.stdout.join("")).data.findings;
+		expect(findings).toContainEqual(
+			expect.objectContaining({
+				code: "excluded-skill-without-replacement",
+				severity: "error",
+				skill: "setup-hidden",
+			}),
+		);
+	});
+
 	test("machine-readable result shape includes stable summary and finding fields", async () => {
 		const run = runScenario(["doctor", "skills", "--format", "json"], {
 			project: {

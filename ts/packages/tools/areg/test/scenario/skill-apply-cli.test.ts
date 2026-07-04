@@ -185,6 +185,167 @@ describe("areg skill apply CLI", () => {
 		expect(accepted.stdout.join("")).toContain("Removed skills/demo/agents");
 	});
 
+	test("apply unlisted converges artifacts and deletes mirror symlinks with --yes", async () => {
+		const project = new FakeAregProjectGateway({
+			piSettings: { skills: ["-skills/setup-hidden"] },
+			localSkills: [
+				skill("setup-hidden", "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n", {
+					openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					agentsPath: { type: "symlink", target: "../../skills/setup-hidden" },
+					claudePath: { type: "symlink", target: "../../.agents/skills/setup-hidden" },
+				}),
+			],
+		});
+		const run = runScenario(["skill", "apply", "--yes", "unlisted", "setup-hidden"], {
+			context: contextWithProject(project),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		const output = run.stdout.join("");
+		expect(output).toContain("Applying unlisted to setup-hidden...");
+		expect(output).toContain(
+			"Skipped skills/setup-hidden/SKILL.md: SKILL.md frontmatter already current",
+		);
+		expect(output).toContain(
+			"Skipped skills/setup-hidden/agents/openai.yaml: Codex openai.yaml already current",
+		);
+		expect(output).toContain("Skipped .pi/settings.json: -skills/setup-hidden already present");
+		expect(output).toContain("Deleted symlink .claude/skills/setup-hidden");
+		expect(output).toContain("Deleted symlink .agents/skills/setup-hidden");
+		const afterApply = await project.inspectSkillKindSkill({
+			projectDir: "/repo",
+			skillName: "setup-hidden",
+			env: {},
+		});
+		expect(afterApply.agentsPath).toEqual({ type: "missing" });
+		expect(afterApply.claudePath).toEqual({ type: "missing" });
+	});
+
+	test("apply unlisted from scratch writes artifacts and skips absent mirrors", async () => {
+		const project = new FakeAregProjectGateway({ localSkills: [skill("setup-hidden")] });
+		const run = runScenario(["skill", "apply", "unlisted", "setup-hidden"], {
+			context: contextWithProject(project),
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("Wrote skills/setup-hidden/SKILL.md");
+		expect(output).toContain("Wrote skills/setup-hidden/agents/openai.yaml");
+		expect(output).toContain("Wrote .pi/settings.json");
+		expect(output).toContain(
+			"Skipped .claude/skills/setup-hidden: .claude/skills/setup-hidden absent",
+		);
+		expect(output).toContain(
+			"Skipped .agents/skills/setup-hidden: .agents/skills/setup-hidden absent",
+		);
+		expect(project.text(".pi/settings.json")).toContain("-skills/setup-hidden");
+	});
+
+	test("dry-run unlisted plans symlink deletions without prompting or mutating", async () => {
+		const project = new FakeAregProjectGateway({
+			piSettings: { skills: ["-skills/setup-hidden"] },
+			localSkills: [
+				skill("setup-hidden", "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n", {
+					openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					agentsPath: { type: "symlink", target: "../../skills/setup-hidden" },
+					claudePath: { type: "symlink", target: "../../.agents/skills/setup-hidden" },
+				}),
+			],
+		});
+		const interaction = createFakeClinkrInteraction();
+		const run = runScenario(["skill", "apply", "--dry-run", "unlisted", "setup-hidden"], {
+			context: contextWithProject(project, new FakeAregPromptGateway(), interaction),
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("Would delete symlink .claude/skills/setup-hidden");
+		expect(output).toContain("Would delete symlink .agents/skills/setup-hidden");
+		expect(interaction.requests()).toEqual([]);
+		expect(mutationOperations(project.operations())).toEqual([]);
+	});
+
+	test("unlisted mirror deletions require confirmation or --yes", async () => {
+		const fixture = () =>
+			new FakeAregProjectGateway({
+				piSettings: { skills: ["-skills/setup-hidden"] },
+				localSkills: [
+					skill("setup-hidden", "---\nname: setup-hidden\ndisable-model-invocation: true\n---\n", {
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+						agentsPath: { type: "symlink", target: "../../skills/setup-hidden" },
+						claudePath: { type: "symlink", target: "../../.agents/skills/setup-hidden" },
+					}),
+				],
+			});
+
+		const missingYes = runScenario(
+			["skill", "apply", "unlisted", "setup-hidden", "--format", "json"],
+			{
+				context: contextWithProject(fixture()),
+			},
+		);
+		expect(await missingYes.exit).toBe(2);
+		expect(JSON.parse(missingYes.stdout.join(""))).toMatchObject({
+			status: "usageError",
+			data: { missingFlag: "--yes" },
+		});
+
+		const declinedProject = fixture();
+		const declined = runScenario(["skill", "apply", "unlisted", "setup-hidden"], {
+			context: contextWithProject(
+				declinedProject,
+				new FakeAregPromptGateway(),
+				createFakeClinkrInteraction({ confirmations: [{ type: "declined" }], isInteractive: true }),
+			),
+		});
+		expect(await declined.exit).toBe(0);
+		expect(declined.stdout.join("")).toContain("Declined to apply unlisted to setup-hidden.");
+		expect(mutationOperations(declinedProject.operations())).toEqual([]);
+	});
+
+	test("apply unlisted refuses skills with a registered replacement surface", async () => {
+		const run = runScenario(["skill", "apply", "--yes", "unlisted", "setup-dprint"], {
+			project: { localSkills: [skill("setup-dprint")] },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			"still has a COMMAND_BACKED_SKILL_REGISTRY entry (/setup:dprint); remove the registry entry first",
+		);
+		expect(run.stdout.join("")).toBe("");
+	});
+
+	test("apply unlisted refuses vendored skills", async () => {
+		const run = runScenario(["skill", "apply", "--yes", "unlisted", "vendored"], {
+			project: { localSkills: [skill("vendored", undefined, { sourceType: "vendored" })] },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			"is not first-party (.agents/skills/vendored); unlisted only applies to skills/<name>/ sources",
+		);
+	});
+
+	test("apply unlisted refuses wrong-target mirror symlinks before mutation", async () => {
+		const project = new FakeAregProjectGateway({
+			localSkills: [
+				skill("setup-hidden", undefined, {
+					claudePath: { type: "symlink", target: "../../elsewhere/setup-hidden" },
+				}),
+			],
+		});
+		const run = runScenario(["skill", "apply", "--yes", "unlisted", "setup-hidden"], {
+			context: contextWithProject(project),
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			".claude/skills/setup-hidden points to ../../elsewhere/setup-hidden, expected ../../.agents/skills/setup-hidden",
+		);
+		expect(mutationOperations(project.operations())).toEqual([]);
+	});
+
 	test("apply rejects non-managed sidecar content even with yes", async () => {
 		const run = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
 			project: {

@@ -2,11 +2,18 @@ import { err, type Result } from "@ns/core/result";
 
 import type {
 	AregSkillKindDeletePlan,
+	AregSkillKindDeleteSymlinkPlan,
 	AregSkillKindRemoveEmptyDirPlan,
 	AregSkillKindSkillInspection,
 	AregSkillKindTextWritePlan,
 } from "../gateways.ts";
 import { replacementAdvice, verifyPiReplacement } from "./pi-replacement.ts";
+import {
+	agentsSkillMirrorRelativePath,
+	claudeSkillMirrorRelativePath,
+	expectedAgentsSkillSymlinkTarget,
+	expectedClaudeSkillSymlinkTarget,
+} from "./skill-mirror-conventions.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import {
 	PROJECT_FILE_MUTATION_OPERATION_TYPES,
@@ -17,6 +24,7 @@ import { planFrontmatterOperation } from "./skill-kind-frontmatter.ts";
 import {
 	isLegacyBareOpenaiPolicyContent,
 	isManagedOpenaiPolicyContent,
+	KIND_PROPERTIES,
 	MANAGED_OPENAI_POLICY,
 	type SkillInvocationKind,
 	type SkillKindProjectInspection,
@@ -53,10 +61,16 @@ export interface PlannedRemoveEmptyDirOperation extends PlannedApplyOperationBas
 	type: "remove-empty-dir";
 }
 
+export interface PlannedDeleteSymlinkOperation extends PlannedApplyOperationBase {
+	type: "delete-symlink";
+	expectedTarget: string;
+}
+
 export type PlannedApplyOperation =
 	| PlannedWriteOperation
 	| PlannedSkipOperation
 	| PlannedDeleteOperation
+	| PlannedDeleteSymlinkOperation
 	| PlannedRemoveEmptyDirOperation;
 
 export interface SkillKindApplyPlan {
@@ -107,6 +121,19 @@ export function buildSkillKindApplyPlan(
 				message: replacementAdvice(skill.name, replacement.surface),
 			});
 	}
+	if (kind === "unlisted") {
+		if (skill.sourceType !== "repo")
+			return err({
+				code: "unlisted_requires_first_party",
+				message: `Skill '${skill.name}' is not first-party (${skill.baseRelativePath}); unlisted only applies to skills/<name>/ sources.`,
+			});
+		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
+		if (replacement.surface !== undefined)
+			return err({
+				code: "unlisted_registry_surface_present",
+				message: `Skill '${skill.name}' still has a COMMAND_BACKED_SKILL_REGISTRY entry (/${replacement.surface}); remove the registry entry first, then apply unlisted.`,
+			});
+	}
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
 	const frontmatter = planFrontmatterOperation(skill.baseRelativePath, skill.skillMd.text, kind);
@@ -115,9 +142,15 @@ export function buildSkillKindApplyPlan(
 	if (!sidecar.ok) return sidecar;
 	const pi = planPiSettingsOperation(skill.name, kind, piSettings.value);
 	if (!pi.ok) return pi;
+	const mirrors = planMirrorOperations(skill, kind);
+	if (!mirrors.ok) return mirrors;
 	return {
 		ok: true,
-		value: { skill: skill.name, kind, operations: [frontmatter.value, ...sidecar.value, pi.value] },
+		value: {
+			skill: skill.name,
+			kind,
+			operations: [frontmatter.value, ...sidecar.value, pi.value, ...mirrors.value],
+		},
 	};
 }
 
@@ -147,6 +180,8 @@ export function skillAfterPlannedApply(
 ): AregSkillKindSkillInspection {
 	let skillMd = skill.skillMd;
 	let openaiPolicy = skill.openaiPolicy;
+	let agentsPath = skill.agentsPath;
+	let claudePath = skill.claudePath;
 	for (const operation of plan.operations) {
 		if (
 			operation.type === "write" &&
@@ -163,8 +198,75 @@ export function skillAfterPlannedApply(
 			operation.relativePath === `${skill.baseRelativePath}/agents/openai.yaml`
 		)
 			openaiPolicy = { type: "missing" };
+		if (
+			operation.type === "delete-symlink" &&
+			operation.relativePath === agentsSkillMirrorRelativePath(skill.name)
+		)
+			agentsPath = { type: "missing" };
+		if (
+			operation.type === "delete-symlink" &&
+			operation.relativePath === claudeSkillMirrorRelativePath(skill.name)
+		)
+			claudePath = { type: "missing" };
 	}
-	return { ...skill, skillMd, openaiPolicy };
+	return { ...skill, skillMd, openaiPolicy, agentsPath, claudePath };
+}
+
+/**
+ * Plans skill mirror symlink removals. Only the unlisted kind manages mirrors,
+ * and only in the delete direction: areg never creates mirror symlinks, so
+ * reverting unlisted back to a listed kind requires re-running the
+ * skill-management install flow (areg check stays red until the mirrors are
+ * reinstalled).
+ */
+export function planMirrorOperations(
+	skill: AregSkillKindSkillInspection,
+	kind: SkillInvocationKind,
+): Result<readonly PlannedApplyOperation[]> {
+	if (kind !== "unlisted") return { ok: true, value: [] };
+	const mirrors = [
+		{
+			relativePath: claudeSkillMirrorRelativePath(skill.name),
+			description: "Claude skill mirror symlink",
+			expectedTarget: expectedClaudeSkillSymlinkTarget(skill.name),
+			state: skill.claudePath,
+		},
+		{
+			relativePath: agentsSkillMirrorRelativePath(skill.name),
+			description: "agents skill mirror symlink",
+			expectedTarget: expectedAgentsSkillSymlinkTarget(skill.name),
+			state: skill.agentsPath,
+		},
+	];
+	const operations: PlannedApplyOperation[] = [];
+	for (const mirror of mirrors) {
+		if (mirror.state.type === "missing") {
+			operations.push({
+				type: "skip",
+				relativePath: mirror.relativePath,
+				description: mirror.description,
+				reason: `${mirror.relativePath} absent`,
+			});
+			continue;
+		}
+		if (mirror.state.type !== "symlink")
+			return err({
+				code: "mirror_not_symlink",
+				message: `${mirror.relativePath} exists but is not a symlink; resolve it manually before applying unlisted.`,
+			});
+		if (mirror.state.target !== mirror.expectedTarget)
+			return err({
+				code: "mirror_wrong_target",
+				message: `${mirror.relativePath} points to ${mirror.state.target}, expected ${mirror.expectedTarget}; resolve it manually before applying unlisted.`,
+			});
+		operations.push({
+			type: "delete-symlink",
+			relativePath: mirror.relativePath,
+			description: mirror.description,
+			expectedTarget: mirror.expectedTarget,
+		});
+	}
+	return { ok: true, value: operations };
 }
 
 export function planSidecarOperations(
@@ -173,7 +275,7 @@ export function planSidecarOperations(
 ): Result<readonly PlannedApplyOperation[]> {
 	const relativePath = `${skill.baseRelativePath}/agents/openai.yaml`;
 	const agentsDir = `${skill.baseRelativePath}/agents`;
-	const shouldExist = kind === "invoke-only" || kind === "command-backed";
+	const shouldExist = KIND_PROPERTIES[kind].codexSidecar;
 	if (shouldExist) {
 		if (skill.openaiPolicy.type === "symlink")
 			return err({
@@ -270,7 +372,7 @@ export function planPiSettingsOperation(
 ): Result<PlannedApplyOperation> {
 	const relativePath = ".pi/settings.json";
 	const entry = `-skills/${skillName}`;
-	const shouldExclude = kind === "command-backed";
+	const shouldExclude = KIND_PROPERTIES[kind].piExcluded;
 	const currentExclusions = settings.exclusions;
 	const hasEntry = currentExclusions.includes(entry);
 	if (shouldExclude && hasEntry)
@@ -307,13 +409,21 @@ export function planPiSettingsOperation(
 
 export function hasDeletionPrompt(plan: SkillKindApplyPlan): boolean {
 	return plan.operations.some(
-		(operation) => operation.type === "delete" || operation.type === "remove-empty-dir",
+		(operation) =>
+			operation.type === "delete" ||
+			operation.type === "delete-symlink" ||
+			operation.type === "remove-empty-dir",
 	);
 }
 
 export function deletionPrompt(plan: SkillKindApplyPlan): string {
 	const paths = plan.operations
-		.filter((operation) => operation.type === "delete" || operation.type === "remove-empty-dir")
+		.filter(
+			(operation) =>
+				operation.type === "delete" ||
+				operation.type === "delete-symlink" ||
+				operation.type === "remove-empty-dir",
+		)
 		.map((operation) => `- ${operation.relativePath}`)
 		.join("\n");
 	return `Apply ${plan.kind} to ${plan.skill} will delete managed artifacts:\n${paths}\nContinue?`;
@@ -337,6 +447,16 @@ export function plannedWrites(plan: SkillKindApplyPlan): readonly AregSkillKindT
 export function plannedDeletes(plan: SkillKindApplyPlan): readonly AregSkillKindDeletePlan[] {
 	return plan.operations.flatMap((operation) =>
 		operation.type === "delete"
+			? [{ relativePath: operation.relativePath, description: operation.description }]
+			: [],
+	);
+}
+
+export function plannedDeleteSymlinks(
+	plan: SkillKindApplyPlan,
+): readonly AregSkillKindDeleteSymlinkPlan[] {
+	return plan.operations.flatMap((operation) =>
+		operation.type === "delete-symlink"
 			? [{ relativePath: operation.relativePath, description: operation.description }]
 			: [],
 	);

@@ -10,19 +10,30 @@ function record(
 	options: {
 		hasCodexSidecar?: boolean;
 		isPiExcluded?: boolean;
+		hasAgentsMirror?: boolean;
+		hasClaudeMirror?: boolean;
 		replacementVerified?: boolean;
+		replacementSurface?: string | undefined;
 	} = {},
 ) {
 	const frontmatter = inspectSkillFrontmatter(skillMd, "SKILL.md");
 	if (!frontmatter.ok) throw new Error(frontmatter.error.message);
+	const surface = "replacementSurface" in options ? options.replacementSurface : "demo:skill";
 	return inferSkillKindRecord({
 		skillName: "demo-skill",
 		frontmatter: frontmatter.value,
 		hasCodexSidecar: options.hasCodexSidecar ?? false,
 		isPiExcluded: options.isPiExcluded ?? false,
-		replacement: { verified: options.replacementVerified ?? false, surface: "demo:skill" },
+		hasAgentsMirror: options.hasAgentsMirror ?? false,
+		hasClaudeMirror: options.hasClaudeMirror ?? false,
+		replacement: {
+			verified: options.replacementVerified ?? false,
+			...(surface === undefined ? {} : { surface }),
+		},
 	});
 }
+
+const UNLISTED_SKILL = "---\nname: demo-skill\ndisable-model-invocation: true\n---\n";
 
 const BASE = "---\nname: demo-skill\ndescription: Demo\n---\n";
 
@@ -42,6 +53,72 @@ describe("skill kind inference", () => {
 			}).kind,
 		).toBe("command-backed");
 		expect(record("---\nname: demo-skill\nuser-invocable: false\n---\n").kind).toBe("ambient-only");
+		expect(
+			record(UNLISTED_SKILL, {
+				hasCodexSidecar: true,
+				isPiExcluded: true,
+				replacementSurface: undefined,
+			}).kind,
+		).toBe("unlisted");
+	});
+
+	test("unlisted reports hidden/excluded status columns and the unlisted note", () => {
+		const unlisted = record(UNLISTED_SKILL, {
+			hasCodexSidecar: true,
+			isPiExcluded: true,
+			replacementSurface: undefined,
+		});
+		expect(unlisted.kind).toBe("unlisted");
+		expect(unlisted.modelInvocation).toBe("disabled");
+		expect(unlisted.nativeDirect).toBe("hidden");
+		expect(unlisted.piExtension).toBe("excluded");
+		expect(unlisted.notes).toEqual([
+			"unlisted hides this skill from all harness typeaheads; canonical source remains skills/demo-skill/.",
+		]);
+	});
+
+	test("unlisted requires registry absence and both mirrors absent", () => {
+		// Registry row still present (surface defined) => not unlisted.
+		expect(record(UNLISTED_SKILL, { hasCodexSidecar: true, isPiExcluded: true }).kind).toBe(
+			"inconsistent",
+		);
+		// Any mirror present => degraded, not unlisted.
+		expect(
+			record(UNLISTED_SKILL, {
+				hasCodexSidecar: true,
+				isPiExcluded: true,
+				hasAgentsMirror: true,
+				replacementSurface: undefined,
+			}).kind,
+		).toBe("inconsistent");
+		expect(
+			record(UNLISTED_SKILL, {
+				hasCodexSidecar: true,
+				isPiExcluded: true,
+				hasClaudeMirror: true,
+				replacementSurface: undefined,
+			}).kind,
+		).toBe("inconsistent");
+		// Missing sidecar or missing exclusion => other degraded/desired states.
+		expect(record(UNLISTED_SKILL, { isPiExcluded: true, replacementSurface: undefined }).kind).toBe(
+			"inconsistent",
+		);
+		expect(
+			record(UNLISTED_SKILL, { hasCodexSidecar: true, replacementSurface: undefined }).kind,
+		).toBe("invoke-only");
+	});
+
+	test("mirror presence does not change listed-kind inference", () => {
+		expect(
+			record(UNLISTED_SKILL, {
+				hasCodexSidecar: true,
+				isPiExcluded: true,
+				replacementVerified: true,
+				hasAgentsMirror: true,
+				hasClaudeMirror: true,
+			}).kind,
+		).toBe("command-backed");
+		expect(record(BASE, { hasAgentsMirror: true, hasClaudeMirror: true }).kind).toBe("normal");
 	});
 
 	test("reports mixed before generic inconsistent when user-invocable combines with explicit artifacts", () => {

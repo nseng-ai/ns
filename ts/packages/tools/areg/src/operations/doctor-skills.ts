@@ -329,6 +329,10 @@ function replacementFindings(
 			.map((entry) => entry.slice("-skills/".length)),
 	);
 	for (const record of records) {
+		// Unlisted skills are deliberately excluded without a Pi replacement; their
+		// drift states (mirrors present, missing sidecar, ...) infer other kinds and
+		// still reach this finding.
+		if (record.kind === "unlisted") continue;
 		if (record.artifacts.isPiExcluded && !record.replacement.verified) {
 			findings.push(
 				replacementFinding(record.skill, record.replacement.surface, {

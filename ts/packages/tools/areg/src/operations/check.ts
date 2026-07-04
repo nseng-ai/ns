@@ -26,6 +26,8 @@ import {
 	inferSkillKindRecord,
 	inspectSkillFrontmatter,
 	isManagedOpenaiPolicyContent,
+	isUnlistedCandidate,
+	type SkillKindRecord,
 } from "./skill-kind-inference.ts";
 import { inspectCheckProject, type AregCheckProjectInspection } from "./project-inspection.ts";
 
@@ -46,6 +48,7 @@ const CHECK_ISSUE_CODES = [
 	"non-managed-openai-policy",
 	"command-converted-missing-pi-exclusion",
 	"command-converted-missing-pi-replacement",
+	"unlisted-mirrors-present",
 	"agents-not-real-dir",
 	"unexpected-skills-dir",
 	"orphan-in-skills",
@@ -138,10 +141,14 @@ export function buildCheckReport(
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
 	for (const entry of lockfile.skills) {
 		const inspected = byName.get(entry.name) ?? missingCheckSkillInspection(entry.name);
-		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
+		// A missing or unparseable SKILL.md yields no record, which is treated as
+		// not-unlisted so the mirror assertions below still fail red.
+		const record = entrySkillKindRecord({ entry, inspected, inspection, piExclusions });
+		const isUnlisted = record?.kind === "unlisted";
+		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected, isUnlisted));
 		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
 		issues.push(...checkSkillMd(entry, inspected));
-		issues.push(...checkSkillInvocationKind({ entry, inspected, inspection, piExclusions }));
+		issues.push(...checkSkillInvocationKind(entry, inspected, record));
 	}
 	issues.push(...checkLockfileHashes(lockfile));
 	issues.push(...checkOrphansAndDangling(lockfile, inspection));
@@ -176,7 +183,11 @@ export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 	return lines.join("\n");
 }
 
-function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspection): CheckIssue[] {
+function checkLocalSkill(
+	entry: LockfileSkill,
+	inspected: AregCheckSkillInspection,
+	isUnlisted: boolean,
+): CheckIssue[] {
 	const issues: CheckIssue[] = [];
 	const expectedSource = `skills/${entry.name}`;
 	if (entry.source !== expectedSource) {
@@ -205,6 +216,7 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 			),
 		);
 	}
+	if (isUnlisted) return issues;
 	const expectedAgentsTarget = expectedAgentsSkillSymlinkTarget(entry.name);
 	if (inspected.agentsPath.type === "missing") {
 		issues.push(issue(entry.name, "agents-missing", `.agents/skills/${entry.name} does not exist`));
@@ -320,25 +332,37 @@ function skillBaseRelativePath(entry: LockfileSkill): string {
 	return entry.sourceType === "local" ? `skills/${entry.name}` : `.agents/skills/${entry.name}`;
 }
 
-function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): CheckIssue[] {
+function entrySkillKindRecord(
+	options: CheckSkillInvocationKindOptions,
+): SkillKindRecord | undefined {
 	const { entry, inspected, inspection, piExclusions } = options;
 	const relativePath =
 		entry.sourceType === "local"
 			? `skills/${entry.name}/SKILL.md`
 			: `.agents/skills/${entry.name}/SKILL.md`;
 	const skillMd = entry.sourceType === "local" ? inspected.localSkillMd : inspected.remoteSkillMd;
-	if (skillMd.type !== "file") return [];
+	if (skillMd.type !== "file") return undefined;
 	const frontmatter = inspectSkillFrontmatter(skillMd.text, relativePath);
-	if (!frontmatter.ok) return [];
+	if (!frontmatter.ok) return undefined;
 	const isPiExcluded = piExclusions.includes(`-skills/${entry.name}`);
 	const replacement = verifyPiReplacement(entry.name, inspection.replacement);
-	const record = inferSkillKindRecord({
+	return inferSkillKindRecord({
 		skillName: entry.name,
 		frontmatter: frontmatter.value,
 		hasCodexSidecar: inspected.openaiPolicy.type === "file",
 		isPiExcluded,
+		hasAgentsMirror: inspected.agentsPath.type !== "missing",
+		hasClaudeMirror: inspected.claudePath.type !== "missing",
 		replacement,
 	});
+}
+
+function checkSkillInvocationKind(
+	entry: LockfileSkill,
+	inspected: AregCheckSkillInspection,
+	record: SkillKindRecord | undefined,
+): CheckIssue[] {
+	if (record === undefined) return [];
 	const issues: CheckIssue[] = [];
 	if (record.artifacts.isModelInvocationDisabled && !record.artifacts.hasCodexSidecar)
 		issues.push(
@@ -381,18 +405,35 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 			),
 		);
 	}
-	if (record.artifacts.isPiExcluded && !record.replacement.verified) {
-		const expected =
-			record.replacement.surface === undefined
-				? "a registered command-backed replacement"
-				: `/${record.replacement.surface}`;
-		issues.push(
-			issue(
-				entry.name,
-				"command-converted-missing-pi-replacement",
-				`Pi skill is excluded but no verified replacement command exists; expected ${expected}`,
-			),
-		);
+	if (record.artifacts.isPiExcluded && !record.replacement.verified && record.kind !== "unlisted") {
+		if (
+			isUnlistedCandidate(record.artifacts, record.replacement.surface) &&
+			(record.artifacts.hasAgentsMirror || record.artifacts.hasClaudeMirror)
+		) {
+			const presentMirrors = [
+				...(record.artifacts.hasAgentsMirror ? [`.agents/skills/${entry.name}`] : []),
+				...(record.artifacts.hasClaudeMirror ? [`.claude/skills/${entry.name}`] : []),
+			].join(" and ");
+			issues.push(
+				issue(
+					entry.name,
+					"unlisted-mirrors-present",
+					`${presentMirrors} still exist(s) for unlisted-candidate skill ${entry.name}; run areg skill apply unlisted ${entry.name} to remove the mirror symlinks, or restore the COMMAND_BACKED_SKILL_REGISTRY entry and its verified replacement to return to command-backed`,
+				),
+			);
+		} else {
+			const expected =
+				record.replacement.surface === undefined
+					? "a registered command-backed replacement"
+					: `/${record.replacement.surface}`;
+			issues.push(
+				issue(
+					entry.name,
+					"command-converted-missing-pi-replacement",
+					`Pi skill is excluded but no verified replacement command exists; expected ${expected}`,
+				),
+			);
+		}
 	}
 	return issues;
 }
