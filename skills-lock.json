@@ -281,6 +281,11 @@
       "sourceType": "local",
       "computedHash": "0d2187fa43f59d6d34f9ebc4d8dfa3fb229b47e11fad1729a02a14fae9639912"
     },
+    "project-setup": {
+      "source": "skills/project-setup",
+      "sourceType": "local",
+      "computedHash": "a781e47a6e08b7c8de4f67c319189ee323c42741426c6cbc5528d3d20dd086f8"
+    },
     "pytest": {
       "source": "skills/pytest",
       "sourceType": "local",
