@@ -25,6 +25,11 @@ export interface PrewrittenPrMetadata {
 	promptSource: PromptSource;
 }
 
+export interface PrDescriptionContent {
+	title: string;
+	previewBody: string;
+}
+
 export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
 
 export interface PrDescriptionUpdateOptions {
@@ -45,13 +50,12 @@ export type PreparedPrDescriptionUpdate = Extract<PrDescriptionUpdateResult, { t
 
 export type PrDescriptionUpdateResult =
 	| { type: "skipped"; pr: GithubPrDetails; patchId: string; promptSource: PromptSource }
-	| {
+	| ({
 			type: "prepared";
 			pr: GithubPrDetails;
-			title: string;
-			body: string;
+			mergedBody: string;
 			promptSource: PromptSource;
-	  }
+	  } & PrDescriptionContent)
 	| {
 			type: "failed";
 			pr?: GithubPrDetails;
@@ -77,9 +81,13 @@ export interface PrDescriptionOrchestrationOptions extends PrDescriptionUpdateOp
 
 export type PrDescriptionOrchestrationResult =
 	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
-	| { type: "matched_prewritten"; pr: GithubPrDetails }
-	| { type: "updated"; pr: GithubPrDetails; title: string }
-	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
+	| ({ type: "matched_prewritten"; pr: GithubPrDetails } & PrDescriptionContent)
+	| ({ type: "updated"; pr: GithubPrDetails } & PrDescriptionContent)
+	| ({
+			type: "generated";
+			pr: GithubPrDetails;
+			promptSource: PromptSource;
+	  } & PrDescriptionContent)
 	| Extract<PrDescriptionUpdateResult, { type: "failed" }>;
 
 export async function preparePrDescriptionUpdateForCurrentBranch(
@@ -173,7 +181,8 @@ export async function preparePrDescriptionUpdate(
 		type: "prepared",
 		pr,
 		title: prepared.title,
-		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		mergedBody: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		previewBody: prepared.body,
 		promptSource: generation.promptSource,
 	};
 }
@@ -187,7 +196,7 @@ export async function applyPreparedPrDescriptionUpdate(input: {
 		cwd: input.cwd,
 		number: input.update.pr.number,
 		title: input.update.title,
-		body: input.update.body,
+		body: input.update.mergedBody,
 	});
 	if (edited.ok) return { ok: true };
 	return { ok: false, reason: edited.error.message, diagnostic: edited.error };
@@ -245,6 +254,7 @@ export async function orchestratePrDescription(
 		type: "generated",
 		pr,
 		title: prepared.title,
+		previewBody: prepared.previewBody,
 		promptSource: prepared.promptSource,
 	};
 }
@@ -256,7 +266,12 @@ async function reconcilePrewrittenPr(params: {
 }): Promise<PrDescriptionOrchestrationResult> {
 	params.options.onProgress?.(`validating prewritten metadata for PR #${params.pr.number}`);
 	if (prMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
-		return { type: "matched_prewritten", pr: params.pr };
+		return {
+			type: "matched_prewritten",
+			pr: params.pr,
+			title: params.metadata.title,
+			previewBody: params.metadata.body,
+		};
 	}
 
 	params.options.onProgress?.(`updating PR #${params.pr.number} with prewritten metadata`);
@@ -267,7 +282,12 @@ async function reconcilePrewrittenPr(params: {
 		body: appendGeneratedMarker(params.metadata.body),
 	});
 	if (edited.ok) {
-		return { type: "updated", pr: params.pr, title: params.metadata.title };
+		return {
+			type: "updated",
+			pr: params.pr,
+			title: params.metadata.title,
+			previewBody: params.metadata.body,
+		};
 	}
 
 	return {

@@ -2,6 +2,7 @@ import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import type { SubmitPrDescriptionSummary } from "./submit-pr-description-summary.ts";
 import {
 	formatCurrentPrVerificationFailureCause,
 	formatSubmitSemanticFailureCause,
@@ -27,12 +28,7 @@ export function formatItemCount(count: number, singular: string, plural: string)
 
 export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
-	descriptions: {
-		generated: readonly SubmitPrLink[];
-		skipped: readonly SubmitPrLink[];
-		prewritten: readonly SubmitPrLink[];
-		prewriteFallbacks: readonly SubmitPrLink[];
-	},
+	descriptions: SubmitPrDescriptionSummary,
 ): string {
 	const lines = [`Submitted ${formatItemCount(prLinks.length, "PR", "PRs")}:`];
 	for (const link of prLinks) {
@@ -65,11 +61,7 @@ export function formatSubmitSuccessFallbackText(stdout: string, stderr: string):
 
 function formatSubmitSuccessStatuses(
 	link: SubmitPrLink,
-	descriptions: {
-		generated: readonly SubmitPrLink[];
-		prewritten: readonly SubmitPrLink[];
-		prewriteFallbacks: readonly SubmitPrLink[];
-	},
+	descriptions: SubmitPrDescriptionSummary,
 ): string[] {
 	const statuses: string[] = [];
 	if (hasMatchingLink(descriptions.prewritten, link)) {
@@ -81,11 +73,26 @@ function formatSubmitSuccessStatuses(
 	) {
 		statuses.push("description updated");
 	}
+	const preview = findMatchingLink(descriptions.previews, link, (candidate) => candidate.link);
+	if (preview !== undefined) {
+		statuses.push(`new title: ${preview.title}`);
+		if (preview.descriptionFirstLine !== undefined) {
+			statuses.push(`new description: ${preview.descriptionFirstLine}`);
+		}
+	}
 	return statuses;
 }
 
 function hasMatchingLink(links: readonly SubmitPrLink[], target: SubmitPrLink): boolean {
-	return links.some((link) => link.url === target.url);
+	return findMatchingLink(links, target, (link) => link) !== undefined;
+}
+
+function findMatchingLink<T>(
+	items: readonly T[],
+	target: SubmitPrLink,
+	linkForItem: (item: T) => SubmitPrLink,
+): T | undefined {
+	return items.find((item) => linkForItem(item).url === target.url);
 }
 
 function formatSubmitOutputTail(stdout: string, stderr: string): string {

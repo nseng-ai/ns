@@ -1,4 +1,5 @@
 import type { ErrorInfo } from "@ns/core/result";
+import { firstNonEmptyLine } from "@ns/core/text-normalization";
 import {
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,
@@ -8,18 +9,20 @@ import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import type {
+	SubmitPrDescriptionPreview,
+	SubmitPrDescriptionSummary,
+} from "./submit-pr-description-summary.ts";
+import type {
+	PrDescriptionContent,
+	PrDescriptionOrchestrationResult,
+} from "./pr-description-orchestration.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| {
-			ok: true;
-			generated: SubmitPrLink[];
-			skipped: SubmitPrLink[];
-			prewritten: SubmitPrLink[];
-			prewriteFallbacks: SubmitPrLink[];
-	  }
+	| ({ ok: true } & SubmitPrDescriptionSummary)
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -29,6 +32,17 @@ export interface PrDescriptionFailure {
 	diagnostic?: ErrorInfo;
 }
 
+interface PrDescriptionAccumulator {
+	generated: SubmitPrLink[];
+	skipped: SubmitPrLink[];
+	prewritten: SubmitPrLink[];
+	prewriteFallbacks: SubmitPrLink[];
+	previews: SubmitPrDescriptionPreview[];
+	failures: PrDescriptionFailure[];
+}
+
+type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbacks";
+
 export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
@@ -36,11 +50,7 @@ export async function generateSubmitPrDescriptions(input: {
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	onProgress?: (message: string) => void;
 }): Promise<SubmitPrDescriptionGenerationResult> {
-	const generated: SubmitPrLink[] = [];
-	const skipped: SubmitPrLink[] = [];
-	const prewritten: SubmitPrLink[] = [];
-	const prewriteFallbacks: SubmitPrLink[] = [];
-	const failures: PrDescriptionFailure[] = [];
+	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
 	const prewrittenByBranch = new Map(
 		(input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]),
 	);
@@ -62,7 +72,7 @@ export async function generateSubmitPrDescriptions(input: {
 		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
-			failures.push({
+			accumulator = collectPrDescriptionFailure(accumulator, {
 				link,
 				number,
 				reason: viewed.error.message,
@@ -80,7 +90,11 @@ export async function generateSubmitPrDescriptions(input: {
 				git: input.prDescription.git,
 			});
 			if (!resolvedGeneration.ok) {
-				failures.push({ link, number, reason: resolvedGeneration.error });
+				accumulator = collectPrDescriptionFailure(accumulator, {
+					link,
+					number,
+					reason: resolvedGeneration.error,
+				});
 				continue;
 			}
 			generation = resolvedGeneration;
@@ -98,35 +112,135 @@ export async function generateSubmitPrDescriptions(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
-		switch (result.type) {
-			case "skipped":
-				skipped.push(link);
-				break;
-			case "matched_prewritten":
-				prewritten.push(link);
-				break;
-			case "updated":
-				prewriteFallbacks.push(link);
-				break;
-			case "generated":
-				generated.push(link);
-				input.onProgress?.(`finished PR #${number} description`);
-				break;
-			case "failed":
-				failures.push({
-					link,
-					number,
-					reason: result.reason,
-					...(result.diagnostic === undefined ? {} : { diagnostic: result.diagnostic }),
-				});
-				break;
-		}
+		accumulator = collectPrDescriptionResult({
+			result,
+			link,
+			number,
+			accumulator,
+			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+		});
 	}
 
-	if (failures.length > 0) {
-		return { ok: false, failures };
+	if (accumulator.failures.length > 0) {
+		return { ok: false, failures: accumulator.failures };
 	}
-	return { ok: true, generated, skipped, prewritten, prewriteFallbacks };
+	return {
+		ok: true,
+		generated: accumulator.generated,
+		skipped: accumulator.skipped,
+		prewritten: accumulator.prewritten,
+		prewriteFallbacks: accumulator.prewriteFallbacks,
+		previews: accumulator.previews,
+	};
+}
+
+function createPrDescriptionAccumulator(): PrDescriptionAccumulator {
+	return {
+		generated: [],
+		skipped: [],
+		prewritten: [],
+		prewriteFallbacks: [],
+		previews: [],
+		failures: [],
+	};
+}
+
+function collectPrDescriptionResult(input: {
+	result: PrDescriptionOrchestrationResult;
+	link: SubmitPrLink;
+	number: number;
+	accumulator: PrDescriptionAccumulator;
+	onProgress?: (message: string) => void;
+}): PrDescriptionAccumulator {
+	switch (input.result.type) {
+		case "skipped":
+			return {
+				...input.accumulator,
+				skipped: [...input.accumulator.skipped, input.link],
+			};
+		case "matched_prewritten":
+			return collectPrDescriptionSuccess({
+				accumulator: input.accumulator,
+				bucketName: "prewritten",
+				link: input.link,
+				content: input.result,
+			});
+		case "updated":
+			return collectPrDescriptionSuccess({
+				accumulator: input.accumulator,
+				bucketName: "prewriteFallbacks",
+				link: input.link,
+				content: input.result,
+			});
+		case "generated": {
+			const accumulator = collectPrDescriptionSuccess({
+				accumulator: input.accumulator,
+				bucketName: "generated",
+				link: input.link,
+				content: input.result,
+			});
+			input.onProgress?.(`finished PR #${input.number} description`);
+			return accumulator;
+		}
+		case "failed":
+			return collectPrDescriptionFailure(input.accumulator, {
+				link: input.link,
+				number: input.number,
+				reason: input.result.reason,
+				...(input.result.diagnostic === undefined ? {} : { diagnostic: input.result.diagnostic }),
+			});
+	}
+}
+
+function collectPrDescriptionFailure(
+	accumulator: PrDescriptionAccumulator,
+	failure: PrDescriptionFailure,
+): PrDescriptionAccumulator {
+	return {
+		...accumulator,
+		failures: [...accumulator.failures, failure],
+	};
+}
+
+function collectPrDescriptionSuccess(input: {
+	accumulator: PrDescriptionAccumulator;
+	bucketName: PrDescriptionLinkBucketName;
+	link: SubmitPrLink;
+	content: PrDescriptionContent;
+}): PrDescriptionAccumulator {
+	const preview = prDescriptionPreview(input.link, input.content.title, input.content.previewBody);
+	switch (input.bucketName) {
+		case "generated":
+			return {
+				...input.accumulator,
+				generated: [...input.accumulator.generated, input.link],
+				previews: [...input.accumulator.previews, preview],
+			};
+		case "prewritten":
+			return {
+				...input.accumulator,
+				prewritten: [...input.accumulator.prewritten, input.link],
+				previews: [...input.accumulator.previews, preview],
+			};
+		case "prewriteFallbacks":
+			return {
+				...input.accumulator,
+				prewriteFallbacks: [...input.accumulator.prewriteFallbacks, input.link],
+				previews: [...input.accumulator.previews, preview],
+			};
+	}
+}
+
+function prDescriptionPreview(
+	link: SubmitPrLink,
+	title: string,
+	previewBody: string,
+): SubmitPrDescriptionPreview {
+	return {
+		link,
+		title: title.trim(),
+		descriptionFirstLine: firstNonEmptyLine(previewBody),
+	};
 }
 
 export function formatPrDescriptionFailureText(

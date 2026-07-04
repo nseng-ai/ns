@@ -370,12 +370,7 @@ export async function runSubmitCommand(
 
 	const successText =
 		prLinks.length > 0
-			? formatSubmitSuccessText(prLinks, {
-					generated: descriptionResult.generated,
-					skipped: descriptionResult.skipped,
-					prewritten: descriptionResult.prewritten,
-					prewriteFallbacks: descriptionResult.prewriteFallbacks,
-				})
+			? formatSubmitSuccessText(prLinks, descriptionResult)
 			: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
 }

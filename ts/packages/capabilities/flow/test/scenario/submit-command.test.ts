@@ -166,6 +166,8 @@ describe("project-local submit extension", () => {
 		expect(output).toContain("Submitted 1 PR:");
 		expect(output).toContain(`✓ #123 ${PR_URL}`);
 		expect(output).toContain("description updated");
+		expect(output).toContain("new title: Generated PR");
+		expect(output).toContain("new description: Generated body");
 		expect(output).not.toContain("gt submit succeeded");
 		expect(output).not.toContain("PRs:");
 		expect(output).not.toContain("Updated PR descriptions after submit");
@@ -396,6 +398,8 @@ describe("project-local submit extension", () => {
 		const output = run.stdout.join("");
 		expect(output).toContain("Submitted 1 PR:");
 		expect(output).toContain("initial metadata prepared");
+		expect(output).toContain("new title: Generated PR");
+		expect(output).toContain("new description: Generated body");
 		expect(output).not.toContain("Prepared initial PR metadata:");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
