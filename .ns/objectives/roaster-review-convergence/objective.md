@@ -26,21 +26,39 @@ cannot converge a non-deterministic generator; conditioning the generator can.
 
 ## Scope
 
-- Stamp the Last-reviewed head (head commit SHA, plus reviewed base ref)
-  machine-readably in the roaster summary Findings comment at publish,
-  alongside the existing `<!-- roaster:<key> -->` marker.
-- Gather Prior-findings context at review time: roaster's own previously
-  surfaced findings for the review key on the PR, each with review-thread
-  resolution status, bounded by an explicit cap.
+- Stamp the Last-reviewed head (the PR head commit SHA — not CI's checked-out
+  `HEAD`, which on `pull_request` is the synthetic merge commit — plus the
+  reviewed base ref and its merge-base SHA) machine-readably in the roaster
+  summary Findings comment at publish, alongside the existing
+  `<!-- roaster:<key> -->` marker. The base merge-base SHA is what lets a
+  later run isolate the PR's own delta after a Graphite restack, where a raw
+  old-head..new-head diff is dominated by upstream churn.
+- Stamp Prior-findings state cumulatively at publish. The summary comment body
+  is overwritten on every publish (only the Activity Log is preserved today),
+  and inline threads exist only for inline-commentable findings — so the
+  machine-readable findings block must carry forward the capped union of
+  previously surfaced findings, or a finding the model successfully suppresses
+  drops out of durable state after one round and can be re-raised the round
+  after.
+- Gather Prior-findings context at review time: read the stamped findings
+  block from the summary comment plus review-thread resolution status (via the
+  existing `@ns/capability-kit/github/pr-feedback` GraphQL surface roaster
+  already depends on), bounded by an explicit cap. The stamped block is the
+  structured source of truth; do not re-parse rendered inline-comment markdown
+  to reconstruct findings.
 - Keep compute layered: Prior-findings context is an *optional* prompt input.
   `ns roaster review run` remains runnable with no PR context and no GitHub
   dependency in its core path; PR-aware context gathering is a separate,
   composable input step.
 - Prompt convergence instructions: do not re-raise previously surfaced findings
   (resolved or unresolved) absent material worsening; regions changed since the
-  Last-reviewed head get full-strength review; unchanged already-reviewed
-  regions are held to the prior round's standard; include an anchoring guard so
-  prior findings do not suppress genuinely new issues.
+  Last-reviewed head get full-strength review, where "changed" means the PR's
+  own delta (range-diff semantics between the prior round's `base..head` and
+  the current one — never a raw head-to-head diff, which a Graphite restack
+  floods with upstream churn); when the delta is uncomputable, fall back to
+  Prior-findings-only convergence; unchanged already-reviewed regions are held
+  to the prior round's standard; include an anchoring guard so prior findings
+  do not suppress genuinely new issues.
 - Keep the existing exact-match marker dedupe at the GitHub publication
   boundary as a deterministic backstop.
 - CI wiring: pass PR context into the matrix review jobs. The workflow already
@@ -88,7 +106,8 @@ cannot converge a non-deterministic generator; conditioning the generator can.
   surfaced findings on unchanged code are not re-raised — including rephrased
   or line-shifted variants of them.
 - A re-run over an unchanged PR produces no new findings in summary or inline
-  output.
+  output — including after a content-preserving Graphite restack/force-push,
+  where every commit SHA changes but the PR's own delta does not.
 - Full-strength review is preserved for new work: code pushed to an
   already-reviewed PR that introduces a fresh issue still surfaces it
   (anchoring guard verified).
@@ -146,11 +165,16 @@ below.
   a change would alter `ns roaster review run`'s default no-context behavior
   (PR-context fetch stays opt-in via flag unless a human approves
   default-on); the summary-comment or marker format change risks breaking
-  compatibility with comments already published on open PRs; or the slice is
-  the empirical validation row (real PRs, LLM compute, GitHub writes — human
-  drives it).
+  compatibility with comments already published on open PRs (additive
+  machine-readable stamps that leave the existing `<!-- roaster:<key> -->`
+  marker line and rendered body parseable are direct execution; ask only when
+  already-published comments would stop parsing); or the slice is the
+  empirical validation row (real PRs, LLM compute, GitHub writes — human
+  drives it). Read-only GitHub access (thread reads, `git fetch origin <sha>`)
+  is not a GitHub write and needs no ask.
 - **Open Questions:** the runner may pick a conservative Prior-findings cap
-  and a resolved-vs-unresolved prompt treatment on its own, recording the
+  (including the cumulative block's pruning policy) and a
+  resolved-vs-unresolved prompt treatment on its own, recording the
   rationale in the ADR or a Semantic Update; the local default-fetch
   question is reserved to a human (default stays opt-in).
 - **How work may change files and be left:** local edits committed by the
@@ -169,9 +193,12 @@ below.
 
 Assumptions:
 
-- Roaster's marker-keyed summary comments and inline threads persist for the
+- Roaster's marker-keyed summary comment and inline threads persist for the
   life of the PR and are readable at review time with the workflow's existing
-  token permissions.
+  token permissions. Qualified: the comment *object* persists but its body is
+  overwritten on every publish, and inline threads cover only
+  inline-commentable findings — durable per-finding state exists only if the
+  publish step stamps it cumulatively (see Scope).
 - Review-thread resolution is (or becomes) the pr-address flow's signal that a
   finding was addressed, so resolution status is meaningful input.
 - Prior-findings context, capped, fits comfortably in the review prompt budget
@@ -186,6 +213,23 @@ Risks:
 - Anchoring: supplying prior findings may bias the model to under-report
   genuinely new issues near them. Mitigated by the anchoring guard and the
   full-strength-for-new-work criterion. *Not yet de-risked.*
+- Old-head reachability after force-push: this repo's Graphite flow amends and
+  restacks, so the motivating resolve→resubmit push is usually a *force* push
+  (recent PRs show 10–48 force pushes each) and the stamped Last-reviewed head
+  dangles off every ref. De-risked: GitHub serves dangling PR head SHAs to a
+  direct `git fetch origin <sha>` — verified empirically from a fresh clone
+  against both a same-day and a three-month-old pre-force-push head of this
+  repo — so the gathering step must fetch the stamped SHAs explicitly rather
+  than assume ref reachability. Changed-region guidance still degrades to
+  Prior-findings-only convergence if the fetch fails.
+- Restack churn: after `gt restack`, a raw old-head..new-head diff is
+  dominated by upstream commits, which would mark everything "changed" and
+  defeat held-to-prior-standard suppression exactly when the PR's own content
+  did not change. Mitigated by stamping the base merge-base SHA and comparing
+  the prior round's PR delta to the current one (range-diff semantics), with
+  the Prior-findings-only fallback when that comparison is unavailable.
+- Prior-findings gathering failure (GitHub read error) must degrade to today's
+  context-free full review — noisy but safe — never block the review run.
 - Convergence state is PR-scoped: branch recreation or a new PR starts fresh.
   Accepted — a new PR arguably deserves a fresh review.
 - Layering erosion: making compute PR-aware could couple the core run path to

@@ -3,14 +3,14 @@
 ## Work
 
 - [ ] Write the ADR: generation-time convergence, GitHub-as-durable-state, compute layering (PR context optional), and the rejected cache/ledger design with parity and fingerprint-drift evidence
-- [ ] Stamp the Last-reviewed head (head SHA + reviewed base ref) machine-readably in the summary Findings comment at publish
-- [ ] Build Prior-findings context gathering: read roaster's own surfaced findings + review-thread resolution status for a review key on a PR, with an explicit cap
+- [ ] Stamp the Last-reviewed head (PR head SHA — not CI's merge-commit `HEAD` — + reviewed base ref and its merge-base SHA) and the cumulative capped Prior-findings block machine-readably in the summary Findings comment at publish, surviving the body overwrite
+- [ ] Build Prior-findings context gathering: read the stamped findings block + review-thread resolution status (reusing the `@ns/capability-kit/github/pr-feedback` GraphQL surface) for a review key on a PR, with an explicit cap; degrade to a context-free review on gathering failure
 - [ ] Thread Prior-findings context and changed-since-Last-reviewed-head guidance into the review prompt as an optional input; keep `ns roaster review run` PR-free by default
 - [ ] Write the convergence prompt instructions with the anchoring guard; unit-test prompt assembly
 - [ ] Wire PR context into the CI matrix review jobs (existing `PR_NUMBER`/`GH_TOKEN`/`pull-requests: write`; no permission changes)
   - Policy: direct execution; no new permissions or triggers — any change needing them is ask-first.
   - Evidence: workflow diff references only existing env/permissions; touched TS validated with targeted tests.
-- [ ] Validate empirically on representative PRs: resolve→resubmit does not re-raise surfaced findings on unchanged code (including rephrased variants), and new work still gets full-strength review
+- [ ] Validate empirically on representative PRs: resolve→resubmit does not re-raise surfaced findings on unchanged code (including rephrased variants), a content-preserving `gt restack` force-push re-raises nothing, and new work still gets full-strength review
       Evidence: targeted tests and relevant repo checks passed.
   - Policy: steer first — needs real PRs, LLM compute, and GitHub writes; a human drives this slice.
 
