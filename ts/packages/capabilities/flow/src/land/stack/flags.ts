@@ -4,85 +4,64 @@ import type { ParsedArgs } from "./types.ts";
 
 interface LandFlagDescriptor {
 	readonly long: `--${string}`;
-	readonly embeddedAliases: readonly string[];
-	readonly usageAliases: readonly string[];
+	readonly aliases: readonly string[];
 	readonly parsedArg: keyof ParsedArgs;
 	readonly commandRequestField?: string;
 	readonly commandShort?: `-${string}`;
 	readonly usageDescription: string;
 	readonly commandDescription?: string;
-	readonly includeInEmbeddedCompletions: boolean;
-	readonly includeInEmbeddedUsage: boolean;
 }
 
 export const landFlagDescriptors = [
 	{
 		long: "--yes",
-		embeddedAliases: ["--yes", "-y"],
-		usageAliases: ["--yes", "-y"],
+		aliases: ["--yes", "-y"],
 		parsedArg: "shouldSkipConfirmation",
 		commandRequestField: "yes",
 		commandShort: "-y",
 		usageDescription:
 			"Skip stack/global landing and post-landing cleanup confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
 		commandDescription: "Confirm stack landing without an interactive prompt.",
-		includeInEmbeddedCompletions: true,
-		includeInEmbeddedUsage: true,
 	},
 	{
 		long: "--dry-run",
-		embeddedAliases: ["--dry-run"],
-		usageAliases: ["--dry-run"],
+		aliases: ["--dry-run"],
 		parsedArg: "isDryRun",
 		commandRequestField: "dryRun",
 		commandShort: "-n",
 		usageDescription: "Show the full stack path plan and exit before mutating refs or PRs.",
 		commandDescription: "Show what would land without merging PRs.",
-		includeInEmbeddedCompletions: true,
-		includeInEmbeddedUsage: true,
 	},
 	{
 		long: "--preserve",
-		embeddedAliases: ["--preserve", "-p"],
-		usageAliases: ["--preserve", "-p"],
+		aliases: ["--preserve", "-p"],
 		parsedArg: "shouldPreserveSlot",
 		commandRequestField: "preserve",
 		commandShort: "-p",
 		usageDescription:
 			"Keep the current managed slot and landed local branch after successful landing.",
-		includeInEmbeddedCompletions: true,
-		includeInEmbeddedUsage: true,
 	},
 	{
 		long: "--force",
-		embeddedAliases: ["--force", "-f"],
-		usageAliases: ["--force", "-f"],
+		aliases: ["--force", "-f"],
 		parsedArg: "shouldForceCleanup",
 		commandRequestField: "force",
 		commandShort: "-f",
 		usageDescription: "Skip the post-landing cleanup confirmation.",
-		includeInEmbeddedCompletions: true,
-		includeInEmbeddedUsage: true,
 	},
 	{
 		long: "--verbose",
-		embeddedAliases: ["--verbose"],
-		usageAliases: ["--verbose"],
+		aliases: ["--verbose"],
 		parsedArg: "shouldStreamVerboseOutput",
 		commandRequestField: "verbose",
 		commandShort: "-v",
 		usageDescription: "Stream raw GitHub/Graphite subprocess output while landing.",
-		includeInEmbeddedCompletions: true,
-		includeInEmbeddedUsage: true,
 	},
 	{
 		long: "--help",
-		embeddedAliases: ["--help", "-h"],
-		usageAliases: ["--help", "-h"],
+		aliases: ["--help", "-h"],
 		parsedArg: "shouldShowHelp",
 		usageDescription: "Show this help.",
-		includeInEmbeddedCompletions: true,
-		includeInEmbeddedUsage: true,
 	},
 ] as const satisfies readonly LandFlagDescriptor[];
 
@@ -110,29 +89,23 @@ export interface LandUsageOptionRow {
 }
 
 export function landCompletionFlags(): readonly string[] {
-	return landFlagDescriptors
-		.filter((descriptor) => descriptor.includeInEmbeddedCompletions)
-		.map((descriptor) => descriptor.long);
+	return landFlagDescriptors.map((descriptor) => descriptor.long);
 }
 
 export function landUsageTokens(): readonly string[] {
-	return landFlagDescriptors
-		.filter((descriptor) => descriptor.includeInEmbeddedUsage)
-		.map((descriptor) => `[${descriptor.long}]`);
+	return landFlagDescriptors.map((descriptor) => `[${descriptor.long}]`);
 }
 
 export function landUsageOptionRows(): readonly LandUsageOptionRow[] {
-	return landFlagDescriptors
-		.filter((descriptor) => descriptor.includeInEmbeddedUsage)
-		.map((descriptor) => ({
-			aliases: descriptor.usageAliases,
-			description: descriptor.usageDescription,
-		}));
+	return landFlagDescriptors.map((descriptor) => ({
+		aliases: descriptor.aliases,
+		description: descriptor.usageDescription,
+	}));
 }
 
 export function parseLandFlagToken(token: string): LandParsedArgFlag | undefined {
 	for (const descriptor of landFlagDescriptors) {
-		if (descriptor.embeddedAliases.some((alias) => alias === token)) return descriptor.parsedArg;
+		if (descriptor.aliases.some((alias) => alias === token)) return descriptor.parsedArg;
 	}
 	return undefined;
 }
