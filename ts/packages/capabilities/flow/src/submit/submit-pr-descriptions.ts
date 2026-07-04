@@ -108,15 +108,12 @@ export async function generateSubmitPrDescriptions(input: {
 				break;
 			case "matched_prewritten":
 				prewritten.push(link);
-				previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 				break;
 			case "updated":
 				prewriteFallbacks.push(link);
-				previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 				break;
 			case "generated":
 				generated.push(link);
-				previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 				input.onProgress?.(`finished PR #${number} description`);
 				break;
 			case "failed":
@@ -127,6 +124,14 @@ export async function generateSubmitPrDescriptions(input: {
 					...(result.diagnostic === undefined ? {} : { diagnostic: result.diagnostic }),
 				});
 				break;
+		}
+
+		if (
+			result.type === "matched_prewritten" ||
+			result.type === "updated" ||
+			result.type === "generated"
+		) {
+			previews.push(prDescriptionPreview(link, result.title, result.descriptionBody));
 		}
 	}
 

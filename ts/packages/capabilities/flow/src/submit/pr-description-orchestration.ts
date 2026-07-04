@@ -25,6 +25,11 @@ export interface PrewrittenPrMetadata {
 	promptSource: PromptSource;
 }
 
+export interface PrDescriptionContent {
+	title: string;
+	descriptionBody: string;
+}
+
 export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
 
 export interface PrDescriptionUpdateOptions {
@@ -45,14 +50,12 @@ export type PreparedPrDescriptionUpdate = Extract<PrDescriptionUpdateResult, { t
 
 export type PrDescriptionUpdateResult =
 	| { type: "skipped"; pr: GithubPrDetails; patchId: string; promptSource: PromptSource }
-	| {
+	| ({
 			type: "prepared";
 			pr: GithubPrDetails;
-			title: string;
 			body: string;
-			descriptionBody: string;
 			promptSource: PromptSource;
-	  }
+	  } & PrDescriptionContent)
 	| {
 			type: "failed";
 			pr?: GithubPrDetails;
@@ -78,15 +81,13 @@ export interface PrDescriptionOrchestrationOptions extends PrDescriptionUpdateOp
 
 export type PrDescriptionOrchestrationResult =
 	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
-	| { type: "matched_prewritten"; pr: GithubPrDetails; title: string; descriptionBody: string }
-	| { type: "updated"; pr: GithubPrDetails; title: string; descriptionBody: string }
-	| {
+	| ({ type: "matched_prewritten"; pr: GithubPrDetails } & PrDescriptionContent)
+	| ({ type: "updated"; pr: GithubPrDetails } & PrDescriptionContent)
+	| ({
 			type: "generated";
 			pr: GithubPrDetails;
-			title: string;
-			descriptionBody: string;
 			promptSource: PromptSource;
-	  }
+	  } & PrDescriptionContent)
 	| Extract<PrDescriptionUpdateResult, { type: "failed" }>;
 
 export async function preparePrDescriptionUpdateForCurrentBranch(
