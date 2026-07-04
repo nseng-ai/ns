@@ -2,6 +2,7 @@ import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { z as ZodNamespace } from "zod";
 
 // Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi surface for the
 // objective-autorun skill — the `/objective:autorun` command expands the repo skill and hands the
@@ -66,6 +67,7 @@ const SCRATCH_ROOT_PREFIX = "objective-runner-step";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
 
 type NotifyLevel = "info" | "warning" | "error";
+type RunnerStepPhase = "begin" | "subagent" | "finish";
 
 interface CommandContext {
 	cwd: string;
@@ -97,54 +99,37 @@ In this session, run each runner step by calling the \`objective_runner_step\` t
 
 Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries (never push/submit/land; never commit on trunk). To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
-const objectiveRunnerStepInputSchema = z.object({
-	objective: z.string().trim().min(1),
-	guidance: z.string().trim().min(1),
-	recover: z.boolean().optional(),
-	model: z.string().trim().min(1).optional(),
-	title: z.string().trim().min(1).optional(),
-});
-
-// Hand-written mirror of the zod schema: `z` is a require()-bound value here, so the
-// `z.infer` type namespace is not available.
-interface ObjectiveRunnerStepInput {
-	objective: string;
-	guidance: string;
-	recover?: boolean;
-	model?: string;
-	title?: string;
-}
-
-const OBJECTIVE_RUNNER_STEP_PARAMETERS = {
-	type: "object",
-	properties: {
-		objective: {
-			type: "string",
-			description: "Objective slug to run one decomposed runner step for.",
-		},
-		guidance: {
-			type: "string",
-			description:
+const objectiveRunnerStepInputSchema = z
+	.object({
+		objective: z.string().trim().min(1).describe("Objective slug to run one decomposed runner step for."),
+		guidance: z
+			.string()
+			.trim()
+			.min(1)
+			.describe(
 				"Thin, judgment-bearing parent guidance for this step: which slice to take, what the last step left behind, what to avoid. Woven verbatim into the subagent prompt.",
-		},
-		recover: {
-			type: "boolean",
-			description:
+			),
+		recover: z
+			.boolean()
+			.optional()
+			.describe(
 				"Re-dispatch in recover mode after a failed step: the subagent repairs the dirty tree the failed step left behind instead of starting a fresh slice.",
-		},
-		model: {
-			type: "string",
-			description:
-				"Optional fully-qualified provider/model override for the implementation subagent.",
-		},
-		title: {
-			type: "string",
-			description: "Optional display label for the live progress widget.",
-		},
-	},
-	required: ["objective", "guidance"],
-	additionalProperties: false,
-} as const;
+			),
+		model: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe("Optional fully-qualified provider/model override for the implementation subagent."),
+		title: z.string().trim().min(1).optional().describe("Optional display label for the live progress widget."),
+	})
+	.strict();
+
+type ObjectiveRunnerStepInput = ZodNamespace.infer<typeof objectiveRunnerStepInputSchema>;
+
+const OBJECTIVE_RUNNER_STEP_PARAMETERS = z.toJSONSchema(objectiveRunnerStepInputSchema, {
+	io: "input",
+}) satisfies Record<string, unknown>;
 
 /** Per-slug step counter for widget display; fresh scratch paths never depend on it. */
 const stepCountsBySlug = new Map<string, number>();
@@ -221,8 +206,9 @@ async function runObjectiveRunnerStep(
 ): Promise<ToolResult> {
 	const parsedInput = objectiveRunnerStepInputSchema.safeParse(params);
 	if (!parsedInput.success) throw new Error(formatZodError(parsedInput.error));
-	const input = parsedInput.data as ObjectiveRunnerStepInput;
+	const input: ObjectiveRunnerStepInput = parsedInput.data;
 	const slug = input.objective;
+	const shouldRecover = input.recover === true;
 
 	const stepNumber = (stepCountsBySlug.get(slug) ?? 0) + 1;
 	stepCountsBySlug.set(slug, stepNumber);
@@ -238,15 +224,33 @@ async function runObjectiveRunnerStep(
 	const factsPath = join(stepDir, "facts.json");
 	await writeFile(guidancePath, input.guidance, { encoding: "utf8", mode: 0o600 });
 
-	const pushWidget = (phase: string, update?: RunnerSubagentUpdate): void => {
+	const pushWidget = (phase: RunnerStepPhase, update?: RunnerSubagentUpdate): void => {
 		setRunnerSubagentWidget(ctx, WIDGET_KEY, [
 			`objective ${slug} · step ${stepNumber} · ${phase}`,
 			...(update === undefined ? [] : formatRunnerSubagentActivityWidgetLines(update)),
 		]);
 	};
 
+	function stepToolResult(
+		text: string,
+		phase: RunnerStepPhase,
+		details: Record<string, unknown> = {},
+		subagent?: RunnerSubagentResult,
+	): ToolResult {
+		return {
+			content: [{ type: "text", text }],
+			details: {
+				...details,
+				phase,
+				reportPath,
+				factsPath,
+				...(subagent === undefined ? {} : { subagent: subagentDetails(subagent) }),
+			},
+		};
+	}
+
 	try {
-		pushWidget("runner-begin");
+		pushWidget("begin");
 		const beginExec = normalizeExecResult(
 			await pi.exec(
 				"sdl",
@@ -255,7 +259,7 @@ async function runObjectiveRunnerStep(
 					"exec",
 					"runner-begin",
 					slug,
-					...(input.recover === true ? ["--recover"] : []),
+					...(shouldRecover ? ["--recover"] : []),
 					"--guidance",
 					`@${guidancePath}`,
 					"--report-path",
@@ -293,26 +297,17 @@ async function runObjectiveRunnerStep(
 			},
 		);
 		if (subagent.status === "cancelled" || signal?.aborted === true) {
-			return {
-				content: [
-					{
-						type: "text",
-						text:
-							`Runner step cancelled between runner-begin and runner-finish for objective ${slug}. runner-finish was NOT run, so no checkpoint was judged and the worktree may hold uncommitted subagent changes. Inspect the worktree, then recover by calling ${TOOL_NAME} again with recover: true and sharpened guidance.`,
-					},
-				],
-				details: {
-					phase: "subagent",
-					reportPath,
-					factsPath,
-					subagent: subagentDetails(subagent),
-				},
-			};
+			return stepToolResult(
+				`Runner step cancelled between runner-begin and runner-finish for objective ${slug}. runner-finish was NOT run, so no checkpoint was judged and the worktree may hold uncommitted subagent changes. Inspect the worktree, then recover by calling ${TOOL_NAME} again with recover: true and sharpened guidance.`,
+				"subagent",
+				{},
+				subagent,
+			);
 		}
 
 		// Every non-cancelled outcome proceeds to finish — the report file, not the final text, is
 		// the contract; finish itself yields a malfunction checkpoint if the report is missing.
-		pushWidget("runner-finish");
+		pushWidget("finish");
 		const finishExec = normalizeExecResult(
 			await pi.exec(
 				"sdl",
@@ -322,35 +317,26 @@ async function runObjectiveRunnerStep(
 		);
 		const checkpoint = extractCheckpointData(finishExec.stdout);
 		if (checkpoint === undefined) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: [
-							`runner-finish produced no parseable checkpoint envelope for objective ${slug} (exit ${finishExec.code}). Treat this as a malfunction: read the diagnostics below and check the worktree before anything else.`,
-							"",
-							"stdout tail:",
-							tailText(finishExec.stdout, { maxChars: MAX_FAILURE_TAIL_CHARS }),
-							"",
-							"stderr tail:",
-							tailText(finishExec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS }),
-						].join("\n"),
-					},
-				],
-				details: {
-					phase: "finish",
-					exitCode: finishExec.code,
-					reportPath,
-					factsPath,
-					subagent: subagentDetails(subagent),
-				},
-			};
+			return stepToolResult(
+				[
+					`runner-finish produced no parseable checkpoint envelope for objective ${slug} (exit ${finishExec.code}). Treat this as a malfunction: read the diagnostics below and check the worktree before anything else.`,
+					"",
+					"stdout tail:",
+					tailText(finishExec.stdout, { maxChars: MAX_FAILURE_TAIL_CHARS }),
+					"",
+					"stderr tail:",
+					tailText(finishExec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS }),
+				].join("\n"),
+				"finish",
+				{ exitCode: finishExec.code },
+				subagent,
+			);
 		}
 
-		return {
-			content: [{ type: "text", text: checkpoint.checkpointMarkdown }],
-			details: {
-				phase: "finish",
+		return stepToolResult(
+			checkpoint.checkpointMarkdown,
+			"finish",
+			{
 				exitCode: finishExec.code,
 				status: checkpoint.data.status,
 				mode: checkpoint.data.mode,
@@ -360,30 +346,24 @@ async function runObjectiveRunnerStep(
 				changedPaths: checkpoint.data.changedPaths,
 				gateChecks: checkpoint.data.gateChecks,
 				stopReason: checkpoint.data.stopReason,
-				reportPath,
-				factsPath,
-				subagent: subagentDetails(subagent),
 			},
-		};
+			subagent,
+		);
 	} finally {
 		setRunnerSubagentWidget(ctx, WIDGET_KEY, undefined);
 	}
 
 	function beginFailureResult(exec: ExecResult, envelopeMessage: string | undefined): ToolResult {
 		const stderrTail = tailText(exec.stderr, { maxChars: MAX_FAILURE_TAIL_CHARS });
-		return {
-			content: [
-				{
-					type: "text",
-					text: [
-						`runner-begin refused or failed for objective ${slug} (exit ${exec.code}). Nothing was dispatched; the parent decides the next move.`,
-						...(envelopeMessage === undefined ? [] : ["", envelopeMessage]),
-						...(stderrTail.length === 0 ? [] : ["", "stderr tail:", stderrTail]),
-					].join("\n"),
-				},
-			],
-			details: { phase: "begin", exitCode: exec.code, reportPath, factsPath },
-		};
+		return stepToolResult(
+			[
+				`runner-begin refused or failed for objective ${slug} (exit ${exec.code}). Nothing was dispatched; the parent decides the next move.`,
+				...(envelopeMessage === undefined ? [] : ["", envelopeMessage]),
+				...(stderrTail.length === 0 ? [] : ["", "stderr tail:", stderrTail]),
+			].join("\n"),
+			"begin",
+			{ exitCode: exec.code },
+		);
 	}
 }
 
