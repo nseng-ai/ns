@@ -1050,6 +1050,7 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 		]);
 		expect(violations[0]?.path).toBe("synthetic/core/package.json");
 		expect(violations[0]?.text).toContain("./src/operations/leak.ts");
+		expect(violations[0]?.text).toContain("ns.subpackages");
 	});
 
 	test("rejects an escaping string leaf inside a conditions object", () => {
@@ -1073,6 +1074,26 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 			BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 		]);
 		expect(violations[0]?.text).toContain("./src/shared/x.ts");
+	});
+
+	test("rejects an escaping string leaf inside an exports fallback array", () => {
+		const metadataByName = buildSyntheticSubpackageMetadata({
+			packageDir: "synthetic/core",
+			subpackages: ["api"],
+			remainder: false,
+			exports: {
+				"./x": ["./src/api/x.ts", "./src/legacy/x.js"],
+			},
+		});
+
+		const violations = collectExportsSubpackageConformanceViolations({
+			packageMetadataByName: metadataByName,
+		});
+
+		expect(violations.map((violation) => violation.rule)).toEqual([
+			BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
+		]);
+		expect(violations[0]?.text).toContain("./src/legacy/x.js");
 	});
 
 	test("allows targets that all resolve inside declared subpackages", () => {
