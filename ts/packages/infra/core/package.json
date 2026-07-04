@@ -44,9 +44,6 @@
 		"typescript": "catalog:",
 		"zod": "catalog:"
 	},
-	"devDependencies": {
-		"@internal/typescript-style-guard": "workspace:*"
-	},
 	"ns": {
 		"tier": "neutral-infra",
 		"subpackages": [

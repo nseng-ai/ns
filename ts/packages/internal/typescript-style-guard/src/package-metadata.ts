@@ -23,10 +23,10 @@ export interface PackageMetadata {
 	readonly packageJsonPath: string;
 	manifest: PackageManifest;
 	manifestContent: string;
-	readonly sdlTier: PackageTier | undefined;
-	readonly rawSdlTier: unknown;
-	readonly sdlSubpackages: readonly string[];
-	readonly sdlRemainder: boolean;
+	readonly nsTier: PackageTier | undefined;
+	readonly rawNsTier: unknown;
+	readonly nsSubpackages: readonly string[];
+	readonly nsRemainder: boolean;
 	readonly exportSubpaths: ReadonlySet<string>;
 }
 
@@ -37,38 +37,38 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 		const manifestContent = readFileSync(packageJsonPath, "utf8");
 		const parsed: unknown = JSON.parse(manifestContent);
 		if (!isPackageManifest(parsed)) continue;
-		const rawSdlTier = readRawSdlTier(parsed.ns);
+		const rawNsTier = readRawNsTier(parsed.ns);
 		metadataByName.set(parsed.name, {
 			name: parsed.name,
 			packageDir: relative(repoRoot, packageDir),
 			packageJsonPath: relative(repoRoot, packageJsonPath),
 			manifest: parsed,
 			manifestContent,
-			sdlTier: parsePackageTier(rawSdlTier),
-			rawSdlTier,
-			sdlSubpackages: readSdlSubpackages(parsed.ns),
-			sdlRemainder: readSdlRemainder(parsed.ns),
+			nsTier: parsePackageTier(rawNsTier),
+			rawNsTier,
+			nsSubpackages: readNsSubpackages(parsed.ns),
+			nsRemainder: readNsRemainder(parsed.ns),
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}
 	return metadataByName;
 }
 
-export function readRawSdlTier(sdlField: unknown): unknown {
-	if (!isRecord(sdlField)) return undefined;
-	return sdlField.tier;
+export function readRawNsTier(nsField: unknown): unknown {
+	if (!isRecord(nsField)) return undefined;
+	return nsField.tier;
 }
 
-export function readSdlSubpackages(sdlField: unknown): readonly string[] {
-	if (!isRecord(sdlField)) return [];
-	const value = sdlField.subpackages;
+export function readNsSubpackages(nsField: unknown): readonly string[] {
+	if (!isRecord(nsField)) return [];
+	const value = nsField.subpackages;
 	if (!Array.isArray(value)) return [];
 	return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
 }
 
-export function readSdlRemainder(sdlField: unknown): boolean {
-	if (!isRecord(sdlField)) return false;
-	return sdlField.remainder === true;
+export function readNsRemainder(nsField: unknown): boolean {
+	if (!isRecord(nsField)) return false;
+	return nsField.remainder === true;
 }
 
 export function parsePackageTier(value: unknown): PackageTier | undefined {

@@ -526,10 +526,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-    devDependencies:
-      '@internal/typescript-style-guard':
-        specifier: workspace:*
-        version: link:../../internal/typescript-style-guard
 
   packages/internal/pi-tools:
     dependencies:

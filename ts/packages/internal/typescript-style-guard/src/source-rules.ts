@@ -154,16 +154,16 @@ function isPrivateCapabilityPeerImport(
 	const importerPackageName = packageNameForPath(path, packageMetadataByName);
 	if (importerPackageName === undefined) return false;
 	const importerPackageMetadata = packageMetadataByName.get(importerPackageName);
-	if (importerPackageMetadata?.sdlTier !== "capability") return false;
+	if (importerPackageMetadata?.nsTier !== "capability") return false;
 
 	const importedPackageName = packageNameForSpecifier(specifier);
 	if (importedPackageName === undefined) return false;
 	if (importedPackageName === importerPackageName) return false;
 	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
-	if (importedPackageMetadata?.sdlTier === "neutral-infra") return false;
-	if (importedPackageMetadata?.sdlTier === "capability-kit") return false;
+	if (importedPackageMetadata?.nsTier === "neutral-infra") return false;
+	if (importedPackageMetadata?.nsTier === "capability-kit") return false;
 	if (importedPackageName === "@ns/kernel") return false;
-	if (importedPackageMetadata?.sdlTier !== "capability") return false;
+	if (importedPackageMetadata?.nsTier !== "capability") return false;
 
 	const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);
 	if (importedSubpath === ".") return false;

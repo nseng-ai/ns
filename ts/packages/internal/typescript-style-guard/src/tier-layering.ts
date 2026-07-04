@@ -19,15 +19,15 @@ export function collectPackageTierLayeringViolations(
 	for (const metadata of [...metadataByName.values()].sort((left, right) =>
 		left.name.localeCompare(right.name),
 	)) {
-		if (metadata.rawSdlTier === undefined) {
+		if (metadata.rawNsTier === undefined) {
 			violations.push(buildTierMetadataViolation(metadata, "missing ns.tier"));
 			continue;
 		}
-		if (metadata.sdlTier === undefined) {
+		if (metadata.nsTier === undefined) {
 			violations.push(
 				buildTierMetadataViolation(
 					metadata,
-					`unknown ns.tier ${JSON.stringify(metadata.rawSdlTier)}`,
+					`unknown ns.tier ${JSON.stringify(metadata.rawNsTier)}`,
 				),
 			);
 		}
@@ -36,8 +36,8 @@ export function collectPackageTierLayeringViolations(
 	const packageNames = new Set(metadataByName.keys());
 	const edges = collectExtensionManifestWorkspaceEdges(metadataByName, packageNames);
 	for (const edge of edges) {
-		const fromTier = metadataByName.get(edge.from)?.sdlTier;
-		const toTier = metadataByName.get(edge.to)?.sdlTier;
+		const fromTier = metadataByName.get(edge.from)?.nsTier;
+		const toTier = metadataByName.get(edge.to)?.nsTier;
 		if (fromTier === undefined || toTier === undefined) continue;
 		const violation = tierEdgeViolation(fromTier, toTier);
 		if (violation === undefined) continue;
@@ -78,8 +78,8 @@ function isAllowedPiSubpackagePeerEdge(
 ): boolean {
 	if (edge.to !== "@ns/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
-	if (metadata?.sdlTier !== "capability") return false;
-	if (!metadata.sdlSubpackages.includes("pi")) return false;
+	if (metadata?.nsTier !== "capability") return false;
+	if (!metadata.nsSubpackages.includes("pi")) return false;
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@ns/pi");
 }
 
