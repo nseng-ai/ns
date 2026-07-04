@@ -16,7 +16,7 @@ import {
 	createContext,
 	execResult,
 	type RegisteredCommand,
-} from "../branch-context-extension-support.ts";
+} from "../../pi/branch-context-extension-support.ts";
 import type { CustomMessage, ExtensionAPI, ToolDefinition } from "../../../src/pi/host-types.ts";
 
 const tempDirs = createTempDirTracker();

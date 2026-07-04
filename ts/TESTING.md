@@ -98,10 +98,10 @@ not keep the process alive. Raw timers belong in the timer adapter modules or na
 runtime/integration smoke.
 
 Project-owned time-sensitive behavior in the default suite should inject `Clock` or `TimerScheduler` and
-use helpers from `@ns/core/testing`:
+use helpers from `@ns/core/time/testing`:
 
 ```ts
-import { createManualClock, createManualTimerScheduler } from "@ns/core/testing";
+import { createManualClock, createManualTimerScheduler } from "@ns/core/time/testing";
 ```
 
 Use `createManualClock()` for wall-clock reads and elapsed-time assertions. Use
