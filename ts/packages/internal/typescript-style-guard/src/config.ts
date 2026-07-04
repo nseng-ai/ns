@@ -1,3 +1,10 @@
+import {
+	allowedPackageTierDebtEdgeEntries,
+	packageTierDefinitions,
+	tierRank,
+	type PackageTierId,
+} from "@internal/typescript-style-guard/package-tier-taxonomy";
+
 export const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".cts"]);
 export const skippedDirectoryNames = new Set([
 	".git",
@@ -26,66 +33,66 @@ export const BAN_SUBPACKAGE_DECLARATION_CONFORMANCE = "NS_TS_SUBPACKAGE_DECLARAT
 export const BAN_EXPORTS_SUBPACKAGE_CONFORMANCE = "NS_TS_EXPORTS_SUBPACKAGE_CONFORMANCE";
 export const ADVISORY_OPTIONAL_UNDEFINED_PROPERTY = "NS_TS_ADVISORY_OPTIONAL_UNDEFINED_PROPERTY";
 
-export const packageTierValues = [
-	"capability",
-	"capability-kit",
-	"sdk",
-	"neutral-infra",
-	"host",
-	"capability-pi",
-	"standalone-tool",
-	"internal-pi-tool",
-	"internal-tool",
-] as const;
+export const packageTierValues: readonly PackageTierId[] = packageTierDefinitions.map(
+	(tier) => tier.id,
+);
 
 export type PackageTier = (typeof packageTierValues)[number];
 
-export const packageTierSet = new Set<string>(packageTierValues);
+export const packageTierSet: ReadonlySet<string> = new Set(packageTierValues);
 
-export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> = {
-	capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra"]),
-	"capability-kit": new Set(["sdk", "neutral-infra"]),
-	sdk: new Set(["sdk", "neutral-infra"]),
-	"neutral-infra": new Set(["neutral-infra"]),
-	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra"]),
-	"capability-pi": new Set([
-		"capability-pi",
-		"host",
-		"capability",
-		"capability-kit",
-		"sdk",
-		"neutral-infra",
-	]),
-	"standalone-tool": new Set([
-		"standalone-tool",
-		"host",
-		"capability",
-		"capability-kit",
-		"sdk",
-		"neutral-infra",
-	]),
-	"internal-pi-tool": new Set(["internal-pi-tool", "host", "neutral-infra"]),
-	"internal-tool": new Set(["internal-tool", "neutral-infra"]),
-};
+export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> =
+	buildPackageTierAllowedTargets();
 
-export const allowedPackageTierDebtEdges = new Map<string, string>([
-	[
-		"@ns/kernel\0@ns/slot",
-		"SDK-to-capability CLI mount debt: @ns/kernel still mounts Slot directly.",
-	],
-	[
-		"@ns/kernel\0@ns/capability-kit",
-		"SDK-to-capability-kit CLI shell-support debt: @ns/kernel still reuses Capability Kit shell wrappers for the sdl shell operation.",
-	],
-	[
-		"@ns/brmem\0@ns/capability-kit",
-		"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
-	],
-	[
-		"@internal/pi-tools\0@ns/capability-kit",
-		"Internal Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when internal-pi-tool helper placement is settled.",
-	],
-]);
+export const allowedPackageTierDebtEdges = new Map<string, string>(
+	allowedPackageTierDebtEdgeEntries,
+);
+
+validatePackageTierTaxonomy();
+
+function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> {
+	const targets: Partial<Record<PackageTier, ReadonlySet<PackageTier>>> = {};
+	for (const tier of packageTierDefinitions) targets[tier.id] = new Set(tier.allowedTargets);
+	return completePackageTierRecord(targets);
+}
+
+function completePackageTierRecord(
+	record: Partial<Record<PackageTier, ReadonlySet<PackageTier>>>,
+): Record<PackageTier, ReadonlySet<PackageTier>> {
+	for (const tierId of packageTierValues) {
+		if (record[tierId] === undefined) throw new Error(`Package tier ${tierId} is missing policy.`);
+	}
+	return record as Record<PackageTier, ReadonlySet<PackageTier>>;
+}
+
+function validatePackageTierTaxonomy(): void {
+	const seenTierIds = new Set<string>();
+	for (const tier of packageTierDefinitions) {
+		if (seenTierIds.has(tier.id)) throw new Error(`Duplicate package tier id: ${tier.id}`);
+		seenTierIds.add(tier.id);
+		for (const target of tier.allowedTargets) {
+			if (!packageTierSet.has(target)) {
+				throw new Error(`Package tier ${tier.id} allows unknown target tier: ${target}`);
+			}
+		}
+	}
+
+	const rankedTierIds = new Set<string>();
+	for (const tierId of tierRank) {
+		if (!packageTierSet.has(tierId))
+			throw new Error(`Tier rank references unknown package tier: ${tierId}`);
+		if (rankedTierIds.has(tierId)) throw new Error(`Tier rank repeats package tier: ${tierId}`);
+		rankedTierIds.add(tierId);
+	}
+	if (rankedTierIds.size !== packageTierSet.size) {
+		throw new Error("Tier rank must cover every package tier exactly once.");
+	}
+
+	for (const [edge, reason] of allowedPackageTierDebtEdgeEntries) {
+		if (edge === "" || reason === "")
+			throw new Error("Package tier debt edges must include an edge key and reason.");
+	}
+}
 
 export const capabilityPackageNames = new Set([
 	"@ns/aretro",

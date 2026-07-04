@@ -13,6 +13,12 @@ import { execSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, normalize, relative, resolve } from "node:path";
 
+import {
+  ALLOWED_PACKAGE_TIER_DEBT_EDGES,
+  PACKAGE_TIER_IDS,
+  PACKAGE_TIER_POLICY,
+} from "./tiers.mjs";
+
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
   if (i === -1) return fallback;
@@ -39,48 +45,9 @@ const SRC_DIR = arg("src-dir", "src");
 const PRETTY = arg("pretty", false);
 const OUT = arg("out", false);
 
-// Canonical taxonomy — kept in sync with the workspace source of truth:
-// ts/packages/internal/typescript-style-guard/src/config.ts
-// (`packageTierValues`, `packageTierAllowedTargets`, `allowedPackageTierDebtEdges`).
-const TIERS = [
-  "capability",
-  "capability-kit",
-  "sdk",
-  "neutral-infra",
-  "host",
-  "capability-pi",
-  "standalone-tool",
-  "internal-pi-tool",
-  "internal-tool",
-];
-const TIER_SET = new Set(TIERS);
-const TIER_POLICY = {
-  capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra"]),
-  "capability-kit": new Set(["sdk", "neutral-infra"]),
-  sdk: new Set(["sdk", "neutral-infra"]),
-  "neutral-infra": new Set(["neutral-infra"]),
-  host: new Set(["capability", "sdk", "capability-kit", "neutral-infra"]),
-  "capability-pi": new Set(["capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
-  "standalone-tool": new Set(["standalone-tool", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
-  "internal-pi-tool": new Set(["internal-pi-tool", "host", "neutral-infra"]),
-  "internal-tool": new Set(["internal-tool", "neutral-infra"]),
-};
-const ALLOWED_DEBT_EDGES = new Map([
-  ["@ns/ccc\0@ns/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
-  ["@ns/kernel\0@ns/slot", "SDK-to-capability CLI mount debt: @ns/kernel still mounts Slot directly."],
-  [
-    "@ns/kernel\0@ns/capability-kit",
-    "SDK-to-capability-kit CLI shell-support debt: @ns/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",
-  ],
-  [
-    "@ns/brmem\0@ns/capability-kit",
-    "Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
-  ],
-  [
-    "@internal/pi-tools\0@ns/capability-kit",
-    "Internal Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when internal-pi-tool helper placement is settled.",
-  ],
-]);
+// Tier ids and package dependency policy are derived from the shared
+// style-guard taxonomy data via tiers.mjs.
+const TIER_SET = new Set(PACKAGE_TIER_IDS);
 
 function toPosix(path) {
   return path.split("\\").join("/");
@@ -159,9 +126,9 @@ for (const f of files) {
   if (!d.name) continue;
   const tier = d.ns?.tier;
   if (typeof tier !== "string") {
-    manifestErrors.push(`${d.name} (${f}) is missing ns.tier; known tiers: ${TIERS.join(", ")}`);
+    manifestErrors.push(`${d.name} (${f}) is missing ns.tier; known tiers: ${PACKAGE_TIER_IDS.join(", ")}`);
   } else if (!TIER_SET.has(tier)) {
-    manifestErrors.push(`${d.name} (${f}) has unknown ns.tier ${JSON.stringify(tier)}; known tiers: ${TIERS.join(", ")}`);
+    manifestErrors.push(`${d.name} (${f}) has unknown ns.tier ${JSON.stringify(tier)}; known tiers: ${PACKAGE_TIER_IDS.join(", ")}`);
   }
   const deps = {};
   for (const k of ["dependencies", "peerDependencies", "devDependencies"]) {
@@ -245,9 +212,9 @@ function tierViolationForEdge(from, to) {
   const fromTier = pkgs[from]?.tier;
   const toTier = pkgs[to]?.tier;
   if (fromTier === undefined || toTier === undefined) return undefined;
-  if (TIER_POLICY[fromTier]?.has(toTier)) return undefined;
+  if (PACKAGE_TIER_POLICY[fromTier]?.has(toTier)) return undefined;
   if (isAllowedPiSubpackagePeerEdge(from, to)) return undefined;
-  const debt = ALLOWED_DEBT_EDGES.get(`${from}\0${to}`);
+  const debt = ALLOWED_PACKAGE_TIER_DEBT_EDGES.get(`${from}\0${to}`);
   if (debt !== undefined) {
     return { from, to, fromTier, toTier, severity: "debt", policy: `${fromTier}-must-not-depend-on-${toTier}`, debtNote: debt };
   }
@@ -472,8 +439,8 @@ const out = {
     topologyCircleCount: circles.length,
     edgeKinds: "package graph: runtime (dependencies + peerDependencies); circle graph: static TypeScript imports/exports",
     topologyCircleConvention: "package root/remainder circle plus manifest-declared ns.subpackages circles",
-    tiers: TIERS,
-    tierPolicy: Object.fromEntries(Object.entries(TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
+    tiers: PACKAGE_TIER_IDS,
+    tierPolicy: Object.fromEntries(Object.entries(PACKAGE_TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
   },
   packages: Object.fromEntries(
     Object.entries(pkgs)

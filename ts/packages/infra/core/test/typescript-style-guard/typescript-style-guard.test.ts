@@ -1514,7 +1514,8 @@ function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 		value === "host" ||
 		value === "capability-pi" ||
 		value === "standalone-tool" ||
-		value === "internal-pi-tool"
+		value === "internal-pi-tool" ||
+		value === "internal-tool"
 	);
 }
 

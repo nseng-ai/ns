@@ -122,8 +122,7 @@ Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @ns/capability-ki
   Override the source folder with `--src-dir`.
 
 The script reads each workspace package's declared `ns.tier`, validates it against the
-canonical tier taxonomy (kept in sync with the style-guard `packageTierValues` /
-`packageTierAllowedTargets` / `allowedPackageTierDebtEdges`), emits `packages[name].tier`, and
+canonical tier taxonomy derived from the style-guard package tier data, emits `packages[name].tier`, and
 reports computed `tierViolations` over runtime package edges — each tagged `severity: "hard"`,
 or `"debt"` when the offending edge is on the allowlist. It does not write the editorial
 verdict. In target mode, map the measured facts to the target's invariants yourself (the
