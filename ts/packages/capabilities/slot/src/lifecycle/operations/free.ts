@@ -226,9 +226,9 @@ function resolveTargets(
 	const slotNames: string[] = [];
 	const errors: string[] = [];
 	const skipped: string[] = [];
-	let hasSelector = false;
+	const hasSelector =
+		request.num.length > 0 || request.wt.length > 0 || request.branch.length > 0 || request.current;
 	for (const raw of request.num) {
-		hasSelector = true;
 		const parsed = /^\d+$/.test(raw) ? Number(raw) : null;
 		const result =
 			parsed === null
@@ -238,13 +238,11 @@ function resolveTargets(
 		else errors.push(result.message);
 	}
 	for (const wt of request.wt) {
-		hasSelector = true;
 		const result = resolveWt(wt);
 		if (result.type === "ok") slotNames.push(result.slotName);
 		else errors.push(result.message);
 	}
 	for (const branch of request.branch) {
-		hasSelector = true;
 		const match = findByBranch(inventory, branch);
 		if (match?.kind === "slot") slotNames.push(match.record.slotName);
 		else if (match?.kind === "main")
@@ -254,7 +252,6 @@ function resolveTargets(
 		else skipped.push(`Branch '${branch}' is not assigned to a managed slot; nothing to free.`);
 	}
 	if (request.current) {
-		hasSelector = true;
 		const result = resolveCurrent(ctx.cwd);
 		if (result.type === "ok") slotNames.push(result.slotName);
 		else errors.push(result.message);
