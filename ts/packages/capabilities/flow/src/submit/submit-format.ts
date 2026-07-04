@@ -2,6 +2,7 @@ import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import type { SubmitPrDescriptionSummary } from "./submit-pr-description-summary.ts";
 import {
 	formatCurrentPrVerificationFailureCause,
 	formatSubmitSemanticFailureCause,
@@ -27,13 +28,7 @@ export function formatItemCount(count: number, singular: string, plural: string)
 
 export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
-	descriptions: {
-		generated: readonly SubmitPrLink[];
-		skipped: readonly SubmitPrLink[];
-		prewritten: readonly SubmitPrLink[];
-		prewriteFallbacks: readonly SubmitPrLink[];
-		previews: readonly SubmitPrDescriptionPreview[];
-	},
+	descriptions: SubmitPrDescriptionSummary,
 ): string {
 	const lines = [`Submitted ${formatItemCount(prLinks.length, "PR", "PRs")}:`];
 	for (const link of prLinks) {
@@ -64,20 +59,9 @@ export function formatSubmitSuccessFallbackText(stdout: string, stderr: string):
 	return lines.join("\n");
 }
 
-interface SubmitPrDescriptionPreview {
-	link: SubmitPrLink;
-	title: string;
-	descriptionFirstLine: string;
-}
-
 function formatSubmitSuccessStatuses(
 	link: SubmitPrLink,
-	descriptions: {
-		generated: readonly SubmitPrLink[];
-		prewritten: readonly SubmitPrLink[];
-		prewriteFallbacks: readonly SubmitPrLink[];
-		previews: readonly SubmitPrDescriptionPreview[];
-	},
+	descriptions: SubmitPrDescriptionSummary,
 ): string[] {
 	const statuses: string[] = [];
 	if (hasMatchingLink(descriptions.prewritten, link)) {

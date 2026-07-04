@@ -1,4 +1,5 @@
 import type { ErrorInfo } from "@ns/core/result";
+import { firstNonEmptyLine } from "@ns/core/text-normalization";
 import {
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,
@@ -8,6 +9,7 @@ import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import type { SubmitPrDescriptionPreview } from "./submit-pr-description-summary.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
@@ -22,12 +24,6 @@ export type SubmitPrDescriptionGenerationResult =
 			previews: SubmitPrDescriptionPreview[];
 	  }
 	| { ok: false; failures: PrDescriptionFailure[] };
-
-export interface SubmitPrDescriptionPreview {
-	link: SubmitPrLink;
-	title: string;
-	descriptionFirstLine: string;
-}
 
 export interface PrDescriptionFailure {
 	link: SubmitPrLink;
@@ -148,17 +144,8 @@ function prDescriptionPreview(
 	return {
 		link,
 		title: title.trim(),
-		descriptionFirstLine: firstNonEmptyLine(descriptionBody),
+		descriptionFirstLine: firstNonEmptyLine(descriptionBody) ?? "",
 	};
-}
-
-function firstNonEmptyLine(text: string): string {
-	return (
-		text
-			.split(/\r?\n/u)
-			.map((line) => line.trim())
-			.find((line) => line !== "") ?? ""
-	);
 }
 
 export function formatPrDescriptionFailureText(
