@@ -23,6 +23,7 @@ import {
 } from "../gateways/review-log.ts";
 import {
 	postInlineFindingsResultSchema,
+	priorFindingsPromptContextSchema,
 	reviewFindingsPayloadSchema,
 	reviewRunResultSchema,
 	reviewUsageTotalInputTokens,
@@ -38,7 +39,7 @@ import { loadRoastSkillEntries, roastReviewPathForKey } from "../core/skill-revi
 import { loadReviewExecutionContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
-const DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP = 50;
+const DEFAULT_PRIOR_FINDINGS_CONTEXT_FINDING_COUNT = 50;
 
 export const reviewListRequestSchema = z.object({
 	applicable: z
@@ -325,7 +326,7 @@ async function loadPriorFindingsPromptContext(
 	request: ReviewRunRequest,
 ): Promise<PriorFindingsPromptContext | undefined> {
 	if (request.priorFindingsPrNumber === undefined) return undefined;
-	const priorFindingsCap = request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_CAP;
+	const priorFindingsCap = request.priorFindingsCap ?? DEFAULT_PRIOR_FINDINGS_CONTEXT_FINDING_COUNT;
 
 	const result = await gatherPriorFindingsContext(ctx.github, {
 		...environmentOptions(ctx.runScope),
@@ -341,7 +342,7 @@ async function loadPriorFindingsPromptContext(
 	ctx.stderr(
 		`prior-findings context: loaded ${result.context.findings.length} findings for PR #${result.context.prNumber} review ${result.context.reviewName}.\n`,
 	);
-	return result.context;
+	return priorFindingsPromptContextSchema.parse(result.context);
 }
 
 export function clinkrExitFromReviewRunOutcome(

@@ -48,8 +48,28 @@ export const allowedPackageTierDebtEdges = new Map<string, string>(
 );
 
 function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> {
-	const targets = {} as Record<PackageTier, ReadonlySet<PackageTier>>;
-	for (const tier of packageTierDefinitions) targets[tier.id] = new Set(tier.allowedTargets);
+	const targetsByTier = new Map<PackageTier, ReadonlySet<PackageTier>>(
+		packageTierDefinitions.map((tier) => [tier.id, new Set(tier.allowedTargets)]),
+	);
+	return {
+		capability: packageTierAllowedTargetSet(targetsByTier, "capability"),
+		"capability-kit": packageTierAllowedTargetSet(targetsByTier, "capability-kit"),
+		sdk: packageTierAllowedTargetSet(targetsByTier, "sdk"),
+		"neutral-infra": packageTierAllowedTargetSet(targetsByTier, "neutral-infra"),
+		host: packageTierAllowedTargetSet(targetsByTier, "host"),
+		"capability-pi": packageTierAllowedTargetSet(targetsByTier, "capability-pi"),
+		"standalone-tool": packageTierAllowedTargetSet(targetsByTier, "standalone-tool"),
+		"internal-pi-tool": packageTierAllowedTargetSet(targetsByTier, "internal-pi-tool"),
+		"internal-tool": packageTierAllowedTargetSet(targetsByTier, "internal-tool"),
+	} satisfies Record<PackageTier, ReadonlySet<PackageTier>>;
+}
+
+function packageTierAllowedTargetSet(
+	targetsByTier: ReadonlyMap<PackageTier, ReadonlySet<PackageTier>>,
+	tier: PackageTier,
+): ReadonlySet<PackageTier> {
+	const targets = targetsByTier.get(tier);
+	if (targets === undefined) throw new Error(`Missing package tier definition for ${tier}`);
 	return targets;
 }
 

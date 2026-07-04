@@ -17,6 +17,7 @@ import {
   ALLOWED_PACKAGE_TIER_DEBT_EDGES,
   PACKAGE_TIER_IDS,
   PACKAGE_TIER_POLICY,
+  packageEdgeKey,
 } from "./tiers.mjs";
 
 function arg(name, fallback) {
@@ -214,7 +215,7 @@ function tierViolationForEdge(from, to) {
   if (fromTier === undefined || toTier === undefined) return undefined;
   if (PACKAGE_TIER_POLICY[fromTier]?.has(toTier)) return undefined;
   if (isAllowedPiSubpackagePeerEdge(from, to)) return undefined;
-  const debt = ALLOWED_PACKAGE_TIER_DEBT_EDGES.get(`${from}\0${to}`);
+  const debt = ALLOWED_PACKAGE_TIER_DEBT_EDGES.get(packageEdgeKey(from, to));
   if (debt !== undefined) {
     return { from, to, fromTier, toTier, severity: "debt", policy: `${fromTier}-must-not-depend-on-${toTier}`, debtNote: debt };
   }

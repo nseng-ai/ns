@@ -5,6 +5,7 @@ import {
 	packageTierValues,
 	type PackageTier,
 } from "./config.ts";
+import { packageEdgeKey } from "./package-tier-taxonomy.ts";
 import { collectExtensionManifestWorkspaceEdges } from "./dependency-graph.ts";
 import { lineAndColumnForOffset, type TextPosition } from "./json-diagnostics.ts";
 import { isRecord, type PackageMetadata } from "./package-metadata.ts";
@@ -55,9 +56,7 @@ export function collectPackageTierLayeringViolations(
 	return violations;
 }
 
-export function packageEdgeKey(from: string, to: string): string {
-	return `${from}\0${to}`;
-}
+export { packageEdgeKey } from "./package-tier-taxonomy.ts";
 
 interface TierEdgeViolation {
 	readonly severity: "hard" | "debt";

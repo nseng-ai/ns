@@ -91,11 +91,16 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 }
 
 export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
+	const { execApi, cwd, env, signal, stdout, ...runtimeFields } = context;
+	void execApi;
+	void stdout;
 	return {
-		runScope: runScopeFromContext(context),
-		...roasterGateways(context),
-		stdin: context.stdin,
-		stderr: context.stderr,
+		...runtimeFields,
+		runScope: {
+			cwd,
+			env,
+			...(signal === undefined ? {} : { signal }),
+		},
 	};
 }
 
@@ -110,24 +115,5 @@ export function catalogOptions(scope: RoasterRunScope): RoasterCatalogOptions {
 	return {
 		cwd: scope.cwd,
 		...(scope.signal === undefined ? {} : { signal: scope.signal }),
-	};
-}
-
-function roasterGateways(context: RoasterGateways): RoasterGateways {
-	return {
-		gitGateway: context.gitGateway,
-		localDiff: context.localDiff,
-		reviewCatalog: context.reviewCatalog,
-		reviewLog: context.reviewLog,
-		github: context.github,
-		reviewRunner: context.reviewRunner,
-	};
-}
-
-function runScopeFromContext(context: RoasterContext): RoasterRunScope {
-	return {
-		cwd: context.cwd,
-		env: context.env,
-		...(context.signal === undefined ? {} : { signal: context.signal }),
 	};
 }

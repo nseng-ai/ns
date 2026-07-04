@@ -13,6 +13,7 @@ import {
 	type PackageTier,
 } from "./config.ts";
 import { findCycleComponents } from "./dependency-graph.ts";
+import { packageEdgeKey } from "./package-tier-taxonomy.ts";
 import { findTypeScriptSourceFiles } from "./file-discovery.ts";
 import {
 	moduleSpecifierText,
@@ -447,7 +448,7 @@ function isAllowedCircleEdge(from: TopologyCircleFact, to: TopologyCircleFact): 
 	if (from.packageName === to.packageName) return true;
 	if (packageTierAllowedTargets[from.tier].has(to.tier)) return true;
 	if (isAllowedPiSubpackageCircleEdge(from, to)) return true;
-	return allowedPackageTierDebtEdges.has(`${from.packageName}\0${to.packageName}`);
+	return allowedPackageTierDebtEdges.has(packageEdgeKey(from.packageName, to.packageName));
 }
 
 function isAllowedPiSubpackageCircleEdge(

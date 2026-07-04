@@ -2,6 +2,7 @@ import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback
 
 import type { GitHubGatewayFailure, RoasterFailure } from "./failures.ts";
 import {
+	capTrailingRecords,
 	inlineMarkerForFinding,
 	parseFindingsCommentMachineState,
 	summaryMarkerForReview,
@@ -104,7 +105,10 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const cappedFindings = stampedFindings.slice(-options.cap);
+	const { kept: cappedFindings, omittedCount: omittedByContextCap } = capTrailingRecords(
+		stampedFindings,
+		options.cap,
+	);
 	const context: PriorFindingsPromptContext = {
 		prNumber: options.prNumber,
 		reviewName: options.reviewName,
@@ -112,7 +116,7 @@ export async function gatherPriorFindingsContext(
 		lastReviewedHead: machineState.lastReviewedHead,
 		cap: options.cap,
 		stampedFindingCount: stampedFindings.length,
-		omittedByContextCap: stampedFindings.length - cappedFindings.length,
+		omittedByContextCap,
 		cumulativePrunedCount: machineState.priorFindings.prunedCount,
 		findings: cappedFindings.map((record) =>
 			contextEntryForRecord(options.reviewName, record, reviewThreads.value),
