@@ -13,14 +13,17 @@ import {
 	type RunnerCheckpointStatus,
 } from "./checkpoint.ts";
 import { commitRunnerStep } from "./commit.ts";
-import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
+import type { ObjectiveRunnerContext } from "./context.ts";
 import {
-	GATE_CHECK_IDS,
-	GATE_CHECK_STATUSES,
+	gateCheckResultSchema,
 	verifyRunnerStep,
 	type GateBranchUnavailableReason,
 } from "./gate.ts";
-import { checkRunnerPreconditions } from "./preconditions.ts";
+import {
+	checkRunnerPreconditions,
+	resolveRunnerStepIdentity,
+	runnerPreconditionProblemExit,
+} from "./preconditions.ts";
 import { buildRunnerChildPrompt } from "./prompt.ts";
 import { parseRunnerReport } from "./report-marker.ts";
 import { renderRunnerReportNarrative } from "./report.ts";
@@ -43,12 +46,6 @@ export const runnerStepRequestSchema = z.object({
 		),
 	model: z.string().optional().describe("Model override for the child session."),
 	timeout: z.number().int().positive().default(3600).describe("Child session timeout in seconds."),
-});
-
-export const gateCheckResultSchema = z.object({
-	id: z.enum(GATE_CHECK_IDS),
-	status: z.enum(GATE_CHECK_STATUSES),
-	detail: z.string().optional(),
 });
 
 const runnerStepStatusSchema = z.enum([
@@ -93,21 +90,18 @@ export async function runRunnerStep(
 	ctx: ObjectiveRunnerContext,
 	request: RunnerStepRequest,
 ): Promise<ClinkrExit<RunnerStepResult>> {
-	if (request.slug === undefined) {
-		return usageError("Objective slug is required.", { argument: "slug" });
+	const identity = resolveRunnerStepIdentity({
+		recover: request.recover,
+		...optionalEntry("slug", request.slug),
+	});
+	if (identity.type === "usage-error") {
+		return usageError(identity.message, { argument: identity.argument });
 	}
-	const slug = request.slug;
-	const mode: RunnerStepMode = request.recover ? "recover" : "default";
+	const { slug, mode } = identity;
 
 	ctx.phase("checking-preconditions");
 	const preconditions = await checkRunnerPreconditions(ctx, { slug, mode });
-	if (preconditions.type === "usage-error") {
-		return usageError(preconditions.message, { argument: "slug" });
-	}
-	if (preconditions.type === "refused") return negative(preconditions.message);
-	if (preconditions.type === "failure") {
-		return failure(preconditions.code, preconditions.message);
-	}
+	if (preconditions.type !== "ok") return runnerPreconditionProblemExit(preconditions);
 	const { objectivePath, baseBranch, headAtDispatch, changedPaths } = preconditions.facts;
 
 	const prompt = buildRunnerChildPrompt({

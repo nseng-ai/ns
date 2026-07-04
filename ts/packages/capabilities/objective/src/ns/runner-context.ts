@@ -5,7 +5,7 @@ import type { GitGateway } from "@ns/capability-kit/git";
 import { RealGraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
 import type { GraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
 import type { CommandExecApi } from "@ns/core/exec";
-import { formatErrorMessage, optionalEntries } from "@ns/core/primitives";
+import { errorCodeFromUnknown, formatErrorMessage, optionalEntries } from "@ns/core/primitives";
 import type { SdlExtensionApi } from "@ns/kernel/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";
@@ -57,8 +57,8 @@ export interface ObjectiveRunnerOverrides {
  */
 export async function createSdlObjectiveRunnerCoreContext(
 	ctx: SdlExtensionApi,
+	overrides: ObjectiveRunnerOverrides | undefined = readObjectiveRunnerOverrides(ctx),
 ): Promise<ObjectiveRunnerCoreContext> {
-	const overrides = readObjectiveRunnerOverrides(ctx);
 	const base = await createSdlObjectiveContext(
 		ctx,
 		optionalEntries({ git: overrides?.git, storage: overrides?.storage }),
@@ -84,7 +84,7 @@ export async function createSdlObjectiveRunnerContext(
 	composition: ObjectiveRunnerComposition,
 ): Promise<ObjectiveRunnerContext> {
 	const overrides = readObjectiveRunnerOverrides(ctx);
-	const core = await createSdlObjectiveRunnerCoreContext(ctx);
+	const core = await createSdlObjectiveRunnerCoreContext(ctx, overrides);
 	return {
 		...core,
 		childSession:
@@ -122,11 +122,7 @@ async function runnerFilePresence(path: string): Promise<RunnerFilePresenceResul
 		await stat(path);
 		return { type: "present" };
 	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
+		if (errorCodeFromUnknown(error) === "ENOENT") return { type: "missing" };
 		return { type: "error", message: formatErrorMessage(error) };
 	}
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && (error as { code?: unknown }).code === code;
 }

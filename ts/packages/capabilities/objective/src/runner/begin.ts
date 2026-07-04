@@ -6,13 +6,17 @@
  */
 import { resolve } from "node:path";
 
-import { failure, negative, ok, usageError, type ClinkrExit } from "@ns/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@ns/clinkr";
 import { isPathInside, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
-import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
-import { resolveGuidance } from "./guidance.ts";
-import { checkRunnerPreconditions } from "./preconditions.ts";
+import type { ObjectiveRunnerCoreContext } from "./context.ts";
+import { guidanceUsageProblem, resolveGuidance } from "./guidance.ts";
+import {
+	checkRunnerPreconditions,
+	resolveRunnerStepIdentity,
+	runnerPreconditionProblemExit,
+} from "./preconditions.ts";
 import { buildRunnerChildPrompt } from "./prompt.ts";
 
 export const runnerBeginRequestSchema = z.object({
@@ -60,11 +64,14 @@ export async function runRunnerBegin(
 	ctx: ObjectiveRunnerCoreContext,
 	request: RunnerBeginRequest,
 ): Promise<ClinkrExit<RunnerBeginResult>> {
-	if (request.slug === undefined) {
-		return usageError("Objective slug is required.", { argument: "slug" });
+	const identity = resolveRunnerStepIdentity({
+		recover: request.recover,
+		...optionalEntry("slug", request.slug),
+	});
+	if (identity.type === "usage-error") {
+		return usageError(identity.message, { argument: identity.argument });
 	}
-	const slug = request.slug;
-	const mode: RunnerStepMode = request.recover ? "recover" : "default";
+	const { slug, mode } = identity;
 
 	if (request.reportPath === undefined) {
 		return usageError("--report-path is required.", { argument: "report-path" });
@@ -97,20 +104,13 @@ export async function runRunnerBegin(
 		readTextFile: (path) => ctx.readTextFile(path),
 	});
 	if (guidance.type === "unreadable-file") {
-		return usageError(`Could not read guidance file ${guidance.path}: ${guidance.message}`, {
-			argument: "guidance",
-		});
+		const problem = guidanceUsageProblem(guidance);
+		return usageError(problem.message, { argument: problem.argument });
 	}
 
 	ctx.phase("checking-preconditions");
 	const preconditions = await checkRunnerPreconditions(ctx, { slug, mode });
-	if (preconditions.type === "usage-error") {
-		return usageError(preconditions.message, { argument: "slug" });
-	}
-	if (preconditions.type === "refused") return negative(preconditions.message);
-	if (preconditions.type === "failure") {
-		return failure(preconditions.code, preconditions.message);
-	}
+	if (preconditions.type !== "ok") return runnerPreconditionProblemExit(preconditions);
 	const { objectivePath, baseBranch, headAtDispatch, changedPaths } = preconditions.facts;
 
 	const prompt = buildRunnerChildPrompt({

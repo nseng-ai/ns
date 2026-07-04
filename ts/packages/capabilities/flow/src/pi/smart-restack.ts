@@ -5,9 +5,10 @@ import {
 } from "../submit/git-operation-output.ts";
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 
+import { buildFencedTextBlock } from "@ns/core/primitives";
 import { formatCommandOutput, notifyCommandUi } from "@ns/pi/commands/helpers";
 import { definePiSurfaceParity } from "@ns/pi/parity/extension";
-import { buildFencedTextBlock, expandRepoSkillBlock } from "@ns/pi/skills/expansion";
+import { expandRepoSkillBlock } from "@ns/pi/skills/expansion";
 
 import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
 import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";

@@ -8,7 +8,7 @@ import {
 } from "@ns/pi/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@ns/pi/runtime/machine-envelope";
 import type { ExecResult } from "@ns/core/command";
-import { formatErrorMessage } from "@ns/core/primitives";
+import { buildFencedTextBlock, formatErrorMessage } from "@ns/core/primitives";
 import { notifyCommandUi } from "@ns/pi/commands/helpers";
 import {
 	buildObjectiveSkillPrompt,
@@ -30,11 +30,7 @@ import {
 	type ObjectiveListParsedArgs,
 } from "../api/index.ts";
 import { definePiSurfaceParity } from "@ns/pi/parity/extension";
-import {
-	buildFencedTextBlock,
-	expandRepoSkillBlock,
-	invokeRepoSkillPromptTurn,
-} from "@ns/pi/skills/expansion";
+import { expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "@ns/pi/skills/expansion";
 import type {
 	AutocompleteItem,
 	CommandContext,

@@ -8,6 +8,7 @@ import { RealGitGateway } from "@ns/capability-kit/git";
 import { createTempGitRepo, type TempGitRepo } from "@ns/capability-kit/git/testing";
 import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
 import { NodeCommandExecApi } from "@ns/core/exec";
+import { errorCodeFromUnknown } from "@ns/core/primitives";
 import { afterEach, expect, test } from "vitest";
 
 import { RealObjectiveStorageGateway } from "../../src/core/real-storage.ts";
@@ -80,13 +81,7 @@ function createIntegrationCoreContext(seededRepo: TempGitRepo): IntegrationCoreC
 				await stat(path);
 				return { type: "present" };
 			} catch (error) {
-				if (
-					typeof error === "object" &&
-					error !== null &&
-					(error as { code?: unknown }).code === "ENOENT"
-				) {
-					return { type: "missing" };
-				}
+				if (errorCodeFromUnknown(error) === "ENOENT") return { type: "missing" };
 				const message = error instanceof Error ? error.message : String(error);
 				return { type: "error", message };
 			}

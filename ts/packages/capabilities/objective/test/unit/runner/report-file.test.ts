@@ -93,7 +93,7 @@ describe("parseRunnerReportJson", () => {
 	test("every missing field and section accumulates its own problem in one pass", () => {
 		const problems = problemsOf(parseRunnerReportJson("{}"));
 		for (const path of ["status", "branch", "roadmapItems", "sections"]) {
-			expect(problems.some((problem) => problem.includes(`\`${path}\``))).toBe(true);
+			expect(problems.some((problem) => problem.includes(path))).toBe(true);
 		}
 		expect(problems.length).toBeGreaterThanOrEqual(4);
 	});
@@ -103,7 +103,7 @@ describe("parseRunnerReportJson", () => {
 		raw.sections = { summary: "ok" };
 		const problems = problemsOf(parseRunnerReportJson(JSON.stringify(raw)));
 		for (const section of ["objectiveImpact", "risksBlockers", "followUps", "validation"]) {
-			expect(problems.some((problem) => problem.includes(`\`sections.${section}\``))).toBe(true);
+			expect(problems.some((problem) => problem.includes(`sections.${section}`))).toBe(true);
 		}
 	});
 
@@ -118,21 +118,21 @@ describe("parseRunnerReportJson", () => {
 			validation: "ok",
 		};
 		const problems = problemsOf(parseRunnerReportJson(JSON.stringify(raw)));
-		expect(problems.some((problem) => problem.includes("`roadmapItems`"))).toBe(true);
-		expect(problems.some((problem) => problem.includes("`sections.summary`"))).toBe(true);
+		expect(problems.some((problem) => problem.includes("roadmapItems"))).toBe(true);
+		expect(problems.some((problem) => problem.includes("sections.summary"))).toBe(true);
 	});
 
 	test("invalid status value is rejected", () => {
 		const raw = { ...validReadyReport(), status: "done" };
 		const problems = problemsOf(parseRunnerReportJson(JSON.stringify(raw)));
-		expect(problems.some((problem) => problem.includes("`status`"))).toBe(true);
+		expect(problems.some((problem) => problem.includes("status"))).toBe(true);
 	});
 
 	test("commitSubject is required exactly when status is ready-for-parent-commit", () => {
 		const raw = validReadyReport();
 		delete raw.commitSubject;
 		const problems = problemsOf(parseRunnerReportJson(JSON.stringify(raw)));
-		expect(problems).toEqual(["`commitSubject`: Required when status is ready-for-parent-commit."]);
+		expect(problems).toEqual(["commitSubject: Required when status is ready-for-parent-commit."]);
 	});
 
 	test("unknown extra keys are stripped, not fatal", () => {

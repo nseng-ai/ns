@@ -1,3 +1,5 @@
+import { failure, negative, usageError, type ClinkrExit } from "@ns/clinkr";
+
 import { activeRecordRelativePath, isValidObjectiveSlug } from "../core/storage.ts";
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 
@@ -22,6 +24,32 @@ export type RunnerPreconditionsResult =
 export interface CheckRunnerPreconditionsOptions {
 	slug: string;
 	mode: RunnerStepMode;
+}
+
+export interface ResolveRunnerStepIdentityOptions {
+	slug?: string;
+	recover: boolean;
+}
+
+export type ResolveRunnerStepIdentityResult =
+	| { type: "ok"; slug: string; mode: RunnerStepMode }
+	| { type: "usage-error"; message: string; argument: "slug" };
+
+export function resolveRunnerStepIdentity(
+	options: ResolveRunnerStepIdentityOptions,
+): ResolveRunnerStepIdentityResult {
+	if (options.slug === undefined) {
+		return { type: "usage-error", message: "Objective slug is required.", argument: "slug" };
+	}
+	return { type: "ok", slug: options.slug, mode: options.recover ? "recover" : "default" };
+}
+
+export function runnerPreconditionProblemExit<T>(
+	problem: Exclude<RunnerPreconditionsResult, { type: "ok" }>,
+): ClinkrExit<T> {
+	if (problem.type === "usage-error") return usageError(problem.message, { argument: "slug" });
+	if (problem.type === "refused") return negative(problem.message);
+	return failure(problem.code, problem.message);
 }
 
 /**

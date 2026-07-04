@@ -5,14 +5,17 @@
  * module validates it fail-closed. Validation is deliberately diagnostic-rich:
  * every missing/empty field and section becomes its own problem so a
  * report-integrity malfunction checkpoint can list them all, matching the
- * marker-block parser's behavior in `report.ts`.
+ * marker-block parser's behavior in `report-marker.ts`.
  */
+import { formatZodIssue } from "@ns/core/primitives";
 import { z } from "zod";
 
 import {
+	buildRunnerReport,
+	requiresCommitSubject,
+	RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON,
 	RUNNER_REPORT_STATUSES,
 	type ParseRunnerReportResult,
-	type RunnerReport,
 } from "./report.ts";
 
 export const runnerReportJsonSchema = z
@@ -34,11 +37,11 @@ export const runnerReportJsonSchema = z
 		}),
 	})
 	.superRefine((report, ctx) => {
-		if (report.status === "ready-for-parent-commit" && report.commitSubject === undefined) {
+		if (requiresCommitSubject(report.status) && report.commitSubject === undefined) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["commitSubject"],
-				message: "Required when status is ready-for-parent-commit.",
+				message: commitSubjectRequiredMessage(),
 			});
 		}
 	});
@@ -61,30 +64,26 @@ export function parseRunnerReportJson(text: string): ParseRunnerReportResult {
 	}
 	const result = runnerReportJsonSchema.safeParse(parsed);
 	if (!result.success) {
-		return { type: "invalid", problems: result.error.issues.map(formatReportProblem) };
+		return {
+			type: "invalid",
+			problems: result.error.issues.map((issue) => formatZodIssue(issue, { rootPath: null })),
+		};
 	}
-	return { type: "ok", report: toRunnerReport(result.data) };
+	return { type: "ok", report: buildRunnerReportFromJson(result.data) };
 }
 
-function formatReportProblem(issue: z.core.$ZodIssue): string {
-	const path = issue.path.map(String).join(".");
-	return path === "" ? issue.message : `\`${path}\`: ${issue.message}`;
+function commitSubjectRequiredMessage(): string {
+	return `${RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON.slice(0, 1).toUpperCase()}${RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON.slice(1)}.`;
 }
 
-function toRunnerReport(data: z.infer<typeof runnerReportJsonSchema>): RunnerReport {
-	return {
+function buildRunnerReportFromJson(data: z.infer<typeof runnerReportJsonSchema>) {
+	return buildRunnerReport({
 		status: data.status,
 		branch: data.branch,
 		roadmapItems: data.roadmapItems,
 		...(data.commitSubject === undefined ? {} : { commitSubject: data.commitSubject }),
 		...(data.commitBody === undefined ? {} : { commitBody: data.commitBody }),
 		...(data.stopReason === undefined ? {} : { stopReason: data.stopReason }),
-		sections: {
-			summary: data.sections.summary,
-			objectiveImpact: data.sections.objectiveImpact,
-			risksBlockers: data.sections.risksBlockers,
-			followUps: data.sections.followUps,
-			validation: data.sections.validation,
-		},
-	};
+		sections: data.sections,
+	});
 }

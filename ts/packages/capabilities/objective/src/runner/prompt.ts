@@ -1,4 +1,5 @@
 import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
+import { buildFencedTextBlock } from "@ns/core/primitives";
 
 import type { RunnerStepMode } from "./context.ts";
 // ADR0024-LEGACY-DELETE(import): marker constants feed only the legacy marker
@@ -10,6 +11,45 @@ import { OBJECTIVE_RUNNER_REPORT_BEGIN, OBJECTIVE_RUNNER_REPORT_END } from "./re
 // Graphite stack mid-step.
 const RUNNER_GRAPHITE_STACK_NAVIGATION_RULE =
 	"Do not run `gt create`, `gt checkout`, `gt restack`, or any command whose purpose is to rebase/reorder or navigate the Graphite stack; after Graphite tracking succeeds, use plain `git switch` instead of `gt checkout` because Graphite checkout may demand a restack when a downstack branch is behind trunk. If a branch appears to need restacking, report it and stop.";
+
+interface ReportFieldDescriptor {
+	key: string;
+	value: string;
+	markerValue: "raw" | "placeholder";
+	markerShape: "scalar" | "bullet-list";
+	jsonShape: "string" | "array";
+}
+
+interface ReportSectionDescriptor {
+	title: string;
+	placeholder: string;
+}
+
+interface ReportChannelDescriptor {
+	validationSectionLabel: string;
+	finalReportRule: string;
+	contract(mode: RunnerStepMode): string;
+}
+
+const REPORT_SECTION_DESCRIPTORS: readonly ReportSectionDescriptor[] = [
+	{ title: "Summary", placeholder: "<what you did>" },
+	{
+		title: "Objective Impact",
+		placeholder: "<claimed impact on the Objective roadmap>",
+	},
+	{
+		title: "Risks/Blockers",
+		placeholder: "<risks or blockers, or 'none'>",
+	},
+	{
+		title: "Follow-Ups",
+		placeholder: "<follow-up work you deferred, or 'none'>",
+	},
+	{
+		title: "Validation",
+		placeholder: "<commands you ran with results, including any deterministic fixes performed>",
+	},
+] as const;
 
 export interface RunnerRecoverContext {
 	branch: string;
@@ -47,6 +87,7 @@ export interface BuildRunnerChildPromptOptions {
  * belongs to the parent (ADR 0022).
  */
 export function buildRunnerChildPrompt(options: BuildRunnerChildPromptOptions): string {
+	const reportDescriptor = reportChannelDescriptor(options.reportChannel);
 	const parts = [
 		"You are a fresh child implementation session for one Objective Runner step.",
 		"",
@@ -57,14 +98,23 @@ export function buildRunnerChildPrompt(options: BuildRunnerChildPromptOptions): 
 	if (options.recoverContext !== undefined) {
 		parts.push("", recoverPreamble(options.recoverContext));
 	}
-	parts.push("", "Rules:", rules(options), "", reportContract(options.mode, options.reportChannel));
+	parts.push(
+		"",
+		"Rules:",
+		rules(options, reportDescriptor),
+		"",
+		reportDescriptor.contract(options.mode),
+	);
 	if (options.guidance !== undefined) {
 		parts.push("", "Parent guidance (follow it within the rules above):", options.guidance);
 	}
 	return parts.join("\n");
 }
 
-function rules(options: BuildRunnerChildPromptOptions): string {
+function rules(
+	options: BuildRunnerChildPromptOptions,
+	reportDescriptor: ReportChannelDescriptor,
+): string {
 	const branchRules =
 		options.mode === "recover"
 			? [
@@ -81,18 +131,9 @@ function rules(options: BuildRunnerChildPromptOptions): string {
 		...branchRules,
 		`- ${RUNNER_GRAPHITE_STACK_NAVIGATION_RULE}`,
 		"- Leave ALL changes uncommitted. Never run `git commit`, `git commit --amend`, `git push`, or anything that submits, merges, or publishes; the runner owns staging and commit.",
-		`- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the ${
-			options.reportChannel.type === "marker" ? "`## Validation`" : "`validation`"
-		} section of your report.`,
-		finalReportRule(options.reportChannel),
+		`- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the ${reportDescriptor.validationSectionLabel} section of your report.`,
+		reportDescriptor.finalReportRule,
 	].join("\n");
-}
-
-function finalReportRule(reportChannel: RunnerReportChannel): string {
-	if (reportChannel.type === "marker") {
-		return "- Finish your final response with exactly one report block in the format below.";
-	}
-	return `- Finish by writing your report as a single JSON document to \`${reportChannel.reportPath}\` — create exactly that file, containing only the JSON document (no markdown fences, no commentary). The path is outside the repository on purpose; never add it to git. Then end your final response with a 1-3 sentence summary of what you did; the summary is informational only, the JSON file is the contract.`;
 }
 
 function recoverPreamble(recoverContext: RunnerRecoverContext): string {
@@ -109,64 +150,138 @@ function recoverPreamble(recoverContext: RunnerRecoverContext): string {
 	return parts.join("\n");
 }
 
-function reportContract(mode: RunnerStepMode, reportChannel: RunnerReportChannel): string {
-	if (reportChannel.type === "json-file") {
-		return jsonReportContract(mode, reportChannel.reportPath);
+function reportChannelDescriptor(reportChannel: RunnerReportChannel): ReportChannelDescriptor {
+	if (reportChannel.type === "marker") {
+		return {
+			validationSectionLabel: "`## Validation`",
+			finalReportRule:
+				"- Finish your final response with exactly one report block in the format below.",
+			contract: markerReportContract,
+		};
 	}
-	const branchLine =
-		mode === "recover" ? "branch: <the current branch>" : "branch: <your implementation branch>";
+	return {
+		validationSectionLabel: "`validation`",
+		finalReportRule: `- Finish by writing your report as a single JSON document to \`${reportChannel.reportPath}\` — create exactly that file, containing only the JSON document (no markdown fences, no commentary). The path is outside the repository on purpose; never add it to git. Then end your final response with a 1-3 sentence summary of what you did; the summary is informational only, the JSON file is the contract.`,
+		contract: (mode) => jsonReportContract(mode, reportChannel.reportPath),
+	};
+}
+
+function reportFieldDescriptors(mode: RunnerStepMode): readonly ReportFieldDescriptor[] {
+	const branchValue = mode === "recover" ? "the current branch" : "your implementation branch";
 	return [
+		{
+			key: "status",
+			value: "ready-for-parent-commit | stop | blocked",
+			markerValue: "raw",
+			markerShape: "scalar",
+			jsonShape: "string",
+		},
+		{
+			key: "branch",
+			value: branchValue,
+			markerValue: "placeholder",
+			markerShape: "scalar",
+			jsonShape: "string",
+		},
+		{
+			key: "roadmapItems",
+			value: "roadmap item this slice advanced",
+			markerValue: "placeholder",
+			markerShape: "bullet-list",
+			jsonShape: "array",
+		},
+		{
+			key: "commitSubject",
+			value: "proposed commit subject line; required when status is ready-for-parent-commit",
+			markerValue: "placeholder",
+			markerShape: "scalar",
+			jsonShape: "string",
+		},
+		{
+			key: "commitBody",
+			value: "optional commit body; omit the field when you have none",
+			markerValue: "placeholder",
+			markerShape: "bullet-list",
+			jsonShape: "string",
+		},
+		{
+			key: "stopReason",
+			value: "why, when status is stop or blocked; omit otherwise",
+			markerValue: "placeholder",
+			markerShape: "scalar",
+			jsonShape: "string",
+		},
+	];
+}
+
+function markerFieldLines(field: ReportFieldDescriptor): readonly string[] {
+	const value = markerFieldValue(field);
+	if (field.markerShape === "bullet-list") return [`${field.key}:`, `- ${value}`];
+	return [`${field.key}: ${value}`];
+}
+
+function markerFieldValue(field: ReportFieldDescriptor): string {
+	if (field.markerValue === "raw") return field.value;
+	return placeholder(field.value);
+}
+
+function jsonFieldLine(field: ReportFieldDescriptor): string {
+	const value = placeholder(field.value);
+	if (field.jsonShape === "array") return `  "${field.key}": ["${value}"],`;
+	return `  "${field.key}": "${value}",`;
+}
+
+function placeholder(value: string): string {
+	return `<${value}>`;
+}
+
+function jsonKeyFromTitle(title: string): string {
+	return title
+		.split(/[^A-Za-z0-9]+/u)
+		.filter((part) => part.length > 0)
+		.map((part, index) => (index === 0 ? lowerFirst(part) : upperFirst(lowerFirst(part))))
+		.join("");
+}
+
+function lowerFirst(value: string): string {
+	return `${value.slice(0, 1).toLowerCase()}${value.slice(1)}`;
+}
+
+function upperFirst(value: string): string {
+	return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+}
+
+function markerReportContract(mode: RunnerStepMode): string {
+	const lines = [
 		"Report block format (all header fields and all five sections are mandatory unless marked optional; keep it concise):",
 		"",
 		OBJECTIVE_RUNNER_REPORT_BEGIN,
-		"status: ready-for-parent-commit | stop | blocked",
-		branchLine,
-		"roadmapItems:",
-		"- <roadmap item this slice advanced>",
-		"commitSubject: <proposed commit subject line; required when status is ready-for-parent-commit>",
-		"commitBody:",
-		"- <optional commit body bullet; omit the field when you have none>",
-		"stopReason: <why, when status is stop or blocked; omit otherwise>",
-		"",
-		"## Summary",
-		"<what you did>",
-		"",
-		"## Objective Impact",
-		"<claimed impact on the Objective roadmap>",
-		"",
-		"## Risks/Blockers",
-		"<risks or blockers, or 'none'>",
-		"",
-		"## Follow-Ups",
-		"<follow-up work you deferred, or 'none'>",
-		"",
-		"## Validation",
-		"<commands you ran with results, including any deterministic fixes performed>",
-		OBJECTIVE_RUNNER_REPORT_END,
-	].join("\n");
+	];
+	for (const field of reportFieldDescriptors(mode)) lines.push(...markerFieldLines(field));
+	lines.push("");
+	for (const section of REPORT_SECTION_DESCRIPTORS) {
+		lines.push(`## ${section.title}`, section.placeholder, "");
+	}
+	lines.push(OBJECTIVE_RUNNER_REPORT_END);
+	return lines.join("\n");
 }
 
 function jsonReportContract(mode: RunnerStepMode, reportPath: string): string {
-	const branchValue = mode === "recover" ? "<the current branch>" : "<your implementation branch>";
+	const sectionLines = REPORT_SECTION_DESCRIPTORS.map((section, index) => {
+		const comma = index === REPORT_SECTION_DESCRIPTORS.length - 1 ? "" : ",";
+		return `    "${jsonKeyFromTitle(section.title)}": "${section.placeholder}"${comma}`;
+	});
+	const jsonContent = [
+		"{",
+		...reportFieldDescriptors(mode).map((field) => jsonFieldLine(field)),
+		'  "sections": {',
+		...sectionLines,
+		"  }",
+		"}",
+	].join("\n");
 	return [
 		`Report file format (a single JSON document at \`${reportPath}\`; all fields and all five sections are mandatory unless marked optional; keep it concise):`,
 		"",
-		"```json",
-		"{",
-		'  "status": "<ready-for-parent-commit | stop | blocked>",',
-		`  "branch": "${branchValue}",`,
-		'  "roadmapItems": ["<roadmap item this slice advanced>"],',
-		'  "commitSubject": "<proposed commit subject line; required when status is ready-for-parent-commit>",',
-		'  "commitBody": "<optional commit body; omit the field when you have none>",',
-		'  "stopReason": "<why, when status is stop or blocked; omit otherwise>",',
-		'  "sections": {',
-		'    "summary": "<what you did>",',
-		'    "objectiveImpact": "<claimed impact on the Objective roadmap>",',
-		'    "risksBlockers": "<risks or blockers, or \'none\'>",',
-		'    "followUps": "<follow-up work you deferred, or \'none\'>",',
-		'    "validation": "<commands you ran with results, including any deterministic fixes performed>"',
-		"  }",
-		"}",
-		"```",
+		buildFencedTextBlock(jsonContent, "json"),
 	].join("\n");
 }

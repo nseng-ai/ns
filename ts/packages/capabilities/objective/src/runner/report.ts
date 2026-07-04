@@ -38,6 +38,19 @@ export interface RunnerReport {
 	sections: RunnerReportSections;
 }
 
+export const RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON =
+	"required when status is ready-for-parent-commit";
+
+export interface BuildRunnerReportOptions {
+	status: RunnerReportStatus;
+	branch: string;
+	roadmapItems: readonly string[];
+	commitSubject?: string;
+	commitBody?: string;
+	stopReason?: string;
+	sections: RunnerReportSections;
+}
+
 export type ParseRunnerReportResult =
 	| { type: "ok"; report: RunnerReport }
 	| { type: "invalid"; problems: readonly string[] }
@@ -59,4 +72,20 @@ export function renderRunnerReportNarrative(report: RunnerReport): string {
 
 export function isRunnerReportStatus(value: string): value is RunnerReportStatus {
 	return (RUNNER_REPORT_STATUSES as readonly string[]).includes(value);
+}
+
+export function requiresCommitSubject(status: RunnerReportStatus): boolean {
+	return status === "ready-for-parent-commit";
+}
+
+export function buildRunnerReport(options: BuildRunnerReportOptions): RunnerReport {
+	return {
+		status: options.status,
+		branch: options.branch,
+		roadmapItems: [...options.roadmapItems],
+		...(options.commitSubject === undefined ? {} : { commitSubject: options.commitSubject }),
+		...(options.commitBody === undefined ? {} : { commitBody: options.commitBody }),
+		...(options.stopReason === undefined ? {} : { stopReason: options.stopReason }),
+		sections: options.sections,
+	};
 }

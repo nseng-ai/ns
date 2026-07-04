@@ -115,15 +115,15 @@ async function runPiChildSession(
 	};
 	const clock = deps.clock ?? systemClock;
 	const startMs = clock.nowMs();
-	const emitElapsedLine = (line: string) => {
+	const emitLine = (line: string) => {
 		emit({ type: "activity", line: `${formatElapsedSince(startMs, clock.nowMs())} ${line}` });
 	};
 	// Heartbeats read this but do not update it: `last:` must always name real
 	// child activity, never a prior heartbeat.
-	let lastActivity: { line: string; atMs: number } | undefined;
-	const emitActivity = (line: string) => {
+	let lastActivity: LastActivity | undefined;
+	const recordActivityAndEmit = (line: string) => {
 		lastActivity = { line, atMs: clock.nowMs() };
-		emitElapsedLine(line);
+		emitLine(line);
 	};
 
 	let sessionFile: string;
@@ -137,7 +137,7 @@ async function runPiChildSession(
 
 	// Elapsed-prefixed but deliberately not `lastActivity`: heartbeats should
 	// report "no activity yet" until the child itself produces something.
-	emitElapsedLine(`child session: ${sessionFile}`);
+	emitLine(`child session: ${sessionFile}`);
 
 	const command = deps.env[SDL_RUNNER_PI_BIN_ENV] ?? "pi";
 	const spawnPiChildProcess = deps.spawn ?? defaultSpawnPiChildProcess;
@@ -159,7 +159,7 @@ async function runPiChildSession(
 		maxBytes: deps.stderrTailLimitBytes ?? DEFAULT_STDERR_TAIL_LIMIT_BYTES,
 		omissionLabel: "stderr",
 	});
-	const parser = createPiJsonActivityParser(emitActivity);
+	const parser = createPiJsonActivityParser(recordActivityAndEmit);
 
 	return await new Promise<ChildSessionOutcome>((resolve) => {
 		let isSettled = false;
@@ -169,7 +169,7 @@ async function runPiChildSession(
 		let killTimer: ScheduledTimer | undefined;
 
 		const heartbeatTimer = timers.setInterval(() => {
-			emitElapsedLine(renderHeartbeatLine(parser.stats(), lastActivity, clock.nowMs()));
+			emitLine(renderHeartbeatLine(parser.stats(), lastActivity, clock.nowMs()));
 		}, deps.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS);
 
 		const finish = (outcome: ChildSessionOutcome) => {
@@ -261,6 +261,11 @@ interface PiSessionActivityStats {
 	toolFailureCount: number;
 }
 
+interface LastActivity {
+	line: string;
+	atMs: number;
+}
+
 interface PiJsonActivityParser {
 	pushChunk(chunk: string | Uint8Array): void;
 	/** Processes any trailing unterminated line; call once on process close. */
@@ -279,7 +284,9 @@ interface PiJsonActivityParser {
  * is lost. Tracks the last assistant message text (which carries the runner
  * report block) and the last assistant `stopReason`.
  */
-function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJsonActivityParser {
+function createPiJsonActivityParser(
+	recordActivityAndEmit: (line: string) => void,
+): PiJsonActivityParser {
 	let buffer = "";
 	let turnCount = 0;
 	let toolCallCount = 0;
@@ -323,18 +330,18 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 		if (!isRecord(assistantMessageEvent)) return;
 		const preview = blockEndActivityPreview(assistantMessageEvent);
 		if (preview === undefined) return;
-		emitActivity(preview.line);
+		recordActivityAndEmit(preview.line);
 		markBlockPreviewEmitted(preview.message);
 	}
 
 	function processEvent(eventType: string, event: Record<string, unknown>): void {
 		switch (eventType) {
 			case "agent_start":
-				emitActivity("agent started");
+				recordActivityAndEmit("agent started");
 				return;
 			case "turn_start":
 				turnCount += 1;
-				emitActivity(`turn ${turnCount} started`);
+				recordActivityAndEmit(`turn ${turnCount} started`);
 				return;
 			case "message_start":
 				currentMessageHadBlockPreview = false;
@@ -350,7 +357,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 				captureFromMessage(event.message, { shouldCaptureFinalText: true });
 				if (!hasBlockPreviewForMessage(event.message)) {
 					const preview = assistantActivityPreview(event.message);
-					if (preview !== undefined) emitActivity(preview);
+					if (preview !== undefined) recordActivityAndEmit(preview);
 				}
 				currentMessageHadBlockPreview = false;
 				return;
@@ -361,7 +368,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 						captureFromMessage(message, { shouldCaptureFinalText: true });
 					}
 				}
-				emitActivity(
+				recordActivityAndEmit(
 					stopReason === undefined ? "agent finished" : `agent finished (${stopReason})`,
 				);
 				return;
@@ -370,7 +377,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 				if (typeof event.toolName === "string") {
 					toolCallCount += 1;
 					const summary = toolArgumentSummary(event.args);
-					emitActivity(
+					recordActivityAndEmit(
 						summary === undefined
 							? `tool ${event.toolName} started`
 							: `tool ${event.toolName}: ${summary}`,
@@ -382,14 +389,14 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 					if (event.isError === true) {
 						toolFailureCount += 1;
 						const preview = toolFailurePreview(event.result);
-						emitActivity(
+						recordActivityAndEmit(
 							preview === undefined
 								? `tool ${event.toolName} failed`
 								: `tool ${event.toolName} failed: ${preview}`,
 						);
 						return;
 					}
-					emitActivity(`tool ${event.toolName} completed`);
+					recordActivityAndEmit(`tool ${event.toolName} completed`);
 				}
 				return;
 			default:
@@ -406,7 +413,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 			parsed = JSON.parse(line);
 		} catch {
 			// Tolerant passthrough: stray non-JSON stdout stays observable.
-			emitActivity(line);
+			recordActivityAndEmit(line);
 			return;
 		}
 		if (!isRecord(parsed) || typeof parsed.type !== "string") return;
@@ -566,7 +573,7 @@ function inlinePreview(text: string): string | undefined {
  */
 function renderHeartbeatLine(
 	stats: PiSessionActivityStats,
-	lastActivity: { line: string; atMs: number } | undefined,
+	lastActivity: LastActivity | undefined,
 	nowMs: number,
 ): string {
 	const turnPart = stats.turnCount === 0 ? "no turns yet" : `turn ${stats.turnCount}`;

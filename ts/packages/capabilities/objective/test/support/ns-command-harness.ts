@@ -13,6 +13,7 @@ import type {
 } from "@ns/kernel/sdk";
 
 import type { ObjectiveRunnerOverrides } from "../../src/ns/runner-context.ts";
+import { nextFromSequence } from "./sequence.ts";
 
 export interface RecordedSdlExecCall {
 	command: string;
@@ -149,12 +150,4 @@ function isClinkrExit<T>(value: unknown): value is ClinkrExit<T> {
 	if (typeof value !== "object" || value === null) return false;
 	const type = (value as { type?: unknown }).type;
 	return type === "ok" || type === "negative" || type === "failure" || type === "usageError";
-}
-
-function nextFromSequence<T>(
-	sequence: readonly T[],
-	index: number,
-): { value: T | undefined; nextIndex: number } {
-	if (sequence.length === 0) return { value: undefined, nextIndex: index };
-	return { value: sequence[Math.min(index, sequence.length - 1)], nextIndex: index + 1 };
 }
