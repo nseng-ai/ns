@@ -23,14 +23,10 @@ export async function runPostLandingSlotCleanup({
 	args,
 	shape,
 }: RunPostLandingSlotCleanupOptions): Promise<LandStackOutcome> {
-	if (!args.shouldFreeSlot || args.isDryRun) return completed();
+	if (args.shouldPreserveSlot || args.isDryRun) return completed();
 
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
-	if (slotName === undefined) {
-		const message = `Post-landing --free requested, but current worktree ${shape.repoRoot} is not a managed slot; kept local branch ${shape.stack.actualCurrentBranch}.`;
-		notifyPrintAware({ ctx, message, level: "info", kind: "refusal" });
-		return completed();
-	}
+	if (slotName === undefined) return completed();
 
 	const cleanupDetails = formatPostLandingCleanupDetails({
 		branch: shape.stack.actualCurrentBranch,
@@ -49,7 +45,7 @@ export async function runPostLandingSlotCleanup({
 		nonInteractiveMessage: [
 			"PRs were landed, but post-landing slot cleanup requires confirmation in non-interactive mode.",
 			cleanupDetails,
-			"Run the commands manually, or use --free --force for post-landing cleanup next time.",
+			"Run the commands manually, or use --yes or --force for non-interactive post-landing cleanup next time.",
 		].join("\n\n"),
 		nonInteractiveFailureOptions: { suggestedAction },
 		cancellationMessage: `Cancelled post-landing cleanup; PRs were landed but ${slotName} and local branch ${shape.stack.actualCurrentBranch} were kept.`,
@@ -132,7 +128,7 @@ function formatPostLandingCleanupDetails(options: {
 		deleteLocalBranchOperation({ branch: options.branch }),
 	);
 	return [
-		"Post-landing --free cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+		"Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
 		"",
 		`Slot: ${options.slotName}`,
 		`Worktree: ${options.repoRoot}`,
