@@ -9,6 +9,7 @@ export {
 } from "./schemas.ts";
 export type { GithubJsonParseResult } from "./parsing.ts";
 export type {
+	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,

@@ -14,6 +14,11 @@
 				"entry": "./src/commands/exec-map-branch-prs.ts"
 			},
 			{
+				"name": "exec-branch-pr-checks",
+				"description": "Return open PRs and normalized checks for branches in one batched GitHub query.",
+				"entry": "./src/commands/exec-branch-pr-checks.ts"
+			},
+			{
 				"name": "exec-pr-details",
 				"description": "Return structured details for one GitHub PR.",
 				"entry": "./src/commands/exec-pr-details.ts"

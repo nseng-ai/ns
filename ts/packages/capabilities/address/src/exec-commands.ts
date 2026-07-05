@@ -1,5 +1,6 @@
 import type { ExecOperation } from "./exec-operation.ts";
 
+import { branchPrChecksOperation } from "./branch-pr-checks.ts";
 import { downloadFeedbackOperation } from "./download-feedback.ts";
 import { mapBranchPrsOperation } from "./map-branch-prs.ts";
 import { primitiveOperations } from "./primitive-commands.ts";
@@ -8,5 +9,6 @@ import { primitiveOperations } from "./primitive-commands.ts";
 export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	downloadFeedbackOperation,
 	mapBranchPrsOperation,
+	branchPrChecksOperation,
 	...primitiveOperations,
 ];

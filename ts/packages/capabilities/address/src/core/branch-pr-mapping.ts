@@ -89,7 +89,7 @@ function mappingFailure(message: string, failure: GithubPrFeedbackFailure): Bran
 	return { type: "failure", message, failure };
 }
 
-function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrMappingEntry {
+export function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrMappingEntry {
 	return {
 		branch,
 		pr_number: pr.number,

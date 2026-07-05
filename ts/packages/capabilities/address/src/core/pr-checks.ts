@@ -95,15 +95,26 @@ function prChecksPayload(options: {
 			pr: options.pr,
 			branch: options.branch,
 		}),
+		...statusChecksPayload(options.checks),
+	};
+}
+
+export interface StatusChecksPayload {
+	counts: PrChecksCountsPayload;
+	checks: PrCheckEntryPayload[];
+}
+
+export function statusChecksPayload(checks: GithubStatusChecks | undefined): StatusChecksPayload {
+	return {
 		counts: {
-			passing: options.checks?.counts.passing ?? 0,
-			pending: options.checks?.counts.pending ?? 0,
-			failing: options.checks?.counts.failing ?? 0,
-			unknown: options.checks?.counts.unknown ?? 0,
-			hasMore: options.checks?.counts.hasMore ?? false,
+			passing: checks?.counts.passing ?? 0,
+			pending: checks?.counts.pending ?? 0,
+			failing: checks?.counts.failing ?? 0,
+			unknown: checks?.counts.unknown ?? 0,
+			hasMore: checks?.counts.hasMore ?? false,
 		},
 		checks:
-			options.checks?.checks.map((check) => ({
+			checks?.checks.map((check) => ({
 				bucket: check.bucket,
 				kind: check.kind,
 				name: check.name,

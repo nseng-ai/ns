@@ -19,6 +19,7 @@
 // by re-exporting only the consumer-facing types.
 
 import type {
+	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
@@ -45,6 +46,7 @@ import type { Result } from "@ns/core/result";
 
 // Stable PR Address Capability API: PR feedback domain seam and payloads.
 export type {
+	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
@@ -93,6 +95,9 @@ export interface GithubPrFeedbackGateway {
 	getPrChecks(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>>;
+	getBranchPrChecks(
+		params: GithubPrFeedbackOptions & { readonly branches: readonly string[] },
+	): Promise<Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure>>;
 	replyToReviewThread(
 		params: GithubPrFeedbackOptions & { readonly threadId: string; readonly body: string },
 	): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>>;

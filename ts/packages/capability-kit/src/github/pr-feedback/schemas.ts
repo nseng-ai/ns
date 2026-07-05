@@ -171,6 +171,43 @@ export const ghPrChecksResponseSchema = z
 	})
 	.loose();
 
+const ghBranchPrChecksNodeSchema = z
+	.object({
+		number: z.number().int().positive(),
+		title: z.string(),
+		url: z.string(),
+		headRefName: z.string(),
+		headRefOid: z.string().nullable().optional(),
+		baseRefName: z.string(),
+		statusCheckRollup: z
+			.object({
+				contexts: z
+					.object({
+						nodes: z.array(z.unknown()),
+						pageInfo: z.object({ hasNextPage: z.boolean() }).loose(),
+					})
+					.loose(),
+			})
+			.loose()
+			.nullable(),
+	})
+	.loose();
+
+export type GhBranchPrChecksNode = z.output<typeof ghBranchPrChecksNodeSchema>;
+
+const ghBranchPrChecksAliasSchema = z
+	.object({ nodes: z.array(ghBranchPrChecksNodeSchema) })
+	.loose()
+	.nullable();
+
+export const ghBranchPrChecksResponseSchema = z
+	.object({
+		data: z.object({ repository: z.record(z.string(), ghBranchPrChecksAliasSchema) }),
+	})
+	.loose();
+
+export type GhBranchPrChecksResponse = z.infer<typeof ghBranchPrChecksResponseSchema>;
+
 export const ghReviewThreadCommentsResponseSchema = z
 	.object({
 		data: z.object({

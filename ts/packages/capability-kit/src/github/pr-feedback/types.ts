@@ -1,6 +1,8 @@
 import type { ExplicitUndefined } from "@ns/core/primitives";
 import type { ErrorInfo } from "@ns/core/result";
 
+import type { GithubStatusChecks } from "../pr-status.ts";
+
 export interface GithubPrFeedbackOptions {
 	readonly cwd: string;
 	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
@@ -63,6 +65,20 @@ export interface GithubReviewThreadState {
 	readonly isResolved: boolean;
 }
 
+export type GithubBranchPrChecksOutcome =
+	| {
+			readonly branch: string;
+			readonly type: "found";
+			readonly pr: GithubPrSummary;
+			readonly checks: GithubStatusChecks;
+	  }
+	| { readonly branch: string; readonly type: "missing" }
+	| {
+			readonly branch: string;
+			readonly type: "ambiguous";
+			readonly candidates: readonly GithubPrSummary[];
+	  };
+
 export const githubPrFeedbackFailureCodes = [
 	"github_pr_feedback_gh_failed",
 	"github_pr_feedback_startup_failed",
@@ -82,6 +98,7 @@ export const githubPrFeedbackOperations = [
 	"getPrReviewThreads",
 	"getPrDiscussionComments",
 	"getPrChecks",
+	"getBranchPrChecks",
 	"replyToReviewThread",
 	"resolveReviewThread",
 	"resolveReviewThreads",

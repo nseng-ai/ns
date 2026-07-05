@@ -16,6 +16,7 @@ Use `--json-schema` before relying on a helper shape.
 
 - Feedback download: `download-feedback`.
 - Stack download plumbing: `map-branch-prs`, used to map structured branch lists to PRs before per-PR downloads.
+- Batched checks plumbing: `branch-pr-checks`, which resolves a branch list to open PRs plus normalized checks in one GitHub GraphQL request.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`.
 - Mutation primitives: `reply-review-thread`, `resolve-review-thread`, `close-review-threads`.
 
@@ -24,6 +25,7 @@ Use `--json-schema` before relying on a helper shape.
 ```bash
 ns address exec download-feedback --pr-number <pr-number> --format json
 ns address exec map-branch-prs --format json
+ns address exec branch-pr-checks --branches-json '{"branches":["<branch>"]}' --format json
 ns address exec pr-details --pr-number <pr-number> --format json
 ns address exec branch-pr --branch <branch> --format json
 ns address exec open-prs --format json

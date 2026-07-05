@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type {
+	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackGateway,
@@ -85,6 +86,12 @@ class ControlledFeedbackGateway implements GithubPrFeedbackGateway {
 
 	async getPrChecks(): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>> {
 		throw new Error("Unexpected getPrChecks call");
+	}
+
+	async getBranchPrChecks(): Promise<
+		Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure>
+	> {
+		throw new Error("Unexpected getBranchPrChecks call");
 	}
 
 	async replyToReviewThread(): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>> {
