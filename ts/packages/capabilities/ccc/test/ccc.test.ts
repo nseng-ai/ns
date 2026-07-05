@@ -12,7 +12,7 @@ function expectedImplBranchContextCommand(key: string): string {
 }
 import type { StdinCapableCommandExecApi } from "@ns/core/command";
 import { withTempRepoSkill } from "@ns/core/test-kit";
-import { type CccSlotDispatchPlanOptions } from "@ns/ccc/api";
+import { CCC_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@ns/ccc/api";
 import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,
 	registerCccSidebarCommands,
@@ -141,17 +141,7 @@ describe("CCC cmux command suite", () => {
 
 		registerCccExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual([
-			"ns:ccc:claude-plan-tab",
-			"ns:ccc:sidebar:branch-state-summary",
-			"ns:ccc:sidebar:objective-summary",
-			"ns:ccc:sidebar:session-summary",
-			"ns:ccc:surface:dispatch-plan",
-			"ns:ccc:workspace:dispatch-from-trunk",
-			"ns:ccc:workspace:dispatch-plan",
-			"ns:ccc:workspace:dispatch-prompt",
-			"ns:ccc:workspace:open-branch",
-		]);
+		expect([...pi.commands.keys()].sort()).toEqual(CCC_COMMAND_NAMES);
 	});
 
 	test("ns:ccc:sidebar:session-summary queues session-aware skill prompt and restores the previous model", async () => {

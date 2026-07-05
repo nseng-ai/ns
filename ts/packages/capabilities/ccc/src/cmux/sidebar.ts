@@ -5,7 +5,10 @@ import {
 	type ObjectiveSelectionSpec,
 } from "@ns/objective/api";
 
-import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "./command-surfaces.ts";
+import {
+	CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
+	CCC_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
+} from "./command-surfaces.ts";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
@@ -101,7 +104,7 @@ Run the cmux session sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested command: ns:ccc:sidebar:session-summary.
+Requested command: ${CCC_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME}.
 Summarize this Pi session's current task, progress, and likely next action.
 The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug for the session topic and the full title is max 45 chars.
 The Goal line should describe what this session is trying to accomplish, not the cmux update itself.

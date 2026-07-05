@@ -37,6 +37,8 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "specialized-command",
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
+	// These ns:ccc:* rows are generic backing-skill aliases, not CCC provider-owned
+	// Pi commands; real CCC command registrations come from @ns/ccc/pi below.
 	{
 		skillName: "ccc-available-work",
 		surface: "ns:ccc:available-work",
