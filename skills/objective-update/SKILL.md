@@ -1,14 +1,14 @@
 ---
 name: objective-update
 disable-model-invocation: true
-description: "Update tracking for exactly one existing Objective after work or branch/PR changes — record a Semantic Update, edit roadmap/assumptions/risks, and auto-close only when completion criteria are clearly met. Use for 'update the objective', 'record this progress', 'this branch needs an objective update'. For a non-closing rebaseline of records use objective-refresh; for an explicit close use objective-close; for advice on what to do next without writing use objective-next."
+description: "Update tracking for exactly one existing Objective after work or branch/PR changes — record a Semantic Update, edit roadmap/assumptions/risks, and auto-close only when completion criteria are clearly met. Use for 'update the objective', 'record this progress', 'this branch needs an objective update'. For a verified rebaseline of records use objective-refresh; for an explicit close use objective-close; for advice on what to do next without writing use objective-next."
 ---
 
 # objective-update
 
 Update Objective tracking for exactly one selected Objective. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, consolidation guidance, and safety boundaries.
 
-`objective-update` owns the mutable one-Objective update workflow, including Closure Gate auto-close when clear. Use `objective-refresh` for non-closing rebaseline, `objective-close` for explicit closure, and `objective-next` for recommendation-first routing. If the user asks to combine, merge, subsume, or consolidate Objectives, stop treating the request as ordinary `objective-update` and follow the `objective` skill's consolidation guidance.
+`objective-update` owns the mutable one-Objective update workflow, including Closure Gate auto-close when clear. Use `objective-refresh` for verified rebaseline (which may also close on verified completion), `objective-close` for explicit closure, and `objective-next` for recommendation-first routing. If the user asks to combine, merge, subsume, or consolidate Objectives, stop treating the request as ordinary `objective-update` and follow the `objective` skill's consolidation guidance.
 
 ## Invocation
 
