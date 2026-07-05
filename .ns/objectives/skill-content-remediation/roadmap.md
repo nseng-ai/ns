@@ -162,10 +162,12 @@
     route to it. The gate caught real drift between the three prior sites (Graphite-only
     vs any-means commit ban, write vs touch durable stores, inspect-duty single-sited)
     and took the union. 73-item contract diff passed. See update `20260703T203334Z`.
-  - `code-gt-restack-resolve` — **surgical, NOT from-scratch** (rigid output contract +
-    conflict-resolution stakes): remove the externally-gated TEMPORARY TS-toolchain block
-    (see Parked; verified still present 2026-07-03), then a surgical pass on the
-    twice-written TS-toolchain rule.
+  - `code-gt-restack-resolve` — **DONE (surgical, 2026-07-03; method cap honored).**
+    325 → 314 lines: the twice-written TS-toolchain rule single-homed in the Agent
+    prompt template (the operative copy subagents receive) with the section deferring
+    to it; the §5 restated engine check table replaced by a pointer to the engine's
+    step 4. No output contract or safety rule reworded. The TEMPORARY block itself
+    stays (externally gated — see Parked). See update `20260703T203715Z`.
   - `pr-address` — **DROPPED (superseded, 2026-07-03).** The planned prune-to-stub
     assumed a retired-workflow tombstone, but the 2026-06-28 Address Capability
     migration (commits `6712d2ad9`, `a54b2d89d`) reworked the skill into a live
