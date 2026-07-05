@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { runJiccCli, type JiccCliDeps } from "../../src/cli.ts";
+import { runNsccCli, type NsccCliDeps } from "../../src/cli.ts";
 import type { CommandOptions, CommandOutput, CommandRunner } from "../../src/command-runner.ts";
 
 interface CliRun {
@@ -16,7 +16,7 @@ interface CommandCall {
 	readonly options: CommandOptions | undefined;
 }
 
-function runWithFakes(args: readonly string[], deps: JiccCliDeps = {}): CliRun {
+function runWithFakes(args: readonly string[], deps: NsccCliDeps = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const startCalls: string[] = [];
@@ -25,7 +25,7 @@ function runWithFakes(args: readonly string[], deps: JiccCliDeps = {}): CliRun {
 		stdout,
 		stderr,
 		startCalls,
-		exit: runJiccCli(args, {
+		exit: runNsccCli(args, {
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 			startTui: () => {
@@ -60,7 +60,7 @@ function reportEnv(
 	};
 }
 
-describe("runJiccCli", () => {
+describe("runNsccCli", () => {
 	test("starts the TUI with no arguments", async () => {
 		const run = runWithFakes([]);
 

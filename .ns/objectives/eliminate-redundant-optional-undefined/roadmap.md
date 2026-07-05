@@ -3,7 +3,7 @@
 ## Work
 
 - [x] Consolidate tracking into one open Objective.
-      Created this canonical follow-up record so agents do not choose between reopening the closed normalization Objective, following the original five-PR branch-context plan literally, or adopting a separate hard-enforcement interpretation. The closed Objective (`.ji/objectives/normalize-optional-undefined-boundaries`) remains precedent; this Objective owns active follow-up tracking.
+      Created this canonical follow-up record so agents do not choose between reopening the closed normalization Objective, following the original five-PR branch-context plan literally, or adopting a separate hard-enforcement interpretation. The closed Objective (`.ns/objectives/normalize-optional-undefined-boundaries`) remains precedent; this Objective owns active follow-up tracking.
 
 - [x] Deliver the initial branch-local continuation slice.
       The packagechk / GitHub PR feedback / pr-feedback-watch / preview-checks / worktree-status cleanup stack landed as merged PRs #2420, #2423, #2428, and #2429 (merged 2026-06-30). It provided the seed evidence for the standing loop and proved the process of classifying candidates, narrowing internal shapes, preserving compatibility surfaces, and validating touched TypeScript.

@@ -65,7 +65,7 @@ Guard no-UI flows deliberately. Use `shouldNotifyWhenNoUi: true` only when the n
 
 ### Cross CLI/Pi progress
 
-If the same workflow is reachable from both a ji CLI command and a Pi slash-command mirror, do not solve progress only with Pi helpers or `ctx.ui.setStatus(...)`. Put the progress seam in the lower orchestration layer with SDK `NsCommandIo`:
+If the same workflow is reachable from both an ns CLI command and a Pi slash-command mirror, do not solve progress only with Pi helpers or `ctx.ui.setStatus(...)`. Put the progress seam in the lower orchestration layer with SDK `NsCommandIo`:
 
 - use `io.phase(...)` for human-facing intermediate progress;
 - use durable command presentation or `io.notify(...)` for final summaries and diagnostics;

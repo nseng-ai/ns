@@ -1,11 +1,11 @@
-# @nseng-ai/capability-kit/graphite
+# @ns/capability-kit/graphite
 
-`@nseng-ai/capability-kit/graphite` is the private TypeScript workspace support package for Graphite facts, metadata, and command adapters. It owns direct `gt` binary invocation and Graphite metadata database access/parsing; workflow owners compose these primitives without becoming Graphite adapters themselves.
+`@ns/capability-kit/graphite` is the private TypeScript workspace support package for Graphite facts, metadata, and command adapters. It owns direct `gt` binary invocation and Graphite metadata database access/parsing; workflow owners compose these primitives without becoming Graphite adapters themselves.
 
 ## Language
 
 **Graphite support package**:
-The workspace package `@nseng-ai/capability-kit/graphite`, which owns reusable Graphite command adapters, metadata database parsing, topology facts, and testing fakes. Workflow policy belongs to the consuming capability; Graphite provides only neutral Graphite mechanics for those workflows.
+The workspace package `@ns/capability-kit/graphite`, which owns reusable Graphite command adapters, metadata database parsing, topology facts, and testing fakes. Workflow policy belongs to the consuming capability; Graphite provides only neutral Graphite mechanics for those workflows.
 *Avoid*: workflow replacement, command-face owner, workflow orchestration owner.
 
 **Graphite command adapter**:
@@ -13,7 +13,7 @@ A real gateway or helper that invokes the `gt` binary and converts command outpu
 *Avoid*: workflow policy, command surface, presentation renderer.
 
 **Graphite metadata DB**:
-Graphite's local sqlite metadata database and the schema/query/parsing helpers for branch rows, parent/child relationships, trunk markers, and child-list corruption diagnostics. Source code must not ad-hoc shell out to `sqlite3` against this database from workflow logic; route reads through code the workspace controls, such as `@nseng-ai/capability-kit/graphite` metadata helpers or a capability-owned operation that owns the exact query and output contract.
+Graphite's local sqlite metadata database and the schema/query/parsing helpers for branch rows, parent/child relationships, trunk markers, and child-list corruption diagnostics. Source code must not ad-hoc shell out to `sqlite3` against this database from workflow logic; route reads through code the workspace controls, such as `@ns/capability-kit/graphite` metadata helpers or a capability-owned operation that owns the exact query and output contract.
 *Avoid*: Git refs, Branch Memory, authoritative remote state, command-local raw sqlite query.
 
 **Graphite topology**:

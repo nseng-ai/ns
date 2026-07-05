@@ -38,7 +38,7 @@ retired.
 
 ## Preflight
 
-1. Verify `command -v ns` succeeds in a ji checkout with the Aretro extension
+1. Verify `command -v ns` succeeds in an ns checkout with the Aretro extension
    available.
 2. Resolve the repository root with `git rev-parse --show-toplevel`.
 3. Resolve the branch with `git branch --show-current`, unless the user supplied

@@ -13,7 +13,7 @@ const DEFAULT_RESTORE_SHELL = "/bin/zsh";
 export const NSCC_CMUX_REPORT_KIND = "nscc-branch";
 export const NSCC_CMUX_REPORT_SOURCE = "nscc";
 
-export const jiccCmuxReportResultSchema = z.strictObject({
+export const nsccCmuxReportResultSchema = z.strictObject({
 	branch: z.string(),
 	worktreePath: z.string(),
 	workspaceId: z.string(),
@@ -23,7 +23,7 @@ export const jiccCmuxReportResultSchema = z.strictObject({
 	shell: z.string(),
 });
 
-export const jiccCmuxReportFailureDataSchema = z.strictObject({
+export const nsccCmuxReportFailureDataSchema = z.strictObject({
 	code: z.string(),
 	commandFailure: z
 		.strictObject({
@@ -43,7 +43,7 @@ export interface CmuxReportEnvironment {
 	readonly CMUX_SURFACE_ID?: ExplicitUndefined<"env-map", string>;
 }
 
-export interface JiccCmuxReportMetadata {
+export interface NsccCmuxReportMetadata {
 	readonly branch: string;
 	readonly worktreePath: string;
 	readonly workspaceId: string;
@@ -51,7 +51,7 @@ export interface JiccCmuxReportMetadata {
 	readonly shell: string;
 }
 
-export type JiccCmuxReportFailureCode =
+export type NsccCmuxReportFailureCode =
 	| "cmux-resume-set-failed"
 	| "detached-head"
 	| "empty-worktree-root"
@@ -60,7 +60,7 @@ export type JiccCmuxReportFailureCode =
 	| "missing-workspace-id"
 	| "not-git-worktree";
 
-export interface JiccCmuxReportCommandFailure {
+export interface NsccCmuxReportCommandFailure {
 	readonly command: string;
 	readonly args: readonly string[];
 	readonly exitCode: number;
@@ -68,29 +68,29 @@ export interface JiccCmuxReportCommandFailure {
 	readonly stderr: string;
 }
 
-export interface JiccCmuxReportFailureData {
-	readonly code: JiccCmuxReportFailureCode;
-	readonly commandFailure: JiccCmuxReportCommandFailure | null;
+export interface NsccCmuxReportFailureData {
+	readonly code: NsccCmuxReportFailureCode;
+	readonly commandFailure: NsccCmuxReportCommandFailure | null;
 }
 
-export type JiccCmuxReportResult =
-	| { readonly type: "reported"; readonly metadata: JiccCmuxReportMetadata }
+export type NsccCmuxReportResult =
+	| { readonly type: "reported"; readonly metadata: NsccCmuxReportMetadata }
 	| {
 			readonly type: "failed";
-			readonly code: JiccCmuxReportFailureCode;
+			readonly code: NsccCmuxReportFailureCode;
 			readonly message: string;
-			readonly commandFailure?: JiccCmuxReportCommandFailure;
+			readonly commandFailure?: NsccCmuxReportCommandFailure;
 	  };
 
-export interface RunJiccCmuxReportOptions {
+export interface RunNsccCmuxReportOptions {
 	readonly cwd?: string;
 	readonly env?: ExplicitUndefined<"env-map", CmuxReportEnvironment>;
 	readonly runCommand?: CommandRunner;
 }
 
-export async function runJiccCmuxReport(
-	options: RunJiccCmuxReportOptions = {},
-): Promise<JiccCmuxReportResult> {
+export async function runNsccCmuxReport(
+	options: RunNsccCmuxReportOptions = {},
+): Promise<NsccCmuxReportResult> {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const runCommand = options.runCommand ?? runRealCommand;
@@ -154,7 +154,7 @@ export async function runJiccCmuxReport(
 		};
 
 	const shell = nonEmptyString(env.SHELL) ?? DEFAULT_RESTORE_SHELL;
-	const metadata: JiccCmuxReportMetadata = { branch, worktreePath, workspaceId, surfaceId, shell };
+	const metadata: NsccCmuxReportMetadata = { branch, worktreePath, workspaceId, surfaceId, shell };
 	const cmuxArgs = buildCmuxSurfaceResumeSetArgs(metadata);
 	const cmuxResult = await runCommand("cmux", cmuxArgs, {
 		cwd: worktreePath,
@@ -172,7 +172,7 @@ export async function runJiccCmuxReport(
 	return { type: "reported", metadata };
 }
 
-export function buildCmuxSurfaceResumeSetArgs(metadata: JiccCmuxReportMetadata): readonly string[] {
+export function buildCmuxSurfaceResumeSetArgs(metadata: NsccCmuxReportMetadata): readonly string[] {
 	return [
 		"surface",
 		"resume",
@@ -194,9 +194,9 @@ export function buildCmuxSurfaceResumeSetArgs(metadata: JiccCmuxReportMetadata):
 	];
 }
 
-export function jiccCmuxReportData(
-	metadata: JiccCmuxReportMetadata,
-): z.infer<typeof jiccCmuxReportResultSchema> {
+export function nsccCmuxReportData(
+	metadata: NsccCmuxReportMetadata,
+): z.infer<typeof nsccCmuxReportResultSchema> {
 	return {
 		branch: metadata.branch,
 		worktreePath: metadata.worktreePath,
@@ -208,16 +208,16 @@ export function jiccCmuxReportData(
 	};
 }
 
-export function jiccCmuxReportFailureData(
-	result: Extract<JiccCmuxReportResult, { type: "failed" }>,
-): JiccCmuxReportFailureData {
+export function nsccCmuxReportFailureData(
+	result: Extract<NsccCmuxReportResult, { type: "failed" }>,
+): NsccCmuxReportFailureData {
 	return {
 		code: result.code,
 		commandFailure: result.commandFailure ?? null,
 	};
 }
 
-export function isJiccCmuxReportUsageFailure(code: JiccCmuxReportFailureCode): boolean {
+export function isNsccCmuxReportUsageFailure(code: NsccCmuxReportFailureCode): boolean {
 	return (
 		code === "missing-workspace-id" ||
 		code === "missing-surface-id" ||
@@ -227,8 +227,8 @@ export function isJiccCmuxReportUsageFailure(code: JiccCmuxReportFailureCode): b
 	);
 }
 
-export function formatJiccCmuxReportHuman(
-	data: z.infer<typeof jiccCmuxReportResultSchema>,
+export function formatNsccCmuxReportHuman(
+	data: z.infer<typeof nsccCmuxReportResultSchema>,
 ): string {
 	return `Reported cmux surface identity: ${data.branch} @ ${data.worktreePath}`;
 }
@@ -237,7 +237,7 @@ function commandFailure(
 	command: string,
 	args: readonly string[],
 	result: { readonly code: number; readonly stdout: string; readonly stderr: string },
-): JiccCmuxReportCommandFailure {
+): NsccCmuxReportCommandFailure {
 	return {
 		command,
 		args: [...args],

@@ -46,7 +46,7 @@ The Local plan store is pre-branch handoff storage. The attached plan is the can
 
 ## First-class workflow surfaces
 
-Pi slash commands and ji CLI commands are equal first-class workflow surfaces over the same branch-context contract. There is no supported standalone `branch-context` binary.
+Pi slash commands and ns CLI commands are equal first-class workflow surfaces over the same branch-context contract. There is no supported standalone `branch-context` binary.
 
 Pi surfaces:
 

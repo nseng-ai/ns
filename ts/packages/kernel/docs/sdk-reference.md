@@ -1,21 +1,19 @@
-# `@nseng-ai/kernel/sdk` — Reference
+# `@ns/kernel/sdk` — Reference
 
-`@nseng-ai/kernel/sdk` is the public author API for ji extensions — the one package you import from to write an ji extension; this document is the complete reference for its exports. `@nseng-ai/kernel/sdk` is the SDK layer; `@nseng-ai/kernel` is the host/kernel that loads extensions.
-
+`@ns/kernel/sdk` is the public author API for ns extensions — the one package you import from to write an ns extension; this document is the complete reference for its exports. `@ns/kernel/sdk` is the SDK layer; `@ns/kernel` is the host/kernel that loads extensions.
 Import the SDK's own surface from the package itself:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@nseng-ai/kernel/sdk";
-import type { NsExtensionApi, NsResult } from "@nseng-ai/kernel/sdk";
+import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
+import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 ```
 
-Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ji host.
+Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ns host.
 
-Do not import ji implementation modules (`@nseng-ai/kernel/*`, `@nseng-ai/core/*`, `@nseng-ai/clinkr/*`) from ji extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
+Do not import ns implementation modules (`@ns/kernel/*`, `@ns/core/*`, `@ns/clinkr/*`) from ns extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-Capability APIs such as `@nseng-ai/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@nseng-ai/kernel/sdk` and not general ji extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
-
-For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `@nseng-ai/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@nseng-ai/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
+Capability APIs such as `@ns/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@ns/kernel/sdk` and not general ns extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
+For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `@ns/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@ns/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
 The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
 
@@ -27,7 +25,7 @@ The exports are grouped by the role they play when authoring a command: you **de
 
 ### `defineExtension()`
 
-Declares a ji extension. The default export of every ji extension module is a call to `defineExtension()`.
+Declares an ns extension. The default export of every ns extension module is a call to `defineExtension()`.
 
 ```ts
 function defineExtension(extension: NsExtension): NsExtension;
@@ -49,7 +47,7 @@ function defineExtension(extension: NsExtension): NsExtension;
 **Example.**
 
 ```ts
-import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
+import { defineExtension, ok } from "@ns/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -65,7 +63,7 @@ export default defineExtension({
 
 ### `NsExtension`
 
-The shape of a ji extension.
+The shape of an ns extension.
 
 ```ts
 interface NsExtension<TCommands extends readonly NsCommand[] = readonly NsCommand[]> {
@@ -75,13 +73,13 @@ interface NsExtension<TCommands extends readonly NsCommand[] = readonly NsComman
 
 **Fields.**
 
-- `commands?` — the extension's command contributions. Omit it for an extension that contributes no commands to the current ji surface.
+- `commands?` — the extension's command contributions. Omit it for an extension that contributes no commands to the current ns surface.
 
 **Example.**
 
 ```ts
 // A commandless extension is valid — it simply contributes nothing to the
-// current ji surface.
+// current ns surface.
 export default defineExtension({});
 ```
 
@@ -106,27 +104,27 @@ Repo-local first-party extensions in this repository use this command-leaf patte
 
 Do not point multiple manifest command entries at a shared `.ns/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
 
-`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@nseng-ai/branch-context/ns/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
+`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ns/branch-context/ns/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
 
 ```ts
-import { repoLocalNsCommandDescriptor } from "@nseng-ai/kernel/sdk";
+import { repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
 
 const descriptor = repoLocalNsCommandDescriptor({
   command: attachCommand,
   manifestPath: ["exec", "attach"],
-  packageExportPrefix: "@nseng-ai/branch-context/ns/commands",
+  packageExportPrefix: "@ns/branch-context/ns/commands",
 });
 // manifestEntry: "./src/commands/attach.ts"
-// packageExport: "@nseng-ai/branch-context/ns/commands/attach"
+// packageExport: "@ns/branch-context/ns/commands/attach"
 
 const routeEncodedDescriptor = repoLocalNsCommandDescriptor({
   command: reviewListCommand,
   manifestName: "review-list",
   manifestPath: ["review", "list"],
-  packageExportPrefix: "@nseng-ai/roaster/commands",
+  packageExportPrefix: "@ns/roaster/commands",
 });
 // manifestEntry: "./src/commands/review-list.ts"
-// packageExport: "@nseng-ai/roaster/commands/review-list"
+// packageExport: "@ns/roaster/commands/review-list"
 ```
 
 ### `defineRepoLocalNsExtensionDescriptor()`
@@ -164,14 +162,14 @@ interface NsCommand<S extends NsCommandSchema = z.ZodObject, T = unknown> {
 - `schema?` — a Zod object schema (`NsCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
-- `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the ji kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
+- `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the ns kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
 - `completionProvider?` — optional shell-completion hook for dynamic values. It receives the `NsExtensionApi` and a Clinkr completion request (`current`, `previous`, command `args`, and `positionalIndex`). Its candidates are appended to static command/option/enum candidates and deduped. Completion stdout remains candidate-only; provider failures are omitted from stdout, keep resolver exit code `0`, and may be reported concisely on stderr.
 - `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `NsResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
 
 **Example.** Declared inline so `request` is inferred from `schema`:
 
 ```ts
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+import { defineExtension, ok, z } from "@ns/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -210,7 +208,7 @@ Provides dynamic completion candidates for the selected command without invoking
 **Example.** Complete local branch names for a positional argument:
 
 ```ts
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+import { defineExtension, ok, z } from "@ns/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -243,13 +241,13 @@ The user-facing setup, resolver behavior, supported shells, and limitations for 
 type NsCommandSchema = z.ZodObject;
 ```
 
-The schema type a command may declare. Always a Zod object, built with `z` imported from `@nseng-ai/kernel/sdk`.
+The schema type a command may declare. Always a Zod object, built with `z` imported from `@ns/kernel/sdk`.
 
 **Example.**
 
 ```ts
-import { z } from "@nseng-ai/kernel/sdk";
-import type { NsCommandSchema } from "@nseng-ai/kernel/sdk";
+import { z } from "@ns/kernel/sdk";
+import type { NsCommandSchema } from "@ns/kernel/sdk";
 
 const schema: NsCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
@@ -265,8 +263,8 @@ The parsed-request type derived from a command's schema — the type `run` recei
 **Example.**
 
 ```ts
-import { z } from "@nseng-ai/kernel/sdk";
-import type { NsCommandRequest, NsExtensionApi, NsResult } from "@nseng-ai/kernel/sdk";
+import { z } from "@ns/kernel/sdk";
+import type { NsCommandRequest, NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
@@ -277,7 +275,7 @@ function runAutobranch(ctx: NsExtensionApi, request: NsCommandRequest<typeof sch
 
 ### `PositionalSpec`
 
-*Re-exported from `@nseng-ai/clinkr/raw`.* Assigns a schema field to a positional argument slot.
+*Re-exported from `@ns/clinkr/raw`.* Assigns a schema field to a positional argument slot.
 
 ```ts
 interface PositionalSpec {
@@ -304,11 +302,11 @@ interface PositionalSpec {
 
 ## Extension manifest schemas
 
-ji package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ji`, and command-entry fields are accepted and preserved.
+ns package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ns`, and command-entry fields are accepted and preserved.
 
 ### `nsExtensionManifestCommandSchema`
 
-Validates one known `ji.commands[]` entry shape.
+Validates one known `ns.commands[]` entry shape.
 
 ```ts
 const command = nsExtensionManifestCommandSchema.parse({
@@ -320,11 +318,11 @@ const command = nsExtensionManifestCommandSchema.parse({
 });
 ```
 
-Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain ji kernel responsibilities.
+Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain ns kernel responsibilities.
 
 ### `nsExtensionManifestSchema` / `nsExtensionPackageManifestSchema`
 
-Validate the known `ji` object and package-level manifest wrapper.
+Validate the known `ns` object and package-level manifest wrapper.
 
 ```ts
 const manifest = nsExtensionPackageManifestSchema.parse({
@@ -343,7 +341,7 @@ The inferred types are exported as `NsExtensionManifestCommand`, `NsExtensionMan
 
 ### `normalizeTextOutput()`
 
-*Re-exported from `@nseng-ai/core/text-normalization`.* Normalizes model text before validation.
+*Re-exported from `@ns/core/text-normalization`.* Normalizes model text before validation.
 
 ```ts
 function normalizeTextOutput(output: string): string;
@@ -353,7 +351,7 @@ Converts CRLF/CR line endings to `\n`, removes outer blank lines, and strips one
 
 ### `trimOuterBlankLines()`
 
-*Re-exported from `@nseng-ai/core/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
+*Re-exported from `@ns/core/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
 
 ```ts
 function trimOuterBlankLines(text: string): string;
@@ -361,7 +359,7 @@ function trimOuterBlankLines(text: string): string;
 
 ### `stripOuterCodeFence()`
 
-*Re-exported from `@nseng-ai/core/text-normalization`.* Removes one outer Markdown code fence from a whole response.
+*Re-exported from `@ns/core/text-normalization`.* Removes one outer Markdown code fence from a whole response.
 
 ```ts
 function stripOuterCodeFence(text: string): string;
@@ -369,7 +367,7 @@ function stripOuterCodeFence(text: string): string;
 
 ### `truncateTextHead()`
 
-*Re-exported from `@nseng-ai/core/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
+*Re-exported from `@ns/core/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
 
 ```ts
 function truncateTextHead(options: HeadTextTruncationOptions): string;
@@ -377,7 +375,7 @@ function truncateTextHead(options: HeadTextTruncationOptions): string;
 
 ### `truncateTextHeadTail()`
 
-*Re-exported from `@nseng-ai/core/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
+*Re-exported from `@ns/core/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
 
 ```ts
 function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
@@ -385,7 +383,7 @@ function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
 
 ### `HeadTextTruncationOptions` / `HeadTailTextTruncationOptions`
 
-*Re-exported from `@nseng-ai/core/text-truncation`.* Options for the truncation helpers.
+*Re-exported from `@ns/core/text-truncation`.* Options for the truncation helpers.
 
 **Example.**
 
@@ -417,7 +415,7 @@ A discriminated union on `ok`. Construct values with `ok()` and `failed()` rathe
 **Example.**
 
 ```ts
-import type { NsExtensionApi, NsResult } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 
 function run(ctx: NsExtensionApi): NsResult {
   return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
@@ -465,7 +463,7 @@ return failed("Working tree is dirty; commit or stash first.", 2);
 
 ### `NsExtensionApi`
 
-The capabilities a command receives as the first argument to `run`. ji owns the host environment; the command owns the exact external commands, prompts, and policy it applies.
+The capabilities a command receives as the first argument to `run`. ns owns the host environment; the command owns the exact external commands, prompts, and policy it applies.
 
 ```ts
 interface NsExtensionApi {
@@ -705,9 +703,9 @@ ctx.stdout?.(result.text);
 Command schemas are [Zod](https://zod.dev) schemas. The SDK exports the host's schema builder so single-file extensions do not need their own resolvable `zod` dependency. Its API is Zod's own — see the Zod documentation; it is not re-documented here.
 
 ```ts
-import { z } from "@nseng-ai/kernel/sdk";
+import { z } from "@ns/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 ```
 
-Using the SDK export keeps schemas on the same Zod identity as the ji host at runtime.
+Using the SDK export keeps schemas on the same Zod identity as the ns host at runtime.

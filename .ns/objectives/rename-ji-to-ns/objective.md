@@ -103,7 +103,8 @@ Assumptions:
 - The `nseng-ai` npm org/scope remains the publish namespace and package name `ns` is
   available/owned there for `@nseng-ai/ns`; no `@ns` org claim is part of the plan.
 - The refactor-swarm cutover pipeline and AST codemod from the sdl→ji rename
-  re-instantiate cleanly for a second hop over the same surfaces.
+  re-instantiated cleanly enough to land the core cutover and the package/path/config
+  sweep; remaining work is residual trail cleanup rather than proving the pipeline.
 
 Risks:
 
@@ -117,12 +118,21 @@ Risks:
 - **In-flight branches and worktree slots** created pre-cutover carry `.ji/` trees and
   old paths; they hit rename-shaped conflicts on restack. Accepted, same as last hop;
   stragglers are fixed by hand under the machine-migration row.
-- **Two renames in two days** compounds stale-name habits: agents may reintroduce `ji`
-  (or even `sdl`) surfaces until the orientation retires. The orientation's standing
-  rule carries the durable one-name discipline until this Objective closes.
+- **Two renames in two days** compounded stale-name habits and the risk has partly
+  materialized as leftover active prose/identifier trails after the main cutover. The
+  orientation's standing rule carries the durable one-name discipline until this
+  Objective closes.
 
 ## Open Questions
 
 - None at creation. Publish mechanics for `@nseng-ai/ns` stay with
   `checkout-free-sdl-distribution`; the checkout-dir rename is parked with a documented
   procedure.
+
+## Closure
+
+Outcome: completed. The repo and owner-machine surfaces have hard-cut over from `ji` to `ns`: `ns` is the invocation surface, `.ns/` is the repo state root, `/ns:*` is the Pi namespace, `NS_*` env vars and XDG `ns` roots are current, workspace packages use `@ns/*` (with the documented `nscc` and `@internal/pi-tools` exceptions), `ns.toml` replaces `ji.toml`, and the external publish target is `@nseng-ai/ns`.
+
+Key evidence is recorded in the final Semantic Updates: the landed-cutover rebaseline, the `nscc` identifier cleanup, and the post-landing active-prose rebaseline. The post-landing sweep updated active docs, skills, package contexts, and open Objective guidance to the `ns` naming baseline; remaining `ji` text is intentional historical or rename-context provenance, including this record, superseded naming docs, immutable updates, closed records, and parked historical design retrospectives.
+
+Follow-ups stay with their owning Objectives: `checkout-free-sdl-distribution` owns checkout-free publication of `@nseng-ai/ns`, `ship-objectives-to-customers` owns customer onboarding, and the checkout directory rename remains parked as `mv` → `git worktree repair` → `just install-tools`. The durable rule that should survive closure is simple: do not introduce new live `ji` surfaces, paths, commands, packages, or vocabulary.

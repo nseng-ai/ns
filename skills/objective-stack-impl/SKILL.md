@@ -1,12 +1,12 @@
 ---
 name: objective-stack-impl
 disable-model-invocation: true
-description: Implement one ji Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /ns:objective:stack-impl picker, or when a wrapper injects an explicit slug.
+description: Implement one ns Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /ns:objective:stack-impl picker, or when a wrapper injects an explicit slug.
 ---
 
 # objective-stack-impl
 
-Orchestrate implementation of one ji Objective as a small Graphite stack from this session. You are the **parent**: you own planning, **slice** selection, subagent prompt construction, result interpretation, validation, Objective updates, commits/amends, and every decision to continue or stop. A **runner subagent** writes code, but judgment never delegates — the parent decides what is true.
+Orchestrate implementation of one ns Objective as a small Graphite stack from this session. You are the **parent**: you own planning, **slice** selection, subagent prompt construction, result interpretation, validation, Objective updates, commits/amends, and every decision to continue or stop. A **runner subagent** writes code, but judgment never delegates — the parent decides what is true.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step is self-contained for its own happy path.
 

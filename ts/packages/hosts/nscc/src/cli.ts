@@ -7,20 +7,20 @@ import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import {
-	formatJiccCmuxReportHuman,
-	isJiccCmuxReportUsageFailure,
-	runJiccCmuxReport,
-	jiccCmuxReportData,
-	jiccCmuxReportFailureData,
-	jiccCmuxReportResultSchema,
+	formatNsccCmuxReportHuman,
+	isNsccCmuxReportUsageFailure,
+	runNsccCmuxReport,
+	nsccCmuxReportData,
+	nsccCmuxReportFailureData,
+	nsccCmuxReportResultSchema,
 } from "./cmux-report.ts";
 
-export interface JiccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
+export interface NsccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	readonly runCommand?: CommandRunner;
 	readonly startTui?: () => Promise<void> | void;
 }
 
-interface JiccCliContext {
+interface NsccCliContext {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly runCommand: CommandRunner;
@@ -28,12 +28,12 @@ interface JiccCliContext {
 	readonly stderr: (text: string) => void;
 }
 
-const entry = defineCli<JiccCliContext, JiccCliDeps>({
+const entry = defineCli<NsccCliContext, NsccCliDeps>({
 	metaUrl: import.meta.url,
 	runtime: "bun",
 	description: "Open a full-screen OpenTUI stack map.",
 	prepareRun: async ({ args, deps, cwd, env, stdout, stderr }) => {
-		const context: JiccCliContext = {
+		const context: NsccCliContext = {
 			cwd: deps.cwd ?? cwd,
 			env: deps.env ?? env,
 			runCommand: deps.runCommand ?? runRealCommand,
@@ -51,7 +51,7 @@ const entry = defineCli<JiccCliContext, JiccCliDeps>({
 		return { type: "run", context, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
-		const cmuxGroup = new ClinkrGroup<JiccCliContext>({
+		const cmuxGroup = new ClinkrGroup<NsccCliContext>({
 			name: "cmux",
 			description: "cmux integration helpers for nscc.",
 		});
@@ -60,33 +60,33 @@ const entry = defineCli<JiccCliContext, JiccCliDeps>({
 			description: "Report the current git worktree identity to the current cmux surface.",
 			summary: "Report branch/worktree identity into cmux surface resume metadata.",
 			schema: z.object({}),
-			resultSchema: jiccCmuxReportResultSchema,
+			resultSchema: nsccCmuxReportResultSchema,
 			handler: async (ctx) => {
-				const result = await runJiccCmuxReport({
+				const result = await runNsccCmuxReport({
 					cwd: ctx.cwd,
 					env: ctx.env,
 					runCommand: ctx.runCommand,
 				});
-				if (result.type === "reported") return ok(jiccCmuxReportData(result.metadata));
-				const data = jiccCmuxReportFailureData(result);
-				if (isJiccCmuxReportUsageFailure(result.code)) return usageError(result.message, data);
+				if (result.type === "reported") return ok(nsccCmuxReportData(result.metadata));
+				const data = nsccCmuxReportFailureData(result);
+				if (isNsccCmuxReportUsageFailure(result.code)) return usageError(result.message, data);
 				return failure(result.code, result.message, data);
 			},
-			renderHuman: formatJiccCmuxReportHuman,
+			renderHuman: formatNsccCmuxReportHuman,
 		});
 		root.group(cmuxGroup);
 	},
 });
 
-export function buildCli(): ClinkrGroup<JiccCliContext> {
+export function buildCli(): ClinkrGroup<NsccCliContext> {
 	return entry.buildCli(undefined);
 }
 
-export async function runJiccCli(args: readonly string[], deps: JiccCliDeps = {}): Promise<number> {
+export async function runNsccCli(args: readonly string[], deps: NsccCliDeps = {}): Promise<number> {
 	return await entry.run(args, deps);
 }
 
-async function startDefaultTui(context: JiccCliContext): Promise<void> {
+async function startDefaultTui(context: NsccCliContext): Promise<void> {
 	const [{ startTabHostTui }, { tabControllers }] = await Promise.all([
 		import("./tabs/tab-host-renderer.ts"),
 		import("./tabs/registry.ts"),

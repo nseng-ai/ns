@@ -37,7 +37,7 @@ The CCC-owned Pi slash commands users invoke through the `ns:ccc` extension surf
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command, legacy top-level CCC alias.
 
 **Stable non-CCC orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ns:ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/ns:objective:stack-impl` or `/ns:flow:land`. Autobranch is now public ji lifecycle surface `ns flow autobranch` / `/ns:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
+A public Pi command whose user-facing namespace remains outside `ns:ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/ns:objective:stack-impl` or `/ns:flow:land`. Autobranch is now public ns lifecycle surface `ns flow autobranch` / `/ns:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
 *Avoid*: compatibility alias, evidence that namespace alone determines domain ownership, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
@@ -45,7 +45,7 @@ The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:ccc:*` alias for stack implementation.
 
 **Autobranch compatibility flow**:
-The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public ji lifecycle boundary is `ns flow autobranch` / `/ns:flow:autobranch`.
+The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public ns lifecycle boundary is `ns flow autobranch` / `/ns:flow:autobranch`.
 *Avoid*: public Pi registration adapter, current `/ns:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
 **Flow land consumption**:
@@ -53,7 +53,7 @@ The CCC composition path behind public unified `/ns:flow:land`, consuming Flow-o
 *Avoid*: Pi registration adapter, separate stack landing command, Flow land internals owner, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
 **Portable command progress**:
-Human-facing intermediate progress for CCC workflows that can run through both ji CLI and Pi command mirrors. The canonical seam is SDK `NsCommandIo`, threaded through lower orchestration and adapted at the edge to CLI `onOutput`/stderr, durable notifications, or Pi-rendered messages without duplication.
+Human-facing intermediate progress for CCC workflows that can run through both ns CLI and Pi command mirrors. The canonical seam is SDK `NsCommandIo`, threaded through lower orchestration and adapted at the edge to CLI `onOutput`/stderr, durable notifications, or Pi-rendered messages without duplication.
 *Avoid*: Pi-only status as a CLI progress solution, bespoke per-command progress sink, machine-readable event protocol, final result summary.
 
 **Worktree status observability**:

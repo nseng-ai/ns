@@ -1,6 +1,6 @@
 **Direction: workflows get CLI + skill parity; Pi is additive, never canonical.**
 
-Getting to: every workflow is reachable as a shared CLI (the `ji` kernel +
+Getting to: every workflow is reachable as a shared CLI (the `ns` kernel +
 capability pattern) with skill or typed-metadata coverage; a living parity
 table prevents Pi-only gaps.
 

@@ -10,7 +10,7 @@ import {
 } from "../../src/stack-map-model-loader.ts";
 import {
 	buildNewWorkspaceArgs,
-	buildJiccCmuxReportBootstrapCommand,
+	buildNsccCmuxReportBootstrapCommand,
 	createStackMapCmuxActivationExecutor,
 } from "../../src/stack-map-effects.ts";
 import { printableCharacterFromInput } from "../../src/tabs/key-input.ts";
@@ -540,12 +540,12 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			"--cwd",
 			"/repo/slot-04",
 			"--command",
-			buildJiccCmuxReportBootstrapCommand(),
+			buildNsccCmuxReportBootstrapCommand(),
 		]);
-		expect(buildJiccCmuxReportBootstrapCommand("/repo/with space/src/cli.ts")).toBe(
+		expect(buildNsccCmuxReportBootstrapCommand("/repo/with space/src/cli.ts")).toBe(
 			"bun '/repo/with space/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l",
 		);
-		expect(buildJiccCmuxReportBootstrapCommand("/repo/with'quote/src/cli.ts")).toBe(
+		expect(buildNsccCmuxReportBootstrapCommand("/repo/with'quote/src/cli.ts")).toBe(
 			"bun '/repo/with'\\''quote/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l",
 		);
 	});

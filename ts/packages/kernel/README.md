@@ -1,6 +1,6 @@
-# @nseng-ai/kernel
+# @ns/kernel
 
-`@nseng-ai/kernel` owns the `ns` CLI host and the `@nseng-ai/kernel/sdk` author API for command-contributing extensions. It owns command discovery, precedence, selected-command loading, argument/schema parsing, rendering glue, completion plumbing, shell integration, and execution-context construction. It does not own concrete workflow policy or capability command surfaces; those belong to the extension or capability package that contributes them.
+`@ns/kernel` owns the `ns` CLI host and the `@ns/kernel/sdk` author API for command-contributing extensions. It owns command discovery, precedence, selected-command loading, argument/schema parsing, rendering glue, completion plumbing, shell integration, and execution-context construction. It does not own concrete workflow policy or capability command surfaces; those belong to the extension or capability package that contributes them.
 
 ## Command catalog
 
@@ -94,10 +94,10 @@ Limitations:
 
 ## Extension authoring API
 
-Extension modules default-export an extension object created with `defineExtension()` from `@nseng-ai/kernel/sdk`. Command contributions live in the extension's optional `commands` array:
+Extension modules default-export an extension object created with `defineExtension()` from `@ns/kernel/sdk`. Command contributions live in the extension's optional `commands` array:
 
 ```ts
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+import { defineExtension, ok, z } from "@ns/kernel/sdk";
 
 export default defineExtension({
 	commands: [
@@ -114,9 +114,9 @@ export default defineExtension({
 });
 ```
 
-`@nseng-ai/kernel/sdk` is the public author API for extensions. `@nseng-ai/kernel` is the host/kernel container that loads extensions. The authoritative SDK export reference lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). Extension authors should import SDK vocabulary from `@nseng-ai/kernel/sdk` rather than kernel implementation modules or lower packages unless another package explicitly documents a public API for that dependency.
+`@ns/kernel/sdk` is the public author API for extensions. `@ns/kernel` is the host/kernel container that loads extensions. The authoritative SDK export reference lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). Extension authors should import SDK vocabulary from `@ns/kernel/sdk` rather than kernel implementation modules or lower packages unless another package explicitly documents a public API for that dependency.
 
-Single-file extension modules are leaf authoring surfaces, not shared libraries. Workspace packages must not import from `.ns/extensions/*.ts` files. If reusable behavior proves out inside one extension, move or copy the contract into an owning package and expose it deliberately through `@nseng-ai/kernel/sdk` or another documented package export.
+Single-file extension modules are leaf authoring surfaces, not shared libraries. Workspace packages must not import from `.ns/extensions/*.ts` files. If reusable behavior proves out inside one extension, move or copy the contract into an owning package and expose it deliberately through `@ns/kernel/sdk` or another documented package export.
 
 ## Boundary checklist
 

@@ -216,7 +216,7 @@ Risks:
   applied as `invoke-only` then; the ADR 0016 re-architecture has since moved it to
   `command-backed`. Evidence re-verified 2026-07-03: lock entry present,
   `agents/openai.yaml` present, `areg check` "All skills OK".
-- Unrelated repo work keeps touching the target skills — the `sdl`→`ji` cutover, the
+- Unrelated repo work keeps touching the target skills — the `sdl`→`ns` cutover, the
   SDL Flow skill renames, the Record Frontmatter documentation, the ADR 0016 kind
   sweeps, the Address migration, the refactor-guidance extraction — so recorded line
   counts and per-target debt snapshots go stale quickly. Re-verify a target's current
@@ -247,6 +247,6 @@ Risks:
   `objective` remain ambient, so they lead the queue; confirmed-duplication rewrites
   (`dignified-python`, `code-thermostack`, `refactor-swarm`, `objective-create`)
   follow; surgical targets next; ccc/niche last. Four targets dropped/deferred with
-  recorded reasons: `python-fake-driven-testing` SKILL.md and `ji-flow-submit`
+  recorded reasons: `python-fake-driven-testing` SKILL.md and `ns-flow-submit`
   (mooted), `python-fake-driven-test-layout` (pilot rationale spent → polish tier),
   `enriched-plan-save` (block owned by the plan-verification workstream).

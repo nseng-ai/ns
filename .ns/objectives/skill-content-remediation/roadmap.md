@@ -84,7 +84,7 @@
   disclosable block is a 6-trigger STOP safety contract, so disclosing it is
   net-negative and a rewrite most likely softens the contract; leave as-is);
   `pr-address` (see its row below); `python-fake-driven-testing` SKILL.md rewrite and
-  `sdl-flow-submit`/`ji-flow-submit` move-to-reference (both mooted — see their rows);
+  `sdl-flow-submit`/`ji-flow-submit`/`ns-flow-submit` move-to-reference (earlier two mooted — see their rows);
   `python-fake-driven-test-layout` (pilot rationale spent — see its row); and
   `enriched-plan-save` (deferred to the plan-verification workstream — see its row).
   Targets and their known debt / technique:
@@ -181,10 +181,10 @@
   - `pr-address` — **DROPPED (superseded, 2026-07-03).** The planned prune-to-stub
     assumed a retired-workflow tombstone, but the 2026-06-28 Address Capability
     migration (commits `6712d2ad9`, `a54b2d89d`) reworked the skill into a live
-    66-line primitive-surface document (`ji address exec` download/read/mutation
+    66-line primitive-surface document (`ns address exec` download/read/mutation
     primitives, kind `normal`, with a compact retired-workflow warning section). No
     remediation work remains here.
-  - `ji-flow-submit` (renamed from `sdl-flow-submit`, earlier `sdl-submit`) —
+  - `ns-flow-submit` (renamed from `ji-flow-submit`, earlier `sdl-flow-submit` / `sdl-submit`) —
     move-to-reference **DROPPED as mooted (re-rank `20260703T194738Z`)**: the env-var
     catalog has shrunk to ~8 inline lines across the Workflow prose of a 76-line
     SKILL.md; a reference split would add indirection without saving load.

@@ -1,10 +1,10 @@
-export interface JiccHelloWorldModel {
+export interface NsccHelloWorldModel {
 	readonly title: string;
 	readonly body: string;
 	readonly footer: string;
 }
 
-export function buildHelloWorldModel(): JiccHelloWorldModel {
+export function buildHelloWorldModel(): NsccHelloWorldModel {
 	return {
 		title: "Hello from nscc",
 		body: "OpenTUI core is ready for future command-and-control workflows.",
