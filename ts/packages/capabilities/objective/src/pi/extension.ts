@@ -55,7 +55,8 @@ export type ObjectiveExtensionAPI = Pick<
 	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const OBJECTIVE_LIST_COMMAND_NAME = nsCommandSurface("objective", "list");
+const OBJECTIVE_EXTENSION_ID = "objective";
+const OBJECTIVE_LIST_COMMAND_NAME = nsCommandSurface(OBJECTIVE_EXTENSION_ID, "list");
 const OBJECTIVE_LIST_ARGUMENT_HINT =
 	"[--names] [--minimal] [--status all|active|open|closed] [--help]";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
