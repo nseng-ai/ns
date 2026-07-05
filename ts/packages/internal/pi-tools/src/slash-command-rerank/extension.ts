@@ -43,19 +43,16 @@ export function createSlashCommandRerankProvider(
 					shouldTriggerFileCompletion: (lines: string[], cursorLine: number, cursorCol: number) =>
 						current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? false,
 				}),
-		...(current.triggerCharacters === undefined
-			? {}
-			: { triggerCharacters: current.triggerCharacters }),
 	};
 }
 
 export default function slashCommandRerankExtension(pi: SlashCommandRerankExtensionAPI): void {
-	let registered = false;
+	let isRegistered = false;
 	pi.on("session_start", (_event, ctx) => {
-		if (registered) return;
+		if (isRegistered) return;
 		// LBYL: rpc/minimal hosts have no addAutocompleteProvider. The flag prevents
 		// double-wrapping if session_start ever re-fires.
 		ctx.ui.addAutocompleteProvider?.(createSlashCommandRerankProvider);
-		registered = true;
+		isRegistered = true;
 	});
 }

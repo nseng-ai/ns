@@ -139,7 +139,6 @@ interface FakeCurrentProviderConfig {
 	suggestions?: AutocompleteSuggestions | null;
 	applyCompletionResult?: unknown;
 	shouldTriggerFileCompletion?: boolean;
-	triggerCharacters?: string[];
 }
 
 interface FakeCurrentProvider {
@@ -174,9 +173,6 @@ function createFakeCurrentProvider(config: FakeCurrentProviderConfig = {}): Fake
 						return config.shouldTriggerFileCompletion ?? false;
 					},
 				}),
-		...(config.triggerCharacters === undefined
-			? {}
-			: { triggerCharacters: config.triggerCharacters }),
 	};
 	return { provider, getSuggestionsCalls, applyCompletionCalls, shouldTriggerCalls };
 }
@@ -269,16 +265,6 @@ describe("createSlashCommandRerankProvider", () => {
 
 		const withoutMethod = createSlashCommandRerankProvider(createFakeCurrentProvider().provider);
 		expect(withoutMethod.shouldTriggerFileCompletion).toBeUndefined();
-	});
-
-	test("copies triggerCharacters when present and omits them otherwise", () => {
-		const withChars = createSlashCommandRerankProvider(
-			createFakeCurrentProvider({ triggerCharacters: ["@", "/"] }).provider,
-		);
-		expect(withChars.triggerCharacters).toEqual(["@", "/"]);
-
-		const withoutChars = createSlashCommandRerankProvider(createFakeCurrentProvider().provider);
-		expect(withoutChars.triggerCharacters).toBeUndefined();
 	});
 });
 

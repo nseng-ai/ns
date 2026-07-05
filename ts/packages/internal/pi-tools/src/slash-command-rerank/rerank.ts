@@ -81,12 +81,12 @@ function segmentBoundaries(name: string): number[] {
  * Both inputs are already lowercased.
  */
 function classifyTier(nameLower: string, queryLower: string): RerankTier {
-	let segmentPrefixMatch = false;
+	let hasSegmentPrefixMatch = false;
 	for (const boundary of segmentBoundaries(nameLower)) {
 		if (!nameLower.startsWith(queryLower, boundary)) continue;
-		segmentPrefixMatch = true;
+		hasSegmentPrefixMatch = true;
 		const nextChar = nameLower[boundary + queryLower.length];
 		if (nextChar === undefined || nextChar === ":" || nextChar === "-") return 0;
 	}
-	return segmentPrefixMatch ? 1 : 2;
+	return hasSegmentPrefixMatch ? 1 : 2;
 }

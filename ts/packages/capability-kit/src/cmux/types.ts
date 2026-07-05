@@ -30,8 +30,6 @@ export interface AutocompleteOptions {
 }
 
 export interface AutocompleteProvider {
-	/** Characters that should naturally trigger this provider at token boundaries. */
-	triggerCharacters?: string[];
 	getSuggestions(
 		lines: string[],
 		cursorLine: number,
