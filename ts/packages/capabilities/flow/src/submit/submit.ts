@@ -35,7 +35,7 @@ import {
 } from "./submit-pr-descriptions.ts";
 import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { NsProgressPhaseEvent, NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
+import type { NsProgressPhaseEvent, NsProgressPhaseListener } from "@nseng-ai/ns/kernel/sdk";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";
 

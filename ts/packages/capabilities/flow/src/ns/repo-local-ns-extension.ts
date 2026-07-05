@@ -1,7 +1,7 @@
 import {
 	defineRepoLocalNsExtensionDescriptor,
 	repoLocalNsCommandDescriptor,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 
 import { flowAutobranchCommand } from "./commands/autobranch.ts";
 import { flowAutoslotCommand } from "./commands/autoslot.ts";

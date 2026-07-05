@@ -1,5 +1,5 @@
 import { runAutoslotCli } from "../../autoslot/autoslot.ts";
-import { defineExtension, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, z, type NsCommand } from "@nseng-ai/ns/kernel/sdk";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";

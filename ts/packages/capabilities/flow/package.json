@@ -1,7 +1,6 @@
 {
 	"name": "@nseng-ai/flow",
 	"version": "0.1.0",
-	"private": true,
 	"files": [
 		"src"
 	],
@@ -31,11 +30,14 @@
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
 	"dependencies": {
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/ns": "workspace:*",
 		"@nseng-ai/slots": "workspace:*",
 		"zod": "catalog:"
 	},
@@ -57,7 +59,7 @@
 		]
 	},
 	"peerDependencies": {
-		"@nseng-ai/pi": "workspace:*"
+		"@nseng-ai/pi": "*"
 	},
 	"peerDependenciesMeta": {
 		"@nseng-ai/pi": {

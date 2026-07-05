@@ -24,3 +24,9 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 - `tools/` contains standalone tools that are off the capability-extension completion axis.
 
 Package names, public import specifiers, binary names, and workspace dependency names are independent of this filesystem taxonomy and should remain stable unless an explicit package-rename plan says otherwise.
+
+## Public package release qualification
+
+Run `pnpm --dir ts run release:qualify-public` to qualify the first public-package batch (`@nseng-ai/capability-kit` and `@nseng-ai/flow`) without registry writes. The command prints the full intended public package set, runs each batch package's `check` and `test` scripts, prepares `dist/publish` package roots with registry-compatible dependency specs, rejects `workspace:`/`catalog:`/private-package leakage, and runs `npm publish --dry-run` for the generated roots.
+
+Use `pnpm --dir ts run release:qualify-public -- --all` only after extending the preparation logic for the complete package set. Use `--skip-checks` or `--skip-dry-run` only for local diagnosis; those modes are not release evidence.

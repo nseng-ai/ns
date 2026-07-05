@@ -1,5 +1,5 @@
-import { createCommandIo } from "@nseng-ai/kernel/command-io";
-import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { createCommandIo } from "@nseng-ai/ns/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/ns/kernel/sdk";
 import {
 	type ExecResult,
 	formatCommand,

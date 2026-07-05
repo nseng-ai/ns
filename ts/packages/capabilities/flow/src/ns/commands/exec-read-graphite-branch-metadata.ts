@@ -11,7 +11,7 @@ import {
 	type NsCommand,
 	type NsExtensionApi,
 	type NsResult,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 
 const execReadGraphiteBranchMetadataSchema = z.object({
 	dbPath: z.string().describe("Absolute path to Graphite's .graphite_metadata.db file."),

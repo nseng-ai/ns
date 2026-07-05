@@ -13,7 +13,7 @@ import {
 	landCommandSchemaShape,
 	landRawArgsFromCommandRequest,
 } from "../../land/stack/flags.ts";
-import { createCommandIo } from "@nseng-ai/kernel/command-io";
+import { createCommandIo } from "@nseng-ai/ns/kernel/command-io";
 import {
 	defineExtension,
 	z,
@@ -22,7 +22,7 @@ import {
 	type NsExtensionApi,
 	type NsNotifyLevel,
 	type NsProgressPhaseEvent,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 import { systemClock } from "@nseng-ai/foundation/time";
 

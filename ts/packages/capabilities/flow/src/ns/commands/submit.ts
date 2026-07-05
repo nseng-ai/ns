@@ -24,7 +24,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";

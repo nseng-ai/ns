@@ -11,7 +11,7 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/ns/kernel/sdk";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 

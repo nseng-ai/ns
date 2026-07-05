@@ -1,7 +1,6 @@
 {
 	"name": "@nseng-ai/capability-kit",
 	"version": "0.1.0",
-	"private": true,
 	"files": [
 		"src"
 	],
@@ -54,10 +53,13 @@
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../.. && vitest run --config vitest.config.ts packages/capability-kit/test"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/ns": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

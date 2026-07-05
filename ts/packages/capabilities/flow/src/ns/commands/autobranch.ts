@@ -4,10 +4,10 @@ import {
 } from "../../autobranch/dirty-worktree.ts";
 import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
-import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
-import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { runWithNsCommandIo } from "@nseng-ai/ns/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/ns/kernel/sdk";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
-import { commandIoFromNsExtensionApi } from "@nseng-ai/kernel/command-io";
+import { commandIoFromNsExtensionApi } from "@nseng-ai/ns/kernel/command-io";
 import {
 	defineExtension,
 	failed,
@@ -15,7 +15,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";

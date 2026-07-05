@@ -8,7 +8,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 
 import {
 	applyPreparedPrDescriptionUpdate,

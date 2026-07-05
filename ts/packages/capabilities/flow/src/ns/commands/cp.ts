@@ -1,6 +1,6 @@
-import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
+import type { NsProgressPhaseListener } from "@nseng-ai/ns/kernel/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/ns/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,

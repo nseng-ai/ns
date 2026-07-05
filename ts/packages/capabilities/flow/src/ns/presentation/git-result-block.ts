@@ -17,7 +17,7 @@
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { dim, resultBlockHeadline } from "@nseng-ai/foundation/cli-theme";
-import type { ExecResult } from "@nseng-ai/kernel/sdk";
+import type { ExecResult } from "@nseng-ai/ns/kernel/sdk";
 
 type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {
 	readonly killed?: boolean;

@@ -11,7 +11,7 @@ import {
 	type ExecResult,
 	type NsExtensionApi,
 	type NsResult,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 
 export interface FlowCliExecOptions {
 	cwd?: string;

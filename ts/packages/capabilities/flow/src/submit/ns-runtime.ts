@@ -11,7 +11,7 @@ import {
 	type SubmitFailureTranscript,
 } from "./index.ts";
 
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/ns/kernel/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
@@ -23,7 +23,7 @@ export interface NsSubmitRuntime {
 	prDescription: RunSubmitCommandOptions["prDescription"];
 }
 
-/** Temporary internal migration seam; not exported from `@nseng-ai/kernel/sdk`. */
+/** Temporary internal migration seam; not exported from `@nseng-ai/ns/kernel/sdk`. */
 export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
 	return {

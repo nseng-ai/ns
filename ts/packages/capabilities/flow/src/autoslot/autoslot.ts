@@ -1,6 +1,6 @@
 import type { Caps } from "@nseng-ai/clinkr";
-import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
-import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/ns/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/ns/kernel/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,

@@ -4,7 +4,7 @@ import type {
 	NsCommand,
 	NsCommandSchema,
 	NsExtensionApi,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/ns/kernel/sdk";
 import type { z } from "zod";
 
 export interface NsDomainCommandOptions<S extends NsCommandSchema, T, TContext> {

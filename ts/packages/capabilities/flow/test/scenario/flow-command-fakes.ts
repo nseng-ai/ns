@@ -10,8 +10,8 @@ import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
-import type { NsCommand, NsExtensionApi, NsResult } from "@nseng-ai/kernel/sdk";
-import { failed } from "@nseng-ai/kernel/sdk";
+import type { NsCommand, NsExtensionApi, NsResult } from "@nseng-ai/ns/kernel/sdk";
+import { failed } from "@nseng-ai/ns/kernel/sdk";
 
 import {
 	ScriptedNsTestContext,
