@@ -10,26 +10,9 @@ Close an Objective without deleting its checked-in history.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
-## Required shape
-
-Active root: `.ns/objectives/<slug>/`.
-
-- `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; add `## Closure` when closing.
-- `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
-- `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
-- `closed.md`: minimal Closure Marker; existence means closed.
-
-Objective records are Markdown; read and edit Markdown directly. Use `ns objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
-
-The Objective slug directory is durable identity. Closing an Objective keeps the existing directory in place; command/product/prose renames do not imply an Objective slug rename.
-
 ## Resolve the Objective
 
-1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local open candidates and ask the user to choose.
-3. If no candidates exist, say so and suggest `objective-create` when appropriate.
-
-Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms.
+Resolve exactly one Objective per the umbrella skill's Selection rules; the umbrella also owns the storage model and required file shapes — this skill does not restate them. The closure-specific delta: closing adds `## Closure` to `objective.md` and writes `closed.md`, and keeps the existing slug directory in place. Objective records are Markdown; read and edit them directly, using `ns objective exec` for deterministic read mechanics.
 
 ## Workflow
 

@@ -20,15 +20,15 @@ New records live in the active root only:
   updates/
 ```
 
-`objective.md` required headings: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`.
+`objective.md` uses the umbrella skill's required headings.
 
 - `## Assumptions and Risks` must distinguish assumptions from risks, with enough context for a future `objective-update` to mark an assumption incorrect, a risk de-risked or not, or add newly discovered ones.
 - Default to planning-only: execution-policy sections are never mandatory and appear only when the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point. When they apply, read `references/execution-friendly-create.md` before asking policy questions.
 - For a standing / ongoing / no-natural-finish-line Objective, load the `objective` skill's standing Objectives reference before drafting completion criteria and roadmap.
 
-`roadmap.md` required headings: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
+`roadmap.md` uses the umbrella skill's required headings and statuses.
 
-- Every initial row is substantive semantic work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up. Size rows by human-legible decision count and thesis clarity, not diff size, file count, or line count — a broad mechanical change can be one row when it implements one clear decision; a small mixed change may need several.
+- Every initial row is substantive semantic work, sized per the umbrella skill's roadmap rules — a broad mechanical change can be one row when it implements one clear decision; a small mixed change may need several.
 - No routine validation-only row (`run just`, `run tests`, `wait for CI`, `full repo validation`) unless validation/test/CI behavior is itself in scope. When validation surfaces as a branch point in the interview, steer it into completion evidence under a semantic row — e.g. an indented `Evidence: targeted tests and relevant repo checks passed` — never a standalone final row.
 - Rows may carry indented prose guidance when needed; it is prose, not machine state.
 
@@ -36,16 +36,16 @@ New records live in the active root only:
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing any file.
 - Write only under `.ns/objectives/<slug>/`; never `docs/objectives/` or anywhere else.
-- The slug directory is durable identity: command/product/prose renames update an existing Objective's title and body, never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --status all --format md`; if a likely existing Objective appears, stop and ask whether the user meant `objective-update`, a direct read, or an explicit slug migration.
+- Slug identity is the umbrella skill's rule: renames never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --status all --format md`; if a likely existing Objective appears, stop and ask whether the user meant `objective-update`, a direct read, or an explicit slug migration.
 - Check both roots before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read — never overwrite. If `.ns/objective-archive/<slug>/` exists, stop and ask whether to unarchive (`ns objective archive <slug> --unarchive`) instead of creating a duplicate slug.
-- Records are Markdown: write them directly, using `ns objective exec` only for deterministic reads. No registries, UUIDs, hidden attachment metadata, or state-machine behavior; the only sanctioned YAML is Record Frontmatter below.
+- Records are Markdown: write them directly, using `ns objective exec` only for deterministic reads; the only sanctioned YAML is Record Frontmatter below.
 
 ## Record Frontmatter: initial edges and Blocked Sentence
 
 Record Frontmatter (defined in the `objective` umbrella skill) carries exactly `blocked` and `edges` — never any other key. It is usually absent at creation: omit the block entirely unless the interview surfaces a real fact.
 
-- **Initial edges.** When the new Objective has a durable relationship to an existing record (for example, it consumes another Objective as a hard dependency), declare the edge at creation. An edge is a mirrored two-file edit: add the `{objective: <slug>, annotation: <sentence>}` entry to the new record's frontmatter **and** the mirror entry to the counterpart record's frontmatter — editing that counterpart block is the one sanctioned edit outside the new record, limited strictly to its frontmatter. Write each annotation from its own record's perspective; the two sentences should differ, because perspective is the payload. At most one edge per unordered slug pair.
-- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation (by another objective, an external dependency, anything); the value is a non-empty sentence saying why. Presence is the state; blocked is a sub-state of open.
+- **Initial edges.** When the new Objective has a durable relationship to an existing record (for example, it consumes another Objective as a hard dependency), declare the edge at creation as the umbrella skill's mirrored two-file edit: the entry in the new record's frontmatter **and** the perspective-correct mirror entry in the counterpart's — editing that counterpart block is the one sanctioned edit outside the new record.
+- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation (by another objective, an external dependency, anything); the value is a non-empty sentence saying why.
 - After writing any frontmatter, run `ns objective check <new-slug>` (validates the record's edges including counterpart mirrors) or `ns objective check --all`.
 
 ## Interview

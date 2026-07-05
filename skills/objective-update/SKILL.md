@@ -18,20 +18,9 @@ Also run when `objective-next` selected a slug/path, its Tracking Gate blocks, a
 
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 
-## Objective record invariants
+## Mutation boundary
 
-Active records live at `.ns/objectives/<slug>/`. Archived records under `.ns/objective-archive/<slug>/` are not active update candidates.
-
-Required shape:
-
-- `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; `## Closure` only when closed.
-- `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
-- `updates/<timestamp>-<slug>.md`: `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
-- `closed.md`: minimal Closure Marker; existence means closed, but closure meaning belongs in `objective.md` under `## Closure`.
-
-Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
-
-Mutation boundary:
+The umbrella skill owns the storage model, required headings, and status semantics — this skill does not restate them. Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
 
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
 - One sanctioned exception: an Objective Edge mutation is a mirrored two-file edit, so adding, removing, or rewording an edge also edits the counterpart record's `objective.md` Record Frontmatter — and nothing else in the counterpart record (see the `objective` umbrella skill's Record Frontmatter section).
@@ -41,14 +30,9 @@ Mutation boundary:
 ## Select exactly one Objective
 
 1. Resolve ambiguous invocation intent first.
-2. Use an explicit user-provided slug/path under `.ns/objectives/<slug>/` when present.
-3. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
-4. Otherwise run `ns objective list --format md` immediately.
-5. If exactly one active Objective exists and update intent is explicit, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
-6. If multiple active Objectives exist, present the command output and ask for one slug/path; do not ask a generic question before showing options.
-7. If none exist, say so and suggest `objective-create` when appropriate.
+2. Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?` When multiple active Objectives exist, present the `ns objective list --format md` output and ask for one slug/path; do not ask a generic question before showing options.
 
-Never write a multi-Objective update. Never auto-select from candidate count, branch names, PR titles, package names, roadmap keywords, changed/touched files, or hidden attachment mechanisms. After selection, branch, Graphite, local-diff, and PR facts may be evidence only; they never participate in selection.
+Never write a multi-Objective update. After selection, branch, Graphite, local-diff, and PR facts may be evidence only; they never participate in selection.
 
 ## Landed-state authoring model
 

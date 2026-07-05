@@ -10,28 +10,9 @@ Recommend the next useful work for an active Objective. When explicit Objective 
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
-## Required shape
-
-Active root: `.ns/objectives/<slug>/`. Archived records under `.ns/objective-archive/<slug>/` are not active work candidates.
-
-- `objective.md`: optional Record Frontmatter carrying only `blocked` and `edges` (ADR 0025); `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
-- `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only; semantic rows may include indented prose guidance.
-- `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
-- `orientation.md`: optional, agent-facing standing rule; present only for orienting Objectives.
-- `closed.md`: optional Closure Marker; existence means closed.
-
-Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `ns objective exec` for deterministic mechanics like candidate listing, file inventory, closed-marker detection, and tracking-gate git evidence.
-
-The Objective slug directory is durable identity. Command/product/prose renames do not imply an Objective slug rename.
-
 ## Resolve the Objective
 
-1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before recommending next work.
-3. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local open candidates and ask the user to choose.
-4. If no candidates exist, say so and suggest `objective-create` when appropriate.
-
-Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
+Resolve exactly one Objective per the umbrella skill's Selection rules; the umbrella also owns the storage model and required file shapes — this skill does not restate them. Read `objective.md`, `roadmap.md`, and `updates/` directly; use `ns objective exec` for deterministic mechanics like candidate listing, closed-marker detection, and tracking-gate git evidence. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
 
 ## Tracking Gate
 
