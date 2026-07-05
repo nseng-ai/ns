@@ -16,6 +16,8 @@
 		"./runner-subagents": "./src/runner-subagents/index.ts",
 		"./runner-subagents/extension": "./src/runner-subagents/extension.ts",
 		"./runner-subagents/testing": "./src/runner-subagents/testing.ts",
+		"./slash-command-rerank": "./src/slash-command-rerank/index.ts",
+		"./slash-command-rerank/extension": "./src/slash-command-rerank/extension.ts",
 		"./thermo-council": "./src/thermo-council/index.ts",
 		"./thermo-council/extension": "./src/thermo-council/extension.ts"
 	},
@@ -42,6 +44,7 @@
 			"pr-feedback-watch",
 			"pr-previews",
 			"runner-subagents",
+			"slash-command-rerank",
 			"thermo-council"
 		]
 	}
