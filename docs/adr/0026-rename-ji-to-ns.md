@@ -55,7 +55,8 @@ Accepted collisions, consciously de-risked by nothing:
 npm plan: packages publish under the existing **`@nseng-ai` scope**. The product CLI
 package name is `ns`, yielding the publish target `@nseng-ai/ns`, superseding the
 `@nseng-ai/ji` target recorded in the `rename-sdl-to-ji` Objective; the internal
-workspace scope is `@ns/*`. No claim on the public `@ns` npm org/scope is assumed — not
+workspace scope is `@ns/*` *(amended by ADR 0028: the workspace scope becomes bare
+`@nseng-ai/*`; the rest of this ADR stands)*. No claim on the public `@ns` npm org/scope is assumed — not
 as plan A, not as fallback — and whatever holds the unscoped npm `ns` slug is an
 accepted collision with no dispute path, mirroring 0024's stance. The CLI installs a bin
 named `ns`, so users type `ns`; packaging details beyond the product package target
