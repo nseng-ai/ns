@@ -1,1 +1,1 @@
-export { default } from "@nseng-ai/objective/ns/commands/show";
+export { default } from "@nseng-ai/objectives/ns/commands/show";

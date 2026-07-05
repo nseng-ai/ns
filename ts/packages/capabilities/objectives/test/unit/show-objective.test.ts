@@ -1,4 +1,7 @@
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@nseng-ai/capability-kit/git/testing";
+import {
+	InMemoryGitGateway,
+	type InMemoryGitGatewayState,
+} from "@nseng-ai/capability-kit/git/testing";
 import type { Caps } from "@nseng-ai/clinkr";
 import { describe, expect, test } from "vitest";
 
