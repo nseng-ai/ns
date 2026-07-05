@@ -860,8 +860,7 @@ describe("fetchStackPrs", () => {
 			execApi: fake.api,
 			cwd: CWD,
 			branches,
-			owner: "acme",
-			repo: "widgets",
+			repoIdentity: { owner: "acme", repo: "widgets" },
 		});
 
 		const ok = okResult(result);
@@ -890,8 +889,7 @@ describe("fetchStackPrs", () => {
 			execApi: fake.api,
 			cwd: CWD,
 			branches: ["a"],
-			owner: "acme",
-			repo: "widgets",
+			repoIdentity: { owner: "acme", repo: "widgets" },
 		});
 		expect(result).toEqual({ type: "exec-error", message: "gh: not authenticated" });
 	});
@@ -902,8 +900,7 @@ describe("fetchStackPrs", () => {
 			execApi: fake.api,
 			cwd: CWD,
 			branches: ["a"],
-			owner: "acme",
-			repo: "widgets",
+			repoIdentity: { owner: "acme", repo: "widgets" },
 		});
 		expect(result.type).toBe("invalid-json");
 		if (result.type !== "invalid-json") return;
@@ -916,8 +913,7 @@ describe("fetchStackPrs", () => {
 			execApi: fake.api,
 			cwd: CWD,
 			branches: ["a"],
-			owner: "acme",
-			repo: "widgets",
+			repoIdentity: { owner: "acme", repo: "widgets" },
 		});
 		expect(result).toEqual({ type: "graphql-errors", messages: ["boom"] });
 	});
@@ -928,8 +924,7 @@ describe("fetchStackPrs", () => {
 			execApi: fake.api,
 			cwd: CWD,
 			branches: ["a"],
-			owner: "acme",
-			repo: "widgets",
+			repoIdentity: { owner: "acme", repo: "widgets" },
 		});
 		expect(result).toEqual({ type: "schema-mismatch" });
 	});
@@ -941,7 +936,7 @@ describe("fetchRepoIdentity", () => {
 			stdout: JSON.stringify({ name: "widgets", owner: { login: "acme" } }),
 		});
 		const result = await fetchRepoIdentity({ execApi: fake.api, cwd: CWD });
-		expect(result).toEqual({ type: "ok", owner: "acme", repo: "widgets" });
+		expect(result).toEqual({ type: "ok", repoIdentity: { owner: "acme", repo: "widgets" } });
 
 		expect(fake.calls).toHaveLength(1);
 		expect(fake.calls[0]?.command).toBe("gh");
@@ -978,7 +973,7 @@ describe("fetchRepoIdentity", () => {
 
 describe("graphiteUrl", () => {
 	it("formats the Graphite app PR URL", () => {
-		expect(graphiteUrl("acme", "widgets", 42)).toBe(
+		expect(graphiteUrl({ owner: "acme", repo: "widgets" }, 42)).toBe(
 			"https://app.graphite.com/github/pr/acme/widgets/42",
 		);
 	});

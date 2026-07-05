@@ -22,6 +22,7 @@ import {
 	type StackViewPrStatus,
 } from "./types.ts";
 import { fetchRepoIdentity, fetchStackPrs, graphiteUrl, type StackPrData } from "./graphql.ts";
+import type { GithubRepositoryIdentity } from "@ns/capability-kit/github";
 import { objectiveSlugsForBranch } from "./objectives.ts";
 import {
 	RealGraphiteStackGateway,
@@ -55,7 +56,7 @@ export type LoadStackViewResult =
 
 /** Outcome of the repo-identity → batched-PR-query chain (identity must precede the query). */
 type IdentityAndPrsResult =
-	| { type: "ok"; owner: string; repo: string; prs: (StackPrData | null)[] }
+	| { type: "ok"; repoIdentity: GithubRepositoryIdentity; prs: (StackPrData | null)[] }
 	| { type: "error"; message: string };
 
 /**
@@ -129,15 +130,14 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 
 	if (identityAndPrs.type === "error") return { type: "error", message: identityAndPrs.message };
 
-	const { owner, repo, prs } = identityAndPrs;
+	const { repoIdentity, prs } = identityAndPrs;
 	const rows = orderedBranches.map((branch, index) =>
 		buildStackViewPr({
 			branch,
 			parentBranch: parentBranches[index] ?? stack.trunk,
 			prData: prs[index] ?? null,
 			objectiveSlugs: objectiveSlugsByRow[index] ?? [],
-			owner,
-			repo,
+			repoIdentity,
 		}),
 	);
 
@@ -147,8 +147,7 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 			trunk: stack.trunk,
 			currentBranch: stack.current,
 			prs: rows,
-			owner,
-			repo,
+			...repoIdentity,
 			objectivesBySlug: buildObjectivesBySlug(rows),
 		},
 	};
@@ -184,18 +183,17 @@ async function loadIdentityAndPrs(
 	const stackPrs = await fetchStackPrs({
 		...context,
 		branches,
-		owner: identity.owner,
-		repo: identity.repo,
+		repoIdentity: identity.repoIdentity,
 	});
 	if (stackPrs.type !== "ok") return { type: "error", message: stackPrsErrorMessage(stackPrs) };
 
-	return { type: "ok", owner: identity.owner, repo: identity.repo, prs: stackPrs.prs };
+	return { type: "ok", repoIdentity: identity.repoIdentity, prs: stackPrs.prs };
 }
 
-type CommonFetchFailure = {
+interface CommonFetchFailure {
 	type: "exec-error" | "invalid-json" | "schema-mismatch";
 	message?: string;
-};
+}
 
 function commonFetchErrorMessage(
 	failure: CommonFetchFailure,
@@ -243,13 +241,12 @@ interface BuildStackViewPrParams {
 	parentBranch: string;
 	prData: StackPrData | null;
 	objectiveSlugs: string[];
-	owner: string;
-	repo: string;
+	repoIdentity: GithubRepositoryIdentity;
 }
 
 /** Build a single stack row, degrading to a `no-pr` row when the branch has no open PR. */
 function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
-	const { branch, parentBranch, prData, objectiveSlugs, owner, repo } = params;
+	const { branch, parentBranch, prData, objectiveSlugs, repoIdentity } = params;
 	if (prData === null) {
 		return {
 			branch,
@@ -274,7 +271,7 @@ function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
 		number: prData.number,
 		title: prData.title,
 		url: prData.url,
-		graphiteUrl: graphiteUrl(owner, repo, prData.number),
+		graphiteUrl: graphiteUrl(repoIdentity, prData.number),
 		isDraft: prData.isDraft,
 		body: prData.body,
 		threads: prData.threads,

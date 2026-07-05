@@ -1,3 +1,5 @@
+export { type GithubRepositoryIdentity } from "@ns/capability-kit/github";
+
 export {
 	deriveStatus,
 	type StackViewCheckBucket,
