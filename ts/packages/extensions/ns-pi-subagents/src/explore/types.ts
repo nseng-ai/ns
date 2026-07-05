@@ -1,5 +1,3 @@
-import type { ToolResult } from "@nseng-ai/pi/runtime/tool-types";
-
 import type {
 	RunnerSubagentContext,
 	RunnerSubagentPi,
@@ -7,8 +5,9 @@ import type {
 	RunnerSubagentUpdate,
 	RunnerSubagentUsageMetadata,
 } from "@internal/pi-tools/runner-subagents";
-import type { ExploreBreadth } from "./contract.ts";
+import type { ExploreBreadth, ExploreBreadthProfile } from "./contract.ts";
 import type { DispatchExplorerSubagentOptions, ExplorerDispatchOutcome } from "./dispatch.ts";
+import type { ExploreInput } from "./extension.ts";
 import type { ExplorerLaunchPlan } from "./model-policy.ts";
 
 export type ExploreDispatchFunction = (
@@ -55,10 +54,7 @@ export interface ExploreTaskOutcome {
 	failover?: ExplorerDispatchOutcome["failover"];
 }
 
-export interface ExploreTaskInputFields {
-	title: string;
-	prompt: string;
-}
+export type ExploreTaskInputFields = ExploreInput["tasks"][number];
 
 export interface ExploreTaskState {
 	input: ExploreTaskInputFields;
@@ -68,14 +64,6 @@ export interface ExploreTaskState {
 }
 
 export interface ExploreRequest {
-	input: {
-		breadth: ExploreBreadth;
-		tasks: readonly ExploreTaskInputFields[];
-	};
-	profile: {
-		maxConcurrency: number;
-		wallClockMs: number;
-	};
+	input: Pick<ExploreInput, "breadth" | "tasks">;
+	profile: Pick<ExploreBreadthProfile, "maxConcurrency" | "wallClockMs">;
 }
-
-export type ExploreUpdateCallback = (update: Partial<ToolResult>) => void;
