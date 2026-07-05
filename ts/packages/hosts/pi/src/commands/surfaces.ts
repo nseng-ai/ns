@@ -15,6 +15,39 @@ export type {
 	SpecializedCommandBackedSkillSpec,
 } from "@ns/core/command";
 
+const PI_COMMAND_SEGMENT_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+
+export interface NsPiExtensionSurface {
+	readonly extensionId: string;
+	command(action: string): string;
+}
+
+export function nsPiCommandSurface(extensionId: string, action: string): string {
+	assertValidPiCommandPart(extensionId, "extension id");
+	for (const segment of action.split(":")) {
+		assertValidPiCommandPart(segment, "action segment");
+	}
+	return `ns:${extensionId}:${action}`;
+}
+
+export function defineNsPiExtensionSurface(extensionId: string): NsPiExtensionSurface {
+	assertValidPiCommandPart(extensionId, "extension id");
+	return {
+		extensionId,
+		command(action: string): string {
+			return nsPiCommandSurface(extensionId, action);
+		},
+	};
+}
+
 export function formatImplBranchContextCommand(key: string): string {
 	return `/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${key}`;
+}
+
+function assertValidPiCommandPart(value: string, label: string): void {
+	if (!PI_COMMAND_SEGMENT_PATTERN.test(value)) {
+		throw new Error(
+			`Invalid ns Pi command ${label}: ${JSON.stringify(value)}. Expected lowercase kebab-case without slashes or colons.`,
+		);
+	}
 }

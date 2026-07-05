@@ -30,7 +30,7 @@ export interface HandleCccSlotOpenBranchOptions {
 	notifyProgress: (message: string) => void;
 }
 
-const COMMAND_NAME = "ccc:workspace:open-branch";
+const COMMAND_NAME = "ns:ccc:workspace:open-branch";
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 

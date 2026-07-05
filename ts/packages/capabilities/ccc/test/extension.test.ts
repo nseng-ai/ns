@@ -35,15 +35,15 @@ describe("CCC Pi extension", () => {
 		registerCccPiExtension(pi);
 
 		expect([...commands.keys()].sort()).toEqual([
-			"ccc:claude-plan-tab",
-			"ccc:sidebar:branch-state-summary",
-			"ccc:sidebar:objective-summary",
-			"ccc:sidebar:session-summary",
-			"ccc:surface:dispatch-plan",
-			"ccc:workspace:dispatch-from-trunk",
-			"ccc:workspace:dispatch-plan",
-			"ccc:workspace:dispatch-prompt",
-			"ccc:workspace:open-branch",
+			"ns:ccc:claude-plan-tab",
+			"ns:ccc:sidebar:branch-state-summary",
+			"ns:ccc:sidebar:objective-summary",
+			"ns:ccc:sidebar:session-summary",
+			"ns:ccc:surface:dispatch-plan",
+			"ns:ccc:workspace:dispatch-from-trunk",
+			"ns:ccc:workspace:dispatch-plan",
+			"ns:ccc:workspace:dispatch-prompt",
+			"ns:ccc:workspace:open-branch",
 		]);
 	});
 });

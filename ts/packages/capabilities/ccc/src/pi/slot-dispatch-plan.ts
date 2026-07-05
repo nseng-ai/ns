@@ -6,9 +6,13 @@ import {
 	type DispatchPlanConfig,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import {
+	CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
+	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
+} from "./surfaces.ts";
 
-const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";
-const SURFACE_COMMAND_NAME = "ccc:surface:dispatch-plan";
+const WORKSPACE_COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
+const SURFACE_COMMAND_NAME = CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME;
 
 const WORKSPACE_CONFIG: DispatchPlanConfig = {
 	commandName: WORKSPACE_COMMAND_NAME,

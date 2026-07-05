@@ -31,7 +31,7 @@ import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@ns/slot/api";
 import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
-const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
+const COMMAND_NAME = "ns:ccc:workspace:dispatch-prompt";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
 

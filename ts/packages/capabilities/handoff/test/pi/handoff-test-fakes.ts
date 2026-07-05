@@ -487,9 +487,9 @@ export async function runCommand(
 	commandName:
 		| "ns:handoff:create"
 		| "ns:handoff:pickup"
-		| "handoff:list"
-		| "ccc:handoff-tab"
-		| "handoff:self",
+		| "ns:handoff:list"
+		| "ns:ccc:handoff-tab"
+		| "ns:handoff:self",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},

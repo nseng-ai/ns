@@ -16,6 +16,29 @@ import {
 	visibleCommandBackedReplacementSurfaces,
 } from "../src/index.ts";
 
+const LEGACY_OBJECTIVE_PREFIX = ["objective", ":"].join("");
+const LEGACY_HANDOFF_PREFIX = ["handoff", ":"].join("");
+const LEGACY_CCC_PREFIX = ["ccc", ":"].join("");
+
+const ALLOWED_FOLLOW_UP_SURFACE_PREFIXES = [
+	"branch:",
+	"changelog:",
+	"code:",
+	"context:",
+	"dignified:",
+	"fdt:",
+	"improve:",
+	"pi:",
+	"python:",
+	"refactor:",
+	"reinvented:",
+	"roast:",
+	"skill:",
+	"thermo:",
+	"ts:",
+	"writing:",
+] as const;
+
 describe("command-backed skill registry", () => {
 	test("has unique skill names and surfaces", () => {
 		const registrations = commandBackedSkillRegistrations();
@@ -69,7 +92,28 @@ describe("command-backed skill registry", () => {
 
 		expect(surfaces).toContain(CREATE_HANDOFF_COMMAND_NAME);
 		expect(surfaces).toContain(objectiveCreateCommandSpec.commandName);
+		expect(surfaces).toContain("ns:ccc:sidebar:pr-summary");
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).not.toContain("foo:bar-baz");
+	});
+
+	test("keeps migrated Objective Handoff and CCC surfaces out of legacy top-level namespaces", () => {
+		const surfaces = visibleCommandBackedReplacementSurfaces();
+
+		expect(surfaces.filter((surface) => surface.startsWith(LEGACY_OBJECTIVE_PREFIX))).toEqual([]);
+		expect(surfaces.filter((surface) => surface.startsWith(LEGACY_HANDOFF_PREFIX))).toEqual([]);
+		expect(surfaces.filter((surface) => surface.startsWith(LEGACY_CCC_PREFIX))).toEqual([]);
+	});
+
+	test("classifies remaining non-ns command surfaces as explicit follow-up prefixes", () => {
+		const unnamespacedSurfaces = visibleCommandBackedReplacementSurfaces().filter(
+			(surface) => !surface.startsWith("ns:"),
+		);
+
+		for (const surface of unnamespacedSurfaces) {
+			expect(ALLOWED_FOLLOW_UP_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix))).toBe(
+				true,
+			);
+		}
 	});
 });

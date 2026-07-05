@@ -51,7 +51,7 @@ Pi surfaces:
 ```text
 /ns:handoff:create <continuation focus>
 /ns:handoff:pickup [--branch <branch>] [slug|search words]
-/handoff:list [--branch <branch>|--all]
+/ns:handoff:list [--branch <branch>|--all]
 ```
 
 ji command face:

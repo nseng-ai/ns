@@ -24,7 +24,7 @@ import {
 import type { SlotClient } from "@ns/slot/api";
 import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
-const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
+const COMMAND_NAME = "ns:ccc:workspace:dispatch-from-trunk";
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";

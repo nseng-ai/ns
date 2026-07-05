@@ -7,8 +7,9 @@ import {
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import { CCC_CLAUDE_PLAN_TAB_COMMAND_NAME } from "./surfaces.ts";
 
-const COMMAND_NAME = "ccc:claude-plan-tab";
+const COMMAND_NAME = CCC_CLAUDE_PLAN_TAB_COMMAND_NAME;
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");
 
 export function registerCccClaudePlanTabCommand(

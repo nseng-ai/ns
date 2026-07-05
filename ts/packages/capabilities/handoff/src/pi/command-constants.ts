@@ -1,8 +1,10 @@
-export const CREATE_HANDOFF_COMMAND_NAME = "ns:handoff:create";
-export const PICKUP_HANDOFF_COMMAND_NAME = "ns:handoff:pickup";
-export const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
-export const HANDOFF_TAB_COMMAND_NAME = "ccc:handoff-tab";
-export const HANDOFF_SELF_COMMAND_NAME = "handoff:self";
+import { nsPiCommandSurface } from "@ns/pi/commands";
+
+export const CREATE_HANDOFF_COMMAND_NAME = nsPiCommandSurface("handoff", "create");
+export const PICKUP_HANDOFF_COMMAND_NAME = nsPiCommandSurface("handoff", "pickup");
+export const LIST_HANDOFF_COMMAND_NAME = nsPiCommandSurface("handoff", "list");
+export const HANDOFF_TAB_COMMAND_NAME = nsPiCommandSurface("ccc", "handoff-tab");
+export const HANDOFF_SELF_COMMAND_NAME = nsPiCommandSurface("handoff", "self");
 
 export const DERIVE_HANDOFF_SLUG_TOOL_NAME = "derive_handoff_slug_from_content";
 export const HANDOFF_TAB_LAUNCH_TOOL_NAME = "handoff_tab_launch";

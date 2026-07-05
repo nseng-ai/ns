@@ -100,7 +100,7 @@ Run the cmux session sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested command: ccc:sidebar:session-summary.
+Requested command: ns:ccc:sidebar:session-summary.
 Summarize this Pi session's current task, progress, and likely next action.
 The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug for the session topic and the full title is max 45 chars.
 The Goal line should describe what this session is trying to accomplish, not the cmux update itself.
@@ -118,7 +118,7 @@ Run the cmux branch-state sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested command: ccc:sidebar:branch-state-summary.
+Requested command: ns:ccc:sidebar:branch-state-summary.
 Summarize the current Git branch's implementation state relative to its parent branch.
 Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence when available, such as \`gt parent --no-interactive\`; if Graphite parent evidence is unavailable, explain the fallback basis tersely and use the best Git merge-base/upstream evidence you can resolve.
 The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug for the branch topic and the full title is max 45 chars.

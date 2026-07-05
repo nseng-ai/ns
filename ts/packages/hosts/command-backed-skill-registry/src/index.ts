@@ -35,10 +35,18 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "specialized-command",
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
-	{ skillName: "ccc-available-work", surface: "ccc:available-work", kind: "generic-backing-skill" },
-	{ skillName: "ccc-branch-triage", surface: "ccc:branch-triage", kind: "generic-backing-skill" },
-	{ skillName: "ccc-sidebar", surface: "ccc:sidebar:pr-summary", kind: "specialized-command" },
-	{ skillName: "ccc-stack-map", surface: "ccc:stack-map", kind: "generic-backing-skill" },
+	{
+		skillName: "ccc-available-work",
+		surface: "ns:ccc:available-work",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "ccc-branch-triage",
+		surface: "ns:ccc:branch-triage",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "ccc-sidebar", surface: "ns:ccc:sidebar:pr-summary", kind: "specialized-command" },
+	{ skillName: "ccc-stack-map", surface: "ns:ccc:stack-map", kind: "generic-backing-skill" },
 	{ skillName: "changelog-update", surface: "changelog:update", kind: "generic-backing-skill" },
 	{
 		skillName: "code-gt-linearize-descendants",

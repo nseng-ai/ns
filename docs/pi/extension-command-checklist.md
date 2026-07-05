@@ -80,7 +80,7 @@ Before editing:
 
 - [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@ns/pi` engineered behavior, or `@ns/ccc` orchestration.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
-- [ ] Pick a command namespace by workflow ownership, not file location (`/ns:*`, `/objective:*`, `/handoff:*`, `/ccc:*`, `/pi:*`, etc.).
+- [ ] Pick a command namespace by workflow ownership, not file location. First-party product/orchestration commands default to `/ns:<extension>:...`; keep `/pi:*` for Pi-native UI/session affordances.
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.
 
 While editing:

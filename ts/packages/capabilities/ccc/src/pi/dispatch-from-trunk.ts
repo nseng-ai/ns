@@ -6,8 +6,9 @@ import {
 	type DispatchPromptPayloadOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import { CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME } from "./surfaces.ts";
 
-const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
+const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
 
 export function registerCccSlotDispatchFromTrunkCommand(
 	pi: ExtensionAPI,

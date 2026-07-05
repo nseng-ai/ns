@@ -96,7 +96,7 @@ export function parseObjectiveListArgTokens(
 
 		return {
 			type: "invalid",
-			message: `Unsupported /objective:list argument: ${token}.`,
+			message: `Unsupported /ns:objective:list argument: ${token}.`,
 		};
 	}
 
@@ -149,7 +149,10 @@ function findForbiddenObjectiveListArg(
 			};
 		}
 		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			return { type: "invalid", message: "--json-schema is not supported by /objective:list." };
+			return {
+				type: "invalid",
+				message: "--json-schema is not supported by /ns:objective:list.",
+			};
 		}
 	}
 	return { type: "valid" };
