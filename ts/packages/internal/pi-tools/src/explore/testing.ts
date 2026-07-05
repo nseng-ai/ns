@@ -1,7 +1,7 @@
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,
-} from "@sdl/pi/runtime/agent-definition";
+} from "@ns/pi/runtime/agent-definition";
 
 import type {
 	RunnerSubagentContext,
@@ -45,7 +45,7 @@ export function makeExplorerAgentDefinition(
 			"",
 			"{{prompt}}",
 		].join("\n"),
-		filePath: "/fake/.sdl/pi/agents/explorer.md",
+		filePath: "/fake/.ns/pi/agents/explorer.md",
 		...overrides,
 	};
 }

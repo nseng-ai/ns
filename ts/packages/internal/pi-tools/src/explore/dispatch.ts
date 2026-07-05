@@ -2,7 +2,7 @@ import {
 	composePiAgentPrompt,
 	loadPiAgentDefinition,
 	type PiAgentDefinition,
-} from "@sdl/pi/runtime/agent-definition";
+} from "@ns/pi/runtime/agent-definition";
 
 import {
 	dispatchRunnerSubagent,
