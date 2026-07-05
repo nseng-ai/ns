@@ -319,6 +319,27 @@ describe("stack-view extension enrichment wiring", () => {
 	});
 });
 
+describe("stack-view extension editor paste wiring", () => {
+	test("paste-branch shortcut inserts the selected branch into the parent editor", async () => {
+		const host = fakeHost();
+		const pasted: string[] = [];
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+		registerStackViewExtension(host.pi, { loadStackView: okLoader() });
+		const ctx = interactiveCtx("b");
+		ctx.ui.pasteToEditor = (text) => pasted.push(text);
+		ctx.ui.notify = (message, level) => notifications.push({ message, level });
+
+		await host.command().handler("", ctx);
+
+		expect(pasted).toEqual(["feature/1"]);
+		expect(host.deliveries).toEqual([]);
+		expect(notifications).toContainEqual({
+			message: "Pasted branch 'feature/1' into the editor.",
+			level: "info",
+		});
+	});
+});
+
 describe("stack-view extension compose wiring", () => {
 	test("compose-inject sends the snapshot before delivering the draft as a follow-up", async () => {
 		const host = fakeHost();
