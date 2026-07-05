@@ -34,10 +34,19 @@ export function createEnrichmentStore(options?: { maxEntries?: number }): Enrich
 	}
 
 	function evict(): void {
+		// Invariant: never evict a `pending` entry — it is the engine's in-flight
+		// ownership marker, and dropping it would silently defeat dedup and strand
+		// the in-flight task. Evict the oldest non-pending entry; if every entry
+		// over capacity is pending, evict nothing.
 		while (entries.size > maxEntries) {
-			const oldest = entries.keys().next().value;
-			if (oldest === undefined) break;
-			entries.delete(oldest);
+			let evicted = false;
+			for (const [key, entry] of entries) {
+				if (entry.state === "pending") continue;
+				entries.delete(key);
+				evicted = true;
+				break;
+			}
+			if (!evicted) break;
 		}
 	}
 

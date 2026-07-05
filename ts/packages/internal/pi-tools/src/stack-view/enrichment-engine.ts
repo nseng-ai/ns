@@ -6,8 +6,10 @@
  * key/store/prompt logic lives in the sibling `enrichment-*` modules; this module
  * owns only the concurrency, cancellation, and external-call plumbing.
  *
- * Memoization: a key already present in the store (`pending`/`ready`/`failed`) is
- * never re-queued, so re-`ensureRow`/`ensureAll` calls are cheap and idempotent.
+ * Memoization: a `pending`/`ready` key is never re-queued, so re-`ensureRow`/
+ * `ensureAll` calls are cheap and idempotent. A `failed` key is retried at most
+ * once per engine (transient failures should not be negative-cached for the whole
+ * session), but never while the engine is degraded.
  *
  * Cancellation: the engine owns one `AbortController`; each task races it against
  * an `AbortSignal.timeout` deadline (no raw timers). `abort()` deletes the
@@ -21,7 +23,7 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 
 import { callPiModelText } from "@nseng-ai/pi/models/call";
-import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
+import type { PiModelCallFailureReason, PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 
 import { fetchCheckLogTail, resolveCheckLogSource } from "./check-logs.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
@@ -45,11 +47,30 @@ const THREAD_TASK_TIMEOUT_MS = 30_000;
 const THREAD_MAX_TOKENS = 96;
 const CHECK_TASK_TIMEOUT_MS = 60_000;
 const CHECK_MAX_TOKENS = 200;
-const MODEL_REGISTRY_UNAVAILABLE_REASON =
-	"Pi model registry is unavailable; summaries are disabled.";
 
 /** A settled enrichment result the engine records (never `pending`). */
 type SettledEntry = Extract<EnrichmentEntry, { state: "ready" } | { state: "failed" }>;
+
+/** Failure reasons that make the model path unusable for the rest of the session. */
+type SystemicFailureReason = Extract<
+	PiModelCallFailureReason,
+	"model-unavailable" | "auth" | "empty-auth"
+>;
+
+function isSystemicFailure(reason: PiModelCallFailureReason): reason is SystemicFailureReason {
+	return reason === "model-unavailable" || reason === "auth" || reason === "empty-auth";
+}
+
+/** Concise, human-readable degraded reason for a systemic model failure. */
+function describeSystemicFailure(reason: SystemicFailureReason, message: string | null): string {
+	const base =
+		reason === "model-unavailable"
+			? "Enrichment model is unavailable"
+			: reason === "auth"
+				? "Enrichment model authentication failed"
+				: "Enrichment model authentication is not configured";
+	return message === null ? `${base}.` : `${base}: ${message}`;
+}
 
 /** One unit of background work derived from a stack row. */
 type EnrichmentTask =
@@ -73,8 +94,8 @@ export interface StackEnrichmentPort {
 	ensureAll(model: StackViewModel): Promise<void>;
 	/**
 	 * Progress across all work queued this engine; null before anything is queued.
-	 * abort() counts each evicted still-pending task as done, so progress reaches
-	 * `done === total` (monotonic — done only rises) once aborted.
+	 * Done is derived as `total - pending`, so evicting this engine's still-pending
+	 * entries on abort() drives progress to `done === total`.
 	 */
 	progress(): { done: number; total: number } | null;
 	/** Sticky reason the engine is degraded (e.g. model registry unavailable); null otherwise. */
@@ -89,7 +110,7 @@ export interface CreateStackEnrichmentEngineOptions {
 	store: EnrichmentStore;
 	execApi: CommandExecApi;
 	cwd: string;
-	registry: PiModelRegistryLike | undefined;
+	registry: PiModelRegistryLike;
 	/** Test seam; defaults to the real {@link callPiModelText}. */
 	callModelText?: typeof callPiModelText;
 	maxConcurrent?: number;
@@ -108,11 +129,13 @@ export function createStackEnrichmentEngine(
 	// Keys this engine set to `pending` and has not yet settled; the eviction set
 	// for abort() so we only drop pending entries this engine owns.
 	const pendingKeys = new Set<string>();
+	// `failed` keys this engine has already re-queued once, so each transient
+	// failure gets exactly one retry per engine and is not retried indefinitely.
+	const retriedKeys = new Set<string>();
 	const idleWaiters: Array<() => void> = [];
 
 	let activeWorkers = 0;
 	let totalQueued = 0;
-	let doneCount = 0;
 	let degraded: string | null = null;
 
 	function emitChange(): void {
@@ -139,15 +162,25 @@ export function createStackEnrichmentEngine(
 
 	function enqueueRowTasks(pr: StackViewPr): void {
 		for (const task of rowTasks(pr)) {
-			// Memoization: any existing entry (pending/ready/failed) means the work
-			// is in flight or done, so skip it.
-			if (store.get(task.key) !== undefined) continue;
+			const existing = store.get(task.key);
+			if (existing !== undefined && !shouldRetry(task.key, existing)) continue;
 			store.set(task.key, { state: "pending" });
 			pendingKeys.add(task.key);
 			totalQueued += 1;
 			queue.push(task);
 			emitChange();
 		}
+	}
+
+	// A `pending`/`ready` entry is in flight or done, so skip it. A `failed` entry
+	// is retried once per engine (a transient failure must not be negative-cached
+	// for the whole session), but never while degraded: a systemic failure means
+	// the model path is dead, so re-queueing would only hammer it.
+	function shouldRetry(key: string, existing: EnrichmentEntry): boolean {
+		if (existing.state !== "failed") return false;
+		if (degraded !== null || retriedKeys.has(key)) return false;
+		retriedKeys.add(key);
+		return true;
 	}
 
 	function pump(): void {
@@ -184,7 +217,6 @@ export function createStackEnrichmentEngine(
 	function settle(key: string, entry: SettledEntry): void {
 		pendingKeys.delete(key);
 		store.set(key, entry);
-		doneCount += 1;
 		emitChange();
 	}
 
@@ -210,17 +242,11 @@ export function createStackEnrichmentEngine(
 		return summarizeWithModel({
 			prompt,
 			maxTokens: THREAD_MAX_TOKENS,
-			timeoutMs: THREAD_TASK_TIMEOUT_MS,
 			signal: taskSignal(THREAD_TASK_TIMEOUT_MS),
 		});
 	}
 
 	async function runCheckTask(task: { entry: StackViewCheckEntry }): Promise<SettledEntry> {
-		if (registry === undefined) {
-			// No summarizer: fetching logs would be pointless, so skip it entirely.
-			degraded = MODEL_REGISTRY_UNAVAILABLE_REASON;
-			return { state: "failed" };
-		}
 		if (!resolveCheckLogSource(task.entry).ok) return { state: "failed" };
 		// One composed signal for the whole task: a single 60s budget shared by the
 		// log fetch and the model call, rather than a fresh timer per operation.
@@ -237,7 +263,6 @@ export function createStackEnrichmentEngine(
 		return summarizeWithModel({
 			prompt,
 			maxTokens: CHECK_MAX_TOKENS,
-			timeoutMs: CHECK_TASK_TIMEOUT_MS,
 			signal,
 		});
 	}
@@ -245,13 +270,8 @@ export function createStackEnrichmentEngine(
 	async function summarizeWithModel(options: {
 		prompt: ModelPromptText;
 		maxTokens: number;
-		timeoutMs: number;
 		signal: AbortSignal;
 	}): Promise<SettledEntry> {
-		if (registry === undefined) {
-			degraded = MODEL_REGISTRY_UNAVAILABLE_REASON;
-			return { state: "failed" };
-		}
 		const result = await callModelText({
 			registry,
 			provider: DEFAULT_FAST_MODEL.provider,
@@ -260,10 +280,21 @@ export function createStackEnrichmentEngine(
 			userText: options.prompt.userText,
 			reasoning: "minimal",
 			maxTokens: options.maxTokens,
-			timeoutMs: options.timeoutMs,
+			// The composed task signal is the single deadline authority; do not start
+			// a second, fresh timeout window at the model call.
 			signal: options.signal,
 		});
-		if (!result.ok) return { state: "failed" };
+		if (!result.ok) {
+			// Systemic failures (the model path is unusable for the whole session)
+			// flip the engine to a sticky degraded state — first reason wins — so the
+			// overlay surfaces one notice instead of silently failing every entry.
+			// Transient failures (aborted/request-failed) stay per-entry `failed` and
+			// remain retryable.
+			if (isSystemicFailure(result.reason) && degraded === null) {
+				degraded = describeSystemicFailure(result.reason, result.message);
+			}
+			return { state: "failed" };
+		}
 		return { state: "ready", summary: result.text.trim() };
 	}
 
@@ -293,7 +324,7 @@ export function createStackEnrichmentEngine(
 		},
 		progress() {
 			if (totalQueued === 0) return null;
-			return { done: doneCount, total: totalQueued };
+			return { done: totalQueued - pendingKeys.size, total: totalQueued };
 		},
 		degradedReason() {
 			return degraded;
@@ -310,13 +341,10 @@ export function createStackEnrichmentEngine(
 			// entries so a later engine retries them; ready/failed results persist.
 			queue.length = 0;
 			const evicted = [...pendingKeys];
+			// Clearing pendingKeys drives progress() to done === total: every queued
+			// key is now either already settled or evicted here. Workers never settle
+			// evicted keys (they short-circuit on the aborted signal).
 			pendingKeys.clear();
-			// Count the evicted still-pending tasks as done so progress() reaches
-			// done === total instead of reporting incomplete forever. Workers never
-			// settle these (they short-circuit on the aborted signal), and every queued
-			// key is either already settled (done) or evicted here, so doneCount now
-			// equals totalQueued. doneCount only rises, so progress() stays monotonic.
-			doneCount += evicted.length;
 			for (const key of evicted) {
 				store.delete(key);
 				emitChange();
