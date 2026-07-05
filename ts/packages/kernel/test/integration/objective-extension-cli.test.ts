@@ -45,7 +45,7 @@ describe("checked-in Objective ns extension loading", () => {
 		expect(listOutput).toContain("Usage: ns objective list");
 		expect(listOutput).toContain("--names");
 		expect(listOutput).toContain("--status");
-		expect(listOutput).toContain("--minimal");
+		expect(listOutput).not.toContain("--minimal");
 
 		const checkHelp = runWithRealObjectiveExtension({
 			args: ["objective", "check", "--help"],
@@ -147,14 +147,14 @@ describe("checked-in Objective ns extension loading", () => {
 		const cwd = await createObjectiveProject();
 
 		const list = runWithRealObjectiveExtension({
-			args: ["objective", "list", "--minimal"],
+			args: ["objective", "list"],
 			cwd,
 		});
 		expect(await list.exit).toBe(0);
 		expect(list.stdout.join("")).toContain("demo-objective");
 
 		const listJson = runWithRealObjectiveExtension({
-			args: ["objective", "list", "--minimal", "--format", "json"],
+			args: ["objective", "list", "--format", "json"],
 			cwd,
 		});
 		expect(await listJson.exit).toBe(0);
@@ -309,6 +309,7 @@ function objectiveGitResponses(cwd: string): ScriptedExecResponse[] {
 		{ match: "git symbolic-ref --short refs/remotes/origin/HEAD", result: { code: 1 } },
 		{ match: "git rev-parse --verify refs/heads/main", result: { stdout: "abc123\n" } },
 		{ match: "git status --porcelain -- .ns/objectives/demo-objective", result: { stdout: "" } },
+		{ match: /git for-each-ref/, result: { stdout: "" }, isRepeatable: true },
 	];
 }
 
@@ -326,29 +327,39 @@ async function createObjectiveProjectWithEdgePair(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-objective-show-project-"));
 	tempDirs.push(directory);
 	installCheckedInObjectiveExtension(directory);
-	await writeEdgedObjectiveRecord(directory, "edge-alpha", "edge-beta", "Alpha depends on beta.");
-	await writeEdgedObjectiveRecord(directory, "edge-beta", "edge-alpha", "Beta feeds alpha.");
+	await writeEdgedObjectiveRecord({
+		projectRoot: directory,
+		slug: "edge-alpha",
+		counterpart: "edge-beta",
+		annotation: "Alpha depends on beta.",
+	});
+	await writeEdgedObjectiveRecord({
+		projectRoot: directory,
+		slug: "edge-beta",
+		counterpart: "edge-alpha",
+		annotation: "Beta feeds alpha.",
+	});
 	return directory;
 }
 
-async function writeEdgedObjectiveRecord(
-	projectRoot: string,
-	slug: string,
-	counterpart: string,
-	annotation: string,
-): Promise<void> {
-	const recordRoot = join(projectRoot, ".ns", "objectives", slug);
+async function writeEdgedObjectiveRecord(options: {
+	projectRoot: string;
+	slug: string;
+	counterpart: string;
+	annotation: string;
+}): Promise<void> {
+	const recordRoot = join(options.projectRoot, ".ns", "objectives", options.slug);
 	await mkdir(join(recordRoot, "updates"), { recursive: true });
 	await writeFile(
 		join(recordRoot, "objective.md"),
 		[
 			"---",
 			"edges:",
-			`  - objective: ${counterpart}`,
-			`    annotation: ${annotation}`,
+			`  - objective: ${options.counterpart}`,
+			`    annotation: ${options.annotation}`,
 			"---",
 			"",
-			`# ${slug}`,
+			`# ${options.slug}`,
 			"",
 			"## Thesis",
 			"Demo thesis.",

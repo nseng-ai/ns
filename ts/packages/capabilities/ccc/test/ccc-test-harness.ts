@@ -163,7 +163,7 @@ export class FakePi implements ExtensionAPI {
 		}
 		if (
 			expected.command !== "objective" ||
-			!sameArgs(expected.args ?? [], ["list", "--minimal", "--format", "json"])
+			!sameArgs(expected.args ?? [], ["list", "--format", "json"])
 		) {
 			const message = `expected objective list step, got ${expected.command} ${(expected.args ?? []).join(" ")}`;
 			this.script.recordError(message);
@@ -397,7 +397,7 @@ export function step(
 }
 
 export function objectiveListStep(slugs: string[]): ScriptedExec {
-	return step("objective", ["list", "--minimal", "--format", "json"], {
+	return step("objective", ["list", "--format", "json"], {
 		stdout: JSON.stringify({
 			exitCode: 0,
 			data: {

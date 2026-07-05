@@ -145,7 +145,7 @@ async function listActiveObjectives(
 
 	try {
 		const client = createObjectiveClient({ cwd: ctx.cwd });
-		const listing = await client.listObjectives({ status: "active", minimal: true });
+		const listing = await client.listObjectives({ status: "active" });
 		if (listing.ok) {
 			return { type: "loaded", list: listing.result };
 		}

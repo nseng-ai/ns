@@ -135,7 +135,7 @@ describe("renderObjectiveListPretty layout", () => {
 					result({
 						records: [
 							{
-								slug: "long-slug-that-fits-default-hosted-width",
+								slug: "slug-that-fits-default-width",
 								status: "open",
 								latestUpdateIso: null,
 								hasOutstandingChanges: false,
@@ -145,7 +145,7 @@ describe("renderObjectiveListPretty layout", () => {
 					{ canEmitAnsi: false },
 				) ?? "";
 
-			expect(out).toContain("long-slug-that-fits-default-hosted-width");
+			expect(out).toContain("slug-that-fits-default-width");
 			expect(out).not.toContain("…");
 		} finally {
 			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });
@@ -156,7 +156,7 @@ describe("renderObjectiveListPretty layout", () => {
 		}
 	});
 
-	test("edge counts render right of LATEST UPDATE and stay blank when zero", () => {
+	test("branch and edge counts render right of LATEST UPDATE", () => {
 		const withEdges = result({
 			records: [
 				{
@@ -173,10 +173,12 @@ describe("renderObjectiveListPretty layout", () => {
 		const lines = out.split("\n");
 		const header = lines.find((line) => line.includes("OBJECTIVE"));
 		if (header === undefined) throw new Error("expected objective list header");
-		expect(header.slice(header.indexOf("LATEST UPDATE"))).toMatch(/^LATEST UPDATE {2}EDGES/);
-		expect(lines.find((line) => line.startsWith("alpha"))).toMatch(/2$/);
-		// The zero-edge row ends at the dimmed date cell: no count, no dangling padding.
-		expect(lines.find((line) => line.startsWith("bravo"))).toMatch(/\[0m$/);
+		expect(header.slice(header.indexOf("LATEST UPDATE"))).toMatch(
+			/^LATEST UPDATE {2}BRANCHES {2}EDGES/,
+		);
+		expect(lines.find((line) => line.startsWith("alpha"))).toMatch(/0\s+2$/);
+		// The zero-edge row still renders the branch-count column, then trims the blank edge cell.
+		expect(lines.find((line) => line.startsWith("bravo"))).toMatch(/0$/);
 	});
 
 	test("blocked renders with blocked text and warn blocked glyph", () => {

@@ -159,7 +159,7 @@ class FakePi implements ObjectiveExtensionAPI {
 		}
 		if (
 			expected.command !== "objective" ||
-			!sameArgs(expected.args, ["list", "--minimal", "--format", "json"])
+			!sameArgs(expected.args, ["list", "--format", "json"])
 		) {
 			const message = `expected objective list step, got ${expected.command} ${expected.args.join(" ")}`;
 			this.script.recordError(message);
@@ -449,7 +449,7 @@ function objectiveListFromRecords(
 }
 
 function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
-	return step("objective", ["list", "--minimal", "--format", "json"], {
+	return step("objective", ["list", "--format", "json"], {
 		stdout: objectiveList(slugs, trunkBranch),
 	});
 }
@@ -541,17 +541,17 @@ describe("ns:objective:list command", () => {
 				},
 			};
 		});
-		const result = await runObjectiveList("--names --minimal --status all", { objectiveClient });
+		const result = await runObjectiveList("--names --status all", { objectiveClient });
 
 		result.pi.assertDone();
-		expect(listRequests).toEqual([{ names: true, minimal: true, status: "all" }]);
+		expect(listRequests).toEqual([{ names: true, status: "all" }]);
 		expect(result.pi.execCalls).toEqual([]);
 		expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(result.pi.sentMessages[0]).toMatchObject({
 			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
 			content: "alpha\n",
 			details: {
-				argv: ["list", "--names", "--minimal", "--status", "all"],
+				argv: ["list", "--names", "--status", "all"],
 			},
 		});
 	});
@@ -1262,7 +1262,7 @@ describe("objective command shared selection policy", () => {
 
 			test("invalid objective list JSON notifies and sends no prompt", async () => {
 				const result = await runObjectiveCommand(commandName, "", [
-					step("objective", ["list", "--minimal", "--format", "json"], { stdout: "{" }),
+					step("objective", ["list", "--format", "json"], { stdout: "{" }),
 				]);
 
 				result.pi.assertDone();

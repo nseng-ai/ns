@@ -9,8 +9,8 @@ The public ns-grouped Objective CLI surface — `ns objective ...` — whose com
 *Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:
-The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, reporting per-record status, latest update, and Objective Edge count. Local branch attribution is no longer a `list` concern; it moves to `ns objective show`.
-*Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory, per-record branch attribution
+The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, reporting per-record status, latest update, related local-branch count, and Objective Edge count. Local branch names and edge-attribution detail are no longer a `list` concern; they move to `ns objective show`.
+*Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory, per-record branch-name attribution
 
 **`ns objective show`**:
 The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and every Objective Edge with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus its active/archived/missing state.

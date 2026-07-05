@@ -21,8 +21,10 @@ import {
 import {
 	edgeCountCell,
 	emptyMessage,
+	formatStatusPlain,
 	objectiveStatusPresentation,
 	renderSlugs,
+	updatedBranchCountCell,
 	type ObjectiveListResult,
 } from "./list-objectives.ts";
 
@@ -82,15 +84,19 @@ export function renderObjectiveListPretty(
 	const maxSlug = Math.max(...result.records.map((r) => r.slug.length), "OBJECTIVE".length);
 	const statusW = "X blocked".length; // widest plain status cell ("{glyph} blocked")
 	const flagW = "x".length; // the outstanding-changes flag gets its own spaced column
-	const edgesW = "EDGES".length; // Objective Edge count, right of LATEST UPDATE, blank when zero
-	const slugW = Math.max(12, Math.min(maxSlug, caps.columns - statusW - flagW - edgesW - 21));
+	const branchesW = "BRANCHES".length; // Local non-trunk branch count; `show` lists names.
+	const edgesW = "EDGES".length; // Objective Edge count, right of BRANCHES, blank when zero
+	const slugW = Math.max(
+		12,
+		Math.min(maxSlug, caps.columns - statusW - flagW - branchesW - edgesW - 23),
+	);
 	const dateW = "LATEST UPDATE".length;
 
 	lines.push("");
 	// "LATEST UPDATE" sits above the dates; the flag gutter header stays blank.
 	lines.push(
 		dim(
-			`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  ${padPlain("LATEST UPDATE", dateW)}  EDGES`,
+			`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  ${padPlain("LATEST UPDATE", dateW)}  ${padPlain("BRANCHES", branchesW)}  EDGES`,
 		),
 	);
 
@@ -100,7 +106,7 @@ export function renderObjectiveListPretty(
 		const status = objectiveStatusPresentation(record);
 		const statusGlyph = glyph(caps, status.glyphName);
 		const statusColored = `${paint(caps, status.intent, statusGlyph)} ${status.word}`;
-		const statusPlain = `${statusGlyph} ${status.word}`;
+		const statusPlain = formatStatusPlain(caps, status);
 		const statusCell = padCell(statusColored, statusPlain, statusW);
 
 		const stamp =
@@ -108,9 +114,12 @@ export function renderObjectiveListPretty(
 		// A bare `x` warn marker in its own fixed-width column, explained once by the footer legend.
 		const flagCell = record.hasOutstandingChanges ? paint(caps, "warn", "x") : " ".repeat(flagW);
 		const dateCell = dim(padPlain(clip(caps, stamp, dateW), dateW));
+		const branchesCell = padPlain(updatedBranchCountCell(record), branchesW);
 		const edgesCell = edgeCountCell(record);
 
-		lines.push(`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${edgesCell}`.trimEnd());
+		lines.push(
+			`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${branchesCell}  ${edgesCell}`.trimEnd(),
+		);
 	}
 
 	const legends: string[] = [];

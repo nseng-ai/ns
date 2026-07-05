@@ -43,7 +43,7 @@ Do not store full diff bytes in brmem. The durable basis stores the reconstructi
 Require an explicit Objective slug or a path under `.ns/objectives/<slug>/` or `.ns/objective-archive/<slug>/`. If none is explicit, run:
 
 ```bash
-ns objective list --minimal --format md
+ns objective list --format md
 ```
 
 Ask the user to choose. Never infer the Objective from branch name, PR, changed files, or hidden attachment metadata.

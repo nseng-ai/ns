@@ -28,3 +28,32 @@ export function padCell(colored: string, plain: string, width: number): string {
 	const gap = width - plain.length;
 	return gap > 0 ? colored + " ".repeat(gap) : colored;
 }
+
+/**
+ * Greedy word-wrap of plain (unstyled) text to `width` columns, one array entry per line. Wrap
+ * BEFORE styling: escapes are not stripped here, so styled input would mis-measure. Interior
+ * whitespace runs collapse to single spaces, empty/whitespace-only input yields no lines, and a
+ * word longer than `width` sits alone unbroken (paths and code spans are never split; the
+ * terminal soft-wraps the rare overflow).
+ */
+export function wrapPlain(text: string, width: number): string[] {
+	const floor = Math.max(1, width);
+	const words = text
+		.trim()
+		.split(/\s+/u)
+		.filter((word) => word.length > 0);
+	const lines: string[] = [];
+	let current = "";
+	for (const word of words) {
+		if (current === "") {
+			current = word;
+		} else if (current.length + 1 + word.length <= floor) {
+			current = `${current} ${word}`;
+		} else {
+			lines.push(current);
+			current = word;
+		}
+	}
+	if (current !== "") lines.push(current);
+	return lines;
+}

@@ -3,6 +3,7 @@ import {
 	type InMemoryGitGatewayState,
 } from "@nseng-ai/capability-kit/git/testing";
 import type { Caps } from "@nseng-ai/clinkr";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
@@ -47,11 +48,11 @@ describe("objective show", () => {
 
 		const data = expectOk(exit);
 		expect(data.status).toBe("ok");
-		expect(data.closed).toBe(false);
+		expect(data.isClosed).toBe(false);
 		expect(data.blockedSentence).toBeNull();
 		expect(data.edges).toEqual([]);
 		expect(data.updatedBranches).toEqual([]);
-		expect(data.updatedBranchesTruncated).toBe(false);
+		expect(data.isUpdatedBranchesTruncated).toBe(false);
 		expect(Object.hasOwn(data, "frontmatterMalformed")).toBe(false);
 	});
 
@@ -69,9 +70,7 @@ describe("objective show", () => {
 
 		const data = expectOk(exit);
 		expect(data.blockedSentence).toBe("Gated on the dependency.");
-		expect(renderShowObjectiveHuman(data, CAPS, NOW_MS)).toContain(
-			"Blocked: Gated on the dependency.",
-		);
+		expect(plainHuman(data)).toContain("Blocked  Gated on the dependency.");
 		expect(renderShowObjectiveMarkdown(data)).toContain("Blocked: Gated on the dependency.");
 	});
 
@@ -106,9 +105,13 @@ describe("objective show", () => {
 				counterpart: { state: "active", annotation: "Beta feeds alpha." },
 			},
 		]);
-		const human = renderShowObjectiveHuman(data, CAPS, NOW_MS);
-		expect(human).toContain("this record: Alpha depends on beta.");
-		expect(human).toContain("beta: Beta feeds alpha.");
+		const human = plainHuman(data);
+		expect(human).toContain("Alpha depends on beta.");
+		// Healthy back-edges stay off the human surface; both sides remain on the agent markdown.
+		expect(human).not.toContain("Beta feeds alpha.");
+		const markdown = renderShowObjectiveMarkdown(data);
+		expect(markdown).toContain("Alpha depends on beta.");
+		expect(markdown).toContain("Beta feeds alpha.");
 	});
 
 	test("archived counterpart reports archived state with its back-edge annotation", async () => {
@@ -223,7 +226,7 @@ describe("objective show", () => {
 
 		const data = expectOk(exit);
 		expect(data.updatedBranches).toEqual(["feature-x"]);
-		expect(data.updatedBranchesTruncated).toBe(false);
+		expect(data.isUpdatedBranchesTruncated).toBe(false);
 		expect(renderShowObjectiveHuman(data, CAPS, NOW_MS)).toContain("feature-x");
 	});
 
@@ -247,7 +250,89 @@ describe("objective show", () => {
 
 		const data = expectOk(exit);
 		expect(data.updatedBranches).toEqual(["branch-000"]);
-		expect(data.updatedBranchesTruncated).toBe(true);
+		expect(data.isUpdatedBranchesTruncated).toBe(true);
+	});
+
+	test("renders edge states without back-edge prose", () => {
+		const human = plainHuman(
+			okResult({
+				edges: [
+					{
+						objective: "beta",
+						annotation: "Alpha depends on beta.",
+						counterpart: { state: "archived", annotation: "Beta feeds alpha." },
+					},
+					{
+						objective: "ghost",
+						annotation: "Alpha depends on ghost.",
+						counterpart: { state: "missing", annotation: null },
+					},
+				],
+			}),
+		);
+		expect(human).toContain("beta  archived");
+		expect(human).toContain("ghost  missing");
+		expect(human).toContain("Alpha depends on beta.");
+		expect(human).not.toContain("Beta feeds alpha.");
+		expect(human).not.toContain("back-edge");
+	});
+
+	test("wraps the blocked sentence with a hanging indent at narrow widths", () => {
+		const narrow: Caps = { ...CAPS, columns: 40 };
+		const sentence =
+			"First external publish is gated on the hard dependency landing before anything ships.";
+		const human = stripTerminalEscapes(
+			renderShowObjectiveHuman(okResult({ blockedSentence: sentence }), narrow, NOW_MS),
+		);
+		const lines = human.split("\n");
+		for (const line of lines) expect(line.length).toBeLessThanOrEqual(40);
+		const blockedIndex = lines.findIndex((line) => line.startsWith("Blocked  "));
+		expect(blockedIndex).toBeGreaterThan(-1);
+		expect(lines[blockedIndex + 1]).toMatch(/^ {9}\S/u);
+	});
+
+	test("ascii caps degrade glyphs and separators", () => {
+		const ascii: Caps = { ...CAPS, canRenderUnicode: false };
+		const human = stripTerminalEscapes(
+			renderShowObjectiveHuman(
+				okResult({
+					blockedSentence: "Gated.",
+					updateCount: 2,
+					updatedBranches: ["feature-x"],
+					edges: [
+						{
+							objective: "beta",
+							annotation: "Alpha depends on beta.",
+							counterpart: { state: "active", annotation: null },
+						},
+					],
+				}),
+				ascii,
+				NOW_MS,
+			),
+		);
+		expect(human).not.toMatch(/[●⊘·└├]/u);
+		expect(human).toContain("  -  ");
+	});
+
+	test("header drops root and silent outstanding-changes noise", () => {
+		const clean = plainHuman(okResult({}));
+		expect(clean).not.toContain("Root:");
+		expect(clean).not.toContain("Outstanding changes");
+		expect(clean).not.toContain("Uncommitted changes");
+		expect(clean).toContain(".ns/objectives/alpha");
+		expect(clean).toContain("no updates");
+
+		const dirty = plainHuman(
+			okResult({
+				hasOutstandingChanges: true,
+				updateCount: 3,
+				latestUpdateIso: "2026-07-04T12:00:00Z",
+			}),
+		);
+		expect(dirty).toContain("Uncommitted changes not yet recorded in an update.");
+		expect(dirty).toContain("3 updates");
+		expect(dirty).toContain("latest 12 hours ago");
 	});
 
 	test("unknown slug exits negative with the not-found data", async () => {
@@ -278,6 +363,28 @@ function contextWith(options: {
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.fake)),
 		git: new InMemoryGitGateway(options.git ?? {}),
 	};
+}
+
+function okResult(overrides: Partial<ShowObjectiveOkResult>): ShowObjectiveOkResult {
+	return {
+		status: "ok",
+		slug: "alpha",
+		path: ".ns/objectives/alpha",
+		rootPath: ".ns/objectives",
+		isClosed: false,
+		blockedSentence: null,
+		latestUpdateIso: null,
+		updateCount: 0,
+		hasOutstandingChanges: false,
+		updatedBranches: [],
+		isUpdatedBranchesTruncated: false,
+		edges: [],
+		...overrides,
+	};
+}
+
+function plainHuman(data: ShowObjectiveOkResult): string {
+	return stripTerminalEscapes(renderShowObjectiveHuman(data, CAPS, NOW_MS));
 }
 
 function expectOk(exit: Awaited<ReturnType<typeof runShowObjective>>): ShowObjectiveOkResult {

@@ -40,7 +40,7 @@ export const objectiveTabModule: ObjectiveTabModule = {
 };
 
 async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
-	const args = ["objective", "list", "--minimal", "--format", "json"];
+	const args = ["objective", "list", "--format", "json"];
 	const result = await deps.runCommand("ns", args, {
 		cwd: deps.cwd,
 		timeout: COMMAND_TIMEOUT_MS,

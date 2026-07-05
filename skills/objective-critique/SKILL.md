@@ -12,7 +12,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill for share
 
 ## 1. Select exactly one Objective
 
-Use the explicit slug or path if the user gave one. Otherwise, if the current branch adds or modifies exactly one Objective record, use that one. Otherwise run `ns objective list --minimal --format md` and ask the user to choose.
+Use the explicit slug or path if the user gave one. Otherwise, if the current branch adds or modifies exactly one Objective record, use that one. Otherwise run `ns objective list --format md` and ask the user to choose.
 
 Read the full record: `objective.md`, plus `roadmap.md` and recent `updates/*.md` if present.
 

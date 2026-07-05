@@ -22,7 +22,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 ## Resolve the Objective
 
 1. If the user or wrapper supplied a slug/path, that is the selection (the Pi `/ns:objective:stack-impl` wrapper normally preselects it before this skill loads). Normalize `.ns/objectives/<slug>` to `<slug>`.
-2. Otherwise do not infer the Objective from branch name, changed files, package names, PR titles, or keyword matches. Run `ns objective list --minimal --format md`, show the open candidates, and ask the user to choose before any implementation work.
+2. Otherwise do not infer the Objective from branch name, changed files, package names, PR titles, or keyword matches. Run `ns objective list --format md`, show the open candidates, and ask the user to choose before any implementation work.
 3. If `.ns/objectives/<slug>/closed.md` exists, stop and report that the Objective is closed.
 
 ## Compact current context

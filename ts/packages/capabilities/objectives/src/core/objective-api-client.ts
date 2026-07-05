@@ -55,7 +55,6 @@ export interface ObjectiveClient {
 const DEFAULT_LIST_REQUEST: ListObjectivesRequest = {
 	names: false,
 	status: "active",
-	minimal: false,
 };
 
 export function createObjectiveClient(options: ObjectiveClientOptions): ObjectiveClient {
