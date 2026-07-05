@@ -1,10 +1,5 @@
 import { handoffCommandBackedSkillRegistrations } from "@ns/handoff/pi";
 import { objectiveCommandBackedSkillRegistrations } from "@ns/objective/pi";
-import {
-	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	WRITE_PLAN_COMMAND_NAME,
-} from "@ns/core/command";
 import type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
@@ -14,6 +9,10 @@ export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
 } from "@ns/core/command";
+
+const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
+const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
+const WRITE_PLAN_COMMAND_NAME = "ns:plan:save";
 
 /**
  * Single source of truth for repo-local skills that Pi surfaces as slash

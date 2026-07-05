@@ -1,3 +1,7 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, test } from "vitest";
 
 import {
@@ -20,7 +24,34 @@ import {
 } from "../src/primitives/command.ts";
 import { stripTerminalEscapes } from "../src/primitives/terminal-escapes.ts";
 
+const TEST_DIR = dirname(fileURLToPath(import.meta.url));
+const SRC_DIR = resolve(TEST_DIR, "../src");
+
+function sourceFilesUnder(directory: string): string[] {
+	return readdirSync(directory).flatMap((entry) => {
+		const path = join(directory, entry);
+		const stat = statSync(path);
+		if (stat.isDirectory()) return sourceFilesUnder(path);
+		if (stat.isFile() && path.endsWith(".ts")) return [path];
+		return [];
+	});
+}
+
+function fileForReport(file: string): string {
+	return file.slice(SRC_DIR.length + 1);
+}
+
 describe("command presentation helpers", () => {
+	test("core source does not own branch-context or plan command surfaces", () => {
+		const offenders = sourceFilesUnder(SRC_DIR).flatMap((file) => {
+			const source = readFileSync(file, "utf8");
+			const matches = source.matchAll(/ns:(?:branch-context|plan)[a-z0-9: -]*/gu);
+			return Array.from(matches, (match) => ({ file: fileForReport(file), literal: match[0] }));
+		});
+
+		expect(offenders).toEqual([]);
+	});
+
 	test("adapts CommandExecApi to CommandRunner without exposing caller-owned args", async () => {
 		const calls: Array<{ readonly command: string; readonly args: readonly string[] }> = [];
 		const execApi = {

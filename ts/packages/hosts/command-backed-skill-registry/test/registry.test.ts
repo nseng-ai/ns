@@ -3,12 +3,6 @@ import { describe, expect, test } from "vitest";
 import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@ns/handoff/pi";
 import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@ns/objective/api";
 import {
-	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	WRITE_PLAN_COMMAND_NAME,
-} from "@ns/core/command";
-
-import {
 	commandBackedSkillRegistrations,
 	commandBackedSkillSurface,
 	genericBackingSkillRegistrations,
@@ -31,12 +25,14 @@ describe("command-backed skill registry", () => {
 		expect(commandBackedSkillSurface("handoff-pickup")).toBe(PICKUP_HANDOFF_COMMAND_NAME);
 	});
 
-	test("uses Pi-owned command constants", () => {
+	test("uses locally owned branch-context and plan command surfaces", () => {
 		expect(commandBackedSkillSurface("branch-context-from-plan")).toBe(
-			BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
+			"ns:branch-context:from-plan",
 		);
-		expect(commandBackedSkillSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
-		expect(commandBackedSkillSurface("enriched-plan-save")).toBe(WRITE_PLAN_COMMAND_NAME);
+		expect(commandBackedSkillSurface("branch-context-impl")).toBe(
+			"ns:branch-context:impl-attached-plan",
+		);
+		expect(commandBackedSkillSurface("enriched-plan-save")).toBe("ns:plan:save");
 	});
 
 	test("uses Objective provider-owned command specs", () => {
