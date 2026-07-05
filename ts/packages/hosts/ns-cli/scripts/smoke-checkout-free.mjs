@@ -24,11 +24,23 @@ try {
 	if (!help.stdout.includes("Usage: ns objective list")) {
 		throw new Error("Packed ns CLI did not render Objective list help.");
 	}
-	const list = await run(nsBin, ["objective", "list", "--format", "md", "--minimal"], {
+	const list = await run(nsBin, ["objective", "list", "--format", "md"], {
 		cwd: tempRoot,
 	});
 	if (!list.stdout.includes("# Objective records in this checkout")) {
 		throw new Error("Packed ns CLI did not run Objective list from the foreign repo.");
+	}
+	const kernelSdkImport = await run(
+		"node",
+		[
+			"--input-type=module",
+			"--eval",
+			'import { defineExtension, ok, z } from "@nseng-ai/ns/kernel/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).ok !== true || typeof z.object !== "function") throw new Error("bad kernel sdk export");',
+		],
+		{ cwd: tempRoot },
+	);
+	if (kernelSdkImport.stderr !== "") {
+		throw new Error(`Packed ns kernel SDK import wrote to stderr:\n${kernelSdkImport.stderr}`);
 	}
 	process.stdout.write(`checkout-free smoke passed: ${tempRoot}\n`);
 } finally {
