@@ -3,6 +3,13 @@ import { stripTerminalEscapes } from "@ns/pi/terminal/presentation";
 export type PrPreviewCheckBucket = "failing" | "pending" | "unknown" | "passing";
 export type PrPreviewCheckKind = "check_run" | "status_context" | "unknown";
 
+export const PREVIEW_CHECK_BUCKET_ORDER = [
+	"failing",
+	"pending",
+	"unknown",
+	"passing",
+] as const satisfies readonly PrPreviewCheckBucket[];
+
 export interface PrPreviewChecksTarget {
 	pr_number: number | null;
 	title: string | null;
@@ -81,14 +88,10 @@ export function bucketPresentation(bucket: PrPreviewCheckBucket): PrPreviewBucke
 }
 
 export function sortPreviewChecks(checks: readonly PrPreviewCheck[]): PrPreviewCheck[] {
-	const order: Record<PrPreviewCheckBucket, number> = {
-		failing: 0,
-		pending: 1,
-		unknown: 2,
-		passing: 3,
-	};
 	return [...checks].sort((left, right) => {
-		const bucketDelta = order[left.bucket] - order[right.bucket];
+		const bucketDelta =
+			PREVIEW_CHECK_BUCKET_ORDER.indexOf(left.bucket) -
+			PREVIEW_CHECK_BUCKET_ORDER.indexOf(right.bucket);
 		if (bucketDelta !== 0) return bucketDelta;
 		return `${left.workflow_name ?? ""}\u0000${left.name}`.localeCompare(
 			`${right.workflow_name ?? ""}\u0000${right.name}`,
@@ -105,15 +108,28 @@ export function previewChecksStackEntries(
 
 export function buildStackEntryRowLabel(entry: PrPreviewChecksStackEntry): string {
 	const branch = effectiveBranch(entry.target);
-	const targetName = `PR #${entry.target.pr_number ?? "?"}: ${entry.target.title ?? branch ?? "(unmapped branch)"}`;
 	const route = branch === null ? null : `${branch} → ${entry.target.base_ref_name ?? "?"}`;
-	return [targetName, route, countsSummary(entry.counts)]
+	return [
+		`PR #${entry.target.pr_number ?? "?"}`,
+		compactCountsSummary(entry.counts),
+		entry.target.title ?? branch ?? "(unmapped branch)",
+		route,
+	]
 		.filter((part): part is string => part !== null)
 		.join(" · ");
 }
 
+export function compactCountsSummary(counts: PrPreviewChecksCounts): string {
+	const badges = PREVIEW_CHECK_BUCKET_ORDER.filter((bucket) => counts[bucket] > 0).map(
+		(bucket) => `${BUCKET_PRESENTATION[bucket].icon}${counts[bucket]}`,
+	);
+	if (badges.length === 0) return "no checks";
+	return `${badges.join(" ")}${counts.hasMore === true ? "+" : ""}`;
+}
+
 export function countsSummary(counts: PrPreviewChecksCounts): string {
-	return `${counts.failing} failing / ${counts.pending} pending / ${counts.unknown} unknown / ${counts.passing} passing${counts.hasMore === true ? " · more not shown" : ""}`;
+	const buckets = PREVIEW_CHECK_BUCKET_ORDER.map((bucket) => `${counts[bucket]} ${bucket}`);
+	return `${buckets.join(" / ")}${counts.hasMore === true ? " · more not shown" : ""}`;
 }
 
 export function buildCheckRowLabel(check: PrPreviewCheck): string {

@@ -10,6 +10,8 @@ import {
 } from "../../src/pr-previews/preview-check-logs.ts";
 import {
 	buildCheckRowLabel,
+	buildStackEntryRowLabel,
+	compactCountsSummary,
 	type PrPreviewCheck,
 	type PrPreviewChecksStackEntry,
 } from "../../src/pr-previews/preview-checks-model.ts";
@@ -49,8 +51,8 @@ describe("PR checks preview vertical layout", () => {
 
 		const text = renderText(view);
 		expect(text).toContain("Stack checks preview · 2 PRs");
-		expect(text).toContain("PR #101: feature/base");
-		expect(text).toContain("PR #102: feature/top");
+		expect(text).toContain("PR #101 · ✗1 · feature/base");
+		expect(text).toContain("PR #102 · ✓1 · feature/top");
 		expect(text).toContain("Selected stack PR checks");
 		expect(selectedDetailsText(view)).toContain("typescript");
 	});
@@ -309,6 +311,59 @@ describe("PR checks preview vertical layout", () => {
 		const text = renderText(view);
 		expect(text).toContain("<b>[error]");
 		expect(text).toContain("[dim]");
+	});
+
+	test("compacts counts into severity-ordered badges omitting zero buckets", () => {
+		expect(compactCountsSummary({ failing: 1, pending: 2, unknown: 3, passing: 4 })).toBe(
+			"✗1 ⏳2 ?3 ✓4",
+		);
+		expect(compactCountsSummary({ failing: 0, pending: 1, unknown: 0, passing: 11 })).toBe(
+			"⏳1 ✓11",
+		);
+		expect(compactCountsSummary({ failing: 0, pending: 0, unknown: 0, passing: 12 })).toBe("✓12");
+		expect(compactCountsSummary({ failing: 0, pending: 0, unknown: 0, passing: 0 })).toBe(
+			"no checks",
+		);
+		expect(
+			compactCountsSummary({ failing: 1, pending: 0, unknown: 0, passing: 9, hasMore: true }),
+		).toBe("✗1 ✓9+");
+	});
+
+	test("places the count badge between the PR number and the title", () => {
+		const base = stackEntry("feature/base", 2903, [
+			previewCheck("typescript"),
+			{ ...previewCheck("docs-build"), bucket: "passing" } satisfies PrPreviewCheck,
+		]);
+		const entry = {
+			...base,
+			target: { ...base.target, title: "Flow land: use branch-only Graphite restacks" },
+		} satisfies PrPreviewChecksStackEntry;
+
+		expect(buildStackEntryRowLabel(entry)).toBe(
+			"PR #2903 · ✗1 ✓1 · Flow land: use branch-only Graphite restacks · feature/base → main",
+		);
+	});
+
+	test("keeps count badges visible when narrow widths truncate stack rows", () => {
+		const base = stackEntry("flow-land-large-stack-performance/targeted-graphite-refresh", 2903, [
+			previewCheck("typescript"),
+		]);
+		const entry = {
+			...base,
+			target: {
+				...base.target,
+				title: "Flow land: use branch-only Graphite restacks for large stack preflight refresh",
+			},
+		} satisfies PrPreviewChecksStackEntry;
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: stackPreviewModel([entry, stackEntry("feature/top", 2904, [])]),
+			onClose: () => {},
+		});
+
+		const text = view.render(60).join("\n");
+		expect(text).toContain("PR #2903 · ✗1 ·");
 	});
 
 	test("renders check log summary markdown bold headings and code spans", async () => {
