@@ -10,8 +10,8 @@
  * Error model matches the rest of stack-view: failures are returned as typed
  * discriminated-union values, never thrown.
  */
-import { commandFailureReason, commandSucceeded } from "@ns/core/exec";
-import { formatErrorMessage } from "@ns/core/primitives";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import type { CommandExecApi } from "./exec.ts";
 import type { StackViewCheckEntry } from "./types.ts";
