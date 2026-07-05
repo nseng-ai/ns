@@ -17,6 +17,10 @@ import {
 	discoverNsPackageCommands,
 	type DiscoveredExtensionCommand,
 } from "../../src/extensions/discovery.ts";
+import {
+	firstPartyCommandCatalog,
+	type FirstPartyCommandCatalogEntry,
+} from "../../src/extensions/first-party-catalog.ts";
 
 interface NormalizedManifestCommand {
 	readonly name: string;
@@ -29,6 +33,13 @@ interface DiscoveredManifest {
 	readonly group: string;
 	readonly description: string;
 	readonly commands: readonly DiscoveredExtensionCommand[];
+}
+
+interface NormalizedCatalogCommand {
+	readonly name: string;
+	readonly path?: readonly string[];
+	readonly description: string;
+	readonly moduleSpecifier: string;
 }
 
 const REPO_LOCAL_EXTENSION_ROOT = "../.ns/extensions";
@@ -65,6 +76,26 @@ describe("repo-local ns extension manifest parity", () => {
 				].join("\n"),
 			);
 		}
+	});
+
+	test("bundled Objective catalog matches the package-owned Objective descriptor", () => {
+		const actualCommands = sortCatalogCommands(
+			firstPartyCommandCatalog.map((command) => normalizeCatalogCommand(command)),
+		);
+		const expectedCommands = sortCatalogCommands(
+			objectiveRepoLocalNsExtension.commands.map((command) =>
+				normalizeDescriptorCatalogCommand(command),
+			),
+		);
+
+		expect(firstPartyCommandCatalog.every((entry) => entry.group === "objective")).toBe(true);
+		expect(
+			firstPartyCommandCatalog.every(
+				(entry) => entry.groupDescription === objectiveRepoLocalNsExtension.description,
+			),
+		).toBe(true);
+		expect(actualCommands).toEqual(expectedCommands);
+		expect(JSON.stringify(firstPartyCommandCatalog)).not.toContain("@ns/ccc/");
 	});
 
 	for (const descriptor of REPO_LOCAL_EXTENSION_DESCRIPTORS) {
@@ -145,6 +176,27 @@ function normalizeDescriptorCommand(
 	};
 }
 
+function normalizeCatalogCommand(command: FirstPartyCommandCatalogEntry): NormalizedCatalogCommand {
+	return {
+		name: command.name,
+		...(command.path === undefined ? {} : { path: command.path }),
+		description: command.description,
+		moduleSpecifier: command.moduleSpecifier,
+	};
+}
+
+function normalizeDescriptorCatalogCommand(
+	command: RepoLocalNsExtensionCommandDescriptor,
+): NormalizedCatalogCommand {
+	const name = command.manifestName ?? command.command.name;
+	return {
+		name,
+		...(command.manifestPath === undefined ? {} : { path: command.manifestPath }),
+		description: command.command.summary,
+		moduleSpecifier: command.packageExport,
+	};
+}
+
 function assertDiscoveredGroup(
 	group: string,
 	commands: readonly DiscoveredExtensionCommand[],
@@ -165,6 +217,14 @@ function manifestPathFromSegments(
 }
 
 function sortCommands(commands: readonly NormalizedManifestCommand[]): NormalizedManifestCommand[] {
+	return [...commands].sort((left, right) =>
+		userFacingRouteKey(left).localeCompare(userFacingRouteKey(right)),
+	);
+}
+
+function sortCatalogCommands(
+	commands: readonly NormalizedCatalogCommand[],
+): NormalizedCatalogCommand[] {
 	return [...commands].sort((left, right) =>
 		userFacingRouteKey(left).localeCompare(userFacingRouteKey(right)),
 	);

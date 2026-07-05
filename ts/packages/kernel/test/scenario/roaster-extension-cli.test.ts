@@ -309,6 +309,7 @@ function roasterCandidate(spec: FakeRoasterCommandSpec): ExtensionCommandCandida
 		fullDescription: spec.description,
 		groupDescription: "Run configured Roaster reviews.",
 		source: { level: "project", label: "fake checked-in Roaster extension" },
+		moduleReference: { type: "file", path: spec.entryPath },
 		entryPath: spec.entryPath,
 		kind: "package",
 	};

@@ -93,12 +93,12 @@ The ji kernel owns the stable host mechanics: command discovery, precedence, sel
 
 Project-local ji extensions own repo-specific command behavior. In this repository, flow commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under the grouped `.ns/extensions/flow/` package; their presence here does not make them universal built-in ji commands.
 
-Bundled first-party extensions are used for reusable capability-owned commands such as Slot. A workflow should become bundled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
+Reusable first-party capability commands can ship with the installed CLI as preinstalled extension metadata rather than requiring every consuming repo to check in matching `.ns/extensions` manifests. This is a distribution convenience for the same extension model: `ns objective ...` is discoverable in a foreign repo, but selected Objective commands are still imported lazily from their owning package module specifiers such as `@ns/objective/ns/commands/list`, and global/project `.ns/extensions` entries keep their normal override role. A workflow should become preinstalled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
 
 Command catalogs are discovered in increasing precedence:
 
 ```text
-built-in command table < bundled first-party package manifests < $XDG_DATA_HOME/ns/extensions < <cwd>/.ns/extensions
+built-in command table < preinstalled first-party extension metadata < $XDG_DATA_HOME/ns/extensions < <cwd>/.ns/extensions
 ```
 
 Global and project roots support these one-level entry shapes:

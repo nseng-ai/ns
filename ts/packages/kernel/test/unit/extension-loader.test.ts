@@ -42,7 +42,7 @@ export default defineExtension({
 });
 `);
 
-		const loaded = await loadNsExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
@@ -52,6 +52,21 @@ export default defineExtension({
 		const command: NsCommand | undefined = validation.command;
 		expect(command?.name).toBe("greet");
 		expect(command?.schema).toBeInstanceOf(z.ZodObject);
+	});
+
+	test("loads package-specifier re-export shims through host package resolution", async () => {
+		const modulePath = await createModule(
+			'export { default } from "@ns/objective/ns/commands/list";\n',
+		);
+
+		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
+
+		expect(loaded.ok).toBe(true);
+		if (!loaded.ok) return;
+		const validation = validateNsExtensionContribution(loaded.defaultExport, "list", modulePath);
+		expect(validation.ok).toBe(true);
+		if (!validation.ok) return;
+		expect(validation.command.name).toBe("list");
 	});
 
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
@@ -68,7 +83,7 @@ export default defineExtension({
 });
 `);
 
-		const loaded = await loadNsExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
@@ -85,7 +100,7 @@ export default defineExtension({
 	test("object-shaped commandless default export is left to selected command validation", async () => {
 		const modulePath = await createModule("export default { name: 'greet' };\n");
 
-		const loaded = await loadNsExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
@@ -100,7 +115,7 @@ export default defineExtension({
 	test("import failures are structured errors", async () => {
 		const modulePath = await createModule("throw new Error('boom');\n");
 
-		const loaded = await loadNsExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded).toMatchObject({
 			ok: false,

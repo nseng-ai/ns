@@ -26,6 +26,12 @@ function defaultExecResponses(): ScriptedExecResponse[] {
 	return [];
 }
 
+async function createEmptyProject(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
+	tempDirs.push(directory);
+	return directory;
+}
+
 async function createExtensionProject(
 	extensionFileName: string,
 	extensionSource: string,
@@ -50,6 +56,18 @@ afterEach(() => {
 });
 
 describe("ns extension loader CLI integration", () => {
+	test("foreign repo without .ns extensions discovers bundled Objective command help", async () => {
+		const cwd = await createEmptyProject();
+		const run = runWithFakes({ args: ["objective", "list", "--help"], state: { exec: [] }, cwd });
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: ns objective list");
+		expect(help).toContain("List Objective records in the current checkout.");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
 	test("direct command summary appears in top-level help after importing the module", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
