@@ -17,6 +17,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { clamp, fitToWidth, padRight, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
 
 import type { StackViewModel, StackViewPr } from "./types.ts";
+import type { StackEnrichmentPort } from "./enrichment-engine.ts";
 import {
 	buildStackDetailRows,
 	buildStackIdentityLine,
@@ -64,6 +65,8 @@ export interface StackViewUiResult {
 /** Options for {@link runStackViewOverlayUi}; `selectedIndex` seeds the initial selection. */
 export interface StackViewOverlayUiOptions {
 	selectedIndex?: number;
+	/** Optional enrichment engine backing the progressive detail-pane summaries. */
+	enrichment?: StackEnrichmentPort;
 }
 
 /**
@@ -92,6 +95,7 @@ interface StackViewOverlayOptions {
 	model: StackViewModel;
 	initialIndex: number;
 	done: (result: StackViewUiResult) => void;
+	enrichment?: StackEnrichmentPort;
 }
 
 /**
@@ -109,7 +113,14 @@ export function runStackViewOverlayUi(
 	const initialIndex = resolveInitialIndex(model, options.selectedIndex);
 	return ctx.ui.custom<StackViewUiResult>(
 		(tui, theme, _keybindings, done) =>
-			new StackViewOverlay({ tui, theme, model, initialIndex, done }),
+			new StackViewOverlay({
+				tui,
+				theme,
+				model,
+				initialIndex,
+				done,
+				...(options.enrichment === undefined ? {} : { enrichment: options.enrichment }),
+			}),
 		{
 			overlay: true,
 			overlayOptions: {
@@ -139,18 +150,42 @@ export class StackViewOverlay implements Component {
 	private readonly theme: Theme;
 	private readonly model: StackViewModel;
 	private readonly done: (result: StackViewUiResult) => void;
+	private readonly enrichment: StackEnrichmentPort | undefined;
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
+	/** Live `onChange` unsubscribe; cleared once disposed so teardown is idempotent. */
+	private unsubscribe: (() => void) | undefined;
 
 	constructor(options: StackViewOverlayOptions) {
 		this.tui = options.tui;
 		this.theme = options.theme;
 		this.model = options.model;
 		this.done = options.done;
+		this.enrichment = options.enrichment;
 		this.selectedIndex = options.initialIndex;
 		this.listScroll = 0;
 		this.detailScroll = 0;
+		this.unsubscribe = this.enrichment?.onChange(() => this.tui.requestRender());
+		this.ensureSelectionEnriched();
+	}
+
+	/** Fire-and-forget: queue enrichment for the currently selected row. */
+	private ensureSelectionEnriched(): void {
+		const pr = this.model.prs[this.selectedIndex];
+		if (pr !== undefined) this.enrichment?.ensureRow(pr);
+	}
+
+	/** Drop the `onChange` subscription; safe to call more than once. */
+	private disposeSubscription(): void {
+		if (this.unsubscribe === undefined) return;
+		this.unsubscribe();
+		this.unsubscribe = undefined;
+	}
+
+	/** Host teardown hook: the `ctx.ui.custom` contract may call this on unmount. */
+	dispose(): void {
+		this.disposeSubscription();
 	}
 
 	render(width: number): string[] {
@@ -307,18 +342,32 @@ export class StackViewOverlay implements Component {
 	}
 
 	private renderDetailLines(width: number, rows: number): string[] {
-		const detailRows = buildStackDetailRows(this.model.prs[this.selectedIndex]);
+		const detailRows = buildStackDetailRows(
+			this.model.prs[this.selectedIndex],
+			this.enrichment?.snapshot(),
+		);
 		const lines = detailRows.map((row) => this.colorizeDetailRow(row));
+		// The degradation notice is pinned below the scroll viewport (not part of
+		// the scrollable lines) so it stays visible on tall detail content.
+		const degradedReason = this.enrichment?.degradedReason();
+		const notice =
+			degradedReason === undefined || degradedReason === null
+				? undefined
+				: this.color("dim", `(summaries unavailable: ${degradedReason})`);
+		if (notice !== undefined && rows <= 1) return [fitToWidth(notice, width)];
+		const bodyRows = notice === undefined ? rows : rows - 1;
 		const viewport = sliceStackDetailLinesForViewport({
 			lines,
 			width,
-			rows,
+			rows: bodyRows,
 			scroll: this.detailScroll,
 		});
 		this.detailScroll = viewport.scroll;
-		return Array.from({ length: rows }, (_unused, row) =>
+		const rendered = Array.from({ length: bodyRows }, (_unused, row) =>
 			fitToWidth(viewport.lines[row] ?? "", width),
 		);
+		if (notice !== undefined) rendered.push(fitToWidth(notice, width));
+		return rendered;
 	}
 
 	private colorizeDetailRow(row: StackDetailRow): string {
@@ -337,7 +386,13 @@ export class StackViewOverlay implements Component {
 				return this.color("warning", row.text);
 			case "check-pending":
 				return this.color("warning", row.text);
-			case "passing":
+			case "summary-pending":
+				return this.color("dim", row.text);
+			case "thread-summary":
+				return this.color("text", row.text);
+			case "check-why":
+				return this.color("text", row.text);
+			case "check-passing":
 				return this.color("success", row.text);
 			case "truncation-note":
 				return this.color("dim", row.text);
@@ -357,6 +412,7 @@ export class StackViewOverlay implements Component {
 		if (next === this.selectedIndex) return;
 		this.selectedIndex = next;
 		this.detailScroll = 0;
+		this.ensureSelectionEnriched();
 		this.tui.requestRender();
 	}
 
@@ -374,6 +430,7 @@ export class StackViewOverlay implements Component {
 	}
 
 	private settle(outcome: StackViewUiOutcome): void {
+		this.disposeSubscription();
 		this.done({ outcome, selectedIndex: this.selectedIndex });
 	}
 

@@ -16,6 +16,9 @@ import {
 	sliceStackDetailLinesForViewport,
 	stackListRows,
 } from "../../src/stack-view/overlay-model.ts";
+import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
+import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
+import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
 import {
 	runStackViewOverlayUi,
 	StackViewOverlay,
@@ -135,6 +138,8 @@ describe("overlay-model units", () => {
 					checkEntries: [
 						checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" }),
 						checkEntry({ name: "unit", workflowName: null, bucket: "pending" }),
+						checkEntry({ name: "build", workflowName: "CI", bucket: "passing" }),
+						checkEntry({ name: "typecheck", workflowName: null, bucket: "passing" }),
 					],
 					unresolvedThreads: [
 						threadDetail({ path: "src/a.ts", line: 10, author: "alice" }),
@@ -157,7 +162,11 @@ describe("overlay-model units", () => {
 			expect(texts).toContain("src/b.ts · bob");
 			expect(texts).toContain("PENDING CHECKS (1)");
 			expect(texts).toContain("⋯ unit");
-			expect(texts).toContain("✓ 2 passing");
+			// The aggregate `✓ N passing` line is replaced by a listed PASSING CHECKS section.
+			expect(texts).toContain("PASSING CHECKS (2)");
+			expect(texts).toContain("✓ build (CI)");
+			expect(texts).toContain("✓ typecheck");
+			expect(texts.some((text) => /^✓ \d+ passing$/.test(text))).toBe(false);
 			expect(texts).toContain("objectives: obj-a, obj-b");
 
 			// section ordering: failing before unresolved before pending
@@ -206,6 +215,127 @@ describe("overlay-model units", () => {
 
 			const none = buildStackDetailRows(undefined);
 			expect(none).toEqual([{ role: "placeholder", text: "(no PR selected)" }]);
+		});
+
+		test("shows a summarizing placeholder after the thread while its summary is pending", () => {
+			const thread = threadDetail({
+				id: "t1",
+				path: "src/a.ts",
+				line: 3,
+				author: "alice",
+				lastCommentId: "c1",
+			});
+			const pr = prFixture({ threads: { resolved: 0, total: 1 }, unresolvedThreads: [thread] });
+			const enrichment = enrichmentMap([[requireThreadKey(thread), { state: "pending" }]]);
+
+			const rows = buildStackDetailRows(pr, enrichment);
+			const threadIndex = rows.findIndex((row) => row.role === "thread");
+			expect(rows[threadIndex + 1]).toEqual({ role: "summary-pending", text: "  …summarizing" });
+		});
+
+		test("renders a ready thread summary with collapsed whitespace after the thread", () => {
+			const thread = threadDetail({
+				id: "t1",
+				path: "src/a.ts",
+				line: 3,
+				author: "alice",
+				lastCommentId: "c1",
+			});
+			const pr = prFixture({ threads: { resolved: 0, total: 1 }, unresolvedThreads: [thread] });
+			const enrichment = enrichmentMap([
+				[requireThreadKey(thread), { state: "ready", summary: "please  rename\nthe   method" }],
+			]);
+
+			const rows = buildStackDetailRows(pr, enrichment);
+			const threadIndex = rows.findIndex((row) => row.role === "thread");
+			expect(rows[threadIndex + 1]).toEqual({
+				role: "thread-summary",
+				text: "  ↳ asks: please rename the method",
+			});
+		});
+
+		test("a failed thread summary degrades to the bare thread row", () => {
+			const thread = threadDetail({
+				id: "t1",
+				path: "src/a.ts",
+				line: 3,
+				author: "alice",
+				lastCommentId: "c1",
+			});
+			const pr = prFixture({ threads: { resolved: 0, total: 1 }, unresolvedThreads: [thread] });
+			const enrichment = enrichmentMap([[requireThreadKey(thread), { state: "failed" }]]);
+
+			const rows = buildStackDetailRows(pr, enrichment);
+			expect(
+				rows.some((row) => row.role === "summary-pending" || row.role === "thread-summary"),
+			).toBe(false);
+		});
+
+		test("emits check-why continuation rows for a multi-line ready check summary, capped at three lines", () => {
+			const check = checkEntry({
+				name: "lint",
+				workflowName: "CI",
+				bucket: "failing",
+				identity: "ci/lint",
+				conclusion: "FAILURE",
+			});
+			const pr = prFixture({
+				checks: { passing: 0, failing: 1, pending: 0, total: 1 },
+				checkEntries: [check],
+			});
+			const enrichment = enrichmentMap([
+				[
+					checkEnrichmentKey(check),
+					{ state: "ready", summary: "first cause\nsecond line\nthird line\nfourth line" },
+				],
+			]);
+
+			const rows = buildStackDetailRows(pr, enrichment);
+			const whyRows = rows.filter((row) => row.role === "check-why").map((row) => row.text);
+			expect(whyRows).toEqual(["  ↳ why: first cause", "     second line", "     third line"]);
+		});
+
+		test("without an enrichment map, emits no summary rows but still lists passing checks", () => {
+			const thread = threadDetail({
+				id: "t1",
+				path: "src/a.ts",
+				line: 3,
+				author: "alice",
+				lastCommentId: "c1",
+			});
+			const pr = prFixture({
+				threads: { resolved: 0, total: 1 },
+				unresolvedThreads: [thread],
+				checks: { passing: 1, failing: 1, pending: 0, total: 2 },
+				checkEntries: [
+					checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" }),
+					checkEntry({ name: "build", workflowName: "CI", bucket: "passing" }),
+				],
+			});
+
+			const rows = buildStackDetailRows(pr);
+			expect(
+				rows.some(
+					(row) =>
+						row.role === "summary-pending" ||
+						row.role === "thread-summary" ||
+						row.role === "check-why",
+				),
+			).toBe(false);
+			const texts = rows.map((row) => row.text);
+			expect(texts).toContain("PASSING CHECKS (1)");
+			expect(texts).toContain("✓ build (CI)");
+			expect(texts.some((text) => /^✓ \d+ passing$/.test(text))).toBe(false);
+		});
+
+		test("omits the PASSING CHECKS section when there are no passing entries", () => {
+			const rows = buildStackDetailRows(
+				prFixture({
+					checks: { passing: 0, failing: 1, pending: 0, total: 1 },
+					checkEntries: [checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" })],
+				}),
+			);
+			expect(rows.some((row) => row.text.startsWith("PASSING CHECKS"))).toBe(false);
 		});
 	});
 
@@ -409,6 +539,157 @@ describe("StackViewOverlay edges", () => {
 		const lines = tinyView.render(120);
 		expect(lines[0]).toContain("┌");
 		expect(lines[lines.length - 1]).toContain("┘");
+	});
+});
+
+describe("StackViewOverlay enrichment", () => {
+	test("requests enrichment for the initial selection and again on each move", () => {
+		const fake = createFakeEnrichment();
+		const model = modelFixture({
+			currentBranch: "feature/1",
+			prs: [
+				prFixture({ number: 1, branch: "feature/1" }),
+				prFixture({ number: 2, branch: "feature/2" }),
+			],
+		});
+		const view = new StackViewOverlay({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model,
+			initialIndex: 0,
+			done: () => {},
+			enrichment: fake.port,
+		});
+		expect(fake.ensureRowBranches).toEqual(["feature/1"]);
+		view.handleInput?.("j");
+		view.handleInput?.("k");
+		expect(fake.ensureRowBranches).toEqual(["feature/1", "feature/2", "feature/1"]);
+	});
+
+	test("re-renders on engine change and stops once settled", () => {
+		const fake = createFakeEnrichment();
+		const recording = recordingTui();
+		const view = new StackViewOverlay({
+			tui: recording.tui,
+			theme: identityTheme(),
+			model: bigModel(),
+			initialIndex: 0,
+			done: () => {},
+			enrichment: fake.port,
+		});
+		const before = recording.renders();
+		fake.fireChange();
+		expect(recording.renders()).toBe(before + 1);
+
+		view.handleInput?.("q"); // settle → unsubscribe
+		const afterSettle = recording.renders();
+		fake.fireChange();
+		expect(recording.renders()).toBe(afterSettle);
+		expect(fake.listenerCount()).toBe(0);
+	});
+
+	test("dispose unsubscribes idempotently", () => {
+		const fake = createFakeEnrichment();
+		const recording = recordingTui();
+		new StackViewOverlay({
+			tui: recording.tui,
+			theme: identityTheme(),
+			model: bigModel(),
+			initialIndex: 0,
+			done: () => {},
+			enrichment: fake.port,
+		}).dispose();
+		expect(fake.listenerCount()).toBe(0);
+		const after = recording.renders();
+		fake.fireChange();
+		expect(recording.renders()).toBe(after);
+	});
+
+	test("progressively fills the detail pane as a thread summary arrives", () => {
+		const fake = createFakeEnrichment();
+		const thread = threadDetail({
+			id: "t1",
+			path: "src/a.ts",
+			line: 2,
+			author: "alice",
+			lastCommentId: "c1",
+		});
+		const model = modelFixture({
+			currentBranch: "feature/1",
+			prs: [
+				prFixture({
+					number: 1,
+					branch: "feature/1",
+					threads: { resolved: 0, total: 1 },
+					unresolvedThreads: [thread],
+				}),
+			],
+		});
+		const key = requireThreadKey(thread);
+		fake.setSnapshot(enrichmentMap([[key, { state: "pending" }]]));
+		const view = new StackViewOverlay({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model,
+			initialIndex: 0,
+			done: () => {},
+			enrichment: fake.port,
+		});
+		expect(view.render(120).join("\n")).toContain("…summarizing");
+
+		fake.setSnapshot(enrichmentMap([[key, { state: "ready", summary: "rename the method" }]]));
+		fake.fireChange();
+		const text = view.render(120).join("\n");
+		expect(text).toContain("↳ asks: rename the method");
+		expect(text).not.toContain("…summarizing");
+	});
+
+	test("renders a degradation line when summaries are unavailable", () => {
+		const fake = createFakeEnrichment();
+		fake.setDegradedReason("model registry unavailable");
+		const view = new StackViewOverlay({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: bigModel(),
+			initialIndex: 0,
+			done: () => {},
+			enrichment: fake.port,
+		});
+		expect(view.render(120).join("\n")).toContain(
+			"(summaries unavailable: model registry unavailable)",
+		);
+	});
+
+	test("pins the degradation line below the detail viewport on tall content", () => {
+		const fake = createFakeEnrichment();
+		fake.setDegradedReason("model registry unavailable");
+		const manyThreads = Array.from({ length: 40 }, (_unused, index) =>
+			threadDetail({ path: `src/file-${index}.ts`, line: index + 1 }),
+		);
+		const model = modelFixture({
+			currentBranch: "feature/1",
+			prs: [
+				prFixture({
+					number: 1,
+					branch: "feature/1",
+					threads: { resolved: 0, total: manyThreads.length },
+					unresolvedThreads: manyThreads,
+				}),
+			],
+		});
+		const view = new StackViewOverlay({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model,
+			initialIndex: 0,
+			done: () => {},
+			enrichment: fake.port,
+		});
+		const detail = detailRegion(view.render(120));
+		// Content overflows the pane, yet the notice is the final detail line.
+		const lastLine = detail[detail.length - 1] ?? "";
+		expect(lastLine).toContain("(summaries unavailable: model registry unavailable)");
+		expect(detail.join("\n")).toContain("src/file-0.ts");
 	});
 });
 
@@ -631,6 +912,77 @@ function prFixture(overrides: Partial<StackViewPr> = {}): StackViewPr {
 		objectiveSlugs: [],
 		...overrides,
 	};
+}
+
+function enrichmentMap(
+	entries: ReadonlyArray<[string, EnrichmentEntry]>,
+): ReadonlyMap<string, EnrichmentEntry> {
+	return new Map(entries);
+}
+
+function requireThreadKey(thread: StackViewThreadDetail): string {
+	const key = threadEnrichmentKey(thread);
+	if (key === null) throw new Error("expected a non-null thread key");
+	return key;
+}
+
+interface FakeEnrichment {
+	port: StackEnrichmentPort;
+	ensureRowBranches: string[];
+	fireChange(): void;
+	setSnapshot(map: ReadonlyMap<string, EnrichmentEntry>): void;
+	setDegradedReason(reason: string | null): void;
+	listenerCount(): number;
+}
+
+/** A scripted {@link StackEnrichmentPort}: records ensureRow, lets tests drive onChange/snapshot/degraded. */
+function createFakeEnrichment(): FakeEnrichment {
+	const ensureRowBranches: string[] = [];
+	const listeners = new Set<() => void>();
+	let currentSnapshot: ReadonlyMap<string, EnrichmentEntry> = new Map();
+	let degraded: string | null = null;
+	const port: StackEnrichmentPort = {
+		snapshot: () => currentSnapshot,
+		ensureRow: (pr) => {
+			ensureRowBranches.push(pr.branch);
+		},
+		ensureAll: async () => {},
+		progress: () => null,
+		degradedReason: () => degraded,
+		onChange: (listener) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		abort: () => {},
+	};
+	return {
+		port,
+		ensureRowBranches,
+		fireChange: () => {
+			for (const listener of listeners) listener();
+		},
+		setSnapshot: (map) => {
+			currentSnapshot = map;
+		},
+		setDegradedReason: (reason) => {
+			degraded = reason;
+		},
+		listenerCount: () => listeners.size,
+	};
+}
+
+/** A fake TUI that counts requestRender calls. */
+function recordingTui(rows = 30): { tui: TUI; renders: () => number } {
+	let count = 0;
+	const tui = {
+		terminal: { rows },
+		requestRender() {
+			count += 1;
+		},
+	} as TUI;
+	return { tui, renders: () => count };
 }
 
 function modelFixture(overrides: Partial<StackViewModel> = {}): StackViewModel {
