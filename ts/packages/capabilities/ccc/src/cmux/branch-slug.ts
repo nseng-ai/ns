@@ -4,15 +4,15 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
+import {
+	formatSlugModelFailure,
+	generateRawTextWithModel,
+} from "@nseng-ai/capability-kit/model-slug";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
 
-const GPT_NANO_PROVIDER = "openai";
-const GPT_NANO_MODEL = "gpt-5.4-nano";
-const SLUG_PROMPT_TIMEOUT_MS = 60_000;
-const SUMMARY_PROMPT_TIMEOUT_MS = 60_000;
 const MAX_SLUG_INPUT_CHARS = 12_000;
 const MAX_SUMMARY_INPUT_CHARS = 16_000;
 
@@ -31,7 +31,7 @@ export async function generateBranchSlug(
 	},
 ): Promise<TextResult> {
 	const prompt = buildSlugPrompt(input);
-	const result = await runGptNanoText(pi, cwd, prompt, SLUG_PROMPT_TIMEOUT_MS);
+	const result = await generateRawText(pi, cwd, prompt);
 	if (!result.ok) {
 		return {
 			ok: false,
@@ -56,12 +56,7 @@ export async function summarizePlanWithGptNano(
 		sourceLabel?: string;
 	},
 ): Promise<TextResult> {
-	const result = await runGptNanoText(
-		pi,
-		cwd,
-		buildPlanSummaryPrompt(input),
-		SUMMARY_PROMPT_TIMEOUT_MS,
-	);
+	const result = await generateRawText(pi, cwd, buildPlanSummaryPrompt(input));
 	if (!result.ok) {
 		return { ok: false, message: `Could not summarize plan with GPT Nano: ${result.message}` };
 	}
@@ -73,39 +68,20 @@ export async function summarizePlanWithGptNano(
 	return { ok: true, text: summary };
 }
 
-async function runGptNanoText(
+async function generateRawText(
 	pi: BranchSlugRuntime,
 	cwd: string,
 	prompt: string,
-	timeout: number,
 ): Promise<TextResult> {
-	const result = await pi.exec("pi", buildGptNanoTextArgs(prompt), { cwd, timeout });
-	if (result.code !== 0) {
-		const details = result.stderr.trim() || result.stdout.trim();
-		return { ok: false, message: details };
-	}
-	return { ok: true, text: result.stdout.trim() };
-}
-
-export function buildGptNanoTextArgs(prompt: string): string[] {
-	return [
-		"--provider",
-		GPT_NANO_PROVIDER,
-		"--model",
-		GPT_NANO_MODEL,
-		"--thinking",
-		"low",
-		"--no-session",
-		"--no-extensions",
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
-		"--no-tools",
-		"--mode",
-		"text",
-		"--print",
+	const result = await generateRawTextWithModel({
+		cwd,
 		prompt,
-	];
+		exec: (command, args, options) => pi.exec(command, args, options),
+	});
+	if (!result.ok) {
+		return { ok: false, message: formatSlugModelFailure(result.failure) };
+	}
+	return { ok: true, text: result.evidence.rawOutput.trim() };
 }
 
 export function buildSlugPrompt(input: {

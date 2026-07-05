@@ -4,6 +4,7 @@ import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-s
 import {
 	buildSlugModelArgs,
 	deriveSlugWithModel,
+	generateRawTextWithModel,
 	type SlugModelCommandResult,
 	type SlugModelExecOptions,
 } from "@nseng-ai/capability-kit/model-slug";
@@ -33,6 +34,72 @@ function recordingExecSequence(calls: ExecCall[], results: SlugModelCommandResul
 		return Promise.resolve(result);
 	};
 }
+
+describe("generateRawTextWithModel", () => {
+	test("returns raw model output without slug normalization", async () => {
+		const calls: ExecCall[] = [];
+		const result = await generateRawTextWithModel({
+			cwd: "/repo",
+			prompt: "summary prompt",
+			env: {},
+			exec: recordingExec(calls, { stdout: "- first bullet\n- second bullet\n", code: 0 }),
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			evidence: {
+				rawOutput: "- first bullet\n- second bullet\n",
+				provider: DEFAULT_FAST_MODEL.provider,
+				model: DEFAULT_FAST_MODEL.modelId,
+			},
+		});
+		expect(calls[0]?.args).toEqual(buildSlugModelArgs("summary prompt"));
+	});
+
+	test("resolves an NS_SLUG_MODEL override and reports it in evidence", async () => {
+		const calls: ExecCall[] = [];
+		const result = await generateRawTextWithModel({
+			cwd: "/repo",
+			prompt: "summary prompt",
+			env: { [SLUG_MODEL_ENV]: "acme/fast-1" },
+			exec: recordingExec(calls, { stdout: "raw output\n", code: 0 }),
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			evidence: { rawOutput: "raw output\n", provider: "acme", model: "fast-1" },
+		});
+		expect(calls[0]?.args).toEqual(
+			buildSlugModelArgs("summary prompt", { provider: "acme", modelId: "fast-1" }),
+		);
+	});
+
+	test("retries one killed model command result and returns the recovered raw text", async () => {
+		const calls: ExecCall[] = [];
+		const controller = new AbortController();
+		const result = await generateRawTextWithModel({
+			cwd: "/repo",
+			prompt: "summary prompt",
+			env: {},
+			exec: recordingExecSequence(calls, [
+				{ stdout: "", stderr: "", code: 143, killed: true },
+				{ stdout: "recovered summary\n", code: 0 },
+			]),
+			signal: controller.signal,
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			evidence: {
+				rawOutput: "recovered summary\n",
+				provider: DEFAULT_FAST_MODEL.provider,
+				model: DEFAULT_FAST_MODEL.modelId,
+			},
+		});
+		expect(calls).toHaveLength(2);
+		expect(calls[0]).toEqual(calls[1]);
+	});
+});
 
 describe("deriveSlugWithModel", () => {
 	test("uses the default fast model when the env has no override", async () => {
