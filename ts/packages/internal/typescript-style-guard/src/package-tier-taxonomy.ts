@@ -122,11 +122,6 @@ export const tierRank = [
 export const packageTierDebtEdgeDefinitions = [
 	{
 		from: "@ns/kernel",
-		to: "@ns/slot",
-		reason: "SDK-to-capability CLI mount debt: @ns/kernel still mounts Slot directly.",
-	},
-	{
-		from: "@ns/kernel",
 		to: "@ns/capability-kit",
 		reason:
 			"SDK-to-capability-kit CLI shell-support debt: @ns/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",

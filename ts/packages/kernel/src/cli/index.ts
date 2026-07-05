@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
 	ClinkrGroup,
 	clinkrFormatFromArgs,
-	isClinkrHumanOutputInvocation,
 	ok,
 	renderCapabilitiesForTerminal,
 	type Caps,
@@ -16,14 +15,17 @@ import { renderCompletionCandidatesNewline } from "@ns/clinkr/completion";
 import { rawCommand } from "@ns/clinkr/raw";
 import { defineCli, readStdin, type CliEntrypointDeps } from "@ns/core/cli-runtime";
 import { optionalEntries, optionalEntry } from "@ns/core/primitives";
-import { createRealSlotContext } from "@ns/slot/api";
 
 import {
 	buildNsCompletionScript,
 	renderNsCompletionScriptResult,
 	nsCompletionScriptResultSchema,
 } from "./completion.ts";
-import { createRealNsCommandContext, type NsCliContext } from "./context.ts";
+import {
+	createRealNsCommandContext,
+	createNsCliInteraction,
+	type NsCliContext,
+} from "./context.ts";
 import {
 	renderNsShellInstall,
 	renderNsShellShow,
@@ -414,19 +416,11 @@ async function buildNsCliContext(options: {
 		stdin,
 		...optionalEntries({ onOutput, confirm, extensions: contextExtensions }),
 	};
-	const slotContext = await createRealSlotContext({
-		cwd: options.cwd,
-		env: options.env,
-		stderr: options.stderr,
-		...optionalEntry("extensions", contextExtensions),
-		renderCapabilities,
-		shouldWriteCdDirective: isClinkrHumanOutputInvocation(options.args),
-	});
 	return {
-		...slotContext,
 		context,
 		cwd: options.cwd,
 		env: options.env,
+		interaction: createNsCliInteraction({ stderr: options.stderr }),
 		stdout: options.stdout,
 		stderr: options.stderr,
 	};

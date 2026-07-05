@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { runCli } from "@ns/kernel/cli";
 
-describe("ns slot CLI", () => {
+describe("ns slot extension CLI", () => {
 	it("keeps CLI metadata on the owning ns entrypoint", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
@@ -15,7 +15,7 @@ describe("ns slot CLI", () => {
 		);
 	});
 
-	it("mounts the Slot command tree under ns slot", async () => {
+	it("loads the Slot extension command tree under ns slot", async () => {
 		const run = runScenario(["slot", "--help"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -25,13 +25,13 @@ describe("ns slot CLI", () => {
 		expect(output).toContain("gt");
 	});
 
-	it("keeps hidden Slot exec commands invocable under ns slot", async () => {
+	it("keeps hidden Slot extension exec commands invocable under ns slot", async () => {
 		const run = runScenario(["slot", "gt", "exec", "stack-branches", "--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("stack-branches");
 	});
 
-	it("shows canonical ns shell integration from ns slot shell", async () => {
+	it("shows canonical ns shell integration from the Slot extension shell command", async () => {
 		const run = runScenario(["slot", "shell", "show", "--shell", "zsh"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
