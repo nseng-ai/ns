@@ -29,8 +29,9 @@ stack is a desirable bonus, not a requirement.
 - An explorer agent definition: cheap-model default, strict scout output contract,
   read-only enforced by tool allowlist (no `bash`/`edit`/`write`), with dispatch-time
   auth fallback and runtime model failover.
-- Preview + pointer result plumbing: bounded preview in parent context, full findings on
-  disk.
+- Direct parent-context findings shaping: bounded scout findings appear directly in
+  the parent context, with existing child session-file pointers as the overflow/debug
+  path (no new durable findings artifact or retrieval command for this slice).
 - Live inline progress rendering for the fan-out (per-task status rows, tool activity,
   done/running counts).
 - Non-blocking follow-on slices: fleet widget + transcript viewer, an in-process
@@ -54,8 +55,8 @@ stack is a desirable bonus, not a requirement.
   findings.
 - The explorer's tool allowlist excludes `bash`, `edit`, and `write` — read-only is
   capability-enforced, not prompt-enforced.
-- Parent context receives a bounded preview plus a pointer (file path or result handle);
-  full findings live on disk.
+- Parent context receives bounded scout findings directly (about 8k chars per task and
+  32k total) plus child Pi session-file pointers for overflow/debug inspection.
 - The fan-out renders live inline progress: per-task status icons, recent tool activity,
   and a done/running counter.
 - The adopt-vs-build decision is recorded as an update with per-candidate rationale

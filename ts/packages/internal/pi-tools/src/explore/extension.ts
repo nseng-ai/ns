@@ -28,8 +28,8 @@ import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
 	EXPLORE_BREADTH_VALUES,
-	EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS,
-	EXPLORE_INTERIM_TOTAL_FINAL_TEXT_CAP_CHARS,
+	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
+	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
@@ -490,7 +490,7 @@ function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTas
 	const diagnostic = diagnosticFor(outcome);
 	const finalTextExcerpt =
 		result.status === "final-text"
-			? truncateExploreFinalText(result.finalText, taskCount)
+			? truncateExploreDirectResultText(result.finalText, taskCount)
 			: undefined;
 	return {
 		index: outcome.index,
@@ -561,7 +561,7 @@ function formatExploreResultText(
 		lines.push("", `### ${detail.index + 1}. ${detail.title} — ${detail.status}`);
 		lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
 		if (outcome?.result.status === "final-text") {
-			const excerpt = truncateExploreFinalText(
+			const excerpt = truncateExploreDirectResultText(
 				outcome.result.finalText,
 				request.input.tasks.length,
 			);
@@ -569,7 +569,7 @@ function formatExploreResultText(
 			if (excerpt.truncated) {
 				lines.push(
 					"",
-					`[Final text excerpt truncated to ${excerpt.text.length} of ${excerpt.originalChars} characters. Full text is in the child Pi session file above.]`,
+					`[Scout findings truncated to ${excerpt.text.length} of ${excerpt.originalChars} characters for parent-context size. Full raw child output is available in the child Pi session file above.]`,
 				);
 			}
 		} else if (detail.diagnostic !== undefined) {
@@ -585,7 +585,7 @@ function formatExploreResultText(
 	return lines.join("\n");
 }
 
-function truncateExploreFinalText(
+function truncateExploreDirectResultText(
 	text: string,
 	taskCount: number,
 ): {
@@ -595,8 +595,8 @@ function truncateExploreFinalText(
 } {
 	const originalChars = text.length;
 	const perTaskBudget = Math.min(
-		EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS,
-		Math.floor(EXPLORE_INTERIM_TOTAL_FINAL_TEXT_CAP_CHARS / taskCount),
+		EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
+		Math.floor(EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS / taskCount),
 	);
 	const truncatedText = truncateTextHead({
 		value: text,

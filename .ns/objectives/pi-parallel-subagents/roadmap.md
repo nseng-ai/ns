@@ -32,13 +32,22 @@
       Outcome: `@internal/pi-tools/explore/extension` registers `explore` with 2+
       task schema validation, quick/medium/very-thorough breadth caps, bounded ordered
       concurrency, TimerScheduler-backed wall-clock aborts, compact progress updates,
-      friendly `.ns/pi/agents/explorer.md` configuration errors, interim capped child
+      friendly `.ns/pi/agents/explorer.md` configuration errors, first-pass capped child
       final-text excerpts, and the repo-local `.pi/extensions/explore.ts` shim. Tests:
       focused explore Vitest suite (24 tests), `pnpm --dir ts run check`, lint, and
       format check passed on branch `explore-fan-out-tool`. Item 4 preview/pointer and
       item 5 live widget remain open.
-- [ ] Preview + pointer result plumbing: bounded preview in parent context, full
-      findings on disk, retrievable on demand.
+- [x] Direct parent-context findings shaping: bounded scout findings are returned
+      directly in parent context (target caps: about 8k chars per task and 32k total),
+      and existing child Pi session files remain the overflow/debug path. No new
+      durable findings artifact, retrieval handle, or retrieval command is intended for
+      this slice.
+      Outcome: `@internal/pi-tools/explore` now uses product-intent direct-result caps
+      (`8_000` per task, `32_000` total), result copy points truncation overflow at
+      the child Pi session file, and fake-driven tests cover partial success, total
+      failure, wording regression, and multi-task total-cap behavior. Validation:
+      focused explore Vitest suite, `pnpm --dir ts run check`, lint, and format check
+      passed on branch `direct-parent-context-scout-findings`.
 - [ ] Live inline progress rendering: placeholder-sentinel per-task rows with status
       icons, recent tool-activity lines, and a done/running counter.
 - [ ] Decide the explorer-child home-directory-guard bypass (risk recorded in
