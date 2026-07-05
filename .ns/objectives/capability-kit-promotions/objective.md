@@ -146,19 +146,3 @@ Risks:
 - Should flow's `selectPrDescriptionModelRef` eventually join the kit's
   `select*ModelRef` family, and should `parseJsonUnknown` be rehomed to a
   neutral subpath? Both parked pending a deliberate kit-surface decision.
-
-## Closure
-
-Completed on local Graphite stack ending at
-`capability-kit-promotions/drop-slots-json-helper` (commit `73c62b325`). The
-five Tier 1 adoption rows are checked off in `roadmap.md`: flow, ccc,
-objectives, handoffs, and slots now consume the existing or pinned additive
-capability-kit surfaces instead of their local duplicates. The two allowed kit
-surface edits landed as scoped additions: raw text generation beside
-`deriveSlugWithModel`, and pathspec/rename-aware git status helpers.
-
-Validation evidence is recorded on each roadmap row. Every runner step reported
-package-targeted validation and a green `just`; the final stack retains the
-Tier 2/3 candidates in `## Parked` without pulling them into scope. Remaining
-open questions are accepted as parked follow-up decisions, not blockers for
-this Objective's closure.
