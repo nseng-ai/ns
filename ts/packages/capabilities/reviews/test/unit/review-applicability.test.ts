@@ -43,11 +43,18 @@ describe("pathMatchesPattern", () => {
 });
 
 describe("reviewAppliesToPaths", () => {
-	test("review without include is applicable to all diffs", () => {
+	test("review without include or exclude is applicable to all diffs", () => {
 		const applicability: ReviewApplicability = { include: [], exclude: [] };
 
 		expect(reviewAppliesToPaths(applicability, [])).toBe(true);
 		expect(reviewAppliesToPaths(applicability, ["README.md"])).toBe(true);
+	});
+
+	test("exclude-only review applies only when a changed path is not excluded", () => {
+		const applicability: ReviewApplicability = { include: [], exclude: ["**/*.md"] };
+
+		expect(reviewAppliesToPaths(applicability, ["README.md"])).toBe(false);
+		expect(reviewAppliesToPaths(applicability, ["README.md", "src/app.ts"])).toBe(true);
 	});
 
 	test("test-only Python diff does not apply to dignified-python-tripwire", () => {
@@ -134,6 +141,27 @@ describe("filterLocalDiffForReviewApplicability", () => {
 		expect(filterLocalDiffForReviewApplicability(localDiff, { include: [], exclude: [] })).toBe(
 			localDiff,
 		);
+	});
+
+	test("exclude-only filtering removes excluded files", () => {
+		const readme = diffFile("README.md", "diff --git a/README.md b/README.md\n+# Readme\n");
+		const source = diffFile(
+			"src/app.ts",
+			"diff --git a/src/app.ts b/src/app.ts\n+const value = 1;\n",
+		);
+		const localDiff = createLocalDiff({
+			baseRef: "main",
+			diffText: [readme.rawText, source.rawText].join(""),
+			files: [readme, source],
+		});
+
+		const filtered = filterLocalDiffForReviewApplicability(localDiff, {
+			include: [],
+			exclude: ["**/*.md"],
+		});
+
+		expect(filtered.changedPaths).toEqual(["src/app.ts"]);
+		expect(filtered.diffText).toBe(source.rawText);
 	});
 });
 

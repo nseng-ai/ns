@@ -354,6 +354,10 @@ export function createLocalDiff(options: {
 	});
 }
 
+export function joinDiffFileRawText(files: readonly DiffFile[]): string {
+	return files.map((file) => file.rawText).join("");
+}
+
 export function filterLocalDiffFiles(
 	localDiff: LocalDiff,
 	keepFile: (file: DiffFile) => boolean,
@@ -362,7 +366,7 @@ export function filterLocalDiffFiles(
 	if (files.length === localDiff.files.length) return localDiff;
 	return createLocalDiff({
 		baseRef: localDiff.baseRef,
-		diffText: files.map((file) => file.rawText).join(""),
+		diffText: joinDiffFileRawText(files),
 		files,
 	});
 }

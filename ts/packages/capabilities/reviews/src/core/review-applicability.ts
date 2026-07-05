@@ -24,7 +24,7 @@ export function reviewAppliesToPaths(
 	applicability: ReviewApplicability,
 	changedPaths: readonly string[],
 ): boolean {
-	if (applicability.include.length === 0) return true;
+	if (applicability.include.length === 0 && applicability.exclude.length === 0) return true;
 	return changedPaths.some((path) => pathContributes(path, applicability));
 }
 
@@ -32,7 +32,6 @@ export function filterLocalDiffForReviewApplicability(
 	localDiff: LocalDiff,
 	applicability: ReviewApplicability,
 ): LocalDiff {
-	if (applicability.include.length === 0 && applicability.exclude.length === 0) return localDiff;
 	return filterLocalDiffFiles(localDiff, (file) => pathContributes(file.path, applicability));
 }
 
