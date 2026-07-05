@@ -12,7 +12,12 @@ import type {
 	PrPreviewFeedbackTarget,
 	PrPreviewFeedbackThread,
 } from "./preview-feedback-model.ts";
-import type { CommandResult, ExtensionAPI, ExtensionContext } from "./extension.ts";
+import type {
+	CommandResult,
+	EnvelopeWithSchemaOptions,
+	ExtensionAPI,
+	ExtensionContext,
+} from "./extension.ts";
 import { execNsJson } from "./exec-ns-json.ts";
 
 const nullablePreviewStringSchema = z.string().nullable();

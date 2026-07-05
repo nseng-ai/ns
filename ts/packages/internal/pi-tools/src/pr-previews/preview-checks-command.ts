@@ -104,18 +104,6 @@ type PreviewChecksTargetData = z.output<typeof previewChecksTargetSchema>;
 type StackBranchesData = z.output<typeof stackBranchesDataSchema>;
 type BranchPrChecksData = z.output<typeof branchPrChecksDataSchema>;
 
-type PreviewTargetField = keyof PrPreviewChecksTarget;
-
-const PREVIEW_TARGET_FIELDS = [
-	"pr_number",
-	"title",
-	"url",
-	"branch",
-	"head_ref_name",
-	"base_ref_name",
-	"head_ref_oid",
-] as const satisfies readonly PreviewTargetField[];
-
 const EMPTY_PREVIEW_TARGET = {
 	pr_number: null,
 	title: null,
@@ -222,7 +210,10 @@ async function loadSinglePreviewChecksViewModel(
 ): Promise<CommandResult<PrPreviewChecksViewModel>> {
 	const data = await execPrChecks(options);
 	if (data.type === "error") return data;
-	const target = previewTargetFromData(data.value.target, { prNumber: options.knownPrNumber });
+	const target = previewTargetFromData(
+		data.value.target,
+		options.knownPrNumber === undefined ? {} : { prNumber: options.knownPrNumber },
+	);
 	if (!data.value.found) {
 		return {
 			type: "error",
@@ -368,12 +359,16 @@ function mergeTargetWithFallback(
 	target: PreviewChecksTargetData,
 	fallback: PrPreviewChecksTarget,
 ): PrPreviewChecksTarget {
-	const merged: Partial<PrPreviewChecksTarget> = {};
-	for (const field of PREVIEW_TARGET_FIELDS) {
-		const value = previewTargetFieldValue(target, field) ?? fallback[field];
-		merged[field] = value;
-	}
-	return previewTargetFromData(merged);
+	const normalized = previewTargetFromData(target);
+	return previewTargetFromData({
+		pr_number: normalized.pr_number ?? fallback.pr_number,
+		title: normalized.title ?? fallback.title,
+		url: normalized.url ?? fallback.url,
+		branch: normalized.branch ?? fallback.branch,
+		head_ref_name: normalized.head_ref_name ?? fallback.head_ref_name,
+		base_ref_name: normalized.base_ref_name ?? fallback.base_ref_name,
+		head_ref_oid: normalized.head_ref_oid ?? fallback.head_ref_oid,
+	});
 }
 
 function fallbackTargetFromPreviewData(
@@ -382,7 +377,7 @@ function fallbackTargetFromPreviewData(
 ): PrPreviewChecksTarget {
 	const branch = effectiveBranch(target) ?? "";
 	return previewTargetFromData(target, {
-		prNumber: target.pr_number ?? undefined,
+		...(target.pr_number === null ? {} : { prNumber: target.pr_number }),
 		title: target.title ?? "(untitled)",
 		url: target.url ?? "",
 		branch,
@@ -410,22 +405,14 @@ function previewTargetFromData(
 		pr_number: target.pr_number ?? overrides.prNumber ?? null,
 	};
 	return {
-		pr_number: withOverrides.pr_number,
-		title: withOverrides.title,
-		url: withOverrides.url,
-		branch: withOverrides.branch,
-		head_ref_name: withOverrides.head_ref_name,
-		base_ref_name: withOverrides.base_ref_name,
-		head_ref_oid: withOverrides.head_ref_oid,
+		pr_number: withOverrides.pr_number ?? null,
+		title: withOverrides.title ?? null,
+		url: withOverrides.url ?? null,
+		branch: withOverrides.branch ?? null,
+		head_ref_name: withOverrides.head_ref_name ?? null,
+		base_ref_name: withOverrides.base_ref_name ?? null,
+		head_ref_oid: withOverrides.head_ref_oid ?? null,
 	};
-}
-
-function previewTargetFieldValue(
-	target: PreviewChecksTargetData,
-	field: PreviewTargetField,
-): PrPreviewChecksTarget[PreviewTargetField] | null {
-	if (field === "pr_number") return resolvedPrNumberValue(target.pr_number ?? null);
-	return target[field] ?? null;
 }
 
 function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksCounts {
