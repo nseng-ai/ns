@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import {
-	formatErrorMessage,
-	formatZodError,
-	optionalEntries,
-} from "@nseng-ai/foundation/primitives";
-import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
+import { formatErrorMessage, formatZodError } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import {
 	loadPiAgentDefinition,
@@ -17,43 +11,41 @@ import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runti
 
 import {
 	mapWithConcurrency,
-	resultDiagnostic,
-	runnerSubagentPrimaryActivityPreview,
 	setRunnerSubagentWidget,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
-	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-	type RunnerSubagentUsageMetadata,
 } from "@internal/pi-tools/runner-subagents";
 import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
 	EXPLORE_BREADTH_VALUES,
-	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
-	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	type ExploreBreadth,
-	type ExploreBreadthProfile,
 } from "./contract.ts";
+import { dispatchExplorerSubagent } from "./dispatch.ts";
+import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
 import {
-	dispatchExplorerSubagent,
-	type DispatchExplorerSubagentOptions,
-	type ExplorerDispatchOutcome,
-} from "./dispatch.ts";
-import type { ExplorerLaunchPlan } from "./model-policy.ts";
+	abortReasonDiagnostic,
+	cancelledResult,
+	configurationErrorResult,
+	errorResult,
+	exploreToolResult,
+} from "./result.ts";
+import type { ExploreDispatchFunction, ExploreTaskOutcome, ExploreTaskState } from "./types.ts";
+
+export type {
+	ExploreDispatchFunction,
+	ExploreTaskDetails,
+	ExploreToolDetails,
+	ExploreToolStatus,
+} from "./types.ts";
 
 export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
 };
-
-export type ExploreDispatchFunction = (
-	pi: RunnerSubagentPi,
-	ctx: RunnerSubagentContext,
-	intent: DispatchExplorerSubagentOptions,
-) => Promise<ExplorerDispatchOutcome>;
 
 export interface ExploreExtensionOptions {
 	cwd?: string;
@@ -62,70 +54,16 @@ export interface ExploreExtensionOptions {
 	timers?: TimerScheduler;
 }
 
-export type ExploreToolStatus =
-	| "completed"
-	| "partial"
-	| "failed"
-	| "cancelled"
-	| "configuration-error";
-
-export interface ExploreTaskDetails {
-	index: number;
-	title: string;
-	status: RunnerSubagentResult["status"] | "configuration-error";
-	elapsedMs?: number;
-	sessionFile?: string;
-	launchPlan?: ExplorerLaunchPlan;
-	failover?: ExplorerDispatchOutcome["failover"];
-	usage?: RunnerSubagentUsageMetadata;
-	finalTextChars?: number;
-	isFinalTextTruncated?: boolean;
-	diagnostic?: string;
-}
-
-export interface ExploreToolDetails {
-	status: ExploreToolStatus;
-	breadth: ExploreBreadth;
-	taskCount: number;
-	maxConcurrency: number;
-	wallClockMs: number;
-	tasks: ExploreTaskDetails[];
-}
-
-interface ExploreTaskOutcome {
-	index: number;
-	title: string;
-	result: RunnerSubagentResult;
-	launchPlan?: ExplorerLaunchPlan;
-	failover?: ExplorerDispatchOutcome["failover"];
-}
-
-interface ExploreTaskState {
-	input: ExploreTaskInput;
-	state: "queued" | "running" | "done";
-	latestUpdate?: RunnerSubagentUpdate;
-	outcome?: ExploreTaskOutcome;
-}
-
-interface ExploreConfigurationCheck {
-	definition?: PiAgentDefinition;
-	diagnostic?: string;
-}
+type ExploreConfigurationCheck =
+	| { ok: true; definition: PiAgentDefinition }
+	| { ok: false; diagnostic: string };
 
 interface ExploreAbortScope {
 	signal: AbortSignal;
 	dispose(): void;
 }
 
-interface ExploreProgressDetails {
-	status: "running";
-	done: number;
-	running: number;
-	taskCount: number;
-}
-
 const EXPLORE_DEFAULT_BREADTH: ExploreBreadth = "medium";
-const EXPLORE_PROGRESS_WIDGET_KEY = "ns.explore.progress";
 const EXPLORE_TITLE_MAX_CHARS = 120;
 const EXPLORE_PROMPT_MAX_CHARS = 4_000;
 
@@ -215,7 +153,9 @@ export default function exploreExtension(
 		loadAgentDefinition,
 		options.cwd ?? process.cwd(),
 	);
-	const metadata = registrationCheck.definition ?? FALLBACK_EXPLORER_TOOL_METADATA;
+	const metadata = registrationCheck.ok
+		? registrationCheck.definition
+		: FALLBACK_EXPLORER_TOOL_METADATA;
 
 	pi.registerTool({
 		name: EXPLORE_TOOL_NAME,
@@ -230,8 +170,8 @@ export default function exploreExtension(
 			const request = { input, profile };
 			const cwd = options.cwd ?? ctx.cwd;
 			const configuration = checkExplorerConfiguration(loadAgentDefinition, cwd);
-			if (configuration.definition === undefined) {
-				return configurationErrorResult(request, configuration.diagnostic ?? "unknown error");
+			if (!configuration.ok) {
+				return configurationErrorResult(request, configuration.diagnostic);
 			}
 
 			const definition = configuration.definition;
@@ -242,7 +182,7 @@ export default function exploreExtension(
 						pi: childPi,
 						ctx: childCtx,
 						intent,
-						dependencies: { loadAgentDefinition: () => definition },
+						definition,
 					}));
 			const abortScope = createExploreAbortScope(signal, profile.wallClockMs, timers);
 			try {
@@ -279,11 +219,13 @@ function checkExplorerConfiguration(
 		definition = loadAgentDefinition(EXPLORER_AGENT_NAME, cwd);
 	} catch (error) {
 		return {
+			ok: false,
 			diagnostic: `${EXPLORER_AGENT_REPO_RELATIVE_PATH} is required for explore but could not be loaded: ${formatErrorMessage(error)}`,
 		};
 	}
 	if (definition.toolName !== EXPLORE_TOOL_NAME) {
 		return {
+			ok: false,
 			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${EXPLORE_TOOL_NAME}".`,
 		};
 	}
@@ -292,10 +234,11 @@ function checkExplorerConfiguration(
 		.filter((index) => index !== undefined);
 	if (guidelineIndexesMissingExplore.length > 0) {
 		return {
+			ok: false,
 			diagnostic: `${definition.filePath} promptGuidelines must mention "explore" in every guideline; missing guideline index(es): ${guidelineIndexesMissingExplore.join(", ")}.`,
 		};
 	}
-	return { definition };
+	return { ok: true, definition };
 }
 
 function createExploreAbortScope(
@@ -412,7 +355,6 @@ async function runOneExploreTask(input: {
 		const outcome = await input.dispatchExplorer(input.pi, input.ctx, {
 			title: input.state.input.title,
 			prompt: input.state.input.prompt,
-			cwd: input.ctx.cwd,
 			signal: input.signal,
 			onProgress: input.onProgress,
 		});
@@ -435,348 +377,4 @@ async function runOneExploreTask(input: {
 				: errorResult(input.state.input.title, diagnostic),
 		};
 	}
-}
-
-interface ExploreRequest {
-	input: ExploreInput;
-	profile: ExploreBreadthProfile;
-}
-
-function exploreToolResult(
-	request: ExploreRequest,
-	outcomes: readonly ExploreTaskOutcome[],
-): ToolResult<ExploreToolDetails> {
-	const finalTextCount = countFinalTextOutcomes(outcomes);
-	const { details, finalTextExcerpts } = buildExploreToolDetails(request, outcomes, finalTextCount);
-	return {
-		content: [
-			{ type: "text", text: formatExploreResultText(details, finalTextExcerpts, finalTextCount) },
-		],
-		details,
-		...(details.status === "failed" || details.status === "cancelled" ? { isError: true } : {}),
-	};
-}
-
-interface ExploreToolDetailsBuildResult {
-	details: ExploreToolDetails;
-	finalTextExcerpts: ReadonlyArray<TruncatedExploreText | undefined>;
-}
-
-function buildExploreToolDetails(
-	request: ExploreRequest,
-	outcomes: readonly ExploreTaskOutcome[],
-	finalTextCount: number,
-): ExploreToolDetailsBuildResult {
-	const taskResults = outcomes.map((outcome) => taskDetails(outcome, request.input.tasks.length));
-	const status = summarizeExploreToolStatus(outcomes, finalTextCount);
-	return {
-		details: {
-			status,
-			breadth: request.input.breadth,
-			taskCount: request.input.tasks.length,
-			maxConcurrency: request.profile.maxConcurrency,
-			wallClockMs: request.profile.wallClockMs,
-			tasks: taskResults.map((result) => result.detail),
-		},
-		finalTextExcerpts: taskResults.map((result) => result.finalTextExcerpt),
-	};
-}
-
-function countFinalTextOutcomes(outcomes: readonly ExploreTaskOutcome[]): number {
-	return outcomes.filter((outcome) => outcome.result.status === "final-text").length;
-}
-
-function summarizeExploreToolStatus(
-	outcomes: readonly ExploreTaskOutcome[],
-	finalTextCount: number,
-): ExploreToolStatus {
-	if (finalTextCount === outcomes.length) return "completed";
-	if (finalTextCount > 0) return "partial";
-	if (outcomes.some((outcome) => outcome.result.status === "cancelled")) return "cancelled";
-	return "failed";
-}
-
-interface ExploreTaskDetailsBuildResult {
-	detail: ExploreTaskDetails;
-	finalTextExcerpt?: TruncatedExploreText;
-}
-
-function taskDetails(
-	outcome: ExploreTaskOutcome,
-	taskCount: number,
-): ExploreTaskDetailsBuildResult {
-	const result = outcome.result;
-	const diagnostic = resultDiagnostic(result);
-	const finalTextExcerpt =
-		result.status === "final-text"
-			? truncateExploreDirectResultText(result.finalText, taskCount)
-			: undefined;
-	return {
-		detail: {
-			index: outcome.index,
-			title: outcome.title,
-			status: result.status,
-			elapsedMs: result.elapsedMs,
-			...optionalEntries({
-				sessionFile: sessionFileFor(result),
-				launchPlan: outcome.launchPlan,
-				failover: outcome.failover,
-				usage: result.usage,
-				diagnostic,
-			}),
-			...(finalTextExcerpt === undefined
-				? {}
-				: {
-						finalTextChars: finalTextExcerpt.originalChars,
-						isFinalTextTruncated: finalTextExcerpt.truncated,
-					}),
-		},
-		...optionalEntries({ finalTextExcerpt }),
-	};
-}
-
-function configurationErrorResult(
-	request: ExploreRequest,
-	diagnostic: string,
-): ToolResult<ExploreToolDetails> {
-	return {
-		content: [
-			{
-				type: "text",
-				text: [
-					"explore is unavailable because its explorer agent definition is misconfigured.",
-					`Expected ${EXPLORER_AGENT_REPO_RELATIVE_PATH} to exist and declare toolName: ${EXPLORE_TOOL_NAME}.`,
-					`Diagnostic: ${diagnostic}`,
-				].join("\n"),
-			},
-		],
-		details: {
-			status: "configuration-error",
-			breadth: request.input.breadth,
-			taskCount: request.input.tasks.length,
-			maxConcurrency: request.profile.maxConcurrency,
-			wallClockMs: request.profile.wallClockMs,
-			tasks: request.input.tasks.map((task, index) => ({
-				index,
-				title: task.title,
-				status: "configuration-error",
-				diagnostic,
-			})),
-		},
-		isError: true,
-	};
-}
-
-function formatExploreResultText(
-	details: ExploreToolDetails,
-	finalTextExcerpts: ReadonlyArray<TruncatedExploreText | undefined>,
-	finalTextCount: number,
-): string {
-	const lines = [
-		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${details.breadth}, concurrency: ${details.maxConcurrency})`,
-	];
-	for (const [taskIndex, detail] of details.tasks.entries()) {
-		const excerpt = finalTextExcerpts[taskIndex];
-		lines.push("", `### ${detail.index + 1}. ${detail.title} — ${detail.status}`);
-		lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
-		if (excerpt !== undefined) {
-			lines.push("", excerpt.text);
-			if (excerpt.truncated) {
-				lines.push(
-					"",
-					`[Scout findings truncated to ${excerpt.text.length} of ${excerpt.originalChars} characters for parent-context size. Full raw child output is available in the child Pi session file above.]`,
-				);
-			}
-		} else if (detail.diagnostic !== undefined) {
-			lines.push(`Diagnostic: ${detail.diagnostic}`);
-		}
-	}
-	if (details.status === "failed" || details.status === "cancelled") {
-		lines.push(
-			"",
-			"No explorer scout produced usable final text. Inspect diagnostics/session files before relying on this result.",
-		);
-	}
-	return lines.join("\n");
-}
-
-interface TruncatedExploreText {
-	text: string;
-	truncated: boolean;
-	originalChars: number;
-}
-
-function truncateExploreDirectResultText(text: string, taskCount: number): TruncatedExploreText {
-	const originalChars = text.length;
-	const perTaskBudget = Math.min(
-		EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
-		Math.floor(EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS / taskCount),
-	);
-	const truncatedText = truncateTextHead({
-		value: text,
-		maxChars: perTaskBudget,
-		buildMarker: () => "",
-		shouldTrimHead: false,
-	});
-	return { text: truncatedText, truncated: truncatedText.length < originalChars, originalChars };
-}
-
-function sessionFileFor(result: RunnerSubagentResult): string | undefined {
-	return result.sessionFile ?? result.progress.sessionFile;
-}
-
-function emitExploreProgress(
-	ctx: ToolContext,
-	states: readonly ExploreTaskState[],
-	onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
-): void {
-	onUpdate?.({
-		content: [{ type: "text", text: renderExploreProgress(states) }],
-		details: exploreProgressDetails(states),
-	});
-	setRunnerSubagentWidget(
-		ctx,
-		EXPLORE_PROGRESS_WIDGET_KEY,
-		formatExploreProgressWidgetLines(states),
-	);
-}
-
-function exploreProgressDetails(states: readonly ExploreTaskState[]): ExploreProgressDetails {
-	return {
-		status: "running",
-		done: states.filter((state) => state.state === "done").length,
-		running: states.filter((state) => state.state === "running").length,
-		taskCount: states.length,
-	};
-}
-
-function formatExploreProgressWidgetLines(states: readonly ExploreTaskState[]): string[] {
-	const details = exploreProgressDetails(states);
-	return [
-		`explore: ${details.done}/${details.taskCount} done, ${details.running} running`,
-		...states.map((state, index) => formatExploreTaskWidgetLine(state, index)),
-	];
-}
-
-interface ExploreTaskActivityDescription {
-	text: string;
-	isTurnCount: boolean;
-}
-
-interface ExploreTaskProgressDescription {
-	icon: string;
-	status: string;
-	activity?: ExploreTaskActivityDescription;
-}
-
-function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): string {
-	const description = describeExploreTaskProgress(state);
-	const suffix = description.activity === undefined ? "" : ` — ${description.activity.text}`;
-	return truncatePlain(
-		`${description.icon} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
-		180,
-	);
-}
-
-function describeExploreTaskProgress(state: ExploreTaskState): ExploreTaskProgressDescription {
-	if (state.outcome !== undefined) {
-		const sessionFile = sessionFileFor(state.outcome.result);
-		return {
-			icon: state.outcome.result.status === "final-text" ? "✓" : "✗",
-			status: state.outcome.result.status,
-			...optionalEntries({
-				activity:
-					sessionFile === undefined
-						? undefined
-						: {
-								text: sessionFile,
-								isTurnCount: false,
-							},
-			}),
-		};
-	}
-	if (state.state === "queued") return { icon: "·", status: "queued" };
-
-	const update = state.latestUpdate;
-	if (update === undefined) return { icon: "▶", status: "running" };
-	return {
-		icon: "▶",
-		status: update.progress.state,
-		...optionalEntries({ activity: activityDescription(update) }),
-	};
-}
-
-function activityDescription(
-	update: RunnerSubagentUpdate,
-): ExploreTaskActivityDescription | undefined {
-	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
-	if (preview !== undefined) return { text: preview, isTurnCount: false };
-	if (update.progress.currentTool !== undefined) {
-		return { text: update.progress.currentTool, isTurnCount: false };
-	}
-	if (update.progress.turnCount > 0) {
-		return { text: `turn ${update.progress.turnCount}`, isTurnCount: true };
-	}
-	return undefined;
-}
-
-function renderExploreProgress(states: readonly ExploreTaskState[]): string {
-	const details = exploreProgressDetails(states);
-	const summaries = states.map(renderExploreTaskProgress).join("; ");
-	return truncatePlain(
-		`explore: ${details.done}/${details.taskCount} done, ${details.running} running — ${summaries}`,
-		320,
-	);
-}
-
-function renderExploreTaskProgress(state: ExploreTaskState): string {
-	const description = describeExploreTaskProgress(state);
-	if (description.activity === undefined || state.outcome !== undefined)
-		return `${state.input.title} ${description.status}`;
-	const separator = description.activity.isTurnCount ? " " : ": ";
-	return `${state.input.title} ${description.status}${separator}${description.activity.text}`;
-}
-
-function cancelledResult(
-	title: string,
-	signal: AbortSignal,
-	fallback = "Explore task was cancelled.",
-): RunnerSubagentResult {
-	const diagnostic = abortReasonDiagnostic(signal, fallback);
-	return {
-		status: "cancelled",
-		title,
-		diagnostic,
-		...optionalEntries({ reason: abortReasonText(signal) }),
-		elapsedMs: 0,
-		progress: stoppedProgress(title),
-	};
-}
-
-function errorResult(title: string, diagnostic: string): RunnerSubagentResult {
-	return {
-		status: "error",
-		title,
-		diagnostic,
-		error: { message: diagnostic },
-		elapsedMs: 0,
-		progress: stoppedProgress(title),
-	};
-}
-
-function stoppedProgress(title: string): RunnerSubagentResult["progress"] {
-	return { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 };
-}
-
-function abortReasonDiagnostic(signal: AbortSignal, fallback: string): string {
-	const reason = abortReasonText(signal);
-	return reason === undefined ? fallback : reason;
-}
-
-function abortReasonText(signal: AbortSignal): string | undefined {
-	if (!signal.aborted) return undefined;
-	const reason = signal.reason;
-	if (reason === undefined) return undefined;
-	if (typeof reason === "string") return reason;
-	return formatErrorMessage(reason);
 }

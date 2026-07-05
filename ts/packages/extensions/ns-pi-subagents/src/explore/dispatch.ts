@@ -1,6 +1,5 @@
 import {
 	composePiAgentPrompt,
-	loadPiAgentDefinition,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import { isProviderAuthConfigured } from "@nseng-ai/pi/runtime/auth";
@@ -15,7 +14,6 @@ import {
 	type RunnerSubagentProgressCallback,
 	type RunnerSubagentResult,
 } from "@internal/pi-tools/runner-subagents";
-import { EXPLORER_AGENT_NAME } from "./contract.ts";
 import {
 	resolveExplorerLaunchPlan,
 	type ExplorerLaunchPlan,
@@ -31,21 +29,17 @@ export type DispatchSubagentFn = (
 export interface DispatchExplorerSubagentOptions {
 	title: string;
 	prompt: string;
-	/** Directory for agent-definition discovery; defaults to ctx.cwd. */
-	cwd?: string;
 	signal?: AbortSignal;
 	onProgress?: RunnerSubagentProgressCallback;
 }
 
 export interface ExplorerDispatcherDependencies {
-	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 	isProviderAuthConfigured?: IsProviderAuthConfigured;
 	dispatchSubagent?: DispatchSubagentFn;
 }
 
 export interface ExplorerDispatchOutcome {
 	result: RunnerSubagentResult;
-	definition: PiAgentDefinition;
 	launchPlan: ExplorerLaunchPlan;
 	failover?: {
 		firstAttemptStatus: ExplorerTransientFailureStatus;
@@ -64,18 +58,17 @@ export interface DispatchExplorerSubagentInput {
 	pi: RunnerSubagentPi;
 	ctx: RunnerSubagentContext;
 	intent: DispatchExplorerSubagentOptions;
+	definition: PiAgentDefinition;
 	dependencies?: ExplorerDispatcherDependencies;
 }
 
 export async function dispatchExplorerSubagent(
 	input: DispatchExplorerSubagentInput,
 ): Promise<ExplorerDispatchOutcome> {
-	const { pi, ctx, intent } = input;
+	const { pi, ctx, intent, definition } = input;
 	const dependencies = input.dependencies ?? {};
-	const loadDefinition = dependencies.loadAgentDefinition ?? loadPiAgentDefinition;
 	const authProbe = dependencies.isProviderAuthConfigured ?? isProviderAuthConfigured;
 	const dispatch = dependencies.dispatchSubagent ?? dispatchRunnerSubagent;
-	const definition = loadDefinition(EXPLORER_AGENT_NAME, intent.cwd ?? ctx.cwd);
 	const launchPlan = resolveExplorerLaunchPlan({
 		...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
 		isProviderAuthConfigured: authProbe,
@@ -104,13 +97,12 @@ export async function dispatchExplorerSubagent(
 		abortSignals: [ctx.signal, intent.signal],
 	};
 	if (!shouldFailoverExplorerDispatch(failoverInput)) {
-		return { result: firstResult, definition, launchPlan };
+		return { result: firstResult, launchPlan };
 	}
 
 	const failoverResult = await dispatch(pi, ctx, baseOptions);
 	return {
 		result: failoverResult,
-		definition,
 		launchPlan,
 		failover: {
 			firstAttemptStatus: failoverInput.result.status,
