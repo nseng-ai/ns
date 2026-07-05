@@ -1,4 +1,5 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
 
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
@@ -14,8 +15,6 @@ import {
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
 } from "./pr-description.ts";
-import type { TextGenerator } from "./text-generation.ts";
-
 export interface PrewrittenPrMetadata {
 	branch: string;
 	parentBranch: string;
