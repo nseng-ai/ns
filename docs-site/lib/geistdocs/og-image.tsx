@@ -48,7 +48,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
   }
 
   const pageMetadata = getPageMetadata(page, {
-    fallbackDescription: "The kernel for nonslop engineering.",
+    fallbackDescription: `The kernel for ${organizationName}.`,
     fallbackTitle: title,
   });
 

@@ -1,4 +1,4 @@
-import { productName } from "@/lib/geistdocs/site-identity";
+import { organizationName, productName } from "@/lib/geistdocs/site-identity";
 
 export const suggestions = [
   "How do I start using ns?",
@@ -12,7 +12,7 @@ export const agent = {
   product: {
     name: productName,
     description:
-      "The kernel for nonslop engineering: durable planning intent, scoped branch memory, isolated worktree slots, and git-native shipping — embeddable in the coding harnesses you already use, with an extension ecosystem built on top.",
+      `The kernel for ${organizationName}: durable planning intent, scoped branch memory, isolated worktree slots, and git-native shipping — embeddable in the coding harnesses you already use, with an extension ecosystem built on top.`,
     category: "Agentic engineering kernel",
     audience: ["developers using coding agents", "teams coordinating multi-session engineering work"],
     useCases: [
@@ -31,4 +31,4 @@ export const agent = {
 };
 
 export const prompt =
-  `You are a helpful assistant specializing in ${productName}, the kernel for nonslop engineering. You help users plan work as durable Objectives, run branches in isolated worktree slots, carry context across agent sessions, and build on the ${productName} extension ecosystem.`;
+  `You are a helpful assistant specializing in ${productName}, the kernel for ${organizationName}. You help users plan work as durable Objectives, run branches in isolated worktree slots, carry context across agent sessions, and build on the ${productName} extension ecosystem.`;

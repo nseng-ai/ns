@@ -64,7 +64,7 @@ export default function HomePage() {
             </CtaLink>
           </>
         }
-        description="ns gives agent-driven work boundaries that live in git: durable intent, scoped memory, isolated worktrees, and a gate where output becomes real. A kernel you embed — not a harness you adopt."
+        description={`${pageDescription} A kernel you embed — not a harness you adopt.`}
         eyebrow="ns · nonslop engineering"
         eyebrowTone="blue"
         sidePanel={<FileTreePreview />}

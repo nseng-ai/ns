@@ -2,8 +2,7 @@ export const productName = "ns";
 export const organizationName = "nonslop engineering";
 export const copyrightName = "nseng";
 export const siteDomain = "nseng.ai";
-export const logoBadgeLabel = "Docs";
-export const navDocsLabel = "Docs";
+export const docsLabel = "Docs";
 export const docsShortTitle = `${productName} Docs`;
 export const title = `${productName} Documentation`;
 
