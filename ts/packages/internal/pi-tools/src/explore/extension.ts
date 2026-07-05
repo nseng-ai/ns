@@ -227,12 +227,12 @@ export default function exploreExtension(
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateExploreInput(params);
 			const profile = EXPLORE_BREADTH_PROFILES[input.breadth];
+			const request = { input, profile };
 			const cwd = options.cwd ?? ctx.cwd;
 			const configuration = checkExplorerConfiguration(loadAgentDefinition, cwd);
 			if (configuration.definition === undefined) {
 				return configurationErrorResult(
-					input,
-					profile,
+					request,
 					configuration.diagnostic ?? "unknown error",
 				);
 			}
@@ -259,7 +259,7 @@ export default function exploreExtension(
 					dispatchExplorer,
 					onUpdate,
 				});
-				return exploreToolResult(input, profile, outcomes);
+				return exploreToolResult(request, outcomes);
 			} finally {
 				abortScope.dispose();
 			}
@@ -452,28 +452,36 @@ function exploreToolResult(
 ): ToolResult<ExploreToolDetails> {
 	const request = { input, profile };
 	const finalTextCount = countFinalTextOutcomes(outcomes);
-	const details = buildExploreToolDetails(request, outcomes, finalTextCount);
+	const { details, finalTextExcerpts } = buildExploreToolDetails(request, outcomes, finalTextCount);
 	return {
-		content: [{ type: "text", text: formatExploreResultText(request, outcomes, details) }],
+		content: [{ type: "text", text: formatExploreResultText(details, finalTextExcerpts) }],
 		details,
 		...(details.status === "failed" || details.status === "cancelled" ? { isError: true } : {}),
 	};
+}
+
+interface ExploreToolDetailsBuildResult {
+	details: ExploreToolDetails;
+	finalTextExcerpts: ReadonlyArray<TruncatedExploreText | undefined>;
 }
 
 function buildExploreToolDetails(
 	request: ExploreRequest,
 	outcomes: readonly ExploreTaskOutcome[],
 	finalTextCount: number,
-): ExploreToolDetails {
-	const tasks = outcomes.map((outcome) => taskDetails(outcome, request.input.tasks.length));
+): ExploreToolDetailsBuildResult {
+	const taskResults = outcomes.map((outcome) => taskDetails(outcome, request.input.tasks.length));
 	const status = summarizeExploreToolStatus(outcomes, finalTextCount);
 	return {
-		status,
-		breadth: request.input.breadth,
-		taskCount: request.input.tasks.length,
-		maxConcurrency: request.profile.maxConcurrency,
-		wallClockMs: request.profile.wallClockMs,
-		tasks,
+		details: {
+			status,
+			breadth: request.input.breadth,
+			taskCount: request.input.tasks.length,
+			maxConcurrency: request.profile.maxConcurrency,
+			wallClockMs: request.profile.wallClockMs,
+			tasks: taskResults.map((result) => result.detail),
+		},
+		finalTextExcerpts: taskResults.map((result) => result.finalTextExcerpt),
 	};
 }
 
@@ -491,31 +499,42 @@ function summarizeExploreToolStatus(
 	return "failed";
 }
 
-function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTaskDetails {
+interface ExploreTaskDetailsBuildResult {
+	detail: ExploreTaskDetails;
+	finalTextExcerpt?: TruncatedExploreText;
+}
+
+function taskDetails(
+	outcome: ExploreTaskOutcome,
+	taskCount: number,
+): ExploreTaskDetailsBuildResult {
 	const result = outcome.result;
-	const diagnostic = diagnosticFor(outcome);
+	const diagnostic = resultDiagnostic(result);
 	const finalTextExcerpt =
 		result.status === "final-text"
 			? truncateExploreDirectResultText(result.finalText, taskCount)
 			: undefined;
 	return {
-		index: outcome.index,
-		title: outcome.title,
-		status: result.status,
-		elapsedMs: result.elapsedMs,
-		...optionalEntries({
-			sessionFile: sessionFileFor(result),
-			launchPlan: outcome.launchPlan,
-			failover: outcome.failover,
-			usage: result.usage,
-			diagnostic,
-		}),
-		...(finalTextExcerpt === undefined
-			? {}
-			: {
-					finalTextChars: finalTextExcerpt.originalChars,
-					isFinalTextTruncated: finalTextExcerpt.truncated,
-				}),
+		detail: {
+			index: outcome.index,
+			title: outcome.title,
+			status: result.status,
+			elapsedMs: result.elapsedMs,
+			...optionalEntries({
+				sessionFile: sessionFileFor(result),
+				launchPlan: outcome.launchPlan,
+				failover: outcome.failover,
+				usage: result.usage,
+				diagnostic,
+			}),
+			...(finalTextExcerpt === undefined
+				? {}
+				: {
+						finalTextChars: finalTextExcerpt.originalChars,
+						isFinalTextTruncated: finalTextExcerpt.truncated,
+					}),
+		},
+		...optionalEntries({ finalTextExcerpt }),
 	};
 }
 
@@ -553,24 +572,18 @@ function configurationErrorResult(
 }
 
 function formatExploreResultText(
-	request: ExploreRequest,
-	outcomes: readonly ExploreTaskOutcome[],
 	details: ExploreToolDetails,
+	finalTextExcerpts: ReadonlyArray<TruncatedExploreText | undefined>,
 ): string {
-	const outcomesByIndex = new Map(outcomes.map((outcome) => [outcome.index, outcome]));
 	const finalTextCount = details.tasks.filter((task) => task.status === "final-text").length;
 	const lines = [
-		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${request.input.breadth}, concurrency: ${request.profile.maxConcurrency})`,
+		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${details.breadth}, concurrency: ${details.maxConcurrency})`,
 	];
-	for (const detail of details.tasks) {
-		const outcome = outcomesByIndex.get(detail.index);
+	for (const [taskIndex, detail] of details.tasks.entries()) {
+		const excerpt = finalTextExcerpts[taskIndex];
 		lines.push("", `### ${detail.index + 1}. ${detail.title} — ${detail.status}`);
 		lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
-		if (outcome?.result.status === "final-text") {
-			const excerpt = truncateExploreDirectResultText(
-				outcome.result.finalText,
-				request.input.tasks.length,
-			);
+		if (excerpt !== undefined) {
 			lines.push("", excerpt.text);
 			if (excerpt.truncated) {
 				lines.push(
@@ -591,14 +604,13 @@ function formatExploreResultText(
 	return lines.join("\n");
 }
 
-function truncateExploreDirectResultText(
-	text: string,
-	taskCount: number,
-): {
+interface TruncatedExploreText {
 	text: string;
 	truncated: boolean;
 	originalChars: number;
-} {
+}
+
+function truncateExploreDirectResultText(text: string, taskCount: number): TruncatedExploreText {
 	const originalChars = text.length;
 	const perTaskBudget = Math.min(
 		EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
@@ -615,10 +627,6 @@ function truncateExploreDirectResultText(
 
 function sessionFileFor(result: RunnerSubagentResult): string | undefined {
 	return result.sessionFile ?? result.progress.sessionFile;
-}
-
-function diagnosticFor(outcome: ExploreTaskOutcome): string | undefined {
-	return resultDiagnostic(outcome.result);
 }
 
 function emitExploreProgress(
@@ -654,15 +662,20 @@ function formatExploreProgressWidgetLines(states: readonly ExploreTaskState[]): 
 	];
 }
 
+interface ExploreTaskActivityDescription {
+	text: string;
+	isTurnCount: boolean;
+}
+
 interface ExploreTaskProgressDescription {
 	icon: string;
 	status: string;
-	activity?: string;
+	activity?: ExploreTaskActivityDescription;
 }
 
 function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): string {
 	const description = describeExploreTaskProgress(state);
-	const suffix = description.activity === undefined ? "" : ` — ${description.activity}`;
+	const suffix = description.activity === undefined ? "" : ` — ${description.activity.text}`;
 	return truncatePlain(
 		`${description.icon} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
 		180,
@@ -671,27 +684,44 @@ function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): st
 
 function describeExploreTaskProgress(state: ExploreTaskState): ExploreTaskProgressDescription {
 	if (state.outcome !== undefined) {
+		const sessionFile = sessionFileFor(state.outcome.result);
 		return {
 			icon: state.outcome.result.status === "final-text" ? "✓" : "✗",
 			status: state.outcome.result.status,
-			...optionalEntries({ activity: sessionFileFor(state.outcome.result) }),
+			...optionalEntries({
+				activity:
+					sessionFile === undefined
+						? undefined
+						: {
+								text: sessionFile,
+								isTurnCount: false,
+							},
+			}),
 		};
 	}
 	if (state.state === "queued") return { icon: "·", status: "queued" };
 
 	const update = state.latestUpdate;
 	if (update === undefined) return { icon: "▶", status: "running" };
-	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
 	return {
 		icon: "▶",
 		status: update.progress.state,
-		...optionalEntries({
-			activity:
-				preview ??
-				update.progress.currentTool ??
-				(update.progress.turnCount > 0 ? `turn ${update.progress.turnCount}` : undefined),
-		}),
+		...optionalEntries({ activity: activityDescription(update) }),
 	};
+}
+
+function activityDescription(
+	update: RunnerSubagentUpdate,
+): ExploreTaskActivityDescription | undefined {
+	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
+	if (preview !== undefined) return { text: preview, isTurnCount: false };
+	if (update.progress.currentTool !== undefined) {
+		return { text: update.progress.currentTool, isTurnCount: false };
+	}
+	if (update.progress.turnCount > 0) {
+		return { text: `turn ${update.progress.turnCount}`, isTurnCount: true };
+	}
+	return undefined;
 }
 
 function renderExploreProgress(states: readonly ExploreTaskState[]): string {
@@ -707,8 +737,8 @@ function renderExploreTaskProgress(state: ExploreTaskState): string {
 	const description = describeExploreTaskProgress(state);
 	if (description.activity === undefined || state.outcome !== undefined)
 		return `${state.input.title} ${description.status}`;
-	const separator = description.activity.startsWith("turn ") ? " " : ": ";
-	return `${state.input.title} ${description.status}${separator}${description.activity}`;
+	const separator = description.activity.isTurnCount ? " " : ": ";
+	return `${state.input.title} ${description.status}${separator}${description.activity.text}`;
 }
 
 function cancelledResult(

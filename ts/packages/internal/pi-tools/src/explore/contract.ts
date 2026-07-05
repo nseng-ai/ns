@@ -21,13 +21,6 @@ export const EXPLORE_ABSOLUTE_MAX_TASKS = 8;
 export const EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS = 32_000;
 export const EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS = 8_000;
 
-/**
- * Pi core ships exactly seven tools (read, grep, find, ls, bash, edit, write) and
- * explorer children always run with --no-extensions, so this positive allowlist is a
- * complete capability-level read-only guarantee: no bash, no edit, no write.
- */
-export { INTERROGATION_TOOLS as EXPLORER_READ_ONLY_TOOLS } from "../context-profiler/interrogation-prompt.ts";
-
 export const EXPLORER_SCOUT_SECTION_HEADERS = [
 	"## Files Retrieved",
 	"## Key Code",

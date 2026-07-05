@@ -4,7 +4,6 @@ import { composePiAgentPrompt } from "@nseng-ai/pi/runtime/agent-definition";
 
 import {
 	EXPLORER_CHEAP_MODEL_SHORTHAND,
-	EXPLORER_READ_ONLY_TOOLS,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "../../src/explore/contract.ts";
 import {
@@ -24,6 +23,7 @@ import {
 	stoppedProgress,
 	waitForSpawn,
 } from "../../src/explore/testing.ts";
+import { READ_ONLY_SUBAGENT_TOOLS } from "../../src/runner-subagents/read-only-tools.ts";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentContext,
@@ -128,7 +128,7 @@ describe("dispatchExplorerSubagent", () => {
 			returnMode: "final-text",
 			model: EXPLORER_CHEAP_MODEL_SHORTHAND,
 		});
-		expect(call?.options.tools).toEqual([...EXPLORER_READ_ONLY_TOOLS]);
+		expect(call?.options.tools).toEqual([...READ_ONLY_SUBAGENT_TOOLS]);
 		for (const header of EXPLORER_SCOUT_SECTION_HEADERS) {
 			expect(call?.options.prompt).toContain(header);
 		}
@@ -150,7 +150,7 @@ describe("dispatchExplorerSubagent", () => {
 		expect(recording.calls).toHaveLength(2);
 		expect(recording.calls[0]?.options.model).toBe(EXPLORER_CHEAP_MODEL_SHORTHAND);
 		expect(recording.calls[1]?.options.model).toBeUndefined();
-		expect(recording.calls[1]?.options.tools).toEqual([...EXPLORER_READ_ONLY_TOOLS]);
+		expect(recording.calls[1]?.options.tools).toEqual([...READ_ONLY_SUBAGENT_TOOLS]);
 		expect(outcome.result.status).toBe("final-text");
 		expect(outcome.failover).toEqual({
 			firstAttemptStatus: "error",
@@ -260,7 +260,7 @@ describe("dispatchExplorerSubagent", () => {
 		expect(flagValue(call.args, "--provider")).toBe("anthropic");
 		expect(flagValue(call.args, "--model")).toBe("haiku");
 		expect(call.args).toContain("--no-extensions");
-		expect(flagValue(call.args, "--tools")).toBe(EXPLORER_READ_ONLY_TOOLS.join(","));
+		expect(flagValue(call.args, "--tools")).toBe(READ_ONLY_SUBAGENT_TOOLS.join(","));
 		expect(flagValue(call.args, "--session")).toBe("/tmp/pi-runner-subagent.jsonl");
 		expect(call.args.at(-1)).toBe(childPrompt);
 
