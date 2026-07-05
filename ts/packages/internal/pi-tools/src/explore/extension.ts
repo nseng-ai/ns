@@ -231,10 +231,7 @@ export default function exploreExtension(
 			const cwd = options.cwd ?? ctx.cwd;
 			const configuration = checkExplorerConfiguration(loadAgentDefinition, cwd);
 			if (configuration.definition === undefined) {
-				return configurationErrorResult(
-					request,
-					configuration.diagnostic ?? "unknown error",
-				);
+				return configurationErrorResult(request, configuration.diagnostic ?? "unknown error");
 			}
 
 			const definition = configuration.definition;
