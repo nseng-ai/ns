@@ -24,7 +24,7 @@ describe("Pi replacement helpers", () => {
 	});
 
 	test("does not invent fallback replacements for unknown skills", () => {
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ns:objective:stack-impl");
+		expect(commandBackedSkillSurface("objective-autorun")).toBe("ns:objective:autorun");
 		expect(commandBackedSkillSurface("branch-context-impl-extra")).toBeUndefined();
 		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
 		expect(commandBackedSkillSurface("plain")).toBeUndefined();

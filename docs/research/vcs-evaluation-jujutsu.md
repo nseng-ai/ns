@@ -133,7 +133,7 @@ all:
 1. **Status quo** — `gt` + git, no jj. Nothing to coexist.
 2. **Full replacement** — jj-native stacking + `jj-spr`, `gt` removed. Also no coexistence,
    because `gt` is gone — but a large migration touching `GtGateway`, `code-submit`,
-   `objective-stack-impl`, slots, the `graphite` skill, and the AGENTS.md Graphite doctrine.
+   `objective-autorun`, slots, the `graphite` skill, and the AGENTS.md Graphite doctrine.
 
 The tempting middle (jj as a local edit layer *under* an active `gt`) is exactly the
 configuration that earns the "too complicated" verdict: you would be building reconciliation

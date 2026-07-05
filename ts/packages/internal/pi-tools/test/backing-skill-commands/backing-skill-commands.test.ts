@@ -9,7 +9,7 @@ const OBJECTIVE_COMMAND_SURFACES = [
 	"ns:objective:next",
 	"ns:objective:update",
 	"ns:objective:close",
-	"ns:objective:stack-impl",
+	"ns:objective:autorun",
 ] as const;
 
 import {
@@ -88,7 +88,7 @@ describe("command-backed skill registry", () => {
 		expect(commandBackedSkillSurface("objective-next")).toBe("ns:objective:next");
 		expect(commandBackedSkillSurface("objective-update")).toBe("ns:objective:update");
 		expect(commandBackedSkillSurface("objective-close")).toBe("ns:objective:close");
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ns:objective:stack-impl");
+		expect(commandBackedSkillSurface("objective-autorun")).toBe("ns:objective:autorun");
 	});
 
 	test("registry has unique skill names and surfaces", () => {
@@ -142,7 +142,7 @@ describe("command-backed skill registry", () => {
 				"objective-create",
 				"objective-next",
 				"objective-close",
-				"objective-stack-impl",
+				"objective-autorun",
 				"pi-grill-ui",
 				"ns-flow-autobranch",
 			]),

@@ -27,10 +27,11 @@
       Progress: product steering accepted dogfooding as sufficient for the final deletion slice on 2026-07-05. No `Objective-Runner-Mode: recover` commit exists in history, so recover-mode dogfooding remains a historical caveat for future recovery-policy work rather than a blocker.
 - [x] Delete the legacy machinery after decomposed-flow dogfooding mileage (final slice, ADR 0024): `exec-runner-step`, `ChildSessionGateway` + fake + event channel, the Pi child-session adapter, and marker-block report parsing. `exec-runner-subagent-usage` stays. The frozen `.pi/extensions/objective-autopilot.ts` deletion target is already done (removed on master by `b8c4052f3`, replaced by `/objective:autorun`).
       Evidence: package exports, repo-local extension registration, `.ns/extensions/objective` manifest/stub, legacy command implementation, child-session/Pi adapter files, marker parser, and legacy-only tests were removed; focused objectives package check/test passed.
+- [x] Pi command wrapper over the runner (formerly parked pending CLI + skill landing first, per cross-harness parity): `objective-autorun` absorbed the retired pre-runner `objective-stack-impl` skill — gaining its launch preview/confirm and end-of-run digest (`references/run-digest.md`) — and took over its command-backed picker slot as `/ns:objective:autorun`.
+      Evidence: `autorun` spec in `objective-command-specs.ts` replacing `stack-impl`; `areg` command-backed apply for `objective-autorun`; skill and runner CLI landed before the Pi wrapper, which stays additive presentation.
 
 ## Parked
 
-- Pi command wrapper over the runner (additive presentation; cross-harness parity says CLI + skill land first).
 - Automatic LM recovery supervisor — reintroduction only as explicit, evidence-gated policy per ADR 0022, driven by dogfooding notes from this Objective.
 - Batch/multi-step mode (explicit lower-agency behavior if it ever returns; out of scope for the durable design).
 - Non-Pi child adapters (Claude Code headless or other process models) — resolved differently by ADR 0024: dispatch left the CLI entirely, so no adapter tier is needed; the legacy child-session seam was deleted with the blocking command.

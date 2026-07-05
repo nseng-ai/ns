@@ -1,6 +1,6 @@
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
-export type ObjectiveCliSubcommand = "next" | "update" | "close" | "stack-impl";
+export type ObjectiveCliSubcommand = "next" | "update" | "close" | "autorun";
 export type ObjectiveCommandName = `ns:objective:${ObjectiveCliSubcommand}`;
 export type ObjectiveSkillName = `objective-${ObjectiveCliSubcommand}`;
 export type ObjectiveCreateCommandName = "ns:objective:create";
@@ -85,14 +85,14 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 			"\nAfter this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
 	}),
 	defineObjectiveCommandSpec({
-		skillName: "objective-stack-impl",
-		cliSubcommand: "stack-impl",
+		skillName: "objective-autorun",
+		cliSubcommand: "autorun",
 		description:
-			"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
-		selectionTitle: "Select an active Objective for stack implementation",
+			"Pick an active Objective, then invoke objective-autorun to drive it through repeated verified runner steps.",
+		selectionTitle: "Select an active Objective to autorun",
 		fallbackPrompt:
-			"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
-		actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
+			"The objective-autorun skill was not found among loaded Pi skills. Follow the repository's Objective Runner workflow anyway for the explicit Objective below: drive it through repeated decomposed runner steps (ns objective exec runner-begin, one dispatched subagent, ns objective exec runner-finish), reading each Runner Checkpoint and making an explicit continue, recover, or stop decision between steps. Route tracking through objective-update between steps only. Do not push, submit, publish, merge, or perform any other write-capable external action; the run ends with local stacked branches handed back to the normal workflow.",
+		actionPrompt: "Run objective-autorun for this explicitly selected Objective slug or path:",
 		shouldCompactDiffSuggestion: true,
 	}),
 ];
