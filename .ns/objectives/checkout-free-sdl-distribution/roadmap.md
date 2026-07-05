@@ -13,8 +13,8 @@
     source paths; jiti may remain a dev/package-extension convenience but not the runtime path
     for bundled first-party capabilities.
 - [x] Triage every runtime workspace dependency of `@ns/kernel` (transitively): per package,
-  decide publish vs bundle-inline vs exclude. Record the table. `@ns/kernel` itself must
-  stop being `private` (or be superseded by a published wrapper).
+      decide publish vs bundle-inline vs exclude. Record the table. `@ns/kernel` itself must
+      stop being `private` (or be superseded by a published wrapper).
   - Decision table recorded in
     `updates/20260704T235456Z-runtime-dependency-triage-decisions.md`.
   - Current private inventory is 8 packages: runtime/loader-referenced
