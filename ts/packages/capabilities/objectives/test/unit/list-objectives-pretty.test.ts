@@ -80,7 +80,7 @@ describe("renderObjectiveListPretty colors", () => {
 		expect(out).toContain("● open");
 		expect(out).toContain("✓ closed");
 		// In mono the warn marker drops color but the glyph survives so the flag still reads.
-		expect(out).toMatch(/open {4}x {2}/);
+		expect(out).toContain("● open     x");
 		expect(out).toContain("x = uncommitted changes not yet recorded in an update");
 	});
 
@@ -201,7 +201,7 @@ describe("renderObjectiveListPretty layout", () => {
 		expect(lines.find((line) => line.startsWith("bravo"))).toMatch(/\[0m$/);
 	});
 
-	test("blocked renders as an open sub-state: warn blocked glyph, word open, footer legend", () => {
+	test("blocked renders with blocked text and warn blocked glyph", () => {
 		const blocked = result({
 			records: [
 				{
@@ -216,9 +216,9 @@ describe("renderObjectiveListPretty layout", () => {
 		});
 
 		const mono = renderObjectiveListPretty(blocked, caps({ colorDepth: "none" }), NOW);
-		expect(mono).toContain("⊘ open");
-		expect(mono).not.toContain("⊘ blocked"); // never a third lifecycle status word
-		expect(mono).toContain("⊘ = blocked (a sub-state of open; the record says why)");
+		expect(mono).toContain("⊘ blocked");
+		expect(mono).not.toContain("⊘ open");
+		expect(mono).not.toContain("= blocked");
 
 		const colored = renderObjectiveListPretty(blocked, caps({ colorDepth: "truecolor" }), NOW);
 		expect(colored).toContain(`${ESC}[38;2;210;153;34m⊘${ESC}[0m`); // warn intent on the glyph
@@ -228,19 +228,8 @@ describe("renderObjectiveListPretty layout", () => {
 			caps({ colorDepth: "none", canRenderUnicode: false }),
 			NOW,
 		);
-		expect(ascii).toContain("! open");
-		expect(ascii).toContain("! = blocked (a sub-state of open; the record says why)");
-	});
-
-	test("blocked legend appears only when a record is blocked", () => {
-		const open = result({
-			records: [
-				{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
-			],
-		});
-		expect(renderObjectiveListPretty(open, caps({ colorDepth: "none" }), NOW)).not.toContain(
-			"= blocked",
-		);
+		expect(ascii).toContain("! blocked");
+		expect(ascii).not.toContain("= blocked");
 	});
 
 	test("legend appears only when a record has outstanding changes", () => {

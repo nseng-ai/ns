@@ -34,7 +34,7 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 describe("renderObjectiveListHuman", () => {
 	const esc = String.fromCharCode(0x1b);
 
-	test("renders the full human table with edges, blocked sub-state, and branch attribution continuations", () => {
+	test("renders the full human table with edges, blocked state text, and branch attribution continuations", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
 			rootPath: ".ns/objectives",
@@ -66,15 +66,15 @@ describe("renderObjectiveListHuman", () => {
 			"Root: .ns/objectives",
 			"Status filter: all",
 			"",
-			"OBJECTIVE        STATUS            LATEST UPDATE         EDGES  UPDATED BRANCHES",
-			"───────────────  ────────────────  ────────────────────  ─────  ────────────────",
-			"alpha            ⊘ open (blocked)  2026-06-13T09:10:00Z  2      ├ 1/2 feat/alpha",
-			"                                                                └ 2/2 feat/beta",
-			"bravo-objective  ✓ closed          (x) —                        —",
+			"OBJECTIVE        STATUS     LATEST UPDATE         EDGES  UPDATED BRANCHES",
+			"───────────────  ─────────  ────────────────────  ─────  ────────────────",
+			"alpha            ⊘ blocked  2026-06-13T09:10:00Z  2      ├ 1/2 feat/alpha",
+			"                                                         └ 2/2 feat/beta",
+			"bravo-objective  ✓ closed   (x) —                        —",
 		]);
 	});
 
-	test("markdown table carries the edges column blank-when-zero and the blocked open sub-state", () => {
+	test("markdown table carries the edges column blank-when-zero and blocked state text", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
 			rootPath: ".ns/objectives",
@@ -95,7 +95,7 @@ describe("renderObjectiveListHuman", () => {
 
 		const lines = renderObjectiveListMarkdown(result).split("\n");
 		expect(lines).toContain("| objective | status | latest update | edges |");
-		expect(lines).toContain("| alpha | ⊘ open (blocked) | — | 2 |");
+		expect(lines).toContain("| alpha | ⊘ blocked | — | 2 |");
 		expect(lines).toContain("| bravo | ● open | — |  |");
 	});
 
@@ -123,7 +123,7 @@ describe("renderObjectiveListHuman", () => {
 			caps: { isTty: false, colorDepth: "none", columns: 80, canRenderUnicode: false },
 		});
 		expect(output).toContain("o open");
-		expect(output).toContain("! open (blocked)");
+		expect(output).toContain("! blocked");
 		expect(output).toContain("v closed");
 	});
 
@@ -256,7 +256,7 @@ describe("objective list helpers", () => {
 		const malformedFrontmatter = await listWithObjectiveMd("---\nblocked: [\n---\n# alpha\n");
 		expect(malformedFrontmatter).toEqual(withoutFrontmatter);
 
-		// Blocked sentence and edges surface as the blocked sub-state and the edge count,
+		// Blocked sentence and edges surface as blocked state text and the edge count,
 		// including under --minimal.
 		const blockedWithEdges = await listWithObjectiveMd(
 			[

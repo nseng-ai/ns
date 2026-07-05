@@ -44,8 +44,8 @@ export const objectiveListRecordSchema = z.object({
 	slug: z.string(),
 	status: z.enum(["open", "closed"]),
 	/**
-	 * Present (true) only when Record Frontmatter carries a `blocked:` sentence. Blocked is a
-	 * sub-state of open, never a third lifecycle status; `status` stays "open" for blocked records.
+	 * Present (true) only when Record Frontmatter carries a `blocked:` sentence. Blocked renders as
+	 * human-facing state text, while `status` stays "open" for lifecycle/filtering semantics.
 	 */
 	isBlocked: z.boolean().optional(),
 	latestUpdateIso: z.string().nullable(),
@@ -319,27 +319,26 @@ export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
 export interface ObjectiveStatusPresentation {
 	glyphName: Extract<GlyphName, "open" | "done" | "blocked">;
 	intent: Intent;
-	word: "open" | "closed";
-	qualifier: "" | " (blocked)";
+	word: "open" | "closed" | "blocked";
 }
 
-// Blocked renders as a sub-state of open — the word "open" stays, the glyph and the
-// "(blocked)" qualifier mark the sub-state — never as a third lifecycle status.
+// Blocked remains an open lifecycle state for filtering and machine output, but human surfaces
+// render the blocked state directly in the STATUS text instead of relying on a separate indicator.
 export function objectiveStatusPresentation(
 	record: ObjectiveListRecord,
 ): ObjectiveStatusPresentation {
 	if (record.status === "closed") {
-		return { glyphName: "done", intent: "success", word: "closed", qualifier: "" };
+		return { glyphName: "done", intent: "success", word: "closed" };
 	}
 	if (record.isBlocked === true) {
-		return { glyphName: "blocked", intent: "warn", word: "open", qualifier: " (blocked)" };
+		return { glyphName: "blocked", intent: "warn", word: "blocked" };
 	}
-	return { glyphName: "open", intent: "accent", word: "open", qualifier: "" };
+	return { glyphName: "open", intent: "accent", word: "open" };
 }
 
 function recordStatusCell(record: ObjectiveListRecord, caps: Caps): string {
 	const presentation = objectiveStatusPresentation(record);
-	return `${glyph(caps, presentation.glyphName)} ${presentation.word}${presentation.qualifier}`;
+	return `${glyph(caps, presentation.glyphName)} ${presentation.word}`;
 }
 
 export function edgeCountCell(record: ObjectiveListRecord): string {
