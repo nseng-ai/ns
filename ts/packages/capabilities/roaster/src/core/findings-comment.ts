@@ -195,7 +195,7 @@ export function parseFindingsCommentMachineState(raw: string): FindingsCommentMa
 }
 
 export function inlineMarkerForFinding(reviewName: string, finding: ReviewFinding): string {
-	const digest = truncatedSha256Digest(findingDigestInput(reviewName, finding)).slice(0, 16);
+	const digest = findingDigest({ reviewName, finding, length: 16 });
 	return `<!-- ${INLINE_MARKER_PREFIX}:${reviewName}:${digest} -->`;
 }
 
@@ -269,15 +269,38 @@ function mergePriorFindingRecords(options: {
 			lastSeenHeadSha: options.currentHeadSha,
 		});
 	}
-	const records = [...recordsById.values()];
-	const prunedCount = Math.max(0, records.length - options.cap);
-	return { records: records.slice(-options.cap), prunedCount };
+	const { kept, omittedCount } = capTrailingRecords([...recordsById.values()], options.cap);
+	return { records: kept, prunedCount: omittedCount };
+}
+
+export function capTrailingRecords<T>(
+	records: readonly T[],
+	cap: number,
+): { readonly kept: readonly T[]; readonly omittedCount: number } {
+	const omittedCount = Math.max(0, records.length - cap);
+	return { kept: records.slice(-cap), omittedCount };
 }
 
 function priorFindingId(reviewName: string, finding: ReviewFinding): string {
-	return truncatedSha256Digest(
-		findingDigestInput(reviewName, finding, { prefix: "prior-finding-v1" }),
-	).slice(0, 32);
+	return findingDigest({
+		prefix: "prior-finding-v1",
+		reviewName,
+		finding,
+		length: 32,
+	});
+}
+
+function findingDigest(options: {
+	readonly prefix?: string;
+	readonly reviewName: string;
+	readonly finding: ReviewFinding;
+	readonly length: number;
+}): string {
+	const input =
+		options.prefix === undefined
+			? findingDigestInput(options.reviewName, options.finding)
+			: findingDigestInput(options.reviewName, options.finding, { prefix: options.prefix });
+	return truncatedSha256Digest(input).slice(0, options.length);
 }
 
 function findingDigestInput(

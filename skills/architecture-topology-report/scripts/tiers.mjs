@@ -2,9 +2,12 @@
 // presentation, extraction policy, and renderer ordering.
 import {
   allowedPackageTierDebtEdgeEntries,
+  packageEdgeKey,
   packageTierDefinitions,
   tierRank,
 } from "../../../ts/packages/internal/typescript-style-guard/src/package-tier-taxonomy.ts";
+
+export { packageEdgeKey };
 
 export const PACKAGE_TIER_IDS = packageTierDefinitions.map((tier) => tier.id);
 export const PACKAGE_TIER_POLICY = Object.fromEntries(
@@ -25,7 +28,7 @@ export const FALLBACK_TIER = "standalone-tool";
 export const TIER_RANK = Array.from(tierRank);
 
 // Short display name for a package id (drops the well-known scope prefixes).
-export const label = (id) => {
+export function label(id) {
   if (id === "@internal/pi-tools") return "ipt";
   return id.replace(/^@internal\/pi-tools\//, "ipt:").replace(/^@ns\//, "");
-};
+}

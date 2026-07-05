@@ -15,6 +15,20 @@ export interface AllowedPackageTierDebtEdge {
 	readonly reason: string;
 }
 
+export const packageTierIds = [
+	"capability",
+	"capability-kit",
+	"sdk",
+	"neutral-infra",
+	"host",
+	"capability-pi",
+	"standalone-tool",
+	"internal-pi-tool",
+	"internal-tool",
+] as const;
+
+export type PackageTierId = (typeof packageTierIds)[number];
+
 const packageTierDefinitionsInput = {
 	capability: {
 		name: "capability",
@@ -84,22 +98,16 @@ const packageTierDefinitionsInput = {
 		stroke: "#a8a29e",
 		allowedTargets: ["internal-tool", "neutral-infra"],
 	},
-} as const;
+} as const satisfies Record<PackageTierId, PackageTierDefinitionInput>;
 
-export type PackageTierId = keyof typeof packageTierDefinitionsInput;
-
-type PackageTierDefinitionsById = {
-	readonly [Id in PackageTierId]: PackageTierDefinitionInput;
-};
-
-export const packageTierDefinitionsById =
-	packageTierDefinitionsInput satisfies PackageTierDefinitionsById;
-
-export const packageTierDefinitions: readonly PackageTierDefinition[] = packageTierEntries().map(
-	([id, definition]) => ({ id, ...definition }),
+export const packageTierDefinitions: readonly PackageTierDefinition[] = packageTierIds.map(
+	(id) => ({
+		id,
+		...packageTierDefinitionsInput[id],
+	}),
 );
 
-export const tierRank = defineTierRank([
+export const tierRank = [
 	"internal-pi-tool",
 	"internal-tool",
 	"standalone-tool",
@@ -109,9 +117,9 @@ export const tierRank = defineTierRank([
 	"capability-kit",
 	"sdk",
 	"neutral-infra",
-] as const);
+] as const satisfies readonly PackageTierId[];
 
-export const allowedPackageTierDebtEdges = [
+export const packageTierDebtEdgeDefinitions = [
 	{
 		from: "@ns/kernel",
 		to: "@ns/slot",
@@ -137,20 +145,11 @@ export const allowedPackageTierDebtEdges = [
 	},
 ] as const satisfies readonly AllowedPackageTierDebtEdge[];
 
+export function packageEdgeKey(from: string, to: string): string {
+	return `${from}\0${to}`;
+}
+
 export const allowedPackageTierDebtEdgeEntries: readonly (readonly [string, string])[] =
-	allowedPackageTierDebtEdges.map(({ from, to, reason }) => [`${from}\0${to}`, reason] as const);
-
-function packageTierEntries(): Array<readonly [PackageTierId, PackageTierDefinitionInput]> {
-	return Object.entries(packageTierDefinitionsById) as Array<
-		readonly [PackageTierId, PackageTierDefinitionInput]
-	>;
-}
-
-function defineTierRank<const TierRank extends readonly PackageTierId[]>(
-	tierRank: TierRank &
-		([PackageTierId] extends [TierRank[number]]
-			? unknown
-			: readonly ["Missing package tier rank", Exclude<PackageTierId, TierRank[number]>]),
-): TierRank {
-	return tierRank;
-}
+	packageTierDebtEdgeDefinitions.map(
+		({ from, to, reason }) => [packageEdgeKey(from, to), reason] as const,
+	);

@@ -49,7 +49,9 @@ export const allowedPackageTierDebtEdges = new Map<string, string>(
 
 function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> {
 	const targets = {} as Record<PackageTier, ReadonlySet<PackageTier>>;
-	for (const tier of packageTierDefinitions) targets[tier.id] = new Set(tier.allowedTargets);
+	for (const tier of packageTierDefinitions) {
+		targets[tier.id] = new Set(tier.allowedTargets);
+	}
 	return targets;
 }
 
