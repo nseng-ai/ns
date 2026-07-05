@@ -59,81 +59,24 @@ Auto-invoke when users ask about:
 3. `.python-version` file - Contains version like `3.12` or `3.12.0`
 4. Default to Python 3.12 if no version specifier found
 
-**Once identified, load the appropriate version-specific file:**
+Detection happens once per task. Load exactly one matching file: `versions/python-3.10.md`,
+`versions/python-3.11.md`, `versions/python-3.12.md`, or `versions/python-3.13.md`.
 
-- Python 3.10: Load `versions/python-3.10.md`
-- Python 3.11: Load `versions/python-3.11.md`
-- Python 3.12: Load `versions/python-3.12.md`
-- Python 3.13: Load `versions/python-3.13.md`
+## Reference Routing
 
-## Conditional Loading (Load Based on Task Patterns)
+Core knowledge plus the version file cover 80%+ of Python code patterns. Load each file below
+only when one of its triggers fires. Every file is self-contained with complete guidance for
+its domain.
 
-Core files above cover 80%+ of Python code patterns. Only load these additional files when you
-detect specific patterns:
+### `cli-patterns.md` — CLI patterns (click, argparse)
 
-Pattern detection examples:
+**Read when**: the task mentions "click" or "CLI", including CLI argument parsing.
 
-- If task mentions "click" or "CLI" -> Load `cli-patterns.md`
-- If task mentions "subprocess" -> Load `subprocess.md`
+### `subprocess.md` — subprocess patterns
 
-## Reference Documentation Structure
+**Read when**: the task mentions "subprocess" or runs external commands.
 
-The skill directory contains detailed guidance organized by topic:
-
-### Core References
-
-- **`dignified-python-core.md`** - Essential standards (always loaded)
-- **`cli-patterns.md`** - Command-line interface patterns (click, argparse)
-- **`subprocess.md`** - Subprocess patterns
-
-### Version-Specific References (`versions/`)
-
-- **`versions/python-3.10.md`** - Features available in Python 3.10+
-- **`versions/python-3.11.md`** - Features available in Python 3.11+
-- **`versions/python-3.12.md`** - Features available in Python 3.12+
-- **`versions/python-3.13.md`** - Features available in Python 3.13+
-
-### Supplemental References (`references/`)
-
-- **`references/module-design.md`** - Module organization and import-time behavior
-- **`references/checklists.md`** - Review checklists
-
-### Advanced Topics (`references/advanced/`)
-
-- **`references/advanced/exception-handling.md`** - LBYL patterns, error boundaries
-- **`references/advanced/interfaces.md`** - ABC and Protocol patterns
-- **`references/advanced/typing-advanced.md`** - Advanced typing patterns
-- **`references/advanced/api-design.md`** - API design principles
-
-## When to Read Each Reference Document
-
-### `references/advanced/exception-handling.md`
-
-**Read when**:
-
-- Writing try/except blocks
-- Wrapping third-party APIs that may raise
-- Seeing or writing `from e` or `from None`
-- Unsure if LBYL alternative exists
-
-### `references/advanced/interfaces.md`
-
-**Read when**:
-
-- Creating ABC or Protocol classes
-- Writing @abstractmethod decorators
-- Designing gateway layer interfaces
-- Choosing between ABC and Protocol
-
-### `references/advanced/typing-advanced.md`
-
-**Read when**:
-
-- Using typing.cast()
-- Creating Literal type aliases
-- Narrowing types in conditional blocks
-
-### `references/module-design.md`
+### `references/module-design.md` — module organization and import-time behavior
 
 **Read when**:
 
@@ -143,7 +86,33 @@ The skill directory contains detailed guidance organized by topic:
 - Seeing Path() or computation at module level
 - Considering inline imports
 
-### `references/advanced/api-design.md`
+### `references/advanced/exception-handling.md` — LBYL patterns, error boundaries
+
+**Read when**:
+
+- Writing try/except blocks
+- Wrapping third-party APIs that may raise
+- Seeing or writing `from e` or `from None`
+- Unsure if LBYL alternative exists
+
+### `references/advanced/interfaces.md` — ABC and Protocol patterns
+
+**Read when**:
+
+- Creating ABC or Protocol classes
+- Writing @abstractmethod decorators
+- Designing gateway layer interfaces
+- Choosing between ABC and Protocol
+
+### `references/advanced/typing-advanced.md` — advanced typing patterns
+
+**Read when**:
+
+- Using typing.cast()
+- Creating Literal type aliases
+- Narrowing types in conditional blocks
+
+### `references/advanced/api-design.md` — API design principles
 
 **Read when**:
 
@@ -152,19 +121,10 @@ The skill directory contains detailed guidance organized by topic:
 - Using ThreadPoolExecutor.submit()
 - Reviewing function signatures
 
-### `references/checklists.md`
+### `references/checklists.md` — review checklists
 
 **Read when**:
 
 - Final review before committing Python code
 - Unsure if you've followed all rules
 - Need a quick lookup of requirements
-
-## How to Use This Skill
-
-1. **Core knowledge** is loaded automatically (LBYL, pathlib, basic imports, anti-patterns)
-2. **Version detection** happens once - identify the minimum Python version and load the appropriate
-   version file
-3. **Reference documents** are loaded on-demand based on the triggers above
-4. **Additional patterns** may require extra loading (CLI patterns, subprocess)
-5. **Each file is self-contained** with complete guidance for its domain
