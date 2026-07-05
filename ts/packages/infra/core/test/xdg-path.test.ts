@@ -62,11 +62,11 @@ describe("XDG path helpers", () => {
 		expect(
 			resolveNsXdgPath({
 				kind: "state",
-				env: { HOME: "/home/tester", NS_ROOT: "~/sdl-root" },
+				env: { HOME: "/home/tester", NS_ROOT: "~/ns-root" },
 				segments: ["logs"],
 				overrideEnv: "NS_ROOT",
 			}),
-		).toEqual({ ok: true, value: "/home/tester/sdl-root/logs" });
+		).toEqual({ ok: true, value: "/home/tester/ns-root/logs" });
 	});
 
 	test("requireXdgPath unwraps successful paths and throws XDG error messages", () => {

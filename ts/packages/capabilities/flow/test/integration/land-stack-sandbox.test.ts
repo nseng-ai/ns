@@ -140,7 +140,7 @@ interface Notification {
 
 describe("land stack sandbox integration", () => {
 	test(
-		"lands a two-branch stack through real git and fake gh/gt/sdl shims without deleting descendants",
+		"lands a two-branch stack through real git and fake gh/gt/ns shims without deleting descendants",
 		async () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
 				const result = await executeSandboxLanding(sandbox);

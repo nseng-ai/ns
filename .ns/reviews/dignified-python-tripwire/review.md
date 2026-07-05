@@ -1,6 +1,6 @@
 ---
 description: |
-  Dignified Python Tripwire: enforce sdl's "dignified Python" coding standards
+  Dignified Python Tripwire: enforce ns's "dignified Python" coding standards
   on the supplied diff. Flag concrete violations that a human reviewer would
   otherwise call out in PR review: LBYL exception handling, pathlib over
   os.path, absolute imports, no re-exports, modern type syntax, and other

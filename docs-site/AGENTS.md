@@ -1,6 +1,6 @@
 # docs-site Agent Notes
 
-This directory is sdl's published documentation site.
+This directory is ns's published documentation site.
 
 - Published site content lives in `docs-site/docs/`.
 - The repository-root `docs/` tree is internal engineering documentation and is not published by this site. Do not move or rewrite root `docs/` content when working on the published site unless explicitly asked.

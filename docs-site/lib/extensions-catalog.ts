@@ -71,14 +71,14 @@ function defineExtensionCategoryDescriptors(items: readonly ExtensionCategoryDes
 // parity records track CLI/skill equivalence, while these entries optimize docs discovery copy.
 export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
   {
-    slug: "sdl-command-mirrors",
-    name: "SDL command mirrors",
+    slug: "ns-command-mirrors",
+    name: "NS command mirrors",
     summary: "Run checkpoint, changes, submit, and PR regeneration workflows from Pi slash commands.",
     details:
-      "Thin Pi adapters expose SDL's lifecycle commands without making agents leave the current session.",
+      "Thin Pi adapters expose NS's lifecycle commands without making agents leave the current session.",
     category: "branch-pr",
     status: "built-in",
-    commandHint: "/ns:code:checkpoint",
+    commandHint: "/ns:flow:cp",
     sourcePath: ".pi/extensions/ns.ts",
     docsHref: "/docs/concepts/cli-conventions",
     isFeatured: true,

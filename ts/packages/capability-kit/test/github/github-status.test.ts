@@ -389,7 +389,7 @@ describe("GitHub status check classification", () => {
 					workflowName: "roaster",
 					workflowRunDatabaseId: 101,
 					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
-					name: "review (sdl-typescript-style-tripwire)",
+					name: "review (ns-typescript-style-tripwire)",
 					status: "COMPLETED",
 					conclusion: "SUCCESS",
 					completedAt: "2026-06-26T14:22:00Z",

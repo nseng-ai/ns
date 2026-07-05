@@ -59,9 +59,11 @@ describe("project extension shared flow foundations", () => {
 
 		expect(autobranchSource).toContain("../../autobranch/dirty-worktree.ts");
 		expect(branchLatestCommitSource).toContain("../../autobranch/latest-commit.ts");
-		const oldAutobranchPackageName = ["@sdl", "autobranch"].join("/");
-		expect(autobranchSource).not.toContain(`${oldAutobranchPackageName}/dirty-worktree`);
-		expect(branchLatestCommitSource).not.toContain(`${oldAutobranchPackageName}/latest-commit`);
+		const removedAutobranchPackageSpecifier = ["@sdl", "autobranch"].join("/");
+		expect(autobranchSource).not.toContain(`${removedAutobranchPackageSpecifier}/dirty-worktree`);
+		expect(branchLatestCommitSource).not.toContain(
+			`${removedAutobranchPackageSpecifier}/latest-commit`,
+		);
 		await expect(access(FLOW_AUTOBRANCH_INTERNAL_PATH, constants.F_OK)).resolves.toBeUndefined();
 		await expect(access(OLD_AUTOBRANCH_PACKAGE_MANIFEST_PATH, constants.F_OK)).rejects.toThrow();
 		for (const [directory, fileName] of REMOVED_LOCAL_AUTOBRANCH_HELPERS) {
@@ -81,9 +83,9 @@ describe("project extension shared flow foundations", () => {
 		expect(worktreeSource).toContain("@ns/capability-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
 		expect(worktreeSource).toContain("execNsCommand");
-		const cccPackageName = ["@sdl", "ccc"].join("/");
+		const removedCccPackageSpecifier = ["@sdl", "ccc"].join("/");
 		for (const source of [autoslotSource, landSource, pullTrunkSource, flowPackage]) {
-			expect(source).not.toContain(cccPackageName);
+			expect(source).not.toContain(removedCccPackageSpecifier);
 		}
 		expect(flowPackage).toContain('"./api": "./src/api/index.ts"');
 		expect(autoslotSource).toContain("../../autoslot/autoslot.ts");
@@ -99,7 +101,7 @@ describe("project extension shared flow foundations", () => {
 		const worktreeSource = await readFile(WORKTREE_SUPPORT_PATH, "utf8");
 		const pushSource = await readFile(PUSH_COMMAND_PATH, "utf8");
 
-		expect(submitSource).not.toContain("private/tmp/sdl-submit-extension-build");
+		expect(submitSource).not.toContain("private/tmp/legacy-submit-extension-build");
 		expect(submitSource).not.toContain(["@sdl", ["co", "re"].join(""), "submit"].join("/"));
 		expect(submitSource).not.toContain(["@sdl", "graphite", "submit"].join("/"));
 		expect(submitSource).toContain("../../submit/ns-runtime.ts");

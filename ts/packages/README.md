@@ -6,7 +6,7 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 
 ## Top-level packages
 
-- `sdl/` is the ji kernel and CLI package. It stays top-level by design.
+- `kernel/` is the ns kernel and CLI package. It stays top-level by design. Some legacy directory names remain as migration residue until a focused path-move slice removes them.
 - `capability-kit/` is the first-party Capability Kit substrate (`@ns/capability-kit`). It stays top-level by design and does not need a category wrapper.
 - Capability packages move under `capabilities/` either when certified standalone (`plans`, `address`, `aretro`) or during their container conversion slices. Remaining top-level capability packages are migration residue.
 - `ccc` is a capability, not a separate orchestrator category. It moves to `capabilities/ccc` only during its own conversion slice.

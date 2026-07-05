@@ -1,12 +1,12 @@
 ---
 name: objective-autorun
 disable-model-invocation: true
-description: "Parent orchestration loop for driving one sdl Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"drive the objective forward\", \"execute the autoobjective\", or \"run N runner steps\". For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
+description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"drive the objective forward\", \"execute the autoobjective\", or \"run N runner steps\". For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
 ---
 
 # objective-autorun
 
-Drive one sdl Objective forward through repeated verified runner steps. You are the **parent** for the whole run: each step is one begin → subagent → finish cycle (one implementation subagent, one verified commit, one Runner Checkpoint), and you make every between-step decision — continue, recover, update tracking, stop, or ask the human.
+Drive one ns Objective forward through repeated verified runner steps. You are the **parent** for the whole run: each step is one begin → subagent → finish cycle (one implementation subagent, one verified commit, one Runner Checkpoint), and you make every between-step decision — continue, recover, update tracking, stop, or ask the human.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary and safety rules, and the `objective-runner-step` skill for the per-step contract (the three-phase flow, flags, checkpoint zones, exit codes, post-checkpoint playbook). This skill owns only the loop around it.
 

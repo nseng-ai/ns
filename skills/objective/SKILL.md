@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Conceptual questions about sdl Objectives, ns objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
+description: "Conceptual questions about ns Objectives, ns objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
 ---
 
 # objective

@@ -27,8 +27,8 @@ just install-tools
 
 The recipe renders the shared TypeScript source CLI shim template to `$HOME/.local/bin/brmem`.
 
-- Inside an sdl checkout, the shim runs that checkout's `ts/packages/infra/brmem/src/cli.ts`.
-- Outside an sdl checkout, it runs the checkout path baked in when the shim was installed.
+- Inside an ns checkout, the shim runs that checkout's `ts/packages/infra/brmem/src/cli.ts`.
+- Outside an ns checkout, it runs the checkout path baked in when the shim was installed.
 - Requirements: Node 24+ matching workspace CI, plus `ts/node_modules` from `just ts-install` or `pnpm --dir ts install`.
 
 ## Local usage

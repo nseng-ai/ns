@@ -230,7 +230,7 @@ export function normalizeLandCommandFinish(
 		return normalizeGraphiteCommandFinish(args, result);
 	}
 	// /ns:flow:land reads Graphite topology through a controlled ns flow exec command;
-	// avoid labeling unrelated sdl invocations just because the binary matches.
+	// avoid labeling unrelated ns invocations just because the binary matches.
 	if (command === "ns" && result.code === 0 && isReadGraphiteBranchMetadataArgs(args)) {
 		return { result, note: "read Graphite stack topology" };
 	}

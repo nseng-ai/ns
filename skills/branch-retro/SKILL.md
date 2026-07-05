@@ -12,7 +12,7 @@ allowed-tools:
   - "Read"
 ---
 
-<!-- PUBLIC SKILL: Do not reference sdl-internal module paths or class names in this file. Describe CLI operations, not implementation. -->
+<!-- PUBLIC SKILL: Do not reference ns-internal module paths or class names in this file. Describe CLI operations, not implementation. -->
 
 # branch-retro
 
@@ -74,7 +74,7 @@ low-confidence association.
 The compact `data` object remains the primary evidence source. It includes
 counts, sessions, warnings, evidence items, source refs, and a `payload_reference`
 for sanitized local detail expansion. Payload artifacts are local files under the
-configured/default sdl temp payload root and the chosen payload session id;
+configured/default ns temp payload root and the chosen payload session id;
 cleanup/list/GC is not part of this workflow.
 
 When compact evidence is insufficient to make or validate a recommendation, read

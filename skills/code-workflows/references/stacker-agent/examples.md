@@ -11,7 +11,7 @@ Input plan:
 ```md
 # Report reconcile stack
 
-1. First add the shared reconciliation primitives in sdl-core.
+1. First add the shared reconciliation primitives in ns-core.
 2. Then add the report CLI command that consumes them.
 3. Finish with scenario tests and docs.
 
@@ -27,7 +27,7 @@ Normalized slices:
     "schema": "stacker-slice-manifest/v1",
     "ordinal": 1,
     "title": "PR 1 - reconciliation primitives",
-    "scope": "Add the shared reconciliation primitives in sdl-core.",
+    "scope": "Add the shared reconciliation primitives in ns-core.",
     "base": "default_branch",
     "validate": {"command": "just"},
     "constraints": ["Do not touch vendored skills."]

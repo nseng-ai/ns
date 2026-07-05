@@ -1,6 +1,6 @@
 # Danger tiers (ADR 0014)
 
-Four **authoring** danger tiers. Tiers are `sdl-cli-design` discipline, not a
+Four **authoring** danger tiers. Tiers are `ns-cli-design` discipline, not a
 Clinkr framework type; `ClinkrInteraction.confirm` is the only confirmation
 primitive, and `ClinkrInteraction.isInteractive()` gates prompting.
 

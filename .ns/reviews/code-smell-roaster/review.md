@@ -17,17 +17,17 @@ applies_to:
 
 ## Lineage and update source
 
-This review is an SDL-local review prompt derived from the **code-smell baseline**
+This review is an NS-local review prompt derived from the **code-smell baseline**
 in the vendored Matt Pocock `pocock-review` skill:
 `.agents/skills/pocock-review/SKILL.md`.
 
-Upstream source of truth for that vendored skill is `mattpocock/skills`; SDL's
+Upstream source of truth for that vendored skill is `mattpocock/skills`; NS's
 current import provenance is documented in `docs/agents/matt-pocock-skills.md`
 (currently `mattpocock/skills` commit
 `6eeb81b5fcfeeb5bd531dd47ab2f9f2bbea27461`, package version `1.0.1`). When
 refreshing Matt-sourced skills, compare upstream `pocock-review`'s smell
 baseline and apply relevant changes here manually. Preserve this review's
-SDL-local adaptations: code-smell-only scope, roaster tone, `.ns/reviews`
+NS-local adaptations: code-smell-only scope, roaster tone, `.ns/reviews`
 frontmatter, and explicit exclusions for spec/standards/tests/formatting.
 
 Review only the supplied diff/current branch changes plus the minimum nearby

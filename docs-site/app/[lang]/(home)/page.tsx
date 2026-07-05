@@ -3,16 +3,16 @@ import Link from "next/link";
 import { Card, CtaLink, MarketingHero, PreviewPanel } from "@/components/marketing-ui";
 
 export const metadata: Metadata = {
-  title: "sdl Documentation",
-  description: "Published documentation for sdl's plan-oriented agentic engineering workflows.",
+  title: "ns Documentation",
+  description: "Published documentation for ns's plan-oriented agentic engineering workflows.",
   openGraph: {
-    title: "sdl Documentation",
-    description: "Published documentation for sdl's plan-oriented agentic engineering workflows.",
+    title: "ns Documentation",
+    description: "Published documentation for ns's plan-oriented agentic engineering workflows.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "sdl Documentation",
-    description: "Published documentation for sdl's plan-oriented agentic engineering workflows.",
+    title: "ns Documentation",
+    description: "Published documentation for ns's plan-oriented agentic engineering workflows.",
   },
 };
 
@@ -27,7 +27,7 @@ const features = [
   },
   {
     title: "Agent extensions",
-    description: "Browse the local extension surfaces that bring sdl workflows into Pi.",
+    description: "Browse the local extension surfaces that bring ns workflows into Pi.",
     href: "/extensions",
   },
 ];
@@ -60,8 +60,8 @@ export default function HomePage() {
             </CtaLink>
           </>
         }
-        description="sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-        eyebrow="sdl Documentation"
+        description="ns lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        eyebrow="ns Documentation"
         eyebrowTone="blue"
         sidePanel={<FileTreePreview />}
         title="Lorem ipsum dolor sit amet, consectetur adipiscing elit."

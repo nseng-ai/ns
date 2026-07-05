@@ -7,7 +7,7 @@ allowed-tools:
   - "Read"
 ---
 
-<!-- PUBLIC SKILL: Do not reference sdl-internal module paths or class names in this file. Describe CLI operations, not implementation. -->
+<!-- PUBLIC SKILL: Do not reference ns-internal module paths or class names in this file. Describe CLI operations, not implementation. -->
 
 # brmem
 
@@ -42,7 +42,7 @@ private tokens, binary assets, generated build output, or large datasets.
 
 ## Install and runtime
 
-Public `brmem` invocation should come from an sdl checkout with:
+Public `brmem` invocation should come from an ns checkout with:
 
 ```text
 just install-brmem
@@ -51,7 +51,7 @@ just install-tools
 ```
 
 The installed command is a TypeScript-backed source shim. It uses the enclosing
-sdl checkout when run inside one, and otherwise uses the checkout that installed
+ns checkout when run inside one, and otherwise uses the checkout that installed
 it. The shim requires the workspace Node version and `ts/node_modules`; the
 install recipes run `just ts-install`, and a broken checkout can be repaired by
 running `just ts-install` there.

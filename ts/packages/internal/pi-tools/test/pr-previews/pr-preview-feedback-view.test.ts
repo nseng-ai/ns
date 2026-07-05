@@ -125,7 +125,7 @@ function threadFixtures(): PrPreviewFeedbackThread[] {
 			body: bodyText({
 				level: "warning",
 				title: "Finding two",
-				review: "sdl-typescript-style",
+				review: "ns-typescript-style",
 				detail: "The second finding is advisory.",
 				evidence: "src/two.ts:20",
 			}),

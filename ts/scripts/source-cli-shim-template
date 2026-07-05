@@ -5,7 +5,7 @@
 # The installer replaces this template's placeholders with shell-quoted literal
 # values. Installed shims use a baked canonical checkout fallback. Skill-local
 # runners derive their fallback checkout from the rendered script's own location.
-# In both modes, sources from the caller's current sdl checkout win first.
+# In both modes, sources from the caller's current ns checkout win first.
 set -euo pipefail
 
 tool=@@NS_TOOL@@
@@ -35,7 +35,7 @@ case "$fallback_mode" in
       run_checkout "$canonical_checkout" "$@"
     fi
 
-    echo "$tool: no sdl checkout found (cwd is not inside an sdl checkout and the canonical checkout '$canonical_checkout' is missing $cli_rel_path); reinstall from an sdl checkout with: $install_hint" >&2
+    echo "$tool: no ns checkout found (cwd is not inside an ns checkout and the canonical checkout '$canonical_checkout' is missing $cli_rel_path); reinstall from an ns checkout with: $install_hint" >&2
     exit 2
     ;;
   script-checkout)
@@ -45,7 +45,7 @@ case "$fallback_mode" in
       run_checkout "$script_checkout" "$@"
     fi
 
-    echo "$tool: no sdl checkout found (cwd is not inside an sdl checkout and the script checkout is missing $cli_rel_path); $install_hint" >&2
+    echo "$tool: no ns checkout found (cwd is not inside an ns checkout and the script checkout is missing $cli_rel_path); $install_hint" >&2
     exit 2
     ;;
   *)

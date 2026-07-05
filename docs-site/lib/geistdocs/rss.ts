@@ -11,7 +11,7 @@ export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Respon
     id: baseUrl,
     link: baseUrl,
     language: lang,
-    copyright: `All rights reserved ${new Date().getFullYear()}, sdl`,
+    copyright: `All rights reserved ${new Date().getFullYear()}, ns`,
   });
 
   for (const page of source.getPages(lang)) {
@@ -26,7 +26,7 @@ export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Respon
       date: metadata.lastModified,
       author: [
         {
-          name: "sdl",
+          name: "ns",
         },
       ],
     });

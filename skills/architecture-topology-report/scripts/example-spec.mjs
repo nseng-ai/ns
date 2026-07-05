@@ -1,5 +1,5 @@
-// Validated example spec: reproduces the current sdl-tools topology report, scored against
-// the SDL Extension Architecture target (ADR 0009 / 0012 / 0016). As of this snapshot the
+// Validated example spec: reproduces the current ns topology report, scored against
+// the NS Extension Architecture target (ADR 0009 / 0012 / 0016). As of this snapshot the
 // dependency graph is acyclic — the old branch-slug cycle was retired — so the live measure
 // is the declared-tier guard (two hard violations) plus the migration tail. This is ALL the
 // agent authors per run: optional tier overrides + the editorial judgement. It exercises every
@@ -7,7 +7,7 @@
 // (the transitional holding-pen) — so copy its shape and replace the content.
 export default {
   repo: "ns",
-  targetName: "the SDL Extension Architecture target",
+  targetName: "the NS Extension Architecture target",
   date: "2026-06-28",
   intro:
     `The actual runtime dependency graph extracted from <span class="font-mono text-sm">package.json</span> files, scored against the

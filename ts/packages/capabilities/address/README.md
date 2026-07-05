@@ -32,7 +32,7 @@ ADR 0016 keeps dependency direction as `@ns/address` → `@ns/core`: lower type 
 Address operations are mounted into the repo-local ji extension command face as `ns address exec ...`; nothing is bundled or published:
 
 - **Install**: `just install-tools` installs the `ns` shim.
-- **Dispatch**: inside an sdl checkout (any worktree), `ns address exec ...` loads `.ns/extensions/address` and invokes this package's operation handlers.
+- **Dispatch**: inside an ns checkout (any worktree), `ns address exec ...` loads `.ns/extensions/address` and invokes this package's operation handlers.
 - **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`).
 
 ## Local usage

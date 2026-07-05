@@ -75,8 +75,8 @@ describe("command-backed skill registry", () => {
 		);
 		expect(commandBackedSkillSurface("ns-flow-cp")).toBe("ns:flow:cp");
 		expect(commandBackedSkillSurface("ns-flow-submit")).toBe("ns:flow:submit");
-		expect(commandBackedSkillSurface("sdl-cli-design")).toBe("ns:cli:design");
-		expect(commandBackedSkillSurface("sdl-typescript-style-tripwire")).toBe(
+		expect(commandBackedSkillSurface("ns-cli-design")).toBe("ns:cli:design");
+		expect(commandBackedSkillSurface("ns-typescript-style-tripwire")).toBe(
 			"ns:typescript:style-tripwire",
 		);
 		expect(commandBackedSkillSurface("pytest")).toBe("python:pytest");
@@ -191,8 +191,8 @@ describe("derivePiReplacementCommand", () => {
 		["code-workflows", "code:workflows"],
 		["pytest", "python:pytest"],
 		["skillx", "skill:x"],
-		["sdl-cli-design", "ns:cli:design"],
-		["sdl-typescript-style-tripwire", "ns:typescript:style-tripwire"],
+		["ns-cli-design", "ns:cli:design"],
+		["ns-typescript-style-tripwire", "ns:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
 	});

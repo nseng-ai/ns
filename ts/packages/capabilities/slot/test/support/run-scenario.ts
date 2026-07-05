@@ -151,7 +151,7 @@ function buildScenarioFixture(
 			? { canEmitAnsi: options.canEmitAnsi ?? false }
 			: renderCapabilitiesForTerminal(options.caps);
 	// Slot package scenarios exercise the mounted command face directly. Entrypoint
-	// metadata (`--version`/`--runtime`) is covered by the owning `sdl` CLI tests.
+	// metadata (`--version`/`--runtime`) is covered by the owning `ns` CLI tests.
 	const context: SlotCliContext = {
 		repo,
 		git,

@@ -15,7 +15,7 @@ import type { z as ZodNamespace } from "zod";
 //     ts/packages/capabilities/objective/src/core/objective-command-specs.ts) with an auto parity
 //     table entry;
 // (b) tool → a new `@ns-local/pi-tools` subpackage beside thermo-council (package.json `exports`
-//     + `sdl.subpackages` + `.pi/lib/workspace-packages.ts` fallback map + parity test).
+//     + `ns.subpackages` + `.pi/lib/workspace-packages.ts` fallback map + parity test).
 //
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
@@ -128,7 +128,7 @@ interface ExtensionAPI {
 
 const PI_ADDENDUM = `### Pi session addendum — objective_runner_step tool
 
-In this session, run each runner step by calling the \`objective_runner_step\` tool with \`{ objective, guidance, recover?, model? }\` instead of hand-running \`sdl objective exec runner-begin\`, dispatching a subagent yourself, and \`sdl objective exec runner-finish\`. The tool owns the mechanical step: it runs runner-begin, dispatches the implementation subagent with the generated prompt (progress renders in a live widget), runs runner-finish, and returns the Runner Checkpoint markdown as its result. It also owns report/facts scratch paths — skip the skill's step-artifact bookkeeping; every call gets fresh paths automatically, including recovery attempts.
+In this session, run each runner step by calling the \`objective_runner_step\` tool with \`{ objective, guidance, recover?, model? }\` instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step: it runs runner-begin, dispatches the implementation subagent with the generated prompt (progress renders in a live widget), runs runner-finish, and returns the Runner Checkpoint markdown as its result. It also owns report/facts scratch paths — skip the skill's step-artifact bookkeeping; every call gets fresh paths automatically, including recovery attempts.
 
 Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries (never push/submit/land; never commit on trunk). To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
@@ -281,7 +281,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		pushWidget("begin");
 		const beginExec = normalizeExecResult(
 			await pi.exec(
-				"sdl",
+				"ns",
 				[
 					"objective",
 					"exec",
@@ -337,7 +337,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		pushWidget("finish");
 		const finishExec = normalizeExecResult(
 			await pi.exec(
-				"sdl",
+				"ns",
 				[
 					"objective",
 					"exec",

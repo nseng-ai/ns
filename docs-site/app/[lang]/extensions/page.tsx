@@ -11,8 +11,8 @@ import {
 } from "@/lib/extensions-catalog";
 
 export const metadata: Metadata = {
-  title: "Extensions | sdl Documentation",
-  description: "A static catalog of sdl's local Pi and workflow extensions.",
+  title: "Extensions | ns Documentation",
+  description: "A static catalog of ns's local Pi and workflow extensions.",
 };
 
 export default function ExtensionsPage() {
@@ -29,12 +29,12 @@ export default function ExtensionsPage() {
             </CtaLink>
           </>
         }
-        description="sdl extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so agent sessions can continue work with the right controls already in reach."
+        description="ns extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so agent sessions can continue work with the right controls already in reach."
         eyebrow="Extensions gallery"
         sidePanel={
           <PreviewPanel
             badge="static"
-            eyebrow="sdl extension catalog"
+            eyebrow="ns extension catalog"
             title={`${extensionCatalogEntries.length} local surfaces`}
           >
             <div className="mt-5 space-y-3 font-mono text-sm">
@@ -66,7 +66,7 @@ export default function ExtensionsPage() {
             <h2 className="mt-2 font-semibold text-3xl text-gray-1000 tracking-tight">Start here</h2>
           </div>
           <p className="max-w-xl text-gray-800 text-sm leading-6">
-            These extension surfaces carry the core sdl loop: plan the work, attach context, continue the
+            These extension surfaces carry the core ns loop: plan the work, attach context, continue the
             branch, and leave a durable handoff when needed.
           </p>
         </div>
