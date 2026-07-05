@@ -1,7 +1,7 @@
 import { estimateTokens } from "../core/diff-parsing.ts";
 import { formatOmittedReviewInputFile } from "../core/input-coverage-formatting.ts";
 import {
-	filterLocalDiffFiles,
+	joinDiffFileRawText,
 	type ReviewRunnerRequest,
 	type ReviewInputCoverage,
 } from "../core/models.ts";
@@ -50,8 +50,7 @@ export function promptSizedDiff(
 	}
 
 	const header = buildCappedDiffHeader(inputCoverage);
-	const includedFileSet = new Set(includedFiles);
-	const body = filterLocalDiffFiles(localDiff, (file) => includedFileSet.has(file)).diffText;
+	const body = joinDiffFileRawText(includedFiles);
 	return { diffText: body.length === 0 ? header.trimEnd() : `${header}\n${body}`, inputCoverage };
 }
 
