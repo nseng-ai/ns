@@ -81,6 +81,12 @@ export const stackViewPrStatusSchema = z.enum([
 	"no-pr",
 ]);
 
+/** Internal branch→parent relationship for one stack-view row. */
+export interface StackBranchLineage {
+	branch: string;
+	parentBranch: string;
+}
+
 /** One row of the stack view: a branch and its associated PR (if any). */
 export const stackViewPrSchema = z.object({
 	branch: z.string(),

@@ -129,8 +129,7 @@ describe("objectiveSlugsForBranch", () => {
 		await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
-			branch: "feature",
-			parentBranch: "main",
+			lineage: { branch: "feature", parentBranch: "main" },
 		});
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("git");
@@ -155,8 +154,7 @@ describe("objectiveSlugsForBranch", () => {
 		const result = await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
-			branch: "feature",
-			parentBranch: "main",
+			lineage: { branch: "feature", parentBranch: "main" },
 		});
 		expect(result).toEqual({ type: "ok", slugs: ["alpha", "zeta"] });
 	});
@@ -166,8 +164,7 @@ describe("objectiveSlugsForBranch", () => {
 		const result = await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
-			branch: "feature",
-			parentBranch: "main",
+			lineage: { branch: "feature", parentBranch: "main" },
 		});
 		expect(result).toEqual({ type: "ok", slugs: [] });
 	});
@@ -177,8 +174,7 @@ describe("objectiveSlugsForBranch", () => {
 		const result = await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
-			branch: "feature",
-			parentBranch: "main",
+			lineage: { branch: "feature", parentBranch: "main" },
 		});
 		expect(result).toEqual({ type: "exec-error", message: "fatal: bad revision" });
 	});
@@ -188,8 +184,7 @@ describe("objectiveSlugsForBranch", () => {
 		const result = await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
-			branch: "feature",
-			parentBranch: "main",
+			lineage: { branch: "feature", parentBranch: "main" },
 		});
 		expect(result).toEqual({ type: "exec-error", message: "exit code 1" });
 	});
@@ -199,8 +194,7 @@ describe("objectiveSlugsForBranch", () => {
 		const result = await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
-			branch: "feature",
-			parentBranch: "main",
+			lineage: { branch: "feature", parentBranch: "main" },
 		});
 		expect(result).toEqual({ type: "exec-error", message: "exit code 0 (killed)" });
 	});

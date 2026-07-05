@@ -11,13 +11,13 @@
  * throw. A successful diff with no objective paths simply yields an empty list.
  */
 import type { StackViewExecContext } from "./exec.ts";
+import type { StackBranchLineage } from "./types.ts";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 
 const OBJECTIVES_ROOT = ".ns/objectives";
 
 export interface ObjectiveSlugsForBranchParams extends StackViewExecContext {
-	branch: string;
-	parentBranch: string;
+	lineage: StackBranchLineage;
 }
 
 export type ObjectiveSlugsResult =
@@ -37,7 +37,7 @@ export async function objectiveSlugsForBranch(
 			"diff",
 			"--name-only",
 			"-z",
-			`${params.parentBranch}...${params.branch}`,
+			`${params.lineage.parentBranch}...${params.lineage.branch}`,
 			"--",
 			OBJECTIVES_ROOT,
 		],
