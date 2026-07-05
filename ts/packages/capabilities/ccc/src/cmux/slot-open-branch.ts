@@ -6,7 +6,7 @@ import {
 import { CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
-import type { SlotClient } from "@nseng-ai/slot/api";
+import type { SlotClient } from "@nseng-ai/slots/api";
 import type {
 	AutocompleteItem,
 	CommandContext,

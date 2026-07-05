@@ -1,6 +1,6 @@
 // Formal clinkr display import boundary: production core and non-display subpaths must stay display-free.
 // The root export (`@nseng-ai/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
-// ns house-style display now lives outside Clinkr in `@nseng-ai/core/cli-theme`; Clinkr's only display-adjacent
+// ns house-style display now lives outside Clinkr in `@nseng-ai/foundation/cli-theme`; Clinkr's only display-adjacent
 // production subpath is `@nseng-ai/clinkr/stream`, the owner of `log-update`. This guard scans production
 // source import/export literals directly so future re-exports, side-effect imports, and lazy imports
 // cannot silently pull display bytes into non-display consumers.
@@ -64,7 +64,7 @@ const NON_DISPLAY_ENTRYPOINTS: readonly NonDisplayEntrypoint[] = [
 	},
 ];
 
-const DISPLAY_SUBPATHS = ["@nseng-ai/core/cli-theme", "@nseng-ai/clinkr/stream"];
+const DISPLAY_SUBPATHS = ["@nseng-ai/foundation/cli-theme", "@nseng-ai/clinkr/stream"];
 const DISPLAY_DIRS = [STREAM_DIR];
 const DISPLAY_DEPENDENCY_RULES: readonly DisplayDependencyRule[] = [
 	{ packageName: "log-update", ownerDir: STREAM_DIR, ownerLabel: "src/stream/**" },
@@ -207,7 +207,7 @@ function productionCliThemeImportOffenders(): readonly BoundaryOffender[] {
 	for (const file of sourceFilesUnder(SRC_DIR)) {
 		const source = readFileSync(file, "utf8");
 		for (const { specifier } of literalSpecifierUsesOf(source)) {
-			if (!isPackageOrSubpathSpecifier(specifier, "@nseng-ai/core/cli-theme")) continue;
+			if (!isPackageOrSubpathSpecifier(specifier, "@nseng-ai/foundation/cli-theme")) continue;
 			offenders.push({
 				file: fileForReport(file),
 				specifier,
@@ -223,7 +223,7 @@ describe("clinkr display import boundary", () => {
 		const source = `
 			import ansis from "ansis";
 			import type { Caps } from "./caps.ts";
-			import "@nseng-ai/core/cli-theme";
+			import "@nseng-ai/foundation/cli-theme";
 			export { streamSink } from "@nseng-ai/clinkr/stream";
 			await import("log-update");
 		`;
@@ -231,7 +231,7 @@ describe("clinkr display import boundary", () => {
 		expect(literalSpecifierUsesOf(source)).toEqual([
 			{ specifier: "ansis", kind: "static-import" },
 			{ specifier: "./caps.ts", kind: "static-import" },
-			{ specifier: "@nseng-ai/core/cli-theme", kind: "static-import" },
+			{ specifier: "@nseng-ai/foundation/cli-theme", kind: "static-import" },
 			{ specifier: "@nseng-ai/clinkr/stream", kind: "re-export" },
 			{ specifier: "log-update", kind: "dynamic-import" },
 		]);

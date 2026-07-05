@@ -20,8 +20,8 @@ import type {
 	SessionStartContext,
 	ThinkingLevel,
 } from "@nseng-ai/capability-kit/cmux/types";
-import { parseMachineEnvelopeData } from "@nseng-ai/core/machine-envelope";
-import { optionalEntries } from "@nseng-ai/core/primitives";
+import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 // Local test type for skill command info
 interface SkillCommandInfo {
@@ -35,9 +35,9 @@ import {
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionListLoadResult,
 	type ObjectiveSelectionSpec,
-} from "@nseng-ai/objective/api";
+} from "@nseng-ai/objectives/api";
 
-import { ScriptedQueue } from "@nseng-ai/core/test-kit";
+import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 
 export { brmemCheckJson } from "@nseng-ai/capability-kit/brmem-cli/testing";
 

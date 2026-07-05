@@ -2,14 +2,14 @@ import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { addressRepoLocalNsExtension } from "@nseng-ai/address/repo-local-ns-extension";
-import { aretroRepoLocalNsExtension } from "@nseng-ai/aretro/repo-local-ns-extension";
+import { addressRepoLocalNsExtension } from "@nseng-ai/pr-feedback/repo-local-ns-extension";
+import { aretroRepoLocalNsExtension } from "@nseng-ai/retros/repo-local-ns-extension";
 import { branchContextRepoLocalNsExtension } from "@nseng-ai/branch-context/repo-local-ns-extension";
 import { flowRepoLocalNsExtension } from "@nseng-ai/flow/repo-local-ns-extension";
-import { handoffRepoLocalNsExtension } from "@nseng-ai/handoff/repo-local-ns-extension";
-import { objectiveRepoLocalNsExtension } from "@nseng-ai/objective/repo-local-ns-extension";
-import { objectivePreinstalledNsCommandCatalog } from "@nseng-ai/objective/ns/preinstalled-catalog";
-import { roasterRepoLocalNsExtension } from "@nseng-ai/roaster/repo-local-ns-extension";
+import { handoffRepoLocalNsExtension } from "@nseng-ai/handoffs/repo-local-ns-extension";
+import { objectiveRepoLocalNsExtension } from "@nseng-ai/objectives/repo-local-ns-extension";
+import { objectivePreinstalledNsCommandCatalog } from "@nseng-ai/objectives/ns/preinstalled-catalog";
+import { roasterRepoLocalNsExtension } from "@nseng-ai/reviews/repo-local-ns-extension";
 import type {
 	RepoLocalNsExtensionCommandDescriptor,
 	RepoLocalNsExtensionDescriptor,

@@ -62,7 +62,7 @@ making subsystems jj-native" for why it should *stay* there.)
 Almost everything works unchanged (`for-each-ref`, `rev-parse`, `merge-base`, `log`,
 `patch-id`, `ls-tree`, `status --porcelain`) because colocated git is intact. Two exceptions:
 
-- **Current-branch detection** (`ts/packages/infra/core/src/git/index.ts` and `ts/packages/capabilities/slot/src/gateways/git.ts`) is the load-bearing breakage. In jj you frequently sit on an *anonymous* change with no bookmark, and jj leaves git `HEAD` detached; current-branch commands then report no branch, violating tooling assumptions that work is on a named branch.
+- **Current-branch detection** (`ts/packages/infra/foundation/src/git/index.ts` and `ts/packages/capabilities/slots/src/gateways/git.ts`) is the load-bearing breakage. In jj you frequently sit on an *anonymous* change with no bookmark, and jj leaves git `HEAD` detached; current-branch commands then report no branch, violating tooling assumptions that work is on a named branch.
 - **In-progress-op detection** reads `.git/worktrees/<id>/rebase-merge`, `rebase-apply`, and `BISECT_*` markers in the TypeScript slot git gateway. jj rebases internally and never writes those files, so these probes go inert (silently report "nothing in progress"). That is not dangerous, but any safety check relying on them is blind during a jj operation.
 
 `.graphite_metadata.db` reading is unaffected — it is a path relative to git-common-dir, which
@@ -71,7 +71,7 @@ colocated jj preserves.
 ### 3. Graphite coexistence — the hard problem
 
 `gt` tracks `parent_branch_name` / `children` / commit SHAs in `.graphite_metadata.db`
-(read by TypeScript Graphite metadata helpers such as `ts/packages/infra/core/src/graphite-metadata.ts` and CCC/slot Graphite surfaces). The
+(read by TypeScript Graphite metadata helpers such as `ts/packages/infra/foundation/src/graphite-metadata.ts` and CCC/slot Graphite surfaces). The
 moment you jj-amend/rebase/squash, the underlying commits are rewritten out from under `gt`,
 its metadata goes stale, and `gt restack` / `gt submit` start making wrong decisions. `gt` and
 jj both want to own commit rewriting and stack topology, and they don't know about each other.
@@ -81,7 +81,7 @@ code patch.
 ### 4. Worktree slots — friction
 
 The TypeScript `slot` CLI is built on plain `git worktree`
-(`ts/packages/capabilities/slot/src/inventory.ts`, plus `GitGateway.addWorktree` /
+(`ts/packages/capabilities/slots/src/inventory.ts`, plus `GitGateway.addWorktree` /
 `removeWorktree` / `listWorktrees`). jj's native equivalent is the *workspace*
 (`jj workspace add`). Colocated *secondary* workspaces, with `git`/`gt` run inside the slot
 directory, are jj's roughest and least-mature area. Slots currently rely on each slot being a

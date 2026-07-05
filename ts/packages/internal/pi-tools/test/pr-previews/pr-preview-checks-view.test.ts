@@ -1,5 +1,5 @@
 import type { TUI } from "@earendil-works/pi-tui";
-import { createDeferred } from "@nseng-ai/core/test-kit";
+import { createDeferred } from "@nseng-ai/foundation/test-kit";
 import { describe, expect, test } from "vitest";
 
 import {

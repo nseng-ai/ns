@@ -1,4 +1,4 @@
-import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	NsCommandIo,
 	NsCommandMessageOptions,

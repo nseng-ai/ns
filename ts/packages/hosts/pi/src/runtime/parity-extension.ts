@@ -65,8 +65,8 @@ export interface BasePiSurfaceParity {
 		| "@internal/pi-tools/thermo-council"
 		| "@nseng-ai/branch-context/pi"
 		| "@nseng-ai/flow/pi"
-		| "@nseng-ai/handoff/pi"
-		| "@nseng-ai/objective/pi"
+		| "@nseng-ai/handoffs/pi"
+		| "@nseng-ai/objectives/pi"
 		| "@nseng-ai/pi/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;

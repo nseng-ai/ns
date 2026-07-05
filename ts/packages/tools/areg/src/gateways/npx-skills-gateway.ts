@@ -3,7 +3,7 @@ import {
 	formatCommandResultFailure,
 	runCommand,
 	type CommandRunner,
-} from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/exec";
 
 import type {
 	AregNpxSkillsAddRequest,

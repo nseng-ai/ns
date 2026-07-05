@@ -15,8 +15,8 @@ import {
 	formatCommandFailure,
 	formatShellArg,
 	piExecApiToCommandExecApi,
-} from "@nseng-ai/core/command";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
+} from "@nseng-ai/foundation/command";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 import {
 	generateBranchSlug,
@@ -25,11 +25,11 @@ import {
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
 import { getPiLaunchOptions, type PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
-import type { TextResult } from "@nseng-ai/core/primitives";
+import type { TextResult } from "@nseng-ai/foundation/primitives";
 import { CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
-import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slot/api";
+import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;

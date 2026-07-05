@@ -4,8 +4,8 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-} from "@nseng-ai/core/exec";
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+} from "@nseng-ai/foundation/exec";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 import { parseMachineEnvelopeData } from "../../src/runtime/machine-envelope.ts";
 

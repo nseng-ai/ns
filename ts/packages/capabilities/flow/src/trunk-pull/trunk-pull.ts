@@ -1,5 +1,5 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/core/command";
-import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
+import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { planLocalBranchRefreshFromWorktrees } from "@nseng-ai/capability-kit/git";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 

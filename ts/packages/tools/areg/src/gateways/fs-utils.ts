@@ -1,6 +1,6 @@
 import { lstat, readlink } from "node:fs/promises";
 
-import { errorCodeFromUnknown, isPathInside } from "@nseng-ai/core/primitives";
+import { errorCodeFromUnknown, isPathInside } from "@nseng-ai/foundation/primitives";
 
 import type { AregPathState } from "../gateways.ts";
 

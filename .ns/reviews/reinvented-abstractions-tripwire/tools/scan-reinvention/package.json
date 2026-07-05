@@ -12,7 +12,7 @@
 		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test"
 	},
 	"dependencies": {
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"typescript": "catalog:"
 	},
 	"devDependencies": {

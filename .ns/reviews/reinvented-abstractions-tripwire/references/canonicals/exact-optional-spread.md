@@ -2,7 +2,7 @@
 
 - Kind key: `exact-optional-spread`
 - Canonical: optionalEntry / optionalEntries
-- Import/path hints: @nseng-ai/core/primitives
+- Import/path hints: @nseng-ai/foundation/primitives
 - Raw-form tell: ...(x === undefined ? {} : { k: x })
 - Why reuse matters: one greppable implementation of exactOptionalPropertyTypes omission semantics
 - Structural exemptions: null checks and domain-specific conditional object construction

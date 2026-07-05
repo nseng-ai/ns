@@ -7,7 +7,7 @@ import {
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
-import { normalizeBranchSlugText } from "@nseng-ai/core/branch-slug";
+import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
 const GIT_TIMEOUT_MS = 30_000;

@@ -1,12 +1,12 @@
-import { runCommand } from "@nseng-ai/core/exec";
+import { runCommand } from "@nseng-ai/foundation/exec";
 import {
 	type CommandRunner,
 	outputListenerToExecCallbacks,
 	type ExecResult,
-} from "@nseng-ai/core/command";
-import { optionalEntry } from "@nseng-ai/core/primitives";
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
-import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+} from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 import { detectGitConflictOutput } from "./git-operation-output.ts";

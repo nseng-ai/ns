@@ -5,8 +5,8 @@ import path from "node:path";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { visibleCommandBackedReplacementSurfaces } from "@nseng-ai/command-backed-skill-registry";
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,

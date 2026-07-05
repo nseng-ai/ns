@@ -4,7 +4,7 @@ import {
 	type BrmemErrorInfo,
 	type BrmemGateway,
 } from "@nseng-ai/brmem";
-import type { Result } from "@nseng-ai/core/result";
+import type { Result } from "@nseng-ai/foundation/result";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 

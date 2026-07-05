@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	readRuntimeConfigFileSync,
 	writeRuntimeResultFileSync,

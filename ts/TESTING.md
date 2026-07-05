@@ -92,16 +92,16 @@ Default-path tests should prefer small fake-driven seams:
 ## Deterministic time convention
 
 Production code that reads wall-clock time or schedules/cancels work should expose ji time seams first:
-use `Clock` from `@nseng-ai/core/clock` for wall-clock reads and `TimerScheduler` from `@nseng-ai/core/timers`
+use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads and `TimerScheduler` from `@nseng-ai/foundation/timers`
 for timeouts, intervals, or awaited delays. Pi host background timers should use `unrefTimerScheduler` so timer work does
 not keep the process alive. Raw timers belong in the timer adapter modules or narrowly justified
 runtime/integration smoke.
 
 Project-owned time-sensitive behavior in the default suite should inject `Clock` or `TimerScheduler` and
-use helpers from `@nseng-ai/core/time/testing`:
+use helpers from `@nseng-ai/foundation/time/testing`:
 
 ```ts
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/core/time/testing";
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 ```
 
 Use `createManualClock()` for wall-clock reads and elapsed-time assertions. Use

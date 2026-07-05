@@ -2,8 +2,8 @@ import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@nseng-ai/core/terminal-presentation";
-import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+} from "@nseng-ai/foundation/terminal-presentation";
+import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { shortSha } from "../../commit-display/index.ts";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails } from "./command-exec.ts";

@@ -1,0 +1,61 @@
+{
+	"name": "@nseng-ai/objectives",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/core/index.ts",
+		"./api": "./src/api/index.ts",
+		"./ns/commands/archive": "./src/ns/commands/archive.ts",
+		"./ns/commands/check": "./src/ns/commands/check.ts",
+		"./ns/commands/exec-list-candidates": "./src/ns/commands/exec-list-candidates.ts",
+		"./ns/commands/exec-load-orientations": "./src/ns/commands/exec-load-orientations.ts",
+		"./ns/commands/exec-read-objective": "./src/ns/commands/exec-read-objective.ts",
+		"./ns/commands/exec-runner-begin": "./src/ns/commands/exec-runner-begin.ts",
+		"./ns/commands/exec-runner-finish": "./src/ns/commands/exec-runner-finish.ts",
+		"./ns/commands/exec-runner-step": "./src/ns/commands/exec-runner-step.ts",
+		"./ns/commands/exec-runner-subagent-usage": "./src/ns/commands/exec-runner-subagent-usage.ts",
+		"./ns/commands/exec-tracking-gate": "./src/ns/commands/exec-tracking-gate.ts",
+		"./ns/commands/list": "./src/ns/commands/list.ts",
+		"./ns/preinstalled-catalog": "./src/ns/preinstalled-catalog.ts",
+		"./repo-local-ns-extension": "./src/ns/repo-local-ns-extension.ts",
+		"./pi": "./src/pi/index.ts",
+		"./pi/extension": "./src/pi/extension.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/objectives/test"
+	},
+	"dependencies": {
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"yaml": "catalog:",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "capability",
+		"subpackages": [
+			"api",
+			"core",
+			"runner",
+			"ns",
+			"pi"
+		]
+	},
+	"peerDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@nseng-ai/pi": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	}
+}

@@ -1,12 +1,12 @@
-import { runCommand } from "@nseng-ai/core/exec";
-import type { CommandRunner, ExecResult } from "@nseng-ai/core/command";
+import { runCommand } from "@nseng-ai/foundation/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import {
 	GITHUB_CLI_TIMEOUT_MS,
 	runGitHubCliAsExecResult,
 } from "@nseng-ai/capability-kit/github/cli";
-import type { TimerScheduler } from "@nseng-ai/core/timers";
-import { systemTimerScheduler } from "@nseng-ai/core/time";
-import { isRecord } from "@nseng-ai/core/primitives";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import { systemTimerScheduler } from "@nseng-ai/foundation/time";
+import { isRecord } from "@nseng-ai/foundation/primitives";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 import {
 	commandFailure,

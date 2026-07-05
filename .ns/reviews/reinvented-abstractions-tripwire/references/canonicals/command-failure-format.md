@@ -2,7 +2,7 @@
 
 - Kind key: `command-failure-format`
 - Canonical: formatCommandFailure / formatCommandResultFailure
-- Import/path hints: @nseng-ai/core/exec; @nseng-ai/core/command
+- Import/path hints: @nseng-ai/foundation/exec; @nseng-ai/foundation/command
 - Raw-form tell: local formatCommandFailure or hand-built exit-code/stderr strings
 - Why reuse matters: central truncation, terminal-escape stripping, stdout/stderr section policy
 - Structural exemptions: tests asserting historical text; command domains with a stricter user-facing contract

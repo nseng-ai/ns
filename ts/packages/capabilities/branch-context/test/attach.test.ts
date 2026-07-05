@@ -2,9 +2,9 @@ import { afterEach, describe, expect, test } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
-import { createTempDirTracker } from "@nseng-ai/core/test-kit";
+import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
 import { encodeBranchForPlanPath } from "@nseng-ai/plans";
 
 import { attachBranchContextEntry } from "../src/core/attach.ts";

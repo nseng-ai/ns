@@ -6,8 +6,8 @@ import {
 	resolveProcessCaps,
 	type ClinkrInteraction,
 } from "@nseng-ai/clinkr";
-import { readStdinLine } from "@nseng-ai/core/cli-runtime";
-import { runCommand } from "@nseng-ai/core/exec";
+import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import { runCommand } from "@nseng-ai/foundation/exec";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/core/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 
 import { runTrunkPullDetailed } from "../src/ns/trunk-pull.ts";
 

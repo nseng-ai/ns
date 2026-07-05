@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import type { z } from "zod";
 
-import { formatZodError } from "@nseng-ai/core/primitives";
+import { formatZodError } from "@nseng-ai/foundation/primitives";
 import {
 	prepareRepairedText,
 	type TextGenerationResult,

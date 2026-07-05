@@ -1,5 +1,5 @@
-import { parseMachineEnvelopeData } from "@nseng-ai/core/machine-envelope";
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {

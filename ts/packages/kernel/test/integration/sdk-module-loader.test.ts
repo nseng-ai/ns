@@ -30,8 +30,8 @@ test("repo-local extensions can import package subpaths without source aliases",
 	expect(typeof textGenerationModule.selectCheckpointModelRef).toBe("function");
 	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");
 
-	const coreModelSlugModule = await jiti.import<typeof import("@nseng-ai/core/model-slug")>(
-		"@nseng-ai/core/model-slug",
+	const coreModelSlugModule = await jiti.import<typeof import("@nseng-ai/foundation/model-slug")>(
+		"@nseng-ai/foundation/model-slug",
 	);
 	expect(typeof coreModelSlugModule.parseModelRef).toBe("function");
 
@@ -42,14 +42,14 @@ test("repo-local extensions can import package subpaths without source aliases",
 
 	const addressDownloadFeedbackModule = await jiti.import<{
 		default: { commands?: readonly { name: string }[] };
-	}>("@nseng-ai/address/ns/commands/exec-download-feedback");
+	}>("@nseng-ai/pr-feedback/ns/commands/exec-download-feedback");
 	expect(addressDownloadFeedbackModule.default.commands?.map((command) => command.name)).toEqual([
 		"exec-download-feedback",
 	]);
 
 	const aretroCollectEvidenceModule = await jiti.import<{
 		aretroExecCollectEvidenceNsCommand: { name: string };
-	}>("@nseng-ai/aretro/ns/commands/exec-collect-evidence");
+	}>("@nseng-ai/retros/ns/commands/exec-collect-evidence");
 	expect(aretroCollectEvidenceModule.aretroExecCollectEvidenceNsCommand.name).toBe(
 		"exec-collect-evidence",
 	);
@@ -63,12 +63,12 @@ test("repo-local extensions can import package subpaths without source aliases",
 
 	const handoffListModule = await jiti.import<{
 		handoffListNsCommand: { name: string };
-	}>("@nseng-ai/handoff/ns/commands/list");
+	}>("@nseng-ai/handoffs/ns/commands/list");
 	expect(handoffListModule.handoffListNsCommand.name).toBe("list");
 
 	const objectiveListModule = await jiti.import<{
 		objectiveListNsCommand: { name: string };
-	}>("@nseng-ai/objective/ns/commands/list");
+	}>("@nseng-ai/objectives/ns/commands/list");
 	expect(objectiveListModule.objectiveListNsCommand.name).toBe("list");
 
 	// jiti tripwire: this command's module graph includes the real Pi
@@ -76,7 +76,7 @@ test("repo-local extensions can import package subpaths without source aliases",
 	// @nseng-ai/pi peer (the adapter spawns the pi binary; it imports no Pi code).
 	const objectiveRunnerStepModule = await jiti.import<{
 		default: { commands?: readonly { name: string }[] };
-	}>("@nseng-ai/objective/ns/commands/exec-runner-step");
+	}>("@nseng-ai/objectives/ns/commands/exec-runner-step");
 	expect(objectiveRunnerStepModule.default.commands?.map((command) => command.name)).toEqual([
 		"exec-runner-step",
 	]);

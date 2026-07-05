@@ -36,7 +36,7 @@ export default {
        and the <span class="font-mono text-sm">ts-guard</span> acyclicity check can hard-fail. Most of what remains is
        <em>distance</em>: three capabilities not yet modeled, the transitional holding-pen not yet drained, and
        <span class="font-mono text-sm">ccc</span> still reaching up into the host. <strong>One</strong> item is genuine
-       <em>drift</em>, not distance — the SDK kernel imports a capability (<span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slot</span>),
+       <em>drift</em>, not distance — the SDK kernel imports a capability (<span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slots</span>),
        a layering inversion that should be isolated and cut, not waited out.`,
   },
 
@@ -69,19 +69,19 @@ export default {
     `Every runtime edge, live. Node <strong>area ∝ source LOC</strong>. The graph is now <strong>acyclic</strong> — there are no red
      cycle edges left to draw. In the layered view the two <em>hard tier violations</em> read as edges pointing slightly
      <em>upward</em>: <span class="font-mono text-sm">ccc → @nseng-ai/pi</span> (a capability into the host) and
-     <span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slot</span> (the SDK into a capability). Drag to pin, scroll to zoom,
+     <span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slots</span> (the SDK into a capability). Drag to pin, scroll to zoom,
      hover to trace a node's neighbours, toggle to the tier-clustered layout to see the bands stack, toggle tiers to drop the off-axis tools.`,
   graphCaption:
     `The two heaviest nodes are the <span class="font-mono">@nseng-ai/pi</span> presentation host (11.7k LOC) and <span class="font-mono">ccc</span> (8.1k) —
      the host carries more code than any capability, which is itself the pressure behind the endgame (domain stranded above and around the SDK).
      The deliberately-thin seam — <span class="font-mono">capability-kit</span> (180 LOC) —
-     is the smallest node on purpose. The fan-in spine is <span class="font-mono">@nseng-ai/core</span> (28) and <span class="font-mono">@nseng-ai/clinkr</span> (19):
+     is the smallest node on purpose. The fan-in spine is <span class="font-mono">@nseng-ai/foundation</span> (28) and <span class="font-mono">@nseng-ai/clinkr</span> (19):
      load-bearing neutral infra, exactly where weight belongs.`,
 
   scorecard: [
     { invariant: `Extension Dependency Graph is acyclic and enforced by the <span class="font-mono text-xs">ts-guard</span> topological check`,
       status: "holds", statusKind: "holds",
-      evidence: `<span class="font-mono text-xs">cycles = []</span> — fully acyclic. The headline <span class="font-mono text-xs">pi ↔ ccc</span> and the last deferred <span class="font-mono text-xs">autobranch → pi → kernel</span> SCCs are both broken (branch-slug relocated to <span class="font-mono text-xs">@nseng-ai/core/branch-slug</span>); the acyclicity guard can now hard-fail.` },
+      evidence: `<span class="font-mono text-xs">cycles = []</span> — fully acyclic. The headline <span class="font-mono text-xs">pi ↔ ccc</span> and the last deferred <span class="font-mono text-xs">autobranch → pi → kernel</span> SCCs are both broken (branch-slug relocated to <span class="font-mono text-xs">@nseng-ai/foundation/branch-slug</span>); the acyclicity guard can now hard-fail.` },
     { invariant: `Capability Kit owns the <span class="font-mono text-xs">ctx</span>→gateway adapter + result/error shapes; flow domain tested against <span class="font-mono text-xs">InMemoryGitGateway</span>`,
       status: "holds", statusKind: "holds",
       evidence: `<span class="font-mono text-xs">@nseng-ai/capability-kit</span> exists (180 LOC); consumed by <span class="font-mono text-xs">flow, handoff, objective</span>. <span class="font-mono text-xs">runPushCore</span>/<span class="font-mono text-xs">runCpCore</span> are gateway-injected with fake-gateway unit coverage.` },
@@ -96,7 +96,7 @@ export default {
       evidence: `Fan-out leader (13, highest in the graph) ✓ and reaches <span class="font-mono text-xs">objective/slot/branch-context/plans</span> via <span class="font-mono text-xs">/api</span>. But still imports <span class="font-mono text-xs">@nseng-ai/pi/commands/ack</span> (×9), <span class="font-mono text-xs">@nseng-ai/pi/terminal/presentation</span>, <span class="font-mono text-xs">@nseng-ai/pi/runtime/machine-envelope</span>, and <span class="font-mono text-xs">domain-primitives-transitional</span>.` },
     { invariant: `Declared package tiers validated; <strong>no hard tier violations</strong> (SDK must not depend on a Capability; a Capability must not depend on the Host)`,
       status: "2 hard", statusKind: "open",
-      evidence: `Tier guard reports two hard edges: <span class="font-mono text-xs text-red-600">@nseng-ai/kernel → @nseng-ai/slot</span> (sdk-must-not-depend-on-capability) and <span class="font-mono text-xs text-red-600">@nseng-ai/ccc → @nseng-ai/pi</span> (capability-must-not-depend-on-host), plus 4 depends-on-transitional debt edges.` },
+      evidence: `Tier guard reports two hard edges: <span class="font-mono text-xs text-red-600">@nseng-ai/kernel → @nseng-ai/slots</span> (sdk-must-not-depend-on-capability) and <span class="font-mono text-xs text-red-600">@nseng-ai/ccc → @nseng-ai/pi</span> (capability-must-not-depend-on-host), plus 4 depends-on-transitional debt edges.` },
     { invariant: `Below the SDK is domain-free: <span class="font-mono text-xs">domain-primitives-transitional</span> deleted; no below-SDK package imports capability domain`,
       status: "open", statusKind: "open",
       evidence: `The package still exists (578 LOC) with 4 consumers: <span class="font-mono text-xs">flow, kernel, ccc, pi</span>. Roadmap step 6 is unchecked — this is the explicit completion marker.` },
@@ -108,18 +108,18 @@ export default {
       beforeAfter: {
         nowLabel: "now — SDK reaches up",
         now: `flowchart TD
-  kernel["@nseng-ai/kernel (SDK)"] -->|command-face| slot["@nseng-ai/slot (capability)"]
+  kernel["@nseng-ai/kernel (SDK)"] -->|command-face| slot["@nseng-ai/slots (capability)"]
   classDef bad fill:#fee2e2,stroke:#dc2626,color:#991b1b;
   class kernel,slot bad;`,
         afterLabel: "after — mounted via the loader",
         after: `flowchart TD
   kernel["@nseng-ai/kernel (SDK)"] --> kit["capability-kit / loader"]
-  slot["@nseng-ai/slot"] --> kit
+  slot["@nseng-ai/slots"] --> kit
   classDef ok fill:#dcfce7,stroke:#16a34a,color:#14532d;
   class kernel,slot,kit ok;`,
       },
-      problem: `<span class="font-mono text-sm">@nseng-ai/kernel/cli.ts</span> imports <span class="font-mono text-sm">buildSlotCommandGroup</span> from <span class="font-mono text-sm">@nseng-ai/slot/command-face</span> and <span class="font-mono text-sm">createRealSlotContext</span> from <span class="font-mono text-sm">@nseng-ai/slot</span> — the kernel depends <em>up</em> on a capability, the one true inversion in the graph.`,
-      solution: `Mount slot's command face through the same extension-discovery path every other capability uses, so <span class="font-mono text-sm">@nseng-ai/kernel</span> depends on the loader/kit, not on <span class="font-mono text-sm">@nseng-ai/slot</span>.`,
+      problem: `<span class="font-mono text-sm">@nseng-ai/kernel/cli.ts</span> imports <span class="font-mono text-sm">buildSlotCommandGroup</span> from <span class="font-mono text-sm">@nseng-ai/slots/command-face</span> and <span class="font-mono text-sm">createRealSlotContext</span> from <span class="font-mono text-sm">@nseng-ai/slots</span> — the kernel depends <em>up</em> on a capability, the one true inversion in the graph.`,
+      solution: `Mount slot's command face through the same extension-discovery path every other capability uses, so <span class="font-mono text-sm">@nseng-ai/kernel</span> depends on the loader/kit, not on <span class="font-mono text-sm">@nseng-ai/slots</span>.`,
       wins: ["removes the SDK→capability inversion", "restores capability-as-leaf shape", "clears one hard tier violation", "kernel stays capability-agnostic"] },
 
     { title: `<span class="font-mono text-base">ccc</span> still reaches up into the presentation host`,
@@ -152,7 +152,7 @@ export default {
 
     { title: `<span class="font-mono text-base">pr-address</span> ships an API but no command face`,
       strength: "Speculative", tag: "api-only anomaly",
-      problem: `The model says a capability <em>mandatorily</em> exposes a command face and adds <span class="font-mono text-sm">/api</span> only where a consumer needs it. <span class="font-mono text-sm">@nseng-ai/pr-address</span> exposes <em>only</em> <span class="font-mono text-sm">./api</span> — the inverse — and has zero runtime fan-in, so the API it ships is currently unconsumed.`,
+      problem: `The model says a capability <em>mandatorily</em> exposes a command face and adds <span class="font-mono text-sm">/api</span> only where a consumer needs it. <span class="font-mono text-sm">@nseng-ai/pr-feedback</span> exposes <em>only</em> <span class="font-mono text-sm">./api</span> — the inverse — and has zero runtime fan-in, so the API it ships is currently unconsumed.`,
       solution: `Confirm intent during the pr-address capability migration: either it is a pure provider seam owned per ADR 0016 (acceptable, document it), or it is a capability still missing its command face (then add one).`,
       wins: ["resolves a model exception", "confirms the PR-feedback seam owner"] },
   ],
@@ -168,7 +168,7 @@ export default {
        reach every provider through its <span class="font-mono text-sm">/api</span> seam.`,
       `It is the keystone because <span class="font-mono text-sm">ccc</span> is the only node that sits in three open invariants at once —
        clean-consumer, no-host-dependency, and transitional-drain — so clearing it is on the critical path to the completion marker (step 6,
-       deleting the transitional package). The smaller <span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slot</span> inversion is sharp but isolated;
+       deleting the transitional package). The smaller <span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slots</span> inversion is sharp but isolated;
        fix it alongside as a scoped loader-mount cut, but ccc is where the leverage is.`,
     ],
     sequence: [

@@ -356,7 +356,7 @@ function circleForSpecifier(specifier, importerFile) {
   return circleByPackageComponent.get(`${packageName}\0${component}`) ?? circleByPackageComponent.get(`${packageName}\0.`);
 }
 
-// Subpath exports are aliases (`@nseng-ai/core/result` -> src/primitives/result.ts),
+// Subpath exports are aliases (`@nseng-ai/foundation/result` -> src/primitives/result.ts),
 // so specifier segments alone misattribute edges to the package-root circle.
 // Resolve through the exports map and credit the circle that owns the file.
 function circleForExportedFile(specifier, packageName) {

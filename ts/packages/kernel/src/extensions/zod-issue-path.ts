@@ -1,4 +1,4 @@
-import type { ZodIssueLike } from "@nseng-ai/core/primitives";
+import type { ZodIssueLike } from "@nseng-ai/foundation/primitives";
 
 /**
  * Kernel-local classifier for routing Zod issues by structural path shape.
@@ -7,7 +7,7 @@ import type { ZodIssueLike } from "@nseng-ai/core/primitives";
  * path-matching utility shared by `extension-discovery.ts` and
  * `command-registry.ts` to avoid raw `issue.path[N]` indexing at call sites.
  * It is not exported from the package and should not be promoted to
- * `@nseng-ai/core/primitives` unless a second package needs it.
+ * `@nseng-ai/foundation/primitives` unless a second package needs it.
  */
 
 export type ZodIssuePathPatternSegment = string | { readonly type: "number" };

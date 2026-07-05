@@ -34,9 +34,9 @@
 	"dependencies": {
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
-		"@nseng-ai/slot": "workspace:*",
+		"@nseng-ai/slots": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

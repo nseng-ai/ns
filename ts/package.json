@@ -21,22 +21,22 @@
 	},
 	"devDependencies": {
 		"@internal/pi-tools": "workspace:*",
-		"@nseng-ai/address": "workspace:*",
-		"@nseng-ai/aretro": "workspace:*",
+		"@nseng-ai/pr-feedback": "workspace:*",
+		"@nseng-ai/retros": "workspace:*",
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/ccc": "workspace:*",
 		"@nseng-ai/ns": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
-		"@nseng-ai/handoff": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
-		"@nseng-ai/objective": "workspace:*",
+		"@nseng-ai/objectives": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
 		"@nseng-ai/review-reinvention-scanner": "workspace:*",
-		"@nseng-ai/roaster": "workspace:*",
-		"@nseng-ai/slot": "workspace:*",
+		"@nseng-ai/reviews": "workspace:*",
+		"@nseng-ai/slots": "workspace:*",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@withgraphite/graphite-cli": "catalog:",
@@ -57,6 +57,6 @@
 		"@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"
 	},
 	"dependencies": {
-		"@nseng-ai/core": "workspace:*"
+		"@nseng-ai/foundation": "workspace:*"
 	}
 }

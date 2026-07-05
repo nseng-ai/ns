@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/core/exec";
+import type { ExecResult } from "@nseng-ai/foundation/exec";
 import {
 	err,
 	ok,

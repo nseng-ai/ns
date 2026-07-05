@@ -64,8 +64,8 @@ export interface ConcreteCapabilityCommandSurface {
 }
 
 export const concreteCapabilityCommandSurfaces = [
-	{ packageName: "@nseng-ai/address", cliPrefixes: ["address"], slashPrefixes: ["address"] },
-	{ packageName: "@nseng-ai/aretro", cliPrefixes: ["aretro"], slashPrefixes: ["aretro"] },
+	{ packageName: "@nseng-ai/pr-feedback", cliPrefixes: ["address"], slashPrefixes: ["address"] },
+	{ packageName: "@nseng-ai/retros", cliPrefixes: ["aretro"], slashPrefixes: ["aretro"] },
 	{
 		packageName: "@nseng-ai/branch-context",
 		cliPrefixes: ["branch-context"],
@@ -73,15 +73,15 @@ export const concreteCapabilityCommandSurfaces = [
 	},
 	{ packageName: "@nseng-ai/ccc", cliPrefixes: ["ccc"], slashPrefixes: ["ccc"] },
 	{ packageName: "@nseng-ai/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
-	{ packageName: "@nseng-ai/handoff", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
-	{ packageName: "@nseng-ai/objective", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
+	{ packageName: "@nseng-ai/handoffs", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
+	{ packageName: "@nseng-ai/objectives", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
 	{ packageName: "@nseng-ai/plans", cliPrefixes: ["plans"], slashPrefixes: ["plans", "plan"] },
-	{ packageName: "@nseng-ai/slot", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },
+	{ packageName: "@nseng-ai/slots", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },
 ] as const satisfies readonly ConcreteCapabilityCommandSurface[];
 
 export const standaloneToolCommandSurfaces = [
 	{
-		packageName: "@nseng-ai/roaster",
+		packageName: "@nseng-ai/reviews",
 		cliPrefixes: ["roaster", "roast"],
 		slashPrefixes: ["roaster", "roast"],
 	},

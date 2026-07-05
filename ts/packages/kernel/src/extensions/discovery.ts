@@ -6,7 +6,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 	type ZodIssueLike,
-} from "@nseng-ai/core/primitives";
+} from "@nseng-ai/foundation/primitives";
 import {
 	nsExtensionManifestCommandSchema,
 	nsExtensionPackageManifestSchema,

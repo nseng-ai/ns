@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { SlotClient } from "@nseng-ai/slot/api";
+import type { SlotClient } from "@nseng-ai/slots/api";
 
 import {
 	buildStackMapModelFromGraph,

@@ -1,5 +1,5 @@
 import type { CommandRunner } from "../command-runner.ts";
-import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 export interface TabKeyInput {
 	readonly name?: ExplicitUndefined<"key-event", string>;

@@ -15,14 +15,14 @@ const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/capability-kit/graphite/status",
-	"@nseng-ai/core/exec",
+	"@nseng-ai/foundation/exec",
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
 	"@nseng-ai/kernel/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
-	"@nseng-ai/core/exec",
+	"@nseng-ai/foundation/exec",
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
 	"@nseng-ai/capability-kit/checkpoint-flow",
@@ -31,7 +31,7 @@ const CCC_WORKSPACE_IMPORTS = [
 const NS_EXPORT_IMPORTS = [
 	"@nseng-ai/capability-kit/checkpoint-flow",
 	"@nseng-ai/capability-kit/checkpoint-message",
-	"@nseng-ai/core/exec",
+	"@nseng-ai/foundation/exec",
 	"@nseng-ai/kernel/cli",
 	"@nseng-ai/kernel/context",
 	"@nseng-ai/capability-kit/pending-worktree",

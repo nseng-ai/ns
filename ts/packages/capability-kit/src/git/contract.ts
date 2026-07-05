@@ -1,4 +1,4 @@
-import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 export interface GitCwdParams {
 	cwd: string;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;

@@ -1,4 +1,4 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/core/command";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
 import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import {

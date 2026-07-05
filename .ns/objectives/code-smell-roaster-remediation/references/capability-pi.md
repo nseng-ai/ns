@@ -30,7 +30,7 @@ Re-verify file paths and line numbers at pickup time -- the repo moves between t
 
 2. **Duplicated Code** (low) -- `ts/packages/capability-pi/ccc/src/dispatch-prompt.ts:30`
    - Roast: The repo already has a canonical `optionalEntry` helper for exactly this 'spread the field only if defined' shape, and these two files hand-roll it again instead of using it.
-   - Evidence: `...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),` appears identically in dispatch-prompt.ts:30 and dispatch-from-trunk.ts:32, duplicating logic that `optionalEntry` from `@sdl/core/primitives` (ts/packages/infra/core/src/primitives.ts:58) already centralizes and is used for elsewhere in the repo (e.g. ts/packages/sdl-capability-kit/src/brmem-cli.ts).
+   - Evidence: `...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),` appears identically in dispatch-prompt.ts:30 and dispatch-from-trunk.ts:32, duplicating logic that `optionalEntry` from `@sdl/core/primitives` (ts/packages/infra/foundation/src/primitives.ts:58) already centralizes and is used for elsewhere in the repo (e.g. ts/packages/sdl-capability-kit/src/brmem-cli.ts).
    - Smallest fix: Replace both inline ternary spreads with `...optionalEntry("slotClient", options.slotClient)`.
 
 ## ts/packages/capability-pi/flow

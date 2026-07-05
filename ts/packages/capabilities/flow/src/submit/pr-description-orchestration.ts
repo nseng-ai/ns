@@ -1,5 +1,5 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import type { ErrorInfo } from "@nseng-ai/core/result";
+import type { ErrorInfo } from "@nseng-ai/foundation/result";
 
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
 import {

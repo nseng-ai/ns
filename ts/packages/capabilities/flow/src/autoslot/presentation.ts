@@ -1,12 +1,12 @@
 // Flow-local facade for the `autoslot` workflow's durable outcomes.
 //
 // `autoslot` (autobranch + slot checkout) reports typed settled facts at the Flow CLI edge, while the
-// generic finite block layout lives in `@nseng-ai/core/cli-theme` because the repeated shape was proven across
+// generic finite block layout lives in `@nseng-ai/foundation/cli-theme` because the repeated shape was proven across
 // Flow and CCC. This module keeps autoslot's domain-local type name and owns the mapping from Flow
 // outcome facts to that shared layout.
 
 import type { Caps } from "@nseng-ai/clinkr";
-import { renderResultBlock } from "@nseng-ai/core/cli-theme";
+import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 
 /**
  * The visual intent of an autoslot outcome. Distinct from the `NsCommandIo` notify level (which owns

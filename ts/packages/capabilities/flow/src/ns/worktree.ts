@@ -5,7 +5,11 @@ import {
 	type WorktreeCommandResult,
 } from "@nseng-ai/capability-kit/pending-worktree";
 import { createNsCliExecAdapter, execNsCommand, execNsGit } from "@nseng-ai/capability-kit/git";
-import { formatCommandDetails, formatCommandError, type ExecResult } from "@nseng-ai/core/command";
+import {
+	formatCommandDetails,
+	formatCommandError,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 

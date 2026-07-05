@@ -11,8 +11,8 @@ import type { z as ZodNamespace } from "zod";
 // Runner Checkpoint for the parent to judge. Judgment stays in the parent LLM per ADR 0022/0024.
 //
 // Promotion path, once the flow proves itself in real Pi runs:
-// (a) command → an `@nseng-ai/objective/pi` command spec (`objectiveCommandSpecs` in
-//     ts/packages/capabilities/objective/src/core/objective-command-specs.ts) with an auto parity
+// (a) command → an `@nseng-ai/objectives/pi` command spec (`objectiveCommandSpecs` in
+//     ts/packages/capabilities/objectives/src/core/objective-command-specs.ts) with an auto parity
 //     table entry;
 // (b) tool → a new `@internal/pi-tools` subpackage beside thermo-council (package.json `exports`
 //     + `ns.subpackages` + `.pi/lib/workspace-packages.ts` fallback map + parity test).
@@ -20,7 +20,7 @@ import type { z as ZodNamespace } from "zod";
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
 // rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
-import { nsCommandSurface } from "../../ts/packages/infra/core/src/primitives/command.ts";
+import { nsCommandSurface } from "../../ts/packages/infra/foundation/src/primitives/command.ts";
 import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,
@@ -30,8 +30,8 @@ import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
-} from "../../ts/packages/capabilities/objective/src/api/index.ts";
-import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objective/src/runner/prompt.ts";
+} from "../../ts/packages/capabilities/objectives/src/api/index.ts";
+import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/runner/prompt.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
@@ -53,13 +53,13 @@ import {
 	formatZodError,
 	optionalEntries,
 	optionalEntry,
-} from "../../ts/packages/infra/core/src/primitives/primitives.ts";
+} from "../../ts/packages/infra/foundation/src/primitives/primitives.ts";
 import {
 	piExecApiToCommandExecApi,
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
-} from "../../ts/packages/infra/core/src/exec/index.ts";
+} from "../../ts/packages/infra/foundation/src/exec/index.ts";
 
 // Bare "zod" is not resolvable from .pi/extensions (no node_modules ancestry at the repo root);
 // resolve it through the ts workspace package that declares it, matching .pi/lib/workspace-packages.ts.
@@ -147,7 +147,7 @@ const PI_ADDENDUM = `### Pi session addendum — objective_runner_step tool
 
 In this session, run each runner step by calling the \`objective_runner_step\` tool with \`{ objective, guidance, recover?, model? }\` instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step: it runs runner-begin, dispatches the implementation subagent with the generated prompt (progress renders in a live widget), runs runner-finish, and returns the Runner Checkpoint markdown as its result. It also owns report/facts scratch paths — skip the skill's step-artifact bookkeeping; every call gets fresh paths automatically, including recovery attempts.
 
-Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries. Canonical forbidden-action rule from \`ts/packages/capabilities/objective/src/runner/prompt.ts\`: "${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}". Never commit on trunk; later push/submit/handoff decisions belong outside the runner and require separate human direction. To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
+Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries. Canonical forbidden-action rule from \`ts/packages/capabilities/objectives/src/runner/prompt.ts\`: "${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}". Never commit on trunk; later push/submit/handoff decisions belong outside the runner and require separate human direction. To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
 const objectiveRunnerStepInputSchema = z
 	.object({

@@ -7,7 +7,7 @@ import type {
 	RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
-import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import type { z } from "zod";
 
 import type { NsExtensionApi } from "./execution.ts";

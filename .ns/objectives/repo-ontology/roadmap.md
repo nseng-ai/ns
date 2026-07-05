@@ -13,17 +13,17 @@ Present contexts (landed)
 
 - [x] Root `CONTEXT.md` — Objective-system vocabulary, the repo-wide Architecture Boundaries (Gateway / Domain logic) section, the Extension Layering cluster, and package-topology terms.
 - [x] `CONTEXT-MAP.md` rebaselined by adjacent work to the `@ns` container-package world: Inventory Baseline says 21 packages and the Present section carries all landed contexts including kernel, objective, and flow. (Fresh drift remains — see the map catch-up row.)
-- [x] `ts/packages/capabilities/handoff/CONTEXT.md` — `@ns/handoff` directed handoff artifact vocabulary over Branch Memory storage.
+- [x] `ts/packages/capabilities/handoffs/CONTEXT.md` — `@ns/handoff` directed handoff artifact vocabulary over Branch Memory storage.
 - [x] `ts/packages/infra/brmem/CONTEXT.md` — `@ns/brmem` Branch Memory primitive vocabulary.
 - [x] `ts/packages/capabilities/ccc/CONTEXT.md` — `@ns/ccc` orchestration-layer vocabulary (accepted from an adjacent Objective).
 - [x] `ts/packages/hosts/pi/CONTEXT.md` — `@ns/pi` unified Pi host vocabulary (the former separate `pi-extension-runtime`/`pi-extensions`/`pi-command-surfaces` slots stay retired).
 - [x] `ts/packages/capability-kit/src/graphite/CONTEXT.md` — `@ns/capability-kit/graphite` reusable Graphite support vocabulary (formerly the standalone `@sdl/graphite` package context; the package was absorbed into `@ns/capability-kit`).
 - [x] `ts/packages/kernel/CONTEXT.md` — `@ns/kernel` CLI/kernel vocabulary (formerly the `@sdl/sdl` context), including `@ns/kernel/sdk` as the public extension-author SDK; the standalone `sdl-sdk` package was re-absorbed as this subpath.
-- [x] `ts/packages/capabilities/roaster/CONTEXT.md` — `@ns/roaster` PR-diff findings vocabulary (landed from an adjacent Objective).
+- [x] `ts/packages/capabilities/reviews/CONTEXT.md` — `@ns/roaster` PR-diff findings vocabulary (landed from an adjacent Objective).
 - [x] `ts/packages/capabilities/plans/CONTEXT.md` — `@ns/plans` saved-plan vocabulary (landed from an adjacent Objective).
 - [x] `ts/packages/capabilities/branch-context/CONTEXT.md` — `@ns/branch-context` branch-context vocabulary (landed from an adjacent Objective).
-- [x] `ts/packages/capabilities/slot/CONTEXT.md` — `@ns/slot` worktree slot vocabulary, including the `ns slot` command surface and `ns slot gt` helpers (landed from an adjacent Objective).
-- [x] `ts/packages/capabilities/objective/CONTEXT.md` — `@ns/objective` Objective CLI/capability vocabulary (was a Planned row here; landed from an adjacent Objective).
+- [x] `ts/packages/capabilities/slots/CONTEXT.md` — `@ns/slot` worktree slot vocabulary, including the `ns slot` command surface and `ns slot gt` helpers (landed from an adjacent Objective).
+- [x] `ts/packages/capabilities/objectives/CONTEXT.md` — `@ns/objective` Objective CLI/capability vocabulary (was a Planned row here; landed from an adjacent Objective).
 - [x] `ts/packages/capabilities/flow/CONTEXT.md` — `@ns/flow` Flow lifecycle vocabulary (was an undecided package here; landed from an adjacent Objective).
 
 Map catch-up — post-rename/restructure drift
@@ -36,13 +36,13 @@ These rows mirror the *Planned TypeScript package contexts* in `CONTEXT-MAP.md`.
 
 - [ ] `@ns/areg` (`ts/packages/tools/areg`) — agent-resource bootstrap and skill-workflow vocabulary: `areg init`, `areg check`, `update-skills`, `skillx`, target agents, managed instruction blocks, installed skill directories, lockfile source types, skill metadata/issues, transient skill fetch/cleanup, and external `gh` / `npx skills` boundaries.
 - [ ] `@ns/packagechk` (`ts/packages/tools/packagechk`) — standalone package-name availability/claimability vocabulary: PyPI/npm checks, registry results, name normalization/validation, claim project specs, publish gateways, and parked Homebrew support. Keep explicitly standalone in map relationships.
-- [ ] `@ns/aretro` (`ts/packages/capabilities/aretro`) — deterministic branch-retrospective evidence vocabulary: `collect-evidence`, branch resolution sources, session query/source/warning DTOs, session summaries, aggregate metrics, `EvidenceItemDto`, and the boundary between evidence collection and `branch-retro` recommendation judgment.
+- [ ] `@ns/aretro` (`ts/packages/capabilities/retros`) — deterministic branch-retrospective evidence vocabulary: `collect-evidence`, branch resolution sources, session query/source/warning DTOs, session summaries, aggregate metrics, `EvidenceItemDto`, and the boundary between evidence collection and `branch-retro` recommendation judgment.
 - [ ] `@ns/vibechk` (`ts/packages/tools/vibechk`) — standalone agent-context evaluation vocabulary: baseline/treatment workdirs, plan source, runner adapter, run id, run bundle/store/status, git provenance, metrics, transcript, diff patch, result branch, run report, comparison report, and local-only publish boundary. Keep standalone; reconcile run/metric/evidence wording against `@ns/aretro` and `@ns/roaster`.
 - [ ] Re-derive the Pi-adjacent Planned slate: the map plans `@ns/flow-pi` (not a tracked package) and six `@internal/pi-tools/*` subpackage contexts. Decide whether Flow Pi vocabulary belongs in the existing `@ns/flow` context, and whether the `@internal/pi-tools` targets stay individually planned or collapse into one container-level decision.
 
 Undecided packages — record a map decision
 
-- [ ] Record a deliberate context decision (planned / accepted-from-adjacent / out-of-scope with a revisit trigger) for each tracked package currently absent from the map's context sections: `@ns/address` (`ts/packages/capabilities/address`, formerly `pr-address`), `@ns/clinkr` (`ts/packages/infra/clinkr`), `@ns/core` (`ts/packages/infra/core`), and the unscoped `nscc` (`ts/packages/hosts/nscc`, formerly `sdlcc`). Also resolve the two partial decisions: kit-level `@ns/capability-kit` (only its graphite subpackage has a context) and container-level `@internal/pi-tools` (only subpackage Planned targets). Do not leave silent absence.
+- [ ] Record a deliberate context decision (planned / accepted-from-adjacent / out-of-scope with a revisit trigger) for each tracked package currently absent from the map's context sections: `@ns/address` (`ts/packages/capabilities/pr-feedback`, formerly `pr-address`), `@ns/clinkr` (`ts/packages/infra/clinkr`), `@ns/core` (`ts/packages/infra/foundation`), and the unscoped `nscc` (`ts/packages/hosts/nscc`, formerly `sdlcc`). Also resolve the two partial decisions: kit-level `@ns/capability-kit` (only its graphite subpackage has a context) and container-level `@internal/pi-tools` (only subpackage Planned targets). Do not leave silent absence.
 
 Refresh and finalize
 

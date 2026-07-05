@@ -1,6 +1,6 @@
 import { createNsClinkrInteraction } from "@nseng-ai/capability-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
-import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/core/cli-theme";
+import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
 import {
 	defineExtension,
 	failed,

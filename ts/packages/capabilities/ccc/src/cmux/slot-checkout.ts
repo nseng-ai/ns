@@ -3,14 +3,14 @@ import {
 	type SlotCheckoutFailure,
 	type SlotCheckoutResult,
 	type SlotClient,
-} from "@nseng-ai/slot/api";
+} from "@nseng-ai/slots/api";
 
 export type {
 	SlotCheckoutFailure,
 	SlotCheckoutResult,
 	SlotCheckoutTarget,
 	SlotClient,
-} from "@nseng-ai/slot/api";
+} from "@nseng-ai/slots/api";
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
 

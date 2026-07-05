@@ -4,9 +4,9 @@ import {
 	parseRunnerSubagentUsageJsonl,
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@nseng-ai/core/runner-usage";
+} from "@nseng-ai/foundation/runner-usage";
 
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type {
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageUnavailableReason,

@@ -1,5 +1,5 @@
-import type { ScheduledTimer } from "@nseng-ai/core/timers";
-import { formatElapsedMs } from "@nseng-ai/core/time-format";
+import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
 import { unrefTimerScheduler } from "../kit/shared/timers.ts";

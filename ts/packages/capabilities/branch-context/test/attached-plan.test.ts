@@ -12,7 +12,7 @@ import {
 } from "../src/core/attached-plan.ts";
 import type { AttachedPlanEntry } from "../src/core/branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@nseng-ai/branch-context";
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@nseng-ai/plans";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";

@@ -1,5 +1,5 @@
-import type { CommandExecApi } from "@nseng-ai/core/exec";
-import { isRecord, stringField } from "@nseng-ai/core/primitives";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { isRecord, stringField } from "@nseng-ai/foundation/primitives";
 import { formatCmuxCommandFailure, runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
 
 // Neutral cmux substrate: keep this file free of Pi host/runtime dependencies so it can move

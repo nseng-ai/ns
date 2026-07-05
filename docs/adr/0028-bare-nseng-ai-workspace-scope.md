@@ -39,3 +39,7 @@ Consequences:
   `rename-ji-to-ns` cutover retargets directly at `@ns/*` → `@nseng-ai/*`.
 - Publishing a package now means its workspace name is public API from day one; there
   is no internal/external naming seam left to hide behind.
+- *(amended by ADR 0029: with workspace name now equal to published name, several
+  generic/internal-sounding package names — `core`, `objective`, `slot`, `handoff`,
+  `address`, `aretro`, `roaster` — were themselves renamed to their public names before
+  the publish surface widened; see ADR 0029 for the table.)*

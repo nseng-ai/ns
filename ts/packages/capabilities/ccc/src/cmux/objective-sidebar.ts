@@ -5,12 +5,12 @@ import {
 	formatCommand,
 	formatOutputSection,
 	tailText,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 import {
 	parseMachineEnvelopeData,
 	type MachineEnvelopeDataParseValid,
-} from "@nseng-ai/core/machine-envelope";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+} from "@nseng-ai/foundation/machine-envelope";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;

@@ -4,7 +4,7 @@ import type {
 	ExecOptions,
 	ExecResult,
 	StdinCapableCommandExecApi,
-} from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/exec";
 
 import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 

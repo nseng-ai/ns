@@ -40,7 +40,11 @@ import {
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
 } from "@nseng-ai/plans/api";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,

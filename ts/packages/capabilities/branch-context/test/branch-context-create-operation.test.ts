@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { formatCommand } from "@nseng-ai/core/exec";
+import { formatCommand } from "@nseng-ai/foundation/exec";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -14,7 +14,7 @@ import {
 	formatBranchContextEvidence,
 	resolveBranchContextCreatePreviewContext,
 } from "../src/core/branch-context-creation.ts";
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import type { BranchContextContext } from "../src/core/context.ts";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";

@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 export interface SubmitPrLink {
 	label: string;

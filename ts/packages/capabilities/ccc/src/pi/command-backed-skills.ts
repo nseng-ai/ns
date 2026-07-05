@@ -1,4 +1,4 @@
-import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/core/command";
+import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/foundation/command";
 
 import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "../api/handlers.ts";
 

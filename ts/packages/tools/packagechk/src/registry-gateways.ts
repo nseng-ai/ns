@@ -1,6 +1,6 @@
-import { formatErrorMessage, isRecord } from "@nseng-ai/core/primitives";
-import type { TimerScheduler } from "@nseng-ai/core/timers";
-import { systemTimerScheduler } from "@nseng-ai/core/time";
+import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 
 import {
 	availableResult,

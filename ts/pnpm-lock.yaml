@@ -77,19 +77,13 @@ importers:
 
   .:
     dependencies:
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:packages/infra/core
+        version: link:packages/infra/foundation
     devDependencies:
       '@internal/pi-tools':
         specifier: workspace:*
         version: link:packages/internal/pi-tools
-      '@nseng-ai/address':
-        specifier: workspace:*
-        version: link:packages/capabilities/address
-      '@nseng-ai/aretro':
-        specifier: workspace:*
-        version: link:packages/capabilities/aretro
       '@nseng-ai/branch-context':
         specifier: workspace:*
         version: link:packages/capabilities/branch-context
@@ -105,30 +99,36 @@ importers:
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:packages/capabilities/flow
-      '@nseng-ai/handoff':
+      '@nseng-ai/handoffs':
         specifier: workspace:*
-        version: link:packages/capabilities/handoff
+        version: link:packages/capabilities/handoffs
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:packages/kernel
       '@nseng-ai/ns':
         specifier: workspace:*
         version: link:packages/hosts/ns-cli
-      '@nseng-ai/objective':
+      '@nseng-ai/objectives':
         specifier: workspace:*
-        version: link:packages/capabilities/objective
+        version: link:packages/capabilities/objectives
       '@nseng-ai/plans':
         specifier: workspace:*
         version: link:packages/capabilities/plans
+      '@nseng-ai/pr-feedback':
+        specifier: workspace:*
+        version: link:packages/capabilities/pr-feedback
+      '@nseng-ai/retros':
+        specifier: workspace:*
+        version: link:packages/capabilities/retros
       '@nseng-ai/review-reinvention-scanner':
         specifier: workspace:*
         version: link:../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention
-      '@nseng-ai/roaster':
+      '@nseng-ai/reviews':
         specifier: workspace:*
-        version: link:packages/capabilities/roaster
-      '@nseng-ai/slot':
+        version: link:packages/capabilities/reviews
+      '@nseng-ai/slots':
         specifier: workspace:*
-        version: link:packages/capabilities/slot
+        version: link:packages/capabilities/slots
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.2
@@ -162,9 +162,9 @@ importers:
 
   ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention:
     dependencies:
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../../../../ts/packages/infra/core
+        version: link:../../../../../ts/packages/infra/foundation
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -178,42 +178,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/capabilities/address:
-    dependencies:
-      '@nseng-ai/capability-kit':
-        specifier: workspace:*
-        version: link:../../capability-kit
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@nseng-ai/kernel':
-        specifier: workspace:*
-        version: link:../../kernel
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/capabilities/aretro:
-    dependencies:
-      '@nseng-ai/capability-kit':
-        specifier: workspace:*
-        version: link:../../capability-kit
-      '@nseng-ai/clinkr':
-        specifier: workspace:*
-        version: link:../../infra/clinkr
-      '@nseng-ai/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@nseng-ai/kernel':
-        specifier: workspace:*
-        version: link:../../kernel
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
 
   packages/capabilities/branch-context:
     dependencies:
@@ -229,9 +193,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -257,24 +221,24 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
-        specifier: workspace:*
-        version: link:../../infra/core
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:../flow
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
-      '@nseng-ai/objective':
+      '@nseng-ai/objectives':
         specifier: workspace:*
-        version: link:../objective
+        version: link:../objectives
       '@nseng-ai/plans':
         specifier: workspace:*
         version: link:../plans
-      '@nseng-ai/slot':
+      '@nseng-ai/slots':
         specifier: workspace:*
-        version: link:../slot
+        version: link:../slots
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -291,15 +255,15 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
-      '@nseng-ai/slot':
+      '@nseng-ai/slots':
         specifier: workspace:*
-        version: link:../slot
+        version: link:../slots
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -308,7 +272,7 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
-  packages/capabilities/handoff:
+  packages/capabilities/handoffs:
     dependencies:
       '@nseng-ai/brmem':
         specifier: workspace:*
@@ -319,9 +283,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -333,7 +297,7 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
-  packages/capabilities/objective:
+  packages/capabilities/objectives:
     dependencies:
       '@nseng-ai/branch-context':
         specifier: workspace:*
@@ -344,9 +308,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -369,14 +333,14 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       zod:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/capabilities/roaster:
+  packages/capabilities/pr-feedback:
     dependencies:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
@@ -384,9 +348,45 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
+      '@nseng-ai/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/capabilities/retros:
+    dependencies:
+      '@nseng-ai/capability-kit':
+        specifier: workspace:*
+        version: link:../../capability-kit
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
+      '@nseng-ai/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/capabilities/reviews:
+    dependencies:
+      '@nseng-ai/capability-kit':
+        specifier: workspace:*
+        version: link:../../capability-kit
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -403,7 +403,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/capabilities/slot:
+  packages/capabilities/slots:
     dependencies:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
@@ -411,9 +411,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -426,9 +426,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../infra/core
+        version: link:../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -444,18 +444,18 @@ importers:
       '@nseng-ai/ccc':
         specifier: workspace:*
         version: link:../../capabilities/ccc
-      '@nseng-ai/core':
-        specifier: workspace:*
-        version: link:../../infra/core
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:../../capabilities/flow
-      '@nseng-ai/handoff':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../capabilities/handoff
-      '@nseng-ai/objective':
+        version: link:../../infra/foundation
+      '@nseng-ai/handoffs':
         specifier: workspace:*
-        version: link:../../capabilities/objective
+        version: link:../../capabilities/handoffs
+      '@nseng-ai/objectives':
+        specifier: workspace:*
+        version: link:../../capabilities/objectives
       '@nseng-ai/pi-command-surfaces':
         specifier: workspace:*
         version: link:../pi-command-surfaces
@@ -474,9 +474,9 @@ importers:
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
-      '@nseng-ai/objective':
+      '@nseng-ai/objectives':
         specifier: workspace:*
-        version: link:../../capabilities/objective
+        version: link:../../capabilities/objectives
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
@@ -493,15 +493,15 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
-      '@nseng-ai/objective':
+        version: link:../../infra/foundation
+      '@nseng-ai/objectives':
         specifier: workspace:*
-        version: link:../../capabilities/objective
-      '@nseng-ai/slot':
+        version: link:../../capabilities/objectives
+      '@nseng-ai/slots':
         specifier: workspace:*
-        version: link:../../capabilities/slot
+        version: link:../../capabilities/slots
       '@opentui/core':
         specifier: 'catalog:'
         version: 0.4.1(typescript@6.0.3)(web-tree-sitter@0.25.10)
@@ -514,21 +514,21 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.79.1
-      '@nseng-ai/address':
-        specifier: workspace:*
-        version: link:../../capabilities/address
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
       '@nseng-ai/pi-command-surfaces':
         specifier: workspace:*
         version: link:../pi-command-surfaces
+      '@nseng-ai/pr-feedback':
+        specifier: workspace:*
+        version: link:../../capabilities/pr-feedback
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -550,9 +550,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../core
+        version: link:../foundation
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -569,7 +569,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/infra/core:
+  packages/infra/foundation:
     dependencies:
       '@nseng-ai/clinkr':
         specifier: workspace:*
@@ -598,9 +598,9 @@ importers:
       '@nseng-ai/command-backed-skill-registry':
         specifier: workspace:*
         version: link:../../hosts/command-backed-skill-registry
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -610,9 +610,9 @@ importers:
 
   packages/internal/typescript-style-guard:
     dependencies:
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       jsonc-parser:
         specifier: 'catalog:'
         version: 3.3.1
@@ -631,9 +631,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../infra/core
+        version: link:../infra/foundation
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
@@ -652,9 +652,9 @@ importers:
       '@nseng-ai/command-backed-skill-registry':
         specifier: workspace:*
         version: link:../../hosts/command-backed-skill-registry
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -670,9 +670,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -685,9 +685,9 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/core':
+      '@nseng-ai/foundation':
         specifier: workspace:*
-        version: link:../../infra/core
+        version: link:../../infra/foundation
       zod:
         specifier: 'catalog:'
         version: 4.4.3

@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { truncateText, type CommandResult, type PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
@@ -11,7 +11,7 @@ import {
 	MAX_DIFF_CHARS,
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
-import { sanitizeBranchName } from "@nseng-ai/core/branch-slug";
+import { sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import {
 	AUTOBRANCH_GIT_TIMEOUT_MS,
 	DIRTY_AUTOBRANCH_WORKTREE_WARNING,

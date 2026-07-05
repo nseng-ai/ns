@@ -4,7 +4,7 @@ import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
-import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 const SUCCESS_RESULT = {
 	stdout: "ok\n",

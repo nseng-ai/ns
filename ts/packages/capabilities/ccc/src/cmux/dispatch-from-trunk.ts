@@ -4,14 +4,14 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	piExecApiToCommandExecApi,
-} from "@nseng-ai/core/command";
-import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+} from "@nseng-ai/foundation/command";
+import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
 } from "@nseng-ai/capability-kit/git";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME } from "./command-surfaces.ts";
 import {
@@ -22,7 +22,7 @@ import {
 	runText,
 	type BranchCreateResult,
 } from "./dispatch-prompt.ts";
-import type { SlotClient } from "@nseng-ai/slot/api";
+import type { SlotClient } from "@nseng-ai/slots/api";
 import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;

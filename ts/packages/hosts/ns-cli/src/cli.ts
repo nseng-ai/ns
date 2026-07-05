@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { runCli, type NsCliDeps } from "@nseng-ai/kernel/cli";
-import { listObjectivePreinstalledNsCommandCatalogEntries } from "@nseng-ai/objective/ns/preinstalled-catalog";
+import { listObjectivePreinstalledNsCommandCatalogEntries } from "@nseng-ai/objectives/ns/preinstalled-catalog";
 
 export async function runNsCli(args: readonly string[], deps: NsCliDeps = {}): Promise<number> {
 	return await runCli(args, {

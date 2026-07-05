@@ -13,7 +13,7 @@ import {
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
-import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { z } from "zod";
 
 import type { ArtifactOutputBounds, LoadedBundle } from "./models.ts";

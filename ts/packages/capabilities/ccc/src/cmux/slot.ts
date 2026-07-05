@@ -1,5 +1,5 @@
-import { piExecApiToCommandExecApi } from "@nseng-ai/core/command";
-import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slot/api";
+import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "@nseng-ai/capability-kit/cmux/gateway";
 import { getWorktreeDescription } from "./worktree-description.ts";

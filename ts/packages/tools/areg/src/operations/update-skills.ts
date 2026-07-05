@@ -1,5 +1,5 @@
 import { failure, ok, type ClinkrExit } from "@nseng-ai/clinkr";
-import type { Result } from "@nseng-ai/core/result";
+import type { Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

@@ -11,7 +11,7 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "../autobranch/checkpoint.ts";
 import { renderAutoslotResultBlock } from "./presentation.ts";
-import type { SlotClient } from "@nseng-ai/slot/api";
+import type { SlotClient } from "@nseng-ai/slots/api";
 import {
 	checkoutSlot,
 	createFlowSlotClient,

@@ -1,9 +1,9 @@
-import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@nseng-ai/core/model-slug";
+import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@nseng-ai/foundation/model-slug";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
-} from "@nseng-ai/objective/api";
+} from "@nseng-ai/objectives/api";
 
 import {
 	CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
@@ -17,7 +17,7 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type {
 	AgentEndContext,
 	CommandContext,

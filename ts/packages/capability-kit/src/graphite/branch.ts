@@ -1,4 +1,4 @@
-import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/core/primitives";
+import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import {
 	type CommandExecApi,
 	type CommandRunner,
@@ -7,7 +7,7 @@ import {
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/exec";
 
 export const GRAPHITE_COMMAND_NAME = "gt";
 

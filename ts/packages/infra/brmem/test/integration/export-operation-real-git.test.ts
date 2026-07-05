@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
-import type { StdinCapableCommandExecApi } from "@nseng-ai/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";

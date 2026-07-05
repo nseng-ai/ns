@@ -12,7 +12,7 @@ import {
 	type GraphiteMetadataWorkerRequest,
 } from "@nseng-ai/capability-kit/graphite/status";
 import type { LocalBranchRefReadResult } from "@nseng-ai/capability-kit/git";
-import { resultErr, resultOk, type Result } from "@nseng-ai/core/result";
+import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import type {
 	GraphiteMetadataDbAccess,
 	SqliteJsonError,

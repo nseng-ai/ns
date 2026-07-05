@@ -3,8 +3,8 @@ import { describe, expect, test, vi } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
-import { optionalEntry } from "@nseng-ai/core/primitives";
-import { ScriptedQueue } from "@nseng-ai/core/test-kit";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import {
 	parsePullRequestView,

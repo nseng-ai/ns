@@ -13,8 +13,8 @@ import {
 } from "@nseng-ai/clinkr";
 import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	buildNsCompletionScript,

@@ -1,4 +1,4 @@
-import { formatCommand } from "@nseng-ai/core/command";
+import { formatCommand } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import {

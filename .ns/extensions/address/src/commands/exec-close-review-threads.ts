@@ -1,1 +1,1 @@
-export { default } from "@nseng-ai/address/ns/commands/exec-close-review-threads";
+export { default } from "@nseng-ai/pr-feedback/ns/commands/exec-close-review-threads";

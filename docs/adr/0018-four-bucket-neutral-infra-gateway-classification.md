@@ -7,6 +7,10 @@ adds a package-placement gate: this ADR's per-domain *bucket* stands, but the *c
 that owns a large real implementation (and whether it folds into `@sdl/capability-kit` or stays in
 a standalone/deferred home) is governed by ADR 0019.
 
+(amended by ADR 0029: the `@sdl/core`/`ts/packages/infra/core` paths cited throughout this ADR's
+disposition table are now `@nseng-ai/foundation` at `ts/packages/infra/foundation`; the per-export
+bucket analysis below is otherwise unchanged.)
+
 ## Context
 
 `@sdl/core` currently mixes pure utilities, real-world I/O gateways, SDK-like host services,

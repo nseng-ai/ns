@@ -1,12 +1,12 @@
-import { runCommand } from "@nseng-ai/core/exec";
-import type { CommandRunner, ExecResult } from "@nseng-ai/core/command";
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import { runCommand } from "@nseng-ai/foundation/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import type { MaybePromise } from "@nseng-ai/core/primitives";
+import type { MaybePromise } from "@nseng-ai/foundation/primitives";
 
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";

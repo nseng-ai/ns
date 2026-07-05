@@ -29,7 +29,7 @@
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
 		"zod": "catalog:"

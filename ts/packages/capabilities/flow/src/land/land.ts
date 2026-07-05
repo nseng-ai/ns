@@ -1,7 +1,7 @@
 import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/kernel/sdk";
-import type { ExecOutputListener } from "@nseng-ai/core/command";
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { ExecOutputListener } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createCliCommandIo } from "@nseng-ai/kernel/command-io";
 import {

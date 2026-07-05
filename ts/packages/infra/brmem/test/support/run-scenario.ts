@@ -3,7 +3,7 @@ import { TextDecoder, TextEncoder } from "node:util";
 
 import type { ConfirmationResult } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import { optionalEntries } from "@nseng-ai/core/primitives";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type BrmemCliContext } from "../../src/context.ts";

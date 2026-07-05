@@ -5,8 +5,8 @@ import {
 	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_TAB_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
-} from "@nseng-ai/handoff/pi";
-import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@nseng-ai/objective/api";
+} from "@nseng-ai/handoffs/pi";
+import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@nseng-ai/objectives/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,

@@ -1,6 +1,6 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
-import { optionalEntry } from "@nseng-ai/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 
 import {

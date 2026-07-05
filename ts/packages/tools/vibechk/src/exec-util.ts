@@ -1,4 +1,4 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 import { VibechkError } from "./store.ts";
 

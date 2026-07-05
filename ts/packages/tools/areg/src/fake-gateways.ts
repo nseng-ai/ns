@@ -1,5 +1,5 @@
-import { optionalEntry } from "@nseng-ai/core/primitives";
-import { resultErr, resultOk } from "@nseng-ai/core/result";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { resultErr, resultOk } from "@nseng-ai/foundation/result";
 import {
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForRoot,

@@ -2,7 +2,7 @@ import { posix } from "node:path";
 
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
-import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { splitTextLines } from "@nseng-ai/pi/shared/text-lines";
 import { stripTerminalEscapes } from "@nseng-ai/pi/terminal/presentation";
 

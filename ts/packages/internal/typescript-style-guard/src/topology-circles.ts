@@ -19,7 +19,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@nseng-ai/core/typescript-analysis";
+} from "@nseng-ai/foundation/typescript-analysis";
 import { type PackageMetadata } from "./package-metadata.ts";
 import { type SourceRuleViolation } from "./source-rules.ts";
 

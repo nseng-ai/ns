@@ -1,5 +1,5 @@
-import { runCommand } from "@nseng-ai/core/exec";
-import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import { runCommand } from "@nseng-ai/foundation/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 export type CommandOutput = ExecResult;
 export type CommandOptions = ExecOptions;

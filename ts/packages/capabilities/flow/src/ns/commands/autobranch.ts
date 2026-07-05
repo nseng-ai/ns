@@ -3,10 +3,10 @@ import {
 	type ParsedAutobranchArgs,
 } from "../../autobranch/dirty-worktree.ts";
 import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
-import { renderResultBlock } from "@nseng-ai/core/cli-theme";
+import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/core/model-slug";
+import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/kernel/command-io";
 import {
 	defineExtension,

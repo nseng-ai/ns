@@ -45,7 +45,7 @@ Re-verify file paths and line numbers at pickup time -- the repo moves between t
 
 3. **Speculative Generality** (low) -- `ts/packages/infra/clinkr/src/exit.ts:115-146`
    - Roast: buildFailureMachineEnvelopeSchema offers four independent override knobs as if every caller needs to redefine status/exitCode/errorType/message validation, but in the whole repo exactly one caller ever touches one of them.
-   - Evidence: BuildFailureMachineEnvelopeSchemaOptions exposes statusSchema, exitCodeSchema, errorTypeSchema, and messageSchema (115-120); a repo-wide grep for buildFailureMachineEnvelopeSchema shows the only real caller (ts/packages/roaster/src/findings-publication.ts:47) and the package's own test only ever pass `errorTypeSchema`.
+   - Evidence: BuildFailureMachineEnvelopeSchemaOptions exposes statusSchema, exitCodeSchema, errorTypeSchema, and messageSchema (115-120); a repo-wide grep for buildFailureMachineEnvelopeSchema shows the only real caller (ts/packages/capabilities/reviews/src/core/findings-publication.ts:47) and the package's own test only ever pass `errorTypeSchema`.
    - Smallest fix: Drop statusSchema/exitCodeSchema/messageSchema until a caller actually needs them; keep a narrower `buildFailureMachineEnvelopeSchema(errorTypeSchema?)` and reintroduce the rest only when a real use shows up.
 
 ## ts/packages/infra/git
@@ -106,20 +106,20 @@ Re-verify file paths and line numbers at pickup time -- the repo moves between t
    - Evidence: `ResultBlockInput` is `{ kind, headline, body?, guidance?, cwd? }` and `DestructiveResultBlock` is `{ kind, headline, body?, guidance? }` -- an identical field-for-field restatement minus one optional property.
    - Smallest fix: Define `DestructiveResultBlock` as `Omit<ResultBlockInput, "cwd">` so the shared shape has one source of truth.
 
-## ts/packages/infra/core
+## ts/packages/infra/foundation
 
-1. **Middle Man** (medium) -- `ts/packages/infra/core/src/command.ts:135-141`
+1. **Middle Man** (medium) -- `ts/packages/infra/foundation/src/command.ts:135-141`
    - Roast: Naming a pass-through after the thing it passes through to just doubles the API surface for zero behavior.
    - Evidence: export function isSuccessfulExecResult(result: ExecResult): boolean { return commandSucceeded(result); }
      export function commandSucceeded(result: ExecResult): boolean { return result.code === 0 && !result.killed; }
    - Smallest fix: Delete isSuccessfulExecResult and have every caller use commandSucceeded directly (or vice versa) so the predicate has exactly one name.
 
-2. **Duplicated Code** (low) -- `ts/packages/infra/core/src/terminal-presentation.ts:100-102`
+2. **Duplicated Code** (low) -- `ts/packages/infra/foundation/src/terminal-presentation.ts:100-102`
    - Roast: This file already imports from primitives.ts and then reinvents primitives.ts's own exported isRecord byte-for-byte instead of using it.
    - Evidence: function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); } — identical to the exported isRecord in primitives.ts:22-24, and re-duplicated again as isJsonRecord in runner-usage.ts:188-190
    - Smallest fix: Import isRecord from ./primitives.ts in terminal-presentation.ts and runner-usage.ts and delete the local copies.
 
-3. **Duplicated Code** (low) -- `ts/packages/infra/core/src/text-truncation.ts:39-43`
+3. **Duplicated Code** (low) -- `ts/packages/infra/foundation/src/text-truncation.ts:39-43`
    - Roast: Hand-unrolling a fixed-point computation three times in a row is a loop wearing a trenchcoat.
    - Evidence: let marker = input.buildMarker(0);
      let preservedChars = Math.max(0, input.maxChars - marker.length);

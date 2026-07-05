@@ -1,13 +1,13 @@
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { isPathInside, optionalEntry } from "@nseng-ai/core/primitives";
+import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 
-export { isPathInside } from "@nseng-ai/core/primitives";
+export { isPathInside } from "@nseng-ai/foundation/primitives";
 
 export const MIN_PLAN_SLUG_WORDS = 3;
 export const MAX_PLAN_SLUG_WORDS = 7;

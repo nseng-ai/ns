@@ -1,7 +1,7 @@
 import { posix } from "node:path";
 import { TextDecoder } from "node:util";
 
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { checkEntryNotBinary, checkEntrySize } from "./content-limits.ts";
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";

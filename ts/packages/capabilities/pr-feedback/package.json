@@ -1,0 +1,41 @@
+{
+	"name": "@nseng-ai/pr-feedback",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		"./api": "./src/api.ts",
+		"./download-feedback-prompts": "./src/core/download-feedback-prompts.ts",
+		"./ns-command": "./src/ns-command.ts",
+		"./ns/commands/exec-download-feedback": "./src/ns/commands/exec-download-feedback.ts",
+		"./ns/commands/exec-map-branch-prs": "./src/ns/commands/exec-map-branch-prs.ts",
+		"./ns/commands/exec-branch-pr-checks": "./src/ns/commands/exec-branch-pr-checks.ts",
+		"./ns/commands/exec-pr-details": "./src/ns/commands/exec-pr-details.ts",
+		"./ns/commands/exec-branch-pr": "./src/ns/commands/exec-branch-pr.ts",
+		"./ns/commands/exec-open-prs": "./src/ns/commands/exec-open-prs.ts",
+		"./ns/commands/exec-pr-reviews": "./src/ns/commands/exec-pr-reviews.ts",
+		"./ns/commands/exec-pr-review-threads": "./src/ns/commands/exec-pr-review-threads.ts",
+		"./ns/commands/exec-pr-discussion-comments": "./src/ns/commands/exec-pr-discussion-comments.ts",
+		"./ns/commands/exec-pr-checks": "./src/ns/commands/exec-pr-checks.ts",
+		"./ns/commands/exec-reply-review-thread": "./src/ns/commands/exec-reply-review-thread.ts",
+		"./ns/commands/exec-resolve-review-thread": "./src/ns/commands/exec-resolve-review-thread.ts",
+		"./ns/commands/exec-close-review-threads": "./src/ns/commands/exec-close-review-threads.ts",
+		"./repo-local-ns-extension": "./src/repo-local-ns-extension.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/pr-feedback/test"
+	},
+	"dependencies": {
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "capability"
+	}
+}

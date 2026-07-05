@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/core/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import {
 	combinedGitCommandOutput,
 	isGitRebaseInProgressOutput,
@@ -8,7 +8,7 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
 
-import { buildFencedTextBlock } from "@nseng-ai/core/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";

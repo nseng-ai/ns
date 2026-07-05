@@ -11,8 +11,8 @@ import {
 	type ClinkrInteraction,
 } from "@nseng-ai/clinkr";
 
-import { defineCli, readStdinLine, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { defineCli, readStdinLine, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {

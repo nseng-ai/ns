@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { LiveCommandProgress } from "./cli-command-live-progress.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";

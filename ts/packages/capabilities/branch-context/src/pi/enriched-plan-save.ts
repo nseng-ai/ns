@@ -4,12 +4,16 @@ import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
-import { piExecApiToCommandExecApi } from "@nseng-ai/core/command";
+import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
-import type { ScheduledTimer } from "@nseng-ai/core/timers";
-import { systemTimerScheduler } from "@nseng-ai/core/time";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
+import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi/commands/ack";
 import {

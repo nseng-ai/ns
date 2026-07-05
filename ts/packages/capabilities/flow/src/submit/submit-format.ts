@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";

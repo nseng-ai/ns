@@ -62,10 +62,10 @@ These are the initial `ExplicitUndefined` reason taxonomy: each is a concrete, d
 
 | package                         | total | now | norm | preserve |
 | ------------------------------- | ----: | --: | ---: | -------: |
-| roaster                         |    63 |  37 |    5 |       21 |
+| reviews                         |    63 |  37 |    5 |       21 |
 | infra/brmem                     |    52 |  22 |   30 |        0 |
-| capabilities/slot               |    48 |  35 |    6 |        7 |
-| infra/core                      |    37 |  19 |   14 |        4 |
+| capabilities/slots              |    48 |  35 |    6 |        7 |
+| infra/foundation                |    37 |  19 |   14 |        4 |
 | kernel                          |    34 |  21 |   13 |        0 |
 | plans                           |    29 |  11 |   17 |        1 |
 | branch-context                  |    27 |  20 |    7 |        0 |
@@ -73,18 +73,18 @@ These are the initial `ExplicitUndefined` reason taxonomy: each is a concrete, d
 | infra/graphite                  |    21 |   9 |    4 |        8 |
 | sdl-sdk                         |    17 |  15 |    0 |        2 |
 | worktree-status                 |    16 |   7 |    9 |        0 |
-| address                         |    13 |   9 |    1 |        3 |
+| pr-feedback                     |    13 |   9 |    1 |        3 |
 | infra/clinkr                    |    13 |   5 |    8 |        0 |
 | tools/areg                      |    12 |  12 |    0 |        0 |
 | sdl-capability-kit              |    12 |  12 |    0 |        0 |
 | tools/vibechk                   |    11 |  10 |    0 |        1 |
 | hosts/pi                        |    11 |   7 |    1 |        3 |
-| aretro                          |     9 |   7 |    0 |        2 |
+| retros                          |     9 |   7 |    0 |        2 |
 | capabilities/flow               |     8 |   4 |    4 |        0 |
 | infra/github                    |     8 |   5 |    0 |        3 |
 | ccc                             |     8 |   8 |    0 |        0 |
 | infra/cli-runtime               |     7 |   3 |    3 |        1 |
-| objective                       |     6 |   5 |    0 |        1 |
+| objectives                      |     6 |   5 |    0 |        1 |
 | infra/git                       |     3 |   1 |    0 |        2 |
 | capability-pi/branch-context    |     2 |   2 |    0 |        0 |
 | capability-pi/handoff           |     2 |   0 |    2 |        0 |

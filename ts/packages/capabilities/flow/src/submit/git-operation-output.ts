@@ -1,5 +1,5 @@
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
-import type { ExecResult } from "@nseng-ai/core/command";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 
 export function combinedGitCommandOutput(result: ExecResult): string {
 	return `${result.stderr}\n${result.stdout}`;

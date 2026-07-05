@@ -196,7 +196,7 @@ Assumptions:
   `capabilities/*`, `capability-kit`, `hosts/{pi,nscc}`, `kernel`,
   `local/pi-tools`, and `tools/*`: the former standalone `exec`,
   `cli-runtime`, `cli-theme`, `time`, and `test-kit` packages now live under
-  `infra/core/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
+  `infra/foundation/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
   `capability-kit/src/*`; the `@local-pi-tools/*` sub-packages were
   consolidated into one `@internal/pi-tools` package at
   `ts/packages/local/pi-tools`; the `sdlcc` host was renamed `nscc`;

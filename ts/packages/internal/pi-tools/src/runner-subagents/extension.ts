@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { formatZodError, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { formatZodError, optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	loadPiAgentDefinition,
@@ -23,7 +23,7 @@ import {
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./presentation.ts";
-import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";

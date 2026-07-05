@@ -1,12 +1,12 @@
 import { fileURLToPath } from "node:url";
 
-import { shellQuote } from "@nseng-ai/core/exec";
+import { shellQuote } from "@nseng-ai/foundation/exec";
 import {
 	createSlotClient,
 	type SlotCheckoutFailure,
 	type SlotCheckoutTarget,
 	type SlotClient,
-} from "@nseng-ai/slot/api";
+} from "@nseng-ai/slots/api";
 
 import {
 	formatInlineCommandFailure,

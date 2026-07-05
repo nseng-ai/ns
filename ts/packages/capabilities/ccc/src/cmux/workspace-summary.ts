@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
-import type { CommandExecApi } from "@nseng-ai/core/command";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import {
 	RealCmuxGateway,
 	type CmuxGateway,

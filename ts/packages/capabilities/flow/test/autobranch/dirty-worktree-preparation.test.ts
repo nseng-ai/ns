@@ -3,7 +3,7 @@ import {
 	prepareAutobranchPlan,
 	type AutobranchPreparationInput,
 } from "../../src/autobranch/dirty-worktree.ts";
-import { MAX_BRANCH_SLUG_LENGTH } from "@nseng-ai/core/branch-slug";
+import { MAX_BRANCH_SLUG_LENGTH } from "@nseng-ai/foundation/branch-slug";
 import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {

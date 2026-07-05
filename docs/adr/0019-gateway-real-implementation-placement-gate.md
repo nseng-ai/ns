@@ -4,6 +4,10 @@
 
 Accepted — refines ADR 0018 (and through it ADR 0009, ADR 0012, ADR 0016).
 
+(amended by ADR 0029: the `@sdl/core`/`ts/packages/infra/core` paths cited throughout this ADR's
+per-domain placement table are now `@nseng-ai/foundation` at `ts/packages/infra/foundation`; the
+placement analysis below is otherwise unchanged.)
+
 ## Context
 
 ADR 0018 established the four-bucket rule for decomposing `@sdl/core` (pure utility, Kit gateway,

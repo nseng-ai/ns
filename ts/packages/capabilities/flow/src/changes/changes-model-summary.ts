@@ -1,4 +1,4 @@
-import { normalizeTextOutput } from "@nseng-ai/core/text-normalization";
+import { normalizeTextOutput } from "@nseng-ai/foundation/text-normalization";
 
 import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
 import {

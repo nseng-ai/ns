@@ -20,7 +20,7 @@
 	"dependencies": {
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

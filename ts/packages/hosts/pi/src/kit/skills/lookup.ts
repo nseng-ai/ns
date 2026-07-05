@@ -1,7 +1,7 @@
 import { lstat, realpath } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
 
-import { isPathInside } from "@nseng-ai/core/primitives";
+import { isPathInside } from "@nseng-ai/foundation/primitives";
 
 export const SKILL_LOOKUP_ROOT_DESCRIPTORS = [
 	{ root: "skills", sourceType: "repo" },

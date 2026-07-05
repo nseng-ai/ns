@@ -1,5 +1,5 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { callPiModelText } from "@nseng-ai/pi/models/call";
 import { loadGhCommand } from "@nseng-ai/pi/shared/gh-command";
