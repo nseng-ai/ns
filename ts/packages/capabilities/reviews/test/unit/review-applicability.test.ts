@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { ReviewApplicability } from "../../src/core/models.ts";
+import { createLocalDiff, type DiffFile, type ReviewApplicability } from "../../src/core/models.ts";
 import {
 	applicableReviewKeys,
+	filterLocalDiffForReviewApplicability,
 	pathMatchesPattern,
 	reviewAppliesToPaths,
 } from "../../src/core/review-applicability.ts";
@@ -93,6 +94,63 @@ describe("reviewAppliesToPaths", () => {
 		expect(reviewAppliesToPaths(applicability, [])).toBe(false);
 	});
 });
+
+describe("filterLocalDiffForReviewApplicability", () => {
+	test("keeps only files that contribute to the review's applicability", () => {
+		const tsFile = diffFile(
+			"src/app.ts",
+			"diff --git a/src/app.ts b/src/app.ts\n+const value = 1;\n",
+		);
+		const markdownFile = diffFile(
+			"docs/notes.md",
+			"diff --git a/docs/notes.md b/docs/notes.md\n+# Notes\n",
+		);
+		const testFile = diffFile(
+			"src/app.test.ts",
+			"diff --git a/src/app.test.ts b/src/app.test.ts\n+test('x', () => {});\n",
+		);
+		const localDiff = createLocalDiff({
+			baseRef: "main",
+			diffText: [tsFile.rawText, markdownFile.rawText, testFile.rawText].join(""),
+			files: [tsFile, markdownFile, testFile],
+		});
+
+		const filtered = filterLocalDiffForReviewApplicability(localDiff, {
+			include: ["**/*.ts"],
+			exclude: ["**/*.test.ts"],
+		});
+
+		expect(filtered.changedPaths).toEqual(["src/app.ts"]);
+		expect(filtered.diffText).toBe(tsFile.rawText);
+	});
+
+	test("returns unrestricted diffs unchanged", () => {
+		const localDiff = createLocalDiff({
+			baseRef: "main",
+			diffText: "diff --git a/README.md b/README.md\n+# Readme\n",
+			files: [diffFile("README.md", "diff --git a/README.md b/README.md\n+# Readme\n")],
+		});
+
+		expect(filterLocalDiffForReviewApplicability(localDiff, { include: [], exclude: [] })).toBe(
+			localDiff,
+		);
+	});
+});
+
+function diffFile(path: string, rawText: string): DiffFile {
+	return {
+		path,
+		oldPath: null,
+		changeKind: "modified",
+		rawText,
+		isBinary: false,
+		addedLines: 1,
+		removedLines: 0,
+		hunkCount: 1,
+		byteSize: rawText.length,
+		estimatedTokens: 1,
+	};
+}
 
 describe("applicableReviewKeys", () => {
 	test("returns stable keys whose applicability matches", () => {

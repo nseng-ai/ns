@@ -29,6 +29,7 @@ import {
 	type RoasterProjectConfig,
 } from "../core/project-config.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
+import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 
 export interface RunRoasterReviewRequest {
 	readonly key: string;
@@ -99,6 +100,7 @@ export async function runRoasterReview(
 	});
 	if (loaded.type === "error") return { type: "failed", error: loaded.error };
 	const { source, definition, config, diff } = loaded.value;
+	const reviewDiff = filterLocalDiffForReviewApplicability(diff, definition.applicability);
 
 	const resolved = resolveReviewModel(request, definition, config);
 	if (resolved.type === "error") return { type: "failed", error: resolved.error };
@@ -109,8 +111,8 @@ export async function runRoasterReview(
 		reviewPath: source.path,
 		modelProfile: model.modelProfile,
 		model: model.model,
-		baseRef: diff.baseRef,
-		changedPathCount: diff.changedPaths.length,
+		baseRef: reviewDiff.baseRef,
+		changedPathCount: reviewDiff.changedPaths.length,
 	};
 
 	const response = await ctx.reviewRunner.runReview(
@@ -118,7 +120,7 @@ export async function runRoasterReview(
 			model: model.model,
 			reviewDefinition: definition,
 			reviewDir: dirname(source.path),
-			target: { localDiff: diff },
+			target: { localDiff: reviewDiff },
 			...optionalEntry("priorFindingsContext", request.priorFindingsContext),
 		},
 		environmentOptions(ctx.runScope),
@@ -130,7 +132,7 @@ export async function runRoasterReview(
 		source.path,
 		model.modelProfile,
 		model.model,
-		diff.baseRef,
+		reviewDiff.baseRef,
 		response.value,
 	);
 	const logResult = await writeReviewRunLog(ctx, {

@@ -1,6 +1,6 @@
 import { mapFromRecordOrMap } from "@nseng-ai/foundation/primitives";
 
-import type { ReviewApplicability } from "./models.ts";
+import { filterLocalDiffFiles, type LocalDiff, type ReviewApplicability } from "./models.ts";
 
 interface ReviewDefinitionWithApplicability {
 	readonly applicability: ReviewApplicability;
@@ -28,6 +28,14 @@ export function reviewAppliesToPaths(
 	return changedPaths.some((path) => pathContributes(path, applicability));
 }
 
+export function filterLocalDiffForReviewApplicability(
+	localDiff: LocalDiff,
+	applicability: ReviewApplicability,
+): LocalDiff {
+	if (applicability.include.length === 0 && applicability.exclude.length === 0) return localDiff;
+	return filterLocalDiffFiles(localDiff, (file) => pathContributes(file.path, applicability));
+}
+
 export function pathMatchesPattern(path: string, pattern: string): boolean {
 	const pathSegments = splitPath(path);
 	const patternSegments = splitPath(pattern);
@@ -36,7 +44,9 @@ export function pathMatchesPattern(path: string, pattern: string): boolean {
 }
 
 function pathContributes(path: string, applicability: ReviewApplicability): boolean {
-	const isIncluded = applicability.include.some((pattern) => pathMatchesPattern(path, pattern));
+	const isIncluded =
+		applicability.include.length === 0 ||
+		applicability.include.some((pattern) => pathMatchesPattern(path, pattern));
 	if (!isIncluded) return false;
 	return !applicability.exclude.some((pattern) => pathMatchesPattern(path, pattern));
 }

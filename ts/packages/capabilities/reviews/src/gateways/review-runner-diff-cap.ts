@@ -1,6 +1,10 @@
 import { estimateTokens } from "../core/diff-parsing.ts";
 import { formatOmittedReviewInputFile } from "../core/input-coverage-formatting.ts";
-import type { ReviewRunnerRequest, ReviewInputCoverage } from "../core/models.ts";
+import {
+	filterLocalDiffFiles,
+	type ReviewRunnerRequest,
+	type ReviewInputCoverage,
+} from "../core/models.ts";
 
 export const MAX_PROMPT_DIFF_TOKENS = 90_000;
 export const MAX_PROMPT_DIFF_FILE_TOKENS = 40_000;
@@ -15,9 +19,8 @@ export function promptSizedDiff(
 ): PromptSizedDiffResult {
 	const fullDiffEstimatedTokens = estimateTokens(localDiff.diffText);
 	const omittedFiles: ReviewInputCoverage["omittedFiles"] = [];
-	const includedRawTexts: string[] = [];
+	const includedFiles: Array<ReviewRunnerRequest["target"]["localDiff"]["files"][number]> = [];
 	let includedTokens = 0;
-	let includedFileCount = 0;
 
 	for (const file of localDiff.files) {
 		if (file.estimatedTokens > MAX_PROMPT_DIFF_FILE_TOKENS) {
@@ -28,9 +31,8 @@ export function promptSizedDiff(
 			omittedFiles.push(omittedReviewInputFile(file, "diff-budget-exhausted"));
 			continue;
 		}
-		includedRawTexts.push(file.rawText);
+		includedFiles.push(file);
 		includedTokens += file.estimatedTokens;
-		includedFileCount += 1;
 	}
 
 	const inputCoverage = {
@@ -38,7 +40,7 @@ export function promptSizedDiff(
 		promptDiffTokenCap: MAX_PROMPT_DIFF_TOKENS,
 		promptDiffFileTokenCap: MAX_PROMPT_DIFF_FILE_TOKENS,
 		changedPathCount: localDiff.changedPaths.length,
-		includedFileCount,
+		includedFileCount: includedFiles.length,
 		omittedFileCount: omittedFiles.length,
 		omittedFiles,
 	} satisfies ReviewInputCoverage;
@@ -48,7 +50,8 @@ export function promptSizedDiff(
 	}
 
 	const header = buildCappedDiffHeader(inputCoverage);
-	const body = includedRawTexts.join("");
+	const includedFileSet = new Set(includedFiles);
+	const body = filterLocalDiffFiles(localDiff, (file) => includedFileSet.has(file)).diffText;
 	return { diffText: body.length === 0 ? header.trimEnd() : `${header}\n${body}`, inputCoverage };
 }
 

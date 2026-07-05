@@ -354,6 +354,19 @@ export function createLocalDiff(options: {
 	});
 }
 
+export function filterLocalDiffFiles(
+	localDiff: LocalDiff,
+	keepFile: (file: DiffFile) => boolean,
+): LocalDiff {
+	const files = localDiff.files.filter(keepFile);
+	if (files.length === localDiff.files.length) return localDiff;
+	return createLocalDiff({
+		baseRef: localDiff.baseRef,
+		diffText: files.map((file) => file.rawText).join(""),
+		files,
+	});
+}
+
 export function reviewUsageTotalInputTokens(usage: ReviewUsage): number {
 	return usage.inputTokens + usage.cacheCreationInputTokens + usage.cacheReadInputTokens;
 }
