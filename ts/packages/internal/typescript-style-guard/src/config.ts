@@ -23,6 +23,8 @@ export const BAN_EMPTY_INTERFACE_EXTENDS = "NS_TS_BAN_EMPTY_INTERFACE_EXTENDS";
 export const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "NS_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT";
 export const BAN_SNAKE_CASE_CLI_MACHINE_VALUE = "NS_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE";
 export const BAN_RAW_PRODUCTION_TIMERS = "NS_TS_BAN_RAW_PRODUCTION_TIMERS";
+export const BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE =
+	"NS_TS_BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE";
 export const BAN_EXTENSION_DEPENDENCY_CYCLE = "NS_TS_BAN_EXTENSION_DEPENDENCY_CYCLE";
 export const BAN_INTERNAL_SPACE_ADMISSION = "NS_TS_INTERNAL_SPACE_ADMISSION";
 export const BAN_PACKAGE_TIER_LAYERING = "NS_TS_PACKAGE_TIER_LAYERING";
@@ -65,19 +67,6 @@ export const capabilityPackageNames = new Set([
 	"@ns/address",
 	"@ns/slot",
 	"@ns/flow",
-]);
-
-export const neutralPeerPackageNames = new Set([
-	"/cli-runtime",
-	"@ns/brmem",
-	"@ns/clinkr",
-	"@ns/capability-kit/cmux",
-	"@ns/core",
-	"@ns/capability-kit",
-	"@ns/core/exec",
-	"@ns/capability-kit/git",
-	"@ns/capability-kit/github",
-	"@ns/capability-kit/graphite",
 ]);
 
 export const manifestDependencyFields = [

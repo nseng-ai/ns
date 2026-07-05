@@ -93,34 +93,38 @@ describe("ns completion CLI", () => {
 		},
 		{
 			name: "two-segment preinstalled command path",
-			path: ["slot", "gc"],
-			candidate: { name: "gc", segments: ["slot", "gc"], sourceLevel: "preinstalled" as const },
+			path: ["workspace", "clean"],
+			candidate: {
+				name: "clean",
+				segments: ["workspace", "clean"],
+				sourceLevel: "preinstalled" as const,
+			},
 			command: helloCommand({
-				name: "gc",
+				name: "clean",
 				schema: z.object({ shouldDeleteBranches: z.boolean().default(false) }),
 			}),
 			prefix: "--should-delete-br",
 			expected: "--should-delete-branches\n",
-			expectedLoadLog: ["slot/gc"],
+			expectedLoadLog: ["workspace/clean"],
 		},
 		{
 			name: "three-segment command path",
-			path: ["roaster", "review", "run"],
-			candidate: { name: "run", segments: ["roaster", "review", "run"] },
+			path: ["review-tools", "review", "run"],
+			candidate: { name: "run", segments: ["review-tools", "review", "run"] },
 			command: helloCommand({
 				name: "run",
 				schema: z.object({ shouldReviewProfile: z.boolean().default(false) }),
 			}),
 			prefix: "--should-review-pro",
 			expected: "--should-review-profile\n",
-			expectedLoadLog: ["roaster/review/run"],
+			expectedLoadLog: ["review-tools/review/run"],
 		},
 		{
 			name: "nested exec command path",
-			path: ["slot", "gt", "exec", "stack-branches"],
+			path: ["workspace", "graph", "exec", "stack-branches"],
 			candidate: {
 				name: "stack-branches",
-				segments: ["slot", "gt", "exec", "stack-branches"],
+				segments: ["workspace", "graph", "exec", "stack-branches"],
 			},
 			command: helloCommand({
 				name: "stack-branches",
@@ -128,7 +132,7 @@ describe("ns completion CLI", () => {
 			}),
 			prefix: "--is-downstack-o",
 			expected: "--is-downstack-only\n",
-			expectedLoadLog: ["slot/gt/exec/stack-branches"],
+			expectedLoadLog: ["workspace/graph/exec/stack-branches"],
 		},
 	])(
 		"selected extension option completion loads the selected command for $name",

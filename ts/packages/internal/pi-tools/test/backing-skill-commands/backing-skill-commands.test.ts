@@ -2,10 +2,8 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { withTempRepoSkill } from "@ns/core/test-kit";
-import {
-	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-} from "@ns/core/command";
+const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
+const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
 const OBJECTIVE_COMMAND_SURFACES = [
 	"ns:objective:next",

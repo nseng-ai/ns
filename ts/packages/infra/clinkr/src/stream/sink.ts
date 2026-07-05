@@ -1,6 +1,6 @@
 // The in-place pretty sink for clinkr's streaming surface. Generalized from the throwaway harness's
 // `renderInPlace`: it RENDERS frames it is handed and animates them, but it does NOT own phase
-// sequencing — a caller (e.g. a flow-submit row) drives the loop and decides what each frame contains.
+// sequencing — a caller-owned streaming row drives the loop and decides what each frame contains.
 //
 // Two behaviors keyed on `caps.isTty`:
 //   - isTty (motion): redraw a `log-update` live region, hide/restore the cursor, and spin held

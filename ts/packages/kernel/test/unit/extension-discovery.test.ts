@@ -141,25 +141,25 @@ describe("extension discovery", () => {
 	test("package-level groups apply to manifest commands", async () => {
 		const root = await createTempDir();
 		writeFile(
-			join(root, "handoff", "package.json"),
+			join(root, "tools", "package.json"),
 			JSON.stringify({
 				ns: {
-					group: "handoff",
-					commands: [{ name: "list", description: "List handoffs.", entry: "./src/list.ts" }],
+					group: "tools",
+					commands: [{ name: "list", description: "List tools.", entry: "./src/list.ts" }],
 				},
 			}),
 		);
-		writeFile(join(root, "handoff", "src", "list.ts"));
+		writeFile(join(root, "tools", "src", "list.ts"));
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.commands).toEqual([
 			expect.objectContaining({
-				group: "handoff",
+				group: "tools",
 				name: "list",
-				description: "List handoffs.",
-				fullDescription: "List handoffs.",
+				description: "List tools.",
+				fullDescription: "List tools.",
 			}),
 		]);
 	});
@@ -167,42 +167,42 @@ describe("extension discovery", () => {
 	test("manifest path entries may include compatibility names", async () => {
 		const root = await createTempDir();
 		writeFile(
-			join(root, "roaster", "package.json"),
+			join(root, "reviews", "package.json"),
 			JSON.stringify({
 				ns: {
-					group: "roaster",
+					group: "reviews",
 					commands: [
 						{
 							name: "review-list",
 							path: ["review", "list"],
-							description: "List Roaster reviews.",
+							description: "List review runs.",
 							entry: "./src/review-list.ts",
 						},
 						{
 							path: ["review", "show"],
-							description: "Show a Roaster review.",
+							description: "Show a review run.",
 							entry: "./src/review-show.ts",
 						},
 					],
 				},
 			}),
 		);
-		writeFile(join(root, "roaster", "src", "review-list.ts"));
-		writeFile(join(root, "roaster", "src", "review-show.ts"));
+		writeFile(join(root, "reviews", "src", "review-list.ts"));
+		writeFile(join(root, "reviews", "src", "review-show.ts"));
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.commands).toEqual([
 			expect.objectContaining({
-				group: "roaster",
+				group: "reviews",
 				name: "review-list",
-				segments: ["roaster", "review", "list"],
+				segments: ["reviews", "review", "list"],
 			}),
 			expect.objectContaining({
-				group: "roaster",
+				group: "reviews",
 				name: "show",
-				segments: ["roaster", "review", "show"],
+				segments: ["reviews", "review", "show"],
 			}),
 		]);
 	});
@@ -210,29 +210,29 @@ describe("extension discovery", () => {
 	test("manifest entry groups override the package-level group", async () => {
 		const root = await createTempDir();
 		writeFile(
-			join(root, "handoff", "package.json"),
+			join(root, "tools", "package.json"),
 			JSON.stringify({
 				ns: {
-					group: "handoff",
+					group: "tools",
 					commands: [
 						{
 							name: "exec-clear",
 							description: "Clear state.",
-							group: "handoff-exec",
+							group: "tools-exec",
 							entry: "./src/exec-clear.ts",
 						},
 					],
 				},
 			}),
 		);
-		writeFile(join(root, "handoff", "src", "exec-clear.ts"));
+		writeFile(join(root, "tools", "src", "exec-clear.ts"));
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.commands).toEqual([
 			expect.objectContaining({
-				group: "handoff-exec",
+				group: "tools-exec",
 				name: "exec-clear",
 			}),
 		]);
@@ -282,29 +282,29 @@ describe("extension discovery", () => {
 	test("unknown package manifest fields do not break command discovery", async () => {
 		const root = await createTempDir();
 		writeFile(
-			join(root, "flow", "package.json"),
+			join(root, "tools", "package.json"),
 			JSON.stringify({
 				private: true,
 				ns: {
-					group: "flow",
+					group: "tools",
 					owner: "repo-local",
 					commands: [
 						{
-							name: "changes",
-							description: "Show changes.",
-							entry: "./src/changes.ts",
+							name: "inspect",
+							description: "Show inspection output.",
+							entry: "./src/inspect.ts",
 							futureField: "accepted",
 						},
 					],
 				},
 			}),
 		);
-		writeFile(join(root, "flow", "src", "changes.ts"));
+		writeFile(join(root, "tools", "src", "inspect.ts"));
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.diagnostics).toEqual([]);
-		expect(result.commands).toEqual([expect.objectContaining({ group: "flow", name: "changes" })]);
+		expect(result.commands).toEqual([expect.objectContaining({ group: "tools", name: "inspect" })]);
 	});
 
 	test("manifest command entry diagnostics include commandName when the entry has a name", async () => {

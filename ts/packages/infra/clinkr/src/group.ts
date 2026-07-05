@@ -619,9 +619,9 @@ function parseIntegerValue(value: string): number {
 }
 
 function parseStrictInteger(value: string): number | null {
-	// TS clinkr is stricter than click: decimal digits only, no leading +, no
-	// whitespace, no underscores. Click accepts "+5", " 5 ", and "1_000"; TS
-	// intentionally rejects them. Parity arbitration belongs to pr-address-typescript-port.
+	// This parser is intentionally stricter than click-style coercion: decimal digits only,
+	// no leading +, no whitespace, no underscores. Callers that need parity with a prior
+	// command face should arbitrate that compatibility in the owning package.
 	if (!/^-?\d+$/.test(value)) return null;
 	return Number(value);
 }

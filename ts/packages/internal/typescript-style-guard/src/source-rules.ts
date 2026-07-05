@@ -5,6 +5,7 @@ import {
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
+	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 } from "./config.ts";
@@ -85,6 +86,18 @@ export function collectViolations(
 			violations.push(buildViolation(BAN_AS_UNKNOWN_AS, path, sourceFile, node));
 		}
 
+		if (isLowerLayerConcreteCapabilitySurfaceNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
+					path,
+					sourceFile,
+					node,
+					"Lower-layer production source must not import or encode concrete capability package/command surfaces; keep ownership in the contributing capability package.",
+				),
+			);
+		}
+
 		const snakeCaseMachineValueNode = snakeCaseCliMachineValueNode(node);
 		if (snakeCaseMachineValueNode !== undefined) {
 			violations.push(
@@ -105,6 +118,30 @@ export function collectViolations(
 }
 
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
+const CONCRETE_CAPABILITY_PACKAGE_NAMES = new Set([
+	"@ns/address",
+	"@ns/aretro",
+	"@ns/branch-context",
+	"@ns/ccc",
+	"@ns/flow",
+	"@ns/handoff",
+	"@ns/objective",
+	"@ns/plans",
+	"@ns/roaster",
+	"@ns/slot",
+]);
+const CONCRETE_CAPABILITY_COMMAND_PREFIXES = new Set([
+	"address",
+	"aretro",
+	"branch-context",
+	"ccc",
+	"flow",
+	"handoff",
+	"objective",
+	"plans",
+	"roaster",
+	"slot",
+]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/core/src/time/index.ts",
 	"ts/packages/hosts/pi/src/kit/shared/timers.ts",
@@ -141,6 +178,54 @@ function isFirstPartyImportDeclaration(node: ts.ImportDeclaration): boolean {
 	const specifier = moduleSpecifierText(node);
 	if (specifier === undefined) return false;
 	return isFirstPartyModuleSpecifier(specifier);
+}
+
+function isLowerLayerConcreteCapabilitySurfaceNode(node: ts.Node, path: string): boolean {
+	if (!isLowerLayerProductionSourcePath(path)) return false;
+	const literal = stringLiteralText(node);
+	if (literal === undefined) return false;
+	return (
+		isConcreteCapabilityPackageSpecifier(literal) ||
+		isConcreteCapabilityCommandSurfaceLiteral(literal)
+	);
+}
+
+function isLowerLayerProductionSourcePath(path: string): boolean {
+	if (path.includes("/test/") || path.includes("/test-support/")) return false;
+	return (
+		path.startsWith("ts/packages/infra/core/src/") ||
+		path.startsWith("ts/packages/infra/clinkr/src/") ||
+		path.startsWith("ts/packages/infra/brmem/src/") ||
+		path.startsWith("ts/packages/kernel/src/") ||
+		path.startsWith("ts/packages/capability-kit/src/")
+	);
+}
+
+function stringLiteralText(node: ts.Node): string | undefined {
+	return ts.isStringLiteralLike(node) ? node.text : undefined;
+}
+
+function isConcreteCapabilityPackageSpecifier(value: string): boolean {
+	for (const packageName of CONCRETE_CAPABILITY_PACKAGE_NAMES) {
+		if (value === packageName || value.startsWith(`${packageName}/`)) return true;
+	}
+	return false;
+}
+
+function isConcreteCapabilityCommandSurfaceLiteral(value: string): boolean {
+	const nsColonMatch = value.match(/(?:^|\/)ns:([a-z0-9-]+)/);
+	if (nsColonMatch?.[1] === "plan") return true;
+	if (
+		nsColonMatch?.[1] !== undefined &&
+		CONCRETE_CAPABILITY_COMMAND_PREFIXES.has(nsColonMatch[1])
+	) {
+		return true;
+	}
+
+	const normalized = value.startsWith("ns ") ? value.slice(3) : value;
+	const firstSegment = normalized.split(/[\s/]/, 1)[0];
+	if (firstSegment === undefined) return false;
+	return CONCRETE_CAPABILITY_COMMAND_PREFIXES.has(firstSegment) && normalized !== value;
 }
 
 function isPrivateCapabilityPeerImport(

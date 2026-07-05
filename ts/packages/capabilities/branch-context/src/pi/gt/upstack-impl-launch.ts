@@ -1,5 +1,5 @@
 import { type BranchContextEvidence } from "@ns/branch-context/api";
-import { formatImplBranchContextCommand } from "@ns/core/command";
+import { formatImplBranchContextCommand } from "../surfaces.ts";
 import type { ExecResult } from "@ns/core/command";
 import { setRuntimeStatus } from "@ns/pi/runtime/status";
 import type { ExtensionAPI, NewSessionOptions, NewSessionResult } from "../host-types.ts";

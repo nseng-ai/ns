@@ -12,7 +12,7 @@ import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "@ns/core/command";
+} from "./surfaces.ts";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextOutputMessage,

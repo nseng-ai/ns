@@ -3,8 +3,8 @@
 // string builder: it owns the glyph/color/indent grammar for each state but no sequencing, no timers,
 // and no I/O. The streaming sink advances `tick` and composes whole frames from these lines.
 //
-// Generalized from the throwaway harness's `inPlacePhaseLine`, decoupled from any flow-specific phase
-// type: it takes a small `StatusLineItem` (name + two presentational texts) rather than a `SubmitPhase`.
+// Generalized from an in-place phase-line renderer by taking a small `StatusLineItem` (name + two
+// presentational texts) instead of any workflow-owned phase type.
 
 import type { Caps } from "@ns/clinkr";
 import { glyph, spinnerFrame } from "./glyphs.ts";

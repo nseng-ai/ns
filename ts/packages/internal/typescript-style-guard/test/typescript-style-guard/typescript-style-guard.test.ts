@@ -14,6 +14,7 @@ import {
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_INTERNAL_SPACE_ADMISSION,
+	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
@@ -191,6 +192,30 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "ordinary first-party named import is allowed",
 			code: 'import { Foo } from "@ns/core/primitives";',
+			expectedRules: [],
+		},
+		{
+			name: "lower-layer source cannot import concrete capability packages",
+			code: 'import { listObjectives } from "@ns/objective/api";',
+			path: "ts/packages/kernel/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+		},
+		{
+			name: "lower-layer source cannot encode concrete slash command surfaces",
+			code: 'const command = "/ns:objective:list";',
+			path: "ts/packages/infra/core/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+		},
+		{
+			name: "lower-layer source cannot encode concrete ns command surfaces",
+			code: 'const command = "ns slot checkout";',
+			path: "ts/packages/capability-kit/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+		},
+		{
+			name: "capability tests may mention concrete capability command surfaces",
+			code: 'const command = "/ns:objective:list";',
+			path: "ts/packages/kernel/test/scenario/example.test.ts",
 			expectedRules: [],
 		},
 		{

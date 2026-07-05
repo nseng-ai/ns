@@ -6,7 +6,7 @@ import { buildPlanContentSlugPrompt, createBranchContextContext } from "@ns/bran
 import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
 
 // Intentional golden literal: pins the agent-facing implementation command name
-// independently of formatImplBranchContextCommand in @ns/core/command.
+// independently of formatImplBranchContextCommand in @ns/branch-context/pi.
 function expectedImplBranchContextCommand(key: string): string {
 	return `/ns:branch-context:impl-attached-plan ${key}`;
 }

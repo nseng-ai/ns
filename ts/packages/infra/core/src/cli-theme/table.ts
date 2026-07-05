@@ -1,6 +1,6 @@
 // Composable aligned-column + key/value primitives for ns CLI theme buffered surfaces. Generalized from
-// the throwaway harness's `renderObjectiveList` column math, with the objective-specific columns lifted
-// out into a caller-supplied column spec + rows. Pure: column specs + rows in, styled lines out.
+// a caller-owned table renderer by lifting domain columns into caller-supplied column specs + rows.
+// Pure: column specs + rows in, styled lines out.
 //
 // Width math measures VISIBLE cells: cells carry their own plain text alongside the styled string, so
 // SGR escapes never skew layout (see `Cell`). Columns size three ways — `fixed`, content-`auto` (clamped
