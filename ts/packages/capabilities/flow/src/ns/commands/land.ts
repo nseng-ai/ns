@@ -12,11 +12,11 @@ import { createCommandIo } from "@ns/kernel/command-io";
 import {
 	defineExtension,
 	z,
-	type SdlCommand,
-	type SdlCommandIo,
-	type SdlExtensionApi,
-	type SdlNotifyLevel,
-	type SdlProgressPhaseEvent,
+	type NsCommand,
+	type NsCommandIo,
+	type NsExtensionApi,
+	type NsNotifyLevel,
+	type NsProgressPhaseEvent,
 } from "@ns/kernel/sdk";
 import type { Caps } from "@ns/clinkr";
 
@@ -30,7 +30,7 @@ import {
 
 const landSchema = z.object(landCommandSchemaShape(z));
 
-export const flowLandCommand: SdlCommand<typeof landSchema> = {
+export const flowLandCommand: NsCommand<typeof landSchema> = {
 	name: "land",
 	summary: "Land the current PR or Graphite stack into trunk.",
 	description: "Land the current PR or Graphite stack into trunk.",
@@ -78,7 +78,7 @@ export default defineExtension({
 });
 
 interface LandCliProgress {
-	io: SdlCommandIo;
+	io: NsCommandIo;
 	liveProgress: LandLiveProgressSink;
 	finish(exitCode: number): Promise<void>;
 	flushFailureDetails(exitCode: number): void;
@@ -102,7 +102,7 @@ export function formatLandProgressTitle(state: LandLiveProgressState): string {
 	return BASE_LAND_TITLE;
 }
 
-function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgress {
+function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress {
 	// Land receives generic phase signals from command-stream text, so the stream starts lazily only
 	// after the first phase-worthy message. Structured Flow live-progress events drive the title.
 	// The shared controller owns lifecycle mechanics; this adapter owns only land-specific routing.
@@ -130,7 +130,7 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		updateTitle();
 	}
 
-	function emit(event: SdlProgressPhaseEvent): void {
+	function emit(event: NsProgressPhaseEvent): void {
 		progress.emit(event);
 		if (event.type === "phase-started") lastPhaseKey = event.phaseKey;
 	}
@@ -174,7 +174,7 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		}
 	}
 
-	function routeMessage(message: string, level: SdlNotifyLevel): void {
+	function routeMessage(message: string, level: NsNotifyLevel): void {
 		const normalized = message.trim();
 		if (normalized === "") return;
 		if (level === "error" || normalized.startsWith("✗")) {

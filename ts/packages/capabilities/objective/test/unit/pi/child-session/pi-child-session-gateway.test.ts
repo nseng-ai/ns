@@ -11,7 +11,7 @@ import type {
 } from "../../../../src/runner/child-session.ts";
 import {
 	createPiChildSessionGateway,
-	SDL_RUNNER_PI_BIN_ENV,
+	NS_RUNNER_PI_BIN_ENV,
 	type PiChildSessionGatewayDependencies,
 	type PiChildSpawnOptions,
 	type SpawnedPiChildProcess,
@@ -140,7 +140,7 @@ describe("createPiChildSessionGateway", () => {
 
 	test("propagates --model and the NS_RUNNER_PI_BIN binary override", async () => {
 		const { deps, calls } = createFakePiGateway({
-			env: { [SDL_RUNNER_PI_BIN_ENV]: "/opt/custom/pi" },
+			env: { [NS_RUNNER_PI_BIN_ENV]: "/opt/custom/pi" },
 		});
 		const handle = createPiChildSessionGateway(deps).dispatch({
 			cwd: "/repo",

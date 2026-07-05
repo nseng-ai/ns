@@ -19,7 +19,7 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in Objective SDL extension loading", () => {
+describe("checked-in Objective ns extension loading", () => {
 	test("real loader exposes Objective command help without showing hidden exec helpers", async () => {
 		const cwd = await createObjectiveProject();
 
@@ -61,7 +61,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		expect(archiveHelp.stdout.join("")).toContain("--unarchive");
 	});
 
-	test("hidden exec command help is invocable under the SDL exec convention", async () => {
+	test("hidden exec command help is invocable under the ns exec convention", async () => {
 		const cwd = await createObjectiveProject();
 
 		const readHelp = runWithRealObjectiveExtension({

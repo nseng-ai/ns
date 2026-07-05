@@ -1,8 +1,8 @@
 import { defineExtension, ok, z } from "@ns/kernel/sdk";
 import type {
-	SdlCommandIo,
-	SdlExtensionApi,
-	SdlProgress,
+	NsCommandIo,
+	NsExtensionApi,
+	NsProgress,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
@@ -85,15 +85,15 @@ const textGenerator: TextGenerator = {
 		return { ok: true, text: request.prompt };
 	},
 };
-const commandIo: SdlCommandIo = {
+const commandIo: NsCommandIo = {
 	phase: () => {},
 	notify: () => {},
 	message: () => {},
 	clearPhase: () => {},
 };
-const progress: SdlProgress = { phase: () => {} };
+const progress: NsProgress = { phase: () => {} };
 
-function acceptsExtensionApi(api: SdlExtensionApi): string {
+function acceptsExtensionApi(api: NsExtensionApi): string {
 	api.commandIo.phase("checking");
 	api.progress.phase({ type: "phase-done", phaseKey: "checking" });
 	return api.cwd;

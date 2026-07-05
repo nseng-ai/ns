@@ -9,7 +9,7 @@ import {
 	ensurePrivateDirectorySync,
 	ensurePrivateParentDirectory,
 	ensurePrivateParentDirectorySync,
-	resolveSdlXdgPath,
+	resolveNsXdgPath,
 } from "@ns/capability-kit/xdg";
 
 const tempDirs: string[] = [];
@@ -22,7 +22,7 @@ afterEach(async () => {
 describe("XDG capability-kit helpers", () => {
 	test("exports pure XDG path helpers from the lower-tier core subpath", () => {
 		expect(
-			resolveSdlXdgPath({
+			resolveNsXdgPath({
 				kind: "data",
 				env: { HOME: "/home/tester" },
 				segments: ["extensions"],

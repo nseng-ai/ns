@@ -7,13 +7,13 @@ import {
 	runRecordFindings,
 	type RecordFindingsRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ns/command.ts";
+import { roasterNsCommand } from "../ns/command.ts";
 
 const EXEC_RECORD_FINDINGS_DESCRIPTION = `Record same-session Roaster findings from stdin.
 
-This hidden SDL automation command preserves Roaster's record-findings JSON stdin contract, validates the findings payload inside Roaster-owned logic, and writes the same Branch Memory review log under namespace roaster and reviews/<review-key>/... keys. It intentionally does not publish findings to GitHub.`;
+This hidden ns automation command preserves Roaster's record-findings JSON stdin contract, validates the findings payload inside Roaster-owned logic, and writes the same Branch Memory review log under namespace roaster and reviews/<review-key>/... keys. It intentionally does not publish findings to GitHub.`;
 
-export const roasterExecRecordFindingsCommand = roasterSdlCommand({
+export const roasterExecRecordFindingsCommand = roasterNsCommand({
 	name: "exec-record-findings",
 	summary: "Record same-session Roaster findings from stdin.",
 	description: EXEC_RECORD_FINDINGS_DESCRIPTION,

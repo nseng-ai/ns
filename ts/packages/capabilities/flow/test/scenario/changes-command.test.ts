@@ -114,7 +114,7 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• !!         ignored.log");
 	});
 
-	test("changes model can be selected by SDL environment with legacy fallback", async () => {
+	test("changes model can be selected by ns environment with legacy fallback", async () => {
 		const selected = runChangesWithFakes({
 			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
 			env: {

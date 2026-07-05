@@ -4,46 +4,46 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
-	SDL_COMMAND_NAME_PATTERN,
-	SDL_COMMAND_NAME_RULE,
+	NS_COMMAND_NAME_PATTERN,
+	NS_COMMAND_NAME_RULE,
 	commandInfoForLoadedCommand,
 	commandKey,
 	toCommandCliInfo,
 	commandPathMatches,
 	commandSegments,
-	listBuiltInSdlCommandCandidates,
-	validateSdlExtensionContribution,
-	type BuiltInSdlCommandCandidate,
-	type SdlCommandCandidate,
-	type SdlCommandCliInfo,
-	type SdlCommandPath,
-	type SdlCommandSourceInfo,
-	type SdlCommandSourceLevel,
+	listBuiltInNsCommandCandidates,
+	validateNsExtensionContribution,
+	type BuiltInNsCommandCandidate,
+	type NsCommandCandidate,
+	type NsCommandCliInfo,
+	type NsCommandPath,
+	type NsCommandSourceInfo,
+	type NsCommandSourceLevel,
 } from "./command-registry.ts";
 import {
 	discoverExtensionsInRoot,
-	discoverSdlPackageCommands,
+	discoverNsPackageCommands,
 	type DiscoveredExtensionCommand,
 	type DiscoveredExtensionCommandKind,
 	type ExtensionDiscoveryDiagnostic,
 } from "./discovery.ts";
-import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
+import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import type { ExplicitUndefined } from "@ns/core/primitives";
-import { requireXdgPath, resolveSdlXdgPath } from "@ns/core/xdg-path";
-import type { SdlCommand } from "../sdk/index.ts";
+import { requireXdgPath, resolveNsXdgPath } from "@ns/core/xdg-path";
+import type { NsCommand } from "../sdk/index.ts";
 
-export type ExtensionSourceLevel = SdlCommandSourceLevel;
-export type ExtensionSourceInfo = SdlCommandSourceInfo;
+export type ExtensionSourceLevel = NsCommandSourceLevel;
+export type ExtensionSourceInfo = NsCommandSourceInfo;
 
-export interface SdlCommandCatalog {
+export interface NsCommandCatalog {
 	candidates: ReadonlyMap<string, ExtensionCommandCandidate>;
-	commandInfos: readonly SdlCommandCliInfo[];
+	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionDiagnostic[];
 }
 
-export type ExtensionCommandCandidate = BuiltInSdlCommandCandidate | ExternalSdlCommandCandidate;
+export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
 
-export interface ExternalSdlCommandCandidate extends SdlCommandCandidate {
+export interface ExternalNsCommandCandidate extends NsCommandCandidate {
 	entryPath: string;
 	kind: DiscoveredExtensionCommandKind;
 }
@@ -68,8 +68,8 @@ export interface ExtensionOverrideDiagnostic {
 	overridingSource: ExtensionSourceInfo;
 }
 
-export type SelectedSdlCommandLoadResult =
-	| { ok: true; command: SdlCommand; source: ExtensionSourceInfo; path: SdlCommandPath }
+export type SelectedNsCommandLoadResult =
+	| { ok: true; command: NsCommand; source: ExtensionSourceInfo; path: NsCommandPath }
 	| { ok: false; diagnostic: ExtensionErrorDiagnostic };
 
 export interface DiagnosticClassification {
@@ -77,7 +77,7 @@ export interface DiagnosticClassification {
 	warnings: readonly ExtensionErrorDiagnostic[];
 }
 
-interface LoadSdlCommandCatalogOptions {
+interface LoadNsCommandCatalogOptions {
 	cwd: string;
 	homeDir?: string;
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
@@ -90,14 +90,14 @@ const ORDERED_SOURCE_LEVELS = [
 	"project",
 ] as const satisfies readonly ExtensionSourceLevel[];
 
-export async function loadSdlCommandCatalog(
-	options: LoadSdlCommandCatalogOptions,
-): Promise<SdlCommandCatalog> {
+export async function loadNsCommandCatalog(
+	options: LoadNsCommandCatalogOptions,
+): Promise<NsCommandCatalog> {
 	const diagnostics: ExtensionDiagnostic[] = [];
-	const builtInCandidates = listBuiltInSdlCommandCandidates();
+	const builtInCandidates = listBuiltInNsCommandCandidates();
 	const env = catalogEnv(options);
 	const globalRoots = [
-		requireXdgPath(resolveSdlXdgPath({ kind: "data", env, segments: ["extensions"] })),
+		requireXdgPath(resolveNsXdgPath({ kind: "data", env, segments: ["extensions"] })),
 	];
 	const orderedSources: Array<{
 		level: ExtensionSourceLevel;
@@ -140,7 +140,7 @@ export async function loadSdlCommandCatalog(
 				diagnostics.push({
 					severity: "info",
 					code: "extension_command_override",
-					message: `SDL command ${key} from ${formatSource(candidate.source)} overrides ${formatSource(existing.source)}.`,
+					message: `ns command ${key} from ${formatSource(candidate.source)} overrides ${formatSource(existing.source)}.`,
 					commandName: key,
 					overriddenSource: existing.source,
 					overridingSource: candidate.source,
@@ -163,14 +163,14 @@ export async function loadSdlCommandCatalog(
 	};
 }
 
-export async function loadSelectedSdlCommand(
+export async function loadSelectedNsCommand(
 	candidate: ExtensionCommandCandidate,
-): Promise<SelectedSdlCommandLoadResult> {
+): Promise<SelectedNsCommandLoadResult> {
 	if (isBuiltInCandidate(candidate)) {
 		return { ok: true, command: candidate.command, source: candidate.source, path: candidate };
 	}
 
-	const loaded = await loadSdlExtensionContribution(candidate.entryPath);
+	const loaded = await loadNsExtensionContribution(candidate.entryPath);
 	if (!loaded.ok) {
 		return {
 			ok: false,
@@ -181,7 +181,7 @@ export async function loadSelectedSdlCommand(
 			),
 		};
 	}
-	const validation = validateSdlExtensionContribution(
+	const validation = validateNsExtensionContribution(
 		loaded.defaultExport,
 		candidate,
 		formatSource(candidate.source),
@@ -202,8 +202,8 @@ export async function loadSelectedSdlCommand(
 	return { ok: true, command: validation.command, source: candidate.source, path: candidate };
 }
 
-export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promise<{
-	commandInfos: readonly SdlCommandCliInfo[];
+export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promise<{
+	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionErrorDiagnostic[];
 }> {
 	const loadedInfos = await Promise.all(
@@ -211,7 +211,7 @@ export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promi
 			if (isBuiltInCandidate(candidate) || candidate.kind === "package") {
 				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
 			}
-			const loaded = await loadSelectedSdlCommand(candidate);
+			const loaded = await loadSelectedNsCommand(candidate);
 			if (!loaded.ok) {
 				return { commandInfo: toCommandCliInfo(candidate), diagnostic: loaded.diagnostic };
 			}
@@ -230,9 +230,9 @@ export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promi
 }
 
 export function commandInfosForSelectedCommand(
-	commandInfos: readonly SdlCommandCliInfo[],
-	loaded: { command: SdlCommand; source: ExtensionSourceInfo; path: SdlCommandPath } | undefined,
-): readonly SdlCommandCliInfo[] {
+	commandInfos: readonly NsCommandCliInfo[],
+	loaded: { command: NsCommand; source: ExtensionSourceInfo; path: NsCommandPath } | undefined,
+): readonly NsCommandCliInfo[] {
 	if (loaded === undefined) return commandInfos;
 	const loadedInfo = commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path);
 	return commandInfos.map((info) => (commandPathMatches(info, loadedInfo) ? loadedInfo : info));
@@ -328,7 +328,7 @@ function loadFirstPartyCandidates(): {
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const candidates: ExtensionCommandCandidate[] = [];
 	for (const packageDir of packageDirs) {
-		const discovered = discoverSdlPackageCommands(packagesRoot, packageDir);
+		const discovered = discoverNsPackageCommands(packagesRoot, packageDir);
 		diagnostics.push(
 			...discovered.diagnostics.map((diagnostic) =>
 				fromDiscoveryDiagnostic(diagnostic, "first-party"),
@@ -385,7 +385,7 @@ function collectPackageDirs(options: {
 function externalCandidateForLevel(
 	command: DiscoveredExtensionCommand,
 	level: "first-party" | "global" | "project",
-): ExternalSdlCommandCandidate {
+): ExternalNsCommandCandidate {
 	return {
 		...toCommandCliInfo(command),
 		entryPath: command.entryPath,
@@ -405,33 +405,33 @@ function validateSourceCandidates(
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const validated: ExtensionCommandCandidate[] = [];
 	for (const candidate of candidates) {
-		if (!SDL_COMMAND_NAME_PATTERN.test(candidate.name)) {
+		if (!NS_COMMAND_NAME_PATTERN.test(candidate.name)) {
 			diagnostics.push({
 				severity: "error",
 				code: "extension_command_name_invalid",
-				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command name must match ${SDL_COMMAND_NAME_RULE}.`,
+				message: `Invalid ns command candidate from ${formatSource(candidate.source)}: command name must match ${NS_COMMAND_NAME_RULE}.`,
 				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
 				sourceLevel: candidate.source.level,
 				commandName: commandKey(candidate),
 			});
 			continue;
 		}
-		if (candidate.group !== undefined && !SDL_COMMAND_NAME_PATTERN.test(candidate.group)) {
+		if (candidate.group !== undefined && !NS_COMMAND_NAME_PATTERN.test(candidate.group)) {
 			diagnostics.push({
 				severity: "error",
 				code: "extension_command_group_invalid",
-				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command group must match ${SDL_COMMAND_NAME_RULE}.`,
+				message: `Invalid ns command candidate from ${formatSource(candidate.source)}: command group must match ${NS_COMMAND_NAME_RULE}.`,
 				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
 				sourceLevel: candidate.source.level,
 				commandName: commandKey(candidate),
 			});
 			continue;
 		}
-		if (commandSegments(candidate).some((segment) => !SDL_COMMAND_NAME_PATTERN.test(segment))) {
+		if (commandSegments(candidate).some((segment) => !NS_COMMAND_NAME_PATTERN.test(segment))) {
 			diagnostics.push({
 				severity: "error",
 				code: "extension_command_path_invalid",
-				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command path segments must match ${SDL_COMMAND_NAME_RULE}.`,
+				message: `Invalid ns command candidate from ${formatSource(candidate.source)}: command path segments must match ${NS_COMMAND_NAME_RULE}.`,
 				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
 				sourceLevel: candidate.source.level,
 				commandName: commandKey(candidate),
@@ -458,7 +458,7 @@ function validateSourceCandidates(
 		diagnostics.push({
 			severity: "error",
 			code: "extension_command_duplicate_in_level",
-			message: `Duplicate SDL command ${name} within ${level} extension source ${sourceLabel}: ${matches.map((match) => formatSource(match.source)).join(", ")}.`,
+			message: `Duplicate ns command ${name} within ${level} extension source ${sourceLabel}: ${matches.map((match) => formatSource(match.source)).join(", ")}.`,
 			sourceLevel: level,
 			commandName: name,
 		});
@@ -498,7 +498,7 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 		diagnostics.push({
 			severity: "error",
 			code: "extension_command_group_collision",
-			message: `SDL command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${topSegment} from ${formatSource(topLevel.source)} already exists.`,
+			message: `ns command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${topSegment} from ${formatSource(topLevel.source)} already exists.`,
 			...(candidate.entryPath === undefined ? {} : { path: candidate.entryPath }),
 			sourceLevel: candidate.source.level,
 			commandName: commandKey(candidate),
@@ -518,7 +518,7 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 	};
 }
 
-function catalogEnv(options: LoadSdlCommandCatalogOptions): Record<string, string | undefined> {
+function catalogEnv(options: LoadNsCommandCatalogOptions): Record<string, string | undefined> {
 	return {
 		...process.env,
 		...(options.env ?? {}),
@@ -533,14 +533,14 @@ function uniquePaths(paths: readonly string[]): readonly string[] {
 function sourceLevelRank(level: ExtensionSourceLevel): number {
 	const rank = ORDERED_SOURCE_LEVELS.indexOf(level);
 	if (rank === -1) {
-		throw new Error(`Missing SDL extension source-level order for ${level}.`);
+		throw new Error(`Missing ns extension source-level order for ${level}.`);
 	}
 	return rank;
 }
 
 function isBuiltInCandidate(
 	candidate: ExtensionCommandCandidate,
-): candidate is BuiltInSdlCommandCandidate {
+): candidate is BuiltInNsCommandCandidate {
 	return candidate.source.level === "built-in";
 }
 

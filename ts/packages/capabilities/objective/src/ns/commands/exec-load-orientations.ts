@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	loadOrientationsRequestSchema,
 	loadOrientationsResultSchema,
@@ -8,7 +8,7 @@ import {
 	runLoadOrientations,
 } from "../../core/operations/load-orientations.ts";
 
-export const objectiveExecLoadOrientationsSdlCommand = objectiveSdlCommand({
+export const objectiveExecLoadOrientationsNsCommand = objectiveNsCommand({
 	name: "exec-load-orientations",
 	summary: "Load active Objective orientation files for agent onboarding.",
 	description: "Load active Objective orientation files for agent onboarding.",
@@ -20,5 +20,5 @@ export const objectiveExecLoadOrientationsSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveExecLoadOrientationsSdlCommand],
+	commands: [objectiveExecLoadOrientationsNsCommand],
 });

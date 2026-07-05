@@ -8,9 +8,9 @@ import {
 	failed,
 	ok,
 	z,
-	type SdlCommand,
-	type SdlExtensionApi,
-	type SdlResult,
+	type NsCommand,
+	type NsExtensionApi,
+	type NsResult,
 } from "@ns/kernel/sdk";
 
 const execReadGraphiteBranchMetadataSchema = z.object({
@@ -19,7 +19,7 @@ const execReadGraphiteBranchMetadataSchema = z.object({
 
 type ExecReadGraphiteBranchMetadataRequest = z.output<typeof execReadGraphiteBranchMetadataSchema>;
 
-export const flowExecReadGraphiteBranchMetadataCommand: SdlCommand<
+export const flowExecReadGraphiteBranchMetadataCommand: NsCommand<
 	typeof execReadGraphiteBranchMetadataSchema
 > = {
 	name: "exec-read-graphite-branch-metadata",
@@ -31,9 +31,9 @@ export const flowExecReadGraphiteBranchMetadataCommand: SdlCommand<
 };
 
 async function runExecReadGraphiteBranchMetadata(
-	ctx: SdlExtensionApi,
+	ctx: NsExtensionApi,
 	request: ExecReadGraphiteBranchMetadataRequest,
-): Promise<SdlResult> {
+): Promise<NsResult> {
 	const args = graphiteBranchMetadataReadonlyJsonArgs(request.dbPath);
 	const result = await ctx.exec("sqlite3", args, {
 		timeoutMs: GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,

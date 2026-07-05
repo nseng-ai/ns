@@ -13,7 +13,7 @@ import {
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
-import type { SdlConfirmOptions } from "@ns/kernel/sdk";
+import type { NsConfirmOptions } from "@ns/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 
@@ -67,7 +67,7 @@ export interface CliCommandInfo {
 export type CliCommandConfirmPrompt = (
 	title: string,
 	message: string,
-	options?: SdlConfirmOptions,
+	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
 export interface CliCommandRunDeps {
@@ -109,7 +109,7 @@ export interface CommandContext {
 		confirm?(
 			title: string,
 			message: string,
-			options?: SdlConfirmOptions,
+			options?: NsConfirmOptions,
 		): Promise<boolean> | boolean;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;

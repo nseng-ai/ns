@@ -35,7 +35,7 @@
       },
       {
         "name": "regenerate-pr",
-        "description": "Regenerate the PR title and SDL-managed body region.",
+        "description": "Regenerate the PR title and ns-managed body region.",
         "entry": "./src/commands/regenerate-pr.ts"
       },
       {

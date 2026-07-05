@@ -26,7 +26,7 @@ describe("areg CLI shape", () => {
 		expect(run.stderr.join("")).toBe("");
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: areg");
-		expect(help).toContain("Manage SDL agent registry projects.");
+		expect(help).toContain("Manage ns agent registry projects.");
 		expect(help).toContain("--runtime");
 		expect(help).toContain("init");
 		expect(help).toContain("check");

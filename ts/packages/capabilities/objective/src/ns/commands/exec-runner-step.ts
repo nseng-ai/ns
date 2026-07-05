@@ -1,16 +1,16 @@
 /**
  * ADR0024-LEGACY-DELETE(whole file): the legacy blocking command surface.
  * Deleting it also requires removing its non-commentable registrations:
- * the `"./sdl/commands/exec-runner-step"` entry in this package's
+ * the `"./ns/commands/exec-runner-step"` entry in this package's
  * package.json `exports`, the `exec-runner-step` entry in
  * `.ns/extensions/objective/package.json`, and the stub
  * `.ns/extensions/objective/src/commands/exec-runner-step.ts`.
  */
-import { createSdlDomainCommand } from "@ns/capability-kit/ns-command";
+import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
 import { usageError } from "@ns/clinkr";
 import { optionalEntry } from "@ns/core/primitives";
 import { systemClock, systemTimerScheduler } from "@ns/core/time";
-import { defineExtension, type SdlCommand } from "@ns/kernel/sdk";
+import { defineExtension, type NsCommand } from "@ns/kernel/sdk";
 
 // jiti constraint: import the adapter by its concrete module path, never via
 // the src/pi/index.ts barrel — the barrel re-exports extension.ts and would
@@ -24,7 +24,7 @@ import {
 } from "../../runner/step.ts";
 import { guidanceUsageProblem, resolveGuidance } from "../../runner/guidance.ts";
 import {
-	createSdlObjectiveRunnerContext,
+	createNsObjectiveRunnerContext,
 	type ObjectiveRunnerComposition,
 } from "../runner-context.ts";
 
@@ -32,7 +32,7 @@ const RUNNER_STEP_DESCRIPTION =
 	"Run one verified Objective implementation step through a dispatched child session and emit the Runner Checkpoint.";
 
 /**
- * Factory for the `exec-runner-step` sdl command.
+ * Factory for the `exec-runner-step` ns command.
  *
  * The composition supplies the one Pi-coupled dependency (the child-session
  * gateway); the wired default export below composes the real Pi adapter.
@@ -41,17 +41,17 @@ const RUNNER_STEP_DESCRIPTION =
  * suppress that stream in JSON mode so the machine envelope remains valid until
  * clinkr owns non-ok stdout artifacts structurally.
  */
-export function createObjectiveExecRunnerStepSdlCommand(
+export function createObjectiveExecRunnerStepNsCommand(
 	composition: ObjectiveRunnerComposition,
-): SdlCommand<typeof runnerStepRequestSchema, RunnerStepResult> {
-	return createSdlDomainCommand({
+): NsCommand<typeof runnerStepRequestSchema, RunnerStepResult> {
+	return createNsDomainCommand({
 		name: "exec-runner-step",
 		summary: RUNNER_STEP_DESCRIPTION,
 		description: RUNNER_STEP_DESCRIPTION,
 		schema: runnerStepRequestSchema,
 		resultSchema: runnerStepResultSchema,
 		positionals: { slug: { position: 0 } },
-		createContext: (ctx) => createSdlObjectiveRunnerContext(ctx, composition),
+		createContext: (ctx) => createNsObjectiveRunnerContext(ctx, composition),
 		handler: async (ctx, request) => {
 			const guidance = await resolveGuidance({
 				cwd: ctx.cwd,
@@ -71,11 +71,11 @@ export function createObjectiveExecRunnerStepSdlCommand(
 }
 
 /** Live command: the factory composed with the real Pi child-session adapter. */
-export const objectiveExecRunnerStepSdlCommand = createObjectiveExecRunnerStepSdlCommand({
+export const objectiveExecRunnerStepNsCommand = createObjectiveExecRunnerStepNsCommand({
 	createChildSessionGateway: ({ env }) =>
 		createPiChildSessionGateway({ env, clock: systemClock, timers: systemTimerScheduler }),
 });
 
 export default defineExtension({
-	commands: [objectiveExecRunnerStepSdlCommand],
+	commands: [objectiveExecRunnerStepNsCommand],
 });

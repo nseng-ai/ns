@@ -7,13 +7,13 @@ import {
 	runPublishFindingsCommand,
 	type PublishFindingsRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ns/command.ts";
+import { roasterNsCommand } from "../ns/command.ts";
 
 const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish Roaster findings to GitHub.
 
-This hidden SDL automation command preserves Roaster's review-run envelope stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Roaster's gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
+This hidden ns automation command preserves Roaster's review-run envelope stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Roaster's gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
 
-export const roasterExecPublishFindingsCommand = roasterSdlCommand({
+export const roasterExecPublishFindingsCommand = roasterNsCommand({
 	name: "exec-publish-findings",
 	summary: "Publish Roaster findings to GitHub.",
 	description: EXEC_PUBLISH_FINDINGS_DESCRIPTION,

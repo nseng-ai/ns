@@ -10,7 +10,7 @@ import {
 } from "@ns/capability-kit/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
-import { requireXdgPath, resolveSdlXdgPath } from "@ns/capability-kit/xdg";
+import { requireXdgPath, resolveNsXdgPath } from "@ns/capability-kit/xdg";
 import {
 	isRecord,
 	optionalEntries,
@@ -126,7 +126,7 @@ export class NoSavedPlanAvailableError extends Error {
 export function defaultPlanStoreRoot(
 	env: Record<string, string | undefined> = process.env,
 ): string {
-	return requireXdgPath(resolveSdlXdgPath({ kind: "state", env, segments: ["enriched-plan"] }));
+	return requireXdgPath(resolveNsXdgPath({ kind: "state", env, segments: ["enriched-plan"] }));
 }
 
 export function normalizeRepoOriginUrl(rawUrl: string): string {

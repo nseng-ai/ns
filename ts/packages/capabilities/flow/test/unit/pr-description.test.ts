@@ -26,7 +26,7 @@ import {
 function validDraft(): string {
 	return `Add pluggable PR descriptions
 
-This updates submit to generate PR descriptions through the sdl prompt pipeline.
+This updates submit to generate PR descriptions through the ns prompt pipeline.
 
 ## Key Changes
 
@@ -40,7 +40,7 @@ describe("PR description helpers", () => {
 			ok: true,
 			description: {
 				title: "Add pluggable PR descriptions",
-				body: "This updates submit to generate PR descriptions through the sdl prompt pipeline.\n\n## Key Changes\n\n- Adds PR description preparation\n- Updates submit behavior",
+				body: "This updates submit to generate PR descriptions through the ns prompt pipeline.\n\n## Key Changes\n\n- Adds PR description preparation\n- Updates submit behavior",
 			},
 		});
 	});

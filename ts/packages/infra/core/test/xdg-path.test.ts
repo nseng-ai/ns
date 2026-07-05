@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	requireSdlStatePath,
+	requireNsStatePath,
 	requireXdgPath,
 	resolvePathOverride,
-	resolveSdlXdgPath,
+	resolveNsXdgPath,
 	resolveXdgHome,
 } from "@ns/core/xdg-path";
 
@@ -51,16 +51,16 @@ describe("XDG path helpers", () => {
 		});
 	});
 
-	test("resolveSdlXdgPath builds SDL-owned paths and supports absolute app overrides", () => {
+	test("resolveNsXdgPath builds ns-owned paths and supports absolute app overrides", () => {
 		expect(
-			resolveSdlXdgPath({
+			resolveNsXdgPath({
 				kind: "state",
 				env: { HOME: "/home/tester" },
 				segments: ["enriched-plan"],
 			}),
 		).toEqual({ ok: true, value: "/home/tester/.local/state/ns/enriched-plan" });
 		expect(
-			resolveSdlXdgPath({
+			resolveNsXdgPath({
 				kind: "state",
 				env: { HOME: "/home/tester", NS_ROOT: "~/sdl-root" },
 				segments: ["logs"],
@@ -72,7 +72,7 @@ describe("XDG path helpers", () => {
 	test("requireXdgPath unwraps successful paths and throws XDG error messages", () => {
 		expect(
 			requireXdgPath(
-				resolveSdlXdgPath({
+				resolveNsXdgPath({
 					kind: "state",
 					env: { HOME: "/home/tester" },
 					segments: ["enriched-plan"],
@@ -80,7 +80,7 @@ describe("XDG path helpers", () => {
 			),
 		).toBe("/home/tester/.local/state/ns/enriched-plan");
 		expect(() =>
-			requireXdgPath(resolveSdlXdgPath({ kind: "state", env: {}, segments: ["logs"] })),
+			requireXdgPath(resolveNsXdgPath({ kind: "state", env: {}, segments: ["logs"] })),
 		).toThrow("HOME environment variable is not set");
 	});
 
@@ -95,23 +95,23 @@ describe("XDG path helpers", () => {
 		});
 	});
 
-	test("requireSdlStatePath treats overrides as complete paths and falls back to SDL state", () => {
+	test("requireNsStatePath treats overrides as complete paths and falls back to ns state", () => {
 		expect(
-			requireSdlStatePath({
+			requireNsStatePath({
 				env: { HOME: "/home/tester", NS_LOG_DIR: "~/logs" },
 				overrideEnvName: "NS_LOG_DIR",
 				segments: ["logs"],
 			}),
 		).toBe("/home/tester/logs");
 		expect(
-			requireSdlStatePath({
+			requireNsStatePath({
 				env: { HOME: "/home/tester", XDG_STATE_HOME: "/state" },
 				overrideEnvName: "NS_LOG_DIR",
 				segments: ["logs"],
 			}),
 		).toBe("/state/ns/logs");
 		expect(() =>
-			requireSdlStatePath({
+			requireNsStatePath({
 				env: { HOME: "/home/tester", NS_LOG_DIR: "relative/logs" },
 				overrideEnvName: "NS_LOG_DIR",
 				segments: ["logs"],

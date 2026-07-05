@@ -220,11 +220,11 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("resolves agents from config precedence and explicit overrides", async () => {
-		const sdl = runUpdate([], {
+		const ns = runUpdate([], {
 			project: { nsToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } },
 		});
-		expect(await sdl.exit).toBe(0);
-		expect(sdl.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
+		expect(await ns.exit).toBe(0);
+		expect(ns.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
 
 		const legacy = runUpdate([], { project: { aregJson: { agents: ["legacy"] } } });
 		expect(await legacy.exit).toBe(0);

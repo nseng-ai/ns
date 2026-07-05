@@ -9,7 +9,7 @@ import type { Caps } from "@ns/clinkr";
 import { renderResultBlock } from "@ns/core/cli-theme";
 
 /**
- * The visual intent of an autoslot outcome. Distinct from the `SdlCommandIo` notify level (which owns
+ * The visual intent of an autoslot outcome. Distinct from the `NsCommandIo` notify level (which owns
  * stdout/stderr routing and exit-code flipping): a declined guardrail renders `refusal` (warn) even
  * when it is notified at `error` level to flip the exit code (house-style §7.3).
  */

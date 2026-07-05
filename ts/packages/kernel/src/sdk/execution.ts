@@ -1,7 +1,7 @@
 import type { ExplicitUndefined } from "@ns/core/primitives";
 
 import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
-import type { SdlCommandIo, SdlProgress } from "./services.ts";
+import type { NsCommandIo, NsProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
 export interface ExecResult {
@@ -12,37 +12,37 @@ export interface ExecResult {
 	startupError?: string;
 }
 
-export interface SdlExecOptions {
+export interface NsExecOptions {
 	timeoutMs?: number;
 	stdin?: ExplicitUndefined<"public-api-compatibility", string>;
 	onStdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	onStderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 }
 
-export type SdlOutputStream = "stdout" | "stderr";
-export interface SdlConfirmOptions {
+export type NsOutputStream = "stdout" | "stderr";
+export interface NsConfirmOptions {
 	defaultAnswer?: "yes" | "no";
 }
 
-export type SdlConfirmPrompt = (
+export type NsConfirmPrompt = (
 	title: string,
 	message: string,
-	options?: SdlConfirmOptions,
+	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
-export interface SdlExtensionApi {
+export interface NsExtensionApi {
 	/** Current repository working directory for command-entry execution. */
 	cwd: string;
-	/** Environment visible to SDL commands and shell execution. */
+	/** Environment visible to ns commands and shell execution. */
 	env: Record<string, string | undefined>;
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
-	exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
-	/** Text-generation capability; SDL commands own prompts, validation, and repair policy. */
+	exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
+	/** Text-generation capability; ns commands own prompts, validation, and repair policy. */
 	textGenerator: TextGenerator;
 	/** Higher-level human command-output service provided by the host/kernel. */
-	commandIo: SdlCommandIo;
+	commandIo: NsCommandIo;
 	/** Structured phase progress sink provided by the host/kernel. */
-	progress: SdlProgress;
+	progress: NsProgress;
 	/** Host terminal rendering capabilities for human output and previews. */
 	renderCapabilities: RenderCapabilities;
 	/** Host-selected command output format. Useful only for commands streaming durable output before returning. */
@@ -56,10 +56,10 @@ export interface SdlExtensionApi {
 	/** Transient live-progress output for UI bridges. */
 	onOutput?: ExplicitUndefined<
 		"public-api-compatibility",
-		(stream: SdlOutputStream, text: string) => void
+		(stream: NsOutputStream, text: string) => void
 	>;
-	/** Optional UI confirmation hook for interactive SDL commands. */
-	confirm?: ExplicitUndefined<"public-api-compatibility", SdlConfirmPrompt>;
-	/** Project-local extension bag. SDL commands own any values they read from it. */
+	/** Optional UI confirmation hook for interactive ns commands. */
+	confirm?: ExplicitUndefined<"public-api-compatibility", NsConfirmPrompt>;
+	/** Project-local extension bag. ns commands own any values they read from it. */
 	extensions?: ExplicitUndefined<"public-api-compatibility", Readonly<Record<string, unknown>>>;
 }

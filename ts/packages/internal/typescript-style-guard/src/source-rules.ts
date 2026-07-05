@@ -197,7 +197,7 @@ function hasExtendsClause(node: ts.InterfaceDeclaration): boolean {
 	);
 }
 
-// SDL-owned serialized CLI machine-contract enum values must be kebab-case, not
+// ns-owned serialized CLI machine-contract enum values must be kebab-case, not
 // snake_case (camelCase JSON property names are unaffected). This guard is narrow
 // on purpose: it only inspects the Clinkr `failure(errorType, ...)` first argument
 // and `errorType` property values, the two highest-confidence machine-contract

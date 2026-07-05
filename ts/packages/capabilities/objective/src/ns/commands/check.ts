@@ -2,7 +2,7 @@ import { usageError, type ClinkrExit, type RenderCapabilities } from "@ns/clinkr
 import { defineExtension } from "@ns/kernel/sdk";
 import { z } from "zod";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import type { ObjectiveCliContext } from "../../core/context.ts";
 import {
 	checkObjectiveRequestSchema,
@@ -58,7 +58,7 @@ export function renderObjectiveCheckCommand(
 	return renderCheckObjective(result, caps);
 }
 
-export const objectiveCheckSdlCommand = objectiveSdlCommand({
+export const objectiveCheckNsCommand = objectiveNsCommand({
 	name: "check",
 	summary: "Check one Objective record, or sweep all record edges with --all.",
 	description:
@@ -72,5 +72,5 @@ export const objectiveCheckSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveCheckSdlCommand],
+	commands: [objectiveCheckNsCommand],
 });

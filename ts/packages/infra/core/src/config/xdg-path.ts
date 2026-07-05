@@ -55,7 +55,7 @@ export function resolveXdgHome(
 	return ok(join(home, ...XDG_DEFAULT_SEGMENTS_BY_KIND[kind]));
 }
 
-export function resolveSdlXdgPath(options: XdgPathOptions): Result<string, XdgPathError> {
+export function resolveNsXdgPath(options: XdgPathOptions): Result<string, XdgPathError> {
 	if (options.overrideEnv !== undefined) {
 		const override = resolvePathOverride({ env: options.env, name: options.overrideEnv });
 		if (!override.ok) return override;
@@ -72,7 +72,7 @@ export function requireXdgPath(result: Result<string, XdgPathError>): string {
 	throw new Error(result.error.message);
 }
 
-export function requireSdlStatePath(options: {
+export function requireNsStatePath(options: {
 	env: Record<string, string | undefined>;
 	overrideEnvName: string;
 	segments: readonly string[];
@@ -81,7 +81,7 @@ export function requireSdlStatePath(options: {
 	if (!override.ok) throw new Error(override.error.message);
 	if (override.value !== undefined) return override.value;
 	return requireXdgPath(
-		resolveSdlXdgPath({ kind: "state", env: options.env, segments: options.segments }),
+		resolveNsXdgPath({ kind: "state", env: options.env, segments: options.segments }),
 	);
 }
 

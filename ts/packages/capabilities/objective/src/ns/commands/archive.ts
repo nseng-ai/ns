@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	archiveObjectiveRequestSchema,
 	archiveObjectiveResultSchema,
@@ -8,7 +8,7 @@ import {
 	runArchiveObjective,
 } from "../../core/operations/archive-objective.ts";
 
-export const objectiveArchiveSdlCommand = objectiveSdlCommand({
+export const objectiveArchiveNsCommand = objectiveNsCommand({
 	name: "archive",
 	summary: "Archive or unarchive an Objective record by moving its directory.",
 	description: "Archive or unarchive an Objective record by moving its directory.",
@@ -21,5 +21,5 @@ export const objectiveArchiveSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveArchiveSdlCommand],
+	commands: [objectiveArchiveNsCommand],
 });

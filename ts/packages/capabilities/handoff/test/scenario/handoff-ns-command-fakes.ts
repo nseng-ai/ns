@@ -1,20 +1,20 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@ns/brmem";
 import { usageError, type ClinkrExit, type ClinkrInteraction } from "@ns/clinkr";
 import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 import type {
 	ExecResult,
-	SdlCommand,
-	SdlCommandSchema,
-	SdlExecOptions,
-	SdlExtensionApi,
+	NsCommand,
+	NsCommandSchema,
+	NsExecOptions,
+	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@ns/kernel/sdk";
 
 import { HANDOFF_NAMESPACE } from "../../src/core/identity.ts";
 
-export interface FakeHandoffSdlApiOptions {
+export interface FakeHandoffNsApiOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	brmem?: FakeBrmemGateway;
@@ -24,7 +24,7 @@ export interface FakeHandoffSdlApiOptions {
 	stderr?: (text: string) => void;
 }
 
-export class FakeHandoffSdlApi implements SdlExtensionApi {
+export class FakeHandoffNsApi implements NsExtensionApi {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly extensions: Readonly<Record<string, unknown>>;
@@ -32,19 +32,19 @@ export class FakeHandoffSdlApi implements SdlExtensionApi {
 	readonly execCalls: Array<{
 		command: string;
 		args: string[];
-		options: SdlExecOptions | undefined;
+		options: NsExecOptions | undefined;
 	}> = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly commandIo = noopSdlCommandIo;
-	readonly progress = noopSdlProgress;
+	readonly commandIo = noopNsCommandIo;
+	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly stderr: (text: string) => void;
 
-	constructor(options: FakeHandoffSdlApiOptions = {}) {
+	constructor(options: FakeHandoffNsApiOptions = {}) {
 		const brmem = options.brmem ?? new FakeBrmemGateway();
 		const git = options.git ?? new InMemoryGitGateway({ currentBranch: "main" });
 		this.cwd = options.cwd ?? "/work";
-		this.env = { HOME: "/home/sdl-test", ...(options.env ?? {}) };
+		this.env = { HOME: "/home/ns-test", ...(options.env ?? {}) };
 		this.stderr = (text) => {
 			this.stderrChunks.push(text);
 			options.stderr?.(text);
@@ -59,29 +59,29 @@ export class FakeHandoffSdlApi implements SdlExtensionApi {
 		};
 	}
 
-	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		throw new Error(
-			`Unexpected exec call in handoff SDL command test: ${[command, ...args].join(" ")}`,
+			`Unexpected exec call in handoff ns command test: ${[command, ...args].join(" ")}`,
 		);
 	}
 
 	readonly textGenerator = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.textGeneratorCalls.push({ ...request });
-			throw new Error("Unexpected text-generation call in handoff SDL command test.");
+			throw new Error("Unexpected text-generation call in handoff ns command test.");
 		},
 	};
 }
 
-export function createFakeHandoffSdlApi(options: FakeHandoffSdlApiOptions = {}): FakeHandoffSdlApi {
-	return new FakeHandoffSdlApi(options);
+export function createFakeHandoffNsApi(options: FakeHandoffNsApiOptions = {}): FakeHandoffNsApi {
+	return new FakeHandoffNsApi(options);
 }
 
-export async function runHandoffCommand<S extends SdlCommandSchema, T>(
-	command: SdlCommand<S, T>,
+export async function runHandoffCommand<S extends NsCommandSchema, T>(
+	command: NsCommand<S, T>,
 	request: unknown,
-	options: { api?: SdlExtensionApi } = {},
+	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
 	if (command.schema === undefined) {
 		throw new Error(`Command ${command.name} does not declare a request schema.`);
@@ -90,10 +90,10 @@ export async function runHandoffCommand<S extends SdlCommandSchema, T>(
 	if (!parsed.success) {
 		return usageError("Invalid handoff command request.", { issues: parsed.error.issues });
 	}
-	const exit = await command.run(options.api ?? createFakeHandoffSdlApi(), parsed.data);
+	const exit = await command.run(options.api ?? createFakeHandoffNsApi(), parsed.data);
 	if (!isClinkrExit<T>(exit)) {
 		throw new Error(
-			`Command ${command.name} returned a legacy SDL result instead of a Clinkr exit.`,
+			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
 		);
 	}
 	if (exit.type === "ok") command.resultSchema?.parse(exit.data);

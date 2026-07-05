@@ -9,17 +9,17 @@ import { readStdinLine } from "@ns/core/cli-runtime";
 import { runCommand } from "@ns/core/exec";
 import type { SlotCliContext } from "@ns/slot/api";
 
-import { createCliCommandIo, noopSdlProgress } from "../runtime/command-io.ts";
+import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";
-import type { SdlConfirmPrompt, SdlExtensionApi } from "../sdk/index.ts";
+import type { NsConfirmPrompt, NsExtensionApi } from "../sdk/index.ts";
 import type { TextGenerator } from "../sdk/index.ts";
 
-export interface SdlCliContext extends SlotCliContext {
-	context: SdlExtensionApi;
+export interface NsCliContext extends SlotCliContext {
+	context: NsExtensionApi;
 	stdout: (text: string) => void;
 }
 
-export interface RealSdlCommandContextOptions {
+export interface RealNsCommandContextOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 }
@@ -28,9 +28,9 @@ export function createTextGenerator(): TextGenerator {
 	return new PiTextGenerator();
 }
 
-export function createRealSdlCommandContext(
-	options: RealSdlCommandContextOptions = {},
-): SdlExtensionApi {
+export function createRealNsCommandContext(
+	options: RealNsCommandContextOptions = {},
+): NsExtensionApi {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const textGenerator = createTextGenerator();
@@ -43,7 +43,7 @@ export function createRealSdlCommandContext(
 		env,
 		textGenerator,
 		commandIo,
-		progress: noopSdlProgress,
+		progress: noopNsProgress,
 		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
 		outputFormat: "human",
 		stdout,
@@ -68,7 +68,7 @@ export function createRealSdlCommandContext(
 	};
 }
 
-export function createTerminalConfirmPrompt(): SdlConfirmPrompt | undefined {
+export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 	if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) return undefined;
 	return async (title, message, options) => {
 		const interaction = createClinkrInteraction({
@@ -87,4 +87,4 @@ export function createTerminalConfirmPrompt(): SdlConfirmPrompt | undefined {
 	};
 }
 
-export type { SdlExtensionApi } from "../sdk/index.ts";
+export type { NsExtensionApi } from "../sdk/index.ts";

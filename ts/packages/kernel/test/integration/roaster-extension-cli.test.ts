@@ -15,7 +15,7 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in Roaster SDL extension loading", () => {
+describe("checked-in Roaster ns extension loading", () => {
 	test("real loader exposes selected Roaster review list help", async () => {
 		const cwd = await createRoasterProject();
 		const run = runWithRealRoasterExtension({ args: ["roaster", "review", "list", "--help"], cwd });

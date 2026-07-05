@@ -17,7 +17,7 @@
 		"./ns/commands/exec-reply-review-thread": "./src/ns/commands/exec-reply-review-thread.ts",
 		"./ns/commands/exec-resolve-review-thread": "./src/ns/commands/exec-resolve-review-thread.ts",
 		"./ns/commands/exec-close-review-threads": "./src/ns/commands/exec-close-review-threads.ts",
-		"./repo-local-sdl-extension": "./src/repo-local-ns-extension.ts"
+		"./repo-local-ns-extension": "./src/repo-local-ns-extension.ts"
 	},
 	"files": [
 		"src"

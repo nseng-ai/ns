@@ -1,5 +1,5 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-const sdlExtension = await importTypeScriptWorkspaceDefault("@ns/flow/pi/sdl-extension");
+const nsExtension = await importTypeScriptWorkspaceDefault("@ns/flow/pi/ns-extension");
 
-export default sdlExtension;
+export default nsExtension;

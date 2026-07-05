@@ -7,11 +7,11 @@ import {
 	runReviewLog,
 	type ReviewLogRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ns/command.ts";
+import { roasterNsCommand } from "../ns/command.ts";
 
 const REVIEW_LOG_DESCRIPTION = `List Branch Memory review log entries for this branch, optionally filtered by review key.`;
 
-export const roasterReviewLogCommand = roasterSdlCommand({
+export const roasterReviewLogCommand = roasterNsCommand({
 	name: "log",
 	summary: "List Roaster review logs for this branch.",
 	description: REVIEW_LOG_DESCRIPTION,

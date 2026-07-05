@@ -1,25 +1,22 @@
-import {
-	defineRepoLocalSdlExtensionDescriptor,
-	repoLocalSdlCommandDescriptor,
-} from "@ns/kernel/sdk";
+import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
 
-import { handoffCreateSdlCommand } from "./commands/create.ts";
-import { handoffDeleteSdlCommand } from "./commands/delete.ts";
-import { handoffGcSdlCommand } from "./commands/gc.ts";
-import { handoffListSdlCommand } from "./commands/list.ts";
-import { handoffPickupSdlCommand } from "./commands/pickup.ts";
+import { handoffCreateNsCommand } from "./commands/create.ts";
+import { handoffDeleteNsCommand } from "./commands/delete.ts";
+import { handoffGcNsCommand } from "./commands/gc.ts";
+import { handoffListNsCommand } from "./commands/list.ts";
+import { handoffPickupNsCommand } from "./commands/pickup.ts";
 
-export const handoffRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
+export const handoffRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "handoff",
 	description: "Create, list, pick up, and clean up branch handoffs.",
 	commands: [
-		handoffListSdlCommand,
-		handoffDeleteSdlCommand,
-		handoffGcSdlCommand,
-		handoffCreateSdlCommand,
-		handoffPickupSdlCommand,
+		handoffListNsCommand,
+		handoffDeleteNsCommand,
+		handoffGcNsCommand,
+		handoffCreateNsCommand,
+		handoffPickupNsCommand,
 	].map((command) =>
-		repoLocalSdlCommandDescriptor({
+		repoLocalNsCommandDescriptor({
 			command,
 			packageExportPrefix: "@ns/handoff/ns/commands",
 		}),

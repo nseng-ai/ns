@@ -82,7 +82,7 @@ Default-path tests should prefer small fake-driven seams:
   and there is no narrower boundary smoke to preserve the same confidence.
 - For ji extension command behavior, test in the package that owns the command implementation. For the
   grouped flow commands, `@ns/flow` owns direct behavior tests: import package-owned command objects
-  such as `flowCpCommand`, execute them with a fake `SdlExtensionApi`, scripted command runner, scripted
+  such as `flowCpCommand`, execute them with a fake `NsExtensionApi`, scripted command runner, scripted
   text generation, and inert temp files, then keep a small ji integration smoke proving the checked-in
   `.ns/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
 - Assert the same behavior contract that a real-adapter integration test preserves at the boundary.

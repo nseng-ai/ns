@@ -1,5 +1,5 @@
-import { createSdlCommandRunner } from "@ns/capability-kit";
-import { createSdlGitGateway } from "@ns/capability-kit/git";
+import { createNsCommandRunner } from "@ns/capability-kit";
+import { createNsGitGateway } from "@ns/capability-kit/git";
 import type { CommandRunner } from "@ns/core/command";
 import {
 	RealGithubPrGateway,
@@ -11,12 +11,12 @@ import {
 	type SubmitFailureTranscript,
 } from "./index.ts";
 
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
 
-export interface SdlSubmitRuntime {
+export interface NsSubmitRuntime {
 	commandRunner: CommandRunner;
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitMetadataGateway;
@@ -24,8 +24,8 @@ export interface SdlSubmitRuntime {
 }
 
 /** Temporary internal migration seam; not exported from `@ns/kernel/sdk`. */
-export function createSdlSubmitRuntime(ctx: SdlExtensionApi): SdlSubmitRuntime {
-	const commandRunner = createSdlCommandRunner(ctx);
+export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
+	const commandRunner = createNsCommandRunner(ctx);
 	return {
 		commandRunner,
 		submitGateway: new RealSubmitGateway(commandRunner),
@@ -33,7 +33,7 @@ export function createSdlSubmitRuntime(ctx: SdlExtensionApi): SdlSubmitRuntime {
 		prDescription: {
 			githubPr: new RealGithubPrGateway(commandRunner),
 			textGenerator: ctx.textGenerator,
-			git: createSdlGitGateway(ctx),
+			git: createNsGitGateway(ctx),
 			env: ctx.env,
 		},
 	};

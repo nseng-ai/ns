@@ -8,7 +8,7 @@ import {
 import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
 import codeExtension from "../../src/pi/code-extension.ts";
 import codeWorkflowsExtension, { codeWorkflowsParity } from "../../src/pi/code-workflows.ts";
-import sdlExtension, { sdlExtensionParity } from "../../src/pi/ns-extension.ts";
+import nsExtension, { nsExtensionParity } from "../../src/pi/ns-extension.ts";
 import { smartRestackParity } from "../../src/pi/smart-restack.ts";
 import { stackSquashParity } from "../../src/pi/stack-squash.ts";
 
@@ -16,7 +16,7 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, codeWorkflowsExtension);
 	await registerWithFakeHost(pi, codeExtension);
-	await registerWithFakeHost(pi, sdlExtension);
+	await registerWithFakeHost(pi, nsExtension);
 	return pi.surfaces();
 }
 
@@ -24,7 +24,7 @@ const flowPiParity = [
 	...codeWorkflowsParity,
 	...smartRestackParity,
 	...stackSquashParity,
-	...sdlExtensionParity,
+	...nsExtensionParity,
 ] as const;
 
 describe("Flow Pi extension parity metadata", () => {

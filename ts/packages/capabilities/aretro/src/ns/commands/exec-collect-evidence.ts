@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { aretroSdlCommand } from "../command.ts";
+import { aretroNsCommand } from "../command.ts";
 import {
 	collectEvidenceRequestSchema,
 	collectEvidenceResultSchema,
@@ -8,7 +8,7 @@ import {
 	runCollectEvidence,
 } from "../../operations/collect-evidence.ts";
 
-export const aretroExecCollectEvidenceSdlCommand = aretroSdlCommand({
+export const aretroExecCollectEvidenceNsCommand = aretroNsCommand({
 	name: "exec-collect-evidence",
 	summary: "Collect compact session evidence for a branch retrospective.",
 	description: "Collect compact session evidence for a branch retrospective.",
@@ -19,5 +19,5 @@ export const aretroExecCollectEvidenceSdlCommand = aretroSdlCommand({
 });
 
 export default defineExtension({
-	commands: [aretroExecCollectEvidenceSdlCommand],
+	commands: [aretroExecCollectEvidenceNsCommand],
 });

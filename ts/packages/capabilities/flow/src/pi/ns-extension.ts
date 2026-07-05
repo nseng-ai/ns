@@ -1,4 +1,4 @@
-import { runCli, type SdlCommandInfo } from "@ns/kernel/cli";
+import { runCli, type NsCommandInfo } from "@ns/kernel/cli";
 import { PUSH_COMMAND_SUMMARY } from "../ns/commands/push.ts";
 
 import {
@@ -7,9 +7,9 @@ import {
 } from "@ns/pi/commands/cli-extension";
 import { definePiSurfaceParity } from "@ns/pi/parity/extension";
 
-export type SdlExtensionAPI = CliCommandExtensionAPI;
+export type NsExtensionAPI = CliCommandExtensionAPI;
 
-type FlowCommandInfo = SdlCommandInfo & {
+type FlowCommandInfo = NsCommandInfo & {
 	argvPrefix: readonly ["flow", string];
 	displayName: string;
 };
@@ -24,7 +24,7 @@ function flowCommand(name: string, description: string): FlowCommandInfo {
 	};
 }
 
-const SDL_FLOW_COMMANDS = [
+const NS_FLOW_COMMANDS = [
 	flowCommand("changes", "Summarize outstanding worktree changes without committing."),
 	flowCommand("cp", "Create a checkpoint commit for the current diff."),
 	flowCommand("autobranch", "Create a Graphite branch from dirty worktree changes."),
@@ -46,8 +46,8 @@ const SDL_FLOW_COMMANDS = [
 	),
 ] as const satisfies readonly FlowCommandInfo[];
 
-export const sdlExtensionParity = definePiSurfaceParity(
-	SDL_FLOW_COMMANDS.map((command) => ({
+export const nsExtensionParity = definePiSurfaceParity(
+	NS_FLOW_COMMANDS.map((command) => ({
 		kind: "command" as const,
 		surface: `ns:flow:${command.name}`,
 		workflow: command.description.replace(/\.$/, ""),
@@ -55,26 +55,26 @@ export const sdlExtensionParity = definePiSurfaceParity(
 		cli: `ns ${command.displayName}`,
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@ns/flow/pi" as const,
-		sourceModule: "sdl-extension",
+		sourceModule: "ns-extension",
 		notes: `Pi command delegates to ns ${command.displayName} through registerCliCommandExtension; flat lifecycle mirrors are intentionally not registered.`,
 	})),
 );
 
-export interface SdlExtensionOptions {
+export interface NsExtensionOptions {
 	/**
-	 * Seam for the SDL CLI runner. Defaults to the real {@link runCli}, which
+	 * Seam for the ns CLI runner. Defaults to the real {@link runCli}, which
 	 * discovers and dynamically imports project-local `.ns/extensions` commands.
 	 * Tests inject a fake to exercise the Pi command bridge (argv routing and
-	 * output rendering) without standing up a temporary SDL extension project.
+	 * output rendering) without standing up a temporary ns extension project.
 	 */
 	runCli?: typeof runCli;
 }
 
-export default function sdlExtension(pi: SdlExtensionAPI, options: SdlExtensionOptions = {}): void {
+export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOptions = {}): void {
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
-		commands: SDL_FLOW_COMMANDS,
+		commands: NS_FLOW_COMMANDS,
 		runCli: options.runCli ?? runCli,
 	});
 }

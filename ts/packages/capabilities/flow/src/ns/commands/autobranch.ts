@@ -4,17 +4,17 @@ import {
 } from "../../autobranch/dirty-worktree.ts";
 import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
 import { renderResultBlock } from "@ns/core/cli-theme";
-import { runWithSdlCommandIo } from "@ns/kernel/command-io";
-import type { SdlCommandIo } from "@ns/kernel/sdk";
+import { runWithNsCommandIo } from "@ns/kernel/command-io";
+import type { NsCommandIo } from "@ns/kernel/sdk";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@ns/core/model-slug";
-import { commandIoFromSdlExtensionApi } from "@ns/kernel/command-io";
+import { commandIoFromNsExtensionApi } from "@ns/kernel/command-io";
 import {
 	defineExtension,
 	failed,
 	ok,
 	z,
-	type SdlCommand,
-	type SdlExtensionApi,
+	type NsCommand,
+	type NsExtensionApi,
 } from "@ns/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
@@ -53,7 +53,7 @@ const autobranchRequestSchema = z.object({
 
 type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
 
-export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> = {
+export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = {
 	name: "autobranch",
 	summary: "Create a Graphite branch from dirty worktree changes.",
 	description: AUTOBRANCH_DESCRIPTION,
@@ -62,8 +62,8 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 	async run(ctx, request: AutobranchRequest) {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const io = commandIoFromSdlExtensionApi(ctx);
-		return await runWithSdlCommandIo(io, async (io) => {
+		const io = commandIoFromNsExtensionApi(ctx);
+		return await runWithNsCommandIo(io, async (io) => {
 			const result = await createAutobranchCheckpointFlow(ctx, args, io);
 			if (result.ok) {
 				for (const warning of result.warnings) {
@@ -132,9 +132,9 @@ type AutobranchCheckpointResult =
 	| { ok: false; reason: "flow"; root: string; outcome: AutobranchFlowOutcome; error: string };
 
 async function createAutobranchCheckpointFlow(
-	ctx: SdlExtensionApi,
+	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
-	io: SdlCommandIo,
+	io: NsCommandIo,
 ): Promise<AutobranchCheckpointResult> {
 	io.phase("Inspecting worktree…");
 	const loaded = await loadFlowPendingWorktreeSnapshot(ctx);

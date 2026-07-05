@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	readObjectiveRequestSchema,
 	readObjectiveResultSchema,
@@ -8,7 +8,7 @@ import {
 	runReadObjective,
 } from "../../core/operations/read-objective.ts";
 
-export const objectiveExecReadObjectiveSdlCommand = objectiveSdlCommand({
+export const objectiveExecReadObjectiveNsCommand = objectiveNsCommand({
 	name: "exec-read-objective",
 	summary: "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
 	description: "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
@@ -21,5 +21,5 @@ export const objectiveExecReadObjectiveSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveExecReadObjectiveSdlCommand],
+	commands: [objectiveExecReadObjectiveNsCommand],
 });

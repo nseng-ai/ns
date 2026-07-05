@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { handoffSdlCommand } from "../command.ts";
+import { handoffNsCommand } from "../command.ts";
 import {
 	listRequestSchema,
 	listResultSchema,
@@ -9,7 +9,7 @@ import {
 	runList,
 } from "../../core/operations/list.ts";
 
-export const handoffListSdlCommand = handoffSdlCommand({
+export const handoffListNsCommand = handoffNsCommand({
 	name: "list",
 	summary: "List handoffs.",
 	description:
@@ -23,5 +23,5 @@ export const handoffListSdlCommand = handoffSdlCommand({
 });
 
 export default defineExtension({
-	commands: [handoffListSdlCommand],
+	commands: [handoffListNsCommand],
 });

@@ -12,7 +12,7 @@ import {
 	SUBMIT_PHASES,
 } from "../../phase-stream/phase-stream.ts";
 import {
-	createSdlSubmitRuntime,
+	createNsSubmitRuntime,
 	runSubmitCommand,
 	type SubmitCommandResult,
 } from "../../submit/ns-runtime.ts";
@@ -22,8 +22,8 @@ import {
 	failed,
 	ok,
 	z,
-	type SdlCommand,
-	type SdlExtensionApi,
+	type NsCommand,
+	type NsExtensionApi,
 } from "@ns/kernel/sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
@@ -58,7 +58,7 @@ The command owns its output and exit code. It does not support --format.`;
 
 type SubmitRequest = z.output<typeof submitSchema>;
 
-export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
+export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 	name: "submit",
 	summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
 	description: SUBMIT_COMMAND_DESCRIPTION,
@@ -68,8 +68,8 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 		force: { short: "-f" },
 		verbose: { short: "-v" },
 	},
-	async run(ctx: SdlExtensionApi, request: SubmitRequest) {
-		const runtime = createSdlSubmitRuntime(ctx);
+	async run(ctx: NsExtensionApi, request: SubmitRequest) {
+		const runtime = createNsSubmitRuntime(ctx);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({
 			caps,
@@ -163,7 +163,7 @@ function resultFailureMessage(result: SubmitCommandResult): string {
 
 function writeCommandResultOutput(
 	result: Pick<SubmitCommandResult, "stdout" | "stderr">,
-	ctx: SdlExtensionApi,
+	ctx: NsExtensionApi,
 ): void {
 	if (result.stdout !== "") {
 		ctx.stdout?.(result.stdout);
@@ -184,7 +184,7 @@ function formatCheckpointBeforeSubmitFailure(stderr: string): string {
 
 async function maybeFormatSubmitFailureWithModel(
 	result: SubmitCommandResult,
-	ctx: SdlExtensionApi,
+	ctx: NsExtensionApi,
 ): Promise<SubmitCommandResult> {
 	if (result.exitCode === 0 || result.stderr.trim() === "") return result;
 	const rawTranscript = renderRawFailureTranscript(result);
@@ -215,7 +215,7 @@ async function maybeFormatSubmitFailureWithModel(
 async function generateSubmitFailureInterpretation(input: {
 	rawTranscript: string;
 	exitCode: number;
-	ctx: SdlExtensionApi;
+	ctx: NsExtensionApi;
 }): Promise<{ ok: true; text: string } | { ok: false }> {
 	try {
 		const interpretation = await input.ctx.textGenerator.generateText({

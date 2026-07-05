@@ -1,6 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@ns/core/command";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@ns/kernel/sdk";
+import { defineExtension, failed, ok, z, type NsCommand } from "@ns/kernel/sdk";
 import type { Caps } from "@ns/clinkr";
 
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
@@ -9,7 +9,7 @@ import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const pullTrunkSchema = z.object({});
 
-export const flowPullTrunkCommand: SdlCommand<typeof pullTrunkSchema> = {
+export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = {
 	name: "pull-trunk",
 	summary: "Pull the configured Graphite trunk branch without running full gt sync.",
 	description: "Pull the configured Graphite trunk branch without running full gt sync.",

@@ -1,6 +1,6 @@
 import type { Caps } from "@ns/clinkr";
-import { createCliCommandIo, runWithSdlCommandIo } from "@ns/kernel/command-io";
-import type { SdlCommandIo } from "@ns/kernel/sdk";
+import { createCliCommandIo, runWithNsCommandIo } from "@ns/kernel/command-io";
+import type { NsCommandIo } from "@ns/kernel/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
@@ -21,7 +21,7 @@ import {
 export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 	slotClient: SlotClient;
-	io: SdlCommandIo;
+	io: NsCommandIo;
 	/** Resolved terminal caps for house-style rendering of durable outcomes. */
 	caps: Caps;
 }
@@ -49,7 +49,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			hasError = true;
 		},
 	});
-	await runWithSdlCommandIo(
+	await runWithNsCommandIo(
 		io,
 		async (io) =>
 			await createAutoslotFlow({

@@ -2,13 +2,13 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import type { SdlCliDeps } from "../../src/cli/index.ts";
+import type { NsCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
-	SelectedSdlCommandLoadResult,
+	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
-import type { SdlCommand } from "@ns/kernel/sdk";
+import type { NsCommand } from "@ns/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),
@@ -36,7 +36,7 @@ const optionProbeCommand = {
 	async run(ctx, request) {
 		return { type: "ok", data: { request, outputFormat: ctx.outputFormat ?? "human" } };
 	},
-} satisfies SdlCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
+} satisfies NsCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
 
 describe("extension command option specs", () => {
 	test("extension option specs render in help", async () => {
@@ -70,7 +70,7 @@ function runOptionProbeCli(args: readonly string[]) {
 	);
 }
 
-function optionProbeRegistry(): NonNullable<SdlCliDeps["extensionRegistry"]> {
+function optionProbeRegistry(): NonNullable<NsCliDeps["extensionRegistry"]> {
 	const candidate: ExtensionCommandCandidate = {
 		name: "option-probe",
 		description: "Probe extension option specs.",
@@ -93,7 +93,7 @@ function optionProbeRegistry(): NonNullable<SdlCliDeps["extensionRegistry"]> {
 				diagnostics: [],
 			};
 		},
-		async loadSelectedCommand(_candidate): Promise<SelectedSdlCommandLoadResult> {
+		async loadSelectedCommand(_candidate): Promise<SelectedNsCommandLoadResult> {
 			return {
 				ok: true,
 				command: optionProbeCommand,

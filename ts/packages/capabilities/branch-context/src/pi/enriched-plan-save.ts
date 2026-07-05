@@ -207,10 +207,10 @@ async function resolveGitRoot(
 async function readRepoWritePlanPromptBody(
 	repoRoot: string,
 ): Promise<WritePlanPromptBodyResolution> {
-	const sdlPath = join(repoRoot, ".ns");
-	const promptDir = join(sdlPath, "prompts");
+	const nsPath = join(repoRoot, ".ns");
+	const promptDir = join(nsPath, "prompts");
 	const promptPath = repoPromptPath(repoRoot);
-	await assertSafeDirectory(sdlPath, ".ns");
+	await assertSafeDirectory(nsPath, ".ns");
 	await assertSafeDirectory(promptDir, ".ns/prompts");
 	await assertSafeFile(promptPath, `.ns/prompts/${WRITE_PLAN_PROMPT_NAME}.md`);
 

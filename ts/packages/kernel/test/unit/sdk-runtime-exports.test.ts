@@ -3,36 +3,36 @@ import { z as zod } from "zod";
 
 import {
 	defineExtension,
-	defineRepoLocalSdlExtensionDescriptor,
+	defineRepoLocalNsExtensionDescriptor,
 	failed,
-	noopSdlCommandIo,
-	noopSdlProgress,
+	noopNsCommandIo,
+	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	repoLocalSdlCommandDescriptor,
-	sdlExtensionManifestCommandSchema,
-	sdlExtensionManifestSchema,
-	sdlExtensionPackageManifestSchema,
+	repoLocalNsCommandDescriptor,
+	nsExtensionManifestCommandSchema,
+	nsExtensionManifestSchema,
+	nsExtensionPackageManifestSchema,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
 	z,
-	type SdlCommand,
+	type NsCommand,
 } from "@ns/kernel/sdk";
 
 const runtimeExports = {
 	defineExtension,
-	defineRepoLocalSdlExtensionDescriptor,
+	defineRepoLocalNsExtensionDescriptor,
 	failed,
-	noopSdlCommandIo,
-	noopSdlProgress,
+	noopNsCommandIo,
+	noopNsProgress,
 	normalizeTextOutput,
-	repoLocalSdlCommandDescriptor,
+	repoLocalNsCommandDescriptor,
 	ok,
-	sdlExtensionManifestCommandSchema,
-	sdlExtensionManifestSchema,
-	sdlExtensionPackageManifestSchema,
+	nsExtensionManifestCommandSchema,
+	nsExtensionManifestSchema,
+	nsExtensionPackageManifestSchema,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
@@ -42,16 +42,16 @@ const runtimeExports = {
 
 const EXPECTED_RUNTIME_EXPORTS = [
 	"defineExtension",
-	"defineRepoLocalSdlExtensionDescriptor",
+	"defineRepoLocalNsExtensionDescriptor",
 	"failed",
-	"noopSdlCommandIo",
-	"noopSdlProgress",
+	"noopNsCommandIo",
+	"noopNsProgress",
 	"normalizeTextOutput",
-	"repoLocalSdlCommandDescriptor",
+	"repoLocalNsCommandDescriptor",
 	"ok",
-	"sdlExtensionManifestCommandSchema",
-	"sdlExtensionManifestSchema",
-	"sdlExtensionPackageManifestSchema",
+	"nsExtensionManifestCommandSchema",
+	"nsExtensionManifestSchema",
+	"nsExtensionPackageManifestSchema",
 	"stripOuterCodeFence",
 	"trimOuterBlankLines",
 	"truncateTextHead",
@@ -67,8 +67,8 @@ describe("@ns/kernel/sdk runtime exports", () => {
 	test("provides result helpers, noop services, and the shared schema builder", () => {
 		expect(ok("done")).toEqual({ ok: true, message: "done" });
 		expect(failed("nope", 3)).toEqual({ ok: false, exitCode: 3, message: "nope" });
-		expect(() => noopSdlCommandIo.phase("working")).not.toThrow();
-		expect(() => noopSdlProgress.phase({ type: "phase-started", phaseKey: "test" })).not.toThrow();
+		expect(() => noopNsCommandIo.phase("working")).not.toThrow();
+		expect(() => noopNsProgress.phase({ type: "phase-started", phaseKey: "test" })).not.toThrow();
 		expect(z).toBe(zod);
 	});
 
@@ -77,21 +77,21 @@ describe("@ns/kernel/sdk runtime exports", () => {
 		expect(defineExtension(extension)).toBe(extension);
 	});
 
-	test("defineRepoLocalSdlExtensionDescriptor preserves the descriptor object at runtime", () => {
+	test("defineRepoLocalNsExtensionDescriptor preserves the descriptor object at runtime", () => {
 		const descriptor = { group: "example", description: "Example.", commands: [] };
-		expect(defineRepoLocalSdlExtensionDescriptor(descriptor)).toBe(descriptor);
+		expect(defineRepoLocalNsExtensionDescriptor(descriptor)).toBe(descriptor);
 	});
 
-	test("repoLocalSdlCommandDescriptor keeps command name as the default leaf slug", () => {
+	test("repoLocalNsCommandDescriptor keeps command name as the default leaf slug", () => {
 		const command = {
 			name: "list",
 			summary: "List things.",
 			description: "List things.",
 			run: () => ok("done"),
-		} satisfies SdlCommand;
+		} satisfies NsCommand;
 
 		expect(
-			repoLocalSdlCommandDescriptor({
+			repoLocalNsCommandDescriptor({
 				command,
 				manifestPath: ["review", "list"],
 				packageExportPrefix: "@ns/example/commands",
@@ -104,16 +104,16 @@ describe("@ns/kernel/sdk runtime exports", () => {
 		});
 	});
 
-	test("repoLocalSdlCommandDescriptor accepts an explicit manifest name for route-encoded leaves", () => {
+	test("repoLocalNsCommandDescriptor accepts an explicit manifest name for route-encoded leaves", () => {
 		const command = {
 			name: "list",
 			summary: "List things.",
 			description: "List things.",
 			run: () => ok("done"),
-		} satisfies SdlCommand;
+		} satisfies NsCommand;
 
 		expect(
-			repoLocalSdlCommandDescriptor({
+			repoLocalNsCommandDescriptor({
 				command,
 				manifestName: "review-list",
 				manifestPath: ["review", "list"],
@@ -129,11 +129,11 @@ describe("@ns/kernel/sdk runtime exports", () => {
 	});
 
 	test("extension manifest schemas accept permissive package manifests", () => {
-		const parsed = sdlExtensionPackageManifestSchema.parse({
+		const parsed = nsExtensionPackageManifestSchema.parse({
 			description: "Package description.",
 			private: true,
 			ns: {
-				description: "SDL commands.",
+				description: "ns commands.",
 				group: "flow",
 				owner: "repo-local",
 				commands: [
@@ -153,7 +153,7 @@ describe("@ns/kernel/sdk runtime exports", () => {
 		expect(parsed.private).toBe(true);
 		expect(parsed.ns?.owner).toBe("repo-local");
 		expect(parsed.ns?.commands?.[0]).toMatchObject({ futureField: "kept" });
-		expect(sdlExtensionManifestCommandSchema.parse(parsed.ns?.commands?.[0])).toMatchObject({
+		expect(nsExtensionManifestCommandSchema.parse(parsed.ns?.commands?.[0])).toMatchObject({
 			name: "changes",
 			futureField: "kept",
 		});

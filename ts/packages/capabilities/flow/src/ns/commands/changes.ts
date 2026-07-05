@@ -1,7 +1,7 @@
 import { dim, glyph, renderBufferedReport } from "@ns/core/cli-theme";
-import { commandIoFromSdlExtensionApi, runWithSdlCommandIo } from "@ns/kernel/command-io";
+import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@ns/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@ns/clinkr";
-import { defineExtension, failed, ok, type SdlCommand } from "@ns/kernel/sdk";
+import { defineExtension, failed, ok, type NsCommand } from "@ns/kernel/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
@@ -18,7 +18,7 @@ import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import { loadFlowPendingWorktreeSnapshot, type PendingWorktreeSnapshot } from "../worktree.ts";
 
-// This project-local extension uses the public SDL SDK plus internal migration
+// This project-local extension uses the public ns SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.
 const MAX_DISPLAY_FILE_LINES = 50;
 
@@ -42,13 +42,13 @@ Environment:
 
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`;
 
-export const flowChangesCommand: SdlCommand = {
+export const flowChangesCommand: NsCommand = {
 	name: "changes",
 	summary: "Summarize outstanding worktree changes without committing.",
 	description: CHANGES_COMMAND_DESCRIPTION,
 	async run(ctx) {
-		const io = commandIoFromSdlExtensionApi(ctx);
-		return await runWithSdlCommandIo(io, async (io) => {
+		const io = commandIoFromNsExtensionApi(ctx);
+		return await runWithNsCommandIo(io, async (io) => {
 			io.phase("Inspecting worktree…");
 			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 			if (!loaded.ok) {

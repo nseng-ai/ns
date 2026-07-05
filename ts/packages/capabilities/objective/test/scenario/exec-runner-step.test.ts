@@ -10,14 +10,14 @@ import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { ChildSessionOutcome } from "../../src/runner/child-session.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
 import { FakeChildSessionGateway, type FakeChildSessionScript } from "../../src/runner/testing.ts";
-import { createObjectiveExecRunnerStepSdlCommand } from "../../src/ns/commands/exec-runner-step.ts";
+import { createObjectiveExecRunnerStepNsCommand } from "../../src/ns/commands/exec-runner-step.ts";
 import type { ChildSessionGatewayInit } from "../../src/ns/runner-context.ts";
 import {
 	childReportText,
 	SequencedGitGateway,
 	type SequencedGitGatewayState,
 } from "../unit/runner/context.ts";
-import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
+import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
 
@@ -54,12 +54,12 @@ interface ScenarioOptions {
 }
 
 interface Scenario {
-	api: FakeObjectiveSdlApi;
-	command: ReturnType<typeof createObjectiveExecRunnerStepSdlCommand>;
+	api: FakeObjectiveNsApi;
+	command: ReturnType<typeof createObjectiveExecRunnerStepNsCommand>;
 	childSession: FakeChildSessionGateway;
 }
 
-function assertJsonEnvelopeStdout<T>(api: FakeObjectiveSdlApi, exit: ClinkrExit<T>): unknown {
+function assertJsonEnvelopeStdout<T>(api: FakeObjectiveNsApi, exit: ClinkrExit<T>): unknown {
 	const stdout = `${api.stdoutChunks.join("")}${envelopeJsonText(toMachineEnvelope(exit))}`;
 	expect(stdout).not.toMatch(/^# Runner Checkpoint:/u);
 	return JSON.parse(stdout) as unknown;
@@ -67,7 +67,7 @@ function assertJsonEnvelopeStdout<T>(api: FakeObjectiveSdlApi, exit: ClinkrExit<
 
 function makeScenario(options: ScenarioOptions = {}): Scenario {
 	const childSession = new FakeChildSessionGateway(options.childScripts ?? []);
-	const api = new FakeObjectiveSdlApi({
+	const api = new FakeObjectiveNsApi({
 		git: new SequencedGitGateway(options.git ?? happyGitState()),
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: openObjectiveStorage(),
@@ -77,7 +77,7 @@ function makeScenario(options: ScenarioOptions = {}): Scenario {
 			outputFormat: options.outputFormat,
 		}),
 	});
-	const command = createObjectiveExecRunnerStepSdlCommand({
+	const command = createObjectiveExecRunnerStepNsCommand({
 		createChildSessionGateway: () => {
 			throw new Error("childSession override provided; the composition seam must not be used.");
 		},
@@ -85,7 +85,7 @@ function makeScenario(options: ScenarioOptions = {}): Scenario {
 	return { api, command, childSession };
 }
 
-describe("sdl objective exec runner-step scenarios", () => {
+describe("ns objective exec runner-step scenarios", () => {
 	test("missing slug is a usage error with nothing dispatched", async () => {
 		const { api, command, childSession } = makeScenario();
 
@@ -379,13 +379,13 @@ describe("sdl objective exec runner-step scenarios", () => {
 	test("without a childSession override the composition builds the gateway from the host env", async () => {
 		const childSession = new FakeChildSessionGateway([happyChildScript]);
 		const inits: ChildSessionGatewayInit[] = [];
-		const command = createObjectiveExecRunnerStepSdlCommand({
+		const command = createObjectiveExecRunnerStepNsCommand({
 			createChildSessionGateway: (init) => {
 				inits.push(init);
 				return childSession;
 			},
 		});
-		const api = new FakeObjectiveSdlApi({
+		const api = new FakeObjectiveNsApi({
 			git: new SequencedGitGateway(happyGitState()),
 			graphite: new InMemoryGraphiteBranchGateway({}),
 			storage: openObjectiveStorage(),

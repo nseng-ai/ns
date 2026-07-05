@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@ns/kernel/cli";
+import { listNsCommands } from "@ns/kernel/cli";
 
 import { runCliWithFakes } from "./ns-cli-fakes.ts";
 
@@ -14,9 +14,9 @@ function runUnavailableChangesCli(args: readonly string[]) {
 	);
 }
 
-describe("sdl flow changes CLI availability", () => {
-	test("static SDL command metadata is empty after the kernel reset", async () => {
-		expect(listSdlCommands()).toEqual([]);
+describe("ns flow changes CLI availability", () => {
+	test("static ns command metadata is empty after the kernel reset", async () => {
+		expect(listNsCommands()).toEqual([]);
 
 		const topHelp = runUnavailableChangesCli(["--help"]);
 		expect(await topHelp.exit).toBe(0);

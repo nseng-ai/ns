@@ -19,7 +19,7 @@ import {
 	managedBlockBounds,
 	type ManagedMarkers,
 } from "./managed-markdown-block.ts";
-import { parseSdlAregAgents, resolveProjectAgents } from "./project-agents.ts";
+import { parseNsAregAgents, resolveProjectAgents } from "./project-agents.ts";
 import { inspectInitProject } from "./project-inspection.ts";
 import {
 	applyProjectMutationPlan,
@@ -30,7 +30,7 @@ import {
 import { renderAregSection, replaceOrAppendAregSection } from "./toml-section.ts";
 
 export {
-	parseSdlAregAgents,
+	parseNsAregAgents,
 	parseLegacyAregJsonAgents,
 	resolveProjectAgents,
 } from "./project-agents.ts";
@@ -301,8 +301,8 @@ async function buildInitTextPlan(
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
 ): Promise<Result<InitTextPlan>> {
-	const sdl = planSdlToml(inspection.nsToml, options.agents);
-	if (!sdl.ok) return sdl;
+	const ns = planNsToml(inspection.nsToml, options.agents);
+	if (!ns.ok) return ns;
 
 	const agents = await planManagedBlock(ctx, {
 		path: "AGENTS.md",
@@ -330,13 +330,13 @@ async function buildInitTextPlan(
 	return {
 		ok: true,
 		value: {
-			writes: [sdl.value, ...textPlans.filter(isTextWritePlan)],
+			writes: [ns.value, ...textPlans.filter(isTextWritePlan)],
 			skippedFiles: textPlans.filter(isSkippedFile).map((skipped) => ({ ...skipped })),
 		},
 	};
 }
 
-function planSdlToml(
+function planNsToml(
 	state: AregTextFileState,
 	agents: readonly string[],
 ): Result<AregInitTextWritePlan> {
@@ -349,7 +349,7 @@ function planSdlToml(
 			description: "ns.toml",
 			action: "manage it",
 		});
-	const parsed = parseSdlAregAgents(state.text, "ns.toml");
+	const parsed = parseNsAregAgents(state.text, "ns.toml");
 	if (!parsed.ok) return parsed;
 	return {
 		ok: true,

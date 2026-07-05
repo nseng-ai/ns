@@ -1,4 +1,4 @@
-import { createSdlClinkrInteraction } from "@ns/capability-kit";
+import { createNsClinkrInteraction } from "@ns/capability-kit";
 import { confirmInteractiveOrUsageError } from "@ns/clinkr";
 import { renderResultBlock, renderResultBlockFromMessage } from "@ns/core/cli-theme";
 import {
@@ -6,13 +6,13 @@ import {
 	failed,
 	ok,
 	z,
-	type SdlCommand,
-	type SdlExtensionApi,
+	type NsCommand,
+	type NsExtensionApi,
 } from "@ns/kernel/sdk";
 
 import {
 	applyPreparedPrDescriptionUpdate,
-	createSdlPrDescriptionRuntime,
+	createNsPrDescriptionRuntime,
 	formatPromptSourceLabel,
 	prDescriptionFingerprintPolicyForForce,
 	preparePrDescriptionUpdateForCurrentBranch,
@@ -26,9 +26,9 @@ const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ns/prompts/pr-description.md";
 const DEFAULT_PR_DESCRIPTION_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
-const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and SDL-managed generated body region.
+const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and ns-managed generated body region.
 
-The command reads the current branch PR with gh, generates fresh PR metadata from the PR diff and commit headlines, then updates the PR title and only the SDL-managed generated description region. By default it asks before editing GitHub. Human-authored PR body text outside that managed region is preserved. Use --force to regenerate even when the generated fingerprint is current and bypass confirmation.
+The command reads the current branch PR with gh, generates fresh PR metadata from the PR diff and commit headlines, then updates the PR title and only the ns-managed generated description region. By default it asks before editing GitHub. Human-authored PR body text outside that managed region is preserved. Use --force to regenerate even when the generated fingerprint is current and bypass confirmation.
 
 Environment:
   ${PR_DESCRIPTION_MODEL_ENV}  Model reference for generated PR descriptions. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
@@ -43,13 +43,13 @@ const regeneratePrSchema = z.object({
 
 type RegeneratePrRequest = z.output<typeof regeneratePrSchema>;
 
-export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
+export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
 	name: "regenerate-pr",
-	summary: "Regenerate the PR title and SDL-managed body region.",
+	summary: "Regenerate the PR title and ns-managed body region.",
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
 	options: { force: { short: "-f" } },
-	async run(ctx: SdlExtensionApi, request: RegeneratePrRequest) {
+	async run(ctx: NsExtensionApi, request: RegeneratePrRequest) {
 		// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
 		// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
 		// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
@@ -57,7 +57,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// `branch-latest-commit` uses — there is no per-step journey to stream and no subprocess
 		// transcript to mine for cause markers. Spec: `.ns/objectives/cli-ux-north-star/house-style.md`.
 		const caps = resolveFlowStreamCaps(ctx);
-		const runtime = createSdlPrDescriptionRuntime(ctx);
+		const runtime = createNsPrDescriptionRuntime(ctx);
 		const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({
 			cwd: ctx.cwd,
 			env: ctx.env,
@@ -97,7 +97,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		if (!request.force) {
 			const confirmationMessage = formatConfirmationMessage({ generated: prepared });
 			const confirmation = await confirmInteractiveOrUsageError(
-				createSdlClinkrInteraction(ctx, {
+				createNsClinkrInteraction(ctx, {
 					title: "Regenerate PR metadata?",
 					formatMessage: () => confirmationMessage,
 				}),
@@ -178,6 +178,6 @@ function formatConfirmationMessage(input: { generated: PreparedPrDescriptionUpda
 		`Current title: ${input.generated.pr.title}`,
 		`New title: ${input.generated.title}`,
 		"",
-		"This will update the PR title and SDL-managed generated description region.",
+		"This will update the PR title and ns-managed generated description region.",
 	].join("\n");
 }

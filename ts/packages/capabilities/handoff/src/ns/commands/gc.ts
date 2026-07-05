@@ -1,9 +1,9 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { handoffSdlCommand } from "../command.ts";
+import { handoffNsCommand } from "../command.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../../core/operations/gc.ts";
 
-export const handoffGcSdlCommand = handoffSdlCommand({
+export const handoffGcNsCommand = handoffNsCommand({
 	name: "gc",
 	summary: "Garbage-collect handoffs for deleted branches.",
 	description: "Delete handoffs whose local branch no longer exists.",
@@ -15,5 +15,5 @@ export const handoffGcSdlCommand = handoffSdlCommand({
 });
 
 export default defineExtension({
-	commands: [handoffGcSdlCommand],
+	commands: [handoffGcNsCommand],
 });

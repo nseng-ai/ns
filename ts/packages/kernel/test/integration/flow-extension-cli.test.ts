@@ -21,7 +21,7 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in flow SDL extension loading", () => {
+describe("checked-in flow ns extension loading", () => {
 	test("real loader exposes cp help and JSON schema metadata", async () => {
 		const cwd = await createFlowProject();
 

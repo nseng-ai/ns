@@ -1,15 +1,15 @@
 import { runCommand } from "@ns/core/exec";
 import type { CommandRunner, ExecResult } from "@ns/core/command";
-import type { SdlProgressPhaseListener } from "@ns/kernel/sdk";
+import type { NsProgressPhaseListener } from "@ns/kernel/sdk";
 import { formatElapsedMs } from "@ns/core/time-format";
-import { createSdlCommandRunner } from "@ns/capability-kit/command-runner";
+import { createNsCommandRunner } from "@ns/capability-kit/command-runner";
 import type { TextRepairProgressEvent } from "@ns/capability-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
 } from "@ns/capability-kit/checkpoint-flow";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
@@ -41,13 +41,13 @@ export interface CheckpointCommandResult {
 	stderr: string;
 }
 
-export interface SdlCheckpointRuntime {
+export interface NsCheckpointRuntime {
 	checkpointGateway: CheckpointGateway;
 }
 
-export function createSdlCheckpointRuntime(ctx: SdlExtensionApi): SdlCheckpointRuntime {
+export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
 	return {
-		checkpointGateway: new RealCheckpointGateway(createSdlCommandRunner(ctx)),
+		checkpointGateway: new RealCheckpointGateway(createNsCommandRunner(ctx)),
 	};
 }
 
@@ -57,7 +57,7 @@ export interface RunCheckpointCommandOptions {
 	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
-	onPhase?: SdlProgressPhaseListener;
+	onPhase?: NsProgressPhaseListener;
 }
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {

@@ -1,8 +1,8 @@
-import type { SdlExtensionApi, SdlOutputStream } from "@ns/kernel/sdk";
+import type { NsExtensionApi, NsOutputStream } from "@ns/kernel/sdk";
 
-export type FlowLiveOutput = (stream: SdlOutputStream, text: string) => void;
+export type FlowLiveOutput = (stream: NsOutputStream, text: string) => void;
 
-export function createFlowLiveOutput(ctx: SdlExtensionApi): FlowLiveOutput | undefined {
+export function createFlowLiveOutput(ctx: NsExtensionApi): FlowLiveOutput | undefined {
 	if (ctx.onOutput !== undefined) return ctx.onOutput;
 	if (ctx.stdout === undefined && ctx.stderr === undefined) return undefined;
 	return (stream, text) => {

@@ -1,9 +1,9 @@
 import { commandSucceeded, type ExecResult } from "@ns/core/command";
-import { defineExtension, failed, ok, type SdlCommand } from "@ns/kernel/sdk";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import { defineExtension, failed, ok, type NsCommand } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 import {
-	execSdlGit,
-	readSdlGitPorcelainStatus,
+	execNsGit,
+	readNsGitPorcelainStatus,
 	type GitErrorInfo,
 	type GitGateway,
 } from "@ns/capability-kit/git";
@@ -21,7 +21,7 @@ The command first runs git status --porcelain and requires a clean worktree befo
 
 This command does not update Graphite metadata. Do not use it for Graphite-tracked PR branches, because moving the remote PR branch outside Graphite can make later gt submit / ns flow submit runs fail until local Graphite state is synced with gt get or gt sync. Use \`ns flow submit\` / \`/ns:flow:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
 
-export const flowPushCommand: SdlCommand = {
+export const flowPushCommand: NsCommand = {
 	name: "push",
 	summary: PUSH_COMMAND_SUMMARY,
 	description: PUSH_COMMAND_DESCRIPTION,
@@ -58,10 +58,10 @@ export async function runPushCore(options: RunPushCoreOptions): Promise<RunPushC
 	return commandSucceeded(result) ? { type: "pushed", result } : { type: "push-failed", result };
 }
 
-async function runPush(ctx: SdlExtensionApi) {
+async function runPush(ctx: NsExtensionApi) {
 	const caps = resolveFlowStreamCaps(ctx);
 
-	const status = await readSdlGitPorcelainStatus(ctx);
+	const status = await readNsGitPorcelainStatus(ctx);
 	if (!status.ok) {
 		return failed(
 			renderGitResultBlock(caps, {
@@ -90,7 +90,7 @@ async function runPush(ctx: SdlExtensionApi) {
 		);
 	}
 
-	const pushResult = await execSdlGit(ctx, ["push"], PUSH_TIMEOUT_MS);
+	const pushResult = await execNsGit(ctx, ["push"], PUSH_TIMEOUT_MS);
 	if (commandSucceeded(pushResult)) {
 		return ok(
 			renderGitResultBlock(caps, {

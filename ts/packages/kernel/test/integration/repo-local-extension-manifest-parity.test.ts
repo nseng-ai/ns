@@ -2,19 +2,19 @@ import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { addressRepoLocalSdlExtension } from "@ns/address/repo-local-sdl-extension";
-import { aretroRepoLocalSdlExtension } from "@ns/aretro/repo-local-sdl-extension";
-import { branchContextRepoLocalSdlExtension } from "@ns/branch-context/repo-local-sdl-extension";
-import { flowRepoLocalSdlExtension } from "@ns/flow/repo-local-sdl-extension";
-import { handoffRepoLocalSdlExtension } from "@ns/handoff/repo-local-sdl-extension";
-import { objectiveRepoLocalSdlExtension } from "@ns/objective/repo-local-sdl-extension";
-import { roasterRepoLocalSdlExtension } from "@ns/roaster/repo-local-sdl-extension";
+import { addressRepoLocalNsExtension } from "@ns/address/repo-local-ns-extension";
+import { aretroRepoLocalNsExtension } from "@ns/aretro/repo-local-ns-extension";
+import { branchContextRepoLocalNsExtension } from "@ns/branch-context/repo-local-ns-extension";
+import { flowRepoLocalNsExtension } from "@ns/flow/repo-local-ns-extension";
+import { handoffRepoLocalNsExtension } from "@ns/handoff/repo-local-ns-extension";
+import { objectiveRepoLocalNsExtension } from "@ns/objective/repo-local-ns-extension";
+import { roasterRepoLocalNsExtension } from "@ns/roaster/repo-local-ns-extension";
 import type {
-	RepoLocalSdlExtensionCommandDescriptor,
-	RepoLocalSdlExtensionDescriptor,
+	RepoLocalNsExtensionCommandDescriptor,
+	RepoLocalNsExtensionDescriptor,
 } from "@ns/kernel/sdk";
 import {
-	discoverSdlPackageCommands,
+	discoverNsPackageCommands,
 	type DiscoveredExtensionCommand,
 } from "../../src/extensions/discovery.ts";
 
@@ -33,17 +33,17 @@ interface DiscoveredManifest {
 
 const REPO_LOCAL_EXTENSION_ROOT = "../.ns/extensions";
 const REPO_LOCAL_EXTENSION_DESCRIPTORS = [
-	addressRepoLocalSdlExtension,
-	aretroRepoLocalSdlExtension,
-	branchContextRepoLocalSdlExtension,
-	flowRepoLocalSdlExtension,
-	handoffRepoLocalSdlExtension,
-	objectiveRepoLocalSdlExtension,
-	roasterRepoLocalSdlExtension,
-] as const satisfies readonly RepoLocalSdlExtensionDescriptor[];
+	addressRepoLocalNsExtension,
+	aretroRepoLocalNsExtension,
+	branchContextRepoLocalNsExtension,
+	flowRepoLocalNsExtension,
+	handoffRepoLocalNsExtension,
+	objectiveRepoLocalNsExtension,
+	roasterRepoLocalNsExtension,
+] as const satisfies readonly RepoLocalNsExtensionDescriptor[];
 
-describe("repo-local SDL extension manifest parity", () => {
-	test("has package-owned descriptor parity coverage for every repo-local SDL extension", async () => {
+describe("repo-local ns extension manifest parity", () => {
+	test("has package-owned descriptor parity coverage for every repo-local ns extension", async () => {
 		const extensionDirectoryEntries = await readdir(REPO_LOCAL_EXTENSION_ROOT, {
 			withFileTypes: true,
 		});
@@ -58,7 +58,7 @@ describe("repo-local SDL extension manifest parity", () => {
 		if (!stringListsEqual(actualExtensionGroups, expectedExtensionGroups)) {
 			throw new Error(
 				[
-					"Repo-local SDL extension descriptor coverage mismatch.",
+					"Repo-local ns extension descriptor coverage mismatch.",
 					`Extension directories: ${actualExtensionGroups.join(", ")}`,
 					`Package descriptors: ${expectedExtensionGroups.join(", ")}`,
 					"Add exactly one package-owned repo-local descriptor to this test table for each .ns/extensions/* directory.",
@@ -101,17 +101,17 @@ describe("repo-local SDL extension manifest parity", () => {
 
 function readDiscoveredManifest(group: string): DiscoveredManifest {
 	const packageDir = path.join(REPO_LOCAL_EXTENSION_ROOT, group);
-	const result = discoverSdlPackageCommands(REPO_LOCAL_EXTENSION_ROOT, packageDir);
+	const result = discoverNsPackageCommands(REPO_LOCAL_EXTENSION_ROOT, packageDir);
 	if (result.diagnostics.length > 0) {
 		throw new Error(
 			[
-				`${group} repo-local SDL manifest discovery failed.`,
+				`${group} repo-local ns manifest discovery failed.`,
 				...result.diagnostics.map((diagnostic) => diagnostic.message),
 			].join("\n"),
 		);
 	}
 	if (result.commands.length === 0) {
-		throw new Error(`${group} repo-local SDL manifest did not discover any commands.`);
+		throw new Error(`${group} repo-local ns manifest did not discover any commands.`);
 	}
 	assertDiscoveredGroup(group, result.commands);
 	return {
@@ -134,7 +134,7 @@ function normalizeDiscoveredCommand(
 }
 
 function normalizeDescriptorCommand(
-	command: RepoLocalSdlExtensionCommandDescriptor,
+	command: RepoLocalNsExtensionCommandDescriptor,
 ): NormalizedManifestCommand {
 	const name = command.manifestName ?? command.command.name;
 	return {
@@ -195,7 +195,7 @@ function duplicateValues(values: readonly string[]): string[] {
 
 function assertCommandLeafManifestEntries(
 	group: string,
-	commands: readonly RepoLocalSdlExtensionCommandDescriptor[],
+	commands: readonly RepoLocalNsExtensionCommandDescriptor[],
 ): void {
 	const nonLeafEntries = commands.filter(
 		(command) => !/^\.\/src\/commands\/[a-z0-9-]+\.ts$/.test(command.manifestEntry),
@@ -203,7 +203,7 @@ function assertCommandLeafManifestEntries(
 	if (nonLeafEntries.length === 0) return;
 	throw new Error(
 		[
-			`${group} repo-local SDL manifest descriptors must use one command leaf per entry.`,
+			`${group} repo-local ns manifest descriptors must use one command leaf per entry.`,
 			"Expected entries under ./src/commands/<command>.ts, not a shared extension multiplexer.",
 			...nonLeafEntries.map((command) => `- ${command.manifestEntry}`),
 		].join("\n"),
@@ -237,7 +237,7 @@ function assertManifestCommandsMatch(
 		return;
 	}
 
-	const lines = [`${group} repo-local SDL manifest does not match its package descriptor.`];
+	const lines = [`${group} repo-local ns manifest does not match its package descriptor.`];
 	if (missingCommands.length > 0) {
 		lines.push(
 			"",
@@ -281,7 +281,7 @@ function manifestCommandJson(command: NormalizedManifestCommand): string {
 
 async function expectManifestEntryExists(
 	group: string,
-	command: RepoLocalSdlExtensionCommandDescriptor,
+	command: RepoLocalNsExtensionCommandDescriptor,
 ): Promise<void> {
 	const entryPath = path.join(REPO_LOCAL_EXTENSION_ROOT, group, command.manifestEntry);
 	const expectedLine = `export { default } from "${command.packageExport}";`;
@@ -290,7 +290,7 @@ async function expectManifestEntryExists(
 	} catch (error) {
 		throw new Error(
 			[
-				`${group} repo-local SDL manifest entry is missing: ${entryPath}`,
+				`${group} repo-local ns manifest entry is missing: ${entryPath}`,
 				`Expected shim line: ${expectedLine}`,
 				"Create the shim file or update the package-owned descriptor/manifest entry path.",
 				`Original error: ${String(error)}`,
@@ -301,7 +301,7 @@ async function expectManifestEntryExists(
 
 async function expectLocalEntryReferencesPackageExport(
 	group: string,
-	command: RepoLocalSdlExtensionCommandDescriptor,
+	command: RepoLocalNsExtensionCommandDescriptor,
 ): Promise<void> {
 	const entryPath = path.join(REPO_LOCAL_EXTENSION_ROOT, group, command.manifestEntry);
 	const expectedLine = `export { default } from "${command.packageExport}";`;
@@ -310,7 +310,7 @@ async function expectLocalEntryReferencesPackageExport(
 
 	throw new Error(
 		[
-			`${group} repo-local SDL shim does not re-export the descriptor package path: ${entryPath}`,
+			`${group} repo-local ns shim does not re-export the descriptor package path: ${entryPath}`,
 			`Expected line: ${expectedLine}`,
 			"Actual first lines:",
 			firstLines(source),

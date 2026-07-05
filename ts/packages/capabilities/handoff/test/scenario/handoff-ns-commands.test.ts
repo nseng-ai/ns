@@ -2,22 +2,22 @@ import { FakeBrmemGateway } from "@ns/brmem";
 import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { handoffCreateSdlCommand } from "@ns/handoff/ns/commands/create";
-import { handoffDeleteSdlCommand } from "@ns/handoff/ns/commands/delete";
-import { handoffGcSdlCommand } from "@ns/handoff/ns/commands/gc";
-import { handoffListSdlCommand } from "@ns/handoff/ns/commands/list";
-import { handoffPickupSdlCommand } from "@ns/handoff/ns/commands/pickup";
+import { handoffCreateNsCommand } from "@ns/handoff/ns/commands/create";
+import { handoffDeleteNsCommand } from "@ns/handoff/ns/commands/delete";
+import { handoffGcNsCommand } from "@ns/handoff/ns/commands/gc";
+import { handoffListNsCommand } from "@ns/handoff/ns/commands/list";
+import { handoffPickupNsCommand } from "@ns/handoff/ns/commands/pickup";
 
 import {
 	FakeHandoffSourceReader,
-	createFakeHandoffSdlApi,
+	createFakeHandoffNsApi,
 	fakeHandoffInteraction,
 	getHandoffContent,
 	putHandoffEntry,
 	runHandoffCommand,
 } from "./handoff-ns-command-fakes.ts";
 
-describe("handoff SDL command objects", () => {
+describe("handoff ns command objects", () => {
 	test("list returns branch-scoped entries from fake storage", async () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
@@ -28,10 +28,10 @@ describe("handoff SDL command objects", () => {
 		});
 
 		const exit = await runHandoffCommand(
-			handoffListSdlCommand,
+			handoffListNsCommand,
 			{},
 			{
-				api: createFakeHandoffSdlApi({ brmem, git }),
+				api: createFakeHandoffNsApi({ brmem, git }),
 			},
 		);
 
@@ -50,9 +50,9 @@ describe("handoff SDL command objects", () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
-		const api = createFakeHandoffSdlApi({ brmem, git });
+		const api = createFakeHandoffNsApi({ brmem, git });
 
-		const missingYes = await runHandoffCommand(handoffDeleteSdlCommand, { slug: "alpha" }, { api });
+		const missingYes = await runHandoffCommand(handoffDeleteNsCommand, { slug: "alpha" }, { api });
 		expect(missingYes).toMatchObject({
 			type: "usageError",
 			data: { missingFlag: "--yes" },
@@ -60,7 +60,7 @@ describe("handoff SDL command objects", () => {
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
 
 		const confirmed = await runHandoffCommand(
-			handoffDeleteSdlCommand,
+			handoffDeleteNsCommand,
 			{ slug: "alpha", yes: true },
 			{ api },
 		);
@@ -75,13 +75,13 @@ describe("handoff SDL command objects", () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
-		const api = createFakeHandoffSdlApi({
+		const api = createFakeHandoffNsApi({
 			brmem,
 			git,
 			interaction: fakeHandoffInteraction({ confirmations: ["declined"] }),
 		});
 
-		const exit = await runHandoffCommand(handoffDeleteSdlCommand, { slug: "alpha" }, { api });
+		const exit = await runHandoffCommand(handoffDeleteNsCommand, { slug: "alpha" }, { api });
 
 		expect(exit).toMatchObject({
 			type: "ok",
@@ -96,10 +96,10 @@ describe("handoff SDL command objects", () => {
 		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Alpha\n" });
 
 		const exit = await runHandoffCommand(
-			handoffCreateSdlCommand,
+			handoffCreateNsCommand,
 			{ slug: "alpha" },
 			{
-				api: createFakeHandoffSdlApi({ brmem, git, sourceReader }),
+				api: createFakeHandoffNsApi({ brmem, git, sourceReader }),
 			},
 		);
 
@@ -125,9 +125,9 @@ describe("handoff SDL command objects", () => {
 		});
 
 		const exit = await runHandoffCommand(
-			handoffCreateSdlCommand,
+			handoffCreateNsCommand,
 			{ slug: "file-alpha", file: "artifact.md", branch: "feat/y" },
-			{ api: createFakeHandoffSdlApi({ brmem, git, sourceReader }) },
+			{ api: createFakeHandoffNsApi({ brmem, git, sourceReader }) },
 		);
 
 		expect(exit).toMatchObject({
@@ -149,13 +149,13 @@ describe("handoff SDL command objects", () => {
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "old" });
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
 		const sourceReader = new FakeHandoffSourceReader({ stdin: "new" });
-		const api = createFakeHandoffSdlApi({ brmem, git, sourceReader });
+		const api = createFakeHandoffNsApi({ brmem, git, sourceReader });
 
-		const missingSlug = await runHandoffCommand(handoffCreateSdlCommand, {}, { api });
+		const missingSlug = await runHandoffCommand(handoffCreateNsCommand, {}, { api });
 		expect(missingSlug).toMatchObject({ type: "usageError" });
 
 		const invalidSlug = await runHandoffCommand(
-			handoffCreateSdlCommand,
+			handoffCreateNsCommand,
 			{ slug: "bad/slug" },
 			{ api },
 		);
@@ -164,7 +164,7 @@ describe("handoff SDL command objects", () => {
 			errorType: "invalid-handoff-slug",
 		});
 
-		const existing = await runHandoffCommand(handoffCreateSdlCommand, { slug: "alpha" }, { api });
+		const existing = await runHandoffCommand(handoffCreateNsCommand, { slug: "alpha" }, { api });
 		expect(existing).toMatchObject({
 			type: "failure",
 			errorType: "handoff-already-exists",
@@ -178,10 +178,10 @@ describe("handoff SDL command objects", () => {
 		const sourceReader = new FakeHandoffSourceReader({ files: {} });
 
 		const detached = await runHandoffCommand(
-			handoffCreateSdlCommand,
+			handoffCreateNsCommand,
 			{ slug: "alpha" },
 			{
-				api: createFakeHandoffSdlApi({ brmem, git: detachedGit, sourceReader }),
+				api: createFakeHandoffNsApi({ brmem, git: detachedGit, sourceReader }),
 			},
 		);
 		expect(detached).toMatchObject({
@@ -191,9 +191,9 @@ describe("handoff SDL command objects", () => {
 
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
 		const missingFile = await runHandoffCommand(
-			handoffCreateSdlCommand,
+			handoffCreateNsCommand,
 			{ slug: "file-alpha", file: "missing.md" },
-			{ api: createFakeHandoffSdlApi({ brmem, git, sourceReader }) },
+			{ api: createFakeHandoffNsApi({ brmem, git, sourceReader }) },
 		);
 		expect(missingFile).toMatchObject({
 			type: "failure",
@@ -210,10 +210,10 @@ describe("handoff SDL command objects", () => {
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
 
 		const exit = await runHandoffCommand(
-			handoffPickupSdlCommand,
+			handoffPickupNsCommand,
 			{ slug: "alpha" },
 			{
-				api: createFakeHandoffSdlApi({ brmem, git }),
+				api: createFakeHandoffNsApi({ brmem, git }),
 			},
 		);
 
@@ -245,10 +245,10 @@ describe("handoff SDL command objects", () => {
 		});
 
 		const exit = await runHandoffCommand(
-			handoffPickupSdlCommand,
+			handoffPickupNsCommand,
 			{ slug: "alpha", branch: "feat/y" },
 			{
-				api: createFakeHandoffSdlApi({ brmem, git }),
+				api: createFakeHandoffNsApi({ brmem, git }),
 			},
 		);
 
@@ -262,13 +262,13 @@ describe("handoff SDL command objects", () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
-		const api = createFakeHandoffSdlApi({ brmem, git });
+		const api = createFakeHandoffNsApi({ brmem, git });
 
-		const missingSlug = await runHandoffCommand(handoffPickupSdlCommand, {}, { api });
+		const missingSlug = await runHandoffCommand(handoffPickupNsCommand, {}, { api });
 		expect(missingSlug).toMatchObject({ type: "usageError" });
 
 		const missingHandoff = await runHandoffCommand(
-			handoffPickupSdlCommand,
+			handoffPickupNsCommand,
 			{ slug: "missing" },
 			{ api },
 		);
@@ -280,10 +280,10 @@ describe("handoff SDL command objects", () => {
 
 		const detachedGit = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 		const detached = await runHandoffCommand(
-			handoffPickupSdlCommand,
+			handoffPickupNsCommand,
 			{ slug: "alpha" },
 			{
-				api: createFakeHandoffSdlApi({ brmem, git: detachedGit }),
+				api: createFakeHandoffNsApi({ brmem, git: detachedGit }),
 			},
 		);
 		expect(detached).toMatchObject({
@@ -296,22 +296,22 @@ describe("handoff SDL command objects", () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "stale.md", branch: "feat/stale", content: "stale" });
 		const git = new InMemoryGitGateway({ currentBranch: "main", existingBranches: ["main"] });
-		const api = createFakeHandoffSdlApi({ brmem, git });
+		const api = createFakeHandoffNsApi({ brmem, git });
 
-		const forceRequired = await runHandoffCommand(handoffGcSdlCommand, {}, { api });
+		const forceRequired = await runHandoffCommand(handoffGcNsCommand, {}, { api });
 		expect(forceRequired).toMatchObject({
 			type: "usageError",
 			data: { missingFlag: "--force" },
 		});
 
-		const dryRun = await runHandoffCommand(handoffGcSdlCommand, { dryRun: true }, { api });
+		const dryRun = await runHandoffCommand(handoffGcNsCommand, { dryRun: true }, { api });
 		expect(dryRun).toMatchObject({
 			type: "ok",
 			data: expect.objectContaining({ dryRun: true, wouldDeleteCount: 1, deletedCount: 0 }),
 		});
 		expect(await getHandoffContent(brmem, { key: "stale.md", branch: "feat/stale" })).toBe("stale");
 
-		const forced = await runHandoffCommand(handoffGcSdlCommand, { force: true }, { api });
+		const forced = await runHandoffCommand(handoffGcNsCommand, { force: true }, { api });
 		expect(forced).toMatchObject({
 			type: "ok",
 			data: expect.objectContaining({ dryRun: false, wouldDeleteCount: 0, deletedCount: 1 }),

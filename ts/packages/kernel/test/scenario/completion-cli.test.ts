@@ -3,13 +3,13 @@ import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
 import { commandKey } from "../../src/extensions/command-registry.ts";
-import type { SdlCliDeps } from "../../src/cli/index.ts";
+import type { NsCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
-	SelectedSdlCommandLoadResult,
+	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import type { SdlCommand } from "@ns/kernel/sdk";
+import type { NsCommand } from "@ns/kernel/sdk";
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
@@ -18,7 +18,7 @@ function runWithFakes(options: RunWithFakesOptions) {
 	});
 }
 
-describe("sdl completion CLI", () => {
+describe("ns completion CLI", () => {
 	test("prints dynamic setup scripts for supported shells", async () => {
 		for (const shell of ["bash", "zsh", "fish"] as const) {
 			const run = runWithFakes({
@@ -243,7 +243,7 @@ interface FakeCompletionPath {
 }
 
 interface FakeCompletionRegistryOptions {
-	commands?: readonly SdlCommand[];
+	commands?: readonly NsCommand[];
 	loadFailures?: Readonly<Record<string, string>>;
 	paths?: Readonly<Record<string, FakeCompletionPath>>;
 }
@@ -251,11 +251,11 @@ interface FakeCompletionRegistryOptions {
 interface FakeCompletionRegistry {
 	loadLog: string[];
 	loadCommandCatalog: NonNullable<
-		NonNullable<SdlCliDeps["extensionRegistry"]>["loadCommandCatalog"]
+		NonNullable<NsCliDeps["extensionRegistry"]>["loadCommandCatalog"]
 	>;
 	loadSelectedCommand: (
 		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedSdlCommandLoadResult>;
+	) => Promise<SelectedNsCommandLoadResult>;
 }
 
 function fakeCompletionRegistry(
@@ -329,7 +329,7 @@ function commandPathFields(path: { group?: string; segments?: readonly string[] 
 }
 
 function commandCandidate(
-	command: SdlCommand,
+	command: NsCommand,
 	path: FakeCompletionPath = {},
 ): ExtensionCommandCandidate {
 	const candidatePath = { ...commandPathFields(path), name: command.name };
@@ -344,7 +344,7 @@ function commandCandidate(
 	};
 }
 
-function helloCommand(options: Partial<SdlCommand> = {}): SdlCommand {
+function helloCommand(options: Partial<NsCommand> = {}): NsCommand {
 	return {
 		name: "hello",
 		summary: "Hello",

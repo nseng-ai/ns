@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	renderTrackingGate,
 	runTrackingGate,
@@ -8,7 +8,7 @@ import {
 	trackingGateResultSchema,
 } from "../../core/operations/tracking-gate.ts";
 
-export const objectiveExecTrackingGateSdlCommand = objectiveSdlCommand({
+export const objectiveExecTrackingGateNsCommand = objectiveNsCommand({
 	name: "exec-tracking-gate",
 	summary: "Collect deterministic Objective tracking gate evidence for one slug.",
 	description: "Collect deterministic Objective tracking gate evidence for one slug.",
@@ -21,5 +21,5 @@ export const objectiveExecTrackingGateSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveExecTrackingGateSdlCommand],
+	commands: [objectiveExecTrackingGateNsCommand],
 });

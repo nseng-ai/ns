@@ -1,4 +1,4 @@
-import type { SdlCommandIo } from "@ns/kernel/sdk";
+import type { NsCommandIo } from "@ns/kernel/sdk";
 import { formatErrorMessage } from "@ns/core/primitives";
 import {
 	LandStackCommandStream,
@@ -34,7 +34,7 @@ import type {
 export type { LandStackExtensionAPI } from "./stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
-	io?: SdlCommandIo;
+	io?: NsCommandIo;
 	shouldSkipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
 	liveProgress?: LandLiveProgressSink;

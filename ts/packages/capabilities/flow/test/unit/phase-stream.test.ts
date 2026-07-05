@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_COLUMNS } from "@ns/clinkr";
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 import type { Caps, ColorDepth } from "@ns/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@ns/clinkr/stream";
 import { spinnerFrame } from "@ns/core/cli-theme";
 
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import {
 	createPhaseStream,
@@ -42,12 +42,12 @@ function caps(
 	};
 }
 
-function ctx(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
+function ctx(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 	return {
 		cwd: "/work",
 		env: {},
-		commandIo: noopSdlCommandIo,
-		progress: noopSdlProgress,
+		commandIo: noopNsCommandIo,
+		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },

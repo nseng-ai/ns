@@ -1,30 +1,27 @@
-import {
-	createSdlDomainCommand,
-	type SdlDomainCommandOptions,
-} from "@ns/capability-kit/ns-command";
+import { createNsDomainCommand, type NsDomainCommandOptions } from "@ns/capability-kit/ns-command";
 import { optionalEntry } from "@ns/core/primitives";
-import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@ns/kernel/sdk";
 
 import {
 	createRealBranchContextCliContext,
 	type BranchContextCliContext,
 } from "../core/operations.ts";
 
-type BranchContextSdlCommandOptions<S extends SdlCommandSchema, T> = Omit<
-	SdlDomainCommandOptions<S, T, BranchContextCliContext>,
+type BranchContextNsCommandOptions<S extends NsCommandSchema, T> = Omit<
+	NsDomainCommandOptions<S, T, BranchContextCliContext>,
 	"createContext"
 >;
 
-export function branchContextCommand<S extends SdlCommandSchema, T>(
-	options: BranchContextSdlCommandOptions<S, T>,
-): SdlCommand<S, T> {
-	return createSdlDomainCommand({
+export function branchContextCommand<S extends NsCommandSchema, T>(
+	options: BranchContextNsCommandOptions<S, T>,
+): NsCommand<S, T> {
+	return createNsDomainCommand({
 		...options,
 		createContext: createBranchContextExtensionContext,
 	});
 }
 
-function createBranchContextExtensionContext(ctx: SdlExtensionApi): BranchContextCliContext {
+function createBranchContextExtensionContext(ctx: NsExtensionApi): BranchContextCliContext {
 	return createRealBranchContextCliContext({
 		cwd: ctx.cwd,
 		env: ctx.env,

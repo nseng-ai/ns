@@ -19,40 +19,40 @@ import { optionalEntries, optionalEntry } from "@ns/core/primitives";
 import { createRealSlotContext } from "@ns/slot/api";
 
 import {
-	buildSdlCompletionScript,
-	renderSdlCompletionScriptResult,
-	sdlCompletionScriptResultSchema,
+	buildNsCompletionScript,
+	renderNsCompletionScriptResult,
+	nsCompletionScriptResultSchema,
 } from "./completion.ts";
-import { createRealSdlCommandContext, type SdlCliContext } from "./context.ts";
+import { createRealNsCommandContext, type NsCliContext } from "./context.ts";
 import {
-	renderSdlShellInstall,
-	renderSdlShellShow,
-	runSdlShellInstall,
-	runSdlShellShow,
-	sdlShellInstallRequestSchema,
-	sdlShellInstallResultSchema,
-	sdlShellShowRequestSchema,
-	sdlShellShowResultSchema,
+	renderNsShellInstall,
+	renderNsShellShow,
+	runNsShellInstall,
+	runNsShellShow,
+	nsShellInstallRequestSchema,
+	nsShellInstallResultSchema,
+	nsShellShowRequestSchema,
+	nsShellShowResultSchema,
 } from "./shell.ts";
-import { createCliCommandIo, noopSdlProgress } from "../runtime/command-io.ts";
+import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	commandInfosForSelectedCommand,
 	formatExtensionErrorDiagnostics,
 	formatExtensionWarningDiagnostics,
 	loadListingCommandInfos,
-	loadSdlCommandCatalog,
-	loadSelectedSdlCommand,
+	loadNsCommandCatalog,
+	loadSelectedNsCommand,
 	type ExtensionCommandCandidate,
-	type SelectedSdlCommandLoadResult,
-	type SdlCommandCatalog,
+	type SelectedNsCommandLoadResult,
+	type NsCommandCatalog,
 } from "../extensions/registry.ts";
 import type {
 	RenderCapabilities,
-	SdlCommand,
-	SdlConfirmPrompt,
-	SdlExtensionApi,
-	SdlOutputStream,
+	NsCommand,
+	NsConfirmPrompt,
+	NsExtensionApi,
+	NsOutputStream,
 } from "../sdk/index.ts";
 import {
 	commandDisplayName,
@@ -60,46 +60,46 @@ import {
 	commandLeafName,
 	commandPathMatches,
 	commandSegments,
-	executeSdlCommand,
+	executeNsCommand,
 	formatUnknownError,
-	listStaticSdlCommandInfos,
-	validateSdlClinkrExit,
-	type SdlCommandInfo,
-	type SdlCommandCliInfo,
-	type SdlCommandPath,
+	listStaticNsCommandInfos,
+	validateNsClinkrExit,
+	type NsCommandInfo,
+	type NsCommandCliInfo,
+	type NsCommandPath,
 } from "../extensions/command-registry.ts";
 
-export type { SdlCliContext } from "./context.ts";
-export type { SdlCommandInfo } from "../extensions/command-registry.ts";
+export type { NsCliContext } from "./context.ts";
+export type { NsCommandInfo } from "../extensions/command-registry.ts";
 
-interface SdlCliExtensionRegistryDeps {
-	loadCommandCatalog?: (options: { cwd: string; homeDir?: string }) => Promise<SdlCommandCatalog>;
+interface NsCliExtensionRegistryDeps {
+	loadCommandCatalog?: (options: { cwd: string; homeDir?: string }) => Promise<NsCommandCatalog>;
 	loadSelectedCommand?: (
 		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedSdlCommandLoadResult>;
+	) => Promise<SelectedNsCommandLoadResult>;
 }
 
-export interface SdlCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
-	context?: SdlExtensionApi;
+export interface NsCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
+	context?: NsExtensionApi;
 	homeDir?: string;
-	onOutput?: (stream: SdlOutputStream, text: string) => void;
-	confirm?: SdlConfirmPrompt;
-	extensionRegistry?: SdlCliExtensionRegistryDeps;
+	onOutput?: (stream: NsOutputStream, text: string) => void;
+	confirm?: NsConfirmPrompt;
+	extensionRegistry?: NsCliExtensionRegistryDeps;
 }
 
-export interface BuildSdlCliOptions {
-	commandInfos?: readonly SdlCommandCliInfo[];
-	selectedCommand?: SdlCommand;
-	selectedCommandPath?: SdlCommandPath;
+export interface BuildNsCliOptions {
+	commandInfos?: readonly NsCommandCliInfo[];
+	selectedCommand?: NsCommand;
+	selectedCommandPath?: NsCommandPath;
 }
 
-interface SdlCliBuildState {
-	commandInfos: readonly SdlCommandCliInfo[];
-	selectedCommand?: SdlCommand;
-	selectedCommandPath?: SdlCommandPath;
+interface NsCliBuildState {
+	commandInfos: readonly NsCommandCliInfo[];
+	selectedCommand?: NsCommand;
+	selectedCommandPath?: NsCommandPath;
 }
 
-const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
+const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 	metaUrl: new URL("../cli.ts", import.meta.url).href,
 	runtime: "typescript",
 	description: "ns tools.",
@@ -111,7 +111,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		const resolvedEnv = deps.env ?? injectedContext?.env ?? env;
 		const homeDir = deps.homeDir ?? resolvedEnv.HOME;
 		const commandCatalog = await (
-			deps.extensionRegistry?.loadCommandCatalog ?? loadSdlCommandCatalog
+			deps.extensionRegistry?.loadCommandCatalog ?? loadNsCommandCatalog
 		)({
 			cwd: resolvedCwd,
 			...optionalEntry("homeDir", homeDir),
@@ -169,7 +169,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			resolvedStderr(`${formatExtensionWarningDiagnostics(warnings)}\n`);
 		}
 
-		const selectedCommandResolution = await resolveSelectedSdlCommand({
+		const selectedCommandResolution = await resolveSelectedNsCommand({
 			candidate: selectedCandidate,
 			commandInfos,
 			...optionalEntry("loadSelectedCommand", deps.extensionRegistry?.loadSelectedCommand),
@@ -178,7 +178,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		});
 		if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
 
-		const contextWithIO = await buildSdlCliContext({
+		const contextWithIO = await buildNsCliContext({
 			args,
 			cwd: resolvedCwd,
 			env: resolvedEnv,
@@ -198,7 +198,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		};
 	},
 	configureCli: ({ root, buildState }) => {
-		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
+		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
 			const parent = groupForCommand(root, groups, commandInfo);
 			const selectedCommand =
@@ -219,7 +219,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				...(selectedCommand?.completionProvider === undefined
 					? {}
 					: {
-							completionProvider: (ctx: SdlCliContext, request: ClinkrDynamicCompletionRequest) =>
+							completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
 								selectedCommand.completionProvider?.(ctx.context, request) ?? [],
 						}),
 			};
@@ -235,7 +235,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 						: { renderMarkdown: selectedCommand.renderMarkdown }),
 					handler: async (ctx, request) => {
 						const result = await selectedCommand.run(ctx.context, request);
-						return validateSdlClinkrExit(result, selectedCommand.name);
+						return validateNsClinkrExit(result, selectedCommand.name);
 					},
 				});
 				continue;
@@ -249,23 +249,23 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 								? {
 										ok: false as const,
 										exitCode: 2,
-										message: `Unknown SDL command: ${commandDisplayName(commandInfo)}`,
+										message: `Unknown ns command: ${commandDisplayName(commandInfo)}`,
 									}
-								: await executeSdlCommand(ctx.context, selectedCommand, request);
-						writeSdlResultOutput(result, ctx);
+								: await executeNsCommand(ctx.context, selectedCommand, request);
+						writeNsResultOutput(result, ctx);
 						return result.ok ? 0 : result.exitCode;
 					},
 				}),
 			);
 		}
-		root.group(buildSdlShellGroup());
-		root.group(buildSdlCompletionGroup());
+		root.group(buildNsShellGroup());
+		root.group(buildNsCompletionGroup());
 	},
 });
 
-export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliContext> {
+export function buildCli(options: BuildNsCliOptions = {}): ClinkrGroup<NsCliContext> {
 	return entry.buildCli({
-		commandInfos: options.commandInfos ?? listStaticSdlCommandInfos(),
+		commandInfos: options.commandInfos ?? listStaticNsCommandInfos(),
 		...optionalEntries({
 			selectedCommand: options.selectedCommand,
 			selectedCommandPath: options.selectedCommandPath,
@@ -273,31 +273,31 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 	});
 }
 
-export function listSdlCommands(): SdlCommandInfo[] {
-	return listStaticSdlCommandInfos().map(({ group, name, description }) => ({
+export function listNsCommands(): NsCommandInfo[] {
+	return listStaticNsCommandInfos().map(({ group, name, description }) => ({
 		...(group === undefined ? {} : { group }),
 		name,
 		description,
 	}));
 }
 
-export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Promise<number> {
+export async function runCli(args: readonly string[], deps: NsCliDeps = {}): Promise<number> {
 	return await entry.run(args, deps);
 }
 
 async function handleCompletionResolverInvocation(options: {
 	args: readonly string[];
-	commandCatalog: SdlCommandCatalog;
+	commandCatalog: NsCommandCatalog;
 	loadSelectedCommand?: (
 		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedSdlCommandLoadResult>;
+	) => Promise<SelectedNsCommandLoadResult>;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	injectedContext?: SdlExtensionApi;
-	onOutput?: (stream: SdlOutputStream, text: string) => void;
-	confirm?: SdlConfirmPrompt;
+	injectedContext?: NsExtensionApi;
+	onOutput?: (stream: NsOutputStream, text: string) => void;
+	confirm?: NsConfirmPrompt;
 	caps?: Caps;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
@@ -306,7 +306,7 @@ async function handleCompletionResolverInvocation(options: {
 		selectedCommandKey === undefined
 			? undefined
 			: options.commandCatalog.candidates.get(selectedCommandKey);
-	const selectedCommandResolution = await resolveSelectedSdlCommand({
+	const selectedCommandResolution = await resolveSelectedNsCommand({
 		candidate: selectedCandidate,
 		commandInfos: options.commandCatalog.commandInfos,
 		...optionalEntry("loadSelectedCommand", options.loadSelectedCommand),
@@ -314,7 +314,7 @@ async function handleCompletionResolverInvocation(options: {
 		failureExitCode: 0,
 	});
 	if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
-	const context = await buildSdlCliContext({
+	const context = await buildNsCliContext({
 		args: options.args,
 		cwd: options.cwd,
 		env: options.env,
@@ -340,19 +340,19 @@ async function handleCompletionResolverInvocation(options: {
 	return { type: "handled", exitCode: 0 };
 }
 
-async function resolveSelectedSdlCommand(options: {
+async function resolveSelectedNsCommand(options: {
 	candidate: ExtensionCommandCandidate | undefined;
-	commandInfos: readonly SdlCommandCliInfo[];
+	commandInfos: readonly NsCommandCliInfo[];
 	loadSelectedCommand?: (
 		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedSdlCommandLoadResult>;
+	) => Promise<SelectedNsCommandLoadResult>;
 	stderr: (text: string) => void;
 	failureExitCode: number;
 }): Promise<
-	| { ok: true; resolution: SdlCliBuildState }
+	| { ok: true; resolution: NsCliBuildState }
 	| { ok: false; handled: { type: "handled"; exitCode: number } }
 > {
-	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedSdlCommand;
+	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedNsCommand;
 	const loadedSelectedCommand =
 		options.candidate === undefined ? undefined : await selectedCommandLoader(options.candidate);
 	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
@@ -377,19 +377,19 @@ async function resolveSelectedSdlCommand(options: {
 	};
 }
 
-async function buildSdlCliContext(options: {
+async function buildNsCliContext(options: {
 	args: readonly string[];
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	injectedContext?: SdlExtensionApi;
-	onOutput?: (stream: SdlOutputStream, text: string) => void;
-	confirm?: SdlConfirmPrompt;
+	injectedContext?: NsExtensionApi;
+	onOutput?: (stream: NsOutputStream, text: string) => void;
+	confirm?: NsConfirmPrompt;
 	caps?: Caps;
-}): Promise<SdlCliContext> {
+}): Promise<NsCliContext> {
 	const baseContext =
-		options.injectedContext ?? createRealSdlCommandContext({ cwd: options.cwd, env: options.env });
+		options.injectedContext ?? createRealNsCommandContext({ cwd: options.cwd, env: options.env });
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
 	const stdin = baseContext.stdin ?? readStdin;
@@ -400,12 +400,12 @@ async function buildSdlCliContext(options: {
 		stderr: options.stderr,
 		...optionalEntry("onOutput", onOutput),
 	});
-	const context: SdlExtensionApi = {
+	const context: NsExtensionApi = {
 		cwd: options.cwd,
 		env: options.env,
 		textGenerator: baseContext.textGenerator,
 		commandIo,
-		progress: noopSdlProgress,
+		progress: noopNsProgress,
 		renderCapabilities,
 		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),
@@ -433,7 +433,7 @@ async function buildSdlCliContext(options: {
 }
 
 function isCompletionResolverInvocation(args: readonly string[]): boolean {
-	return args[0] === "completion" && args[1] === SDL_EXEC_GROUP_NAME && args[2] === "resolve";
+	return args[0] === "completion" && args[1] === NS_EXEC_GROUP_NAME && args[2] === "resolve";
 }
 
 function isCompletionScriptInvocation(args: readonly string[]): boolean {
@@ -448,7 +448,7 @@ function completionResolverWords(args: readonly string[]): readonly string[] {
 
 function requestedCommandKey(
 	args: readonly string[],
-	commandInfos: readonly SdlCommandCliInfo[],
+	commandInfos: readonly NsCommandCliInfo[],
 ): string | undefined {
 	const commandArgs = args.filter((arg) => !arg.startsWith("-"));
 	if (commandArgs.length === 0) return undefined;
@@ -466,42 +466,42 @@ function requestedCommandKey(
 	return commandKey(selected.commandInfo);
 }
 
-const SDL_EXEC_GROUP_NAME = "exec";
-const SDL_BUILT_IN_HELP_GROUP = "Built-in Commands:";
-const SDL_EXTENSION_HELP_GROUP = "Extensions:";
-// Dynamic SDL extensions are one group deep today. A grouped command named
+const NS_EXEC_GROUP_NAME = "exec";
+const NS_BUILT_IN_HELP_GROUP = "Built-in Commands:";
+const NS_EXTENSION_HELP_GROUP = "Extensions:";
+// Dynamic ns extensions are one group deep today. A grouped command named
 // `exec-<name>` is mounted as hidden `ns <group> exec <name>` so agent-only
 // operations keep the same nested exec contract as first-party Clinkr groups.
-const SDL_EXEC_COMMAND_PREFIX = "exec-";
+const NS_EXEC_COMMAND_PREFIX = "exec-";
 
-function isGroupedExecCommand(commandInfo: SdlCommandCliInfo): boolean {
-	return commandInfo.group !== undefined && commandInfo.name.startsWith(SDL_EXEC_COMMAND_PREFIX);
+function isGroupedExecCommand(commandInfo: NsCommandCliInfo): boolean {
+	return commandInfo.group !== undefined && commandInfo.name.startsWith(NS_EXEC_COMMAND_PREFIX);
 }
 
-function cliLeafCommandName(commandInfo: SdlCommandCliInfo): string {
+function cliLeafCommandName(commandInfo: NsCommandCliInfo): string {
 	if (commandInfo.segments !== undefined) return commandLeafName(commandInfo);
 	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
-	return commandInfo.name.slice(SDL_EXEC_COMMAND_PREFIX.length);
+	return commandInfo.name.slice(NS_EXEC_COMMAND_PREFIX.length);
 }
 
-function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
-	const completion = new ClinkrGroup<SdlCliContext>({
+function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
+	const completion = new ClinkrGroup<NsCliContext>({
 		name: "completion",
 		description: "Print shell completion setup scripts.",
-		helpGroup: SDL_BUILT_IN_HELP_GROUP,
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
 	});
 	for (const shell of ["bash", "zsh", "fish"] as const) {
 		completion.command({
 			name: shell,
 			description: `Print ${shell} completion setup for ns.`,
 			schema: z.object({}),
-			resultSchema: sdlCompletionScriptResultSchema,
-			handler: async () => ok(buildSdlCompletionScript(shell)),
-			renderHuman: renderSdlCompletionScriptResult,
+			resultSchema: nsCompletionScriptResultSchema,
+			handler: async () => ok(buildNsCompletionScript(shell)),
+			renderHuman: renderNsCompletionScriptResult,
 		});
 	}
-	const exec = new ClinkrGroup<SdlCliContext>({
-		name: SDL_EXEC_GROUP_NAME,
+	const exec = new ClinkrGroup<NsCliContext>({
+		name: NS_EXEC_GROUP_NAME,
 		description: "Shell completion resolver operations.",
 		isHidden: true,
 	});
@@ -518,10 +518,10 @@ function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
 	return completion;
 }
 
-function displaySegmentsForCommand(commandInfo: SdlCommandCliInfo): readonly string[] {
+function displaySegmentsForCommand(commandInfo: NsCommandCliInfo): readonly string[] {
 	if (commandInfo.segments !== undefined) return commandInfo.segments;
 	if (!isGroupedExecCommand(commandInfo)) return commandSegments(commandInfo);
-	return [commandInfo.group ?? "", SDL_EXEC_GROUP_NAME, cliLeafCommandName(commandInfo)].filter(
+	return [commandInfo.group ?? "", NS_EXEC_GROUP_NAME, cliLeafCommandName(commandInfo)].filter(
 		(segment) => segment !== "",
 	);
 }
@@ -533,46 +533,46 @@ function pathPrefixMatches(args: readonly string[], path: readonly string[]): bo
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
 
 type ShellCommandSpec<T> = Omit<
-	ClinkrCommandSpec<SdlCliContext, ShellCommandSchema, T>,
+	ClinkrCommandSpec<NsCliContext, ShellCommandSchema, T>,
 	"name" | "description"
 >;
 
-// Keep this shell command face SDL-owned instead of resurrecting the old generic Slot
+// Keep this shell command face ns-owned instead of resurrecting the old generic Slot
 // builder. The reusable abstraction we expect here is future typed shell contributions
-// rendered by SDL inside one managed shell integration, not extension-owned rc-file
+// rendered by ns inside one managed shell integration, not extension-owned rc-file
 // mutation or a Slot-owned command helper.
 //
 // Intended shell-ownership boundary (target end-state; consolidation deferred):
 //   - Slot exposes worktree paths only and stays out of shell-integration concerns.
-//   - SDL/core owns wrapper-script generation, the parent-shell integration, and
+//   - ns/core owns wrapper-script generation, the parent-shell integration, and
 //     mounting (this group) as one cohesive unit.
 // Known deferred drift from that boundary: cd-directive generation still lives in
 // Slot's `navigation-result.ts`/`shell/cd-directive.ts`. That is the next consolidation
 // step, not a sanctioned long-term split — do not add new shell-integration logic to Slot.
-function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
-	const shell = new ClinkrGroup<SdlCliContext>({
+function buildNsShellGroup(): ClinkrGroup<NsCliContext> {
+	const shell = new ClinkrGroup<NsCliContext>({
 		name: "shell",
 		description: "Show or install parent-shell integration.",
-		helpGroup: SDL_BUILT_IN_HELP_GROUP,
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
 	});
 	shell.command({
 		name: "show",
 		description: "Print the parent-shell wrapper script.",
 		...withShellOption({
-			schema: sdlShellShowRequestSchema,
-			resultSchema: sdlShellShowResultSchema,
-			handler: runSdlShellShow,
-			renderHuman: renderSdlShellShow,
+			schema: nsShellShowRequestSchema,
+			resultSchema: nsShellShowResultSchema,
+			handler: runNsShellShow,
+			renderHuman: renderNsShellShow,
 		}),
 	});
 	shell.command({
 		name: "install",
 		description: "Install the parent-shell wrapper in the detected or selected rc file.",
-		schema: sdlShellInstallRequestSchema,
+		schema: nsShellInstallRequestSchema,
 		options: { shell: { short: "-s" }, yes: { short: "-y" } },
-		resultSchema: sdlShellInstallResultSchema,
-		handler: runSdlShellInstall,
-		renderHuman: renderSdlShellInstall,
+		resultSchema: nsShellInstallResultSchema,
+		handler: runNsShellInstall,
+		renderHuman: renderNsShellInstall,
 	});
 	return shell;
 }
@@ -585,10 +585,10 @@ function withShellOption<T>(spec: ShellCommandSpec<T>): ShellCommandSpec<T> {
 }
 
 function groupForCommand(
-	root: ClinkrGroup<SdlCliContext>,
-	groupCache: Map<string, ClinkrGroup<SdlCliContext>>,
-	commandInfo: SdlCommandCliInfo,
-): ClinkrGroup<SdlCliContext> {
+	root: ClinkrGroup<NsCliContext>,
+	groupCache: Map<string, ClinkrGroup<NsCliContext>>,
+	commandInfo: NsCommandCliInfo,
+): ClinkrGroup<NsCliContext> {
 	const displaySegments = displaySegmentsForCommand(commandInfo);
 	const parentSegments = displaySegments.slice(0, -1);
 	let parent = root;
@@ -601,11 +601,11 @@ function groupForCommand(
 			parent = existing;
 			continue;
 		}
-		const group = new ClinkrGroup<SdlCliContext>({
+		const group = new ClinkrGroup<NsCliContext>({
 			name: segment,
 			description: groupDescription(parentSegments.slice(0, index + 1), commandInfo),
-			...(index === 0 ? { helpGroup: SDL_EXTENSION_HELP_GROUP } : {}),
-			...(segment === SDL_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)
+			...(index === 0 ? { helpGroup: NS_EXTENSION_HELP_GROUP } : {}),
+			...(segment === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)
 				? { isHidden: true }
 				: {}),
 		});
@@ -616,23 +616,23 @@ function groupForCommand(
 	return parent;
 }
 
-function groupDescription(segments: readonly string[], commandInfo: SdlCommandCliInfo): string {
-	if (segments.at(-1) === SDL_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) {
-		return `Skill-invoked SDL ${segments[0] ?? "extension"} operations.`;
+function groupDescription(segments: readonly string[], commandInfo: NsCommandCliInfo): string {
+	if (segments.at(-1) === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) {
+		return `Skill-invoked NS ${segments[0] ?? "extension"} operations.`;
 	}
 	if (segments.length === 1 && commandInfo.groupDescription !== undefined) {
 		return commandInfo.groupDescription;
 	}
-	return `SDL ${segments.join(" ")} commands.`;
+	return `NS ${segments.join(" ")} commands.`;
 }
 
 function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
 	return args.includes("--version") || args.includes("--runtime");
 }
 
-function writeSdlResultOutput(
+function writeNsResultOutput(
 	result: { ok: true; message: string } | { ok: false; message: string },
-	deps: Pick<SdlCliContext, "stdout" | "stderr">,
+	deps: Pick<NsCliContext, "stdout" | "stderr">,
 ): void {
 	if (result.message === "") return;
 	const output = `${result.message}\n`;

@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { handoffSdlCommand } from "../command.ts";
+import { handoffNsCommand } from "../command.ts";
 import {
 	deleteRequestSchema,
 	deleteResultSchema,
@@ -8,7 +8,7 @@ import {
 	runDelete,
 } from "../../core/operations/delete.ts";
 
-export const handoffDeleteSdlCommand = handoffSdlCommand({
+export const handoffDeleteNsCommand = handoffNsCommand({
 	name: "delete",
 	summary: "Delete a handoff by slug.",
 	description: "Delete one handoff by exact slug.",
@@ -21,5 +21,5 @@ export const handoffDeleteSdlCommand = handoffSdlCommand({
 });
 
 export default defineExtension({
-	commands: [handoffDeleteSdlCommand],
+	commands: [handoffDeleteNsCommand],
 });

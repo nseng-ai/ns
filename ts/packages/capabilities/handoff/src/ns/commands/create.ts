@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { handoffSdlCommand } from "../command.ts";
+import { handoffNsCommand } from "../command.ts";
 import {
 	createRequestSchema,
 	createResultSchema,
@@ -8,7 +8,7 @@ import {
 	runCreate,
 } from "../../core/operations/create.ts";
 
-export const handoffCreateSdlCommand = handoffSdlCommand({
+export const handoffCreateNsCommand = handoffNsCommand({
 	name: "create",
 	summary: "Create a handoff from final Markdown.",
 	description: "Create one handoff artifact from final Markdown supplied on stdin or with --file.",
@@ -20,5 +20,5 @@ export const handoffCreateSdlCommand = handoffSdlCommand({
 });
 
 export default defineExtension({
-	commands: [handoffCreateSdlCommand],
+	commands: [handoffCreateNsCommand],
 });

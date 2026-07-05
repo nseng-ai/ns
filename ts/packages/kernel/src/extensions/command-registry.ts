@@ -3,110 +3,110 @@ import { z } from "zod";
 import {
 	failed,
 	type ClinkrExit,
-	type SdlCommand,
-	type SdlCommandSchema,
-	type SdlExtensionApi,
-	type SdlResult,
+	type NsCommand,
+	type NsCommandSchema,
+	type NsExtensionApi,
+	type NsResult,
 } from "../sdk/index.ts";
 
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
-export type SdlCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
+export type NsCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
 
-export interface SdlCommandPath {
+export interface NsCommandPath {
 	group?: string;
 	name: string;
 	segments?: readonly string[];
 	groupDescription?: string;
 }
 
-export interface SdlCommandSourceInfo {
-	level: SdlCommandSourceLevel;
+export interface NsCommandSourceInfo {
+	level: NsCommandSourceLevel;
 	label: string;
 	path?: string;
 }
 
-export interface SdlCommandInfo extends SdlCommandPath {
+export interface NsCommandInfo extends NsCommandPath {
 	description: string;
 }
 
-export interface SdlCommandCliInfo extends SdlCommandInfo {
+export interface NsCommandCliInfo extends NsCommandInfo {
 	fullDescription: string;
 	groupDescription?: string;
 }
 
-export interface SdlCommandCandidate extends SdlCommandCliInfo {
-	source: SdlCommandSourceInfo;
+export interface NsCommandCandidate extends NsCommandCliInfo {
+	source: NsCommandSourceInfo;
 	entryPath?: string;
 }
 
-export interface BuiltInSdlCommandCandidate extends SdlCommandCandidate {
-	source: SdlCommandSourceInfo & { level: "built-in" };
-	command: SdlCommand;
+export interface BuiltInNsCommandCandidate extends NsCommandCandidate {
+	source: NsCommandSourceInfo & { level: "built-in" };
+	command: NsCommand;
 }
 
 export interface BuiltInCommandDefinition {
-	command: SdlCommand;
+	command: NsCommand;
 	summary: string;
 	description: string;
 }
 
-export const SDL_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
-export const SDL_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
+export const NS_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
+export const NS_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
 
 export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {};
 
-const sdlCommandSchema = z.object({
+const nsCommandSchema = z.object({
 	name: z.string(),
 	summary: z.string(),
 	description: z.string(),
-	schema: z.custom<SdlCommandSchema>(isZodObjectSchema).optional(),
-	positionals: z.custom<SdlCommand["positionals"]>(isRecord).optional(),
-	options: z.custom<SdlCommand["options"]>(isRecord).optional(),
-	resultSchema: z.custom<SdlCommand["resultSchema"]>(isZodSchema).optional(),
+	schema: z.custom<NsCommandSchema>(isZodObjectSchema).optional(),
+	positionals: z.custom<NsCommand["positionals"]>(isRecord).optional(),
+	options: z.custom<NsCommand["options"]>(isRecord).optional(),
+	resultSchema: z.custom<NsCommand["resultSchema"]>(isZodSchema).optional(),
 	renderHuman: z
-		.custom<SdlCommand["renderHuman"]>((value) => typeof value === "function")
+		.custom<NsCommand["renderHuman"]>((value) => typeof value === "function")
 		.optional(),
 	renderMarkdown: z
-		.custom<SdlCommand["renderMarkdown"]>((value) => typeof value === "function")
+		.custom<NsCommand["renderMarkdown"]>((value) => typeof value === "function")
 		.optional(),
 	completionProvider: z
-		.custom<SdlCommand["completionProvider"]>((value) => typeof value === "function")
+		.custom<NsCommand["completionProvider"]>((value) => typeof value === "function")
 		.optional(),
-	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
+	run: z.custom<NsCommand["run"]>((value) => typeof value === "function"),
 });
 
-const sdlExtensionSchema = z.object({
-	commands: z.array(sdlCommandSchema).optional().default([]),
+const nsExtensionSchema = z.object({
+	commands: z.array(nsCommandSchema).optional().default([]),
 });
 
-const sdlResultSchema = z.discriminatedUnion("ok", [
+const nsResultSchema = z.discriminatedUnion("ok", [
 	z.object({ ok: z.literal(true), message: z.string() }),
 	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
 ]);
 
-export function commandSegments(path: SdlCommandPath): readonly string[] {
+export function commandSegments(path: NsCommandPath): readonly string[] {
 	if (path.segments !== undefined) return path.segments;
 	return path.group === undefined ? [path.name] : [path.group, path.name];
 }
 
-export function commandKey(path: SdlCommandPath): string {
+export function commandKey(path: NsCommandPath): string {
 	return commandSegments(path).join("/");
 }
 
-export function commandLeafName(path: SdlCommandPath): string {
+export function commandLeafName(path: NsCommandPath): string {
 	return path.segments?.at(-1) ?? path.name;
 }
 
-export function commandDisplayName(path: SdlCommandPath): string {
+export function commandDisplayName(path: NsCommandPath): string {
 	return commandSegments(path).join(" ");
 }
 
-export function commandPathMatches(left: SdlCommandPath, right: SdlCommandPath): boolean {
+export function commandPathMatches(left: NsCommandPath, right: NsCommandPath): boolean {
 	return commandKey(left) === commandKey(right);
 }
 
-export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] {
+export function listBuiltInNsCommandCandidates(): BuiltInNsCommandCandidate[] {
 	return Object.entries(builtInCommandDefinitions)
 		.map(([name, definition]) => ({
 			name,
@@ -118,13 +118,13 @@ export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] 
 		.sort((left, right) => commandKey(left).localeCompare(commandKey(right)));
 }
 
-export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
-	return listBuiltInSdlCommandCandidates().map(toCommandCliInfo);
+export function listStaticNsCommandInfos(): NsCommandCliInfo[] {
+	return listBuiltInNsCommandCandidates().map(toCommandCliInfo);
 }
 
 export function toCommandCliInfo(
-	candidate: SdlCommandPath & Pick<SdlCommandCliInfo, "description" | "fullDescription">,
-): SdlCommandCliInfo {
+	candidate: NsCommandPath & Pick<NsCommandCliInfo, "description" | "fullDescription">,
+): NsCommandCliInfo {
 	return {
 		...(candidate.group === undefined ? {} : { group: candidate.group }),
 		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
@@ -138,10 +138,10 @@ export function toCommandCliInfo(
 }
 
 export function commandInfoForLoadedCommand(
-	command: SdlCommand,
-	sourceLevel: SdlCommandSourceLevel,
-	path: SdlCommandPath,
-): SdlCommandCliInfo {
+	command: NsCommand,
+	sourceLevel: NsCommandSourceLevel,
+	path: NsCommandPath,
+): NsCommandCliInfo {
 	const definition = path.group === undefined ? builtInCommandDefinitions[command.name] : undefined;
 	if (sourceLevel === "built-in" && definition !== undefined) {
 		return {
@@ -158,18 +158,18 @@ export function commandInfoForLoadedCommand(
 	});
 }
 
-export function validateSdlExtensionContribution(
+export function validateNsExtensionContribution(
 	contribution: unknown,
-	expectedPath: SdlCommandPath | string,
+	expectedPath: NsCommandPath | string,
 	sourceLabel: string,
-): { ok: true; command: SdlCommand } | { ok: false; message: string } {
+): { ok: true; command: NsCommand } | { ok: false; message: string } {
 	const expectedName =
 		typeof expectedPath === "string" ? expectedPath : commandLeafName(expectedPath);
-	const parsed = sdlExtensionSchema.safeParse(contribution);
+	const parsed = nsExtensionSchema.safeParse(contribution);
 	if (!parsed.success) {
 		return {
 			ok: false,
-			message: `Invalid SDL extension contribution ${sourceLabel}: ${formatSdlExtensionIssue(parsed.error.issues[0])}`,
+			message: `Invalid ns extension contribution ${sourceLabel}: ${formatNsExtensionIssue(parsed.error.issues[0])}`,
 		};
 	}
 
@@ -177,18 +177,18 @@ export function validateSdlExtensionContribution(
 	if (command === undefined) {
 		return {
 			ok: false,
-			message: `Invalid SDL extension contribution ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
+			message: `Invalid ns extension contribution ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
 		};
 	}
 
 	return { ok: true, command };
 }
 
-export async function executeSdlCommand(
-	ctx: SdlExtensionApi,
-	command: SdlCommand,
+export async function executeNsCommand(
+	ctx: NsExtensionApi,
+	command: NsCommand,
 	request: unknown,
-): Promise<SdlResult> {
+): Promise<NsResult> {
 	const parsedRequest = (command.schema ?? z.object({})).safeParse(request);
 	if (!parsedRequest.success) {
 		return failed(
@@ -199,14 +199,14 @@ export async function executeSdlCommand(
 
 	try {
 		const result = await command.run(ctx, parsedRequest.data);
-		return validateSdlResult(result, command.name);
+		return validateNsResult(result, command.name);
 	} catch (error) {
 		return failed(`Command ${command.name} failed.\n${formatUnknownError(error)}`, 2);
 	}
 }
 
-export function validateSdlResult(result: unknown, commandName: string): SdlResult {
-	const parsed = sdlResultSchema.safeParse(result);
+export function validateNsResult(result: unknown, commandName: string): NsResult {
+	const parsed = nsResultSchema.safeParse(result);
 	if (parsed.success) {
 		return parsed.data;
 	}
@@ -217,8 +217,8 @@ export function validateSdlResult(result: unknown, commandName: string): SdlResu
 	return failed(`Command ${commandName} returned an invalid result.`, 2);
 }
 
-export function validateSdlClinkrExit(result: unknown, commandName: string): ClinkrExit<unknown> {
-	if (isSdlClinkrExit(result)) return result;
+export function validateNsClinkrExit(result: unknown, commandName: string): ClinkrExit<unknown> {
+	if (isNsClinkrExit(result)) return result;
 	return {
 		type: "failure",
 		errorType: "invalid-extension-result",
@@ -231,13 +231,13 @@ export function formatUnknownError(error: unknown): string {
 }
 
 function findCommandEntry(
-	extension: { commands: readonly SdlCommand[] },
+	extension: { commands: readonly NsCommand[] },
 	expectedName: string,
-): SdlCommand | undefined {
+): NsCommand | undefined {
 	return extension.commands.find((command) => command.name === expectedName);
 }
 
-const sdlExtensionCommandEntryIssueFields = [
+const nsExtensionCommandEntryIssueFields = [
 	{ field: "name", message: "command name must be a string" },
 	{ field: "summary", message: "command summary must be a string" },
 	{ field: "description", message: "command description must be a string" },
@@ -247,48 +247,48 @@ const sdlExtensionCommandEntryIssueFields = [
 	{ field: "run", message: "command run must be a function" },
 ] as const satisfies readonly { field: string; message: string }[];
 
-type SdlExtensionCommandEntryIssueField =
-	(typeof sdlExtensionCommandEntryIssueFields)[number]["field"];
+type NsExtensionCommandEntryIssueField =
+	(typeof nsExtensionCommandEntryIssueFields)[number]["field"];
 
-type SdlExtensionIssueKind =
+type NsExtensionIssueKind =
 	| "invalid-extension"
 	| "commands-not-array"
-	| SdlExtensionCommandEntryIssueField
+	| NsExtensionCommandEntryIssueField
 	| "entry-other";
 
-const sdlExtensionIssueRules: readonly ZodIssuePathRule<SdlExtensionIssueKind>[] = [
+const nsExtensionIssueRules: readonly ZodIssuePathRule<NsExtensionIssueKind>[] = [
 	{ pattern: ["commands"], match: "exact", value: "commands-not-array" },
-	...sdlExtensionCommandEntryIssueFields.map(
+	...nsExtensionCommandEntryIssueFields.map(
 		({ field }) =>
 			({
 				pattern: ["commands", { type: "number" }, field],
 				match: "exact",
 				value: field,
-			}) satisfies ZodIssuePathRule<SdlExtensionIssueKind>,
+			}) satisfies ZodIssuePathRule<NsExtensionIssueKind>,
 	),
 	{ pattern: ["commands"], match: "prefix", value: "entry-other" },
 ];
 
-function formatSdlExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
-	const kind = classifyZodIssuePath(issue, sdlExtensionIssueRules, "invalid-extension");
+function formatNsExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
+	const kind = classifyZodIssuePath(issue, nsExtensionIssueRules, "invalid-extension");
 	if (kind === "invalid-extension") {
 		return "default export must be an extension object created with defineExtension().";
 	}
 	if (kind === "commands-not-array") {
-		return "SDL extension commands must be an array of command entries.";
+		return "ns extension commands must be an array of command entries.";
 	}
-	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssueKind(kind)}.`;
+	return `Invalid ns command entry in extension: ${formatNsCommandEntryIssueKind(kind)}.`;
 }
 
-function formatSdlCommandEntryIssueKind(
-	kind: Exclude<SdlExtensionIssueKind, "invalid-extension" | "commands-not-array">,
+function formatNsCommandEntryIssueKind(
+	kind: Exclude<NsExtensionIssueKind, "invalid-extension" | "commands-not-array">,
 ): string {
-	const entry = sdlExtensionCommandEntryIssueFields.find((field) => field.field === kind);
+	const entry = nsExtensionCommandEntryIssueFields.find((field) => field.field === kind);
 	if (entry !== undefined) return entry.message;
 	return "command entry must include name, summary, description, and run";
 }
 
-function isZodObjectSchema(value: unknown): value is SdlCommandSchema {
+function isZodObjectSchema(value: unknown): value is NsCommandSchema {
 	if (value instanceof z.ZodObject) return true;
 	if (!isRecord(value)) return false;
 	const candidate = value as { safeParse?: unknown; _zod?: { def?: { type?: unknown } } };
@@ -302,7 +302,7 @@ function isZodSchema(value: unknown): value is z.ZodType {
 	return typeof candidate.safeParse === "function" && candidate._zod?.def !== undefined;
 }
 
-function isSdlClinkrExit(value: unknown): value is ClinkrExit<unknown> {
+function isNsClinkrExit(value: unknown): value is ClinkrExit<unknown> {
 	if (!isRecord(value)) return false;
 	if (value.type === "ok") return "data" in value;
 	if (value.type === "negative") return typeof value.message === "string";

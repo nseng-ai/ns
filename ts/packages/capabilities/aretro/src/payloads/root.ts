@@ -8,8 +8,8 @@ import { isAbsolute, join } from "node:path";
 import { PayloadError } from "./errors.ts";
 import { isSafeSegment } from "./segments.ts";
 
-export const SDL_PAYLOAD_ROOT_ENV = "NS_PAYLOAD_ROOT";
-export const SDL_PAYLOAD_SESSION_ID_ENV = "NS_PAYLOAD_SESSION_ID";
+export const NS_PAYLOAD_ROOT_ENV = "NS_PAYLOAD_ROOT";
+export const NS_PAYLOAD_SESSION_ID_ENV = "NS_PAYLOAD_SESSION_ID";
 
 export function defaultPayloadRoot(options?: { tempDir?: string }): string {
 	const baseTempDir = options?.tempDir ?? tmpdir();
@@ -21,7 +21,7 @@ export function resolvePayloadRoot(options?: {
 	tempDir?: string;
 }): string {
 	const sourceEnv = options?.env ?? process.env;
-	const envValue = sourceEnv[SDL_PAYLOAD_ROOT_ENV];
+	const envValue = sourceEnv[NS_PAYLOAD_ROOT_ENV];
 	if (envValue === undefined || envValue === "") {
 		return defaultPayloadRoot(
 			options?.tempDir !== undefined ? { tempDir: options.tempDir } : undefined,
@@ -33,7 +33,7 @@ export function resolvePayloadRoot(options?: {
 	}
 	throw new PayloadError(
 		"payload-root-invalid",
-		`${SDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${JSON.stringify(envValue)}`,
+		`${NS_PAYLOAD_ROOT_ENV} must be an absolute path: ${JSON.stringify(envValue)}`,
 	);
 }
 
@@ -46,11 +46,11 @@ export function resolvePayloadSessionId(
 	if (explicitSessionId !== undefined && explicitSessionId !== "") {
 		sessionId = explicitSessionId;
 	} else {
-		const envSessionId = sourceEnv[SDL_PAYLOAD_SESSION_ID_ENV];
+		const envSessionId = sourceEnv[NS_PAYLOAD_SESSION_ID_ENV];
 		if (envSessionId === undefined || envSessionId === "") {
 			throw new PayloadError(
 				"payload-session-required",
-				`Payload artifact mode requires a session id from an explicit option or ${SDL_PAYLOAD_SESSION_ID_ENV}.`,
+				`Payload artifact mode requires a session id from an explicit option or ${NS_PAYLOAD_SESSION_ID_ENV}.`,
 			);
 		}
 		sessionId = envSessionId;

@@ -1,3 +1,3 @@
-import { prAddressSdlExtension } from "../../ns-command.ts";
+import { prAddressNsExtension } from "../../ns-command.ts";
 
-export default prAddressSdlExtension("pr-checks");
+export default prAddressNsExtension("pr-checks");

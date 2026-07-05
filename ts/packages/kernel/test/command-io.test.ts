@@ -2,15 +2,15 @@ import { optionalEntries } from "@ns/core/primitives";
 import { describe, expect, test } from "vitest";
 
 import {
-	commandIoFromSdlExtensionApi,
+	commandIoFromNsExtensionApi,
 	createCliCommandIo,
 	createCommandIo,
-	runWithSdlCommandIo,
+	runWithNsCommandIo,
 } from "../src/runtime/command-io.ts";
-import { noopSdlProgress } from "@ns/kernel/sdk";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import { noopNsProgress } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
-function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
+function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 	const commandIo = createCliCommandIo(
 		optionalEntries({
 			stdout: overrides.stdout,
@@ -22,7 +22,7 @@ function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 		cwd: "/repo",
 		env: {},
 		commandIo,
-		progress: noopSdlProgress,
+		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
@@ -30,12 +30,12 @@ function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 	};
 }
 
-describe("commandIoFromSdlExtensionApi", () => {
+describe("commandIoFromNsExtensionApi", () => {
 	test("uses the required context service by default", () => {
 		const stdout: string[] = [];
 		const ctx = createCtx({ stdout: (text) => stdout.push(text) });
 
-		commandIoFromSdlExtensionApi(ctx).notify("Done");
+		commandIoFromNsExtensionApi(ctx).notify("Done");
 
 		expect(stdout).toEqual(["Done\n"]);
 	});
@@ -44,7 +44,7 @@ describe("commandIoFromSdlExtensionApi", () => {
 		const stdout: string[] = [];
 		const stderr: string[] = [];
 		const live: string[] = [];
-		const io = commandIoFromSdlExtensionApi(
+		const io = commandIoFromNsExtensionApi(
 			createCtx({
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
@@ -195,7 +195,7 @@ describe("message", () => {
 });
 
 describe("createCliCommandIo", () => {
-	test("maps CLI callbacks to SdlCommandIo channels", () => {
+	test("maps CLI callbacks to NsCommandIo channels", () => {
 		const stdout: string[] = [];
 		const stderr: string[] = [];
 		const output: Array<{ stream: string; text: string }> = [];
@@ -234,14 +234,14 @@ describe("createCliCommandIo", () => {
 	});
 });
 
-describe("runWithSdlCommandIo", () => {
+describe("runWithNsCommandIo", () => {
 	test("clears phase on success and thrown error", async () => {
 		const events: string[] = [];
 		const io = createCommandIo({ phaseSticky: (value) => events.push(String(value)) });
 
-		await expect(runWithSdlCommandIo(io, async () => "ok")).resolves.toBe("ok");
+		await expect(runWithNsCommandIo(io, async () => "ok")).resolves.toBe("ok");
 		await expect(
-			runWithSdlCommandIo(io, async () => {
+			runWithNsCommandIo(io, async () => {
 				throw new Error("boom");
 			}),
 		).rejects.toThrow("boom");

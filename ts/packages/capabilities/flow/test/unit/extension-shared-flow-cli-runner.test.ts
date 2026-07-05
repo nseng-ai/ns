@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/command";
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
-import type { SdlExecOptions, SdlExtensionApi } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
+import type { NsExecOptions, NsExtensionApi } from "@ns/kernel/sdk";
 interface ExecCall {
 	command: string;
 	args: string[];
-	options?: ExecOptions | SdlExecOptions;
+	options?: ExecOptions | NsExecOptions;
 }
 
 describe("project extension shared Flow CLI runner", () => {
@@ -192,7 +192,7 @@ describe("project extension shared Flow CLI runner", () => {
 		]);
 		expect(calls[0]?.options).toMatchObject({ cwd: "/trunk" });
 		expect(JSON.stringify(calls)).not.toContain(
-			"SDL command execution is scoped to /repo; refusing command cwd /trunk.",
+			"ns command execution is scoped to /repo; refusing command cwd /trunk.",
 		);
 	});
 });
@@ -202,7 +202,7 @@ async function loadFlowCliRunnerModule() {
 }
 
 function createFakeApi(results: readonly ExecResult[]): {
-	api: SdlExtensionApi;
+	api: NsExtensionApi;
 	trustedExec: CommandExecApi;
 	calls: ExecCall[];
 	stdout: string[];
@@ -228,8 +228,8 @@ function createFakeApi(results: readonly ExecResult[]): {
 		api: {
 			cwd: "/repo",
 			env: {},
-			commandIo: noopSdlCommandIo,
-			progress: noopSdlProgress,
+			commandIo: noopNsCommandIo,
+			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
 			textGenerator: {
 				async generateText() {

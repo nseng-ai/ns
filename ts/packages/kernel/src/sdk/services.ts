@@ -1,8 +1,8 @@
-export type SdlNotifyLevel = "info" | "warning" | "error";
+export type NsNotifyLevel = "info" | "warning" | "error";
 
-export interface SdlCommandMessageOptions {
+export interface NsCommandMessageOptions {
 	/** Notification level for text-only fallback sinks. Defaults to "info". */
-	level?: SdlNotifyLevel;
+	level?: NsNotifyLevel;
 	/**
 	 * Opaque structured presentation payload for rich sinks (e.g. a Pi custom
 	 * scrollback message's `details`). The SDK never inspects this value.
@@ -16,40 +16,40 @@ export interface SdlCommandMessageOptions {
 	isRichOnly?: boolean;
 }
 
-export interface SdlCommandIo {
+export interface NsCommandIo {
 	/** Transient, human-facing phase text. Non-contractual wording; never stdout in machine mode. */
 	phase(message: string): void;
 	/** Terminal human notification (success/warning/error). */
-	notify(message: string, level?: SdlNotifyLevel): void;
+	notify(message: string, level?: NsNotifyLevel): void;
 	/**
 	 * Durable, human-facing scrollback message. Rich sinks (e.g. Pi custom
 	 * messages) receive `details`; text-only sinks render the message as transient
 	 * phase text, or drop it entirely when `isRichOnly` is set.
 	 */
-	message(message: string, options?: SdlCommandMessageOptions): void;
+	message(message: string, options?: NsCommandMessageOptions): void;
 	/** Clears any sticky transient phase (no-op for append-only sinks). */
 	clearPhase(): void;
 }
 
-export const noopSdlCommandIo: SdlCommandIo = {
+export const noopNsCommandIo: NsCommandIo = {
 	phase: () => {},
 	notify: () => {},
 	message: () => {},
 	clearPhase: () => {},
 };
 
-export type SdlProgressPhaseEvent =
+export type NsProgressPhaseEvent =
 	| { type: "phase-started"; phaseKey: string; label?: string }
 	| { type: "phase-progress"; phaseKey: string; label: string }
 	| { type: "phase-done"; phaseKey: string; detail?: string }
 	| { type: "phase-failed"; phaseKey: string; detail: string };
 
-export type SdlProgressPhaseListener = (event: SdlProgressPhaseEvent) => void;
+export type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 
-export interface SdlProgress {
-	phase(event: SdlProgressPhaseEvent): void;
+export interface NsProgress {
+	phase(event: NsProgressPhaseEvent): void;
 }
 
-export const noopSdlProgress: SdlProgress = {
+export const noopNsProgress: NsProgress = {
 	phase: () => {},
 };

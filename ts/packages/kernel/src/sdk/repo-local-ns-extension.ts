@@ -1,29 +1,29 @@
-import type { SdlCommand } from "./command.ts";
+import type { NsCommand } from "./command.ts";
 
-export interface RepoLocalSdlExtensionCommandDescriptor {
-	readonly command: SdlCommand;
+export interface RepoLocalNsExtensionCommandDescriptor {
+	readonly command: NsCommand;
 	readonly manifestEntry: string;
 	readonly packageExport: string;
 	readonly manifestPath?: readonly string[];
 	readonly manifestName?: string;
 }
 
-export interface RepoLocalSdlExtensionDescriptor {
+export interface RepoLocalNsExtensionDescriptor {
 	readonly group: string;
 	readonly description: string;
-	readonly commands: readonly RepoLocalSdlExtensionCommandDescriptor[];
+	readonly commands: readonly RepoLocalNsExtensionCommandDescriptor[];
 }
 
-export interface RepoLocalSdlCommandDescriptorOptions {
-	readonly command: SdlCommand;
+export interface RepoLocalNsCommandDescriptorOptions {
+	readonly command: NsCommand;
 	readonly packageExportPrefix: string;
 	readonly manifestPath?: readonly string[];
 	readonly manifestName?: string;
 }
 
-export function repoLocalSdlCommandDescriptor(
-	options: RepoLocalSdlCommandDescriptorOptions,
-): RepoLocalSdlExtensionCommandDescriptor {
+export function repoLocalNsCommandDescriptor(
+	options: RepoLocalNsCommandDescriptorOptions,
+): RepoLocalNsExtensionCommandDescriptor {
 	const manifestName = options.manifestName ?? options.command.name;
 	return {
 		command: options.command,
@@ -34,8 +34,8 @@ export function repoLocalSdlCommandDescriptor(
 	};
 }
 
-export function defineRepoLocalSdlExtensionDescriptor(
-	descriptor: RepoLocalSdlExtensionDescriptor,
-): RepoLocalSdlExtensionDescriptor {
+export function defineRepoLocalNsExtensionDescriptor(
+	descriptor: RepoLocalNsExtensionDescriptor,
+): RepoLocalNsExtensionDescriptor {
 	return descriptor;
 }

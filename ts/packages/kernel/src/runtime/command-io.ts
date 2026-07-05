@@ -1,13 +1,13 @@
 import { optionalEntries, optionalEntry } from "@ns/core/primitives";
 import type {
-	SdlCommandIo,
-	SdlCommandMessageOptions,
-	SdlExtensionApi,
-	SdlNotifyLevel,
-	SdlOutputStream,
+	NsCommandIo,
+	NsCommandMessageOptions,
+	NsExtensionApi,
+	NsNotifyLevel,
+	NsOutputStream,
 } from "../sdk/index.ts";
 
-export interface SdlExtensionCommandIoOptions {
+export interface NsExtensionCommandIoOptions {
 	statusKey?: string;
 	shouldSuppress?: boolean;
 }
@@ -15,7 +15,7 @@ export interface SdlExtensionCommandIoOptions {
 export interface CliCommandIoInput {
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
-	onOutput?: (stream: SdlOutputStream, text: string) => void;
+	onOutput?: (stream: NsOutputStream, text: string) => void;
 }
 
 export interface CliCommandIoOptions {
@@ -37,22 +37,22 @@ export interface CommandIoChannels {
 	/** Notification sink for warning/error messages. */
 	notifyDiagnostic?: (text: string) => void;
 	/** Notification via Pi UI (level-aware), when present. */
-	notifyUi?: (message: string, level?: SdlNotifyLevel) => void;
+	notifyUi?: (message: string, level?: NsNotifyLevel) => void;
 	/**
 	 * Rich scrollback sink that renders durable messages and can carry opaque
 	 * structured presentation details (e.g. a Pi custom message). When absent,
 	 * `message` falls back to transient phase text (or is dropped when isRichOnly).
 	 */
-	richMessage?: (message: string, options: { level: SdlNotifyLevel; details?: unknown }) => void;
+	richMessage?: (message: string, options: { level: NsNotifyLevel; details?: unknown }) => void;
 	/** Suppress transient phase entirely (machine/structured output). */
 	shouldSuppress?: boolean;
 }
 
-export { noopSdlCommandIo, noopSdlProgress } from "../sdk/index.ts";
+export { noopNsCommandIo, noopNsProgress } from "../sdk/index.ts";
 
-export async function runWithSdlCommandIo<T>(
-	io: SdlCommandIo,
-	fn: (io: SdlCommandIo) => Promise<T>,
+export async function runWithNsCommandIo<T>(
+	io: NsCommandIo,
+	fn: (io: NsCommandIo) => Promise<T>,
 ): Promise<T> {
 	try {
 		return await fn(io);
@@ -64,7 +64,7 @@ export async function runWithSdlCommandIo<T>(
 export function createCliCommandIo(
 	input: CliCommandIoInput,
 	options: CliCommandIoOptions = {},
-): SdlCommandIo {
+): NsCommandIo {
 	const onOutput = input.onOutput;
 	const io = createCommandIo({
 		...optionalEntries({
@@ -89,7 +89,7 @@ export function createCliCommandIo(
 	};
 }
 
-export function createCommandIo(channels: CommandIoChannels): SdlCommandIo {
+export function createCommandIo(channels: CommandIoChannels): NsCommandIo {
 	function phase(message: string): void {
 		if (channels.shouldSuppress === true) return;
 		if (channels.phaseSticky !== undefined) {
@@ -104,7 +104,7 @@ export function createCommandIo(channels: CommandIoChannels): SdlCommandIo {
 		channels.phaseFallback?.(line);
 	}
 
-	function notify(message: string, level: SdlNotifyLevel = "info"): void {
+	function notify(message: string, level: NsNotifyLevel = "info"): void {
 		if (channels.notifyUi !== undefined) {
 			channels.notifyUi(message, level);
 			return;
@@ -117,7 +117,7 @@ export function createCommandIo(channels: CommandIoChannels): SdlCommandIo {
 		channels.notifyDiagnostic?.(line);
 	}
 
-	function message(text: string, options: SdlCommandMessageOptions = {}): void {
+	function message(text: string, options: NsCommandMessageOptions = {}): void {
 		const level = options.level ?? "info";
 		if (channels.richMessage !== undefined) {
 			channels.richMessage(text, {
@@ -137,10 +137,10 @@ export function createCommandIo(channels: CommandIoChannels): SdlCommandIo {
 	return { phase, notify, message, clearPhase };
 }
 
-export function commandIoFromSdlExtensionApi(
-	ctx: SdlExtensionApi,
-	options: SdlExtensionCommandIoOptions = {},
-): SdlCommandIo {
+export function commandIoFromNsExtensionApi(
+	ctx: NsExtensionApi,
+	options: NsExtensionCommandIoOptions = {},
+): NsCommandIo {
 	if (options.shouldSuppress === undefined) return ctx.commandIo;
 	return createCliCommandIo(
 		optionalEntries({ stdout: ctx.stdout, stderr: ctx.stderr, onOutput: ctx.onOutput }),

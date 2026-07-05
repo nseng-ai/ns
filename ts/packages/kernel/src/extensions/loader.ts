@@ -1,5 +1,5 @@
 import { formatUnknownError } from "./command-registry.ts";
-import { loadSdlUserModuleDefault } from "../runtime/module-loader.ts";
+import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 
 export interface ExtensionLoadDiagnostic {
 	severity: "error";
@@ -8,21 +8,21 @@ export interface ExtensionLoadDiagnostic {
 	path: string;
 }
 
-export type SdlExtensionContributionLoadResult =
+export type NsExtensionContributionLoadResult =
 	| { ok: true; defaultExport: unknown }
 	| { ok: false; diagnostic: ExtensionLoadDiagnostic };
 
-export async function loadSdlExtensionContribution(
+export async function loadNsExtensionContribution(
 	modulePath: string,
-): Promise<SdlExtensionContributionLoadResult> {
+): Promise<NsExtensionContributionLoadResult> {
 	try {
-		return { ok: true, defaultExport: await loadSdlUserModuleDefault(modulePath) };
+		return { ok: true, defaultExport: await loadNsUserModuleDefault(modulePath) };
 	} catch (error) {
 		return {
 			ok: false,
 			diagnostic: diagnostic(
 				"ns_extension_contribution_import_failed",
-				`Failed to load SDL extension contribution ${modulePath}.\n${formatUnknownError(error)}`,
+				`Failed to load ns extension contribution ${modulePath}.\n${formatUnknownError(error)}`,
 				modulePath,
 			),
 		};

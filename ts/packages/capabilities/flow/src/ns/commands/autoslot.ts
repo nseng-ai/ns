@@ -1,5 +1,5 @@
 import { runAutoslotCli } from "../../autoslot/autoslot.ts";
-import { defineExtension, z, type SdlCommand } from "@ns/kernel/sdk";
+import { defineExtension, z, type NsCommand } from "@ns/kernel/sdk";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -11,7 +11,7 @@ const autoslotSchema = z.object({
 		.describe("Branch slug to use instead of deriving one from the worktree or latest commit."),
 });
 
-export const flowAutoslotCommand: SdlCommand<typeof autoslotSchema> = {
+export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = {
 	name: "autoslot",
 	summary: "Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	description:

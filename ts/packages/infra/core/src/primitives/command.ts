@@ -47,10 +47,10 @@ export type CommandRunner = (
 ) => Promise<ExecResult>;
 
 /**
- * SDL's command execution gateway.
+ * ns's command execution gateway.
  *
  * This shape is intentionally compatible with Pi's extension-host `ctx.exec`,
- * but SDL's `ExecOptions`/`ExecResult` contract is wider. Code that relies on
+ * but ns's `ExecOptions`/`ExecResult` contract is wider. Code that relies on
  * behavior Pi does not provide, such as stdin piping, must require a narrower
  * capability interface instead of this Pi-compatible base shape.
  */

@@ -8,9 +8,9 @@ import type { ExecResult } from "@ns/kernel/sdk";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
-import { objectiveExecRunnerFinishSdlCommand } from "../../src/ns/commands/exec-runner-finish.ts";
+import { objectiveExecRunnerFinishNsCommand } from "../../src/ns/commands/exec-runner-finish.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
-import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
+import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
 const REPORT_PATH = "/scratch/step-1-report.json";
@@ -70,7 +70,7 @@ interface ScenarioOptions {
 	outputFormat?: "human" | "json" | "markdown";
 }
 
-interface ScenarioApi extends FakeObjectiveSdlApi {
+interface ScenarioApi extends FakeObjectiveNsApi {
 	runnerGit: SequencedGitGateway;
 }
 
@@ -82,7 +82,7 @@ function makeApi(options: ScenarioOptions = {}): ScenarioApi {
 		if (content === undefined) return { type: "error", message: `ENOENT: no such file ${path}` };
 		return { type: "ok", content };
 	};
-	const api = new FakeObjectiveSdlApi({
+	const api = new FakeObjectiveNsApi({
 		git: runnerGit,
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway({ records: [{ slug: SLUG }] })),
@@ -93,18 +93,18 @@ function makeApi(options: ScenarioOptions = {}): ScenarioApi {
 	return Object.assign(api, { runnerGit });
 }
 
-function assertJsonEnvelopeStdout<T>(api: FakeObjectiveSdlApi, exit: ClinkrExit<T>): unknown {
+function assertJsonEnvelopeStdout<T>(api: FakeObjectiveNsApi, exit: ClinkrExit<T>): unknown {
 	const stdout = `${api.stdoutChunks.join("")}${envelopeJsonText(toMachineEnvelope(exit))}`;
 	expect(stdout).not.toMatch(/^# Runner Checkpoint:/u);
 	return JSON.parse(stdout) as unknown;
 }
 
-describe("sdl objective exec runner-finish scenarios", () => {
+describe("ns objective exec runner-finish scenarios", () => {
 	test("happy committed path: envelope facts, report from facts' reportPath", async () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -142,7 +142,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: JSON.stringify(factsData()) },
 			{ api },
 		);
@@ -155,7 +155,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ files: {} });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{
 				slug: SLUG,
 				facts: factsEnvelopeText(),
@@ -178,7 +178,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -201,7 +201,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		};
 		const humanApi = makeApi({ files: blockedFiles });
 		const humanExit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api: humanApi },
 		);
@@ -212,7 +212,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 
 		const jsonApi = makeApi({ files: blockedFiles, outputFormat: "json" });
 		const jsonExit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api: jsonApi },
 		);
@@ -223,7 +223,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ git: gateHappyGitState({ currentBranch: "main" }) });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -240,7 +240,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ git: gateHappyGitState({ headCommit: "other999" }) });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -255,7 +255,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ execResults: [{ code: 1 }] });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -273,7 +273,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ execResults: [{}, { code: 2, stderr: "trailing whitespace" }] });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -297,7 +297,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ files: {} });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -316,7 +316,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -338,7 +338,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);
@@ -372,7 +372,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		];
 		for (const { request, expectIn } of cases) {
 			const api = makeApi();
-			const exit = await runObjectiveCommand(objectiveExecRunnerFinishSdlCommand, request, {
+			const exit = await runObjectiveCommand(objectiveExecRunnerFinishNsCommand, request, {
 				api,
 			});
 			expect(exit.type).toBe("usageError");
@@ -387,7 +387,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: "@/scratch/missing-facts.json" },
 			{ api },
 		);
@@ -401,7 +401,7 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		const api = makeApi({ outputFormat: "json" });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerFinishSdlCommand,
+			objectiveExecRunnerFinishNsCommand,
 			{ slug: SLUG, facts: factsEnvelopeText() },
 			{ api },
 		);

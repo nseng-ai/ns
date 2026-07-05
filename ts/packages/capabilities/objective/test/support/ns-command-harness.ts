@@ -1,13 +1,13 @@
 import { usageError, type ClinkrExit, type ClinkrFormat } from "@ns/clinkr";
 import { optionalEntries } from "@ns/core/primitives";
-import { noopSdlProgress } from "@ns/kernel/sdk";
+import { noopNsProgress } from "@ns/kernel/sdk";
 import type {
 	ExecResult,
-	SdlCommand,
-	SdlCommandIo,
-	SdlCommandSchema,
-	SdlExecOptions,
-	SdlExtensionApi,
+	NsCommand,
+	NsCommandIo,
+	NsCommandSchema,
+	NsExecOptions,
+	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@ns/kernel/sdk";
@@ -15,13 +15,13 @@ import type {
 import type { ObjectiveRunnerOverrides } from "../../src/ns/runner-context.ts";
 import { nextFromSequence } from "./sequence.ts";
 
-export interface RecordedSdlExecCall {
+export interface RecordedNsExecCall {
 	command: string;
 	args: string[];
-	options: SdlExecOptions | undefined;
+	options: NsExecOptions | undefined;
 }
 
-export interface FakeObjectiveSdlApiOptions extends ObjectiveRunnerOverrides {
+export interface FakeObjectiveNsApiOptions extends ObjectiveRunnerOverrides {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	/** Overrides merged into every recorded `exec` result (defaults to exit 0). */
@@ -32,33 +32,33 @@ export interface FakeObjectiveSdlApiOptions extends ObjectiveRunnerOverrides {
 }
 
 /**
- * SdlExtensionApi fake for objective SDL command scenario tests: records
+ * NsExtensionApi fake for objective ns command scenario tests: records
  * stdout/stderr chunks and `commandIo.phase` labels, answers `exec` with a
  * canned result, and publishes runner-context gateway overrides through
  * `extensions.objectiveRunner`.
  */
-export class FakeObjectiveSdlApi implements SdlExtensionApi {
+export class FakeObjectiveNsApi implements NsExtensionApi {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly extensions: Readonly<Record<string, unknown>>;
 	readonly stdoutChunks: string[] = [];
 	readonly stderrChunks: string[] = [];
 	readonly phases: string[] = [];
-	readonly execCalls: RecordedSdlExecCall[] = [];
+	readonly execCalls: RecordedNsExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly progress = noopSdlProgress;
+	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly outputFormat: ClinkrFormat;
-	readonly commandIo: SdlCommandIo;
+	readonly commandIo: NsCommandIo;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 	private readonly execResult: Partial<ExecResult>;
 	private readonly execResults: readonly Partial<ExecResult>[];
 	private execResultIndex = 0;
 
-	constructor(options: FakeObjectiveSdlApiOptions = {}) {
+	constructor(options: FakeObjectiveNsApiOptions = {}) {
 		this.cwd = options.cwd ?? "/repo";
-		this.env = { HOME: "/home/sdl-test", ...(options.env ?? {}) };
+		this.env = { HOME: "/home/ns-test", ...(options.env ?? {}) };
 		this.execResult = { ...(options.execResult ?? {}) };
 		this.execResults = (options.execResults ?? []).map((result) => ({ ...result }));
 		this.outputFormat = options.outputFormat ?? "human";
@@ -91,7 +91,7 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 		};
 	}
 
-	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const sequenced = nextFromSequence(this.execResults, this.execResultIndex);
 		this.execResultIndex = sequenced.nextIndex;
@@ -108,26 +108,26 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 	readonly textGenerator = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.textGeneratorCalls.push({ ...request });
-			throw new Error("Unexpected text-generation call in objective SDL command test.");
+			throw new Error("Unexpected text-generation call in objective ns command test.");
 		},
 	};
 }
 
-export function createFakeObjectiveSdlApi(
-	options: FakeObjectiveSdlApiOptions = {},
-): FakeObjectiveSdlApi {
-	return new FakeObjectiveSdlApi(options);
+export function createFakeObjectiveNsApi(
+	options: FakeObjectiveNsApiOptions = {},
+): FakeObjectiveNsApi {
+	return new FakeObjectiveNsApi(options);
 }
 
 /**
- * Runs one objective SDL command against a fake API: the request goes through
+ * Runs one objective ns command against a fake API: the request goes through
  * the command's own schema (mirroring kernel arg decoding), invalid input maps
  * to a usage error, and ok exits are validated against the result schema.
  */
-export async function runObjectiveCommand<S extends SdlCommandSchema, T>(
-	command: SdlCommand<S, T>,
+export async function runObjectiveCommand<S extends NsCommandSchema, T>(
+	command: NsCommand<S, T>,
 	request: unknown,
-	options: { api?: SdlExtensionApi } = {},
+	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
 	if (command.schema === undefined) {
 		throw new Error(`Command ${command.name} does not declare a request schema.`);
@@ -136,10 +136,10 @@ export async function runObjectiveCommand<S extends SdlCommandSchema, T>(
 	if (!parsed.success) {
 		return usageError("Invalid objective command request.", { issues: parsed.error.issues });
 	}
-	const exit = await command.run(options.api ?? createFakeObjectiveSdlApi(), parsed.data);
+	const exit = await command.run(options.api ?? createFakeObjectiveNsApi(), parsed.data);
 	if (!isClinkrExit<T>(exit)) {
 		throw new Error(
-			`Command ${command.name} returned a legacy SDL result instead of a Clinkr exit.`,
+			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
 		);
 	}
 	if (exit.type === "ok") command.resultSchema?.parse(exit.data);

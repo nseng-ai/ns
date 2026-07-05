@@ -57,7 +57,7 @@ A single-segment ji command name such as `submit`, `changes`, `autobranch`, `aut
 *Avoid*: `ns pr regen`, `ns slot auto`, command taxonomy churn.
 
 **ji extension API**:
-The concrete `@ns/kernel/sdk` subpath used by ji extension authors — the live instance that fills the Public author API slot today. `@ns/kernel/sdk` is the SDK layer; `@ns/kernel` is the host/kernel container that loads extensions. It exposes the ji extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file ji extensions should use this API rather than ji implementation modules; packages must never depend on single-file extensions.
+The concrete `@ns/kernel/sdk` subpath used by ji extension authors — the live instance that fills the Public author API slot today. `@ns/kernel/sdk` is the SDK layer; `@ns/kernel` is the host/kernel container that loads extensions. It exposes the ji extension authoring surface: `defineExtension()`, the command and result types and helpers, `NsExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file ji extensions should use this API rather than ji implementation modules; packages must never depend on single-file extensions.
 *Avoid*: Public ji extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API, direct `zod` dependency for command schemas when the SDK `z` export is available.
 
 **Public author API**:
@@ -69,7 +69,7 @@ The evidence rule for moving behavior into the ji extension API: one command may
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
-An `@ns/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `ji.internalWorkspaceExports`.
+An `@ns/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `NsExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `ji.internalWorkspaceExports`.
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
@@ -115,7 +115,7 @@ The capability face that a downstream **consumer** extension imports — a curat
 *Avoid*: Peer API, command contribution, internal module import, CLI invocation of a provider, `ctx`-passing API, provider guts.
 
 **Gateway-injected capability core**:
-The rule that capability domain logic and its Capability API take injected gateways such as `GitGateway`, never raw `SdlExtensionApi`. `ctx` lives only in the kernel-loaded command surface, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
+The rule that capability domain logic and its Capability API take injected gateways such as `GitGateway`, never raw `NsExtensionApi`. `ctx` lives only in the kernel-loaded command surface, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
 *Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain logic.
 
 **Extension Dependency Graph**:

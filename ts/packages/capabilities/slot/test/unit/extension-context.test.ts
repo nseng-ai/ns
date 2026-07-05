@@ -1,8 +1,8 @@
 import { ok, type Caps, type RenderCapabilities } from "@ns/clinkr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "@ns/kernel/sdk";
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({ __contextOptions: options }));
 
@@ -27,7 +27,7 @@ const colorCaps: Caps = {
 	canRenderUnicode: true,
 };
 
-describe("slot SDL extension context", () => {
+describe("slot ns extension context", () => {
 	beforeEach(() => {
 		createRealSlotContext.mockClear();
 	});
@@ -35,7 +35,7 @@ describe("slot SDL extension context", () => {
 	it("passes host render capabilities explicitly so interactive previews can reuse terminal colors", async () => {
 		const renderCapabilities: RenderCapabilities = { canEmitAnsi: true, caps: colorCaps };
 		const command = slotExtension.commands?.find(
-			(candidate): candidate is SdlCommand<SdlCommandSchema, unknown> => candidate.name === "list",
+			(candidate): candidate is NsCommand<NsCommandSchema, unknown> => candidate.name === "list",
 		);
 		expect(command).toBeDefined();
 		if (command === undefined) throw new Error("missing list command");
@@ -53,14 +53,14 @@ describe("slot SDL extension context", () => {
 	});
 });
 
-function extensionApi(options: { renderCapabilities: RenderCapabilities }): SdlExtensionApi {
+function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsExtensionApi {
 	return {
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 		exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
-		commandIo: noopSdlCommandIo,
-		progress: noopSdlProgress,
+		commandIo: noopNsCommandIo,
+		progress: noopNsProgress,
 		renderCapabilities: options.renderCapabilities,
 		stdout: () => {},
 		stderr: () => {},

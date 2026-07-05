@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@ns/kernel/cli";
+import { listNsCommands } from "@ns/kernel/cli";
 
 import { runCliWithFakes } from "./ns-cli-fakes.ts";
 
@@ -14,9 +14,9 @@ function runUnavailableSubmitCli(args: readonly string[]) {
 	);
 }
 
-describe("sdl flow submit CLI availability", () => {
+describe("ns flow submit CLI availability", () => {
 	test("submit is not registered as a built-in command after the kernel reset", () => {
-		expect(listSdlCommands().some((command) => command.name === "submit")).toBe(false);
+		expect(listNsCommands().some((command) => command.name === "submit")).toBe(false);
 	});
 
 	test("submit help and invocation are unavailable without a project extension", async () => {

@@ -16,7 +16,7 @@ const MODIFIED_TIME_MS = 1_700_000_000_000;
 const TOP_LEVEL_HELP = [
 	"Usage: enriched-plan [options] [command]",
 	"",
-	"Enriched-plan operations. An enriched plan is any plan saved into sdl.",
+	"Enriched-plan operations. An enriched plan is any plan saved into ns.",
 	"",
 	"Options:",
 	"  -V, --version   Show the package version.",

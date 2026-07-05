@@ -1,12 +1,12 @@
 import { join } from "node:path";
 
-import { runCli, type SdlCliDeps } from "@ns/kernel/cli";
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import { runCli, type NsCliDeps } from "@ns/kernel/cli";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 import type {
-	SdlExecOptions,
+	NsExecOptions,
 	ExecResult,
-	SdlConfirmPrompt,
-	SdlExtensionApi,
+	NsConfirmPrompt,
+	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@ns/kernel/sdk";
@@ -22,13 +22,13 @@ export interface ScriptedExecResponse {
 export interface ExecCall {
 	command: string;
 	args: string[];
-	options: SdlExecOptions | undefined;
+	options: NsExecOptions | undefined;
 }
 
 export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
-	confirm?: SdlConfirmPrompt;
+	confirm?: NsConfirmPrompt;
 	stdin?: string;
 	extensions?: Readonly<Record<string, unknown>>;
 }
@@ -39,7 +39,7 @@ export interface RunWithFakesOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
-	extensionRegistry?: SdlCliDeps["extensionRegistry"];
+	extensionRegistry?: NsCliDeps["extensionRegistry"];
 }
 
 export interface RunWithFakesDefaults {
@@ -48,30 +48,30 @@ export interface RunWithFakesDefaults {
 	missingTextGenerationResult?: () => TextGenerationResult;
 }
 
-interface ScriptedSdlTestContextOptions extends RunWithFakesDefaults {
+interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 }
 
-export class ScriptedSdlTestContext implements SdlExtensionApi {
+export class ScriptedNsTestContext implements NsExtensionApi {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly commandIo = noopSdlCommandIo;
-	readonly progress = noopSdlProgress;
+	readonly commandIo = noopNsCommandIo;
+	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
-	confirm?: SdlConfirmPrompt;
+	confirm?: NsConfirmPrompt;
 	stdin?: () => Promise<string>;
 	extensions?: Readonly<Record<string, unknown>>;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
 
-	constructor(state: TestState = {}, options: ScriptedSdlTestContextOptions) {
+	constructor(state: TestState = {}, options: ScriptedNsTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
 		this.execResponses = [...(state.exec ?? options.execResponses())];
@@ -82,7 +82,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		if (state.extensions !== undefined) this.extensions = state.extensions;
 	}
 
-	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult> {
 		const call = { command, args: [...args], options };
 		this.execCalls.push(call);
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
@@ -118,7 +118,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
 	const cwd = options.cwd ?? "/work";
 	const homeDir = options.homeDir ?? join(cwd, ".home");
-	const context = new ScriptedSdlTestContext(options.state, {
+	const context = new ScriptedNsTestContext(options.state, {
 		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 		env: { HOME: homeDir, ...(options.env ?? {}) },
 		execResponses: defaults.execResponses,
@@ -167,7 +167,7 @@ export function formatExecCall(call: ExecCall): string {
 	return [call.command, ...call.args].join(" ");
 }
 
-export function formattedExecCalls(context: ScriptedSdlTestContext): string[] {
+export function formattedExecCalls(context: ScriptedNsTestContext): string[] {
 	return context.execCalls.map(formatExecCall);
 }
 

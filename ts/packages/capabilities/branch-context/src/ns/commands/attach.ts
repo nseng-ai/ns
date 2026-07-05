@@ -3,7 +3,7 @@ import { defineExtension } from "@ns/kernel/sdk";
 import { branchContextCommand } from "../command.ts";
 import { attachRequestSchema, attachResultSchema, handleAttach } from "../../core/operations.ts";
 
-export const branchContextAttachSdlCommand = branchContextCommand({
+export const branchContextAttachNsCommand = branchContextCommand({
 	name: "attach",
 	summary: "Attach a saved plan or file as branch context.",
 	description:
@@ -15,5 +15,5 @@ export const branchContextAttachSdlCommand = branchContextCommand({
 });
 
 export default defineExtension({
-	commands: [branchContextAttachSdlCommand],
+	commands: [branchContextAttachNsCommand],
 });

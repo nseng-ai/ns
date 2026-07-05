@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { aretroSdlCommand } from "../command.ts";
+import { aretroNsCommand } from "../command.ts";
 import {
 	readEvidenceDetailRequestSchema,
 	readEvidenceDetailResultSchema,
@@ -8,7 +8,7 @@ import {
 	runReadEvidenceDetail,
 } from "../../operations/read-evidence-detail.ts";
 
-export const aretroExecReadEvidenceDetailSdlCommand = aretroSdlCommand({
+export const aretroExecReadEvidenceDetailNsCommand = aretroNsCommand({
 	name: "exec-read-evidence-detail",
 	summary: "Read Aretro evidence detail from a payload pointer.",
 	description: "Read Aretro evidence detail from a payload pointer.",
@@ -19,5 +19,5 @@ export const aretroExecReadEvidenceDetailSdlCommand = aretroSdlCommand({
 });
 
 export default defineExtension({
-	commands: [aretroExecReadEvidenceDetailSdlCommand],
+	commands: [aretroExecReadEvidenceDetailNsCommand],
 });

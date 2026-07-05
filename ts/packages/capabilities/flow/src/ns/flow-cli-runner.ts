@@ -4,8 +4,8 @@ import {
 	type ExecOptions,
 	outputListenerToExecCallbacks,
 } from "@ns/core/command";
-import { SdlCommandExecApi } from "@ns/capability-kit/command-runner";
-import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "@ns/kernel/sdk";
+import { NsCommandExecApi } from "@ns/capability-kit/command-runner";
+import { failed, ok, type ExecResult, type NsExtensionApi, type NsResult } from "@ns/kernel/sdk";
 
 export interface FlowCliExecOptions {
 	cwd?: string;
@@ -22,14 +22,14 @@ export interface FlowCliRunnerInput extends FlowCliOperationInput {
 }
 
 export interface RunFlowCliOperationOptions<T> {
-	ctx: SdlExtensionApi;
+	ctx: NsExtensionApi;
 	shouldForwardLiveOutput?: boolean;
 	trustedExec?: CommandExecApi;
 	run(input: FlowCliOperationInput): Promise<T>;
 }
 
 export interface RunFlowCliOptions {
-	ctx: SdlExtensionApi;
+	ctx: NsExtensionApi;
 	successMessage: string;
 	failureMessage: string;
 	shouldForwardLiveOutput?: boolean;
@@ -47,11 +47,11 @@ export interface FlowCliOutputCapture {
 	toResult(
 		exitCode: number,
 		messages: { successMessage: string; failureMessage: string },
-	): SdlResult;
+	): NsResult;
 }
 
 export interface CreateFlowCliOutputCaptureOptions {
-	ctx: SdlExtensionApi;
+	ctx: NsExtensionApi;
 	mode?: "forward-live" | "buffer-until-complete";
 }
 
@@ -104,7 +104,7 @@ export function createFlowCliOutputCapture(
 	};
 }
 
-export async function runFlowCli(options: RunFlowCliOptions): Promise<SdlResult> {
+export async function runFlowCli(options: RunFlowCliOptions): Promise<NsResult> {
 	const output = createFlowCliOutputCapture({
 		ctx: options.ctx,
 		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),
@@ -126,7 +126,7 @@ export async function runFlowCli(options: RunFlowCliOptions): Promise<SdlResult>
 }
 
 interface ExecFlowCliCommandOptions {
-	ctx: SdlExtensionApi;
+	ctx: NsExtensionApi;
 	trustedExec: CommandExecApi;
 	command: string;
 	args: string[];
@@ -150,8 +150,8 @@ async function execFlowCliCommand(options: ExecFlowCliCommandOptions): Promise<E
 	);
 }
 
-function createScopedFlowCliExec(ctx: SdlExtensionApi): CommandExecApi {
-	return new SdlCommandExecApi(ctx);
+function createScopedFlowCliExec(ctx: NsExtensionApi): CommandExecApi {
+	return new NsCommandExecApi(ctx);
 }
 
 function createTrustedFlowCliExec(): CommandExecApi {

@@ -7,8 +7,8 @@ import {
 	type ClinkrGroup,
 	type ClinkrHandler,
 } from "@ns/clinkr";
-import { createSdlDomainCommand } from "@ns/capability-kit/ns-command";
-import type { SdlCommand, SdlExtensionApi } from "@ns/kernel/sdk";
+import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
+import type { NsCommand, NsExtensionApi } from "@ns/kernel/sdk";
 import type { GitResult } from "@ns/capability-kit/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@ns/core/result";
@@ -29,7 +29,7 @@ export interface ExecOperation {
 	name: string;
 	schema: z.ZodObject;
 	resultSchema: z.ZodType;
-	toSdlCommand(createContext: (ctx: SdlExtensionApi) => PrAddressExecContext): SdlCommand;
+	toNsCommand(createContext: (ctx: NsExtensionApi) => PrAddressExecContext): NsCommand;
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
 }
 
@@ -133,8 +133,8 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 		name: spec.name,
 		schema: spec.schema,
 		resultSchema: options.resultSchema,
-		toSdlCommand(createContext) {
-			return createSdlDomainCommand({
+		toNsCommand(createContext) {
+			return createNsDomainCommand({
 				name: `exec-${spec.name}`,
 				summary: spec.description ?? spec.summary ?? spec.name,
 				description: spec.description ?? spec.summary ?? spec.name,

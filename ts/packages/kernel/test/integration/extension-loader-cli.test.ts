@@ -49,7 +49,7 @@ afterEach(() => {
 	}
 });
 
-describe("SDL extension loader CLI integration", () => {
+describe("ns extension loader CLI integration", () => {
 	test("direct command summary appears in top-level help after importing the module", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
@@ -83,7 +83,7 @@ export default defineExtension({
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("hello");
-		expect(help).toContain("Run SDL command entry 'hello'.");
+		expect(help).toContain("Run ns command entry 'hello'.");
 		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("module boom");
 		expect(run.context.execCalls).toEqual([]);
@@ -120,7 +120,7 @@ export default defineExtension({
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("project-only SDL command entry runs when invoked", async () => {
+	test("project-only ns command entry runs when invoked", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
@@ -151,7 +151,7 @@ export default defineExtension({
 		expect(formattedExecCalls(run.context)).toEqual(["echo hello"]);
 	});
 
-	test("selected SDL command entry help schema and invocation use the loaded request schema", async () => {
+	test("selected ns command entry help schema and invocation use the loaded request schema", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
@@ -197,7 +197,7 @@ export default defineExtension({
 		const selectedRun = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 		expect(await selectedRun.exit).toBe(2);
 		expect(selectedRun.stdout.join("")).toBe("");
-		expect(selectedRun.stderr.join("")).toContain("Failed to load SDL extension contribution");
+		expect(selectedRun.stderr.join("")).toContain("Failed to load ns extension contribution");
 		expect(selectedRun.stderr.join("")).toContain("module boom");
 		expect(selectedRun.context.execCalls).toEqual([]);
 	});
@@ -222,7 +222,7 @@ export default defineExtension({
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("SDL command entry schema must be a Zod object", async () => {
+	test("ns command entry schema must be a Zod object", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
@@ -242,7 +242,7 @@ export default defineExtension({
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Invalid SDL extension contribution extensions/hello.ts");
+		expect(run.stderr.join("")).toContain("Invalid ns extension contribution extensions/hello.ts");
 		expect(run.stderr.join("")).toContain(
 			"command schema must be a Zod object schema from @ns/kernel/sdk",
 		);

@@ -1,19 +1,19 @@
-// Public author API for SDL extensions.
+// Public author API for ns extensions.
 // Keep ts/packages/kernel/docs/sdk-reference.md in sync when changing these exports.
 export { defineExtension } from "./command.ts";
 export {
-	defineRepoLocalSdlExtensionDescriptor,
-	repoLocalSdlCommandDescriptor,
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
 } from "./repo-local-ns-extension.ts";
 export {
-	sdlExtensionManifestCommandSchema,
-	sdlExtensionManifestSchema,
-	sdlExtensionPackageManifestSchema,
+	nsExtensionManifestCommandSchema,
+	nsExtensionManifestSchema,
+	nsExtensionPackageManifestSchema,
 } from "./extension-manifest.ts";
 export type {
-	SdlExtensionManifest,
-	SdlExtensionManifestCommand,
-	SdlExtensionPackageManifest,
+	NsExtensionManifest,
+	NsExtensionManifestCommand,
+	NsExtensionPackageManifest,
 } from "./extension-manifest.ts";
 export type {
 	ClinkrCompletionCandidate,
@@ -23,24 +23,24 @@ export type {
 	ClinkrFormat,
 	PositionalSpec,
 	RenderCapabilities,
-	SdlCommand,
-	SdlCommandCompletionProvider,
-	SdlCommandRequest,
-	SdlCommandSchema,
-	SdlExtension,
+	NsCommand,
+	NsCommandCompletionProvider,
+	NsCommandRequest,
+	NsCommandSchema,
+	NsExtension,
 } from "./command.ts";
 export type {
-	RepoLocalSdlCommandDescriptorOptions,
-	RepoLocalSdlExtensionCommandDescriptor,
-	RepoLocalSdlExtensionDescriptor,
+	RepoLocalNsCommandDescriptorOptions,
+	RepoLocalNsExtensionCommandDescriptor,
+	RepoLocalNsExtensionDescriptor,
 } from "./repo-local-ns-extension.ts";
 export type {
 	ExecResult,
-	SdlConfirmOptions,
-	SdlConfirmPrompt,
-	SdlExecOptions,
-	SdlExtensionApi,
-	SdlOutputStream,
+	NsConfirmOptions,
+	NsConfirmPrompt,
+	NsExecOptions,
+	NsExtensionApi,
+	NsOutputStream,
 } from "./execution.ts";
 export {
 	normalizeTextOutput,
@@ -53,15 +53,15 @@ export type {
 	HeadTextTruncationOptions,
 } from "@ns/core/text-truncation";
 export { failed, ok } from "./result.ts";
-export type { SdlResult } from "./result.ts";
-export { noopSdlCommandIo, noopSdlProgress } from "./services.ts";
+export type { NsResult } from "./result.ts";
+export { noopNsCommandIo, noopNsProgress } from "./services.ts";
 export type {
-	SdlCommandIo,
-	SdlCommandMessageOptions,
-	SdlNotifyLevel,
-	SdlProgress,
-	SdlProgressPhaseEvent,
-	SdlProgressPhaseListener,
+	NsCommandIo,
+	NsCommandMessageOptions,
+	NsNotifyLevel,
+	NsProgress,
+	NsProgressPhaseEvent,
+	NsProgressPhaseListener,
 } from "./services.ts";
 export { z } from "./schema.ts";
 export type {

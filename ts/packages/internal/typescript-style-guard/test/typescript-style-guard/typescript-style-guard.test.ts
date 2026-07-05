@@ -149,7 +149,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createSdlCliExecAdapter } from "@ns/capability-kit/git";',
+			code: 'import { createNsCliExecAdapter } from "@ns/capability-kit/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},

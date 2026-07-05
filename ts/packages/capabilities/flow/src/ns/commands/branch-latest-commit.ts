@@ -4,7 +4,7 @@ import {
 } from "../../autobranch/latest-commit.ts";
 import { renderResultBlock } from "@ns/core/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@ns/core/model-slug";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@ns/kernel/sdk";
+import { defineExtension, failed, ok, z, type NsCommand } from "@ns/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
@@ -30,7 +30,7 @@ const branchLatestCommitRequestSchema = z.object({
 
 type BranchLatestCommitRequest = z.output<typeof branchLatestCommitRequestSchema>;
 
-export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommitRequestSchema> = {
+export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitRequestSchema> = {
 	name: "branch-latest-commit",
 	summary: "Move the latest eligible commit to a new Graphite branch.",
 	description: BRANCH_LATEST_COMMIT_DESCRIPTION,

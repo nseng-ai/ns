@@ -13,16 +13,16 @@ export function resolveProjectAgents(input: {
 	aregJson: AregTextFileState;
 }): Result<string[]> {
 	if (input.explicitAgents.length > 0) return { ok: true, value: [...input.explicitAgents] };
-	const sdlAgents = parseSdlAregAgentsFromState(input.nsToml);
-	if (!sdlAgents.ok) return sdlAgents;
-	if (sdlAgents.value.length > 0) return sdlAgents;
+	const nsAgents = parseNsAregAgentsFromState(input.nsToml);
+	if (!nsAgents.ok) return nsAgents;
+	if (nsAgents.value.length > 0) return nsAgents;
 	const legacyAgents = parseLegacyAregJsonAgentsFromState(input.aregJson);
 	if (!legacyAgents.ok) return legacyAgents;
 	if (legacyAgents.value.length > 0) return legacyAgents;
 	return { ok: true, value: [...DEFAULT_AGENTS] };
 }
 
-export function parseSdlAregAgents(text: string, pathLabel = "ns.toml"): Result<string[]> {
+export function parseNsAregAgents(text: string, pathLabel = "ns.toml"): Result<string[]> {
 	let data: unknown;
 	try {
 		data = parse(text);
@@ -90,7 +90,7 @@ function validateNonEmptyStringList(
 	return { ok: true, value: result };
 }
 
-function parseSdlAregAgentsFromState(state: AregTextFileState): Result<string[]> {
+function parseNsAregAgentsFromState(state: AregTextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file")
 		return rejectTextState({
@@ -99,7 +99,7 @@ function parseSdlAregAgentsFromState(state: AregTextFileState): Result<string[]>
 			description: "ns.toml",
 			action: "manage it",
 		});
-	return parseSdlAregAgents(state.text, "ns.toml");
+	return parseNsAregAgents(state.text, "ns.toml");
 }
 
 function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {

@@ -1,5 +1,5 @@
 import { createCommandIo } from "@ns/kernel/command-io";
-import type { SdlCommandIo } from "@ns/kernel/sdk";
+import type { NsCommandIo } from "@ns/kernel/sdk";
 import { type ExecResult, formatCommand, runNormalizedExecResult } from "@ns/core/command";
 import { formatElapsedMs } from "@ns/core/time-format";
 import {
@@ -41,17 +41,17 @@ interface LandStackCommandStreamOptions {
 }
 
 /**
- * Builds the Pi-slash-command SdlCommandIo for land orchestration. Transient
+ * Builds the Pi-slash-command NsCommandIo for land orchestration. Transient
  * running-command status maps to the Pi status footer; durable command-stream
  * entries become `COMMAND_STREAM_MESSAGE_TYPE` custom scrollback messages (with
  * optional PR-link details) rendered by `registerLandStackRenderer`. CLI surfaces
- * build a text-only SdlCommandIo in the Flow command runner, so the same `LandStackCommandStream`
+ * build a text-only NsCommandIo in the Flow command runner, so the same `LandStackCommandStream`
  * emission path serves both without per-call branching.
  */
 export function createLandUiCommandIo(
 	pi: Pick<LandStackExtensionAPI, "sendMessage">,
 	ctx: Pick<LandStackCommandContext, "ui">,
-): SdlCommandIo {
+): NsCommandIo {
 	return createCommandIo({
 		phaseSticky: (value) => ctx.ui.setStatus(STATUS_KEY, value),
 		notifyUi: (message, level) => ctx.ui.notify(message, level),
@@ -70,14 +70,14 @@ export function createLandUiCommandIo(
 }
 
 export class LandStackCommandStream {
-	private readonly io: SdlCommandIo;
+	private readonly io: NsCommandIo;
 	private readonly shouldShowRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 	private readonly nowMs: () => number;
 	private readonly liveProgress: LandLiveProgressSink | undefined;
 	private readonly commandStarts = new Map<string, number>();
 
-	constructor(io: SdlCommandIo, options: LandStackCommandStreamOptions = {}) {
+	constructor(io: NsCommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
 		this.shouldShowRunningCommandStatus = options.shouldShowRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;

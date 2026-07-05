@@ -3,7 +3,7 @@ import { defineExtension } from "@ns/kernel/sdk";
 import { branchContextCommand } from "../command.ts";
 import { deleteResultSchema, handleDelete, keyRequestSchema } from "../../core/operations.ts";
 
-export const branchContextDeleteSdlCommand = branchContextCommand({
+export const branchContextDeleteNsCommand = branchContextCommand({
 	name: "delete",
 	summary: "Delete a branch-context entry.",
 	description: "Delete a branch-context entry from the current or selected branch.",
@@ -14,5 +14,5 @@ export const branchContextDeleteSdlCommand = branchContextCommand({
 });
 
 export default defineExtension({
-	commands: [branchContextDeleteSdlCommand],
+	commands: [branchContextDeleteNsCommand],
 });

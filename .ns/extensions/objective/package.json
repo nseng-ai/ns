@@ -1,6 +1,6 @@
 {
 	"ns": {
-		"description": "Inspect and maintain SDL Objective records.",
+		"description": "Inspect and maintain ns Objective records.",
 		"group": "objective",
 		"commands": [
 			{

@@ -1220,10 +1220,10 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 							stdout: `Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.
 
 	🥞 Validating that this Graphite stack is ready to submit...
-	▸ sdl-extension-api-followup-stack
+	▸ ns-extension-api-followup-stack
 
 	📝 Preparing to submit PRs for the following branches...
-	▸ add-sdl-extension-api (No-op)
+	▸ add-ns-extension-api (No-op)
 	`,
 							stderr: `WARNING: This branch does not introduce any changes:
 	WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
@@ -1234,14 +1234,14 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 						match: "gt branch info --no-interactive",
 						result: {
 							stdout:
-								"fix-submit-empty-branch-warning\n\nParent: sdl-extension-api-followup/registry-refactor\n",
+								"fix-submit-empty-branch-warning\n\nParent: ns-extension-api-followup/registry-refactor\n",
 						},
 					},
 				],
 				textGeneration: [
 					{
 						ok: true,
-						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: sdl-extension-api-followup-stack\nWhat succeeded: Non-empty branches may already have been submitted or updated.\nRecommended remediation: delete the empty branch if it has no remaining work.\nAlternative: Add and commit real changes only if this branch should still have its own PR.",
+						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: ns-extension-api-followup-stack\nWhat succeeded: Non-empty branches may already have been submitted or updated.\nRecommended remediation: delete the empty branch if it has no remaining work.\nAlternative: Add and commit real changes only if this branch should still have its own PR.",
 					},
 				],
 			},
@@ -1250,7 +1250,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
 		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
-		expect(error).toContain("Branch: sdl-extension-api-followup-stack");
+		expect(error).toContain("Branch: ns-extension-api-followup-stack");
 		expect(error).toContain("Non-empty branches may already have been submitted or updated.");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("##");
@@ -1266,12 +1266,12 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		);
 		expect(error.match(/^Raw log: /gmu)).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"because branch sdl-extension-api-followup-stack is empty",
+			"because branch ns-extension-api-followup-stack is empty",
 		);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
 		expect(await readFile(rawPath ?? "", "utf8")).toContain(
-			"because branch sdl-extension-api-followup-stack is empty",
+			"because branch ns-extension-api-followup-stack is empty",
 		);
 	});
 

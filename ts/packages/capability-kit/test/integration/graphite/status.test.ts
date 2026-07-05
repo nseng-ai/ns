@@ -14,7 +14,7 @@ import {
 	writeLocalBranchRefsForMetadataChildren,
 } from "./status-fixtures.ts";
 
-const CURRENT_SDL_TOOLS_METADATA_FIXTURE = new URL(
+const CURRENT_NS_TOOLS_METADATA_FIXTURE = new URL(
 	"./fixtures/graphite-metadata/sdl-tools-current.graphite_metadata.db",
 	import.meta.url,
 );
@@ -69,7 +69,7 @@ describe("Graphite metadata real sqlite integration", () => {
 	sqliteTest("parses the copied current sdl-tools Graphite database", async () => {
 		await withTempRoot(makeGitRepo("master"), (root) => {
 			const gitDir = join(root, ".git");
-			copyFileSync(CURRENT_SDL_TOOLS_METADATA_FIXTURE, join(gitDir, ".graphite_metadata.db"));
+			copyFileSync(CURRENT_NS_TOOLS_METADATA_FIXTURE, join(gitDir, ".graphite_metadata.db"));
 			writeLocalBranchRefsForMetadataChildren(gitDir, "master");
 
 			const status = loadGraphiteMetadataStatus({

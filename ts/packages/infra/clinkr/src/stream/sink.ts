@@ -40,7 +40,7 @@ export interface StreamClock {
 	sleep(ms: number): Promise<void>;
 }
 
-/** The real clock, backed by SDL's timer scheduler seam. */
+/** The real clock, backed by ns's timer scheduler seam. */
 export const systemStreamClock: StreamClock = {
 	async sleep(ms: number): Promise<void> {
 		await systemTimerScheduler.delay(ms);
