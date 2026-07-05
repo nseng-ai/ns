@@ -5,6 +5,7 @@ import {
 	createLocalDiff,
 	diffChangeKindValues,
 	diffFileSchema,
+	filterLocalDiffFiles,
 	findingsReviewSchema,
 	reviewRunnerRequestSchema,
 	inlineClassificationResultSchema,
@@ -22,7 +23,23 @@ import {
 	reviewRunResultSchema,
 	reviewUsageSchema,
 	reviewUsageTotalInputTokens,
+	type DiffFile,
 } from "../../src/core/models.ts";
+
+function diffFile(path: string, rawText: string): DiffFile {
+	return {
+		path,
+		oldPath: null,
+		changeKind: "modified",
+		rawText,
+		isBinary: false,
+		addedLines: 1,
+		removedLines: 0,
+		hunkCount: 1,
+		byteSize: rawText.length,
+		estimatedTokens: 1,
+	};
+}
 
 describe("roaster domain schemas", () => {
 	test("accepts representative review definitions and findings payloads", () => {
@@ -108,6 +125,28 @@ describe("roaster domain schemas", () => {
 				estimatedTokens: 1,
 			}),
 		).toThrow();
+	});
+
+	test("filters local diff files with one shared reconstruction path", () => {
+		const firstFile = diffFile(
+			"src/first.ts",
+			"diff --git a/src/first.ts b/src/first.ts\n+first\n",
+		);
+		const secondFile = diffFile(
+			"docs/second.md",
+			"diff --git a/docs/second.md b/docs/second.md\n+second\n",
+		);
+		const localDiff = createLocalDiff({
+			baseRef: "main",
+			diffText: [firstFile.rawText, secondFile.rawText].join(""),
+			files: [firstFile, secondFile],
+		});
+
+		const filtered = filterLocalDiffFiles(localDiff, (file) => file.path.endsWith(".ts"));
+
+		expect(filtered.changedPaths).toEqual(["src/first.ts"]);
+		expect(filtered.diffText).toBe(firstFile.rawText);
+		expect(filterLocalDiffFiles(localDiff, () => true)).toBe(localDiff);
 	});
 
 	test("models local diffs with derived changed paths", () => {

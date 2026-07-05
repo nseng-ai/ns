@@ -23,6 +23,7 @@ import { FakeRoasterGitHubGateway } from "../../src/gateways/github.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
+	type DiffFile,
 	type PRDiscussionComment,
 	type ReviewFinding,
 } from "../../src/core/models.ts";
@@ -112,6 +113,54 @@ describe("runRoasterReview", () => {
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");
+	});
+
+	test("sends only applicability-matching files to the review runner", async () => {
+		const tsFile = diffFile(
+			"src/file.ts",
+			"diff --git a/src/file.ts b/src/file.ts\n+const value = 1;\n",
+		);
+		const markdownFile = diffFile(
+			"download-feedback-instructions.md",
+			"diff --git a/download-feedback-instructions.md b/download-feedback-instructions.md\n+# Docs\n",
+		);
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createRoasterRuntime(
+			fakeRoasterContext({
+				localDiff: new FakeLocalDiffGateway({
+					defaultDiff: {
+						type: "ok",
+						value: createLocalDiff({
+							baseRef: "main",
+							diffText: [tsFile.rawText, markdownFile.rawText].join(""),
+							files: [tsFile, markdownFile],
+						}),
+					},
+				}),
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: {
+						"code-smell-roaster":
+							"---\n" +
+							"description: Review code smells.\n" +
+							"applies_to:\n" +
+							"  include:\n" +
+							"    - '**/*.ts'\n" +
+							"    - '**/*.py'\n" +
+							"---\n" +
+							"\n" +
+							"Flag code smells.\n",
+					},
+				}),
+				reviewRunner,
+			}),
+		);
+
+		const outcome = await runRoasterReview(ctx, { key: "code-smell-roaster" });
+
+		expect(outcome.type).toBe("completed");
+		expect(reviewRunner.calls()[0]?.request.target.localDiff.changedPaths).toEqual(["src/file.ts"]);
+		expect(reviewRunner.calls()[0]?.request.target.localDiff.diffText).toBe(tsFile.rawText);
+		if (outcome.type === "completed") expect(outcome.progress.changedPathCount).toBe(1);
 	});
 
 	test("keeps review runs PR-free unless prior-findings PR context is requested", async () => {
@@ -237,6 +286,21 @@ describe("runRoasterReview", () => {
 
 async function tempRepoRoot(): Promise<string> {
 	return await mkdtemp(join(tmpdir(), "roaster-review-run-"));
+}
+
+function diffFile(path: string, rawText: string): DiffFile {
+	return {
+		path,
+		oldPath: null,
+		changeKind: "modified",
+		rawText,
+		isBinary: false,
+		addedLines: 1,
+		removedLines: 0,
+		hunkCount: 1,
+		byteSize: rawText.length,
+		estimatedTokens: 1,
+	};
 }
 
 function gitGateway(repoRoot: string): InMemoryGitGateway {
