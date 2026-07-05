@@ -108,3 +108,16 @@ Operational notes:
 - Draft PRs and forked PRs are skipped by the workflow guard.
 - A review definition appears in CI only when `local_only` is omitted or set to `false` and its `applies_to` globs match the current diff when `--applicable` is used.
 - Review logs are written to Branch Memory under the `roaster` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns roaster review log`.
+
+## Review convergence: how Roaster avoids repetitive feedback
+
+Without convergence, each push re-runs a stateless whole-diff review, and the model rephrases or relocates the same criticism after the author resolves it — a resolve→resubmit treadmill. Roaster prevents this with two complementary mechanisms (design rationale in ADR 0027):
+
+1. **Generation-time semantic suppression** (primary). When a run is supplied with PR context, a gathering step assembles two optional prompt inputs:
+   - **Prior-findings context** — a bounded set of previously surfaced findings for that review key on the PR, each with its review-thread resolution status. The prompt instructs the model not to re-raise a previously surfaced finding, resolved or unresolved, unless the underlying issue materially worsened. An anchoring guard limits suppression to the same underlying issue: genuinely new problems still surface, even in the same file or adjacent to a prior finding.
+   - **Last-reviewed head** — the PR head SHA, reviewed base ref, and base merge-base recorded at the previous publish. Regions changed since the prior round get full-strength review; unchanged already-reviewed regions are held to the prior round's standard. Changed-since comparison uses PR-delta (merge-base) semantics rather than raw old-head..new-head, so a content-preserving Graphite restack or force-push does not read as churn.
+2. **Exact-match publication dedupe** (deterministic backstop). Inline findings carry sha256-derived comment markers; publication skips any finding whose marker already exists on the PR. This catches only byte-identical repeats — the generation-time layer handles rephrased or line-shifted ones.
+
+GitHub is the durable convergence store. Publishing stamps a machine-readable `roaster-state:v1` block into the marker-keyed Findings summary comment: the last-reviewed head SHA, base ref, base merge-base, and a capped cumulative union of surfaced findings, so a successfully suppressed finding does not disappear from state after one quiet round. Gathering reads that stamped block and hydrates thread resolution through the `pr-feedback` GraphQL surface; it never reconstructs state by parsing rendered comment markdown.
+
+Degradation is safe by construction: `ns roaster review run` stays PR-context-free by default (CI opts in), any gathering failure falls back to a context-free full review — noisy but never silently wrong — and if changed-since status cannot be computed the run degrades to Prior-findings-only convergence.
