@@ -71,13 +71,4 @@ test("repo-local extensions can import package subpaths without source aliases",
 	}>("@nseng-ai/objectives/ns/commands/list");
 	expect(objectiveListModule.objectiveListNsCommand.name).toBe("list");
 
-	// jiti tripwire: this command's module graph includes the real Pi
-	// child-session adapter and must load without pulling the optional
-	// @nseng-ai/pi peer (the adapter spawns the pi binary; it imports no Pi code).
-	const objectiveRunnerStepModule = await jiti.import<{
-		default: { commands?: readonly { name: string }[] };
-	}>("@nseng-ai/objectives/ns/commands/exec-runner-step");
-	expect(objectiveRunnerStepModule.default.commands?.map((command) => command.name)).toEqual([
-		"exec-runner-step",
-	]);
 }, 30_000);

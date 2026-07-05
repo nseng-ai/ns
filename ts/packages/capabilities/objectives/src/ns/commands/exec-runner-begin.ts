@@ -14,9 +14,8 @@ const RUNNER_BEGIN_DESCRIPTION =
 	"Check preconditions and emit step facts plus the subagent prompt for one decomposed Objective Runner step (ADR 0024).";
 
 /**
- * Pi-free begin bookend: unlike the legacy `exec-runner-step` this is a plain
- * command constant — no child-session composition seam is needed because the
- * parent harness owns dispatch.
+ * Pi-free begin bookend: this is a plain command constant with no subprocess
+ * or child-session composition seam because the parent harness owns dispatch.
  */
 export const objectiveExecRunnerBeginNsCommand: NsCommand<
 	typeof runnerBeginRequestSchema,

@@ -51,64 +51,13 @@ describe("renderRunnerCheckpoint", () => {
 		expect(markdown).toContain("_No child report available; everything above is runner-attested._");
 	});
 
-	test("renders stop reason, diagnostics, and usage facts", () => {
+	test("renders stop reason and diagnostics", () => {
 		const markdown = renderRunnerCheckpoint(
 			{
 				...BASE_FACTS,
 				status: "blocked",
 				stopReason: "missing credentials",
 				diagnostics: ["first diagnostic", "second diagnostic\nwith a second line"],
-				usage: {
-					sessions: [
-						{
-							sessionFile: "/tmp/session.jsonl",
-							status: "ok",
-							error: null,
-							errorLine: null,
-							assistantResponseCount: 2,
-							models: [{ provider: "anthropic", api: "messages", model: "claude" }],
-							tokens: {
-								inputTokens: 100,
-								outputTokens: 20,
-								cacheReadTokens: 5,
-								cacheWriteTokens: 1,
-								totalTokens: 126,
-							},
-							cost: {
-								inputUsd: 0.01,
-								outputUsd: 0.02,
-								cacheReadUsd: 0,
-								cacheWriteUsd: 0,
-								totalUsd: 0.03,
-							},
-							peakObservedTotalTokens: 126,
-							peakObservedPromptTokens: 106,
-							configuredContextWindowTokens: null,
-						},
-					],
-					aggregate: {
-						sessionCount: 1,
-						okSessionCount: 1,
-						usageResponseCount: 2,
-						tokens: {
-							inputTokens: 100,
-							outputTokens: 20,
-							cacheReadTokens: 5,
-							cacheWriteTokens: 1,
-							totalTokens: 126,
-						},
-						cost: {
-							inputUsd: 0.01,
-							outputUsd: 0.02,
-							cacheReadUsd: 0,
-							cacheWriteUsd: 0,
-							totalUsd: 0.03,
-						},
-						peakObservedTotalTokens: 126,
-						peakObservedPromptTokens: 106,
-						configuredContextWindowTokens: null,
-					},
-				},
 			},
 			"## Summary\n\nBlocked claim.",
 		);
@@ -117,12 +66,6 @@ describe("renderRunnerCheckpoint", () => {
 		expect(markdown).toContain("- diagnostics:");
 		expect(markdown).toContain("  - first diagnostic");
 		expect(markdown).toContain("  - second diagnostic\n    with a second line");
-		expect(markdown).toContain("- usage:");
-		expect(markdown).toContain("  - sessions: 1 total, 1 with usage");
-		expect(markdown).toContain(
-			"  - tokens: 100 input / 20 output / 5 cache read / 1 cache write / 126 total",
-		);
-		expect(markdown).toContain("  - cost: $0.030000");
-		expect(markdown).toContain("  - model(s): anthropic/messages/claude");
+		expect(markdown).not.toContain("- usage:");
 	});
 });

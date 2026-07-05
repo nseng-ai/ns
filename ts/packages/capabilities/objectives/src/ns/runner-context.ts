@@ -13,51 +13,25 @@ import {
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";
-import type { ChildSessionGateway } from "../runner/child-session.ts";
 import type {
-	ObjectiveRunnerContext,
 	ObjectiveRunnerCoreContext,
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../runner/context.ts";
 import { createNsObjectiveContext } from "./context.ts";
 
-/**
- * ADR0024-LEGACY-DELETE(this interface, ObjectiveRunnerComposition, the
- * `childSession` override field below, the legacy factory at the bottom, and
- * the ChildSessionGateway/ObjectiveRunnerContext imports): the composition
- * seam exists only for the legacy blocking `runner-step`.
- *
- * Everything the composed child-session adapter may need from the host at
- * construction time. Deliberately minimal: the composition root closes over
- * its own spawn/timer/clock choices (Slice 5); only host-derived facts travel
- * through this init.
- */
-export interface ChildSessionGatewayInit {
-	env: Record<string, string | undefined>;
-}
-
-/** Testing/wiring seam for the one Pi-coupled dependency of a runner step. */
-export interface ObjectiveRunnerComposition {
-	createChildSessionGateway(init: ChildSessionGatewayInit): ChildSessionGateway;
-}
-
 export interface ObjectiveRunnerOverrides {
 	git?: GitGateway;
 	graphite?: GraphiteBranchGateway;
 	commands?: CommandExecApi;
 	storage?: ObjectiveStorage;
-	/** ADR0024-LEGACY-DELETE(field): consumed only by the legacy factory. */
-	childSession?: ChildSessionGateway;
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
 	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
 }
 
 /**
  * Context for the decomposed runner bookends (`runner-begin`/`runner-finish`,
- * ADR 0024): everything the legacy runner context carries except child
- * dispatch. Reads the same `ctx.extensions.objectiveRunner` overrides; a
- * `childSession` override is simply ignored here.
+ * ADR 0024). Reads `ctx.extensions.objectiveRunner` core overrides.
  */
 export async function createNsObjectiveRunnerCoreContext(
 	ctx: NsExtensionApi,
@@ -82,22 +56,6 @@ export async function createNsObjectiveRunnerCoreContext(
 	};
 }
 
-// ADR0024-LEGACY-DELETE(function): only exec-runner-step builds this context.
-export async function createNsObjectiveRunnerContext(
-	ctx: NsExtensionApi,
-	composition: ObjectiveRunnerComposition,
-): Promise<ObjectiveRunnerContext> {
-	const overrides = readObjectiveRunnerOverrides(ctx);
-	const core = await createNsObjectiveRunnerCoreContext(ctx, overrides);
-	return {
-		...core,
-		childSession:
-			overrides?.childSession ?? composition.createChildSessionGateway({ env: ctx.env }),
-		// ADR0024-LEGACY-DELETE(field): legacy runner-step streams child progress.
-		writeStderr: ctx.stderr ?? (() => {}),
-	};
-}
-
 function readObjectiveRunnerOverrides(ctx: NsExtensionApi): ObjectiveRunnerOverrides | undefined {
 	const raw = ctx.extensions?.objectiveRunner;
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
@@ -107,7 +65,6 @@ function readObjectiveRunnerOverrides(ctx: NsExtensionApi): ObjectiveRunnerOverr
 		graphite: overrides.graphite,
 		commands: overrides.commands,
 		storage: overrides.storage,
-		childSession: overrides.childSession,
 		readTextFile: overrides.readTextFile,
 		filePresence: overrides.filePresence,
 	});

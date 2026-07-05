@@ -1,4 +1,3 @@
-import type { RunnerSubagentUsageResult } from "../core/operations/runner-subagent-usage.ts";
 import type { RunnerStepMode } from "./context.ts";
 import type { GateCheckResult } from "./gate.ts";
 
@@ -23,12 +22,6 @@ export interface CheckpointFacts {
 	commitSha?: string;
 	changedPaths?: readonly string[];
 	gateChecks?: readonly GateCheckResult[];
-	/**
-	 * ADR0024-LEGACY-DELETE(field, plus `usageLines` below and the
-	 * runner-subagent-usage import): only the legacy `runner-step` supplies
-	 * usage facts; the decomposed flow's checkpoints never carry them.
-	 */
-	usage?: RunnerSubagentUsageResult;
 	/** Stop/blocked reason as stated in the child's parsed report. */
 	stopReason?: string;
 	diagnostics?: readonly string[];
@@ -65,7 +58,6 @@ export function renderRunnerCheckpoint(
 		lines.push("- gate checks:");
 		for (const check of facts.gateChecks) lines.push(`  - ${formatGateCheck(check)}`);
 	}
-	if (facts.usage !== undefined) lines.push(...usageLines(facts.usage));
 	if (facts.diagnostics !== undefined && facts.diagnostics.length > 0) {
 		lines.push("- diagnostics:");
 		for (const diagnostic of facts.diagnostics) {
@@ -91,26 +83,6 @@ export function renderRunnerCheckpoint(
 function formatGateCheck(check: GateCheckResult): string {
 	const base = `${check.id}: ${check.status}`;
 	return check.detail === undefined ? base : `${base} — ${check.detail}`;
-}
-
-function usageLines(usage: RunnerSubagentUsageResult): string[] {
-	const { aggregate } = usage;
-	const models = usage.sessions
-		.flatMap((session) => session.models)
-		.map((model) =>
-			[model.provider, model.api, model.model]
-				.filter((part): part is string => part !== null && part !== "")
-				.join("/"),
-		)
-		.filter((model) => model !== "");
-	const lines = [
-		"- usage:",
-		`  - sessions: ${aggregate.sessionCount} total, ${aggregate.okSessionCount} with usage`,
-		`  - tokens: ${aggregate.tokens.inputTokens} input / ${aggregate.tokens.outputTokens} output / ${aggregate.tokens.cacheReadTokens} cache read / ${aggregate.tokens.cacheWriteTokens} cache write / ${aggregate.tokens.totalTokens} total`,
-		`  - cost: $${aggregate.cost.totalUsd.toFixed(6)}`,
-	];
-	if (models.length > 0) lines.push(`  - model(s): ${[...new Set(models)].join(", ")}`);
-	return lines;
 }
 
 function indentDiagnostic(diagnostic: string): string[] {

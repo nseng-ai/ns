@@ -4,8 +4,7 @@
  * The subagent writes one JSON document to the begin-chosen report path; this
  * module validates it fail-closed. Validation is deliberately diagnostic-rich:
  * every missing/empty field and section becomes its own problem so a
- * report-integrity malfunction checkpoint can list them all, matching the
- * marker-block parser's behavior in `report-marker.ts`.
+ * report-integrity malfunction checkpoint can list them all.
  */
 import { formatZodIssue } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
