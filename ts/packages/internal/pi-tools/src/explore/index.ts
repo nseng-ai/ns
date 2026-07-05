@@ -16,12 +16,8 @@ export {
 	type ResolveExplorerLaunchPlanInput,
 } from "./model-policy.ts";
 export {
-	createExplorerDispatcher,
 	dispatchExplorerSubagent,
 	type DispatchExplorerSubagentOptions,
 	type DispatchSubagentFn,
-	type ExplorerDispatcher,
-	type ExplorerDispatcherDependencies,
 	type ExplorerDispatchOutcome,
-	type ExplorerTransientFailureStatus,
 } from "./dispatch.ts";

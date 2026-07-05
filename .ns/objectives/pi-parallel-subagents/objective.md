@@ -3,11 +3,12 @@
 ## Thesis
 
 Claude Code's parallel Explore agents — cheap read-only researchers fanned out mid-task —
-are a capability Pi deliberately omits from core but fully supports via extensions. SDL
+are a capability Pi deliberately omits from core but fully supports via extensions. ns
 already owns the hard substrate pieces (the subprocess `dispatchRunnerSubagent` primitive
 and thermo-council's parallel worker pool) but has no model-invocable fan-out tool, no
-capability-enforced read-only explorer, no result context economy, and weak live
-monitoring. A survey (2026-07-02) of six existing implementations — Pi's first-party
+capability-enforced read-only explorer, no scout-sized result preview (the substrate's
+existing context economy is a 48k-char cap with a session-file pointer on truncation;
+the gap is a bounded ~5k scout preview), and weak live monitoring. A survey (2026-07-02) of six existing implementations — Pi's first-party
 example, tintinweb/pi-subagents, nicobailon/pi-subagents, gotgenes/pi-packages,
 mjakl/pi-subagent, and oh-my-pi's in-core task system (checkouts under
 `~/code/githubs/`) — shows every hard problem already solved somewhere in adoptable or
@@ -74,6 +75,11 @@ Assumptions:
   (`## Files Retrieved` with line ranges, `## Key Code`, `## Start Here`).
 - The repo's two-layer Pi model (vibecoded `.pi/extensions/` shim → engineered
   `ts/packages/`) is the delivery path, so speed does not require adopting.
+- The cheap-model policy is Anthropic-only by accepted scoping:
+  `resolveExplorerLaunchPlan` downshifts to Haiku only for Anthropic-family parents or
+  when Anthropic auth is configured; non-Anthropic sessions inherit the parent model at
+  full price. Acceptable for this repo's dogfood environment, but in tension with the
+  "cheaper model by default" completion criterion outside it.
 
 Risks:
 
@@ -86,9 +92,15 @@ Risks:
 - Excluding `bash` from explorers loses shell-based recon (`git log`, `git blame`,
   ad-hoc pipelines); if recon quality suffers, a vetted read-only command tool becomes a
   follow-on need rather than re-admitting `bash`.
-- Consolidation is judged unlikely (runner-subagents carries SDL-specific result
+- Consolidation is judged unlikely (runner-subagents carries ns-specific result
   taxonomy and curated git evidence no candidate replicates); it is expected to park
   rather than complete.
+- Explorer children launch with `--no-extensions`, which is part of the read-only
+  guarantee but also strips `.pi/extensions/home-directory-guard.ts` — a child with
+  `grep`/`find` has no home-root guard and no cwd jail, so *scope* is prompt-enforced
+  only (`.ns/pi/agents/explorer.md`). Decision pending (accept, inject the guard via
+  the existing `--extension runtimeExtensionPath` seam in `subagent-process.ts`, or
+  document why prompt-scoping suffices); tracked as an open question and roadmap item.
 
 ## Open Questions
 
@@ -98,7 +110,11 @@ Risks:
 - ~~If built: where the engineered implementation lives (`ts/packages/local/pi-tools`
   alongside runner-subagents vs `ts/packages/hosts/pi`) and its promotion path.~~
   Resolved 2026-07-02: `ts/packages/local/pi-tools` alongside runner-subagents, as
-  engineered platform code from the start (same update).
+  engineered platform code from the start (same update). Since moved with the rest of
+  pi-tools to `ts/packages/internal/pi-tools`.
+- How to close the explorer-child home-directory-guard bypass (see Risks): accept,
+  inject the guard extension through the `runtimeExtensionPath` seam, or document
+  prompt-scoping as sufficient.
 - Whether the in-process fork-runtime adapter is worth the Pi SDK coupling, and what the
   runtime seam looks like (Gateway-style interface with subprocess + in-process
   adapters).

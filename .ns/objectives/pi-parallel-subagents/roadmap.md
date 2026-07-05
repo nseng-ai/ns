@@ -10,16 +10,16 @@
       build are all admissible outcomes.
       Evidence: decision recorded as an objective update with per-candidate rationale.
       Outcome: **build** on the runner-subagent substrate in
-      `ts/packages/local/pi-tools`; see
-      `updates/2026-07-02-adopt-vs-build-decision.md`.
+      `ts/packages/local/pi-tools` (since moved to `ts/packages/internal/pi-tools`);
+      see `updates/2026-07-02-adopt-vs-build-decision.md`.
 - [x] Explorer agent definition: scout output contract (`## Files Retrieved` with line
       ranges, `## Key Code`, `## Architecture`, `## Start Here`), cheap-model default
       with dispatch-time auth fallback and runtime failover, read-only tool allowlist
       with no `bash`/`edit`/`write`.
-      Evidence: `.ji/pi/agents/explorer.md` plus `@internal/pi-tools/explore`
+      Evidence: `.ns/pi/agents/explorer.md` plus `@internal/pi-tools/explore`
       (`contract.ts` allowlist `read,grep,find,ls`; `model-policy.ts` haiku default
       with AuthStorage dispatch-time probe; `dispatch.ts` single-retry runtime
-      failover on `error`/`protocol-error`), 12 fake-driven tests, and a real
+      failover on `error`/`protocol-error`), 17 fake-driven tests, and a real
       end-to-end smoke: haiku child (`anthropic/claude-haiku-4-5`, 13 read-only tool
       calls, $0.055) returned an accurate line-cited four-section scout report on the
       SIGTERM-escalation question. Haiku-recon assumption held in the smoke; the
@@ -33,7 +33,7 @@
       findings on disk, retrievable on demand.
 - [ ] Live inline progress rendering: placeholder-sentinel per-task rows with status
       icons, recent tool-activity lines, and a done/running counter.
-- [ ] Dogfood in real SDL work and tune the tool description and scout contract from
+- [ ] Dogfood in real ns work and tune the tool description and scout contract from
       observed transcripts.
       Evidence: at least one real task completed using explore fan-out, with prompt
       adjustments captured as an update.
@@ -44,12 +44,20 @@
       (subprocess remains the default). Non-blocking for completion.
 - [ ] Consolidation assessment: whether the chosen substrate can subsume
       `dispatchRunnerSubagent` and thermo-council's orchestration. Expected to park.
-- [ ] Apply the 2026-07-04 critique changes
+- [x] Apply the 2026-07-04 critique changes
       (`updates/2026-07-04-objective-critique.md`): fix the stale `.ji/` explorer path
-      in `contract.ts`/`testing.ts` (2 of 17 explore tests currently fail) and correct
-      the item-2 evidence above; record the home-directory-guard child-bypass decision
-      in Assumptions and Risks; soften the Thesis's "no result context economy" claim
-      and note the Anthropic-only cheap-model policy. Blocks item 3 (item-2 evidence
-      must pass before the fan-out tool builds on this layer).
+      in `contract.ts`/`testing.ts` and correct the item-2 evidence above; record the
+      home-directory-guard child-bypass risk in Assumptions and Risks; soften the
+      Thesis's "no result context economy" claim and note the Anthropic-only
+      cheap-model policy. Blocked item 3.
+      Outcome: code fixes landed on `explorer-dispatch-auth-failover-schema-fix`
+      (`contract.ts` now points at `.ns/pi/agents/explorer.md`; all 17 explore tests
+      pass). Record edits applied 2026-07-05 alongside moving this record from the
+      stale `.sdl/objectives/` root to `.ns/objectives/`. The guard-bypass *decision*
+      itself is still open — split into the item below.
+- [ ] Decide the explorer-child home-directory-guard bypass (risk recorded in
+      objective.md): accept, inject the guard via the `--extension
+      runtimeExtensionPath` seam in `subagent-process.ts`, or document why
+      prompt-scoping suffices. Record the decision as an update.
 
 ## Parked

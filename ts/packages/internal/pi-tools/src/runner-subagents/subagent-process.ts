@@ -59,6 +59,7 @@ import {
 	readRunnerSubagentUsageFromSessionFile,
 	type ReadRunnerSubagentSessionFile,
 } from "./extension-usage.ts";
+import { hasAbortedSignal, uniqueAbortSignals } from "./abort-signals.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
@@ -157,7 +158,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const launch = options.preResolvedLaunch ?? resolveRunnerSubagentLaunch(pi, ctx, options);
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
 
-	if (abortSignals.some((signal) => signal.aborted)) {
+	if (hasAbortedSignal(...abortSignals)) {
 		const progress = stoppedProgress({
 			title,
 			clock,
@@ -1129,14 +1130,6 @@ function nonzeroExitDiagnostic(
 	const signalText = signal ? ` after signal ${signal}` : "";
 	const stderrText = stderr.trim().length > 0 ? `\n\nstderr:\n${stderr}` : "";
 	return `Forked Pi process exited ${exitText}${signalText}.${stderrText}`;
-}
-
-function uniqueAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal[] {
-	const unique: AbortSignal[] = [];
-	for (const signal of signals) {
-		if (signal && !unique.includes(signal)) unique.push(signal);
-	}
-	return unique;
 }
 
 function abortReason(signals: readonly AbortSignal[]): string | undefined {
