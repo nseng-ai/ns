@@ -25,13 +25,26 @@ finding set, not a reopen.
      retry (ccc row).
 - Recording the Tier 2/3 promotion candidates from the sweep as Parked rows so
   the backlog survives this session.
+- Second wave (deliberately pulled from Parked 2026-07-05, after all Tier 1
+  rows completed): three Tier 2 promotion rows, each retiring duplicate
+  implementations in favor of a kit surface and migrating all named
+  consumers —
+  1. extend kit `git` with operation-in-progress/worktree-admin detection,
+     replacing triplicate code in slots, flow, and hosts/pi;
+  2. promote the content-slug derivation layer beside kit `model-slug`, with
+     plans' generalized shape as the basis and handoffs collapsing to a
+     variant;
+  3. extract GitHub REST comment mechanics from reviews into a kit `github`
+     subpath with real/fake parity, migrating pi-tools pr-feedback-watch as
+     the second consumer.
 
 ## Non-Goals
 
-- Executing any Tier 2 or Tier 3 promotion (new kit modules such as
-  content-slug derivation, git operation-marker detection, JSON-input loader,
-  GitHub REST comment mechanics, fs gateways). They stay Parked until
-  explicitly pulled into Work.
+- Executing any promotion still in Parked (e.g. JSON-input loader, git output
+  classification, result-typed fs gateway, PR-link parsing, shell-install
+  factory, all Tier 3 rows). Parked rows stay parked until explicitly pulled
+  into Work; the 2026-07-05 second-wave pull covers exactly the three rows
+  named in Scope, nothing else.
 - Deciding the brmem layering question (kit gaining an `@nseng-ai/brmem`
   dependency vs. hosting shared store code in `@nseng-ai/brmem`).
 - Kit-export churn beyond the two pinned edits — no rehoming
@@ -47,11 +60,14 @@ finding set, not a reopen.
 
 ## Completion Criteria
 
-- All five `## Work` rows are `[x]` with their duplicate implementations
-  deleted, every consumer migrated to the kit surface, and no dual live copies
+- All `## Work` rows — the five Tier 1 rows (complete) and the three
+  second-wave rows — are `[x]` with their duplicate implementations deleted,
+  every consumer migrated to the kit surface, and no dual live copies
   remaining.
-- The two pinned kit extensions are covered by tests (including fake/testing
-  parity where the touched kit module ships fakes).
+- The pinned kit extensions (Tier 1's two edits, complete) and the three
+  second-wave kit surfaces are covered by tests (including fake/testing
+  parity where the touched kit module ships fakes; the `github` comment
+  mechanics must ship real + fake together).
 - Targeted package tests and repo validation (`just`) pass on the delivering
   branches; evidence recorded in roadmap notes or Semantic Updates.
 - Parked rows remain recorded; triaging or executing them is not required for
@@ -71,7 +87,8 @@ Do not keep changes that:
 
 - leave both the local copy and the kit path live at once (partial
   migrations);
-- add, rename, or rehome kit exports beyond the two pinned edits;
+- add, rename, or rehome kit exports beyond the pinned edits and the three
+  second-wave surfaces named in Scope;
 - touch code inside the boundaries listed under Non-Goals.
 
 Useful evidence includes: tsgo typecheck, targeted vitest for the touched
@@ -115,6 +132,34 @@ Assumptions:
 - ccc's plan-summary path genuinely needs raw multi-line model output, so the
   kit needs the raw-text sibling rather than reusing slug-normalizing
   `deriveSlugWithModel` directly.
+
+Second-wave assumptions (verified by export-surface inspection 2026-07-05 on
+the delivering branch stack):
+
+- The three operation-detection sites are congruent enough for one kit
+  module: flow's `InProgressGitOperation` union (merge/cherry-pick/revert/
+  rebase) and slots' marker table (`MERGE_HEAD`, `CHERRY_PICK_HEAD`,
+  `rebase-merge`/`rebase-apply`) describe the same taxonomy; slots adds
+  rebase head-name recovery that must either generalize or stay local.
+- `plans/src/content-slug-derivation.ts` already models the generalized
+  shape (`ContentSlugDerivationVariant` exists); handoffs'
+  `content-slug.ts` is a near-parallel copy that can collapse to a variant
+  config.
+- Reviews' `RoasterGitHubGateway` mechanics (paginated reads, inline-review
+  create, discussion POST/PATCH, marker-based sticky upsert) can be extracted
+  without absorbing Roaster-specific result envelopes.
+
+Second-wave risks:
+
+- The reviews gateway ships a substantial fake
+  (`FakeRoasterGitHubGateway`); extraction must move real and fake together
+  or test parity silently breaks.
+- `hosts/pi/worktree-status` runs over the Pi exec seam, the same wiring
+  risk the Tier 1 objectives row carried (steer-first trigger, not a license
+  to widen scope).
+- Kit `github` currently hosts `graphql-json`; adding REST comment mechanics
+  widens that subpath's charter — accepted deliberately, and the
+  `parseJsonUnknown` rehome stays Parked.
 
 Risks:
 

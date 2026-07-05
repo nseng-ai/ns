@@ -63,20 +63,55 @@
     `parseJsonObject`/`core/json` references passed on local branch
     `capability-kit-promotions/drop-slots-json-helper`.
 
+Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
+
+- [ ] Extend kit `git` with operation-in-progress/worktree-admin detection:
+      pin — one kit module covering marker-file detection (`MERGE_HEAD`,
+      `CHERRY_PICK_HEAD`, `REVERT_HEAD`, `rebase-merge`/`rebase-apply`, bisect),
+      `gitdir:` file resolution / `--git-common-dir` admin-dir resolution, and
+      `@{-1}` previous-branch lookup. Replace the triplicate implementations:
+      the marker table and rebase head-name recovery in
+      `ts/packages/capabilities/slots/src/core/gateways/repository.ts`, the
+      `InProgressGitOperation` union plus `detectInProgressOperation` /
+      `resolveGitPath` in
+      `ts/packages/capabilities/flow/src/land/stack/stack-facts.ts`, and the
+      equivalent detection in
+      `ts/packages/hosts/pi/src/worktree-status/status.ts`. Consumer-facing
+      labels/messages (e.g. flow's `formatInProgressOperationLabel` wording)
+      stay local.
+  - Policy: direct execution; steer first if the three consumers' operation
+    taxonomies genuinely diverge (e.g. slots' rebase head-name recovery does
+    not generalize), if the kit `git` extension proves non-additive, or if
+    the hosts/pi exec-seam wiring needs a new adapter.
+- [ ] Promote the content-slug derivation layer beside kit `model-slug`:
+      pin — generalize
+      `ts/packages/capabilities/plans/src/content-slug-derivation.ts`
+      (`deriveContentSlug`, `buildContentSlugPrompt`, output normalization,
+      truncation, `MAX_PLAN_CONTENT_CHARS`) into a kit module parameterized
+      by the existing `ContentSlugDerivationVariant` shape; collapse
+      `ts/packages/capabilities/handoffs/src/pi/content-slug.ts` to a variant
+      config. Handoff-specific validation wording
+      (`validateHandoffContentSlug`) stays in handoffs if not generalizable.
+  - Policy: direct execution; steer first if the handoffs variant needs more
+    than variant-config parameterization or wants any other new kit export.
+- [ ] Extract GitHub REST comment mechanics into a kit `github` subpath:
+      pin — move paginated comment reads, inline-review create,
+      discussion-comment POST/PATCH, and marker-based sticky-comment upsert
+      out of `ts/packages/capabilities/reviews/src/gateways/github.ts`
+      (`RoasterGitHubGateway` real + fake) into kit `github` with real/fake
+      parity; migrate the second consumer,
+      `ts/packages/internal/pi-tools/src/pr-feedback-watch`. Roaster-specific
+      result envelopes and wording stay in reviews (the `RoasterResult`
+      refactor remains out of scope).
+  - Policy: direct execution for an additive extraction; steer first if the
+    kit surface wants to absorb Roaster-specific envelopes or if
+    pr-feedback-watch's needs force a different contract.
+
 ## Parked
 
 Tier 2 — new kit modules with proven multi-consumer duplication (pull into
 Work deliberately, one row at a time):
 
-- [ ] Promote the content-slug derivation layer (prompt scaffold, code-fence
-      first-line extraction, NFKD→kebab pipeline, truncation) beside kit
-      `model-slug`; `plans/src/content-slug-derivation.ts` is the generalized
-      shape, `handoffs/src/pi/content-slug.ts` collapses to a variant.
-- [ ] Extend kit `git` with operation-in-progress/worktree-admin detection
-      (merge/rebase/cherry-pick/revert/bisect markers, `gitdir:` resolution,
-      `--git-common-dir`, `@{-1}`); replaces triplicate code in
-      `slots/core/gateways/repository.ts`, `flow/land/stack/stack-facts.ts`, and
-      `hosts/pi/worktree-status/status.ts`.
 - [ ] Fold git output classification into kit `git`
       (`flow/src/submit/git-operation-output.ts` + slots lifecycle conflict
       needles) and consolidate the newline-mode porcelain parser
@@ -89,10 +124,6 @@ Work deliberately, one row at a time):
       one-of `--option`/`--file`/stdin + zod + prettified errors) as a new kit
       leaf; migrate reviews' two hand-rolled equivalents in
       `cli-operations.ts`.
-- [ ] Extract GitHub REST comment mechanics (paginated reads, inline-review
-      create, discussion-comment POST/PATCH, marker-based sticky-comment upsert)
-      from `reviews/src/gateways/github.ts` into a kit `github` subpath; second
-      consumer: `internal/pi-tools/pr-feedback-watch`.
 - [ ] Introduce a result-typed fs gateway (real + fake) unifying
       `objectives/src/core/real-storage.ts`, `plans/src/plan-store-gateway.ts`,
       and reviews' ad-hoc readdir/stat.
