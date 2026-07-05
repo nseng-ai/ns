@@ -1,4 +1,4 @@
-import { formatCommand } from "@ns/core/command";
+import { formatCommand } from "@nseng-ai/core/command";
 import {
 	completed,
 	failure,

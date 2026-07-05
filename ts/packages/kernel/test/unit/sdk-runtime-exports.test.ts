@@ -19,7 +19,7 @@ import {
 	truncateTextHeadTail,
 	z,
 	type NsCommand,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 const runtimeExports = {
 	defineExtension,
@@ -59,7 +59,7 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"z",
 ] as const;
 
-describe("@ns/kernel/sdk runtime exports", () => {
+describe("@nseng-ai/kernel/sdk runtime exports", () => {
 	test("exposes the intended runtime author surface", () => {
 		expect(Object.keys(runtimeExports).sort()).toEqual([...EXPECTED_RUNTIME_EXPORTS].sort());
 	});
@@ -94,13 +94,13 @@ describe("@ns/kernel/sdk runtime exports", () => {
 			repoLocalNsCommandDescriptor({
 				command,
 				manifestPath: ["review", "list"],
-				packageExportPrefix: "@ns/example/commands",
+				packageExportPrefix: "@nseng-ai/example/commands",
 			}),
 		).toEqual({
 			command,
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/list.ts",
-			packageExport: "@ns/example/commands/list",
+			packageExport: "@nseng-ai/example/commands/list",
 		});
 	});
 
@@ -117,14 +117,14 @@ describe("@ns/kernel/sdk runtime exports", () => {
 				command,
 				manifestName: "review-list",
 				manifestPath: ["review", "list"],
-				packageExportPrefix: "@ns/example/commands",
+				packageExportPrefix: "@nseng-ai/example/commands",
 			}),
 		).toEqual({
 			command,
 			manifestName: "review-list",
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/review-list.ts",
-			packageExport: "@ns/example/commands/review-list",
+			packageExport: "@nseng-ai/example/commands/review-list",
 		});
 	});
 

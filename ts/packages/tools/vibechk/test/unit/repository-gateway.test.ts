@@ -1,5 +1,5 @@
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { ScriptedCommandExecApi } from "@nseng-ai/core/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { RealVibechkWorkdirGateway } from "../../src/repository.ts";

@@ -1,4 +1,4 @@
-import { truncatedSha256Digest } from "@ns/core/primitives";
+import { truncatedSha256Digest } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import { formatOmittedReviewInputFile } from "./input-coverage-formatting.ts";

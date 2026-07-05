@@ -4,7 +4,7 @@ import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 } from "../../src/api/index.ts";
-import type { CommandContext, ExecResult } from "@ns/pi/runtime/types";
+import type { CommandContext, ExecResult } from "@nseng-ai/pi/runtime/types";
 
 describe("objective selection runtime behavior", () => {
 	test("objective selection context preserves UI notifications without select", async () => {

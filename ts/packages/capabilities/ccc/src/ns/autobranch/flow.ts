@@ -3,8 +3,8 @@ import type {
 	FlowAutobranchCheckpointResult,
 	FlowAutobranchFileStat,
 	FlowAutobranchRequest,
-} from "@ns/flow/api";
-import { createFlowAutobranchCheckpointFlow } from "@ns/flow/api";
+} from "@nseng-ai/flow/api";
+import { createFlowAutobranchCheckpointFlow } from "@nseng-ai/flow/api";
 
 export type AutobranchFlowInput = FlowAutobranchCheckpointInput;
 export type AutobranchFlowResult = FlowAutobranchCheckpointResult;

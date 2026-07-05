@@ -1,5 +1,5 @@
 {
-	"name": "@ns/core",
+	"name": "@nseng-ai/core",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -40,7 +40,7 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/core/test"
 	},
 	"dependencies": {
-		"@ns/clinkr": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
 		"typescript": "catalog:",
 		"zod": "catalog:"
 	},

@@ -1,4 +1,4 @@
-import type { ExecResult } from "@ns/core/exec";
+import type { ExecResult } from "@nseng-ai/core/exec";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {

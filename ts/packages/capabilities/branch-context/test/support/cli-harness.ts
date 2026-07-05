@@ -3,18 +3,21 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runCli } from "../../src/core/cli.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ns/capability-kit/git/testing";
-import { createTempDirTracker } from "@ns/core/test-kit";
-import { encodeBranchForPlanPath } from "@ns/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import {
+	InMemoryGitGateway,
+	type InMemoryGitGatewayState,
+} from "@nseng-ai/capability-kit/git/testing";
+import { createTempDirTracker } from "@nseng-ai/core/test-kit";
+import { encodeBranchForPlanPath } from "@nseng-ai/plans";
 import {
 	InMemoryBranchMemoryGateway,
 	type InMemoryBrmemGatewayState,
-} from "@ns/branch-context/testing";
+} from "@nseng-ai/branch-context/testing";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
-} from "@ns/capability-kit/graphite/testing";
+} from "@nseng-ai/capability-kit/graphite/testing";
 
 export const SOURCE_BRANCH = "feature/source-plan";
 export const PLAN_SLUG = "branch-scoped-plan";

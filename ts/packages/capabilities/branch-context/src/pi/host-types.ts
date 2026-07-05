@@ -4,15 +4,15 @@ import type {
 	BranchCreationMethod,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
-} from "@ns/branch-context/api";
-import type { ExecOptions, ExecResult } from "@ns/core/command";
+} from "@nseng-ai/branch-context/api";
+import type { ExecOptions, ExecResult } from "@nseng-ai/core/command";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
-} from "@ns/pi/sessions/replacement";
-import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@ns/plans/api";
-import type { SendMessageOptions } from "@ns/pi/shared/message-delivery";
+} from "@nseng-ai/pi/sessions/replacement";
+import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
+import type { SendMessageOptions } from "@nseng-ai/pi/shared/message-delivery";
 
 export type NotifyLevel = "info" | "warning" | "error";
 

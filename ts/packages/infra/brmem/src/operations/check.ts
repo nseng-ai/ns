@@ -1,5 +1,5 @@
-import { ok } from "@ns/clinkr";
-import { optionalEntry } from "@ns/core/primitives";
+import { ok } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

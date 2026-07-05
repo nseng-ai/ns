@@ -6,7 +6,7 @@ import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
-} from "@ns/plans/api";
+} from "@nseng-ai/plans/api";
 import type {
 	AgentEndContext,
 	AutocompleteProvider,
@@ -19,9 +19,9 @@ import type {
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
-} from "@ns/capability-kit/cmux/types";
-import { parseMachineEnvelopeData } from "@ns/core/machine-envelope";
-import { optionalEntries } from "@ns/core/primitives";
+} from "@nseng-ai/capability-kit/cmux/types";
+import { parseMachineEnvelopeData } from "@nseng-ai/core/machine-envelope";
+import { optionalEntries } from "@nseng-ai/core/primitives";
 
 // Local test type for skill command info
 interface SkillCommandInfo {
@@ -35,11 +35,11 @@ import {
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionListLoadResult,
 	type ObjectiveSelectionSpec,
-} from "@ns/objective/api";
+} from "@nseng-ai/objective/api";
 
-import { ScriptedQueue } from "@ns/core/test-kit";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
 
-export { brmemCheckJson } from "@ns/capability-kit/brmem-cli/testing";
+export { brmemCheckJson } from "@nseng-ai/capability-kit/brmem-cli/testing";
 
 export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";

@@ -1,1 +1,1 @@
-export { default } from "@ns/flow/commands/autobranch";
+export { default } from "@nseng-ai/flow/commands/autobranch";

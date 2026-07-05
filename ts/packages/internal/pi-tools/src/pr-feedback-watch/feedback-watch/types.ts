@@ -1,10 +1,13 @@
-import type { ExecOptions, ExecResult } from "@ns/pi/shared/exec-gateway";
+import type { ExecOptions, ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 
-import type { TimerScheduler } from "@ns/core/timers";
-import type { SendMessageOptions, SendUserMessageOptions } from "@ns/pi/shared/message-delivery";
+import type { TimerScheduler } from "@nseng-ai/core/timers";
+import type {
+	SendMessageOptions,
+	SendUserMessageOptions,
+} from "@nseng-ai/pi/shared/message-delivery";
 import type { PrAddressRunner } from "../feedback-download.ts";
 
-export type { ExecOptions, ExecResult } from "@ns/pi/shared/exec-gateway";
+export type { ExecOptions, ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 
 interface CustomMessage {
 	customType: string;
@@ -53,7 +56,7 @@ export interface ExtensionAPI {
 	appendEntry?(customType: string, data?: unknown): void;
 }
 
-export type { ExecGateway } from "@ns/pi/shared/exec-gateway";
+export type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 
 export interface PrFeedbackWatchExtensionOptions {
 	runner?: PrAddressRunner;

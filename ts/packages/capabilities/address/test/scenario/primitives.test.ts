@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import {
 	InMemoryGithubPrFeedbackGateway,

@@ -1,5 +1,5 @@
 import type { RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
-import type { ModelInfo } from "@ns/pi/runtime/types";
+import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 export interface ExecResult {
 	readonly stdout: string;

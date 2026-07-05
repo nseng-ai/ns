@@ -19,7 +19,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@ns/core/typescript-analysis";
+} from "@nseng-ai/core/typescript-analysis";
 import { type PackageMetadata } from "./package-metadata.ts";
 import { type SourceRuleViolation } from "./source-rules.ts";
 
@@ -455,5 +455,5 @@ function isAllowedPiSubpackageCircleEdge(
 	from: TopologyCircleFact,
 	to: TopologyCircleFact,
 ): boolean {
-	return from.tier === "capability" && from.component === "pi" && to.packageName === "@ns/pi";
+	return from.tier === "capability" && from.component === "pi" && to.packageName === "@nseng-ai/pi";
 }

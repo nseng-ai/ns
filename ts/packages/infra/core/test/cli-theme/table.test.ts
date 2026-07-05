@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
-import type { Caps, ColorDepth } from "@ns/clinkr";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { glyph } from "../../src/cli-theme/glyphs.ts";
 import { dim, paint } from "../../src/cli-theme/palette.ts";
 import { type Cell, cell, type Column, kv, renderTable } from "../../src/cli-theme/table.ts";

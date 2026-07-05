@@ -1,1 +1,1 @@
-export { default } from "@ns/branch-context/ns/commands/check";
+export { default } from "@nseng-ai/branch-context/ns/commands/check";

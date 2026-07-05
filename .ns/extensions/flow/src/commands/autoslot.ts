@@ -1,1 +1,1 @@
-export { default } from "@ns/flow/commands/autoslot";
+export { default } from "@nseng-ai/flow/commands/autoslot";

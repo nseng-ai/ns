@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { loadGraphiteMetadataStatus } from "@ns/capability-kit/graphite/status";
+import { loadGraphiteMetadataStatus } from "@nseng-ai/capability-kit/graphite/status";
 import {
 	makeGitRepo,
 	runSqliteStatements,

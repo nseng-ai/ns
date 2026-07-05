@@ -1,4 +1,4 @@
-import { defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
 import type {
 	NsCommandIo,
 	NsExtensionApi,
@@ -6,7 +6,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

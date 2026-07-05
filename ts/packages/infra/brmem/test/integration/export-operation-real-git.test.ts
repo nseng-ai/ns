@@ -4,13 +4,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { NodeCommandExecApi } from "@ns/core/exec";
-import type { StdinCapableCommandExecApi } from "@ns/core/exec";
-import { RealGitGateway } from "@ns/capability-kit/git";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/core/exec";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
-import { createTempGitRepo } from "@ns/capability-kit/git/testing";
+import { createTempGitRepo } from "@nseng-ai/capability-kit/git/testing";
 
 describe("export operation real-Git integration", () => {
 	it("wires public export through RealGitBrmemGateway", async () => {

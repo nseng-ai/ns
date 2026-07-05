@@ -1,7 +1,7 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
 const registerBranchContextExtension = await importTypeScriptWorkspaceDefault(
-	"@ns/branch-context/pi/extension",
+	"@nseng-ai/branch-context/pi/extension",
 );
 
 export default function branchContextProjectExtension(pi) {

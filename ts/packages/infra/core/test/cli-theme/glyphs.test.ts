@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Caps } from "@ns/clinkr";
+import type { Caps } from "@nseng-ai/clinkr";
 import {
 	ellipsisFor,
 	glyph,

@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
 import { prAddressNsCommand } from "./ns-command.ts";
@@ -9,7 +12,7 @@ export const addressRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor(
 	commands: EXEC_OPERATIONS.map((operation) =>
 		repoLocalNsCommandDescriptor({
 			command: prAddressNsCommand(operation.name),
-			packageExportPrefix: "@ns/address/ns/commands",
+			packageExportPrefix: "@nseng-ai/address/ns/commands",
 		}),
 	),
 });

@@ -2,18 +2,18 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { visibleCommandBackedReplacementSurfaces } from "@ns/command-backed-skill-registry";
-import { NodeCommandExecApi } from "@ns/core/exec";
-import { formatErrorMessage } from "@ns/core/primitives";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { visibleCommandBackedReplacementSurfaces } from "@nseng-ai/command-backed-skill-registry";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForSourceType,
 	skillLookupFileRelativePath,
 	type SkillLookupSourceType,
-} from "@ns/pi/skills/lookup";
+} from "@nseng-ai/pi/skills/lookup";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
 import type {

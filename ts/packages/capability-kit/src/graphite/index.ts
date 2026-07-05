@@ -1,5 +1,5 @@
 export const GRAPHITE_PACKAGE_IDENTITY = {
-	packageName: "@ns/capability-kit/graphite",
+	packageName: "@nseng-ai/capability-kit/graphite",
 	vocabularyName: "Graphite support package",
 	visibility: "private-workspace",
 	ownedConcerns: [

@@ -7,13 +7,13 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 ## Top-level packages
 
 - `kernel/` is the ns kernel and CLI package. It stays top-level by design. Some legacy directory names remain as migration residue until a focused path-move slice removes them.
-- `capability-kit/` is the first-party Capability Kit substrate (`@ns/capability-kit`). It stays top-level by design and does not need a category wrapper.
+- `capability-kit/` is the first-party Capability Kit substrate (`@nseng-ai/capability-kit`). It stays top-level by design and does not need a category wrapper.
 - Capability packages move under `capabilities/` either when certified standalone (`plans`, `address`, `aretro`) or during their container conversion slices. Remaining top-level capability packages are migration residue.
 - `ccc` is a capability, not a separate orchestrator category. It moves to `capabilities/ccc` only during its own conversion slice.
 
 ## Category directories
 
-- `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, and Graphite support. The former transitional domain-primitives package has been deleted; shared first-party capability-building primitives now live under precise `@ns/capability-kit/*` subpaths.
+- `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, and Graphite support. The former transitional domain-primitives package has been deleted; shared first-party capability-building primitives now live under precise `@nseng-ai/capability-kit/*` subpaths.
 - `capabilities/` contains first-party capabilities that are already in the category directory, including standalone capabilities and converted/certified capability extensions.
 - `hosts/` contains presentation/runtime hosts such as Pi and `nscc`.
 - `capability-pi/` contains Pi command/presentation packages attached to first-party capabilities. They depend on the owning capability APIs plus neutral Pi host helper subpaths, and project-local `.pi/extensions/*` discovery adapters import them directly.

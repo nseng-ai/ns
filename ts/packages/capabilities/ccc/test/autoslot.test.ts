@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { Caps } from "@ns/clinkr";
-import { stripAnsi } from "@ns/clinkr/testing";
+import type { Caps } from "@nseng-ai/clinkr";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import type { AutoslotCliInput, AutoslotFlowInput } from "../src/ns/autoslot.ts";
 import { createAutoslotFlow, runAutoslotCli } from "../src/ns/autoslot.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";

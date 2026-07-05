@@ -12,9 +12,9 @@ import type {
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
 	GithubStatusChecks,
-} from "@ns/address/api";
-import type { Result } from "@ns/core/result";
-import { createDeferred } from "@ns/core/test-kit";
+} from "@nseng-ai/address/api";
+import type { Result } from "@nseng-ai/core/result";
+import { createDeferred } from "@nseng-ai/core/test-kit";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";

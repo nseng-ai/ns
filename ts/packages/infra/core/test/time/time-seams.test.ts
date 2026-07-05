@@ -4,7 +4,7 @@ import {
 	createManualClock,
 	createManualTimerHarness,
 	createManualTimerScheduler,
-} from "@ns/core/time/testing";
+} from "@nseng-ai/core/time/testing";
 
 describe("manual clock", () => {
 	test("sets and advances wall-clock time deterministically", () => {

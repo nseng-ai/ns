@@ -1,6 +1,9 @@
-import { createNsDomainCommand, type NsDomainCommandOptions } from "@ns/capability-kit/ns-command";
-import { optionalEntry } from "@ns/core/primitives";
-import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@ns/kernel/sdk";
+import {
+	createNsDomainCommand,
+	type NsDomainCommandOptions,
+} from "@nseng-ai/capability-kit/ns-command";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import {
 	createRealBranchContextCliContext,

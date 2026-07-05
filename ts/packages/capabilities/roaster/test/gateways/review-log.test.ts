@@ -1,5 +1,5 @@
-import type { CommandExecApi, ExecOptions } from "@ns/core/command";
-import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/core/command";
+import { ScriptedCommandExecApi } from "@nseng-ai/core/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import { RealReviewLogGateway } from "../../src/gateways/review-log.ts";

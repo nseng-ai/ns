@@ -1,4 +1,4 @@
-import { optionalEntries } from "@ns/core/primitives";
+import { optionalEntries } from "@nseng-ai/core/primitives";
 
 export function keyBranchFilter(options: { key?: string; branch?: string }): {
 	key?: string;

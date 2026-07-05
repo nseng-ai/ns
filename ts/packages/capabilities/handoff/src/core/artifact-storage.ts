@@ -5,9 +5,9 @@ import {
 	type BrmemGateway,
 	type BrmemReadGateway,
 	type BrmemResult,
-} from "@ns/brmem";
-import { optionalEntry } from "@ns/core/primitives";
-import type { GitGateway } from "@ns/capability-kit/git";
+} from "@nseng-ai/brmem";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import {
 	HANDOFF_NAMESPACE,

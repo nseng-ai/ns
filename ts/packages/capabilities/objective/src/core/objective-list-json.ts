@@ -1,4 +1,4 @@
-import { formatZodIssue } from "@ns/core/primitives";
+import { formatZodIssue } from "@nseng-ai/core/primitives";
 
 import {
 	objectiveListResultSchema,

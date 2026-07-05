@@ -4,9 +4,9 @@ import type {
 	ExecOptions,
 	ExecResult,
 	StdinCapableCommandExecApi,
-} from "@ns/core/exec";
+} from "@nseng-ai/core/exec";
 
-import type { NsExecOptions, NsExtensionApi } from "@ns/kernel/sdk";
+import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 export function createNsCommandRunner(ctx: NsExtensionApi): CommandRunner {
 	return async (command, args, options) => {

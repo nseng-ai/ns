@@ -1,6 +1,6 @@
-import type { GraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
-import type { CommandExecApi } from "@ns/core/exec";
-import type { ClinkrFormat } from "@ns/kernel/sdk";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { ClinkrFormat } from "@nseng-ai/kernel/sdk";
 
 import type { ObjectiveCliContext } from "../core/context.ts";
 import type { ChildSessionGateway } from "./child-session.ts";

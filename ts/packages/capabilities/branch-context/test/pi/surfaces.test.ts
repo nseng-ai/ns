@@ -6,7 +6,7 @@ import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "@ns/branch-context/pi";
+} from "@nseng-ai/branch-context/pi";
 
 describe("branch-context Pi command surfaces", () => {
 	test("owns concrete branch-context and saved-plan command constants", () => {

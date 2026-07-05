@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
-import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
+import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
 import {
 	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,

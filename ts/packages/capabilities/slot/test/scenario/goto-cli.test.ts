@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { stripAnsi } from "@ns/clinkr/testing";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SLOT_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";

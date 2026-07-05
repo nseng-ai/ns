@@ -17,9 +17,9 @@ export type {
 	SessionStartContext,
 	ThinkingLevel,
 	UiLike,
-} from "@ns/capability-kit/cmux/types";
+} from "@nseng-ai/capability-kit/cmux/types";
 
-import type { ThinkingLevel } from "@ns/capability-kit/cmux/types";
+import type { ThinkingLevel } from "@nseng-ai/capability-kit/cmux/types";
 
 const THINKING_LEVELS = [
 	"off",

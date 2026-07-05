@@ -1,1 +1,1 @@
-export { default } from "@ns/handoff/ns/commands/delete";
+export { default } from "@nseng-ai/handoff/ns/commands/delete";

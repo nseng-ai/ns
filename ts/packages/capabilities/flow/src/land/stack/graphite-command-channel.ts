@@ -4,9 +4,12 @@ import {
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
 	type ExecResult,
-} from "@ns/core/command";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
+} from "@nseng-ai/core/command";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import {
+	GRAPHITE_COMMAND_NAME,
+	runGraphiteCommand,
+} from "@nseng-ai/capability-kit/graphite/branch";
 import type {
 	CommandInvocation,
 	CommandStreamFinish,

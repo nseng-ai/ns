@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { type CommandExecApi, commandFailureReason, formatCommand } from "@ns/core/command";
-import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { RealGitGateway } from "@ns/capability-kit/git";
+import { type CommandExecApi, commandFailureReason, formatCommand } from "@nseng-ai/core/command";
+import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/core/primitives";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../core/failures.ts";

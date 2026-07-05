@@ -1,5 +1,5 @@
-import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@ns/clinkr";
-import { optionalEntry } from "@ns/core/primitives";
+import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

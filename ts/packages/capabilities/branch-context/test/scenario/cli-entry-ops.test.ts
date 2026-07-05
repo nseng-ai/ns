@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { encodeBranchForPlanPath } from "@ns/plans";
+import { encodeBranchForPlanPath } from "@nseng-ai/plans";
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/core/constants.ts";
 import {
 	PLAN_KEY,

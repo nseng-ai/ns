@@ -3,7 +3,7 @@ import type {
 	StackFork,
 	TrunkMarkerStatus,
 	WalkTermination,
-} from "@ns/capability-kit/graphite/stack";
+} from "@nseng-ai/capability-kit/graphite/stack";
 
 export type GraphiteWalkKind = "ancestor" | "descendant";
 export type GraphiteWalkLabel = "walk" | "selection";

@@ -73,11 +73,11 @@ function isAllowedPiSubpackagePeerEdge(
 	edge: { readonly from: string; readonly to: string; readonly field: string },
 	metadataByName: ReadonlyMap<string, PackageMetadata>,
 ): boolean {
-	if (edge.to !== "@ns/pi" || edge.field !== "peerDependencies") return false;
+	if (edge.to !== "@nseng-ai/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
 	if (metadata?.nsTier !== "capability") return false;
 	if (!metadata.nsSubpackages.includes("pi")) return false;
-	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@ns/pi");
+	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
 }
 
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {

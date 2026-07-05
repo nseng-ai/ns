@@ -1,5 +1,5 @@
-import { optionalEntry } from "@ns/core/primitives";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
 
 import {
 	defineFailureCatalog,

@@ -1,6 +1,6 @@
-import { createNsClinkrInteraction } from "@ns/capability-kit";
-import { confirmInteractiveOrUsageError } from "@ns/clinkr";
-import { renderResultBlock, renderResultBlockFromMessage } from "@ns/core/cli-theme";
+import { createNsClinkrInteraction } from "@nseng-ai/capability-kit";
+import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
+import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/core/cli-theme";
 import {
 	defineExtension,
 	failed,
@@ -8,7 +8,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 import {
 	applyPreparedPrDescriptionUpdate,

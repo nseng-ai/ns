@@ -8,7 +8,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
-import type { NsCommand } from "@ns/kernel/sdk";
+import type { NsCommand } from "@nseng-ai/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),

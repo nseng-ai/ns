@@ -1,1 +1,1 @@
-export { default } from "@ns/flow/commands/push";
+export { default } from "@nseng-ai/flow/commands/push";

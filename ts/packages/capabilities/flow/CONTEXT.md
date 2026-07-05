@@ -1,6 +1,6 @@
-# @ns/flow
+# @nseng-ai/flow
 
-This context captures Flow language for lifecycle commands, the `@ns/flow/api` compatibility seam consumed by CCC, and the current boundary between Flow-owned presentation/orchestration and the `@ns/flow/land` domain core subpackage.
+This context captures Flow language for lifecycle commands, the `@nseng-ai/flow/api` compatibility seam consumed by CCC, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
 
 ## Language
 
@@ -13,27 +13,27 @@ The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, inc
 *Avoid*: land domain core, CCC adapter, standalone land command surface
 
 **Flow Capability API**:
-The curated `@ns/flow/api` in-process compatibility surface consumed by downstream packages, especially CCC, so they do not import Flow private source modules.
-*Avoid*: package-root import, private `@ns/flow/src/...` import, narrowed land-only API, CCC-owned seam
+The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages, especially CCC, so they do not import Flow private source modules.
+*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, CCC-owned seam
 
 **Flow Land Compatibility Boundary**:
-The compatibility rule that land consumers continue to enter through **Flow Capability API** while Flow keeps renderer-independent planning in the `@ns/flow/land` subpackage.
-*Avoid*: direct CCC import from `@ns/flow/land`, direct CCC import from Flow land-stack internals, removing existing `@ns/flow/api` exports during migration
+The compatibility rule that land consumers continue to enter through **Flow Capability API** while Flow keeps renderer-independent planning in the `@nseng-ai/flow/land` subpackage.
+*Avoid*: direct CCC import from `@nseng-ai/flow/land`, direct CCC import from Flow land-stack internals, removing existing `@nseng-ai/flow/api` exports during migration
 
 **Flow Land Execution**:
 The Flow-owned land behavior that still includes command presentation, stack-mode orchestration, prompts, merge execution, Graphite maintenance, and cleanup behavior while land execution remains broader than the land-domain core.
 *Avoid*: fully migrated land capability, pure preflight plan, standalone land CLI behavior
 
 **Land Domain Core**:
-The deterministic land logic in the `@ns/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.
+The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.
 *Avoid*: CLI parser, renderer, Pi command, direct subprocess script
 
 **Land Capability API**:
-The curated `@ns/flow/land/api` surface for Flow internals and land tests to consume domain types and planning entry points.
+The curated `@nseng-ai/flow/land/api` surface for Flow internals and land tests to consume domain types and planning entry points.
 *Avoid*: package-root import, Flow compatibility API, command export
 
 **Land Testing Surface**:
-The `@ns/flow/land/testing` surface that provides in-memory fakes and fixture builders for land-domain tests.
+The `@nseng-ai/flow/land/testing` surface that provides in-memory fakes and fixture builders for land-domain tests.
 *Avoid*: production gateway backend, CLI scenario harness, Flow test helper
 
 **Stack Landing Target**:
@@ -57,7 +57,7 @@ The injected Git, Graphite, GitHub PR, and worktree-slot fact seams that keep **
 *Avoid*: raw `git`/`gt`/`gh` calls, `ctx` bag, CLI dependencies
 
 **Flow Stack Preflight Adapter**:
-The internal Flow adapter that maps Flow's land-stack gateways and current stack facts into `@ns/flow/land` stack preflight planning, then maps the result back to Flow's existing land-stack shapes.
+The internal Flow adapter that maps Flow's land-stack gateways and current stack facts into `@nseng-ai/flow/land` stack preflight planning, then maps the result back to Flow's existing land-stack shapes.
 *Avoid*: public API, CCC integration point, presentation layer
 
 **Flow Submit Boundary**:

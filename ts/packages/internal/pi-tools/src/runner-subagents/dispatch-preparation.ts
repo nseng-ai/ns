@@ -1,6 +1,9 @@
-import type { ExecOptions, ExecResult } from "@ns/core/exec";
+import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
 
-import { composePiAgentPrompt, type PiAgentDefinition } from "@ns/pi/runtime/agent-definition";
+import {
+	composePiAgentPrompt,
+	type PiAgentDefinition,
+} from "@nseng-ai/pi/runtime/agent-definition";
 import {
 	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
@@ -15,7 +18,7 @@ import {
 	type CuratedRunnerSubagentContext,
 } from "./curated-context.ts";
 import { resolveRunnerSubagentLaunch } from "./subagent-process.ts";
-import type { WidgetRuntimeContext } from "@ns/pi/runtime/tool-types";
+import type { WidgetRuntimeContext } from "@nseng-ai/pi/runtime/tool-types";
 import { buildInitialRunnerSubagentUpdate, withRunnerSubagentWidget } from "./widget.ts";
 
 interface PrepareRunnerSubagentFinalTextDispatchInput {

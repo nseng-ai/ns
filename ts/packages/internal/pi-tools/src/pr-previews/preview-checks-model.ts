@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@ns/pi/terminal/presentation";
+import { stripTerminalEscapes } from "@nseng-ai/pi/terminal/presentation";
 
 export type PrPreviewCheckBucket = "failing" | "pending" | "unknown" | "passing";
 export type PrPreviewCheckKind = "check_run" | "status_context" | "unknown";

@@ -1,5 +1,5 @@
-import type { RenderCapabilities } from "@ns/clinkr";
-import { renderTextTable, type TextTableColumn } from "@ns/core/text-table";
+import type { RenderCapabilities } from "@nseng-ai/clinkr";
+import { renderTextTable, type TextTableColumn } from "@nseng-ai/core/text-table";
 
 import type { ArtifactOutputBounds, LoadedBundle } from "./models.ts";
 import { encodeMetrics } from "./models.ts";

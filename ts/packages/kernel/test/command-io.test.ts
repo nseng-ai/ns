@@ -1,4 +1,4 @@
-import { optionalEntries } from "@ns/core/primitives";
+import { optionalEntries } from "@nseng-ai/core/primitives";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -7,8 +7,8 @@ import {
 	createCommandIo,
 	runWithNsCommandIo,
 } from "../src/runtime/command-io.ts";
-import { noopNsProgress } from "@ns/kernel/sdk";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+import { noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 	const commandIo = createCliCommandIo(

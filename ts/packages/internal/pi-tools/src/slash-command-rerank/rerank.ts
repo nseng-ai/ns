@@ -10,7 +10,7 @@
  * above the fuzzy-only remainder (tier 2), stably and without aliases.
  */
 
-import type { AutocompleteItem, AutocompleteSuggestions } from "@ns/pi/runtime/types";
+import type { AutocompleteItem, AutocompleteSuggestions } from "@nseng-ai/pi/runtime/types";
 
 /**
  * The typed query (`next` for `/next`) when `suggestions` is slash-command-NAME

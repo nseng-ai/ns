@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { branchContextAttachNsCommand } from "./commands/attach.ts";
 import { branchContextCheckNsCommand } from "./commands/check.ts";
@@ -23,7 +26,7 @@ export const branchContextRepoLocalNsExtension = defineRepoLocalNsExtensionDescr
 		repoLocalNsCommandDescriptor({
 			command,
 			manifestPath: ["exec", command.name],
-			packageExportPrefix: "@ns/branch-context/ns/commands",
+			packageExportPrefix: "@nseng-ai/branch-context/ns/commands",
 		}),
 	),
 });

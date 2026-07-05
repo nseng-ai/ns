@@ -6,8 +6,8 @@ import {
 	ok,
 	usageError,
 	type ClinkrExit,
-} from "@ns/clinkr";
-import { resultErr, type Result } from "@ns/core/result";
+} from "@nseng-ai/clinkr";
+import { resultErr, type Result } from "@nseng-ai/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

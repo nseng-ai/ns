@@ -1,5 +1,5 @@
 {
-	"name": "@ns/packagechk",
+	"name": "@nseng-ai/packagechk",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,8 +16,8 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/packagechk/test"
 	},
 	"dependencies": {
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

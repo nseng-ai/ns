@@ -1,5 +1,5 @@
 {
-	"name": "@ns/handoff",
+	"name": "@nseng-ai/handoff",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -23,11 +23,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/handoff/test"
 	},
 	"dependencies": {
-		"@ns/brmem": "workspace:*",
-		"@ns/capability-kit": "workspace:*",
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/kernel": "workspace:*",
+		"@nseng-ai/brmem": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {
@@ -40,14 +40,14 @@
 		]
 	},
 	"peerDependencies": {
-		"@ns/pi": "workspace:*"
+		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ns/pi": {
+		"@nseng-ai/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ns/pi": "workspace:*"
+		"@nseng-ai/pi": "workspace:*"
 	}
 }

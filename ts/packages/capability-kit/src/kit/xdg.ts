@@ -11,7 +11,7 @@ export {
 	type XdgDirectoryKind,
 	type XdgPathError,
 	type XdgPathOptions,
-} from "@ns/core/xdg-path";
+} from "@nseng-ai/core/xdg-path";
 
 export async function ensurePrivateDirectory(path: string): Promise<void> {
 	await mkdir(path, { recursive: true, mode: 0o700 });

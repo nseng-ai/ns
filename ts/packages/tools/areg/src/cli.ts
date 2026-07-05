@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup } from "@ns/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@ns/core/cli-runtime";
+import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {

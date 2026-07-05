@@ -13,7 +13,7 @@ import {
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 export const branchContextExtensionParity = definePiSurfaceParity([
 	{
@@ -24,7 +24,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		cli: "enriched-plan exec save",
 		skill: "enriched-plan-save",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/branch-context/pi",
+		sourcePackage: "@nseng-ai/branch-context/pi",
 		sourceModule: "branch-context-extension",
 		notes:
 			"Pi command expands the saved-plan prompt policy and drives the same typed saved-plan file tool.",
@@ -37,7 +37,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		fallback:
 			"Use grill-me or grill-with-docs to settle requirements, then use the enriched-plan-save workflow to write the reviewed plan.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/branch-context/pi",
+		sourcePackage: "@nseng-ai/branch-context/pi",
 		sourceModule: "branch-context-extension",
 		notes:
 			"Structured grill UI is Pi-native; the saved-plan storage path is accounted by write_saved_plan_file.",
@@ -50,7 +50,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		cli: "ns branch-context exec from-plan",
 		skill: "from-plan",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/branch-context/pi",
+		sourcePackage: "@nseng-ai/branch-context/pi",
 		sourceModule: "branch-context-extension",
 		notes:
 			"Pi command delegates to branch-context helpers for source-branch plan selection, branch creation, and attachment.",
@@ -63,7 +63,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		fallback:
 			"Use the from-plan skill to create the branch context, then use branch-context-impl to implement the attached plan.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/branch-context/pi",
+		sourcePackage: "@nseng-ai/branch-context/pi",
 		sourceModule: "branch-context-extension",
 		notes:
 			"Branch-context creation has CLI/skill parity, but the fresh Pi implementation-session launch is Pi-specific orchestration.",
@@ -76,7 +76,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		fallback:
 			"Manually open /new on the current branch and paste/use the saved plan content, or pass an explicit saved plan path to the Pi command when available.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/branch-context/pi",
+		sourcePackage: "@nseng-ai/branch-context/pi",
 		sourceModule: "branch-context-extension",
 		notes:
 			"Saved-plan selection has capability coverage, but the fresh Pi implementation-session launch is Pi-specific orchestration.",
@@ -89,7 +89,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		cli: "ns branch-context exec load",
 		skill: "branch-context-impl",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/branch-context/pi",
+		sourcePackage: "@nseng-ai/branch-context/pi",
 		sourceModule: "branch-context-extension",
 		notes:
 			"Pi command loads the attached plan and expands the portable branch-context implementation skill prompt.",

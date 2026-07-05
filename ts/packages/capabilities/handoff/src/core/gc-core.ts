@@ -1,4 +1,4 @@
-import type { BrmemResult } from "@ns/brmem";
+import type { BrmemResult } from "@nseng-ai/brmem";
 
 import {
 	deleteHandoffArtifact,

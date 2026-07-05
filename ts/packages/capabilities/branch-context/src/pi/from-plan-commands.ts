@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { setRuntimeStatus } from "@ns/pi/runtime/status";
+import {
+	sendCommandProgressOrNotify,
+	registerCommandWithImmediateAck,
+} from "@nseng-ai/pi/commands/ack";
+import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
 	runBranchContextGtUpstackImplLaunch,
@@ -31,13 +34,13 @@ import {
 	type BranchCreationMethod,
 	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
-} from "@ns/branch-context/api";
+} from "@nseng-ai/branch-context/api";
 import {
 	NoSavedPlanAvailableError,
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
-} from "@ns/plans/api";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
+} from "@nseng-ai/plans/api";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,

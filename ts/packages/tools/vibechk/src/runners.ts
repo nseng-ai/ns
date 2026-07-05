@@ -1,5 +1,5 @@
-import { NodeCommandExecApi } from "@ns/core/exec";
-import type { CommandExecApi, ExecResult } from "@ns/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/core/exec";
 
 import { runVibechkCommand } from "./exec-util.ts";
 import type { Metrics } from "./models.ts";

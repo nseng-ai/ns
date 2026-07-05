@@ -1,14 +1,17 @@
-import type { ExecResult } from "@ns/core/command";
+import type { ExecResult } from "@nseng-ai/core/command";
 import {
 	combinedGitCommandOutput,
 	isGitRebaseInProgressOutput,
 } from "../submit/git-operation-output.ts";
-import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
+import {
+	sendCommandProgressOrNotify,
+	registerCommandWithImmediateAck,
+} from "@nseng-ai/pi/commands/ack";
 
-import { buildFencedTextBlock } from "@ns/core/primitives";
-import { formatCommandOutput, notifyCommandUi } from "@ns/pi/commands/helpers";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
-import { expandRepoSkillBlock } from "@ns/pi/skills/expansion";
+import { buildFencedTextBlock } from "@nseng-ai/core/primitives";
+import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
+import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 
 import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
 import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";
@@ -25,7 +28,7 @@ export const smartRestackParity = definePiSurfaceParity([
 		fallback:
 			"Claude Code, Codex, and other non-Pi users should invoke the portable `code-gt-restack-resolve` skill directly; it runs the same Graphite restack workflow from the current repository state.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/flow/pi",
+		sourcePackage: "@nseng-ai/flow/pi",
 		sourceModule: "smart-restack",
 		notes:
 			"This Pi-native command is a turn-saving UI wrapper over the portable code-gt-restack-resolve skill; the skill remains the cross-harness workflow contract.",

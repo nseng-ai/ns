@@ -1,4 +1,4 @@
-import { requireXdgPath, resolveNsXdgPath } from "@ns/capability-kit/xdg";
+import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/capability-kit/xdg";
 
 import {
 	resolveClinkrInteraction,
@@ -7,10 +7,10 @@ import {
 	type ClinkrInteraction,
 	type ConfirmationPromptFormatter,
 	type RenderCapabilities,
-} from "@ns/clinkr";
-import { paint } from "@ns/core/cli-theme";
-import { readStdinLine } from "@ns/core/cli-runtime";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+} from "@nseng-ai/clinkr";
+import { paint } from "@nseng-ai/core/cli-theme";
+import { readStdinLine } from "@nseng-ai/core/cli-runtime";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
@@ -18,7 +18,7 @@ import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateway
 import {
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
-} from "@ns/capability-kit/graphite/stack";
+} from "@nseng-ai/capability-kit/graphite/stack";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import {

@@ -7,8 +7,8 @@ function sortedKeys(value: object): string[] {
 }
 
 test("virtual SDK module mirrors SDK runtime value exports", async () => {
-	const sdkModule = await import("@ns/kernel/sdk");
-	const virtualModule = await createNsJiti().import<typeof sdkModule>("@ns/kernel/sdk");
+	const sdkModule = await import("@nseng-ai/kernel/sdk");
+	const virtualModule = await createNsJiti().import<typeof sdkModule>("@nseng-ai/kernel/sdk");
 	const sdkKeys = sortedKeys(sdkModule);
 
 	expect(sortedKeys(virtualModule)).toEqual(sdkKeys);

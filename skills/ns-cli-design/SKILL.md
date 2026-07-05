@@ -24,7 +24,7 @@ Out of scope: structural/DRY cleanup of CLI code and shell completion.
 
 Decision provenance: `docs/research/agent-era-cli-design-survey.md`, the Clinkr gap audit
 (`.ns/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`),
-and ADRs `docs/adr/0010`–`0015`. Exact `@ns/clinkr` surfaces and ADR rationale
+and ADRs `docs/adr/0010`–`0015`. Exact `@nseng-ai/clinkr` surfaces and ADR rationale
 live in `references/clinkr-api-map.md`. A command is **done only when every item
 in `references/checklist.md` passes**.
 

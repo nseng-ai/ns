@@ -1,6 +1,6 @@
-import { failure, ok, type RenderCapabilities } from "@ns/clinkr";
-import { optionalEntries } from "@ns/core/primitives";
-import { renderTextTable } from "@ns/core/text-table";
+import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { optionalEntries } from "@nseng-ai/core/primitives";
+import { renderTextTable } from "@nseng-ai/core/text-table";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

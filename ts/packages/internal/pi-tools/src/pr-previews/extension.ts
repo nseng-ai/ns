@@ -1,23 +1,23 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { ExecOptions, ExecResult } from "@ns/core/exec";
-import { formatZodError } from "@ns/core/primitives";
-import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { parseCliCommandArgs } from "@ns/pi/commands/args";
-import type { PiModelRegistryLike } from "@ns/pi/models/call";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import { formatZodError } from "@nseng-ai/core/primitives";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { parseCliCommandArgs } from "@nseng-ai/pi/commands/args";
+import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import type {
 	PiCommandContext,
 	PiCommandHost,
 	PiCommandRegistration,
-} from "@ns/pi/runtime/command-host";
-import { parseMachineEnvelopeDataWithFailureData } from "@ns/pi/runtime/machine-envelope";
+} from "@nseng-ai/pi/runtime/command-host";
+import { parseMachineEnvelopeDataWithFailureData } from "@nseng-ai/pi/runtime/machine-envelope";
 import { z } from "zod";
 
 import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
 
-export type { ExecOptions, ExecResult } from "@ns/core/exec";
+export type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
 
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
 export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";

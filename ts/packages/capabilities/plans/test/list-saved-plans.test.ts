@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
-import type { CommandExecApi, ExecOptions } from "@ns/core/exec";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/core/exec";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,

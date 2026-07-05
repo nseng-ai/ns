@@ -2,18 +2,18 @@ import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { addressRepoLocalNsExtension } from "@ns/address/repo-local-ns-extension";
-import { aretroRepoLocalNsExtension } from "@ns/aretro/repo-local-ns-extension";
-import { branchContextRepoLocalNsExtension } from "@ns/branch-context/repo-local-ns-extension";
-import { flowRepoLocalNsExtension } from "@ns/flow/repo-local-ns-extension";
-import { handoffRepoLocalNsExtension } from "@ns/handoff/repo-local-ns-extension";
-import { objectiveRepoLocalNsExtension } from "@ns/objective/repo-local-ns-extension";
-import { objectivePreinstalledNsCommandCatalog } from "@ns/objective/ns/preinstalled-catalog";
-import { roasterRepoLocalNsExtension } from "@ns/roaster/repo-local-ns-extension";
+import { addressRepoLocalNsExtension } from "@nseng-ai/address/repo-local-ns-extension";
+import { aretroRepoLocalNsExtension } from "@nseng-ai/aretro/repo-local-ns-extension";
+import { branchContextRepoLocalNsExtension } from "@nseng-ai/branch-context/repo-local-ns-extension";
+import { flowRepoLocalNsExtension } from "@nseng-ai/flow/repo-local-ns-extension";
+import { handoffRepoLocalNsExtension } from "@nseng-ai/handoff/repo-local-ns-extension";
+import { objectiveRepoLocalNsExtension } from "@nseng-ai/objective/repo-local-ns-extension";
+import { objectivePreinstalledNsCommandCatalog } from "@nseng-ai/objective/ns/preinstalled-catalog";
+import { roasterRepoLocalNsExtension } from "@nseng-ai/roaster/repo-local-ns-extension";
 import type {
 	RepoLocalNsExtensionCommandDescriptor,
 	RepoLocalNsExtensionDescriptor,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 import {
 	discoverNsPackageCommands,
 	type DiscoveredExtensionCommand,
@@ -95,7 +95,7 @@ describe("repo-local ns extension manifest parity", () => {
 			),
 		).toBe(true);
 		expect(actualCommands).toEqual(expectedCommands);
-		expect(JSON.stringify(objectivePreinstalledNsCommandCatalog)).not.toContain("@ns/ccc/");
+		expect(JSON.stringify(objectivePreinstalledNsCommandCatalog)).not.toContain("@nseng-ai/ccc/");
 	});
 
 	for (const descriptor of REPO_LOCAL_EXTENSION_DESCRIPTORS) {

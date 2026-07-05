@@ -1,9 +1,9 @@
 // ADR0024-LEGACY-DELETE(whole file): tests for the legacy blocking runner-step machinery.
 import { describe, expect, test } from "vitest";
 
-import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@ns/clinkr";
-import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
-import { optionalEntries } from "@ns/core/primitives";
+import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@nseng-ai/clinkr";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
+import { optionalEntries } from "@nseng-ai/core/primitives";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";

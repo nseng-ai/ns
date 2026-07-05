@@ -15,7 +15,7 @@ import {
 	savedPlanEvidence,
 	sourcePlanToolResultEntry,
 } from "./branch-context-extension-support.ts";
-import type { SelectedSavedPlanFile } from "@ns/plans/api";
+import type { SelectedSavedPlanFile } from "@nseng-ai/plans/api";
 
 describe("saved-plan current-branch implementation command", () => {
 	test("registers /ns:plan:impl-current and shows usage without mutation", async () => {

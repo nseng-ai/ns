@@ -1,15 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
-import type { ExecResult } from "@ns/core/exec";
-import type { NsExecOptions, NsExtensionApi } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { ExecResult } from "@nseng-ai/core/exec";
+import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import {
 	createNsCommandRunner,
 	NsCommandExecApi,
 	NsStdinCapableCommandExecApi,
-} from "@ns/capability-kit/command-runner";
-import { execNsGit, readNsGitPorcelainStatus } from "@ns/capability-kit/git";
+} from "@nseng-ai/capability-kit/command-runner";
+import { execNsGit, readNsGitPorcelainStatus } from "@nseng-ai/capability-kit/git";
 
 interface ExecCall {
 	command: string;

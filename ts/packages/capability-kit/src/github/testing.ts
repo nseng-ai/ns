@@ -1,4 +1,4 @@
-import { optionalEntries } from "@ns/core/primitives";
+import { optionalEntries } from "@nseng-ai/core/primitives";
 
 export interface GithubCheckRunFixture {
 	readonly workflowName: string;

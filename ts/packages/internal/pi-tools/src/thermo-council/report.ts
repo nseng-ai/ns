@@ -1,4 +1,4 @@
-import { buildFencedTextBlock } from "@ns/core/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/core/primitives";
 
 import {
 	SAFETY_NOTE,

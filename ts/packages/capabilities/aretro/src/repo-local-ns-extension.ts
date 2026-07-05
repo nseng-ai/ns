@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { aretroExecCollectEvidenceNsCommand } from "./ns/commands/exec-collect-evidence.ts";
 import { aretroExecReadEvidenceDetailNsCommand } from "./ns/commands/exec-read-evidence-detail.ts";
@@ -10,7 +13,7 @@ export const aretroRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 		(command) =>
 			repoLocalNsCommandDescriptor({
 				command,
-				packageExportPrefix: "@ns/aretro/ns/commands",
+				packageExportPrefix: "@nseng-ai/aretro/ns/commands",
 			}),
 	),
 });

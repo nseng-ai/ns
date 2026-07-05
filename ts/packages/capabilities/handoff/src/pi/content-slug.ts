@@ -1,5 +1,5 @@
-import { formatOutputSection } from "@ns/core/command";
-import { deriveSlugWithModel, type SlugModelEvidence } from "@ns/capability-kit/model-slug";
+import { formatOutputSection } from "@nseng-ai/core/command";
+import { deriveSlugWithModel, type SlugModelEvidence } from "@nseng-ai/capability-kit/model-slug";
 import { parseFlatHandoffSlug } from "../api/index.ts";
 import type { ExtensionAPI } from "./runtime-types.ts";
 

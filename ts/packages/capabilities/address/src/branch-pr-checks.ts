@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
 import { collectBranchPrChecks, type BranchPrChecksCollection } from "./core/branch-pr-checks.ts";
 import { branchPrMappingGapsMessage, hasBranchPrMappingGaps } from "./core/branch-pr-mapping.ts";
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { createDeferred } from "@ns/core/test-kit";
+import { createDeferred } from "@nseng-ai/core/test-kit";
 
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";
 import { createHandoffSelfWorkflow } from "../../src/pi/self.ts";

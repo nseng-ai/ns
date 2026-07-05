@@ -1,14 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import { buildStackLandingPlan, executeLanding } from "@ns/flow/land/api";
-import { createInMemoryLandContext, pullRequestFacts, stackSnapshot } from "@ns/flow/land/testing";
+import { buildStackLandingPlan, executeLanding } from "@nseng-ai/flow/land/api";
+import {
+	createInMemoryLandContext,
+	pullRequestFacts,
+	stackSnapshot,
+} from "@nseng-ai/flow/land/testing";
 
 const ROOT = "/repo";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SHA_PR_OLD = "1111111111111111111111111111111111111111";
 
-describe("@ns/flow land stack preflight planning", () => {
+describe("@nseng-ai/flow land stack preflight planning", () => {
 	test("builds a renderer-independent dry-run outcome without merge mutations", async () => {
 		const { context, git, graphite } = createInMemoryLandContext({
 			git: {

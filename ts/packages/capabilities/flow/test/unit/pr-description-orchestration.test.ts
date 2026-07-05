@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	GENERATED_BODY_MARKER,
 	formatManagedGeneratedRegion,
@@ -13,7 +13,7 @@ import {
 	type PromptSource,
 	type StablePatchIdForPrResult,
 } from "../../src/submit/index.ts";
-import { ScriptedTextGenerator } from "@ns/capability-kit/text-generation/testing";
+import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 
 const PROMPT_SOURCE: PromptSource = { type: "builtin" };
 const GENERATION = {

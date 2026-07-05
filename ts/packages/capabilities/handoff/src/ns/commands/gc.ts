@@ -1,4 +1,4 @@
-import { defineExtension } from "@ns/kernel/sdk";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 import { handoffNsCommand } from "../command.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../../core/operations/gc.ts";

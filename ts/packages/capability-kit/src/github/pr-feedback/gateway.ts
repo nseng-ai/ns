@@ -1,10 +1,14 @@
 import type { z } from "zod";
 
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
-import type { CommandRunner, ExecResult } from "@ns/core/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/core/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
-import { optionalEntry, type MaybePromise, type ExplicitUndefined } from "@ns/core/primitives";
-import type { Result } from "@ns/core/result";
+import {
+	optionalEntry,
+	type MaybePromise,
+	type ExplicitUndefined,
+} from "@nseng-ai/core/primitives";
+import type { Result } from "@nseng-ai/core/result";
 
 import {
 	branchPrChecksArgs,

@@ -5,8 +5,8 @@ import {
 	resolveRenderCapabilities,
 	type ClinkrExit,
 	type RenderCapabilities,
-} from "@ns/clinkr";
-import { renderResultBlock } from "@ns/core/cli-theme";
+} from "@nseng-ai/clinkr";
+import { renderResultBlock } from "@nseng-ai/core/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

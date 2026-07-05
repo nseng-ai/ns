@@ -1,5 +1,5 @@
 {
-	"name": "@ns/branch-context",
+	"name": "@nseng-ai/branch-context",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -26,24 +26,24 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
-		"@ns/brmem": "workspace:*",
-		"@ns/capability-kit": "workspace:*",
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/kernel": "workspace:*",
-		"@ns/plans": "workspace:*",
+		"@nseng-ai/brmem": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/plans": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {
-		"@ns/pi": "workspace:*"
+		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ns/pi": {
+		"@nseng-ai/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ns/pi": "workspace:*"
+		"@nseng-ai/pi": "workspace:*"
 	},
 	"ns": {
 		"tier": "capability",

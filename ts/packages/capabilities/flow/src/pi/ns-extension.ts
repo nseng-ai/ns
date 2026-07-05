@@ -1,12 +1,12 @@
-import { nsCommandSurface } from "@ns/core/command";
-import { runCli, type NsCommandInfo } from "@ns/kernel/cli";
+import { nsCommandSurface } from "@nseng-ai/core/command";
+import { runCli, type NsCommandInfo } from "@nseng-ai/kernel/cli";
 import { PUSH_COMMAND_SUMMARY } from "../ns/commands/push.ts";
 
 import {
 	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
-} from "@ns/pi/commands/cli-extension";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+} from "@nseng-ai/pi/commands/cli-extension";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 export type NsExtensionAPI = CliCommandExtensionAPI;
 
@@ -62,7 +62,7 @@ export const nsExtensionParity = definePiSurfaceParity(
 		parity: "FULL" as const,
 		cli: `ns ${command.displayName}`,
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/flow/pi" as const,
+		sourcePackage: "@nseng-ai/flow/pi" as const,
 		sourceModule: "ns-extension",
 		notes: `Pi command delegates to ns ${command.displayName} through registerCliCommandExtension; flat lifecycle mirrors are intentionally not registered.`,
 	})),

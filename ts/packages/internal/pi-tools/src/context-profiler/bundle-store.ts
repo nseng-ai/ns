@@ -10,7 +10,7 @@ import {
 	type BundleSnapshot,
 	type PersistedBundle,
 } from "./bundle.ts";
-import { errorMessage } from "@ns/pi/shared/errors";
+import { errorMessage } from "@nseng-ai/pi/shared/errors";
 
 export type PersistBundleResult =
 	| { ok: true; value: PersistedBundle }

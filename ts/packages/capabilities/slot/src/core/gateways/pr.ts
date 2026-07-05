@@ -1,6 +1,6 @@
-import { NodeCommandExecApi } from "@ns/core/exec";
-import type { CommandExecApi, ExecResult } from "@ns/core/command";
-import { runGitHubCliAsExecResult } from "@ns/capability-kit/github/cli";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/core/command";
+import { runGitHubCliAsExecResult } from "@nseng-ai/capability-kit/github/cli";
 import { z } from "zod";
 
 import {
@@ -9,7 +9,7 @@ import {
 	type SlotDiagnosticSink,
 } from "../diagnostics.ts";
 import { parseJsonObject } from "../json.ts";
-import { optionalEntry, type ExplicitUndefined } from "@ns/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;

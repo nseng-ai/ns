@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@ns/core/model-slug";
+import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@nseng-ai/core/model-slug";
 import {
 	buildSlugModelArgs,
 	deriveSlugWithModel,
 	type SlugModelCommandResult,
 	type SlugModelExecOptions,
-} from "@ns/capability-kit/model-slug";
+} from "@nseng-ai/capability-kit/model-slug";
 
 interface ExecCall {
 	command: string;

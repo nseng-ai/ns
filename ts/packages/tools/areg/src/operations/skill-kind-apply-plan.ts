@@ -1,4 +1,4 @@
-import { err, type Result } from "@ns/core/result";
+import { err, type Result } from "@nseng-ai/core/result";
 
 import type {
 	AregSkillKindDeletePlan,

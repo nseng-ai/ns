@@ -1,5 +1,5 @@
-import { formatErrorMessage, formatZodIssue, optionalEntry } from "@ns/core/primitives";
-import { resultErr, type Result } from "@ns/core/result";
+import { formatErrorMessage, formatZodIssue, optionalEntry } from "@nseng-ai/core/primitives";
+import { resultErr, type Result } from "@nseng-ai/core/result";
 import { z } from "zod";
 
 import type { AregTextFileState } from "../gateways.ts";

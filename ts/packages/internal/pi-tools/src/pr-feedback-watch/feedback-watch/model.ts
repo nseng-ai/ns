@@ -1,4 +1,4 @@
-import type { GithubPrIdentity } from "@ns/capability-kit/github/identity";
+import type { GithubPrIdentity } from "@nseng-ai/capability-kit/github/identity";
 
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
 

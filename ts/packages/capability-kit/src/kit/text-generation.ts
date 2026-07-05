@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL_REF } from "@ns/core/model-slug";
+import { DEFAULT_FAST_MODEL_REF } from "@nseng-ai/core/model-slug";
 
 export interface TextGenerationRequest {
 	modelRef: string;

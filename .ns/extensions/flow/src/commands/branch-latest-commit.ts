@@ -1,1 +1,1 @@
-export { default } from "@ns/flow/commands/branch-latest-commit";
+export { default } from "@nseng-ai/flow/commands/branch-latest-commit";

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
-import { stripAnsi } from "@ns/clinkr/testing";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,

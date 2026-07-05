@@ -1,5 +1,8 @@
-import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { formatImplBranchContextCommand } from "@ns/branch-context/pi";
+import {
+	makeCommandProgressNotifier,
+	registerCommandWithImmediateAck,
+} from "@nseng-ai/pi/commands/ack";
+import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
 import {
 	CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
 	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
@@ -7,7 +10,7 @@ import {
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
 } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const WORKSPACE_COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
 const SURFACE_COMMAND_NAME = CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME;

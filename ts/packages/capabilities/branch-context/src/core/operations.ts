@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@ns/clinkr";
-import { runOperationCommand, type CliEntrypointDeps } from "@ns/core/cli-runtime";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
-import { normalizePlanFilePath, validatePlanSlug } from "@ns/plans";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { runOperationCommand, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { normalizePlanFilePath, validatePlanSlug } from "@nseng-ai/plans";
 import { z } from "zod";
 
 import {

@@ -4,14 +4,14 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	piExecApiToCommandExecApi,
-} from "@ns/core/command";
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
+} from "@nseng-ai/core/command";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
-} from "@ns/capability-kit/git";
-import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
-import { optionalEntry } from "@ns/core/primitives";
+} from "@nseng-ai/capability-kit/git";
+import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 
 import { CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME } from "./command-surfaces.ts";
 import {
@@ -22,8 +22,8 @@ import {
 	runText,
 	type BranchCreateResult,
 } from "./dispatch-prompt.ts";
-import type { SlotClient } from "@ns/slot/api";
-import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { SlotClient } from "@nseng-ai/slot/api";
+import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;

@@ -1,9 +1,9 @@
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
 import {
 	launchFocusedCmuxTab,
 	type CmuxTabLaunchStage,
-} from "@ns/capability-kit/cmux/focused-terminal-tab";
-import { setRuntimeStatus } from "@ns/pi/runtime/status";
+} from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
+import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import type { HandoffLaunchParams } from "./launch-flow.ts";
 import type { ExecResult, ModelInfo, ThinkingLevel } from "./runtime-types.ts";
 

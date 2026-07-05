@@ -1,5 +1,5 @@
-import { createCommandIo } from "@ns/kernel/command-io";
-import type { NsCommandIo, NsNotifyLevel } from "@ns/kernel/sdk";
+import { createCommandIo } from "@nseng-ai/kernel/command-io";
+import type { NsCommandIo, NsNotifyLevel } from "@nseng-ai/kernel/sdk";
 
 interface PiCommandIoContext {
 	ui: {

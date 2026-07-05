@@ -1,6 +1,6 @@
-import { optionalEntry } from "@ns/core/primitives";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
 
 import {
 	isGitPorcelainUnmergedStatus,

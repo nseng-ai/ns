@@ -1,5 +1,5 @@
-import { usageError, type ClinkrExit, type RenderCapabilities } from "@ns/clinkr";
-import { defineExtension } from "@ns/kernel/sdk";
+import { usageError, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 import { z } from "zod";
 
 import { objectiveNsCommand } from "../command.ts";

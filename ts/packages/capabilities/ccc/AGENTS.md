@@ -1,4 +1,4 @@
-# @ns/ccc Agent Notes
+# @nseng-ai/ccc Agent Notes
 
 ## Cross CLI/Pi Progress Output
 

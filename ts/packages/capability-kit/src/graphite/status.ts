@@ -13,9 +13,9 @@ import {
 	type SqliteJsonError,
 } from "./metadata.ts";
 import { readLocalBranchRefs, type LocalBranchRefReadResult } from "../git/local-ref-reader.ts";
-import { isRecord, type ExplicitUndefined } from "@ns/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
-import { systemTimerScheduler } from "@ns/core/time";
+import { isRecord, type ExplicitUndefined } from "@nseng-ai/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
+import { systemTimerScheduler } from "@nseng-ai/core/time";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",

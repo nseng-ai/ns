@@ -1,5 +1,5 @@
-import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
-import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
+import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,10 +13,10 @@ import {
 	createBranchContextContext,
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
-} from "@ns/branch-context/api";
-import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
-import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@ns/core/command";
-import { ScriptedQueue } from "@ns/core/test-kit";
+} from "@nseng-ai/branch-context/api";
+import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@nseng-ai/core/command";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
 import {
 	buildRepoPlanStoreKey,
 	buildSavedPlanContentSlugPrompt,
@@ -24,7 +24,7 @@ import {
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,
 	type SelectedSavedPlanFile,
-} from "@ns/plans/api";
+} from "@nseng-ai/plans/api";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	type BranchContextExtensionOptions,
@@ -35,7 +35,7 @@ import {
 	type ToolDefinition,
 } from "../../src/pi/extension.ts";
 
-export { brmemCheckJson as brmemCheckEnvelope } from "@ns/capability-kit/brmem-cli/testing";
+export { brmemCheckJson as brmemCheckEnvelope } from "@nseng-ai/capability-kit/brmem-cli/testing";
 
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../../../..");

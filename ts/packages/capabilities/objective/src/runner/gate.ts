@@ -1,5 +1,5 @@
-import type { GitCurrentBranchResult } from "@ns/capability-kit/git";
-import { commandSucceeded, formatCommandDetails } from "@ns/core/exec";
+import type { GitCurrentBranchResult } from "@nseng-ai/capability-kit/git";
+import { commandSucceeded, formatCommandDetails } from "@nseng-ai/core/exec";
 import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";

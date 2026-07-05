@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GithubPrFeedbackFailure } from "@ns/address/api";
+import type { GithubPrFeedbackFailure } from "@nseng-ai/address/api";
 
 import { mapBranchesToOpenPrs } from "../../src/core/branch-pr-mapping.ts";
 import {

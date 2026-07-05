@@ -1,7 +1,7 @@
 import {
 	formatPendingWorktreeCommandDetails,
 	type PendingWorktreeError,
-} from "@ns/capability-kit/pending-worktree";
+} from "@nseng-ai/capability-kit/pending-worktree";
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
 	const details = formatPendingWorktreeCommandDetails(error.result);

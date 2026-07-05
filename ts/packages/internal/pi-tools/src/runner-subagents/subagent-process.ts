@@ -5,20 +5,20 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import type { Clock } from "@ns/core/clock";
-import { systemClock } from "@ns/core/time";
-import { formatErrorMessage } from "@ns/core/primitives";
-import { BoundedTextTailBuffer } from "@ns/core/text-tail-buffer";
-import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
-import { systemTimerScheduler } from "@ns/core/time";
+import type { Clock } from "@nseng-ai/core/clock";
+import { systemClock } from "@nseng-ai/core/time";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { BoundedTextTailBuffer } from "@nseng-ai/core/text-tail-buffer";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
+import { systemTimerScheduler } from "@nseng-ai/core/time";
 import {
 	inferModelProviderFamily,
 	MODEL_PROVIDER_FAMILY_INFO,
 	parseModelRef,
 	providerMatchesModelProviderFamily,
-} from "@ns/core/model-slug";
+} from "@nseng-ai/core/model-slug";
 
-import type { ModelInfo } from "@ns/pi/runtime/types";
+import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,

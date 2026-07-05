@@ -1,4 +1,4 @@
-import type { ExecResult } from "@ns/core/command";
+import type { ExecResult } from "@nseng-ai/core/command";
 import type {
 	CommandResult,
 	PendingWorktreeSnapshot,

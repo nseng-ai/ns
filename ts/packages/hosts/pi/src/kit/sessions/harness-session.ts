@@ -1,5 +1,5 @@
-import { shellQuote } from "@ns/core/exec";
-import { truncatedSha256Digest } from "@ns/core/primitives";
+import { shellQuote } from "@nseng-ai/core/exec";
+import { truncatedSha256Digest } from "@nseng-ai/core/primitives";
 
 const HARNESS_SESSION_ENTRY_TYPE = "ns-harness-session-id";
 const HARNESS_SESSION_ENV = "HARNESS_SESSION_ID";

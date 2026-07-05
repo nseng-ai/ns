@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { registerCccClaudePlanTabCommand } from "./claude-plan-tab.ts";
 import { registerCccSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
 import { registerCccSlotDispatchPromptCommand } from "./dispatch-prompt.ts";

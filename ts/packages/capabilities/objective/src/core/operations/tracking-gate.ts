@@ -1,4 +1,4 @@
-import { failure, negative, ok, usageError, type ClinkrExit } from "@ns/clinkr";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

@@ -1,12 +1,12 @@
-# @ns/kernel
+# @nseng-ai/kernel
 
-`@ns/kernel` owns the `ns` CLI host and the `@ns/kernel/sdk` author API. The kernel is a generic extension loader and command runtime: it discovers command metadata, applies precedence, loads only the selected command contribution, builds execution context, and delegates behavior to the owning extension or capability package.
+`@nseng-ai/kernel` owns the `ns` CLI host and the `@nseng-ai/kernel/sdk` author API. The kernel is a generic extension loader and command runtime: it discovers command metadata, applies precedence, loads only the selected command contribution, builds execution context, and delegates behavior to the owning extension or capability package.
 
 ## Language
 
 **ns kernel**:
 The host layer of the `ns` CLI: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, execution context construction, shell completion, shell integration, and the public author SDK. The kernel stays small and does not own workflow policy unless repeated command evidence proves a reusable host service belongs here.
-*Avoid*: repository workflow command bundle, capability implementation owner, Graphite/GitHub policy owner, hidden task database, synonym for all `@ns/*` packages.
+*Avoid*: repository workflow command bundle, capability implementation owner, Graphite/GitHub policy owner, hidden task database, synonym for all `@nseng-ai/*` packages.
 
 **ns command surface**:
 The user-facing CLI path contributed by a built-in host command or an extension command entry. The kernel routes command paths generically; the package that contributes a command owns its capability-specific semantics.
@@ -49,19 +49,19 @@ The ordering used to resolve duplicate command keys: built-in host commands < pr
 *Avoid*: fallback alias, load-order accident, capability priority scheme.
 
 **ns extension API**:
-The concrete `@ns/kernel/sdk` subpath used by extension authors. It exposes `defineExtension()`, command/result types and helpers, execution-context capabilities, schema builder `z`, and curated lower-package re-exports owned as SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative export inventory.
+The concrete `@nseng-ai/kernel/sdk` subpath used by extension authors. It exposes `defineExtension()`, command/result types and helpers, execution-context capabilities, schema builder `z`, and curated lower-package re-exports owned as SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative export inventory.
 *Avoid*: unqualified extension API, Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals.
 
 **Public author API**:
-The abstract promise that extension authors have a stable import surface. The `ns extension API` (`@ns/kernel/sdk`) is its current concrete surface.
-*Avoid*: every `@ns/kernel` subpath, internal workspace export, capability package API, lower-package helper.
+The abstract promise that extension authors have a stable import surface. The `ns extension API` (`@nseng-ai/kernel/sdk`) is its current concrete surface.
+*Avoid*: every `@nseng-ai/kernel` subpath, internal workspace export, capability package API, lower-package helper.
 
 **Internal workspace export**:
-An `@ns/kernel` subpath shared across first-party workspace packages for kernel-owned implementation seams, but not promised through the Public author API. Package metadata records these subpaths under `ns.internalWorkspaceExports`.
+An `@nseng-ai/kernel` subpath shared across first-party workspace packages for kernel-owned implementation seams, but not promised through the Public author API. Package metadata records these subpaths under `ns.internalWorkspaceExports`.
 *Avoid*: plugin API, public SDK, command-author import path, capability domain home.
 
 **Capability API**:
-A curated typed programmatic export owned by a capability package and consumed in-process by downstream packages. Capability APIs are separate from kernel-loaded command entries and from `@ns/kernel/sdk`.
+A curated typed programmatic export owned by a capability package and consumed in-process by downstream packages. Capability APIs are separate from kernel-loaded command entries and from `@nseng-ai/kernel/sdk`.
 *Avoid*: command contribution, kernel dependency resolver, package-private module, CLI invocation of a provider.
 
 **Gateway-injected capability core**:

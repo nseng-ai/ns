@@ -10,7 +10,7 @@ import {
 	type AgentSessionEventListener,
 	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
-import { errorMessage } from "@ns/pi/shared/errors";
+import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { INTERROGATION_TOOLS } from "./interrogation-prompt.ts";
 
 export type InterrogationEvent =

@@ -1,12 +1,12 @@
 // CCC-local facade for the `autoslot` workflow's durable outcomes.
 //
 // `autoslot` (autobranch + slot checkout) is orchestrated in CCC and reports typed settled facts here,
-// while the generic finite block layout now lives in `@ns/core/cli-theme` because the repeated shape was
+// while the generic finite block layout now lives in `@nseng-ai/core/cli-theme` because the repeated shape was
 // proven across Flow and CCC. This module keeps autoslot's domain-local type name and owns the mapping
 // from CCC outcome facts to that shared layout.
 
-import type { Caps } from "@ns/clinkr";
-import { renderResultBlock } from "@ns/core/cli-theme";
+import type { Caps } from "@nseng-ai/clinkr";
+import { renderResultBlock } from "@nseng-ai/core/cli-theme";
 
 /**
  * The visual intent of an autoslot outcome. Distinct from the `NsCommandIo` notify level (which owns

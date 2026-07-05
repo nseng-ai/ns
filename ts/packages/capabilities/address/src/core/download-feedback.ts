@@ -1,4 +1,4 @@
-import type { GitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type {
 	GithubPrDiscussionComment,

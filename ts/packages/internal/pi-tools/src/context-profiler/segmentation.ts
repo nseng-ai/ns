@@ -26,7 +26,7 @@ import {
 	type ProfileSnapshot,
 	type TurnRange,
 } from "./model.ts";
-import { parseLmJson } from "@ns/pi/models/lm-json";
+import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 
 /** Fixed analysis model — never the session's main model. */
 export const SEGMENTATION_PROVIDER = "openai-codex";

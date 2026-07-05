@@ -1,1 +1,1 @@
-export { default } from "@ns/aretro/ns/commands/exec-read-evidence-detail";
+export { default } from "@nseng-ai/aretro/ns/commands/exec-read-evidence-detail";

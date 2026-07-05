@@ -4,8 +4,8 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@ns/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
+} from "@nseng-ai/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
 import claudeExtension, { claudeHandoffParity } from "../../src/pi/claude-extension.ts";
 import handoffExtension, { handoffParity } from "../../src/pi/extension.ts";
 

@@ -1,5 +1,5 @@
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { clamp } from "@ns/pi/terminal/layout";
+import { clamp } from "@nseng-ai/pi/terminal/layout";
 import type { InterrogationScope } from "./model.ts";
 import { scopeLabel } from "./interrogation-prompt.ts";
 import type { TranscriptEntry, TranscriptState } from "./interrogation-transcript.ts";

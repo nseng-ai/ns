@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
-import { formatCommand, piExecApiToCommandExecApi } from "@ns/core/command";
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
-import { RealGitGateway, type GitLocalBranchTip } from "@ns/capability-kit/git";
-import { reconcileTopologyToLiveBranches } from "@ns/capability-kit/graphite/metadata";
+import { formatCommand, piExecApiToCommandExecApi } from "@nseng-ai/core/command";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+import { RealGitGateway, type GitLocalBranchTip } from "@nseng-ai/capability-kit/git";
+import { reconcileTopologyToLiveBranches } from "@nseng-ai/capability-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import {

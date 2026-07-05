@@ -2,7 +2,7 @@
 
 - Kind key: `frontmatter-split`
 - Canonical: splitMarkdownFrontmatter
-- Import/path hints: @ns/core/markdown-frontmatter
+- Import/path hints: @nseng-ai/core/markdown-frontmatter
 - Raw-form tell: text.split("---"), indexOf("---"), or leading-fence regexes
 - Why reuse matters: CRLF-preserving fence detection and not_found/missing_closing_fence errors
 - Structural exemptions: tests with tiny markdown fixtures

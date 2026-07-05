@@ -1,4 +1,4 @@
-import { buildFencedTextBlock } from "@ns/core/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/core/primitives";
 
 import { resolveCreateFocus } from "./create-focus.ts";
 import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";

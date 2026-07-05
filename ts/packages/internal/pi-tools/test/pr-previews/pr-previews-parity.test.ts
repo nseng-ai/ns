@@ -1,6 +1,6 @@
 import { describe, test } from "vitest";
 
-import { expectPiSurfaceParity } from "@ns/pi/parity/testing";
+import { expectPiSurfaceParity } from "@nseng-ai/pi/parity/testing";
 import {
 	prPreviewsExtensionParity,
 	registerPrPreviewsExtension,

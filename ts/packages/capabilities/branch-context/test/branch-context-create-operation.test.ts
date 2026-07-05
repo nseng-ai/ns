@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { formatCommand } from "@ns/core/exec";
+import { formatCommand } from "@nseng-ai/core/exec";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -14,11 +14,11 @@ import {
 	formatBranchContextEvidence,
 	resolveBranchContextCreatePreviewContext,
 } from "../src/core/branch-context-creation.ts";
-import type { CommandExecApi } from "@ns/core/exec";
-import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import type { BranchContextContext } from "../src/core/context.ts";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;

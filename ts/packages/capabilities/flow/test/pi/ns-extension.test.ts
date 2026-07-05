@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@ns/pi/commands/cli-extension";
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@nseng-ai/pi/commands/cli-extension";
 import nsExtension, { type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
-import type { CommandContext } from "@ns/pi/commands/cli-extension";
+import type { CommandContext } from "@nseng-ai/pi/commands/cli-extension";
 
 type RegisteredCommand = Parameters<NsExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<NsExtensionAPI["sendMessage"]>>[0];

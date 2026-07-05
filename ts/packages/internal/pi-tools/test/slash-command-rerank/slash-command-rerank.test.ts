@@ -5,7 +5,7 @@ import type {
 	AutocompleteProvider,
 	AutocompleteSuggestions,
 	SessionStartContext,
-} from "@ns/pi/runtime/types";
+} from "@nseng-ai/pi/runtime/types";
 
 import slashCommandRerankExtension, {
 	createSlashCommandRerankProvider,

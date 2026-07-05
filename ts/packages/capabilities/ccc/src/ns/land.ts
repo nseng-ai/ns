@@ -8,5 +8,5 @@ export type {
 	NotifyLevel,
 	PrintOutput,
 	ValidPullRequestView,
-} from "@ns/flow/api";
-export { parsePullRequestView, registerLandCommand, runLandCli } from "@ns/flow/api";
+} from "@nseng-ai/flow/api";
+export { parsePullRequestView, registerLandCommand, runLandCli } from "@nseng-ai/flow/api";

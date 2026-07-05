@@ -9,7 +9,7 @@ import {
 	findLatestBranchContextEvidence,
 	formatBranchContextEvidence,
 	type BranchContextEvidence,
-} from "@ns/branch-context";
+} from "@nseng-ai/branch-context";
 
 const EVIDENCE = {
 	slug: "branch-scoped-plan",

@@ -1,4 +1,4 @@
-import type { ModelInfo, ThinkingLevel } from "@ns/pi/runtime/types";
+import type { ModelInfo, ThinkingLevel } from "@nseng-ai/pi/runtime/types";
 import type { RunnerSubagentUpdate } from "./activity.ts";
 import {
 	dispatchRunnerSubagentProcess,

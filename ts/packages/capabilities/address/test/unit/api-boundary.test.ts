@@ -21,7 +21,7 @@ import type {
 	GithubStatusCheckEntry,
 	GithubStatusCheckKind,
 	GithubStatusChecks,
-} from "@ns/address/api";
+} from "@nseng-ai/address/api";
 
 import {
 	InMemoryGithubPrFeedbackGateway,
@@ -81,7 +81,7 @@ function describeCapabilityApiFixture(fixture: CapabilityApiConsumerFixture): st
 	].join("|");
 }
 
-describe("@ns/address/api boundary", () => {
+describe("@nseng-ai/address/api boundary", () => {
 	test("exposes PR feedback and check payload vocabulary from the Capability API", () => {
 		const checkEntry: GithubStatusCheckEntry = {
 			bucket: "passing",

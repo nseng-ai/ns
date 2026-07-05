@@ -1,5 +1,5 @@
 {
-	"name": "@ns/areg",
+	"name": "@nseng-ai/areg",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,11 +16,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/areg/test"
 	},
 	"dependencies": {
-		"@ns/capability-kit": "workspace:*",
-		"@ns/clinkr": "workspace:*",
-		"@ns/command-backed-skill-registry": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/pi": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/command-backed-skill-registry": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/pi": "workspace:*",
 		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},

@@ -17,7 +17,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 | Host surface | `ns`, `pi`, `repo-local-ns-extension`                                    | the named host only                     |
 | Feature      | open, domain-meaningful (`land-stack`, `submit`, `cmux`, `lifecycle`, …) | sibling subpackages in the same package |
 
-- **API** hosts the package's Capability API (`@ns/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
+- **API** hosts the package's Capability API (`@nseng-ai/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
 - **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI kernel wiring, `pi` by the Pi host stack, `repo-local-ns-extension` by kernel extension loading. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package.
@@ -33,7 +33,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 - Cross-package runtime imports target `<pkg>/api` only. Cross-package test imports may also target `<pkg>/testing`.
 - Host-surface subpaths are imported only by their host packages.
-- A feature-level `api`/`testing` module (for example `@ns/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
+- A feature-level `api`/`testing` module (for example `@nseng-ai/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 
 ## Adding or consolidating
 

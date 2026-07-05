@@ -103,7 +103,7 @@ describe("TypeScript style guard source rules", () => {
 	const cases: readonly SourceRuleCase[] = [
 		{
 			name: "first-party named import alias is rejected",
-			code: 'import { Foo as Bar } from "@ns/core/primitives";',
+			code: 'import { Foo as Bar } from "@nseng-ai/core/primitives";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -118,7 +118,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "multiline first-party type import alias is rejected",
-			code: 'import {\n  type Foo as Bar,\n} from "@ns/core/primitives";',
+			code: 'import {\n  type Foo as Bar,\n} from "@nseng-ai/core/primitives";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -128,31 +128,31 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "capability peer api import is allowed",
-			code: 'import { createHandoff } from "@ns/handoff/api";',
+			code: 'import { createHandoff } from "@nseng-ai/handoff/api";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability private src import is rejected",
-			code: 'import { createHandoff } from "@ns/handoff/src/create.ts";',
+			code: 'import { createHandoff } from "@nseng-ai/handoff/src/create.ts";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability undeclared subpath import is rejected",
-			code: 'import { createHandoff } from "@ns/handoff/private-helper";',
+			code: 'import { createHandoff } from "@nseng-ai/handoff/private-helper";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability gateway backend import is allowed for capabilities",
-			code: 'import { RealGitGateway } from "@ns/capability-kit/git";',
+			code: 'import { RealGitGateway } from "@nseng-ai/capability-kit/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createNsCliExecAdapter } from "@ns/capability-kit/git";',
+			code: 'import { createNsCliExecAdapter } from "@nseng-ai/capability-kit/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
@@ -193,12 +193,12 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "ordinary first-party named import is allowed",
-			code: 'import { Foo } from "@ns/core/primitives";',
+			code: 'import { Foo } from "@nseng-ai/core/primitives";',
 			expectedRules: [],
 		},
 		{
 			name: "lower-layer source cannot import concrete capability packages",
-			code: 'import { listObjectives } from "@ns/objective/api";',
+			code: 'import { listObjectives } from "@nseng-ai/objective/api";',
 			path: "ts/packages/kernel/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
@@ -228,7 +228,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "lower-layer source cannot import roaster without treating roaster as a capability",
-			code: 'import { createRoasterClient } from "@ns/roaster/api";',
+			code: 'import { createRoasterClient } from "@nseng-ai/roaster/api";',
 			path: "ts/packages/kernel/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
@@ -240,7 +240,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "export alias is outside the import-as rule",
-			code: 'export { Foo as Bar } from "@ns/core/primitives";',
+			code: 'export { Foo as Bar } from "@nseng-ai/core/primitives";',
 			expectedRules: [],
 		},
 		{
@@ -365,7 +365,7 @@ describe("TypeScript style guard source rules", () => {
 				(surface) => !capabilityPackageNames.has(surface.packageName),
 			),
 		).toEqual([]);
-		expect(capabilityPackageNames.has("@ns/roaster")).toBe(false);
+		expect(capabilityPackageNames.has("@nseng-ai/roaster")).toBe(false);
 	});
 
 	test.each(cases)("$name", (testCase) => {
@@ -503,7 +503,7 @@ describe("TypeScript style guard internal-space admission rules", () => {
 			name: "rejects packages under internal with a non-internal scope",
 			packages: [
 				internalSpaceSyntheticPackage({
-					name: "@ns/grill",
+					name: "@nseng-ai/grill",
 					packageDir: "ts/packages/internal/grill",
 					privateValue: true,
 				}),
@@ -541,7 +541,7 @@ describe("TypeScript style guard internal-space admission rules", () => {
 					privateValue: true,
 				}),
 				internalSpaceSyntheticPackage({
-					name: "@ns/ccc",
+					name: "@nseng-ai/ccc",
 					packageDir: "ts/packages/capabilities/ccc",
 					privateValue: true,
 					dependencies: { "@internal/pi-tools": "workspace:*" },
@@ -590,83 +590,83 @@ describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
 		"@internal/pi-tools/grill",
 		"@internal/pi-tools/runner-subagents",
-		"@ns/areg",
-		"@ns/ccc",
-		"@ns/capability-kit",
-		"@ns/core",
-		"@ns/handoff",
-		"@ns/example-pi",
-		"@ns/pi",
-		"@ns/kernel",
-		"@ns/slot",
+		"@nseng-ai/areg",
+		"@nseng-ai/ccc",
+		"@nseng-ai/capability-kit",
+		"@nseng-ai/core",
+		"@nseng-ai/handoff",
+		"@nseng-ai/example-pi",
+		"@nseng-ai/pi",
+		"@nseng-ai/kernel",
+		"@nseng-ai/slot",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
 		["@internal/pi-tools/grill", "internal-pi-tool"],
 		["@internal/pi-tools/runner-subagents", "internal-pi-tool"],
-		["@ns/areg", "standalone-tool"],
-		["@ns/ccc", "capability"],
-		["@ns/capability-kit", "capability-kit"],
-		["@ns/core", "neutral-infra"],
-		["@ns/handoff", "capability"],
-		["@ns/example-pi", "capability-pi"],
-		["@ns/pi", "host"],
-		["@ns/kernel", "sdk"],
-		["@ns/slot", "capability"],
+		["@nseng-ai/areg", "standalone-tool"],
+		["@nseng-ai/ccc", "capability"],
+		["@nseng-ai/capability-kit", "capability-kit"],
+		["@nseng-ai/core", "neutral-infra"],
+		["@nseng-ai/handoff", "capability"],
+		["@nseng-ai/example-pi", "capability-pi"],
+		["@nseng-ai/pi", "host"],
+		["@nseng-ai/kernel", "sdk"],
+		["@nseng-ai/slot", "capability"],
 	]);
 	const cases: readonly TierLayeringCase[] = [
 		{
 			name: "missing tier is rejected",
-			tiers: new Map([...baseTiers, ["@ns/ccc", undefined]]),
+			tiers: new Map([...baseTiers, ["@nseng-ai/ccc", undefined]]),
 			expectedTextIncludes: "missing ns.tier",
 		},
 		{
 			name: "unknown tier is rejected",
-			tiers: new Map([...baseTiers, ["@ns/ccc", "mystery-tier"]]),
+			tiers: new Map([...baseTiers, ["@nseng-ai/ccc", "mystery-tier"]]),
 			expectedTextIncludes: "unknown ns.tier",
 		},
 		{
 			name: "capability to host is rejected",
-			edges: [{ from: "@ns/handoff", to: "@ns/pi" }],
+			edges: [{ from: "@nseng-ai/handoff", to: "@nseng-ai/pi" }],
 			expectedTextIncludes: "capability-must-not-depend-on-host",
 		},
 		{
 			name: "sdk to capability is rejected",
-			edges: [{ from: "@ns/kernel", to: "@ns/handoff" }],
+			edges: [{ from: "@nseng-ai/kernel", to: "@nseng-ai/handoff" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
 			name: "retired sdk to slot capability debt is rejected",
-			edges: [{ from: "@ns/kernel", to: "@ns/slot" }],
+			edges: [{ from: "@nseng-ai/kernel", to: "@nseng-ai/slot" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
 			name: "capability to capability is allowed",
-			edges: [{ from: "@ns/ccc", to: "@ns/handoff" }],
+			edges: [{ from: "@nseng-ai/ccc", to: "@nseng-ai/handoff" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability pi to host is allowed",
-			edges: [{ from: "@ns/example-pi", to: "@ns/pi" }],
+			edges: [{ from: "@nseng-ai/example-pi", to: "@nseng-ai/pi" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability pi to capability is allowed",
-			edges: [{ from: "@ns/example-pi", to: "@ns/handoff" }],
+			edges: [{ from: "@nseng-ai/example-pi", to: "@nseng-ai/handoff" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability to capability pi is rejected",
-			edges: [{ from: "@ns/handoff", to: "@ns/example-pi" }],
+			edges: [{ from: "@nseng-ai/handoff", to: "@nseng-ai/example-pi" }],
 			expectedTextIncludes: "capability-must-not-depend-on-capability-pi",
 		},
 		{
 			name: "standalone tool to host is allowed",
-			edges: [{ from: "@ns/areg", to: "@ns/pi" }],
+			edges: [{ from: "@nseng-ai/areg", to: "@nseng-ai/pi" }],
 			expectedViolation: false,
 		},
 		{
 			name: "internal pi tool to host is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@ns/pi" }],
+			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/pi" }],
 			expectedViolation: false,
 		},
 		{
@@ -676,17 +676,17 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "internal pi tool to standalone tool is rejected",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@ns/areg" }],
+			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/areg" }],
 			expectedTextIncludes: "internal-pi-tool-must-not-depend-on-standalone-tool",
 		},
 		{
 			name: "standalone tool to internal pi tool is rejected",
-			edges: [{ from: "@ns/areg", to: "@internal/pi-tools/grill" }],
+			edges: [{ from: "@nseng-ai/areg", to: "@internal/pi-tools/grill" }],
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-pi-tool",
 		},
 		{
 			name: "capability to capability kit is allowed",
-			edges: [{ from: "@ns/handoff", to: "@ns/capability-kit" }],
+			edges: [{ from: "@nseng-ai/handoff", to: "@nseng-ai/capability-kit" }],
 			expectedViolation: false,
 		},
 	];
@@ -718,22 +718,22 @@ describe("TypeScript style guard package tier layering rules", () => {
 describe("TypeScript style guard topology-circle layering rules", () => {
 	const syntheticCircles: readonly TopologyCircleFact[] = [
 		{
-			id: "@ns/core",
-			packageName: "@ns/core",
+			id: "@nseng-ai/core",
+			packageName: "@nseng-ai/core",
 			component: ".",
 			tier: "neutral-infra",
 			path: "synthetic/core/src",
 		},
 		{
-			id: "@ns/core/time",
-			packageName: "@ns/core",
+			id: "@nseng-ai/core/time",
+			packageName: "@nseng-ai/core",
 			component: "time",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/time",
 		},
 		{
-			id: "@ns/slot",
-			packageName: "@ns/slot",
+			id: "@nseng-ai/slot",
+			packageName: "@nseng-ai/slot",
 			component: ".",
 			tier: "capability",
 			path: "synthetic/slot/src",
@@ -748,7 +748,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			files: [
 				{
 					path: "synthetic/core/src/time/index.ts",
-					content: 'import { clock } from "@ns/core/clock";',
+					content: 'import { clock } from "@nseng-ai/core/clock";',
 				},
 			],
 		});
@@ -764,13 +764,13 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			files: [
 				{
 					path: "synthetic/core/src/time/index.ts",
-					content: 'import { buildSlotCommandGroup } from "@ns/slot";',
+					content: 'import { buildSlotCommandGroup } from "@nseng-ai/slot";',
 				},
 			],
 		});
 
 		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
-		expect(violations[0]?.text).toContain("@ns/core/time (neutral-infra) -> @ns/slot");
+		expect(violations[0]?.text).toContain("@nseng-ai/core/time (neutral-infra) -> @nseng-ai/slot");
 	});
 
 	test("relative imports crossing circle boundaries point at the import line", () => {
@@ -792,28 +792,28 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 
 		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
 		expect(violations[0]?.line).toBe(1);
-		expect(violations[0]?.text).toContain("@ns/core/time");
+		expect(violations[0]?.text).toContain("@nseng-ai/core/time");
 	});
 
 	test("discovers the core time pilot circle from the package manifest", () => {
 		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
-		const coreMetadata = packageMetadataByName.get("@ns/core");
-		if (coreMetadata === undefined) throw new Error("Missing @ns/core package metadata");
+		const coreMetadata = packageMetadataByName.get("@nseng-ai/core");
+		if (coreMetadata === undefined) throw new Error("Missing @nseng-ai/core package metadata");
 		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
-		const retiredTimePackageName = "@ns/" + "time";
+		const retiredTimePackageName = "@nseng-ai/" + "time";
 
 		expect(coreMetadata.nsSubpackages).toContain("time");
-		expect(circles.has("@ns/core/time")).toBe(true);
+		expect(circles.has("@nseng-ai/core/time")).toBe(true);
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
 	});
 
 	test("does not auto-discover undeclared source directories as circles", () => {
 		const circles = discoverTopologyCircles(REPO_ROOT, loadPackageMetadata(REPO_ROOT));
 
-		expect(circles.has("@ns/aretro/operations")).toBe(false);
-		expect(circles.has("@ns/aretro/payloads")).toBe(false);
-		expect(circles.has("@ns/aretro/ns")).toBe(false);
-		expect(circles.has("@ns/aretro/sessions")).toBe(false);
+		expect(circles.has("@nseng-ai/aretro/operations")).toBe(false);
+		expect(circles.has("@nseng-ai/aretro/payloads")).toBe(false);
+		expect(circles.has("@nseng-ai/aretro/ns")).toBe(false);
+		expect(circles.has("@nseng-ai/aretro/sessions")).toBe(false);
 	});
 
 	test("real repo source circle edges satisfy inherited tier layering", () => {
@@ -835,22 +835,22 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 describe("TypeScript style guard topology-circle cycle rules", () => {
 	const cycleCircles: readonly TopologyCircleFact[] = [
 		{
-			id: "@ns/core/alpha",
-			packageName: "@ns/core",
+			id: "@nseng-ai/core/alpha",
+			packageName: "@nseng-ai/core",
 			component: "alpha",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/alpha",
 		},
 		{
-			id: "@ns/core/beta",
-			packageName: "@ns/core",
+			id: "@nseng-ai/core/beta",
+			packageName: "@nseng-ai/core",
 			component: "beta",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/beta",
 		},
 		{
-			id: "@ns/core/gamma",
-			packageName: "@ns/core",
+			id: "@nseng-ai/core/gamma",
+			packageName: "@nseng-ai/core",
 			component: "gamma",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/gamma",
@@ -858,7 +858,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 	];
 	const alphaBetaDeferral: DeferredTopologyCircleCycle = {
 		name: "alpha-beta",
-		packageName: "@ns/core",
+		packageName: "@nseng-ai/core",
 		circles: new Set(["alpha", "beta"]),
 		reason: "synthetic test deferral",
 	};
@@ -877,7 +877,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 			BAN_TOPOLOGY_CIRCLE_CYCLE,
 		]);
 		expect(formatViolations(violations)).toContain(
-			"non-deferred subpackage circle cycle in @ns/core among alpha, beta",
+			"non-deferred subpackage circle cycle in @nseng-ai/core among alpha, beta",
 		);
 	});
 
@@ -901,15 +901,15 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 			files: [
 				{
 					path: "synthetic/core/src/alpha/index.ts",
-					content: 'import { beta } from "@ns/core/beta";\nbeta();',
+					content: 'import { beta } from "@nseng-ai/core/beta";\nbeta();',
 				},
 				{
 					path: "synthetic/core/src/beta/index.ts",
-					content: 'import { gamma } from "@ns/core/gamma";\ngamma();',
+					content: 'import { gamma } from "@nseng-ai/core/gamma";\ngamma();',
 				},
 				{
 					path: "synthetic/core/src/gamma/index.ts",
-					content: 'import { alpha } from "@ns/core/alpha";\nalpha();',
+					content: 'import { alpha } from "@nseng-ai/core/alpha";\nalpha();',
 				},
 			],
 			deferredCycles: [alphaBetaDeferral],
@@ -928,7 +928,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 				{
 					path: "synthetic/core/src/alpha/index.ts",
 					content:
-						'import { beta } from "@ns/core/beta";\nimport { helper } from "./helper.ts";\nbeta();\nhelper();',
+						'import { beta } from "@nseng-ai/core/beta";\nimport { helper } from "./helper.ts";\nbeta();\nhelper();',
 				},
 				{
 					path: "synthetic/core/src/alpha/helper.ts",
@@ -1197,52 +1197,52 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
-		"@ns/branch-context",
-		"@ns/ccc",
-		"@ns/pi",
-		"@ns/kernel",
-		"@ns/flow",
+		"@nseng-ai/branch-context",
+		"@nseng-ai/ccc",
+		"@nseng-ai/pi",
+		"@nseng-ai/kernel",
+		"@nseng-ai/flow",
 	]);
 	const syntheticCapabilityKernelPiCycleEdges: readonly SyntheticEdge[] = [
-		{ from: "@ns/flow", to: "@ns/pi" },
-		{ from: "@ns/pi", to: "@ns/kernel" },
-		{ from: "@ns/kernel", to: "@ns/flow" },
+		{ from: "@nseng-ai/flow", to: "@nseng-ai/pi" },
+		{ from: "@nseng-ai/pi", to: "@nseng-ai/kernel" },
+		{ from: "@nseng-ai/kernel", to: "@nseng-ai/flow" },
 	];
 	const cases: readonly DependencyGraphCase[] = [
 		{
 			name: "acyclic extension manifest graph is allowed",
-			edges: [{ from: "@ns/pi", to: "@ns/ccc" }],
+			edges: [{ from: "@nseng-ai/pi", to: "@nseng-ai/ccc" }],
 			shouldHaveCycle: false,
 		},
 		{
 			name: "synthetic extension manifest cycle is rejected",
 			edges: [
-				{ from: "@ns/pi", to: "@ns/ccc" },
-				{ from: "@ns/ccc", to: "@ns/pi" },
+				{ from: "@nseng-ai/pi", to: "@nseng-ai/ccc" },
+				{ from: "@nseng-ai/ccc", to: "@nseng-ai/pi" },
 			],
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ns/pi",
+			expectedTextIncludes: "dependencies.@nseng-ai/pi",
 		},
 		{
 			name: "synthetic capability pi sdk manifest cycle is rejected",
 			edges: syntheticCapabilityKernelPiCycleEdges,
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ns/pi",
+			expectedTextIncludes: "dependencies.@nseng-ai/pi",
 		},
 		{
 			name: "branch-context pi manifest cycle is rejected",
 			edges: [
-				{ from: "@ns/branch-context", to: "@ns/pi" },
-				{ from: "@ns/pi", to: "@ns/branch-context" },
+				{ from: "@nseng-ai/branch-context", to: "@nseng-ai/pi" },
+				{ from: "@nseng-ai/pi", to: "@nseng-ai/branch-context" },
 			],
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ns/pi",
+			expectedTextIncludes: "dependencies.@nseng-ai/pi",
 		},
 		{
 			name: "devDependencies-only cycle is ignored",
 			edges: [
-				{ from: "@ns/pi", to: "@ns/ccc", field: "devDependencies" },
-				{ from: "@ns/ccc", to: "@ns/pi", field: "devDependencies" },
+				{ from: "@nseng-ai/pi", to: "@nseng-ai/ccc", field: "devDependencies" },
+				{ from: "@nseng-ai/ccc", to: "@nseng-ai/pi", field: "devDependencies" },
 			],
 			shouldHaveCycle: false,
 		},
@@ -1250,7 +1250,7 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 			name: "field-aware manifest dependency diagnostics point at the participating field",
 			metadataByName: buildFieldAwareDiagnosticMetadata(),
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ns/ccc",
+			expectedTextIncludes: "dependencies.@nseng-ai/ccc",
 			expectedLine: 7,
 		},
 	];
@@ -1361,11 +1361,11 @@ function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
 	return [
 		{
 			path: "synthetic/core/src/alpha/index.ts",
-			content: 'import { beta } from "@ns/core/beta";\nbeta();',
+			content: 'import { beta } from "@nseng-ai/core/beta";\nbeta();',
 		},
 		{
 			path: "synthetic/core/src/beta/index.ts",
-			content: 'import { alpha } from "@ns/core/alpha";\nalpha();',
+			content: 'import { alpha } from "@nseng-ai/core/alpha";\nalpha();',
 		},
 	];
 }
@@ -1399,7 +1399,7 @@ function writeSyntheticPackage(
 function buildSyntheticSubpackageMetadata(
 	options: SyntheticSubpackageMetadataOptions,
 ): Map<string, PackageMetadata> {
-	const packageName = "@ns/core";
+	const packageName = "@nseng-ai/core";
 	const manifest: PackageManifest = {
 		name: packageName,
 		ns: {
@@ -1506,20 +1506,20 @@ function buildSyntheticPackageMetadata(
 }
 
 function buildFieldAwareDiagnosticMetadata(): Map<string, PackageMetadata> {
-	const packageNames = new Set(["@ns/ccc", "@ns/pi"]);
+	const packageNames = new Set(["@nseng-ai/ccc", "@nseng-ai/pi"]);
 	const metadataByName = buildSyntheticPackageMetadata(packageNames, [
-		{ from: "@ns/pi", to: "@ns/ccc", field: "dependencies" },
-		{ from: "@ns/ccc", to: "@ns/pi", field: "dependencies" },
+		{ from: "@nseng-ai/pi", to: "@nseng-ai/ccc", field: "dependencies" },
+		{ from: "@nseng-ai/ccc", to: "@nseng-ai/pi", field: "dependencies" },
 	]);
-	const piMetadata = metadataByName.get("@ns/pi");
-	if (piMetadata === undefined) throw new Error("Missing synthetic @ns/pi metadata");
+	const piMetadata = metadataByName.get("@nseng-ai/pi");
+	if (piMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/pi metadata");
 	const manifest: PackageManifest = {
-		name: "@ns/pi",
+		name: "@nseng-ai/pi",
 		devDependencies: {
-			"@ns/ccc": "workspace:*",
+			"@nseng-ai/ccc": "workspace:*",
 		},
 		dependencies: {
-			"@ns/ccc": "workspace:*",
+			"@nseng-ai/ccc": "workspace:*",
 		},
 	};
 	piMetadata.manifest = manifest;

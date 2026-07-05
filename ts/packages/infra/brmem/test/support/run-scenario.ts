@@ -1,9 +1,9 @@
 import { isAbsolute, resolve } from "node:path";
 import { TextDecoder, TextEncoder } from "node:util";
 
-import type { ConfirmationResult } from "@ns/clinkr";
-import { createFakeClinkrInteraction } from "@ns/clinkr/testing";
-import { optionalEntries } from "@ns/core/primitives";
+import type { ConfirmationResult } from "@nseng-ai/clinkr";
+import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
+import { optionalEntries } from "@nseng-ai/core/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type BrmemCliContext } from "../../src/context.ts";

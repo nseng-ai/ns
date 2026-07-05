@@ -1,7 +1,7 @@
-import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@ns/brmem";
-import { usageError, type ClinkrExit, type ClinkrInteraction } from "@ns/clinkr";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
+import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@nseng-ai/brmem";
+import { usageError, type ClinkrExit, type ClinkrInteraction } from "@nseng-ai/clinkr";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
 	NsCommand,
@@ -10,7 +10,7 @@ import type {
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 import { HANDOFF_NAMESPACE } from "../../src/core/identity.ts";
 

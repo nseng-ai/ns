@@ -1,5 +1,5 @@
-import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
-import { defineExtension, type NsCommand } from "@ns/kernel/sdk";
+import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
+import { defineExtension, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import {
 	runnerFinishRequestSchema,

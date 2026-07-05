@@ -9,10 +9,10 @@ import {
 	usageError,
 	type ClinkrExit,
 	type ClinkrInteraction,
-} from "@ns/clinkr";
+} from "@nseng-ai/clinkr";
 
-import { defineCli, readStdinLine, type CliEntrypointDeps } from "@ns/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@ns/core/primitives";
+import { defineCli, readStdinLine, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
+import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import {

@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { describe, expect, test } from "vitest";
 
-import { createRealNsCommandContext } from "@ns/kernel/context";
+import { createRealNsCommandContext } from "@nseng-ai/kernel/context";
 
 describe("real ns command context", () => {
 	test("forwards stdin to executed commands", async () => {

@@ -1,26 +1,26 @@
-import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
-import { piExecApiToCommandExecApi } from "@ns/core/command";
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
-import type { ScheduledTimer } from "@ns/core/timers";
-import { systemTimerScheduler } from "@ns/core/time";
+import { piExecApiToCommandExecApi } from "@nseng-ai/core/command";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import type { ScheduledTimer } from "@nseng-ai/core/timers";
+import { systemTimerScheduler } from "@nseng-ai/core/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
-import { sendCommandProgressOrNotify } from "@ns/pi/commands/ack";
+import { sendCommandProgressOrNotify } from "@nseng-ai/pi/commands/ack";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
 	formatSavedPlanFileEvidence,
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
-} from "@ns/plans/api";
-import { isRecord } from "@ns/pi/runtime/primitives";
-import { GRILL_ASK_TOOL_NAME } from "@ns/pi/grill/surfaces";
+} from "@nseng-ai/plans/api";
+import { isRecord } from "@nseng-ai/pi/runtime/primitives";
+import { GRILL_ASK_TOOL_NAME } from "@nseng-ai/pi/grill/surfaces";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,

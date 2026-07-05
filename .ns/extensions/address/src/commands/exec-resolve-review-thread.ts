@@ -1,1 +1,1 @@
-export { default } from "@ns/address/ns/commands/exec-resolve-review-thread";
+export { default } from "@nseng-ai/address/ns/commands/exec-resolve-review-thread";

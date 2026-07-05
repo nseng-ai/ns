@@ -17,7 +17,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@ns/core/typescript-analysis";
+} from "@nseng-ai/core/typescript-analysis";
 import {
 	packageNameForPath,
 	packageNameForSpecifier,
@@ -251,7 +251,7 @@ function isPrivateCapabilityPeerImport(
 	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
 	if (importedPackageMetadata?.nsTier === "neutral-infra") return false;
 	if (importedPackageMetadata?.nsTier === "capability-kit") return false;
-	if (importedPackageName === "@ns/kernel") return false;
+	if (importedPackageName === "@nseng-ai/kernel") return false;
 	if (importedPackageMetadata?.nsTier !== "capability") return false;
 
 	const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);
@@ -273,7 +273,7 @@ function isFirstPartyModuleSpecifier(specifier: string): boolean {
 		specifier.startsWith(".") ||
 		specifier.startsWith("/") ||
 		specifier.startsWith("@/") ||
-		specifier.startsWith("@ns/") ||
+		specifier.startsWith("@nseng-ai/") ||
 		specifier.startsWith("@internal/") ||
 		specifier === "nscc" ||
 		specifier.startsWith("nscc/")

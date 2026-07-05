@@ -1,4 +1,4 @@
-import type { Result } from "@ns/core/result";
+import type { Result } from "@nseng-ai/core/result";
 
 import { transformSkillFrontmatter } from "./frontmatter.ts";
 import {

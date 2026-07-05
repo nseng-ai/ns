@@ -3,10 +3,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 
-import { RealGitGateway } from "@ns/capability-kit/git";
-import { createTempGitRepo, type TempGitRepo } from "@ns/capability-kit/git/testing";
-import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
-import { NodeCommandExecApi } from "@ns/core/exec";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { createTempGitRepo, type TempGitRepo } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
 import { afterEach, expect, test } from "vitest";
 
 import { RealObjectiveStorageGateway } from "../../src/core/real-storage.ts";

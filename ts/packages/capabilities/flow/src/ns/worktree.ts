@@ -3,11 +3,11 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
-} from "@ns/capability-kit/pending-worktree";
-import { createNsCliExecAdapter, execNsCommand, execNsGit } from "@ns/capability-kit/git";
-import { formatCommandDetails, formatCommandError, type ExecResult } from "@ns/core/command";
-import { withTemporaryFile } from "@ns/capability-kit/temp-files";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+} from "@nseng-ai/capability-kit/pending-worktree";
+import { createNsCliExecAdapter, execNsCommand, execNsGit } from "@nseng-ai/capability-kit/git";
+import { formatCommandDetails, formatCommandError, type ExecResult } from "@nseng-ai/core/command";
+import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 

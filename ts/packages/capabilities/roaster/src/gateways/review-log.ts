@@ -2,9 +2,9 @@ import {
 	listBrmemEntries,
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
-} from "@ns/capability-kit/brmem-cli";
-import type { CommandExecApi } from "@ns/core/command";
-import { withTemporaryFile } from "@ns/capability-kit/temp-files";
+} from "@nseng-ai/capability-kit/brmem-cli";
+import type { CommandExecApi } from "@nseng-ai/core/command";
+import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 
 import type { RoasterEnvironmentOptions } from "../core/context.ts";
 import type { ReviewLogFailure, ReviewLogFailureType, RoasterResult } from "../core/failures.ts";

@@ -2,17 +2,20 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { buildPlanContentSlugPrompt, createBranchContextContext } from "@ns/branch-context/api";
-import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
+import {
+	buildPlanContentSlugPrompt,
+	createBranchContextContext,
+} from "@nseng-ai/branch-context/api";
+import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 
 // Intentional golden literal: pins the agent-facing implementation command name
-// independently of formatImplBranchContextCommand in @ns/branch-context/pi.
+// independently of formatImplBranchContextCommand in @nseng-ai/branch-context/pi.
 function expectedImplBranchContextCommand(key: string): string {
 	return `/ns:branch-context:impl-attached-plan ${key}`;
 }
-import type { StdinCapableCommandExecApi } from "@ns/core/command";
-import { withTempRepoSkill } from "@ns/core/test-kit";
-import { CCC_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@ns/ccc/api";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/core/command";
+import { withTempRepoSkill } from "@nseng-ai/core/test-kit";
+import { CCC_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@nseng-ai/ccc/api";
 import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,
 	registerCccSidebarCommands,
@@ -21,8 +24,8 @@ import registerCccExtension, {
 	registerCccSlotDispatchPromptCommand,
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
-} from "@ns/ccc/pi";
-import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
+} from "@nseng-ai/ccc/pi";
+import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import {
 	BRANCH,

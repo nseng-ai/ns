@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "@ns/branch-context/pi";
+} from "@nseng-ai/branch-context/pi";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
 	runBranchContextGtUpstackImplLaunch,

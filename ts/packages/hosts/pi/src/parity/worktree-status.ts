@@ -1,6 +1,6 @@
 import { definePiSurfaceParity } from "../runtime/parity-extension.ts";
 
-// The implementation lives in @ns/pi/worktree-status. This record keeps parity
+// The implementation lives in @nseng-ai/pi/worktree-status. This record keeps parity
 // accounting adjacent to the Pi-owned worktree-status surface.
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -11,9 +11,9 @@ export const worktreeStatusParity = definePiSurfaceParity([
 		fallback:
 			"Outside Pi, run the underlying Git, Graphite, GitHub, and Branch Memory fact commands directly or rely on the harness's own status surface.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/pi/worktree-status",
+		sourcePackage: "@nseng-ai/pi/worktree-status",
 		sourceModule: "extension",
 		notes:
-			"This command is Pi-native status UI owned by @ns/pi/worktree-status; the host package records parity for its own footer surface.",
+			"This command is Pi-native status UI owned by @nseng-ai/pi/worktree-status; the host package records parity for its own footer surface.",
 	},
 ] as const);

@@ -5,8 +5,8 @@ import {
 	COMMON_FEEDBACK_POLICY,
 	readPromptMarkdown,
 	renderPromptTemplate,
-} from "@ns/address/download-feedback-prompts";
-import { formatZodError, optionalEntry } from "@ns/core/primitives";
+} from "@nseng-ai/address/download-feedback-prompts";
+import { formatZodError, optionalEntry } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "../../commands/cli-extension.ts";
@@ -70,7 +70,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/pi",
+		sourcePackage: "@nseng-ai/pi",
 		sourceModule: "pr",
 		notes: "Pi owns editor prefill; pr-address owns portable collection and Markdown rendering.",
 	},
@@ -82,7 +82,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "ns slot gt exec stack-branches --downstack + ns address exec map-branch-prs + ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/pi",
+		sourcePackage: "@nseng-ai/pi",
 		sourceModule: "pr",
 		notes:
 			"Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",

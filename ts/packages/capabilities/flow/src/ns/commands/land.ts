@@ -13,7 +13,7 @@ import {
 	landCommandSchemaShape,
 	landRawArgsFromCommandRequest,
 } from "../../land/stack/flags.ts";
-import { createCommandIo } from "@ns/kernel/command-io";
+import { createCommandIo } from "@nseng-ai/kernel/command-io";
 import {
 	defineExtension,
 	z,
@@ -22,9 +22,9 @@ import {
 	type NsExtensionApi,
 	type NsNotifyLevel,
 	type NsProgressPhaseEvent,
-} from "@ns/kernel/sdk";
-import type { Caps } from "@ns/clinkr";
-import { systemClock } from "@ns/core/time";
+} from "@nseng-ai/kernel/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
+import { systemClock } from "@nseng-ai/core/time";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import {

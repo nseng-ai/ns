@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { ok, usageError, type ClinkrExit } from "@ns/clinkr";
+import { ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
 import {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,
@@ -8,7 +8,7 @@ import {
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RunnerSubagentUsageRecord,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@ns/core/runner-usage";
+} from "@nseng-ai/core/runner-usage";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

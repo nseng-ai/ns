@@ -4,8 +4,8 @@ import {
 	resolveClinkrInteraction,
 	type Caps,
 	type ConfirmationResult,
-} from "@ns/clinkr";
-import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@ns/clinkr/testing";
+} from "@nseng-ai/clinkr";
+import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
 
 import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
@@ -24,7 +24,7 @@ import {
 import {
 	FakeGraphiteStackGateway,
 	type FakeGraphiteStackGatewayOptions,
-} from "@ns/capability-kit/graphite/testing";
+} from "@nseng-ai/capability-kit/graphite/testing";
 import {
 	FakeSlotPrGateway,
 	type FakeSlotPrGatewayOptions,

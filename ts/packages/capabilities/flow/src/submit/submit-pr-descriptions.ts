@@ -1,9 +1,9 @@
-import type { ErrorInfo } from "@ns/core/result";
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
+import type { ErrorInfo } from "@nseng-ai/core/result";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
 import {
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,
-} from "@ns/capability-kit/gateway-result";
+} from "@nseng-ai/capability-kit/gateway-result";
 
 import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";

@@ -1,4 +1,4 @@
-import { TimerScheduler, type ScheduledTimer } from "@ns/core/timers";
+import { TimerScheduler, type ScheduledTimer } from "@nseng-ai/core/timers";
 
 export function unrefTimer(
 	timer: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>,
@@ -11,7 +11,7 @@ export function unrefTimer(
 /**
  * A {@link TimerScheduler} whose timers are unref'd, so long-lived background
  * timers never keep the Pi host process alive at shutdown. This is the
- * difference from `@ns/core/time`'s `systemTimerScheduler`, whose consumers are
+ * difference from `@nseng-ai/core/time`'s `systemTimerScheduler`, whose consumers are
  * short-lived awaited timeouts that intentionally do not unref.
  */
 class UnrefTimerScheduler extends TimerScheduler {

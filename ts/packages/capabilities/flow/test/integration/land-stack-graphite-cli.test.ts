@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand } from "@ns/core/exec";
-import { graphiteBranchMetadataReadonlyJsonArgs } from "@ns/capability-kit/graphite/metadata";
+import { runCommand } from "@nseng-ai/core/exec";
+import { graphiteBranchMetadataReadonlyJsonArgs } from "@nseng-ai/capability-kit/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import { createRequiredCommandRunner } from "./support/run-required-command.ts";

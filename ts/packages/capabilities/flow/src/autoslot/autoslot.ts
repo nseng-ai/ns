@@ -1,6 +1,6 @@
-import type { Caps } from "@ns/clinkr";
-import { createCliCommandIo, runWithNsCommandIo } from "@ns/kernel/command-io";
-import type { NsCommandIo } from "@ns/kernel/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
+import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
@@ -11,7 +11,7 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "../autobranch/checkpoint.ts";
 import { renderAutoslotResultBlock } from "./presentation.ts";
-import type { SlotClient } from "@ns/slot/api";
+import type { SlotClient } from "@nseng-ai/slot/api";
 import {
 	checkoutSlot,
 	createFlowSlotClient,

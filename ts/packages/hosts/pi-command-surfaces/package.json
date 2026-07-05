@@ -1,5 +1,5 @@
 {
-	"name": "@ns/pi-command-surfaces",
+	"name": "@nseng-ai/pi-command-surfaces",
 	"private": true,
 	"type": "module",
 	"exports": {

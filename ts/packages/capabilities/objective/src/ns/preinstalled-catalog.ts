@@ -1,6 +1,6 @@
-import { optionalEntry } from "@ns/core/primitives";
-import type { PreinstalledNsCommandCatalogEntry } from "@ns/kernel/cli";
-import { defineExtension } from "@ns/kernel/sdk";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { PreinstalledNsCommandCatalogEntry } from "@nseng-ai/kernel/cli";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 import { objectiveRepoLocalNsExtension } from "./repo-local-ns-extension.ts";
 

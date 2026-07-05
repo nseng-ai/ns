@@ -1,7 +1,7 @@
-import { commandSucceeded, type ExecResult } from "@ns/core/command";
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
-import { planLocalBranchRefreshFromWorktrees } from "@ns/capability-kit/git";
-import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/core/command";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+import { planLocalBranchRefreshFromWorktrees } from "@nseng-ai/capability-kit/git";
+import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 const GT_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;

@@ -1,13 +1,13 @@
-import { dim, glyph, renderBufferedReport } from "@ns/core/cli-theme";
-import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@ns/kernel/command-io";
-import { renderCapabilitiesForTerminal, type Caps } from "@ns/clinkr";
-import { defineExtension, failed, ok, type NsCommand } from "@ns/kernel/sdk";
+import { dim, glyph, renderBufferedReport } from "@nseng-ai/core/cli-theme";
+import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
+import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
+import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
 	DEFAULT_CHANGES_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
-} from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/text-generation";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,

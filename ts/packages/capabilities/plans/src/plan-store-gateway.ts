@@ -1,7 +1,7 @@
 import { open, readFile, readdir, realpath, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { ensurePrivateParentDirectory } from "@ns/capability-kit/xdg";
+import { ensurePrivateParentDirectory } from "@nseng-ai/capability-kit/xdg";
 
 export interface PlanStoreGateway {
 	listDirectory(path: string): Promise<PlanStoreDirectoryRead>;

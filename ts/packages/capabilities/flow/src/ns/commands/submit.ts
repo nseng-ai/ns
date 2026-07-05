@@ -16,7 +16,7 @@ import {
 	runSubmitCommand,
 	type SubmitCommandResult,
 } from "../../submit/ns-runtime.ts";
-import { selectSubmitFailureModelRef } from "@ns/capability-kit/text-generation";
+import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
 	defineExtension,
 	failed,
@@ -24,7 +24,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";

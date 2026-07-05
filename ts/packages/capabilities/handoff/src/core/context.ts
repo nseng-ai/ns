@@ -3,12 +3,12 @@ import {
 	RealGitBrmemGateway,
 	type BrmemGateway,
 	type BrmemSourceReader,
-} from "@ns/brmem";
-import { resolveClinkrInteraction, type ClinkrInteraction } from "@ns/clinkr";
-import { NodeCommandExecApi } from "@ns/core/exec";
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { readStdinLine } from "@ns/core/cli-runtime";
+} from "@nseng-ai/brmem";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { readStdinLine } from "@nseng-ai/core/cli-runtime";
 
 export interface HandoffCliContext {
 	cwd: string;

@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { createDeferred } from "@ns/core/test-kit";
-import { createManualClock, createManualTimerScheduler } from "@ns/core/time/testing";
-import { prepareRepairedText, type TextGenerationResult } from "@ns/capability-kit/text-repair";
+import { createDeferred } from "@nseng-ai/core/test-kit";
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/core/time/testing";
+import {
+	prepareRepairedText,
+	type TextGenerationResult,
+} from "@nseng-ai/capability-kit/text-repair";
 
 describe("prepareRepairedText", () => {
 	test("heartbeat progress reports elapsed time from the injected clock", async () => {

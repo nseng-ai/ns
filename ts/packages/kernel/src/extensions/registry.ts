@@ -35,8 +35,8 @@ import {
 	type NsCommandModuleLoader,
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
-import { isPathInside, type ExplicitUndefined } from "@ns/core/primitives";
-import { requireXdgPath, resolveNsXdgPath } from "@ns/core/xdg-path";
+import { isPathInside, type ExplicitUndefined } from "@nseng-ai/core/primitives";
+import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/core/xdg-path";
 import type { NsCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;

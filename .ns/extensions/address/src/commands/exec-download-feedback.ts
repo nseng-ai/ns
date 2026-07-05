@@ -1,1 +1,1 @@
-export { default } from "@ns/address/ns/commands/exec-download-feedback";
+export { default } from "@nseng-ai/address/ns/commands/exec-download-feedback";

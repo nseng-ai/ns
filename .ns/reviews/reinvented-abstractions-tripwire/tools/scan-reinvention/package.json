@@ -1,5 +1,5 @@
 {
-	"name": "@ns/review-reinvention-scanner",
+	"name": "@nseng-ai/review-reinvention-scanner",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -12,7 +12,7 @@
 		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test"
 	},
 	"dependencies": {
-		"@ns/core": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
 		"typescript": "catalog:"
 	},
 	"devDependencies": {

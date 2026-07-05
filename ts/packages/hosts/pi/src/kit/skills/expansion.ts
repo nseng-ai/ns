@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { splitMarkdownFrontmatter } from "@ns/core/markdown-frontmatter";
-import { buildFencedTextBlock } from "@ns/core/primitives";
+import { splitMarkdownFrontmatter } from "@nseng-ai/core/markdown-frontmatter";
+import { buildFencedTextBlock } from "@nseng-ai/core/primitives";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import {
 	resolveExactSkillLookup,

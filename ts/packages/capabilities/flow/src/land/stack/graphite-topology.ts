@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { formatCommand } from "@ns/core/command";
+import { formatCommand } from "@nseng-ai/core/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
 	detectGraphiteForkViolations,
@@ -9,7 +9,7 @@ import {
 	walkGraphiteSubtree,
 	type GraphiteForkViolation,
 	type GraphiteTopology,
-} from "@ns/capability-kit/graphite/metadata";
+} from "@nseng-ai/capability-kit/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
 import { readGraphiteBranchMetadataCommand } from "./graphite-command-channel.ts";
@@ -22,7 +22,7 @@ import {
 } from "./errors.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
-export type { GraphiteTopology } from "@ns/capability-kit/graphite/metadata";
+export type { GraphiteTopology } from "@nseng-ai/capability-kit/graphite/metadata";
 
 export type ForkViolation = GraphiteForkViolation & { readonly expectedChild: string };
 

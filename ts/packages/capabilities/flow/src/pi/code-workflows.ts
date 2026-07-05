@@ -1,6 +1,9 @@
-import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "@ns/pi/skills/expansion";
-import { truncateDisplayLine } from "@ns/pi/terminal/presentation";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import {
+	buildSkillInvocationPrompt,
+	invokeRepoSkillPromptTurn,
+} from "@nseng-ai/pi/skills/expansion";
+import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
 import type {
 	AutocompleteItem,
 	CommandContext,
@@ -8,8 +11,8 @@ import type {
 	MessageRenderer,
 	RenderComponent,
 	RenderTheme,
-} from "@ns/pi/runtime/extension-types";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+} from "@nseng-ai/pi/runtime/extension-types";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 import type { FlowRegisteredCommand } from "./command-support.ts";
 
@@ -26,7 +29,7 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		cli: "none needed; routes are skill references",
 		skill: "code-workflows",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/flow/pi",
+		sourcePackage: "@nseng-ai/flow/pi",
 		sourceModule: "code-workflows",
 		notes:
 			"The command is a Pi picker/prompt insertion convenience over portable skills and references.",
@@ -39,7 +42,7 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		cli: "none needed; invokes the portable code-workflows gh-ci-debug playbook",
 		skill: "code-workflows",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/flow/pi",
+		sourcePackage: "@nseng-ai/flow/pi",
 		sourceModule: "code-workflows",
 		notes:
 			"This is a turn-saving Pi command for the gh-ci-debug route; non-Pi agents use the code-workflows skill with the gh-ci-debug route.",

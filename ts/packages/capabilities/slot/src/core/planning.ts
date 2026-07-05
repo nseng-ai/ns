@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import { optionalEntry } from "@ns/core/primitives";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import type { SlotRepositoryGateway, WorktreeOccupancy } from "./gateways/repository.ts";
 import {
 	buildSlotInventory,

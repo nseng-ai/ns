@@ -10,7 +10,7 @@ import {
 	ensurePrivateParentDirectory,
 	ensurePrivateParentDirectorySync,
 	resolveNsXdgPath,
-} from "@ns/capability-kit/xdg";
+} from "@nseng-ai/capability-kit/xdg";
 
 const tempDirs: string[] = [];
 

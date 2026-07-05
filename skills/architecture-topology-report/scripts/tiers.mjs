@@ -30,5 +30,5 @@ export const TIER_RANK = Array.from(tierRank);
 // Short display name for a package id (drops the well-known scope prefixes).
 export function label(id) {
   if (id === "@internal/pi-tools") return "ipt";
-  return id.replace(/^@internal\/pi-tools\//, "ipt:").replace(/^@ns\//, "");
+  return id.replace(/^@internal\/pi-tools\//, "ipt:").replace(/^@nseng-ai\//, "");
 }

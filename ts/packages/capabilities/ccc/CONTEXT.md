@@ -1,6 +1,6 @@
-# @ns/ccc
+# @nseng-ai/ccc
 
-`@ns/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC is a container package: `core`, `autobranch`, and `cmux` compose lower-level capabilities through Pi-free orchestration interfaces, while the `pi` subpackage owns CCC-specific Pi registration and presentation wiring and is the only CCC unit that may import neutral `@ns/pi/...` helpers.
+`@nseng-ai/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC is a container package: `core`, `autobranch`, and `cmux` compose lower-level capabilities through Pi-free orchestration interfaces, while the `pi` subpackage owns CCC-specific Pi registration and presentation wiring and is the only CCC unit that may import neutral `@nseng-ai/pi/...` helpers.
 
 ## Language
 
@@ -17,15 +17,15 @@ The package-level implementation home for workflows that must compose multiple l
 *Avoid*: primitive gateway, storage backend, UI adapter, one-off script.
 
 **CCC boundary**:
-The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but only the CCC `pi` subpackage may depend on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi subpackage**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing `@ns/ccc/pi`, since they are not part of the `@ns/pi` package. CCC-owned Pi command surfaces use the `ns:ccc` extension surface; cmux wording is reserved for the external tool/workspace domain.
-*Avoid*: circular helper import, direct `@ns/pi/...` imports from non-`pi` CCC subpackages, public API promise, compatibility alias.
+The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but only the CCC `pi` subpackage may depend on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi subpackage**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing `@nseng-ai/ccc/pi`, since they are not part of the `@nseng-ai/pi` package. CCC-owned Pi command surfaces use the `ns:ccc` extension surface; cmux wording is reserved for the external tool/workspace domain.
+*Avoid*: circular helper import, direct `@nseng-ai/pi/...` imports from non-`pi` CCC subpackages, public API promise, compatibility alias.
 
 **CCC Pi subpackage**:
-The `@ns/ccc/pi` subpackage that presents CCC workflows inside Pi/cmux by importing CCC core APIs and neutral `@ns/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while the rest of `@ns/ccc` exposes small Pi-free orchestration interfaces, preferably through `@ns/ccc/api`.
+The `@nseng-ai/ccc/pi` subpackage that presents CCC workflows inside Pi/cmux by importing CCC core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while the rest of `@nseng-ai/ccc` exposes small Pi-free orchestration interfaces, preferably through `@nseng-ai/ccc/api`.
 *Avoid*: CCC domain owner, Pi host internals package, pass-through shim, place for non-Pi orchestration logic.
 
 **Lower capability**:
-A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as neutral `@ns/pi/...` helper contracts, branch-context creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
+A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as neutral `@nseng-ai/pi/...` helper contracts, branch-context creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
 *Avoid*: CCC submodule, orchestrator, command surface.
 
 **Project-local adapter**:
@@ -49,7 +49,7 @@ The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility
 *Avoid*: public Pi registration adapter, current `/ns:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
 **Flow land consumption**:
-The CCC composition path behind public unified `/ns:flow:land`, consuming Flow-owned land behavior through `@ns/flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
+The CCC composition path behind public unified `/ns:flow:land`, consuming Flow-owned land behavior through `@nseng-ai/flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
 *Avoid*: Pi registration adapter, separate stack landing command, Flow land internals owner, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
 **Portable command progress**:

@@ -1,7 +1,7 @@
 export {
 	parseMachineEnvelopeData,
 	parseMachineEnvelopeDataWithFailureData,
-} from "@ns/core/machine-envelope";
+} from "@nseng-ai/core/machine-envelope";
 
 export type {
 	MachineEnvelopeDataParseFailure,
@@ -11,4 +11,4 @@ export type {
 	MachineEnvelopeDataWithFailureDataResult,
 	MachineEnvelopeParseOptions,
 	ParseMachineEnvelopeDataWithFailureDataOptions,
-} from "@ns/core/machine-envelope";
+} from "@nseng-ai/core/machine-envelope";

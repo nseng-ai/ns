@@ -1,6 +1,6 @@
-import type { NsProgressPhaseListener } from "@ns/kernel/sdk";
-import type { TextGenerator } from "@ns/capability-kit/text-generation";
-import { defineExtension, failed, ok, z, type NsCommand } from "@ns/kernel/sdk";
+import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
+import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
+import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,
@@ -11,7 +11,7 @@ import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/text-generation";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
 	createNsCheckpointRuntime,

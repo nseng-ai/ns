@@ -80,7 +80,7 @@ describe("project extension shared flow foundations", () => {
 		const worktreeSource = await readFile(WORKTREE_SUPPORT_PATH, "utf8");
 		const flowPackage = await readFile(FLOW_PACKAGE_PATH, "utf8");
 
-		expect(worktreeSource).toContain("@ns/capability-kit/git");
+		expect(worktreeSource).toContain("@nseng-ai/capability-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
 		expect(worktreeSource).toContain("execNsCommand");
 		const removedCccPackageSpecifier = ["@sdl", "ccc"].join("/");
@@ -110,14 +110,14 @@ describe("project extension shared flow foundations", () => {
 		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
 		expect(regeneratePrSource).toContain("../../submit/index.ts");
 		await expect(access(REMOVED_CORE_DIR_PATH, constants.F_OK)).rejects.toThrow();
-		expect(worktreeSource).toContain("@ns/capability-kit/pending-worktree");
-		expect(worktreeSource).toContain("@ns/capability-kit/git");
+		expect(worktreeSource).toContain("@nseng-ai/capability-kit/pending-worktree");
+		expect(worktreeSource).toContain("@nseng-ai/capability-kit/git");
 		expect(worktreeSource).toContain("execNsGit");
 		expect(worktreeSource).not.toContain("./git.ts");
 		expect(worktreeSource).not.toContain("execFlowGit");
 		expect(worktreeSource).not.toContain('ctx.exec("git"');
 		expect(worktreeSource).not.toContain("isClean");
-		expect(pushSource).toContain("@ns/capability-kit/git");
+		expect(pushSource).toContain("@nseng-ai/capability-kit/git");
 		expect(pushSource).toContain("readNsGitPorcelainStatus");
 		expect(pushSource).toContain("execNsGit");
 		expect(pushSource).not.toContain("../shared/git.ts");

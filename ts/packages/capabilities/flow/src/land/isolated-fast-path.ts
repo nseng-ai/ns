@@ -1,5 +1,5 @@
-import { optionalEntry } from "@ns/core/primitives";
-import type { NsCommandIo } from "@ns/kernel/sdk";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
 	completed,
 	failure,

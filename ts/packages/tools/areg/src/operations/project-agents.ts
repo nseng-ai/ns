@@ -1,5 +1,5 @@
-import { formatErrorMessage, isRecord } from "@ns/core/primitives";
-import { err, type Result } from "@ns/core/result";
+import { formatErrorMessage, isRecord } from "@nseng-ai/core/primitives";
+import { err, type Result } from "@nseng-ai/core/result";
 import { parse } from "smol-toml";
 
 import type { AregTextFileState } from "../gateways.ts";

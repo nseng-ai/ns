@@ -1,7 +1,7 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
-import { formatCommand } from "@ns/core/command";
-import { defineExtension, failed, ok, z, type NsCommand } from "@ns/kernel/sdk";
-import type { Caps } from "@ns/clinkr";
+import { formatCommand } from "@nseng-ai/core/command";
+import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
 
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";

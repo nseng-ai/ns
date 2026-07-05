@@ -1,5 +1,5 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-const registerCccPiExtension = await importTypeScriptWorkspaceDefault("@ns/ccc/pi/extension");
+const registerCccPiExtension = await importTypeScriptWorkspaceDefault("@nseng-ai/ccc/pi/extension");
 
 export default registerCccPiExtension;

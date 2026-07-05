@@ -4,7 +4,7 @@ import {
 	runCommand,
 	stripTerminalEscapes,
 	type CommandRunner,
-} from "@ns/core/exec";
+} from "@nseng-ai/core/exec";
 
 import type {
 	AregGithubGateway,

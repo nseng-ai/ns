@@ -3,13 +3,13 @@ import {
 	RealGitBrmemGateway,
 	type BrmemGateway,
 	type BrmemSourceReader,
-} from "@ns/brmem";
-import { createNsClinkrInteraction, NsStdinCapableCommandExecApi } from "@ns/capability-kit";
-import { optionalEntries } from "@ns/core/primitives";
-import { createNsGitGateway } from "@ns/capability-kit/git";
-import type { ClinkrInteraction, ConfirmationRequest } from "@ns/clinkr";
-import type { GitGateway } from "@ns/capability-kit/git";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+} from "@nseng-ai/brmem";
+import { createNsClinkrInteraction, NsStdinCapableCommandExecApi } from "@nseng-ai/capability-kit";
+import { optionalEntries } from "@nseng-ai/core/primitives";
+import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import type { ClinkrInteraction, ConfirmationRequest } from "@nseng-ai/clinkr";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { HandoffCliContext } from "../core/context.ts";
 

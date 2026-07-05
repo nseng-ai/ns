@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { runAvailableBrmemCommand } from "@ns/capability-kit/brmem-cli";
+import { runAvailableBrmemCommand } from "@nseng-ai/capability-kit/brmem-cli";
 import {
 	execApiToCommandRunner,
 	type ExecOptions,
@@ -10,35 +10,35 @@ import {
 	piExecApiToCommandExecApi,
 	type PiExecResultLike,
 	tailText,
-} from "@ns/core/command";
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { runGitHubCli } from "@ns/capability-kit/github/cli";
-import { githubRepositoryIdentityFromRemoteUrl } from "@ns/capability-kit/github/identity";
+} from "@nseng-ai/core/command";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
+import { githubRepositoryIdentityFromRemoteUrl } from "@nseng-ai/capability-kit/github/identity";
 import {
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJsonResult,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
-} from "@ns/capability-kit/github/pr-status";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
-import { formatElapsedMs } from "@ns/core/time-format";
-import { parseMachineEnvelopeData } from "@ns/pi/runtime/machine-envelope";
+} from "@nseng-ai/capability-kit/github/pr-status";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { formatElapsedMs } from "@nseng-ai/core/time-format";
+import { parseMachineEnvelopeData } from "@nseng-ai/pi/runtime/machine-envelope";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksFromDetails,
 	safeTerminalHyperlink,
 	truncateDisplayLine,
-} from "@ns/pi/terminal/presentation";
+} from "@nseng-ai/pi/terminal/presentation";
 
 import {
 	loadGraphiteMetadataStatusInWorker,
 	type GraphiteMetadataStatus,
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
-} from "@ns/capability-kit/graphite/status";
+} from "@nseng-ai/capability-kit/graphite/status";
 
 import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 

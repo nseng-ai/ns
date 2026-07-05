@@ -2,16 +2,16 @@ import { afterEach, describe, expect, test } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { CommandExecApi } from "@ns/core/exec";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { createTempDirTracker } from "@ns/core/test-kit";
-import { encodeBranchForPlanPath } from "@ns/plans";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { createTempDirTracker } from "@nseng-ai/core/test-kit";
+import { encodeBranchForPlanPath } from "@nseng-ai/plans";
 
 import { attachBranchContextEntry } from "../src/core/attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "../src/core/constants.ts";
 import type { BranchContextContext } from "../src/core/context.ts";
-import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
+import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const SOURCE_BRANCH = "feature/source-plan";

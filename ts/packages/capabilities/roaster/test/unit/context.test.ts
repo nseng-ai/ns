@@ -1,4 +1,4 @@
-import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback";
+import type { GithubPrReviewThread } from "@nseng-ai/capability-kit/github/pr-feedback";
 import { describe, expect, test } from "vitest";
 
 import {

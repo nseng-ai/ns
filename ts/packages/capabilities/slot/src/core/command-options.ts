@@ -1,4 +1,4 @@
-import type { OptionSpec } from "@ns/clinkr";
+import type { OptionSpec } from "@nseng-ai/clinkr";
 
 type CommandOptionSpecs = Partial<Record<string, OptionSpec>>;
 

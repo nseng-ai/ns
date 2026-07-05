@@ -1,4 +1,4 @@
-import { definePiSurfaceParity, type PiSurfaceParity } from "@ns/pi/parity/extension";
+import { definePiSurfaceParity, type PiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 import { genericBackingSkillCommandSpecs } from "./specs.ts";
 

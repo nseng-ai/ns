@@ -1,9 +1,9 @@
-import { type ExecResult, tailText } from "@ns/core/exec";
-import { isRecord } from "@ns/core/primitives";
-export { err, ok, resultErr, resultOk } from "@ns/core/result";
-export type { ErrorInfo, Result, Result as GatewayResult } from "@ns/core/result";
-import type { ErrorInfo } from "@ns/core/result";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+import { type ExecResult, tailText } from "@nseng-ai/core/exec";
+import { isRecord } from "@nseng-ai/core/primitives";
+export { err, ok, resultErr, resultOk } from "@nseng-ai/core/result";
+export type { ErrorInfo, Result, Result as GatewayResult } from "@nseng-ai/core/result";
+import type { ErrorInfo } from "@nseng-ai/core/result";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
 
 const STDERR_DETAIL_LIMIT_CHARS = 1_200;
 const CONCISE_COMMAND_FAILURE_DETAIL_LIMIT_CHARS = 300;

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { failure, ok } from "@ns/clinkr";
+import { failure, ok } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

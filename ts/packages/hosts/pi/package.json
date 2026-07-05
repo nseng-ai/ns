@@ -1,5 +1,5 @@
 {
-	"name": "@ns/pi",
+	"name": "@nseng-ai/pi",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -43,11 +43,11 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
-		"@ns/address": "workspace:*",
-		"@ns/capability-kit": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/kernel": "workspace:*",
-		"@ns/pi-command-surfaces": "workspace:*",
+		"@nseng-ai/address": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/pi-command-surfaces": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {

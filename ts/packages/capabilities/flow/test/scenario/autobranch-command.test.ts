@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { stripAnsi } from "@ns/clinkr/testing";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
 	autobranchGtCreateFailExec,
