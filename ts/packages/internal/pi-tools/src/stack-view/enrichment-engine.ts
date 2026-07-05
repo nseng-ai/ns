@@ -23,7 +23,7 @@ import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { callPiModelText } from "@nseng-ai/pi/models/call";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 
-import { checkLogUnavailableReason, fetchCheckLogTail } from "./check-logs.ts";
+import { fetchCheckLogTail, resolveCheckLogSource } from "./check-logs.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
 	CHECK_LOG_TAIL_MAX_CHARS,
@@ -221,7 +221,7 @@ export function createStackEnrichmentEngine(
 			degraded = MODEL_REGISTRY_UNAVAILABLE_REASON;
 			return { state: "failed" };
 		}
-		if (checkLogUnavailableReason(task.entry) !== null) return { state: "failed" };
+		if (!resolveCheckLogSource(task.entry).ok) return { state: "failed" };
 		// One composed signal for the whole task: a single 60s budget shared by the
 		// log fetch and the model call, rather than a fresh timer per operation.
 		const signal = taskSignal(CHECK_TASK_TIMEOUT_MS);

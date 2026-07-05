@@ -1,4 +1,4 @@
-export { type GithubRepositoryIdentity } from "@ns/capability-kit/github";
+export { type GithubRepositoryIdentity } from "@nseng-ai/capability-kit/github";
 
 export {
 	deriveStatus,
@@ -39,12 +39,9 @@ export {
 
 export {
 	buildStackPrQuery,
-	fetchRepoIdentity,
 	fetchStackPrs,
 	graphiteUrl,
 	parseStackPrResponse,
-	type FetchRepoIdentityParams,
-	type FetchRepoIdentityResult,
 	type FetchStackPrsParams,
 	type FetchStackPrsResult,
 	type StackPrData,

@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
 	buildStackPrQuery,
-	fetchRepoIdentity,
 	fetchStackPrs,
 	graphiteUrl,
 	parseStackPrResponse,
 	type FetchStackPrsResult,
 } from "../../src/stack-view/graphql.ts";
 import type { CommandExecApi, ExecOptions, ExecResult } from "../../src/stack-view/exec.ts";
+import { stackViewExecApi } from "../../src/stack-view/exec.ts";
+import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
 import {
 	deriveStatus,
 	type StackViewCheckEntry,
@@ -272,49 +273,35 @@ function repoResponse(aliases: Record<string, unknown>): unknown {
 // ===========================================================================
 
 describe("buildStackPrQuery", () => {
-	it("emits one aliased pullRequests selection per branch and the owner/repo variables", () => {
+	it("emits one aliased pullRequests selection per branch bound to a per-branch variable", () => {
 		const query = buildStackPrQuery(["main", "feature", "topper"]);
 
-		expect(query).toContain('b0: pullRequests(headRefName: "main"');
-		expect(query).toContain('b1: pullRequests(headRefName: "feature"');
-		expect(query).toContain('b2: pullRequests(headRefName: "topper"');
+		// Each alias references its own `$branch{index}` variable, never an inline literal.
+		expect(query).toContain("b0: pullRequests(headRefName: $branch0");
+		expect(query).toContain("b1: pullRequests(headRefName: $branch1");
+		expect(query).toContain("b2: pullRequests(headRefName: $branch2");
 		// No stray alias beyond the branch count.
 		expect(query).not.toContain("b3:");
-		// GraphQL variables the caller supplies via -f.
-		expect(query).toContain("query($owner:String!,$repo:String!)");
+		// Per-branch variables are declared alongside owner/repo in the operation signature.
+		expect(query).toContain(
+			"query($owner:String!,$repo:String!,$branch0:String!,$branch1:String!,$branch2:String!)",
+		);
 		expect(query).toContain("repository(owner:$owner,name:$repo)");
 	});
 
-	it("emits exactly N aliases for N branches", () => {
+	it("emits exactly N aliases and N branch variables for N branches", () => {
 		const query = buildStackPrQuery(["a", "b", "c", "d"]);
-		const aliasCount = [...query.matchAll(/b\d+: pullRequests/g)].length;
-		expect(aliasCount).toBe(4);
+		expect([...query.matchAll(/b\d+: pullRequests/g)]).toHaveLength(4);
+		expect([...query.matchAll(/\$branch\d+:String!/g)]).toHaveLength(4);
 	});
 
-	it("produces an empty repository selection for zero branches", () => {
+	it("produces an empty repository selection and no branch variables for zero branches", () => {
 		const query = buildStackPrQuery([]);
-		expect(query).toContain("repository(owner:$owner,name:$repo){}");
+		expect(query).toContain(
+			"query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){}}",
+		);
 		expect(query).not.toContain("b0:");
-	});
-
-	it("escapes adversarial branch names as safe GraphQL string literals", () => {
-		const query = buildStackPrQuery(['weird"quote', "back\\slash", "line1\nline2", "tab\there"]);
-
-		// Double quote escaped to \" — the raw closing quote never leaks.
-		expect(query).toContain('headRefName: "weird\\"quote"');
-		// Backslash doubled.
-		expect(query).toContain('headRefName: "back\\\\slash"');
-		// Newline and tab become their two-char escapes...
-		expect(query).toContain('headRefName: "line1\\nline2"');
-		expect(query).toContain('headRefName: "tab\\there"');
-		// ...and no literal control characters survive in the document.
-		expect(query).not.toContain("\n");
-		expect(query).not.toContain("\t");
-	});
-
-	it("escapes other control characters as \\u sequences", () => {
-		const query = buildStackPrQuery(["bellend"]);
-		expect(query).toContain('headRefName: "bell\\u0007end"');
+		expect(query).not.toContain("$branch0");
 	});
 
 	it("selects per-thread detail (id, path/line/originalLine, comments, and the lastComment alias)", () => {
@@ -848,7 +835,7 @@ describe("fetchStackPrs", () => {
 		return result;
 	}
 
-	it("runs gh api graphql with query/owner/repo -f args and parses success", async () => {
+	it("runs gh api graphql with query/owner/repo and per-branch -f args, timeout, and parses success", async () => {
 		const branches = ["alpha", "beta"];
 		const response = repoResponse({
 			b0: aliasNode(prNode({ number: 1 })),
@@ -870,6 +857,7 @@ describe("fetchStackPrs", () => {
 		expect(fake.calls).toHaveLength(1);
 		const call = fake.calls[0];
 		expect(call?.command).toBe("gh");
+		// Each branch rides as its own `-f branch{index}=…` variable after owner/repo.
 		expect(call?.args).toEqual([
 			"api",
 			"graphql",
@@ -879,8 +867,12 @@ describe("fetchStackPrs", () => {
 			"owner=acme",
 			"-f",
 			"repo=widgets",
+			"-f",
+			"branch0=alpha",
+			"-f",
+			"branch1=beta",
 		]);
-		expect(call?.options).toEqual({ cwd: CWD });
+		expect(call?.options).toEqual({ cwd: CWD, timeout: GITHUB_CLI_TIMEOUT_MS });
 	});
 
 	it("maps a nonzero exit into exec-error carrying the stderr reason", async () => {
@@ -930,44 +922,32 @@ describe("fetchStackPrs", () => {
 	});
 });
 
-describe("fetchRepoIdentity", () => {
-	it("runs gh repo view and parses owner/name", async () => {
-		const fake = fakeExec({
-			stdout: JSON.stringify({ name: "widgets", owner: { login: "acme" } }),
-		});
-		const result = await fetchRepoIdentity({ execApi: fake.api, cwd: CWD });
-		expect(result).toEqual({ type: "ok", repoIdentity: { owner: "acme", repo: "widgets" } });
-
-		expect(fake.calls).toHaveLength(1);
-		expect(fake.calls[0]?.command).toBe("gh");
-		expect(fake.calls[0]?.args).toEqual(["repo", "view", "--json", "owner,name"]);
-		expect(fake.calls[0]?.options).toEqual({ cwd: CWD });
-	});
-
-	it("maps a nonzero exit into exec-error", async () => {
-		const fake = fakeExec({ code: 2, stderr: "no repo here" });
-		const result = await fetchRepoIdentity({ execApi: fake.api, cwd: CWD });
-		expect(result).toEqual({ type: "exec-error", message: "no repo here" });
-	});
-
-	it("maps non-JSON stdout into invalid-json", async () => {
-		const fake = fakeExec({ stdout: "<html>nope</html>" });
-		const result = await fetchRepoIdentity({ execApi: fake.api, cwd: CWD });
-		expect(result.type).toBe("invalid-json");
-		if (result.type !== "invalid-json") return;
-		expect(result.message.length).toBeGreaterThan(0);
-	});
-
-	it("reports schema-mismatch when required fields are absent", async () => {
-		const missingOwner = fakeExec({ stdout: JSON.stringify({ name: "widgets" }) });
-		expect(await fetchRepoIdentity({ execApi: missingOwner.api, cwd: CWD })).toEqual({
-			type: "schema-mismatch",
+describe("stackViewExecApi throw-safety", () => {
+	it("normalizes a rejecting host exec into a code:127 startupError result instead of throwing", async () => {
+		const execApi = stackViewExecApi({
+			exec: () => Promise.reject(new Error("spawn gh ENOENT")),
 		});
 
-		const missingName = fakeExec({ stdout: JSON.stringify({ owner: { login: "acme" } }) });
-		expect(await fetchRepoIdentity({ execApi: missingName.api, cwd: CWD })).toEqual({
-			type: "schema-mismatch",
+		const result = await execApi.exec("gh", ["api", "graphql"], { cwd: CWD });
+
+		expect(result.code).toBe(127);
+		expect(result.killed).toBe(false);
+		expect(result.startupError).toContain("spawn gh ENOENT");
+	});
+
+	it("keeps fetchStackPrs from throwing when the host exec rejects, mapping to exec-error", async () => {
+		const execApi = stackViewExecApi({
+			exec: () => Promise.reject(new Error("spawn gh ENOENT")),
 		});
+
+		const result = await fetchStackPrs({
+			execApi,
+			cwd: CWD,
+			branches: ["a"],
+			repoIdentity: { owner: "acme", repo: "widgets" },
+		});
+
+		expect(result.type).toBe("exec-error");
 	});
 });
 

@@ -7,7 +7,7 @@
  * discriminated-union values, never thrown.
  */
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
 
 import { githubActionsJobLogArgs } from "../pr-previews/preview-check-logs.ts";
 import { CHECK_LOG_TAIL_MAX_CHARS } from "./enrichment-prompts.ts";
@@ -16,27 +16,41 @@ import type { StackViewCheckEntry } from "./types.ts";
 
 export { githubActionsJobLogArgs } from "../pr-previews/preview-check-logs.ts";
 
+/** Resolved log source for a check: the proven `gh` argv, or the reason it is unavailable. */
+export type ResolveCheckLogSourceResult =
+	| { ok: true; args: string[] }
+	| { ok: false; reason: string };
+
 /**
- * LBYL reason a check's logs cannot be fetched; null when fetchable. Guards, in
- * order: the check is not completed, it was canceled/skipped (GitHub omits those
- * logs), or its details URL is absent or not a parseable Actions job URL.
+ * Parse-don't-validate the log source for a check. Guards, in order: the check
+ * is not completed, it was canceled/skipped (GitHub omits those logs), or its
+ * details URL is absent or not a parseable Actions job URL. On success it hands
+ * back the parsed `gh run view --log` argv so callers never re-parse the URL.
  */
-export function checkLogUnavailableReason(entry: StackViewCheckEntry): string | null {
+export function resolveCheckLogSource(entry: StackViewCheckEntry): ResolveCheckLogSourceResult {
 	if (entry.status !== "COMPLETED") {
-		return `logs are not available while this check is ${entry.status ?? "not completed"}`;
+		return {
+			ok: false,
+			reason: `logs are not available while this check is ${entry.status ?? "not completed"}`,
+		};
 	}
 	const conclusion = entry.conclusion?.toLowerCase() ?? null;
 	if (conclusion === "canceled" || conclusion === "cancelled" || conclusion === "skipped") {
 		const label = conclusion === "skipped" ? "skipped" : "canceled";
-		return `logs are not available because this check was ${label}`;
+		return { ok: false, reason: `logs are not available because this check was ${label}` };
 	}
 	if (entry.detailsUrl === null) {
-		return "logs are not available because this check has no details URL";
+		return { ok: false, reason: "logs are not available because this check has no details URL" };
 	}
-	if (githubActionsJobLogArgs(entry.detailsUrl) === null) {
-		return "logs are not available because this check's details URL is not a GitHub Actions job URL";
+	const args = githubActionsJobLogArgs(entry.detailsUrl);
+	if (args === null) {
+		return {
+			ok: false,
+			reason:
+				"logs are not available because this check's details URL is not a GitHub Actions job URL",
+		};
 	}
-	return null;
+	return { ok: true, args };
 }
 
 export interface FetchCheckLogTailOptions {
@@ -52,37 +66,25 @@ export type FetchCheckLogTailResult = { ok: true; logTail: string } | { ok: fals
 
 /**
  * Fetch the tail of a check's GitHub Actions job log through the exec seam.
- * LBYL-guards via {@link checkLogUnavailableReason}, then execs `gh` with the
- * parsed run/job args; a nonzero exit or startup error maps to `{ ok: false }`,
- * and a successful log is truncated to the final `maxChars` characters. The Pi
- * exec seam can reject (e.g. a spawn failure) rather than return a
- * `{ startupError }` result, so the exec await is wrapped and a thrown error is
- * mapped to `{ ok: false }` — this helper never throws, matching the stack-view
- * errors-as-values contract.
+ * Resolves the log source via {@link resolveCheckLogSource} (which returns the
+ * proven `gh` argv), then execs `gh`; a nonzero exit or startup error maps to
+ * `{ ok: false }` (`commandSucceeded` already fails a startup-error result), and
+ * a successful log is truncated to the final `maxChars` characters. The exec
+ * seam normalizes host rejections into `{ startupError }` results, so this
+ * helper never throws, matching the stack-view errors-as-values contract.
  */
 export async function fetchCheckLogTail(
 	options: FetchCheckLogTailOptions,
 ): Promise<FetchCheckLogTailResult> {
-	const unavailable = checkLogUnavailableReason(options.entry);
-	if (unavailable !== null) return { ok: false, reason: unavailable };
+	const source = resolveCheckLogSource(options.entry);
+	if (!source.ok) return { ok: false, reason: source.reason };
 
-	// checkLogUnavailableReason guarantees a parseable Actions job URL here; the
-	// re-parse keeps the null-narrowing honest for the type checker.
-	const detailsUrl = options.entry.detailsUrl;
-	if (detailsUrl === null) return { ok: false, reason: "logs are not available for this check" };
-	const args = githubActionsJobLogArgs(detailsUrl);
-	if (args === null) return { ok: false, reason: "logs are not available for this check" };
-
-	let result;
-	try {
-		result = await options.execApi.exec("gh", args, {
-			cwd: options.cwd,
-			signal: options.signal,
-		});
-	} catch (error) {
-		return { ok: false, reason: formatErrorMessage(error) };
-	}
-	if (result.startupError !== undefined || !commandSucceeded(result)) {
+	const result = await options.execApi.exec("gh", source.args, {
+		cwd: options.cwd,
+		signal: options.signal,
+		timeout: GITHUB_CLI_TIMEOUT_MS,
+	});
+	if (!commandSucceeded(result)) {
 		return { ok: false, reason: commandFailureReason(result) };
 	}
 

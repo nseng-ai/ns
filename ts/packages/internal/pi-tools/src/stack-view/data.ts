@@ -8,12 +8,11 @@
  * failures are returned as typed discriminated-union values, never thrown.
  * `not-on-stack` is the LBYL "nothing to show" outcome (detached HEAD, an
  * untracked branch, or sitting on the trunk); `error` covers genuine failures
- * (stack-gateway, repo identity, or the batched PR query). Per-branch objective
- * lookups degrade to empty slugs on failure rather than failing the whole load,
- * because objective attribution is display-only metadata.
+ * (stack-gateway, repo identity, or the batched PR query). Repo identity is
+ * resolved locally from the `origin` remote URL (no network round-trip).
+ * Per-branch objective lookups degrade to empty slugs on failure rather than
+ * failing the whole load, because objective attribution is display-only metadata.
  */
-import { isAbsolute, resolve } from "node:path";
-
 import type { CommandExecApi, StackViewExecContext } from "./exec.ts";
 import {
 	deriveStatus,
@@ -21,17 +20,25 @@ import {
 	type StackViewPr,
 	type StackViewPrStatus,
 } from "./types.ts";
-import { fetchRepoIdentity, fetchStackPrs, graphiteUrl, type StackPrData } from "./graphql.ts";
-import type { GithubRepositoryIdentity } from "@ns/capability-kit/github";
+import {
+	fetchStackPrs,
+	graphiteUrl,
+	type FetchStackPrsResult,
+	type StackPrData,
+} from "./graphql.ts";
+import {
+	githubRepositoryIdentityFromRemoteUrl,
+	type GithubRepositoryIdentity,
+} from "@nseng-ai/capability-kit/github";
 import { objectiveSlugsForBranch } from "./objectives.ts";
 import {
+	execGitCommonDir,
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
 	type GraphiteStackGitGateway,
 	type StackInfo,
 } from "@nseng-ai/capability-kit/graphite/stack";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import { commandSucceeded } from "@nseng-ai/foundation/exec";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
 
 export interface LoadStackViewParams extends StackViewExecContext {
 	/**
@@ -54,24 +61,20 @@ export type LoadStackViewResult =
 	| { type: "not-on-stack"; reason: string }
 	| { type: "error"; message: string };
 
-/** Outcome of the repo-identity → batched-PR-query chain (identity must precede the query). */
-type IdentityAndPrsResult =
-	| { type: "ok"; repoIdentity: GithubRepositoryIdentity; prs: (StackPrData | null)[] }
-	| { type: "error"; message: string };
-
 /**
  * Load the current Graphite stack and everything the `/stack:view` panel needs.
  *
  * Steps: (1) LBYL-check the current branch and read the stack, mapping
  * detached / untracked / on-trunk to `not-on-stack`; (2) order the branches
  * top-of-stack first, nearest-trunk last, with trunk carried separately; (3)
- * fetch repo identity → batched PR data (sequential, the query needs owner/repo)
- * concurrently with per-branch objective diffs; (4) join into a
- * {@link StackViewModel}.
+ * resolve the repo identity locally from the `origin` remote, then fetch the
+ * batched PR data concurrently with the per-branch objective diffs; (4) join
+ * into a {@link StackViewModel}.
  */
 export async function loadStackView(params: LoadStackViewParams): Promise<LoadStackViewResult> {
 	const { execApi, cwd } = params;
-	const git = stackViewGitGateway(execApi);
+	const coreGit = new RealGitGateway(execApi);
+	const git = stackViewGitGateway(execApi, coreGit);
 
 	// LBYL: detect detached HEAD cleanly here rather than string-matching the
 	// stack gateway's failure message (it reports detached HEAD as a `failure`).
@@ -107,18 +110,26 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 			reason: `You're on the trunk branch '${stack.trunk}'; check out a stacked branch to view its stack.`,
 		};
 
+	// Zip each branch with its parent once (nearest-trunk row's parent is the
+	// trunk itself), so the `?? stack.trunk` fallback is applied a single time.
 	const orderedBranches = orderStackBranches(stack);
-	const parentBranches = orderedBranches.map(
-		(_branch, index) => orderedBranches[index + 1] ?? stack.trunk,
-	);
+	const rowInputs = orderedBranches.map((branch, index) => ({
+		branch,
+		parentBranch: orderedBranches[index + 1] ?? stack.trunk,
+	}));
 
-	// The identity→PR chain must be sequential (the query needs owner/repo), but
-	// the per-branch objective diffs are independent and run alongside it.
-	const [identityAndPrs, objectiveSlugsByRow] = await Promise.all([
-		loadIdentityAndPrs({ execApi, cwd }, orderedBranches),
+	// Resolve the repo identity locally (fast git call) before the concurrent
+	// fetch; a missing/invalid `origin` remote is a whole-load error.
+	const identity = await resolveRepoIdentity(coreGit, cwd);
+	if (identity.type === "error") return { type: "error", message: identity.message };
+	const repoIdentity = identity.repoIdentity;
+
+	// The batched PR query and the per-branch objective diffs are independent, so
+	// run them concurrently.
+	const [stackPrs, objectiveSlugsByRow] = await Promise.all([
+		fetchStackPrs({ execApi, cwd, branches: orderedBranches, repoIdentity }),
 		Promise.all(
-			orderedBranches.map(async (branch, index) => {
-				const parentBranch = parentBranches[index] ?? stack.trunk;
+			rowInputs.map(async ({ branch, parentBranch }) => {
 				const result = await objectiveSlugsForBranch({ execApi, cwd, branch, parentBranch });
 				// A single branch's objective diff failing must not fail the whole
 				// load: objective attribution is display-only metadata, so degrade
@@ -128,13 +139,13 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 		),
 	]);
 
-	if (identityAndPrs.type === "error") return { type: "error", message: identityAndPrs.message };
+	if (stackPrs.type !== "ok") return { type: "error", message: stackPrsErrorMessage(stackPrs) };
 
-	const { repoIdentity, prs } = identityAndPrs;
-	const rows = orderedBranches.map((branch, index) =>
+	const prs = stackPrs.prs;
+	const rows = rowInputs.map((input, index) =>
 		buildStackViewPr({
-			branch,
-			parentBranch: parentBranches[index] ?? stack.trunk,
+			branch: input.branch,
+			parentBranch: input.parentBranch,
 			prData: prs[index] ?? null,
 			objectiveSlugs: objectiveSlugsByRow[index] ?? [],
 			repoIdentity,
@@ -168,72 +179,55 @@ function orderStackBranches(stack: StackInfo): string[] {
 	return [...descendantRows, stack.current, ...ancestorRows];
 }
 
+/** Outcome of resolving the repo's `owner`/`repo` identity from the `origin` remote URL. */
+type ResolveRepoIdentityResult =
+	| { type: "ok"; repoIdentity: GithubRepositoryIdentity }
+	| { type: "error"; message: string };
+
 /**
- * Resolve repo identity, then run the batched PR query against it. Sequential by
- * necessity (the query is parameterized by owner/repo); any failure in either
- * step becomes a whole-load `error` with the failing step named.
+ * Resolve the repo's GitHub identity from the local `origin` remote URL (no
+ * network round-trip). A missing/`error`/unparseable remote becomes a whole-load
+ * `error`; the underlying git error message is included when the gateway carries
+ * one.
  */
-async function loadIdentityAndPrs(
-	context: StackViewExecContext,
-	branches: string[],
-): Promise<IdentityAndPrsResult> {
-	const identity = await fetchRepoIdentity(context);
-	if (identity.type !== "ok") return { type: "error", message: repoIdentityErrorMessage(identity) };
-
-	const stackPrs = await fetchStackPrs({
-		...context,
-		branches,
-		repoIdentity: identity.repoIdentity,
-	});
-	if (stackPrs.type !== "ok") return { type: "error", message: stackPrsErrorMessage(stackPrs) };
-
-	return { type: "ok", repoIdentity: identity.repoIdentity, prs: stackPrs.prs };
+async function resolveRepoIdentity(
+	git: GitGateway,
+	cwd: string,
+): Promise<ResolveRepoIdentityResult> {
+	const origin = await git.originUrl({ cwd });
+	if (origin.type === "found") {
+		const repoIdentity = githubRepositoryIdentityFromRemoteUrl(origin.value.trim());
+		if (repoIdentity !== undefined) return { type: "ok", repoIdentity };
+		return {
+			type: "error",
+			message:
+				"Could not determine the GitHub repository from the origin remote: its URL is not a GitHub repository URL.",
+		};
+	}
+	if (origin.type === "error") {
+		return {
+			type: "error",
+			message: `Could not determine the GitHub repository from the origin remote: ${origin.error.message}`,
+		};
+	}
+	return {
+		type: "error",
+		message:
+			"Could not determine the GitHub repository from the origin remote: no 'origin' remote is configured.",
+	};
 }
 
-interface CommonFetchFailure {
-	type: "exec-error" | "invalid-json" | "schema-mismatch";
-	message?: string;
-}
-
-function commonFetchErrorMessage(
-	failure: CommonFetchFailure,
-	messages: {
-		execPrefix: string;
-		invalidJsonPrefix: string;
-		schemaMismatch: string;
-	},
-): string {
-	switch (failure.type) {
+function stackPrsErrorMessage(stackPrs: Exclude<FetchStackPrsResult, { type: "ok" }>): string {
+	switch (stackPrs.type) {
 		case "exec-error":
-			return `${messages.execPrefix}: ${failure.message ?? "unknown error"}`;
+			return `Could not query stack pull requests: ${stackPrs.message}`;
 		case "invalid-json":
-			return `${messages.invalidJsonPrefix}: ${failure.message ?? "unknown error"}`;
+			return `Stack pull-request response was not valid JSON: ${stackPrs.message}`;
+		case "graphql-errors":
+			return `GitHub returned GraphQL errors for the stack pull-request query: ${stackPrs.messages.join("; ")}`;
 		case "schema-mismatch":
-			return messages.schemaMismatch;
+			return "GitHub returned an unexpected shape for the stack pull-request query";
 	}
-}
-
-function repoIdentityErrorMessage(
-	identity: Exclude<Awaited<ReturnType<typeof fetchRepoIdentity>>, { type: "ok" }>,
-): string {
-	return commonFetchErrorMessage(identity, {
-		execPrefix: "Could not identify the GitHub repository",
-		invalidJsonPrefix: "GitHub repository identity was not valid JSON",
-		schemaMismatch: "GitHub returned an unexpected shape for the repository identity",
-	});
-}
-
-function stackPrsErrorMessage(
-	stackPrs: Exclude<Awaited<ReturnType<typeof fetchStackPrs>>, { type: "ok" }>,
-): string {
-	if (stackPrs.type === "graphql-errors") {
-		return `GitHub returned GraphQL errors for the stack pull-request query: ${stackPrs.messages.join("; ")}`;
-	}
-	return commonFetchErrorMessage(stackPrs, {
-		execPrefix: "Could not query stack pull requests",
-		invalidJsonPrefix: "Stack pull-request response was not valid JSON",
-		schemaMismatch: "GitHub returned an unexpected shape for the stack pull-request query",
-	});
 }
 
 interface BuildStackViewPrParams {
@@ -319,18 +313,15 @@ function buildObjectivesBySlug(rows: readonly StackViewPr[]): Map<string, number
 /**
  * Adapt the injected `execApi` into the two-method `GraphiteStackGitGateway` the
  * stack gateway needs. `currentBranch` reuses the tested `RealGitGateway`;
- * `getGitCommonDir` runs `git rev-parse --git-common-dir` and resolves the
- * (possibly relative) result against `cwd`, mirroring the slot repository gateway.
+ * `getGitCommonDir` delegates to the shared {@link execGitCommonDir} helper.
  */
-function stackViewGitGateway(execApi: CommandExecApi): GraphiteStackGitGateway {
-	const coreGit = new RealGitGateway(execApi);
+function stackViewGitGateway(
+	execApi: CommandExecApi,
+	coreGit: GitGateway,
+): GraphiteStackGitGateway {
 	return {
-		async getGitCommonDir(cwd: string): Promise<string | null> {
-			const result = await execApi.exec("git", ["rev-parse", "--git-common-dir"], { cwd });
-			if (!commandSucceeded(result)) return null;
-			const raw = result.stdout.trim();
-			if (raw.length === 0) return null;
-			return isAbsolute(raw) ? raw : resolve(cwd, raw);
+		getGitCommonDir(cwd: string): Promise<string | null> {
+			return execGitCommonDir(execApi, cwd);
 		},
 		async getCurrentBranch(cwd: string) {
 			const result = await coreGit.currentBranch({ cwd });
