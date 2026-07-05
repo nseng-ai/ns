@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { Api, AssistantMessage, Model } from "@earendil-works/pi-ai";
-import {
-	AuthStorage,
-	ModelRegistry,
-	type AgentSessionEvent,
-} from "@earendil-works/pi-coding-agent";
+import type { Api, Model } from "@earendil-works/pi-ai";
+import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import { InterrogationController } from "../../src/context-profiler/interrogation-controller.ts";
 import {
@@ -13,7 +9,6 @@ import {
 	scopeForRegion,
 } from "../../src/context-profiler/interrogation-prompt.ts";
 import { chatFrameMeta, chatHint } from "../../src/context-profiler/interrogation-render.ts";
-import { mapAgentSessionEvent } from "../../src/context-profiler/interrogation-session.ts";
 import {
 	applyInterrogationEvent,
 	type TranscriptState,
@@ -39,26 +34,6 @@ const TEST_MODEL: Model<Api> = {
 
 function createTestModelRegistry(): ModelRegistry {
 	return ModelRegistry.inMemory(AuthStorage.inMemory());
-}
-
-function testAssistantMessage(): AssistantMessage {
-	return {
-		role: "assistant",
-		content: [],
-		api: "anthropic-messages",
-		provider: "p",
-		model: "m",
-		usage: {
-			input: 0,
-			output: 0,
-			cacheRead: 0,
-			cacheWrite: 0,
-			totalTokens: 0,
-			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-		},
-		stopReason: "stop",
-		timestamp: 0,
-	};
 }
 
 const REGION: LiveRegion = {
@@ -138,28 +113,6 @@ describe("interrogation core", () => {
 		).toBe("again");
 	});
 
-	test("maps SDK deltas and tool events", () => {
-		const message = testAssistantMessage();
-		const textDeltaEvent = {
-			type: "message_update",
-			message,
-			assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "hi", partial: message },
-		} satisfies AgentSessionEvent;
-		const toolStartEvent = {
-			type: "tool_execution_start",
-			toolName: "read",
-			args: { path: "messages.jsonl" },
-			toolCallId: "1",
-		} satisfies AgentSessionEvent;
-
-		expect(mapAgentSessionEvent(textDeltaEvent)).toEqual({ type: "assistant-delta", text: "hi" });
-		expect(mapAgentSessionEvent(toolStartEvent)).toEqual({
-			type: "tool-start",
-			name: "read",
-			summary: '{"path":"messages.jsonl"}',
-		});
-	});
-
 	test("unavailable chat chrome keeps long reasons out of one-line truncated areas", () => {
 		expect(chatFrameMeta({ ordinal: null, scope: { type: "session" } })).toBe(
 			"interrogation unavailable · session",
@@ -218,7 +171,7 @@ describe("interrogation core", () => {
 
 	test("failed ask resets streaming and allows a follow-up ask", async () => {
 		const session = new FakeInterrogationSession({
-			askResult: { ok: false, error: { code: "prompt-failed", message: "model failed" } },
+			askResult: { ok: false, code: "prompt-failed", message: "model failed" },
 		});
 		const controller = createController(session);
 
