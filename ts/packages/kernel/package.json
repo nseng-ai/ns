@@ -33,6 +33,7 @@
 		"ns": "./src/cli/index.ts"
 	},
 	"scripts": {
+		"build:local": "tsc -p tsconfig.dist.json",
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../.. && vitest run --config vitest.config.ts packages/kernel/test"
 	},

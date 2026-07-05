@@ -27,7 +27,12 @@ import {
 	type DiscoveredExtensionCommandKind,
 	type ExtensionDiscoveryDiagnostic,
 } from "./discovery.ts";
+import {
+	listFirstPartyCommandCatalogEntries,
+	type FirstPartyCommandCatalogEntry,
+} from "./first-party-catalog.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
+import { moduleReferenceDisplay, type NsCommandModuleReference } from "./module-reference.ts";
 import type { ExplicitUndefined } from "@ns/core/primitives";
 import { requireXdgPath, resolveNsXdgPath } from "@ns/core/xdg-path";
 import type { NsCommand } from "../sdk/index.ts";
@@ -43,9 +48,12 @@ export interface NsCommandCatalog {
 
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
 
+export type ExternalNsCommandCandidateKind = DiscoveredExtensionCommandKind | "package-specifier";
+
 export interface ExternalNsCommandCandidate extends NsCommandCandidate {
-	entryPath: string;
-	kind: DiscoveredExtensionCommandKind;
+	moduleReference: NsCommandModuleReference;
+	entryPath?: string;
+	kind: ExternalNsCommandCandidateKind;
 }
 
 export type ExtensionDiagnostic = ExtensionErrorDiagnostic | ExtensionOverrideDiagnostic;
@@ -109,7 +117,7 @@ export async function loadNsCommandCatalog(
 		diagnostics.push(...firstPartyCandidates.diagnostics);
 		orderedSources.push({
 			level: "first-party",
-			label: "first-party workspace packages",
+			label: "preinstalled first-party extension metadata",
 			candidates: firstPartyCandidates.candidates,
 		});
 	}
@@ -170,7 +178,7 @@ export async function loadSelectedNsCommand(
 		return { ok: true, command: candidate.command, source: candidate.source, path: candidate };
 	}
 
-	const loaded = await loadNsExtensionContribution(candidate.entryPath);
+	const loaded = await loadNsExtensionContribution(candidate.moduleReference);
 	if (!loaded.ok) {
 		return {
 			ok: false,
@@ -193,7 +201,7 @@ export async function loadSelectedNsCommand(
 				severity: "error",
 				code: "extension_command_invalid",
 				message: validation.message,
-				path: candidate.entryPath,
+				path: candidateDiagnosticPath(candidate),
 				sourceLevel: candidate.source.level,
 				commandName: commandKey(candidate),
 			},
@@ -208,7 +216,10 @@ export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promis
 }> {
 	const loadedInfos = await Promise.all(
 		[...catalog.candidates.values()].map(async (candidate) => {
-			if (isBuiltInCandidate(candidate) || candidate.kind === "package") {
+			if (isBuiltInCandidate(candidate)) {
+				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
+			}
+			if (candidate.kind === "package" || candidate.moduleReference.type === "package") {
 				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
 			}
 			const loaded = await loadSelectedNsCommand(candidate);
@@ -322,7 +333,23 @@ function loadFirstPartyCandidates(): {
 	diagnostics: readonly ExtensionDiagnostic[];
 	candidates: readonly ExtensionCommandCandidate[];
 } {
-	const packagesRoot = firstPartyPackagesRoot();
+	const catalogCandidates = listFirstPartyCommandCatalogEntries().map(
+		firstPartyCandidateForCatalogEntry,
+	);
+	const sourceDevCandidates = loadSourceDevFirstPartyCandidates(
+		new Set(catalogCandidates.map((candidate) => commandKey(candidate))),
+	);
+	return {
+		diagnostics: sourceDevCandidates.diagnostics,
+		candidates: [...catalogCandidates, ...sourceDevCandidates.candidates],
+	};
+}
+
+function loadSourceDevFirstPartyCandidates(catalogKeys: ReadonlySet<string>): {
+	diagnostics: readonly ExtensionDiagnostic[];
+	candidates: readonly ExtensionCommandCandidate[];
+} {
+	const packagesRoot = sourceDevFirstPartyPackagesRoot();
 	if (packagesRoot === undefined) return { diagnostics: [], candidates: [] };
 	const packageDirs = discoverWorkspacePackageDirs(packagesRoot);
 	const diagnostics: ExtensionDiagnostic[] = [];
@@ -335,15 +362,18 @@ function loadFirstPartyCandidates(): {
 			),
 		);
 		candidates.push(
-			...discovered.commands.map((command) => externalCandidateForLevel(command, "first-party")),
+			...discovered.commands
+				.filter((command) => !catalogKeys.has(commandKey(command)))
+				.map(sourceDevFirstPartyCandidateForCommand),
 		);
 	}
 	return { diagnostics, candidates };
 }
 
-function firstPartyPackagesRoot(): string | undefined {
+function sourceDevFirstPartyPackagesRoot(): string | undefined {
 	const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-	return existsSync(sourceRoot) ? sourceRoot : undefined;
+	const kernelSourceDir = join(sourceRoot, "kernel", "src");
+	return existsSync(kernelSourceDir) ? sourceRoot : undefined;
 }
 
 function discoverWorkspacePackageDirs(packagesRoot: string): readonly string[] {
@@ -368,7 +398,7 @@ function collectPackageDirs(options: {
 	try {
 		entries = readdirSync(options.current, { withFileTypes: true });
 	} catch {
-		// Package discovery is best-effort; unreadable subtrees simply cannot contribute commands.
+		// Source-dev package discovery is best-effort; unreadable subtrees cannot contribute commands.
 		return;
 	}
 	for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
@@ -382,12 +412,44 @@ function collectPackageDirs(options: {
 	}
 }
 
-function externalCandidateForLevel(
+function firstPartyCandidateForCatalogEntry(
+	entry: FirstPartyCommandCatalogEntry,
+): ExternalNsCommandCandidate {
+	return {
+		...toCommandCliInfo(entry),
+		moduleReference: { type: "package", specifier: entry.moduleSpecifier },
+		kind: "package-specifier",
+		source: {
+			level: "first-party",
+			label: `first-party package ${entry.moduleSpecifier}`,
+			path: entry.moduleSpecifier,
+		},
+	};
+}
+
+function sourceDevFirstPartyCandidateForCommand(
 	command: DiscoveredExtensionCommand,
-	level: "first-party" | "global" | "project",
 ): ExternalNsCommandCandidate {
 	return {
 		...toCommandCliInfo(command),
+		moduleReference: { type: "file", path: command.entryPath },
+		entryPath: command.entryPath,
+		kind: command.kind,
+		source: {
+			level: "first-party",
+			label: `source-dev first-party package ${command.displayPath}`,
+			path: command.entryPath,
+		},
+	};
+}
+
+function externalCandidateForLevel(
+	command: DiscoveredExtensionCommand,
+	level: "global" | "project",
+): ExternalNsCommandCandidate {
+	return {
+		...toCommandCliInfo(command),
+		moduleReference: { type: "file", path: command.entryPath },
 		entryPath: command.entryPath,
 		kind: command.kind,
 		source: { level, label: command.displayPath, path: command.entryPath },
@@ -499,7 +561,7 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 			severity: "error",
 			code: "extension_command_group_collision",
 			message: `ns command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${topSegment} from ${formatSource(topLevel.source)} already exists.`,
-			...(candidate.entryPath === undefined ? {} : { path: candidate.entryPath }),
+			path: candidateDiagnosticPath(candidate),
 			sourceLevel: candidate.source.level,
 			commandName: commandKey(candidate),
 		});
@@ -557,6 +619,11 @@ function fromLoadDiagnostic(
 	commandName: string,
 ): ExtensionErrorDiagnostic {
 	return { ...diagnostic, sourceLevel, commandName };
+}
+
+function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {
+	if (isBuiltInCandidate(candidate)) return formatSource(candidate.source);
+	return moduleReferenceDisplay(candidate.moduleReference);
 }
 
 function formatSource(source: ExtensionSourceInfo): string {

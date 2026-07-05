@@ -339,6 +339,7 @@ function commandCandidate(
 		description: command.summary,
 		fullDescription: command.description,
 		source: { level: path.sourceLevel ?? "project", label: `fake ${key}` },
+		moduleReference: { type: "file", path: `fake://${key}` },
 		entryPath: `fake://${key}`,
 		kind: "file",
 	};

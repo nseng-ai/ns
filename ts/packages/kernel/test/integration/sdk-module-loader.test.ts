@@ -2,9 +2,10 @@ import { expect, test } from "vitest";
 
 import { createNsJiti } from "../../src/runtime/module-loader.ts";
 
-// This intentionally proves real workspace/package import compatibility through Jiti.
-// Keep this smoke in the integration lane; default tests should cover local alias logic directly.
-test("repo-local migration extensions can import internal migration subpaths", async () => {
+// This intentionally proves real workspace/package import compatibility through Jiti
+// without checkout-source aliases. Keep this smoke in the integration lane because it
+// loads real workspace package graphs.
+test("repo-local extensions can import package subpaths without source aliases", async () => {
 	const jiti = createNsJiti();
 
 	const pendingWorktreeModule = await jiti.import<

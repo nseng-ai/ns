@@ -97,7 +97,7 @@ describe("extension registry", () => {
 		expect(loaded.commandInfos).toEqual([]);
 	});
 
-	test("bundled first-party manifests contribute commands without kernel imports", async () => {
+	test("bundled first-party catalog contributes Objective commands without kernel imports", async () => {
 		const workspace = await createWorkspace();
 		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 		try {
@@ -107,9 +107,15 @@ describe("extension registry", () => {
 			});
 
 			expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-			expect(loaded.candidates.get("slot/list")).toMatchObject({
+			expect(loaded.candidates.get("objective/list")).toMatchObject({
 				name: "list",
-				segments: ["slot", "list"],
+				group: "objective",
+				moduleReference: { type: "package", specifier: "@ns/objective/ns/commands/list" },
+				source: { level: "first-party" },
+			});
+			expect(loaded.candidates.get("objective/exec-load-orientations")).toMatchObject({
+				name: "exec-load-orientations",
+				group: "objective",
 				source: { level: "first-party" },
 			});
 		} finally {
@@ -200,6 +206,46 @@ describe("extension registry", () => {
 			{},
 		);
 		expect(result).toEqual({ ok: true, message: "project greet" });
+	});
+
+	test("project Objective manifest overrides bundled first-party Objective catalog", async () => {
+		const workspace = await createWorkspace();
+		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		try {
+			writeProjectManifest(workspace, "objective", {
+				ns: {
+					group: "objective",
+					description: "Project Objective overrides.",
+					commands: [
+						{
+							name: "list",
+							description: "Project Objective list.",
+							entry: "./src/list.ts",
+						},
+					],
+				},
+			});
+			writeFile(
+				join(workspace.cwd, ".ns", "extensions", "objective", "src", "list.ts"),
+				commandEntry("list", "project objective list"),
+			);
+
+			const loaded = await loadNsCommandCatalog({
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+			});
+
+			expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+			expect(loaded.candidates.get("objective/list")).toMatchObject({
+				description: "Project Objective list.",
+				source: { level: "project" },
+			});
+			expect(
+				loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
+			).toHaveLength(1);
+		} finally {
+			process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+		}
 	});
 
 	test("manifest metadata customizes catalog help without importing command entries", async () => {
@@ -574,6 +620,7 @@ export default defineExtension({
 				name: "cp",
 				description: "cp",
 				fullDescription: "cp",
+				moduleReference: { type: "file", path: "/project/cp.ts" },
 				entryPath: "/project/cp.ts",
 				kind: "file",
 				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
@@ -600,6 +647,7 @@ export default defineExtension({
 				name: "cp",
 				description: "cp",
 				fullDescription: "cp",
+				moduleReference: { type: "file", path: "/project/cp.ts" },
 				entryPath: "/project/cp.ts",
 				kind: "file",
 				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
