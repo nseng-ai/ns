@@ -67,7 +67,11 @@ export async function resolvePostLandingSlotCleanupDecision({
 > {
 	const target = postLandingCleanupTarget(args, shape);
 	if (target === undefined) return success({ type: "not-needed" });
-	if (confirmation === "already-approved" || args.shouldSkipConfirmation || args.shouldForceCleanup) {
+	if (
+		confirmation === "already-approved" ||
+		args.shouldSkipConfirmation ||
+		args.shouldForceCleanup
+	) {
 		return success({ type: "approved" });
 	}
 

@@ -176,39 +176,43 @@ export function buildUpfrontStackConfirmation(
 	const stack = shape.stack;
 	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
 	const prCount = `${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"}`;
+	const cleanupImpactLine =
+		cleanupPreview === undefined
+			? undefined
+			: `After a successful landing, free managed slot ${cleanupPreview.slotName} and delete local branch ${cleanupPreview.branch}.`;
+	const cleanupPlanRow =
+		cleanupPreview === undefined
+			? undefined
+			: {
+					label: "Cleanup",
+					value: `free ${cleanupPreview.slotName}; delete ${cleanupPreview.branch}`,
+				};
+	const descendantNotePlanRow =
+		stack.descendantBranches.length === 0
+			? undefined
+			: {
+					label: "Note",
+					value: `${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
+				};
 	return {
 		headline: "Review the landing plan before merging this stack.",
 		impactLines: [
 			"Squash-merge the selected Graphite path from bottom to top.",
 			"Refresh remaining upstack PRs after each merge.",
 			"Delete landed local Graphite branches once they are safe to remove.",
-			...(cleanupPreview === undefined
-				? []
-				: [
-						`After a successful landing, free managed slot ${cleanupPreview.slotName} and delete local branch ${cleanupPreview.branch}.`,
-					]),
+			...optionalListItem(cleanupImpactLine),
 		],
 		planRows: [
 			{ label: "Stack", value: prCount },
 			{ label: "Range", value: `${bottomBranch} → ${stack.actualCurrentBranch}` },
 			{ label: "Target", value: stack.trunk },
-			...(cleanupPreview === undefined
-				? []
-				: [
-						{
-							label: "Cleanup",
-							value: `free ${cleanupPreview.slotName}; delete ${cleanupPreview.branch}`,
-						},
-					]),
-			...(stack.descendantBranches.length === 0
-				? []
-				: [
-						{
-							label: "Note",
-							value: `${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
-						},
-					]),
+			...optionalListItem(cleanupPlanRow),
+			...optionalListItem(descendantNotePlanRow),
 		],
 		guidance: "Press Enter to proceed, or type n to cancel.",
 	};
+}
+
+function optionalListItem<T>(item: T | undefined): T[] {
+	return item === undefined ? [] : [item];
 }

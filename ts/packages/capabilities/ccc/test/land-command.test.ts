@@ -1133,11 +1133,13 @@ describe("code land command", () => {
 		pi.assertDone();
 	});
 
-	test("stack cleanup decline happens after stack confirmation and before merge", async () => {
+	test("stack confirmation approves managed-slot cleanup and cleanup runs after merge", async () => {
 		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const { pi, events } = createRecordingPi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_WITH_DESCENDANT),
 			...successfulStackLandingSteps(slotRoot),
+			step("ns", ["slot", "free", "--wt", "slot-01"]),
+			step("gt", ["delete", CURRENT, "-f", "-q"]),
 		]);
 		registerLandCommand(pi);
 		const command = pi.commands.get("ns:flow:land");
@@ -1146,37 +1148,37 @@ describe("code land command", () => {
 			onConfirm: (title) => events.push(`confirm:${title}`),
 			shouldConfirm: true,
 		});
-		let confirmationCount = 0;
-		const originalConfirm = context.ctx.ui.confirm;
-		context.ctx.ui.confirm = async (title, message, options) => {
-			confirmationCount += 1;
-			if (confirmationCount === 2) {
-				context.confirmations.push({
-					title,
-					message,
-					...optionalEntry("options", options),
-				});
-				events.push(`confirm:${title}`);
-				return false;
-			}
-			return await originalConfirm(title, message, options);
-		};
 
 		await command?.handler("", context.ctx);
 
 		expect(context.confirmations.map((confirmation) => confirmation.title)).toEqual([
 			"Land stack?",
-			"Free current slot and delete local branch?",
 		]);
-		expect(events.indexOf("confirm:Land stack?")).toBeLessThan(
-			events.indexOf("confirm:Free current slot and delete local branch?"),
+		expect(context.confirmations[0]?.message).toContain(
+			`After a successful landing, free managed slot slot-01 and delete local branch ${CURRENT}.`,
 		);
-		expect(events.indexOf("confirm:Free current slot and delete local branch?")).toBeLessThan(
+		expect(context.confirmations[0]?.message).toContain(`Cleanup  free slot-01; delete ${CURRENT}`);
+		expect(events.indexOf("confirm:Land stack?")).toBeLessThan(
 			events.indexOf(`exec:gh ${expectedStackMergeArgs().join(" ")}`),
 		);
+		expect(events.indexOf(`exec:gh ${expectedStackMergeArgs().join(" ")}`)).toBeLessThan(
+			events.indexOf("exec:ns slot free --wt slot-01"),
+		);
+		expect(pi.execCalls.slice(-2)).toEqual([
+			{
+				command: "ns",
+				args: ["slot", "free", "--wt", "slot-01"],
+				options: { cwd: slotRoot, timeout: 120_000 },
+			},
+			{
+				command: "gt",
+				args: ["delete", CURRENT, "-f", "-q"],
+				options: { cwd: slotRoot, timeout: 600_000 },
+			},
+		]);
 		expect(context.notifications.at(-1)).toEqual({
-			message: `land stopped: Skipped post-landing cleanup by upfront choice; PRs were landed but slot-01 and local branch ${CURRENT} were kept.`,
-			level: "warning",
+			message: `Post-landing cleanup complete: freed slot-01 and deleted local branch ${CURRENT}.`,
+			level: "success",
 		});
 		pi.assertDone();
 	});
