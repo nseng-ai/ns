@@ -187,51 +187,6 @@ Column alignment matters more than separators. Keep row text compact: branch nam
 
 Do not hide candidates only because they are stale or already open. Stale and opened rows stay visible in stack order.
 
-## Read-only command recipe
-
-Use this as the normal collection sequence:
-
-```bash
-cmux tree --all --json
-```
-
-For each returned window:
-
-```bash
-cmux workspace list --window <window-ref> --json
-```
-
-For each existing workspace directory:
-
-```bash
-git -C <cwd> symbolic-ref --short HEAD || git -C <cwd> rev-parse --short HEAD
-git -C <cwd> status --porcelain
-```
-
-From the current repo checkout:
-
-```bash
-gt trunk || true
-git symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##' || true
-git for-each-ref --sort=-committerdate --format='%(refname:short)%09%(objectname:short)%09%(committerdate:iso8601)%09%(upstream:short)' refs/heads
-ns objective list --format json
-```
-
-When useful from current or open worktree directories:
-
-```bash
-ns slot gt exec stack-branches --format json
-```
-
-For selected Objectives or shortlist branches only:
-
-```bash
-ns objective exec read-objective <slug> --format md
-gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt,mergeStateStatus
-git log --oneline <trunk>..<branch>
-git diff --stat <trunk>...<branch>
-```
-
 ## Future CCC exec helper boundary
 
 If repeated use makes this workflow token-heavy, slow, or brittle, push deterministic evidence collection into a read-only CCC `exec` helper under the private CCC orchestration layer, for example in `ts/packages/capabilities/ccc`. That helper should return a compact manifest of cmux workspace facts, branch facts, Objective records, Graphite evidence scope, and evidence locators. The skill should then consume that manifest and perform the LLM judgment and presentation.

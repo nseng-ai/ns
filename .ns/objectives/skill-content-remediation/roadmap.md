@@ -122,8 +122,13 @@
     mechanical example dropped with its load-bearing facts relocated; applicability
     conditions front-loaded for planning-time readers. 35-item contract diff passed. See
     update `20260703T203512Z`.
-  - `ccc-available-work`, `ccc-stack-map` — rewrite; twice-listed command recipes. Lift
-    5 / 4 but cmux-niche (low reach) → sequenced last among rewrites.
+  - `ccc-available-work`, `ccc-stack-map` — twice-listed command recipes; lift 5 / 4
+    but cmux-niche (low reach) → sequenced last, only-if-cheap gate.
+    `ccc-available-work` — **DONE (cheap collapse, 2026-07-03).** 239 → 194 lines; the
+    "Read-only command recipe" section (pure restatement of Data sources 1–9) deleted
+    after a union check; method adapted from rewrite to targeted deletion within the
+    only-if-cheap gate (recorded in update `20260703T204024Z`).
+    `ccc-stack-map` — pending (10b, same collapse shape).
   - `objective-refresh` — **DONE (rewrite).** SKILL.md 205→182 lines at the time;
     frontmatter preserved after audit; repeated no-closure, immutable-update,
     slug-directory, baseline-prefix, final-report, and verify rules collapsed into
