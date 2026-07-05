@@ -109,8 +109,8 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "generic-backing-skill",
 	},
 	{
-		skillName: "objective-review-briefing",
-		surface: "ns:objective:review-briefing",
+		skillName: "objective-retro",
+		surface: "ns:objective:retro",
 		kind: "generic-backing-skill",
 	},
 	{ skillName: "pi-grill-ui", surface: "pi:grill-me", kind: "specialized-command" },

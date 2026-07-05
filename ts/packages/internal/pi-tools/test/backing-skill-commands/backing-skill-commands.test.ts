@@ -114,7 +114,7 @@ describe("command-backed skill registry", () => {
 
 		expect(skillNames).toContain("code-workflows");
 		expect(skillNames).toContain("objective-refresh");
-		expect(skillNames).toContain("objective-review-briefing");
+		expect(skillNames).toContain("objective-retro");
 		expect(skillNames).toContain("pytest");
 		expect(skillNames).toContain("skillx");
 		expect(skillNames).not.toContain("objective-close");
@@ -185,7 +185,7 @@ describe("command-backed skill registry", () => {
 describe("derivePiReplacementCommand", () => {
 	test.each([
 		["objective-refresh", "ns:objective:refresh"],
-		["objective-review-briefing", "ns:objective:review-briefing"],
+		["objective-retro", "ns:objective:retro"],
 		["branch-retro", "branch:retro"],
 		["code-workflows", "code:workflows"],
 		["pytest", "python:pytest"],
