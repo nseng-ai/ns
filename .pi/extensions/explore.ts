@@ -1,3 +1,3 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-export default await importTypeScriptWorkspaceDefault("@internal/pi-tools/explore/extension");
+export default await importTypeScriptWorkspaceDefault("@nseng-ai/ns-pi-subagents/extension");

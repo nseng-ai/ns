@@ -1,0 +1,31 @@
+{
+	"name": "@nseng-ai/ns-pi-subagents",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"keywords": ["pi-package"],
+	"files": ["src", "README.md"],
+	"exports": {
+		"./extension": "./src/extension.ts",
+		"./explore": "./src/explore/index.ts",
+		"./explore/testing": "./src/explore/testing.ts"
+	},
+	"pi": {
+		"extensions": ["./src/extension.ts"]
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/extensions/ns-pi-subagents/test"
+	},
+	"dependencies": {
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/pi": "workspace:*",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@internal/pi-tools": "workspace:*"
+	},
+	"ns": {
+		"tier": "internal-pi-tool"
+	}
+}

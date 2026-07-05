@@ -108,6 +108,9 @@ importers:
       '@nseng-ai/ns':
         specifier: workspace:*
         version: link:packages/hosts/ns-cli
+      '@nseng-ai/ns-pi-subagents':
+        specifier: workspace:*
+        version: link:packages/extensions/ns-pi-subagents
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:packages/capabilities/objectives
@@ -456,6 +459,22 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/extensions/ns-pi-subagents:
+    dependencies:
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
+      '@nseng-ai/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@internal/pi-tools':
+        specifier: workspace:*
+        version: link:../../internal/pi-tools
 
   packages/hosts/command-backed-skill-registry:
     dependencies:

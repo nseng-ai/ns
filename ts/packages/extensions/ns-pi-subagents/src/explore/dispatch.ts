@@ -7,14 +7,14 @@ import { isProviderAuthConfigured } from "@nseng-ai/pi/runtime/auth";
 
 import {
 	dispatchRunnerSubagent,
+	hasAbortedSignal,
+	READ_ONLY_SUBAGENT_TOOLS,
 	type RunnerSubagentContext,
 	type RunnerSubagentOptions,
 	type RunnerSubagentPi,
 	type RunnerSubagentProgressCallback,
 	type RunnerSubagentResult,
-} from "../runner-subagents/extension-api.ts";
-import { hasAbortedSignal } from "../runner-subagents/abort-signals.ts";
-import { READ_ONLY_SUBAGENT_TOOLS } from "../runner-subagents/read-only-tools.ts";
+} from "@internal/pi-tools/runner-subagents";
 import { EXPLORER_AGENT_NAME } from "./contract.ts";
 import {
 	resolveExplorerLaunchPlan,

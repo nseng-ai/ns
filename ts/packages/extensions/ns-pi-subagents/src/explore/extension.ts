@@ -15,17 +15,17 @@ import {
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
-import { mapWithConcurrency } from "../runner-subagents/concurrency.ts";
 import {
+	mapWithConcurrency,
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
+	setRunnerSubagentWidget,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
 	type RunnerSubagentUsageMetadata,
-} from "../runner-subagents/extension-api.ts";
-import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
+} from "@internal/pi-tools/runner-subagents";
 import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,

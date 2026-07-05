@@ -1,5 +1,8 @@
+export { hasAbortedSignal } from "./abort-signals.ts";
 export { mapWithConcurrency } from "./concurrency.ts";
 export type { MapWithConcurrencyInput } from "./concurrency.ts";
+export { READ_ONLY_SUBAGENT_TOOLS } from "./read-only-tools.ts";
+export { setRunnerSubagentWidget } from "./widget.ts";
 
 export {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
