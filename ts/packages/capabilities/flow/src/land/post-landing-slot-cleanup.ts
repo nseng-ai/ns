@@ -3,18 +3,79 @@ import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,
 } from "./stack/graphite-command-channel.ts";
-import { completed, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
+import {
+	completed,
+	failure,
+	landStackFailure,
+	success,
+	type LandStackOutcome,
+	type LandStackResult,
+} from "./stack/errors.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
 import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
-import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
+
+export type PostLandingSlotCleanupDecision =
+	| { readonly type: "not-needed" }
+	| { readonly type: "approved" }
+	| { readonly type: "declined" };
+
+interface PostLandingSlotCleanupTarget {
+	readonly branch: string;
+	readonly cleanupDetails: string;
+	readonly repoRoot: string;
+	readonly slotName: string;
+	readonly suggestedAction: string;
+}
+
+interface ResolvePostLandingSlotCleanupDecisionOptions {
+	ctx: PrintAwareLandStackCommandContext;
+	args: ParsedArgs;
+	shape: LandingShape;
+}
 
 interface RunPostLandingSlotCleanupOptions {
 	landContext: LandContext;
 	ctx: PrintAwareLandStackCommandContext;
 	args: ParsedArgs;
 	shape: LandingShape;
+	cleanupDecision: PostLandingSlotCleanupDecision;
+}
+
+export async function resolvePostLandingSlotCleanupDecision({
+	ctx,
+	args,
+	shape,
+}: ResolvePostLandingSlotCleanupDecisionOptions): Promise<
+	LandStackResult<PostLandingSlotCleanupDecision>
+> {
+	const target = postLandingCleanupTarget(args, shape);
+	if (target === undefined) return success({ type: "not-needed" });
+	if (args.shouldSkipConfirmation || args.shouldForceCleanup) return success({ type: "approved" });
+
+	if (!ctx.hasUI) {
+		const landFailure = landStackFailure(
+			[
+				"Refusing to land before merge: post-landing slot cleanup requires confirmation in non-interactive mode. No PRs were landed.",
+				target.cleanupDetails,
+				"Re-run with --yes or --force to approve cleanup, or --preserve to land while keeping the current managed slot and local branch.",
+			].join("\n\n"),
+			{
+				outcome: "refusal",
+				suggestedAction:
+					"Pass --yes or --force to approve cleanup, or --preserve to keep the current slot and local branch.",
+			},
+		);
+		presentFailureOutcome(ctx, landFailure);
+		return failure(landFailure);
+	}
+
+	const confirmed = await ctx.ui.confirm(
+		"Free current slot and delete local branch?",
+		target.cleanupDetails,
+	);
+	return success({ type: confirmed ? "approved" : "declined" });
 }
 
 export async function runPostLandingSlotCleanup({
@@ -22,85 +83,72 @@ export async function runPostLandingSlotCleanup({
 	ctx,
 	args,
 	shape,
+	cleanupDecision,
 }: RunPostLandingSlotCleanupOptions): Promise<LandStackOutcome> {
-	if (args.shouldPreserveSlot || args.isDryRun) return completed();
+	if (cleanupDecision.type === "not-needed") return completed();
 
-	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
-	if (slotName === undefined) return completed();
+	const target = postLandingCleanupTarget(args, shape);
+	if (target === undefined) return completed();
 
-	const cleanupDetails = formatPostLandingCleanupDetails({
-		branch: shape.stack.actualCurrentBranch,
-		repoRoot: shape.repoRoot,
-		slotName,
-	});
-	const suggestedAction = postLandingCleanupSuggestedAction(
-		slotName,
-		shape.stack.actualCurrentBranch,
-	);
-	const confirmationOutcome = await confirmLandStackAction({
-		ctx,
-		shouldPrompt: !args.shouldForceCleanup && !args.shouldSkipConfirmation,
-		title: "Free current slot and delete local branch?",
-		details: cleanupDetails,
-		nonInteractiveMessage: [
-			"PRs were landed, but post-landing slot cleanup requires confirmation in non-interactive mode.",
-			cleanupDetails,
-			"Run the commands manually, or use --yes or --force for non-interactive post-landing cleanup next time.",
-		].join("\n\n"),
-		nonInteractiveFailureOptions: { suggestedAction },
-		cancellationMessage: `Cancelled post-landing cleanup; PRs were landed but ${slotName} and local branch ${shape.stack.actualCurrentBranch} were kept.`,
-		cancellationFailureOptions: {
-			level: "warning",
-			outcome: "refusal",
-			suggestedAction,
-		},
-		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
-	});
-	if (confirmationOutcome.type === "failure") return confirmationOutcome;
+	if (cleanupDecision.type === "declined") {
+		const landFailure = landStackFailure(
+			`Skipped post-landing cleanup by upfront choice; PRs were landed but ${target.slotName} and local branch ${target.branch} were kept.`,
+			{
+				level: "warning",
+				outcome: "refusal",
+				suggestedAction: target.suggestedAction,
+			},
+		);
+		return presentFailureOutcome(ctx, landFailure);
+	}
 
 	try {
-		setStatus(ctx, `freeing ${slotName}...`);
+		setStatus(ctx, `freeing ${target.slotName}...`);
 		const managedSlot: ManagedSlotWorktree = {
 			type: "managed-slot",
-			branch: shape.stack.actualCurrentBranch,
-			path: shape.repoRoot,
-			slotName,
+			branch: target.branch,
+			path: target.repoRoot,
+			slotName: target.slotName,
 		};
 		const freeResult = await landContext.worktrees.freeSlots({
-			repoRoot: shape.repoRoot,
+			repoRoot: target.repoRoot,
 			slots: [managedSlot],
 		});
 		if (freeResult.type === "failure") {
 			const diagnostics = boundaryFailureDiagnostics(freeResult.failure);
-			const landFailure = landStackFailure(`PRs were landed, but freeing ${slotName} failed.`, {
-				commandDisplay:
-					diagnostics.displayCommand ?? formatCommand("ns", ["slot", "free", "--wt", slotName]),
-				...(diagnostics.execResult === undefined ? {} : { result: diagnostics.execResult }),
-				suggestedAction,
-			});
+			const landFailure = landStackFailure(
+				`PRs were landed, but freeing ${target.slotName} failed.`,
+				{
+					commandDisplay:
+						diagnostics.displayCommand ??
+						formatCommand("ns", ["slot", "free", "--wt", target.slotName]),
+					...(diagnostics.execResult === undefined ? {} : { result: diagnostics.execResult }),
+					suggestedAction: target.suggestedAction,
+				},
+			);
 			return presentFailureOutcome(ctx, landFailure);
 		}
 
-		setStatus(ctx, `deleting ${shape.stack.actualCurrentBranch}...`);
+		setStatus(ctx, `deleting ${target.branch}...`);
 		const deleteOperation = deleteLocalBranchOperation({
-			branch: shape.stack.actualCurrentBranch,
+			branch: target.branch,
 			checkedOutConflictHandling: "fail",
 		});
 		const deletion = await landContext.graphite.deleteLocalBranch({
-			repoRoot: shape.repoRoot,
-			branch: shape.stack.actualCurrentBranch,
+			repoRoot: target.repoRoot,
+			branch: target.branch,
 			checkedOutConflictHandling: "fail",
 		});
 		if (deletion.type !== "deleted") {
 			const landFailure = landStackFailure(
-				`PRs were landed and ${slotName} was freed, but deleting local branch ${shape.stack.actualCurrentBranch} failed.`,
+				`PRs were landed and ${target.slotName} was freed, but deleting local branch ${target.branch} failed.`,
 				{
 					commandDisplay:
 						deletion.type === "failed"
 							? deletion.commandDisplay
 							: formatGraphiteOperation(deleteOperation),
 					...(deletion.type === "failed" ? { result: deletion.result } : {}),
-					suggestedAction: `Delete local branch ${shape.stack.actualCurrentBranch} manually when safe.`,
+					suggestedAction: `Delete local branch ${target.branch} manually when safe.`,
 				},
 			);
 			return presentFailureOutcome(ctx, landFailure);
@@ -111,11 +159,30 @@ export async function runPostLandingSlotCleanup({
 
 	notifyPrintAware({
 		ctx,
-		message: `Post-landing cleanup complete: freed ${slotName} and deleted local branch ${shape.stack.actualCurrentBranch}.`,
+		message: `Post-landing cleanup complete: freed ${target.slotName} and deleted local branch ${target.branch}.`,
 		level: "success",
 		kind: "success",
 	});
 	return completed();
+}
+
+function postLandingCleanupTarget(
+	args: ParsedArgs,
+	shape: LandingShape,
+): PostLandingSlotCleanupTarget | undefined {
+	if (args.shouldPreserveSlot || args.isDryRun) return undefined;
+
+	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
+	if (slotName === undefined) return undefined;
+
+	const branch = shape.stack.actualCurrentBranch;
+	return {
+		branch,
+		cleanupDetails: formatPostLandingCleanupDetails({ branch, repoRoot: shape.repoRoot, slotName }),
+		repoRoot: shape.repoRoot,
+		slotName,
+		suggestedAction: postLandingCleanupSuggestedAction(slotName, branch),
+	};
 }
 
 function formatPostLandingCleanupDetails(options: {

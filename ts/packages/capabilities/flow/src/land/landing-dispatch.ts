@@ -15,7 +15,11 @@ import type {
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import type { LandContext } from "./api.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
-import { runPostLandingSlotCleanup } from "./post-landing-slot-cleanup.ts";
+import {
+	resolvePostLandingSlotCleanupDecision,
+	runPostLandingSlotCleanup,
+	type PostLandingSlotCleanupDecision,
+} from "./post-landing-slot-cleanup.ts";
 
 interface RunLandingDispatchOptions {
 	runtime: LandRuntime;
@@ -53,18 +57,25 @@ export async function runLandingDispatch(
 
 	const landContext = createRuntimeLandContext(runtime);
 	if (isIsolatedFastPath(shape.value.stack)) {
-		const outcome = await runIsolatedFastPathLanding({
+		const result = await runIsolatedFastPathLanding<PostLandingSlotCleanupDecision>({
 			github: landContext.github,
 			ctx: options.ctx,
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
+			beforeMerge: () =>
+				resolvePostLandingSlotCleanupDecision({
+					ctx: options.ctx,
+					args: options.parsedArgs,
+					shape: shape.value,
+				}),
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
-		return await finishAfterLanding(outcome, {
+		return await finishAfterLanding(result.outcome, {
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
 			landContext,
+			cleanupDecision: result.beforeMergeValue ?? { type: "not-needed" },
 		});
 	}
 
@@ -73,6 +84,13 @@ export async function runLandingDispatch(
 		shouldSkipConfirmation: options.parsedArgs.shouldSkipConfirmation,
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
+
+	const cleanupDecision = await resolvePostLandingSlotCleanupDecision({
+		ctx: options.ctx,
+		args: options.parsedArgs,
+		shape: shape.value,
+	});
+	if (cleanupDecision.type === "failure") return cleanupDecision;
 
 	const outcome = await executeStackLanding(runtime.source, options.ctx, options.parsedArgs, {
 		shouldSkipMainConfirmation: true,
@@ -87,6 +105,7 @@ export async function runLandingDispatch(
 		args: options.parsedArgs,
 		shape: shape.value,
 		landContext,
+		cleanupDecision: cleanupDecision.value,
 	});
 }
 
@@ -97,6 +116,7 @@ async function finishAfterLanding(
 		args: ParsedArgs;
 		shape: LandingShape;
 		landContext: LandContext;
+		cleanupDecision: PostLandingSlotCleanupDecision;
 	},
 ): Promise<LandStackOutcome> {
 	if (outcome.type === "failure") return outcome;

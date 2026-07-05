@@ -1,5 +1,12 @@
+import { optionalEntry } from "@ns/core/primitives";
 import type { NsCommandIo } from "@ns/kernel/sdk";
-import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
+import {
+	completed,
+	failure,
+	landStackFailure,
+	type LandStackOutcome,
+	type LandStackResult,
+} from "./stack/errors.ts";
 import { toLandStackFailure } from "./stack/landing-plan.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import type {
@@ -18,12 +25,18 @@ export interface ValidPullRequestView {
 	headRefOid: string;
 }
 
-interface RunIsolatedFastPathLandingOptions {
+interface RunIsolatedFastPathLandingOptions<BeforeMergeValue> {
 	github: LandGithubPrGateway;
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;
+	beforeMerge?: () => Promise<LandStackResult<BeforeMergeValue>>;
 	progressIo?: NsCommandIo;
+}
+
+export interface IsolatedFastPathLandingResult<BeforeMergeValue = undefined> {
+	readonly outcome: LandStackOutcome;
+	readonly beforeMergeValue: BeforeMergeValue | undefined;
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
@@ -35,22 +48,28 @@ export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 	);
 }
 
-export async function runIsolatedFastPathLanding(
-	options: RunIsolatedFastPathLandingOptions,
-): Promise<LandStackOutcome> {
+export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
+	options: RunIsolatedFastPathLandingOptions<BeforeMergeValue>,
+): Promise<IsolatedFastPathLandingResult<BeforeMergeValue>> {
 	const prResult = await options.github.pullRequestFacts({
 		repoRoot: options.target.repoRoot,
 		branchOrNumber: options.target.stack.actualCurrentBranch,
 	});
 	if (prResult.type === "failure") {
-		return presentLandingFailure(options.ctx, prResult.failure);
+		return isolatedFastPathResult<BeforeMergeValue>(
+			presentLandingFailure(options.ctx, prResult.failure),
+			undefined,
+		);
 	}
 	const pr = prResult.value;
 
 	if (pr.baseRefName !== options.target.trunk) {
 		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`;
 		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "refusal" });
-		return failure(landStackFailure(message, { outcome: "refusal" }));
+		return isolatedFastPathResult<BeforeMergeValue>(
+			failure(landStackFailure(message, { outcome: "refusal" })),
+			undefined,
+		);
 	}
 
 	if (options.isDryRun) {
@@ -60,11 +79,16 @@ export async function runIsolatedFastPathLanding(
 			level: "info",
 			kind: "success",
 		});
-		return completed();
+		return isolatedFastPathResult<BeforeMergeValue>(completed(), undefined);
 	}
 
-	const progressOptions =
-		options.progressIo === undefined ? {} : { progressIo: options.progressIo };
+	const beforeMergeOutcome = await options.beforeMerge?.();
+	if (beforeMergeOutcome?.type === "failure") {
+		return isolatedFastPathResult<BeforeMergeValue>(beforeMergeOutcome, undefined);
+	}
+	const beforeMergeValue = beforeMergeOutcome?.value;
+
+	const progressOptions = optionalEntry("progressIo", options.progressIo);
 	progress(
 		options.ctx,
 		"Running gh pr merge --squash with PR title/body as commit message…",
@@ -76,7 +100,10 @@ export async function runIsolatedFastPathLanding(
 		pullRequest: pr,
 	});
 	if (result.type === "failure") {
-		return presentLandingFailure(options.ctx, result.failure);
+		return isolatedFastPathResult(
+			presentLandingFailure(options.ctx, result.failure),
+			beforeMergeValue,
+		);
 	}
 
 	const verified = await options.github.pullRequestFacts({
@@ -86,7 +113,7 @@ export async function runIsolatedFastPathLanding(
 	if (verified.type === "failure") {
 		const message = `gh pr merge exited 0, but verification could not load PR #${pr.number}; post-landing cleanup skipped.\n${verified.failure.message}`;
 		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "failure" });
-		return failure(landStackFailure(message));
+		return isolatedFastPathResult(failure(landStackFailure(message)), beforeMergeValue);
 	}
 
 	const verificationFailure = mergedVerificationFailure({
@@ -101,7 +128,7 @@ export async function runIsolatedFastPathLanding(
 			level: "error",
 			kind: "failure",
 		});
-		return failure(landStackFailure(verificationFailure));
+		return isolatedFastPathResult(failure(landStackFailure(verificationFailure)), beforeMergeValue);
 	}
 
 	const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
@@ -112,7 +139,14 @@ export async function runIsolatedFastPathLanding(
 		level: "info",
 		kind: "success",
 	});
-	return completed();
+	return isolatedFastPathResult(completed(), beforeMergeValue);
+}
+
+function isolatedFastPathResult<BeforeMergeValue>(
+	outcome: LandStackOutcome,
+	beforeMergeValue: BeforeMergeValue | undefined,
+): IsolatedFastPathLandingResult<BeforeMergeValue> {
+	return { outcome, beforeMergeValue };
 }
 
 function progress(

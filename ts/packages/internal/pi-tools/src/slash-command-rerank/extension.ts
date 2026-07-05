@@ -7,6 +7,7 @@
  * `addAutocompleteProvider` is absent, so the extension is a no-op there.
  */
 
+import { optionalEntry } from "@ns/core/primitives";
 import type { AutocompleteProvider, SessionStartContext } from "@ns/pi/runtime/types";
 
 import { rerankSlashCommandItems, slashCommandRerankQuery } from "./rerank.ts";
@@ -37,12 +38,13 @@ export function createSlashCommandRerankProvider(
 		},
 		applyCompletion: (lines, cursorLine, cursorCol, item, prefix) =>
 			current.applyCompletion(lines, cursorLine, cursorCol, item, prefix),
-		...(current.shouldTriggerFileCompletion === undefined
-			? {}
-			: {
-					shouldTriggerFileCompletion: (lines: string[], cursorLine: number, cursorCol: number) =>
+		...optionalEntry(
+			"shouldTriggerFileCompletion",
+			current.shouldTriggerFileCompletion === undefined
+				? undefined
+				: (lines: string[], cursorLine: number, cursorCol: number) =>
 						current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? false,
-				}),
+		),
 	};
 }
 

@@ -77,14 +77,14 @@ describe("isolated fast-path landing", () => {
 			verifiedPullRequest: pullRequestFacts({ state: "MERGED", mergedAt: "2026-07-02T00:00:00Z" }),
 		});
 
-		const outcome = await runIsolatedFastPathLanding({
+		const result = await runIsolatedFastPathLanding({
 			github,
 			ctx: createContext(notifications),
 			target: isolatedShape(),
 			isDryRun: false,
 		});
 
-		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(result.outcome).toEqual({ type: "success", value: undefined });
 		expect(github.pullRequestFactsCalls).toEqual([
 			{ repoRoot: ROOT, branchOrNumber: FEATURE },
 			{ repoRoot: ROOT, branchOrNumber: "101" },
@@ -123,14 +123,14 @@ describe("isolated fast-path landing", () => {
 			},
 		});
 
-		const outcome = await runIsolatedFastPathLanding({
+		const result = await runIsolatedFastPathLanding({
 			github,
 			ctx: createContext(notifications),
 			target: isolatedShape(),
 			isDryRun: false,
 		});
 
-		expect(outcome).toEqual({
+		expect(result.outcome).toEqual({
 			type: "failure",
 			failure: expect.objectContaining({
 				message: "Merge rejected.",
@@ -157,14 +157,14 @@ describe("isolated fast-path landing", () => {
 			verifiedPullRequest: pullRequestFacts({ state: "OPEN", mergedAt: null }),
 		});
 
-		const outcome = await runIsolatedFastPathLanding({
+		const result = await runIsolatedFastPathLanding({
 			github,
 			ctx: createContext(notifications),
 			target: isolatedShape(),
 			isDryRun: false,
 		});
 
-		expect(outcome.type).toBe("failure");
+		expect(result.outcome.type).toBe("failure");
 		expect(github.squashMergePullRequestCalls).toHaveLength(1);
 		expect(github.pullRequestFactsCalls).toEqual([
 			{ repoRoot: ROOT, branchOrNumber: FEATURE },
