@@ -443,12 +443,13 @@ describe("/pr:download-stack-feedback", () => {
 		);
 		expect(prompt).toContain("If the AUTO plan becomes broad");
 		expect(prompt).toContain("unless the user explicitly asked for hands-off execution");
-		expect(prompt).toContain("single omnibus follow-up PR at the current branch");
+		expect(prompt).toContain("new single omnibus follow-up PR stacked on the current branch");
+		expect(prompt).toContain("create or check out a dedicated Graphite child branch");
 		expect(prompt).toContain(
 			"Plan against the current remaining state, not stale original comments",
 		);
 		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
-		expect(prompt).toContain("remediation can happen in the omnibus follow-up PR");
+		expect(prompt).toContain("remediation can happen in the new omnibus follow-up PR");
 		expect(prompt).toContain("Close review threads only for feedback directly addressed");
 		expect(prompt).toContain("already fixed/stale against the current repo state");
 		expect(prompt).toContain(
@@ -457,7 +458,7 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(prompt).toContain("include `--body <BODY>` when a reply is useful");
 		expect(prompt).toContain("all downloaded stack feedback was handled by AUTO fixes");
-		expect(prompt).toContain("submit the omnibus follow-up/current stack with `ns flow submit`");
+		expect(prompt).toContain("submit the new omnibus follow-up PR with `ns flow submit`");
 		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
 		expect(prompt).toContain("Present remaining ambiguous, complex");
 		expect(prompt).toContain("summarize completed fixes, validation, GitHub thread actions");
