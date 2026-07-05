@@ -159,16 +159,16 @@ trunk names are in `objective.md`'s naming rebaseline. All paths relative to
 
 ## Parked
 
-- [ ] Unify the land presentation surface (review #5)
-      Parked behind the extraction, which is now fully landed — this row is
-      the Objective's only remaining item and its promote/re-scope/drop
-      decision is the closure gate.
-      Premise (rebaselined 2026-07-03): the three files exist on trunk at
-      `src/land/stack/` — `presentation.ts` (514 lines),
-      `land-presentation.ts` (132), `command-stream.ts` (250) — but their
-      inputs have churned twice since the original inventory: the extraction
-      slices/retirement, then post-landing trunk refactors of land
-      confirmation and maintenance control flow. Any promotion starts with a
-      fresh inventory.
-      Closure gate: this row must be promoted, re-scoped, or explicitly
-      dropped with rationale before the Objective closes.
+- [x] Unify the land presentation surface (review #5) — dropped after fresh inventory
+      Parked behind the extraction, then decided at closure rather than
+      promoted. Fresh inventory on 2026-07-05 found no broad consolidation
+      target: `presentation.ts` owns domain-authored plan/success/failure and
+      notification text; `land-presentation.ts` is the CLI styling facade over
+      shared result-block and confirmation rendering; `command-stream.ts` owns
+      command-stream messages, Pi rich-message rendering, telemetry, and live
+      progress; CLI phase/progress routing lives at `src/ns/commands/land.ts`;
+      and `src/land/land.ts` wires CLI-only styled renderers while keeping the
+      Pi path ANSI-free. The split is deliberate, so this row is complete by
+      explicit drop rather than implementation. Closure evidence lives in
+      `updates/2026-07-05T210552Z-presentation-row-dropped.md` and
+      `objective.md` `## Closure`.
