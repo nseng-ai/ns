@@ -11,11 +11,8 @@ import {
 	type PrPreviewChecksTarget,
 	type PrPreviewChecksViewModel,
 } from "./preview-checks-model.ts";
-import {
-	missingPreviewTargetMessage,
-	PREVIEW_OVERLAY_MARGIN,
-	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
-} from "./preview-view-utilities.ts";
+import { missingPreviewTargetMessage } from "./preview-view-utilities.ts";
+import { overlayHostOptions } from "../overlay-kit/frame.ts";
 import type {
 	CommandResult,
 	EnvelopeWithSchemaOptions,
@@ -184,15 +181,7 @@ async function runPrPreviewChecksCommand(
 					onLoadLogs: async (check, loadOptions: PrPreviewCheckLogLoadOptions) =>
 						await loadCheckLogs({ runtime, ctx, check, signal: loadOptions.signal }),
 				}),
-			{
-				overlay: true,
-				overlayOptions: {
-					width: "90%",
-					maxHeight: `${Math.round(PREVIEW_OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
-					margin: PREVIEW_OVERLAY_MARGIN,
-				},
-				onHandle: (handle: { focus(): void }) => handle.focus(),
-			},
+			overlayHostOptions(),
 		);
 	} finally {
 		ctx.ui?.setStatus?.(runtime.statusKey, undefined);

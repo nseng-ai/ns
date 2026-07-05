@@ -45,7 +45,6 @@ export interface StackPrData {
 	url: string;
 	isDraft: boolean;
 	body: string;
-	reviewDecision: string | null;
 	threads: StackViewPrThreads;
 	checks: StackViewPrChecks;
 	/** Named check entries backing the detail pane, aligned with {@link checks}' unknown→pending fold. */
@@ -92,7 +91,7 @@ export function buildStackPrQuery(branches: string[]): string {
 	const aliases = branches.map((_branch, index) => {
 		return (
 			`b${index}: pullRequests(headRefName: $branch${index}, states: [OPEN], first: 1)` +
-			"{nodes{number title url isDraft body reviewDecision" +
+			"{nodes{number title url isDraft body" +
 			" reviewThreads(first:100){totalCount nodes{id isResolved path line originalLine" +
 			" comments(first:30){totalCount nodes{id body author{login} createdAt}}" +
 			" lastComment: comments(last:1){nodes{id}}}}" +
@@ -181,7 +180,6 @@ const prNodeSchema = z
 		url: z.string().default(""),
 		isDraft: z.boolean().default(false),
 		body: z.string().default(""),
-		reviewDecision: z.string().nullish(),
 		reviewThreads: reviewThreadsSchema.nullish(),
 		commits: commitsSchema.nullish(),
 	})
@@ -227,7 +225,6 @@ function stackPrDataFromAlias(aliasValue: unknown): StackPrData | null {
 		url: node.url,
 		isDraft: node.isDraft,
 		body: node.body,
-		reviewDecision: node.reviewDecision ?? null,
 		threads: threadCountsFromNode(node.reviewThreads),
 		checks: checks.counts,
 		checkEntries: checks.entries,

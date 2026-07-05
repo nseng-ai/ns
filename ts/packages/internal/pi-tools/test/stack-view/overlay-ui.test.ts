@@ -12,9 +12,9 @@ import {
 	buildStackRollupSegments,
 	formatStackRowCells,
 	rollupBucketForPr,
-	sliceStackDetailLinesForViewport,
 	stackListRows,
 } from "../../src/stack-view/overlay-model.ts";
+import { sliceWrappedDetailLinesForViewport } from "../../src/overlay-kit/viewport.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
 import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
@@ -352,10 +352,15 @@ describe("overlay-model units", () => {
 		});
 	});
 
-	describe("sliceStackDetailLinesForViewport", () => {
+	describe("sliceWrappedDetailLinesForViewport", () => {
 		test("clamps scroll to the wrapped bounds", () => {
 			const lines = Array.from({ length: 10 }, (_unused, index) => `line ${index}`);
-			const viewport = sliceStackDetailLinesForViewport({ lines, width: 40, rows: 4, scroll: 100 });
+			const viewport = sliceWrappedDetailLinesForViewport({
+				lines,
+				width: 40,
+				rows: 4,
+				scroll: 100,
+			});
 			expect(viewport.maxScroll).toBe(6);
 			expect(viewport.scroll).toBe(6);
 			expect(viewport.lines).toEqual(["line 6", "line 7", "line 8", "line 9"]);
