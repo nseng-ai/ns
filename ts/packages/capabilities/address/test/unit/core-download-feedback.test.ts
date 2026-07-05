@@ -54,7 +54,7 @@ describe("collectDownloadFeedback", () => {
 		expect(result.feedback.markdown).toContain("include `--body <BODY>` when a reply is useful");
 		expect(result.feedback.markdown).toContain("resubmit the PR with `ns flow submit`");
 		expect(result.feedback.markdown).toContain(
-			"do not use raw `gh api graphql` for those mutations",
+			"do not use raw `gh api graphql` for review-thread resolve/reply mutations",
 		);
 		expect(result.feedback.markdown).toContain("RT_open");
 		expect(result.feedback.markdown).not.toContain("RT_resolved");

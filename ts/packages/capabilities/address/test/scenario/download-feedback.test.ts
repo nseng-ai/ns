@@ -139,18 +139,36 @@ describe("ns address exec download-feedback", () => {
 		expect(markdown).toContain("Default single-PR feedback policies:");
 		expect(markdown).toContain("Inspect the current repository state before acting");
 		expect(markdown).toContain("Automatically address straightforward feedback");
-		expect(markdown).toContain("localized, mechanically verifiable, low-risk");
+		expect(markdown).toContain("bounded, reviewable fix without a product/design decision");
+		expect(markdown).toContain("classify feedback groups as AUTO, STEER, or DEFER");
+		expect(markdown).toContain("AUTO may include multi-file edits");
+		expect(markdown).toContain("dependency additions that satisfy repo layering/package policy");
+		expect(markdown).toContain("schema/type source-of-truth consolidation");
+		expect(markdown).toContain("localized control-flow refactors");
+		expect(markdown).toContain("already fixed or stale against the current repo state");
+		expect(markdown).toContain(
+			"STEER is required when the change would alter user-visible behavior",
+		);
+		expect(markdown).toContain("uncertain or failed dependency/layering check");
+		expect(markdown).toContain("Grouping feedback is for triage clarity");
+		expect(markdown).toContain(
+			"do not convert many small comments into a surprisingly broad refactor",
+		);
+		expect(markdown).toContain("If the AUTO plan becomes broad");
+		expect(markdown).toContain("unless the user explicitly asked for hands-off execution");
 		expect(markdown).toContain("directly on the immediate PR branch/current checkout");
 		expect(markdown).toContain("do not create an omnibus follow-up branch for single-PR feedback");
 		expect(markdown).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(markdown).toContain("include `--body <BODY>` when a reply is useful");
-		expect(markdown).toContain("all downloaded feedback was handled by straightforward fixes");
+		expect(markdown).toContain("all downloaded feedback was handled by AUTO fixes");
 		expect(markdown).toContain("resubmit the PR with `ns flow submit`");
-		expect(markdown).toContain("do not use raw `gh api graphql` for those mutations");
+		expect(markdown).toContain(
+			"do not use raw `gh api graphql` for review-thread resolve/reply mutations",
+		);
 		expect(markdown).toContain("Present remaining ambiguous, complex");
 		expect(markdown).not.toContain("Do not edit files yet");
 		expect(markdown).not.toContain("wait for human confirmation");
-		expect(markdown.trim()).toMatch(/those mutations\.$/u);
+		expect(markdown.trim()).toMatch(/report that failure\.$/u);
 		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");
 		expect(markdown).toContain("- URL: https://example.test/pr/42");
 		expect(markdown).toContain("- Branch: feature/demo");
