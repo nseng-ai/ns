@@ -14,13 +14,13 @@ interface CtaLinkProps extends Omit<NextLinkProps, "children" | "className"> {
 
 const ctaLinkClassByVariant = {
   primary:
-    "rounded-full bg-gray-1000 px-5 py-2.5 font-medium text-background text-sm transition-opacity hover:opacity-90",
+    "rounded-full bg-gray-1000 px-5 py-2.5 font-medium text-background-100 text-sm transition-opacity hover:opacity-90",
   secondary:
-    "rounded-full border bg-background px-5 py-2.5 font-medium text-gray-1000 text-sm transition-colors hover:bg-background-100",
+    "rounded-full border bg-background-100 px-5 py-2.5 font-medium text-gray-1000 text-sm transition-colors hover:bg-background-200",
   "dark-primary":
-    "rounded-full bg-background px-5 py-2.5 font-medium text-gray-1000 text-sm transition-opacity hover:opacity-90",
+    "rounded-full bg-background-100 px-5 py-2.5 font-medium text-gray-1000 text-sm transition-opacity hover:opacity-90",
   "dark-secondary":
-    "rounded-full border border-background/30 px-5 py-2.5 font-medium text-background text-sm transition-colors hover:bg-background/10",
+    "rounded-full border border-background-100/30 px-5 py-2.5 font-medium text-background-100 text-sm transition-colors hover:bg-background-100/10",
 } satisfies Record<CtaLinkVariant, string>;
 
 export function CtaLink({ children, className, variant = "primary", ...props }: CtaLinkProps) {
@@ -48,7 +48,7 @@ export function Eyebrow({ children, className, tone = "neutral" }: EyebrowProps)
   return (
     <div
       className={cn(
-        "inline-flex rounded-full border bg-background px-3 py-1 font-medium text-xs uppercase tracking-[0.18em]",
+        "inline-flex rounded-full border bg-background-100 px-3 py-1 font-medium text-xs uppercase tracking-[0.18em]",
         eyebrowToneClassByTone[tone],
         className,
       )}
@@ -117,15 +117,15 @@ interface PreviewPanelProps {
 
 export function PreviewPanel({ badge, children, className, eyebrow, title }: PreviewPanelProps) {
   return (
-    <aside className={cn("rounded-[2rem] border bg-background p-3 shadow-sm", className)}>
-      <div className="rounded-[1.5rem] border bg-gray-1000 p-5 text-background">
-        <div className="flex items-center justify-between border-background/15 border-b pb-4">
+    <aside className={cn("rounded-[2rem] border bg-background-100 p-3 shadow-sm", className)}>
+      <div className="rounded-[1.5rem] border bg-gray-1000 p-5 text-background-100">
+        <div className="flex items-center justify-between border-background-100/15 border-b pb-4">
           <div>
-            <p className="font-mono text-background/60 text-xs">{eyebrow}</p>
+            <p className="font-mono text-background-100/60 text-xs">{eyebrow}</p>
             <p className="mt-1 font-semibold text-xl">{title}</p>
           </div>
           {badge ? (
-            <span className="rounded-full border border-background/20 px-2 py-1 font-mono text-background/70 text-xs">
+            <span className="rounded-full border border-background-100/20 px-2 py-1 font-mono text-background-100/70 text-xs">
               {badge}
             </span>
           ) : null}
@@ -142,5 +142,5 @@ interface CardProps {
 }
 
 export function Card({ children, className }: CardProps) {
-  return <article className={cn("rounded-2xl border bg-background p-5", className)}>{children}</article>;
+  return <article className={cn("rounded-2xl border bg-background-100 p-5", className)}>{children}</article>;
 }

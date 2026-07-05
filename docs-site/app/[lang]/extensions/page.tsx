@@ -39,9 +39,9 @@ export default function ExtensionsPage() {
           >
             <div className="mt-5 space-y-3 font-mono text-sm">
               {featuredEntries.slice(0, 4).map((entry) => (
-                <div className="rounded-2xl border border-background/15 bg-background/5 p-3" key={entry.slug}>
-                  <p className="text-background/60 text-xs">{entry.sourcePath}</p>
-                  <p className="mt-1 text-background">{entry.commandHint}</p>
+                <div className="rounded-2xl border border-background-100/15 bg-background-100/5 p-3" key={entry.slug}>
+                  <p className="text-background-100/60 text-xs">{entry.sourcePath}</p>
+                  <p className="mt-1 text-background-100">{entry.commandHint}</p>
                 </div>
               ))}
             </div>
@@ -94,7 +94,7 @@ export default function ExtensionsPage() {
             const entries = extensionCatalogEntries.filter((entry) => entry.category === descriptor.category);
 
             return (
-              <section className="rounded-[1.5rem] border bg-background p-4 md:p-5" key={descriptor.category}>
+              <section className="rounded-[1.5rem] border bg-background-100 p-4 md:p-5" key={descriptor.category}>
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h3 className="font-semibold text-gray-1000 text-xl">{descriptor.label}</h3>
                   <span className="rounded-full border px-2 py-1 text-gray-800 text-xs">
@@ -141,22 +141,22 @@ function ExtensionCard({ entry, isProminent = false }: ExtensionCardProps) {
     <article
       className={
         isProminent
-          ? "group rounded-[1.5rem] border bg-background p-5 shadow-sm transition-colors hover:border-gray-1000/40"
+          ? "group rounded-[1.5rem] border bg-background-100 p-5 shadow-sm transition-colors hover:border-gray-1000/40"
           : "group rounded-2xl border bg-background-100 p-4 transition-colors hover:border-gray-1000/40"
       }
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border bg-background px-2 py-1 font-medium text-gray-900 text-xs">
+        <span className="rounded-full border bg-background-100 px-2 py-1 font-medium text-gray-900 text-xs">
           {getExtensionCategoryLabel(entry.category)}
         </span>
-        <span className="rounded-full border bg-background px-2 py-1 text-gray-800 text-xs">
+        <span className="rounded-full border bg-background-100 px-2 py-1 text-gray-800 text-xs">
           {extensionStatusLabels[entry.status]}
         </span>
       </div>
       <h3 className="mt-4 font-semibold text-gray-1000 text-xl tracking-tight">{entry.name}</h3>
       <p className="mt-2 text-gray-800 text-sm leading-6">{entry.summary}</p>
       <p className="mt-3 text-gray-700 text-sm leading-6">{entry.details}</p>
-      <div className="mt-5 rounded-xl border bg-background p-3 font-mono text-gray-900 text-xs">
+      <div className="mt-5 rounded-xl border bg-background-100 p-3 font-mono text-gray-900 text-xs">
         <p className="text-gray-700">Use</p>
         <p className="mt-1 truncate text-gray-1000">{entry.commandHint}</p>
       </div>

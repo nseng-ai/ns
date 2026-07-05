@@ -105,10 +105,10 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-12 pb-20">
-        <div className="rounded-[2rem] border bg-gray-1000 p-6 text-background md:p-8">
+        <div className="rounded-[2rem] border bg-gray-1000 p-6 text-background-100 md:p-8">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div className="max-w-2xl space-y-3">
-              <p className="font-medium text-background/60 text-sm">nonslop engineering</p>
+              <p className="font-medium text-background-100/60 text-sm">nonslop engineering</p>
               <h2 className="font-semibold text-3xl tracking-tight md:text-4xl">
                 Engineers are not factory managers; they are sorcerers.
               </h2>
@@ -134,15 +134,15 @@ function FileTreePreview() {
       <div className="mt-5 space-y-2 font-mono text-sm">
         {treeItems.map((item) => (
           <div
-            className="flex items-center gap-2 rounded-xl border border-background/10 bg-background/5 px-3 py-2"
+            className="flex items-center gap-2 rounded-xl border border-background-100/10 bg-background-100/5 px-3 py-2"
             key={`${item.depth}-${item.label}`}
           >
-            <span className="text-background/25">{"  ".repeat(item.depth)}</span>
-            <span className={item.tone === "folder" ? "text-blue-200" : "text-background/80"}>
+            <span className="text-background-100/25">{"  ".repeat(item.depth)}</span>
+            <span className={item.tone === "folder" ? "text-blue-200" : "text-background-100/80"}>
               {item.label}
             </span>
             {item.tone === "route" ? (
-              <span className="ml-auto rounded-full border border-background/15 px-2 py-0.5 text-background/50 text-[0.625rem] uppercase tracking-[0.14em]">
+              <span className="ml-auto rounded-full border border-background-100/15 px-2 py-0.5 text-background-100/50 text-[0.625rem] uppercase tracking-[0.14em]">
                 route
               </span>
             ) : null}
@@ -155,18 +155,18 @@ function FileTreePreview() {
 
 function InstallerPreview() {
   return (
-    <div className="overflow-hidden rounded-[1.5rem] border bg-gray-1000 text-background shadow-sm">
-      <div className="flex items-center gap-2 border-background/15 border-b px-4 py-3">
+    <div className="overflow-hidden rounded-[1.5rem] border bg-gray-1000 text-background-100 shadow-sm">
+      <div className="flex items-center gap-2 border-background-100/15 border-b px-4 py-3">
         <span className="size-2 rounded-full bg-red-400" />
         <span className="size-2 rounded-full bg-yellow-400" />
         <span className="size-2 rounded-full bg-green-400" />
-        <span className="ml-2 font-mono text-background/50 text-xs">terminal</span>
+        <span className="ml-2 font-mono text-background-100/50 text-xs">terminal</span>
       </div>
       <div className="space-y-3 p-5 font-mono text-sm">
         {installCommands.map((command) => (
           <div className="flex items-start gap-3" key={command}>
             <span className="text-blue-200">$</span>
-            <code className="text-background/90">{command}</code>
+            <code className="text-background-100/90">{command}</code>
           </div>
         ))}
       </div>
