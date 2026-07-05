@@ -78,7 +78,7 @@ function optionProbeRegistry(): NonNullable<NsCliDeps["extensionRegistry"]> {
 		source: { level: "project", label: "fake option probe extension" },
 		moduleReference: { type: "file", path: "fake://option-probe.ts" },
 		entryPath: "fake://option-probe.ts",
-		kind: "package",
+		hasStaticCommandInfo: true,
 	};
 	return {
 		async loadCommandCatalog() {

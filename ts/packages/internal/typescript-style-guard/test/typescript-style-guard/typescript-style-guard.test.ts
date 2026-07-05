@@ -21,6 +21,8 @@ import {
 	BAN_TOPOLOGY_CIRCLE_CYCLE,
 	BAN_TOPOLOGY_CIRCLE_LAYERING,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
+	capabilityPackageNames,
+	concreteCapabilityCommandSurfaces,
 	deferredExtensionCycleComponents,
 	deferredTopologyCircleCycles,
 	extensionGraphPackageNames,
@@ -213,6 +215,24 @@ describe("TypeScript style guard source rules", () => {
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
 		{
+			name: "lower-layer source detects singular plan slash alias from descriptor data",
+			code: 'const command = "/ns:plan:save";',
+			path: "ts/packages/infra/brmem/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+		},
+		{
+			name: "lower-layer source detects real lower-layer package paths through metadata",
+			code: 'const command = "ns flow cp";',
+			path: "ts/packages/kernel/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+		},
+		{
+			name: "lower-layer source cannot import roaster without treating roaster as a capability",
+			code: 'import { createRoasterClient } from "@ns/roaster/api";',
+			path: "ts/packages/kernel/src/example.ts",
+			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
+		},
+		{
 			name: "capability tests may mention concrete capability command surfaces",
 			code: 'const command = "/ns:objective:list";',
 			path: "ts/packages/kernel/test/scenario/example.test.ts",
@@ -338,6 +358,15 @@ describe("TypeScript style guard source rules", () => {
 			expectedRules: [],
 		},
 	];
+
+	test("concrete capability command-surface descriptors match the capability package set", () => {
+		expect(
+			concreteCapabilityCommandSurfaces.filter(
+				(surface) => !capabilityPackageNames.has(surface.packageName),
+			),
+		).toEqual([]);
+		expect(capabilityPackageNames.has("@ns/roaster")).toBe(false);
+	});
 
 	test.each(cases)("$name", (testCase) => {
 		const actualRules = collectViolations(

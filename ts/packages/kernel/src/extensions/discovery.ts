@@ -21,6 +21,7 @@ import {
 	formatUnknownError,
 	type NsCommandCandidate,
 } from "./command-registry.ts";
+import type { NsCommandModuleReference } from "./module-reference.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
@@ -38,6 +39,8 @@ export interface DiscoveredExtensionCommand extends Pick<
 	entryPath: string;
 	displayPath: string;
 	kind: DiscoveredExtensionCommandKind;
+	hasStaticCommandInfo: boolean;
+	moduleReference?: NsCommandModuleReference;
 }
 
 export interface ExtensionDiscoveryDiagnostic {
@@ -474,6 +477,8 @@ function commandForManifestEntry(options: {
 		ok: true,
 		command: {
 			kind: "package",
+			hasStaticCommandInfo: true,
+			...moduleReferenceForEntryPath(entryPath),
 			...(parsedEntry.entry.group === undefined ? {} : { group: parsedEntry.entry.group }),
 			...(parsedEntry.entry.segments === undefined ? {} : { segments: parsedEntry.entry.segments }),
 			...(parsedEntry.entry.groupDescription === undefined
@@ -734,12 +739,34 @@ function buildCommand(options: {
 	const description = `Run ns command entry '${options.name}'.`;
 	return {
 		kind: options.kind,
+		hasStaticCommandInfo: false,
+		...moduleReferenceForEntryPath(options.entryPath),
 		name: options.name,
 		description,
 		fullDescription: description,
 		entryPath: options.entryPath,
 		displayPath: relativeDisplayPath(options.rootDir, options.entryPath),
 	};
+}
+
+function moduleReferenceForEntryPath(entryPath: string): {
+	moduleReference?: NsCommandModuleReference;
+} {
+	let source: string;
+	try {
+		source = readFileSync(entryPath, "utf8");
+	} catch {
+		// Entry-file package-shim recognition is best-effort at discovery time; unreadable
+		// entries stay as file references and selected loading reports the concrete failure.
+		return {};
+	}
+	const specifier = parseDefaultReexportShimSpecifier(source);
+	return specifier === undefined ? {} : { moduleReference: { type: "package", specifier } };
+}
+
+function parseDefaultReexportShimSpecifier(source: string): string | undefined {
+	const match = source.trim().match(/^export\s+\{\s*default\s*\}\s+from\s+["']([^"']+)["'];?$/u);
+	return match?.[1];
 }
 
 function isLoadableExtensionFile(name: string): boolean {
