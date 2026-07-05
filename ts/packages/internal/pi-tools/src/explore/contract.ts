@@ -5,10 +5,13 @@ export const EXPLORE_TOOL_NAME = "explore";
 export const EXPLORE_BREADTH_VALUES = ["quick", "medium", "very-thorough"] as const;
 export type ExploreBreadth = (typeof EXPLORE_BREADTH_VALUES)[number];
 
-export const EXPLORE_BREADTH_PROFILES: Record<
-	ExploreBreadth,
-	{ maxTasks: number; maxConcurrency: number; wallClockMs: number }
-> = {
+export interface ExploreBreadthProfile {
+	maxTasks: number;
+	maxConcurrency: number;
+	wallClockMs: number;
+}
+
+export const EXPLORE_BREADTH_PROFILES: Record<ExploreBreadth, ExploreBreadthProfile> = {
 	quick: { maxTasks: 2, maxConcurrency: 2, wallClockMs: 90_000 },
 	medium: { maxTasks: 4, maxConcurrency: 3, wallClockMs: 180_000 },
 	"very-thorough": { maxTasks: 8, maxConcurrency: 4, wallClockMs: 300_000 },
@@ -23,7 +26,7 @@ export const EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS = 4_000;
  * explorer children always run with --no-extensions, so this positive allowlist is a
  * complete capability-level read-only guarantee: no bash, no edit, no write.
  */
-export const EXPLORER_READ_ONLY_TOOLS = ["read", "grep", "find", "ls"] as const;
+export { INTERROGATION_TOOLS as EXPLORER_READ_ONLY_TOOLS } from "../context-profiler/interrogation-prompt.ts";
 
 export const EXPLORER_SCOUT_SECTION_HEADERS = [
 	"## Files Retrieved",

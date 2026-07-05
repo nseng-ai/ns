@@ -7,9 +7,9 @@ description: Fan out fast read-only explorer subagents that scout the codebase o
 promptSnippet: Launch fast read-only explorer subagents and return structured scout findings.
 promptGuidelines:
   - Use explore for read-only reconnaissance whose answer is a map of files, symbols, and starting points, not for implementation, review judgment, or planning.
-  - Prefer direct read/grep yourself when you already know the exact file or symbol; explorers are for genuine search across unknown territory.
-  - Give each explorer one focused question with concrete scope hints (directories, naming conventions, subsystems) so parallel explorers do not overlap.
-  - Explorers run with a read-only tool allowlist (read, grep, find, ls) on a cheap model by default; do not delegate tasks that need bash, file edits, or long-horizon reasoning.
+  - Use explore only when direct read/grep is insufficient; prefer direct read/grep yourself when you already know the exact file or symbol.
+  - For explore, give each explorer one focused question with concrete scope hints (directories, naming conventions, subsystems) so parallel explorers do not overlap.
+  - For explore, explorers run with a read-only tool allowlist (read, grep, find, ls) on a cheap model by default; do not delegate tasks that need bash, file edits, or long-horizon reasoning.
 ---
 
 You are a fast read-only explorer scouting the current working directory.

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualTimerScheduler } from "@ns/core/time/testing";
-import type { ToolContext, ToolDefinition, ToolResult } from "@ns/pi/runtime/tool-types";
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
 	EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS,
@@ -28,7 +28,7 @@ const definition = makeExplorerAgentDefinition({
 	promptSnippet: "Markdown explore snippet.",
 	promptGuidelines: [
 		"Use explore for broad reconnaissance.",
-		"Prefer direct read when the exact file is known.",
+		"Use explore only after direct read when the exact file is known.",
 	],
 });
 
@@ -137,7 +137,7 @@ describe("explore extension", () => {
 		expect(tool.promptSnippet).toBe("Markdown explore snippet.");
 		expect(tool.promptGuidelines).toEqual([
 			"Use explore for broad reconnaissance.",
-			"For explore, prefer direct read when the exact file is known.",
+			"Use explore only after direct read when the exact file is known.",
 		]);
 		expect(tool.parameters.type).toBe("object");
 		expect(tool.parameters.required).toEqual(["tasks"]);
@@ -299,7 +299,7 @@ describe("explore extension", () => {
 		expect(partial.isError).toBeUndefined();
 		expect(partialDetails.status).toBe("partial");
 		expect(partialDetails.tasks[0]?.finalTextChars).toBe(longText.length);
-		expect(partialDetails.tasks[0]?.finalTextTruncated).toBe(true);
+		expect(partialDetails.tasks[0]?.isFinalTextTruncated).toBe(true);
 		expect(partialText).toContain("1/2 scouts produced final text");
 		expect(partialText).toContain("Diagnostic: child failed");
 		expect(partialText).not.toContain("END");
@@ -349,6 +349,24 @@ describe("explore extension", () => {
 		);
 		expect(wrong.isError).toBe(true);
 		expect(wrong.content[0]?.text).toContain('declares toolName "other"');
+
+		const missingGuidelineTool = registerExploreTool({
+			loadAgentDefinition: () =>
+				makeExplorerAgentDefinition({
+					promptGuidelines: ["Use explore for reconnaissance.", "Prefer direct reads."],
+				}),
+		});
+		const missingGuideline = await missingGuidelineTool.execute(
+			"tool-3",
+			exploreParams(2),
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		expect(missingGuideline.isError).toBe(true);
+		expect(missingGuideline.content[0]?.text).toContain(
+			'must mention "explore" in every guideline',
+		);
 	});
 
 	test("timeout aborts in-flight children and cancels the scheduled timer", async () => {
