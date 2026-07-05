@@ -8,7 +8,7 @@ The 2026-07-04 architecture review of `@internal/pi-tools` found that duplicatio
 
 Five candidates from the review, in priority order:
 
-1. **pr-previews twins merge (Strong).** Merge the checks/feedback view/command/model clones into one deep preview-surface module inside pr-previews (bordered list/detail modal, command skeleton, detail-row union, zod target schema), with checks and feedback as thin target adapters. The two existing call sites prove the seam is real.
+1. **pr-previews twins merge (Parked).** The checks/feedback view/command/model clones remain a real deepening candidate, but the work is parked by explicit direction before seam classification or implementation. Reopen only with a concrete reason to pay the abstraction risk and first classify the drifted presentation differences as parameters or accidents.
 2. **Parity assertion helper (Strong; touches `@ns/pi`).** One `expectPiSurfaceParity(register, metadata)`-shaped helper beside `@ns/pi/parity/testing`; each subpackage's parity test becomes one call. Stops the template being copied into the next Internal Pi-tool package.
 3. **runner-subagents interface narrowing (Worth exploring).** Shrink the export map to real consumers: root barrel + `/extension`; drop the zero-importer subpaths (`/json-events`, `/presentation`, `/usage`); decide whether `/process`, `/runtime`, `/testing` earn rank per ADR 0023 or tests bind via relative source imports like sibling subpackages; delete the 13-line `usage.ts` shim; fold the `extension-api.ts` pass-through facade into the barrel.
 4. **context-profiler interrogation consolidation (Worth exploring).** Consolidate the five interrogation fragments behind the controller's interface (session/prompt/transcript/render become internals); relocate `InterrogationScope` to the model, where its consumers live; delete the `errors.ts` and `lm-json.ts` shims.
@@ -23,8 +23,8 @@ Five candidates from the review, in priority order:
 
 ## Completion Criteria
 
-- Candidates 1 and 2 landed: pr-previews has one view/command implementation with both surfaces rendering through it and the existing view test suites passing; the six parity test files are one-call consumers of a shared helper.
-- Candidates 3–5 each resolved: landed, explicitly parked with rationale, or dropped with recorded rationale — a Semantic Update, or an ADR when the reason should stop future architecture reviews from re-suggesting the same deepening.
+- Candidate 2 landed: the six parity test files are one-call consumers of a shared helper.
+- Candidates 1 and 3–5 each resolved: landed, explicitly parked with rationale, or dropped with recorded rationale — a Semantic Update, or an ADR when the reason should stop future architecture reviews from re-suggesting the same deepening.
 - Evidence noted in roadmap rows or Semantic Updates: targeted tests plus relevant repo checks passed for each landed slice.
 
 ## Assumptions and Risks
@@ -44,6 +44,6 @@ Risks:
 
 ## Open Questions
 
-- Where exactly does the preview-surface seam sit — a generic list/detail modal component, a shared base implementation, or a render-function toolkit? To be grilled before implementation.
+- If pr-previews is reopened, where exactly does the preview-surface seam sit — a generic list/detail modal component, a shared base implementation, or a render-function toolkit? Grill before implementation.
 - Does `/testing` earn subpackage-export rank? Per ADR 0023 a testing subpackage is a cross-package test-time contract; today its only consumers are the package's own tests.
 - Should `context-profiler/view.ts` (1047 lines, no test imports it) get coverage as part of candidate 4, or as a separate follow-up? The interrogation consolidation must at minimum not grow it.
