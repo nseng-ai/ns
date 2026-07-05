@@ -217,6 +217,16 @@ not from a staged preservation artifact.
   but generated prose has been intentionally replaced by obvious TODO/Lorum ipsum
   placeholders. Launch readiness now requires rewriting those pages with accurate
   SDL copy.
+- **Launch bar for the first ship (opened 2026-07-05).** `ship-objectives-to-customers`
+  decided a fully-live happy-path slice (install `ns` core → `ns install
+  @nseng-ai/objectives` → `ns init`, Claude Code first): the site goes public with only
+  that path guaranteed real. Undecided: what the rest of the site must look like at that
+  launch — hide non-real sections from nav, rewrite a few anchor pages (home hero,
+  objectives concept), or tolerate marked-immature pages; whether any pages must stay
+  non-public (internal tooling like slot/flow that the happy path deliberately excludes);
+  and whether launch waits on the `docs/north-star.md` rewrite or proceeds with current
+  copy. Also: does the launch need the full kernel+extensions IA restructure, or a
+  minimal Get-Started slice of it?
 
 ## Background & Decision Log
 

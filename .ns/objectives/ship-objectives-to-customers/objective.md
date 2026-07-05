@@ -62,7 +62,7 @@ Assumptions:
 
 - npm is the customer install vector for the `ns` CLI. (User-confirmed.)
 - The supported surface is the `ns` CLI, not a standalone objective binary. (User-confirmed.)
-- Skill bundling and install are delivered by `skill-management-subsystem` and do not need to be rebuilt here.
+- Skill bundling and install are delivered by `skill-management-subsystem` and do not need to be rebuilt here. *(Under revision 2026-07-05: the Pi-style extension model may ship objective skills inside `@nseng-ai/objectives` instead — see Open Questions.)*
 - `ns objective` is effectively zero-config for a customer — trunk is auto-detected and `objective list` is explicitly Graphite-free — so portability is expected, though not yet verified end-to-end outside this checkout.
 - `AGENTS.md` is the portable cross-harness instruction carrier: Codex and Pi read it natively, and Claude Code reaches it via the `CLAUDE.md → @AGENTS.md` import.
 
@@ -91,6 +91,27 @@ Resolved 2026-07-01 in a design grilling session (full record:
 - **Pi slash extension → internal/additive.** `ns objective` CLI + skills is the single
   portable customer substrate on all three harnesses.
 - **Mandatory harness bar → all three** (Claude Code + Codex + Pi) verified end-to-end.
+  *(Superseded 2026-07-05 for the first shipped slice — see below; the all-three bar
+  remains the eventual target.)*
+
+Resolved 2026-07-05 in a happy-path charting session with the owner (full record:
+`updates/20260705T185714Z-happy-path-pi-install-decisions.md`):
+
+- **Delivery model → Pi-style extension install.** The published `@nseng-ai/ns` core is
+  **bare** (no capabilities); `@nseng-ai/objectives` publishes standalone and customers
+  add it with a new `ns install <source>` surface mimicking `pi install` / `pi remove` /
+  `pi update`. Packaging supersession recorded in `checkout-free-sdl-distribution`;
+  the acquisition UX (`ns install`/`remove`/`update`) is designed and owned here.
+- **The happy path is three commands**, and it is the first thing shipped:
+  `npm install -g @nseng-ai/ns` → `ns install @nseng-ai/objectives` → `ns init` (in the
+  customer repo). `ns install` is user-level settings only; repo activation stays in
+  `ns init`. The path must never touch slot/flow/brmem/Graphite.
+- **First-slice harness bar → Claude Code only**, explicitly superseding the 2026-07-01
+  all-three bar for this slice; Codex and Pi verification follow after the Claude Code
+  path ships.
+- **Ship bar → fully live.** Both packages actually published to npm, the docs site
+  publicly deployed (Vercel gate removed, nseng.ai), and a stranger able to follow Get
+  Started end-to-end with zero improvisation.
 
 Derived design (first build slice, see the update for full rationale): skill delivery
 depends on `skill-management-subsystem`'s copy-into-harness-roots slice (not areg's symlink
@@ -104,5 +125,18 @@ gateway until the bundle lands.
 
 ## Open Questions
 
-- None outstanding. Reopen here if the `@nseng-ai/ns-init` build or the `checkout-free-sdl-distribution`
-  dependency surfaces a new fork.
+Reopened 2026-07-05 by the Pi-style extension-install decision:
+
+- **`ns install` surface design** (with the `ns-cli-design` skill): accepted source
+  forms for v1 (npm name only, or also local path/git), where installed-extension
+  settings live (global/XDG vs `-l` local vs `ns.toml`) and their schema, `ns update` v1
+  scope (self, extensions, both, or deferred), and naming conformance with kernel CLI
+  conventions. Runtime loader-side resolution is owned by
+  `checkout-free-sdl-distribution`.
+- **Where objective skills ship in the extension model**: inside `@nseng-ai/objectives`
+  itself, or still via the `skill-management-subsystem` `ns skills` bundle path? This
+  decides how much of the planned `ns skills install` slice survives and what the
+  `SkillMaterializer` real impl binds to.
+- **Where `ns init` lives**: in the bare core (must work with zero extensions installed)
+  or contributed by the objectives extension. The `@nseng-ai/ns-init` package scaffold
+  described above predates the bare-core split and may need re-homing.

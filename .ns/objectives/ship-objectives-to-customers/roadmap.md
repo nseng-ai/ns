@@ -18,15 +18,18 @@ Subobjective order and rationale for this umbrella Objective live in `objective.
   - Evidence: first-run missing `--harness`, explicit `--harness` persistence, persisted rerun, explicit replacement, invalid `ns.toml`, TOML parse/replace, and host `ns init --help` tests pass in the focused validation listed above.
 - [ ] Wire the real `SkillMaterializer` to `skill-management-subsystem`'s copy-into-harness-roots slice once the npm bundle exists (copy bundled objective skill dirs → `.claude/skills/` + `.agents/skills/`, idempotent). Depends on `checkout-free-sdl-distribution` + a minimal `ns skills install`.
   - Notes: resolves the CLI↔skill bidirectional dependency by shipping them together; consume the platform path table, do not rebuild it.
+- [ ] Design the `ns install` / `ns remove` / `ns update` surface (Pi parity; decided 2026-07-05) with the `ns-cli-design` skill: v1 source forms, installed-extension settings home + schema, `ns update` v1 scope, naming conformance. Resolve the reopened Open Questions (skills-in-extension vs `ns skills`; `ns init` in core vs extension) as part of this design.
+  - Notes: acquisition UX owned here; loader-side resolution of installed packages owned by `checkout-free-sdl-distribution`. Gates the two-package first publish there.
 - [x] Author the lean, portable, harness-neutral objective instruction block (decided: objectives-exist + `ns objective list` before non-trivial work + use the objective skills/CLI; `load-orientations` and Tracking-Gate prose are opt-in/upgradeable, not day-one). This is the block content `ns init` writes.
   - Evidence: `ts/packages/capabilities/ns-init/src/instruction-block.ts` renders the versioned `ns:objectives:*` managed block with only the lean day-one guidance and the `CLAUDE.md -> @AGENTS.md` import; `renderObjectiveInstructionBlock()` is tested for finalized lean block markers, required Objective concepts, and negative coverage for `load-orientations`, Tracking-Gate, SDL, Pi, and Claude wording; scenario coverage exercises the block as part of `ns init` activation. Focused validation passed 2026-07-05 (`pnpm --dir ts --filter @nseng-ai/ns-init run check`, `pnpm --dir ts --filter @nseng-ai/ns-init run test`); the follow-up style-guard fix moved the testing subpath to `src/testing/index.ts`, and `just ts-test-typescript-style-guard` plus `just ts-check` passed locally.
-- [ ] Write real onboarding docs content for objectives in `docs-site` (installation, quickstart, concepts/objectives, tools/objective), replacing the placeholder pages, and un-gate publication.
-  - Notes: docs-site shell and stack owned by `eve-parity-docs-site`; content and gating owned here. All four pages are still placeholders and deploys remain launch-gated.
-- [ ] Verify onboarding end-to-end in a throwaway non-SDL repo for **all three** of Claude Code, Codex, and Pi (decided 2026-07-01): install `ns`, install skills, bootstrap, then create → next → update → close.
-  - Notes: also de-risks the standalone-portability assumption.
+- [ ] Write the real happy-path Get Started content in `docs-site` (installation + quickstart around the decided three-command path, plus a real concepts/objectives page), replacing the placeholder pages. Drafting can start now against the decided command shape and reconcile when the `ns install`/`ns init` designs close.
+  - Notes: docs-site shell, IA restructure, and launch-gate removal owned by `eve-parity-docs-site`; objective content owned here. Obey `docs-site/AGENTS.md`; validate with `just docs-check`.
+- [ ] Verify onboarding end-to-end in a throwaway non-ns repo on **Claude Code** (first-slice bar, decided 2026-07-05): follow the published docs verbatim — install the core from npm, `ns install @nseng-ai/objectives`, `ns init`, then create → next → update → close. Every deviation becomes a docs fix or new row. Zero improvisation = verified.
+  - Notes: also de-risks the standalone-portability assumption. Codex + Pi verification moved to follow-up (see Parked).
 
 ## Parked
 
+- [ ] Codex and Pi end-to-end onboarding verification (deferred 2026-07-05 by the Claude-Code-first slice decision; the all-three bar remains the eventual target).
 - [ ] Additional harnesses beyond Claude Code / Codex / Pi (Cursor, opencode, Gemini, Windsurf).
 - [ ] Customer-facing skill upgrade / drift management (versioned skill sync in a customer repo) beyond first install.
 - [ ] Telemetry, feedback channel, licensing / accounts, and released-package release automation / CI.

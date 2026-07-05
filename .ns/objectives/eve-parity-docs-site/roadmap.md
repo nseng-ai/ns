@@ -14,6 +14,7 @@
       Identity is resolved: the product is `ns` (== nonslop), lowercase always, domain `nseng.ai`, `siteId: "ns"`, org "nonslop engineering", positioning = ns kernel + extension ecosystem with the software factory as the enemy; copy derives from the north star, not a tagline workshop. The copy source `docs/north-star.md` was rewritten as the deeper repositioning (software-factory enemy, nonslop thesis, kernel+extensions architecture). The chrome rebrand landed (commit "Rebrand docs site for ns and align north-star copy to nonslop engineering"): `lib/geistdocs/site-identity.ts` (`productName: "ns"`, `siteId: "ns"`, `siteDomain: "nseng.ai"`, `organizationName: "nonslop engineering"`), `nav.ts` (`owner: "nseng-ai"`, repo `ns`), the `agent{}` block in `ai-assistant.ts` (name/instructions derived from `productName`/`organizationName`), and the marketing home hero copy (`ns — the kernel for nonslop engineering`, description derived from the north star). The identity baseline is factored into `docs-site/lib/geistdocs/` modules rather than eve's single `geistdocs.tsx`: `site-identity.ts`, `ai-assistant.ts`, `brand.tsx`, `nav.ts`, wired through `config.tsx` (`defineConfig`) and `source.ts`. Content directory is resolved to `docs-site/docs/`. Remaining identity-adjacent work is the docs-corpus rebrand and the Tools/Skills → kernel+extensions IA restructure, tracked in the next two rows.
 - [ ] Restructure the docs IA for kernel + extensions.
       Dissolve the Tools and Skills top-level sections: slot/objectives/branch memory become kernel feature pages under Concepts (brmem drops to an internals mention), `aretro`/`roaster`/`pr-address` become extension pages tied to the `/extensions` gallery (with real catalog entries), and skills are documented as part of their extensions. Update `meta.json` trees and check for dead sidebar entries and stale internal links.
+  - Launch-slice note (2026-07-05): decide first whether the happy-path launch (see the launch row below) needs this full restructure or only a minimal Get-Started slice, with the rest following post-launch. The Pi-style extension model decided in `ship-objectives-to-customers` (bare core + `ns install`) reinforces the kernel+extensions IA direction.
 - [x] Build the marketing home page structure.
       The static home page has the non-content eve-style structure this Objective wanted: hero, feature cards, file-tree preview, installer/code-command preview, CTA band, and page metadata/OG/Twitter basics. A later refactor extracted shared marketing UI primitives into `docs-site/components/marketing-ui.tsx` (`MarketingHero`, `Card`, `CtaLink`, `PreviewPanel`) without changing the structure. Final sdl positioning/tagline copy remains deliberately deferred and the page still avoids per-feature animated visuals. Evidence: `pnpm --dir docs-site run build`, `just docs-check`, and `just dprint-check` passed.
 - [x] Build the extensions gallery page.
@@ -23,6 +24,17 @@
       Evidence: `pnpm --dir docs-site run build`, `just docs-check`, and `just dprint-check` passed; `just docs-check` re-verified green on trunk 2026-07-03 after the post-slice config/helper refactors and the `.sdl`→`.ns` cutover.
 - [~] Port and restructure the content corpus into Fumadocs MDX.
   The Fumadocs `.mdx` file set, frontmatter shape, per-folder `meta.json`, and clean slugs are in place; the page prose is intentionally stubbed with obvious TODO/Lorum ipsum placeholders (still present as of 2026-07-05). With the non-content infrastructure, home structure, extensions gallery, and Vercel integration rows now complete, the rewrite is unblocked and written **ns-first**: all prose and command examples use `ns` (the future name; the binary is `ji` today), grounded in the rewritten `docs/north-star.md`. Do it on top of the kernel/extensions IA restructure row, not the old Get started/Concepts/Tools/Guides/Skills shape.
+
+- [ ] Decide the launch bar for non-happy-path content (see the 2026-07-05 Open
+      Question): hide vs rewrite vs mark-immature for the rest of the corpus, any
+      must-stay-private pages, and whether launch waits on the north-star rewrite.
+- [ ] Remove the Vercel launch gate and go live on nseng.ai.
+      Drop `ignoreCommand: "exit 0"` from the Vercel config(s), confirm production
+      project/domain wiring (`NEXT_PUBLIC_SITE_URL`), deploy, and smoke the live site —
+      happy-path pages, search, and the machine routes (`/llms.txt`, per-page `.mdx`).
+  - Notes: gated on `ship-objectives-to-customers`' Claude-Code stranger verification
+    passing and the launch-bar decision above; the happy-path content itself is owned
+    there.
 
 ## Parked
 
