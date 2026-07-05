@@ -59,6 +59,18 @@ export {
 	type LocalBranchRefReadResult,
 	type ReadLocalBranchRefsOptions,
 } from "./local-ref-reader.ts";
+export {
+	detectGitOperationInProgress,
+	detectGitOperationInProgressAt,
+	nodeGitWorktreeStateFs,
+	resolveWorktreeGitDirs,
+	type GitOperationInProgress,
+	type GitOperationInProgressFacts,
+	type GitWorktreeGitDirsResolution,
+	type GitWorktreeDirs,
+	type GitWorktreeStateFs,
+	type GitWorktreeStateOptions,
+} from "./worktree-state.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -222,6 +234,39 @@ export class RealGitGateway implements GitGateway {
 			);
 		}
 		return { ok: true, value: commit };
+	}
+
+	async gitCommonDir(params: GitCwdParams): Promise<GitResult<string>> {
+		const run = await this.runGitExpectingSuccess(params, ["rev-parse", "--git-common-dir"], {
+			code: "git_common_dir_failed",
+			title: "git rev-parse --git-common-dir failed",
+		});
+		if (!run.ok) return run;
+
+		const commonDir = firstNonEmptyLine(run.value.result.stdout);
+		if (commonDir === undefined) {
+			return error(
+				"git_common_dir_empty",
+				`git rev-parse --git-common-dir returned no path.\nCommand: ${run.value.displayCommand}`,
+				run.value.displayCommand,
+			);
+		}
+		return {
+			ok: true,
+			value: path.isAbsolute(commonDir)
+				? path.normalize(commonDir)
+				: path.resolve(params.cwd, commonDir),
+		};
+	}
+
+	async previousBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
+		const run = await this.runGit(params, ["rev-parse", "--abbrev-ref", "@{-1}"]);
+		if (!run.ok) return { type: "error", error: run.error };
+		if (run.value.result.code !== 0 || run.value.result.killed) return { type: "missing" };
+
+		const branch = firstNonEmptyLine(run.value.result.stdout);
+		if (branch === undefined || branch === "@{-1}") return { type: "missing" };
+		return { type: "found", value: branch };
 	}
 
 	async gitPath(params: GitPathParams): Promise<GitResult<string>> {

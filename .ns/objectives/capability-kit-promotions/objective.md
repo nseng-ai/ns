@@ -137,10 +137,12 @@ Second-wave assumptions (verified by export-surface inspection 2026-07-05 on
 the delivering branch stack):
 
 - The three operation-detection sites are congruent enough for one kit
-  module: flow's `InProgressGitOperation` union (merge/cherry-pick/revert/
-  rebase) and slots' marker table (`MERGE_HEAD`, `CHERRY_PICK_HEAD`,
-  `rebase-merge`/`rebase-apply`) describe the same taxonomy; slots adds
-  rebase head-name recovery that must either generalize or stay local.
+  module. Verified while delivering
+  `kit-git-worktree-state-consolidation`: the taxonomy held with named
+  divergences resolved by steering — slots' rebase head-name recovery
+  generalized into kit, flow deliberately adopted kit's full union including
+  bisect refusal, and hosts/pi proved to have only admin-dir resolution (not
+  marker detection) and therefore adopted only that half.
 - `plans/src/content-slug-derivation.ts` already models the generalized
   shape (`ContentSlugDerivationVariant` exists); handoffs'
   `content-slug.ts` is a near-parallel copy that can collapse to a variant

@@ -332,14 +332,7 @@ function testShaForBranch(branch: string): string {
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
-	return [
-		step("git", ["status", "--porcelain=v1"]),
-		step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
-		step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
-	];
+	return [step("git", ["status", "--porcelain=v1"])];
 }
 
 function initialBranchPlans(options: { featureBBase?: string } = {}): ScriptedExec[] {

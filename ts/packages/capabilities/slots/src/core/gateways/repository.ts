@@ -1,10 +1,15 @@
-import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { parseGitWorktreePorcelain } from "@nseng-ai/capability-kit/git";
-import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
+import {
+	detectGitOperationInProgressAt,
+	parseGitWorktreePorcelain,
+	RealGitGateway,
+	type GitGateway,
+	type GitOperationInProgress,
+} from "@nseng-ai/capability-kit/git";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import {
@@ -14,14 +19,6 @@ import {
 } from "../diagnostics.ts";
 
 const SLOT_GIT_TIMEOUT_MS = 10_000;
-
-const GIT_OPERATION_MARKERS = [
-	{ operation: "merge", paths: ["MERGE_HEAD"] },
-	{ operation: "cherry-pick", paths: ["CHERRY_PICK_HEAD"] },
-	{ operation: "revert", paths: ["REVERT_HEAD"] },
-	{ operation: "rebase", paths: ["rebase-merge", "rebase-apply"] },
-	{ operation: "bisect", paths: ["BISECT_LOG"] },
-] as const;
 
 export interface WorktreeInfo {
 	path: string;
@@ -110,14 +107,8 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async getGitCommonDir(cwd: string): Promise<string | null> {
-		const result = await this.git(["rev-parse", "--git-common-dir"], cwd, {
-			allowFailure: true,
-			operation: "slot.git.get_git_common_dir",
-		});
-		if (!result.isOk) return null;
-		const raw = result.stdout.trim();
-		if (raw.length === 0) return null;
-		return isAbsolute(raw) ? raw : resolve(cwd, raw);
+		const result = await this.coreGit.gitCommonDir({ cwd, env: this.env });
+		return result.ok ? result.value : null;
 	}
 
 	async getRepositoryRoot(cwd: string): Promise<string> {
@@ -190,14 +181,8 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async getPreviousBranch(cwd: string): Promise<string | null> {
-		const result = await this.git(["rev-parse", "--abbrev-ref", "@{-1}"], cwd, {
-			allowFailure: true,
-			operation: "slot.git.get_previous_branch",
-		});
-		if (!result.isOk) return null;
-		const branch = result.stdout.trim();
-		if (branch.length === 0 || branch === "@{-1}") return null;
-		return branch;
+		const result = await this.coreGit.previousBranch({ cwd, env: this.env });
+		return result.type === "found" ? result.value : null;
 	}
 
 	async branchExists(branch: string): Promise<boolean> {
@@ -265,18 +250,9 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	private worktreeOperation(worktreePath: string): WorktreeOperation | null {
-		const adminDir = resolveWorktreeAdminDir(worktreePath);
-		if (adminDir === null) return null;
-		for (const marker of GIT_OPERATION_MARKERS) {
-			for (const path of marker.paths) {
-				if (existsSync(resolve(adminDir, path)))
-					return {
-						name: marker.operation,
-						branch: operationBranch(adminDir, marker.operation),
-					};
-			}
-		}
-		return null;
+		const operation = detectGitOperationInProgressAt(worktreePath);
+		if (operation === undefined) return null;
+		return { name: operation.operation, branch: operation.branch };
 	}
 
 	private async git(
@@ -312,10 +288,8 @@ interface CommandResult {
 	killed: boolean;
 }
 
-type WorktreeOperationName = (typeof GIT_OPERATION_MARKERS)[number]["operation"];
-
 interface WorktreeOperation {
-	name: WorktreeOperationName;
+	name: GitOperationInProgress;
 	branch: string | null;
 }
 
@@ -325,66 +299,6 @@ function failureFromResult(result: CommandResult): GitCommandFailure {
 		result.stdout.trim() ||
 		(result.killed ? "git command was killed" : "git command failed");
 	return { message: output };
-}
-
-function operationBranch(adminDir: string, operation: WorktreeOperationName): string | null {
-	if (operation !== "rebase") return null;
-	return (
-		branchFromRefFile(resolve(adminDir, "rebase-merge", "head-name")) ??
-		branchFromRefFile(resolve(adminDir, "rebase-apply", "head-name"))
-	);
-}
-
-function branchFromRefFile(path: string): string | null {
-	const raw = readTextFile(path);
-	if (raw === undefined) return null;
-	const ref = raw
-		.split(/\r?\n/u)
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
-	if (ref === undefined) return null;
-	const prefix = "refs/heads/";
-	return ref.startsWith(prefix) ? ref.slice(prefix.length) : ref;
-}
-
-function resolveWorktreeAdminDir(worktreePath: string): string | null {
-	const dotGit = resolve(worktreePath, ".git");
-	if (isDirectory(dotGit)) return dotGit;
-	const content = readTextFile(dotGit)?.trim();
-	if (content === undefined) return null;
-	const prefix = "gitdir:";
-	if (!content.startsWith(prefix)) return null;
-	const raw = content.slice(prefix.length).trim();
-	if (raw.length === 0) return null;
-	return isAbsolute(raw) ? raw : resolve(worktreePath, raw);
-}
-
-function readTextFile(path: string): string | undefined {
-	if (!isFile(path)) return undefined;
-	try {
-		return readFileSync(path, "utf8");
-	} catch {
-		// Treat races and permission errors as unreadable files; callers only need best-effort path facts.
-		return undefined;
-	}
-}
-
-function isDirectory(path: string): boolean {
-	return statMatches(path, (stats) => stats.isDirectory());
-}
-
-function isFile(path: string): boolean {
-	return statMatches(path, (stats) => stats.isFile());
-}
-
-function statMatches(path: string, predicate: (stats: Stats) => boolean): boolean {
-	if (!existsSync(path)) return false;
-	try {
-		return predicate(statSync(path));
-	} catch {
-		// Treat races and permission errors as non-matches; callers only need best-effort path facts.
-		return false;
-	}
 }
 
 export function mainRepoRootFromGitCommonDir(gitCommonDir: string): string {

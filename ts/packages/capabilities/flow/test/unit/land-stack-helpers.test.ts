@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
@@ -109,6 +110,23 @@ interface WidgetUpdate {
 	key: string;
 	value: string[] | undefined;
 	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
+}
+
+function fakeGitStateFs(paths: readonly string[]): GitWorktreeStateFs {
+	const existing = new Set(paths);
+	return {
+		pathKind(path) {
+			return existing.has(path)
+				? path.includes(".") && !path.endsWith(".git")
+					? "file"
+					: "directory"
+				: "missing";
+		},
+		readTextFile(path) {
+			if (path.endsWith("/.git/HEAD")) return "ref: refs/heads/main\n";
+			return "";
+		},
+	};
 }
 
 class FakePi implements LandStackExtensionAPI {
@@ -513,36 +531,19 @@ describe("land-stack pure helpers", () => {
 		).toEqual([{ path: "/repo", branch: "feature-a" }, { path: "/detached" }]);
 	});
 
-	test("detects active rebase state with an injected path-existence check", async () => {
-		const pi = new FakePi([
-			step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
-		]);
-
-		const operation = await detectInProgressOperation(pi, ROOT, {
-			pathExists: (path) => path === `${ROOT}/.git/rebase-merge`,
+	test("detects active rebase state with an injected fs seam", () => {
+		const operation = detectInProgressOperation(ROOT, {
+			fs: fakeGitStateFs([`${ROOT}/.git`, `${ROOT}/.git/HEAD`, `${ROOT}/.git/rebase-merge`]),
 		});
 
-		pi.assertDone();
 		expect(operation).toBe("rebase");
 	});
 
-	test("ignores stale rebase pseudo-refs when active rebase directories are absent", async () => {
-		const pi = new FakePi([
-			step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
-			step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
-			step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
-		]);
-
-		const operation = await detectInProgressOperation(pi, ROOT, {
-			pathExists: () => false,
+	test("ignores stale rebase pseudo-refs when active rebase directories are absent", () => {
+		const operation = detectInProgressOperation(ROOT, {
+			fs: fakeGitStateFs([`${ROOT}/.git`, `${ROOT}/.git/HEAD`, `${ROOT}/.git/REBASE_HEAD`]),
 		});
 
-		pi.assertDone();
 		expect(operation).toBeUndefined();
 	});
 

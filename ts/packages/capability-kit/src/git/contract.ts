@@ -14,6 +14,8 @@ export type KnownGitErrorCode =
 	| "git_branch_tips_failed"
 	| "git_changed_paths_failed"
 	| "git_commit_failed"
+	| "git_common_dir_empty"
+	| "git_common_dir_failed"
 	| "git_dirty_status_failed"
 	| "git_path_empty"
 	| "git_path_failed"
@@ -26,6 +28,7 @@ export type KnownGitErrorCode =
 	| "head_commit_failed"
 	| "origin-url-failed"
 	| "origin-url-killed"
+	| "previous_branch_failed"
 	| "repo_root_empty"
 	| "repo_root_failed"
 	| "work_tree_probe_failed";
@@ -111,6 +114,8 @@ export interface GitGateway {
 	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	headCommit(params: GitCwdParams): Promise<GitResult<string>>;
+	gitCommonDir(params: GitCwdParams): Promise<GitResult<string>>;
+	previousBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	gitPath(params: GitPathParams): Promise<GitResult<string>>;
 	validateBranchRef(params: GitBranchParams): Promise<GitOperationResult>;
 	localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult>;

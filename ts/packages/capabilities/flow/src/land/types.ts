@@ -293,7 +293,7 @@ export interface LandGitGateway {
 
 export interface WorkingTreeStatus {
 	readonly isClean: boolean;
-	readonly inProgressOperation?: "merge" | "cherry-pick" | "revert" | "rebase";
+	readonly inProgressOperation?: "merge" | "cherry-pick" | "revert" | "rebase" | "bisect";
 }
 
 export interface LocalBranchTip {

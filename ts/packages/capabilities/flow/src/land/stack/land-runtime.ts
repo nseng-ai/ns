@@ -1,3 +1,4 @@
+import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
 import type { LandContext } from "../api.ts";
 import { LandStackCommandStream, withCommandStreaming } from "./command-stream.ts";
 import {
@@ -14,19 +15,26 @@ export interface LandRuntime {
 	commands: LandStackExtensionAPI;
 	/** Flow-owned Graphite command channel. */
 	graphite: LandGraphiteCommandChannel;
+	/** Optional git worktree state filesystem seam for scenario tests. */
+	gitStateFs?: GitWorktreeStateFs;
 }
 
 export function createRuntimeLandContext(runtime: LandRuntime): LandContext {
-	return createLandContext(runtime.commands, { graphite: runtime.graphite });
+	return createLandContext(runtime.commands, {
+		graphite: runtime.graphite,
+		...(runtime.gitStateFs === undefined ? {} : { gitStateFs: runtime.gitStateFs }),
+	});
 }
 
 export function createLandRuntime(
 	pi: LandStackExtensionAPI,
 	commandStream: LandStackCommandStream,
+	options: { gitStateFs?: GitWorktreeStateFs } = {},
 ): LandRuntime {
 	return {
 		source: pi,
 		commands: withCommandStreaming(pi, commandStream),
 		graphite: createLandGraphiteCommandChannel({ pi, commandStream }),
+		...(options.gitStateFs === undefined ? {} : { gitStateFs: options.gitStateFs }),
 	};
 }

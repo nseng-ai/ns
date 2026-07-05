@@ -436,14 +436,7 @@ function postRestackSubmitCheckSteps(): ScriptedExec[] {
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
-	return [
-		step("git", ["status", "--porcelain=v1"]),
-		step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
-		step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
-	];
+	return [step("git", ["status", "--porcelain=v1"])];
 }
 
 function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {
@@ -604,7 +597,6 @@ describe("code land CLI bridge", () => {
 		});
 
 		expect(exitCode).toBe(0);
-		expect(stderr).toContain("✗ $ git rev-parse -q --verify MERGE_HEAD — exit 1");
 		expect(stderr).toContain("→ Preparing to land 1 PR through feature-branch...");
 		expect(stderr).toContain("✓ $ git status --porcelain=v1");
 		expect(stderr).toContain("→ Merging PR #42 feature-branch...");

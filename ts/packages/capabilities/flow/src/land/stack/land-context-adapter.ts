@@ -1,5 +1,8 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import {
+	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
+	type GitWorktreeStateFs,
+} from "@nseng-ai/capability-kit/git";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import {
 	landCompleted,
@@ -83,7 +86,7 @@ function toApiPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
 
 export function createLandContext(
 	pi: LandStackExtensionAPI,
-	options: { graphite: LandGraphiteCommandChannel },
+	options: { graphite: LandGraphiteCommandChannel; gitStateFs?: GitWorktreeStateFs },
 ): LandContext {
 	const { graphite } = options;
 	return {
@@ -92,7 +95,12 @@ export function createLandContext(
 				toLandResult(await loadRepoRoot(pi, cwd), "git", "repo-discovery"),
 			currentBranch: async ({ repoRoot }) =>
 				toLandResult(await loadCurrentBranch(pi, repoRoot), "git", "repo-discovery"),
-			workingTreeStatus: async ({ repoRoot }) => loadWorkingTreeStatus(pi, repoRoot),
+			workingTreeStatus: async ({ repoRoot }) =>
+				loadWorkingTreeStatus(
+					pi,
+					repoRoot,
+					options.gitStateFs === undefined ? {} : { gitStateFs: options.gitStateFs },
+				),
 			localBranchExists: async ({ repoRoot, branch }) =>
 				loadLocalBranchExists(pi, repoRoot, branch),
 			localBranchSha: async ({ repoRoot, branch }) =>
@@ -389,6 +397,7 @@ function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree
 async function loadWorkingTreeStatus(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
+	options: { gitStateFs?: GitWorktreeStateFs } = {},
 ): Promise<LandResult<WorkingTreeStatus>> {
 	const status = await exec({
 		pi,
@@ -404,7 +413,10 @@ async function loadWorkingTreeStatus(
 		return landSuccess({ isClean: false });
 	}
 
-	const operation = await detectInProgressOperation(pi, repoRoot);
+	const operation = detectInProgressOperation(
+		repoRoot,
+		options.gitStateFs === undefined ? {} : { fs: options.gitStateFs },
+	);
 	if (operation === undefined) return landSuccess({ isClean: true });
 	return landSuccess({ isClean: true, inProgressOperation: operation });
 }
