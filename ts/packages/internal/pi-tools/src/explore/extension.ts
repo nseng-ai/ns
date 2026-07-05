@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import {
 	formatErrorMessage,
 	formatZodError,
@@ -654,6 +655,7 @@ function formatExploreProgressWidgetLines(states: readonly ExploreTaskState[]): 
 }
 
 interface ExploreTaskProgressDescription {
+	icon: string;
 	status: string;
 	activity?: string;
 }
@@ -661,8 +663,8 @@ interface ExploreTaskProgressDescription {
 function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): string {
 	const description = describeExploreTaskProgress(state);
 	const suffix = description.activity === undefined ? "" : ` — ${description.activity}`;
-	return truncateWithEllipsis(
-		`${exploreTaskStatusIcon(state)} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
+	return truncatePlain(
+		`${description.icon} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
 		180,
 	);
 }
@@ -670,16 +672,18 @@ function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): st
 function describeExploreTaskProgress(state: ExploreTaskState): ExploreTaskProgressDescription {
 	if (state.outcome !== undefined) {
 		return {
+			icon: state.outcome.result.status === "final-text" ? "✓" : "✗",
 			status: state.outcome.result.status,
 			...optionalEntries({ activity: sessionFileFor(state.outcome.result) }),
 		};
 	}
-	if (state.state === "queued") return { status: "queued" };
+	if (state.state === "queued") return { icon: "·", status: "queued" };
 
 	const update = state.latestUpdate;
-	if (update === undefined) return { status: "running" };
+	if (update === undefined) return { icon: "▶", status: "running" };
 	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
 	return {
+		icon: "▶",
 		status: update.progress.state,
 		...optionalEntries({
 			activity:
@@ -690,15 +694,10 @@ function describeExploreTaskProgress(state: ExploreTaskState): ExploreTaskProgre
 	};
 }
 
-function exploreTaskStatusIcon(state: ExploreTaskState): string {
-	if (state.outcome === undefined) return state.state === "queued" ? "·" : "▶";
-	return state.outcome.result.status === "final-text" ? "✓" : "✗";
-}
-
 function renderExploreProgress(states: readonly ExploreTaskState[]): string {
 	const details = exploreProgressDetails(states);
 	const summaries = states.map(renderExploreTaskProgress).join("; ");
-	return truncateWithEllipsis(
+	return truncatePlain(
 		`explore: ${details.done}/${details.taskCount} done, ${details.running} running — ${summaries}`,
 		320,
 	);
@@ -710,11 +709,6 @@ function renderExploreTaskProgress(state: ExploreTaskState): string {
 		return `${state.input.title} ${description.status}`;
 	const separator = description.activity.startsWith("turn ") ? " " : ": ";
 	return `${state.input.title} ${description.status}${separator}${description.activity}`;
-}
-
-function truncateWithEllipsis(text: string, limit: number): string {
-	if (text.length <= limit) return text;
-	return `${text.slice(0, limit - 1)}…`;
 }
 
 function cancelledResult(
