@@ -13,8 +13,8 @@ The `ns objective list` behavior that inventories Objective records under the ro
 *Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory
 
 **EDGES list column**:
-The `ns objective list` column to the right of LATEST UPDATE showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with the blocked STATUS indicator `⊘` (ascii fallback `!`, warn intent) that keeps the STATUS word `open` so blocked reads as a sub-state of open, per the root **Blocked Sentence** term.
-*Avoid*: edge detail rendering, annotation display, blocked lifecycle status, third STATUS state
+The `ns objective list` column to the right of LATEST UPDATE showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with blocked STATUS rendering that uses the blocked glyph `⊘` (ascii fallback `!`, warn intent) and the text `blocked` while the machine lifecycle status remains `open`, per the root **Blocked Sentence** term.
+*Avoid*: edge detail rendering, annotation display, blocked lifecycle status in machine output, deriving blocked state from body prose
 
 **Edge linting in `ns objective check`**:
 The structural **Record Frontmatter** lint in `ns objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every record across the active and archive roots with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; the linter never interprets **Edge Annotation** prose or derives blocked state.

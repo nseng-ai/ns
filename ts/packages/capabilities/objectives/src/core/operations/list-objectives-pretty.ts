@@ -84,7 +84,7 @@ export function renderObjectiveListPretty(
 
 	const includeBranches = result.updatedBranchesIncluded === true;
 	const maxSlug = Math.max(...result.records.map((r) => r.slug.length), "OBJECTIVE".length);
-	const statusW = "X closed".length; // widest plain status cell ("{glyph} closed")
+	const statusW = "X blocked".length; // widest plain status cell ("{glyph} blocked")
 	const flagW = "x".length; // the outstanding-changes flag gets its own spaced column
 	const edgesW = "EDGES".length; // Objective Edge count, right of LATEST UPDATE, blank when zero
 	const slugW = Math.max(12, Math.min(maxSlug, caps.columns - statusW - flagW - edgesW - 21));
@@ -129,11 +129,6 @@ export function renderObjectiveListPretty(
 	const legends: string[] = [];
 	if (result.records.some((record) => record.hasOutstandingChanges)) {
 		legends.push(dim("x = uncommitted changes not yet recorded in an update"));
-	}
-	if (result.records.some((record) => record.isBlocked === true)) {
-		legends.push(
-			dim(`${glyph(caps, "blocked")} = blocked (a sub-state of open; the record says why)`),
-		);
 	}
 	if (legends.length > 0) lines.push("", ...legends);
 	if (result.updatedBranchesTruncated === true) {
