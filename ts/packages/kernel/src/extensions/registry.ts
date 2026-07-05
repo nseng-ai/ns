@@ -460,7 +460,6 @@ function sourceDevDiscoveredCommandCandidate(
 		command,
 		level: "preinstalled",
 		label: `source-dev package ${command.displayPath}`,
-		sourcePath: command.entryPath,
 	});
 }
 
@@ -472,7 +471,6 @@ function discoveredCommandCandidateForLevel(
 		command,
 		level,
 		label: command.displayPath,
-		sourcePath: command.entryPath,
 	});
 }
 
@@ -480,7 +478,6 @@ function discoveredCommandCandidate(options: {
 	command: DiscoveredExtensionCommand;
 	level: ExtensionSourceLevel;
 	label: string;
-	sourcePath: string;
 }): ExternalNsCommandCandidate {
 	return {
 		...toCommandCliInfo(options.command),
@@ -493,7 +490,7 @@ function discoveredCommandCandidate(options: {
 		source: {
 			level: options.level,
 			label: options.label,
-			path: options.sourcePath,
+			path: options.command.entryPath,
 		},
 	};
 }

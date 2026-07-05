@@ -9,6 +9,7 @@ import {
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	capabilityPackageNames,
+	type ConcreteCapabilityCommandSurface,
 	concreteCapabilityCommandSurfaces,
 	standaloneToolCommandSurfaces,
 } from "./config.ts";
@@ -213,18 +214,21 @@ function isConcreteCapabilityCommandSurfaceLiteral(value: string): boolean {
 }
 
 function hasConcreteSlashPrefix(prefix: string): boolean {
-	return allConcreteCommandSurfaces().some((surface) =>
-		surface.slashPrefixes.some((candidate) => candidate === prefix),
-	);
+	return hasConcretePrefix(prefix, (surface) => surface.slashPrefixes);
 }
 
 function hasConcreteCliPrefix(prefix: string): boolean {
-	return allConcreteCommandSurfaces().some((surface) =>
-		surface.cliPrefixes.some((candidate) => candidate === prefix),
-	);
+	return hasConcretePrefix(prefix, (surface) => surface.cliPrefixes);
 }
 
-function allConcreteCommandSurfaces() {
+function hasConcretePrefix(
+	prefix: string,
+	prefixesOf: (surface: ConcreteCapabilityCommandSurface) => readonly string[],
+): boolean {
+	return allConcreteCommandSurfaces().some((surface) => prefixesOf(surface).includes(prefix));
+}
+
+function allConcreteCommandSurfaces(): readonly ConcreteCapabilityCommandSurface[] {
 	return [...concreteCapabilityCommandSurfaces, ...standaloneToolCommandSurfaces];
 }
 
