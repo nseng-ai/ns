@@ -6,7 +6,12 @@ import {
 	EXPLORER_CHEAP_MODEL_SHORTHAND,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "../../src/explore/contract.ts";
-import { dispatchExplorerSubagent } from "../../src/explore/dispatch.ts";
+import {
+	createExplorerDispatcher,
+	isExplorerTransientFailureResult,
+	type DispatchExplorerSubagentOptions,
+	type ExplorerDispatcherDependencies,
+} from "../../src/explore/dispatch.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
 	createRecordingExplorerDispatch,
@@ -14,6 +19,9 @@ import {
 	makeErrorResult,
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
+	makeProtocolErrorResult,
+	makeStoppedWithoutUsefulTextResult,
+	stoppedProgress,
 	waitForSpawn,
 } from "../../src/explore/testing.ts";
 import {
@@ -21,6 +29,7 @@ import {
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
+	type RunnerSubagentStatus,
 } from "../../src/runner-subagents/extension-api.ts";
 
 const anthropicCtx: RunnerSubagentContext = {
@@ -30,26 +39,75 @@ const anthropicCtx: RunnerSubagentContext = {
 
 const definition = makeExplorerAgentDefinition();
 
-function explorerOptions(
-	overrides: Partial<Parameters<typeof dispatchExplorerSubagent>[2]> = {},
-): Parameters<typeof dispatchExplorerSubagent>[2] {
+function explorerIntent(
+	overrides: Partial<DispatchExplorerSubagentOptions> = {},
+): DispatchExplorerSubagentOptions {
 	return {
 		title: "Scout widget rendering",
 		prompt: "Find where widget rendering lives.",
-		loadAgentDefinition: () => definition,
-		isProviderAuthConfigured: () => true,
 		...overrides,
 	};
+}
+
+function explorerDispatcher(dependencies: ExplorerDispatcherDependencies = {}) {
+	return createExplorerDispatcher({
+		loadAgentDefinition: () => definition,
+		isProviderAuthConfigured: () => true,
+		...dependencies,
+	});
+}
+
+function flagValue(args: readonly string[], flag: string): string | undefined {
+	const index = args.indexOf(flag);
+	if (index === -1) return undefined;
+	return args[index + 1];
+}
+
+function makeResultWithStatus(status: RunnerSubagentStatus): RunnerSubagentResult {
+	const progress = stoppedProgress();
+	switch (status) {
+		case "completed":
+			return {
+				status,
+				terminal: { toolName: "complete", status, input: {} },
+				elapsedMs: 5,
+				progress,
+			};
+		case "blocked":
+			return {
+				status,
+				terminal: { toolName: "block", status, input: {} },
+				elapsedMs: 5,
+				progress,
+			};
+		case "final-text":
+			return { status, finalText: "Done.", elapsedMs: 5, progress };
+		case "stopped-without-terminal":
+		case "stopped-without-useful-text":
+		case "cancelled":
+			return { status, diagnostic: `${status} diagnostic`, elapsedMs: 5, progress };
+		case "error":
+			return {
+				status,
+				diagnostic: "error diagnostic",
+				error: { message: "error diagnostic" },
+				elapsedMs: 5,
+				progress,
+			};
+		case "protocol-error":
+			return makeProtocolErrorResult("protocol diagnostic");
+		default: {
+			const exhaustive: never = status;
+			return exhaustive;
+		}
+	}
 }
 
 describe("dispatchExplorerSubagent", () => {
 	test("dispatches a read-only final-text explorer on the cheap model", async () => {
 		const recording = createRecordingExplorerDispatch([makeFinalTextResult("## Start Here")]);
-		const outcome = await dispatchExplorerSubagent(
-			{},
-			anthropicCtx,
-			explorerOptions({ dispatchSubagent: recording.dispatch }),
-		);
+		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(1);
 		const call = recording.calls[0];
@@ -65,7 +123,7 @@ describe("dispatchExplorerSubagent", () => {
 		expect(call?.options.prompt).toContain("Find where widget rendering lives.");
 		expect(outcome.result.status).toBe("final-text");
 		expect(outcome.launchPlan).toEqual({ kind: "cheap", model: EXPLORER_CHEAP_MODEL_SHORTHAND });
-		expect(outcome.failedOver).toBe(false);
+		expect(outcome.failover).toBeUndefined();
 		expect(outcome.definition).toBe(definition);
 	});
 
@@ -74,93 +132,102 @@ describe("dispatchExplorerSubagent", () => {
 			makeErrorResult("Failed to spawn forked Pi process: haiku unavailable"),
 			makeFinalTextResult("## Start Here"),
 		]);
-		const outcome = await dispatchExplorerSubagent(
-			{},
-			anthropicCtx,
-			explorerOptions({ dispatchSubagent: recording.dispatch }),
-		);
+		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(2);
 		expect(recording.calls[0]?.options.model).toBe(EXPLORER_CHEAP_MODEL_SHORTHAND);
 		expect(recording.calls[1]?.options.model).toBeUndefined();
 		expect(recording.calls[1]?.options.tools).toEqual(["read", "grep", "find", "ls"]);
 		expect(outcome.result.status).toBe("final-text");
-		expect(outcome.failedOver).toBe(true);
-		expect(outcome.firstAttemptDiagnostic).toBe(
-			"Failed to spawn forked Pi process: haiku unavailable",
-		);
+		expect(outcome.failover).toEqual({
+			firstAttemptStatus: "error",
+			firstAttemptDiagnostic: "Failed to spawn forked Pi process: haiku unavailable",
+		});
 	});
 
 	test("fails over on protocol-error results", async () => {
-		const protocolError: RunnerSubagentResult = {
-			status: "protocol-error",
-			diagnostic: "Malformed child JSON event.",
-			protocolError: { message: "Malformed child JSON event." },
-			elapsedMs: 5,
-			progress: { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 5 },
-		};
 		const recording = createRecordingExplorerDispatch([
-			protocolError,
+			makeProtocolErrorResult("Malformed child JSON event."),
 			makeFinalTextResult("## Start Here"),
 		]);
-		const outcome = await dispatchExplorerSubagent(
-			{},
-			anthropicCtx,
-			explorerOptions({ dispatchSubagent: recording.dispatch }),
-		);
+		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(2);
-		expect(outcome.failedOver).toBe(true);
+		expect(outcome.failover?.firstAttemptStatus).toBe("protocol-error");
 	});
 
 	test("does not fail over on unusable-text statuses", async () => {
-		const stopped: RunnerSubagentResult = {
-			status: "stopped-without-useful-text",
-			diagnostic: "Forked Pi process stopped without useful final text.",
-			elapsedMs: 5,
-			progress: { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 5 },
-		};
-		const recording = createRecordingExplorerDispatch([stopped]);
-		const outcome = await dispatchExplorerSubagent(
-			{},
-			anthropicCtx,
-			explorerOptions({ dispatchSubagent: recording.dispatch }),
-		);
+		const recording = createRecordingExplorerDispatch([
+			makeStoppedWithoutUsefulTextResult("Forked Pi process stopped without useful final text."),
+		]);
+		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(1);
-		expect(outcome.failedOver).toBe(false);
+		expect(outcome.failover).toBeUndefined();
 		expect(outcome.result.status).toBe("stopped-without-useful-text");
 	});
 
 	test("does not fail over when the launch plan already inherits the parent model", async () => {
 		const recording = createRecordingExplorerDispatch([makeErrorResult("spawn failed")]);
-		const outcome = await dispatchExplorerSubagent(
+		const dispatch = explorerDispatcher({
+			dispatchSubagent: recording.dispatch,
+			isProviderAuthConfigured: () => false,
+		});
+		const outcome = await dispatch(
 			{},
 			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5" } },
-			explorerOptions({
-				dispatchSubagent: recording.dispatch,
-				isProviderAuthConfigured: () => false,
-			}),
+			explorerIntent(),
 		);
 
 		expect(recording.calls).toHaveLength(1);
 		expect(recording.calls[0]?.options.model).toBeUndefined();
 		expect(outcome.launchPlan).toEqual({ kind: "inherit" });
-		expect(outcome.failedOver).toBe(false);
+		expect(outcome.failover).toBeUndefined();
 	});
 
-	test("does not fail over after the caller aborted", async () => {
+	test("lets the runner-subagent dispatcher handle already-aborted callers", async () => {
 		const controller = new AbortController();
-		controller.abort();
+		controller.abort("user cancelled");
+		const runner = createFakeRunnerSubagentDispatcher();
+		const pi: RunnerSubagentPi = {
+			[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies,
+		};
+		const dispatch = explorerDispatcher();
+		const outcome = await dispatch(pi, anthropicCtx, explorerIntent({ signal: controller.signal }));
+
+		expect(runner.calls).toHaveLength(0);
+		expect(outcome.result.status).toBe("cancelled");
+		if (outcome.result.status !== "cancelled") return;
+		expect(outcome.result.reason).toBe("user cancelled");
+		expect(outcome.result.progress).toMatchObject({
+			state: "stopped",
+			toolCount: 0,
+			turnCount: 0,
+		});
+		expect(outcome.failover).toBeUndefined();
+	});
+
+	test("does not fail over after the context aborts", async () => {
+		const controller = new AbortController();
 		const recording = createRecordingExplorerDispatch([makeErrorResult("aborted spawn")]);
-		const outcome = await dispatchExplorerSubagent(
+		const dispatch = explorerDispatcher({
+			dispatchSubagent: async (pi, ctx, options) => {
+				const result = await recording.dispatch(pi, ctx, options);
+				controller.abort("user cancelled");
+				return result;
+			},
+		});
+		const outcome = await dispatch(
 			{},
-			anthropicCtx,
-			explorerOptions({ dispatchSubagent: recording.dispatch, signal: controller.signal }),
+			{ ...anthropicCtx, signal: controller.signal },
+			explorerIntent(),
 		);
 
 		expect(recording.calls).toHaveLength(1);
-		expect(outcome.failedOver).toBe(false);
+		expect(outcome.failover).toBeUndefined();
 	});
 
 	test("passes the read-only allowlist and cheap model through to the child argv", async () => {
@@ -168,28 +235,22 @@ describe("dispatchExplorerSubagent", () => {
 		const pi: RunnerSubagentPi = {
 			[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies,
 		};
-		const running = dispatchExplorerSubagent(pi, anthropicCtx, explorerOptions());
+		const dispatch = explorerDispatcher();
+		const running = dispatch(pi, anthropicCtx, explorerIntent());
 		const call = await waitForSpawn(runner.calls);
 
 		const childPrompt = composePiAgentPrompt(definition, {
 			title: "Scout widget rendering",
 			prompt: "Find where widget rendering lives.",
 		});
-		expect(call.args).toEqual([
-			"--mode",
-			"json",
-			"-p",
-			"--provider",
-			"anthropic",
-			"--model",
-			"haiku",
-			"--no-extensions",
-			"--tools",
-			"read,grep,find,ls",
-			"--session",
-			"/tmp/pi-runner-subagent.jsonl",
-			childPrompt,
-		]);
+		expect(flagValue(call.args, "--mode")).toBe("json");
+		expect(call.args).toContain("-p");
+		expect(flagValue(call.args, "--provider")).toBe("anthropic");
+		expect(flagValue(call.args, "--model")).toBe("haiku");
+		expect(call.args).toContain("--no-extensions");
+		expect(flagValue(call.args, "--tools")).toBe("read,grep,find,ls");
+		expect(flagValue(call.args, "--session")).toBe("/tmp/pi-runner-subagent.jsonl");
+		expect(call.args.at(-1)).toBe(childPrompt);
 
 		call.process.emitStdout(
 			jsonLine({
@@ -205,5 +266,32 @@ describe("dispatchExplorerSubagent", () => {
 		const outcome = await running;
 
 		expect(outcome.result.status).toBe("final-text");
+	});
+
+	test("keeps explorer transient failure policy explicit", () => {
+		const expected = {
+			completed: false,
+			blocked: false,
+			"final-text": false,
+			"stopped-without-terminal": false,
+			"stopped-without-useful-text": false,
+			cancelled: false,
+			error: true,
+			"protocol-error": true,
+		} satisfies Record<RunnerSubagentStatus, boolean>;
+
+		const statuses: RunnerSubagentStatus[] = [
+			"completed",
+			"blocked",
+			"final-text",
+			"stopped-without-terminal",
+			"stopped-without-useful-text",
+			"cancelled",
+			"error",
+			"protocol-error",
+		];
+		for (const status of statuses) {
+			expect(isExplorerTransientFailureResult(makeResultWithStatus(status))).toBe(expected[status]);
+		}
 	});
 });

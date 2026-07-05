@@ -1,7 +1,6 @@
 import { providerMatchesModelProviderFamily } from "@nseng-ai/foundation/model-slug";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
-import type { IsProviderAuthConfigured } from "./auth.ts";
 import {
 	ANTHROPIC_PROVIDER_ID,
 	EXPLORER_CHEAP_MODEL_SHORTHAND,
@@ -14,6 +13,7 @@ import {
  * session's provider and model (no cheap option was safely available).
  */
 export type ExplorerLaunchPlan = { kind: "cheap"; model: string } | { kind: "inherit" };
+export type IsProviderAuthConfigured = (providerId: string) => boolean;
 
 export interface ResolveExplorerLaunchPlanInput {
 	parentModel?: ModelInfo;
@@ -25,7 +25,7 @@ export function resolveExplorerLaunchPlan(
 ): ExplorerLaunchPlan {
 	if (
 		input.parentModel !== undefined &&
-		providerMatchesModelProviderFamily(input.parentModel.provider, "anthropic")
+		providerMatchesModelProviderFamily(input.parentModel.provider, ANTHROPIC_PROVIDER_ID)
 	) {
 		return { kind: "cheap", model: EXPLORER_CHEAP_MODEL_SHORTHAND };
 	}

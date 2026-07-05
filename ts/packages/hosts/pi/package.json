@@ -15,6 +15,7 @@
 		"./parity/extension": "./src/runtime/parity-extension.ts",
 		"./parity/testing": "./src/parity/testing.ts",
 		"./runtime/agent-definition": "./src/runtime/agent-definition.ts",
+		"./runtime/auth": "./src/runtime/auth.ts",
 		"./runtime/command-host": "./src/runtime/command-host.ts",
 		"./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
 		"./runtime/tool-types": "./src/runtime/tool-types.ts",

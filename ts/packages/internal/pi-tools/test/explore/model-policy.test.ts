@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	ANTHROPIC_PROVIDER_ID,
+	EXPLORER_CHEAP_MODEL_ID,
 	EXPLORER_CHEAP_MODEL_SHORTHAND,
 	EXPLORER_CHEAP_QUALIFIED_MODEL,
 } from "../../src/explore/contract.ts";
@@ -21,6 +23,12 @@ function recordingAuthProbe(configured: boolean): {
 }
 
 describe("resolveExplorerLaunchPlan", () => {
+	test("derives the qualified cheap model from provider and model IDs", () => {
+		expect(EXPLORER_CHEAP_QUALIFIED_MODEL).toBe(
+			`${ANTHROPIC_PROVIDER_ID}/${EXPLORER_CHEAP_MODEL_ID}`,
+		);
+	});
+
 	test("uses the haiku shorthand without probing auth when the parent is Anthropic", () => {
 		const auth = recordingAuthProbe(false);
 		const plan = resolveExplorerLaunchPlan({
