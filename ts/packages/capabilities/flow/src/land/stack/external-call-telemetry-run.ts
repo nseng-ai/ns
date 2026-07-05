@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Clock } from "@ns/core/clock";
 import {
 	requireXdgPath,
-	resolveSdlXdgPath,
+	resolveNsXdgPath,
 	ensurePrivateParentDirectory,
 } from "@ns/capability-kit/xdg";
 import { formatElapsedMs } from "@ns/core/time-format";
@@ -241,7 +241,7 @@ async function writeFlowLandTelemetryDiagnostics(options: {
 	let directory: string;
 	try {
 		directory = requireXdgPath(
-			resolveSdlXdgPath({
+			resolveNsXdgPath({
 				kind: "state",
 				env: options.env,
 				segments: ["flow", "land", "runs"],
