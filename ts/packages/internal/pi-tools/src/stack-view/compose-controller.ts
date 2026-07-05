@@ -6,9 +6,9 @@
  * snapshot), the streaming guard, and draft extraction on each assistant-end.
  *
  * All observable state lives behind {@link ComposeViewPort}; every transition
- * calls `onChange` so a view can repaint. The controller is UI-agnostic — it does
- * not import any renderer — and depends on Pi only through the injected
- * {@link ComposeSessionFactory}.
+ * notifies subscribers registered via {@link ComposeViewPort.onChange} so a view
+ * can repaint. The controller is UI-agnostic — it does not import any renderer —
+ * and depends on Pi only through the injected {@link ComposeSessionFactory}.
  */
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
@@ -31,36 +31,35 @@ import {
 import type { StackEnrichmentPort } from "./enrichment-engine.ts";
 import type { StackViewModel } from "./types.ts";
 
-const NO_MODEL_REASON = "no model selected in this session";
-
 export interface ComposeViewPort {
 	readonly transcript: ComposeTranscriptState;
 	readonly draft: string | null;
 	readonly unavailableReason: string | null;
 	send(text: string): Promise<void>;
 	abortTurn(): Promise<void>;
+	/** Subscribe to state transitions; returns an unsubscribe function. */
+	onChange(listener: () => void): () => void;
 }
 
 export interface ComposeControllerOptions {
 	cwd: string;
-	// pi-ai exposes runnable models as Model<Api>; undefined means the parent session has no model selected.
-	model: Model<Api> | undefined;
+	// pi-ai exposes runnable models as Model<Api>; the controller is only ever built for a session with a model.
+	model: Model<Api>;
 	modelRegistry: ModelRegistry;
 	stackModel: StackViewModel;
 	enrichment: StackEnrichmentPort;
 	factory: ComposeSessionFactory;
-	onChange: () => void;
 }
 
 export class ComposeController implements ComposeViewPort {
 	private readonly cwd: string;
-	// Matches the pi-ai Model<Api> library seam accepted by the session factory; undefined → sticky unavailable.
-	private readonly model: Model<Api> | undefined;
+	// Matches the pi-ai Model<Api> library seam accepted by the session factory.
+	private readonly model: Model<Api>;
 	private readonly modelRegistry: ModelRegistry;
 	private readonly stackModel: StackViewModel;
 	private readonly enrichment: StackEnrichmentPort;
 	private readonly factory: ComposeSessionFactory;
-	private readonly onChange: () => void;
+	private readonly changeListeners = new Set<() => void>();
 
 	private transcriptState: ComposeTranscriptState;
 	private draftValue: string | null;
@@ -78,11 +77,10 @@ export class ComposeController implements ComposeViewPort {
 		this.stackModel = options.stackModel;
 		this.enrichment = options.enrichment;
 		this.factory = options.factory;
-		this.onChange = options.onChange;
 
 		this.transcriptState = EMPTY_COMPOSE_TRANSCRIPT;
 		this.draftValue = null;
-		this.unavailableReasonValue = options.model === undefined ? NO_MODEL_REASON : null;
+		this.unavailableReasonValue = null;
 		this.session = null;
 		this.unsubscribeSession = null;
 		this.enrichmentUnsub = null;
@@ -100,6 +98,13 @@ export class ComposeController implements ComposeViewPort {
 
 	get unavailableReason(): string | null {
 		return this.unavailableReasonValue;
+	}
+
+	onChange(listener: () => void): () => void {
+		this.changeListeners.add(listener);
+		return () => {
+			this.changeListeners.delete(listener);
+		};
 	}
 
 	async send(text: string): Promise<void> {
@@ -146,8 +151,6 @@ export class ComposeController implements ComposeViewPort {
 		if (this.session !== null) return true;
 		if (this.unavailableReasonValue !== null) return false; // sticky unavailable stays sticky.
 		if (this.isStarting) return false; // re-entrancy rejected while spawning.
-		const model = this.model;
-		if (model === undefined) return false; // guarded above via sticky reason; narrows the type.
 		this.isStarting = true;
 		try {
 			// Force a full enrichment pass so the system prompt reflects the freshest
@@ -171,7 +174,7 @@ export class ComposeController implements ComposeViewPort {
 			const result = await this.factory.create({
 				cwd: this.cwd,
 				systemPrompt,
-				model,
+				model: this.model,
 				modelRegistry: this.modelRegistry,
 			});
 			if (this.isDisposed) {
@@ -221,7 +224,11 @@ export class ComposeController implements ComposeViewPort {
 
 	private setTranscript(next: ComposeTranscriptState): void {
 		this.transcriptState = next;
-		this.onChange();
+		this.emitChange();
+	}
+
+	private emitChange(): void {
+		for (const listener of this.changeListeners) listener();
 	}
 
 	private emitNotice(text: string): void {

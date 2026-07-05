@@ -25,7 +25,11 @@ import type {
 	StackViewThreadDetail,
 } from "./types.ts";
 
-/** Per-comment body truncation cap in the thread context; longer bodies get an ellipsis suffix. */
+/**
+ * Per-comment body truncation cap in the thread context, marker-inclusive: a
+ * truncated line is at most this many chars total (body + ellipsis), and bodies of
+ * at most this length pass through untouched. Longer bodies get an ellipsis suffix.
+ */
 export const COMPOSE_COMMENT_BODY_MAX_CHARS = 700;
 /** Maximum number of comments shown per unresolved thread. */
 export const COMPOSE_MAX_THREAD_COMMENTS = 5;
@@ -201,5 +205,8 @@ function draftProtocolSection(): string {
 }
 
 function truncate(value: string, max: number): string {
-	return truncateTextHead({ value, maxChars: max + ELLIPSIS.length, buildMarker: () => ELLIPSIS });
+	// `truncateTextHead` counts the marker inside `maxChars`, so passing `max`
+	// directly makes both the pass-through threshold and the truncated output
+	// marker-inclusive (each at most `max` chars).
+	return truncateTextHead({ value, maxChars: max, buildMarker: () => ELLIPSIS });
 }

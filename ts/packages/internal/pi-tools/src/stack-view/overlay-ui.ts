@@ -66,12 +66,15 @@ export type StackViewUiOutcome =
 	| { action: "close" };
 
 /**
- * Lazily builds the {@link ComposeViewPort} backing compose mode. `createPort` is
- * invoked once, on first entry into compose, with an `onChange` the port calls to
- * request a repaint. Absent this option, compose mode is unavailable.
+ * Supplies the {@link ComposeViewPort} backing compose mode. `getPort` is invoked
+ * on first entry into compose and memoizes a single host-owned port across the
+ * overlay's lifetime (and across overlay reopens, so a live draft survives an
+ * `open`-URL round-trip). The overlay attaches its own repaint listener via
+ * {@link ComposeViewPort.onChange} and detaches it on teardown; the port itself
+ * outlives the overlay. Absent this option, compose mode is unavailable.
  */
 export interface StackViewComposeOption {
-	createPort(onChange: () => void): ComposeViewPort;
+	getPort(): ComposeViewPort;
 }
 
 /** The settled result of one overlay session: the outcome plus the final selection. */
@@ -191,8 +194,10 @@ export class StackViewOverlay implements Component {
 	private detailScroll: number;
 	/** "browse" is the master/detail panel; "compose" is the drafting side-session. */
 	private mode: "browse" | "compose";
-	/** The compose port, built once on first entry and retained for the overlay's lifetime. */
+	/** The compose port, fetched once on first entry and retained for the overlay's lifetime. */
 	private composePort: ComposeViewPort | undefined;
+	/** Live compose `onChange` unsubscribe; detached on teardown (the port itself is host-owned). */
+	private composeUnsub: (() => void) | undefined;
 	/** The embedded input, built lazily on first compose input; nulled on dispose. */
 	private editor: Editor | null;
 	/** Transient inline hint shown in the compose header; cleared on the next input. */
@@ -214,6 +219,7 @@ export class StackViewOverlay implements Component {
 		this.detailScroll = 0;
 		this.mode = "browse";
 		this.composePort = undefined;
+		this.composeUnsub = undefined;
 		this.editor = null;
 		this.composeHint = undefined;
 		this.composeScroll = 0;
@@ -227,11 +233,16 @@ export class StackViewOverlay implements Component {
 		if (pr !== undefined) this.enrichment?.ensureRow(pr);
 	}
 
-	/** Drop the `onChange` subscription; safe to call more than once. */
+	/** Drop the enrichment and compose `onChange` subscriptions; safe to call more than once. */
 	private disposeSubscription(): void {
-		if (this.unsubscribe === undefined) return;
-		this.unsubscribe();
-		this.unsubscribe = undefined;
+		if (this.unsubscribe !== undefined) {
+			this.unsubscribe();
+			this.unsubscribe = undefined;
+		}
+		if (this.composeUnsub !== undefined) {
+			this.composeUnsub();
+			this.composeUnsub = undefined;
+		}
 	}
 
 	/** Host teardown hook: the `ctx.ui.custom` contract may call this on unmount. */
@@ -499,12 +510,14 @@ export class StackViewOverlay implements Component {
 		this.tui.requestRender();
 	}
 
-	/** Switch to compose mode, building (and caching) the port on first entry. */
+	/** Switch to compose mode, fetching the port and attaching a repaint listener on first entry. */
 	private enterCompose(): void {
 		this.mode = "compose";
 		this.composeHint = undefined;
 		if (this.composePort === undefined && this.compose !== undefined) {
-			this.composePort = this.compose.createPort(() => this.tui.requestRender());
+			const port = this.compose.getPort();
+			this.composePort = port;
+			this.composeUnsub = port.onChange(() => this.tui.requestRender());
 		}
 		this.tui.requestRender();
 	}

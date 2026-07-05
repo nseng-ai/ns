@@ -76,15 +76,18 @@ export interface FakeComposePort {
 	setTranscript(state: ComposeTranscriptState): void;
 	setDraft(draft: string | null): void;
 	setUnavailableReason(reason: string | null): void;
+	/** Notify every attached onChange listener, mirroring a controller state transition. */
+	fireOnChange(): void;
 }
 
-/** A scripted {@link ComposeViewPort}: settable state, records send/abortTurn. */
+/** A scripted {@link ComposeViewPort}: settable state, records send/abortTurn, drives onChange. */
 export function createFakeComposePort(options: { draft?: string | null } = {}): FakeComposePort {
 	let transcript: ComposeTranscriptState = { entries: [], isStreaming: false };
 	let draft: string | null = options.draft ?? null;
 	let unavailableReason: string | null = null;
 	const sendCalls: string[] = [];
 	let abortCalls = 0;
+	const listeners = new Set<() => void>();
 	const port: ComposeViewPort = {
 		get transcript() {
 			return transcript;
@@ -101,6 +104,12 @@ export function createFakeComposePort(options: { draft?: string | null } = {}): 
 		abortTurn: async () => {
 			abortCalls += 1;
 		},
+		onChange: (listener) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
 	};
 	return {
 		port,
@@ -114,6 +123,9 @@ export function createFakeComposePort(options: { draft?: string | null } = {}): 
 		},
 		setUnavailableReason: (reason) => {
 			unavailableReason = reason;
+		},
+		fireOnChange: () => {
+			for (const listener of listeners) listener();
 		},
 	};
 }
@@ -142,6 +154,7 @@ export function createFakeComposeControllerHandle(
 			},
 			send: async () => {},
 			abortTurn: async () => {},
+			onChange: () => () => {},
 			dispose: () => {
 				disposeCalls += 1;
 			},
