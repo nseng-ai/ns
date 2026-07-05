@@ -5,7 +5,7 @@ import { withTempRepoSkill } from "@ns/core/test-kit";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-} from "@ns/pi/commands";
+} from "@ns/core/command";
 
 const OBJECTIVE_COMMAND_SURFACES = [
 	"ns:objective:next",
@@ -167,6 +167,7 @@ describe("command-backed skill registry", () => {
 		}
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("ns:handoff:create");
+		expect(surfaces).toContain("ns:ccc:available-work");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
 		expect(surfaces).toContain("dignified:python");
@@ -228,6 +229,7 @@ describe("genericBackingSkillCommandSpecs", () => {
 		);
 
 		expect(surfaces).toContain("code:workflows");
+		expect(surfaces).toContain("ns:ccc:available-work");
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).toContain("skill:x");

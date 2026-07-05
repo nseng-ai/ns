@@ -184,11 +184,11 @@ as a non-goal and require existing-or-focused tests to confirm parity per slice.
 Authoring stops at a runnable record; execution is a separate surface. The
 supported runner for a remediation autoobjective is the Objective Runner
 begin/finish workflow (ADR 0024), normally launched through
-`/objective:autorun [<slug>] [scope / step budget / standing guidance]`. The
+`/ns:objective:autorun [<slug>] [scope / step budget / standing guidance]`. The
 `objective-autorun` skill is the entry point for running the backlog as repeated
 steps, and `objective-runner-step` is the per-step parent playbook. (The earlier
 `/objective:autopilot` Pi command has been retired in favor of
-`/objective:autorun`.)
+`/ns:objective:autorun`.)
 
 Each step dispatches a **fresh child session** that does exactly one coherent
 slice for *this* Objective and leaves the work uncommitted; the runner then

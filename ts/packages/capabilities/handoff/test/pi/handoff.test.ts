@@ -78,11 +78,11 @@ describe("handoff extension", () => {
 		handoffExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual([
-			"handoff:list",
 			"ns:handoff:create",
+			"ns:handoff:list",
 			"ns:handoff:pickup",
 		]);
-		expect(pi.commands.has("ccc:handoff-tab")).toBe(false);
+		expect(pi.commands.has("ns:ccc:handoff-tab")).toBe(false);
 		expect(pi.commands.has("handoff:load")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
@@ -94,7 +94,7 @@ describe("handoff extension", () => {
 		expect(pi.commands.get("ns:handoff:pickup")?.description).toBe(
 			"Pick up a handoff by slug, selector, or picker.",
 		);
-		expect(pi.commands.get("handoff:list")?.description).toBe(
+		expect(pi.commands.get("ns:handoff:list")?.description).toBe(
 			"List handoffs on this branch or across active branches.",
 		);
 	});
@@ -298,7 +298,7 @@ describe("handoff extension", () => {
 	});
 
 	test("list current branch sends a card-style custom message", async () => {
-		const result = await runCommand("handoff:list", "", [
+		const result = await runCommand("ns:handoff:list", "", [
 			branchStep(),
 			...listStep(BRANCH, ["address-review-feedback.md"]),
 			branchPresenceStep(BRANCH),
@@ -359,7 +359,7 @@ describe("handoff extension", () => {
 	});
 
 	test("list all branches sends grouped pickup commands", async () => {
-		const result = await runCommand("handoff:list", "--all", [
+		const result = await runCommand("ns:handoff:list", "--all", [
 			...listAllStep([
 				{ key: "alpha.md", branch: "feat/a" },
 				{ key: "bravo.md", branch: "feat/b" },
@@ -403,7 +403,7 @@ describe("handoff extension", () => {
 
 	test("list falls back to a notification when custom messages are unavailable", async () => {
 		const result = await runCommand(
-			"handoff:list",
+			"ns:handoff:list",
 			"",
 			[
 				branchStep(),
@@ -433,7 +433,7 @@ describe("handoff extension", () => {
 	});
 
 	test("list parser rejects branch plus all branches", async () => {
-		const result = await runCommand("handoff:list", "--branch feat/x --all");
+		const result = await runCommand("ns:handoff:list", "--branch feat/x --all");
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls).toEqual([]);
@@ -444,8 +444,11 @@ describe("handoff extension", () => {
 	});
 
 	test("list empty messages distinguish current branch and all branches", async () => {
-		const current = await runCommand("handoff:list", "", [branchStep(), ...listStep(BRANCH, [])]);
-		const all = await runCommand("handoff:list", "--all", [...listAllStep([])]);
+		const current = await runCommand("ns:handoff:list", "", [
+			branchStep(),
+			...listStep(BRANCH, []),
+		]);
+		const all = await runCommand("ns:handoff:list", "--all", [...listAllStep([])]);
 
 		current.pi.assertDone();
 		all.pi.assertDone();

@@ -1,4 +1,4 @@
-import { specializedCommandBackedSkillsFromSpecs } from "@ns/pi/commands";
+import { specializedCommandBackedSkillsFromSpecs } from "@ns/core/command";
 
 import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 

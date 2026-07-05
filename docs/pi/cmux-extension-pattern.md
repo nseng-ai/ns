@@ -15,15 +15,15 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                                               | Responsibility                                                         |
-| ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Pi discovery adapter   | `.pi/extensions/ccc.ts`                                      | Thin adapter that registers the repo CCC command suite                 |
-| Engineered TS package  | `ts/packages/capabilities/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules     |
-| CCC cmux modules       | `ts/packages/capabilities/ccc/src/cmux/`                     | Implements `/ccc:workspace:*` and `/ccc:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                                | Tells the model what PR sidebar fields to generate                     |
-| Deterministic CLI      | `ccc exec cmux-workspace-summary`                            | Applies title and direct description, then clears the old status pill  |
-| cmux command gateway   | `ts/packages/capabilities/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway       |
-| Scenario/package tests | `ts/packages/capabilities/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                        |
+| Layer                  | Path / command                                               | Responsibility                                                               |
+| ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Pi discovery adapter   | `.pi/extensions/ccc.ts`                                      | Thin adapter that registers the repo CCC command suite                       |
+| Engineered TS package  | `ts/packages/capabilities/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules           |
+| CCC cmux modules       | `ts/packages/capabilities/ccc/src/cmux/`                     | Implements `/ns:ccc:workspace:*` and `/ns:ccc:sidebar:*` behavior with tests |
+| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                                | Tells the model what PR sidebar fields to generate                           |
+| Deterministic CLI      | `ccc exec cmux-workspace-summary`                            | Applies title and direct description, then clears the old status pill        |
+| cmux command gateway   | `ts/packages/capabilities/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway             |
+| Scenario/package tests | `ts/packages/capabilities/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                              |
 
 Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/capabilities/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@ns/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
@@ -33,12 +33,13 @@ Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc e
 
 The project-local adapter registers:
 
-- `/ccc:sidebar:pr-summary`
-- `/ccc:sidebar:objective-summary [objective-slug-or-path]`
-- `/ccc:workspace:open-branch [branch]`
-- `/ccc:workspace:dispatch-plan [--dry-run]`
-- `/ccc:surface:dispatch-plan [--dry-run]`
-- `/ccc:workspace:dispatch-prompt <prompt>`
+- `/ns:ccc:sidebar:session-summary`
+- `/ns:ccc:sidebar:branch-state-summary`
+- `/ns:ccc:sidebar:objective-summary [objective-slug-or-path]`
+- `/ns:ccc:workspace:open-branch [branch]`
+- `/ns:ccc:workspace:dispatch-plan [--dry-run]`
+- `/ns:ccc:surface:dispatch-plan [--dry-run]`
+- `/ns:ccc:workspace:dispatch-prompt <prompt>`
 
 `open` commands only open a cmux workspace. `workspace:dispatch` commands open a cmux workspace and immediately start child Pi execution. `surface:dispatch` commands launch the same child execution in a new cmux surface in the caller workspace. Old cmux-prefixed compatibility aliases are not current project commands unless reintroduced by an explicit future migration.
 
@@ -61,10 +62,10 @@ Remove stale user-local extension files only after confirming the project adapte
 
 Workspace-opening commands currently do not auto-run sidebar updates after success:
 
-- `/ccc:workspace:dispatch-plan`
-- `/ccc:surface:dispatch-plan`
-- `/ccc:workspace:open-branch`
-- `/ccc:workspace:dispatch-prompt`
+- `/ns:ccc:workspace:dispatch-plan`
+- `/ns:ccc:surface:dispatch-plan`
+- `/ns:ccc:workspace:open-branch`
+- `/ns:ccc:workspace:dispatch-prompt`
 
 The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during a future CCC/cmux targeting pass rather than inferred from `cmux workspace list` in this slice.
 
@@ -94,7 +95,7 @@ The controller restores the previous model and thinking level on `agent_end`. If
 
 ## PR prompt shape
 
-For `/ccc:sidebar:pr-summary`, the model should generate only these fields:
+For `/ns:ccc:sidebar:session-summary`, the model should generate only these fields:
 
 - `title`
 - `description`
@@ -109,9 +110,9 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 ## Variants
 
-`/ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
+`/ns:ccc:sidebar:session-summary` summarizes the current Pi session through the model-assisted `ccc-sidebar` skill. The Goal line describes what the session is trying to accomplish, not the cmux update itself. `/ns:ccc:sidebar:branch-state-summary` summarizes the current branch's implementation state versus its parent through the same skill; its State line describes what the branch changes or needs next.
 
-`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ns:ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
@@ -188,10 +189,11 @@ Then reload Pi:
 Finally smoke-test from inside cmux:
 
 ```text
-/ccc:sidebar:pr-summary
-/ccc:sidebar:objective-summary <objective-slug>
-/ccc:workspace:dispatch-plan --dry-run
-/ccc:surface:dispatch-plan --dry-run
-/ccc:workspace:open-branch <branch>
-/ccc:workspace:dispatch-prompt <prompt>
+/ns:ccc:sidebar:session-summary
+/ns:ccc:sidebar:branch-state-summary
+/ns:ccc:sidebar:objective-summary <objective-slug>
+/ns:ccc:workspace:dispatch-plan --dry-run
+/ns:ccc:surface:dispatch-plan --dry-run
+/ns:ccc:workspace:open-branch <branch>
+/ns:ccc:workspace:dispatch-prompt <prompt>
 ```

@@ -1,3 +1,5 @@
+import { cccCommandBackedSkillRegistrations } from "@ns/ccc/pi";
+import { flowCommandBackedSkillRegistrations } from "@ns/flow/pi";
 import { handoffCommandBackedSkillRegistrations } from "@ns/handoff/pi";
 import { objectiveCommandBackedSkillRegistrations } from "@ns/objective/pi";
 import {
@@ -35,10 +37,18 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "specialized-command",
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
-	{ skillName: "ccc-available-work", surface: "ccc:available-work", kind: "generic-backing-skill" },
-	{ skillName: "ccc-branch-triage", surface: "ccc:branch-triage", kind: "generic-backing-skill" },
-	{ skillName: "ccc-sidebar", surface: "ccc:sidebar:pr-summary", kind: "specialized-command" },
-	{ skillName: "ccc-stack-map", surface: "ccc:stack-map", kind: "generic-backing-skill" },
+	{
+		skillName: "ccc-available-work",
+		surface: "ns:ccc:available-work",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "ccc-branch-triage",
+		surface: "ns:ccc:branch-triage",
+		kind: "generic-backing-skill",
+	},
+	...cccCommandBackedSkillRegistrations,
+	{ skillName: "ccc-stack-map", surface: "ns:ccc:stack-map", kind: "generic-backing-skill" },
 	{ skillName: "changelog-update", surface: "changelog:update", kind: "generic-backing-skill" },
 	{
 		skillName: "code-gt-linearize-descendants",
@@ -140,14 +150,7 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "generic-backing-skill",
 	},
 	{ skillName: "ns-cli-design", surface: "ns:cli:design", kind: "generic-backing-skill" },
-	{ skillName: "ns-flow-autobranch", surface: "ns:flow:autobranch", kind: "specialized-command" },
-	{
-		skillName: "ns-flow-branch-latest-commit",
-		surface: "ns:flow:branch-latest-commit",
-		kind: "specialized-command",
-	},
-	{ skillName: "ns-flow-cp", surface: "ns:flow:cp", kind: "specialized-command" },
-	{ skillName: "ns-flow-submit", surface: "ns:flow:submit", kind: "specialized-command" },
+	...flowCommandBackedSkillRegistrations,
 	{
 		skillName: "ns-typescript-style-tripwire",
 		surface: "ns:typescript:style-tripwire",

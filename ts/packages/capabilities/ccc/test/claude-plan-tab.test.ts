@@ -174,7 +174,7 @@ describe("claude plan tab", () => {
 			branchEntries: [userEntry("draft a plan"), assistantEntry([{ type: "text", text: SEED }])],
 		});
 
-		await pi.commands.get("ccc:claude-plan-tab")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:claude-plan-tab")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(1);
@@ -205,7 +205,7 @@ describe("claude plan tab", () => {
 			branchEntries: [assistantEntry([{ type: "text", text: SEED }])],
 		});
 
-		await pi.commands.get("ccc:claude-plan-tab")?.handler("Explicit plan", ctx);
+		await pi.commands.get("ns:ccc:claude-plan-tab")?.handler("Explicit plan", ctx);
 
 		pi.assertDone();
 		expect(await readFile(promptFile, "utf8")).toBe("Explicit plan");
@@ -218,7 +218,7 @@ describe("claude plan tab", () => {
 		registerCccClaudePlanTabCommand(pi, { promptDir, now: () => 123 });
 		const ctx = new FakeCommandContext({ branchEntries: [userEntry("hello")] });
 
-		await pi.commands.get("ccc:claude-plan-tab")?.handler("   ", ctx);
+		await pi.commands.get("ns:ccc:claude-plan-tab")?.handler("   ", ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls).toEqual([]);
@@ -246,7 +246,7 @@ describe("claude plan tab", () => {
 			branchEntries: [assistantEntry([{ type: "text", text: SEED }])],
 		});
 
-		await pi.commands.get("ccc:claude-plan-tab")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:claude-plan-tab")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(notificationMessages(ctx).at(-1)).toContain("not in cmux");
@@ -271,7 +271,7 @@ describe("claude plan tab", () => {
 			branchEntries: [assistantEntry([{ type: "text", text: SEED }])],
 		});
 
-		await pi.commands.get("ccc:claude-plan-tab")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:claude-plan-tab")?.handler("", ctx);
 
 		pi.assertDone();
 		const message = notificationMessages(ctx).at(-1) ?? "";

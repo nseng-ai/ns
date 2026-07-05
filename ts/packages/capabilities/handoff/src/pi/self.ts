@@ -89,8 +89,8 @@ export const HANDOFF_SELF_PROMPT_COPY = {
 } satisfies HandoffLaunchPromptCopy;
 
 const HANDOFF_SELF_START_MESSAGES = {
-	ready: "Starting handoff:self workflow with content-derived slug…",
-	fallbackLabel: "handoff:self workflow prompt for a content-derived slug",
+	ready: `Starting ${HANDOFF_SELF_COMMAND_NAME} workflow with content-derived slug…`,
+	fallbackLabel: `${HANDOFF_SELF_COMMAND_NAME} workflow prompt for a content-derived slug`,
 } satisfies HandoffStartMessages;
 
 export function createHandoffSelfWorkflow(
@@ -159,7 +159,7 @@ export function createHandoffSelfWorkflow(
 	async function handleCommand(args: string, ctx: CommandContext): Promise<void> {
 		if (state.type !== "idle") {
 			ctx.ui.notify(
-				"handoff:self is already waiting for a saved handoff in this extension instance; finish or let that workflow time out before starting another.",
+				`${HANDOFF_SELF_COMMAND_NAME} is already waiting for a saved handoff in this extension instance; finish or let that workflow time out before starting another.`,
 				"warning",
 			);
 			return;
@@ -209,7 +209,7 @@ export function createHandoffSelfWorkflow(
 			const result = await completion;
 			if (result.type === "timed-out") {
 				ctx.ui.notify(
-					"handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
+					`${HANDOFF_SELF_COMMAND_NAME} timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.`,
 					"error",
 				);
 				return;
@@ -223,13 +223,13 @@ export function createHandoffSelfWorkflow(
 			const recovery = formatHandoffSelfManualRecovery(result.branch, result.slug);
 			if (replacement.type === "cancelled") {
 				ctx.ui.notify(
-					`handoff:self saved and verified handoff ${result.slug} on branch ${result.branch}, but ${replacement.message} Context was not cleared. ${recovery}`,
+					`${HANDOFF_SELF_COMMAND_NAME} saved and verified handoff ${result.slug} on branch ${result.branch}, but ${replacement.message} Context was not cleared. ${recovery}`,
 					"warning",
 				);
 				return;
 			}
 			ctx.ui.notify(
-				`handoff:self saved and verified handoff ${result.slug} on branch ${result.branch}, but Pi session replacement failed. Context was not cleared. ${replacement.message} ${recovery}`,
+				`${HANDOFF_SELF_COMMAND_NAME} saved and verified handoff ${result.slug} on branch ${result.branch}, but Pi session replacement failed. Context was not cleared. ${replacement.message} ${recovery}`,
 				"error",
 			);
 		} finally {
@@ -241,10 +241,8 @@ export function createHandoffSelfWorkflow(
 		return buildHandoffLaunchTool<HandoffSelfLaunchParams>(pi, {
 			name: HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 			label: "Verify Handoff Self Completion",
-			description:
-				"Verify a saved handoff exists, then rendezvous with /handoff:self so the command can replace the session and send the pickup prompt.",
-			promptSnippet:
-				"Verify a saved /handoff:self artifact, then resolve the active handoff:self rendezvous after the handoff has been saved successfully.",
+			description: `Verify a saved handoff exists, then rendezvous with /${HANDOFF_SELF_COMMAND_NAME} so the command can replace the session and send the pickup prompt.`,
+			promptSnippet: `Verify a saved /${HANDOFF_SELF_COMMAND_NAME} artifact, then resolve the active ${HANDOFF_SELF_COMMAND_NAME} rendezvous after the handoff has been saved successfully.`,
 			promptGuidelines: [
 				`Use ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} only after a /${HANDOFF_SELF_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
 				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before ns handoff create succeeds.`,
@@ -254,7 +252,7 @@ export function createHandoffSelfWorkflow(
 				properties: {
 					workflow_id: {
 						type: "string",
-						description: "Opaque /handoff:self rendezvous id from the active command prompt.",
+						description: `Opaque /${HANDOFF_SELF_COMMAND_NAME} rendezvous id from the active command prompt.`,
 					},
 				},
 				required: ["workflow_id"],
@@ -266,7 +264,7 @@ export function createHandoffSelfWorkflow(
 				`No handoff ${params.slug} found on branch ${params.branch}; context was not cleared.`,
 			gate(_ctx, params, signal) {
 				if (signal?.aborted) {
-					return "handoff:self verification was cancelled; context was not cleared.";
+					return `${HANDOFF_SELF_COMMAND_NAME} verification was cancelled; context was not cleared.`;
 				}
 				const waiting = state.type === "waiting" ? state : undefined;
 				if (waiting === undefined) {
@@ -283,7 +281,7 @@ export function createHandoffSelfWorkflow(
 			launch({ params, signal }) {
 				if (signal?.aborted) {
 					return handoffLaunchToolFailure(
-						"handoff:self verification was cancelled; context was not cleared.",
+						`${HANDOFF_SELF_COMMAND_NAME} verification was cancelled; context was not cleared.`,
 					);
 				}
 				const waiting = state.type === "waiting" ? state : undefined;
@@ -303,7 +301,7 @@ export function createHandoffSelfWorkflow(
 					content: [
 						{
 							type: "text",
-							text: `Verified handoff:self artifact ${params.slug} on branch ${params.branch}. The current command will replace this session and send the pickup prompt in the fresh session.`,
+							text: `Verified ${HANDOFF_SELF_COMMAND_NAME} artifact ${params.slug} on branch ${params.branch}. The current command will replace this session and send the pickup prompt in the fresh session.`,
 						},
 					],
 					details: {
@@ -332,7 +330,7 @@ export function buildHandoffSelfPrompt(options: HandoffSelfPromptOptions): strin
 		],
 		toolCallInstruction: `After \`ns handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` set to \`${request.branch}\`, \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}, and \`workflow_id\` set to \`${workflowId}\`.`,
 		extraRequirements: [
-			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages. The command owns session replacement after this tool resolves.",
+			`Do not queue slash commands such as /${HANDOFF_SELF_COMMAND_NAME}-resume, /${HANDOFF_SELF_COMMAND_NAME}-pickup, or /new as user messages. The command owns session replacement after this tool resolves.`,
 		],
 	});
 }

@@ -432,9 +432,15 @@ importers:
 
   packages/hosts/command-backed-skill-registry:
     dependencies:
+      '@ns/ccc':
+        specifier: workspace:*
+        version: link:../../capabilities/ccc
       '@ns/core':
         specifier: workspace:*
         version: link:../../infra/core
+      '@ns/flow':
+        specifier: workspace:*
+        version: link:../../capabilities/flow
       '@ns/handoff':
         specifier: workspace:*
         version: link:../../capabilities/handoff

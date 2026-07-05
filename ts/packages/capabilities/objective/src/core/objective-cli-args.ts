@@ -9,7 +9,7 @@ const OBJECTIVE_LIST_ARG_COMPLETIONS = [
 	"--help",
 	"-h",
 ] as const;
-const OBJECTIVE_LIST_STATUS_VALUES = [
+export const OBJECTIVE_LIST_STATUS_VALUES = [
 	"all",
 	"active",
 	"open",
@@ -96,7 +96,7 @@ export function parseObjectiveListArgTokens(
 
 		return {
 			type: "invalid",
-			message: `Unsupported /objective:list argument: ${token}.`,
+			message: `Unsupported /ns:objective:list argument: ${token}.`,
 		};
 	}
 
@@ -149,7 +149,10 @@ function findForbiddenObjectiveListArg(
 			};
 		}
 		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			return { type: "invalid", message: "--json-schema is not supported by /objective:list." };
+			return {
+				type: "invalid",
+				message: "--json-schema is not supported by /ns:objective:list.",
+			};
 		}
 	}
 	return { type: "valid" };

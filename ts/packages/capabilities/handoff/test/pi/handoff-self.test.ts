@@ -25,11 +25,11 @@ References are relative to /repo/skills/handoff-create.
 Create a handoff from the skill body.
 </skill>`;
 
-describe("handoff:self extension", () => {
-	test("handoff:self command sends create prompt with command-owned rendezvous instructions", async () => {
+describe("ns:handoff:self extension", () => {
+	test("ns:handoff:self command sends create prompt with command-owned rendezvous instructions", async () => {
 		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
-		const command = getRegisteredCommand(pi, "handoff:self");
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext();
 
@@ -43,13 +43,13 @@ describe("handoff:self extension", () => {
 			["git", ["branch", "--show-current"]],
 		]);
 		expect(context.notifications).toEqual([
-			{ message: "Starting handoff:self workflow with content-derived slug…", level: "info" },
+			{ message: "Starting ns:handoff:self workflow with content-derived slug…", level: "info" },
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		const prompt = pi.sentUserMessages[0] ?? "";
 		const workflowId = extractWorkflowId(prompt);
 		expect(prompt).toContain(`<skill name="handoff-create" location="${FAKE_SKILL_PATH}">`);
-		expect(prompt).toContain("This is a /handoff:self request.");
+		expect(prompt).toContain("This is a /ns:handoff:self request.");
 		expect(prompt).toContain("finish the self handoff workflow");
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
 		expect(prompt).toContain("derive_handoff_slug_from_content");
@@ -57,7 +57,7 @@ describe("handoff:self extension", () => {
 		expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain("do not clear context or pick up the handoff");
 		expect(prompt).toContain(
-			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.",
+			"Do not queue slash commands such as /ns:handoff:self-resume, /ns:handoff:self-pickup, or /new as user messages.",
 		);
 		expect(prompt).toContain(
 			"After saving and verification, the command will replace this session",
@@ -76,10 +76,10 @@ describe("handoff:self extension", () => {
 		pi.assertDone();
 	});
 
-	test("handoff:self waits for verified tool result, terminates the old turn, then replaces the session", async () => {
+	test("ns:handoff:self waits for verified tool result, terminates the old turn, then replaces the session", async () => {
 		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
-		const command = getRegisteredCommand(pi, "handoff:self");
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext({ sessionFile: "/sessions/current.jsonl" });
 		const originalNewSession = context.ctx.newSession;
@@ -125,7 +125,7 @@ describe("handoff:self extension", () => {
 
 		expect(result.isError).toBeUndefined();
 		expect(result.terminate).toBe(true);
-		expect(result.content[0]?.text).toContain("Verified handoff:self artifact finish-widget");
+		expect(result.content[0]?.text).toContain("Verified ns:handoff:self artifact finish-widget");
 		expect(result.details).toEqual({
 			type: "self-handoff-ready",
 			branch: BRANCH,
@@ -153,7 +153,7 @@ describe("handoff:self extension", () => {
 	test("cancelled replacement keeps verified handoff and reports manual recovery", async () => {
 		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
-		const command = getRegisteredCommand(pi, "handoff:self");
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext({ isNewSessionCancelled: true });
 
@@ -183,7 +183,7 @@ describe("handoff:self extension", () => {
 		const recoveryNotification = context.notifications.at(-1);
 		expect(recoveryNotification?.level).toBe("warning");
 		expect(recoveryNotification?.message).toContain(
-			"handoff:self saved and verified handoff finish-widget",
+			"ns:handoff:self saved and verified handoff finish-widget",
 		);
 		expect(recoveryNotification?.message).toContain("session replacement was cancelled");
 		expect(recoveryNotification?.message).toContain("Context was not cleared");
@@ -196,7 +196,7 @@ describe("handoff:self extension", () => {
 	test("failed replacement keeps verified handoff and reports manual recovery", async () => {
 		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
-		const command = getRegisteredCommand(pi, "handoff:self");
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext({ newSessionError: new Error("new session boom") });
 
@@ -226,7 +226,7 @@ describe("handoff:self extension", () => {
 		const recoveryNotification = context.notifications.at(-1);
 		expect(recoveryNotification?.level).toBe("error");
 		expect(recoveryNotification?.message).toContain(
-			"handoff:self saved and verified handoff finish-widget",
+			"ns:handoff:self saved and verified handoff finish-widget",
 		);
 		expect(recoveryNotification?.message).toContain("session replacement failed");
 		expect(recoveryNotification?.message).toContain("new session boom");
@@ -240,7 +240,7 @@ describe("handoff:self extension", () => {
 	test("starting lock is released when session replacement support is unavailable", async () => {
 		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
-		const command = getRegisteredCommand(pi, "handoff:self");
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const unsupportedContext = createContext();
 		delete unsupportedContext.ctx.newSession;
@@ -248,7 +248,7 @@ describe("handoff:self extension", () => {
 		await command.handler("first focus", unsupportedContext.ctx);
 
 		expect(unsupportedContext.notifications).toEqual([
-			{ message: "/handoff:self requires Pi session replacement support.", level: "error" },
+			{ message: "/ns:handoff:self requires Pi session replacement support.", level: "error" },
 		]);
 		expect(pi.sentUserMessages).toEqual([]);
 
@@ -284,7 +284,7 @@ describe("handoff:self extension", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain("no active /handoff:self workflow");
+		expect(result.content[0]?.text).toContain("no active /ns:handoff:self workflow");
 		expect(context.newSessionCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([]);
 	});
@@ -294,7 +294,7 @@ describe("handoff:self extension", () => {
 		try {
 			const pi = new FakePi([branchStep()]);
 			registerSelfOnly(pi, 1);
-			const command = getRegisteredCommand(pi, "handoff:self");
+			const command = getRegisteredCommand(pi, "ns:handoff:self");
 			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 			const context = createContext();
 
@@ -325,7 +325,7 @@ describe("handoff:self extension", () => {
 		try {
 			const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "missing.md", false)]);
 			registerSelfOnly(pi, 1);
-			const command = getRegisteredCommand(pi, "handoff:self");
+			const command = getRegisteredCommand(pi, "ns:handoff:self");
 			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 			const context = createContext();
 
@@ -360,7 +360,7 @@ describe("handoff:self extension", () => {
 		try {
 			const pi = new FakePi([branchStep()]);
 			registerSelfOnly(pi, 1);
-			const command = getRegisteredCommand(pi, "handoff:self");
+			const command = getRegisteredCommand(pi, "ns:handoff:self");
 			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 			const context = createContext();
 
@@ -373,7 +373,7 @@ describe("handoff:self extension", () => {
 			expect(context.newSessionCalls).toEqual([]);
 			expect(context.notifications.at(-1)).toEqual({
 				message:
-					"handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
+					"ns:handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
 				level: "error",
 			});
 
@@ -385,7 +385,7 @@ describe("handoff:self extension", () => {
 				context.ctx,
 			);
 			expect(lateResult.isError).toBe(true);
-			expect(lateResult.content[0]?.text).toContain("no active /handoff:self workflow");
+			expect(lateResult.content[0]?.text).toContain("no active /ns:handoff:self workflow");
 			expect(context.newSessionCalls).toEqual([]);
 			pi.assertDone();
 		} finally {
@@ -393,10 +393,10 @@ describe("handoff:self extension", () => {
 		}
 	});
 
-	test("concurrent handoff:self invocation is rejected while one workflow is active", async () => {
+	test("concurrent ns:handoff:self invocation is rejected while one workflow is active", async () => {
 		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
-		const command = getRegisteredCommand(pi, "handoff:self");
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext();
 
@@ -424,22 +424,22 @@ describe("handoff:self extension", () => {
 	});
 });
 
-describe("handoff:self pure helpers", () => {
-	test("handoff:self prompt requires launch tool ordering and command-owned session replacement wording", () => {
+describe("ns:handoff:self pure helpers", () => {
+	test("ns:handoff:self prompt requires launch tool ordering and command-owned session replacement wording", () => {
 		const prompt = buildHandoffSelfPrompt({
 			skillBlock: "# handoff-create skill",
 			request: { focus: "make a fresh session", branch: BRANCH },
 		});
 
 		expect(prompt).toContain("# handoff-create skill");
-		expect(prompt).toContain("This is a /handoff:self request.");
+		expect(prompt).toContain("This is a /ns:handoff:self request.");
 		expect(prompt).toContain("workflow_id: <workflow-id>");
 		expect(prompt).toContain(
 			"If `ns handoff create` reports an existing artifact, stop; do not overwrite and do not clear context or pick up the handoff.",
 		);
 		expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain(
-			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.",
+			"Do not queue slash commands such as /ns:handoff:self-resume, /ns:handoff:self-pickup, or /new as user messages.",
 		);
 		expect(prompt).toContain(
 			"After saving and verification, the command will replace this session",
@@ -455,7 +455,7 @@ function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
 		skillLoader: fakeHandoffCreateSkillLoader(),
 	});
 	pi.registerTool?.(workflow.buildTool());
-	pi.registerCommand("handoff:self", {
+	pi.registerCommand("ns:handoff:self", {
 		description: "Create a handoff, clear context, and pick it up in this Pi session.",
 		handler: async (args, ctx) => workflow.handleCommand(args, ctx),
 	});

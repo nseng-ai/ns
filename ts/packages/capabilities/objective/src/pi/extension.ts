@@ -1,3 +1,4 @@
+import { nsCommandSurface } from "@ns/core/command";
 import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import {
 	registerCliCommandExtension,
@@ -15,6 +16,7 @@ import {
 	chooseActiveObjectiveSlug,
 	completeObjectiveListArgs,
 	createObjectiveClient,
+	OBJECTIVE_LIST_STATUS_VALUES,
 	type ObjectiveClient,
 	type ObjectiveClientOptions,
 	objectiveCommandSpecs,
@@ -53,7 +55,7 @@ export type ObjectiveExtensionAPI = Pick<
 	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
+const OBJECTIVE_LIST_COMMAND_NAME = nsCommandSurface("objective", "list");
 const OBJECTIVE_LIST_ARGUMENT_HINT =
 	"[--names] [--minimal] [--status all|active|open|closed] [--help]";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
@@ -298,7 +300,6 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 	return parseObjectiveCandidatesData(envelope.data);
 }
 
-const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 type ObjectiveListStatus = (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
 
 interface ObjectiveListRequestShape {
@@ -398,7 +399,7 @@ function isObjectiveListStatus(value: string | undefined): value is ObjectiveLis
 }
 
 function renderObjectiveListHelp(): string {
-	return `Usage: /objective:list ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Hide local branch attribution.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
+	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Hide local branch attribution.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
 }
 
 export const objectiveParity = definePiSurfaceParity([
@@ -454,9 +455,8 @@ export default function objectiveExtension(
 
 	registerCliCommandExtension(pi, {
 		cliName: "objective",
-		piNamespace: "objective",
+		piNamespace: "ns:objective",
 		commands: [OBJECTIVE_LIST_COMMAND],
-		piCommandAliases: { list: OBJECTIVE_LIST_COMMAND_NAME },
 		runCli: async (args, deps) => await runObjectiveCliCommand(args, deps, options),
 	});
 

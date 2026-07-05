@@ -40,6 +40,8 @@ const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillNa
 	"ns:objective:stack-impl": "objective-stack-impl",
 };
 
+const LEGACY_OBJECTIVE_LIST_COMMAND_NAME = ["objective", ":", "list"].join("");
+
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"ns:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
 	"ns:objective:update":
@@ -380,10 +382,10 @@ async function runObjectiveList(
 		pi,
 		objectiveClient === undefined ? {} : { createObjectiveClient: () => objectiveClient },
 	);
-	const command = pi.commands.get("objective:list");
+	const command = pi.commands.get("ns:objective:list");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("objective:list was not registered");
+		throw new Error("ns:objective:list was not registered");
 	}
 
 	const context = createContext(options.contextOptions ?? {});
@@ -512,7 +514,7 @@ async function objectiveCommandCompletions(
 	return { pi, items };
 }
 
-describe("objective:list command", () => {
+describe("ns:objective:list command", () => {
 	test("renders accepted status arguments through the Objective Capability API", async () => {
 		const listRequests: unknown[] = [];
 		const objectiveClient = fakeObjectiveListClient(async (request) => {
@@ -558,7 +560,7 @@ describe("objective:list command", () => {
 		expect(result.pi.sentMessages[0]).toMatchObject({
 			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
 		});
-		expect(result.pi.sentMessages[0]?.content).toContain("Usage: /objective:list");
+		expect(result.pi.sentMessages[0]?.content).toContain("Usage: /ns:objective:list");
 	});
 
 	test("rejects removed and adapter-owned flags before invoking objective list", async () => {
@@ -580,7 +582,7 @@ describe("objective:list command", () => {
 	test("registers objective list argument completions through the bridge", async () => {
 		const pi = new FakePi();
 		objectiveExtension(pi);
-		const command = pi.commands.get("objective:list");
+		const command = pi.commands.get("ns:objective:list");
 		expect(command?.getArgumentCompletions?.("--status ")).toEqual([
 			{ value: "all", label: "all" },
 			{ value: "active", label: "active" },
@@ -597,6 +599,7 @@ test("does not register removed Objective commands", () => {
 	objectiveExtension(pi);
 
 	expect(pi.commands.has(removedStackCommand)).toBe(false);
+	expect(pi.commands.has(LEGACY_OBJECTIVE_LIST_COMMAND_NAME)).toBe(false);
 	expect(pi.commands.has("objective:current")).toBe(false);
 });
 

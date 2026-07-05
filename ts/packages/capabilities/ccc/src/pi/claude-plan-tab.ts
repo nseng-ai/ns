@@ -1,5 +1,6 @@
 import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import {
+	CCC_CLAUDE_PLAN_TAB_COMMAND_NAME,
 	handleCccClaudePlanTab,
 	type PromptFileOptions,
 	resolvePromptFileOptions,
@@ -8,7 +9,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
-const COMMAND_NAME = "ccc:claude-plan-tab";
+const COMMAND_NAME = CCC_CLAUDE_PLAN_TAB_COMMAND_NAME;
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");
 
 export function registerCccClaudePlanTabCommand(

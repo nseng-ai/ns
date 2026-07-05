@@ -140,7 +140,7 @@ Project-local Pi commands:
 ```text
 /ns:handoff:create <continuation focus>
 /ns:handoff:pickup [--branch <branch>] [semantic-slug|search words]
-/handoff:list [--branch <branch> | --all]
+/ns:handoff:list [--branch <branch> | --all]
 ```
 
 Portable ji command face:
@@ -160,8 +160,8 @@ Examples:
 ```text
 /ns:handoff:create address review feedback after test cleanup
 /ns:handoff:pickup address-review-feedback
-/handoff:list
-/handoff:list --all
+/ns:handoff:list
+/ns:handoff:list --all
 ```
 
 Portable first-party skills:

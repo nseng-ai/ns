@@ -3,6 +3,7 @@ import {
 	type BranchContextEvidence,
 } from "@ns/branch-context/api";
 
+import { CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotClient } from "@ns/slot/api";
@@ -30,7 +31,7 @@ export interface HandleCccSlotOpenBranchOptions {
 	notifyProgress: (message: string) => void;
 }
 
-const COMMAND_NAME = "ccc:workspace:open-branch";
+const COMMAND_NAME = CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 

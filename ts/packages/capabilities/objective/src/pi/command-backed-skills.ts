@@ -1,4 +1,4 @@
-import { specializedCommandBackedSkillsFromSpecs } from "@ns/pi/commands";
+import { specializedCommandBackedSkillsFromSpecs } from "@ns/core/command";
 
 import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "../api/index.ts";
 

@@ -13,6 +13,7 @@ import {
 import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
 import { optionalEntry } from "@ns/core/primitives";
 
+import { CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME } from "./command-surfaces.ts";
 import {
 	buildLaunchPrompt,
 	createTrackedBranchFromResolvedParent,
@@ -24,7 +25,7 @@ import {
 import type { SlotClient } from "@ns/slot/api";
 import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
-const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
+const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";

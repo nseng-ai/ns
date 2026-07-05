@@ -41,7 +41,7 @@ The `@ns/ccc/pi` subpackage that wires CCC workflows into Pi/cmux presentation b
 *Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic internal Pi-tool package.
 
 **Pi command namespace**:
-The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/ns:flow:*` names ji lifecycle mirrors; `/ns:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
+The colon-separated repo-owned Pi slash command surface chosen by workflow ownership rather than implementation file. First-party product and orchestration commands default to `/ns:<extension>:...`, such as `/ns:ccc:*`, `/ns:objective:*`, `/ns:handoff:*`, `/ns:flow:*`, and `/ns:branch-context:*`; `/pi:*` remains reserved for Pi-native UI/session affordances.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:

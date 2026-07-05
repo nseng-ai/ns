@@ -3,7 +3,6 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		"./commands": "./src/commands/surfaces.ts",
 		"./commands/ack": "./src/commands/ack.ts",
 		"./commands/args": "./src/commands/args.ts",
 		"./commands/events": "./src/commands/events.ts",

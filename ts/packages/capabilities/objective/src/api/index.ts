@@ -53,6 +53,7 @@ export type {
 } from "../core/objective-selection.ts";
 export {
 	completeObjectiveListArgs,
+	OBJECTIVE_LIST_STATUS_VALUES,
 	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
 } from "../core/objective-cli-args.ts";

@@ -24,7 +24,7 @@ import {
 afterEach(resetCmuxTestEnvironment);
 
 describe("cmux Objective sidebar", () => {
-	test("ccc:sidebar:objective-summary applies deterministic Objective sidebar from explicit slug", async () => {
+	test("ns:ccc:sidebar:objective-summary applies deterministic Objective sidebar from explicit slug", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
@@ -41,7 +41,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(1);
@@ -81,7 +81,7 @@ describe("cmux Objective sidebar", () => {
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
 
-	test("ccc:sidebar:objective-summary resolves Objective path selector to slug", async () => {
+	test("ns:ccc:sidebar:objective-summary resolves Objective path selector to slug", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
@@ -99,7 +99,7 @@ describe("cmux Objective sidebar", () => {
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
 		await pi.commands
-			.get("ccc:sidebar:objective-summary")
+			.get("ns:ccc:sidebar:objective-summary")
 			?.handler(`.ns/objectives/${slug}/objective.md`, ctx);
 
 		pi.assertDone();
@@ -110,7 +110,7 @@ describe("cmux Objective sidebar", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
-	test("ccc:sidebar:objective-summary without selector opens Objective picker and applies selection", async () => {
+	test("ns:ccc:sidebar:objective-summary without selector opens Objective picker and applies selection", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
@@ -130,7 +130,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1] });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.waitCount).toBe(2);
@@ -168,7 +168,7 @@ describe("cmux Objective sidebar", () => {
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
 
-	test("ccc:sidebar:objective-summary suggests the only changed active Objective", async () => {
+	test("ns:ccc:sidebar:objective-summary suggests the only changed active Objective", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
@@ -188,7 +188,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.selections).toEqual([
@@ -217,7 +217,7 @@ describe("cmux Objective sidebar", () => {
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
 
-	test("ccc:sidebar:objective-summary can escape from changed suggestion to other active Objectives", async () => {
+	test("ns:ccc:sidebar:objective-summary can escape from changed suggestion to other active Objectives", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "charlie-objective";
@@ -237,7 +237,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1, 1] });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.selections[0]).toEqual({
@@ -258,7 +258,7 @@ describe("cmux Objective sidebar", () => {
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
 
-	test("ccc:sidebar:objective-summary picker cancellation stops without model or apply", async () => {
+	test("ns:ccc:sidebar:objective-summary picker cancellation stops without model or apply", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const pi = new FakePi({
 			script: [
@@ -271,7 +271,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls).toHaveLength(2);
@@ -282,14 +282,14 @@ describe("cmux Objective sidebar", () => {
 		});
 	});
 
-	test("ccc:sidebar:objective-summary with no active Objectives stops without model or apply", async () => {
+	test("ns:ccc:sidebar:objective-summary with no active Objectives stops without model or apply", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
 		expect(ctx.selections).toEqual([]);
@@ -300,7 +300,7 @@ describe("cmux Objective sidebar", () => {
 		});
 	});
 
-	test("ccc:sidebar:objective-summary missing workspace skips deterministic work", async () => {
+	test("ns:ccc:sidebar:objective-summary missing workspace skips deterministic work", async () => {
 		delete process.env.CMUX_WORKSPACE_ID;
 		delete process.env.CMUX_TAB_ID;
 		const pi = new FakePi();
@@ -308,7 +308,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("cmux-objective", ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler("cmux-objective", ctx);
 
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.execCalls).toEqual([]);
@@ -316,7 +316,7 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
 	});
 
-	test("ccc:sidebar:objective-summary surfaces Objective read failure without applying cmux", async () => {
+	test("ns:ccc:sidebar:objective-summary surfaces Objective read failure without applying cmux", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const slug = "ghost-objective";
 		const pi = new FakePi({
@@ -335,7 +335,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls).toHaveLength(1);
@@ -344,7 +344,7 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toContain("Objective not found");
 	});
 
-	test("ccc:sidebar:objective-summary rejects mismatched Objective read slug", async () => {
+	test("ns:ccc:sidebar:objective-summary rejects mismatched Objective read slug", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const slug = "requested-objective";
 		const pi = new FakePi({
@@ -358,7 +358,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls).toHaveLength(1);
@@ -367,7 +367,7 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toContain("matching slug");
 	});
 
-	test("ccc:sidebar:objective-summary surfaces cmux apply failure", async () => {
+	test("ns:ccc:sidebar:objective-summary surfaces cmux apply failure", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
@@ -402,7 +402,7 @@ describe("cmux Objective sidebar", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler(slug, ctx);
+		await pi.commands.get("ns:ccc:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls).toHaveLength(3);

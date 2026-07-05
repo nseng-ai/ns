@@ -17,7 +17,7 @@ The package-level implementation home for workflows that must compose multiple l
 *Avoid*: primitive gateway, storage backend, UI adapter, one-off script.
 
 **CCC boundary**:
-The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but only the CCC `pi` subpackage may depend on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi subpackage**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing `@ns/ccc/pi`, since they are not part of the `@ns/pi` package. CCC-owned Pi command surfaces use the `ccc` slash-command prefix; cmux wording is reserved for the external tool/workspace domain.
+The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but only the CCC `pi` subpackage may depend on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi subpackage**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing `@ns/ccc/pi`, since they are not part of the `@ns/pi` package. CCC-owned Pi command surfaces use the `ns:ccc` extension surface; cmux wording is reserved for the external tool/workspace domain.
 *Avoid*: circular helper import, direct `@ns/pi/...` imports from non-`pi` CCC subpackages, public API promise, compatibility alias.
 
 **CCC Pi subpackage**:
@@ -33,16 +33,16 @@ A checked-in Pi extension file under `.pi/extensions/` that registers stable use
 *Avoid*: CCC package, lower capability, hidden command alias.
 
 **CCC command surface**:
-The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/ccc:workspace:*` and `/ccc:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
-*Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
+The CCC-owned Pi slash commands users invoke through the `ns:ccc` extension surface, such as `/ns:ccc:workspace:*` and `/ns:ccc:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
+*Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command, legacy top-level CCC alias.
 
-**Stable non-`ccc` orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/objective:stack-impl` or `/ns:flow:land`. Autobranch is now public ji lifecycle surface `ns flow autobranch` / `/ns:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
+**Stable non-CCC orchestration surface**:
+A public Pi command whose user-facing namespace remains outside `ns:ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/ns:objective:stack-impl` or `/ns:flow:land`. Autobranch is now public ji lifecycle surface `ns flow autobranch` / `/ns:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
 *Avoid*: compatibility alias, evidence that namespace alone determines domain ownership, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
-The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/archive semantics remain lower capabilities.
-*Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ccc:*` alias for stack implementation.
+The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/archive semantics remain lower capabilities.
+*Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:ccc:*` alias for stack implementation.
 
 **Autobranch compatibility flow**:
 The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public ji lifecycle boundary is `ns flow autobranch` / `/ns:flow:autobranch`.

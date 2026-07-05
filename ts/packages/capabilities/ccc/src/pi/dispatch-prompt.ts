@@ -1,13 +1,14 @@
 import { optionalEntry } from "@ns/core/primitives";
 import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import {
+	CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME,
 	handleCccSlotDispatchPrompt,
 	type DispatchPromptPayloadOptions,
 	resolveDispatchPromptPayloadOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
-const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
+const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 
 export function registerCccSlotDispatchPromptCommand(
 	pi: ExtensionAPI,
