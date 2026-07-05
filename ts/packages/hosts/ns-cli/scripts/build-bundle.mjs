@@ -13,13 +13,12 @@ const bundleRoot = resolve(packageRoot, "dist", "bundle");
 const outfile = resolve(bundleRoot, "cli.js");
 const bundleEntry = resolve(packageRoot, "dist", "bundle-entry.mjs");
 const bundledPromptsDir = resolve(bundleRoot, "prompts");
-const kernelExportEntries = {
-	"kernel/cli": resolve(packageRoot, "src", "kernel", "cli.ts"),
-	"kernel/command-io": resolve(packageRoot, "src", "kernel", "command-io.ts"),
-	"kernel/context": resolve(packageRoot, "src", "kernel", "context.ts"),
-	"kernel/pi-text-generation": resolve(packageRoot, "src", "kernel", "pi-text-generation.ts"),
-	"kernel/sdk": resolve(packageRoot, "src", "kernel", "sdk.ts"),
-};
+const kernelExportSpecs = JSON.parse(
+	await readFile(resolve(packageRoot, "scripts", "kernel-export-entries.json"), "utf8"),
+);
+const kernelExportEntries = Object.fromEntries(
+	Object.entries(kernelExportSpecs).map(([entry, spec]) => [entry, resolve(packageRoot, spec.host)]),
+);
 
 await mkdir(dirname(outfile), { recursive: true });
 await writeFile(

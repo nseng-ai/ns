@@ -2,10 +2,9 @@ export {
 	commandIoFromNsExtensionApi,
 	createCliCommandIo,
 	createCommandIo,
-	noopNsCommandIo,
-	noopNsProgress,
 	runWithNsCommandIo,
 } from "@nseng-ai/kernel/command-io";
+export { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/command-io";
 export type {
 	CliCommandIoInput,
 	CliCommandIoOptions,

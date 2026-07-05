@@ -43,6 +43,7 @@ export type {
 	NsOutputStream,
 	NsProgress,
 	NsProgressPhaseEvent,
+	NsProgressPhaseInfo,
 	NsProgressPhaseListener,
 	NsResult,
 	PositionalSpec,
