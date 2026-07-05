@@ -103,15 +103,12 @@ Risks:
 - Explorer children launch with `--no-extensions`, which is part of the read-only
   guarantee but also strips `.pi/extensions/home-directory-guard.ts` — a child with
   `grep`/`find` has no home-root guard and no cwd jail, so *scope* is prompt-enforced
-  only (`.ns/pi/agents/explorer.md`). Decision pending (accept, inject the guard, or
-  document why prompt-scoping suffices); tracked as an open question and roadmap item,
-  and it **gates dogfooding**: fake-driven build items may proceed, but real explorer
-  children must not run routinely until the decision is made. The inject option is not
-  free — `buildChildPiArgs` accepts an `--extension` path (`subagent-process.ts`) but
-  it is populated only from generated terminal-runtime files, and
-  `RunnerSubagentOptions` exposes no caller-facing extension-injection surface, so
-  injection costs a small plumbing slice (new option, threading, coexistence with the
-  terminal runtime extension, tests).
+  only (`.ns/pi/agents/explorer.md`). Resolved 2026-07-05: accept prompt-level local
+  policy via a root `AGENTS.local.md` convention for dogfooding, with this checkout's
+  ignored local file carrying the workstation-specific home-root rule
+  (`updates/2026-07-05-explorer-local-policy-decision.md`). This is an accepted
+  limitation, not a sandbox or extension-equivalent guard; revisit child extension
+  injection only if dogfood shows prompt-level policy is insufficient.
 
 ## Open Questions
 
@@ -123,11 +120,13 @@ Risks:
   Resolved 2026-07-02: `ts/packages/local/pi-tools` alongside runner-subagents, as
   engineered platform code from the start (same update). Since moved with the rest of
   pi-tools to `ts/packages/internal/pi-tools`.
-- How to close the explorer-child home-directory-guard bypass (see Risks): accept,
+- ~~How to close the explorer-child home-directory-guard bypass (see Risks): accept,
   inject the guard extension (requires a new caller-facing extension-injection option
   on the dispatch surface — no existing seam reaches `--extension` for final-text
   children), or document prompt-scoping as sufficient. Gates roadmap item "Dogfood in
-  real ns work".
+  real ns work".~~ Resolved 2026-07-05: accept prompt-level `AGENTS.local.md` local
+  policy for dogfooding; no extension-injection seam in this slice
+  (`updates/2026-07-05-explorer-local-policy-decision.md`).
 - Whether the in-process fork-runtime adapter is worth the Pi SDK coupling, and what the
   runtime seam looks like (Gateway-style interface with subprocess + in-process
   adapters).

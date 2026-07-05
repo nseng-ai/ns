@@ -54,7 +54,11 @@ pnpm --dir ts run fmt:check
 
 Formatter was applied once with `just ts-format-fix` before rerunning the checks above.
 
-## Follow-ups
+## Objective Impact
+
+Roadmap item 3 is complete. Items 4 and 5 remained open after this slice, and routine real explorer dogfooding remained gated on the home-directory-guard bypass decision.
+
+## Follow-Ups
 
 - Item 4 should replace the interim cap with durable bounded previews plus full findings
   pointers on disk.
