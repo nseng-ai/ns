@@ -7,6 +7,7 @@
 
 - [ ] Design the artifact model, harness path table, install manifest, and reconcile operation.
       Define artifact entries, catalog shape, the three entry kinds, harness specs with aliases and user-vs-project scope (including `CLAUDE_CONFIG_DIR` handling), deterministic provision-plan output, and the install manifest with per-file content hashes and source-version provenance. Reconcile is the core operation: declared catalogs vs install manifest → provision plan → apply; install/update commands are sugar over it. Conflict policy is LBYL: detect stale content after upgrades, refuse to clobber locally edited files without `--force`, clean up renames. Evidence should include tests for path resolution, alias normalization, plan output, reconcile behavior across drift channels, and manifest-driven conflict behavior.
+      A first consumer seam already waits on this: `@nseng-ai/ns-init`'s `SkillMaterializer` gateway (copy objective skill dirs into harness roots for `claude-code`/`codex`/`pi`; areg's symlink/`npx skills` model is explicitly not the customer path — see `updates/20260705T231627Z-areg-rejected-as-customer-path-ns-init-seam.md`).
 
 - [ ] Implement the `ns` CLI catalog steel thread.
       Make the `ns` CLI able to list, path, and provision (with deterministic preview) at least one ns-owned skill through the shared subsystem, with zero `npx skills` dependency.
