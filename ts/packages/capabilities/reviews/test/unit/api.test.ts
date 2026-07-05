@@ -242,7 +242,7 @@ describe("@nseng-ai/reviews/api", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			error: { type: "review-execution-invalid-json" },
+			error: { type: "invalid-json" },
 		});
 	});
 

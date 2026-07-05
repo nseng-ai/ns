@@ -3,30 +3,57 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 
 export interface JsonInputError {
-	errorType: "invalid-json" | "invalid-request";
-	message: string;
+	readonly errorType: "invalid-json" | "invalid-request";
+	readonly message: string;
 }
 
 export type JsonInputResult<T> =
-	| { type: "ok"; value: T }
-	| { type: "error"; error: JsonInputError };
+	| { readonly type: "ok"; readonly value: T }
+	| { readonly type: "error"; readonly error: JsonInputError };
 
 export interface ReadJsonInputTextOptions {
-	optionValue: string | undefined;
-	filePath?: string;
-	commandName: string;
-	inputDescription: string;
-	optionName: string;
-	fileOptionName?: string;
-	canReadStdin?: boolean;
-	stdin: () => Promise<string>;
+	readonly optionValue: string | undefined;
+	readonly filePath?: string;
+	readonly commandName: string;
+	readonly inputDescription: string;
+	readonly optionName: string;
+	readonly fileOptionName?: string;
+	readonly canReadStdin?: boolean;
+	readonly stdin: () => Promise<string>;
 }
 
 export interface LoadJsonInputOptions<T> extends ReadJsonInputTextOptions {
-	schema: z.ZodType<T>;
+	readonly schema: z.ZodType<T>;
 }
 
-async function readJsonInputText(
+export interface ParseJsonInputTextOptions<T> {
+	readonly text: string;
+	readonly schema: z.ZodType<T>;
+	readonly jsonDescription: string;
+	readonly schemaDescription?: string;
+}
+
+export interface ParseJsonInputValueOptions<T> {
+	readonly value: unknown;
+	readonly schema: z.ZodType<T>;
+	readonly schemaDescription: string;
+}
+
+export async function loadJsonInput<T>(
+	options: LoadJsonInputOptions<T>,
+): Promise<JsonInputResult<T>> {
+	const textResult = await readJsonInputText(options);
+	if (textResult.type === "error") return textResult;
+
+	return parseJsonInputText({
+		text: textResult.value,
+		schema: options.schema,
+		jsonDescription: `${options.commandName} ${options.inputDescription}`,
+		schemaDescription: `${options.commandName} ${options.inputDescription}`,
+	});
+}
+
+export async function readJsonInputText(
 	options: ReadJsonInputTextOptions,
 ): Promise<JsonInputResult<string>> {
 	const canReadStdin = options.canReadStdin ?? true;
@@ -62,20 +89,6 @@ async function readJsonInputText(
 	return rawPayloadResult;
 }
 
-export async function loadJsonInput<T>(
-	options: LoadJsonInputOptions<T>,
-): Promise<JsonInputResult<T>> {
-	const textResult = await readJsonInputText(options);
-	if (textResult.type === "error") return textResult;
-
-	return parseJsonWithSchema({
-		text: textResult.value,
-		schema: options.schema,
-		jsonDescription: `${options.commandName} ${options.inputDescription}`,
-		schemaDescription: `${options.commandName} ${options.inputDescription}`,
-	});
-}
-
 async function readRawPayload(
 	options: ReadJsonInputTextOptions,
 	canReadStdin: boolean,
@@ -101,10 +114,10 @@ async function readRawPayload(
 }
 
 interface ReadJsonInputFileOptions {
-	filePath: string;
-	commandName: string;
-	inputDescription: string;
-	fileOptionNameValue: string | undefined;
+	readonly filePath: string;
+	readonly commandName: string;
+	readonly inputDescription: string;
+	readonly fileOptionNameValue: string | undefined;
 }
 
 async function readJsonInputFile(
@@ -146,14 +159,7 @@ function jsonParseMessage(error: unknown): string {
 	return String(error);
 }
 
-interface JsonSchemaParseOptions<T> {
-	text: string;
-	schema: z.ZodType<T>;
-	jsonDescription: string;
-	schemaDescription: string;
-}
-
-function parseJsonWithSchema<T>(options: JsonSchemaParseOptions<T>): JsonInputResult<T> {
+export function parseJsonInputText<T>(options: ParseJsonInputTextOptions<T>): JsonInputResult<T> {
 	let parsedJson: unknown;
 	try {
 		parsedJson = JSON.parse(options.text);
@@ -167,18 +173,14 @@ function parseJsonWithSchema<T>(options: JsonSchemaParseOptions<T>): JsonInputRe
 		};
 	}
 
-	return parseJsonValueWithSchema({
+	return parseJsonInputValue({
 		value: parsedJson,
 		schema: options.schema,
-		schemaDescription: options.schemaDescription,
+		schemaDescription: options.schemaDescription ?? options.jsonDescription,
 	});
 }
 
-function parseJsonValueWithSchema<T>(options: {
-	value: unknown;
-	schema: z.ZodType<T>;
-	schemaDescription: string;
-}): JsonInputResult<T> {
+export function parseJsonInputValue<T>(options: ParseJsonInputValueOptions<T>): JsonInputResult<T> {
 	const parseResult = options.schema.safeParse(options.value);
 	if (!parseResult.success) {
 		return {

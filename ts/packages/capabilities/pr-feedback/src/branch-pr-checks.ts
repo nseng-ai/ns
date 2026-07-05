@@ -9,7 +9,7 @@ import {
 	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { loadJsonInput } from "@nseng-ai/capability-kit/json-input";
 import { branchesValidationMessage } from "./map-branch-prs.ts";
 import { branchPrChecksResultSchema } from "./operation-schemas/collection.ts";
 

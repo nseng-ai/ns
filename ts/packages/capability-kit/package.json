@@ -16,6 +16,7 @@
 		"./content-slug": "./src/kit/content-slug.ts",
 		"./gateway-result": "./src/kit/gateway-result.ts",
 		"./git": "./src/git/index.ts",
+		"./json-input": "./src/kit/json-input.ts",
 		"./git/testing": "./src/git/testing.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
 		"./pending-worktree": "./src/kit/pending-worktree.ts",

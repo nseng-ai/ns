@@ -4,7 +4,8 @@ import {
 	machineEnvelopeSchema,
 	negativeMachineEnvelopeSchema,
 } from "@nseng-ai/clinkr";
-import { formatErrorMessage, formatZodError } from "@nseng-ai/foundation/primitives";
+import { parseJsonInputText } from "@nseng-ai/capability-kit/json-input";
+import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
@@ -299,14 +300,13 @@ type JsonResult =
 	| { readonly type: "error"; readonly message: string };
 
 function parseJson(raw: string): JsonResult {
-	try {
-		return { type: "ok", value: JSON.parse(raw) };
-	} catch (caught) {
-		return {
-			type: "error",
-			message: `input is not valid JSON: ${formatErrorMessage(caught)}`,
-		};
-	}
+	const result = parseJsonInputText({
+		text: raw,
+		schema: z.unknown(),
+		jsonDescription: "review-run envelope JSON",
+	});
+	if (result.type === "ok") return result;
+	return { type: "error", message: result.error.message };
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {

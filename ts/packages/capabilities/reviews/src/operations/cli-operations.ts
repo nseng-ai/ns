@@ -1,9 +1,6 @@
 import { failure, ok, negative, type ClinkrExit } from "@nseng-ai/clinkr";
-import {
-	formatErrorMessage,
-	optionalEntries,
-	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+import { parseJsonInputText } from "@nseng-ai/capability-kit/json-input";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";
@@ -451,31 +448,20 @@ export function clinkrExitFromRecordFindingsOutcome(
 async function readFindingsPayload(
 	ctx: RoasterRuntime,
 ): Promise<RoasterResult<ReviewFindingsPayload>> {
-	const text = await ctx.stdin();
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text);
-	} catch (caught) {
-		return {
-			type: "error",
-			error: {
-				type: "review-execution-invalid-json",
-				message: `record-findings stdin must be JSON: ${formatErrorMessage(caught)}`,
-			},
-		};
-	}
-
-	const payload = reviewFindingsPayloadSchema.safeParse(parsed);
-	if (!payload.success) {
-		return {
-			type: "error",
-			error: {
-				type: "review-execution-invalid-findings",
-				message: `record-findings stdin must match { findings: [...] }: ${z.prettifyError(payload.error)}`,
-			},
-		};
-	}
-	return { type: "ok", value: payload.data };
+	const result = parseJsonInputText({
+		text: await ctx.stdin(),
+		schema: reviewFindingsPayloadSchema,
+		jsonDescription: "record-findings stdin",
+		schemaDescription: "record-findings stdin { findings: [...] }",
+	});
+	if (result.type === "ok") return result;
+	return {
+		type: "error",
+		error: {
+			type: result.error.errorType,
+			message: result.error.message,
+		},
+	};
 }
 
 export async function buildReviewLogResult(

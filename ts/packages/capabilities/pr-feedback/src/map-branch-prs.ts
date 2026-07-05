@@ -13,7 +13,7 @@ import {
 	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { loadJsonInput } from "@nseng-ai/capability-kit/json-input";
 import { mapBranchPrsResultSchema } from "./operation-schemas/collection.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({

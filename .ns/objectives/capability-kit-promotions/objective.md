@@ -37,14 +37,18 @@ finding set, not a reopen.
   3. extract GitHub REST comment mechanics from reviews into a kit `github`
      subpath with real/fake parity, migrating pi-tools pr-feedback-watch as
      the second consumer.
+- Third wave (deliberately pulled from Parked 2026-07-05): promote the
+  JSON-input loader to `@nseng-ai/capability-kit/json-input`, migrate
+  pr-feedback consumers, and migrate reviews JSON parsing sites that cleanly
+  fit the new source-loading or parse-only helpers.
 
 ## Non-Goals
 
-- Executing any promotion still in Parked (e.g. JSON-input loader, git output
-  classification, result-typed fs gateway, PR-link parsing, shell-install
-  factory, all Tier 3 rows). Parked rows stay parked until explicitly pulled
-  into Work; the 2026-07-05 second-wave pull covers exactly the three rows
-  named in Scope, nothing else.
+- Executing any promotion still in Parked (e.g. git output classification,
+  result-typed fs gateway, PR-link parsing, shell-install factory, all Tier 3
+  rows). Parked rows stay parked until explicitly pulled into Work; the
+  2026-07-05 second-wave pull covers exactly the three rows named in Scope,
+  and the third-wave pull covers only the JSON-input row.
 - Deciding the brmem layering question (kit gaining an `@nseng-ai/brmem`
   dependency vs. hosting shared store code in `@nseng-ai/brmem`).
 - Kit-export churn beyond the two pinned edits — no rehoming
@@ -60,14 +64,14 @@ finding set, not a reopen.
 
 ## Completion Criteria
 
-- All `## Work` rows — the five Tier 1 rows (complete) and the three
-  second-wave rows — are `[x]` with their duplicate implementations deleted,
-  every consumer migrated to the kit surface, and no dual live copies
-  remaining.
-- The pinned kit extensions (Tier 1's two edits, complete) and the three
-  second-wave kit surfaces are covered by tests (including fake/testing
-  parity where the touched kit module ships fakes; the `github` comment
-  mechanics must ship real + fake together).
+- All `## Work` rows — the five Tier 1 rows (complete), the three
+  second-wave rows, and the JSON-input third-wave row — are `[x]` with their
+  duplicate implementations deleted, every consumer migrated to the kit
+  surface, and no dual live copies remaining.
+- The pinned kit extensions (Tier 1's two edits, complete), the three
+  second-wave kit surfaces, and the JSON-input kit surface are covered by
+  tests (including fake/testing parity where the touched kit module ships
+  fakes; the `github` comment mechanics must ship real + fake together).
 - Targeted package tests and repo validation (`just`) pass on the delivering
   branches; evidence recorded in roadmap notes or Semantic Updates.
 - Parked rows remain recorded; triaging or executing them is not required for
