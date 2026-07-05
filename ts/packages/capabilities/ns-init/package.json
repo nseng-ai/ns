@@ -1,0 +1,24 @@
+{
+	"name": "@nseng-ai/ns-init",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./testing": "./src/testing.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/ns-init/test"
+	},
+	"dependencies": {
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*"
+	},
+	"ns": {
+		"tier": "capability"
+	}
+}

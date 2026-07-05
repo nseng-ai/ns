@@ -297,6 +297,15 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
+  packages/capabilities/ns-init:
+    dependencies:
+      '@nseng-ai/capability-kit':
+        specifier: workspace:*
+        version: link:../../capability-kit
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
+
   packages/capabilities/objectives:
     dependencies:
       '@nseng-ai/branch-context':
