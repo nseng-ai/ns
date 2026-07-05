@@ -128,7 +128,12 @@
     "Read-only command recipe" section (pure restatement of Data sources 1–9) deleted
     after a union check; method adapted from rewrite to targeted deletion within the
     only-if-cheap gate (recorded in update `20260703T204024Z`).
-    `ccc-stack-map` — pending (10b, same collapse shape).
+    `ccc-stack-map` — **DONE (cheap collapse, 2026-07-03).** 164 → 115 lines; recipe
+    section deleted with its three recipe-only facts relocated into Data sources
+    (`data.branches` inventory, no-stack envelope, no-bundled-script rule); inline
+    Python sketch dropped in favor of the existing display-and-code-sketch reference.
+    See update `20260703T204141Z`. **Queue exhausted — all ten positions
+    remediated or recorded clean.**
   - `objective-refresh` — **DONE (rewrite).** SKILL.md 205→182 lines at the time;
     frontmatter preserved after audit; repeated no-closure, immutable-update,
     slug-directory, baseline-prefix, final-report, and verify rules collapsed into
