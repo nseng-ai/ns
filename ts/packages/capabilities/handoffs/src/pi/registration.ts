@@ -101,7 +101,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 			commandName: HANDOFF_TAB_COMMAND_NAME,
 			commandDefinition: {
 				description: "Create a handoff and open a focused cmux tab to pick it up.",
-				handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx, handoffContext),
+				handler: async (args, ctx) => handleHandoffTabCommand({ pi, args, ctx, handoffContext }),
 			},
 		});
 		registerCommandWithImmediateAck({
@@ -128,7 +128,8 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 		commandName: PICKUP_HANDOFF_COMMAND_NAME,
 		commandDefinition: {
 			description: "Pick up a handoff by slug, selector, or picker.",
-			handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
+			handler: async (args, ctx) =>
+				handlePickupHandoffCommand({ pi, rawArgs: args, ctx, handoffContext }),
 		},
 	});
 
@@ -137,7 +138,8 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 		commandName: LIST_HANDOFF_COMMAND_NAME,
 		commandDefinition: {
 			description: "List handoffs on this branch or across active branches.",
-			handler: async (args, ctx) => handleListHandoffCommand(pi, args, ctx),
+			handler: async (args, ctx) =>
+				handleListHandoffCommand({ pi, rawArgs: args, ctx, handoffContext }),
 		},
 	});
 }

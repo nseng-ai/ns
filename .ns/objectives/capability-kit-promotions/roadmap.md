@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Retire flow's local text-generation type copy: delete
+- [x] Retire flow's local text-generation type copy: delete
       `ts/packages/capabilities/flow/src/submit/text-generation.ts` and switch its
       three importers (`pr-description.ts`, `pr-description-orchestration.ts`,
       `submit/index.ts`) to `@nseng-ai/capability-kit/text-generation`.
@@ -10,8 +10,10 @@
       `DEFAULT_PR_DESCRIPTION_MODEL_REF` stay local in flow (selector-family move
       is Parked).
   - Policy: direct execution; grep-verify no additional importers first.
-  - Evidence: tsgo + flow package tests + `just` pass.
-- [ ] Swap ccc branch-slug onto kit model-slug mechanics: pin — add a small
+  - Evidence: `pnpm --dir ts --filter @nseng-ai/flow run check`,
+    `pnpm --dir ts --filter @nseng-ai/flow run test`, and `just` passed on
+    local branch `capability-kit-promotions/flow-text-generation`.
+- [x] Swap ccc branch-slug onto kit model-slug mechanics: pin — add a small
       raw-text sibling helper beside `deriveSlugWithModel` in
       `capability-kit/src/kit/model-slug.ts` (same env model override and
       killed-result retry, no slug normalization), then replace
@@ -20,8 +22,11 @@
       and plan-summary prompt text stays in ccc.
   - Policy: direct execution within the pinned helper shape; steer first if
     the helper wants any other new kit export.
-  - Evidence: kit + ccc tests (including kit testing parity) + `just` pass.
-- [ ] Migrate objectives picker/selection-flow git parsing onto kit `git`:
+  - Evidence: `pnpm --dir ts --filter @nseng-ai/capability-kit test`,
+    `pnpm --dir ts --filter @nseng-ai/ccc test`, `pnpm --dir ts run check`,
+    and `just` passed on local branch
+    `capability-kit-promotions/ccc-raw-text-helper`.
+- [x] Migrate objectives picker/selection-flow git parsing onto kit `git`:
       pin — extend `statusPaths` with an optional pathspec filter and add a
       rename-aware `changedPathsUnder` variant, then replace
       `parseObjectiveStatusChangedSlugs` and the raw `host.exec("git", ...)`
@@ -31,23 +36,32 @@
       picker's advisory swallow-errors-return-`[]` semantics.
   - Policy: direct execution; steer first if the extension proves
     non-additive or the Pi exec-seam gateway wiring needs a new adapter.
-  - Evidence: kit + objectives tests + `just` pass.
-- [ ] Replace handoffs' raw branch resolution: drop the `pi.exec("git",
+  - Evidence: `pnpm --dir ts run check`, `pnpm --dir ts run lint`, targeted
+    Vitest covering capability-kit git and objectives picker/Pi tests, and
+    `just` passed on local branch
+    `capability-kit-promotions/objectives-kit-git`.
+- [x] Replace handoffs' raw branch resolution: drop the `pi.exec("git",
   ["branch", "--show-current"])` reimplementation in
       `ts/packages/capabilities/handoffs/src/pi/branch-resolution.ts` in favor of
       `GitGateway.currentBranch` via the `RealGitGateway` already constructed in
       `handoffs/src/pi/api-context.ts`. Handoff-worded detached-HEAD recovery
       messages stay in handoffs.
   - Policy: direct execution.
-  - Evidence: handoffs tests + `just` pass.
-- [ ] Drop slots' local JSON parse helper: delete
+  - Evidence: targeted handoffs Pi tests, `pnpm --dir ts run check`,
+    `pnpm --dir ts run fmt:check`, `pnpm --dir ts run lint`, and `just`
+    passed on local branch
+    `capability-kit-promotions/replace-handoffs-branch-resolution`.
+- [x] Drop slots' local JSON parse helper: delete
       `ts/packages/capabilities/slots/src/core/json.ts` (`parseJsonObject`) and
       consume kit `parseJsonUnknown` from its current
       `capability-kit/github/graphql-json` home in `core/gateways/pr.ts` and
       `lifecycle/operations/gt/exec/quiescence.ts`, adapting the failure shape at
       the call sites. No rehoming of the kit export (Parked).
   - Policy: direct execution.
-  - Evidence: slots tests + `just` pass.
+  - Evidence: `pnpm --dir ts --filter @nseng-ai/slots test`,
+    `just ts-check`, `just`, and grep verification that slots has no remaining
+    `parseJsonObject`/`core/json` references passed on local branch
+    `capability-kit-promotions/drop-slots-json-helper`.
 
 ## Parked
 

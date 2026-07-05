@@ -2,7 +2,11 @@ import { runGitHubCliAsExecResult } from "@nseng-ai/capability-kit/github/cli";
 import { parseJsonUnknown } from "@nseng-ai/capability-kit/github/graphql-json";
 import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	optionalEntry,
+	type ExplicitUndefined,
+} from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -101,14 +105,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		}
 		const parsedJson = parseJsonUnknown(result.stdout);
 		if (parsedJson.type === "error")
-			return {
-				type: "failure",
-				failure: failureFromExec(
-					result.stdout,
-					jsonParseErrorMessage(parsedJson.error),
-					result.code,
-				),
-			};
+			return { type: "failure", failure: failureFromJsonParse(result, parsedJson.error) };
 		const parsed = prSummarySchema.safeParse(parsedJson.value);
 		if (!parsed.success)
 			return {
@@ -136,14 +133,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			};
 		const parsedJson = parseJsonUnknown(result.stdout);
 		if (parsedJson.type === "error")
-			return {
-				type: "failure",
-				failure: failureFromExec(
-					result.stdout,
-					jsonParseErrorMessage(parsedJson.error),
-					result.code,
-				),
-			};
+			return { type: "failure", failure: failureFromJsonParse(result, parsedJson.error) };
 		const parsed = graphQlBatchSchema.safeParse(parsedJson.value);
 		if (!parsed.success)
 			return {
@@ -212,14 +202,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			};
 		const parsedJson = parseJsonUnknown(result.stdout);
 		if (parsedJson.type === "error")
-			return {
-				type: "failure",
-				failure: failureFromExec(
-					result.stdout,
-					jsonParseErrorMessage(parsedJson.error),
-					result.code,
-				),
-			};
+			return { type: "failure", failure: failureFromJsonParse(result, parsedJson.error) };
 		const parsed = ghRepoViewSchema.safeParse(parsedJson.value);
 		if (!parsed.success)
 			return {
@@ -320,8 +303,8 @@ export function prFailureMessage(failure: PrGatewayFailure, fallbackPrefix = "gh
 	);
 }
 
-function jsonParseErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
+function failureFromJsonParse(result: ExecResult, error: unknown): PrGatewayFailure {
+	return failureFromExec(result.stdout, formatErrorMessage(error), result.code);
 }
 
 function failureFromExec(

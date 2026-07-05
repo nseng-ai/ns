@@ -11,7 +11,7 @@ import {
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import { setStatus } from "./ui-status.ts";
-import { createPiHandoffGitGateway, createPiHandoffStorageDeps } from "./api-context.ts";
+import { createPiHandoffStorageDepsFromContext, type PiHandoffContext } from "./api-context.ts";
 import { HANDOFF_LIST_MESSAGE_TYPE, formatHandoffListPlain } from "./list-rendering.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 import type {
@@ -270,11 +270,13 @@ function handoffKeyTokens(key: string): string[] {
 	return splitSelectorTerms([handoffKeyToSlug(key)]);
 }
 
-export async function handlePickupHandoffCommand(
-	pi: ExtensionAPI,
-	rawArgs: string,
-	ctx: CommandContext,
-): Promise<void> {
+export async function handlePickupHandoffCommand(options: {
+	pi: ExtensionAPI;
+	rawArgs: string;
+	ctx: CommandContext;
+	handoffContext: PiHandoffContext;
+}): Promise<void> {
+	const { pi, rawArgs, ctx, handoffContext } = options;
 	await ctx.waitForIdle();
 
 	const parsedArgs = parsePickupHandoffArgs(rawArgs);
@@ -291,7 +293,7 @@ export async function handlePickupHandoffCommand(
 
 	let branch: string;
 	try {
-		branch = args.branch ?? (await currentBranch(createPiHandoffGitGateway(pi), ctx, "pick up"));
+		branch = args.branch ?? (await currentBranch(handoffContext.git, ctx, "pick up"));
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
@@ -300,7 +302,7 @@ export async function handlePickupHandoffCommand(
 	let handoffItems: HandoffListItem[];
 	setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, "listing handoffs…");
 	try {
-		const handoffItemsResult = await listHandoffItems(pi, ctx, { branch });
+		const handoffItemsResult = await listHandoffItems(handoffContext, ctx, { branch });
 		if (handoffItemsResult.type === "failed") {
 			ctx.ui.notify(handoffItemsResult.message, "error");
 			return;
@@ -322,7 +324,7 @@ export async function handlePickupHandoffCommand(
 		selectedKey = selection.key;
 	} else if (selection.ambiguousKeys !== undefined) {
 		selectedKey = await chooseHandoff(
-			pi,
+			handoffContext,
 			ctx,
 			branch,
 			itemsForKeys(handoffItems, selection.ambiguousKeys),
@@ -343,7 +345,7 @@ export async function handlePickupHandoffCommand(
 	let artifact: string;
 	setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, `reading ${handoffKeyToSlug(selectedKey)}…`);
 	try {
-		artifact = await readHandoff(pi, ctx, branch, selectedKey);
+		artifact = await readHandoff(handoffContext, ctx, branch, selectedKey);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
@@ -360,11 +362,13 @@ export async function handlePickupHandoffCommand(
 	pi.sendUserMessage(buildPickupHandoffPrompt(branch, selectedKey, artifact));
 }
 
-export async function handleListHandoffCommand(
-	pi: ExtensionAPI,
-	rawArgs: string,
-	ctx: CommandContext,
-): Promise<void> {
+export async function handleListHandoffCommand(options: {
+	pi: ExtensionAPI;
+	rawArgs: string;
+	ctx: CommandContext;
+	handoffContext: PiHandoffContext;
+}): Promise<void> {
+	const { pi, rawArgs, ctx, handoffContext } = options;
 	await ctx.waitForIdle();
 
 	const parsedArgs = parseListHandoffArgs(rawArgs);
@@ -383,7 +387,7 @@ export async function handleListHandoffCommand(
 	try {
 		branch = args.allBranches
 			? undefined
-			: (args.branch ?? (await currentBranch(createPiHandoffGitGateway(pi), ctx, "list")));
+			: (args.branch ?? (await currentBranch(handoffContext.git, ctx, "list")));
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
@@ -393,7 +397,7 @@ export async function handleListHandoffCommand(
 	setStatus(ctx, LIST_HANDOFF_COMMAND_NAME, "listing handoffs…");
 	try {
 		const handoffItemsResult = await listHandoffItems(
-			pi,
+			handoffContext,
 			ctx,
 			args.allBranches ? { allBranches: true } : { branch: branch ?? "" },
 		);
@@ -419,7 +423,7 @@ export async function handleListHandoffCommand(
 	setStatus(ctx, LIST_HANDOFF_COMMAND_NAME, "reading previews…");
 	let previewedItems: PreviewedHandoffListItem[];
 	try {
-		previewedItems = await previewHandoffItems(pi, ctx, handoffItems);
+		previewedItems = await previewHandoffItems(handoffContext, ctx, handoffItems);
 	} finally {
 		setStatus(ctx, LIST_HANDOFF_COMMAND_NAME, undefined);
 	}
@@ -431,11 +435,11 @@ export async function handleListHandoffCommand(
 }
 
 async function listHandoffItems(
-	pi: ExtensionAPI,
+	handoffContext: PiHandoffContext,
 	ctx: CommandContext,
 	options: { branch: string } | { allBranches: true },
 ): Promise<HandoffItemsLoadResult> {
-	const deps = createPiHandoffStorageDeps(pi, ctx.cwd);
+	const deps = createPiHandoffStorageDepsFromContext(handoffContext, ctx.cwd);
 	const summaries = await listHandoffSummaries(deps, {
 		...("allBranches" in options ? {} : { branch: options.branch }),
 		shouldIncludeDeleted: false,
@@ -447,12 +451,12 @@ async function listHandoffItems(
 }
 
 async function readHandoff(
-	pi: ExtensionAPI,
+	handoffContext: PiHandoffContext,
 	ctx: Pick<CommandContext, "cwd">,
 	branch: string,
 	key: string,
 ): Promise<string> {
-	const deps = createPiHandoffStorageDeps(pi, ctx.cwd);
+	const deps = createPiHandoffStorageDepsFromContext(handoffContext, ctx.cwd);
 	const result = await readHandoffArtifact(deps, { branch, slug: handoffKeyToSlug(key) });
 	if (result.type === "error") {
 		throw new Error(result.error.message);
@@ -461,7 +465,7 @@ async function readHandoff(
 }
 
 async function chooseHandoff(
-	pi: ExtensionAPI,
+	handoffContext: PiHandoffContext,
 	ctx: CommandContext,
 	branch: string,
 	items: HandoffListItem[],
@@ -474,7 +478,7 @@ async function chooseHandoff(
 		return undefined;
 	}
 
-	const previewedItems = await previewHandoffItems(pi, ctx, items);
+	const previewedItems = await previewHandoffItems(handoffContext, ctx, items);
 	const labelToKey = new Map(previewedItems.map((item) => [pickerLabel(item), item.key]));
 	const selected = await ctx.ui.select(`Select handoff on ${branch}`, [...labelToKey.keys()]);
 	if (selected === undefined) {
@@ -485,14 +489,14 @@ async function chooseHandoff(
 }
 
 async function previewHandoffItems(
-	pi: ExtensionAPI,
+	handoffContext: PiHandoffContext,
 	ctx: CommandContext,
 	items: HandoffListItem[],
 ): Promise<PreviewedHandoffListItem[]> {
 	const previewedItems: PreviewedHandoffListItem[] = [];
 	for (const item of items) {
 		try {
-			const artifact = await readHandoff(pi, ctx, item.branch, item.key);
+			const artifact = await readHandoff(handoffContext, ctx, item.branch, item.key);
 			previewedItems.push({ ...item, preview: deriveHandoffPreview(artifact) });
 		} catch {
 			previewedItems.push({ ...item, preview: "(preview unreadable)" });

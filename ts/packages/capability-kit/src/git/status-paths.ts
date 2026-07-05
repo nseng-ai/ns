@@ -1,44 +1,53 @@
 import type { GitResult, GitStatusPathFacts } from "./contract.ts";
 
 export function parseGitStatusPaths(rawStatus: string): GitResult<GitStatusPathFacts> {
-	const changedPaths: string[] = [];
-	const changedSeen = new Set<string>();
 	const records = rawStatus.split("\0");
-	for (let index = 0; index < records.length; index += 1) {
-		const record = records[index] ?? "";
-		if (record === "") continue;
+	return collectGitStatusPaths(records, (record, index) => {
 		const parsed = parsePrimaryRecord(record);
-		if (!parsed.ok) return malformedRecord(record);
-		if (parsed.isRenameOrCopy) {
-			index += 1;
-			const sourcePath = records[index];
-			if (sourcePath === undefined || sourcePath === "") return malformedRecord(record);
-		}
-		pushUnique(changedPaths, changedSeen, parsed.path);
-	}
-	return { ok: true, value: { changedPaths } };
+		if (!parsed.ok) return { ok: false };
+		if (!parsed.isRenameOrCopy) return { ok: true, paths: [parsed.path] };
+		const sourcePath = records[index + 1];
+		if (sourcePath === undefined || sourcePath === "") return { ok: false };
+		return { ok: true, paths: [parsed.path], consumedRecords: 1 };
+	});
 }
 
 export function parseGitNameStatusPaths(rawStatus: string): GitResult<GitStatusPathFacts> {
-	const changedPaths: string[] = [];
-	const changedSeen = new Set<string>();
-	for (const line of rawStatus.split(/\r?\n/)) {
-		const trimmedLine = line.trimEnd();
-		if (trimmedLine === "") continue;
-		const fields = trimmedLine.split("\t");
+	const records = rawStatus.split(/\r?\n/).map((line) => line.trimEnd());
+	return collectGitStatusPaths(records, (record) => {
+		const fields = record.split("\t");
 		const status = fields[0] ?? "";
-		if (status === "") return malformedRecord(trimmedLine);
+		if (status === "") return { ok: false };
 		if (status.startsWith("R") || status.startsWith("C")) {
 			const paths = fields.slice(1).filter(Boolean);
-			if (paths.length < 2) return malformedRecord(trimmedLine);
-			for (const path of paths) {
-				pushUnique(changedPaths, changedSeen, path);
-			}
-			continue;
+			if (paths.length < 2) return { ok: false };
+			return { ok: true, paths };
 		}
 		const path = fields[1];
-		if (path === undefined || path === "") return malformedRecord(trimmedLine);
-		pushUnique(changedPaths, changedSeen, path);
+		if (path === undefined || path === "") return { ok: false };
+		return { ok: true, paths: [path] };
+	});
+}
+
+type GitStatusRecordExtraction =
+	| { ok: true; paths: readonly string[]; consumedRecords?: number }
+	| { ok: false };
+
+function collectGitStatusPaths(
+	records: readonly string[],
+	extractRecord: (record: string, index: number) => GitStatusRecordExtraction,
+): GitResult<GitStatusPathFacts> {
+	const changedPaths: string[] = [];
+	const changedSeen = new Set<string>();
+	for (let index = 0; index < records.length; index += 1) {
+		const record = records[index] ?? "";
+		if (record === "") continue;
+		const extracted = extractRecord(record, index);
+		if (!extracted.ok) return malformedRecord(record);
+		for (const path of extracted.paths) {
+			pushUnique(changedPaths, changedSeen, path);
+		}
+		index += extracted.consumedRecords ?? 0;
 	}
 	return { ok: true, value: { changedPaths } };
 }

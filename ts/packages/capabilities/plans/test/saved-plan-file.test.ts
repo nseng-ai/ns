@@ -2,22 +2,12 @@ import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
 import type {
-	GitBranchParams,
-	GitBranchPresenceResult,
-	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
-	GitGateway,
-	GitLocalBranchTip,
-	GitOperationResult,
 	GitOptionalResult,
-	GitPathParams,
-	GitRefsPathParams,
 	GitResult,
-	GitRevisionRangePathParams,
-	GitStagePathsParams,
-	GitStatusPathFacts,
 } from "@nseng-ai/capability-kit/git";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
@@ -251,123 +241,35 @@ interface FakeGitOptions {
 	origin?: FakeOriginUrl;
 }
 
-class FakeGitGateway implements GitGateway {
+class FakeGitGateway extends InMemoryGitGateway {
 	readonly calls: string[] = [];
-	private readonly repoRootValue: string;
-	private readonly currentBranchValue: FakeCurrentBranch;
-	private readonly originUrlValue: FakeOriginUrl;
-
 	constructor(options: FakeGitOptions = {}) {
-		this.repoRootValue = options.repoRoot ?? ROOT;
-		this.currentBranchValue = options.currentBranch ?? fakeCurrentBranch("main");
-		this.originUrlValue = options.origin ?? fakeOriginUrl("git@github.com:owner/repo.git");
+		super({
+			repoRoot: options.repoRoot ?? ROOT,
+			currentBranch:
+				options.currentBranch?.type === "detached"
+					? { type: "detached" }
+					: (options.currentBranch?.branch ?? "main"),
+			originUrl:
+				options.origin?.type === "missing"
+					? { type: "missing" }
+					: (options.origin?.url ?? "git@github.com:owner/repo.git"),
+		});
 	}
 
-	async repoRoot(_params: GitCwdParams): Promise<GitResult<string>> {
+	override async repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
 		this.calls.push("repoRoot");
-		return { ok: true, value: this.repoRootValue };
+		return await super.repoRoot(params);
 	}
 
-	async optionalRepoRoot(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		this.calls.push("optionalRepoRoot");
-		return { type: "found", value: this.repoRootValue };
-	}
-
-	async currentBranch(_params: GitCwdParams): Promise<GitCurrentBranchResult> {
+	override async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		this.calls.push("currentBranch");
-		if (this.currentBranchValue.type === "detached") return { type: "detached" };
-		return { type: "branch", branch: this.currentBranchValue.branch };
+		return await super.currentBranch(params);
 	}
 
-	async isInsideWorkTree(_params: GitCwdParams): Promise<GitResult<boolean>> {
-		this.calls.push("isInsideWorkTree");
-		return { ok: true, value: true };
-	}
-
-	async trunkBranch(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		this.calls.push("trunkBranch");
-		return { type: "missing" };
-	}
-
-	async originUrl(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
+	override async originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		this.calls.push("originUrl");
-		if (this.originUrlValue.type === "missing") {
-			return { type: "missing" };
-		}
-		return { type: "found", value: this.originUrlValue.url };
-	}
-
-	async headCommit(_params: GitCwdParams): Promise<GitResult<string>> {
-		this.calls.push("headCommit");
-		return { ok: true, value: "abc123" };
-	}
-
-	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
-		this.calls.push("gitPath");
-		return { ok: true, value: `${this.repoRootValue}/.git/${params.relativePath}` };
-	}
-
-	async validateBranchRef(_params: GitBranchParams): Promise<GitOperationResult> {
-		this.calls.push("validateBranchRef");
-		return { ok: true };
-	}
-
-	async localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult> {
-		this.calls.push("localBranchPresence");
-		return { type: "absent", refName: `refs/heads/${params.branch}` };
-	}
-
-	async createBranchAtHead(_params: GitBranchParams): Promise<GitOperationResult> {
-		this.calls.push("createBranchAtHead");
-		return { ok: true };
-	}
-
-	async hasUncommittedChangesUnder(_params: GitPathParams): Promise<GitResult<boolean>> {
-		this.calls.push("hasUncommittedChangesUnder");
-		return { ok: true, value: false };
-	}
-
-	async listLocalBranchTips(
-		_params: GitCwdParams,
-	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
-		this.calls.push("listLocalBranchTips");
-		return { ok: true, value: [] };
-	}
-
-	async treeOidsAtRefs(
-		params: GitRefsPathParams,
-	): Promise<GitResult<Readonly<Record<string, string | null>>>> {
-		this.calls.push("treeOidsAtRefs");
-		return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
-	}
-
-	async changedPathsUnder(
-		_params: GitRevisionRangePathParams,
-	): Promise<GitResult<readonly string[]>> {
-		this.calls.push("changedPathsUnder");
-		return { ok: true, value: [] };
-	}
-
-	async changedPathsUnderWithRenames(
-		_params: GitRevisionRangePathParams,
-	): Promise<GitResult<readonly string[]>> {
-		this.calls.push("changedPathsUnderWithRenames");
-		return { ok: true, value: [] };
-	}
-
-	async statusPaths(_params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
-		this.calls.push("statusPaths");
-		return { ok: true, value: { changedPaths: [] } };
-	}
-
-	async stagePaths(_params: GitStagePathsParams): Promise<GitOperationResult> {
-		this.calls.push("stagePaths");
-		return { ok: true };
-	}
-
-	async commit(_params: GitCommitParams): Promise<GitResult<string>> {
-		this.calls.push("commit");
-		return { ok: true, value: "abc123" };
+		return await super.originUrl(params);
 	}
 }
 
