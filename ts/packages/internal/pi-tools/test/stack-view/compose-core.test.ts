@@ -387,13 +387,25 @@ describe("buildComposeSystemPrompt", () => {
 		expect(prompt).toContain(`(+${comments.length - COMPOSE_MAX_THREAD_COMMENTS} more comments)`);
 	});
 
-	test("over-long comment bodies are truncated with an ellipsis", () => {
+	test("over-long comment bodies are truncated marker-inclusive at the cap", () => {
 		const body = "x".repeat(COMPOSE_COMMENT_BODY_MAX_CHARS + 50);
 		const thread = threadFixture({ comments: [commentFixture({ body })] });
 		const pr = prFixture({ threads: { resolved: 0, total: 1 }, unresolvedThreads: [thread] });
 		const prompt = buildComposeSystemPrompt({ model: modelFixture([pr]), enrichment: new Map() });
-		expect(prompt).toContain(`${"x".repeat(COMPOSE_COMMENT_BODY_MAX_CHARS)}…`);
-		expect(prompt).not.toContain("x".repeat(COMPOSE_COMMENT_BODY_MAX_CHARS + 1));
+		// The cap is marker-inclusive: the truncated line (body chars + the single
+		// ellipsis) totals at most COMPOSE_COMMENT_BODY_MAX_CHARS, so exactly cap-1
+		// body chars survive ahead of the marker.
+		expect(prompt).toContain(`${"x".repeat(COMPOSE_COMMENT_BODY_MAX_CHARS - 1)}…`);
+		expect(prompt).not.toContain("x".repeat(COMPOSE_COMMENT_BODY_MAX_CHARS));
+	});
+
+	test("a comment body exactly at the cap passes through untruncated", () => {
+		const body = "y".repeat(COMPOSE_COMMENT_BODY_MAX_CHARS);
+		const thread = threadFixture({ comments: [commentFixture({ body })] });
+		const pr = prFixture({ threads: { resolved: 0, total: 1 }, unresolvedThreads: [thread] });
+		const prompt = buildComposeSystemPrompt({ model: modelFixture([pr]), enrichment: new Map() });
+		expect(prompt).toContain(body);
+		expect(prompt).not.toContain("…");
 	});
 
 	test("pending checks and objectives are listed", () => {

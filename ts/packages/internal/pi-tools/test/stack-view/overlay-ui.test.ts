@@ -835,12 +835,12 @@ describe("StackViewOverlay compose mode", () => {
 	test("Esc returns to browse and re-entering compose reuses the same port", () => {
 		const harness = newComposeView();
 		harness.view.handleInput?.("p");
-		expect(harness.createPortCalls()).toBe(1);
+		expect(harness.getPortCalls()).toBe(1);
 		harness.view.handleInput?.(ESC);
 		expect(harness.view.render(120).join("\n")).not.toContain("compose ·");
 		harness.view.handleInput?.("p");
 		expect(harness.view.render(120).join("\n")).toContain("compose ·");
-		expect(harness.createPortCalls()).toBe(1);
+		expect(harness.getPortCalls()).toBe(1);
 	});
 
 	test("Ctrl+Y with a non-empty draft settles compose-inject", () => {
@@ -912,22 +912,20 @@ interface ComposeHarness {
 	view: StackViewOverlay;
 	fake: FakeComposePort;
 	settled: StackViewUiResult[];
-	createPortCalls: () => number;
+	getPortCalls: () => number;
 	fireOnChange: () => void;
 	tui: { renders: () => number };
 }
 
-/** Build an overlay wired to a fake compose port, capturing the createPort onChange. */
+/** Build an overlay wired to a fake compose port; the overlay attaches its own onChange listener. */
 function newComposeView(options: { withCompose?: boolean; rows?: number } = {}): ComposeHarness {
 	const fake = createFakeComposePort();
 	const settled: StackViewUiResult[] = [];
 	const recording = recordingTui(options.rows ?? 30);
-	let createPortCalls = 0;
-	let capturedOnChange: () => void = () => {};
+	let getPortCalls = 0;
 	const compose: StackViewComposeOption = {
-		createPort: (onChange) => {
-			createPortCalls += 1;
-			capturedOnChange = onChange;
+		getPort: () => {
+			getPortCalls += 1;
 			return fake.port;
 		},
 	};
@@ -943,8 +941,8 @@ function newComposeView(options: { withCompose?: boolean; rows?: number } = {}):
 		view,
 		fake,
 		settled,
-		createPortCalls: () => createPortCalls,
-		fireOnChange: () => capturedOnChange(),
+		getPortCalls: () => getPortCalls,
+		fireOnChange: () => fake.fireOnChange(),
 		tui: { renders: recording.renders },
 	};
 }

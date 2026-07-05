@@ -254,7 +254,7 @@ interface Harness {
 
 function createHarness(
 	options: {
-		model?: Model<Api> | undefined;
+		model?: Model<Api>;
 		factory?: FakeComposeSessionFactory;
 		enrichment?: FakeEnrichmentPort;
 	} = {},
@@ -264,14 +264,14 @@ function createHarness(
 	let changes = 0;
 	const controller = new ComposeController({
 		cwd: "/repo",
-		model: "model" in options ? options.model : TEST_MODEL,
+		model: options.model ?? TEST_MODEL,
 		modelRegistry: createTestModelRegistry(),
 		stackModel: makeStackModel(),
 		enrichment,
 		factory,
-		onChange: () => {
-			changes += 1;
-		},
+	});
+	controller.onChange(() => {
+		changes += 1;
 	});
 	return { controller, factory, enrichment, changeCount: () => changes };
 }
@@ -325,17 +325,22 @@ describe("compose controller", () => {
 		await send;
 	});
 
-	test("undefined model is sticky-unavailable and never spawns", async () => {
-		const factory = new FakeComposeSessionFactory();
-		const enrichment = new FakeEnrichmentPort();
-		const { controller } = createHarness({ model: undefined, factory, enrichment });
+	test("onChange listeners stop receiving notifications after unsubscribe", async () => {
+		const { controller } = createHarness();
+		let calls = 0;
+		const unsubscribe = controller.onChange(() => {
+			calls += 1;
+		});
 
-		expect(controller.unavailableReason).toBe("no model selected in this session");
-		await controller.send("hello");
+		await controller.send("first");
+		expect(calls).toBeGreaterThan(0);
 
-		expect(controller.transcript.entries).toEqual([]);
-		expect(factory.createCalls).toHaveLength(0);
-		expect(enrichment.ensureAllCalls).toHaveLength(0);
+		const afterFirst = calls;
+		unsubscribe();
+
+		// A further transition must not reach the detached listener.
+		await controller.send("second");
+		expect(calls).toBe(afterFirst);
 	});
 
 	test("spawn failure is sticky and does not retry the factory", async () => {
