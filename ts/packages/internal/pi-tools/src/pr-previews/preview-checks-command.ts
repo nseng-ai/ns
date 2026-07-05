@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-	PrPreviewChecksView,
-	type PrPreviewCheckLogLoadOptions,
-} from "./preview-checks-view.ts";
+import { PrPreviewChecksView, type PrPreviewCheckLogLoadOptions } from "./preview-checks-view.ts";
 import { loadCheckLogs } from "./preview-check-logs.ts";
 import {
 	aggregatePreviewChecksCounts,
@@ -212,7 +209,7 @@ async function loadSinglePreviewChecksViewModel(
 	if (data.type === "error") return data;
 	const target = previewTargetFromData(
 		data.value.target,
-		options.knownPrNumber === undefined ? {} : { prNumber: options.knownPrNumber },
+		options.knownPrNumber === undefined ? {} : { pr_number: options.knownPrNumber },
 	);
 	if (!data.value.found) {
 		return {
@@ -341,7 +338,7 @@ function buildPreviewChecksStackEntry(
 	fallback: PrPreviewChecksTarget,
 ): PrPreviewChecksStackEntry {
 	return {
-		target: mergeTargetWithFallback(data.target, fallback),
+		target: previewTargetFromData(data.target, fallback),
 		counts: checksCounts(data),
 		checks: sortPreviewChecks(data.checks),
 	};
@@ -355,35 +352,22 @@ function unmappedStackEntry(branch: string): PrPreviewChecksStackEntry {
 	};
 }
 
-function mergeTargetWithFallback(
-	target: PreviewChecksTargetData,
-	fallback: PrPreviewChecksTarget,
-): PrPreviewChecksTarget {
-	const normalized = previewTargetFromData(target);
-	return previewTargetFromData({
-		pr_number: normalized.pr_number ?? fallback.pr_number,
-		title: normalized.title ?? fallback.title,
-		url: normalized.url ?? fallback.url,
-		branch: normalized.branch ?? fallback.branch,
-		head_ref_name: normalized.head_ref_name ?? fallback.head_ref_name,
-		base_ref_name: normalized.base_ref_name ?? fallback.base_ref_name,
-		head_ref_oid: normalized.head_ref_oid ?? fallback.head_ref_oid,
-	});
-}
-
 function fallbackTargetFromPreviewData(
 	data: PreviewChecksData,
 	target: PrPreviewChecksTarget,
 ): PrPreviewChecksTarget {
 	const branch = effectiveBranch(target) ?? "";
-	return previewTargetFromData(target, {
-		...(target.pr_number === null ? {} : { prNumber: target.pr_number }),
-		title: target.title ?? "(untitled)",
-		url: target.url ?? "",
-		branch,
-		head_ref_name: branch,
-		base_ref_name: data.target.base_ref_name ?? "",
-	});
+	return previewTargetFromData(
+		{ ...target, branch },
+		{
+			...(target.pr_number === null ? {} : { pr_number: target.pr_number }),
+			title: "(untitled)",
+			url: "",
+			branch,
+			head_ref_name: branch,
+			base_ref_name: data.target.base_ref_name ?? "",
+		},
+	);
 }
 
 function fallbackTargetForUnmappedBranch(branch: string): PrPreviewChecksTarget {
@@ -396,23 +380,19 @@ function fallbackTargetForUnmappedBranch(branch: string): PrPreviewChecksTarget 
 
 function previewTargetFromData(
 	target: Partial<PrPreviewChecksTarget> | PreviewChecksTargetData,
-	overrides: Partial<Omit<PrPreviewChecksTarget, "pr_number">> & { prNumber?: number } = {},
+	fallback: Partial<PrPreviewChecksTarget> = {},
 ): PrPreviewChecksTarget {
-	const withOverrides = {
-		...EMPTY_PREVIEW_TARGET,
-		...target,
-		...overrides,
-		pr_number: target.pr_number ?? overrides.prNumber ?? null,
-	};
-	return {
-		pr_number: withOverrides.pr_number ?? null,
-		title: withOverrides.title ?? null,
-		url: withOverrides.url ?? null,
-		branch: withOverrides.branch ?? null,
-		head_ref_name: withOverrides.head_ref_name ?? null,
-		base_ref_name: withOverrides.base_ref_name ?? null,
-		head_ref_oid: withOverrides.head_ref_oid ?? null,
-	};
+	const withFallbacks: PrPreviewChecksTarget = { ...EMPTY_PREVIEW_TARGET };
+	Object.assign(withFallbacks, presentEntries(fallback), presentEntries(target));
+	return withFallbacks;
+}
+
+function presentEntries<T extends object>(value: T): Partial<T> {
+	return Object.fromEntries(
+		Object.entries(value).filter(
+			([, entryValue]) => entryValue !== undefined && entryValue !== null,
+		),
+	) as Partial<T>;
 }
 
 function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksCounts {

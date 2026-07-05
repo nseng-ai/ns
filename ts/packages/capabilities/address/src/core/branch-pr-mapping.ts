@@ -31,10 +31,10 @@ export interface BranchPrMapping {
 }
 
 export interface BranchPrMappingSummaryInput {
-	requestedBranches: readonly string[];
-	matchedEntries: readonly unknown[];
-	missingBranches: readonly string[];
-	ambiguousBranches: readonly unknown[];
+	requested: number;
+	matched: number;
+	missing: number;
+	ambiguous: number;
 }
 
 export interface BranchPrMappingGaps {
@@ -90,10 +90,10 @@ export async function mapBranchesToOpenPrs(
 			missingBranches,
 			ambiguousBranches,
 			summary: branchPrMappingSummary({
-				requestedBranches: options.branches,
-				matchedEntries: branchPrs,
-				missingBranches,
-				ambiguousBranches,
+				requested: options.branches.length,
+				matched: branchPrs.length,
+				missing: missingBranches.length,
+				ambiguous: ambiguousBranches.length,
 			}),
 		},
 	};
@@ -115,12 +115,7 @@ export function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrMapp
 }
 
 export function branchPrMappingSummary(input: BranchPrMappingSummaryInput): BranchPrMappingSummary {
-	return {
-		requested: input.requestedBranches.length,
-		matched: input.matchedEntries.length,
-		missing: input.missingBranches.length,
-		ambiguous: input.ambiguousBranches.length,
-	};
+	return input;
 }
 
 export function hasBranchPrMappingGaps(gaps: BranchPrMappingGaps): boolean {

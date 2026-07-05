@@ -72,20 +72,15 @@ export async function collectBranchPrChecks(
 		};
 	}
 	const entries = outcomes.value.map(branchPrChecksEntry);
-	const foundEntries = entries.filter((entry) => entry.status === "found");
-	const missingBranches = entries
-		.filter((entry) => entry.status === "missing")
-		.map((entry) => entry.branch);
-	const ambiguousEntries = entries.filter((entry) => entry.status === "ambiguous");
 	return {
 		type: "ok",
 		collection: {
 			entries,
 			summary: branchPrMappingSummary({
-				requestedBranches: options.branches,
-				matchedEntries: foundEntries,
-				missingBranches,
-				ambiguousBranches: ambiguousEntries,
+				requested: options.branches.length,
+				matched: entries.filter((entry) => entry.status === "found").length,
+				missing: entries.filter((entry) => entry.status === "missing").length,
+				ambiguous: entries.filter((entry) => entry.status === "ambiguous").length,
 			}),
 		},
 	};

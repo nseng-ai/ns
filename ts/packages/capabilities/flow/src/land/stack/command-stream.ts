@@ -20,6 +20,7 @@ import {
 	type FlowLandExternalCallTelemetrySink,
 } from "./external-call-telemetry.ts";
 import type {
+	CommandInvocation,
 	CommandStreamMessageDetails,
 	CustomMessage,
 	LandStackExtensionAPI,
@@ -40,12 +41,6 @@ export interface FlowLandObservabilityChannels {
 	readonly progressIo?: NsCommandIo;
 	readonly liveProgress?: LandLiveProgressSink;
 	readonly externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
-}
-
-export interface LandStackCommandInvocation {
-	readonly command: string;
-	readonly args: readonly string[];
-	readonly display: string;
 }
 
 interface LandStackCommandStreamOptions {
@@ -121,7 +116,7 @@ export class LandStackCommandStream {
 		this.liveProgress?.(event);
 	}
 
-	start(invocation: LandStackCommandInvocation): void {
+	start(invocation: CommandInvocation): void {
 		this.commandStarts.set(invocation.display, {
 			startedAtMs: this.clock.nowMs(),
 			command: invocation.command,
@@ -135,10 +130,7 @@ export class LandStackCommandStream {
 		}
 	}
 
-	finish(
-		invocation: LandStackCommandInvocation,
-		finish: { result: ExecResult; note?: string },
-	): void {
+	finish(invocation: CommandInvocation, finish: { result: ExecResult; note?: string }): void {
 		const result = finish.result;
 		const icon = result.code === 0 ? "✓" : "✗";
 		const commandStart = this.takeCommandStart(invocation.display);
@@ -240,10 +232,7 @@ export function withCommandStreaming(
 	return wrapped;
 }
 
-function commandInvocationForDisplay(
-	command: string,
-	args: readonly string[],
-): LandStackCommandInvocation {
+function commandInvocationForDisplay(command: string, args: readonly string[]): CommandInvocation {
 	return {
 		command,
 		args: [...args],

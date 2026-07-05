@@ -7,7 +7,12 @@ import {
 } from "@ns/core/command";
 import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
-import type { CommandStreamFinish, LandStackExtensionAPI, FlowLandingPlan } from "./types.ts";
+import type {
+	CommandInvocation,
+	CommandStreamFinish,
+	LandStackExtensionAPI,
+	FlowLandingPlan,
+} from "./types.ts";
 
 const READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX = [
 	"flow",
@@ -74,15 +79,9 @@ export interface GraphiteCommandOptions<
 	timeoutMs: number;
 }
 
-export interface GraphiteCommandInvocation {
-	readonly command: string;
-	readonly args: readonly string[];
-	readonly display: string;
-}
-
 export interface GraphiteCommandStream {
-	start(invocation: GraphiteCommandInvocation): void;
-	finish(invocation: GraphiteCommandInvocation, finish: CommandStreamFinish): void;
+	start(invocation: CommandInvocation): void;
+	finish(invocation: CommandInvocation, finish: CommandStreamFinish): void;
 }
 
 const NOOP_GRAPHITE_COMMAND_STREAM: GraphiteCommandStream = {
@@ -436,7 +435,7 @@ async function runStandardGraphiteOperation(input: {
 async function withGraphiteCommandStream<T>(
 	input: WithGraphiteCommandStreamOptions<T>,
 ): Promise<T> {
-	const invocation: GraphiteCommandInvocation = {
+	const invocation: CommandInvocation = {
 		command: GRAPHITE_COMMAND_NAME,
 		args: input.commandOptions.args,
 		display: formatCommand(GRAPHITE_COMMAND_NAME, input.commandOptions.args),
