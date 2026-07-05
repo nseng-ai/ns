@@ -152,11 +152,11 @@ export function buildNewWorkspaceArgs(options: {
 		"--cwd",
 		options.worktreePath,
 		"--command",
-		buildJiccCmuxReportBootstrapCommand(),
+		buildNsccCmuxReportBootstrapCommand(),
 	];
 }
 
-export function buildJiccCmuxReportBootstrapCommand(
+export function buildNsccCmuxReportBootstrapCommand(
 	cliEntrypointPath: string = NSCC_CLI_ENTRYPOINT_PATH,
 ): string {
 	return `bun ${shellQuote(cliEntrypointPath)} cmux report || true; exec ${"${SHELL:-/bin/zsh}"} -l`;

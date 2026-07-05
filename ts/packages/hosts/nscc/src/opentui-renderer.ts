@@ -6,10 +6,10 @@ import {
 	type KeyEvent,
 } from "@opentui/core";
 
-import { buildHelloWorldModel, type JiccHelloWorldModel } from "./hello-world.ts";
+import { buildHelloWorldModel, type NsccHelloWorldModel } from "./hello-world.ts";
 
 export interface StartHelloWorldTuiOptions {
-	readonly model?: JiccHelloWorldModel;
+	readonly model?: NsccHelloWorldModel;
 }
 
 export async function startHelloWorldTui(options: StartHelloWorldTuiOptions = {}): Promise<void> {
@@ -38,7 +38,7 @@ export async function startHelloWorldTui(options: StartHelloWorldTuiOptions = {}
 	}
 }
 
-function mountHelloWorldScreen(renderer: CliRenderer, model: JiccHelloWorldModel): void {
+function mountHelloWorldScreen(renderer: CliRenderer, model: NsccHelloWorldModel): void {
 	const root = new BoxRenderable(renderer, {
 		id: "nscc-root",
 		width: "100%",
