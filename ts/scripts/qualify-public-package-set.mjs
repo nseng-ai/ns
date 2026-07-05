@@ -124,9 +124,11 @@ function buildPublishManifest(sourceManifest, manifestByName) {
 		...(sourceManifest.exports === undefined ? {} : { exports: sourceManifest.exports }),
 		dependencies: rewriteDependencyBlock(sourceManifest.dependencies ?? {}, manifestByName),
 	};
+	const optionalDependencies = rewriteDependencyBlock(sourceManifest.optionalDependencies ?? {}, manifestByName);
 	const peerDependencies = rewritePeerDependencyBlock(sourceManifest.peerDependencies ?? {}, manifestByName);
 	return {
 		...manifest,
+		...(Object.keys(optionalDependencies).length === 0 ? {} : { optionalDependencies }),
 		...(Object.keys(peerDependencies).length === 0 ? {} : { peerDependencies }),
 		...(sourceManifest.peerDependenciesMeta === undefined ? {} : { peerDependenciesMeta: sourceManifest.peerDependenciesMeta }),
 	};
@@ -161,7 +163,7 @@ function rewriteDependencySpecifier(name, specifier, manifestByName) {
 
 function assertPublishManifest(manifest) {
 	if (manifest.private !== undefined) throw new Error(`${manifest.name} publish manifest must not include private`);
-	for (const blockName of ["dependencies", "peerDependencies", "devDependencies"]) {
+	for (const blockName of ["dependencies", "optionalDependencies", "peerDependencies", "devDependencies"]) {
 		const block = manifest[blockName] ?? {};
 		for (const [name, specifier] of Object.entries(block)) {
 			if (excludedPackages.has(name) && !(blockName === "peerDependencies" && name === "@nseng-ai/pi")) {
