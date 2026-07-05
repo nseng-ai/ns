@@ -1,3 +1,4 @@
+import { optionalEntry } from "@ns/core/primitives";
 import type { PreinstalledNsCommandCatalogEntry } from "@ns/kernel/cli";
 
 import { objectiveRepoLocalNsExtension } from "./repo-local-ns-extension.ts";
@@ -9,7 +10,7 @@ export const objectivePreinstalledNsCommandCatalog = objectiveRepoLocalNsExtensi
 		name: descriptor.manifestName ?? descriptor.command.name,
 		description: descriptor.command.summary,
 		fullDescription: descriptor.command.description,
-		...(descriptor.manifestPath === undefined ? {} : { path: descriptor.manifestPath }),
+		...optionalEntry("path", descriptor.manifestPath),
 		moduleSpecifier: descriptor.packageExport,
 	}),
 ) satisfies readonly PreinstalledNsCommandCatalogEntry[];

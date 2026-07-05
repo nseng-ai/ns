@@ -24,8 +24,6 @@ import {
 import type { NsCommandModuleReference } from "./module-reference.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
-export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
-
 export interface DiscoveredExtensionCommand extends Pick<
 	NsCommandCandidate,
 	| "group"
@@ -38,7 +36,6 @@ export interface DiscoveredExtensionCommand extends Pick<
 > {
 	entryPath: string;
 	displayPath: string;
-	kind: DiscoveredExtensionCommandKind;
 	hasStaticCommandInfo: boolean;
 	moduleReference?: NsCommandModuleReference;
 }
@@ -157,7 +154,6 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 					diagnostics,
 					commandForDirectEntry({
 						rootDir,
-						kind: "file",
 						name: basename(entry.name, extname(entry.name)),
 						entryPath,
 					}),
@@ -182,7 +178,6 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 				diagnostics,
 				commandForDirectEntry({
 					rootDir,
-					kind: "dir-index",
 					name: entry.name,
 					entryPath: indexPath,
 				}),
@@ -382,7 +377,6 @@ function pushDirectEntryCommand(
 }
 
 function commandForDirectEntry(options: {
-	kind: "file" | "dir-index";
 	name: string;
 	entryPath: string;
 	rootDir: string;
@@ -476,7 +470,6 @@ function commandForManifestEntry(options: {
 	return {
 		ok: true,
 		command: {
-			kind: "package",
 			hasStaticCommandInfo: true,
 			...moduleReferenceForEntryPath(entryPath),
 			...(parsedEntry.entry.group === undefined ? {} : { group: parsedEntry.entry.group }),
@@ -731,14 +724,12 @@ function readNonEmptyString(value: unknown): string | undefined {
 }
 
 function buildCommand(options: {
-	kind: "file" | "dir-index";
 	name: string;
 	entryPath: string;
 	rootDir: string;
 }): DiscoveredExtensionCommand {
 	const description = `Run ns command entry '${options.name}'.`;
 	return {
-		kind: options.kind,
 		hasStaticCommandInfo: false,
 		...moduleReferenceForEntryPath(options.entryPath),
 		name: options.name,

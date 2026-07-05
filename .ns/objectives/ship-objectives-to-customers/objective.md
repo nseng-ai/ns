@@ -68,8 +68,8 @@ Assumptions:
 
 Risks:
 
-- The checkout-free npm bundle is the long pole. Its owner (`checkout-free-sdl-distribution`) has decided its bundle strategy but the substantive publishing work (un-`private`-ing `@ji/kernel` and deps, replacing the source-path loader, producing a real bundle) has not started. Every prior capability accepted the run-from-source shim and deferred publishing, so the work may be larger than it looks. Not de-risked; external shipping stalls until it lands.
-- Objective may carry hidden checkout / `ts/node_modules` assumptions: the CLI loads `@ji/objective` by source path via the kernel module loader, and the skills depend on a hidden `exec` surface. A checkout-free bundle must include the objective package and that surface. Not de-risked.
+- The checkout-free npm bundle is the long pole. Its owner (`checkout-free-sdl-distribution`) has decided its bundle strategy and runtime package triage, and loader/catalog prep has started reducing the Objective discovery source-path assumption. The publishable package/build/shim/no-checkout verification work remains unfinished, so external shipping still stalls until it lands.
+- Objective may carry hidden checkout / `ts/node_modules` assumptions: the CLI loads the objective capability and hidden `exec` surface through kernel extension discovery. Preinstalled Objective command metadata and local build prep have partially de-risked first-party Objective discovery, but a checkout-free built/published artifact with skills included remains unverified.
 - Writing into a customer's `AGENTS.md` risks clobbering their content; needs a safe managed-block design. Mitigable.
 - Codex cannot make explicit-only skills zero-ambient, so objective skills always cost context on Codex. Acceptable, but must be documented.
 - Coordinating across three in-flight dependency Objectives risks sequencing stalls; mitigate by treating them as dependencies with explicit interface expectations rather than blocking work.
