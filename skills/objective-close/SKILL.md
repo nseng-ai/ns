@@ -18,7 +18,7 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
 
 1. Run `ns objective exec read-objective <slug> --format md` to load the selected record's raw Markdown and closed state.
 2. If already closed, stop unless the user explicitly asks to amend closure context.
-3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale.
+3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale. For an Umbrella Objective (see the `objective` skill's Objective patterns reference), closure additionally requires each Child Objective closed or explicitly parked, with cross-child lessons and synthesized closure evidence recorded in the parent.
 4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
 5. When material PR evidence supports the completed or abandoned outcome, summarize it in `## Closure` with PR numbers and Objective impact. Use the shared Objective PR evidence bullet convention when a list is clearer than prose:
 
@@ -47,6 +47,7 @@ Do not create a duplicate Semantic Update solely for closure. Create one only wh
 - Objective selection is ambiguous or absent.
 - Required Objective files are missing.
 - The closure outcome or rationale is unclear.
+- The record is an Umbrella Objective with Child Objectives still open that the user has not explicitly parked and synthesized.
 - The Objective is already closed and the user did not ask to amend closure context.
 - The user asks to delete, move, or reopen the Objective as part of close; for retirement from active discovery, redirect per the Workflow's archive rule (step 9).
 

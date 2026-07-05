@@ -58,6 +58,8 @@ A `blocked:` sentence in Record Frontmatter means the record is blocked — a su
 
 After selecting and reading the Objective, if the user asks to execute/advance/run work, gives a clear affirmative confirmation to a current-session recommendation, or if the selected Objective/roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose, read `references/confirmed-execution.md` before interpreting execution basis or offering/running execution.
 
+If the selected Objective is an ideation record — its roadmap is a Frontier of typed Question Rows rather than executable slices — read the `objective` skill's Objective patterns reference (`references/objective-patterns.md`).
+
 Normal next-work recommendations do not require loading confirmed-execution guidance.
 
 ## Recommendation-continuation execution
@@ -81,7 +83,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 3. Apply the Tracking Gate by running `ns objective exec tracking-gate <slug> --format json`. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence and a fresh tracking-gate run. If the gate is ambiguous and the user confirms update-and-continue, do the same.
 4. Load conditional references only when their routing conditions apply.
 5. If Record Frontmatter carries a `blocked:` sentence, apply the Blocked Objectives guidance: traverse the record's edges to find the counterpart Objective that would unblock it, if one exists, and let that shape the recommendation.
-6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
+6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks. On an ideation Objective, recommend from the **Frontier**: one open, unblocked Question Row (rows are unordered beyond blocking; resolve one per session). If the Frontier is empty and only ordinary execution rows remain, say the record has **crystallized** and recommend ordinary execution work instead.
 7. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
 8. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
 9. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.

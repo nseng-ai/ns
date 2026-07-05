@@ -25,10 +25,12 @@ New records live in the active root only:
 - `## Assumptions and Risks` must distinguish assumptions from risks, with enough context for a future `objective-update` to mark an assumption incorrect, a risk de-risked or not, or add newly discovered ones.
 - Default to planning-only: execution-policy sections are never mandatory and appear only when the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point. When they apply, read `references/execution-friendly-create.md` before asking policy questions.
 - For a standing / ongoing / no-natural-finish-line Objective, load the `objective` skill's standing Objectives reference before drafting completion criteria and roadmap.
+- When the user names an Objective pattern (umbrella, ideation, orienting, autoobjective) or the record's shape is ambiguous, load the `objective` skill's Objective patterns reference (`references/objective-patterns.md`) before drafting.
 
 `roadmap.md` uses the umbrella skill's required headings and statuses.
 
 - Every initial row is substantive semantic work, sized per the umbrella skill's roadmap rules — a broad mechanical change can be one row when it implements one clear decision; a small mixed change may need several.
+- **Ideation Objectives invert the row rule.** Settle the **Destination** (thesis, completion criteria) first — it shapes what every question asks — then chart breadth-first: the initial roadmap is a **Frontier** of **Question Rows**, each an open decision or investigation typed `grilling` / `research` / `prototype` / `task`, sized to one agent session, with explicit blocked-by references to other rows and no ordering beyond blocking. Questions too coarse to state precisely stay as **Fog** — a marked cluster under `## Open Questions`, never pre-sliced into rows (the test: can the question be stated precisely now — not answered).
 - No routine validation-only row (`run just`, `run tests`, `wait for CI`, `full repo validation`) unless validation/test/CI behavior is itself in scope. When validation surfaces as a branch point in the interview, steer it into completion evidence under a semantic row — e.g. an indented `Evidence: targeted tests and relevant repo checks passed` — never a standalone final row.
 - Rows may carry indented prose guidance when needed; it is prose, not machine state.
 
