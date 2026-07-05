@@ -24,6 +24,9 @@
     excluded host/internal packages are `@nseng-ai/pi`, `@nseng-ai/pi-command-surfaces`,
     `nscc`, `@internal/pi-tools`, and non-runtime internal tooling
     `@internal/typescript-style-guard`.
+  - Current `@nseng-ai/kernel` packaging evidence: PR #2981 keeps the standalone
+    workspace package private but publishes its public runtime/API surfaces through
+    bundled `@nseng-ai/ns/kernel/*` subpaths in the generated `@nseng-ai/ns` package.
 - [~] Replace the source-path module loader
   (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@nseng-ai/objectives` + its hidden
   `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
@@ -44,7 +47,9 @@
   - Current evidence: `@nseng-ai/ns` builds a local esbuild bundle and `pack:local`
     assembles an `@nseng-ai/ns` tarball whose `ns` bin runs `ns objective list` from a
     foreign temp repo after `npm install <tarball>`; `publish:dry-run` now verifies the
-    same generated package root with `npm publish --dry-run`.
+    same generated package root with `npm publish --dry-run` when the package version is
+    unpublished. The packed checkout-free smoke also verifies `@nseng-ai/ns/kernel/sdk`
+    imports from the installed tarball.
 - [x] Replace or retire the checkout-dependent shims for the published package boundary
       (legacy source shim paths such as pnpm `.bin` `NODE_PATH` assumptions and
       `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`).
