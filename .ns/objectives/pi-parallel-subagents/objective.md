@@ -138,5 +138,8 @@ Risks:
   adapters).
 - Whether `/investigate` (in-process today, with a recorded parity gap vs Claude Code's
   out-of-process investigator) should migrate onto the explore substrate.
-- The exact package boundary for `ns-pi-subagents`: whether it remains an ns-internal
-  workspace package first or is prepared for external distribution immediately.
+- ~~The exact package boundary for `ns-pi-subagents`: whether it remains an ns-internal
+  workspace package first or is prepared for external distribution immediately.~~
+  Resolved 2026-07-05: ship as a private ns workspace Pi extension package first;
+  external distribution still requires extracting or bundling the internal
+  runner-subagent substrate (`updates/2026-07-05-ns-pi-subagents-package-created.md`).
