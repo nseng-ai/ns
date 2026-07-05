@@ -61,8 +61,14 @@
   - Evidence: `@nseng-ai/ns@0.1.0` exists on npm, and a registry-backed `npx`
     install from a throwaway foreign git repo ran `ns objective list` plus the hidden
     `ns objective exec tracking-gate` surface without an ns checkout.
+  - This is first-publish evidence, not the Objective's final closure state.
+- [ ] Publish and verify every workspace package intended to be public/standalone.
+  - Evidence: the final intended-public package set is recorded, each package in that set
+    exists on the npm registry under `@nseng-ai/*` with expected version/bin/exports where
+    applicable, install or `npm view` evidence is recorded, and private/internal/excluded
+    packages are deliberately not treated as missing work.
 
 ## Parked
 
-- [ ] Release automation / CI for the published package (manual first publish is enough).
-- [ ] Publishing capability surfaces beyond what objective onboarding needs.
+- [ ] Release automation / CI for the published packages; manual publishes are enough for
+      this Objective's package-set completion.
