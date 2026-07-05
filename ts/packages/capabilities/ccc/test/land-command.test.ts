@@ -443,14 +443,29 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			`+${FLOW_LAND_BACKUP_REF_NAMESPACE}/*:${FLOW_LAND_BACKUP_PREV_REF_NAMESPACE}/*`,
 		]),
 		step("git", ["for-each-ref", "--format=%(refname)", FLOW_LAND_BACKUP_REF_NAMESPACE]),
-		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
-			stdout: `${SHA_CURRENT}\n`,
-		}),
-		step("git", ["update-ref", `${FLOW_LAND_BACKUP_REF_NAMESPACE}/${CURRENT}`, SHA_CURRENT]),
-		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
-			stdout: `${SHA_CHILD}\n`,
-		}),
-		step("git", ["update-ref", `${FLOW_LAND_BACKUP_REF_NAMESPACE}/${CHILD_BRANCH}`, SHA_CHILD]),
+		step(
+			"git",
+			[
+				"for-each-ref",
+				"--format=%(refname)%09%(objectname)",
+				`refs/heads/${CURRENT}`,
+				`refs/heads/${CHILD_BRANCH}`,
+			],
+			{
+				stdout: [
+					`refs/heads/${CURRENT}\t${SHA_CURRENT}`,
+					`refs/heads/${CHILD_BRANCH}\t${SHA_CHILD}`,
+				].join("\n"),
+			},
+		),
+		step("git", [
+			"fetch",
+			"--quiet",
+			"--no-tags",
+			".",
+			`+${SHA_CURRENT}:${FLOW_LAND_BACKUP_REF_NAMESPACE}/${CURRENT}`,
+			`+${SHA_CHILD}:${FLOW_LAND_BACKUP_REF_NAMESPACE}/${CHILD_BRANCH}`,
+		]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
 			stdout: `${SHA_CURRENT}\n`,
 		}),

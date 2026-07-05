@@ -463,41 +463,110 @@ async function snapshotBackupRefs(
 	});
 	if (pruneCurrent !== undefined) return landFailure(pruneCurrent);
 
+	const shas = await loadBackupSnapshotShas(options);
+	if (shas.type === "failure") return shas;
+
+	const written = await writeBackupSnapshotRefs({ ...options, shas: shas.value });
+	if (written !== undefined) return landFailure(written);
+	return shas;
+}
+
+async function loadBackupSnapshotShas(
+	options: SnapshotBackupRefsOptions,
+): Promise<LandResult<ReadonlyMap<string, string>>> {
+	const refs = options.branches.map(localBranchRef);
+	const args = ["for-each-ref", "--format=%(refname)%09%(objectname)", ...refs];
+	const listed = await exec({
+		pi: options.pi,
+		command: "git",
+		args,
+		cwd: options.repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
+	const commandDisplay = formatCommand("git", args);
+	if (listed.code !== 0) {
+		return landFailure({
+			type: "boundary",
+			phase: "merge",
+			source: "git",
+			code: "backup_ref_snapshot_list_failed",
+			message: `Could not list local branch SHAs for pre-land backup refs; no PRs were landed.\n${formatCommandDetails(listed, commandDisplay)}`,
+			displayCommand: commandDisplay,
+		});
+	}
+
+	const shasByRef = parseBackupSnapshotShaRows(listed.stdout);
+	if (shasByRef.type === "failure") {
+		return landFailure({
+			type: "boundary",
+			phase: "merge",
+			source: "git",
+			code: "backup_ref_snapshot_parse_failed",
+			message: `Could not parse local branch SHAs for pre-land backup refs; no PRs were landed.\n${shasByRef.failure.message}`,
+			displayCommand: commandDisplay,
+		});
+	}
+
 	const shas = new Map<string, string>();
 	for (const branch of options.branches) {
-		const sha = await loadLocalSha(options.pi, options.repoRoot, branch);
-		if (sha.type === "failure") {
+		const ref = localBranchRef(branch);
+		const sha = shasByRef.value.get(ref);
+		if (sha === undefined) {
 			return landFailure({
 				type: "boundary",
 				phase: "merge",
 				source: "git",
 				code: "backup_ref_snapshot_branch_failed",
-				message: `Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${sha.failure.message}`,
-			});
-		}
-		const ref = `${BACKUP_REF_NAMESPACE}/${branch}`;
-		const args = ["update-ref", ref, sha.value];
-		const updated = await exec({
-			pi: options.pi,
-			command: "git",
-			args,
-			cwd: options.repoRoot,
-			timeoutMs: GIT_TIMEOUT_MS,
-		});
-		if (updated.code !== 0) {
-			const commandDisplay = formatCommand("git", args);
-			return landFailure({
-				type: "boundary",
-				phase: "merge",
-				source: "git",
-				code: "backup_ref_write_failed",
-				message: `Could not write pre-land backup ref ${ref}; no PRs were landed.\n${formatCommandDetails(updated, commandDisplay)}`,
+				message: `Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${commandDisplay} did not return ${ref}.`,
 				displayCommand: commandDisplay,
 			});
 		}
-		shas.set(branch, sha.value);
+		shas.set(branch, sha);
 	}
 	return landSuccess(shas);
+}
+
+function parseBackupSnapshotShaRows(stdout: string): LandStackResult<ReadonlyMap<string, string>> {
+	const shas = new Map<string, string>();
+	for (const line of stdout.split(/\r?\n/).filter(Boolean)) {
+		const [ref, sha, extra] = line.split("\t");
+		if (!ref || !sha || extra !== undefined) {
+			return failure(landStackFailure(`Malformed git for-each-ref row: ${line}`));
+		}
+		shas.set(ref, sha);
+	}
+	return success(shas);
+}
+
+async function writeBackupSnapshotRefs(
+	options: SnapshotBackupRefsOptions & { readonly shas: ReadonlyMap<string, string> },
+): Promise<LandingFailure | undefined> {
+	if (options.branches.length === 0) return undefined;
+	const refspecs = options.branches.map((branch) => {
+		const sha = options.shas.get(branch);
+		const source = sha ?? localBranchRef(branch);
+		return `+${source}:${BACKUP_REF_NAMESPACE}/${branch}`;
+	});
+	const args = ["fetch", "--quiet", "--no-tags", ".", ...refspecs];
+	const fetched = await exec({
+		pi: options.pi,
+		command: "git",
+		args,
+		cwd: options.repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
+	if (fetched.code === 0) return undefined;
+
+	const firstBranch = options.branches[0] ?? "<none>";
+	const commandDisplay = formatCommand("git", args);
+	return {
+		type: "boundary",
+		phase: "merge",
+		source: "git",
+		code: "backup_ref_write_failed",
+		message: `Could not write pre-land backup refs starting at ${BACKUP_REF_NAMESPACE}/${firstBranch}; no PRs were landed.\n${formatCommandDetails(fetched, commandDisplay)}`,
+		displayCommand: commandDisplay,
+	};
 }
 
 async function rotateBackupRefsToPrevious(
