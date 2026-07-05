@@ -23,11 +23,13 @@ import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
 	CHECK_BUCKET_DISPLAY,
 	checkBucketForCounts,
+	collapseWhitespace,
 	entriesForCheckBucket,
 	formatCheckEntryLabel,
 	formatThreadDetailLabel,
 	stackRowLabel,
 	statusWord,
+	type StackThemeColor,
 } from "./format.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";
 import type {
@@ -57,10 +59,10 @@ export function rollupBucketForPr(pr: StackViewPr): StackRollupBucket {
 	return "ready";
 }
 
-/** One header rollup segment: display text plus the theme color name to render it in. */
+/** One header rollup segment: display text plus the theme color to render it in. */
 export interface StackRollupSegment {
 	text: string;
-	color: string;
+	color: StackThemeColor;
 }
 
 /**
@@ -130,14 +132,14 @@ function formatChecksCell(pr: StackViewPr): string {
 }
 
 /**
- * Number of rows the list region gets: roughly 30% of the body, at least 3, but
- * never more than the row count and never below 1. The `Math.max(1, …)` upper
- * bound is deliberate — the pr-previews original can compute a negative upper
- * bound on tiny terminals; this guard avoids reproducing that bug.
+ * Number of rows the list region gets: roughly 30% of the body, at least 3
+ * preferred, but never more than the row count and never below 1. The shared
+ * `clamp` returns its `min` when `max < min`, so a tiny-terminal upper bound of
+ * `bodyRows - 5` collapses cleanly to the 1-row floor.
  */
 export function stackListRows(options: { bodyRows: number; rowCount: number }): number {
 	const preferred = Math.max(3, Math.floor(options.bodyRows * 0.3));
-	return clamp(Math.min(options.rowCount, preferred), 1, Math.max(1, options.bodyRows - 5));
+	return clamp(Math.min(options.rowCount, preferred), 1, options.bodyRows - 5);
 }
 
 /** The semantic role of a detail-pane row; the view maps each role to a theme color. */
@@ -319,10 +321,6 @@ function appendEnrichmentFollowOn(
 function appendObjectives(rows: StackDetailRow[], pr: StackViewPr): void {
 	if (pr.objectiveSlugs.length === 0) return;
 	rows.push({ role: "objectives", text: `objectives: ${pr.objectiveSlugs.join(", ")}` });
-}
-
-function collapseWhitespace(value: string): string {
-	return value.replace(/\s+/g, " ").trim();
 }
 
 /** Viewport slice for the detail pane. */
