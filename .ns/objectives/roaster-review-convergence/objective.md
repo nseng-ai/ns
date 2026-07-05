@@ -245,3 +245,41 @@ Risks:
   code; neither should be repeated absent material worsening.
 - Should local `ns roaster review run` fetch PR context by default when a PR
   exists, or opt-in via flag?
+
+## Closure
+
+Closed intentionally on 2026-07-05 after the implementation and documentation
+slices landed on trunk. The durable mechanism is in place: generation-time
+convergence is documented in ADR 0027; publish stamps `roaster-state:v1` with
+Last-reviewed head/base data and capped cumulative Prior-findings state; review
+runs can optionally gather prior findings and thread them into prompt assembly;
+the prompt includes changed-since guidance and an anchoring guard; CI passes PR
+context without new permissions; and `ns roaster review run` remains PR-free by
+default.
+
+Material merged PR evidence:
+
+- PR #2879: ADR for generation-time Roaster review convergence — records the
+  GitHub-as-durable-state architecture and rejected cache/ledger alternatives.
+- PR #2880: Publish summary state stamping — writes `roaster-state:v1` while
+  preserving the existing roaster marker comment format.
+- PR #2881: Prior-findings context gathering — reads stamped findings and
+  review-thread resolution status as an optional input; hardened by PRs #2893,
+  #2895, and #2898.
+- PR #2882: Prompt context wiring — threads Prior-findings and Last-reviewed
+  head context into review prompt assembly without changing the no-context
+  default.
+- PR #2883: CI PR-context wiring — passes PR context in roaster CI using only
+  existing permissions.
+- PR #2890: Prior-findings prompt/gateway remediation — consolidates prompt
+  assets and fake-driven support while preserving the Objective boundaries.
+
+Caveat: the originally planned real-PR empirical validation row was not
+performed before closure. That means the probabilistic convergence claim remains
+an operational caveat rather than a completed evidence point: representative PRs
+have not yet demonstrated that resolved unchanged-code findings, content-
+preserving restacks, and newly introduced issues all behave exactly as intended.
+Future work should treat any observed re-nitpick, restack false-positive, or
+anchoring miss as a new focused follow-up rather than reopening this Objective.
+The unresolved local default-fetch question likewise remains deferred; the
+implemented default stays opt-in.
