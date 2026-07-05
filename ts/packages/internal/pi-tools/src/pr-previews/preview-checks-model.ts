@@ -105,11 +105,24 @@ export function previewChecksStackEntries(
 
 export function buildStackEntryRowLabel(entry: PrPreviewChecksStackEntry): string {
 	const branch = effectiveBranch(entry.target);
-	const targetName = `PR #${entry.target.pr_number ?? "?"}: ${entry.target.title ?? branch ?? "(unmapped branch)"}`;
 	const route = branch === null ? null : `${branch} → ${entry.target.base_ref_name ?? "?"}`;
-	return [targetName, route, countsSummary(entry.counts)]
+	return [
+		`PR #${entry.target.pr_number ?? "?"}`,
+		compactCountsSummary(entry.counts),
+		entry.target.title ?? branch ?? "(unmapped branch)",
+		route,
+	]
 		.filter((part): part is string => part !== null)
 		.join(" · ");
+}
+
+export function compactCountsSummary(counts: PrPreviewChecksCounts): string {
+	const buckets: readonly PrPreviewCheckBucket[] = ["failing", "pending", "unknown", "passing"];
+	const badges = buckets
+		.filter((bucket) => counts[bucket] > 0)
+		.map((bucket) => `${BUCKET_PRESENTATION[bucket].icon}${counts[bucket]}`);
+	if (badges.length === 0) return "no checks";
+	return `${badges.join(" ")}${counts.hasMore === true ? "+" : ""}`;
 }
 
 export function countsSummary(counts: PrPreviewChecksCounts): string {
