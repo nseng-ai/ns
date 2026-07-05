@@ -45,6 +45,7 @@
 		"tier": "host",
 		"subpackages": [
 			"kernel"
-		]
+		],
+		"remainder": true
 	}
 }
