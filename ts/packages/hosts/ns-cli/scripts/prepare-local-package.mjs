@@ -52,6 +52,7 @@ const manifest = {
 	bin: sourceManifest.bin,
 	exports: publishKernelExports,
 	files: sourceManifest.files,
+	publishConfig: sourceManifest.publishConfig,
 	engines: sourceManifest.engines,
 	dependencies: Object.fromEntries(
 		publicRuntimeDependencies.map((name) => [name, catalogVersion(workspaceYaml, name)]),
@@ -99,6 +100,9 @@ function assertSourceManifest(manifest, workspaceManifest) {
 	if (manifest.files.includes("src")) {
 		throw new Error("@nseng-ai/ns source manifest files must not include src.");
 	}
+	if (manifest.publishConfig?.access !== "public") {
+		throw new Error("@nseng-ai/ns source manifest publishConfig.access must be public.");
+	}
 	if (manifest.engines?.node !== workspaceManifest.engines?.node) {
 		throw new Error("@nseng-ai/ns source manifest engines.node must match the workspace node engine.");
 	}
@@ -111,14 +115,17 @@ function assertPublishManifest(manifest) {
 	if (manifest.bin.ns !== "bin/ns.js") {
 		throw new Error("Generated publish manifest bin.ns must point at bin/ns.js.");
 	}
+	if (manifest.publishConfig?.access !== "public") {
+		throw new Error("Generated publish manifest publishConfig.access must be public.");
+	}
 	for (const [subpath, publishTarget] of Object.entries(publishKernelExports)) {
 		if (manifest.exports[subpath] !== publishTarget) {
 			throw new Error(`Generated publish manifest export ${subpath} must point at ${publishTarget}.`);
 		}
 	}
 	for (const [name, specifier] of Object.entries(manifest.dependencies)) {
-		if (String(specifier).startsWith("workspace:")) {
-			throw new Error(`Generated publish dependency ${name} must not use a workspace: specifier.`);
+		if (String(specifier).startsWith("workspace:") || String(specifier).startsWith("catalog:")) {
+			throw new Error(`Generated publish dependency ${name} must not use a workspace: or catalog: specifier.`);
 		}
 	}
 }

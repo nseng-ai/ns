@@ -5,6 +5,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
+import { kernelSubpaths } from "./kernel-subpaths.mjs";
+
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tempRoot = await mkdtemp(join(tmpdir(), "ns-cli-checkout-free-"));
 
@@ -30,17 +32,19 @@ try {
 	if (!list.stdout.includes("# Objective records in this checkout")) {
 		throw new Error("Packed ns CLI did not run Objective list from the foreign repo.");
 	}
-	const kernelSdkImport = await run(
-		"node",
-		[
-			"--input-type=module",
-			"--eval",
-			'import { defineExtension, ok, z } from "@nseng-ai/ns/kernel/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).ok !== true || typeof z.object !== "function") throw new Error("bad kernel sdk export");',
-		],
-		{ cwd: tempRoot },
-	);
-	if (kernelSdkImport.stderr !== "") {
-		throw new Error(`Packed ns kernel SDK import wrote to stderr:\n${kernelSdkImport.stderr}`);
+	for (const kernelSubpath of kernelSubpaths) {
+		const kernelImport = await run(
+			"node",
+			[
+				"--input-type=module",
+				"--eval",
+				kernelImportSmokeScript(kernelSubpath),
+			],
+			{ cwd: tempRoot },
+		);
+		if (kernelImport.stderr !== "") {
+			throw new Error(`Packed ns kernel ${kernelSubpath} import wrote to stderr:\n${kernelImport.stderr}`);
+		}
 	}
 	process.stdout.write(`checkout-free smoke passed: ${tempRoot}\n`);
 } finally {
@@ -64,6 +68,21 @@ async function assertInstalledPackageBoundary(nsBin, installedCli) {
 			throw new Error(`Installed .bin/ns does not resolve to packaged bin/ns.js: ${resolvedBin}`);
 		}
 	}
+}
+
+function kernelImportSmokeScript(kernelSubpath) {
+	const checks = {
+		cli: 'typeof module.buildCli === "function" && typeof module.listNsCommands === "function" && typeof module.runCli === "function"',
+		"command-io": 'typeof module.createCommandIo === "function" && typeof module.noopNsCommandIo === "object"',
+		context: 'typeof module.createRealNsCommandContext === "function" && typeof module.createTextGenerator === "function"',
+		"pi-text-generation": 'typeof module.PiTextGenerator === "function"',
+		sdk: 'typeof module.defineExtension === "function" && module.ok({}).ok === true && typeof module.z.object === "function"',
+	};
+	const check = checks[kernelSubpath];
+	if (check === undefined) {
+		throw new Error(`Missing checkout-free smoke import assertion for kernel subpath ${kernelSubpath}`);
+	}
+	return `const module = await import("@nseng-ai/ns/kernel/${kernelSubpath}"); if (!(${check})) throw new Error("bad kernel ${kernelSubpath} export");`;
 }
 
 function resolveTarball(stdout) {
