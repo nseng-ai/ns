@@ -43,6 +43,7 @@ export function collectPackageTierLayeringViolations(
 		const violation = tierEdgeViolation(fromTier, toTier);
 		if (violation === undefined) continue;
 		if (isAllowedPiSubpackagePeerEdge(edge, metadataByName)) continue;
+		if (isAllowedPublicSubpackageTierDependency(edge, metadataByName)) continue;
 		if (allowedDebtEdges.has(packageEdgeKey(edge.from, edge.to))) continue;
 		violations.push({
 			rule: BAN_PACKAGE_TIER_LAYERING,
@@ -78,6 +79,18 @@ function isAllowedPiSubpackagePeerEdge(
 	if (metadata?.nsTier !== "capability") return false;
 	if (!metadata.nsSubpackages.includes("pi")) return false;
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
+}
+
+function isAllowedPublicSubpackageTierDependency(
+	edge: { readonly from: string; readonly to: string },
+	metadataByName: ReadonlyMap<string, PackageMetadata>,
+): boolean {
+	const fromTier = metadataByName.get(edge.from)?.nsTier;
+	const toMetadata = metadataByName.get(edge.to);
+	if (fromTier === undefined || toMetadata === undefined) return false;
+	return [...toMetadata.nsSubpackageTiers.values()].some((subpackageTier) =>
+		packageTierAllowedTargets[fromTier].has(subpackageTier),
+	);
 }
 
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {

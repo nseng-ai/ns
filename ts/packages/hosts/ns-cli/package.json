@@ -47,6 +47,9 @@
 		"subpackages": [
 			"kernel"
 		],
+		"subpackageTiers": {
+			"kernel": "sdk"
+		},
 		"remainder": true
 	}
 }

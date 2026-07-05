@@ -708,6 +708,28 @@ describe("TypeScript style guard package tier layering rules", () => {
 		}
 	});
 
+	test("allows package dependency on a host that exposes an allowed public subpackage tier", () => {
+		const metadataByName = buildSyntheticPackageMetadata(
+			new Set(["@nseng-ai/flow", "@nseng-ai/ns"]),
+			[{ from: "@nseng-ai/flow", to: "@nseng-ai/ns" }],
+			new Map([
+				["@nseng-ai/flow", "capability"],
+				["@nseng-ai/ns", "host"],
+			]),
+		);
+		const nsMetadata = metadataByName.get("@nseng-ai/ns");
+		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
+		metadataByName.set("@nseng-ai/ns", {
+			...nsMetadata,
+			nsSubpackages: ["kernel"],
+			nsSubpackageTiers: new Map([["kernel", "sdk"]]),
+		});
+
+		const violations = collectPackageTierLayeringViolations(metadataByName);
+
+		expect(formatViolations(violations)).toBe("");
+	});
+
 	test("real repo package manifests satisfy declared tier policy through explicit debt allowlists", () => {
 		const violations = collectPackageTierLayeringViolations(loadPackageMetadata(REPO_ROOT));
 
@@ -773,6 +795,44 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		expect(violations[0]?.text).toContain(
 			"@nseng-ai/foundation/time (neutral-infra) -> @nseng-ai/slots",
 		);
+	});
+
+	test("allows imports from a capability to an sdk-tier public subpackage of a host", () => {
+		const violations = collectTopologyCircleLayeringViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: [
+				{
+					id: "@nseng-ai/flow",
+					packageName: "@nseng-ai/flow",
+					component: ".",
+					tier: "capability",
+					path: "synthetic/flow/src",
+				},
+				{
+					id: "@nseng-ai/ns",
+					packageName: "@nseng-ai/ns",
+					component: ".",
+					tier: "host",
+					path: "synthetic/ns/src",
+				},
+				{
+					id: "@nseng-ai/ns/kernel",
+					packageName: "@nseng-ai/ns",
+					component: "kernel",
+					tier: "sdk",
+					path: "synthetic/ns/src/kernel",
+				},
+			],
+			files: [
+				{
+					path: "synthetic/flow/src/index.ts",
+					content: 'import { NsCommandIo } from "@nseng-ai/ns/kernel/sdk";',
+				},
+			],
+		});
+
+		expect(formatViolations(violations)).toBe("");
 	});
 
 	test("relative imports crossing circle boundaries point at the import line", () => {
@@ -1358,6 +1418,7 @@ interface SyntheticSubpackageMetadataOptions {
 	readonly subpackages: readonly string[];
 	readonly remainder: boolean;
 	readonly exports?: Record<string, unknown>;
+	readonly subpackageTiers?: ReadonlyMap<string, PackageTier>;
 }
 
 function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
@@ -1408,6 +1469,9 @@ function buildSyntheticSubpackageMetadata(
 		ns: {
 			tier: "neutral-infra",
 			subpackages: options.subpackages,
+			...(options.subpackageTiers === undefined
+				? {}
+				: { subpackageTiers: Object.fromEntries(options.subpackageTiers) }),
 			...(options.remainder ? { remainder: true } : {}),
 		},
 		...(options.exports === undefined ? {} : { exports: options.exports }),
@@ -1425,6 +1489,7 @@ function buildSyntheticSubpackageMetadata(
 				rawNsTier: "neutral-infra",
 				nsSubpackages: options.subpackages,
 				nsRemainder: options.remainder,
+				nsSubpackageTiers: options.subpackageTiers ?? new Map(),
 				exportSubpaths:
 					options.exports === undefined ? new Set(["."]) : collectExportSubpaths(options.exports),
 			},
@@ -1455,6 +1520,7 @@ function buildInternalSpaceSyntheticMetadata(
 					rawNsTier: "internal-pi-tool",
 					nsSubpackages: [],
 					nsRemainder: false,
+					nsSubpackageTiers: new Map(),
 					exportSubpaths: new Set(["."]),
 				},
 			];
@@ -1502,6 +1568,7 @@ function buildSyntheticPackageMetadata(
 			rawNsTier,
 			nsSubpackages: [],
 			nsRemainder: false,
+			nsSubpackageTiers: new Map(),
 			exportSubpaths: new Set(["."]),
 		});
 	}

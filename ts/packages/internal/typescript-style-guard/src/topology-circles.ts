@@ -97,7 +97,7 @@ export function discoverTopologyCircles(
 				id,
 				packageName: metadata.name,
 				component,
-				tier: metadata.nsTier,
+				tier: metadata.nsSubpackageTiers.get(component) ?? metadata.nsTier,
 				path: relative(repoRoot, componentDir),
 			});
 		}

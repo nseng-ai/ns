@@ -27,6 +27,7 @@ export interface PackageMetadata {
 	readonly rawNsTier: unknown;
 	readonly nsSubpackages: readonly string[];
 	readonly nsRemainder: boolean;
+	readonly nsSubpackageTiers: ReadonlyMap<string, PackageTier>;
 	readonly exportSubpaths: ReadonlySet<string>;
 }
 
@@ -48,6 +49,7 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 			rawNsTier,
 			nsSubpackages: readNsSubpackages(parsed.ns),
 			nsRemainder: readNsRemainder(parsed.ns),
+			nsSubpackageTiers: readNsSubpackageTiers(parsed.ns),
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}
@@ -69,6 +71,17 @@ export function readNsSubpackages(nsField: unknown): readonly string[] {
 export function readNsRemainder(nsField: unknown): boolean {
 	if (!isRecord(nsField)) return false;
 	return nsField.remainder === true;
+}
+
+export function readNsSubpackageTiers(nsField: unknown): ReadonlyMap<string, PackageTier> {
+	if (!isRecord(nsField)) return new Map();
+	if (!isRecord(nsField.subpackageTiers)) return new Map();
+	const tiers = new Map<string, PackageTier>();
+	for (const [subpackage, rawTier] of Object.entries(nsField.subpackageTiers)) {
+		const tier = parsePackageTier(rawTier);
+		if (tier !== undefined) tiers.set(subpackage, tier);
+	}
+	return tiers;
 }
 
 export function parsePackageTier(value: unknown): PackageTier | undefined {
