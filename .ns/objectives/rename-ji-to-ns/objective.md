@@ -103,7 +103,8 @@ Assumptions:
 - The `nseng-ai` npm org/scope remains the publish namespace and package name `ns` is
   available/owned there for `@nseng-ai/ns`; no `@ns` org claim is part of the plan.
 - The refactor-swarm cutover pipeline and AST codemod from the sdl→ji rename
-  re-instantiate cleanly for a second hop over the same surfaces.
+  re-instantiated cleanly enough to land the core cutover and the package/path/config
+  sweep; remaining work is residual trail cleanup rather than proving the pipeline.
 
 Risks:
 
@@ -117,9 +118,10 @@ Risks:
 - **In-flight branches and worktree slots** created pre-cutover carry `.ji/` trees and
   old paths; they hit rename-shaped conflicts on restack. Accepted, same as last hop;
   stragglers are fixed by hand under the machine-migration row.
-- **Two renames in two days** compounds stale-name habits: agents may reintroduce `ji`
-  (or even `sdl`) surfaces until the orientation retires. The orientation's standing
-  rule carries the durable one-name discipline until this Objective closes.
+- **Two renames in two days** compounded stale-name habits and the risk has partly
+  materialized as leftover active prose/identifier trails after the main cutover. The
+  orientation's standing rule carries the durable one-name discipline until this
+  Objective closes.
 
 ## Open Questions
 
