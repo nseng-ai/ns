@@ -3,8 +3,9 @@ import { describe, expect, test, vi } from "vitest";
 import type { Caps } from "@ns/clinkr";
 import { stripAnsi } from "@ns/clinkr/testing";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ns/capability-kit/git";
-import type { NsConfirmOptions } from "@ns/kernel/sdk";
+import { optionalEntry } from "@ns/core/primitives";
 import { ScriptedQueue } from "@ns/core/test-kit";
+import type { NsConfirmOptions } from "@ns/kernel/sdk";
 import {
 	parsePullRequestView,
 	registerLandCommand,
@@ -139,6 +140,21 @@ class FakePiWithMessages extends FakePi {
 	}
 }
 
+function createRecordingPi(script: ScriptedExec[]): { pi: FakePi; events: string[] } {
+	const events: string[] = [];
+	class RecordingPi extends FakePi {
+		override async exec(
+			command: string,
+			args: string[],
+			options?: { cwd?: string; timeout?: number },
+		): Promise<ExecResult> {
+			events.push(`exec:${command} ${args.join(" ")}`);
+			return await super.exec(command, args, options);
+		}
+	}
+	return { pi: new RecordingPi(script), events };
+}
+
 function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -156,7 +172,14 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"] } = {}): {
+function createContext(
+	options: {
+		cwd?: string;
+		mode?: LandCommandContext["mode"];
+		shouldConfirm?: boolean;
+		onConfirm?: (title: string, message: string, options?: NsConfirmOptions) => void;
+	} = {},
+): {
 	ctx: LandCommandContext;
 	notifications: Notification[];
 	confirmations: Confirmation[];
@@ -178,9 +201,18 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
 			},
-			async confirm(title: string, message: string, options?: NsConfirmOptions): Promise<boolean> {
-				confirmations.push({ title, message, ...(options === undefined ? {} : { options }) });
-				return false;
+			async confirm(
+				title: string,
+				message: string,
+				confirmOptions?: NsConfirmOptions,
+			): Promise<boolean> {
+				confirmations.push({
+					title,
+					message,
+					...optionalEntry("options", confirmOptions),
+				});
+				options.onConfirm?.(title, message, confirmOptions);
+				return options.shouldConfirm ?? false;
 			},
 			setStatus(key: string, value: string | undefined): void {
 				statuses.push([key, value]);
@@ -266,17 +298,19 @@ function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[]
 	];
 }
 
-function domainGraphiteShapeSteps(dbRows: string): ScriptedExec[] {
+function domainGraphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[] {
 	const liveBranches = metadataBranchNames(dbRows);
 	return [
-		step("git", GIT_ROOT_ARGS, { stdout: `${ROOT}\n` }),
+		step("git", GIT_ROOT_ARGS, { stdout: `${root}\n` }),
 		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
-		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
+		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${root}/.git\n` }),
 		step("git", GIT_FOR_EACH_REF_ARGS, {
 			stdout: formatLiveBranchTips(liveBranches),
 		}),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step(TOPOLOGY_COMMAND, topologyArgs(`${root}/.git/.graphite_metadata.db`), {
+			stdout: `${dbRows}\n`,
+		}),
 	];
 }
 
@@ -424,10 +458,10 @@ function worktreeOutput(entries: Array<{ path: string; branch?: string }>): stri
 		.join("\n\n");
 }
 
-function successfulStackLandingSteps(): ScriptedExec[] {
-	const worktrees = worktreeOutput([{ path: ROOT, branch: CURRENT }]);
+function successfulStackLandingSteps(root = ROOT): ScriptedExec[] {
+	const worktrees = worktreeOutput([{ path: root, branch: CURRENT }]);
 	return [
-		...domainGraphiteShapeSteps(DB_WITH_DESCENDANT),
+		...domainGraphiteShapeStepsForRoot(root, DB_WITH_DESCENDANT),
 		...cleanRepoChecks(),
 		step("gh", ["pr", "view", CURRENT, "--json", STACK_PR_VIEW_FIELDS], {
 			stdout: stackPrView(),
@@ -476,7 +510,7 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+		step(TOPOLOGY_COMMAND, topologyArgs(`${root}/.git/.graphite_metadata.db`), {
 			stdout: `${metadataDbJson([{ branch: CURRENT, children: [CHILD_BRANCH] }])}\n`,
 		}),
 		step("gt", ["delete", CURRENT, "-f", "-q"]),
@@ -791,9 +825,9 @@ describe("code land command", () => {
 		pi.assertDone();
 	});
 
-	test("post-landing cleanup asks by default", async () => {
+	test("post-landing cleanup decline is asked before fast-path merge and preserves slot", async () => {
 		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
-		const pi = new FakePi([
+		const { pi, events } = createRecordingPi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
@@ -801,7 +835,10 @@ describe("code land command", () => {
 		]);
 		registerLandCommand(pi);
 		const command = pi.commands.get("ns:flow:land");
-		const context = createContext({ cwd: slotRoot });
+		const context = createContext({
+			cwd: slotRoot,
+			onConfirm: (title) => events.push(`confirm:${title}`),
+		});
 
 		await command?.handler("", context.ctx);
 
@@ -811,8 +848,21 @@ describe("code land command", () => {
 				message: expect.stringContaining("$ ns slot free --wt slot-01"),
 			},
 		]);
+		expect(events.indexOf("confirm:Free current slot and delete local branch?")).toBeLessThan(
+			events.indexOf(`exec:gh ${expectedMergeArgs().join(" ")}`),
+		);
+		expect(pi.execCalls).not.toContainEqual({
+			command: "ns",
+			args: ["slot", "free", "--wt", "slot-01"],
+			options: { cwd: slotRoot, timeout: 120_000 },
+		});
+		expect(pi.execCalls).not.toContainEqual({
+			command: "gt",
+			args: ["delete", CURRENT, "-f", "-q"],
+			options: { cwd: slotRoot, timeout: 600_000 },
+		});
 		expect(context.notifications.at(-1)).toEqual({
-			message: `land stopped: Cancelled post-landing cleanup; PRs were landed but slot-01 and local branch ${CURRENT} were kept.`,
+			message: `land stopped: Skipped post-landing cleanup by upfront choice; PRs were landed but slot-01 and local branch ${CURRENT} were kept.`,
 			level: "warning",
 		});
 		pi.assertDone();
@@ -1048,7 +1098,7 @@ describe("code land command", () => {
 				stderr += text;
 			},
 			confirm: (title, message, options) => {
-				confirmations.push({ title, message, ...(options === undefined ? {} : { options }) });
+				confirmations.push({ title, message, ...optionalEntry("options", options) });
 				return false;
 			},
 		});
@@ -1068,6 +1118,69 @@ describe("code land command", () => {
 		pi.assertDone();
 	});
 
+	test("canceling the main stack confirmation does not ask cleanup", async () => {
+		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
+		const pi = new FakePi(graphiteShapeStepsForRoot(slotRoot, DB_WITH_DESCENDANT));
+		registerLandCommand(pi);
+		const command = pi.commands.get("ns:flow:land");
+		const context = createContext({ cwd: slotRoot });
+
+		await command?.handler("", context.ctx);
+
+		expect(context.confirmations.map((confirmation) => confirmation.title)).toEqual([
+			"Land stack?",
+		]);
+		pi.assertDone();
+	});
+
+	test("stack cleanup decline happens after stack confirmation and before merge", async () => {
+		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
+		const { pi, events } = createRecordingPi([
+			...graphiteShapeStepsForRoot(slotRoot, DB_WITH_DESCENDANT),
+			...successfulStackLandingSteps(slotRoot),
+		]);
+		registerLandCommand(pi);
+		const command = pi.commands.get("ns:flow:land");
+		const context = createContext({
+			cwd: slotRoot,
+			onConfirm: (title) => events.push(`confirm:${title}`),
+			shouldConfirm: true,
+		});
+		let confirmationCount = 0;
+		const originalConfirm = context.ctx.ui.confirm;
+		context.ctx.ui.confirm = async (title, message, options) => {
+			confirmationCount += 1;
+			if (confirmationCount === 2) {
+				context.confirmations.push({
+					title,
+					message,
+					...optionalEntry("options", options),
+				});
+				events.push(`confirm:${title}`);
+				return false;
+			}
+			return await originalConfirm(title, message, options);
+		};
+
+		await command?.handler("", context.ctx);
+
+		expect(context.confirmations.map((confirmation) => confirmation.title)).toEqual([
+			"Land stack?",
+			"Free current slot and delete local branch?",
+		]);
+		expect(events.indexOf("confirm:Land stack?")).toBeLessThan(
+			events.indexOf("confirm:Free current slot and delete local branch?"),
+		);
+		expect(events.indexOf("confirm:Free current slot and delete local branch?")).toBeLessThan(
+			events.indexOf(`exec:gh ${expectedStackMergeArgs().join(" ")}`),
+		);
+		expect(context.notifications.at(-1)).toEqual({
+			message: `land stopped: Skipped post-landing cleanup by upfront choice; PRs were landed but slot-01 and local branch ${CURRENT} were kept.`,
+			level: "warning",
+		});
+		pi.assertDone();
+	});
+
 	test("supports fast-path dry-run without merging", async () => {
 		const { pi, notifications } = await runLand([step("gh", PR_VIEW_ARGS, { stdout: prView() })], {
 			args: "--dry-run",
@@ -1080,6 +1193,38 @@ describe("code land command", () => {
 		expect(notifications).toEqual([
 			{ message: "Dry run only; would merge PR #42 into main.", level: "info" },
 		]);
+		pi.assertDone();
+	});
+
+	test("non-interactive fast-path managed slot refuses before merge without cleanup override", async () => {
+		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
+		const pi = new FakePi([
+			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
+			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+		]);
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: slotRoot,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toBe("");
+		expect(stderr).toContain("No PRs were landed.");
+		expect(pi.execCalls).not.toContainEqual({
+			command: "gh",
+			args: expectedMergeArgs(),
+			options: { cwd: slotRoot, timeout: PR_MERGE_TIMEOUT_MS },
+		});
 		pi.assertDone();
 	});
 });

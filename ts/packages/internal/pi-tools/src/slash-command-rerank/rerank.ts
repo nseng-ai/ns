@@ -70,9 +70,13 @@ function segmentBoundaries(name: string): number[] {
 	const boundaries = [0];
 	for (let index = 1; index < name.length; index += 1) {
 		const previous = name[index - 1];
-		if (previous === ":" || previous === "-") boundaries.push(index);
+		if (isSegmentDelimiter(previous)) boundaries.push(index);
 	}
 	return boundaries;
+}
+
+function isSegmentDelimiter(char: string | undefined): boolean {
+	return char === ":" || char === "-";
 }
 
 /**
@@ -86,7 +90,7 @@ function classifyTier(nameLower: string, queryLower: string): RerankTier {
 		if (!nameLower.startsWith(queryLower, boundary)) continue;
 		hasSegmentPrefixMatch = true;
 		const nextChar = nameLower[boundary + queryLower.length];
-		if (nextChar === undefined || nextChar === ":" || nextChar === "-") return 0;
+		if (nextChar === undefined || isSegmentDelimiter(nextChar)) return 0;
 	}
 	return hasSegmentPrefixMatch ? 1 : 2;
 }
