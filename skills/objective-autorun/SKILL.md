@@ -6,7 +6,7 @@ description: "Parent orchestration loop for driving one ns Objective through rep
 
 # objective-autorun
 
-Drive one ns Objective forward through repeated verified runner steps. You are the **parent** for the whole run: each step is one begin → subagent → finish cycle (one implementation subagent, one verified commit, one Runner Checkpoint), and you make every between-step decision — continue, recover, update tracking, stop, or ask the human.
+Drive one ns Objective forward through repeated verified runner steps. You are the **parent** for the whole run: each step is one begin → subagent → finish cycle (one implementation subagent, one local verified commit, one Runner Checkpoint), and you make every between-step decision — base branch, continue, recover, update tracking, stop, ask the human, or do any later push/submit/handoff outside the runner.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary and safety rules, and the `objective-runner-step` skill for the per-step contract (the three-phase flow, flags, checkpoint zones, exit codes, post-checkpoint playbook). This skill owns only the loop around it.
 
@@ -24,7 +24,7 @@ This is parent-judgment iteration per ADR 0022/0024, not batch mode. The runner 
 Each iteration:
 
 1. **Derive guidance.** From the roadmap's active slice, the Objective's policy prose, and prior checkpoints, write a thin, judgment-bearing `--guidance` for this step: what slice to take, what the last step left behind, what to avoid. Do not restate the Objective — the subagent reads it itself.
-2. **Run one step** from the branch the previous step produced (stacking is emergent; the runner holds no cross-step state), per the `objective-runner-step` contract:
+2. **Run one step** from the branch the previous step produced (stacking is emergent; the runner holds no cross-step state). The parent owns the base branch and next-step decision; the child owns only the one implementation branch during its dispatch; the runner owns verification, staging, and the local commit handoff. Run the step per the `objective-runner-step` contract:
 
    ```bash
    ns objective exec runner-begin <slug> [--guidance <text|@file>] \
@@ -55,12 +55,12 @@ When stopping for judgment reasons, report to the human rather than grinding: a 
 
 ## End of run
 
-Finish with a run report: steps run and their statuses, the branch stack and commits produced, Semantic Updates written, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch.
+Finish with a run report: steps run and their statuses, the local branch stack and commits produced, Semantic Updates written, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch. Do not push, submit, open PRs, or launch a separate handoff unless the human separately asks after the runner run report.
 
 ## Hard boundaries
 
 - One judgment checkpoint per step: never begin the next step without reading the previous checkpoint and deciding.
-- Never push, submit, publish, or merge — the run ends with local stacked branches handed back to the normal Graphite/flow workflow.
+- Never push, submit, publish, merge, open PRs, or perform write-capable external actions — the run ends with local stacked branches handed back to the normal Graphite/flow workflow. In particular, no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR leaves the machine from an autorun.
 - Never commit on trunk; never write Objective tracking silently — tracking goes through `objective-update` only, between steps.
 - Never mutate the worktree between a step's begin and finish; the gate fails the step loudly if you do.
 - Stop conditions come from the Objective's prose and the list above, not from optimism about the next step.

@@ -25,6 +25,11 @@ import {
 	sendCommandProgressOrNotify,
 } from "../../ts/packages/hosts/pi/src/commands/ack.ts";
 import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
+import {
+	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+	type ObjectiveSelectionSpec,
+} from "../../ts/packages/capabilities/objective/src/api/index.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
@@ -67,6 +72,11 @@ const WIDGET_KEY = "objective-runner-step";
 const SKILL_NAME = "objective-autorun";
 const SCRATCH_ROOT_PREFIX = "objective-runner-step";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
+const OBJECTIVE_AUTORUN_SELECTION_SPEC = {
+	statusKey: COMMAND_NAME,
+	selectionTitle: "Select an active Objective for autorun",
+	shouldCompactDiffSuggestion: true,
+} satisfies ObjectiveSelectionSpec;
 
 type NotifyLevel = "info" | "warning" | "error";
 type RunnerStepPhase = "begin" | "subagent" | "finish";
@@ -76,6 +86,7 @@ interface CommandContext {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
+		select?(title: string, options: string[]): Promise<string | undefined>;
 		setStatus(key: string, value: string | undefined): void;
 	};
 	waitForIdle(): Promise<void>;
@@ -122,7 +133,11 @@ interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResultLike>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<PiExecResultLike>;
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -130,11 +145,15 @@ const PI_ADDENDUM = `### Pi session addendum — objective_runner_step tool
 
 In this session, run each runner step by calling the \`objective_runner_step\` tool with \`{ objective, guidance, recover?, model? }\` instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step: it runs runner-begin, dispatches the implementation subagent with the generated prompt (progress renders in a live widget), runs runner-finish, and returns the Runner Checkpoint markdown as its result. It also owns report/facts scratch paths — skip the skill's step-artifact bookkeeping; every call gets fresh paths automatically, including recovery attempts.
 
-Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries (never push/submit/land; never commit on trunk). To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
+Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries (never push/submit/open PRs/land; never commit on trunk; later push/submit/handoff decisions belong outside the runner and require separate human direction). To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
 const objectiveRunnerStepInputSchema = z
 	.object({
-		objective: z.string().trim().min(1).describe("Objective slug to run one decomposed runner step for."),
+		objective: z
+			.string()
+			.trim()
+			.min(1)
+			.describe("Objective slug to run one decomposed runner step for."),
 		guidance: z
 			.string()
 			.trim()
@@ -153,8 +172,15 @@ const objectiveRunnerStepInputSchema = z
 			.trim()
 			.min(1)
 			.optional()
-			.describe("Optional fully-qualified provider/model override for the implementation subagent."),
-		title: z.string().trim().min(1).optional().describe("Optional display label for the live progress widget."),
+			.describe(
+				"Optional fully-qualified provider/model override for the implementation subagent.",
+			),
+		title: z
+			.string()
+			.trim()
+			.min(1)
+			.optional()
+			.describe("Optional display label for the live progress widget."),
 	})
 	.strict();
 
@@ -173,8 +199,8 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 		commandName: COMMAND_NAME,
 		commandDefinition: {
 			description:
-				"Run the objective-autorun parent loop in this session, with runner steps wrapped by the objective_runner_step tool.",
-			argumentHint: "<objective-slug> [scope / step budget / standing guidance]",
+				"Pick an Objective when needed, then run the objective-autorun parent loop in this session with runner steps wrapped by the objective_runner_step tool.",
+			argumentHint: "[objective-slug] [scope / step budget / standing guidance]",
 			handler: async (args, ctx) => runAutorunCommand(pi, args, ctx),
 		},
 	});
@@ -183,34 +209,29 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 		name: TOOL_NAME,
 		label: "Objective runner step",
 		description:
-			"Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop.",
+			"Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop. Runner runs are local-only: never push, submit, open PRs, publish, merge, or hand off outside a separately authorized parent action.",
 		parameters: OBJECTIVE_RUNNER_STEP_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
 			runObjectiveRunnerStep({ pi, params, signal, ctx }),
 	});
 }
 
-async function runAutorunCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
-	const trimmedArgs = args.trim();
-	if (trimmedArgs.length === 0) {
-		sendCommandProgressOrNotify({
-			host: pi,
-			ctx,
-			message:
-				"Usage: /objective:autorun <objective-slug> [scope / step budget / standing guidance]. Run /objective:list to find slugs.",
-			delivery: "notify",
-			level: "error",
-		});
-		return;
-	}
+async function runAutorunCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
+	const explicitArgs = args.trim();
+	const selectedArgs =
+		explicitArgs.length === 0 ? await chooseAutorunObjective(pi, ctx) : explicitArgs;
+	if (selectedArgs === undefined) return;
 
 	let skillBlock: string;
 	try {
 		const skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
 		skillBlock = skill.block;
 	} catch {
-		skillBlock =
-			`The repo ${SKILL_NAME} skill (skills/${SKILL_NAME}/SKILL.md) could not be expanded inline; read it from the repo and follow it as the loop contract before proceeding.`;
+		skillBlock = `The repo ${SKILL_NAME} skill (skills/${SKILL_NAME}/SKILL.md) could not be expanded inline; read it from the repo and follow it as the loop contract before proceeding.`;
 		sendCommandProgressOrNotify({
 			host: pi,
 			ctx,
@@ -223,12 +244,32 @@ async function runAutorunCommand(pi: ExtensionAPI, args: string, ctx: CommandCon
 	const prompt = [
 		skillBlock,
 		"The fenced block below is the user's explicit Objective selection and launch scope for this run (slug plus optional scope, step budget, and standing guidance):",
-		buildFencedTextBlock(trimmedArgs),
+		buildFencedTextBlock(selectedArgs),
 		PI_ADDENDUM,
 	].join("\n\n");
 
 	await ctx.waitForIdle();
 	await pi.sendUserMessage(prompt);
+}
+
+async function chooseAutorunObjective(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+): Promise<string | undefined> {
+	const selectionHost = {
+		exec: async (
+			command: string,
+			args: readonly string[],
+			options?: { cwd?: string; timeout?: number },
+		): Promise<ExecResult> => normalizeExecResult(await pi.exec(command, [...args], options)),
+	};
+	const slug = await chooseActiveObjectiveSlug(
+		selectionHost,
+		objectiveSelectionContextFromCommandContext(ctx),
+		OBJECTIVE_AUTORUN_SELECTION_SPEC,
+	);
+	if (slug === undefined) return undefined;
+	return slug;
 }
 
 async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): Promise<ToolResult> {
@@ -305,7 +346,10 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 			stdoutTail: { maxChars: MAX_FAILURE_TAIL_CHARS },
 		});
 		if (beginParsed.type !== "valid" || beginExec.code !== 0) {
-			return beginFailureResult(beginExec, beginParsed.type === "valid" ? undefined : beginParsed.message);
+			return beginFailureResult(
+				beginExec,
+				beginParsed.type === "valid" ? undefined : beginParsed.message,
+			);
 		}
 		const prompt = beginParsed.data.prompt;
 		if (typeof prompt !== "string" || prompt.length === 0) {

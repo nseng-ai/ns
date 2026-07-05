@@ -30,7 +30,9 @@ describe("buildRunnerChildPrompt", () => {
 		expect(prompt).toContain("Do not run `gt create`, `gt checkout`, `gt restack`");
 		expect(prompt).toContain("use plain `git switch` instead of `gt checkout`");
 		expect(prompt).toContain("Leave ALL changes uncommitted.");
-		expect(prompt).toContain("the runner owns staging and commit");
+		expect(prompt).toContain("the runner owns staging and the local commit");
+		expect(prompt).toContain("the parent owns any later push/submit/handoff decision");
+		expect(prompt).toContain("`gt submit`");
 		expect(prompt).toContain("per the repo's prose validation policy");
 		expect(prompt).toContain("`## Validation` section of your report");
 		expect(prompt).toContain("objective-next workflow");
@@ -73,7 +75,7 @@ describe("buildRunnerChildPrompt", () => {
 			describeBranchContextGraphiteCreationSteps("main"),
 			"Do not run `gt create`, `gt checkout`, `gt restack`",
 			"Leave ALL changes uncommitted.",
-			"the runner owns staging and commit",
+			"the runner owns staging and the local commit",
 			"Do not expect Objective content in this prompt.",
 		]) {
 			expect(prompt).toContain(sharedRule);
@@ -96,7 +98,7 @@ describe("buildRunnerChildPrompt", () => {
 
 		expect(prompt).toContain("Recovery mode: a previous runner step failed");
 		expect(prompt).toContain('"branch": "<the current branch>"');
-		expect(prompt).toContain("Stay on the current branch.");
+		expect(prompt).toContain("Stay on the current dirty implementation branch.");
 	});
 
 	test("stays thin: no tracking-update instruction and no inlined objective content", () => {
@@ -149,7 +151,7 @@ describe("buildRunnerChildPrompt", () => {
 		expect(prompt).toContain("- src/a.ts");
 		expect(prompt).toContain("- src/b.ts");
 		expect(prompt).not.toContain("Failure diagnostics from the previous attempt");
-		expect(prompt).toContain("Stay on the current branch.");
+		expect(prompt).toContain("Stay on the current dirty implementation branch.");
 		expect(prompt).not.toContain("Create your own implementation branch");
 	});
 });
