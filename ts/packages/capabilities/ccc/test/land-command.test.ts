@@ -443,21 +443,9 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			`+${FLOW_LAND_BACKUP_REF_NAMESPACE}/*:${FLOW_LAND_BACKUP_PREV_REF_NAMESPACE}/*`,
 		]),
 		step("git", ["for-each-ref", "--format=%(refname)", FLOW_LAND_BACKUP_REF_NAMESPACE]),
-		step(
-			"git",
-			[
-				"for-each-ref",
-				"--format=%(refname)%09%(objectname)",
-				`refs/heads/${CURRENT}`,
-				`refs/heads/${CHILD_BRANCH}`,
-			],
-			{
-				stdout: [
-					`refs/heads/${CURRENT}\t${SHA_CURRENT}`,
-					`refs/heads/${CHILD_BRANCH}\t${SHA_CHILD}`,
-				].join("\n"),
-			},
-		),
+		step("git", GIT_FOR_EACH_REF_ARGS, {
+			stdout: formatLiveBranchTips([CURRENT, CHILD_BRANCH]),
+		}),
 		step("git", [
 			"fetch",
 			"--quiet",

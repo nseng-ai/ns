@@ -307,21 +307,15 @@ function repoIntro(
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
 		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
-			stdout: formatLiveBranchTips(
-				liveBranches.map((branch) => liveBranchTipForTest(branch, options.branchShaOverrides)),
-			),
+			stdout: formatLiveBranchTips(liveBranches, {
+				...(options.branchShaOverrides === undefined
+					? {}
+					: { shaOverrides: options.branchShaOverrides }),
+				shaForBranch: testShaForBranch,
+			}),
 		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
-}
-
-function liveBranchTipForTest(
-	branch: string,
-	shaOverrides: Record<string, string> | undefined,
-): string {
-	if (branch.includes("\t")) return branch;
-	const sha = shaOverrides?.[branch] ?? testShaForBranch(branch);
-	return `${branch}\t${sha}\t2026-01-01T00:00:00Z`;
 }
 
 function testShaForBranch(branch: string): string {

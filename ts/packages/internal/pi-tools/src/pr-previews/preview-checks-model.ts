@@ -13,6 +13,10 @@ export interface PrPreviewChecksTarget {
 	head_ref_oid: string | null;
 }
 
+export function effectiveBranch(target: PrPreviewChecksTarget): string | null {
+	return target.head_ref_name ?? target.branch;
+}
+
 export interface PrPreviewChecksCounts {
 	passing: number;
 	pending: number;
@@ -100,8 +104,8 @@ export function previewChecksStackEntries(
 }
 
 export function buildStackEntryRowLabel(entry: PrPreviewChecksStackEntry): string {
-	const targetName = `PR #${entry.target.pr_number ?? "?"}: ${entry.target.title ?? entry.target.head_ref_name ?? entry.target.branch ?? "(unmapped branch)"}`;
-	const branch = entry.target.head_ref_name ?? entry.target.branch;
+	const branch = effectiveBranch(entry.target);
+	const targetName = `PR #${entry.target.pr_number ?? "?"}: ${entry.target.title ?? branch ?? "(unmapped branch)"}`;
 	const route = branch === null ? null : `${branch} → ${entry.target.base_ref_name ?? "?"}`;
 	return [targetName, route, countsSummary(entry.counts)]
 		.filter((part): part is string => part !== null)

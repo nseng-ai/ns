@@ -30,6 +30,7 @@ import {
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
 } from "../../ts/packages/capabilities/objective/src/api/index.ts";
+import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objective/src/runner/prompt.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
@@ -53,7 +54,7 @@ import {
 	optionalEntry,
 } from "../../ts/packages/infra/core/src/primitives/primitives.ts";
 import {
-	normalizeExecResult,
+	piExecApiToCommandExecApi,
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
@@ -145,7 +146,7 @@ const PI_ADDENDUM = `### Pi session addendum — objective_runner_step tool
 
 In this session, run each runner step by calling the \`objective_runner_step\` tool with \`{ objective, guidance, recover?, model? }\` instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step: it runs runner-begin, dispatches the implementation subagent with the generated prompt (progress renders in a live widget), runs runner-finish, and returns the Runner Checkpoint markdown as its result. It also owns report/facts scratch paths — skip the skill's step-artifact bookkeeping; every call gets fresh paths automatically, including recovery attempts.
 
-Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries (never push/submit/open PRs/land; never commit on trunk; later push/submit/handoff decisions belong outside the runner and require separate human direction). To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
+Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries. Canonical forbidden-action rule from \`ts/packages/capabilities/objective/src/runner/prompt.ts\`: "${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}". Never commit on trunk; later push/submit/handoff decisions belong outside the runner and require separate human direction. To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
 const objectiveRunnerStepInputSchema = z
 	.object({
@@ -208,8 +209,7 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Objective runner step",
-		description:
-			"Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop. Runner runs are local-only: never push, submit, open PRs, publish, merge, or hand off outside a separately authorized parent action.",
+		description: `Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop. Runner runs are local-only and obey the canonical forbidden-action rule: ${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}`,
 		parameters: OBJECTIVE_RUNNER_STEP_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
 			runObjectiveRunnerStep({ pi, params, signal, ctx }),
@@ -256,15 +256,8 @@ async function chooseAutorunObjective(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 ): Promise<string | undefined> {
-	const selectionHost = {
-		exec: async (
-			command: string,
-			args: readonly string[],
-			options?: { cwd?: string; timeout?: number },
-		): Promise<ExecResult> => normalizeExecResult(await pi.exec(command, [...args], options)),
-	};
 	const slug = await chooseActiveObjectiveSlug(
-		selectionHost,
+		piExecApiToCommandExecApi(pi),
 		objectiveSelectionContextFromCommandContext(ctx),
 		OBJECTIVE_AUTORUN_SELECTION_SPEC,
 	);
@@ -279,6 +272,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 	const input: ObjectiveRunnerStepInput = parsedInput.data;
 	const slug = input.objective;
 	const shouldRecover = input.recover === true;
+	const commands = piExecApiToCommandExecApi(pi);
 
 	const stepNumber = (stepCountsBySlug.get(slug) ?? 0) + 1;
 	stepCountsBySlug.set(slug, stepNumber);
@@ -320,24 +314,22 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 	try {
 		await writeFile(guidancePath, input.guidance, { encoding: "utf8", mode: 0o600 });
 		pushWidget("begin");
-		const beginExec = normalizeExecResult(
-			await pi.exec(
-				"ns",
-				[
-					"objective",
-					"exec",
-					"runner-begin",
-					slug,
-					...(shouldRecover ? ["--recover"] : []),
-					"--guidance",
-					`@${guidancePath}`,
-					"--report-path",
-					scratchPaths.reportPath,
-					"--format",
-					"json",
-				],
-				{ cwd: ctx.cwd },
-			),
+		const beginExec = await commands.exec(
+			"ns",
+			[
+				"objective",
+				"exec",
+				"runner-begin",
+				slug,
+				...(shouldRecover ? ["--recover"] : []),
+				"--guidance",
+				`@${guidancePath}`,
+				"--report-path",
+				scratchPaths.reportPath,
+				"--format",
+				"json",
+			],
+			{ cwd: ctx.cwd },
 		);
 		await writeFile(scratchPaths.factsPath, beginExec.stdout, { encoding: "utf8", mode: 0o600 });
 
@@ -379,21 +371,19 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		// Every non-cancelled outcome proceeds to finish — the report file, not the final text, is
 		// the contract; finish itself yields a malfunction checkpoint if the report is missing.
 		pushWidget("finish");
-		const finishExec = normalizeExecResult(
-			await pi.exec(
-				"ns",
-				[
-					"objective",
-					"exec",
-					"runner-finish",
-					slug,
-					"--facts",
-					`@${scratchPaths.factsPath}`,
-					"--format",
-					"json",
-				],
-				{ cwd: ctx.cwd },
-			),
+		const finishExec = await commands.exec(
+			"ns",
+			[
+				"objective",
+				"exec",
+				"runner-finish",
+				slug,
+				"--facts",
+				`@${scratchPaths.factsPath}`,
+				"--format",
+				"json",
+			],
+			{ cwd: ctx.cwd },
 		);
 		const checkpoint = extractCheckpointData(finishExec.stdout);
 		if (checkpoint === undefined) {

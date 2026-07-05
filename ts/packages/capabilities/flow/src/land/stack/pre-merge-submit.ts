@@ -9,8 +9,8 @@ import {
 import {
 	formatGraphiteOperation,
 	formatSubmitUpdateCommandLines,
+	restackOperation,
 	restackTargetForSubmit,
-	restackUpstackOperation,
 	submitUpdateOperation,
 } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
@@ -57,7 +57,10 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	if (restackTarget) {
-		const restackOperation = restackUpstackOperation(restackTarget);
+		const restackForSubmitOperation = restackOperation({
+			branch: restackTarget,
+			scope: "upstack",
+		});
 		setStatus(ctx, `restacking ${restackTarget}...`);
 		const restacked = await landContext.graphite.prepareRestackForSubmit({
 			repoRoot: plan.repoRoot,
@@ -66,7 +69,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		if (restacked.type === "failure") {
 			return failure(
 				preMergeGraphiteFailure(restacked.failure, {
-					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
+					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackForSubmitOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
 				}),
 			);
 		}

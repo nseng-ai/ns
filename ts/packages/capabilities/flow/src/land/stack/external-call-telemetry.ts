@@ -1,5 +1,6 @@
 import { GRAPHITE_COMMAND_NAME } from "@ns/capability-kit/graphite/branch";
 import type { ExecResult } from "@ns/core/command";
+import { optionalEntry } from "@ns/core/primitives";
 import { isReadGraphiteBranchMetadataArgs } from "./graphite-command-channel.ts";
 
 export type FlowLandExternalCallTransport = "command" | "github-api";
@@ -32,15 +33,29 @@ export interface FlowLandExternalCallTelemetryEvent {
 	count: 1;
 	status: FlowLandExternalCallStatus;
 	exitCode?: number;
-	killed?: boolean;
+	wasKilled?: boolean;
 	quota?: FlowLandExternalCallQuotaEstimate;
 }
 
 export type FlowLandExternalCallTelemetrySink = (event: FlowLandExternalCallTelemetryEvent) => void;
 
-export interface CommandTelemetryInput {
+export interface CommandInvocationMetadata {
+	githubGraphqlBranchCount?: number;
+}
+
+export interface CommandInvocation {
 	command: string;
 	args: readonly string[];
+	metadata?: CommandInvocationMetadata;
+}
+
+export interface CommandInvocationClassification {
+	category: FlowLandExternalCallCategory;
+	operation: string;
+	quota?: FlowLandExternalCallQuotaEstimate;
+}
+
+export interface CommandTelemetryInput extends CommandInvocation {
 	commandDisplay: string;
 	elapsedMs: number;
 	result: ExecResult;
@@ -49,19 +64,19 @@ export interface CommandTelemetryInput {
 export function commandExternalCallTelemetryEvent(
 	input: CommandTelemetryInput,
 ): FlowLandExternalCallTelemetryEvent {
-	const quota = staticQuotaForCommand(input.command, input.args);
+	const classification = classifyCommandInvocation(input);
 	return {
 		type: "flow_land.external_call",
 		transport: "command",
-		category: commandExternalCallCategory(input.command, input.args),
-		operation: commandExternalCallOperation(input.command, input.args),
+		category: classification.category,
+		operation: classification.operation,
 		display: input.commandDisplay,
 		elapsedMs: input.elapsedMs,
 		count: 1,
 		status: input.result.code === 0 ? "success" : "failure",
 		exitCode: input.result.code,
-		killed: Boolean(input.result.killed),
-		...(quota === undefined ? {} : { quota }),
+		wasKilled: Boolean(input.result.killed),
+		...optionalEntry("quota", cloneQuotaEstimate(classification.quota)),
 	};
 }
 
@@ -85,22 +100,32 @@ export function githubApiExternalCallTelemetryEvent(
 		elapsedMs: input.elapsedMs,
 		count: 1,
 		status: input.status,
-		...(input.quota === undefined ? {} : { quota: input.quota }),
+		...optionalEntry("quota", cloneQuotaEstimate(input.quota)),
 	};
 }
 
-function commandExternalCallCategory(
-	command: string,
-	args: readonly string[],
-): FlowLandExternalCallCategory {
-	if (command === GRAPHITE_COMMAND_NAME) return "graphite";
-	if (command === "ns" && isReadGraphiteBranchMetadataArgs(args)) return "graphite";
-	if (command === "gh") return "github-cli";
-	if (command === "git") return "git";
+export function classifyCommandInvocation(
+	invocation: CommandInvocation,
+): CommandInvocationClassification {
+	return {
+		category: commandExternalCallCategory(invocation),
+		operation: commandExternalCallOperation(invocation),
+		...optionalEntry("quota", staticQuotaForInvocation(invocation)),
+	};
+}
+
+function commandExternalCallCategory(invocation: CommandInvocation): FlowLandExternalCallCategory {
+	if (invocation.command === GRAPHITE_COMMAND_NAME) return "graphite";
+	if (invocation.command === "ns" && isReadGraphiteBranchMetadataArgs(invocation.args)) {
+		return "graphite";
+	}
+	if (invocation.command === "gh") return "github-cli";
+	if (invocation.command === "git") return "git";
 	return "other-command";
 }
 
-function commandExternalCallOperation(command: string, args: readonly string[]): string {
+function commandExternalCallOperation(invocation: CommandInvocation): string {
+	const { command, args } = invocation;
 	if (command === GRAPHITE_COMMAND_NAME && args.length > 0) return `gt ${args[0]}`;
 	if (command === "gh" && args[0] === "pr" && typeof args[1] === "string") {
 		return `gh pr ${args[1]}`;
@@ -122,6 +147,13 @@ export function staticQuotaForCommand(
 	command: string,
 	args: readonly string[],
 ): FlowLandExternalCallQuotaEstimate | undefined {
+	return staticQuotaForInvocation({ command, args });
+}
+
+function staticQuotaForInvocation(
+	invocation: CommandInvocation,
+): FlowLandExternalCallQuotaEstimate | undefined {
+	const { command, args } = invocation;
 	if (command !== "gh") return undefined;
 	if (args[0] === "pr" && args[1] === "view" && args.includes("--json")) {
 		return {
@@ -154,7 +186,7 @@ export function staticQuotaForCommand(
 		};
 	}
 	if (args[0] === "api" && args[1] === "graphql") {
-		const branchCount = batchedPullRequestFactsAliasCount(args);
+		const branchCount = batchedPullRequestFactsBranchCount(invocation);
 		return {
 			kind: "static",
 			provider: "github",
@@ -170,8 +202,28 @@ export function staticQuotaForCommand(
 	return undefined;
 }
 
-function batchedPullRequestFactsAliasCount(args: readonly string[]): number {
-	const queryArg = args.find((arg) => arg.startsWith("query="));
-	if (queryArg === undefined) return 0;
-	return queryArg.match(/\bb\d+: pullRequests\(/g)?.length ?? 0;
+export function cloneQuotaEstimate(
+	quota: FlowLandExternalCallQuotaEstimate | undefined,
+): FlowLandExternalCallQuotaEstimate | undefined {
+	if (quota === undefined) return undefined;
+	return { ...quota };
+}
+
+function batchedPullRequestFactsBranchCount(invocation: CommandInvocation): number {
+	if (invocation.metadata?.githubGraphqlBranchCount !== undefined) {
+		return invocation.metadata.githubGraphqlBranchCount;
+	}
+	return countGraphqlHeadFieldArguments(invocation.args);
+}
+
+function countGraphqlHeadFieldArguments(args: readonly string[]): number {
+	let count = 0;
+	for (let index = 0; index < args.length - 1; index += 1) {
+		if (args[index] === "-F" && isGraphqlHeadVariable(args[index + 1])) count += 1;
+	}
+	return count;
+}
+
+function isGraphqlHeadVariable(value: string | undefined): boolean {
+	return value !== undefined && /^head\d+=/.test(value);
 }

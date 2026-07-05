@@ -66,6 +66,7 @@ export type {
 	LandGraphiteDeleteLocalBranchResult,
 	LandGraphiteGateway,
 	LandGraphiteRefreshBranchResult,
+	LandGraphiteRestackScope,
 	LandingBoundaryFailure,
 	LandingBoundaryFailureDiagnostics,
 	LandingCleanupMode,

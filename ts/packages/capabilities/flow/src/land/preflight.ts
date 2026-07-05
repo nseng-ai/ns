@@ -57,9 +57,6 @@ export async function buildStackLandingPlan(
 	const localBranchShas = new Map(
 		shape.value.localBranches.map((branch) => [branch.name, branch.sha]),
 	);
-	const branchPresence = validateLandingBranchesPresent(stack.landingBranches, localBranchShas);
-	if (branchPresence.type === "failure") return branchPresence;
-
 	const branchPlans = await loadBranchPlans(
 		context,
 		shape.value.repoRoot,
@@ -272,7 +269,7 @@ async function loadBranchPlans(
 	landingBranches: readonly string[],
 	localBranchShas: ReadonlyMap<string, string>,
 ): Promise<LandResult<readonly BranchLandingPlan[]>> {
-	if (context.github.pullRequestFactsByBranch !== undefined && landingBranches.length > 2) {
+	if (context.github.pullRequestFactsByBranch !== undefined) {
 		const prs = await context.github.pullRequestFactsByBranch({
 			repoRoot,
 			branches: landingBranches,
@@ -283,11 +280,11 @@ async function loadBranchPlans(
 
 	const branchPlans: BranchLandingPlan[] = [];
 	for (const branch of landingBranches) {
-		const localSha = localBranchShas.get(branch);
-		if (localSha === undefined) return missingLocalBranchFailure(branch);
 		const pr = await context.github.pullRequestFacts({ repoRoot, branchOrNumber: branch });
 		if (pr.type === "failure") return pr;
-		branchPlans.push({ branch, localSha, pr: pr.value });
+		const branchPlan = branchPlanFromFacts(branch, localBranchShas, pr.value);
+		if (branchPlan.type === "failure") return branchPlan;
+		branchPlans.push(branchPlan.value);
 	}
 	return landSuccess(branchPlans);
 }
@@ -299,8 +296,6 @@ function branchPlansFromPrMap(
 ): LandResult<readonly BranchLandingPlan[]> {
 	const branchPlans: BranchLandingPlan[] = [];
 	for (const branch of landingBranches) {
-		const localSha = localBranchShas.get(branch);
-		if (localSha === undefined) return missingLocalBranchFailure(branch);
 		const pr = prs.get(branch);
 		if (pr === undefined) {
 			return landFailure({
@@ -311,19 +306,21 @@ function branchPlansFromPrMap(
 				message: `Batched GitHub PR facts did not include ${branch}.`,
 			});
 		}
-		branchPlans.push({ branch, localSha, pr });
+		const branchPlan = branchPlanFromFacts(branch, localBranchShas, pr);
+		if (branchPlan.type === "failure") return branchPlan;
+		branchPlans.push(branchPlan.value);
 	}
 	return landSuccess(branchPlans);
 }
 
-function validateLandingBranchesPresent(
-	landingBranches: readonly string[],
+function branchPlanFromFacts(
+	branch: string,
 	localBranchShas: ReadonlyMap<string, string>,
-): LandOutcome {
-	for (const branch of landingBranches) {
-		if (!localBranchShas.has(branch)) return landOutcomeFailure(missingLocalBranch(branch));
-	}
-	return landCompleted();
+	pr: PullRequestFacts,
+): LandResult<BranchLandingPlan> {
+	const localSha = localBranchShas.get(branch);
+	if (localSha === undefined) return missingLocalBranchFailure(branch);
+	return landSuccess({ branch, localSha, pr });
 }
 
 function missingLocalBranchFailure(branch: string): LandResult<never> {

@@ -28,12 +28,12 @@ export interface ReadGraphiteBranchMetadataCommand {
 
 export type GetDownstackConflictHandling = "fail" | "defer";
 export type DeleteLocalBranchConflictHandling = "fail" | "retain";
+export type GraphiteRestackScope = "branch-only" | "upstack";
 
 export type LandGraphiteOperation =
 	| { kind: "trunk" }
 	| { kind: "submit-update"; branch: string; force?: boolean }
-	| { kind: "restack-upstack"; branch: string }
-	| { kind: "restack-branch-only"; branch: string }
+	| { kind: "restack"; branch: string; scope: GraphiteRestackScope }
 	| {
 			kind: "get-downstack-no-checkout";
 			branch: string;
@@ -158,16 +158,11 @@ export function submitUpdateOperation(input: {
 	};
 }
 
-export function restackUpstackOperation(
-	branch: string,
-): Extract<LandGraphiteOperation, { kind: "restack-upstack" }> {
-	return { kind: "restack-upstack", branch };
-}
-
-export function restackBranchOnlyOperation(
-	branch: string,
-): Extract<LandGraphiteOperation, { kind: "restack-branch-only" }> {
-	return { kind: "restack-branch-only", branch };
+export function restackOperation(input: {
+	readonly branch: string;
+	readonly scope: GraphiteRestackScope;
+}): Extract<LandGraphiteOperation, { kind: "restack" }> {
+	return { kind: "restack", branch: input.branch, scope: input.scope };
 }
 
 export function getDownstackNoCheckoutOperation(input: {
@@ -211,7 +206,7 @@ export function formatSubmitUpdateCommandLines(plan: FlowLandingPlan): string[] 
 	const restackTarget = restackTargetForSubmit(plan);
 	return restackTarget
 		? [
-				formatGraphiteOperation(restackUpstackOperation(restackTarget)),
+				formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" })),
 				formatGraphiteOperation(submitOperation),
 			]
 		: [formatGraphiteOperation(submitOperation)];
@@ -287,6 +282,9 @@ type GraphiteOperationSpecs = {
 	>;
 };
 
+function graphiteRestackFlag(scope: GraphiteRestackScope): "--only" | "--upstack" {
+	return scope === "branch-only" ? "--only" : "--upstack";
+}
 const GRAPHITE_OPERATION_SPECS = {
 	trunk: {
 		kind: "trunk",
@@ -306,23 +304,13 @@ const GRAPHITE_OPERATION_SPECS = {
 			...(operation.force ? ["--force"] : []),
 		],
 	},
-	"restack-upstack": {
-		kind: "restack-upstack",
+	restack: {
+		kind: "restack",
 		buildArgs: (operation) => [
 			"restack",
 			"--branch",
 			operation.branch,
-			"--upstack",
-			"--no-interactive",
-		],
-	},
-	"restack-branch-only": {
-		kind: "restack-branch-only",
-		buildArgs: (operation) => [
-			"restack",
-			"--branch",
-			operation.branch,
-			"--only",
+			graphiteRestackFlag(operation.scope),
 			"--no-interactive",
 		],
 	},

@@ -5,9 +5,9 @@ import type {
 } from "../../land/stack/command-stream.ts";
 import {
 	createFlowLandTelemetryRun,
-	formatFlowLandTelemetrySummary,
 	type FlowLandTelemetryRunFinish,
 } from "../../land/stack/external-call-telemetry-run.ts";
+import { formatFlowLandTelemetrySummary } from "../../land/stack/external-call-telemetry-summary.ts";
 import {
 	landCommandOptionSpecs,
 	landCommandSchemaShape,

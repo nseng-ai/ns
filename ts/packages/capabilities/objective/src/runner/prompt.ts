@@ -12,6 +12,9 @@ import { OBJECTIVE_RUNNER_REPORT_BEGIN, OBJECTIVE_RUNNER_REPORT_END } from "./re
 const RUNNER_GRAPHITE_STACK_NAVIGATION_RULE =
 	"Do not run `gt create`, `gt checkout`, `gt restack`, or any command whose purpose is to rebase/reorder or navigate the Graphite stack; after Graphite tracking succeeds, use plain `git switch` instead of `gt checkout` because Graphite checkout may demand a restack when a downstack branch is behind trunk. If a branch appears to need restacking, report it and stop.";
 
+export const OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE =
+	"Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization.";
+
 interface ReportFieldDescriptor {
 	key: string;
 	value: string;
@@ -131,7 +134,7 @@ function rules(
 		"- Load Objective context yourself: follow the repo's objective-next workflow and existing skills for this Objective. Do not expect Objective content in this prompt.",
 		...branchRules,
 		`- ${RUNNER_GRAPHITE_STACK_NAVIGATION_RULE}`,
-		"- Leave ALL changes uncommitted. Never run `git commit`, `git commit --amend`, `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or anything that submits, merges, publishes, opens PRs, or writes to external systems; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision.",
+		`- Leave ALL changes uncommitted. Never run \`git commit\`, \`git commit --amend\`, or any command that creates or rewrites commits. ${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}`,
 		`- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the ${reportDescriptor.validationSectionLabel} section of your report.`,
 		reportDescriptor.finalReportRule,
 	].join("\n");

@@ -8,15 +8,31 @@ import {
 	resolveNsXdgPath,
 	ensurePrivateParentDirectory,
 } from "@ns/capability-kit/xdg";
-import { formatElapsedMs } from "@ns/core/time-format";
-import type {
-	FlowLandExternalCallCategory,
-	FlowLandExternalCallQuotaEstimate,
-	FlowLandExternalCallStatus,
-	FlowLandExternalCallTelemetryEvent,
-	FlowLandExternalCallTelemetrySink,
-	FlowLandExternalCallTransport,
+import { optionalEntry } from "@ns/core/primitives";
+import {
+	cloneQuotaEstimate,
+	type FlowLandExternalCallCategory,
+	type FlowLandExternalCallQuotaEstimate,
+	type FlowLandExternalCallStatus,
+	type FlowLandExternalCallTelemetryEvent,
+	type FlowLandExternalCallTelemetrySink,
+	type FlowLandExternalCallTransport,
 } from "./external-call-telemetry.ts";
+import {
+	summarizeExternalCalls,
+	type FlowLandTelemetryTotals,
+} from "./external-call-telemetry-summary.ts";
+
+export {
+	formatFlowLandTelemetrySummary,
+	summarizeExternalCalls,
+} from "./external-call-telemetry-summary.ts";
+export type {
+	FlowLandTelemetryCategorySummary,
+	FlowLandTelemetryQuotaSummary,
+	FlowLandTelemetrySummaryInput,
+	FlowLandTelemetryTotals,
+} from "./external-call-telemetry-summary.ts";
 
 export const FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION = 1;
 
@@ -27,29 +43,8 @@ export interface FlowLandExternalCallDiagnostic {
 	elapsedMs: number;
 	status: FlowLandExternalCallStatus;
 	exitCode?: number;
-	killed?: boolean;
+	wasKilled?: boolean;
 	quota?: FlowLandExternalCallQuotaEstimate;
-}
-
-export interface FlowLandTelemetryCategorySummary {
-	category: FlowLandExternalCallCategory;
-	calls: number;
-	elapsedMs: number;
-	failures: number;
-}
-
-export interface FlowLandTelemetryQuotaSummary {
-	graphqlRequests: number;
-	restRequests: number;
-	rateLimitCost: number;
-}
-
-export interface FlowLandTelemetryTotals {
-	calls: number;
-	elapsedMs: number;
-	failures: number;
-	byCategory: FlowLandTelemetryCategorySummary[];
-	githubQuota: FlowLandTelemetryQuotaSummary;
 }
 
 export interface FlowLandTelemetryDiagnostics {
@@ -132,22 +127,6 @@ export function createFlowLandTelemetryRun(
 	};
 }
 
-export function formatFlowLandTelemetrySummary(result: FlowLandTelemetryRunFinish): string {
-	const lines = [formatTotalsLine(result.diagnostics.totals)];
-	const quota = result.diagnostics.totals.githubQuota;
-	if (quota.graphqlRequests > 0 || quota.restRequests > 0 || quota.rateLimitCost > 0) {
-		lines.push(
-			`GitHub quota estimate: GraphQL ${quota.graphqlRequests}, REST ${quota.restRequests}, rate-limit cost ${quota.rateLimitCost}.`,
-		);
-	}
-	if (result.write.type === "written") {
-		lines.push(`Telemetry diagnostics: ${result.write.path}`);
-	} else {
-		lines.push(`Telemetry diagnostics not written: ${result.write.reason}`);
-	}
-	return lines.join("\n");
-}
-
 function createTelemetryRunId(startedAtMs: number): string {
 	const serial = nextTelemetryRunSerial;
 	nextTelemetryRunSerial += 1;
@@ -185,51 +164,9 @@ function toDiagnosticExternalCall(
 		operation: event.operation,
 		elapsedMs: event.elapsedMs,
 		status: event.status,
-		...(event.exitCode === undefined ? {} : { exitCode: event.exitCode }),
-		...(event.killed === undefined ? {} : { killed: event.killed }),
-		...(event.quota === undefined ? {} : { quota: { ...event.quota } }),
-	};
-}
-
-function summarizeExternalCalls(
-	externalCalls: readonly FlowLandExternalCallDiagnostic[],
-): FlowLandTelemetryTotals {
-	const categorySummaries = new Map<
-		FlowLandExternalCallCategory,
-		FlowLandTelemetryCategorySummary
-	>();
-	const githubQuota: FlowLandTelemetryQuotaSummary = {
-		graphqlRequests: 0,
-		restRequests: 0,
-		rateLimitCost: 0,
-	};
-	let elapsedMs = 0;
-	let failures = 0;
-	for (const call of externalCalls) {
-		elapsedMs += call.elapsedMs;
-		if (call.status === "failure") failures += 1;
-		let categorySummary = categorySummaries.get(call.category);
-		if (categorySummary === undefined) {
-			categorySummary = { category: call.category, calls: 0, elapsedMs: 0, failures: 0 };
-			categorySummaries.set(call.category, categorySummary);
-		}
-		categorySummary.calls += 1;
-		categorySummary.elapsedMs += call.elapsedMs;
-		if (call.status === "failure") categorySummary.failures += 1;
-		if (call.quota !== undefined) {
-			githubQuota.graphqlRequests += call.quota.graphqlRequests;
-			githubQuota.restRequests += call.quota.restRequests;
-			githubQuota.rateLimitCost += call.quota.rateLimitCost;
-		}
-	}
-	return {
-		calls: externalCalls.length,
-		elapsedMs,
-		failures,
-		byCategory: [...categorySummaries.values()].sort((left, right) =>
-			left.category.localeCompare(right.category),
-		),
-		githubQuota,
+		...optionalEntry("exitCode", event.exitCode),
+		...optionalEntry("wasKilled", event.wasKilled),
+		...optionalEntry("quota", cloneQuotaEstimate(event.quota)),
 	};
 }
 
@@ -248,7 +185,7 @@ async function writeFlowLandTelemetryDiagnostics(options: {
 			}),
 		);
 	} catch (error) {
-		return { type: "skipped", reason: error instanceof Error ? error.message : String(error) };
+		return { type: "skipped", reason: skipReasonFromUnknown(error) };
 	}
 
 	const path = join(directory, `${options.diagnostics.runId}.json`);
@@ -259,31 +196,22 @@ async function writeFlowLandTelemetryDiagnostics(options: {
 		);
 		return { type: "written", path };
 	} catch (error) {
-		return { type: "skipped", reason: error instanceof Error ? error.message : String(error) };
+		return { type: "skipped", reason: skipReasonFromUnknown(error) };
 	}
-}
-
-function formatTotalsLine(totals: FlowLandTelemetryTotals): string {
-	if (totals.calls === 0) return "External-call telemetry: no external calls recorded.";
-	const categories = totals.byCategory
-		.map((item) => `${item.category}: ${item.calls}/${formatTelemetryElapsedMs(item.elapsedMs)}`)
-		.join("; ");
-	const failureSuffix = totals.failures === 0 ? "" : `; failures: ${totals.failures}`;
-	return `External-call telemetry: ${totals.calls} calls in ${formatTelemetryElapsedMs(totals.elapsedMs)} (${categories}${failureSuffix}).`;
-}
-
-function formatTelemetryElapsedMs(elapsedMs: number): string {
-	if (elapsedMs < 1_000) return `${elapsedMs}ms`;
-	return formatElapsedMs(elapsedMs);
 }
 
 function copyTelemetryEvent(
 	event: FlowLandExternalCallTelemetryEvent,
 ): FlowLandExternalCallTelemetryEvent {
+	const { quota, ...rest } = event;
 	return {
-		...event,
-		...(event.quota === undefined ? {} : { quota: { ...event.quota } }),
+		...rest,
+		...optionalEntry("quota", cloneQuotaEstimate(quota)),
 	};
+}
+
+function skipReasonFromUnknown(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 const realTelemetryDiagnosticsGateway: FlowLandTelemetryDiagnosticsGateway = {

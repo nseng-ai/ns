@@ -1,5 +1,7 @@
 import type { ExecResult } from "@ns/core/command";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ns/capability-kit/git";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
+import { formatLiveBranchTips } from "./land-test-helpers.ts";
 
 const DEFAULT_BACKUP_REF_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -37,17 +39,14 @@ export function backupRefSteps(
 			stdout: staleCurrentRefs.join("\n"),
 		}),
 		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
-		step("git", backupSnapshotListArgs(branches), {
-			stdout: branches
-				.map((branch) => `${localBranchRef(branch)}\t${shas[branch] ?? DEFAULT_BACKUP_REF_SHA}`)
-				.join("\n"),
+		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
+			stdout: formatLiveBranchTips(branches, {
+				shaOverrides: shas,
+				defaultSha: DEFAULT_BACKUP_REF_SHA,
+			}),
 		}),
 		step("git", backupSnapshotFetchArgs(branches, shas)),
 	];
-}
-
-export function backupSnapshotListArgs(branches: readonly string[]): string[] {
-	return ["for-each-ref", "--format=%(refname)%09%(objectname)", ...branches.map(localBranchRef)];
 }
 
 export function backupSnapshotFetchArgs(
@@ -63,10 +62,6 @@ export function backupSnapshotFetchArgs(
 			(branch) => `+${shas[branch] ?? DEFAULT_BACKUP_REF_SHA}:${BACKUP_REF_NAMESPACE}/${branch}`,
 		),
 	];
-}
-
-function localBranchRef(branch: string): string {
-	return `refs/heads/${branch}`;
 }
 
 function step(
