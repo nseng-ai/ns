@@ -64,7 +64,7 @@ trunk names are in `objective.md`'s naming rebaseline. All paths relative to
       Evidence: `test/scenario/regenerate-pr-command.test.ts` covers force
       regenerating a fingerprint-current body without prompting, default
       no-op on current, and default prompt on stale (still present on trunk
-      2026-07-03, command now `ji flow regenerate-pr`); full DoP suite green
+      2026-07-03, command now `ns flow regenerate-pr`); full DoP suite green
       at delivery.
 - [x] Delete the forwarder shims (review #6)
       Delivered 2026-07-02 (runner step, branch commit `67c6e49ee` on

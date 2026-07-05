@@ -4,11 +4,11 @@ Conventions for authoring, naming, vendoring, and managing skills in this repo. 
 
 ### Managing Skills With `npx skills`
 
-All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical ji install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`. **Exception:** `unlisted` skills have no mirrors at all — `areg skill apply unlisted` removes both `.agents/skills/<name>` and `.claude/skills/<name>`, leaving only the canonical `skills/<name>/` source.
+All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical ns install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`. **Exception:** `unlisted` skills have no mirrors at all — `areg skill apply unlisted` removes both `.agents/skills/<name>` and `.claude/skills/<name>`, leaving only the canonical `skills/<name>/` source.
 
 ### Auditing and Tightening Skills
 
-To audit or tighten a `SKILL.md` — for predictability, token cost, trigger quality, progressive disclosure, install layout, or CLI push-down — summon the **`skill-audit-improved`** skill (`skills/skill-audit-improved/`). It is self-contained: it bundles the writing-great-skills vocabulary (predictability, the failure modes, leading words) with ji's operational audit checklists, so it carries its own conceptual frame. The original `skill-audit` skill remains for comparison. Use the vocabulary's failure-mode names (duplication, sediment, sprawl, no-op, premature completion) as the labels for audit findings; the deep definitions live in that skill's bundled `GLOSSARY.md`.
+To audit or tighten a `SKILL.md` — for predictability, token cost, trigger quality, progressive disclosure, install layout, or CLI push-down — summon the **`skill-audit-improved`** skill (`skills/skill-audit-improved/`). It is self-contained: it bundles the writing-great-skills vocabulary (predictability, the failure modes, leading words) with ns's operational audit checklists, so it carries its own conceptual frame. The original `skill-audit` skill remains for comparison. Use the vocabulary's failure-mode names (duplication, sediment, sprawl, no-op, premature completion) as the labels for audit findings; the deep definitions live in that skill's bundled `GLOSSARY.md`.
 
 ### Skill Invocation Kinds (`areg`)
 
@@ -64,7 +64,7 @@ When a skill body references model tiers or per-dispatch model selection, keep t
 
 ### Vendored Skill Code
 
-See [Matt Pocock Skills Upstream Adaptation Guide](../agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, ji overlays, and future upstream update checklist.
+See [Matt Pocock Skills Upstream Adaptation Guide](../agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, ns overlays, and future upstream update checklist.
 
 - `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party ns work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.

@@ -109,7 +109,7 @@ conventions are worth following:
 
 ## Relevance to this repo
 
-ji's design principle of **git-native storage** means durable domain state
+ns's design principle of **git-native storage** means durable domain state
 lives in branch refs, branches, and GitHub issues/PRs — explicitly **not** in
 hidden databases or ad-hoc state files. So the XDG `*_HOME` directories are not
 the home for durable project state here.
@@ -119,13 +119,13 @@ local per-machine configuration for the TypeScript CLIs, or scratch state. For
 those, prefer `XDG_CACHE_HOME` (regenerable) or `XDG_STATE_HOME` (local,
 non-precious) over `XDG_DATA_HOME`, and keep that boundary explicit.
 
-Current ji-owned roots use these conventions:
+Current ns-owned roots use these conventions:
 
 - Saved/enriched plans: `$XDG_STATE_HOME/ns/enriched-plan` (default `$HOME/.local/state/ns/enriched-plan`).
 - Slot worktree pools: `$XDG_STATE_HOME/ns/slots` (default `$HOME/.local/state/ns/slots`).
-- ji global extensions: `$XDG_DATA_HOME/ns/extensions` (default `$HOME/.local/share/ns/extensions`).
+- ns global extensions: `$XDG_DATA_HOME/ns/extensions` (default `$HOME/.local/share/ns/extensions`).
 - Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ns/brmem/prompts` (default `$HOME/.config/ns/brmem/prompts`).
-- Submit raw failure logs and ji Pi CLI trace logs: `$XDG_STATE_HOME/ns/...` unless their explicit ji-specific overrides are set.
+- Submit raw failure logs and ns Pi CLI trace logs: `$XDG_STATE_HOME/ns/...` unless their explicit ns-specific overrides are set.
 
 ## Sources
 

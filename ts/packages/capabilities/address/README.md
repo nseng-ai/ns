@@ -30,7 +30,7 @@ ADR 0016 keeps dependency direction as `@nseng-ai/address` → `@nseng-ai/core`:
 
 ## Distribution
 
-Address operations are mounted into the repo-local ji extension command face as `ns address exec ...`; nothing is bundled or published:
+Address operations are mounted into the repo-local ns extension command face as `ns address exec ...`; nothing is bundled or published:
 
 - **Install**: `just install-tools` installs the `ns` shim.
 - **Dispatch**: inside an ns checkout (any worktree), `ns address exec ...` loads `.ns/extensions/address` and invokes this package's operation handlers.

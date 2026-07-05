@@ -43,7 +43,7 @@ Look for these source shapes under `ts/packages/pi-extensions/src/`:
 
 - Direct command registration: `pi.registerCommand(...)`.
 - CLI bridge registration: `registerCliCommandExtension(...)` in `ts/packages/pi-extensions/src/cli-command-extension.ts`.
-- Current bridge example: `ts/packages/pi-extensions/src/ns-extension.ts` maps ji commands to `/ns:*` and `/ns:code:*` Pi commands.
+- Current bridge example: `ts/packages/pi-extensions/src/ns-extension.ts` maps ns commands to `/ns:*` and `/ns:code:*` Pi commands.
 
 Commands registered through `registerCliCommandExtension` are presumed CLI-backed. Verify skill/docs discoverability and flag surprising extra Pi-only behavior, but do not treat every generated bridge command as an orchestration gap.
 

@@ -22,22 +22,22 @@
     packages (`@ns/pi`, `nscc`, `@internal/pi-tools`), and non-runtime internal tooling
     (`@internal/typescript-style-guard`).
 - [~] Replace the source-path module loader
-  (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ji/objective` + its hidden
+  (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ns/objective` + its hidden
   `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
-  paths. Reconcile the checked-in `.ji/extensions/*` re-export manifests and keep the
+  paths. Reconcile the checked-in `.ns/extensions/*` re-export manifests and keep the
   parity test green.
-  - Evidence: `ji objective exec …` commands run from the built artifact with no workspace
+  - Evidence: `ns objective exec …` commands run from the built artifact with no workspace
     source tree present.
   - Current `ns` evidence: preinstalled Objective catalog entries now carry in-process loader
     thunks for bundled Objective command modules, while specifier-based loading and
     project/global extension override precedence remain covered by tests.
 - [~] Introduce the build/bundle step and produce a checkout-free artifact (no
   run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
-  - Evidence: the artifact runs `ji objective list` on a machine with no repo checkout.
+  - Evidence: the artifact runs `ns objective list` on a machine with no repo checkout.
   - Current `ns` evidence: `@ns/cli` builds a local esbuild bundle and `pack:local` assembles an
     `@nseng-ai/ns` tarball whose `ns` bin runs `ns objective list` from a foreign temp repo
     after `npm install <tarball>`.
-- [ ] Replace the checkout-dependent shims (pnpm `.bin/ji` `NODE_PATH`; installer template
+- [ ] Replace the checkout-dependent shims (pnpm `.bin/ns` `NODE_PATH`; installer template
       `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`) for
       the published package.
 - [ ] Decide the published npm name for every standalone-published package

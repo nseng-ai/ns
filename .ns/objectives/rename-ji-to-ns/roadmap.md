@@ -29,10 +29,12 @@
       absent, `ts/packages/hosts/nscc` exists, no tracked `src/ji/` path was found, and
       `rg -n "Jicc|jicc|JICC" ts/packages/hosts/nscc` now returns no hits. Remaining
       active-prose `@ji/*` trails are tracked by the post-landing rebaseline row.
-- [~] Post-landing rebaseline: sweep orientation trails and open Objective records
-  whose active prose still points at `ji` surfaces (paths, commands, package
-  names); historical records stay verbatim. Evidence: active orientation output and
-  residual docs grep still contain stale `@ji/*` package references.
+- [x] Post-landing rebaseline: sweep orientation trails and open Objective records
+      whose active prose still points at `ji` surfaces (paths, commands, package
+      names); historical records stay verbatim. Evidence: active docs, skills, package
+      contexts, and open Objective prose were rebaselined to `ns`; remaining residual
+      `ji` hits are historical rename chains, superseded docs, immutable updates,
+      closed records, or this Objective's own rename narrative.
 - [x] Machine migration, scripted this time: install shim, zshrc sentinel block, XDG
       dirs with worktree slots moved via `git worktree move`, `JI_*` shell-profile
       exports, and `refs/ji/*` → `refs/ns/*`; fix straggler branches by hand. Evidence:

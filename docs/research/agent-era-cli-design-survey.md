@@ -5,7 +5,7 @@
 This survey maps command-line interface guidance for two overlapping audiences:
 humans using a terminal directly, and AI agents consuming CLI output inside a
 context window. It is intentionally not an ADR. The goal is to preserve the
-competing positions and identify decisions that ji/Clinkr must resolve in ADRs
+competing positions and identify decisions that ns/Clinkr must resolve in ADRs
 before turning them into hard rules.
 
 Sources consulted:
@@ -49,7 +49,7 @@ High-confidence guidance from clig.dev:
 - Treat output formats, flags, subcommands, and config as long-lived interfaces;
   keep changes additive where possible.
 
-Important clig.dev philosophy for ji: human-first and composable are compatible,
+Important clig.dev philosophy for ns: human-first and composable are compatible,
 but a CLI must be explicit about which output is a human UI and which output is a
 stable interface.
 
@@ -103,7 +103,7 @@ simple for agents to inspect and call. The relevant themes are:
 - Generated or schema-backed CLIs can keep implementation, docs, and machine
   expectations aligned.
 
-For ji, this supports Clinkr's existing direction: typed schemas,
+For ns, this supports Clinkr's existing direction: typed schemas,
 `resultSchema`, deterministic JSON envelopes, and command-level schema emission
 are agent-era advantages.
 
@@ -120,7 +120,7 @@ That strengthens the case for:
 - hidden or namespaced command groups for agent-only operations when a command is
   not meant to be top-level human UX.
 
-ji already follows this pattern with hidden `exec` subgroups for skill-invoked
+ns already follows this pattern with hidden `exec` subgroups for skill-invoked
 operations.
 
 ## Where the sources agree
@@ -153,7 +153,7 @@ CLI traditions use richer numeric taxonomies. Clinkr currently leans toward a
 small process-level distinction plus a structured machine envelope carrying
 `error_type`.
 
-Decision needed: should ji standardize richer numeric exit codes, keep simple
+Decision needed: should ns standardize richer numeric exit codes, keep simple
 `0`/`1`/`2` process semantics and rely on envelope fields, or define a hybrid?
 
 Dissent to preserve: rich numeric codes are easy for shells but lossy for agents;
@@ -166,7 +166,7 @@ clig.dev recommends human-readable output by default and notes TTY detection as 
 heuristic for human output. Agent guidance values predictable outputs and explicit
 formats. Auto-switching behavior can surprise agents, tests, and scripts.
 
-Decision needed: when should ji commands vary output by TTY, and when must they
+Decision needed: when should ns commands vary output by TTY, and when must they
 require an explicit `--format`, `--json`, `--plain`, or `--compact` flag?
 
 Dissent to preserve: TTY-sensitive defaults improve direct human UX; explicit
@@ -222,7 +222,7 @@ confirmation. Agent tool specifications can expose destructive/open-world
 annotations. Clinkr currently does not appear to provide a first-class danger or
 confirmation tier abstraction.
 
-Decision needed: should ji encode danger tiers in Clinkr APIs, document them as
+Decision needed: should ns encode danger tiers in Clinkr APIs, document them as
 skill-level conventions, or leave them command-local?
 
 Dissent to preserve: first-class tiers improve consistency and reviewability;

@@ -143,7 +143,7 @@ Project-local Pi commands:
 /ns:handoff:list [--branch <branch> | --all]
 ```
 
-Portable ji command face:
+Portable ns command face:
 
 ```text
 ns handoff list [--branch <branch>|--all] [--include-deleted]

@@ -1,8 +1,8 @@
-# Platform and Consumer: ji Is Self-Hosting
+# Platform and Consumer: ns Is Self-Hosting
 
 Routed from the root `AGENTS.md` ("Architecture rules" section). Read before deciding whether new code is a platform capability or a consumer instance.
 
-ji is **self-hosting**: the same `sdl-tools` repo that **develops** the platform is also its **first consumer**. The roaster engine, objectives, handoffs, branch-context, and review loaders are capabilities built here — and the concrete `.ns/reviews/*` and `.ns/objectives/*` instances that exercise those capabilities are authored and run here too. Dogfooding is not incidental; it is the default state of the repo. Because both live side by side, developer-hat and consumer-hat get conflated constantly. This doc exists to make the distinction explicit.
+ns is **self-hosting**: the same `ns` repo that **develops** the platform is also its **first consumer**. The roaster engine, objectives, handoffs, branch-context, and review loaders are capabilities built here — and the concrete `.ns/reviews/*` and `.ns/objectives/*` instances that exercise those capabilities are authored and run here too. Dogfooding is not incidental; it is the default state of the repo. Because both live side by side, developer-hat and consumer-hat get conflated constantly. This doc exists to make the distinction explicit.
 
 ## The two hats
 

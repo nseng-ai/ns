@@ -128,3 +128,11 @@ Risks:
 - None at creation. Publish mechanics for `@nseng-ai/ns` stay with
   `checkout-free-sdl-distribution`; the checkout-dir rename is parked with a documented
   procedure.
+
+## Closure
+
+Outcome: completed. The repo and owner-machine surfaces have hard-cut over from `ji` to `ns`: `ns` is the invocation surface, `.ns/` is the repo state root, `/ns:*` is the Pi namespace, `NS_*` env vars and XDG `ns` roots are current, workspace packages use `@ns/*` (with the documented `nscc` and `@internal/pi-tools` exceptions), `ns.toml` replaces `ji.toml`, and the external publish target is `@nseng-ai/ns`.
+
+Key evidence is recorded in the final Semantic Updates: the landed-cutover rebaseline, the `nscc` identifier cleanup, and the post-landing active-prose rebaseline. The post-landing sweep updated active docs, skills, package contexts, and open Objective guidance to the `ns` naming baseline; remaining `ji` text is intentional historical or rename-context provenance, including this record, superseded naming docs, immutable updates, closed records, and parked historical design retrospectives.
+
+Follow-ups stay with their owning Objectives: `checkout-free-sdl-distribution` owns checkout-free publication of `@nseng-ai/ns`, `ship-objectives-to-customers` owns customer onboarding, and the checkout directory rename remains parked as `mv` → `git worktree repair` → `just install-tools`. The durable rule that should survive closure is simple: do not introduce new live `ji` surfaces, paths, commands, packages, or vocabulary.

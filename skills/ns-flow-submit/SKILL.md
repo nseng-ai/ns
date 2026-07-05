@@ -44,7 +44,7 @@ If the CLI says a restack is required:
 ns flow submit --restack
 ```
 
-Automatic checkpointing uses ji checkpoint environment variables:
+Automatic checkpointing uses ns checkpoint environment variables:
 
 - `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
 - `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
@@ -55,7 +55,7 @@ PR description generation uses:
 - `NS_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
 - `.ns/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 
-Submit failure interpretation uses `NS_SUBMIT_FAILURE_MODEL`, defaulting to the standard ji fast model.
+Submit failure interpretation uses `NS_SUBMIT_FAILURE_MODEL`, defaulting to the standard ns fast model.
 
 To regenerate the current branch PR explicitly, run:
 

@@ -3,8 +3,8 @@
 Getting to: every package's boundary and canonical terms are recorded; the map's
 inventory matches the actual workspace.
 
-What you see now — drift, do not trust blindly: CONTEXT-MAP.md lags the `ji` rename and
-container-package restructure (a retired `sdl-land` Present entry, a phantom `@ji/flow-pi`
+What you see now — drift, do not trust blindly: CONTEXT-MAP.md lags the `ns` rename and
+container-package restructure (a retired `sdl-land` Present entry, a phantom `@ns/flow-pi`
 Planned entry, stale naming-exception and link-path claims); several packages still lack a
 recorded context decision.
 

@@ -3,7 +3,7 @@
 ## Thesis
 
 A full-codebase, multi-agent run of the Fowler-style code-smell-only roaster
-review (now `.ji/reviews/code-smell-roaster/review.md`; located at
+review (now `.ns/reviews/code-smell-roaster/review.md`; located at
 `.sdl/reviews/code-smell-roaster.md` when the sweep ran) against all 849
 production TypeScript/TSX source files in this repo found 162
 adversarially-verified code smells: 92 Duplicated Code, 16 Repeated Switches,
@@ -131,7 +131,7 @@ The supported autonomous runner is `/objective:autopilot <slug> [--submit]`:
 each iteration spawns a fresh child Pi that runs `objective-next` for *this*
 Objective, implements one coherent slice, and leaves it **uncommitted**; the
 parent session then re-checks live repo state and owns commit and submit
-(`--submit` opens the PR via `ji flow submit --no-restack`, never restacking
+(`--submit` opens the PR via `ns flow submit --no-restack`, never restacking
 and never landing). A human working the loop by hand follows the same steps
 below.
 
@@ -148,8 +148,8 @@ below.
 - **How work may change files and be left:** local edits and commits on a
   feature branch (never on `main`/`master`) created via the repo's
   **branch-context Graphite creation** path per the autoobjective branch policy
-  (`ji branch-context exec from-plan --branch-creation graphite`, or
-  `/ji:branch-context:from-plan --graphite`) — not bare `gt create`. See
+  (`ns branch-context exec from-plan --branch-creation graphite`, or
+  `/ns:branch-context:from-plan --graphite`) — not bare `gt create`. See
   `skills/branch-context/references/lifecycle.md`. Small, reversible, locally
   validated steps are fine while exploring a cluster, but
   the submitted PR should be one coherent, review-substantive unit — usually
@@ -178,7 +178,7 @@ Default runner loop:
    finding that turned out stale, or an overlap with another Objective), or
    policy refinements — not a per-commit changelog.
 7. Create the branch-context implementation branch, commit the slice, and
-   submit the cluster's PR (`ji flow submit --no-restack`); do not land it.
+   submit the cluster's PR (`ns flow submit --no-restack`); do not land it.
    Under `/objective:autopilot` the parent owns commit and submit while the
    child leaves the slice uncommitted.
 
@@ -193,17 +193,17 @@ Assumptions:
 - Cluster-to-package mapping in `references/` is pre-reorg and must be
   re-mapped, not merely double-checked. The July 2026 workspace consolidation
   regrouped `ts/packages/` into `infra/{brmem,clinkr,core}`,
-  `capabilities/*`, `capability-kit`, `hosts/{pi,jicc}`, `kernel`,
+  `capabilities/*`, `capability-kit`, `hosts/{pi,nscc}`, `kernel`,
   `local/pi-tools`, and `tools/*`: the former standalone `exec`,
   `cli-runtime`, `cli-theme`, `time`, and `test-kit` packages now live under
   `infra/core/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
   `capability-kit/src/*`; the `@local-pi-tools/*` sub-packages were
   consolidated into one `@internal/pi-tools` package at
-  `ts/packages/local/pi-tools`; the `sdlcc` host was renamed `jicc`;
+  `ts/packages/local/pi-tools`; the `sdlcc` host was renamed `nscc`;
   `worktree-status` moved into `hosts/pi/src/worktree-status`; and
   `capabilities/land` was absorbed into `capabilities/flow/src/land`. The
-  first-party CLI was also renamed `sdl` → `ji` and the repo state root
-  `.sdl` → `.ji`. Landed fixes from this Objective survived the reorg (their
+  first-party CLI was also renamed `sdl` → `ns` and the repo state root
+  `.sdl` → `.ns`. Landed fixes from this Objective survived the reorg (their
   helpers re-verified present on 2026-07-03, a few under new names — see
   `roadmap.md`), but every remaining reference path needs the same re-mapping.
 - Existing or focused tests per touched package are a sufficient behavior-

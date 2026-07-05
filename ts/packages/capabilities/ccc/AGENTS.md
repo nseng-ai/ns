@@ -2,7 +2,7 @@
 
 ## Cross CLI/Pi Progress Output
 
-CCC owns orchestration that is often invoked from both ji CLI commands and Pi slash-command mirrors. When adding or fixing human-facing progress for those workflows, prefer the SDK `NsCommandIo` service and kernel command-I/O adapter instead of inventing a command-local progress sink or relying only on Pi status.
+CCC owns orchestration that is often invoked from both ns CLI commands and Pi slash-command mirrors. When adding or fixing human-facing progress for those workflows, prefer the SDK `NsCommandIo` service and kernel command-I/O adapter instead of inventing a command-local progress sink or relying only on Pi status.
 
 Use this pattern when a workflow can run through `ns ...` and `/ns:...` or another Pi mirror:
 

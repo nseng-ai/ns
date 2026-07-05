@@ -9,15 +9,15 @@ against trunk on 2026-07-03: every Work row has landed on `master` as squash
 commits, and repo-wide renames that landed after this record's updates were
 written are folded into current-state prose here.
 
-**Naming rebaseline (2026-07-03).** The repo-wide `sdl → ji` cutover and
+**Naming rebaseline (2026-07-03, refreshed after ADR 0026).** The repo-wide `sdl → ji → ns` cutovers and
 package restructuring landed after this Objective's work: the package is now
-`@ji/flow` (was `sdl-flow`), the CLI surface is `ji flow …` (was
+`@ns/flow` (was `sdl-flow`), the CLI surface is `ns flow …` (was
 `sdl flow …`), `src/land-stack/` moved to `src/land/stack/`, commands live
-under `src/ji/commands/`, and the old `src/shared/` files this record names
+under `src/ns/commands/`, and the old `src/shared/` files this record names
 moved (`failure-catalog.ts` → `src/phase-stream/`, `text-generation.ts` →
 `src/submit/`). Historical `updates/` files keep the superseded names; they
-are immutable provenance. Those renames are owned by the `rename-sdl-to-ji`
-initiative and the package restructuring work, not this Objective.
+are immutable provenance. Those renames are owned by the rename initiatives
+and the package restructuring work, not this Objective.
 
 ## Thesis
 
@@ -83,7 +83,7 @@ Six work streams, all delivered 2026-07-01→02 and landed on `master`
 
 ## Non-Goals
 
-- Any change to the **Flow Capability API** (`@ji/flow/api`, formerly
+- Any change to the **Flow Capability API** (`@ns/flow/api`, formerly
   `sdl-flow/api`) surface consumed by CCC. Existing exports kept working
   through every slice, including the extraction.
 - The land presentation surface (review #5) until its Parked-row decision —
@@ -96,7 +96,7 @@ Six work streams, all delivered 2026-07-01→02 and landed on `master`
   `pi.exec` (`ScriptedExec` in
   `test/unit/land-stack-command-scenarios.test.ts`).
 - Rewriting historical `updates/` files; corrections append.
-- The repo-wide `sdl → ji` rename and package restructuring that moved this
+- The repo-wide `sdl → ji → ns` renames and package restructuring that moved this
   record's named paths; other initiatives own that work.
 
 ## Completion Criteria
@@ -111,9 +111,9 @@ current (`src/land/stack/` was `src/land-stack/` when the work landed).
   caller branches to select a channel method; streamed-vs-raw is not
   caller-visible vocabulary. Land scenario tests script `pi.exec` and assert
   emitted argv.
-- **Regenerate — holds.** `ji flow regenerate-pr --force` regenerates a
+- **Regenerate — holds.** `ns flow regenerate-pr --force` regenerates a
   fingerprint-current managed region without prompting
-  (`src/ji/commands/regenerate-pr.ts` wires the fingerprint policy from
+  (`src/ns/commands/regenerate-pr.ts` wires the fingerprint policy from
   `--force` and suppresses confirmation); the default path still skips when
   current and still confirms; the no-op compatibility sentence and notice are
   deleted. `test/scenario/regenerate-pr-command.test.ts` covers both paths.
@@ -131,7 +131,7 @@ current (`src/land/stack/` was `src/land-stack/` when the work landed).
 - **Round trip — holds.** `plan-mapping.ts` is deleted; zero
   `LandPlanForFlow`, `preloadedShape`, or `flow-adapter-failure` references
   in flow/ccc; Flow crosses into the Land Domain Core at the documented
-  preflight adapter. CCC imports only `@ji/flow/api`, no private Flow land
+  preflight adapter. CCC imports only `@ns/flow/api`, no private Flow land
   internals.
 - **Submit/catalog — holds.** `SubmitGateway` returns domain results;
   `submit-detect.ts` is imported only by the gateway implementation and its
@@ -151,7 +151,7 @@ promoted (which would need fresh row-level policy prose).
 
 Keepable progress meant: exactly one roadmap row (or one named migration
 slice) advanced on a `gt`-created feature branch, never on `master`; the full
-TS validation suite green (`just` entrypoint); `@ji/flow/api` exports
+TS validation suite green (`just` entrypoint); `@ns/flow/api` exports
 untouched or proven compatible; the row's `Evidence:` expectation demonstrated
 by a named test; a Semantic Update recording what landed. Never: duplicated
 orchestration left unrecorded, new wrappers/mirrors/mappers at the (now
@@ -180,7 +180,7 @@ mutating GitHub, or landing anything on `master`.
   `flow/CONTEXT.md` — confirmed by delivery. CONTEXT.md's vocabulary (Flow
   Land Execution, Land Domain Core, Land Gateway Set, Flow Stack Preflight
   Adapter, Flow Land Compatibility Boundary) is still present on trunk
-  2026-07-03, updated to `@ji/flow` naming.
+  2026-07-03, updated to `@ns/flow` naming.
 - No other Objective owns follow-on flow-land work:
   `flow-capability-layer-cleanup` is closed; this is the only open flow
   Objective (verified against the active list 2026-07-03).
@@ -213,9 +213,9 @@ mutating GitHub, or landing anything on `master`.
 
 ## Open Questions
 
-- Does the Land Domain Core stay a `@ji/flow` subpath after the migration, or
+- Does the Land Domain Core stay a `@ns/flow` subpath after the migration, or
   graduate to its own package? Current trunk state: it is exported as
-  `@ji/flow/land/api` and `@ji/flow/land/testing`. Graduation is out of scope
+  `@ns/flow/land/api` and `@ns/flow/land/testing`. Graduation is out of scope
   for this record unless a second consumer appears.
 - Channel promotion trigger — partially settled 2026-07-02: the
   operation-shaped channel is the gateway backend (preserving per-command

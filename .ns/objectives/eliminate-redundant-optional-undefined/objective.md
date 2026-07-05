@@ -4,7 +4,7 @@
 
 This Objective is the single open standing record for autonomous follow-up work on redundant optional `undefined` in TypeScript declarations.
 
-It continues from the closed `.ji/objectives/normalize-optional-undefined-boundaries` Objective. The closed Objective established the semantic process: inventory before editing, normalize loose inputs at boundaries, preserve compatibility surfaces deliberately, avoid regex-driven sweeps, and summarize before/after counts and rationale for every slice.
+It continues from the closed `.ns/objectives/normalize-optional-undefined-boundaries` Objective. The closed Objective established the semantic process: inventory before editing, normalize loose inputs at boundaries, preserve compatibility surfaces deliberately, avoid regex-driven sweeps, and summarize before/after counts and rationale for every slice.
 
 The standing goal is to continuously reduce semantically redundant `?: T | undefined` where a runner can make and validate a local semantic claim. It is not a blanket zero-count campaign. The Objective operates like a long-running cleanup/research loop: repeatedly inventory candidates, classify their semantics, make a review-substantive coherent improvement, validate it, record reusable findings, and continue in later sessions without requiring human steering for ordinary local slices.
 
@@ -60,7 +60,7 @@ Do not keep changes that:
 - Reduce grep counts by mechanical rewrite alone.
 - Mix unrelated cleanup domains into the same slice only because they share the same syntax.
 
-The Objective's measurement instrument is the checked-in script `tools/measure-objective.mjs` in this record (run from the repo root as `node .ji/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [scope ...]`). It reports four metrics per scope:
+The Objective's measurement instrument is the checked-in script `tools/measure-objective.mjs` in this record (run from the repo root as `node .ns/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [scope ...]`). It reports four metrics per scope:
 
 1. **Raw optional-undefined properties (net debt)**: unclassified `foo?: T | undefined` declarations. This is the primary metric. It reached zero repo-wide on 2026-07-01 and should stay at or near zero; nonzero readings are reintroductions to classify or remove.
 2. **Typed explicit-undefined contracts**: `ExplicitUndefined<Reason, T>` usages. These are deliberate, audited surfaces, not debt; converting raw debt into a typed contract is progress even though this count rises.

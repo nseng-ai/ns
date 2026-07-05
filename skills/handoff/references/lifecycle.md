@@ -54,7 +54,7 @@ Pi surfaces:
 /ns:handoff:list [--branch <branch>|--all]
 ```
 
-ji command face:
+ns command face:
 
 ```text
 ns handoff list [--branch <branch>|--all] [--include-deleted] --format json
