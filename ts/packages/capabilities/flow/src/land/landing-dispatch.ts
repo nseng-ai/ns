@@ -1,6 +1,7 @@
 import type { NsCommandIo } from "@ns/kernel/sdk";
 import { executeStackLanding } from "./land-stack.ts";
 import type { LandLiveProgressSink } from "./stack/command-stream.ts";
+import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./stack/land-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
@@ -23,6 +24,7 @@ interface RunLandingDispatchOptions {
 	parsedArgs: ParsedArgs;
 	progressIo?: NsCommandIo;
 	liveProgress?: LandLiveProgressSink;
+	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 }
 
 export async function runLandingDispatch(
@@ -83,6 +85,9 @@ export async function runLandingDispatch(
 			: { preMergeConfirmation: "already-approved" }),
 		...(progressIo === undefined ? {} : { io: progressIo }),
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
+		...(options.externalCallTelemetry === undefined
+			? {}
+			: { externalCallTelemetry: options.externalCallTelemetry }),
 	});
 	return await finishAfterLanding(outcome, {
 		ctx: options.ctx,

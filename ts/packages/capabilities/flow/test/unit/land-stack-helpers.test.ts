@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@ns/core/command";
+import { createManualClock } from "@ns/core/time/testing";
 import { ScriptedQueue } from "@ns/core/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { outputTail } from "../../src/land/stack/command-exec.ts";
@@ -17,6 +18,7 @@ import {
 	withCommandStreaming,
 } from "../../src/land/stack/command-stream.ts";
 import { landArgumentCompletions, parseArgs } from "../../src/land/land-stack.ts";
+import type { FlowLandExternalCallTelemetryEvent } from "../../src/land/stack/external-call-telemetry.ts";
 import {
 	landCommandOptionSpecs,
 	landRawArgsFromCommandRequest,
@@ -767,6 +769,120 @@ describe("land-stack pure helpers", () => {
 		);
 		expect(commandMessagesText(pi.messages)).toContain("✗ $ git status — exit 127");
 		expect(commandMessagesText(pi.messages)).toContain("spawn failed");
+	});
+
+	test("emits structured external-call telemetry with static gh quota estimates", async () => {
+		const manualClock = createManualClock(1_000);
+		class DelayedPi extends FakePi {
+			override async exec(
+				command: string,
+				args: string[],
+				options?: { cwd?: string; timeout?: number },
+			): Promise<ExecResult> {
+				const result = await super.exec(command, args, options);
+				manualClock.advanceMs(42);
+				return result;
+			}
+		}
+
+		const pi = new DelayedPi([step("gh", ["pr", "view", "101", "--json", "number,title"])]);
+		const telemetry: FlowLandExternalCallTelemetryEvent[] = [];
+		const context = createContext();
+		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx), {
+			clock: manualClock.clock,
+			externalCallTelemetry: (event) => telemetry.push(event),
+		});
+		const streamed = withCommandStreaming(pi, commandStream);
+
+		await streamed.exec("gh", ["pr", "view", "101", "--json", "number,title"], { cwd: ROOT });
+
+		pi.assertDone();
+		expect(telemetry).toEqual([
+			{
+				type: "flow_land.external_call",
+				transport: "command",
+				category: "github-cli",
+				operation: "gh pr view",
+				display: "gh pr view 101 --json number,title",
+				elapsedMs: 42,
+				count: 1,
+				status: "success",
+				exitCode: 0,
+				killed: false,
+				quota: {
+					kind: "static",
+					provider: "github",
+					graphqlRequests: 1,
+					restRequests: 0,
+					rateLimitCost: 1,
+					description: "gh pr view --json uses one GraphQL query",
+				},
+			},
+		]);
+	});
+
+	test("emits Graphite telemetry and redacts gh merge bodies in telemetry display", async () => {
+		const pi = new FakePi([
+			step("gt", ["restack", "--upstack"]),
+			step("gh", [
+				"pr",
+				"merge",
+				"101",
+				"--squash",
+				"--match-head-commit",
+				SHA_A,
+				"--subject",
+				"PR title",
+				"--body",
+				"sensitive PR body",
+			]),
+		]);
+		const telemetry: FlowLandExternalCallTelemetryEvent[] = [];
+		const context = createContext();
+		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx), {
+			externalCallTelemetry: (event) => telemetry.push(event),
+		});
+		const streamed = withCommandStreaming(pi, commandStream);
+
+		await streamed.exec("gt", ["restack", "--upstack"], { cwd: ROOT });
+		await streamed.exec(
+			"gh",
+			[
+				"pr",
+				"merge",
+				"101",
+				"--squash",
+				"--match-head-commit",
+				SHA_A,
+				"--subject",
+				"PR title",
+				"--body",
+				"sensitive PR body",
+			],
+			{ cwd: ROOT },
+		);
+
+		pi.assertDone();
+		expect(telemetry[0]).toMatchObject({
+			category: "graphite",
+			operation: "gt restack",
+			status: "success",
+		});
+		expect(telemetry[1]).toMatchObject({
+			category: "github-cli",
+			operation: "gh pr merge",
+			display:
+				"gh pr merge 101 --squash --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --subject 'PR title' --body '<PR body>'",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 2,
+				restRequests: 0,
+				rateLimitCost: 2,
+				description: "gh pr merge uses one PR finder query plus one mergePullRequest mutation",
+			},
+		});
+		expect(telemetry[1]?.display).not.toContain("sensitive PR body");
 	});
 
 	test("labels successful flow exec topology reads in the command stream", async () => {

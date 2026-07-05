@@ -6,6 +6,7 @@ import {
 	renderCommandStreamMessage,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
+import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./stack/constants.ts";
 import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
 import { createLandRuntime, type LandRuntime } from "./stack/land-runtime.ts";
@@ -39,6 +40,7 @@ export interface ExecuteStackLandingOptions {
 	preMergeConfirmation?: PreMergeConfirmation;
 	liveProgress?: LandLiveProgressSink;
 	graphite?: LandGraphiteCommandChannel;
+	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 }
 
 export function registerLandStackRenderer(
@@ -67,6 +69,9 @@ export async function executeStackLanding(
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
+		...(options.externalCallTelemetry === undefined
+			? {}
+			: { externalCallTelemetry: options.externalCallTelemetry }),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
 	const createdRuntime = createLandRuntime(pi, commandStream);

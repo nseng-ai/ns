@@ -74,7 +74,7 @@ export interface GraphiteCommandOptions<
 }
 
 export interface GraphiteCommandStream {
-	start(commandDisplay: string): void;
+	start(commandDisplay: string, command: string, args: readonly string[]): void;
 	finish(commandDisplay: string, finish: CommandStreamFinish): void;
 }
 
@@ -426,7 +426,7 @@ async function withGraphiteCommandStream<T>(
 	input: WithGraphiteCommandStreamOptions<T>,
 ): Promise<T> {
 	const commandDisplay = formatCommand(GRAPHITE_COMMAND_NAME, input.commandOptions.args);
-	input.commandStream.start(commandDisplay);
+	input.commandStream.start(commandDisplay, GRAPHITE_COMMAND_NAME, input.commandOptions.args);
 	const raw = await executeGraphiteCommand(input.pi, input.commandOptions);
 	const { finish, value } = input.finishAndValue(raw);
 	if (finish !== undefined) {
@@ -505,7 +505,7 @@ async function deleteFinalLocalGraphiteBranchStreamed(
 	});
 }
 
-function isReadGraphiteBranchMetadataArgs(args: readonly string[]): boolean {
+export function isReadGraphiteBranchMetadataArgs(args: readonly string[]): boolean {
 	return READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX.every((part, index) => args[index] === part);
 }
 
