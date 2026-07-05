@@ -12,18 +12,15 @@
   - Consequence: core capability loading should resolve installed package JS, not checkout
     source paths; jiti may remain a dev/package-extension convenience but not the runtime path
     for bundled first-party capabilities.
-- [~] Triage every runtime workspace dependency of `@ji/kernel` (transitively): per package,
-  decide publish vs bundle-inline vs exclude. Record the table. `@ji/kernel` itself must
-  stop being `private` (or be superseded by a published wrapper).
-  - Progress: distribution-first package consolidation has shrunk the closure — the workspace
-    is now 21 packages with 7 private (`@ji/kernel`, `@ji/capability-kit`, `@ji/ccc`,
-    `@ji/flow`, `@ji/pi`, `jicc`, `@internal/pi-tools`), versus the ~29-of-45 recorded when
-    this Objective was created. `@sdl/time`, `@sdl/exec`, and `@sdl/git` were retired as
-    standalone packages in favor of `@ji/core/time`, `@ji/core/exec`, and
-    `@ji/capability-kit/git` subpaths.
-  - Remaining evidence: a recorded per-package decision table covering the 7 private packages
-    (loader-referenced: `@ji/kernel`, `@ji/capability-kit`, `@ji/ccc`, `@ji/flow`; hosts/local:
-    `@ji/pi`, `jicc`, `@internal/pi-tools`).
+- [x] Triage every runtime workspace dependency of `@ns/kernel` (transitively): per package,
+      decide publish vs bundle-inline vs exclude. Record the table. `@ns/kernel` itself must
+      stop being `private` (or be superseded by a published wrapper).
+  - Decision table recorded in
+    `updates/20260704T235456Z-runtime-dependency-triage-decisions.md`.
+  - Current private inventory is 8 packages: runtime/loader-referenced
+    (`@ns/kernel`, `@ns/capability-kit`, `@ns/flow`, `@ns/ccc`), excluded host/internal
+    packages (`@ns/pi`, `nscc`, `@internal/pi-tools`), and non-runtime internal tooling
+    (`@internal/typescript-style-guard`).
 - [ ] Replace the source-path module loader
       (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ji/objective` + its hidden
       `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
