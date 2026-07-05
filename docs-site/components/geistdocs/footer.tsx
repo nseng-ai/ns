@@ -3,7 +3,7 @@ import { LanguageSelector, ThemeToggle } from "@vercel/geistdocs/controls";
 import type { GeistdocsConfig } from "@vercel/geistdocs/config";
 import { RssIcon } from "lucide-react";
 import Link from "next/link";
-import { translations } from "@/lib/geistdocs/site-identity";
+import { copyrightName, translations } from "@/lib/geistdocs/site-identity";
 
 const hasMultipleLanguages = Object.keys(translations).length > 1;
 
@@ -12,7 +12,10 @@ interface FooterProps {
   copyright?: string;
 }
 
-export function Footer({ config, copyright = `© ${new Date().getFullYear()} ns` }: FooterProps) {
+export function Footer({
+  config,
+  copyright = `© ${new Date().getFullYear()} ${copyrightName}`,
+}: FooterProps) {
   const githubUrl =
     config.github?.owner && config.github.repo
       ? `https://github.com/${config.github.owner}/${config.github.repo}`

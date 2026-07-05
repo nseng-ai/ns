@@ -1,5 +1,11 @@
 import { ImageResponse } from "next/og";
 import { geistdocsConfig } from "@/lib/geistdocs/config";
+import {
+  docsShortTitle,
+  organizationName,
+  siteDomain,
+  title,
+} from "@/lib/geistdocs/site-identity";
 import { getPageImage, getPageMetadata, source } from "@/lib/geistdocs/source";
 
 interface OgImageParams {
@@ -42,8 +48,8 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
   }
 
   const pageMetadata = getPageMetadata(page, {
-    fallbackDescription: "Composable tooling for plan-oriented agentic engineering.",
-    fallbackTitle: "ns Documentation",
+    fallbackDescription: `The kernel for ${organizationName}.`,
+    fallbackTitle: title,
   });
 
   return new ImageResponse(
@@ -76,7 +82,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
             textTransform: "uppercase",
           }}
         >
-          ns Docs
+          {docsShortTitle}
         </div>
         <div
           style={{
@@ -108,8 +114,8 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
           justifyContent: "space-between",
         }}
       >
-        <div>Plan-oriented agentic engineering</div>
-        <div style={{ color: "#bfdbfe" }}>ns.tools</div>
+        <div>{organizationName}</div>
+        <div style={{ color: "#bfdbfe" }}>{siteDomain}</div>
       </div>
     </div>,
     {

@@ -72,10 +72,10 @@ function defineExtensionCategoryDescriptors(items: readonly ExtensionCategoryDes
 export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
   {
     slug: "ns-command-mirrors",
-    name: "NS command mirrors",
+    name: "ns command mirrors",
     summary: "Run checkpoint, changes, submit, and PR regeneration workflows from Pi slash commands.",
     details:
-      "Thin Pi adapters expose NS's lifecycle commands without making agents leave the current session.",
+      "Thin Pi adapters expose ns kernel commands without making agents leave the current session.",
     category: "branch-pr",
     status: "built-in",
     commandHint: "/ns:flow:cp",
