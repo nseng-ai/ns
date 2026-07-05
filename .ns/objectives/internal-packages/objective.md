@@ -50,3 +50,11 @@ Risks:
 - Should this objective carry an `orientation.md` (cross-cutting: "new repo-internal tooling goes in `packages/internal/`, never take a runtime dependency on it") while the transition is in flight? Not created pending explicit confirmation.
 - Which audit candidates beyond the first resident get promoted, and do they land as parked rows here or as new objectives?
 - Scope + audit + first resident was adopted as the working scope without live confirmation (user AFK during interview); confirm or narrow to space + audit only. Note that the enforcement work largely disappeared (the boundary rule already exists), which shrinks the delta between the two options.
+
+## Closure
+
+Closed 2026-07-05 as completed. The active scope landed: the tracked package space is `ts/packages/internal/`, the `internal/` charter and runtime-dependency boundary are documented, `docs/conventions/platform-and-consumer.md` names the middle rung and promotion path, the style-guard rule now uses the internal-space identity, the candidate audit is recorded at `references/internal-package-audit.md`, and the proving resident lives as `@internal/typescript-style-guard` with the style-guard suite consuming it as a dev/test dependency.
+
+Completion evidence is captured in `roadmap.md`: all `## Work` rows are checked with file-level evidence, including `just ts-test-typescript-style-guard` and full `just ts-test` green for the first-resident extraction. The remaining known work is intentionally parked, not active scope: optional ghost-directory guard work, future migrations of audit candidates, topology-report promotion, and `.pi/extensions/*` de-embedding. Those should be unparked here before archive or split into new Objectives when someone chooses to pursue them.
+
+Caveat: ignored per-worktree ghost directories may still exist on disk under names such as `ts/packages/local/`; they are not tracked repo state and were explicitly non-goal/parked cleanup material.
