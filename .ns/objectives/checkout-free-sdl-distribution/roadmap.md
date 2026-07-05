@@ -56,10 +56,11 @@
     `@nseng-ai/capability-kit`, `@nseng-ai/flow`, and `@nseng-ai/objectives`.
   - Remaining implementation work: private runtime packages still need publish metadata,
     private flips or wrapper decisions, build outputs, and install verification.
-- [ ] Publish a versioned `@nseng-ai/ns` package to npm and confirm a global/`npx`
+- [x] Publish a versioned `@nseng-ai/ns` package to npm and confirm a global/`npx`
       install runs `ns objective …` against a foreign repo.
-  - Evidence: the `ship-objectives-to-customers` end-to-end verification can install `ns`
-    from npm.
+  - Evidence: `@nseng-ai/ns@0.1.0` exists on npm, and a registry-backed `npx`
+    install from a throwaway foreign git repo ran `ns objective list` plus the hidden
+    `ns objective exec tracking-gate` surface without an ns checkout.
 
 ## Parked
 
