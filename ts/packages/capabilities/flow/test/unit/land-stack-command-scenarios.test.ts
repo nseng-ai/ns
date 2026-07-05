@@ -346,14 +346,23 @@ function metadataBranchNames(dbRows: string): string[] {
 		.filter((name): name is string => typeof name === "string");
 }
 
-function repoIntro(
-	options: {
-		current?: string;
-		trunk?: string;
-		dbRows?: string;
-		liveBranches?: string[];
-	} = {},
-): ScriptedExec[] {
+interface RepoIntroOptions {
+	current?: string;
+	trunk?: string;
+	dbRows?: string;
+	liveBranches?: string[];
+	branchShaOverrides?: Record<string, string>;
+}
+
+function repoIntro(options: RepoIntroOptions = {}): ScriptedExec[] {
+	return buildRepoIntro(options);
+}
+
+function domainRepoIntro(options: RepoIntroOptions = {}): ScriptedExec[] {
+	return buildRepoIntro(options);
+}
+
+function buildRepoIntro(options: RepoIntroOptions): ScriptedExec[] {
 	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
 	const liveBranches = options.liveBranches ?? metadataBranchNames(dbRows);
 	return [
@@ -364,34 +373,29 @@ function repoIntro(
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
 		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
-			stdout: formatLiveBranchTips(liveBranches),
+			stdout: formatLiveBranchTips(
+				liveBranches.map((branch) => liveBranchTipForTest(branch, options.branchShaOverrides)),
+			),
 		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }
 
-function domainRepoIntro(
-	options: {
-		current?: string;
-		trunk?: string;
-		dbRows?: string;
-		liveBranches?: string[];
-	} = {},
-): ScriptedExec[] {
-	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
-	const liveBranches = options.liveBranches ?? metadataBranchNames(dbRows);
-	return [
-		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${ROOT}\n` }),
-		step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${options.current ?? CURRENT}\n` }),
-		step("gt", ["trunk", "--no-interactive"], { stdout: `${options.trunk ?? TRUNK}\n` }),
-		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
-			stdout: `${GIT_COMMON_DIR}\n`,
-		}),
-		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
-			stdout: formatLiveBranchTips(liveBranches),
-		}),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
-	];
+function liveBranchTipForTest(
+	branch: string,
+	shaOverrides: Record<string, string> | undefined,
+): string {
+	if (branch.includes("\t")) return branch;
+	const sha = shaOverrides?.[branch] ?? testShaForBranch(branch);
+	return `${branch}\t${sha}\t2026-01-01T00:00:00Z`;
+}
+
+function testShaForBranch(branch: string): string {
+	const fixedSha = BRANCH_SHAS[branch];
+	if (fixedSha !== undefined) return fixedSha;
+	const numbered = /^feature-(\d+)$/.exec(branch)?.[1];
+	if (numbered !== undefined) return numberedSha(Number(numbered));
+	return "0".repeat(40);
 }
 
 function submitRestackRecheckStep(
@@ -413,10 +417,6 @@ function cleanRepoChecks(): ScriptedExec[] {
 		step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
 		step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
 	];
-}
-
-function localBranchChecks(branches: string[]): ScriptedExec[] {
-	return branches.map((branch) => step("git", ["show-ref", "--verify", `refs/heads/${branch}`]));
 }
 
 function numberedDb(
@@ -456,27 +456,21 @@ function numberedPreflight(options: {
 			dbRows: numberedDb(start, options.end, { current: options.current }),
 		}),
 		...cleanRepoChecks(),
-		...localBranchChecks(planBranches),
-		...planBranches.flatMap((branch) => {
+		...planBranches.map((branch) => {
 			const index = Number(branch.replace("feature-", ""));
 			const localSha = numberedSha(index);
 			const prSha = options.prShaOverrides?.[index] ?? localSha;
-			return [
-				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
-					stdout: `${localSha}\n`,
-				}),
-				step("gh", ["pr", "view", branch, "--json", PR_FIELDS], {
-					stdout: prStdout(
-						prSnapshot({
-							number: 200 + index,
-							branch,
-							base: index === start ? TRUNK : numberedBranch(index - 1),
-							sha: prSha,
-							title: `PR ${200 + index}`,
-						}),
-					),
-				}),
-			];
+			return step("gh", ["pr", "view", branch, "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 200 + index,
+						branch,
+						base: index === start ? TRUNK : numberedBranch(index - 1),
+						sha: prSha,
+						title: `PR ${200 + index}`,
+					}),
+				),
+			});
 		}),
 		step("git", ["worktree", "list", "--porcelain"], {
 			stdout: worktreeOutput([{ path: ROOT, branch: currentBranch }]),
@@ -591,14 +585,8 @@ function mergeNumberedBranch(
 
 function initialBranchPlans(options: { featureBBase?: string } = {}): ScriptedExec[] {
 	return [
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${SHA_A}\n`,
-		}),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 			stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
-		}),
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
-			stdout: `${SHA_B}\n`,
 		}),
 		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 			stdout: prStdout(
@@ -626,7 +614,6 @@ function featureStackPreflight(
 	return [
 		...repoIntro({ dbRows }),
 		...cleanRepoChecks(),
-		...localBranchChecks(["feature-a", "feature-b"]),
 		...initialBranchPlans(
 			options.featureBBase === undefined ? {} : { featureBBase: options.featureBBase },
 		),
@@ -785,12 +772,12 @@ function singleBranchPreflightWithRepoIntro(
 	},
 ): ScriptedExec[] {
 	return [
-		...loadRepoIntro({ current: "feature-a", dbRows: options.dbRows ?? DB_SINGLE_BRANCH }),
-		...cleanRepoChecks(),
-		...localBranchChecks(["feature-a"]),
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${options.localSha}\n`,
+		...loadRepoIntro({
+			current: "feature-a",
+			dbRows: options.dbRows ?? DB_SINGLE_BRANCH,
+			branchShaOverrides: { "feature-a": options.localSha },
 		}),
+		...cleanRepoChecks(),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 			stdout: prStdout(
 				prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: options.prSha }),
@@ -873,10 +860,6 @@ function badInitialPrPreflight(pr: PullRequestSnapshot): ScriptedExec[] {
 	return [
 		...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
-		...localBranchChecks(["feature-a"]),
-		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-			stdout: `${SHA_A}\n`,
-		}),
 		step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], { stdout: prStdout(pr) }),
 	];
 }
@@ -1044,13 +1027,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 205,
+					calls: 183,
 					failures: 3,
 					categories: {
 						graphite: 54,
 						"github-cli": 54,
 						"github-api": 0,
-						git: 97,
+						git: 75,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 65, restRequests: 0, rateLimitCost: 65 },
@@ -1060,13 +1043,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 457,
+					calls: 407,
 					failures: 3,
 					categories: {
 						graphite: 124,
 						"github-cli": 124,
 						"github-api": 0,
-						git: 209,
+						git: 159,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 149, restRequests: 0, rateLimitCost: 149 },
@@ -1202,16 +1185,14 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});
 
-	test("missing local branch refuses before mutation", async () => {
-		const script = [
-			...repoIntro({ dbRows: DB_TO_CURRENT }),
-			...cleanRepoChecks(),
-			step("git", ["show-ref", "--verify", "refs/heads/feature-a"], { code: 1, stderr: "missing" }),
-		];
+	test("missing local branch in stack metadata refuses before mutation", async () => {
+		const script = [...repoIntro({ dbRows: DB_TO_CURRENT, liveBranches: [TRUNK, "feature-b"] })];
 		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("Local branch feature-a does not exist");
+		expect(notifications[0]?.message).toContain(
+			"Graphite metadata (/repo/.git/.graphite_metadata.db) has no entry for feature-a",
+		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});
 
