@@ -341,6 +341,28 @@ describe("extension registry", () => {
 		]);
 	});
 
+	test("simple default re-export shims become package module references during discovery", async () => {
+		const workspace = await createWorkspace();
+		writeProjectExtension(
+			workspace,
+			"list.ts",
+			'export { default } from "@ns/objective/ns/commands/list";\n',
+		);
+
+		const catalog = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+		const candidate = catalog.candidates.get("list");
+		expect(candidate).toMatchObject({
+			moduleReference: { type: "package", specifier: "@ns/objective/ns/commands/list" },
+		});
+		if (candidate === undefined) return;
+
+		const selected = await loadSelectedNsCommand(candidate);
+		expect(selected.ok).toBe(true);
+	});
+
 	test("listing command infos preserve package manifest metadata without importing", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
@@ -662,7 +684,7 @@ export default defineExtension({
 				fullDescription: "cp",
 				moduleReference: { type: "file", path: "/project/cp.ts" },
 				entryPath: "/project/cp.ts",
-				kind: "file",
+				hasStaticCommandInfo: false,
 				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
 			},
 		});
@@ -689,7 +711,7 @@ export default defineExtension({
 				fullDescription: "cp",
 				moduleReference: { type: "file", path: "/project/cp.ts" },
 				entryPath: "/project/cp.ts",
-				kind: "file",
+				hasStaticCommandInfo: false,
 				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
 			},
 		});

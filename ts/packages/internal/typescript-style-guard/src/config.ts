@@ -57,17 +57,39 @@ function buildPackageTierAllowedTargets(): Readonly<Record<PackageTier, Readonly
 	return targets;
 }
 
-export const capabilityPackageNames = new Set([
-	"@ns/aretro",
-	"@ns/branch-context",
-	"@ns/ccc",
-	"@ns/handoff",
-	"@ns/objective",
-	"@ns/plans",
-	"@ns/address",
-	"@ns/slot",
-	"@ns/flow",
-]);
+export interface ConcreteCapabilityCommandSurface {
+	readonly packageName: string;
+	readonly cliPrefixes: readonly string[];
+	readonly slashPrefixes: readonly string[];
+}
+
+export const concreteCapabilityCommandSurfaces = [
+	{ packageName: "@ns/address", cliPrefixes: ["address"], slashPrefixes: ["address"] },
+	{ packageName: "@ns/aretro", cliPrefixes: ["aretro"], slashPrefixes: ["aretro"] },
+	{
+		packageName: "@ns/branch-context",
+		cliPrefixes: ["branch-context"],
+		slashPrefixes: ["branch-context"],
+	},
+	{ packageName: "@ns/ccc", cliPrefixes: ["ccc"], slashPrefixes: ["ccc"] },
+	{ packageName: "@ns/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
+	{ packageName: "@ns/handoff", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
+	{ packageName: "@ns/objective", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
+	{ packageName: "@ns/plans", cliPrefixes: ["plans"], slashPrefixes: ["plans", "plan"] },
+	{ packageName: "@ns/slot", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },
+] as const satisfies readonly ConcreteCapabilityCommandSurface[];
+
+export const standaloneToolCommandSurfaces = [
+	{
+		packageName: "@ns/roaster",
+		cliPrefixes: ["roaster", "roast"],
+		slashPrefixes: ["roaster", "roast"],
+	},
+] as const satisfies readonly ConcreteCapabilityCommandSurface[];
+
+export const capabilityPackageNames: ReadonlySet<string> = new Set(
+	concreteCapabilityCommandSurfaces.map((surface) => surface.packageName),
+);
 
 export const manifestDependencyFields = [
 	"dependencies",

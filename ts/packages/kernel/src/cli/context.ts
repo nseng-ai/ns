@@ -75,20 +75,16 @@ export function createRealNsCommandContext(
 export function createNsCliInteraction(options: {
 	stderr: (text: string) => void;
 }): ClinkrInteraction {
-	return createClinkrInteraction({
-		stdin: readStdinLine,
-		stderr: options.stderr,
-	});
+	return createClinkrInteraction(createBaseCliInteractionOptions(options.stderr));
 }
 
 export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 	if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) return undefined;
 	return async (title, message, options) => {
 		const interaction = createClinkrInteraction({
-			stdin: readStdinLine,
-			stderr: (text) => {
+			...createBaseCliInteractionOptions((text) => {
 				process.stderr.write(text);
-			},
+			}),
 			isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
 			formatPrompt: (_request, suffix) => `${title}\n\n${message}\n\nProceed? ${suffix} `,
 		});
@@ -97,6 +93,13 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 			defaultAnswer: options?.defaultAnswer ?? "no",
 		});
 		return result.type === "confirmed";
+	};
+}
+
+function createBaseCliInteractionOptions(stderr: (text: string) => void) {
+	return {
+		stdin: readStdinLine,
+		stderr,
 	};
 }
 

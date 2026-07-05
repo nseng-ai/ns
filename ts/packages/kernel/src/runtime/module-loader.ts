@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-
 import { createJiti } from "jiti/static";
 
 import {
@@ -72,26 +70,6 @@ export function createNsJiti(): ReturnType<typeof createJiti> {
  * Throws when the file cannot be transpiled or imported.
  */
 export async function loadNsUserModuleDefault(modulePath: string): Promise<unknown> {
-	const packageSpecifier = await readDefaultReexportSpecifier(modulePath);
-	if (packageSpecifier !== undefined) {
-		const module = (await import(packageSpecifier)) as { default?: unknown };
-		return module.default;
-	}
 	const jiti = createNsJiti();
 	return jiti.import(modulePath, { default: true });
-}
-
-async function readDefaultReexportSpecifier(modulePath: string): Promise<string | undefined> {
-	let source: string;
-	try {
-		source = await readFile(modulePath, "utf8");
-	} catch {
-		return undefined;
-	}
-	return parseDefaultReexportSpecifier(source);
-}
-
-function parseDefaultReexportSpecifier(source: string): string | undefined {
-	const match = source.trim().match(/^export\s+\{\s*default\s*\}\s+from\s+["']([^"']+)["'];?$/u);
-	return match?.[1];
 }

@@ -18,7 +18,8 @@
 		"@ns/core": "workspace:*",
 		"@ns/flow": "workspace:*",
 		"@ns/handoff": "workspace:*",
-		"@ns/objective": "workspace:*"
+		"@ns/objective": "workspace:*",
+		"@ns/pi-command-surfaces": "workspace:*"
 	},
 	"ns": {
 		"tier": "host"

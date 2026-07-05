@@ -54,16 +54,19 @@ export default defineExtension({
 		expect(command?.schema).toBeInstanceOf(z.ZodObject);
 	});
 
-	test("loads package-specifier re-export shims through host package resolution", async () => {
-		const modulePath = await createModule(
-			'export { default } from "@ns/objective/ns/commands/list";\n',
-		);
-
-		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
+	test("loads package-specifier references through host package resolution", async () => {
+		const loaded = await loadNsExtensionContribution({
+			type: "package",
+			specifier: "@ns/objective/ns/commands/list",
+		});
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateNsExtensionContribution(loaded.defaultExport, "list", modulePath);
+		const validation = validateNsExtensionContribution(
+			loaded.defaultExport,
+			"list",
+			"@ns/objective/ns/commands/list",
+		);
 		expect(validation.ok).toBe(true);
 		if (!validation.ok) return;
 		expect(validation.command.name).toBe("list");

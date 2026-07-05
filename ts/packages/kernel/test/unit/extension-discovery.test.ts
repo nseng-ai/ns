@@ -52,17 +52,17 @@ describe("extension discovery", () => {
 		expect(result.diagnostics).toEqual([]);
 		expect(
 			result.commands.map((command) => [
-				command.kind,
+				command.hasStaticCommandInfo,
 				command.name,
 				command.description,
 				command.entryPath,
 			]),
 		).toEqual([
-			["file", "bare", "Run ns command entry 'bare'.", join(root, "bare.ts")],
-			["dir-index", "dir-js", "Run ns command entry 'dir-js'.", join(root, "dir-js", "index.js")],
-			["dir-index", "dir-ts", "Run ns command entry 'dir-ts'.", join(root, "dir-ts", "index.ts")],
-			["package", "custom", "Custom command.", join(root, "package-ext", "src", "index.ts")],
-			["file", "plain", "Run ns command entry 'plain'.", join(root, "plain.js")],
+			[false, "bare", "Run ns command entry 'bare'.", join(root, "bare.ts")],
+			[false, "dir-js", "Run ns command entry 'dir-js'.", join(root, "dir-js", "index.js")],
+			[false, "dir-ts", "Run ns command entry 'dir-ts'.", join(root, "dir-ts", "index.ts")],
+			[true, "custom", "Custom command.", join(root, "package-ext", "src", "index.ts")],
+			[false, "plain", "Run ns command entry 'plain'.", join(root, "plain.js")],
 		]);
 	});
 
@@ -379,7 +379,7 @@ describe("extension discovery", () => {
 		expect(result.diagnostics).toEqual([]);
 		expect(result.commands).toEqual([
 			expect.objectContaining({
-				kind: "dir-index",
+				hasStaticCommandInfo: false,
 				name: "both",
 				entryPath: join(root, "both", "index.ts"),
 			}),

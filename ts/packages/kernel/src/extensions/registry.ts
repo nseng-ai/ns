@@ -24,7 +24,6 @@ import {
 	discoverExtensionsInRoot,
 	discoverNsPackageCommands,
 	type DiscoveredExtensionCommand,
-	type DiscoveredExtensionCommandKind,
 	type ExtensionDiscoveryDiagnostic,
 } from "./discovery.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
@@ -44,12 +43,10 @@ export interface NsCommandCatalog {
 
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
 
-export type ExternalNsCommandCandidateKind = DiscoveredExtensionCommandKind | "package-specifier";
-
 export interface ExternalNsCommandCandidate extends NsCommandCandidate {
 	moduleReference: NsCommandModuleReference;
 	entryPath?: string;
-	kind: ExternalNsCommandCandidateKind;
+	hasStaticCommandInfo: boolean;
 }
 
 export type ExtensionDiagnostic = ExtensionErrorDiagnostic | ExtensionOverrideDiagnostic;
@@ -231,7 +228,7 @@ export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promis
 			if (isBuiltInCandidate(candidate)) {
 				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
 			}
-			if (candidate.kind === "package" || candidate.moduleReference.type === "package") {
+			if (candidate.moduleReference.type === "package" || candidate.hasStaticCommandInfo) {
 				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
 			}
 			const loaded = await loadSelectedNsCommand(candidate);
@@ -336,7 +333,7 @@ function loadRootCandidates(options: { level: "global" | "project"; rootDir: str
 			fromDiscoveryDiagnostic(diagnostic, options.level),
 		),
 		candidates: discovered.commands.map((command) =>
-			externalCandidateForLevel(command, options.level),
+			discoveredCommandCandidateForLevel(command, options.level),
 		),
 	};
 }
@@ -382,7 +379,7 @@ function loadSourceDevPreinstalledCandidates(
 		candidates.push(
 			...discovered.commands
 				.filter((command) => !catalogKeys.has(commandKey(command)))
-				.map(sourceDevPreinstalledCandidateForCommand),
+				.map(sourceDevDiscoveredCommandCandidate),
 		);
 	}
 	return { diagnostics, candidates };
@@ -438,7 +435,7 @@ function preinstalledCandidateForCatalogEntry(
 	return {
 		...preinstalledCatalogEntryCommandInfo(entry),
 		moduleReference: { type: "package", specifier: entry.moduleSpecifier },
-		kind: "package-specifier",
+		hasStaticCommandInfo: true,
 		source: {
 			level: "preinstalled",
 			label: `preinstalled package ${entry.moduleSpecifier}`,
@@ -456,32 +453,45 @@ function preinstalledCatalogEntryCommandInfo(
 	});
 }
 
-function sourceDevPreinstalledCandidateForCommand(
+function sourceDevDiscoveredCommandCandidate(
 	command: DiscoveredExtensionCommand,
 ): ExternalNsCommandCandidate {
-	return {
-		...toCommandCliInfo(command),
-		moduleReference: { type: "file", path: command.entryPath },
-		entryPath: command.entryPath,
-		kind: command.kind,
-		source: {
-			level: "preinstalled",
-			label: `source-dev package ${command.displayPath}`,
-			path: command.entryPath,
-		},
-	};
+	return discoveredCommandCandidate({
+		command,
+		level: "preinstalled",
+		label: `source-dev package ${command.displayPath}`,
+	});
 }
 
-function externalCandidateForLevel(
+function discoveredCommandCandidateForLevel(
 	command: DiscoveredExtensionCommand,
 	level: "global" | "project",
 ): ExternalNsCommandCandidate {
+	return discoveredCommandCandidate({
+		command,
+		level,
+		label: command.displayPath,
+	});
+}
+
+function discoveredCommandCandidate(options: {
+	command: DiscoveredExtensionCommand;
+	level: ExtensionSourceLevel;
+	label: string;
+}): ExternalNsCommandCandidate {
 	return {
-		...toCommandCliInfo(command),
-		moduleReference: { type: "file", path: command.entryPath },
-		entryPath: command.entryPath,
-		kind: command.kind,
-		source: { level, label: command.displayPath, path: command.entryPath },
+		...toCommandCliInfo(options.command),
+		moduleReference: options.command.moduleReference ?? {
+			type: "file",
+			path: options.command.entryPath,
+		},
+		entryPath: options.command.entryPath,
+		hasStaticCommandInfo: options.command.hasStaticCommandInfo,
+		source: {
+			level: options.level,
+			label: options.label,
+			path: options.command.entryPath,
+		},
 	};
 }
 

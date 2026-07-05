@@ -47,6 +47,7 @@
 		"@ns/capability-kit": "workspace:*",
 		"@ns/core": "workspace:*",
 		"@ns/kernel": "workspace:*",
+		"@ns/pi-command-surfaces": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {

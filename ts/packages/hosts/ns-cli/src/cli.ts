@@ -6,12 +6,8 @@ import { listObjectivePreinstalledNsCommandCatalogEntries } from "@ns/objective/
 export async function runNsCli(args: readonly string[], deps: NsCliDeps = {}): Promise<number> {
 	return await runCli(args, {
 		...deps,
-		preinstalledCommandCatalog: listNsPreinstalledCommandCatalogEntries,
+		preinstalledCommandCatalog: listObjectivePreinstalledNsCommandCatalogEntries,
 	});
-}
-
-function listNsPreinstalledCommandCatalogEntries() {
-	return [...listObjectivePreinstalledNsCommandCatalogEntries()];
 }
 
 if (import.meta.main) {

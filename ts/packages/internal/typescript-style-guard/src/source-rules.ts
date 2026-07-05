@@ -8,6 +8,10 @@ import {
 	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
+	capabilityPackageNames,
+	type ConcreteCapabilityCommandSurface,
+	concreteCapabilityCommandSurfaces,
+	standaloneToolCommandSurfaces,
 } from "./config.ts";
 import {
 	moduleSpecifierText,
@@ -86,7 +90,7 @@ export function collectViolations(
 			violations.push(buildViolation(BAN_AS_UNKNOWN_AS, path, sourceFile, node));
 		}
 
-		if (isLowerLayerConcreteCapabilitySurfaceNode(node, path)) {
+		if (isLowerLayerConcreteCapabilitySurfaceNode(node, path, packageMetadataByName)) {
 			violations.push(
 				buildViolationWithText(
 					BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
@@ -118,30 +122,7 @@ export function collectViolations(
 }
 
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
-const CONCRETE_CAPABILITY_PACKAGE_NAMES = new Set([
-	"@ns/address",
-	"@ns/aretro",
-	"@ns/branch-context",
-	"@ns/ccc",
-	"@ns/flow",
-	"@ns/handoff",
-	"@ns/objective",
-	"@ns/plans",
-	"@ns/roaster",
-	"@ns/slot",
-]);
-const CONCRETE_CAPABILITY_COMMAND_PREFIXES = new Set([
-	"address",
-	"aretro",
-	"branch-context",
-	"ccc",
-	"flow",
-	"handoff",
-	"objective",
-	"plans",
-	"roaster",
-	"slot",
-]);
+const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/core/src/time/index.ts",
 	"ts/packages/hosts/pi/src/kit/shared/timers.ts",
@@ -180,8 +161,12 @@ function isFirstPartyImportDeclaration(node: ts.ImportDeclaration): boolean {
 	return isFirstPartyModuleSpecifier(specifier);
 }
 
-function isLowerLayerConcreteCapabilitySurfaceNode(node: ts.Node, path: string): boolean {
-	if (!isLowerLayerProductionSourcePath(path)) return false;
+function isLowerLayerConcreteCapabilitySurfaceNode(
+	node: ts.Node,
+	path: string,
+	packageMetadataByName: ReadonlyMap<string, PackageMetadata>,
+): boolean {
+	if (!isLowerLayerProductionSourcePath(path, packageMetadataByName)) return false;
 	const literal = stringLiteralText(node);
 	if (literal === undefined) return false;
 	return (
@@ -190,15 +175,15 @@ function isLowerLayerConcreteCapabilitySurfaceNode(node: ts.Node, path: string):
 	);
 }
 
-function isLowerLayerProductionSourcePath(path: string): boolean {
+function isLowerLayerProductionSourcePath(
+	path: string,
+	packageMetadataByName: ReadonlyMap<string, PackageMetadata>,
+): boolean {
 	if (path.includes("/test/") || path.includes("/test-support/")) return false;
-	return (
-		path.startsWith("ts/packages/infra/core/src/") ||
-		path.startsWith("ts/packages/infra/clinkr/src/") ||
-		path.startsWith("ts/packages/infra/brmem/src/") ||
-		path.startsWith("ts/packages/kernel/src/") ||
-		path.startsWith("ts/packages/capability-kit/src/")
-	);
+	const packageName = packageNameForPath(path, packageMetadataByName);
+	if (packageName === undefined) return false;
+	const metadata = packageMetadataByName.get(packageName);
+	return metadata?.nsTier !== undefined && LOWER_LAYER_SURFACE_TIERS.has(metadata.nsTier);
 }
 
 function stringLiteralText(node: ts.Node): string | undefined {
@@ -206,26 +191,45 @@ function stringLiteralText(node: ts.Node): string | undefined {
 }
 
 function isConcreteCapabilityPackageSpecifier(value: string): boolean {
-	for (const packageName of CONCRETE_CAPABILITY_PACKAGE_NAMES) {
-		if (value === packageName || value.startsWith(`${packageName}/`)) return true;
-	}
-	return false;
+	const packageName = packageNameForSpecifier(value);
+	if (packageName === undefined) return false;
+	return isConcreteSurfacePackageName(packageName);
+}
+
+function isConcreteSurfacePackageName(packageName: string): boolean {
+	return (
+		capabilityPackageNames.has(packageName) ||
+		standaloneToolCommandSurfaces.some((surface) => surface.packageName === packageName)
+	);
 }
 
 function isConcreteCapabilityCommandSurfaceLiteral(value: string): boolean {
 	const nsColonMatch = value.match(/(?:^|\/)ns:([a-z0-9-]+)/);
-	if (nsColonMatch?.[1] === "plan") return true;
-	if (
-		nsColonMatch?.[1] !== undefined &&
-		CONCRETE_CAPABILITY_COMMAND_PREFIXES.has(nsColonMatch[1])
-	) {
-		return true;
-	}
+	if (nsColonMatch?.[1] !== undefined && hasConcreteSlashPrefix(nsColonMatch[1])) return true;
 
 	const normalized = value.startsWith("ns ") ? value.slice(3) : value;
 	const firstSegment = normalized.split(/[\s/]/, 1)[0];
 	if (firstSegment === undefined) return false;
-	return CONCRETE_CAPABILITY_COMMAND_PREFIXES.has(firstSegment) && normalized !== value;
+	return hasConcreteCliPrefix(firstSegment) && normalized !== value;
+}
+
+function hasConcreteSlashPrefix(prefix: string): boolean {
+	return hasConcretePrefix(prefix, (surface) => surface.slashPrefixes);
+}
+
+function hasConcreteCliPrefix(prefix: string): boolean {
+	return hasConcretePrefix(prefix, (surface) => surface.cliPrefixes);
+}
+
+function hasConcretePrefix(
+	prefix: string,
+	prefixesOf: (surface: ConcreteCapabilityCommandSurface) => readonly string[],
+): boolean {
+	return allConcreteCommandSurfaces().some((surface) => prefixesOf(surface).includes(prefix));
+}
+
+function allConcreteCommandSurfaces(): readonly ConcreteCapabilityCommandSurface[] {
+	return [...concreteCapabilityCommandSurfaces, ...standaloneToolCommandSurfaces];
 }
 
 function isPrivateCapabilityPeerImport(
