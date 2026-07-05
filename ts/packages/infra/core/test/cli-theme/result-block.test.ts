@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps, ColorDepth } from "@ns/clinkr";
+import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import {
 	renderDestructiveResultBlock,
 	renderResultBlock,
 	renderResultBlockFromMessage,
 	resultBlockHeadline,
 } from "../../src/cli-theme/result-block.ts";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
 
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";

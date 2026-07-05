@@ -2,7 +2,7 @@
 
 - Kind key: `hand-rolled-table`
 - Canonical: renderTextTable / displayWidth
-- Import/path hints: @ns/core/text-table or package renderer helpers
+- Import/path hints: @nseng-ai/core/text-table or package renderer helpers
 - Raw-form tell: padStart/padEnd, Math.max length widths, repeat rule strings clustered together
 - Why reuse matters: display-width correctness for wide/combining glyphs
 - Structural exemptions: tiny one-column labels or non-table prose formatting

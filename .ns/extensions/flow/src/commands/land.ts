@@ -1,1 +1,1 @@
-export { default } from "@ns/flow/commands/land";
+export { default } from "@nseng-ai/flow/commands/land";

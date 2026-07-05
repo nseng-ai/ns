@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { ScriptedQueue } from "@ns/core/test-kit";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
 import {
 	parseDownloadFeedbackData,
 	type ExecResult,

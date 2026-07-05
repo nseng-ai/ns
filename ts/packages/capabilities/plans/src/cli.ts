@@ -2,18 +2,18 @@
 
 import { resolve } from "node:path";
 
-import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@ns/clinkr";
+import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
 import {
 	defineCli,
 	readStdin,
 	runOperationCommand,
 	type CliEntrypointDeps,
-} from "@ns/core/cli-runtime";
-import { formatErrorMessage } from "@ns/core/primitives";
-import { NodeCommandExecApi } from "@ns/core/exec";
-import type { CommandExecApi } from "@ns/core/exec";
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway } from "@ns/capability-kit/git";
+} from "@nseng-ai/core/cli-runtime";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { z } from "zod";
 
 import {

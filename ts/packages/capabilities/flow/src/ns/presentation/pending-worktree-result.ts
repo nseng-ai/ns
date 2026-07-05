@@ -7,7 +7,7 @@
 //
 // Flow-local by design (the Objective's anti-generalization rule); do not export beyond flow.
 
-import type { Caps } from "@ns/clinkr";
+import type { Caps } from "@nseng-ai/clinkr";
 
 import { renderGitResultBlock } from "./git-result-block.ts";
 import type { PendingWorktreeError } from "../worktree.ts";

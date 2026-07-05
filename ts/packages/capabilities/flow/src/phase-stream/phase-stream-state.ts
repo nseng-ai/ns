@@ -1,5 +1,5 @@
-import type { NsProgressPhaseEvent } from "@ns/kernel/sdk";
-import type { PhaseState, StatusLineItem } from "@ns/core/cli-theme";
+import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { PhaseState, StatusLineItem } from "@nseng-ai/core/cli-theme";
 
 import type { PhaseSpec } from "./phase-stream-specs.ts";
 

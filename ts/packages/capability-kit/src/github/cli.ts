@@ -3,8 +3,8 @@ import {
 	type CommandRunner,
 	type ExecOptions,
 	type ExecResult,
-} from "@ns/core/exec";
-import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
+} from "@nseng-ai/core/exec";
+import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;
 export const GITHUB_CLI_STARTUP_ERROR_CODE = 127;

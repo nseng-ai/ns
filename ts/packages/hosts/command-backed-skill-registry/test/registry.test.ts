@@ -1,17 +1,17 @@
 import { describe, expect, test } from "vitest";
 
-import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@ns/ccc/api";
+import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@nseng-ai/ccc/api";
 import {
 	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_TAB_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
-} from "@ns/handoff/pi";
-import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@ns/objective/api";
+} from "@nseng-ai/handoff/pi";
+import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@nseng-ai/objective/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-} from "@ns/branch-context/pi";
+} from "@nseng-ai/branch-context/pi";
 
 import {
 	commandBackedSkillRegistrations,

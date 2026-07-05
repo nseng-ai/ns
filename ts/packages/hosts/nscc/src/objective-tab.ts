@@ -1,10 +1,10 @@
-import { parseMachineEnvelopeData } from "@ns/core/machine-envelope";
+import { parseMachineEnvelopeData } from "@nseng-ai/core/machine-envelope";
 import {
 	parseObjectiveListData,
 	type ObjectiveList,
 	type ObjectiveListParseResult,
 	type ObjectiveListRecord,
-} from "@ns/objective/api";
+} from "@nseng-ai/objective/api";
 
 import { formatInlineCommandFailure } from "./command-runner.ts";
 import { keyNameFromInput } from "./tabs/key-input.ts";

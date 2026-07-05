@@ -1,4 +1,4 @@
-import { defineExtension } from "@ns/kernel/sdk";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 import {
 	renderReviewList,
@@ -11,7 +11,7 @@ import { roasterNsCommand } from "../ns/command.ts";
 
 const REVIEW_LIST_DESCRIPTION = `List configured Roaster review definitions.
 
-This ns command adapts ns execution context to Roaster's gateway-injected runtime, then delegates through the curated @ns/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
+This ns command adapts ns execution context to Roaster's gateway-injected runtime, then delegates through the curated @nseng-ai/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
 
 export interface ReviewListCommandMetadata {
 	readonly name: string;

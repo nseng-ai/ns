@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@ns/core/test-kit";
+import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@nseng-ai/core/test-kit";
 import type {
 	ObjectiveClient,
 	ObjectiveListResult,
@@ -8,14 +8,14 @@ import type {
 	ObjectiveSelectionListLoadResult,
 	ObjectiveSelectionSpec,
 } from "../../src/api/index.ts";
-import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@ns/pi/commands/cli-extension";
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@nseng-ai/pi/commands/cli-extension";
 import objectiveExtension, {
 	type CommandContext,
 	type ExecResult,
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
-import type { AgentEndContext, ExecOptions, SessionStartContext } from "@ns/pi/runtime/types";
+import type { AgentEndContext, ExecOptions, SessionStartContext } from "@nseng-ai/pi/runtime/types";
 
 const ROOT = "/repo";
 const TRUNK = "master";

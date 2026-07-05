@@ -7,7 +7,7 @@ import {
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 	type BrmemPutData,
-} from "@ns/capability-kit/brmem-cli";
+} from "@nseng-ai/capability-kit/brmem-cli";
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
@@ -15,22 +15,22 @@ import {
 	formatCommandFailure,
 	formatShellArg,
 	piExecApiToCommandExecApi,
-} from "@ns/core/command";
-import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
-import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
+} from "@nseng-ai/core/command";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
+import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
-import { getPiLaunchOptions, type PiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
-import type { TextResult } from "@ns/core/primitives";
+import { getPiLaunchOptions, type PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
+import type { TextResult } from "@nseng-ai/core/primitives";
 import { CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
-import type { SlotCheckoutTarget, SlotClient } from "@ns/slot/api";
-import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slot/api";
+import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";

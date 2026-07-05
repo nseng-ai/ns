@@ -1,11 +1,19 @@
-import { runCommand } from "@ns/core/exec";
-import type { CommandRunner, ExecResult } from "@ns/core/command";
-import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@ns/capability-kit/github/cli";
-import type { TimerScheduler } from "@ns/core/timers";
-import { systemTimerScheduler } from "@ns/core/time";
-import { isRecord } from "@ns/core/primitives";
-import { withTemporaryFile } from "@ns/capability-kit/temp-files";
-import { commandFailure, err, ok, type GatewayResult } from "@ns/capability-kit/gateway-result";
+import { runCommand } from "@nseng-ai/core/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/core/command";
+import {
+	GITHUB_CLI_TIMEOUT_MS,
+	runGitHubCliAsExecResult,
+} from "@nseng-ai/capability-kit/github/cli";
+import type { TimerScheduler } from "@nseng-ai/core/timers";
+import { systemTimerScheduler } from "@nseng-ai/core/time";
+import { isRecord } from "@nseng-ai/core/primitives";
+import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
+import {
+	commandFailure,
+	err,
+	ok,
+	type GatewayResult,
+} from "@nseng-ai/capability-kit/gateway-result";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;

@@ -5,7 +5,7 @@ import {
 	runRealCommand,
 	type CommandRunner,
 } from "./command-runner.ts";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 const COMMAND_TIMEOUT_MS = 10_000;
 const DEFAULT_RESTORE_SHELL = "/bin/zsh";

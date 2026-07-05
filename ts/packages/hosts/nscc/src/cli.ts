@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup, failure, ok, usageError } from "@ns/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@ns/core/cli-runtime";
+import { ClinkrGroup, failure, ok, usageError } from "@nseng-ai/clinkr";
+import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import {

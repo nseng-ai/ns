@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@ns/core/exec";
-import { ScriptedQueue } from "@ns/core/test-kit";
-import { RealGraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
-import type { CommandExecApi, ExecOptions } from "@ns/core/exec";
-import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
+import type { ExecResult } from "@nseng-ai/core/exec";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/core/exec";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const BRANCH = "branch-contexts/branch-scoped-plan";

@@ -1,4 +1,4 @@
-# `@ns/packagechk`
+# `@nseng-ai/packagechk`
 
 `packagechk` checks public package registry state for prospective package names.
 

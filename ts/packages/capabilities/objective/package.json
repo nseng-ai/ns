@@ -1,5 +1,5 @@
 {
-	"name": "@ns/objective",
+	"name": "@nseng-ai/objective",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -29,11 +29,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/objective/test"
 	},
 	"dependencies": {
-		"@ns/branch-context": "workspace:*",
-		"@ns/capability-kit": "workspace:*",
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/kernel": "workspace:*",
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
 		"yaml": "catalog:",
 		"zod": "catalog:"
 	},
@@ -48,14 +48,14 @@
 		]
 	},
 	"peerDependencies": {
-		"@ns/pi": "workspace:*"
+		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ns/pi": {
+		"@nseng-ai/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ns/pi": "workspace:*"
+		"@nseng-ai/pi": "workspace:*"
 	}
 }

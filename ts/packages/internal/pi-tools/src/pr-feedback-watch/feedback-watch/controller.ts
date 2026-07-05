@@ -1,7 +1,7 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
-import { optionalEntry } from "@ns/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
-import { unrefTimerScheduler } from "@ns/pi/shared/timers";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
+import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 
 import {
 	type ExistingFeedbackMode,

@@ -17,7 +17,7 @@ import type {
 	GitRevisionRangePathParams,
 	GitStagePathsParams,
 	GitStatusPathFacts,
-} from "@ns/capability-kit/git";
+} from "@nseng-ai/capability-kit/git";
 import {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,

@@ -8,7 +8,7 @@ import codeWorkflowsExtension, {
 	formatWorkflowMenu,
 	resolveWorkflowRoute,
 } from "../../src/pi/code-workflows.ts";
-import type { CommandContext, CustomMessage } from "@ns/pi/runtime/extension-types";
+import type { CommandContext, CustomMessage } from "@nseng-ai/pi/runtime/extension-types";
 
 type ExtensionAPI = Parameters<typeof codeWorkflowsExtension>[0];
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];

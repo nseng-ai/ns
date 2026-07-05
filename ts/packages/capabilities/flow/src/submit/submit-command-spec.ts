@@ -1,4 +1,4 @@
-import { formatCommand } from "@ns/core/command";
+import { formatCommand } from "@nseng-ai/core/command";
 
 export const SUBMIT_BASE_ARGS = [
 	"submit",

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { listNsCommands } from "@ns/kernel/cli";
+import { listNsCommands } from "@nseng-ai/kernel/cli";
 
 import {
 	runCliWithFakes,
@@ -119,7 +119,7 @@ describe("empty ns kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @ns/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @nseng-ai/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -231,7 +231,7 @@ describe("ns extension discovery without dynamic imports", () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "@ns/kernel/sdk";
+import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", summary: "Legacy hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });

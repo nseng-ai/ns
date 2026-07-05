@@ -1,5 +1,5 @@
 export const CCC_PACKAGE_IDENTITY = {
-	packageName: "@ns/ccc",
+	packageName: "@nseng-ai/ccc",
 	vocabularyName: "CCC",
 	expandedName: "Cmux Command and Control",
 	visibility: "private-workspace",

@@ -4,7 +4,7 @@
 // shape. Domain-specific facts and recovery details stay in their owning packages; this module owns
 // only the common headline + body/guidance/cwd layout grammar.
 
-import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@ns/clinkr";
+import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { glyph } from "./glyphs.ts";
 import { bold, dim, paint, type Intent } from "./palette.ts";
 

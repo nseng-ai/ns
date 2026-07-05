@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
-import { formatErrorMessage } from "@ns/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
 import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { LiveCommandProgress } from "./cli-command-live-progress.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
@@ -13,7 +13,7 @@ import {
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
-import type { NsConfirmOptions } from "@ns/kernel/sdk";
+import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 

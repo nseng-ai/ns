@@ -1,7 +1,7 @@
-import { formatErrorMessage } from "@ns/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
-import { systemTimerScheduler } from "@ns/core/time";
-import { isRecord, stringField } from "@ns/pi/runtime/primitives";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
+import { systemTimerScheduler } from "@nseng-ai/core/time";
+import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,

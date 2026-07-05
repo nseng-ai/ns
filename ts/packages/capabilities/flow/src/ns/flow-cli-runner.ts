@@ -1,11 +1,17 @@
-import { NodeCommandExecApi } from "@ns/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
 import {
 	type CommandExecApi,
 	type ExecOptions,
 	outputListenerToExecCallbacks,
-} from "@ns/core/command";
-import { NsCommandExecApi } from "@ns/capability-kit/command-runner";
-import { failed, ok, type ExecResult, type NsExtensionApi, type NsResult } from "@ns/kernel/sdk";
+} from "@nseng-ai/core/command";
+import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
+import {
+	failed,
+	ok,
+	type ExecResult,
+	type NsExtensionApi,
+	type NsResult,
+} from "@nseng-ai/kernel/sdk";
 
 export interface FlowCliExecOptions {
 	cwd?: string;

@@ -8,7 +8,7 @@ import type {
 import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
 import type { ClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
-import { optionalEntry } from "@ns/core/primitives";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 
 export interface CapturedRun {
 	exitCode: number;

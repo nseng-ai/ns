@@ -1,17 +1,17 @@
-# @ns/pi
+# @nseng-ai/pi
 
 This package contains unified Pi runtime helper and extension modules. Keep extension code testable through the host API instead of reaching directly into Node process globals.
 
 ## Package Boundary
 
-`@ns/pi` is a private package with two kinds of modules:
+`@nseng-ai/pi` is a private package with two kinds of modules:
 
-- neutral helper subpaths exported as `@ns/pi/...` for other workspace packages such as CCC, Objective, branch-context, autobranch, and nscc;
+- neutral helper subpaths exported as `@nseng-ai/pi/...` for other workspace packages such as CCC, Objective, branch-context, autobranch, and nscc;
 - project-local Pi extension entrypoints imported by `.pi/extensions/*.ts` discovery adapters.
 
-Other workspace packages may import curated neutral `@ns/pi/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/pi/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.
+Other workspace packages may import curated neutral `@nseng-ai/pi/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/pi/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.
 
-`@ns/pi/shared/*` exports are curated neutral infrastructure helpers for Pi-hosted code and extracted Internal Pi-tool packages. A Internal Pi-tool package may import helpers such as `@ns/pi/shared/exec-gateway` or `@ns/pi/shared/gh-command` when the helper is host/runtime infrastructure. Do not invert the dependency by making `@ns/pi` import Internal Pi-tool packages, and do not move tool-specific PR feedback/watch/preview domain behavior into `@ns/pi/shared/*` just to deduplicate it.
+`@nseng-ai/pi/shared/*` exports are curated neutral infrastructure helpers for Pi-hosted code and extracted Internal Pi-tool packages. A Internal Pi-tool package may import helpers such as `@nseng-ai/pi/shared/exec-gateway` or `@nseng-ai/pi/shared/gh-command` when the helper is host/runtime infrastructure. Do not invert the dependency by making `@nseng-ai/pi` import Internal Pi-tool packages, and do not move tool-specific PR feedback/watch/preview domain behavior into `@nseng-ai/pi/shared/*` just to deduplicate it.
 
 ## Process I/O
 
@@ -22,7 +22,7 @@ Canonical seams:
 - `ts/packages/internal/pi-tools/src/runner-subagents/curated-context.ts` uses `CuratedContextExecGit` for git evidence.
 - `ts/packages/internal/pi-tools/src/runner-subagents/subagent-process.ts` is the async-spawn adapter seam for runner subagents; module logic depends on injected process functions.
 - `src/claude/interactive-spawn.ts` is the designated interactive Claude Code adapter seam. It may import `node:child_process` and use synchronous `spawnSync` only while the TUI is stopped; the event-loop freeze is intentional because the terminal is handed to the interactive child, matching Pi's upstream interactive-shell pattern. Module logic must depend on the injected `RunInteractiveClaude` type, never on this adapter.
-- The injected host `ctx.exec` author-facing result shape lives in `@ns/kernel/sdk`. The command-execution gateway lives in `@ns/core/exec`: pure command types/helpers are re-exported from `@ns/core/command`, and the real Node child-process adapter (`runCommand`, `NodeCommandExecApi`) lives in `@ns/core/exec` itself.
+- The injected host `ctx.exec` author-facing result shape lives in `@nseng-ai/kernel/sdk`. The command-execution gateway lives in `@nseng-ai/core/exec`: pure command types/helpers are re-exported from `@nseng-ai/core/command`, and the real Node child-process adapter (`runCommand`, `NodeCommandExecApi`) lives in `@nseng-ai/core/exec` itself.
 
 Why: direct or synchronous process I/O blocks the extension host event loop and bypasses the fake-driven tests that should exercise extension behavior without invoking real commands. The Claude Code seam is the narrow exception: the TUI is stopped first, so no host rendering should occur until the child exits and the TUI restarts.
 
@@ -40,7 +40,7 @@ Each extension declares its own `ExtensionAPI` with only the capabilities it use
 
 ## Immediate command acknowledgement
 
-Every repo-owned Pi slash command must acknowledge receipt synchronously, before awaiting `ctx.waitForIdle()` or starting slow work. Use `registerCommandWithImmediateAck` from `@ns/pi/commands/ack` at each command registration site instead of hand-writing per-command acknowledgements or wrapping the host.
+Every repo-owned Pi slash command must acknowledge receipt synchronously, before awaiting `ctx.waitForIdle()` or starting slow work. Use `registerCommandWithImmediateAck` from `@nseng-ai/pi/commands/ack` at each command registration site instead of hand-writing per-command acknowledgements or wrapping the host.
 
 - Default acknowledgement delivery is an above-fold dim transcript message when the host supports rendered custom messages; it falls back to a transient status line for minimal hosts.
 - Command `ctx.ui.setStatus(...)` keeps its original status/footer behavior and must not implicitly emit transcript progress.

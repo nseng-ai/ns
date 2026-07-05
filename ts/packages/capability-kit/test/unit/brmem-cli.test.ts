@@ -12,9 +12,9 @@ import {
 	runAvailableBrmemCommand,
 	runBrmem,
 	type BrmemExecGateway,
-} from "@ns/capability-kit/brmem-cli";
-import type { PiExecResultLike } from "@ns/core/command";
-import { ScriptedQueue } from "@ns/core/test-kit";
+} from "@nseng-ai/capability-kit/brmem-cli";
+import type { PiExecResultLike } from "@nseng-ai/core/command";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
 
 const ROOT = "/repo";
 

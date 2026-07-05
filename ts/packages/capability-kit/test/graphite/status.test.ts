@@ -10,13 +10,13 @@ import {
 	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
-} from "@ns/capability-kit/graphite/status";
-import type { LocalBranchRefReadResult } from "@ns/capability-kit/git";
-import { resultErr, resultOk, type Result } from "@ns/core/result";
+} from "@nseng-ai/capability-kit/graphite/status";
+import type { LocalBranchRefReadResult } from "@nseng-ai/capability-kit/git";
+import { resultErr, resultOk, type Result } from "@nseng-ai/core/result";
 import type {
 	GraphiteMetadataDbAccess,
 	SqliteJsonError,
-} from "@ns/capability-kit/graphite/metadata";
+} from "@nseng-ai/capability-kit/graphite/metadata";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;

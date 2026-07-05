@@ -26,7 +26,7 @@ describe("ns completion CLI extension loader integration", () => {
 	test("project extension command schema is importable for selected option completion", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			`import { defineExtension, ok, z } from "@ns/kernel/sdk";
+			`import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",
@@ -51,7 +51,7 @@ export default defineExtension({
 	test("unrelated broken extension is not imported for selected valid command completion", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			`import { defineExtension, ok, z } from "@ns/kernel/sdk";
+			`import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",
@@ -77,7 +77,7 @@ export default defineExtension({
 	test("selected dynamic completion provider runs through the real extension loader", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			`import { defineExtension, ok, z } from "@ns/kernel/sdk";
+			`import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",

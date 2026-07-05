@@ -1,4 +1,4 @@
-import type { ExplicitUndefined } from "@ns/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
 import type { NsCommandIo, NsProgress } from "./services.ts";

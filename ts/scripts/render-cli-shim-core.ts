@@ -1,4 +1,4 @@
-import { formatShellArg } from "@ns/core/exec";
+import { formatShellArg } from "@nseng-ai/core/exec";
 
 const TOKEN_PREFIX = "@@NS_";
 

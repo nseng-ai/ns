@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps } from "@ns/clinkr";
-import { stripAnsi } from "@ns/clinkr/testing";
+import type { Caps } from "@nseng-ai/clinkr";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import { renderAutoslotResultBlock } from "../src/ns/autoslot-presentation.ts";
 

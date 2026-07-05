@@ -4,7 +4,7 @@ import {
 	loadPendingWorktreeSnapshot,
 	type ExecGit,
 	type WorktreeCommandResult,
-} from "@ns/capability-kit/pending-worktree";
+} from "@nseng-ai/capability-kit/pending-worktree";
 
 function ok(stdout = "", stderr = ""): WorktreeCommandResult {
 	return { code: 0, stdout, stderr };

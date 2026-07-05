@@ -1,5 +1,8 @@
-import { createNsDomainCommand, type NsDomainCommandOptions } from "@ns/capability-kit/ns-command";
-import type { NsCommand, NsCommandSchema } from "@ns/kernel/sdk";
+import {
+	createNsDomainCommand,
+	type NsDomainCommandOptions,
+} from "@nseng-ai/capability-kit/ns-command";
+import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
 
 import type { AretroCliContext } from "../context.ts";
 import { createNsAretroContext } from "./context.ts";

@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { runCli } from "@ns/kernel/cli";
+import { runCli } from "@nseng-ai/kernel/cli";
 
 import { nsShellIntegrationBeginMarker, nsShellIntegrationEndMarker } from "../../src/cli/shell.ts";
 

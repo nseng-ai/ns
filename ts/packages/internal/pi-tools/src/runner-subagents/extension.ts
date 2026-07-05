@@ -1,9 +1,12 @@
 import { z } from "zod";
 
-import { formatZodError, optionalEntries, optionalEntry } from "@ns/core/primitives";
+import { formatZodError, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
 
-import { loadPiAgentDefinition, type PiAgentDefinition } from "@ns/pi/runtime/agent-definition";
-import type { ToolDefinition } from "@ns/pi/runtime/tool-types";
+import {
+	loadPiAgentDefinition,
+	type PiAgentDefinition,
+} from "@nseng-ai/pi/runtime/agent-definition";
+import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
 import {
 	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
@@ -20,12 +23,12 @@ import {
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./presentation.ts";
-import type { ExecOptions, ExecResult } from "@ns/core/exec";
+import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
 export { resultDiagnostic } from "./extension-api.ts";
-export type { ToolContext, ToolDefinition, ToolResult } from "@ns/pi/runtime/tool-types";
+export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;

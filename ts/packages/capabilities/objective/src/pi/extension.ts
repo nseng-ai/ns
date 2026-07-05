@@ -1,16 +1,16 @@
-import { nsCommandSurface } from "@ns/core/command";
-import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
+import { nsCommandSurface } from "@nseng-ai/core/command";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import {
 	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
 	type CliCommandInfo,
 	type CliCommandRunDeps,
 	type ParsedCliCommandArgs,
-} from "@ns/pi/commands/cli-extension";
-import { parseMachineEnvelopeData } from "@ns/pi/runtime/machine-envelope";
-import type { ExecResult } from "@ns/core/command";
-import { buildFencedTextBlock, formatErrorMessage } from "@ns/core/primitives";
-import { notifyCommandUi } from "@ns/pi/commands/helpers";
+} from "@nseng-ai/pi/commands/cli-extension";
+import { parseMachineEnvelopeData } from "@nseng-ai/pi/runtime/machine-envelope";
+import type { ExecResult } from "@nseng-ai/core/command";
+import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/core/primitives";
+import { notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -32,17 +32,17 @@ import {
 	type ObjectiveListParsedArgs,
 	type ObjectiveStatusFilter,
 } from "../api/index.ts";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
-import { expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "@ns/pi/skills/expansion";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
+import { expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "@nseng-ai/pi/skills/expansion";
 import type {
 	AutocompleteItem,
 	CommandContext,
 	ExecOptions,
 	ExtensionAPI,
-} from "@ns/pi/runtime/types";
+} from "@nseng-ai/pi/runtime/types";
 
-export type { CommandContext, NotifyLevel, SessionStartContext } from "@ns/pi/runtime/types";
-export type { ExecResult } from "@ns/core/command";
+export type { CommandContext, NotifyLevel, SessionStartContext } from "@nseng-ai/pi/runtime/types";
+export type { ExecResult } from "@nseng-ai/core/command";
 export {
 	completeObjectiveListArgs,
 	parseObjectiveListArgTokens,
@@ -399,7 +399,7 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "ns objective list",
 		skill: "objective",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/objective/pi",
+		sourcePackage: "@nseng-ai/objective/pi",
 		sourceModule: "objective",
 		notes:
 			"Pi command uses the Objective Capability API in-process and keeps output format controlled by the Objective Pi adapter.",
@@ -412,7 +412,7 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "ns objective exec read-objective plus direct Objective Markdown creation",
 		skill: objectiveCreateCommandSpec.skillName,
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ns/objective/pi",
+		sourcePackage: "@nseng-ai/objective/pi",
 		sourceModule: "objective",
 		notes:
 			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
@@ -427,7 +427,7 @@ export const objectiveParity = definePiSurfaceParity([
 				cli: `ns objective ${spec.cliSubcommand}`,
 				skill: spec.skillName,
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@ns/objective/pi",
+				sourcePackage: "@nseng-ai/objective/pi",
 				sourceModule: "objective",
 				notes:
 					"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",

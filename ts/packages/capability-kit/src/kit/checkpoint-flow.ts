@@ -1,5 +1,5 @@
-import { formatCommandDetails } from "@ns/core/exec";
-import { truncateTextHead, truncateTextHeadTail } from "@ns/core/text-truncation";
+import { formatCommandDetails } from "@nseng-ai/core/exec";
+import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/core/text-truncation";
 
 import type { CommandResult } from "./command-result.ts";
 

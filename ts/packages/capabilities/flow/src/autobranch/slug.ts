@@ -4,8 +4,8 @@ import {
 	formatSlugModelFailure,
 	SLUG_MODEL_TIMEOUT_MS,
 	type SlugModelFailure,
-} from "@ns/capability-kit/model-slug";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@ns/core/branch-slug";
+} from "@nseng-ai/capability-kit/model-slug";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/core/branch-slug";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;

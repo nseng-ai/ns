@@ -97,7 +97,7 @@ export function packageNameForPath(
 export function packageNameForSpecifier(specifier: string): string | undefined {
 	const [scope, name] = specifier.split("/");
 	if (scope === undefined || name === undefined) return undefined;
-	if (scope !== "@ns" && scope !== "@internal") return undefined;
+	if (scope !== "@nseng-ai" && scope !== "@internal") return undefined;
 	return `${scope}/${name}`;
 }
 

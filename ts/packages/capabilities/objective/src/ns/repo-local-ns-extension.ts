@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { objectiveArchiveNsCommand } from "./commands/archive.ts";
 import { objectiveCheckNsCommand } from "./commands/check.ts";
@@ -31,7 +34,7 @@ export const objectiveRepoLocalNsExtension = defineRepoLocalNsExtensionDescripto
 	].map((command) =>
 		repoLocalNsCommandDescriptor({
 			command,
-			packageExportPrefix: "@ns/objective/ns/commands",
+			packageExportPrefix: "@nseng-ai/objective/ns/commands",
 		}),
 	),
 });

@@ -1,7 +1,7 @@
 import { lstat, mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-import { formatErrorMessage } from "@ns/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
 
 import type {
 	ObjectiveDirectoryEntry,

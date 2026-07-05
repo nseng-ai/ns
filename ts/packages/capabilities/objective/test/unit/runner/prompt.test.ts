@@ -1,4 +1,4 @@
-import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
+import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
 import { describe, expect, test } from "vitest";
 
 import { buildRunnerChildPrompt } from "../../../src/runner/prompt.ts";

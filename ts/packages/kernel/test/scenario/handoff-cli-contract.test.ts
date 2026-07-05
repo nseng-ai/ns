@@ -149,7 +149,7 @@ function handoffCommandSource(options: {
 	return `import { appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
 
 const LOAD_LOG_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "load-log.txt");
 

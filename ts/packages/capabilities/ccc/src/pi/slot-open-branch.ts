@@ -1,10 +1,13 @@
-import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
+import {
+	makeCommandProgressNotifier,
+	registerCommandWithImmediateAck,
+} from "@nseng-ai/pi/commands/ack";
 import {
 	CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME,
 	handleCccSlotOpenBranch,
 	type CccSlotOpenBranchOptions,
 } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const COMMAND_NAME = CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
 

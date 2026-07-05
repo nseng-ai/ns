@@ -1,5 +1,5 @@
-import { resolveRenderCapabilities } from "@ns/clinkr";
-import { defineExtension } from "@ns/kernel/sdk";
+import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 import { objectiveNsCommand } from "../command.ts";
 import {

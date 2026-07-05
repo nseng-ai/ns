@@ -2,7 +2,7 @@
 
 - Kind key: `interactive-confirm`
 - Canonical: confirmInteractiveOrUsageError
-- Import/path hints: @ns/clinkr
+- Import/path hints: @nseng-ai/clinkr
 - Raw-form tell: readline/readline/promises prompt loops or process.stdin.isTTY checks in command handlers
 - Why reuse matters: shared non-interactive/CI usage-error policy instead of prompts that hang
 - Structural exemptions: low-level prompt implementation modules themselves

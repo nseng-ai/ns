@@ -1,4 +1,4 @@
-import { displayWidth } from "@ns/core/text-table";
+import { displayWidth } from "@nseng-ai/core/text-table";
 
 import { uniqueSortedStrings } from "../sort.ts";
 import type { DoctorSkillFinding, DoctorSkillsResult } from "./doctor-skills.ts";

@@ -1,12 +1,12 @@
-import { optionalEntry } from "@ns/core/primitives";
-import { resultErr, resultOk } from "@ns/core/result";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { resultErr, resultOk } from "@nseng-ai/core/result";
 import {
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForRoot,
 	skillLookupDescriptorForSourceType,
 	type SkillLookupRoot,
 	type SkillLookupSourceType,
-} from "@ns/pi/skills/lookup";
+} from "@nseng-ai/pi/skills/lookup";
 
 import { missingCheckSkillInspection } from "./gateways.ts";
 import type {

@@ -1,2 +1,2 @@
-export type { AutoslotCliInput, AutoslotFlowInput } from "@ns/flow/api";
-export { createAutoslotFlow, runAutoslotCli } from "@ns/flow/api";
+export type { AutoslotCliInput, AutoslotFlowInput } from "@nseng-ai/flow/api";
+export { createAutoslotFlow, runAutoslotCli } from "@nseng-ai/flow/api";

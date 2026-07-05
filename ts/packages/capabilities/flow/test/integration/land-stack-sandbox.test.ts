@@ -33,8 +33,8 @@ import { delimiter, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand } from "@ns/core/exec";
-import { optionalEntry } from "@ns/core/primitives";
+import { runCommand } from "@nseng-ai/core/exec";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import type {
 	LandStackCommandContext,

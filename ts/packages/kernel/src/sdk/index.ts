@@ -46,12 +46,12 @@ export {
 	normalizeTextOutput,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
-} from "@ns/core/text-normalization";
-export { truncateTextHead, truncateTextHeadTail } from "@ns/core/text-truncation";
+} from "@nseng-ai/core/text-normalization";
+export { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/core/text-truncation";
 export type {
 	HeadTailTextTruncationOptions,
 	HeadTextTruncationOptions,
-} from "@ns/core/text-truncation";
+} from "@nseng-ai/core/text-truncation";
 export { failed, ok } from "./result.ts";
 export type { NsResult } from "./result.ts";
 export { noopNsCommandIo, noopNsProgress } from "./services.ts";

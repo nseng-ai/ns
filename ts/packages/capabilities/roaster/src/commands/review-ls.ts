@@ -1,4 +1,4 @@
-import { defineExtension } from "@ns/kernel/sdk";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 import { type ReviewListRequest } from "../operations/cli-operations.ts";
 import { createReviewListCommand } from "./review-list.ts";

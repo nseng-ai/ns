@@ -3,10 +3,10 @@ import {
 	launchHandoffTab,
 	type HandoffTabLaunchResult,
 } from "./tab-launch.ts";
-import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
 import { handoffSlugToKey } from "../api/index.ts";
-import { identifyCmuxCaller } from "@ns/capability-kit/cmux/focused-terminal-tab";
-import { isRecord, stringField } from "@ns/pi/runtime/primitives";
+import { identifyCmuxCaller } from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
+import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
 import { deriveHandoffContentSlug } from "./content-slug.ts";
 import {
 	buildHandoffLaunchPrompt,

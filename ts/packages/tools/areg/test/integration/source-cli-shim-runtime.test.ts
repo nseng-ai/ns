@@ -3,7 +3,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createTempDirTracker } from "@ns/core/test-kit";
+import { createTempDirTracker } from "@nseng-ai/core/test-kit";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { CLI_REL_PATH } from "../support/cli-rel-path.ts";

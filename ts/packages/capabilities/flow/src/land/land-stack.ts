@@ -1,5 +1,5 @@
-import type { NsCommandIo } from "@ns/kernel/sdk";
-import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
 import {
 	LandStackCommandStream,
 	createLandUiCommandIo,

@@ -1,9 +1,9 @@
-import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@ns/core/model-slug";
+import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@nseng-ai/core/model-slug";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
-} from "@ns/objective/api";
+} from "@nseng-ai/objective/api";
 
 import {
 	CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
@@ -17,7 +17,7 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
-import { formatErrorMessage } from "@ns/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
 import type {
 	AgentEndContext,
 	CommandContext,
@@ -25,7 +25,7 @@ import type {
 	ModelInfo,
 	NotifyLevel,
 	ThinkingLevel,
-} from "@ns/capability-kit/cmux/types";
+} from "@nseng-ai/capability-kit/cmux/types";
 
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";

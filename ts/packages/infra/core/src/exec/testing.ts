@@ -1,6 +1,11 @@
-import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@ns/core/command";
-import { optionalEntries, optionalEntry } from "@ns/core/primitives";
-import { ScriptedQueue } from "@ns/core/test-kit";
+import type {
+	CommandExecApi,
+	CommandRunner,
+	ExecOptions,
+	ExecResult,
+} from "@nseng-ai/core/command";
+import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
 
 export interface DropExecOptionsFields {
 	readonly shouldDropEnv?: boolean;

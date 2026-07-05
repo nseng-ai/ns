@@ -20,9 +20,9 @@ import {
 } from "../sdk/index.ts";
 
 /** Module specifier that ns command entries import the SDK from. */
-const SDK_SPECIFIER = "@ns/kernel/sdk";
+const SDK_SPECIFIER = "@nseng-ai/kernel/sdk";
 
-// Keep this object in sync with all runtime value exports from @ns/kernel/sdk; type-only exports are erased.
+// Keep this object in sync with all runtime value exports from @nseng-ai/kernel/sdk; type-only exports are erased.
 // Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
 const nsSdkVirtualModule = {
 	defineExtension,
@@ -46,7 +46,7 @@ const nsSdkVirtualModule = {
 /**
  * Create the ns-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `@ns/kernel/sdk` to the
+ * The load-bearing option is `virtualModules`: it binds `@nseng-ai/kernel/sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.ns/extensions`.

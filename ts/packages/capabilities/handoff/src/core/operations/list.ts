@@ -1,6 +1,6 @@
-import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@ns/clinkr";
-import { optionalEntry } from "@ns/core/primitives";
-import { cell, paint, renderBufferedReport, renderTable } from "@ns/core/cli-theme";
+import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { cell, paint, renderBufferedReport, renderTable } from "@nseng-ai/core/cli-theme";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";

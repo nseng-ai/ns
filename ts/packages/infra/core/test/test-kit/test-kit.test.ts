@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createDeferred, ScriptedQueue } from "@ns/core/test-kit";
+import { createDeferred, ScriptedQueue } from "@nseng-ai/core/test-kit";
 
 describe("test kit helpers", () => {
 	test("createDeferred exposes a resolvable promise", async () => {

@@ -1,5 +1,5 @@
-import { encodeBranchName } from "@ns/brmem";
-import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@ns/core/test-kit";
+import { encodeBranchName } from "@nseng-ai/brmem";
+import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@nseng-ai/core/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,

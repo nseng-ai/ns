@@ -1,1 +1,1 @@
-export { default } from "@ns/roaster/commands/exec-publish-findings";
+export { default } from "@nseng-ai/roaster/commands/exec-publish-findings";

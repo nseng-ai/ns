@@ -1,5 +1,5 @@
-import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
-import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
+import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { describe, expect, test } from "vitest";
 
 import handoffExtension, {

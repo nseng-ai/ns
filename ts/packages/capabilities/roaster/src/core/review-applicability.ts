@@ -1,4 +1,4 @@
-import { mapFromRecordOrMap } from "@ns/core/primitives";
+import { mapFromRecordOrMap } from "@nseng-ai/core/primitives";
 
 import type { ReviewApplicability } from "./models.ts";
 

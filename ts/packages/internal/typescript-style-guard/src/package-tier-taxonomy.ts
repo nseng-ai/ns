@@ -121,20 +121,20 @@ export const tierRank = [
 
 export const packageTierDebtEdgeDefinitions = [
 	{
-		from: "@ns/kernel",
-		to: "@ns/capability-kit",
+		from: "@nseng-ai/kernel",
+		to: "@nseng-ai/capability-kit",
 		reason:
-			"SDK-to-capability-kit CLI shell-support debt: @ns/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",
+			"SDK-to-capability-kit CLI shell-support debt: @nseng-ai/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",
 	},
 	{
-		from: "@ns/brmem",
-		to: "@ns/capability-kit",
+		from: "@nseng-ai/brmem",
+		to: "@nseng-ai/capability-kit",
 		reason:
 			"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
 	},
 	{
 		from: "@internal/pi-tools",
-		to: "@ns/capability-kit",
+		to: "@nseng-ai/capability-kit",
 		reason:
 			"Internal Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when internal-pi-tool helper placement is settled.",
 	},

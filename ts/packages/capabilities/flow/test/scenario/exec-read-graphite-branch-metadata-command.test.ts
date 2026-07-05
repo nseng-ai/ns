@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS } from "@ns/capability-kit/graphite/metadata";
+import { GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS } from "@nseng-ai/capability-kit/graphite/metadata";
 import { runFlowExecReadGraphiteBranchMetadataCommandWithFakes } from "./flow-command-fakes.ts";
 import type { ScriptedExecResponse } from "./ns-cli-fakes.ts";
 

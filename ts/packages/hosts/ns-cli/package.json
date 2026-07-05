@@ -1,5 +1,5 @@
 {
-	"name": "@ns/cli",
+	"name": "@nseng-ai/ns",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -16,9 +16,9 @@
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
-		"@ns/branch-context": "workspace:*",
-		"@ns/kernel": "workspace:*",
-		"@ns/objective": "workspace:*",
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/objective": "workspace:*",
 		"jiti": "catalog:",
 		"zod": "catalog:"
 	},

@@ -1,13 +1,13 @@
-import { type CommandResolver } from "@ns/core/command";
-import { defaultCommandResolver } from "@ns/core/exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/command";
-import { isClaudeCodeSupportedModelPattern } from "@ns/core/model-slug";
+import { type CommandResolver } from "@nseng-ai/core/command";
+import { defaultCommandResolver } from "@nseng-ai/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/command";
+import { isClaudeCodeSupportedModelPattern } from "@nseng-ai/core/model-slug";
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@ns/core/primitives";
+} from "@nseng-ai/core/primitives";
 
 import type { RoasterResult } from "../core/failures.ts";
 import {

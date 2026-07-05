@@ -10,11 +10,11 @@ import {
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
-} from "@ns/clinkr";
-import { renderCompletionCandidatesNewline } from "@ns/clinkr/completion";
-import { rawCommand } from "@ns/clinkr/raw";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@ns/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@ns/core/primitives";
+} from "@nseng-ai/clinkr";
+import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
+import { rawCommand } from "@nseng-ai/clinkr/raw";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
+import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
 
 import {
 	buildNsCompletionScript,

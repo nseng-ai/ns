@@ -1,17 +1,17 @@
-import { createCommandIo } from "@ns/kernel/command-io";
-import type { NsCommandIo } from "@ns/kernel/sdk";
-import { type ExecResult, formatCommand, runNormalizedExecResult } from "@ns/core/command";
-import type { Clock } from "@ns/core/clock";
-import { optionalEntry } from "@ns/core/primitives";
-import { systemClock } from "@ns/core/time";
-import { formatElapsedMs } from "@ns/core/time-format";
+import { createCommandIo } from "@nseng-ai/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { type ExecResult, formatCommand, runNormalizedExecResult } from "@nseng-ai/core/command";
+import type { Clock } from "@nseng-ai/core/clock";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { systemClock } from "@nseng-ai/core/time";
+import { formatElapsedMs } from "@nseng-ai/core/time-format";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@ns/core/terminal-presentation";
+} from "@nseng-ai/core/terminal-presentation";
 import { commandStreamOutputLines } from "./command-exec.ts";
 import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";

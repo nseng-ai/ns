@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { isRecord } from "@ns/core/primitives";
+import { isRecord } from "@nseng-ai/core/primitives";
 
 import { BRANCH_CREATION_METHODS, type BranchContextEvidence } from "./branch-context-creation.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";

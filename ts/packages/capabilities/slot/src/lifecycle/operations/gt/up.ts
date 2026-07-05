@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@ns/clinkr";
+import { failure, negative, ok } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../core/context.ts";

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
 import {
 	branchPrMappingGapsMessage,
 	hasBranchPrMappingGaps,

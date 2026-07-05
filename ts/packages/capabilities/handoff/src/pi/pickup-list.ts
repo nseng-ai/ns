@@ -1,4 +1,4 @@
-import { buildFencedTextBlock, formatErrorMessage } from "@ns/core/primitives";
+import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,

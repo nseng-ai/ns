@@ -1,6 +1,6 @@
-# @ns/slot
+# @nseng-ai/slot
 
-`@ns/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled ji extension contribution for `ns slot ...`. The supported command-line surface is **only** through the ji binary:
+`@nseng-ai/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled ji extension contribution for `ns slot ...`. The supported command-line surface is **only** through the ji binary:
 
 ```bash
 ns slot list
@@ -8,7 +8,7 @@ ns slot checkout feature-x
 ns slot gt exec stack-branches --format json
 ```
 
-The package does not expose or install a top-level `slot` executable. The ji kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@ns/slot/api` rather than parsing command output.
+The package does not expose or install a top-level `slot` executable. The ji kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@nseng-ai/slot/api` rather than parsing command output.
 
 ## Installation
 
@@ -41,7 +41,7 @@ ns slot shell install --shell bash
 
 `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 
-During the extension-contract transition, the Slot ji extension uses the current `@ns/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+During the extension-contract transition, the Slot ji extension uses the current `@nseng-ai/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
 
 ## Completion
 

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
-import { optionalEntry, type ExplicitUndefined } from "@ns/core/primitives";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/core/primitives";
 import type { GithubPrFeedbackFailure } from "./api.ts";
-import type { Result } from "@ns/core/result";
+import type { Result } from "@nseng-ai/core/result";
 
 import {
 	defineExecOperation,

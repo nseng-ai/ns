@@ -1,12 +1,12 @@
-import { NodeCommandExecApi } from "@ns/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
 import {
 	type CommandExecApi,
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@ns/core/exec";
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway, GitOperationResult, GitResult } from "@ns/capability-kit/git";
+} from "@nseng-ai/core/exec";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway, GitOperationResult, GitResult } from "@nseng-ai/capability-kit/git";
 
 import { isMissingExecutableError, runVibechkCommand } from "./exec-util.ts";
 import type { GitProvenance } from "./models.ts";

@@ -1,5 +1,5 @@
-import { createNsGitGateway } from "@ns/capability-kit/git";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { AretroCliContext } from "../context.ts";
 import { PiJsonlSessionSource } from "../sessions/pi-jsonl-source.ts";

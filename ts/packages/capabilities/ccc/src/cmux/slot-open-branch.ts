@@ -1,13 +1,17 @@
 import {
 	findLatestBranchContextEvidence,
 	type BranchContextEvidence,
-} from "@ns/branch-context/api";
+} from "@nseng-ai/branch-context/api";
 
 import { CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
-import type { SlotClient } from "@ns/slot/api";
-import type { AutocompleteItem, CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { SlotClient } from "@nseng-ai/slot/api";
+import type {
+	AutocompleteItem,
+	CommandContext,
+	ExtensionAPI,
+} from "@nseng-ai/capability-kit/cmux/types";
 
 interface BranchCandidate {
 	name: string;

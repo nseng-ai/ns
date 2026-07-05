@@ -14,25 +14,29 @@ import {
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
-} from "@ns/branch-context/api";
+} from "@nseng-ai/branch-context/api";
 import {
 	findLatestSessionSavedPlanFile,
 	resolvePlanStoreDirectory,
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
-} from "@ns/plans/api";
-import { formatCommand, formatShellArg } from "@ns/core/command";
+} from "@nseng-ai/plans/api";
+import { formatCommand, formatShellArg } from "@nseng-ai/core/command";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
-} from "@ns/capability-kit/cmux/focused-terminal-tab";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
-import type { PiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
-import type { SlotCheckoutTarget, SlotClient } from "@ns/slot/api";
-import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
-import type { CommandContext, ExtensionAPI, NotifyLevel } from "@ns/capability-kit/cmux/types";
+} from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
+import type { PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
+import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slot/api";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
+import type {
+	CommandContext,
+	ExtensionAPI,
+	NotifyLevel,
+} from "@nseng-ai/capability-kit/cmux/types";
 
 const BRANCH_CREATION = "graphite";
 

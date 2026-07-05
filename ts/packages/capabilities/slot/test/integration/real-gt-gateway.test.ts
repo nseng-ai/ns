@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { RealGraphiteStackGateway } from "@ns/capability-kit/graphite/stack";
+import { RealGraphiteStackGateway } from "@nseng-ai/capability-kit/graphite/stack";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 
 interface MetadataRow {

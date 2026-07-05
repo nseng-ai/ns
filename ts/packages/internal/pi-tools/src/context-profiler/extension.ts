@@ -9,7 +9,7 @@
  * failure never blocks the deterministic view.
  */
 
-import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import type {
 	BeforeAgentStartEvent,
 	ContextEvent,
@@ -22,7 +22,7 @@ import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
 import { createCodexAnalysisModelGateway } from "./analysis-model-gateway.ts";
 import type { BundlePersistenceState } from "./bundle.ts";
 import { createFsBundleStore } from "./bundle-store.ts";
-import { errorMessage } from "@ns/pi/shared/errors";
+import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import {
 	InterrogationController,
 	type InterrogationAttachment,
@@ -43,7 +43,7 @@ import {
 import { bundleStatusBarText } from "./render.ts";
 import type { SegmentationState } from "./segmentation.ts";
 import { ProfilerView } from "./view.ts";
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 

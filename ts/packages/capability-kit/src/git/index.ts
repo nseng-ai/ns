@@ -1,12 +1,12 @@
 import path from "node:path";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
-import { commandSucceeded, formatCommand, formatCommandFailure } from "@ns/core/exec";
-import { formatErrorMessage } from "@ns/core/primitives";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import { commandSucceeded, formatCommand, formatCommandFailure } from "@nseng-ai/core/exec";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import { NsCommandExecApi } from "../kit/command-runner.ts";
-import { firstNonEmptyLine, nonEmptyLines } from "@ns/core/text-normalization";
+import { firstNonEmptyLine, nonEmptyLines } from "@nseng-ai/core/text-normalization";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { githubPrFeedbackFailureSchema } from "@ns/capability-kit/github/pr-feedback";
+import { githubPrFeedbackFailureSchema } from "@nseng-ai/capability-kit/github/pr-feedback";
 
 import {
 	nullableIntSchema,

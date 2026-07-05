@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { DEFAULT_COLUMNS } from "@ns/clinkr";
-import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
-import type { Caps, ColorDepth } from "@ns/clinkr";
-import type { StreamClock, StreamSinkDeps, StreamWriter } from "@ns/clinkr/stream";
-import { spinnerFrame } from "@ns/core/cli-theme";
+import { DEFAULT_COLUMNS } from "@nseng-ai/clinkr";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
+import type { StreamClock, StreamSinkDeps, StreamWriter } from "@nseng-ai/clinkr/stream";
+import { spinnerFrame } from "@nseng-ai/core/cli-theme";
 
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import {
 	createPhaseStream,

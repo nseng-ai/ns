@@ -3,9 +3,12 @@ import {
 	ok,
 	requireInteractiveOrUsageError,
 	type ClinkrDynamicCompletionRequest,
-} from "@ns/clinkr";
-import { optionalEntry } from "@ns/core/primitives";
-import { createNsDomainCommand, type NsDomainCommandOptions } from "@ns/capability-kit/ns-command";
+} from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import {
+	createNsDomainCommand,
+	type NsDomainCommandOptions,
+} from "@nseng-ai/capability-kit/ns-command";
 import {
 	installMarkerBlock,
 	markerSurfaceInstallRequestSchema,
@@ -15,7 +18,7 @@ import {
 	rcPathForShell,
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
-} from "@ns/capability-kit/shell-support";
+} from "@nseng-ai/capability-kit/shell-support";
 import { z } from "zod";
 
 import {
@@ -23,7 +26,7 @@ import {
 	type NsCommand,
 	type NsCommandSchema,
 	type NsExtensionApi,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 import {
 	checkoutOptionSpecs,

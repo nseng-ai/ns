@@ -25,10 +25,10 @@
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
-		"@ns/capability-kit": "workspace:*",
-		"@ns/command-backed-skill-registry": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/pi": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/command-backed-skill-registry": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/pi": "workspace:*",
 		"zod": "catalog:"
 	},
 	"scripts": {

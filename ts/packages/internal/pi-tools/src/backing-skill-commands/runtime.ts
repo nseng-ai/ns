@@ -1,13 +1,16 @@
 import {
 	registerCommandWithImmediateAck,
 	type ImmediateCommandAckCommandRegistrar,
-} from "@ns/pi/commands/ack";
+} from "@nseng-ai/pi/commands/ack";
 import type {
 	PiCommandContext,
 	PiCommandHost,
 	PiCommandRegistration,
-} from "@ns/pi/runtime/command-host";
-import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "@ns/pi/skills/expansion";
+} from "@nseng-ai/pi/runtime/command-host";
+import {
+	buildSkillInvocationPrompt,
+	invokeRepoSkillPromptTurn,
+} from "@nseng-ai/pi/skills/expansion";
 
 import { genericBackingSkillCommandSpecs, type DerivedPiCommand } from "./specs.ts";
 

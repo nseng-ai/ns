@@ -1,6 +1,6 @@
-import { usageError, type ClinkrExit, type ClinkrFormat } from "@ns/clinkr";
-import { optionalEntries } from "@ns/core/primitives";
-import { noopNsProgress } from "@ns/kernel/sdk";
+import { usageError, type ClinkrExit, type ClinkrFormat } from "@nseng-ai/clinkr";
+import { optionalEntries } from "@nseng-ai/core/primitives";
+import { noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
 	NsCommand,
@@ -10,7 +10,7 @@ import type {
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 import type { ObjectiveRunnerOverrides } from "../../src/ns/runner-context.ts";
 import { nextFromSequence } from "./sequence.ts";

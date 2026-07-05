@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";
 import {

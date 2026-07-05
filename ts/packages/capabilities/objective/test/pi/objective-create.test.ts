@@ -1,4 +1,4 @@
-import { withTempGitRepo, withTempRepoSkill } from "@ns/core/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/core/test-kit";
 import { describe, expect, test } from "vitest";
 
 import objectiveExtension, {

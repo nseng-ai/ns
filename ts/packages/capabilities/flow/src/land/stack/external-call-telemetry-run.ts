@@ -2,13 +2,13 @@ import process from "node:process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { Clock } from "@ns/core/clock";
+import type { Clock } from "@nseng-ai/core/clock";
 import {
 	requireXdgPath,
 	resolveNsXdgPath,
 	ensurePrivateParentDirectory,
-} from "@ns/capability-kit/xdg";
-import { optionalEntry } from "@ns/core/primitives";
+} from "@nseng-ai/capability-kit/xdg";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import {
 	cloneQuotaEstimate,
 	type FlowLandExternalCallCategory,

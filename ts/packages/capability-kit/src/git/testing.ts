@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { optionalEntry } from "@ns/core/primitives";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 
 export { InMemoryGitGateway, normalizeGitTestingRelativePath } from "./git-testing.ts";
 export type {

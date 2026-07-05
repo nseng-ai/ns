@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { defineExtension, noopNsCommandIo, noopNsProgress, ok } from "@ns/kernel/sdk";
+import { defineExtension, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/kernel/sdk";
 import { commandInfoForLoadedCommand, commandKey } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -54,7 +54,7 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineExtension, ok } from "@ns/kernel/sdk";
+import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -405,7 +405,7 @@ describe("extension registry", () => {
 		writeProjectExtension(
 			workspace,
 			"list.ts",
-			'export { default } from "@ns/objective/ns/commands/list";\n',
+			'export { default } from "@nseng-ai/objective/ns/commands/list";\n',
 		);
 
 		const catalog = await loadNsCommandCatalog({
@@ -414,7 +414,7 @@ describe("extension registry", () => {
 		});
 		const candidate = catalog.candidates.get("list");
 		expect(candidate).toMatchObject({
-			moduleReference: { type: "package", specifier: "@ns/objective/ns/commands/list" },
+			moduleReference: { type: "package", specifier: "@nseng-ai/objective/ns/commands/list" },
 		});
 		if (candidate === undefined) return;
 
@@ -582,7 +582,7 @@ describe("extension registry", () => {
 		writeFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "commands.ts"),
 			`
-import { defineExtension, ok } from "@ns/kernel/sdk";
+import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	commands: [

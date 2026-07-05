@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { flowAutobranchCommand } from "./commands/autobranch.ts";
 import { flowAutoslotCommand } from "./commands/autoslot.ts";
@@ -30,7 +33,7 @@ export const flowRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	].map((command) =>
 		repoLocalNsCommandDescriptor({
 			command,
-			packageExportPrefix: "@ns/flow/commands",
+			packageExportPrefix: "@nseng-ai/flow/commands",
 		}),
 	),
 });

@@ -1,5 +1,5 @@
-import type { ExplicitUndefined } from "@ns/core/primitives";
-import type { ErrorInfo } from "@ns/core/result";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
+import type { ErrorInfo } from "@nseng-ai/core/result";
 
 import type { GithubStatusChecks } from "../pr-status.ts";
 

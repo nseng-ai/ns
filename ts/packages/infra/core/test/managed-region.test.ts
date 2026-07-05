@@ -5,7 +5,7 @@ import {
 	parseManagedRegion,
 	replaceManagedRegion,
 	replaceMalformedManagedRegionFromBegin,
-} from "@ns/core/managed-region";
+} from "@nseng-ai/core/managed-region";
 
 describe("managed region bounds", () => {
 	test("finds valid exact marker bounds", () => {

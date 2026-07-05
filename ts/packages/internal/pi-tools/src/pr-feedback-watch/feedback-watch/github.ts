@@ -1,8 +1,8 @@
-import { optionalEntry } from "@ns/core/primitives";
-import { githubPrIdentityFromUrl } from "@ns/capability-kit/github/identity";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { githubPrIdentityFromUrl } from "@nseng-ai/capability-kit/github/identity";
 
-import { isRecord, stringField } from "@ns/pi/runtime/primitives";
-import { loadGhCommand } from "@ns/pi/shared/gh-command";
+import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
+import { loadGhCommand } from "@nseng-ai/pi/shared/gh-command";
 
 import { GIT_TIMEOUT_MS, REST_FINGERPRINT_SKEW_MS } from "./constants.ts";
 import {

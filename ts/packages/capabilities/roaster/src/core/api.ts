@@ -33,7 +33,7 @@ import {
 	type RoastSkillListRequest,
 	type RoastSkillListResult,
 } from "../operations/cli-operations.ts";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 import {
 	runRoasterReview,
 	type RunRoasterReviewOutcome,

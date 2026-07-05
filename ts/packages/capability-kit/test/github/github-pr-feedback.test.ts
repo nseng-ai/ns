@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecOptions } from "@ns/core/exec";
-import { RealGithubPrFeedbackGateway } from "@ns/capability-kit/github/pr-feedback";
-import { ScriptedCommandRunner, step } from "@ns/core/exec/testing";
+import type { CommandRunner, ExecOptions } from "@nseng-ai/core/exec";
+import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
+import { ScriptedCommandRunner, step } from "@nseng-ai/core/exec/testing";
 
 import {
 	branchPrChecksArgs,

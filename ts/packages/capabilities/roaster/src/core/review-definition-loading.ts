@@ -2,7 +2,7 @@ import type { RoasterFailure, RoasterResult } from "./failures.ts";
 import type { ReviewCatalogGateway, ReviewSource } from "../gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
 import { parseReviewDefinition } from "./review-definition.ts";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 export interface LoadParsedReviewDefinitionOptions {
 	readonly reviewCatalog: ReviewCatalogGateway;

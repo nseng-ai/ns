@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@ns/core/cli-runtime/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@nseng-ai/core/cli-runtime/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "ns Node runtime CLI entrypoint",
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "not_contains", text: "cp" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @ns/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
+		"runtime: typescript\nentry_point: @nseng-ai/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
 });

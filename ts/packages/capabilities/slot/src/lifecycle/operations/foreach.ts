@@ -1,12 +1,12 @@
-import { commandSucceeded, formatCommand, tailText } from "@ns/core/command";
+import { commandSucceeded, formatCommand, tailText } from "@nseng-ai/core/command";
 import {
 	failure,
 	negative,
 	ok,
 	resolveRenderCapabilities,
 	type RenderCapabilities,
-} from "@ns/clinkr";
-import { cell, paint, renderTable } from "@ns/core/cli-theme";
+} from "@nseng-ai/clinkr";
+import { cell, paint, renderTable } from "@nseng-ai/core/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";

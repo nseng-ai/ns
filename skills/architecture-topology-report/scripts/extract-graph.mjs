@@ -28,7 +28,7 @@ function arg(name, fallback) {
 }
 
 const ROOT = arg("root", "ts/packages");
-const KIT = arg("kit", "@ns/capability-kit");
+const KIT = arg("kit", "@nseng-ai/capability-kit");
 
 // The workspace's own TypeScript compiler, when installed, gives AST-grade
 // import scanning (dynamic import(), multi-line forms, no matches inside
@@ -223,14 +223,14 @@ function tierViolationForEdge(from, to) {
 }
 
 function isAllowedPiSubpackagePeerEdge(from, to) {
-  if (to !== "@ns/pi") return false;
+  if (to !== "@nseng-ai/pi") return false;
   if (pkgs[from]?.tier !== "capability") return false;
   const manifest = manifests[from];
   return (
     Array.isArray(manifest?.ns?.subpackages) &&
     manifest.ns.subpackages.includes("pi") &&
-    manifest?.peerDependencies?.["@ns/pi"] !== undefined &&
-    manifest?.peerDependenciesMeta?.["@ns/pi"]?.optional === true
+    manifest?.peerDependencies?.["@nseng-ai/pi"] !== undefined &&
+    manifest?.peerDependenciesMeta?.["@nseng-ai/pi"]?.optional === true
   );
 }
 
@@ -356,7 +356,7 @@ function circleForSpecifier(specifier, importerFile) {
   return circleByPackageComponent.get(`${packageName}\0${component}`) ?? circleByPackageComponent.get(`${packageName}\0.`);
 }
 
-// Subpath exports are aliases (`@ns/core/result` -> src/primitives/result.ts),
+// Subpath exports are aliases (`@nseng-ai/core/result` -> src/primitives/result.ts),
 // so specifier segments alone misattribute edges to the package-root circle.
 // Resolve through the exports map and credit the circle that owns the file.
 function circleForExportedFile(specifier, packageName) {

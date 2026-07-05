@@ -6,7 +6,7 @@ import {
 	resolvePathOverride,
 	resolveNsXdgPath,
 	resolveXdgHome,
-} from "@ns/core/xdg-path";
+} from "@nseng-ai/core/xdg-path";
 
 describe("XDG path helpers", () => {
 	test("resolveXdgHome uses default HOME locations for unset and empty XDG values", () => {

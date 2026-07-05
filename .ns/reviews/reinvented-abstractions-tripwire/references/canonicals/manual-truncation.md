@@ -2,7 +2,7 @@
 
 - Kind key: `manual-truncation`
 - Canonical: truncateTextHeadTail / truncateTextHead / tailText
-- Import/path hints: @ns/core/text-truncation; @ns/core/command
+- Import/path hints: @nseng-ai/core/text-truncation; @nseng-ai/core/command
 - Raw-form tell: slice plus ellipsis or manual head/tail split
 - Why reuse matters: budget-aware omission marker calculation and shared output limits
 - Structural exemptions: small UI labels where exact budget is irrelevant

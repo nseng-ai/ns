@@ -6,12 +6,12 @@ import {
 	type ClinkrExit,
 	type ClinkrGroup,
 	type ClinkrHandler,
-} from "@ns/clinkr";
-import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
-import type { NsCommand, NsExtensionApi } from "@ns/kernel/sdk";
-import type { GitResult } from "@ns/capability-kit/git";
+} from "@nseng-ai/clinkr";
+import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
+import type { NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { GitResult } from "@nseng-ai/capability-kit/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
-import { errorDetailText } from "@ns/core/result";
+import { errorDetailText } from "@nseng-ai/core/result";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions, RepoContextResult } from "./core/gateways.ts";

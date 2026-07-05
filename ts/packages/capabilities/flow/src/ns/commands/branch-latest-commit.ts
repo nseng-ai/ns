@@ -2,9 +2,9 @@ import {
 	createLatestCommitAutobranchFlow,
 	type LatestCommitAutobranchInput,
 } from "../../autobranch/latest-commit.ts";
-import { renderResultBlock } from "@ns/core/cli-theme";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@ns/core/model-slug";
-import { defineExtension, failed, ok, z, type NsCommand } from "@ns/kernel/sdk";
+import { renderResultBlock } from "@nseng-ai/core/cli-theme";
+import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/core/model-slug";
+import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";

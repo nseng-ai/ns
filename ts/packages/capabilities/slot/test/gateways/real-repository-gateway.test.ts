@@ -4,9 +4,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { ExecResult } from "@ns/core/command";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
+import type { ExecResult } from "@nseng-ai/core/command";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { ScriptedCommandExecApi } from "@nseng-ai/core/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
 import { RealSlotRepositoryGateway } from "../../src/core/gateways/repository.ts";
 

@@ -1,7 +1,7 @@
-import { type BranchContextEvidence } from "@ns/branch-context/api";
+import { type BranchContextEvidence } from "@nseng-ai/branch-context/api";
 import { formatImplBranchContextCommand } from "../surfaces.ts";
-import type { ExecResult } from "@ns/core/command";
-import { setRuntimeStatus } from "@ns/pi/runtime/status";
+import type { ExecResult } from "@nseng-ai/core/command";
+import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import type { ExtensionAPI, NewSessionOptions, NewSessionResult } from "../host-types.ts";
 
 export type BranchContextGtUpstackImplHost = Pick<ExtensionAPI, "exec">;

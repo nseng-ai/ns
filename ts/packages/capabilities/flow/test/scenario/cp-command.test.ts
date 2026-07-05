@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import { stripAnsi } from "@ns/clinkr/testing";
-import type { TextGenerationResult } from "@ns/kernel/sdk";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";

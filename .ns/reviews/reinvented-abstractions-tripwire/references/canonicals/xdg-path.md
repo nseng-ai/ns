@@ -2,7 +2,7 @@
 
 - Kind key: `xdg-path`
 - Canonical: requireNsStatePath / resolveNsXdgPath / resolveXdgHome
-- Import/path hints: @ns/core/xdg-path; @ns/capability-kit/xdg
+- Import/path hints: @nseng-ai/core/xdg-path; @nseng-ai/capability-kit/xdg
 - Raw-form tell: os.homedir(), process.env.XDG_*/HOME, or .local/state/.config path literals
 - Why reuse matters: central XDG policy, namespace defaults, env seam, and directory privacy handling
 - Structural exemptions: canonical XDG modules; os.tmpdir(); Pi-owned ~/.pi paths

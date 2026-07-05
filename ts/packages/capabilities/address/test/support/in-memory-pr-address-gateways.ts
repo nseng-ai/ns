@@ -14,10 +14,10 @@ import type {
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
 	GithubStatusChecks,
-} from "@ns/address/api";
-import type { Result } from "@ns/core/result";
+} from "@nseng-ai/address/api";
+import type { Result } from "@nseng-ai/core/result";
 
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import type { PrAddressContext } from "../../src/context.ts";
 

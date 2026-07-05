@@ -1,12 +1,12 @@
-import { formatZodError } from "@ns/core/primitives";
-import type { ExecResult } from "@ns/pi/shared/exec-gateway";
-import type { ExecGateway } from "@ns/pi/shared/exec-gateway";
+import { formatZodError } from "@nseng-ai/core/primitives";
+import type { ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 import { z } from "zod";
 
-import { parseMachineEnvelopeDataWithFailureData } from "@ns/pi/runtime/machine-envelope";
+import { parseMachineEnvelopeDataWithFailureData } from "@nseng-ai/pi/runtime/machine-envelope";
 
-export type { ExecOptions, ExecResult } from "@ns/pi/shared/exec-gateway";
-export type { ExecGateway } from "@ns/pi/shared/exec-gateway";
+export type { ExecOptions, ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+export type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 
 export interface PrAddressRunner {
 	command: string;

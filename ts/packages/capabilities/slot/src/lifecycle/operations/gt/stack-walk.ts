@@ -2,10 +2,10 @@ import {
 	walkGraphiteAncestors,
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
-} from "@ns/capability-kit/graphite/metadata";
+} from "@nseng-ai/capability-kit/graphite/metadata";
 
 import { deduplicateOrderedStrings } from "../../../core/collections.ts";
-import type { StackInfo } from "@ns/capability-kit/graphite/stack";
+import type { StackInfo } from "@nseng-ai/capability-kit/graphite/stack";
 
 export interface StackEdge {
 	parent: string;

@@ -1,6 +1,6 @@
-import type { ExecResult } from "@ns/core/exec";
+import type { ExecResult } from "@nseng-ai/core/exec";
 
-export type { ExecResult } from "@ns/core/exec";
+export type { ExecResult } from "@nseng-ai/core/exec";
 
 export type NotifyLevel = "info" | "warning" | "error" | "success";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";

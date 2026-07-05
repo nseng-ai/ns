@@ -6,15 +6,15 @@
  * `.ns/extensions/objective/package.json`, and the stub
  * `.ns/extensions/objective/src/commands/exec-runner-step.ts`.
  */
-import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
-import { usageError } from "@ns/clinkr";
-import { optionalEntry } from "@ns/core/primitives";
-import { systemClock, systemTimerScheduler } from "@ns/core/time";
-import { defineExtension, type NsCommand } from "@ns/kernel/sdk";
+import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
+import { usageError } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { systemClock, systemTimerScheduler } from "@nseng-ai/core/time";
+import { defineExtension, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 // jiti constraint: import the adapter by its concrete module path, never via
 // the src/pi/index.ts barrel — the barrel re-exports extension.ts and would
-// pull the optional @ns/pi peer into this command's transpile graph.
+// pull the optional @nseng-ai/pi peer into this command's transpile graph.
 import { createPiChildSessionGateway } from "../../pi/child-session/pi-child-session-gateway.ts";
 import {
 	runnerStepRequestSchema,

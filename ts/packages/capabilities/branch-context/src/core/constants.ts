@@ -1,4 +1,4 @@
-import { buildPlanFileName, validatePlanSlug } from "@ns/plans";
+import { buildPlanFileName, validatePlanSlug } from "@nseng-ai/plans";
 
 export const BRANCH_CONTEXT_NAMESPACE = "branch-context";
 export const UNSUPPORTED_ATTACHED_PLAN_KEY = "plan.md";

@@ -1,5 +1,5 @@
-import { splitMarkdownFrontmatter, stripLineEnding } from "@ns/core/markdown-frontmatter";
-import { err, type Result } from "@ns/core/result";
+import { splitMarkdownFrontmatter, stripLineEnding } from "@nseng-ai/core/markdown-frontmatter";
+import { err, type Result } from "@nseng-ai/core/result";
 
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 

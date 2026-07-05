@@ -4,8 +4,8 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@ns/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
+} from "@nseng-ai/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
 import codeExtension from "../../src/pi/code-extension.ts";
 import codeWorkflowsExtension, { codeWorkflowsParity } from "../../src/pi/code-workflows.ts";
 import nsExtension, { nsExtensionParity } from "../../src/pi/ns-extension.ts";

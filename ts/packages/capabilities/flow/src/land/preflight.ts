@@ -146,7 +146,8 @@ export async function calculateLandingOutcome(
 		return landFailure({
 			type: "not-implemented",
 			phase: "preflight",
-			message: "@ns/flow land preflight planning currently supports stack landing targets only.",
+			message:
+				"@nseng-ai/flow land preflight planning currently supports stack landing targets only.",
 		});
 	}
 

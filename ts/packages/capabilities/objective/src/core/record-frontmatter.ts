@@ -1,5 +1,5 @@
-import { splitMarkdownFrontmatter } from "@ns/core/markdown-frontmatter";
-import { formatErrorMessage, formatZodError } from "@ns/core/primitives";
+import { splitMarkdownFrontmatter } from "@nseng-ai/core/markdown-frontmatter";
+import { formatErrorMessage, formatZodError } from "@nseng-ai/core/primitives";
 import { parse } from "yaml";
 import { z } from "zod";
 

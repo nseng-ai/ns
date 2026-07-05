@@ -61,7 +61,7 @@ export {
 	type ErrorInfo,
 	type GatewayResult,
 	type Result,
-} from "@ns/capability-kit/gateway-result";
+} from "@nseng-ai/capability-kit/gateway-result";
 export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,

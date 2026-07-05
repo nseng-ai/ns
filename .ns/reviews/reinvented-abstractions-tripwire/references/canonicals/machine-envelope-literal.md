@@ -2,7 +2,7 @@
 
 - Kind key: `machine-envelope-literal`
 - Canonical: toMachineEnvelope / usageErrorMachineEnvelope / envelopeJsonText; parseMachineEnvelopeData
-- Import/path hints: @ns/clinkr for builders; @ns/core/machine-envelope for parser
+- Import/path hints: @nseng-ai/clinkr for builders; @nseng-ai/core/machine-envelope for parser
 - Raw-form tell: object literals with status, exitCode, data/message for --format json
 - Why reuse matters: one status/exitCode/field contract across CLIs
 - Structural exemptions: test fixtures and local expected-value literals

@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import type { RunGitHubCliResult } from "../cli.ts";
 import { githubGraphqlErrorsSchema, parseJsonUnknown } from "../graphql-json.ts";
-import { formatErrorMessage } from "@ns/core/primitives";
-import type { Result } from "@ns/core/result";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import type { Result } from "@nseng-ai/core/result";
 
 import { failureContextFields, failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
 import type {

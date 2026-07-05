@@ -1,4 +1,4 @@
-import { failure, ok, requireInteractiveOrUsageError } from "@ns/clinkr";
+import { failure, ok, requireInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import {
@@ -10,7 +10,7 @@ import {
 	rcPathForShell,
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
-} from "@ns/capability-kit/shell-support";
+} from "@nseng-ai/capability-kit/shell-support";
 
 import type { NsCliContext } from "./context.ts";
 

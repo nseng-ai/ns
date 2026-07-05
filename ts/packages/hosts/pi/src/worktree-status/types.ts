@@ -1,6 +1,10 @@
-import type { MessageRenderer } from "@ns/pi/runtime/extension-types";
+import type { MessageRenderer } from "@nseng-ai/pi/runtime/extension-types";
 
-export type { CustomMessage, RenderComponent, RenderTheme } from "@ns/pi/runtime/extension-types";
+export type {
+	CustomMessage,
+	RenderComponent,
+	RenderTheme,
+} from "@nseng-ai/pi/runtime/extension-types";
 
 export type {
 	ExecResult,

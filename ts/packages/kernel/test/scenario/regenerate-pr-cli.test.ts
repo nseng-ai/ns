@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { listNsCommands } from "@ns/kernel/cli";
+import { listNsCommands } from "@nseng-ai/kernel/cli";
 
 import { runCliWithFakes } from "./ns-cli-fakes.ts";
 

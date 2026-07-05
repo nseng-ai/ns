@@ -13,7 +13,7 @@ import {
 	type LatestCommitAutobranchPlan,
 	type LatestCommitTransactionInput,
 } from "../../src/autobranch/latest-commit.ts";
-import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
+import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 
 interface PreparationHarnessOptions {
 	slug?: string;

@@ -1,5 +1,5 @@
 {
-	"name": "@ns/capability-kit",
+	"name": "@nseng-ai/capability-kit",
 	"version": "0.1.0",
 	"private": true,
 	"files": [
@@ -51,9 +51,9 @@
 		"test": "cd ../.. && vitest run --config vitest.config.ts packages/capability-kit/test"
 	},
 	"dependencies": {
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/kernel": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

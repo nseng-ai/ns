@@ -1,13 +1,13 @@
-import { runCommand } from "@ns/core/exec";
+import { runCommand } from "@nseng-ai/core/exec";
 import {
 	type CommandRunner,
 	outputListenerToExecCallbacks,
 	type ExecResult,
-} from "@ns/core/command";
-import { optionalEntry } from "@ns/core/primitives";
-import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
-import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
+} from "@nseng-ai/core/command";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 import { detectGitConflictOutput } from "./git-operation-output.ts";
 import { buildSubmitArgs } from "./submit-command-spec.ts";

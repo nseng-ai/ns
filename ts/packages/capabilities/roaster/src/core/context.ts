@@ -1,7 +1,7 @@
-import { NodeCommandExecApi } from "@ns/core/exec";
-import type { CommandExecApi } from "@ns/core/command";
-import { RealGitGateway } from "@ns/capability-kit/git";
-import type { GitGateway } from "@ns/capability-kit/git";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/core/command";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import {
 	ClaudeCodeProcessReviewRunner,
@@ -11,7 +11,7 @@ import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "../gateways
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
-import { optionalEntry, type ExplicitUndefined } from "@ns/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 

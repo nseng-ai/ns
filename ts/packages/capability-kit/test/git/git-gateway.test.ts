@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS, RealGitGateway } from "@ns/capability-kit/git";
-import { ScriptedQueue } from "@ns/core/test-kit";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import {
+	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
+	RealGitGateway,
+} from "@nseng-ai/capability-kit/git";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
 
 const ROOT = "/repo";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";

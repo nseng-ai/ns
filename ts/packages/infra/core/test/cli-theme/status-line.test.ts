@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Caps, ColorDepth } from "@ns/clinkr";
+import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { glyph, spinnerFrame } from "../../src/cli-theme/glyphs.ts";
 import { bold, dim, paint } from "../../src/cli-theme/palette.ts";
 import {

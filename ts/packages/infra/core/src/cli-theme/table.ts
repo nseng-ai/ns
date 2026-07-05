@@ -7,7 +7,7 @@
 // by min/max), and `fill` (split the leftover terminal width) — and cells clip to their column width
 // with a caps-aware ellipsis.
 
-import type { Caps } from "@ns/clinkr";
+import type { Caps } from "@nseng-ai/clinkr";
 import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
 import { ellipsisFor } from "./glyphs.ts";
 import { dim, paint } from "./palette.ts";

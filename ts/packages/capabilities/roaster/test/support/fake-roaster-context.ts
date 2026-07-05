@@ -1,7 +1,7 @@
-import type { CommandExecApi } from "@ns/core/command";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
+import type { CommandExecApi } from "@nseng-ai/core/command";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { ScriptedCommandExecApi } from "@nseng-ai/core/exec/testing";
 import type { RoasterContext } from "../../src/core/context.ts";
 import {
 	FakeReviewRunnerGateway,

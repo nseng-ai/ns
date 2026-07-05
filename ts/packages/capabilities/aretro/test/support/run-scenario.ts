@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AretroCliContext } from "../../src/context.ts";

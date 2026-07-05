@@ -8,7 +8,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import type { NsCommand, NsExtensionApi } from "@ns/kernel/sdk";
+import type { NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
 	const registry = fakeRoasterRegistry();

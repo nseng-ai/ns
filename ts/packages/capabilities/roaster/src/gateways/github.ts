@@ -2,8 +2,8 @@ import {
 	type CommandExecApi,
 	commandFailureReason,
 	execApiToCommandRunner,
-} from "@ns/core/command";
-import { runGitHubCli } from "@ns/capability-kit/github/cli";
+} from "@nseng-ai/core/command";
+import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
 import {
 	ghAuthorSchema,
 	normalizeAuthor,
@@ -12,9 +12,9 @@ import {
 	withNumericGithubIdentity,
 	type GithubPrFeedbackFailure,
 	type GithubPrReviewThread,
-} from "@ns/capability-kit/github/pr-feedback";
-import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
-import { withTemporaryJsonFile } from "@ns/capability-kit/temp-files";
+} from "@nseng-ai/capability-kit/github/pr-feedback";
+import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/core/primitives";
+import { withTemporaryJsonFile } from "@nseng-ai/capability-kit/temp-files";
 import { z } from "zod";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../core/failures.ts";

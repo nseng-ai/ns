@@ -1,9 +1,9 @@
-import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
-import type { ClinkrDynamicCompletionRequest, NsExtensionApi } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { ClinkrDynamicCompletionRequest, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
+import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
 
 interface TestContext {
 	readonly cwd: string;

@@ -1,4 +1,4 @@
-import type { NsExtensionApi, NsOutputStream } from "@ns/kernel/sdk";
+import type { NsExtensionApi, NsOutputStream } from "@nseng-ai/kernel/sdk";
 
 export type FlowLiveOutput = (stream: NsOutputStream, text: string) => void;
 

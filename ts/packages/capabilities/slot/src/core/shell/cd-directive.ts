@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 import { writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 
 export const SLOT_CD_DIRECTIVE_FILE = "SLOT_CD_DIRECTIVE_FILE";
 export const NS_CD_DIRECTIVE_FILE = "NS_CD_DIRECTIVE_FILE";

@@ -1,5 +1,5 @@
-import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { expandRepoSkillBlock } from "@ns/pi/skills/expansion";
+import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 import {
 	CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
 	CCC_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
@@ -8,7 +8,7 @@ import {
 	type CccSidebarController,
 	type ObjectiveSidebarHandlerOptions,
 } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const SESSION_SIDEBAR_COMMAND_NAME = CCC_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME;
 const BRANCH_STATE_SIDEBAR_COMMAND_NAME = CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME;

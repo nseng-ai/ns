@@ -1,5 +1,5 @@
 /**
- * @ns/aretro - Branch session retrospective evidence operations.
+ * @nseng-ai/aretro - Branch session retrospective evidence operations.
  *
  * This package provides a TypeScript CLI for collecting and managing
  * privacy-conscious retrospective evidence from branch sessions.

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { validateNsExtensionContribution } from "../../src/extensions/command-registry.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
-import { z, type NsCommand } from "@ns/kernel/sdk";
+import { z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 const tempDirs: string[] = [];
 
@@ -29,7 +29,7 @@ afterEach(() => {
 describe("extension loader", () => {
 	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -57,7 +57,7 @@ export default defineExtension({
 	test("loads package-specifier references through host package resolution", async () => {
 		const loaded = await loadNsExtensionContribution({
 			type: "package",
-			specifier: "@ns/objective/ns/commands/list",
+			specifier: "@nseng-ai/objective/ns/commands/list",
 		});
 
 		expect(loaded.ok).toBe(true);
@@ -65,7 +65,7 @@ export default defineExtension({
 		const validation = validateNsExtensionContribution(
 			loaded.defaultExport,
 			"list",
-			"@ns/objective/ns/commands/list",
+			"@nseng-ai/objective/ns/commands/list",
 		);
 		expect(validation.ok).toBe(true);
 		if (!validation.ok) return;
@@ -74,7 +74,7 @@ export default defineExtension({
 
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok } from "@ns/kernel/sdk";
+import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	commands: [{

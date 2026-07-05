@@ -4,8 +4,8 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@ns/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
+} from "@nseng-ai/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
 import { objectiveCommandSpecs } from "../../src/api/index.ts";
 import objectiveExtension, { objectiveParity } from "../../src/pi/extension.ts";
 

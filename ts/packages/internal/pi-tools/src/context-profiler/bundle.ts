@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { BuildSystemPromptOptions, ContextUsage } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
-import { errorMessage } from "@ns/pi/shared/errors";
+import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import type { DelegationClaim, EpisodeAnnotation } from "./model.ts";
 import type { SegmentationBatchOutcome } from "./segmentation.ts";
 

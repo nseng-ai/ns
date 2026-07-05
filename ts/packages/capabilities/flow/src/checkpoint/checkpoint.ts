@@ -1,22 +1,25 @@
-import { runCommand } from "@ns/core/exec";
-import type { CommandRunner, ExecResult } from "@ns/core/command";
-import type { NsProgressPhaseListener } from "@ns/kernel/sdk";
-import { formatElapsedMs } from "@ns/core/time-format";
-import { createNsCommandRunner } from "@ns/capability-kit/command-runner";
-import type { TextRepairProgressEvent } from "@ns/capability-kit/text-repair";
+import { runCommand } from "@nseng-ai/core/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/core/command";
+import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
+import { formatElapsedMs } from "@nseng-ai/core/time-format";
+import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import type { TextRepairProgressEvent } from "@nseng-ai/capability-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "@ns/capability-kit/checkpoint-flow";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+} from "@nseng-ai/capability-kit/checkpoint-flow";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "@ns/capability-kit/pending-worktree";
-import { selectCheckpointModelRef, type TextGenerator } from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/pending-worktree";
+import {
+	selectCheckpointModelRef,
+	type TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<

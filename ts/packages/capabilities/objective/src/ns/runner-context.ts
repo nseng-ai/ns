@@ -1,12 +1,16 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { NsCommandExecApi } from "@ns/capability-kit/command-runner";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { RealGraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
-import type { GraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
-import type { CommandExecApi } from "@ns/core/exec";
-import { errorCodeFromUnknown, formatErrorMessage, optionalEntries } from "@ns/core/primitives";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import {
+	errorCodeFromUnknown,
+	formatErrorMessage,
+	optionalEntries,
+} from "@nseng-ai/core/primitives";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";
 import type { ChildSessionGateway } from "../runner/child-session.ts";

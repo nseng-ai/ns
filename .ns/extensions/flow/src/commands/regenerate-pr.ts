@@ -1,1 +1,1 @@
-export { default } from "@ns/flow/commands/regenerate-pr";
+export { default } from "@nseng-ai/flow/commands/regenerate-pr";

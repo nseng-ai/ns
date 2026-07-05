@@ -1,11 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 
-import type { Caps } from "@ns/clinkr";
-import { stripAnsi } from "@ns/clinkr/testing";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ns/capability-kit/git";
-import { optionalEntry } from "@ns/core/primitives";
-import { ScriptedQueue } from "@ns/core/test-kit";
-import type { NsConfirmOptions } from "@ns/kernel/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import { optionalEntry } from "@nseng-ai/core/primitives";
+import { ScriptedQueue } from "@nseng-ai/core/test-kit";
+import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import {
 	parsePullRequestView,
 	registerLandCommand,
@@ -14,7 +14,7 @@ import {
 	type LandCommandContext,
 	type LandExtensionAPI,
 	type NotifyLevel,
-} from "@ns/ccc/land";
+} from "@nseng-ai/ccc/land";
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const ROOT = "/repo";
@@ -41,7 +41,7 @@ const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 const SHA_CURRENT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_CHILD = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const CHILD_BRANCH = "child-branch";
-// Mirrors Flow's backup-ref command contract exercised through @ns/flow/api;
+// Mirrors Flow's backup-ref command contract exercised through @nseng-ai/flow/api;
 // keep local to avoid exporting or deep-importing Flow land-stack internals.
 const FLOW_LAND_BACKUP_REF_NAMESPACE = "refs/ns/flow-land-backup";
 const FLOW_LAND_BACKUP_PREV_REF_NAMESPACE = "refs/ns/flow-land-backup-prev";

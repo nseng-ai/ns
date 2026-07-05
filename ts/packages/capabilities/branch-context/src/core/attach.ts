@@ -1,4 +1,4 @@
-import { optionalEntry } from "@ns/core/primitives";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -18,15 +18,15 @@ import {
 	unwrapBranchContextBrmemResult,
 } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
-import type { BrmemGateway } from "@ns/brmem";
-import type { CommandExecApi } from "@ns/core/exec";
-import type { GitGateway } from "@ns/capability-kit/git";
+import type { BrmemGateway } from "@nseng-ai/brmem";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	buildPlanStoreOptions,
 	listSavedPlans,
 	resolvePlanSourceFile,
 	type PlanStoreOptions,
-} from "@ns/plans";
+} from "@nseng-ai/plans";
 
 export interface BranchContextPrimitiveOptions {
 	cwd: string;

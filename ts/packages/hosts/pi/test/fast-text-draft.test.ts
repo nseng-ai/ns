@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
 import {
 	CLAUDE_CLI_MODEL,
 	DRAFT_MODEL_ENV,

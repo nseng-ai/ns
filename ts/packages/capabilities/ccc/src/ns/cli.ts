@@ -2,10 +2,10 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@ns/core/cli-runtime";
-import { NodeCommandExecApi } from "@ns/core/exec";
-import type { CommandExecApi } from "@ns/core/command";
+import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
+import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/core/command";
 
 import {
 	commitAutobranchCheckpointMessage,
@@ -15,7 +15,7 @@ import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
 	type FlowAutobranchRequest,
-} from "@ns/flow/api";
+} from "@nseng-ai/flow/api";
 import {
 	applyCmuxWorkspaceSummaryCommand,
 	cmuxWorkspaceSummaryRequestSchema,

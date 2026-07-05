@@ -1,8 +1,8 @@
-import { formatCommand } from "@ns/core/command";
+import { formatCommand } from "@nseng-ai/core/command";
 import {
 	GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	graphiteBranchMetadataReadonlyJsonArgs,
-} from "@ns/capability-kit/graphite/metadata";
+} from "@nseng-ai/capability-kit/graphite/metadata";
 import {
 	defineExtension,
 	failed,
@@ -11,7 +11,7 @@ import {
 	type NsCommand,
 	type NsExtensionApi,
 	type NsResult,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 const execReadGraphiteBranchMetadataSchema = z.object({
 	dbPath: z.string().describe("Absolute path to Graphite's .graphite_metadata.db file."),

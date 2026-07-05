@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@ns/core/cli-runtime/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@nseng-ai/core/cli-runtime/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "plans Node runtime CLI entrypoint",
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "contains", text: "list" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @ns/plans bin enriched-plan -> ts/packages/capabilities/plans/src/cli.ts\n",
+		"runtime: typescript\nentry_point: @nseng-ai/plans bin enriched-plan -> ts/packages/capabilities/plans/src/cli.ts\n",
 });

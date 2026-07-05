@@ -5,11 +5,11 @@ import {
 } from "./dirty-worktree.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
 import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
-import type { CommandResult } from "@ns/capability-kit/checkpoint-flow";
+import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
 import {
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeSnapshot,
-} from "@ns/capability-kit/pending-worktree";
+} from "@nseng-ai/capability-kit/pending-worktree";
 
 import { formatPendingWorktreeError } from "./pending-worktree-format.ts";
 

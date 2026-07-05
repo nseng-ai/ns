@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { handoffCreateNsCommand } from "./commands/create.ts";
 import { handoffDeleteNsCommand } from "./commands/delete.ts";
@@ -18,7 +21,7 @@ export const handoffRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor(
 	].map((command) =>
 		repoLocalNsCommandDescriptor({
 			command,
-			packageExportPrefix: "@ns/handoff/ns/commands",
+			packageExportPrefix: "@nseng-ai/handoff/ns/commands",
 		}),
 	),
 });

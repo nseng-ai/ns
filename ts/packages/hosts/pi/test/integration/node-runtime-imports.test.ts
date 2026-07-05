@@ -14,31 +14,31 @@ const NS_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
-	"@ns/capability-kit/graphite/status",
-	"@ns/core/exec",
-	"@ns/branch-context",
-	"@ns/plans",
-	"@ns/kernel/cli",
+	"@nseng-ai/capability-kit/graphite/status",
+	"@nseng-ai/core/exec",
+	"@nseng-ai/branch-context",
+	"@nseng-ai/plans",
+	"@nseng-ai/kernel/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
-	"@ns/core/exec",
-	"@ns/branch-context",
-	"@ns/plans",
-	"@ns/capability-kit/checkpoint-flow",
+	"@nseng-ai/core/exec",
+	"@nseng-ai/branch-context",
+	"@nseng-ai/plans",
+	"@nseng-ai/capability-kit/checkpoint-flow",
 ] as const;
 
 const NS_EXPORT_IMPORTS = [
-	"@ns/capability-kit/checkpoint-flow",
-	"@ns/capability-kit/checkpoint-message",
-	"@ns/core/exec",
-	"@ns/kernel/cli",
-	"@ns/kernel/context",
-	"@ns/capability-kit/pending-worktree",
-	"@ns/kernel/pi-text-generation",
-	"@ns/kernel/sdk",
-	"@ns/capability-kit/text-generation",
-	"@ns/capability-kit/text-repair",
+	"@nseng-ai/capability-kit/checkpoint-flow",
+	"@nseng-ai/capability-kit/checkpoint-message",
+	"@nseng-ai/core/exec",
+	"@nseng-ai/kernel/cli",
+	"@nseng-ai/kernel/context",
+	"@nseng-ai/capability-kit/pending-worktree",
+	"@nseng-ai/kernel/pi-text-generation",
+	"@nseng-ai/kernel/sdk",
+	"@nseng-ai/capability-kit/text-generation",
+	"@nseng-ai/capability-kit/text-repair",
 ] as const;
 
 interface NodeEvalOptions {

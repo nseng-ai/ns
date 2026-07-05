@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GithubStatusChecks } from "@ns/address/api";
+import type { GithubStatusChecks } from "@nseng-ai/address/api";
 
 import { collectBranchPrChecks } from "../../src/core/branch-pr-checks.ts";
 import {

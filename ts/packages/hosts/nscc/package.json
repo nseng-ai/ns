@@ -13,10 +13,10 @@
 		"stack-map": "bun src/cli.ts"
 	},
 	"dependencies": {
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/objective": "workspace:*",
-		"@ns/slot": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/objective": "workspace:*",
+		"@nseng-ai/slot": "workspace:*",
 		"@opentui/core": "catalog:",
 		"zod": "catalog:"
 	},

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fakeStackInfo } from "@ns/capability-kit/graphite/testing";
+import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 describe("slot gt free-stack CLI", () => {

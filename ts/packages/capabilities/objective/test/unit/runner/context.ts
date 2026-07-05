@@ -3,13 +3,16 @@ import type {
 	GitCwdParams,
 	GitResult,
 	GitStatusPathFacts,
-} from "@ns/capability-kit/git";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ns/capability-kit/git/testing";
+} from "@nseng-ai/capability-kit/git";
+import {
+	InMemoryGitGateway,
+	type InMemoryGitGatewayState,
+} from "@nseng-ai/capability-kit/git/testing";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
-} from "@ns/capability-kit/graphite/testing";
-import type { ExecResult } from "@ns/core/exec";
+} from "@nseng-ai/capability-kit/graphite/testing";
+import type { ExecResult } from "@nseng-ai/core/exec";
 
 import { nextFromSequence } from "../../support/sequence.ts";
 import {

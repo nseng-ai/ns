@@ -7,7 +7,7 @@
  * report-integrity malfunction checkpoint can list them all, matching the
  * marker-block parser's behavior in `report-marker.ts`.
  */
-import { formatZodIssue } from "@ns/core/primitives";
+import { formatZodIssue } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import {

@@ -3,7 +3,7 @@ import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { branchContextImplPromptTemplatePath } from "@ns/branch-context/api/prompt-assets";
+import { branchContextImplPromptTemplatePath } from "@nseng-ai/branch-context/api/prompt-assets";
 import { build } from "esbuild";
 
 import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";

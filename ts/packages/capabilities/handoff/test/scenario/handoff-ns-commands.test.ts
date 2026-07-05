@@ -1,12 +1,12 @@
-import { FakeBrmemGateway } from "@ns/brmem";
-import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import { FakeBrmemGateway } from "@nseng-ai/brmem";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { handoffCreateNsCommand } from "@ns/handoff/ns/commands/create";
-import { handoffDeleteNsCommand } from "@ns/handoff/ns/commands/delete";
-import { handoffGcNsCommand } from "@ns/handoff/ns/commands/gc";
-import { handoffListNsCommand } from "@ns/handoff/ns/commands/list";
-import { handoffPickupNsCommand } from "@ns/handoff/ns/commands/pickup";
+import { handoffCreateNsCommand } from "@nseng-ai/handoff/ns/commands/create";
+import { handoffDeleteNsCommand } from "@nseng-ai/handoff/ns/commands/delete";
+import { handoffGcNsCommand } from "@nseng-ai/handoff/ns/commands/gc";
+import { handoffListNsCommand } from "@nseng-ai/handoff/ns/commands/list";
+import { handoffPickupNsCommand } from "@nseng-ai/handoff/ns/commands/pickup";
 
 import {
 	FakeHandoffSourceReader,

@@ -1,4 +1,4 @@
-import { stripAnsi } from "@ns/clinkr/testing";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";

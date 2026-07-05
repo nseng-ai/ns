@@ -1,4 +1,4 @@
-import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 import { THERMO_COUNCIL_COMMAND_NAME } from "./contract.ts";
 import type { ThermoCouncilExtensionAPI } from "./host-api.ts";

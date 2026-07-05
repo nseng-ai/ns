@@ -3,11 +3,11 @@ import {
 	type ParsedAutobranchArgs,
 } from "../../autobranch/dirty-worktree.ts";
 import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
-import { renderResultBlock } from "@ns/core/cli-theme";
-import { runWithNsCommandIo } from "@ns/kernel/command-io";
-import type { NsCommandIo } from "@ns/kernel/sdk";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@ns/core/model-slug";
-import { commandIoFromNsExtensionApi } from "@ns/kernel/command-io";
+import { renderResultBlock } from "@nseng-ai/core/cli-theme";
+import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/core/model-slug";
+import { commandIoFromNsExtensionApi } from "@nseng-ai/kernel/command-io";
 import {
 	defineExtension,
 	failed,
@@ -15,7 +15,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
@@ -25,7 +25,7 @@ import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/text-generation";
 import {
 	createCommitWithPreparedMessage,
 	execExtensionCommand,

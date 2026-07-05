@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import { failure, ok, usageError, type ClinkrExit } from "@ns/clinkr";
-import type { CommandExecApi } from "@ns/core/command";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import type { CommandExecApi } from "@nseng-ai/core/command";
 import {
 	RealCmuxGateway,
 	type CmuxGateway,
 	type CmuxGatewayFailure,
-} from "@ns/capability-kit/cmux/gateway";
+} from "@nseng-ai/capability-kit/cmux/gateway";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";
 export const CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS = 30_000;

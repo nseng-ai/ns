@@ -4,7 +4,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/text-generation";
 
 import { runCpCore } from "../../src/ns/commands/cp.ts";
 import type { CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";

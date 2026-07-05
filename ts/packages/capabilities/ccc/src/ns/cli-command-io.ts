@@ -2,8 +2,8 @@ import {
 	createCliCommandIo,
 	type CliCommandIoInput,
 	type CliCommandIoOptions,
-} from "@ns/kernel/command-io";
-import type { NsCommandIo } from "@ns/kernel/sdk";
+} from "@nseng-ai/kernel/command-io";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 
 /** Minimal CLI stream/callback surface that CCC standalone commands adapt to NsCommandIo. */
 export type CccCliCommandIoInput = CliCommandIoInput;

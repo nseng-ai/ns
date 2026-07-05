@@ -5,9 +5,9 @@ import type {
 	ClinkrExit,
 	OptionSpec,
 	RenderCapabilities,
-} from "@ns/clinkr";
-import type { PositionalSpec } from "@ns/clinkr/raw";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+} from "@nseng-ai/clinkr";
+import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
+import type { ExplicitUndefined } from "@nseng-ai/core/primitives";
 import type { z } from "zod";
 
 import type { NsExtensionApi } from "./execution.ts";
@@ -22,7 +22,7 @@ export type {
 	OptionSpec,
 	PositionalSpec,
 	RenderCapabilities,
-} from "@ns/clinkr";
+} from "@nseng-ai/clinkr";
 
 export type NsCommandSchema = z.ZodObject;
 export type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;

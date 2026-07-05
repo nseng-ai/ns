@@ -1,4 +1,4 @@
-import type { Caps, ColorDepth } from "@ns/clinkr";
+import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";

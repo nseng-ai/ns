@@ -1,5 +1,5 @@
-import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
-import { buildFencedTextBlock } from "@ns/core/primitives";
+import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
+import { buildFencedTextBlock } from "@nseng-ai/core/primitives";
 
 import type { RunnerStepMode } from "./context.ts";
 // ADR0024-LEGACY-DELETE(import): marker constants feed only the legacy marker

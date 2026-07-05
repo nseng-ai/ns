@@ -1,5 +1,5 @@
 {
-	"name": "@ns/command-backed-skill-registry",
+	"name": "@nseng-ai/command-backed-skill-registry",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -13,13 +13,13 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/command-backed-skill-registry/test"
 	},
 	"dependencies": {
-		"@ns/branch-context": "workspace:*",
-		"@ns/ccc": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/flow": "workspace:*",
-		"@ns/handoff": "workspace:*",
-		"@ns/objective": "workspace:*",
-		"@ns/pi-command-surfaces": "workspace:*"
+		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/ccc": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/flow": "workspace:*",
+		"@nseng-ai/handoff": "workspace:*",
+		"@nseng-ai/objective": "workspace:*",
+		"@nseng-ai/pi-command-surfaces": "workspace:*"
 	},
 	"ns": {
 		"tier": "host"

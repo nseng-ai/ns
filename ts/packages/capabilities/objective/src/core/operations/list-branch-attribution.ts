@@ -1,4 +1,4 @@
-import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@ns/capability-kit/git";
+import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@nseng-ai/capability-kit/git";
 
 import { activeRootRelativePath, objectiveSlugFromActivePath } from "../storage.ts";
 

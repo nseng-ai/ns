@@ -1,6 +1,6 @@
-import { prepareEntryContentFromSource } from "@ns/brmem";
-import { failure, ok } from "@ns/clinkr";
-import { optionalEntry } from "@ns/core/primitives";
+import { prepareEntryContentFromSource } from "@nseng-ai/brmem";
+import { failure, ok } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import { z } from "zod";
 
 import { createHandoffArtifact, prepareHandoffCreation } from "../artifact-storage.ts";

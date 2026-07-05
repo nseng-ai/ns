@@ -7,7 +7,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/text-generation";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const FLOW_MODEL_GENERATION_HELPER_PATH = join(

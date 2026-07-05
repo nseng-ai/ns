@@ -1,5 +1,5 @@
 {
-	"name": "@ns/aretro",
+	"name": "@nseng-ai/aretro",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -15,10 +15,10 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/aretro/test"
 	},
 	"dependencies": {
-		"@ns/capability-kit": "workspace:*",
-		"@ns/clinkr": "workspace:*",
-		"@ns/core": "workspace:*",
-		"@ns/kernel": "workspace:*",
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

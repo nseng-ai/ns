@@ -5,14 +5,14 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { stripAnsi } from "@ns/clinkr/testing";
+import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "../../src/submit/index.ts";
-import type { TextGenerationResult } from "@ns/kernel/sdk";
+import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";

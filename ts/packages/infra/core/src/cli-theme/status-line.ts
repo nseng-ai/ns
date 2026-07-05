@@ -6,7 +6,7 @@
 // Generalized from an in-place phase-line renderer by taking a small `StatusLineItem` (name + two
 // presentational texts) instead of any workflow-owned phase type.
 
-import type { Caps } from "@ns/clinkr";
+import type { Caps } from "@nseng-ai/clinkr";
 import { glyph, spinnerFrame } from "./glyphs.ts";
 import { bold, dim, paint } from "./palette.ts";
 import { padPlain } from "./text.ts";

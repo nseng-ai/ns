@@ -1,9 +1,9 @@
-import { runWithNsCommandIo } from "@ns/kernel/command-io";
-import type { NsCommandIo, NsConfirmOptions } from "@ns/kernel/sdk";
-import type { ExecOutputListener } from "@ns/core/command";
-import { optionalEntry } from "@ns/core/primitives";
+import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
+import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/kernel/sdk";
+import type { ExecOutputListener } from "@nseng-ai/core/command";
+import { optionalEntry } from "@nseng-ai/core/primitives";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
-import { createCliCommandIo } from "@ns/kernel/command-io";
+import { createCliCommandIo } from "@nseng-ai/kernel/command-io";
 import {
 	createLandUiCommandIo,
 	landCommandStreamObservabilityOptions,
@@ -29,7 +29,7 @@ import {
 	renderLandResultBlockFromMessage,
 } from "./stack/land-presentation.ts";
 import { runLandingDispatch } from "../land/landing-dispatch.ts";
-import type { Caps } from "@ns/clinkr";
+import type { Caps } from "@nseng-ai/clinkr";
 import type {
 	AutocompleteItem,
 	CustomMessage,
@@ -141,7 +141,7 @@ async function runLandCommand(
  * Lower-level adapter used by the ns CLI extension.
  *
  * This intentionally does not use `registerCliCommandExtension`: that helper lives
- * above Flow in `@ns/pi` and owns Pi slash-command registration and
+ * above Flow in `@nseng-ai/pi` and owns Pi slash-command registration and
  * rendering. This adapter must stay below that package so ns CLI execution can
  * reuse Flow land orchestration through the intentional private Flow/Pi package cycle.
  */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { commandBackedSkillSurface } from "@ns/command-backed-skill-registry";
+import { commandBackedSkillSurface } from "@nseng-ai/command-backed-skill-registry";
 
 import { formatCheckReport, parseSkillFrontmatterText } from "../../src/operations/check.ts";
 import { transformSkillFrontmatter } from "../../src/operations/frontmatter.ts";

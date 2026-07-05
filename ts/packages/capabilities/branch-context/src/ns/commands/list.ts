@@ -1,4 +1,4 @@
-import { defineExtension } from "@ns/kernel/sdk";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 import { branchContextCommand } from "../command.ts";
 import { handleList, listRequestSchema, listResultSchema } from "../../core/operations.ts";

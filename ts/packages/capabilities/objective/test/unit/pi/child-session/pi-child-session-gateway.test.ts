@@ -2,7 +2,7 @@
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 
-import { createManualClock, createManualTimerHarness } from "@ns/core/time/testing";
+import { createManualClock, createManualTimerHarness } from "@nseng-ai/core/time/testing";
 import { describe, expect, test } from "vitest";
 
 import type {

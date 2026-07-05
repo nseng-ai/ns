@@ -1,5 +1,5 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-const objectiveExtension = await importTypeScriptWorkspaceDefault("@ns/objective/pi/extension");
+const objectiveExtension = await importTypeScriptWorkspaceDefault("@nseng-ai/objective/pi/extension");
 
 export default objectiveExtension;

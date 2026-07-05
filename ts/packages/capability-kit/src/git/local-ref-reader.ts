@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, type Dirent } from "node:fs";
 import { join } from "node:path";
 
-import { formatErrorMessage } from "@ns/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
 
 const HEADS_REF_PREFIX = "refs/heads/";
 

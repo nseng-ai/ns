@@ -1,7 +1,7 @@
 // The glyph set for ns CLI theme: status marks, spinner frames, rule/tree characters, and the
 // ellipsis. Every helper switches on `caps.canRenderUnicode` so an ASCII-only terminal still reads correctly.
 
-import type { Caps } from "@ns/clinkr";
+import type { Caps } from "@nseng-ai/clinkr";
 
 export type GlyphName = "done" | "open" | "blocked" | "fail" | "skip" | "bullet";
 

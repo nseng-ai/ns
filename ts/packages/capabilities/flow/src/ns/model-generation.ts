@@ -1,6 +1,6 @@
-import { prepareCheckpointMessage } from "@ns/capability-kit/checkpoint-flow";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
-import { selectCheckpointModelRef } from "@ns/capability-kit/text-generation";
+import { prepareCheckpointMessage } from "@nseng-ai/capability-kit/checkpoint-flow";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import { selectCheckpointModelRef } from "@nseng-ai/capability-kit/text-generation";
 
 import { draftChangesSummary } from "../changes/changes-model-summary.ts";
 

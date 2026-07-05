@@ -13,8 +13,8 @@ import {
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
-import type { GitGateway } from "@ns/capability-kit/git";
-import { ScriptedCommandRunner, startupErrorStep, step } from "@ns/core/exec/testing";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { ScriptedCommandRunner, startupErrorStep, step } from "@nseng-ai/core/exec/testing";
 
 describe("formatSubmitSuccessText", () => {
 	test("omits the description preview line when no first line is available", () => {

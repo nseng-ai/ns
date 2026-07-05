@@ -21,4 +21,4 @@ export type {
 	ToolDefinition,
 	ToolResult,
 	TuiHandle,
-} from "@ns/pi/runtime/extension-types";
+} from "@nseng-ai/pi/runtime/extension-types";

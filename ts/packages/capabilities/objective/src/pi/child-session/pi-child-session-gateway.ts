@@ -7,22 +7,22 @@
  *
  * Spawns the `pi` binary in `--mode json` print mode and parses its NDJSON
  * stdout into the runner's minimal `ChildSessionEvent` vocabulary. This module
- * deliberately has ZERO `@ns/pi` imports: it is reachable from the jiti-loaded
- * `@ns/objective/ns/commands/exec-runner-step` repo-local command, and
- * `@ns/pi` is an optional peer that must never enter that transpile graph.
+ * deliberately has ZERO `@nseng-ai/pi` imports: it is reachable from the jiti-loaded
+ * `@nseng-ai/objective/ns/commands/exec-runner-step` repo-local command, and
+ * `@nseng-ai/pi` is an optional peer that must never enter that transpile graph.
  * Consumers must import this module by its concrete path, never via the
- * `src/pi/index.ts` barrel (the barrel re-exports `extension.ts` → `@ns/pi`).
+ * `src/pi/index.ts` barrel (the barrel re-exports `extension.ts` → `@nseng-ai/pi`).
  */
 import { spawn } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { Clock } from "@ns/core/clock";
-import { formatErrorMessage, isRecord } from "@ns/core/primitives";
-import { BoundedTextTailBuffer } from "@ns/core/text-tail-buffer";
-import { systemClock, systemTimerScheduler } from "@ns/core/time";
-import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
+import type { Clock } from "@nseng-ai/core/clock";
+import { formatErrorMessage, isRecord } from "@nseng-ai/core/primitives";
+import { BoundedTextTailBuffer } from "@nseng-ai/core/text-tail-buffer";
+import { systemClock, systemTimerScheduler } from "@nseng-ai/core/time";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
 
 import type {
 	ChildSessionEvent,

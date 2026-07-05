@@ -1,4 +1,4 @@
-import { firstNonEmptyLine } from "@ns/core/text-normalization";
+import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
 
 import type { CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";

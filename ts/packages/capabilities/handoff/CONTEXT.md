@@ -1,6 +1,6 @@
-# @ns/handoff
+# @nseng-ai/handoff
 
-`@ns/handoff` owns directed Handoff Artifact vocabulary, Handoff Domain Core behavior, the curated Handoff Capability API, and the portable `ns handoff ...` Command Face over Branch Memory storage.
+`@nseng-ai/handoff` owns directed Handoff Artifact vocabulary, Handoff Domain Core behavior, the curated Handoff Capability API, and the portable `ns handoff ...` Command Face over Branch Memory storage.
 
 ## Language
 
@@ -69,7 +69,7 @@ The portable ji command surface `ns handoff list|pickup|create|delete|gc` for de
 *Avoid*: standalone `handoff` binary as durable public surface, Pi-only lifecycle, raw Branch Memory as default UX.
 
 **Handoff Capability API**:
-The curated in-process `@ns/handoff/api` surface consumed by ji command leaves and Pi adapters for Handoff lifecycle behavior.
+The curated in-process `@nseng-ai/handoff/api` surface consumed by ji command leaves and Pi adapters for Handoff lifecycle behavior.
 *Avoid*: package-root imports for domain composition, Pi presentation/session launch behavior, raw storage recipes in consumers.
 
 **Handoff Domain Core**:

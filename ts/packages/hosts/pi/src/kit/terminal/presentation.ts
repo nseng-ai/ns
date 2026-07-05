@@ -1,4 +1,4 @@
-export { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+export { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
 export {
 	customMessageText,
 	linkifyPrReferences,
@@ -8,10 +8,10 @@ export {
 	sanitizeTerminalHyperlinkUrl,
 	terminalHyperlink,
 	truncateDisplayLine,
-} from "@ns/core/terminal-presentation";
+} from "@nseng-ai/core/terminal-presentation";
 export type {
 	CustomMessageContent,
 	CustomMessageTextPart,
 	PrLink,
 	PrLinksDetails,
-} from "@ns/core/terminal-presentation";
+} from "@nseng-ai/core/terminal-presentation";

@@ -1,6 +1,6 @@
-import type { ConfirmationResult } from "@ns/clinkr";
-import { createScenarioClinkrInteraction } from "@ns/clinkr/testing";
-import { optionalEntries, optionalEntry } from "@ns/core/primitives";
+import type { ConfirmationResult } from "@nseng-ai/clinkr";
+import { createScenarioClinkrInteraction } from "@nseng-ai/clinkr/testing";
+import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 

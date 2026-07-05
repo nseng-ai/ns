@@ -1,12 +1,17 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
-import { type ExecResult, formatCommand, formatOutputSection, tailText } from "@ns/core/command";
+import {
+	type ExecResult,
+	formatCommand,
+	formatOutputSection,
+	tailText,
+} from "@nseng-ai/core/command";
 import {
 	parseMachineEnvelopeData,
 	type MachineEnvelopeDataParseValid,
-} from "@ns/core/machine-envelope";
-import { formatErrorMessage } from "@ns/core/primitives";
-import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
+} from "@nseng-ai/core/machine-envelope";
+import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;

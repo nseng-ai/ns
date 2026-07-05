@@ -1,4 +1,7 @@
-import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
+import {
+	defineRepoLocalNsExtensionDescriptor,
+	repoLocalNsCommandDescriptor,
+} from "@nseng-ai/kernel/sdk";
 
 import { roasterExecPublishFindingsCommand } from "../commands/exec-publish-findings.ts";
 import { roasterExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
@@ -16,39 +19,39 @@ export const roasterRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor(
 			command: roasterReviewListCommand,
 			manifestName: "review-list",
 			manifestPath: ["review", "list"],
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: roasterReviewLsCommand,
 			manifestName: "review-ls",
 			manifestPath: ["review", "ls"],
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: roasterReviewLogCommand,
 			manifestName: "review-log",
 			manifestPath: ["review", "log"],
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: roasterReviewRunCommand,
 			manifestName: "review-run",
 			manifestPath: ["review", "run"],
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: roasterExecRecordFindingsCommand,
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: roasterExecPublishFindingsCommand,
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: roasterRoastListCommand,
 			manifestName: "roast-list",
 			manifestPath: ["roast", "list"],
-			packageExportPrefix: "@ns/roaster/commands",
+			packageExportPrefix: "@nseng-ai/roaster/commands",
 		}),
 	],
 });

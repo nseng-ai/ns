@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { githubCheckRun } from "@ns/capability-kit/github/testing";
+import { githubCheckRun } from "@nseng-ai/capability-kit/github/testing";
 import {
 	githubPrIdentityFromUrl,
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	githubRepositoryIdentityFromRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@ns/capability-kit/github/identity";
+} from "@nseng-ai/capability-kit/github/identity";
 import {
 	classifyGithubStatusCheck,
 	githubWorktreePrStatusArgs,
@@ -15,7 +15,7 @@ import {
 	parseGithubWorktreePrStatusJson,
 	parseGithubWorktreePrStatusJsonResult,
 	tallyGithubStatusChecks,
-} from "@ns/capability-kit/github/pr-status";
+} from "@nseng-ai/capability-kit/github/pr-status";
 
 describe("GitHub status boundary parsing", () => {
 	test("extracts canonical GitHub PR identity", () => {

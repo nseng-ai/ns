@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
-import type { GithubPrReviewThread } from "@ns/capability-kit/github/pr-feedback";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/command";
-import { ScriptedCommandExecApi } from "@ns/core/exec/testing";
+import type { GithubPrReviewThread } from "@nseng-ai/capability-kit/github/pr-feedback";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/command";
+import { ScriptedCommandExecApi } from "@nseng-ai/core/exec/testing";
 
 import { FakeRoasterGitHubGateway, RealRoasterGitHubGateway } from "../../src/gateways/github.ts";
 import type {

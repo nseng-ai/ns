@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
-import type { ExecResult } from "@ns/core/exec";
-import type { NsExtensionApi } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { ExecResult } from "@nseng-ai/core/exec";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import {
 	createNsClinkrInteraction,
 	createNsCwdEnvStdinContext,
-} from "@ns/capability-kit/ns-context";
+} from "@nseng-ai/capability-kit/ns-context";
 
 describe("ns context adapters", () => {
 	test("creates a non-interactive aborting Clinkr interaction when confirm is unavailable", async () => {

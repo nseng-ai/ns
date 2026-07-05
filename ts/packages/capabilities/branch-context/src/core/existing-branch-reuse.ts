@@ -1,5 +1,5 @@
-import type { CommandExecApi } from "@ns/core/exec";
-import type { BrmemGateway } from "@ns/brmem";
+import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { BrmemGateway } from "@nseng-ai/brmem";
 import { selectAttachedPlanKey } from "./attached-plan.ts";
 import { checkBranchContextEntryPresence, listBranchContextPlans } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";

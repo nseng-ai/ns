@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@ns/core/exec";
+import { formatCommandDetails } from "@nseng-ai/core/exec";
 
 import type { CommandResult } from "./command-result.ts";
 

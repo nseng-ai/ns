@@ -1,4 +1,4 @@
-import { failure, negative, usageError, type ClinkrExit } from "@ns/clinkr";
+import { failure, negative, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
 
 import { activeRecordRelativePath, isValidObjectiveSlug } from "../core/storage.ts";
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";

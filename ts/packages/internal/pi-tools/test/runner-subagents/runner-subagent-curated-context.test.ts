@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@ns/core/exec";
+import type { ExecResult } from "@nseng-ai/core/exec";
 
 import {
 	buildCuratedRunnerSubagentContext,

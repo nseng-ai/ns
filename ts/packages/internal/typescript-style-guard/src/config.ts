@@ -64,24 +64,24 @@ export interface ConcreteCapabilityCommandSurface {
 }
 
 export const concreteCapabilityCommandSurfaces = [
-	{ packageName: "@ns/address", cliPrefixes: ["address"], slashPrefixes: ["address"] },
-	{ packageName: "@ns/aretro", cliPrefixes: ["aretro"], slashPrefixes: ["aretro"] },
+	{ packageName: "@nseng-ai/address", cliPrefixes: ["address"], slashPrefixes: ["address"] },
+	{ packageName: "@nseng-ai/aretro", cliPrefixes: ["aretro"], slashPrefixes: ["aretro"] },
 	{
-		packageName: "@ns/branch-context",
+		packageName: "@nseng-ai/branch-context",
 		cliPrefixes: ["branch-context"],
 		slashPrefixes: ["branch-context"],
 	},
-	{ packageName: "@ns/ccc", cliPrefixes: ["ccc"], slashPrefixes: ["ccc"] },
-	{ packageName: "@ns/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
-	{ packageName: "@ns/handoff", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
-	{ packageName: "@ns/objective", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
-	{ packageName: "@ns/plans", cliPrefixes: ["plans"], slashPrefixes: ["plans", "plan"] },
-	{ packageName: "@ns/slot", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },
+	{ packageName: "@nseng-ai/ccc", cliPrefixes: ["ccc"], slashPrefixes: ["ccc"] },
+	{ packageName: "@nseng-ai/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
+	{ packageName: "@nseng-ai/handoff", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
+	{ packageName: "@nseng-ai/objective", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },
+	{ packageName: "@nseng-ai/plans", cliPrefixes: ["plans"], slashPrefixes: ["plans", "plan"] },
+	{ packageName: "@nseng-ai/slot", cliPrefixes: ["slot"], slashPrefixes: ["slot"] },
 ] as const satisfies readonly ConcreteCapabilityCommandSurface[];
 
 export const standaloneToolCommandSurfaces = [
 	{
-		packageName: "@ns/roaster",
+		packageName: "@nseng-ai/roaster",
 		cliPrefixes: ["roaster", "roast"],
 		slashPrefixes: ["roaster", "roast"],
 	},
@@ -99,8 +99,8 @@ export const manifestDependencyFields = [
 
 export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
-	"@ns/pi",
-	"@ns/kernel",
+	"@nseng-ai/pi",
+	"@nseng-ai/kernel",
 	"nscc",
 ]);
 

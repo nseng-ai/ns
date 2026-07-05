@@ -1,7 +1,7 @@
 # Clinkr API map + ADR rationale
 
-Concrete `@ns/clinkr` surfaces behind each `ns-cli-design` rule, plus ADR
-rationale. Symbols are exported from `@ns/clinkr`
+Concrete `@nseng-ai/clinkr` surfaces behind each `ns-cli-design` rule, plus ADR
+rationale. Symbols are exported from `@nseng-ai/clinkr`
 (`ts/packages/infra/clinkr/src/index.ts`). File:line anchors in audits may drift;
 re-grep before quoting line numbers.
 

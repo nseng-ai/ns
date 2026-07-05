@@ -1,4 +1,4 @@
-import { formatElapsedMs } from "@ns/core/time-format";
+import { formatElapsedMs } from "@nseng-ai/core/time-format";
 import type {
 	FlowLandExternalCallCategory,
 	FlowLandExternalCallQuotaEstimate,

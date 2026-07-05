@@ -3,10 +3,10 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 	type PreparedCheckpointMessage,
-} from "@ns/capability-kit/checkpoint-flow";
-import { createTextGenerator } from "@ns/kernel/context";
-import type { PendingWorktreeSnapshot } from "@ns/capability-kit/pending-worktree";
-import { selectCheckpointModelRef } from "@ns/capability-kit/text-generation";
+} from "@nseng-ai/capability-kit/checkpoint-flow";
+import { createTextGenerator } from "@nseng-ai/kernel/context";
+import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
+import { selectCheckpointModelRef } from "@nseng-ai/capability-kit/text-generation";
 
 export type { CommandResult, PreparedCheckpointMessage };
 

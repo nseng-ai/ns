@@ -1,4 +1,4 @@
-# @ns/roaster
+# @nseng-ai/roaster
 
 Roaster runs configured, read-only code reviews against the current PR diff and records structured findings. In this repo the canonical command face is:
 

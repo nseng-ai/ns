@@ -1,4 +1,4 @@
-import { failure, negative, ok, requireInteractiveOrUsageError } from "@ns/clinkr";
+import { failure, negative, ok, requireInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

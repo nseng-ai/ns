@@ -2,17 +2,17 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
-import type { GitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	parseManagedRegion,
 	replaceMalformedManagedRegionFromBegin,
 	replaceManagedRegion,
-} from "@ns/core/managed-region";
-import { formatErrorMessage, sha256Digest } from "@ns/core/primitives";
-import { normalizeTextOutput, trimOuterBlankLines } from "@ns/core/text-normalization";
-import { truncateTextHeadTail } from "@ns/core/text-truncation";
-import { prepareRepairedText } from "@ns/capability-kit/text-repair";
-import { formatElapsedMs } from "@ns/core/time-format";
+} from "@nseng-ai/core/managed-region";
+import { formatErrorMessage, sha256Digest } from "@nseng-ai/core/primitives";
+import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/core/text-normalization";
+import { truncateTextHeadTail } from "@nseng-ai/core/text-truncation";
+import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
+import { formatElapsedMs } from "@nseng-ai/core/time-format";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import {

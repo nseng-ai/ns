@@ -1,4 +1,4 @@
-import { resolveRenderCapabilities, type RenderCapabilities } from "@ns/clinkr";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
 
 import { paint } from "./palette.ts";

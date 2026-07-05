@@ -1,10 +1,10 @@
-import { validateBranchName, type BrmemErrorInfo } from "@ns/brmem";
+import { validateBranchName, type BrmemErrorInfo } from "@nseng-ai/brmem";
 import {
 	failure,
 	confirmInteractiveOrUsageError,
 	type ClinkrExit,
 	type ClinkrFailureExit,
-} from "@ns/clinkr";
+} from "@nseng-ai/clinkr";
 
 import type { HandoffCliContext } from "../context.ts";
 
