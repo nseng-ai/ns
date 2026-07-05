@@ -4,9 +4,9 @@
 
 Implement `vibechk` as a lightweight, ephemeral evaluation CLI for measuring the impact of agent context changes with shareable evidence. The v1 goal is not to build a full eval framework; it is to let a user run the same plan in two prepared workdirs, capture efficiency metrics and resulting diffs, and publish an idempotent Markdown report into a GitHub PR description.
 
-The original implementation spec is GitHub issue #434, filed while this repository was named `dagster-io/asdl-tools`. The repository namespace has since been renamed (`asdl` -> `sdl`; the current remote is `nseng-ai/sdl-tools`), so the issue's original URL may no longer resolve; the issue number is preserved here as the v1 spec anchor rather than as a verified live link. This Objective tracks the v1 behavior and validation from that spec while leaving v1.5/v2 ideas parked.
+The original implementation spec is GitHub issue #434, filed while this repository was named `dagster-io/asdl-tools`. The repository has since been renamed multiple times and now lives at `github.com/nseng-ai/ns`, so the issue's original URL may no longer resolve; the issue number is preserved here as the v1 spec anchor rather than as a verified live link. This Objective tracks the v1 behavior and validation from that spec while leaving v1.5/v2 ideas parked.
 
-Current implementation state: the already-implemented surface (`run`, `show`, `diff`, `runs`, the `claude` runner adapter, local bundle storage, Markdown reports, and local git/result-branch behavior) now lives in TypeScript as `@ns/vibechk` at `ts/packages/tools/vibechk/` (the TypeScript workspace package scope has since been renamed `@sdl` → `@ji` → `@ns`). The earlier "migration pause" is over: the `vibechk-typescript-port` Objective that owned the language cutover has completed and is closed, the Python package was retired, and TypeScript is the documented default. Remaining v1 product feature work — `publish`, the `codex` and `pi` runner adapters, and a real GitHub publish smoke — now resumes on top of the TypeScript implementation rather than being blocked.
+Current implementation state: the already-implemented surface (`run`, `show`, `diff`, `runs`, the `claude` runner adapter, local bundle storage, Markdown reports, and local git/result-branch behavior) now lives in TypeScript as `@nseng-ai/vibechk` at `ts/packages/tools/vibechk/` (the TypeScript workspace package scope has since been renamed `@sdl` → `@ji` → `@nseng-ai`). The earlier "migration pause" is over: the `vibechk-typescript-port` Objective that owned the language cutover has completed and is closed, the Python package was retired, and TypeScript is the documented default. Remaining v1 product feature work — `publish`, the `codex` and `pi` runner adapters, and a real GitHub publish smoke — now resumes on top of the TypeScript implementation rather than being blocked.
 
 ## Scope
 
@@ -29,7 +29,7 @@ Design choices from the issue should not be accidentally reversed during impleme
 
 ### Implementation Scope
 
-- Ship a standalone workspace package exposing the CLI command `vibechk`. The current home is the TypeScript package `@ns/vibechk` at `ts/packages/tools/vibechk/`.
+- Ship a standalone workspace package exposing the CLI command `vibechk`. The current home is the TypeScript package `@nseng-ai/vibechk` at `ts/packages/tools/vibechk/`.
 - Implementation-language baseline: v1 began as a Python package (`packages/vibechk`) following this repository's Python package and fake-driven testing conventions. That surface has since been ported to TypeScript and the Python package retired; the `vibechk-typescript-port` Objective owned and completed the cutover. Further v1 product work proceeds in TypeScript.
 - Implement the v1 commands: `run`, `show`, `diff`, `publish`, and `runs`. Currently implemented: `run`, `show`, `diff`, `runs`. Not yet implemented: `publish`.
 - Support a user-level bundle store with `--store DIR`, `$VIBECHK_HOME`, and an XDG-style default location.

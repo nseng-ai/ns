@@ -5,13 +5,15 @@ Successor to the closed `flow-capability-deepening` Objective, driven by the
 verbatim at `architecture-review.html`; diagrams need a browser). Restructured
 in place on 2026-07-02 after a depth audit
 (`updates/2026-07-02T150856Z-depth-audit-and-restructure.md`). Rebaselined
-against trunk on 2026-07-03: every Work row has landed on `master` as squash
-commits, and repo-wide renames that landed after this record's updates were
-written are folded into current-state prose here.
+against trunk on 2026-07-03 and re-verified on 2026-07-05: every Work row has
+landed on `master` as squash commits, and repo-wide renames that landed after
+this record's updates were written are folded into current-state prose here.
 
-**Naming rebaseline (2026-07-03, refreshed after ADR 0026).** The repo-wide `sdl → ji → ns` cutovers and
-package restructuring landed after this Objective's work: the package is now
-`@ns/flow` (was `sdl-flow`), the CLI surface is `ns flow …` (was
+**Naming rebaseline (2026-07-05, refreshed after ADR 0026 and the `@ns → @nseng-ai`
+scope rename).** The repo-wide `sdl → ji → ns` cutovers, the later
+`@ns → @nseng-ai` workspace-scope rename, and package restructuring all landed
+after this Objective's work: the package is now `@nseng-ai/flow` (was
+`sdl-flow`, then briefly `@ns/flow`), the CLI surface is `ns flow …` (was
 `sdl flow …`), `src/land-stack/` moved to `src/land/stack/`, commands live
 under `src/ns/commands/`, and the old `src/shared/` files this record names
 moved (`failure-catalog.ts` → `src/phase-stream/`, `text-generation.ts` →
@@ -49,10 +51,12 @@ delivered and merged to `master`:
    four-gateway `LandContext`, and the compatibility round trip is deleted
    (review candidate #4 dissolved rather than consolidated).
 
-Verified on trunk 2026-07-03: zero `runRaw`, `LandPlanForFlow`,
+Verified on trunk 2026-07-05: zero `runRaw`, `LandPlanForFlow`,
 `preloadedShape`, `flow-adapter-failure`, or `plan-mapping` references in
-flow/ccc; `plan-mapping.ts` and the five forwarder shims absent; all
-slice-added gateway methods present on `LandContext` in `src/land/types.ts`.
+flow/ccc; `plan-mapping.ts` and the five forwarder shims absent; the
+slice-added gateway methods present on `LandContext` in `src/land/types.ts`
+(the slice's `restackUpstack` since folded into a scope-parameterized
+`restack`, below).
 
 ## Scope
 
@@ -83,7 +87,7 @@ Six work streams, all delivered 2026-07-01→02 and landed on `master`
 
 ## Non-Goals
 
-- Any change to the **Flow Capability API** (`@ns/flow/api`, formerly
+- Any change to the **Flow Capability API** (`@nseng-ai/flow/api`, formerly
   `sdl-flow/api`) surface consumed by CCC. Existing exports kept working
   through every slice, including the extraction.
 - The land presentation surface (review #5) until its Parked-row decision —
@@ -96,13 +100,14 @@ Six work streams, all delivered 2026-07-01→02 and landed on `master`
   `pi.exec` (`ScriptedExec` in
   `test/unit/land-stack-command-scenarios.test.ts`).
 - Rewriting historical `updates/` files; corrections append.
-- The repo-wide `sdl → ji → ns` renames and package restructuring that moved this
-  record's named paths; other initiatives own that work.
+- The repo-wide `sdl → ji → ns` and `@ns → @nseng-ai` renames and package
+  restructuring that moved this record's named paths; other initiatives own
+  that work.
 
 ## Completion Criteria
 
 Depth is measured at the interface. Each criterion is a checkable fact about
-what a caller must know. Status verified against trunk 2026-07-03; paths are
+what a caller must know. Status verified against trunk 2026-07-05; paths are
 current (`src/land/stack/` was `src/land-stack/` when the work landed).
 
 - **Channel — holds.** Adding a new `gt` mutation to the land path requires a
@@ -125,14 +130,16 @@ current (`src/land/stack/` was `src/land-stack/` when the work landed).
   Core's four gateways (`src/land/types.ts` `LandContext`: git, graphite,
   github, worktrees), including the slice-added methods
   (`snapshotBackupRefs`, `prepareSubmitUpdate`, `prepareRestackForSubmit`,
-  `refreshBranchFromRemote`, `deleteLocalBranch`, `restackUpstack`,
-  `branchChildren`, `squashMergePullRequest`, `freeSlots`); no behavior is
-  orchestrated twice.
+  `refreshBranchFromRemote`, `deleteLocalBranch`, `branchChildren`,
+  `squashMergePullRequest`, `freeSlots`, and the restack behavior — the
+  slice's `restackUpstack` was folded by a later trunk refactor into
+  `restack({ scope: "branch-only" | "upstack" })` on `LandGraphiteGateway`);
+  no behavior is orchestrated twice.
 - **Round trip — holds.** `plan-mapping.ts` is deleted; zero
   `LandPlanForFlow`, `preloadedShape`, or `flow-adapter-failure` references
   in flow/ccc; Flow crosses into the Land Domain Core at the documented
-  preflight adapter. CCC imports only `@ns/flow/api`, no private Flow land
-  internals.
+  preflight adapter. CCC imports only `@nseng-ai/flow` / `@nseng-ai/flow/api`,
+  no private Flow land internals.
 - **Submit/catalog — holds.** `SubmitGateway` returns domain results;
   `submit-detect.ts` is imported only by the gateway implementation and its
   own test (verified importer graph); adding one failure is one catalog entry
@@ -151,7 +158,7 @@ promoted (which would need fresh row-level policy prose).
 
 Keepable progress meant: exactly one roadmap row (or one named migration
 slice) advanced on a `gt`-created feature branch, never on `master`; the full
-TS validation suite green (`just` entrypoint); `@ns/flow/api` exports
+TS validation suite green (`just` entrypoint); `@nseng-ai/flow/api` exports
 untouched or proven compatible; the row's `Evidence:` expectation demonstrated
 by a named test; a Semantic Update recording what landed. Never: duplicated
 orchestration left unrecorded, new wrappers/mirrors/mappers at the (now
@@ -180,17 +187,21 @@ from this update on `master`.
   `flow/CONTEXT.md` — confirmed by delivery. CONTEXT.md's vocabulary (Flow
   Land Execution, Land Domain Core, Land Gateway Set, Flow Stack Preflight
   Adapter, Flow Land Compatibility Boundary) is still present on trunk
-  2026-07-03, updated to `@ns/flow` naming.
-- No other Objective owns follow-on flow-land work:
-  `flow-capability-layer-cleanup` is closed; this is the only open flow
-  Objective (verified against the active list 2026-07-03).
+  2026-07-05, updated to `@nseng-ai/flow` naming.
+- No other Objective owns this record's interface-depth or presentation-surface
+  scope. `flow-capability-layer-cleanup` is closed. A newer flow Objective
+  `flow-land-large-stack-performance` is open (verified against the active list
+  2026-07-05), but it owns land performance/telemetry work built *on* the
+  delivered four-gateway shape — not this record's deepening or the parked
+  presentation row.
 - Round-2's delivered slices are accepted as landed — now confirmed: every
   row's work is on `master` as squash commits (SHAs in `roadmap.md`).
-- Post-landing trunk refactors (structured land confirmations, maintenance
-  control-flow refactors, hermetic land sandbox integration coverage,
-  multi-root descendant restack) built on the delivered shape rather than
-  reverting it — supported by the structural verification above, not
-  re-reviewed change by change.
+- Post-landing trunk refactors built on the delivered shape rather than
+  reverting it — now concretely confirmed by named `master` commits landed
+  after the 07-03 rebaseline: the Graphite restack API refactor that renamed
+  `restackUpstack` → `restack({ scope })`, external-call telemetry for Flow
+  land, and preapproved managed-slot cleanup in land confirmation. Verified
+  structurally, not re-reviewed change by change.
 
 **Risks**
 
@@ -216,9 +227,10 @@ from this update on `master`.
 
 ## Open Questions
 
-- Does the Land Domain Core stay a `@ns/flow` subpath after the migration, or
+- Does the Land Domain Core stay a `@nseng-ai/flow` subpath after the migration, or
   graduate to its own package? Current trunk state: it is exported as
-  `@ns/flow/land/api` and `@ns/flow/land/testing`. Graduation is out of scope
+  `@nseng-ai/flow/land/api` and `@nseng-ai/flow/land/testing`. Graduation is
+  out of scope
   for this record unless a second consumer appears.
 - Channel promotion trigger — partially settled 2026-07-02: the
   operation-shaped channel is the gateway backend (preserving per-command

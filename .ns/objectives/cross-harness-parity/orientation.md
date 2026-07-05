@@ -5,8 +5,8 @@ capability pattern) with skill or typed-metadata coverage; a living parity
 table prevents Pi-only gaps.
 
 What you see now — legacy, do not copy: cmux dispatch trapped in Pi-only
-`/ccc:workspace:*` commands; a parity table two renames stale; flow commands
-without wrapper skills.
+`/ccc:workspace:*` commands; a parity table three renames stale (packages are
+`@nseng-ai/*`, not `@ns/*`); flow commands without wrapper skills.
 
 Avoid: treating Pi mirrors as the canonical home; duplicating orchestration;
 landing a new workflow Pi-first or without parity metadata.

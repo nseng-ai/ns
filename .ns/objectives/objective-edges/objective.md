@@ -138,6 +138,58 @@ Risks:
   slice: `⊘` (U+2298, ascii fallback `!`) with warn intent, keeping the STATUS word `open`
   so blocked reads as a sub-state; pretty surface adds a footer legend, table/markdown
   surfaces render `⊘ open (blocked)`.
-- Whether any consumer needs frontmatter awareness beyond stripping (for example,
-  `load-orientations` or Pi presentation surfaces).
-- ADR number and final title at landing time.
+- ~~Whether any consumer needs frontmatter awareness beyond stripping~~ Landed answer:
+  no reader needed more than strip-or-parse. Every `objective.md` reader (heading checks,
+  `read-objective`, `list`, `load-orientations`) behaves identically with and without a
+  fence; `list` opted in to surface edge count and blocked state, and `ns objective show`
+  added edge/back-edge detail — neither required new frontmatter semantics elsewhere.
+- ~~ADR number and final title at landing time~~ Resolved: landed as
+  `docs/adr/0025-zero-kind-mirrored-objective-edges.md` (0025 was not claimed by an
+  unrelated ADR before landing).
+
+## Closure
+
+Outcome: **completed and landed on trunk (`master`).** Record Frontmatter — the optional
+`objective.md` YAML block carrying exactly `blocked` and `edges` — is live, machine-checked,
+rendered, skill-owned, seeded, and documented. Every Completion Criterion verifies against
+HEAD plus current worktree state:
+
+- **Frontmatter parses in every reader.** `ts/packages/capabilities/objectives/src/core/record-frontmatter.ts`
+  and `.../operations/record-frontmatter-read.ts` land the shared reader; the repo-wide sweep
+  and `list` treat frontmattered and plain records identically.
+- **Linter live in `check`, sweeps all, errors, CI-wired.**
+  `ts/packages/capabilities/objectives/src/core/operations/edge-lint.ts` is folded into
+  `ns objective check <slug>` and `ns objective check --all`; the `--all` sweep reports
+  `sweep-ok (0 violations)` across 128 records and is wired into `just check` (justfile:183).
+- **`list` shows EDGES + blocked STATUS.** `ns objective list` renders an EDGES column
+  (blank when zero) and `⊘ blocked` sub-state; live output shows `checkout-free-sdl-distribution`
+  edges 2 and `ship-objectives-to-customers` `⊘ blocked` edges 4.
+- **Skills own edge mutation and blocked judgment.** The `objective` umbrella skill carries
+  the Record Frontmatter grounding; `objective-create`/`objective-update`/`objective-close`
+  document the mirrored two-file edit, own-sentence and close-time counterpart re-judgment,
+  and post-edit `ns objective check`.
+- **Seed encoded, check passes.** `checkout-free-sdl-distribution` and
+  `ship-objectives-to-customers` carry mirrored perspective-correct annotations plus a
+  Blocked Sentence on the shipping side; the pair is now in active use and has grown edges
+  beyond the seed (2 and 4 respectively), which is the strongest evidence the mechanism holds.
+- **Vocabulary + ADR landed.** Root `CONTEXT.md` carries the four system terms plus the
+  open/closed vs. active/archived vs. blocked state-cluster line; `@ns/objectives`
+  `CONTEXT.md` carries the EDGES-column and edge-linting surface terms; ADR 0025 is on trunk.
+
+Landing evidence: the reader, linter, seed edges, CONTEXT.md entries, and ADR are all present
+on `master` (this refresh runs from a branch cut from `master`), and the CI-gating
+`ns objective check --all` sweep is green on trunk with 0 violations.
+
+Naming reconciliation: this record was authored under the pre-rename `sdl objective` /
+`@sdl/objective` (singular) vocabulary. The shipped surface is `ns objective` and the package
+is `@ns/objectives` at `ts/packages/capabilities/objectives/`; the `sdl`→`ns` and
+package-name changes came from separate rename Objectives after this work landed and do not
+alter the delivered design. Older prose/evidence lines in this record retain the historical
+`sdl` spelling by immutability; the landed reality is the `ns` naming above.
+
+Residual (non-blocking): the previously reported CONTEXT-MAP.md root-context description
+lag (its term inventory did not enumerate the four new terms at authoring time) is a
+documentation follow-up for a future CONTEXT session, not Objective work. The parked
+public-mutation-CLI and typed-edge-kinds items remain deliberately deferred, not open work.
+No public mutation CLI was needed; per-slug `ns objective check` supplies the deterministic
+mirror verification the skills rely on.

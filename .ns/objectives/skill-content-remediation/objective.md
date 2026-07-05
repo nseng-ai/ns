@@ -42,8 +42,8 @@ ambient targets, now lead.
 
 - **Three systemic findings (all resolved):**
   1. `Command: X` stub descriptions — set the correct areg invocation *kind* per skill.
-     (Reframed: invocation is governed by areg's four kinds — `normal` / `ambient-only` /
-     `invoke-only` / `command-backed` — applied via `areg skill apply` and enforced by
+     (Reframed: invocation is governed by areg's five kinds — `normal` / `ambient-only` /
+     `invoke-only` / `command-backed` / `unlisted` — applied via `areg skill apply` and enforced by
      `areg check`, not a hand-edited `disable-model-invocation` flag. The `Command: X` +
      commented-description frontmatter was the *rendered output* of an explicit-only
      kind, so a skill that is kind `normal` but shows that stub is misconfigured —
@@ -55,22 +55,27 @@ ambient targets, now lead.
      **Resolution as applied (2026-06-19/20):** objective-family → `normal` (real trigger
      descriptions written); `setup-*` → `invoke-only`; eight verified-replacement skills
      → `command-backed`. **Since superseded in its specifics** by the ADR 0016 repo-wide
-     re-architecture: `setup-*` and most explicit workflows (including most of the
-     objective family, the grill pair, and `skill-audit-improved`) are now
-     `command-backed`; ambient routers/standards (`objective`, `brmem`, `pr-address`)
-     remain `normal`; `COMMAND_STYLE_LOCAL_SKILLS`
-     (`ts/packages/hosts/pi/src/commands/surfaces.ts`) now spans ~60 skills, and
-     verified-replacement enforcement lives in areg itself (`areg skill apply
-     command-backed` succeeds only when the replacement Pi extension verifies) — the
-     earlier "`real-gateways.ts` allowlist" framing no longer matches the code. The
-     systemic deliverable itself — no listed-but-unroutable stub; kinds registry-managed
-     and enforced — **holds**: `areg check` reports "All skills OK" (verified
-     2026-07-03). The real descriptions written for the objective family survived the
-     kind changes; residual `Command: <name>` stubs (e.g. `setup-graphite`,
-     `sdl-flow-submit`) sit only on explicit-only skills where the description is not
-     ambient, and `docs/conventions/skill-conventions.md` § Skill Invocation Kinds now
-     documents the stub as a legacy artifact (current `areg skill apply` does not
-     rewrite descriptions).
+     re-architecture: most explicit workflows (including most of the objective family,
+     the grill pair, and `skill-audit-improved`) are now `command-backed`, and the
+     `setup-*` / `create-*` family was moved further to `unlisted` (the fifth kind,
+     landed 2026-07-04 via PRs #2867/#2869 — commits `44612a600`/`695ea59bd`), which
+     also removes both mirror symlinks so the skill is hidden from every harness
+     typeahead; the eight leaves now sit behind a single ambient `project-setup` router
+     skill (kind `normal`, `skills/project-setup/SKILL.md`). Ambient routers/standards
+     (`objective`, `brmem`, `pr-address`, `project-setup`) remain `normal`;
+     `COMMAND_STYLE_LOCAL_SKILLS` (`ts/packages/hosts/pi/src/commands/surfaces.ts`) now
+     spans ~60 skills, and verified-replacement enforcement lives in areg itself (`areg
+     skill apply command-backed` succeeds only when the replacement Pi extension
+     verifies) — the earlier "`real-gateways.ts` allowlist" framing no longer matches the
+     code. The systemic deliverable itself — no listed-but-unroutable stub; kinds
+     registry-managed and enforced — **holds**: `areg check` reports "All skills OK"
+     (verified 2026-07-05). The real descriptions written for the objective family
+     survived the kind changes, and the `setup-*` / `create-*` leaves had real
+     descriptions restored on the `unlisted` conversion; residual `Command: <name>`
+     stubs (e.g. `ns-flow-submit`) sit only on explicit-only `command-backed` skills
+     where the description is not ambient, and `docs/conventions/skill-conventions.md`
+     § Skill Invocation Kinds now documents the stub as a legacy artifact (current `areg
+     skill apply` does not rewrite descriptions).
   2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicated a shared core
      that had already drifted — single-source it. (Resolved via reconcile-in-place; the
      "~95% byte-identical" framing was corrected — the truly shared core is 3 short

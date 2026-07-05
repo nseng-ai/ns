@@ -4,8 +4,8 @@
 
 - [x] Systemic #1 — set the correct areg invocation kind for the `Command: X`
       stub-description skills (NOT a binary `disable-model-invocation` flip). Invocation
-      is governed by areg's four kinds (`normal` / `ambient-only` / `invoke-only` /
-      `command-backed`), applied via `areg skill apply <kind> <skills>` and enforced by
+      is governed by areg's five kinds (`normal` / `ambient-only` / `invoke-only` /
+      `command-backed` / `unlisted`), applied via `areg skill apply <kind> <skills>` and enforced by
       `areg check`. Done across two slices: the objective-family five set to `normal`
       (real trigger descriptions written, update `2026-06-19T180857`); the `setup-*`
       family set to `invoke-only` (no verified Pi replacement at the time); and eight
@@ -18,15 +18,17 @@
       **Superseded in its specifics (rebaselined 2026-07-03):** ADR 0016
       (`docs/adr/0016-skill-invocation-context-budget.md`, commits
       `df5d4e355`/`9cc5b1773`, 2026-06-26) re-architected invocation repo-wide — most
-      explicit workflows including `setup-*`, most of the objective family, the grill
-      pair, and `skill-audit-improved` are now `command-backed`; ambient
-      routers/standards (`objective`, `brmem`, `pr-address`) remain `normal`;
-      `COMMAND_STYLE_LOCAL_SKILLS` now spans ~60 skills and verified-replacement
-      enforcement lives in areg itself. The systemic deliverable (no
+      explicit workflows including most of the objective family, the grill pair, and
+      `skill-audit-improved` are now `command-backed`; the `setup-*` / `create-*` family
+      was then moved further to the fifth kind `unlisted` (landed 2026-07-04, PRs
+      #2867/#2869) behind a single ambient `project-setup` router (kind `normal`);
+      ambient routers/standards (`objective`, `brmem`, `pr-address`, `project-setup`)
+      remain `normal`; `COMMAND_STYLE_LOCAL_SKILLS` now spans ~60 skills and
+      verified-replacement enforcement lives in areg itself. The systemic deliverable (no
       listed-but-unroutable stub; kinds registry-managed and enforced) still holds:
-      `areg check` "All skills OK" re-verified 2026-07-03, and the objective-family
+      `areg check` "All skills OK" re-verified 2026-07-05, and the objective-family
       descriptions written for this row survived the kind changes. Residual body-content
-      work for `sdl-flow-submit` / `objective-close` / `objective-create` is tracked
+      work for `ns-flow-submit` / `objective-close` / `objective-create` is tracked
       under the per-skill remediation row, not here.
 - [x] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;

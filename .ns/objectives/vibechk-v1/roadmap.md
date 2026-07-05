@@ -2,7 +2,7 @@
 
 ## Work
 
-State note: the already-implemented surface now lives in TypeScript as `@ns/vibechk` at `ts/packages/tools/vibechk/`. The TypeScript cutover (owned by the now-closed `vibechk-typescript-port` Objective) is complete and the Python package is retired, so the remaining v1 product rows (`publish`, `codex`, `pi`, real publish smoke) are unblocked and proceed in TypeScript.
+State note: the already-implemented surface now lives in TypeScript as `@nseng-ai/vibechk` at `ts/packages/tools/vibechk/`. The TypeScript cutover (owned by the now-closed `vibechk-typescript-port` Objective) is complete and the Python package is retired, so the remaining v1 product rows (`publish`, `codex`, `pi`, real publish smoke) are unblocked and proceed in TypeScript.
 
 - [x] Scaffold the standalone `vibechk` workspace package and `vibechk` CLI with help/version/runtime behavior.
 - [x] Implement a thin `run -> show -> diff` walking skeleton that runs the same plan in two prepared workdirs and renders comparison evidence (one real runner, minimal bundle metadata, no `publish`, some metrics `null`).
