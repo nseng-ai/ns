@@ -1,4 +1,11 @@
-import type { LivePiSurface } from "./check.ts";
+import { expect } from "vitest";
+
+import {
+	comparePiSurfaceParity,
+	formatParityComparisonFailure,
+	type LivePiSurface,
+} from "./check.ts";
+import type { PiSurfaceParity } from "../runtime/parity-extension.ts";
 
 interface RegisteredToolLike {
 	readonly name?: unknown;
@@ -71,4 +78,31 @@ export async function registerWithFakeHost<TPi>(
 	register: (pi: TPi) => void | Promise<void>,
 ): Promise<void> {
 	await register(pi as TPi);
+}
+
+export async function expectPiSurfaceParity<TPi>(
+	register: (pi: TPi) => void | Promise<void>,
+	metadata: readonly PiSurfaceParity[],
+): Promise<void> {
+	const pi = new FakePiSurfaceHost();
+	await registerWithFakeHost(pi, register);
+
+	const comparison = comparePiSurfaceParity({
+		liveSurfaces: pi.surfaces(),
+		metadata,
+	});
+
+	if (
+		comparison.missingMetadata.length > 0 ||
+		comparison.staleMetadata.length > 0 ||
+		comparison.duplicateMetadataKeys.length > 0
+	) {
+		throw new Error(formatParityComparisonFailure(comparison));
+	}
+
+	expect(comparison).toEqual({
+		missingMetadata: [],
+		staleMetadata: [],
+		duplicateMetadataKeys: [],
+	});
 }
