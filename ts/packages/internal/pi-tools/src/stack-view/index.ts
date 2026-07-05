@@ -1,5 +1,11 @@
-export { type GithubRepositoryIdentity } from "@nseng-ai/capability-kit/github";
-
+/**
+ * Public surface for the `stack-view` module — the plausible promotion boundary
+ * for a future `@ns/stackview` capability. Exposes the presentation model and
+ * status derivation (types.ts), the stack loader (data.ts), and the plain-text
+ * snapshot / summary-prompt renderers (render.ts). Interactive overlay internals
+ * (overlay-model, overlay-ui), GraphQL, and objectives helpers are deliberately
+ * kept off this surface; import them from their own modules when needed.
+ */
 export {
 	deriveStatus,
 	type StackViewCheckBucket,
@@ -16,50 +22,3 @@ export {
 export { loadStackView, type LoadStackViewParams, type LoadStackViewResult } from "./data.ts";
 
 export { renderPlainSnapshot, buildSummaryPrompt } from "./render.ts";
-
-export {
-	buildStackDetailRows,
-	buildStackIdentityLine,
-	buildStackRollupSegments,
-	formatStackRowCells,
-	rollupBucketForPr,
-	sliceStackDetailLinesForViewport,
-	stackListRows,
-	wrapStackDetailLines,
-	STACK_OVERLAY_MARGIN,
-	STACK_OVERLAY_MAX_HEIGHT_RATIO,
-	type StackDetailRole,
-	type StackDetailRow,
-	type StackDetailViewport,
-	type StackDetailViewportOptions,
-	type StackRollupBucket,
-	type StackRollupSegment,
-	type StackRowCells,
-} from "./overlay-model.ts";
-
-export {
-	buildStackPrQuery,
-	fetchStackPrs,
-	graphiteUrl,
-	parseStackPrResponse,
-	type FetchStackPrsParams,
-	type FetchStackPrsResult,
-	type StackPrData,
-	type StackPrParseResult,
-} from "./graphql.ts";
-
-export {
-	objectiveSlugsForBranch,
-	objectiveSlugsFromDiffOutput,
-	type ObjectiveSlugsForBranchParams,
-	type ObjectiveSlugsResult,
-} from "./objectives.ts";
-
-export {
-	runStackViewOverlayUi,
-	StackViewOverlay,
-	type StackViewOverlayUiContext,
-	type StackViewOverlayUiOptions,
-	type StackViewUiOutcome,
-	type StackViewUiResult,
-} from "./overlay-ui.ts";

@@ -93,23 +93,26 @@ export interface StackViewOverlayUiOptions {
 }
 
 /**
+ * The Pi host `ui.custom` factory the overlay renders through: it mounts a custom
+ * {@link Component} and resolves once the component calls `done`. Written once here
+ * and reused by the extension's `CommandContext.ui`, whose richer shape (notify,
+ * setStatus) structurally satisfies it.
+ */
+export interface StackViewCustomUi {
+	custom?<T>(
+		factory: (tui: TUI, theme: Theme, keybindings: unknown, done: (value: T) => void) => Component,
+		options?: unknown,
+	): Promise<T>;
+}
+
+/**
  * The narrow slice of the Pi command context the overlay needs: the UI gate plus
  * the `custom` renderer factory. Structurally satisfied by the extension's
  * `CommandContext`.
  */
 export interface StackViewOverlayUiContext {
 	hasUI: boolean;
-	ui: {
-		custom?<T>(
-			factory: (
-				tui: TUI,
-				theme: Theme,
-				keybindings: unknown,
-				done: (value: T) => void,
-			) => Component,
-			options?: unknown,
-		): Promise<T>;
-	};
+	ui: StackViewCustomUi;
 }
 
 interface StackViewOverlayOptions {
@@ -257,8 +260,6 @@ export class StackViewOverlay implements Component {
 		const safeWidth = Math.max(MIN_RENDER_WIDTH, width);
 		const innerWidth = Math.max(1, safeWidth - 2);
 		const height = this.modalRows();
-		const chromeRows = 7;
-		const bodyRows = Math.max(1, height - chromeRows);
 		// Compose mode only renders when its port has been built (first entry); a
 		// bare `mode === "compose"` with no port falls back to the browse panel.
 		const port = this.mode === "compose" ? this.composePort : undefined;
@@ -266,6 +267,9 @@ export class StackViewOverlay implements Component {
 			this.color("text", buildStackIdentityLine(this.model)),
 			port === undefined ? this.renderRollupLine() : this.renderComposeHeaderLine(port),
 		];
+		// Chrome = top border + header lines + inner divider + divider + footer + bottom border.
+		const chromeRows = 2 + header.length + 1 + 1 + 1;
+		const bodyRows = Math.max(1, height - chromeRows);
 		const footer = this.color("dim", port === undefined ? this.browseFooter() : COMPOSE_FOOTER);
 		const body =
 			port === undefined
@@ -348,7 +352,7 @@ export class StackViewOverlay implements Component {
 	private renderRollupLine(): string {
 		const separator = this.color("dim", " · ");
 		return buildStackRollupSegments(this.model)
-			.map((segment) => this.color(themeColorName(segment.color), segment.text))
+			.map((segment) => this.color(segment.color, segment.text))
 			.join(separator);
 	}
 
@@ -536,12 +540,12 @@ export class StackViewOverlay implements Component {
 			this.tui.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.ctrl("c")) || data === "\x03") {
+		if (matchesKey(data, Key.ctrl("c"))) {
 			void port.abortTurn();
 			this.tui.requestRender();
 			return;
 		}
-		if (data === "\x19" || matchesKey(data, Key.ctrl("y"))) {
+		if (matchesKey(data, Key.ctrl("y"))) {
 			const draft = port.draft;
 			if (draft !== null && draft.trim().length > 0) {
 				this.settle({ action: "compose-inject", draft });
@@ -677,21 +681,5 @@ export class StackViewOverlay implements Component {
 
 	private boxLine(value: string, width: number): string {
 		return this.color("border", "│") + fitToWidth(value, width) + this.color("border", "│");
-	}
-}
-
-/** Narrow a rollup segment's color name to a known theme color, defaulting to text. */
-function themeColorName(name: string): StackThemeColor {
-	switch (name) {
-		case "muted":
-		case "accent":
-		case "warning":
-		case "error":
-		case "success":
-		case "dim":
-		case "border":
-			return name;
-		default:
-			return "text";
 	}
 }
