@@ -178,6 +178,10 @@ describe("@ns/flow/land API boundary", () => {
 						type: "success",
 						result: { stdout: "", stderr: "", code: 0, killed: false },
 					}),
+					restackBranchOnly: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, killed: false },
+					}),
 					submitUpdate: async () => ({
 						type: "success",
 						result: { stdout: "", stderr: "", code: 0, killed: false },
