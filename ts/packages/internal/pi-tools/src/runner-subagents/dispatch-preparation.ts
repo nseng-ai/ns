@@ -1,4 +1,4 @@
-import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 import {
 	composePiAgentPrompt,

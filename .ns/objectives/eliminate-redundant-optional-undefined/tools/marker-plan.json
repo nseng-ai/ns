@@ -175,7 +175,7 @@
         "propLineText": "readonly signal?: AbortSignal | undefined;"
       }
     ],
-    "ts/packages/capabilities/slot/src/context.ts": [
+    "ts/packages/capabilities/slots/src/context.ts": [
       {
         "line": 47,
         "property": "env",
@@ -184,7 +184,7 @@
         "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
       }
     ],
-    "ts/packages/capabilities/slot/src/gateways/clipboard.ts": [
+    "ts/packages/capabilities/slots/src/gateways/clipboard.ts": [
       {
         "line": 32,
         "property": "env",
@@ -193,7 +193,7 @@
         "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
       }
     ],
-    "ts/packages/capabilities/slot/src/gateways/pr.ts": [
+    "ts/packages/capabilities/slots/src/gateways/pr.ts": [
       {
         "line": 81,
         "property": "diagnosticSink",
@@ -209,7 +209,7 @@
         "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
       }
     ],
-    "ts/packages/capabilities/slot/src/gateways/repository.ts": [
+    "ts/packages/capabilities/slots/src/gateways/repository.ts": [
       {
         "line": 98,
         "property": "diagnosticSink",
@@ -225,7 +225,7 @@
         "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
       }
     ],
-    "ts/packages/capabilities/slot/src/shell/cd-directive.ts": [
+    "ts/packages/capabilities/slots/src/shell/cd-directive.ts": [
       {
         "line": 20,
         "property": "env",
@@ -234,7 +234,7 @@
         "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
       }
     ],
-    "ts/packages/infra/core/src/result.ts": [
+    "ts/packages/infra/foundation/src/result.ts": [
       {
         "line": 11,
         "property": "message",
@@ -257,7 +257,7 @@
         "propLineText": "readonly stderr?: string | null | undefined;"
       }
     ],
-    "ts/packages/infra/core/src/terminal-presentation.ts": [
+    "ts/packages/infra/foundation/src/terminal-presentation.ts": [
       {
         "line": 75,
         "property": "url",

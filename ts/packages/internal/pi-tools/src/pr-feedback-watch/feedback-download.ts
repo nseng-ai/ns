@@ -1,4 +1,4 @@
-import { formatZodError } from "@nseng-ai/core/primitives";
+import { formatZodError } from "@nseng-ai/foundation/primitives";
 import type { ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 import { z } from "zod";

@@ -6,7 +6,7 @@ See also [ADR 0007](adr/0007-roaster-shared-diff-parser.md).
 
 ## Package boundary
 
-Roaster depends on `@pierre/diffs` from npm in `ts/packages/roaster/package.json`. Do not replace this with a local `file:` dependency, workspace link, or deep import into a Pierre checkout.
+Roaster depends on `@pierre/diffs` from npm in `ts/packages/capabilities/reviews/package.json`. Do not replace this with a local `file:` dependency, workspace link, or deep import into a Pierre checkout.
 
 Roaster imports only from the package root:
 
@@ -22,9 +22,9 @@ The root export currently pulls in rendering/highlighting-related transitive dep
 
 Roaster calls `parsePatchFiles` for both full local diffs and GitHub REST per-file patch snippets.
 
-For full diffs, `parseUnifiedDiff(diffText)` in `ts/packages/roaster/src/diff-parsing.ts` calls `parsePatchFiles(diffText, "roaster-diff")` and flattens each returned `ParsedPatch.files` entry.
+For full diffs, `parseUnifiedDiff(diffText)` in `ts/packages/capabilities/reviews/src/core/diff-parsing.ts` calls `parsePatchFiles(diffText, "roaster-diff")` and flattens each returned `ParsedPatch.files` entry.
 
-For GitHub REST per-file `patch` strings, `commentableRightSideLines(patch)` in `ts/packages/roaster/src/inline-commentability.ts` first synthesizes a minimal file diff:
+For GitHub REST per-file `patch` strings, `commentableRightSideLines(patch)` in `ts/packages/capabilities/reviews/src/core/inline-commentability.ts` first synthesizes a minimal file diff:
 
 ```text
 diff --git a/__roaster_inline__.patch b/__roaster_inline__.patch
@@ -114,7 +114,7 @@ Prefer deleting roaster adapter code over preserving compatibility through raw p
 Before changing this integration, run at least:
 
 ```bash
-pnpm --dir ts --filter @nseng-ai/roaster run test
+pnpm --dir ts --filter @nseng-ai/reviews run test
 pnpm --dir ts run check
 ```
 

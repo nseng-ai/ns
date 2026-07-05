@@ -26,7 +26,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
-		"@nseng-ai/objective": "workspace:*",
+		"@nseng-ai/objectives": "workspace:*",
 		"jiti": "catalog:",
 		"zod": "catalog:"
 	},

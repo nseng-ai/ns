@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
-import { formatZodError } from "@nseng-ai/core/primitives";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { parseCliCommandArgs } from "@nseng-ai/pi/commands/args";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
@@ -17,7 +17,7 @@ import { z } from "zod";
 import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
 
-export type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+export type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
 export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";

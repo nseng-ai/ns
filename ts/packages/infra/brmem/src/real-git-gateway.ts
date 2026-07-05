@@ -1,12 +1,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	type CommandExecApi,
 	formatCommand,
 	type StdinCapableCommandExecApi,
-} from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import {

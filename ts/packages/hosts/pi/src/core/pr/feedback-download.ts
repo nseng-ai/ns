@@ -1,4 +1,4 @@
-import { formatZodError, type ExplicitUndefined } from "@nseng-ai/core/primitives";
+import { formatZodError, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import type { ExecResult } from "../../kit/shared/exec-gateway.ts";
 import type { ExecGateway } from "../../kit/shared/exec-gateway.ts";
 import { z } from "zod";

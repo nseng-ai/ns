@@ -1,5 +1,5 @@
-import type { ErrorInfo } from "@nseng-ai/core/result";
-import { firstNonEmptyLine } from "@nseng-ai/core/text-normalization";
+import type { ErrorInfo } from "@nseng-ai/foundation/result";
+import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,

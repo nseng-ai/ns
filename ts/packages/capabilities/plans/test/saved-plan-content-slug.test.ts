@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
-import type { ExecResult } from "@nseng-ai/core/exec";
-import type { CommandExecApi, ExecOptions } from "@nseng-ai/core/exec";
+import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 
 const CWD = "/repo";
 const SAVED_PLAN_CONTENT =

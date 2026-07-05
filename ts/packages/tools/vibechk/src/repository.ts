@@ -1,10 +1,10 @@
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	type CommandExecApi,
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway, GitOperationResult, GitResult } from "@nseng-ai/capability-kit/git";
 

@@ -1,14 +1,14 @@
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { defaultCommandResolver, runCommand } from "@nseng-ai/core/exec";
+import { defaultCommandResolver, runCommand } from "@nseng-ai/foundation/exec";
 import {
 	type ExecResult,
 	formatCommand,
 	formatCommandResultFailure,
 	formatCommandStartupFailure,
-} from "@nseng-ai/core/exec";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+} from "@nseng-ai/foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 export interface PypiPublishGateway {
 	ensurePublishToolsAvailable(): string | null;

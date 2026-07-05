@@ -1,8 +1,11 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { splitMarkdownFrontmatter, stripLineEnding } from "@nseng-ai/core/markdown-frontmatter";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import {
+	splitMarkdownFrontmatter,
+	stripLineEnding,
+} from "@nseng-ai/foundation/markdown-frontmatter";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { findWorkspaceRootByMarkers } from "@nseng-ai/capability-kit/workspace-root";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "ns.pi-agent.v1";

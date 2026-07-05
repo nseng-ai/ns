@@ -1,10 +1,10 @@
-import { formatShellArg } from "@nseng-ai/core/command";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatShellArg } from "@nseng-ai/foundation/command";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
 } from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
-import { isRecord, stringField } from "@nseng-ai/core/primitives";
+import { isRecord, stringField } from "@nseng-ai/foundation/primitives";
 import { writeTimestampedPromptFile, type ResolvedPromptFileOptions } from "./prompt-file.ts";
 import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 

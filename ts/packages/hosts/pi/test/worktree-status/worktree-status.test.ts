@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import { githubWorktreePrStatusQuery } from "@nseng-ai/capability-kit/github/pr-status";
 import { githubCheckRun } from "@nseng-ai/capability-kit/github/testing";
-import { ScriptedQueue } from "@nseng-ai/core/test-kit";
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
-import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GraphiteMetadataWorkerDiagnostic } from "@nseng-ai/capability-kit/graphite/status";
 import {
 	formatGhStatus,

@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@nseng-ai/core/cli-runtime/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@nseng-ai/foundation/cli-runtime/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "ns Node runtime CLI entrypoint",

@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { ClinkrGroup, failure, ok, usageError } from "@nseng-ai/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import {

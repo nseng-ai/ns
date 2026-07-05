@@ -3,9 +3,9 @@
 import { z } from "zod";
 
 import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@nseng-ai/core/cli-runtime";
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
-import type { CommandExecApi } from "@nseng-ai/core/command";
+import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 
 import {
 	commitAutobranchCheckpointMessage,

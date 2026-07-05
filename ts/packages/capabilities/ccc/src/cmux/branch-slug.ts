@@ -3,8 +3,8 @@ import {
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "@nseng-ai/core/branch-slug";
-import type { TextResult } from "@nseng-ai/core/primitives";
+} from "@nseng-ai/foundation/branch-slug";
+import type { TextResult } from "@nseng-ai/foundation/primitives";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };

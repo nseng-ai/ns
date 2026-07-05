@@ -21,7 +21,7 @@ import {
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@nseng-ai/plans/api";
-import { formatCommand, formatShellArg } from "@nseng-ai/core/command";
+import { formatCommand, formatShellArg } from "@nseng-ai/foundation/command";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import {
@@ -30,8 +30,8 @@ import {
 } from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
 import type { PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
-import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slot/api";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
+import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	CommandContext,
 	ExtensionAPI,

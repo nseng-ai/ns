@@ -405,7 +405,7 @@ describe("extension registry", () => {
 		writeProjectExtension(
 			workspace,
 			"list.ts",
-			'export { default } from "@nseng-ai/objective/ns/commands/list";\n',
+			'export { default } from "@nseng-ai/objectives/ns/commands/list";\n',
 		);
 
 		const catalog = await loadNsCommandCatalog({
@@ -414,7 +414,7 @@ describe("extension registry", () => {
 		});
 		const candidate = catalog.candidates.get("list");
 		expect(candidate).toMatchObject({
-			moduleReference: { type: "package", specifier: "@nseng-ai/objective/ns/commands/list" },
+			moduleReference: { type: "package", specifier: "@nseng-ai/objectives/ns/commands/list" },
 		});
 		if (candidate === undefined) return;
 

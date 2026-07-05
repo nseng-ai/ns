@@ -3,7 +3,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	piExecApiToCommandExecApi,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 export interface FlowGraphiteCommandHost {

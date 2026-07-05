@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 
-import type { Clock } from "@nseng-ai/core/clock";
-import type { TimerScheduler } from "@nseng-ai/core/timers";
+import type { Clock } from "@nseng-ai/foundation/clock";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import {
 	createRuntimeConfig,

@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
@@ -15,8 +15,12 @@ import {
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@nseng-ai/core/command";
-import { ScriptedQueue } from "@nseng-ai/core/test-kit";
+import type {
+	ExecOptions,
+	ExecResult,
+	StdinCapableCommandExecApi,
+} from "@nseng-ai/foundation/command";
+import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
 	buildSavedPlanContentSlugPrompt,

@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/core/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
 

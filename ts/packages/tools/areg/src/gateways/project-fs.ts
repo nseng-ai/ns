@@ -1,7 +1,7 @@
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import type { AregErrorInfo, AregProjectMutationPolicy, AregTextFileState } from "../gateways.ts";
 import {

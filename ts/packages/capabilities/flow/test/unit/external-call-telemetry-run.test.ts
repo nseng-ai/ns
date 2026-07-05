@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createManualClock } from "@nseng-ai/core/time/testing";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import {
 	createFlowLandTelemetryRun,
 	formatFlowLandTelemetrySummary,

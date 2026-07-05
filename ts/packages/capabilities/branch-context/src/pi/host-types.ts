@@ -5,7 +5,7 @@ import type {
 	createBranchContextFromFile,
 	loadBranchContextPlan,
 } from "@nseng-ai/branch-context/api";
-import type { ExecOptions, ExecResult } from "@nseng-ai/core/command";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,

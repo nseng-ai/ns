@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { githubPrIdentityFromUrl } from "@nseng-ai/capability-kit/github/identity";
 
 import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";

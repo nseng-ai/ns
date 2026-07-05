@@ -2,7 +2,7 @@ import {
 	type ExecResult,
 	formatCommandResultFailure,
 	normalizeExecResult,
-} from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/exec";
 
 import { DIFF_PROMPT_LIMIT_CHARS, type ThermoCouncilScope } from "./contract.ts";
 import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";

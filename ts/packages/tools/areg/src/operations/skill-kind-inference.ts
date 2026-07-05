@@ -1,4 +1,4 @@
-import { err, type Result } from "@nseng-ai/core/result";
+import { err, type Result } from "@nseng-ai/foundation/result";
 
 import type { AregSkillKindSkillInspection } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";

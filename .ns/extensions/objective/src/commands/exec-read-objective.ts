@@ -1,1 +1,1 @@
-export { default } from "@nseng-ai/objective/ns/commands/exec-read-objective";
+export { default } from "@nseng-ai/objectives/ns/commands/exec-read-objective";

@@ -2,8 +2,8 @@ import { lstat, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
-import { resultErr, resultOk } from "@nseng-ai/core/result";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { resultErr, resultOk } from "@nseng-ai/foundation/result";
 
 import type {
 	AregErrorInfo,

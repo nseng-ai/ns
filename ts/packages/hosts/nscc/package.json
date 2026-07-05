@@ -14,9 +14,9 @@
 	},
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
-		"@nseng-ai/objective": "workspace:*",
-		"@nseng-ai/slot": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/objectives": "workspace:*",
+		"@nseng-ai/slots": "workspace:*",
 		"@opentui/core": "catalog:",
 		"zod": "catalog:"
 	},

@@ -1,8 +1,8 @@
 import { closeSync, openSync, readSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import type { ExecResult } from "@nseng-ai/core/exec";
-import { isPathInside } from "@nseng-ai/core/primitives";
+import type { ExecResult } from "@nseng-ai/foundation/exec";
+import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 
 export type CuratedContextExecGit = (

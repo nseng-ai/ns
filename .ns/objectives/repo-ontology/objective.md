@@ -19,17 +19,17 @@ The repo is an all-TypeScript pnpm workspace. There are no tracked Python worksp
 
 Present package contexts (12 tracked package context files, plus root and map; `git ls-files '*CONTEXT.md'` = 13):
 
-- `ts/packages/capabilities/handoff/CONTEXT.md` — `@ns/handoff` directed handoff artifact vocabulary over Branch Memory storage.
+- `ts/packages/capabilities/handoffs/CONTEXT.md` — `@ns/handoff` directed handoff artifact vocabulary over Branch Memory storage.
 - `ts/packages/infra/brmem/CONTEXT.md` — `@ns/brmem` Branch Memory primitive vocabulary.
 - `ts/packages/capabilities/ccc/CONTEXT.md` — `@ns/ccc` (Cmux Command and Control) orchestration-layer vocabulary.
 - `ts/packages/hosts/pi/CONTEXT.md` — `@ns/pi` unified Pi host package vocabulary (neutral runtime helpers, project-local discovery adapters, remaining host-resident extension domains, and the CCC delegation boundary).
 - `ts/packages/capability-kit/src/graphite/CONTEXT.md` — `@ns/capability-kit/graphite` reusable Graphite support vocabulary (direct `gt` adapters, metadata DB parsing, topology/status/stack facts, fakes).
 - `ts/packages/kernel/CONTEXT.md` — `@ns/kernel` CLI/kernel vocabulary, including `@ns/kernel/sdk` as the public extension-author SDK surface.
-- `ts/packages/capabilities/roaster/CONTEXT.md` — `@ns/roaster` PR-diff findings vocabulary (review definitions, Tripwires, deep reviews, findings, inline findings, Branch Memory review logs).
+- `ts/packages/capabilities/reviews/CONTEXT.md` — `@ns/roaster` PR-diff findings vocabulary (review definitions, Tripwires, deep reviews, findings, inline findings, Branch Memory review logs).
 - `ts/packages/capabilities/plans/CONTEXT.md` — `@ns/plans` saved-plan vocabulary (Local Plan Store, Source Branch Plan Files, Capability API boundaries).
 - `ts/packages/capabilities/branch-context/CONTEXT.md` — `@ns/branch-context` branch-context vocabulary (Branch Context, Attached Plan, Capability API, presentation boundary).
-- `ts/packages/capabilities/slot/CONTEXT.md` — `@ns/slot` worktree slot vocabulary (Slots, Slot Pool, the `ns slot ...` command surface, `@ns/slot/api`, `ns slot gt` helpers).
-- `ts/packages/capabilities/objective/CONTEXT.md` — `@ns/objective` Objective CLI/capability vocabulary (`ns objective` surface, hidden `exec` helpers, `@ns/objective/api`).
+- `ts/packages/capabilities/slots/CONTEXT.md` — `@ns/slot` worktree slot vocabulary (Slots, Slot Pool, the `ns slot ...` command surface, `@ns/slot/api`, `ns slot gt` helpers).
+- `ts/packages/capabilities/objectives/CONTEXT.md` — `@ns/objective` Objective CLI/capability vocabulary (`ns objective` surface, hidden `exec` helpers, `@ns/objective/api`).
 - `ts/packages/capabilities/flow/CONTEXT.md` — `@ns/flow` Flow lifecycle vocabulary (`ns flow ...` command face, `@ns/flow/api`, land migration state).
 
 Planned package contexts (recorded as *Planned* in `CONTEXT-MAP.md`, awaiting focused domain-language sessions):
@@ -40,7 +40,7 @@ Planned package contexts (recorded as *Planned* in `CONTEXT-MAP.md`, awaiting fo
 - `@ns/vibechk` — standalone agent-context evaluation vocabulary.
 - `@ns/flow-pi` plus six `@internal/pi-tools/*` subpackage context targets — but `@ns/flow-pi` is not a tracked package (Flow's Pi presentation is the `@ns/flow` `pi` subpackage, and Pi-native tools live in the `@internal/pi-tools` container), so this Planned slate needs re-derivation rather than literal execution.
 
-Tracked packages with no recorded context decision — neither Present nor Planned nor Out-of-scope in the map's Contexts sections: `@ns/address` (`ts/packages/capabilities/address`), `@ns/clinkr` (`ts/packages/infra/clinkr`), `@ns/core` (`ts/packages/infra/core`), and the unscoped `nscc` (`ts/packages/hosts/nscc`). Two further coverage decisions are partial rather than absent: `@ns/capability-kit` has a context only for its graphite subpackage (no kit-level decision), and `@internal/pi-tools` has Planned subpackage targets but no container-level decision. Each needs a deliberate planned / accepted-from-adjacent / out-of-scope decision recorded in the map rather than silent absence.
+Tracked packages with no recorded context decision — neither Present nor Planned nor Out-of-scope in the map's Contexts sections: `@ns/address` (`ts/packages/capabilities/pr-feedback`), `@ns/clinkr` (`ts/packages/infra/clinkr`), `@ns/core` (`ts/packages/infra/foundation`), and the unscoped `nscc` (`ts/packages/hosts/nscc`). Two further coverage decisions are partial rather than absent: `@ns/capability-kit` has a context only for its graphite subpackage (no kit-level decision), and `@internal/pi-tools` has Planned subpackage targets but no container-level decision. Each needs a deliberate planned / accepted-from-adjacent / out-of-scope decision recorded in the map rather than silent absence.
 
 Out of scope per the map: the historical initiatives package (no tracked package exists) and the historical reviewer package identity replaced by `roaster`. Do not recreate either unless the package itself returns as a tracked package. (The map currently spells these out-of-scope entries `packages/kernel-initiatives/CONTEXT.md` and `packages/kernel-reviewer/CONTEXT.md` — apparently a mechanical-rename artifact of the former `sdl-initiatives` / `sdl-reviewer` names; the intent is unchanged.)
 

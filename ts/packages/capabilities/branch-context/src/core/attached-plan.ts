@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
-import { formatErrorMessage, optionalEntries } from "@nseng-ai/core/primitives";
+import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import {
 	getBranchContextPlan,
@@ -15,7 +15,7 @@ import {
 	UNSUPPORTED_ATTACHED_PLAN_KEY,
 	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { resolveSelectedSavedPlanFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";

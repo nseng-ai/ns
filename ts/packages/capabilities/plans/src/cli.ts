@@ -8,10 +8,10 @@ import {
 	readStdin,
 	runOperationCommand,
 	type CliEntrypointDeps,
-} from "@nseng-ai/core/cli-runtime";
-import { formatErrorMessage } from "@nseng-ai/core/primitives";
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+} from "@nseng-ai/foundation/cli-runtime";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { z } from "zod";

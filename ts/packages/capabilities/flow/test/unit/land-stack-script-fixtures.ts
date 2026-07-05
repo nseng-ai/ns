@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/core/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
 

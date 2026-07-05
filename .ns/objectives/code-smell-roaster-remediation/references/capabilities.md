@@ -86,34 +86,34 @@ Re-verify file paths and line numbers at pickup time -- the repo moves between t
    - Evidence: copyRepoRootCall, copyRepoCall, copyBranchCall, copyBranchContainsParentCall, copyStackShapeCall, copyPullRequestFactsCall, and copyClassifyWorktreeCall (lines 708-746) each just rebuild a plain object from the same field names with no logic beyond `{ field: call.field, ... }`.
    - Smallest fix: Replace the per-call copy functions with a single generic shallow-copy helper (e.g. `copyCall = <T extends object>(call: T): T => ({ ...call })`) used by all the `*Calls` getters, since none of these call-log shapes contain anything but primitives/already-copied arrays.
 
-## ts/packages/capabilities/slot
+## ts/packages/capabilities/slots
 
-1. **Duplicated Code** (high) -- `ts/packages/capabilities/slot/src/command-face.ts:83-191`
+1. **Duplicated Code** (high) -- `ts/packages/capabilities/slots/src/command-face.ts:83-191`
    - Roast: Two files hand-register the exact same seventeen slot subcommands with the same names, schemas, handlers and renderers, so every new `slot` command is a copy-paste tax paid twice.
    - Evidence: command-face.ts:83-191 builds `list`/`ls`/`checkout`/`co`/`goto`/`claim`/`free`/`foreach`/`gc`/`init`/`resize` plus the `gt` group on a `ClinkrGroup`, while extension.ts:225-385 registers the identical set (same schema/resultSchema/handler/renderHuman pairs, even the same `completeCheckoutBranches` helper duplicated at extension.ts:134-147) on a `defineExtension({ commands: [...] })` array.
    - Smallest fix: Extract one declarative command table (name, schema, resultSchema, handler, renderHuman, positionals/options) shared by both adapters, and have command-face.ts and extension.ts each fold it into their respective registration API instead of repeating every entry by hand.
 
-2. **Duplicated Code** (high) -- `ts/packages/capabilities/slot/src/operations/gt/stack-walk.ts:24-26,38-44`
+2. **Duplicated Code** (high) -- `ts/packages/capabilities/slots/src/operations/gt/stack-walk.ts:24-26,38-44`
    - Roast: Two functions in the same file each reinvent the exact same 'ancestors + current + descendants, trimmed by downstackOnly' path-building ternary, so anyone changing stack scoping has to remember to fix it twice.
    - Evidence: collectStackEdges: `options.downstackOnly ? [...stack.ancestors, options.current] : [...stack.ancestors, options.current, ...stack.descendants]` vs collectStackBranches: `options.downstackOnly ? (includeCurrent ? [...stack.ancestors, options.current] : [...stack.ancestors]) : (includeCurrent ? [...stack.ancestors, options.current, ...stack.descendants] : [...stack.ancestors, ...stack.descendants])`
    - Smallest fix: Extract a single `selectStackPath(stack, { downstackOnly, includeCurrent })` helper that returns the ordered branch path; have both collectStackEdges and collectStackBranches build on top of it.
 
-3. **Divergent Change** (medium) -- `ts/packages/capabilities/slot/src/extension.ts:98-220`
+3. **Divergent Change** (medium) -- `ts/packages/capabilities/slots/src/extension.ts:98-220`
    - Roast: extension.ts is supposed to be 'wire the slot commands' but also owns an entire unrelated shell-rc-file installer feature, so the file gets edited both when a slot subcommand changes and whenever the shell-integration install flow changes.
    - Evidence: Lines 98-220 define `sdlShellIntegrationBeginMarker`/`runSdlShellShow`/`runSdlShellInstall`/`renderSdlShellShow` (rc-file marker installation, confirmation prompting, shell wrapper rendering) bolted onto the same module that otherwise just proxies the 17 `operations/*` commands into `slotCommand(...)` registrations at lines 222-385; `show`/`install` even bypass `SlotCliContext`/`createSlotExtensionContext` entirely, operating straight on `SdlExtensionApi`.
    - Smallest fix: Move the `sdl shell show`/`install` commands (markers, prompt formatting, render functions) into their own extension/module that isn't keyed off `SlotCliContext`, leaving extension.ts solely responsible for mounting slot domain commands.
 
-4. **Primitive Obsession** (medium) -- `ts/packages/capabilities/slot/src/lifecycle/claim.ts:31-36`
+4. **Primitive Obsession** (medium) -- `ts/packages/capabilities/slots/src/lifecycle/claim.ts:31-36`
    - Roast: `SlotClaimOutcome` already has a perfectly good `CurrentWorktreeRedirect` type elsewhere in the module, but it gets smashed back into four loosely-related primitives that three separate helper functions exist only to reconstruct.
    - Evidence: `mainWorktreePath`, `mainCheckoutBranch`, `mainRedirectAction`, `mainRedirectRef`, `mainRedirectNote` are stored as independent fields (lines 31-36) derived from one `CurrentWorktreeRedirect | null` via `mainRedirectOf`, `mainCheckoutBranchOf`, and `mainRedirectRefOf` (lines 375-388), all just to flatten-then-reread the same union type.
    - Smallest fix: Carry the resolved `CurrentWorktreeRedirect | null` itself on `SlotClaimOutcome` (or a small `mainRedirect` sub-object) instead of decomposing it into four primitive fields, and delete the three reconstruction helpers.
 
-5. **Duplicated Code** (medium) -- `ts/packages/capabilities/slot/src/lifecycle/free.ts:113-124`
+5. **Duplicated Code** (medium) -- `ts/packages/capabilities/slots/src/lifecycle/free.ts:113-124`
    - Roast: The mapping from ReleaseTargetFailure.reason to a human message is reimplemented twice over the same four-case union — once in free.ts's freeExecutionFailureMessage, once in gc.ts's entryFromReleaseFailure — each with slightly different wording for the same underlying conditions, so a wording fix or a new failure reason has to land twice or silently drift.
    - Evidence: free.ts: switch (failure.reason) { case "slot-not-assigned": return `${failure.slotName} is not currently assigned (state changed during free).`; ... } vs lifecycle/gc.ts's entryFromReleaseFailure: if (failure.reason === "slot-not-assigned") return withAction(entry, "error", `slot ${entry.slotName} was not assigned to ${entry.branchName} during free...`); — same reasons, separately-authored prose.
    - Smallest fix: Extract one shared `describeReleaseTargetFailure(failure, { action: string })` in release-target.ts that both free.ts and gc.ts call, parameterized only by the action-name string each call site already passes around.
 
-6. **Duplicated Code** (medium) -- `ts/packages/capabilities/slot/src/lifecycle/pool.ts:34-37`
+6. **Duplicated Code** (medium) -- `ts/packages/capabilities/slots/src/lifecycle/pool.ts:34-37`
    - Roast: pool.ts hand-rolls its own copy of SlotLifecycleFailure right next to common.ts's identical export, so the same two-field error shape now has two independent definitions in the same lifecycle/ directory that someone has to remember to keep in sync.
    - Evidence: export interface SlotLifecycleFailure {
      errorType: string;
@@ -122,17 +122,17 @@ Re-verify file paths and line numbers at pickup time -- the repo moves between t
      in pool.ts, byte-for-byte the same as the SlotLifecycleFailure already exported from ./common.ts (which pool.ts doesn't import).
    - Smallest fix: Delete the local interface in pool.ts and import SlotLifecycleFailure (and ideally LifecycleResult) from ./common.ts like the rest of the lifecycle module already does.
 
-7. **Repeated Switches** (medium) -- `ts/packages/capabilities/slot/src/operations/gc.ts:216-252`
+7. **Repeated Switches** (medium) -- `ts/packages/capabilities/slots/src/operations/gc.ts:216-252`
    - Roast: gcActionText and gcActionIntent each re-walk the exact same seven-case SlotGcAction union just to hand back a label or a paint color, so every new gc outcome means editing two parallel switch statements (plus the type union and countGcActions over in lifecycle/gc.ts) and hoping you didn't miss one.
    - Evidence: function gcActionText(action) { switch (action) { case "freed": return "Freed"; ... } } immediately followed by function gcActionIntent(action) { switch (action) { case "freed": return "success"; ... } } — same case list, two functions.
    - Smallest fix: Replace both switches with one lookup table `const GC_ACTION_PRESENTATION: Record<SlotGcAction, { text: string; intent: ... }>` and read `.text`/`.intent` from it at the two call sites.
 
-8. **Duplicated Code** (medium) -- `ts/packages/capabilities/slot/src/operations/gt/exec/stack-map-branches.ts:276-279`
+8. **Duplicated Code** (medium) -- `ts/packages/capabilities/slots/src/operations/gt/exec/stack-map-branches.ts:276-279`
    - Roast: The 'forked stack' warning sentence is hand-typed a second time instead of reusing the renderer that already exists one file away for the identical case.
    - Evidence: renderStackWarnings: `` `branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only` `` duplicates stack-integrity.ts's `renderStackFork` (lines 72-74), which produces the exact same string, even though both files already import shared renderers from `./metadata-warnings.ts`.
    - Smallest fix: Move renderStackFork into metadata-warnings.ts (next to renderChildrenCorruption/renderTrunkMarkerWarnings) and import it from both stack-integrity.ts and stack-map-branches.ts.
 
-9. **Message Chains** (medium) -- `ts/packages/capabilities/slot/src/operations/gt/exec/stack-map-branches.ts:81-100`
+9. **Message Chains** (medium) -- `ts/packages/capabilities/slots/src/operations/gt/exec/stack-map-branches.ts:81-100`
    - Roast: Every Graphite exec command has to drill through resolved.repoCtx.repo.root/mainRepoRoot by hand, so the same three-hop chain is copy-pasted into every file that calls resolveRepoAndCurrentBranch.
    - Evidence: `ctx.gt.stack(resolved.repoCtx.repo.root)`, `ctx.gt.stackGraph(resolved.repoCtx.repo.root)`, `mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot` here; the identical `resolved.repoCtx.repo.root` / `.mainRepoRoot` chain is repeated verbatim in quiescence.ts (lines 85, 134), stack-branches.ts (line 34), and free-stack.ts (repoCtx.repo.root / repoCtx.repo.mainRepoRoot).
    - Smallest fix: Have resolveRepoAndCurrentBranch (gt/shared.ts) return flattened `repoRoot`/`mainRepoRoot` fields alongside repoCtx so callers stop reaching through repoCtx.repo each time.

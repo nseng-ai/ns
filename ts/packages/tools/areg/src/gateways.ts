@@ -7,7 +7,7 @@ import type {
 	SkillLookupRootDescriptor,
 	SkillLookupSourceType,
 } from "@nseng-ai/pi/skills/lookup";
-import type { ErrorInfo, Result } from "@nseng-ai/core/result";
+import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
 export type AregHostToolName = (typeof AREG_HOST_TOOL_NAMES)[number];

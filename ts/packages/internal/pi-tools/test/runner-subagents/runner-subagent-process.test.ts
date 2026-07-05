@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualClock, createManualTimerScheduler } from "@nseng-ai/core/time/testing";
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 
 import {
 	normalizeChildToolAllowlist,

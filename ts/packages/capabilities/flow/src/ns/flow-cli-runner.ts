@@ -1,9 +1,9 @@
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	type CommandExecApi,
 	type ExecOptions,
 	outputListenerToExecCallbacks,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
 import {
 	failed,

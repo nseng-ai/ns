@@ -3,7 +3,7 @@ import {
 	formatOutputSection,
 	runNormalizedExecResult,
 	tailText,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,

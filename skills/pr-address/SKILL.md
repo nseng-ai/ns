@@ -20,7 +20,7 @@ Manual CLI fallback:
 ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session prefill. The generated prompt's automatic-triage rules are sourced from `ts/packages/capabilities/address/src/core/download-feedback-common-policy.md`, which includes the authored `download-feedback-auto-triage-policy.md` fragment; follow that source-of-truth policy rather than restating it here. Single-PR downloads should fix the immediate PR/current checkout; stack downloads should put policy-eligible straightforward stack-wide fixes in a single omnibus follow-up PR/current branch unless the human explicitly asks for downstack surgery.
+The JSON result includes a `markdown` field intended for editor/session prefill. The generated prompt's automatic-triage rules are sourced from `ts/packages/capabilities/pr-feedback/src/core/download-feedback-common-policy.md`, which includes the authored `download-feedback-auto-triage-policy.md` fragment; follow that source-of-truth policy rather than restating it here. Single-PR downloads should fix the immediate PR/current checkout; stack downloads should put policy-eligible straightforward stack-wide fixes in a single omnibus follow-up PR/current branch unless the human explicitly asks for downstack surgery.
 
 ## Current primitive surface
 

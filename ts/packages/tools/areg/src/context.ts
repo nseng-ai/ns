@@ -1,8 +1,8 @@
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { readStdinLine } from "@nseng-ai/core/cli-runtime";
+import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 
 import type {
 	AregGithubGateway,

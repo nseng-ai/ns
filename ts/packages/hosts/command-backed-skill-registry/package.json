@@ -15,10 +15,10 @@
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/ccc": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
-		"@nseng-ai/handoff": "workspace:*",
-		"@nseng-ai/objective": "workspace:*",
+		"@nseng-ai/handoffs": "workspace:*",
+		"@nseng-ai/objectives": "workspace:*",
 		"@nseng-ai/pi-command-surfaces": "workspace:*"
 	},
 	"ns": {

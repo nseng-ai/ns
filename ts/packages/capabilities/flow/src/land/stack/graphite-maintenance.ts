@@ -1,5 +1,5 @@
-import type { ExecResult } from "@nseng-ai/core/command";
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import type { ExecResult } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";

@@ -1,7 +1,7 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import {
@@ -16,7 +16,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@nseng-ai/core/primitives";
+} from "@nseng-ai/foundation/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";

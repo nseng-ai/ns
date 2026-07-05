@@ -4,8 +4,8 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import {
 	readPromptMarkdown,
 	renderPromptTemplate,
-} from "@nseng-ai/address/download-feedback-prompts";
-import { formatZodError, optionalEntry } from "@nseng-ai/core/primitives";
+} from "@nseng-ai/pr-feedback/download-feedback-prompts";
+import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "../../commands/cli-extension.ts";

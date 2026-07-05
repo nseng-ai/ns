@@ -17,7 +17,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@nseng-ai/core/typescript-analysis";
+} from "@nseng-ai/foundation/typescript-analysis";
 import {
 	packageNameForPath,
 	packageNameForSpecifier,
@@ -124,7 +124,7 @@ export function collectViolations(
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
 const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
-	"ts/packages/infra/core/src/time/index.ts",
+	"ts/packages/infra/foundation/src/time/index.ts",
 	"ts/packages/hosts/pi/src/kit/shared/timers.ts",
 ]);
 

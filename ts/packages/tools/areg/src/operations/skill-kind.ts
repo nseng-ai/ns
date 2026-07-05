@@ -7,7 +7,7 @@ import {
 	ClinkrGroup,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { renderTextTable, type TextTableColumn } from "@nseng-ai/core/text-table";
+import { renderTextTable, type TextTableColumn } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

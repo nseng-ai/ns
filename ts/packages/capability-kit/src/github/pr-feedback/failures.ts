@@ -1,5 +1,5 @@
 import type { RunGitHubCliResult } from "../cli.ts";
-import { errorDetailText, resultErr, resultOk, type Result } from "@nseng-ai/core/result";
+import { errorDetailText, resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type {
 	GithubPrFeedbackCursorContextFields,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
-import type { ExecResult } from "@nseng-ai/core/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 
 import { runPushCore } from "../../src/ns/commands/push.ts";
 

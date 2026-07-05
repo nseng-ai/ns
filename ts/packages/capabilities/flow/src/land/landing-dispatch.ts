@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { executeStackLanding } from "./land-stack.ts";
 import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./stack/land-runtime.ts";

@@ -1,4 +1,4 @@
-import { type CommandExecApi, formatOutputSection } from "@nseng-ai/core/exec";
+import { type CommandExecApi, formatOutputSection } from "@nseng-ai/foundation/exec";
 import { deriveSlugWithModel, type SlugModelEvidence } from "@nseng-ai/capability-kit/model-slug";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 

@@ -57,7 +57,7 @@ export default defineExtension({
 	test("loads package-specifier references through host package resolution", async () => {
 		const loaded = await loadNsExtensionContribution({
 			type: "package",
-			specifier: "@nseng-ai/objective/ns/commands/list",
+			specifier: "@nseng-ai/objectives/ns/commands/list",
 		});
 
 		expect(loaded.ok).toBe(true);
@@ -65,7 +65,7 @@ export default defineExtension({
 		const validation = validateNsExtensionContribution(
 			loaded.defaultExport,
 			"list",
-			"@nseng-ai/objective/ns/commands/list",
+			"@nseng-ai/objectives/ns/commands/list",
 		);
 		expect(validation.ok).toBe(true);
 		if (!validation.ok) return;

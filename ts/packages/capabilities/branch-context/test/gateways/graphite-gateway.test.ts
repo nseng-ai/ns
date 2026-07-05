@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/core/exec";
-import { ScriptedQueue } from "@nseng-ai/core/test-kit";
+import type { ExecResult } from "@nseng-ai/foundation/exec";
+import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import type { CommandExecApi, ExecOptions } from "@nseng-ai/core/exec";
+import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 
 const ROOT = "/repo";

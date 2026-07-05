@@ -1,4 +1,4 @@
-import { normalizeTextOutput } from "@nseng-ai/core/text-normalization";
+import { normalizeTextOutput } from "@nseng-ai/foundation/text-normalization";
 
 export const CHECKPOINT_SUBJECT_MAX_LENGTH = 52;
 export const CHECKPOINT_MAX_BULLETS = 3;

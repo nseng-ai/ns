@@ -52,7 +52,7 @@
 	},
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"zod": "catalog:"
 	},

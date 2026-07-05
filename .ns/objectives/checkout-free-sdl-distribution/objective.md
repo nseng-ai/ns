@@ -49,13 +49,16 @@ pre-work state.
   replace this so `@ns/objective` and its `exec-*` commands load from installed packages,
   not a checkout. Reconcile the checked-in `.ns/extensions/*` re-export manifests (which
   assume the workspace tree on disk).
-- **Resolve `private` / workspace-dep publishability.** `@ns/kernel` is `private: true`;
-  7 of 21 workspace packages are private (`@ns/kernel`, `@ns/capability-kit`, `@ns/ccc`,
-  `@ns/flow`, `@ns/pi`, `nscc`, `@internal/pi-tools`), and the loader aliases modules from
-  private `@ns/capability-kit`, `@ns/ccc`, and `@ns/flow`. Decide per package: un-private +
-  publish, bundle-inline, or exclude. `@ns/objective` and the other capability packages are
-  already non-private. The kernel also depends on external published npm packages
-  (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`).
+- **Resolve `private` / workspace-dep publishability.** `@ns/kernel` (published as
+  `@nseng-ai/kernel`) is `private: true` permanently — decided: its runtime surface ships
+  only folded inside the published `@nseng-ai/ns` bundle (esbuild inlines kernel source at
+  bundle time); no standalone kernel publish path exists. 7 of 21 workspace packages are
+  private (`@ns/kernel`, `@ns/capability-kit`, `@ns/ccc`, `@ns/flow`, `@ns/pi`, `nscc`,
+  `@internal/pi-tools`), and the loader aliases modules from private
+  `@ns/capability-kit`, `@ns/ccc`, and `@ns/flow`. Decide per remaining package:
+  un-private + publish, bundle-inline, or exclude. `@ns/objective` and the other
+  capability packages are already non-private. The kernel also depends on external
+  published npm packages (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`).
 - **Publish a versioned package to npm** as `@nseng-ai/ns` (per the `rename-ji-to-ns`
   edge, superseding the ADR 0024 `@ji` scope), with the `ns` bin working checkout-free.
   Standalone-published first-party runtime packages use the same external `@nseng-ai/*`
@@ -81,7 +84,7 @@ pre-work state.
 
 - A global or `npx` install of `@nseng-ai/ns` on a machine with **no repo checkout** runs
   `ns objective list` (and `ns objective …`) against a foreign repo.
-- The published package includes `@nseng-ai/objective` and its hidden `exec` surface,
+- The published package includes `@nseng-ai/objectives` and its hidden `exec` surface,
   loaded without a source-path checkout assumption.
 - No runtime dependency on `ts/node_modules` or a hard-coded checkout `NODE_PATH`.
 - A recorded per-package decision for every private runtime dependency (publish vs
@@ -124,7 +127,7 @@ Risks:
   `rename-ji-to-ns` edge. Current workspace manifests now use the external `@nseng-ai/*`
   names directly, including `@nseng-ai/ns` as the `ns` CLI package source owner and
   `@nseng-ai/kernel`, `@nseng-ai/capability-kit`, `@nseng-ai/flow`,
-  `@nseng-ai/objective`, and sibling capability packages. This resolves the prior
+  `@nseng-ai/objectives`, and sibling capability packages. This resolves the prior
   `@ns/*` vs generated publish-root rewrite question; publish metadata/private flips for
   private runtime packages remain implementation work.
 - ~~Which of the remaining private packages get un-privated vs bundle-inlined vs folded
@@ -132,6 +135,8 @@ Risks:
   (`updates/20260704T235456Z-runtime-dependency-triage-decisions.md`) plus the 2026-07-05
   decision that many packages publish standalone, `@ns/capability-kit` and `@ns/flow` at
   minimum (`updates/20260705T123551Z-standalone-package-publishing-decision.md`).
+  `@nseng-ai/kernel` specifically remains `private: true` permanently, folded into the
+  published `@nseng-ai/ns` bundle rather than published standalone.
 - The exact first npm publish authorization and release mechanics remain open; release
   automation/CI is parked, so the first publish can be manual once the local package
   artifact and private-runtime publishability are ready.

@@ -14,7 +14,7 @@ import {
 import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { ScriptedCommandRunner, startupErrorStep, step } from "@nseng-ai/core/exec/testing";
+import { ScriptedCommandRunner, startupErrorStep, step } from "@nseng-ai/foundation/exec/testing";
 
 describe("formatSubmitSuccessText", () => {
 	test("omits the description preview line when no first line is available", () => {

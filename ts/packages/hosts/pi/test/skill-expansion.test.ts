@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/core/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import {
 	buildSkillInvocationPrompt,

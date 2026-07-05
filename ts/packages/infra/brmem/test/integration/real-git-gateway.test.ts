@@ -4,10 +4,10 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
-import type { StdinCapableCommandExecApi } from "@nseng-ai/core/exec";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import { DroppingOptionsCommandExecApi } from "@nseng-ai/core/exec/testing";
+import { DroppingOptionsCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import { createTempGitRepo } from "@nseng-ai/capability-kit/git/testing";
 import type { TempGitRepo } from "@nseng-ai/capability-kit/git/testing";
 import type { BrmemResult } from "../../src/contracts.ts";

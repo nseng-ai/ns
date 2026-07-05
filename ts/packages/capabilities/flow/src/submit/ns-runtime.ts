@@ -1,6 +1,6 @@
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
 import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
-import type { CommandRunner } from "@nseng-ai/core/command";
+import type { CommandRunner } from "@nseng-ai/foundation/command";
 import {
 	RealGithubPrGateway,
 	RealSubmitGateway,

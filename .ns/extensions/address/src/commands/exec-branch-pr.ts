@@ -1,1 +1,1 @@
-export { default } from "@nseng-ai/address/ns/commands/exec-branch-pr";
+export { default } from "@nseng-ai/pr-feedback/ns/commands/exec-branch-pr";

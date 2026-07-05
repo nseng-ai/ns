@@ -7,12 +7,12 @@ import {
 	parseManagedRegion,
 	replaceMalformedManagedRegionFromBegin,
 	replaceManagedRegion,
-} from "@nseng-ai/core/managed-region";
-import { formatErrorMessage, sha256Digest } from "@nseng-ai/core/primitives";
-import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/core/text-normalization";
-import { truncateTextHeadTail } from "@nseng-ai/core/text-truncation";
+} from "@nseng-ai/foundation/managed-region";
+import { formatErrorMessage, sha256Digest } from "@nseng-ai/foundation/primitives";
+import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
+import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
-import { formatElapsedMs } from "@nseng-ai/core/time-format";
+import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import {

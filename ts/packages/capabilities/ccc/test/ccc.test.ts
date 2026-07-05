@@ -13,8 +13,8 @@ import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 function expectedImplBranchContextCommand(key: string): string {
 	return `/ns:branch-context:impl-attached-plan ${key}`;
 }
-import type { StdinCapableCommandExecApi } from "@nseng-ai/core/command";
-import { withTempRepoSkill } from "@nseng-ai/core/test-kit";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
+import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import { CCC_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@nseng-ai/ccc/api";
 import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,

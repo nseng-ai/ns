@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import {
 	GITHUB_CLI_STARTUP_ERROR_CODE,
 	GITHUB_CLI_TIMEOUT_MS,

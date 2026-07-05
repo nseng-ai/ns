@@ -1,5 +1,5 @@
-import { managedRegionBounds } from "@nseng-ai/core/managed-region";
-import { resultErr, type Result } from "@nseng-ai/core/result";
+import { managedRegionBounds } from "@nseng-ai/foundation/managed-region";
+import { resultErr, type Result } from "@nseng-ai/foundation/result";
 
 export interface ManagedMarkers {
 	start: string;

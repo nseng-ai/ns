@@ -8,7 +8,7 @@ It continues from the closed `.ns/objectives/normalize-optional-undefined-bounda
 
 The standing goal is to continuously reduce semantically redundant `?: T | undefined` where a runner can make and validate a local semantic claim. It is not a blanket zero-count campaign. The Objective operates like a long-running cleanup/research loop: repeatedly inventory candidates, classify their semantics, make a review-substantive coherent improvement, validate it, record reusable findings, and continue in later sessions without requiring human steering for ordinary local slices.
 
-The first full campaign pass completed on 2026-07-01: the repo-wide raw optional-undefined count reached zero by classifying every remaining candidate as either a plain omission-only optional or a typed `ExplicitUndefined<Reason, T>` compatibility contract (defined in `ts/packages/infra/core/src/primitives/primitives.ts` with a named reason vocabulary, for example `public-api-compatibility` on the kernel SDK surfaces). The standing loop now watches for reintroduced raw candidates and classifies or removes them; it does not revisit already-classified groups without new evidence.
+The first full campaign pass completed on 2026-07-01: the repo-wide raw optional-undefined count reached zero by classifying every remaining candidate as either a plain omission-only optional or a typed `ExplicitUndefined<Reason, T>` compatibility contract (defined in `ts/packages/infra/foundation/src/primitives/primitives.ts` with a named reason vocabulary, for example `public-api-compatibility` on the kernel SDK surfaces). The standing loop now watches for reintroduced raw candidates and classifies or removes them; it does not revisit already-classified groups without new evidence.
 
 ## Scope
 
@@ -120,4 +120,4 @@ Risks:
 
 - Whether any future objective should separately pursue a hard guard/allowlist policy. That is explicitly outside this Objective unless approved as a new scope decision.
 - Whether repeated autonomous slices reveal a small number of recurring preserved categories that should be documented in repo TypeScript guidance.
-- Whether the reason vocabulary of `ExplicitUndefined` should stay in `ts/packages/infra/core` or graduate into shared TypeScript guidance as it stabilizes.
+- Whether the reason vocabulary of `ExplicitUndefined` should stay in `ts/packages/infra/foundation` or graduate into shared TypeScript guidance as it stabilizes.

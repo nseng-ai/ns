@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
-import { createManualTimerHarness } from "@nseng-ai/core/time/testing";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,

@@ -98,7 +98,7 @@ The runner never touches Objective tracking, and the subagent is not instructed 
 
 The runner will never, in any mode:
 
-- Canonical forbidden-action wording (source: `ts/packages/capabilities/objective/src/runner/prompt.ts`, `OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE`): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization.";
+- Canonical forbidden-action wording (source: `ts/packages/capabilities/objectives/src/runner/prompt.ts`, `OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE`): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization.";
 - update Objective tracking or write Semantic Updates;
 - commit on trunk, amend, or accept a commit the subagent made itself (a subagent that committed on its own fails verification);
 - run more than one slice, retry on its own, or carry state between steps.

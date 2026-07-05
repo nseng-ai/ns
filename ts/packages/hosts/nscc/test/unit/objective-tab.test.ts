@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveList } from "@nseng-ai/objective/api";
+import type { ObjectiveList } from "@nseng-ai/objectives/api";
 
 import { objectiveTabModule, type ObjectiveTabState } from "../../src/objective-tab.ts";
 import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts";

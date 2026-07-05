@@ -54,7 +54,7 @@ small, complete changes that leave no dead scaffolding.
 - Intra-package imports are relative and include the explicit `.ts` suffix:
   `../failures.ts`, `./models.ts`.
 - Cross-package imports use curated workspace package exports, for example
-  `@nseng-ai/core/primitives`, `@nseng-ai/core/exec`, and `@nseng-ai/clinkr/raw`.
+  `@nseng-ai/foundation/primitives`, `@nseng-ai/foundation/exec`, and `@nseng-ai/clinkr/raw`.
 - Do not deep-import another package's `src/` tree.
 - Do not add root-only barrels that hide ownership. Prefer explicit subpath exports for public package
   surfaces.
@@ -95,7 +95,7 @@ Use these type shapes deliberately:
 - `foo: T | undefined` means the key is part of the shape, but the value may be unavailable.
 - Raw `foo?: T | undefined` is suspicious unless explicit present-key `undefined` is a meaningful contract.
 - Permanent explicit-undefined support should be expressed as `foo?: ExplicitUndefined<Reason, T>` from
-  `@nseng-ai/core/primitives`.
+  `@nseng-ai/foundation/primitives`.
 
 `ExplicitUndefined<Reason, T>` is for permanent API/input/compatibility/external contracts, such as env
 maps, abort-signal seams, external schema mirrors, null-tolerant inputs, key-event payloads,
@@ -128,7 +128,7 @@ example, prefer `ctx.renderCapabilities: RenderCapabilities` over
 
 ## Time seams
 
-Production ns TypeScript should not hand-roll raw timers. Use `Clock` from `@nseng-ai/core/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/core/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@nseng-ai/core/time`, `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@nseng-ai/core/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
+Production ns TypeScript should not hand-roll raw timers. Use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@nseng-ai/foundation/time`, `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@nseng-ai/foundation/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
 
 ## Hard bans enforced by TypeScript style guard tests
 

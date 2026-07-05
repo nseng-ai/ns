@@ -138,7 +138,7 @@ to each rule's exceptions.
     wrong source suffix, such as `from "./thing"`, `from "../thing"`, or
     `from "./thing.js"` when importing project TypeScript. Severity:
     `warning`. Do not flag bare package imports (`node:fs`, `zod`,
-    `@nseng-ai/core/primitives`), type-only imports that already use `.ts`, or
+    `@nseng-ai/foundation/primitives`), type-only imports that already use `.ts`, or
     non-TypeScript assets where the project has an existing pattern.
 16. **Cross-package `src/` deep imports.** Flag imports that bypass curated
     workspace package exports by reaching into another package's `src/` tree,

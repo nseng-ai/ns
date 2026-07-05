@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { formatCommand } from "@nseng-ai/core/command";
+import { formatCommand } from "@nseng-ai/foundation/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
 	detectGraphiteForkViolations,

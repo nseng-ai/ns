@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/core/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import { z } from "zod";
 
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";

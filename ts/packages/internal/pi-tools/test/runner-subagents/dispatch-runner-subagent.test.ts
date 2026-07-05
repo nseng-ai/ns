@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecOptions, ExecResult } from "@nseng-ai/core/exec";
-import { createManualClock } from "@nseng-ai/core/time/testing";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 
 import type { ThinkingLevel } from "@nseng-ai/pi/runtime/types";
 import {

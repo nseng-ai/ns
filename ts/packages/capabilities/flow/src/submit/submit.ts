@@ -1,4 +1,4 @@
-import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/core/command";
+import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type { GithubPrGateway, TextGenerator } from "./index.ts";

@@ -8,7 +8,7 @@ could adopt without the full ns/Graphite/slots stack.
 > (`.ns/extensions/flow/`) is thin: each command is a one-line re-export of the
 > `/flow` workspace package (`ts/packages/capabilities/flow/`). That package's
 > `package.json` declares the *union* of every command's dependencies
-> (`@nseng-ai/graphite`, `@nseng-ai/slot`, `@nseng-ai/github`, …), so adopting the package pulls
+> (`@nseng-ai/graphite`, `@nseng-ai/slots`, `@nseng-ai/github`, …), so adopting the package pulls
 > everything. The table below is what each command exercises **at runtime**.
 
 ## Dependency axes
@@ -36,7 +36,7 @@ the Graphite **SQLite DB** with `sqlite3`.
 | **cp**                                 |  ✓  |  –  |  –  |    –    | ✓²  |   –   | Checkpoint commit.                                                                                    |
 | **autobranch**                         |  ✓  |  ✓  |  –  |    –    | ✓³  |   –   | Direct `exec("gt", …)` (create/track).                                                                |
 | **branch-latest-commit**               |  ✓  |  ✓  |  –  |    –    | ✓³  |   –   | Direct `exec("gt", …)` (create/children).                                                             |
-| **autoslot**                           |  ✓  |  ✓  |  –  |    –    | ✓³  |   ✓   | autobranch + `@nseng-ai/slot/api` (move into slot).                                                   |
+| **autoslot**                           |  ✓  |  ✓  |  –  |    –    | ✓³  |   ✓   | autobranch + `@nseng-ai/slots/api` (move into slot).                                                  |
 | **regenerate-pr**                      |  ✓  |  –  |  ✓  |    –    |  ✓  |   –   | `@nseng-ai/github/cli`; **no gt**.                                                                    |
 | **submit**                             |  ✓  |  ✓  |  ✓  |    –    |  ✓  |   –   | `@nseng-ai/graphite/branch` (gt submit) + gh PR metadata.                                             |
 | **land**                               |  ✓  |  ✓  |  ✓  |    –    |  –  |  ✓⁴   | `@nseng-ai/graphite` + `gh pr view/merge`; slots optional.                                            |
@@ -50,7 +50,7 @@ the Graphite **SQLite DB** with `sqlite3`.
    **branch slug**; skippable when a slug is supplied explicitly.
 4. `land`'s slot dependency is **conditional and opt-in** (`--free`). It detects
    managed slots by path regex (`ns/slots/repos/.../worktrees/slot-*`) and shells out
-   to `ns slot free` — it does **not** import `@nseng-ai/slot`. Land works fully without
+   to `ns slot free` — it does **not** import `@nseng-ai/slots`. Land works fully without
    slots; it just keeps the branch/worktree.
 
 ## Independence tiers

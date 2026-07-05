@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -10,7 +10,7 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/core/index.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";

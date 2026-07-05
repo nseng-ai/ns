@@ -1,5 +1,5 @@
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import { optionalEntries } from "@nseng-ai/core/primitives";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 

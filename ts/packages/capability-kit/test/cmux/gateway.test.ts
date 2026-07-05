@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { ScriptedCommandExecApi } from "@nseng-ai/core/exec/testing";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/core/exec";
+import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { RealCmuxGateway } from "../../src/cmux/gateway.ts";
 
 const CWD = "/repo";

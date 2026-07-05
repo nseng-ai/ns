@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	buildContentSlugPrompt,
 	deriveContentSlug,

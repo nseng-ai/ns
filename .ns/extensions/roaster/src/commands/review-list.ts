@@ -1,1 +1,1 @@
-export { default } from "@nseng-ai/roaster/commands/review-list";
+export { default } from "@nseng-ai/reviews/commands/review-list";

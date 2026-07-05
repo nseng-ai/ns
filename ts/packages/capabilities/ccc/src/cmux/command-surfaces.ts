@@ -1,4 +1,4 @@
-import { nsCommandSurface } from "@nseng-ai/core/command";
+import { nsCommandSurface } from "@nseng-ai/foundation/command";
 
 // Canonical catalog of ns:ccc:* command surfaces. Pi command registration and
 // cmux extension commands share these names; import from here instead of

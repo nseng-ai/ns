@@ -3,9 +3,9 @@ import { assertBrmemEntryAbsent, attachBranchContext, AttachBranchContextError }
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
-import { type CommandExecApi, formatCommand } from "@nseng-ai/core/exec";
+import { type CommandExecApi, formatCommand } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";
 

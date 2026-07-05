@@ -10,7 +10,7 @@ import {
 	piExecApiToCommandExecApi,
 	type PiExecResultLike,
 	tailText,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
@@ -22,8 +22,12 @@ import {
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
 } from "@nseng-ai/capability-kit/github/pr-status";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
-import { formatElapsedMs } from "@nseng-ai/core/time-format";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
+import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi/runtime/machine-envelope";
 import {
 	customMessageText,

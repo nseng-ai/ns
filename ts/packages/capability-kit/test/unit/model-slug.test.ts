@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@nseng-ai/core/model-slug";
+import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import {
 	buildSlugModelArgs,
 	deriveSlugWithModel,

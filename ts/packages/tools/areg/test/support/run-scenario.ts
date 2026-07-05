@@ -1,6 +1,6 @@
 import type { ConfirmationResult } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
-import { optionalEntries } from "@nseng-ai/core/primitives";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import {
 	InMemoryGitGateway,
 	type InMemoryGitGatewayState,

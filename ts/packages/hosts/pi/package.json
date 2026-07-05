@@ -43,9 +43,9 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
-		"@nseng-ai/address": "workspace:*",
+		"@nseng-ai/pr-feedback": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
-		"@nseng-ai/core": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@nseng-ai/pi-command-surfaces": "workspace:*",
 		"zod": "catalog:"

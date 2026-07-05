@@ -1094,7 +1094,7 @@
     "producerNote": "Normalize the writeEntrySnapshot/copyWithGlob `expectedOldSha` forwarding to spread-include first."
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 47,
     "property": "env",
     "declaration": "createRealSlotContext options",
@@ -1103,7 +1103,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 48,
     "property": "caps",
     "declaration": "createRealSlotContext options",
@@ -1113,7 +1113,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 49,
     "property": "extensions",
     "declaration": "createRealSlotContext options",
@@ -1123,7 +1123,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 50,
     "property": "formatPrompt",
     "declaration": "createRealSlotContext options",
@@ -1133,7 +1133,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 51,
     "property": "stderr",
     "declaration": "createRealSlotContext options",
@@ -1144,7 +1144,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 52,
     "property": "shouldWriteCdDirective",
     "declaration": "createRealSlotContext options",
@@ -1154,7 +1154,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 94,
     "property": "caps",
     "declaration": "slotContextExtensions options",
@@ -1164,7 +1164,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/context.ts",
+    "path": "ts/packages/capabilities/slots/src/context.ts",
     "line": 95,
     "property": "extensions",
     "declaration": "slotContextExtensions options",
@@ -1174,7 +1174,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/diagnostics.ts",
+    "path": "ts/packages/capabilities/slots/src/diagnostics.ts",
     "line": 40,
     "property": "diagnosticSink",
     "declaration": "RunDiagnosticCommandOptions",
@@ -1184,7 +1184,7 @@
     "producerNote": "Narrow this.diagnosticSink on the gateways (or guard before passing) so runDiagnosticCommand is no longer handed an explicit undefined."
   },
   {
-    "path": "ts/packages/capabilities/slot/src/diagnostics.ts",
+    "path": "ts/packages/capabilities/slots/src/diagnostics.ts",
     "line": 46,
     "property": "diagnosticSink",
     "declaration": "DiagnosticCommandRunnerOptions",
@@ -1194,7 +1194,7 @@
     "producerNote": "Same as line 40: normalize the SlotDiagnosticSink | undefined source before it reaches these options."
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/clipboard.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/clipboard.ts",
     "line": 32,
     "property": "env",
     "declaration": "RealClipboardGateway constructor options",
@@ -1203,7 +1203,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/clipboard.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/clipboard.ts",
     "line": 33,
     "property": "runner",
     "declaration": "RealClipboardGateway constructor options",
@@ -1213,7 +1213,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/command.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/command.ts",
     "line": 6,
     "property": "env",
     "declaration": "SlotCommandRunOptions",
@@ -1222,7 +1222,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/command.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/command.ts",
     "line": 26,
     "property": "execApi",
     "declaration": "RealSlotCommandGateway constructor options",
@@ -1232,7 +1232,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/pr.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/pr.ts",
     "line": 79,
     "property": "env",
     "declaration": "RealSlotPrGateway constructor options",
@@ -1241,7 +1241,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/pr.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/pr.ts",
     "line": 80,
     "property": "execApi",
     "declaration": "RealSlotPrGateway constructor options",
@@ -1251,7 +1251,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/pr.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/pr.ts",
     "line": 81,
     "property": "diagnosticSink",
     "declaration": "RealSlotPrGateway constructor options",
@@ -1260,7 +1260,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/repository.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/repository.ts",
     "line": 95,
     "property": "env",
     "declaration": "RealSlotRepositoryGateway constructor options",
@@ -1269,7 +1269,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/repository.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/repository.ts",
     "line": 96,
     "property": "execApi",
     "declaration": "RealSlotRepositoryGateway constructor options",
@@ -1279,7 +1279,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/repository.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/repository.ts",
     "line": 97,
     "property": "coreGit",
     "declaration": "RealSlotRepositoryGateway constructor options",
@@ -1289,7 +1289,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/repository.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/repository.ts",
     "line": 98,
     "property": "diagnosticSink",
     "declaration": "RealSlotRepositoryGateway constructor options",
@@ -1298,7 +1298,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/repository.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/repository.ts",
     "line": 284,
     "property": "allowFailure",
     "declaration": "private git() method options",
@@ -1307,7 +1307,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/gateways/repository.ts",
+    "path": "ts/packages/capabilities/slots/src/gateways/repository.ts",
     "line": 284,
     "property": "operation",
     "declaration": "private git() method options",
@@ -1316,7 +1316,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/inventory.ts",
+    "path": "ts/packages/capabilities/slots/src/inventory.ts",
     "line": 73,
     "property": "mainRepoRoot",
     "declaration": "buildSlotInventory options",
@@ -1325,7 +1325,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/free.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/free.ts",
     "line": 31,
     "property": "preflightErrors",
     "declaration": "planFreeSlots options",
@@ -1334,7 +1334,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/free.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/free.ts",
     "line": 32,
     "property": "trunkBranch",
     "declaration": "planFreeSlots options",
@@ -1343,7 +1343,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/gc.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/gc.ts",
     "line": 139,
     "property": "cleanupActions",
     "declaration": "executeGcPlan options",
@@ -1352,7 +1352,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/gc.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/gc.ts",
     "line": 179,
     "property": "cleanup",
     "declaration": "outcomeFromGcPlan options",
@@ -1361,7 +1361,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/gc.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/gc.ts",
     "line": 191,
     "property": "pr",
     "declaration": "entryFromRecord options",
@@ -1370,7 +1370,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/gc.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/gc.ts",
     "line": 191,
     "property": "message",
     "declaration": "entryFromRecord options",
@@ -1379,7 +1379,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 26,
     "property": "trunkBranch",
     "declaration": "PlanReleaseCleanupOptions",
@@ -1388,7 +1388,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 33,
     "property": "trunkBranch",
     "declaration": "ExecuteReleaseCleanupOptions",
@@ -1397,7 +1397,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 34,
     "property": "progress",
     "declaration": "ExecuteReleaseCleanupOptions",
@@ -1406,7 +1406,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 50,
     "property": "trunkBranch",
     "declaration": "CleanupForTargetsOptions",
@@ -1415,7 +1415,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 52,
     "property": "progress",
     "declaration": "CleanupForTargetsOptions",
@@ -1424,7 +1424,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 59,
     "property": "progress",
     "declaration": "CleanupPrOptions",
@@ -1433,7 +1433,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 67,
     "property": "progress",
     "declaration": "CleanupLocalBranchOptions",
@@ -1442,7 +1442,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 74,
     "property": "prNumber",
     "declaration": "CleanupResultOptions",
@@ -1451,7 +1451,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/lifecycle/release-cleanup.ts",
+    "path": "ts/packages/capabilities/slots/src/lifecycle/release-cleanup.ts",
     "line": 75,
     "property": "message",
     "declaration": "CleanupResultOptions",
@@ -1460,7 +1460,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/operations/cleanup-rendering.ts",
+    "path": "ts/packages/capabilities/slots/src/operations/cleanup-rendering.ts",
     "line": 12,
     "property": "isDryRun",
     "declaration": "renderCleanupLines options",
@@ -1469,7 +1469,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/operations/cleanup-rendering.ts",
+    "path": "ts/packages/capabilities/slots/src/operations/cleanup-rendering.ts",
     "line": 12,
     "property": "caps",
     "declaration": "renderCleanupLines options",
@@ -1479,7 +1479,7 @@
     "producerNote": "Narrow the Caps | undefined source (readSlotCapsFromContext) or guard before passing into the render helpers."
   },
   {
-    "path": "ts/packages/capabilities/slot/src/operations/destructive-presentation.ts",
+    "path": "ts/packages/capabilities/slots/src/operations/destructive-presentation.ts",
     "line": 16,
     "property": "body",
     "declaration": "BuildSlotDestructiveResultBlockInput",
@@ -1489,7 +1489,7 @@
     "producerNote": "Have callers of buildSlotDestructiveResultBlock omit body instead of passing computed undefined before narrowing the input type."
   },
   {
-    "path": "ts/packages/capabilities/slot/src/operations/destructive-presentation.ts",
+    "path": "ts/packages/capabilities/slots/src/operations/destructive-presentation.ts",
     "line": 17,
     "property": "guidance",
     "declaration": "BuildSlotDestructiveResultBlockInput",
@@ -1499,7 +1499,7 @@
     "producerNote": "Have callers omit guidance instead of passing computed undefined before narrowing the input type."
   },
   {
-    "path": "ts/packages/capabilities/slot/src/operations/gc.ts",
+    "path": "ts/packages/capabilities/slots/src/operations/gc.ts",
     "line": 275,
     "property": "isCancelled",
     "declaration": "toGcResult options",
@@ -1508,7 +1508,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/planning.ts",
+    "path": "ts/packages/capabilities/slots/src/planning.ts",
     "line": 129,
     "property": "mainRepoRoot",
     "declaration": "planCurrentCheckout options",
@@ -1517,7 +1517,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/shell/cd-directive.ts",
+    "path": "ts/packages/capabilities/slots/src/shell/cd-directive.ts",
     "line": 19,
     "property": "isEnabled",
     "declaration": "CdDirectiveOptions",
@@ -1526,7 +1526,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/shell/cd-directive.ts",
+    "path": "ts/packages/capabilities/slots/src/shell/cd-directive.ts",
     "line": 20,
     "property": "env",
     "declaration": "CdDirectiveOptions",
@@ -1535,7 +1535,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/capabilities/slot/src/shell/cd-directive.ts",
+    "path": "ts/packages/capabilities/slots/src/shell/cd-directive.ts",
     "line": 21,
     "property": "filesystem",
     "declaration": "CdDirectiveOptions",
@@ -1545,7 +1545,7 @@
     "readjudicated": true
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 59,
     "property": "env",
     "declaration": "RunBrmemOnCandidateOptions",
@@ -1554,7 +1554,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 60,
     "property": "signal",
     "declaration": "RunBrmemOnCandidateOptions",
@@ -1564,7 +1564,7 @@
     "producerNote": "runBrmem (line 232) passes `signal,` directly; switch to `...(signal === undefined ? {} : { signal })`."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 68,
     "property": "env",
     "declaration": "RunBrmemOptions",
@@ -1573,7 +1573,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 69,
     "property": "signal",
     "declaration": "RunBrmemOptions",
@@ -1583,7 +1583,7 @@
     "producerNote": "runAvailableBrmemCommand (line 250) forwards options.signal directly into runBrmem."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 87,
     "property": "env",
     "declaration": "RunAvailableBrmemCommandOptions",
@@ -1592,7 +1592,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 88,
     "property": "signal",
     "declaration": "RunAvailableBrmemCommandOptions",
@@ -1602,7 +1602,7 @@
     "producerNote": "Direct `signal: options.signal` forwards at lines 278, 332, 396 should switch to the spread-omit idiom."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 121,
     "property": "signal",
     "declaration": "CheckBrmemEntryOptions",
@@ -1612,7 +1612,7 @@
     "producerNote": "checkBrmemEntry (line 278) forwards options.signal directly."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 134,
     "property": "branch",
     "declaration": "PutBrmemEntryFromFileOptions",
@@ -1621,7 +1621,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 137,
     "property": "env",
     "declaration": "PutBrmemEntryFromFileOptions",
@@ -1630,7 +1630,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 138,
     "property": "signal",
     "declaration": "PutBrmemEntryFromFileOptions",
@@ -1640,7 +1640,7 @@
     "producerNote": "Direct signal forwards at brmem-cli line 332 and roaster review-log.ts line 81 must adopt the spread-omit idiom."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 144,
     "property": "namespace",
     "declaration": "ListBrmemEntriesOptions",
@@ -1650,7 +1650,7 @@
     "producerNote": "listBrmemEntries (lines 409-411) forwards options.namespace directly into the expected object."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 145,
     "property": "branch",
     "declaration": "ListBrmemEntriesOptions",
@@ -1660,7 +1660,7 @@
     "producerNote": "listBrmemEntries (lines 409-411) forwards options.branch directly into the expected object."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 146,
     "property": "timeoutMs",
     "declaration": "ListBrmemEntriesOptions",
@@ -1669,7 +1669,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 147,
     "property": "env",
     "declaration": "ListBrmemEntriesOptions",
@@ -1678,7 +1678,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 148,
     "property": "signal",
     "declaration": "ListBrmemEntriesOptions",
@@ -1688,7 +1688,7 @@
     "producerNote": "Direct signal forwards at brmem-cli line 396 and roaster review-log.ts line 108 must adopt the spread-omit idiom."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 471,
     "property": "namespace",
     "declaration": "parseBrmemListEntries (expected parameter inline type)",
@@ -1698,7 +1698,7 @@
     "producerNote": "listBrmemEntries (lines 409-411) builds `{ namespace: options.namespace, branch: options.branch }` by direct forward."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 471,
     "property": "branch",
     "declaration": "parseBrmemListEntries (expected parameter inline type)",
@@ -1708,7 +1708,7 @@
     "producerNote": "listBrmemEntries (lines 409-411) forwards branch by direct property assignment."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 592,
     "property": "namespace",
     "declaration": "ParseBrmemListEntryOptions (expected nested type)",
@@ -1718,7 +1718,7 @@
     "producerNote": "parseBrmemListEntries (line 480) forwards `expected` straight through; normalize the upstream listBrmemEntries forward."
   },
   {
-    "path": "ts/packages/infra/core/src/brmem-cli.ts",
+    "path": "ts/packages/infra/foundation/src/brmem-cli.ts",
     "line": 593,
     "property": "branch",
     "declaration": "ParseBrmemListEntryOptions (expected nested type)",
@@ -1728,7 +1728,7 @@
     "producerNote": "parseBrmemListEntries (line 480) forwards `expected` directly; normalize the upstream listBrmemEntries forward."
   },
   {
-    "path": "ts/packages/infra/core/src/command.ts",
+    "path": "ts/packages/infra/foundation/src/command.ts",
     "line": 148,
     "property": "guidance",
     "declaration": "FormatCommandEvidenceOptions",
@@ -1737,7 +1737,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/machine-envelope.ts",
+    "path": "ts/packages/infra/foundation/src/machine-envelope.ts",
     "line": 37,
     "property": "shouldAllowFailureData",
     "declaration": "ParseMachineEnvelopeDataWithFailureDataOptions",
@@ -1746,7 +1746,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/result.ts",
+    "path": "ts/packages/infra/foundation/src/result.ts",
     "line": 9,
     "property": "stderr",
     "declaration": "ErrorDetailTextOptions",
@@ -1755,7 +1755,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/result.ts",
+    "path": "ts/packages/infra/foundation/src/result.ts",
     "line": 10,
     "property": "stdout",
     "declaration": "ErrorDetailTextOptions",
@@ -1764,7 +1764,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/result.ts",
+    "path": "ts/packages/infra/foundation/src/result.ts",
     "line": 11,
     "property": "message",
     "declaration": "ErrorDetailTextOptions",
@@ -1773,7 +1773,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/temp-files.ts",
+    "path": "ts/packages/infra/foundation/src/temp-files.ts",
     "line": 13,
     "property": "filename",
     "declaration": "TemporaryJsonFileOptions",
@@ -1782,7 +1782,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/terminal-presentation.ts",
+    "path": "ts/packages/infra/foundation/src/terminal-presentation.ts",
     "line": 75,
     "property": "url",
     "declaration": "prLinksDetailsFor (entries parameter inline type)",
@@ -1791,7 +1791,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 80,
     "property": "input",
     "declaration": "TempGitRepoRunOptions",
@@ -1801,7 +1801,7 @@
     "producerNote": "runGit (line 536) forwards runOptions.input directly into the spawnSync options object."
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 81,
     "property": "env",
     "declaration": "TempGitRepoRunOptions",
@@ -1810,7 +1810,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 96,
     "property": "cwd",
     "declaration": "RunnerCall",
@@ -1820,7 +1820,7 @@
     "producerNote": "runner (line 210) pushes `cwd: options.cwd` directly; switch to the spread-omit idiom."
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 140,
     "property": "options",
     "declaration": "ScriptedCommandExecCall",
@@ -1829,7 +1829,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 149,
     "property": "conclusion",
     "declaration": "GithubCheckRunFixture",
@@ -1838,7 +1838,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 150,
     "property": "startedAt",
     "declaration": "GithubCheckRunFixture",
@@ -1847,7 +1847,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/testing/index.ts",
+    "path": "ts/packages/infra/foundation/src/testing/index.ts",
     "line": 151,
     "property": "completedAt",
     "declaration": "GithubCheckRunFixture",
@@ -1856,7 +1856,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/workspace-root.ts",
+    "path": "ts/packages/infra/foundation/src/workspace-root.ts",
     "line": 7,
     "property": "nestedDirectory",
     "declaration": "WorkspaceRootMarkerOptions",
@@ -1865,7 +1865,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/workspace-root.ts",
+    "path": "ts/packages/infra/foundation/src/workspace-root.ts",
     "line": 8,
     "property": "exists",
     "declaration": "WorkspaceRootMarkerOptions",
@@ -1874,7 +1874,7 @@
     "confidence": "medium"
   },
   {
-    "path": "ts/packages/infra/core/src/xdg.ts",
+    "path": "ts/packages/infra/foundation/src/xdg.ts",
     "line": 17,
     "property": "segments",
     "declaration": "XdgPathOptions",
@@ -1883,7 +1883,7 @@
     "confidence": "high"
   },
   {
-    "path": "ts/packages/infra/core/src/xdg.ts",
+    "path": "ts/packages/infra/foundation/src/xdg.ts",
     "line": 18,
     "property": "overrideEnv",
     "declaration": "XdgPathOptions",

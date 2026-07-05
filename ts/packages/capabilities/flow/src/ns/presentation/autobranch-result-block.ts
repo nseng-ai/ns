@@ -1,6 +1,6 @@
 import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
 import type { Caps } from "@nseng-ai/clinkr";
-import { renderResultBlock } from "@nseng-ai/core/cli-theme";
+import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 
 interface RenderAutobranchFailureResultBlockOptions {
 	caps: Caps;

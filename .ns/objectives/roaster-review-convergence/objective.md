@@ -119,7 +119,7 @@ cannot converge a non-deterministic generator; conditioning the generator can.
 Progress is keepable when it does one or more of:
 
 - Advances one roadmap Work slice as tested code in
-  `ts/packages/capabilities/roaster` (or adjacent prompt-assembly/publish
+  `ts/packages/capabilities/reviews` (or adjacent prompt-assembly/publish
   code), preserving compute layering: the core `ns roaster review run` path
   stays runnable with no PR context and no GitHub dependency.
 - Adds or extends the Last-reviewed head stamping, Prior-findings context

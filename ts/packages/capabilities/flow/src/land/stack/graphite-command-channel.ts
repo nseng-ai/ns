@@ -4,8 +4,8 @@ import {
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
 	type ExecResult,
-} from "@nseng-ai/core/command";
-import { stripTerminalEscapes } from "@nseng-ai/core/terminal-escapes";
+} from "@nseng-ai/foundation/command";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,

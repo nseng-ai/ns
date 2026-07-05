@@ -1,8 +1,8 @@
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
-import { formatCommandDetails } from "@nseng-ai/core/command";
+import { formatCommandDetails } from "@nseng-ai/foundation/command";
 
 export type { CommandResult };
-import { truncateTextHead } from "@nseng-ai/core/text-truncation";
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 
 export type AutobranchExec = (
 	command: string,

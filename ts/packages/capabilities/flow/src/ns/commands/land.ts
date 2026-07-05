@@ -24,7 +24,7 @@ import {
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
-import { systemClock } from "@nseng-ai/core/time";
+import { systemClock } from "@nseng-ai/foundation/time";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import {

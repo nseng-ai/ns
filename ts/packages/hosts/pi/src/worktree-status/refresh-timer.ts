@@ -1,5 +1,5 @@
-import type { Clock } from "@nseng-ai/core/clock";
-import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/core/timers";
+import type { Clock } from "@nseng-ai/foundation/clock";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 
 export const WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS = 10_000;
 

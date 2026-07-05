@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi } from "@nseng-ai/core/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import {

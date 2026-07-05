@@ -1,6 +1,6 @@
 import type { ExecOptions, ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 
-import type { TimerScheduler } from "@nseng-ai/core/timers";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type {
 	SendMessageOptions,
 	SendUserMessageOptions,

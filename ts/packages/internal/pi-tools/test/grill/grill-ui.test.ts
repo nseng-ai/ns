@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@nseng-ai/core/test-kit";
+import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import { buildGrillAskRows } from "../../src/grill/view.ts";
 import {

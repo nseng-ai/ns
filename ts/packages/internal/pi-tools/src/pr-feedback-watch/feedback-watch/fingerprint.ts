@@ -1,5 +1,5 @@
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
-import { finiteNumberField, optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { finiteNumberField, optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";

@@ -1,7 +1,7 @@
 import { cccCommandBackedSkillRegistrations } from "@nseng-ai/ccc/pi";
 import { flowCommandBackedSkillRegistrations } from "@nseng-ai/flow/pi";
-import { handoffCommandBackedSkillRegistrations } from "@nseng-ai/handoff/pi";
-import { objectiveCommandBackedSkillRegistrations } from "@nseng-ai/objective/pi";
+import { handoffCommandBackedSkillRegistrations } from "@nseng-ai/handoffs/pi";
+import { objectiveCommandBackedSkillRegistrations } from "@nseng-ai/objectives/pi";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
@@ -10,12 +10,12 @@ import {
 import type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@nseng-ai/core/command";
+} from "@nseng-ai/foundation/command";
 
 /**
  * Single source of truth for repo-local skills that Pi surfaces as slash

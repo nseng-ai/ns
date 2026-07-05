@@ -1,5 +1,5 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
-import { formatCommand } from "@nseng-ai/core/command";
+import { formatCommand } from "@nseng-ai/foundation/command";
 import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 

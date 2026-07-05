@@ -2,7 +2,7 @@
 
 ## Thesis
 
-The ns package taxonomy has two primary homes for code — tested platform packages in `ts/packages/*` and consumer instances in `.ns/*` — and a class of code falls between them: tested, package-grade tooling that exists only to operate this repo, not to ship as part of ns-the-product. The proof is the subpackage conformance machinery squatting in `ts/packages/infra/core/test/support/typescript-style-guard/`. Rename `ts/packages/local/` to `ts/packages/internal/`, broaden its charter from "private Pi-native tools" to "tested, repo-internal tooling," and audit the repo for tools and scripts that should be packaged there. The local space already uses the reserved `@internal/*` scope, so the directory rename makes directory and scope coherent with no scope work.
+The ns package taxonomy has two primary homes for code — tested platform packages in `ts/packages/*` and consumer instances in `.ns/*` — and a class of code falls between them: tested, package-grade tooling that exists only to operate this repo, not to ship as part of ns-the-product. The proof is the subpackage conformance machinery squatting in `ts/packages/infra/foundation/test/support/typescript-style-guard/`. Rename `ts/packages/local/` to `ts/packages/internal/`, broaden its charter from "private Pi-native tools" to "tested, repo-internal tooling," and audit the repo for tools and scripts that should be packaged there. The local space already uses the reserved `@internal/*` scope, so the directory rename makes directory and scope coherent with no scope work.
 
 ## Scope
 
@@ -11,7 +11,7 @@ The ns package taxonomy has two primary homes for code — tested platform packa
 - Add the third rung to `docs/conventions/platform-and-consumer.md` so consumer-side code has a named tested home and provisional artifacts have a concrete promotion target.
 - Carry the boundary rule through the rename. The style guard already enforces it as `NS_TS_LOCAL_SPACE_ADMISSION` (path↔scope coupling, mandatory `private: true`, no outside workspace dependents) with a failing-case test and a real-repo conformance test; no new rule is needed. Rename the rule and constants to the internal space and document the dependency semantics: runtime dependencies (`dependencies`, `optionalDependencies`, `peerDependencies`) on `internal/*` from outside are banned; `devDependencies` and test consumption are allowed — the first resident's consumer relies on this carve-out.
 - Audit the repo for internal-package candidates — `ts/packages/*` packages that are actually repo-internal (e.g. `@ns/vibechk` in `ts/packages/tools/`), machinery embedded in test-support trees, justfile-recipe-backed scripts, `.ns/*` tooling already in the pnpm workspace (`../.ns/reviews/*/tools/*`), and Pi extensions — producing a per-candidate promote/keep/park recommendation.
-- Migrate one proving resident: extract the subpackage conformance machinery from `infra/core` test support into a proper internal package. Its only current consumer is the style-guard suite itself, so the extraction proves the charter rather than enabling reuse.
+- Migrate one proving resident: extract the subpackage conformance machinery from `infra/foundation` test support into a proper internal package. Its only current consumer is the style-guard suite itself, so the extraction proves the charter rather than enabling reuse.
 
 ## Non-Goals
 
@@ -35,7 +35,7 @@ Assumptions:
 
 - `ts/packages/local/` holds only `@internal/pi-tools`, so the directory rename is mechanically small (verified 2026-07-04).
 - The pnpm workspace glob `packages/*/*` covers the renamed directory without workspace config changes (verified in `ts/pnpm-workspace.yaml`).
-- The boundary rule already exists as `NS_TS_LOCAL_SPACE_ADMISSION` in `ts/packages/infra/core/test/support/typescript-style-guard/local-space.ts`, with a failing-case test and a real-repo conformance test; its edge collector deliberately scopes to runtime dependency fields, leaving `devDependencies` and source imports out of scope (verified 2026-07-04).
+- The boundary rule already exists as `NS_TS_LOCAL_SPACE_ADMISSION` in `ts/packages/infra/foundation/test/support/typescript-style-guard/local-space.ts`, with a failing-case test and a real-repo conformance test; its edge collector deliberately scopes to runtime dependency fields, leaving `devDependencies` and source imports out of scope (verified 2026-07-04).
 - The subpackage system is the right first resident: it is deterministic, tested, and currently homed in another package's test tree.
 
 Risks:

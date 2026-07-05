@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
-import { commandSucceeded, formatCommandFailure, type CommandExecApi } from "@nseng-ai/core/command";
-import { NodeCommandExecApi } from "@nseng-ai/core/exec";
+import { commandSucceeded, formatCommandFailure, type CommandExecApi } from "@nseng-ai/foundation/command";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 
 export interface ScannerIo {
   changedFiles(diffBase: string): Promise<IoResult<readonly string[]>>;

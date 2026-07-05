@@ -1,6 +1,6 @@
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
 import { commandBackedSkillSurface } from "@nseng-ai/command-backed-skill-registry";
-import { optionalEntries, optionalEntry } from "@nseng-ai/core/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

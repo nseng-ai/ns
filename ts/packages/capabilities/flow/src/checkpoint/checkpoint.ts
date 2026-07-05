@@ -1,7 +1,7 @@
-import { runCommand } from "@nseng-ai/core/exec";
-import type { CommandRunner, ExecResult } from "@nseng-ai/core/command";
+import { runCommand } from "@nseng-ai/foundation/exec";
+import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
-import { formatElapsedMs } from "@nseng-ai/core/time-format";
+import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import type { TextRepairProgressEvent } from "@nseng-ai/capability-kit/text-repair";
 import {
