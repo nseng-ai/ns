@@ -40,9 +40,18 @@
 - [ ] Replace the checkout-dependent shims (pnpm `.bin/ji` `NODE_PATH`; installer template
       `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`) for
       the published package.
-- [ ] Publish a versioned package to npm under the `@ji` scope and confirm a global/`npx`
-      install runs `ji objective …` against a foreign repo.
-  - Evidence: the `ship-objectives-to-customers` end-to-end verification can install `ji`
+- [ ] Decide the published npm name for every standalone-published package
+      (`@ns/capability-kit` and `@ns/flow` at minimum, plus `@ns/kernel` or its wrapper and
+      the already-public capability packages) and the workspace-to-published name mapping
+      strategy — rename workspace packages to their published names vs per-package
+      publish-root generation with dependency-name rewriting. The single-manifest
+      `@ns/cli` → `@nseng-ai/ns` rename works only because the CLI bundle inlines its
+      workspace dependencies; it does not extend to a published dependency graph.
+      (Decision recorded 2026-07-05: standalone publishing is committed, see
+      `updates/20260705T123551Z-standalone-package-publishing-decision.md`.)
+- [ ] Publish a versioned `@nseng-ai/ns` package to npm and confirm a global/`npx`
+      install runs `ns objective …` against a foreign repo.
+  - Evidence: the `ship-objectives-to-customers` end-to-end verification can install `ns`
     from npm.
 
 ## Parked

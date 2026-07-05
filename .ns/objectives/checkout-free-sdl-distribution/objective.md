@@ -29,9 +29,11 @@ checkout-free distribution is the biggest, riskiest chunk of that thread **and**
 every capability, not just objectives. `ship-objectives-to-customers` consumes this as a
 hard dependency.
 
-Naming note: the ADR 0024 `sdl` → `ji` rename has landed in the workspace (`@ji/*`
-packages, `ji` bin, `.ji/extensions`); this Objective's slug keeps the historical `sdl`
-name as its durable identity.
+Naming note: the ADR 0024 `sdl` → `ji` rename landed and has since been superseded by
+the `rename-ji-to-ns` cutover, which has landed in the workspace (`@ns/*` packages, `ns`
+bin, `.ns/extensions`); the external publish scope is `@nseng-ai`. This Objective's slug
+keeps the historical `sdl` name as its durable identity, and older prose below retains
+historical `ji` names where it describes the pre-work state.
 
 ## Scope
 
@@ -53,8 +55,8 @@ name as its durable identity.
   publish, bundle-inline, or exclude. `@ji/objective` and the other capability packages are
   already non-private. The kernel also depends on external published npm packages
   (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`).
-- **Publish a versioned package to npm** under the `@ji` scope (ADR 0024), with the `ji`
-  bin working checkout-free.
+- **Publish a versioned package to npm** as `@nseng-ai/ns` (per the `rename-ji-to-ns`
+  edge, superseding the ADR 0024 `@ji` scope), with the `ns` bin working checkout-free.
 - **Replace the checkout-dependent shims.** The pnpm `.bin/ji` shim hard-codes this
   checkout's `NODE_PATH`; the installer shim template
   (`ts/scripts/source-cli-shim-template`) `run_checkout` refuses to run without
@@ -102,8 +104,9 @@ Risks:
 - Bundling is currently an explicit non-default (`.ji/extensions/AGENTS.md`: checked-in
   bundled artifacts are "a liability"); this Objective must define the sanctioned bundled
   path deliberately.
-- The `rename-sdl-to-ji` Objective is still open; residual `sdl` vocabulary (including
-  this record's edge annotations) may churn under published naming decisions.
+- The `rename-ji-to-ns` Objective is still open (`rename-sdl-to-ji` has closed); residual
+  `ji`/`sdl` vocabulary (including this record's edge annotations) may churn under
+  published naming decisions.
 
 ## Open Questions
 
@@ -115,10 +118,20 @@ Risks:
 - ~~jiti vs prebuilt JS~~ — resolved at strategy level: prebuilt JS is the runtime path
   for first-party capabilities. Residual: how much jiti (if any) ships in the published
   package for user/repo-local extensions.
-- ~~Package name/scope for the published CLI~~ — resolved by the `rename-sdl-to-ji`
-  objective (ADR 0024, `docs/adr/0024-rename-sdl-to-ji.md`): publish under the `@ji`
-  scope with the CLI bin installing as `ji`. The published CLI's inner package name (for
-  example `@ji/cli`) remains this objective's call.
-- Which of the 7 remaining private packages get un-privated vs bundle-inlined vs folded
-  into existing published packages (continuing the consolidation direction that retired
-  `@sdl/time`, `@sdl/exec`, and `@sdl/git` as standalone packages)?
+- ~~Package name/scope for the published CLI~~ — first resolved by `rename-sdl-to-ji`
+  (ADR 0024) as the `@ji` scope, since superseded by the `rename-ji-to-ns` edge: the
+  external publish target is `@nseng-ai/ns` with the CLI bin installing as `ns`. The
+  workspace source owner is `@ns/cli`, whose generated publish root carries the external
+  name (see `updates/20260705T122345Z-local-ns-cli-bundle-smoke.md`). Published names for
+  the other publish-classified runtime packages (`@ns/kernel`, `@ns/capability-kit`,
+  `@ns/flow`, `@ns/objective` and sibling capability packages) remain undecided — and are
+  now required work, since standalone publishing is committed for many packages
+  (`updates/20260705T123551Z-standalone-package-publishing-decision.md`).
+- ~~Which of the remaining private packages get un-privated vs bundle-inlined vs folded
+  into existing published packages~~ — resolved by the triage table
+  (`updates/20260704T235456Z-runtime-dependency-triage-decisions.md`) plus the 2026-07-05
+  decision that many packages publish standalone, `@ns/capability-kit` and `@ns/flow` at
+  minimum (`updates/20260705T123551Z-standalone-package-publishing-decision.md`).
+- The workspace-to-published name mapping for standalone packages: rename workspace
+  packages to their published names, or own per-package publish-root generation with
+  dependency-name rewriting? The `@ns` scope's public-registry availability is unverified.
