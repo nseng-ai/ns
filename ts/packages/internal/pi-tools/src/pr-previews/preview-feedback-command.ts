@@ -1,11 +1,8 @@
 import { z } from "zod";
 
 import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
-import {
-	missingPreviewTargetMessage,
-	PREVIEW_OVERLAY_MARGIN,
-	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
-} from "./preview-view-utilities.ts";
+import { missingPreviewTargetMessage } from "./preview-view-utilities.ts";
+import { OVERLAY_MARGIN, OVERLAY_MAX_HEIGHT_RATIO } from "../overlay-kit/viewport.ts";
 import type {
 	PrPreviewFeedbackComment,
 	PrPreviewFeedbackCounts,
@@ -187,8 +184,8 @@ async function runPrPreviewFeedbackCommand(
 				overlay: true,
 				overlayOptions: {
 					width: "90%",
-					maxHeight: `${Math.round(PREVIEW_OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
-					margin: PREVIEW_OVERLAY_MARGIN,
+					maxHeight: `${Math.round(OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
+					margin: OVERLAY_MARGIN,
 				},
 				onHandle: (handle: { focus(): void }) => handle.focus(),
 			},

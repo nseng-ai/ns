@@ -10,14 +10,7 @@
  * header. Row ordering follows the model — `model.prs` is top-of-stack first —
  * and the trunk is carried separately on `model.trunk`.
  */
-import {
-	PREVIEW_OVERLAY_MARGIN,
-	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
-	sliceWrappedDetailLinesForViewport,
-	wrapDetailLines,
-	type WrappedDetailViewport,
-	type WrappedDetailViewportOptions,
-} from "../pr-previews/preview-view-utilities.ts";
+import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
@@ -39,9 +32,6 @@ import type {
 	StackViewPr,
 	StackViewThreadDetail,
 } from "./types.ts";
-
-export const STACK_OVERLAY_MAX_HEIGHT_RATIO = PREVIEW_OVERLAY_MAX_HEIGHT_RATIO;
-export const STACK_OVERLAY_MARGIN = PREVIEW_OVERLAY_MARGIN;
 
 /** The rollup bucket a single stack row lands in for the header tally. */
 export type StackRollupBucket = "failing" | "unresolved" | "pending" | "ready" | "draft" | "no-pr";
@@ -323,12 +313,6 @@ function appendObjectives(rows: StackDetailRow[], pr: StackViewPr): void {
 	rows.push({ role: "objectives", text: `objectives: ${pr.objectiveSlugs.join(", ")}` });
 }
 
-/** Viewport slice for the detail pane. */
-export type StackDetailViewportOptions = WrappedDetailViewportOptions;
-
-/** The visible slice of wrapped detail lines plus the resolved scroll bounds. */
-export type StackDetailViewport = WrappedDetailViewport;
-
 export interface AnchoredStackViewportOptions {
 	lines: readonly string[];
 	width: number;
@@ -344,25 +328,16 @@ export interface AnchoredStackViewport {
 }
 
 /**
- * Wrap each detail line to `width`, preserving blank lines, via the shared
- * pr-previews viewport helper.
+ * Slice a detail-line viewport anchored at the `start` or `end` of the wrapped
+ * content. `start` defers to the shared {@link sliceWrappedDetailLinesForViewport}
+ * (top-anchored); `end` keeps the tail visible — the compose transcript scrolls
+ * up from its newest line — over the same shared {@link wrapDetailLines}.
  */
-export function wrapStackDetailLines(lines: readonly string[], width: number): string[] {
-	return wrapDetailLines(lines, width);
-}
-
-/** Wrap the detail lines, clamp the scroll to the wrapped bounds, and slice the visible rows. */
-export function sliceStackDetailLinesForViewport(
-	options: StackDetailViewportOptions,
-): StackDetailViewport {
-	return sliceWrappedDetailLinesForViewport(options);
-}
-
 export function sliceAnchoredStackLinesForViewport(
 	options: AnchoredStackViewportOptions,
 ): AnchoredStackViewport {
 	if (options.anchor === "start") return sliceWrappedDetailLinesForViewport(options);
-	const wrapped = wrapStackDetailLines(options.lines, options.width);
+	const wrapped = wrapDetailLines(options.lines, options.width);
 	const maxScroll = Math.max(0, wrapped.length - options.rows);
 	const scroll = clamp(options.scroll, 0, maxScroll);
 	const end = wrapped.length - scroll;

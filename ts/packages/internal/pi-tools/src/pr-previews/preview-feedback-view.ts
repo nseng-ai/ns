@@ -13,20 +13,13 @@ import {
 } from "./preview-feedback-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
 import {
-	PREVIEW_OVERLAY_MARGIN,
-	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
-	sliceWrappedDetailLinesForViewport,
-	wrapDetailLines,
-} from "./preview-view-utilities.ts";
-import type {
-	WrappedDetailViewport,
-	WrappedDetailViewportOptions,
-} from "./preview-view-utilities.ts";
-
-const FALLBACK_TERMINAL_ROWS = 24;
-const MIN_RENDER_WIDTH = 40;
-
-export { PREVIEW_OVERLAY_MARGIN, PREVIEW_OVERLAY_MAX_HEIGHT_RATIO };
+	overlayChromeRows,
+	overlayInnerWidth,
+	overlayModalRows,
+	overlayTerminalRows,
+	renderOverlayFrame,
+} from "../overlay-kit/frame.ts";
+import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
 
@@ -44,9 +37,6 @@ export interface PrPreviewFeedbackViewOptions {
 	model: PrPreviewFeedbackViewModel;
 	onClose: () => void;
 }
-
-export { sliceWrappedDetailLinesForViewport };
-export type { WrappedDetailViewport, WrappedDetailViewportOptions };
 
 export class PrPreviewFeedbackView implements Component {
 	private readonly tui: TUI;
@@ -68,26 +58,22 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	render(width: number): string[] {
-		const safeWidth = Math.max(MIN_RENDER_WIDTH, width);
-		const innerWidth = Math.max(1, safeWidth - 2);
-		const height = this.modalRows();
+		const innerWidth = overlayInnerWidth(width);
+		const height = overlayModalRows(overlayTerminalRows(this.tui.terminal.rows));
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
 			"↑↓/jk select · PgUp/PgDn scroll · q/esc close · preview only",
 		);
-		const chromeRows = 2 + header.length + 1 + 1 + 1;
-		const bodyRows = Math.max(1, height - chromeRows);
+		const bodyRows = Math.max(1, height - overlayChromeRows(header.length));
 		const body = this.renderBody(innerWidth, bodyRows);
-		return [
-			this.border({ left: "┌", fill: "─", right: "┐", width: safeWidth }),
-			...header.map((line) => this.boxLine(line, innerWidth)),
-			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
-			...body.map((line) => this.boxLine(line, innerWidth)),
-			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
-			this.boxLine(footer, innerWidth),
-			this.border({ left: "└", fill: "─", right: "┘", width: safeWidth }),
-		].map((line) => fitToWidth(line, width));
+		return renderOverlayFrame({
+			header,
+			body,
+			footer,
+			width,
+			colorizeBorder: (text) => this.color("border", text),
+		});
 	}
 
 	handleInput(data: string): void {
@@ -114,22 +100,6 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	invalidate(): void {}
-
-	private terminalRows(): number {
-		return this.tui.terminal.rows ?? FALLBACK_TERMINAL_ROWS;
-	}
-
-	/**
-	 * Number of rows the modal may render before the host overlay clips it. Mirrors
-	 * the TUI's `maxHeight = min(floor(rows * ratio), rows - 2 * margin)` so the
-	 * footer and bottom border stay inside the visible overlay.
-	 */
-	private modalRows(): number {
-		const rows = this.terminalRows();
-		const available = Math.max(1, rows - 2 * PREVIEW_OVERLAY_MARGIN);
-		const budget = Math.min(Math.floor(rows * PREVIEW_OVERLAY_MAX_HEIGHT_RATIO), available);
-		return Math.max(1, budget);
-	}
 
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
@@ -261,17 +231,6 @@ export class PrPreviewFeedbackView implements Component {
 
 	private color(color: PreviewThemeColor, value: string): string {
 		return this.theme.fg(color, value);
-	}
-
-	private border(options: { left: string; fill: string; right: string; width: number }): string {
-		return this.color(
-			"border",
-			`${options.left}${options.fill.repeat(Math.max(0, options.width - 2))}${options.right}`,
-		);
-	}
-
-	private boxLine(value: string, width: number): string {
-		return this.color("border", "│") + fitToWidth(value, width) + this.color("border", "│");
 	}
 }
 

@@ -14,11 +14,9 @@ import {
 	buildThreadRowLabel,
 	type PrPreviewFeedbackThread,
 } from "../../src/pr-previews/preview-feedback-model.ts";
-import {
-	buildCountMismatchNotice,
-	sliceWrappedDetailLinesForViewport,
-} from "../../src/pr-previews/preview-feedback-view.ts";
+import { buildCountMismatchNotice } from "../../src/pr-previews/preview-feedback-view.ts";
 import { missingPreviewTargetMessage } from "../../src/pr-previews/preview-view-utilities.ts";
+import { sliceWrappedDetailLinesForViewport } from "../../src/overlay-kit/viewport.ts";
 
 const ROOT = "/repo";
 
