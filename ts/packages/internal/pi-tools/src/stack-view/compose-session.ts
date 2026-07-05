@@ -1,32 +1,21 @@
 /**
- * The I/O half of the stack-view compose subsystem: a side-channel drafting
- * agent running in a private, tool-less Pi {@link AgentSession}. This module owns
- * only the external Pi wiring — spawning the session, mapping its raw events onto
- * the pure {@link ComposeSessionEvent} stream, and forwarding prompts — so the
- * pure transcript/draft/prompt modules and the controller state machine stay
- * dependency-light and testable against the {@link ComposeSessionFactory} seam.
- *
- * The compose agent is context-only: it reads the stack model and enrichment
- * baked into its system prompt and replies in prose plus a draft block. It runs
- * with `tools: []` (an empty allowlist → no tools enabled), so tool events are
- * unreachable and mapped to nothing.
+ * The I/O half of the stack-view compose subsystem: a thin specialization of the
+ * shared Pi side-session (see `../side-session/`). The compose agent is
+ * context-only — it runs with an empty tool allowlist (`tools: []`), so the
+ * shared session never emits tool events; this module narrows the shared
+ * {@link SideSessionEvent} stream to the tool-less {@link ComposeSessionEvent}
+ * the pure transcript reducer and controller state machine consume.
  */
 import type { Api, Model } from "@earendil-works/pi-ai";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
-	DefaultResourceLoader,
-	SessionManager,
-	SettingsManager,
-	createAgentSession,
-	getAgentDir,
-	type AgentSession,
-	type AgentSessionEvent,
-	type AgentSessionEventListener,
-	type ModelRegistry,
-} from "@earendil-works/pi-coding-agent";
-import { errorMessage } from "@nseng-ai/pi/shared/errors";
+	createPiSideSessionFactory,
+	type SideSession,
+	type SideSessionAskResult,
+} from "../side-session/factory.ts";
 import type { ComposeSessionEvent } from "./compose-transcript.ts";
 
-export type ComposeAskResult = { ok: true } | { ok: false; message: string };
+export type ComposeAskResult = SideSessionAskResult;
 
 export interface ComposeSession {
 	subscribe(listener: (event: ComposeSessionEvent) => void): () => void;
@@ -37,7 +26,7 @@ export interface ComposeSession {
 
 export type CreateComposeSessionResult =
 	| { ok: true; value: ComposeSession }
-	| { ok: false; message: string };
+	| { ok: false; code: "spawn-failed"; message: string };
 
 export interface ComposeSessionFactory {
 	create(options: {
@@ -48,98 +37,46 @@ export interface ComposeSessionFactory {
 	}): Promise<CreateComposeSessionResult>;
 }
 
-/**
- * Map a raw {@link AgentSessionEvent} onto the compose event stream. Text deltas,
- * assistant message end, auto-retry, and turn end carry through; every other
- * event (including tool execution, unreachable without tools) maps to null.
- */
-export function mapComposeSessionEvent(event: AgentSessionEvent): ComposeSessionEvent | null {
-	switch (event.type) {
-		case "message_update":
-			if (event.assistantMessageEvent.type === "text_delta")
-				return { type: "assistant-delta", text: event.assistantMessageEvent.delta };
-			return null;
-		case "message_end":
-			return event.message.role === "assistant" ? { type: "assistant-end" } : null;
-		case "auto_retry_start":
-			return {
-				type: "retry",
-				attempt: event.attempt,
-				maxAttempts: event.maxAttempts,
-				message: event.errorMessage,
-			};
-		case "turn_end":
-			return { type: "turn-end" };
-		default:
-			return null;
-	}
-}
-
 export function createPiComposeSessionFactory(): ComposeSessionFactory {
+	const factory = createPiSideSessionFactory();
 	return {
 		async create(options) {
-			try {
-				const settingsManager = SettingsManager.inMemory();
-				const resourceLoader = new DefaultResourceLoader({
-					cwd: options.cwd,
-					agentDir: getAgentDir(),
-					settingsManager,
-					noExtensions: true,
-					noSkills: true,
-					noPromptTemplates: true,
-					noContextFiles: true,
-					systemPrompt: options.systemPrompt,
-					appendSystemPrompt: [],
-				});
-				await resourceLoader.reload();
-				const { session } = await createAgentSession({
-					cwd: options.cwd,
-					model: options.model,
-					modelRegistry: options.modelRegistry,
-					// Empty allowlist → no tools enabled (context-only drafting agent).
-					tools: [],
-					resourceLoader,
-					sessionManager: SessionManager.inMemory(options.cwd),
-					settingsManager,
-					thinkingLevel: "off",
-				});
-				return { ok: true, value: new PiComposeSession(session) };
-			} catch (error) {
-				return { ok: false, message: errorMessage(error) };
-			}
+			// Empty allowlist → no tools enabled (context-only drafting agent).
+			const result = await factory.create({ ...options, tools: [] });
+			if (!result.ok) return result;
+			return { ok: true, value: new PiComposeSession(result.value) };
 		},
 	};
 }
 
+/**
+ * Narrows the shared side-session's event stream to {@link ComposeSessionEvent}.
+ * Tool events are unreachable with `tools: []`; the guard filters them defensively
+ * and lets the compiler narrow the remainder onto the compose event union.
+ */
 class PiComposeSession implements ComposeSession {
-	private readonly session: AgentSession;
+	private readonly inner: SideSession;
 
-	constructor(session: AgentSession) {
-		this.session = session;
+	constructor(inner: SideSession) {
+		this.inner = inner;
 	}
 
 	subscribe(listener: (event: ComposeSessionEvent) => void): () => void {
-		const wrapped: AgentSessionEventListener = (event) => {
-			const mapped = mapComposeSessionEvent(event);
-			if (mapped !== null) listener(mapped);
-		};
-		return this.session.subscribe(wrapped);
+		return this.inner.subscribe((event) => {
+			if (event.type === "tool-start" || event.type === "tool-end") return;
+			listener(event);
+		});
 	}
 
-	async ask(text: string): Promise<ComposeAskResult> {
-		try {
-			await this.session.prompt(text, { expandPromptTemplates: false });
-			return { ok: true };
-		} catch (error) {
-			return { ok: false, message: errorMessage(error) };
-		}
+	ask(text: string): Promise<ComposeAskResult> {
+		return this.inner.ask(text);
 	}
 
-	async abortTurn(): Promise<void> {
-		await this.session.abort();
+	abortTurn(): Promise<void> {
+		return this.inner.abortTurn();
 	}
 
 	dispose(): void {
-		this.session.dispose();
+		this.inner.dispose();
 	}
 }

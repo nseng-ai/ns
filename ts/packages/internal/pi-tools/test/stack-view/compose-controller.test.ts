@@ -345,7 +345,7 @@ describe("compose controller", () => {
 
 	test("spawn failure is sticky and does not retry the factory", async () => {
 		const factory = new FakeComposeSessionFactory({
-			result: { ok: false, message: "boom" },
+			result: { ok: false, code: "spawn-failed", message: "boom" },
 		});
 		const enrichment = new FakeEnrichmentPort();
 		const { controller } = createHarness({ factory, enrichment });
@@ -416,7 +416,9 @@ describe("compose controller", () => {
 	});
 
 	test("a failed ask surfaces a notice and clears streaming", async () => {
-		const session = new FakeComposeSession({ askResult: { ok: false, message: "nope" } });
+		const session = new FakeComposeSession({
+			askResult: { ok: false, code: "prompt-failed", message: "nope" },
+		});
 		const factory = new FakeComposeSessionFactory({ result: { ok: true, value: session } });
 		const { controller } = createHarness({ factory });
 
