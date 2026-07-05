@@ -137,6 +137,11 @@
       "sourceType": "local",
       "computedHash": "75ac551d6427ce3fbf8f1cbb6576e48192f5ee6551a3b596050b1f50dc37caf6"
     },
+    "docs-retro": {
+      "source": "skills/docs-retro",
+      "sourceType": "local",
+      "computedHash": "2c954157b91800ee98567cb56acebbed505714e81f8a17da96b9587e2631f528"
+    },
     "domain-modeling": {
       "source": "mattpocock/skills",
       "sourceType": "github",

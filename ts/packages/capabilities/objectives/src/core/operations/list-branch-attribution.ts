@@ -1,5 +1,6 @@
 import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@nseng-ai/capability-kit/git";
 
+import type { ObjectiveCliContext } from "../context.ts";
 import { activeRootRelativePath, objectiveSlugFromActivePath } from "../storage.ts";
 
 export const MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS = 50;
@@ -14,6 +15,19 @@ export interface BuildObjectiveBranchAttributionParams {
 	trunkBranch: string;
 	slugs: ReadonlySet<string>;
 	maxBranchWalks?: number;
+}
+
+export async function buildObjectiveBranchAttributionForContext(
+	ctx: ObjectiveCliContext,
+	slugs: ReadonlySet<string>,
+): Promise<
+	{ type: "ok"; value: ObjectiveBranchAttribution } | { type: "git-error"; error: GitErrorInfo }
+> {
+	return await buildObjectiveBranchAttribution(ctx.git, {
+		repoRoot: ctx.repoRoot,
+		trunkBranch: ctx.trunkBranch,
+		slugs,
+	});
 }
 
 export async function buildObjectiveBranchAttribution(
