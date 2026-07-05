@@ -61,3 +61,13 @@ Risks:
 ## Open Questions
 
 - What future recover-mode dogfooding reveals about the parked automatic-supervisor question now that the blocking command is gone.
+
+## Closure
+
+Closed as completed on 2026-07-05. The Objective delivered the ADR 0024 decomposed Objective Runner surface: `ns objective exec runner-begin` and `runner-finish` are the canonical Pi-free bookends, the runner core owns verification and commit provenance, and the parent playbook skills (`objective-runner-step` and `objective-autorun`) document the consumer-side checkpoint contract.
+
+The final legacy-deletion slice is complete: the blocking `exec-runner-step` command, `ChildSessionGateway` seam and fake, event channel, Pi child-session adapter, marker-block parsing, legacy exports, extension registrations, and legacy-only tests were removed while preserving `exec-runner-subagent-usage`. The frozen `/objective:autopilot` extension had already been replaced by `/objective:autorun` on master.
+
+Completion evidence is recorded in the roadmap and the 2026-07-05 Semantic Updates: product steering accepted decomposed-flow dogfooding as sufficient for deletion, focused objectives-package checks and tests passed, and broader validation (`just ts-check`, `just ts-lint`, `just ts-test`, `just ts-test-integration`, `just ts-test-typescript-style-guard`, `just dprint-check`) passed after removal.
+
+The only material caveat is historical: no recover-mode dogfooding evidence was produced before closure. Future recover-mode findings should inform the parked automatic-supervisor/recovery-policy question rather than reopening or reviving the deleted blocking runner-step machinery.
