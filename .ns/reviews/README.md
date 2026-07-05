@@ -1,4 +1,4 @@
-# SDL reviews
+# NS reviews
 
 Roaster review definitions live at `.ns/reviews/<key>/review.md`.
 

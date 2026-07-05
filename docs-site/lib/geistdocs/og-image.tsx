@@ -43,7 +43,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
 
   const pageMetadata = getPageMetadata(page, {
     fallbackDescription: "Composable tooling for plan-oriented agentic engineering.",
-    fallbackTitle: "sdl Documentation",
+    fallbackTitle: "ns Documentation",
   });
 
   return new ImageResponse(
@@ -76,7 +76,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
             textTransform: "uppercase",
           }}
         >
-          sdl Docs
+          ns Docs
         </div>
         <div
           style={{
@@ -109,7 +109,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
         }}
       >
         <div>Plan-oriented agentic engineering</div>
-        <div style={{ color: "#bfdbfe" }}>sdl.tools</div>
+        <div style={{ color: "#bfdbfe" }}>ns.tools</div>
       </div>
     </div>,
     {

@@ -1819,7 +1819,7 @@ describe("land-stack command scenarios", () => {
 			step("gt", ["delete", "feature-a", "-f", "-q"], {
 				code: 1,
 				stderr: [
-					"CONFLICT (content): Merge conflict in skills/sdl-typescript/SKILL.md",
+					"CONFLICT (content): Merge conflict in skills/ns-typescript/SKILL.md",
 					"error: could not apply 01034275d... Migrate optional-undefined preserves to typed explicit contracts",
 					"hint: Resolve all conflicts manually, mark them as resolved with git add/rm, then run git rebase --continue.",
 				].join("\n"),

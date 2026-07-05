@@ -2,7 +2,7 @@
 
 **Status:** Updated disposition on 2026-06-04. The separate prototype/general Objective implementation runner direction has been superseded by folding confirmed execution into `objective-next` as the user-facing front door.
 
-**Context:** Comparison of `aigorahub/elves`, Karpathy's `autoresearch`, Sakana AI Scientist, and Ralph against sdl's Objective system surfaced a missing capability: Objectives that can be advanced autonomously or continuously without turning the Objective record into a workflow controller.
+**Context:** Comparison of `aigorahub/elves`, Karpathy's `autoresearch`, Sakana AI Scientist, and Ralph against ns's Objective system surfaced a missing capability: Objectives that can be advanced autonomously or continuously without turning the Objective record into a workflow controller.
 
 This document is a design brief, not the canonical Objective spec. The canonical checked-in Objective mechanics remain in [`docs/objective-system.md`](../objective-system.md).
 

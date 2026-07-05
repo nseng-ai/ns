@@ -23,7 +23,7 @@
 		"zod": "catalog:"
 	},
 	"ns": {
-		"description": "Manage the SDL worktree slot pool.",
+		"description": "Manage the NS worktree slot pool.",
 		"tier": "capability",
 		"subpackages": [
 			"api",

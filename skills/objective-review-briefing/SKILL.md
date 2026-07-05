@@ -1,14 +1,14 @@
 ---
 name: objective-review-briefing
 disable-model-invocation: true
-description: "Use when asked to create, produce, reconstruct, or write a review briefing/basis for an sdl Objective, especially post-merge Objective review, closed Objective review, delivered-scope review, Objective archaeology, or materializing an Objective's delivered PR/commit set for arbitrary downstream review. Produces an objective-owned Branch Memory briefing and is read-only on Objective records."
+description: "Use when asked to create, produce, reconstruct, or write a review briefing/basis for an ns Objective, especially post-merge Objective review, closed Objective review, delivered-scope review, Objective archaeology, or materializing an Objective's delivered PR/commit set for arbitrary downstream review. Produces an objective-owned Branch Memory briefing and is read-only on Objective records."
 metadata:
   internal: true
 ---
 
 # objective-review-briefing
 
-Produce a durable, review-agnostic briefing for one sdl Objective's delivered unit of work. The briefing is a basis for arbitrary downstream review prompts or skills; this skill does **not** run a review lens itself.
+Produce a durable, review-agnostic briefing for one ns Objective's delivered unit of work. The briefing is a basis for arbitrary downstream review prompts or skills; this skill does **not** run a review lens itself.
 
 This is part of the Objective skill family. Use the `objective` umbrella for shared Objective vocabulary and selection rules when needed.
 

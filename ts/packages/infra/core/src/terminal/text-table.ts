@@ -136,7 +136,7 @@ function styled(value: string, style: TextTableStyle | undefined, canEmitAnsi: b
  * zero-width code points count as 0, East Asian wide / fullwidth and most emoji count as 2, everything
  * else counts as 1. Grapheme clusters built from ZWJ sequences are not collapsed, so exotic emoji
  * sequences can over-count; that is acceptable for the slug/status/timestamp content these tables carry.
- * Keep this local to sdl-core rather than depending on a TUI package for core CLI rendering.
+ * Keep this local to ns-core rather than depending on a TUI package for core CLI rendering.
  */
 export function displayWidth(value: string): number {
 	let width = 0;

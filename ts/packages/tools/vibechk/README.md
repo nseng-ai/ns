@@ -49,7 +49,7 @@ Until `publish` exists, generate a report with `vibechk diff` and paste it into 
 
 ### Installation
 
-From the sdl-tools checkout, install the `vibechk` source shim:
+From the ns checkout, install the `vibechk` source shim:
 
 ```bash
 just install-vibechk

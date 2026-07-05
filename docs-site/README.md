@@ -1,8 +1,8 @@
-# sdl docs site
+# ns docs site
 
 ## Purpose and content boundary
 
-This is sdl's published documentation site. It is a standalone Next.js App Router + Fumadocs app using `@vercel/geistdocs`.
+This is ns's published documentation site. It is a standalone Next.js App Router + Fumadocs app using `@vercel/geistdocs`.
 
 Published content lives under `docs-site/docs/`. The repository-root `docs/` tree is internal engineering documentation and is not published by this site.
 

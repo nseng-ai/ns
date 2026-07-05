@@ -35,7 +35,7 @@ describe("areg source CLI shim rendering", () => {
 		expect(result.rendered).toContain("tool=areg\n");
 		expect(result.rendered).toContain("fallback_mode=literal\n");
 		expect(result.rendered).toContain(`cli_rel_path=${CLI_REL_PATH}\n`);
-		expect(result.rendered).toContain("no sdl checkout found");
+		expect(result.rendered).toContain("no ns checkout found");
 		expect(result.rendered).not.toContain("no asdl checkout found");
 		expect(result.rendered).not.toContain("ts/packages/areg/src/cli.ts");
 		expect(result.rendered).toContain("canonical_checkout='");

@@ -1,6 +1,6 @@
 # Internal Import Alternatives
 
-sdl-tools currently uses relative `.ts` imports inside a package and curated workspace subpath exports
+ns currently uses relative `.ts` imports inside a package and curated workspace subpath exports
 between packages. Keep that convention unless a future migration deliberately changes the build/runtime
 model.
 
@@ -31,9 +31,9 @@ emitted `.js` at runtime. The benefits are real:
 - less `../../..` path noise in deep packages;
 - a single package-level manifest of public-ish internal paths.
 
-## Why sdl defers it
+## Why ns defers it
 
-sdl-tools runs TypeScript source directly and has `noEmit: true`, so the main compiled-ESM benefit does
+ns runs TypeScript source directly and has `noEmit: true`, so the main compiled-ESM benefit does
 not apply. The repository already has a working convention:
 
 - relative `.ts` imports for private intra-package code;

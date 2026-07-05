@@ -76,7 +76,7 @@ describe("RealGitBrmemGateway integration", () => {
 		try {
 			mkdirSync(join(repo.path, "ts"));
 			const gateway = realGitBrmemGateway(join(repo.path, "ts"));
-			const key = "reviews/sdl-typescript-style/log.md";
+			const key = "reviews/ns-typescript-style/log.md";
 			expect(
 				(
 					await gateway.putEntry({

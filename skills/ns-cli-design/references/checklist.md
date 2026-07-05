@@ -1,6 +1,6 @@
 # Pre-ship checklist for a Clinkr command
 
-The completion criterion for `sdl-cli-design`: a command's design is done only
+The completion criterion for `ns-cli-design`: a command's design is done only
 when every box below is checked. Each maps to a rule in `SKILL.md`; a failure is
 a design bug, not a style nit.
 
@@ -17,7 +17,7 @@ a design bug, not a style nit.
 - [ ] `failure`/`negative` carry structured `data`; `errorType` is a stable,
       disciplined per-command string with no global enum (ADR 0010).
 - [ ] Serialized enum-like values (`errorType`, command-local
-      `code`/`type`/`status`/`kind`) are kebab-case for ji-owned contracts — no
+      `code`/`type`/`status`/`kind`) are kebab-case for ns-owned contracts — no
       snake_case, no aliases; external wire values keep their spelling and are typed
       as literal unions (ADR 0010).
 - [ ] Invalid invocation returns `usageError(...)` whose `data` names the

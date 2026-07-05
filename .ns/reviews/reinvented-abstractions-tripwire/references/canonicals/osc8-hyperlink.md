@@ -2,7 +2,7 @@
 
 - Kind key: `osc8-hyperlink`
 - Canonical: safeTerminalHyperlink / terminalHyperlink / sanitizeTerminalHyperlinkUrl
-- Import/path hints: @sdl/core/terminal-presentation
+- Import/path hints: @ns/core/terminal-presentation
 - Raw-form tell: raw OSC-8 marker ]8;; or equivalent ESC construction
 - Why reuse matters: URL sanitization and protocol/control-character policy
 - Structural exemptions: the terminal-presentation canonical implementation itself

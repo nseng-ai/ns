@@ -1,13 +1,13 @@
 ---
-name: sdl-typescript
-description: "TypeScript overlay for sdl-tools. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
+name: ns-typescript
+description: "TypeScript overlay for ns. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
 references:
   - references/internal-import-alternatives
 ---
 
-# sdl-typescript
+# ns-typescript
 
-Follow `typescript-style` for how TypeScript code reads. This skill is the sdl-tools project overlay:
+Follow `typescript-style` for how TypeScript code reads. This skill is the ns project overlay:
 toolchain, compiler baseline, import conventions, and local bans.
 
 Load this after `typescript-style` whenever the task touches TypeScript in this repository.
@@ -76,7 +76,7 @@ const options = {
 ```
 
 This is intentional. Do not copy rules from projects that ban this pattern unless they also share
-sdl's `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
+ns `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
 to omitting `env`.
 
 Preferred review fix: when a finding is caused by `prop: maybeUndefined`, rewrite construction to omit
@@ -120,15 +120,15 @@ Review guidance:
 
 Follow the portable `typescript-style` rule: first-party dependencies must be encoded as typed
 fields, parameters, gateway methods, or curated APIs instead of implicit string-keyed bags.
-In ji, `SdlExtensionApi.extensions` remains available only for genuinely project-local or
+In ns, extension API dynamic data remains available only for genuinely project-local or
 extension-owned dynamic data. Do not use it to transport first-party SDK/capability values between
 packages; promote those values to typed SDK fields, Capability API parameters, or gateway seams. For
 example, prefer `ctx.renderCapabilities: RenderCapabilities` over
-`ctx.extensions?.["ji.clinkr.caps"]`.
+`ctx.extensions?.["ns.clinkr.caps"]`.
 
 ## Time seams
 
-Production ji TypeScript should not hand-roll raw timers. Use `Clock` from `@ns/core/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@ns/core/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@ns/core/time`, `unrefTimerScheduler` from `@ns/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@ns/core/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
+Production ns TypeScript should not hand-roll raw timers. Use `Clock` from `@ns/core/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@ns/core/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@ns/core/time`, `unrefTimerScheduler` from `@ns/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@ns/core/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
 
 ## Hard bans enforced by TypeScript style guard tests
 

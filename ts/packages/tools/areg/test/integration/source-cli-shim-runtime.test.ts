@@ -72,7 +72,7 @@ describe("areg source CLI shim runtime", () => {
 		});
 		expect(run.status).toBe(2);
 		expect(run.stdout).toBe("");
-		expect(run.stderr).toContain("areg: no sdl checkout found");
+		expect(run.stderr).toContain("areg: no ns checkout found");
 		expect(run.stderr).toContain(canonicalCheckout);
 		expect(run.stderr).toContain("ts/packages/tools/areg/src/cli.ts");
 		expect(run.stderr).toContain(installHint);

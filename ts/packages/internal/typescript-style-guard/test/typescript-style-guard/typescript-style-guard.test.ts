@@ -421,7 +421,7 @@ describe("TypeScript style guard documentation references", () => {
 			"docs/adr/README.md",
 			"docs/pi/extension-command-checklist.md",
 			"justfile",
-			"skills/sdl-typescript/SKILL.md",
+			"skills/ns-typescript/SKILL.md",
 		];
 
 		const offenders = checkedFiles.filter((path) => {
@@ -1033,7 +1033,7 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 	test("rejects an exports target that escapes declared subpackages", () => {
 		const metadataByName = buildSyntheticSubpackageMetadata({
 			packageDir: "synthetic/core",
-			subpackages: ["api", "sdl"],
+			subpackages: ["api", "runtime"],
 			remainder: false,
 			exports: {
 				"./api": "./src/api/index.ts",
@@ -1099,11 +1099,11 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 	test("allows targets that all resolve inside declared subpackages", () => {
 		const metadataByName = buildSyntheticSubpackageMetadata({
 			packageDir: "synthetic/core",
-			subpackages: ["api", "sdl", "land"],
+			subpackages: ["api", "commands", "land"],
 			remainder: false,
 			exports: {
 				"./api": "./src/api/index.ts",
-				"./commands/land": "./src/sdl/commands/land.ts",
+				"./commands/land": "./src/commands/land.ts",
 				"./land/api": "./src/land/api.ts",
 			},
 		});

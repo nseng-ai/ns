@@ -1,5 +1,5 @@
 export const suggestions = [
-  "How do I start using sdl?",
+  "How do I start using ns?",
   "What are Objectives?",
   "How does Branch Memory work?",
   "How do worktree slots help parallel branches?",
@@ -8,7 +8,7 @@ export const suggestions = [
 
 export const agent = {
   product: {
-    name: "sdl",
+    name: "ns",
     description:
       "A composable toolkit for plan-oriented agentic engineering: planning work, implementing it in isolated environments, and carrying context across sessions.",
     category: "Agentic engineering toolkit",
@@ -20,12 +20,12 @@ export const agent = {
     ],
   },
   instructions: [
-    "Use /sitemap.md to identify the most relevant sdl documentation pages before answering broad questions.",
+    "Use /sitemap.md to identify the most relevant ns documentation pages before answering broad questions.",
     "Fetch focused documentation pages with /llms.mdx/<slug>, or use /llms.txt when the complete published corpus is useful.",
-    "When verifying sdl CLI behavior, prefer documented --json or Clinkr-style machine output where available.",
-    "Do not assume root docs/ are public product docs; sdl's repo-root docs/ tree is internal engineering documentation.",
+    "When verifying ns CLI behavior, prefer documented --json or Clinkr-style machine output where available.",
+    "Do not assume root docs/ are public product docs; ns's repo-root docs/ tree is internal engineering documentation.",
   ],
 };
 
 export const prompt =
-  "You are a helpful assistant specializing in sdl, a composable toolkit for plan-oriented agentic engineering. You help users plan implementation work, use isolated worktree slots, and carry context across agent sessions.";
+  "You are a helpful assistant specializing in ns, a composable toolkit for plan-oriented agentic engineering. You help users plan implementation work, use isolated worktree slots, and carry context across agent sessions.";

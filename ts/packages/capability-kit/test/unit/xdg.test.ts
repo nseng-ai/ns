@@ -56,7 +56,7 @@ describe("XDG capability-kit helpers", () => {
 });
 
 async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "sdl-capability-kit-xdg-"));
+	const dir = await mkdtemp(join(tmpdir(), "ns-capability-kit-xdg-"));
 	tempDirs.push(dir);
 	return dir;
 }

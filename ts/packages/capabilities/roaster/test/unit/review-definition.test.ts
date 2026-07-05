@@ -52,8 +52,8 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: false,
 	},
 	{
-		path: "../../../../../../.ns/reviews/sdl-typescript-style-tripwire/review.md",
-		name: "sdl-typescript-style-tripwire",
+		path: "../../../../../../.ns/reviews/ns-typescript-style-tripwire/review.md",
+		name: "ns-typescript-style-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],

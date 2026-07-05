@@ -94,7 +94,7 @@ describe("ns Pi extension", () => {
 		nsExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `ns:flow:${name}`));
-		for (const oldName of [
+		for (const legacyAlias of [
 			"sdl:changes",
 			"sdl:cp",
 			"sdl:autobranch",
@@ -106,7 +106,7 @@ describe("ns Pi extension", () => {
 			"sdl:code:land",
 			"sdl:code:pull-trunk",
 		]) {
-			expect(pi.commands.has(oldName)).toBe(false);
+			expect(pi.commands.has(legacyAlias)).toBe(false);
 		}
 		expect(pi.commands.get("ns:flow:cp")?.description).toBe(
 			"ns flow cp: Create a checkpoint commit for the current diff.",

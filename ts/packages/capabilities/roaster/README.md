@@ -8,7 +8,7 @@ ns roaster ...
 
 ## Review definitions
 
-Review definitions live in `.ns/reviews/<key>/review.md`. The key is the direct child folder name under `.ns/reviews`; for example `.ns/reviews/sdl-typescript-style-tripwire/review.md` is `sdl-typescript-style-tripwire`. Roaster loads only direct child `review.md` files, so colocated files such as `references/*.md` are review assets rather than review definitions.
+Review definitions live in `.ns/reviews/<key>/review.md`. The key is the direct child folder name under `.ns/reviews`; for example `.ns/reviews/ns-typescript-style-tripwire/review.md` is `ns-typescript-style-tripwire`. Roaster loads only direct child `review.md` files, so colocated files such as `references/*.md` are review assets rather than review definitions.
 
 A definition is a Markdown file with YAML frontmatter followed by the review instructions:
 

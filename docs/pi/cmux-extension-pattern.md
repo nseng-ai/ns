@@ -7,7 +7,7 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 - A Pi command labels or annotates the caller cmux workspace from Pi session context.
 - A Pi command opens a new cmux workspace without automatically refreshing sidebar metadata.
 - A manual sidebar update must target the workspace that launched this terminal, not whatever cmux workspace is focused now.
-- The behavior is repo-local to `sdl-tools` and should not become a global Pi extension.
+- The behavior is repo-local to `ns` and should not become a global Pi extension.
 - The PR sidebar workflow needs a short semantic model pass but deterministic cmux mutation.
 - The Objective sidebar workflow needs deterministic formatting from an explicit Objective selector or changed-Objective suggestion picker selection.
 
@@ -111,7 +111,7 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 `/ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ji Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
@@ -126,7 +126,7 @@ ccc exec cmux-workspace-summary \
 
 Do not assign shell variables, do not write an env prelude, and do not pass `--workspace` from the skill. The Objective sidebar extension calls the same command directly with argv rather than asking an agent to write shell. The command clears the legacy `pi-summary` cmux status pill. The JSON envelope must have `exit_code: 0` and `data.success: true`. The PR assistant should then reply only with the applied title.
 
-See [`../sdl-exec/cmux-workspace-summary.md`](../sdl-exec/cmux-workspace-summary.md) for the exec contract and [`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
+See [`../sdl-exec/cmux-workspace-summary.md`](../sdl-exec/cmux-workspace-summary.md) for the retired exec contract and [`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
 
 ## Opening new cmux workspaces
 

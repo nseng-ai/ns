@@ -66,7 +66,7 @@ describe("Graphite metadata real sqlite integration", () => {
 		});
 	});
 
-	sqliteTest("parses the copied current sdl-tools Graphite database", async () => {
+	sqliteTest("parses the copied historical Graphite database fixture", async () => {
 		await withTempRoot(makeGitRepo("master"), (root) => {
 			const gitDir = join(root, ".git");
 			copyFileSync(CURRENT_NS_TOOLS_METADATA_FIXTURE, join(gitDir, ".graphite_metadata.db"));

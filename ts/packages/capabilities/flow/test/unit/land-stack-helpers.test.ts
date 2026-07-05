@@ -783,7 +783,7 @@ describe("land-stack pure helpers", () => {
 		);
 	});
 
-	test("does not label unrelated sdl commands as Graphite topology reads", async () => {
+	test("does not label unrelated ns commands as Graphite topology reads", async () => {
 		const pi = new FakePi([step("ns", ["flow", "changes"])]);
 		const context = createContext();
 		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));

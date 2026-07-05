@@ -41,7 +41,7 @@ ns flow autobranch --slug <slug>
 
 The Flow CLI owns the dirty-worktree transaction: stash pending tracked and untracked changes, create a Graphite branch with `gt create`, restore the stash, then create a checkpoint commit. It refuses clean worktrees with guidance to use `ns flow branch-latest-commit`.
 
-Branch slug derivation uses the SDL slug model contract and `NS_SLUG_MODEL`. Checkpoint message generation uses SDL checkpoint text-generation settings, including `NS_CHECKPOINT_MODEL` with legacy `NS_DEV_CHECKPOINT_MODEL` fallback.
+Branch slug derivation uses the NS slug model contract and `NS_SLUG_MODEL`. Checkpoint message generation uses NS checkpoint text-generation settings, including `NS_CHECKPOINT_MODEL` with legacy `NS_DEV_CHECKPOINT_MODEL` fallback.
 
 ## Failure handling
 

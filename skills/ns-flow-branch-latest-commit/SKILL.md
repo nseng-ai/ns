@@ -41,7 +41,7 @@ ns flow branch-latest-commit --slug <slug>
 
 The Flow CLI owns the clean latest-commit transaction: create a recovery branch, reset the source branch to the parent, create a Graphite branch, move the commit there, verify the result, and clean up recovery evidence. It refuses pending worktree changes with guidance to use `ns flow autobranch`.
 
-Branch slug derivation uses the SDL slug model contract and `NS_SLUG_MODEL`.
+Branch slug derivation uses the NS slug model contract and `NS_SLUG_MODEL`.
 
 ## Failure handling
 

@@ -34,7 +34,7 @@ Legend: ● active cmux  ◎ this Pi session/caller  ○ open inactive  DIRTY di
 │ │ │ │ ◯                  stack-feedback-single-file-fixes (slot-15)  ● ws46 slot-15 ↯label
 │ │ │ │ │ ◉                ccc-stack-map-cmux-graphite-overlay  ◎ ws57 slot-03 DIRTY
 │ │ │ │ │ │ │ │ │ │ ◯      trust-nothing-verification-baseline-plans (slot-01)  ○ ws19 slot-01 ↯label
-◯─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘  master (sdl-tools)  ○ ws55/ws56 sdl-tools dup ↯label
+◯─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘  master (ns-tools)  ○ ws55/ws56 ns-tools dup ↯label
 ```
 
 For ANSI-capable terminal output, keep color subtle and redundant with text:
@@ -48,7 +48,7 @@ Do not put raw ANSI escapes in Markdown unless the receiving UI renders them. If
 
 ## Future deterministic implementation sketch
 
-This is code shape and pseudocode for a future script or explicit `ccc exec` helper after display semantics stabilize. The older root `sdl exec` surface is retired and should not be used for new helpers. This sketch is not runnable production code and should not be copied into source without tests, fakes, and command-boundary design.
+This is code shape and pseudocode for a future script or explicit `ccc exec` helper after display semantics stabilize. The older root `ns exec` surface is retired and should not be used for new helpers. This sketch is not runnable production code and should not be copied into source without tests, fakes, and command-boundary design.
 
 Possible data models:
 

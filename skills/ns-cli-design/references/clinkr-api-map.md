@@ -1,6 +1,6 @@
 # Clinkr API map + ADR rationale
 
-Concrete `@ns/clinkr` surfaces behind each `sdl-cli-design` rule, plus ADR
+Concrete `@ns/clinkr` surfaces behind each `ns-cli-design` rule, plus ADR
 rationale. Symbols are exported from `@ns/clinkr`
 (`ts/packages/infra/clinkr/src/index.ts`). File:line anchors in audits may drift;
 re-grep before quoting line numbers.
@@ -30,7 +30,7 @@ discriminated union on `status`:
 
 Property names are camelCase; serialized enum-like **values** (`errorType` and any
 command-local `code`/`type`/`status`/`kind` discriminants) are **kebab-case** for
-ji-owned contracts — e.g. `registry-check-failed`, `branch-context-error`,
+ns-owned contracts — e.g. `registry-check-failed`, `branch-context-error`,
 `dry-run`. No snake_case and no aliases (ADR 0010). Known external strings
 (GitHub/Anthropic/Pi/git wire values) keep their exact spelling and are modeled as
 TypeScript literal unions. `NS_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` guards the
@@ -113,7 +113,7 @@ intentionally only conditionally enveloped.
 
 Decision: keep pretty JSON; add no `--compact`, pagination/truncation/range
 primitive, generic bounded-result wrapper, or JSONL/streaming API now. Bounded
-output is command-local `sdl-cli-design` guidance. Reopen framework extraction
+output is command-local `ns-cli-design` guidance. Reopen framework extraction
 only after repeated command pressure or one severe agent-context failure.
 
 ### ADR 0013 — negative process-exit default
@@ -129,7 +129,7 @@ Decision: four authoring tiers (0 read-only, 1 scoped/reversible, 2
 destructive/external, 3 high blast radius); TTY-gated prompting;
 non-interactive fail-fast; dry-run as `ok(...)`; `--yes`/`-y` (Tier 2 confirm)
 vs `--force`/`-f` (Tier 3 precondition/guard override). Tiers are
-`sdl-cli-design` discipline, not a Clinkr framework type.
+`ns-cli-design` discipline, not a Clinkr framework type.
 
 ### ADR 0015 — CLI surface conformance decisions
 

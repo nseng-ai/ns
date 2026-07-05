@@ -58,7 +58,7 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   },
   {
     kind: "xdg-path",
-    canonical: "requireSdlStatePath / resolveSdlXdgPath / resolveXdgHome",
+    canonical: "requireNsStatePath / resolveNsXdgPath / resolveXdgHome",
     import: "@ns/core/xdg-path; @ns/capability-kit/xdg",
     precision: "medium",
   },

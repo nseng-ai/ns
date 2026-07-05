@@ -38,7 +38,7 @@ The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `list
 
 **Objective Domain Core**:
 The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective Capability API** and the `ns objective` command surface are thin edges over it.
-*Avoid*: presentation-host logic, command-face-coupled logic, raw `ctx`/`SdlExtensionApi` dependency, `…Loader` collaborator
+*Avoid*: presentation-host logic, command-face-coupled logic, raw `ctx`/`NsExtensionApi` dependency, `…Loader` collaborator
 
 **Objective Runner**:
 A portable Objective-owned workflow core for executing one committed Objective implementation step through narrow injected runner **Gateways**, then returning checkpoint facts for a parent LM decision before any next step.

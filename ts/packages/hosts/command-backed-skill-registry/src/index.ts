@@ -139,7 +139,7 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "roast:thermonuclear-review",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "sdl-cli-design", surface: "ns:cli:design", kind: "generic-backing-skill" },
+	{ skillName: "ns-cli-design", surface: "ns:cli:design", kind: "generic-backing-skill" },
 	{ skillName: "ns-flow-autobranch", surface: "ns:flow:autobranch", kind: "specialized-command" },
 	{
 		skillName: "ns-flow-branch-latest-commit",
@@ -149,7 +149,7 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 	{ skillName: "ns-flow-cp", surface: "ns:flow:cp", kind: "specialized-command" },
 	{ skillName: "ns-flow-submit", surface: "ns:flow:submit", kind: "specialized-command" },
 	{
-		skillName: "sdl-typescript-style-tripwire",
+		skillName: "ns-typescript-style-tripwire",
 		surface: "ns:typescript:style-tripwire",
 		kind: "generic-backing-skill",
 	},

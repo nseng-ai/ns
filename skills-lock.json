@@ -351,18 +351,18 @@
       "sourceType": "local",
       "computedHash": "7e80abba397da7b48024bc6680466004e89424e3600167d095c1ad02d320dc62"
     },
-    "sdl-cli-design": {
-      "source": "skills/sdl-cli-design",
+    "ns-cli-design": {
+      "source": "skills/ns-cli-design",
       "sourceType": "local",
       "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
     },
-    "sdl-typescript": {
-      "source": "skills/sdl-typescript",
+    "ns-typescript": {
+      "source": "skills/ns-typescript",
       "sourceType": "local",
       "computedHash": "d13d9bcd6c8c57b6cf5ce767e2d700571f8039fcdeaf0ef896e2a24771ffbed9"
     },
-    "sdl-typescript-style-tripwire": {
-      "source": "skills/sdl-typescript-style-tripwire",
+    "ns-typescript-style-tripwire": {
+      "source": "skills/ns-typescript-style-tripwire",
       "sourceType": "local",
       "computedHash": "96a9ddfe19832575d7244b0478cc2cdee785250bd6225fc2ab4b863f49e11722"
     },

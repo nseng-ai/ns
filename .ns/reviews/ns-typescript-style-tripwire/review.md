@@ -1,10 +1,10 @@
 ---
-# Provenance: this is the sdl-tools-specific Roaster review definition produced
+# Provenance: this is the ns-specific Roaster review definition produced
 # by merging the portable TypeScript style guide (`skills/typescript-style/`,
 # especially `core-rules.md`, `checklist.md`, and
 # `references/review-taste-and-process.md`) with the project overlay
-# (`skills/sdl-typescript/SKILL.md`). It is intentionally not a generic
-# TypeScript review; use `.ns/reviews/sdl-typescript-style-tripwire.md` when reviewing this
+# (`skills/ns-typescript/SKILL.md`). It is intentionally not a generic
+# TypeScript review; use `.ns/reviews/ns-typescript-style-tripwire/review.md` when reviewing this
 # repo's TypeScript diffs.
 #
 # Regeneration instructions: when either source skill changes, refresh this file
@@ -13,11 +13,11 @@
 # to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
 # Roaster, and then run:
 #
-#   dprint check .ns/reviews/sdl-typescript-style-tripwire.md
+#   dprint check .ns/reviews/ns-typescript-style-tripwire/review.md
 #   pnpm --dir ts exec vitest run packages/roaster/test/unit/review-definition.test.ts
 description: |
-  SDL TypeScript style Tripwire: enforce sdl's TypeScript style guide and
-  sdl-tools TypeScript overlay on the supplied diff. Flag concrete,
+  NS TypeScript style Tripwire: enforce ns TypeScript style guide and
+  ns TypeScript overlay on the supplied diff. Flag concrete,
   mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
   banned double-casts, import-boundary drift, strict-indexed-access bypasses,
   exact-optional-property drift, broad casts, top-level arrow module logic,
@@ -41,7 +41,7 @@ about unchanged code.
 Only flag violations in TypeScript-family files (`.ts`, `.tsx`, `.mts`,
 `.cts`) unless the diff makes a TypeScript rule relevant in another file. This
 review combines the portable `typescript-style` guide with the repo-specific
-`sdl-typescript` overlay for sdl-tools. Do not flag package-manager,
+`ns-typescript` overlay for ns. Do not flag package-manager,
 formatter, linter, or test-runner choices. Do not propose fixes; report the
 violated rule and why the changed line is suspicious. If context is ambiguous,
 skip the finding rather than inventing intent.
@@ -67,7 +67,7 @@ to each rule's exceptions.
    obvious.
 3. **Banned double-cast laundering.** Flag `as unknown as SomeType` or
    equivalent double-cast patterns used to force a type, including tests.
-   Severity: `error`. The sdl-tools overlay hard-bans this pattern everywhere;
+   Severity: `error`. The ns overlay hard-bans this pattern everywhere;
    values should be complete typed fixtures, derived from a source of truth,
    runtime-validated, or cast only at a narrow justified library seam.
 4. **Plain object shape written as a `type` alias.** Flag `type` aliases whose
@@ -133,16 +133,16 @@ to each rule's exceptions.
     `DURATION`, `MAX_SIZE`, `LIMIT`, or `MAX_PAYLOAD` that imply time or size
     without a unit suffix. Severity: `warning`. The style guide prefers names
     like `TIMEOUT_MS`, `RETRY_DELAY_MS`, and `MAX_BYTES`.
-15. **SDL TypeScript import convention drift.** Flag relative imports in
+15. **NS TypeScript import convention drift.** Flag relative imports in
     `ts/` TypeScript source that omit the explicit `.ts` suffix or use the
     wrong source suffix, such as `from "./thing"`, `from "../thing"`, or
     `from "./thing.js"` when importing project TypeScript. Severity:
     `warning`. Do not flag bare package imports (`node:fs`, `zod`,
-    `@sdl/core/primitives`), type-only imports that already use `.ts`, or
+    `@ns/core/primitives`), type-only imports that already use `.ts`, or
     non-TypeScript assets where the project has an existing pattern.
 16. **Cross-package `src/` deep imports.** Flag imports that bypass curated
     workspace package exports by reaching into another package's `src/` tree,
-    including `@sdl/<pkg>/src/...` and relative paths that cross from one
+    including `@ns/<pkg>/src/...` and relative paths that cross from one
     `ts/packages/<pkg>` package into another package's `src`. Severity:
     `warning`. Intra-package relative imports are fine when they stay inside
     the same package and use the explicit `.ts` suffix.
@@ -156,7 +156,7 @@ to each rule's exceptions.
     omission-vs-explicit-undefined drift, not as a need to widen the declared
     type. Do not recommend widening `prop?: T` to raw `prop?: T | undefined`;
     if explicit `undefined` is truly permanent, use
-    `ExplicitUndefined<Reason, T>`. Do not flag the intentional sdl pattern
+    `ExplicitUndefined<Reason, T>`. Do not flag the intentional ns pattern
     `...(value === undefined ? {} : { prop: value })`; under this compiler
     setting, omitting a key is different from setting it to `undefined`. Do not
     flag `ExplicitUndefined<Reason, T>` solely because it includes `undefined`;

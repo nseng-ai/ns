@@ -6,7 +6,7 @@ description: "Parent playbook for running one verified Objective implementation 
 
 # objective-runner-step
 
-Run one verified implementation step of an sdl Objective through a dispatched subagent, then decide what happens next. You are the **parent**: you begin the step, dispatch the subagent, finish the step, and make every between-step decision — continue, recover, update tracking, ask the human. The implementation session runs as a harness subagent you can watch live; the CLI owns only the deterministic bookends.
+Run one verified implementation step of an ns Objective through a dispatched subagent, then decide what happens next. You are the **parent**: you begin the step, dispatch the subagent, finish the step, and make every between-step decision — continue, recover, update tracking, ask the human. The implementation session runs as a harness subagent you can watch live; the CLI owns only the deterministic bookends.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, and storage model; this step is self-contained for its own happy path.
 

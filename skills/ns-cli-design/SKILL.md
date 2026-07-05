@@ -1,7 +1,7 @@
 ---
-name: sdl-cli-design
+name: ns-cli-design
 disable-model-invocation: true
-description: "Authoring discipline for sdl-tools CLIs, grounded in Clinkr. Invoke when designing, authoring, or reviewing an sdl CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, raw-exit exemption, or destructive/confirmation flow. Covers hard gates, the human tier, the agent/`exec` tier, danger tiers, naming, and a pre-ship checklist mapped to ADRs 0010-0015 and the Clinkr API."
+description: "Authoring discipline for ns CLIs, grounded in Clinkr. Invoke when designing, authoring, or reviewing an ns CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, raw-exit exemption, or destructive/confirmation flow. Covers hard gates, the human tier, the agent/`exec` tier, danger tiers, naming, and a pre-ship checklist mapped to ADRs 0010-0015 and the Clinkr API."
 references:
   - references/clinkr-api-map
   - references/checklist
@@ -9,9 +9,9 @@ metadata:
   internal: true
 ---
 
-# sdl-cli-design
+# ns-cli-design
 
-Canonical authority for **authoring** well-designed CLIs in sdl-tools. Every
+Canonical authority for **authoring** well-designed CLIs in ns. Every
 Clinkr command serves two audiences at once: a human reading an evolvable UI and
 an agent reading a stable machine contract back into its context window. A
 command is done only when both audiences get a stable, bounded, recoverable
@@ -19,7 +19,7 @@ contract.
 
 This skill shapes a command's **design surface** only: it is authoring
 discipline, not a consumption guide and not a TypeScript style guide. For code
-idioms, load `typescript-style`, then `sdl-typescript` for the repo toolchain.
+idioms, load `typescript-style`, then `ns-typescript` for the repo toolchain.
 Out of scope: structural/DRY cleanup of CLI code and shell completion.
 
 Decision provenance: `docs/research/agent-era-cli-design-survey.md`, the Clinkr gap audit
@@ -41,7 +41,7 @@ in `references/checklist.md` passes**.
 
 ## Hard gates (non-negotiable)
 
-These apply to every sdl CLI command regardless of audience.
+These apply to every ns CLI command regardless of audience.
 
 1. **Use the framework parser.** Build commands as `ClinkrGroup` /
    schema → handler → `ClinkrExit<T>`; do not hand-roll argv parsing or
@@ -104,7 +104,7 @@ Design *to* the typed machine envelope.
 - `failure`/`negative` carry structured `data` for recovery under a stable,
   command-local `errorType`. Do not mint a global `errorType` enum (ADR 0010).
 - Property names are camelCase; serialized enum-like **values** are **kebab-case**
-  for ji-owned machine contracts — `errorType` values and any command-local
+  for ns-owned machine contracts — `errorType` values and any command-local
   `code`/`type`/`status`/`kind` discriminants (e.g. `registry-check-failed`,
   `dry-run`, `branch-context-error`). No snake_case, no aliases (ADR 0010). Model
   known external strings (GitHub/Anthropic/Pi/git wire values) as TypeScript

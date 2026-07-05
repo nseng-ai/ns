@@ -240,9 +240,9 @@ _Posted by roaster. Re-running may skip this comment by marker._`,
 		line: 183,
 		commentId: 3447739828,
 		createdAt: "2026-06-21T01:09:29Z",
-		body: `<!-- roaster-inline:sdl-typescript-style:a2446bd16426bc13 -->
+		body: `<!-- roaster-inline:ns-typescript-style:a2446bd16426bc13 -->
 **warning: Function with 4+ positional parameters**
-_Review: \`sdl-typescript-style\`._
+_Review: \`ns-typescript-style\`._
 
 The \`border\` method declares 4 required positional parameters (left, fill, right, width). Rule 12 (Long positional parameter lists) recommends using a named \`*Options\` object for functions with four or more positional parameters, rather than separate positional parameters.
 
@@ -474,7 +474,7 @@ describe("/pr:preview-feedback", () => {
 			"L310 · info · duplicative-abstractions · reconcileScroll algorithm overlaps",
 		);
 		expect(labels[3]).toContain(
-			"L183 · warning · sdl-typescript-style · Function with 4+ positional parameters",
+			"L183 · warning · ns-typescript-style · Function with 4+ positional parameters",
 		);
 		expect(new Set(labels).size).toBe(labels.length);
 		expect(labels.some((label) => label.includes("pr-preview-feedback-view.ts"))).toBe(false);

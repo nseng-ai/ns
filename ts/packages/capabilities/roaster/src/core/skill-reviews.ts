@@ -40,7 +40,6 @@ export interface LoadRoastReviewDefinitionOptions extends LoadRoastSkillEntriesO
 const ACRONYMS = new Map([
 	["dry", "DRY"],
 	["python", "Python"],
-	["sdl", "ns"],
 	["ns", "NS"],
 	["typescript", "TypeScript"],
 ]);
