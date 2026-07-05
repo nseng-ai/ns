@@ -12,7 +12,7 @@
  * PRs are emitted BOTTOM-UP (nearest-trunk first): `model.prs` is top-first, so
  * it is reversed here.
  */
-import { truncateTextHead } from "@ns/core/text-truncation";
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";

@@ -29,6 +29,7 @@
 		"./xdg": "./src/kit/xdg.ts",
 		"./github": "./src/github/index.ts",
 		"./github/cli": "./src/github/cli.ts",
+		"./github/graphql-json": "./src/github/graphql-json.ts",
 		"./github/identity": "./src/github/identity.ts",
 		"./github/pr-feedback": "./src/github/pr-feedback/index.ts",
 		"./github/pr-status": "./src/github/pr-status.ts",

@@ -9,7 +9,7 @@
  * apportions the rows; {@link composeTranscriptWindow} wraps and slices the
  * scrollback (reused for the tail-anchored draft pane).
  */
-import { clamp } from "@ns/pi/terminal/layout";
+import { clamp } from "@nseng-ai/pi/terminal/layout";
 
 import { sliceAnchoredStackLinesForViewport } from "./overlay-model.ts";
 import type { ComposeTranscriptState } from "./compose-transcript.ts";

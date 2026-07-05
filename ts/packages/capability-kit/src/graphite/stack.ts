@@ -18,11 +18,29 @@ import {
 	type GraphiteWalkTermination,
 	type SqliteJsonError,
 } from "./metadata.ts";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import { isAbsolute, resolve } from "node:path";
+
+import { commandSucceeded, NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { isRecord, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;
+
+/**
+ * Resolve the Git common dir (`git rev-parse --git-common-dir`) through the exec
+ * seam, returning an absolute path or `null` when the probe fails or is empty. A
+ * relative result is resolved against `cwd` so callers get an absolute path.
+ */
+export async function execGitCommonDir(
+	execApi: CommandExecApi,
+	cwd: string,
+): Promise<string | null> {
+	const result = await execApi.exec("git", ["rev-parse", "--git-common-dir"], { cwd });
+	if (!commandSucceeded(result)) return null;
+	const raw = result.stdout.trim();
+	if (raw.length === 0) return null;
+	return isAbsolute(raw) ? raw : resolve(cwd, raw);
+}
 
 export interface GtCommandFailure {
 	message: string;

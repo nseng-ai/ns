@@ -3,9 +3,10 @@
  *
  * Seams (verified against source):
  * - `execApi` drives the LBYL `git branch --show-current` check, the stack
- *   gateway's `git rev-parse --git-common-dir` probe (default gateway only),
- *   `gh repo view`, the batched `gh api graphql` stack-PR query, and the
- *   per-branch `git diff --name-only -z … -- .ns/objectives` objective diffs.
+ *   gateway's `git rev-parse --git-common-dir` probe (default gateway only), the
+ *   `git config --get remote.origin.url` identity lookup, the batched
+ *   `gh api graphql` stack-PR query, and the per-branch
+ *   `git diff --name-only -z … -- .ns/objectives` objective diffs.
  * - `stackGateway` is the injected test seam for the Graphite stack read: the
  *   default `RealGraphiteStackGateway` reads Graphite's sqlite metadata db via
  *   filesystem/sqlite access that does NOT route through `execApi`, so every
@@ -16,8 +17,8 @@
  * - `FakeExecApi` (strictly ordered `ScriptedQueue`) for scenarios that bail
  *   before the concurrent phase — the command sequence is deterministic there.
  * - `KeyedFakeExecApi` (unordered, consume-once, keyed by command+args) for
- *   scenarios that reach the concurrent identity→PR chain and per-branch
- *   objective diffs, whose interleaving is nondeterministic.
+ *   scenarios that reach the concurrent PR query and per-branch objective diffs,
+ *   whose interleaving is nondeterministic.
  */
 import { describe, expect, test } from "vitest";
 
@@ -229,12 +230,12 @@ function gitCommonDirStep(result: Partial<ExecResult>): ScriptedExec {
 	return { command: "git", args: ["rev-parse", "--git-common-dir"], result };
 }
 
-function repoViewStep(result: Partial<ExecResult>): ScriptedExec {
-	return { command: "gh", args: ["repo", "view", "--json", "owner,name"], result };
+function originUrlStep(result: Partial<ExecResult>): ScriptedExec {
+	return { command: "git", args: ["config", "--get", "remote.origin.url"], result };
 }
 
-function repoViewOkStep(owner: string, repo: string): ScriptedExec {
-	return repoViewStep({ stdout: JSON.stringify({ name: repo, owner: { login: owner } }) });
+function originUrlOkStep(owner: string, repo: string): ScriptedExec {
+	return originUrlStep({ stdout: `https://github.com/${owner}/${repo}.git\n` });
 }
 
 function stackPrQueryStep(
@@ -254,6 +255,7 @@ function stackPrQueryStep(
 			`owner=${owner}`,
 			"-f",
 			`repo=${repo}`,
+			...branches.flatMap((branch, index) => ["-f", `branch${index}=${branch}`]),
 		],
 		result,
 	};
@@ -490,13 +492,12 @@ describe("loadStackView error outcomes", () => {
 		execApi.assertDone();
 	});
 
-	test("repo-identity failure fails the whole load naming the identity step", async () => {
-		const execApi = new KeyedFakeExecApi([
+	test("a missing origin remote fails the whole load before any PR query runs", async () => {
+		// Identity is resolved before the concurrent phase, so a missing `origin`
+		// remote (git config exits 1) bails before the PR query or objective diffs.
+		const execApi = new FakeExecApi([
 			currentBranchStep({ stdout: "feature/a\n" }),
-			repoViewStep({ code: 1, stderr: "gh: not logged in" }),
-			// The per-branch objective diffs run concurrently with the identity→PR
-			// chain, so they still execute even though the identity step fails.
-			objectiveDiffStep("feature/a", "main", { stdout: "" }),
+			originUrlStep({ code: 1 }),
 		]);
 		const stackGateway = new FakeGraphiteStackGateway({
 			type: "stack",
@@ -507,17 +508,19 @@ describe("loadStackView error outcomes", () => {
 
 		expect(result).toEqual({
 			type: "error",
-			message: "Could not identify the GitHub repository: gh: not logged in",
+			message:
+				"Could not determine the GitHub repository from the origin remote: no 'origin' remote is configured.",
 		});
-		// The identity→PR chain is sequential: identity failed, so no GraphQL query ran.
+		// Identity failed first, so no GraphQL query and no objective diffs ran.
 		expect(execApi.calls.some((call) => call.args[1] === "graphql")).toBe(false);
+		expect(execApi.calls.some((call) => call.args[0] === "diff")).toBe(false);
 		execApi.assertDone();
 	});
 
 	test("stack-PR-query failure fails the whole load naming the query step", async () => {
 		const execApi = new KeyedFakeExecApi([
 			currentBranchStep({ stdout: "feature/a\n" }),
-			repoViewOkStep("acme", "repo-name"),
+			originUrlOkStep("acme", "repo-name"),
 			stackPrQueryStep(["feature/a"], "acme", "repo-name", {
 				code: 1,
 				stderr: "API rate limit exceeded",
@@ -543,7 +546,7 @@ describe("loadStackView happy path", () => {
 	test("joins a three-branch stack into ordered rows with PRs, statuses, and objectives", async () => {
 		const execApi = new KeyedFakeExecApi([
 			currentBranchStep({ stdout: "feature/mid\n" }),
-			repoViewOkStep("acme", "repo-name"),
+			originUrlOkStep("acme", "repo-name"),
 			threeBranchPrQueryStep(),
 			objectiveDiffStep("feature/top", "feature/mid", {
 				stdout: ".ns/objectives/alpha/roadmap.md\0",
@@ -665,7 +668,7 @@ describe("loadStackView happy path", () => {
 	test("a single branch's objective-diff failure degrades that row to no slugs without failing the load", async () => {
 		const execApi = new KeyedFakeExecApi([
 			currentBranchStep({ stdout: "feature/mid\n" }),
-			repoViewOkStep("acme", "repo-name"),
+			originUrlOkStep("acme", "repo-name"),
 			threeBranchPrQueryStep(),
 			objectiveDiffStep("feature/top", "feature/mid", {
 				stdout: ".ns/objectives/alpha/roadmap.md\0",

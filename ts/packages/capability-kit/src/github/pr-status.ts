@@ -536,6 +536,7 @@ function looksLikeHtml(value: string): boolean {
 	return /^<(?:!doctype\s+html\b|html\b|head\b|body\b)/i.test(value);
 }
 
+// Array-based variant kept local; see `graphqlErrorMessages` in `./graphql-json.ts` for the whole-JSON helper.
 function graphqlErrorMessages(errors: readonly unknown[]): readonly string[] {
 	const messages = errors.flatMap((error) => {
 		if (!isRecord(error)) return [];
