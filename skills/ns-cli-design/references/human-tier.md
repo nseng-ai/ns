@@ -24,6 +24,10 @@ but it must stay honest and low-noise. Source: clig.dev, summarized in
   only the *human* presentation (see the agent tier on explicit formats).
 - **Prompts are TTY-only.** Confirmation prompts may appear only when stdin is a
   TTY (`ClinkrInteraction.isInteractive()`); otherwise fail fast with guidance.
+- **Renderers see data + caps only.** `renderHuman(data, caps)` never receives
+  parsed flags, so a human display toggle requires explicit plumbing. Prefer
+  trimming the human surface and keeping full detail on the markdown surface
+  over adding a flag.
 
 ## Anti-patterns
 

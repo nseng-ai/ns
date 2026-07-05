@@ -271,8 +271,10 @@ async function readListFrontmatterFacts(
 }
 
 function updateNameIso(name: string): string | null {
-	// Objective update filenames in this repo are timestamp-prefixed. This parser intentionally
-	// accepts the live timestamp forms and leaves non-timestamp Markdown names without latest-update facts.
+	// Objective update filenames are timestamp-prefixed; the canonical form is fully-compact
+	// `YYYYMMDDTHHMMSSZ-slug.md`. The dashed forms below are accepted legacy spellings, and
+	// non-timestamp names carry no latest-update facts. Keep this parser in sync with whatever
+	// writes update files.
 	const fullyCompact = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z(?:-|\.md$)/u.exec(name);
 	if (fullyCompact !== null) {
 		return timestampPartsIso(

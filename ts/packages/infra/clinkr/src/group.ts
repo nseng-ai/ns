@@ -48,7 +48,11 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	 * clinkr (e.g. pinned Python-parity documents).
 	 */
 	schemaDocument?: () => JsonSchemaDocument;
-	/** Human rendering for the ok variant; default is indented JSON of the data. */
+	/**
+	 * Human rendering for the ok variant; default is indented JSON of the data. Receives only
+	 * (data, caps): parsed request flags are never threaded to renderers, so a display toggle
+	 * needs explicit plumbing — prefer keeping full detail on the markdown surface instead.
+	 */
 	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	/** Markdown rendering for the ok variant; falls back to human rendering when absent. */
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
