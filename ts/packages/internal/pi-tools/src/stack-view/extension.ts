@@ -78,6 +78,7 @@ export interface CommandContext {
 	ui: StackViewCustomUi & {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
+		pasteToEditor?(text: string): void;
 	};
 }
 
@@ -308,6 +309,9 @@ async function handleStackViewCommand(
 				case "open":
 					await openGraphiteUrl(session, outcome.url);
 					continue;
+				case "paste-branch":
+					pasteBranchToEditor(ctx, outcome.branch);
+					return;
 				case "refresh": {
 					// The stack context is about to change; dispose the compose controller
 					// so the next compose entry rebuilds one over the fresh stack model.
@@ -349,6 +353,16 @@ async function handleStackViewCommand(
 		disposeCompose();
 		engine.abort();
 	}
+}
+
+/** Paste a selected branch into the parent editor, warning only when the host lacks that API. */
+function pasteBranchToEditor(ctx: CommandContext, branch: string): void {
+	if (ctx.ui.pasteToEditor === undefined) {
+		ctx.ui.notify(`Selected branch: ${branch} (editor paste is unavailable).`, "warning");
+		return;
+	}
+	ctx.ui.pasteToEditor(branch);
+	ctx.ui.notify(`Pasted branch '${truncateDisplayLine(branch, 80)}' into the editor.`, "info");
 }
 
 /** Load the stack while showing an ephemeral status line, clearing it when done. */

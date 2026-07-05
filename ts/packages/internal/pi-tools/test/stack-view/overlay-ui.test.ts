@@ -386,7 +386,7 @@ describe("StackViewOverlay chrome and budget", () => {
 		expect(text).toContain("PRs");
 		expect(text).toContain("ready");
 		expect(dividerIndex(lines)).toBeGreaterThan(0);
-		expect(text).toContain("o open · s summarize · r refresh");
+		expect(text).toContain("o open · b paste branch · s summarize · r refresh");
 	});
 });
 
@@ -512,6 +512,22 @@ describe("StackViewOverlay settles", () => {
 		const view = newView(model, { initialIndex: 0, onDone: (result) => settled.push(result) });
 		view.handleInput?.("o");
 		expect(settled).toEqual([]);
+	});
+
+	test("settles paste-branch for the selected PR", () => {
+		const settled: StackViewUiResult[] = [];
+		const model = modelFixture({
+			currentBranch: "feature/1",
+			prs: [
+				prFixture({ number: 1, branch: "feature/1" }),
+				prFixture({ number: 2, branch: "feature/2" }),
+			],
+		});
+		const view = newView(model, { initialIndex: 1, onDone: (result) => settled.push(result) });
+		view.handleInput?.("b");
+		expect(settled).toEqual([
+			{ outcome: { action: "paste-branch", branch: "feature/2" }, selectedIndex: 1 },
+		]);
 	});
 
 	test("settles summarize, refresh, and close with the current selection", () => {
