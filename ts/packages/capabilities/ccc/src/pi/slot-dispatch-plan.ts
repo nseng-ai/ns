@@ -1,15 +1,13 @@
 import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { formatImplBranchContextCommand } from "@ns/pi/commands";
+import { formatImplBranchContextCommand } from "@ns/core/command";
 import {
+	CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
+	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
 	handleCccSlotDispatchPlan,
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
-import {
-	CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
-	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
-} from "./surfaces.ts";
 
 const WORKSPACE_COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
 const SURFACE_COMMAND_NAME = CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME;

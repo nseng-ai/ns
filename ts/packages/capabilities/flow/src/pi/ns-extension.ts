@@ -1,3 +1,4 @@
+import { nsCommandSurface } from "@ns/core/command";
 import { runCli, type NsCommandInfo } from "@ns/kernel/cli";
 import { PUSH_COMMAND_SUMMARY } from "../ns/commands/push.ts";
 
@@ -46,10 +47,17 @@ const NS_FLOW_COMMANDS = [
 	),
 ] as const satisfies readonly FlowCommandInfo[];
 
+export function nsFlowCommandSurface(name: string): string {
+	if (!NS_FLOW_COMMANDS.some((command) => command.name === name)) {
+		throw new Error(`Unknown ns flow command: ${name}`);
+	}
+	return nsCommandSurface("flow", name);
+}
+
 export const nsExtensionParity = definePiSurfaceParity(
 	NS_FLOW_COMMANDS.map((command) => ({
 		kind: "command" as const,
-		surface: `ns:flow:${command.name}`,
+		surface: nsFlowCommandSurface(command.name),
 		workflow: command.description.replace(/\.$/, ""),
 		parity: "FULL" as const,
 		cli: `ns ${command.displayName}`,

@@ -1,7 +1,7 @@
 import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
-} from "@ns/pi/commands";
+} from "@ns/core/command";
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,

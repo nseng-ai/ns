@@ -9,7 +9,7 @@ const OBJECTIVE_LIST_ARG_COMPLETIONS = [
 	"--help",
 	"-h",
 ] as const;
-const OBJECTIVE_LIST_STATUS_VALUES = [
+export const OBJECTIVE_LIST_STATUS_VALUES = [
 	"all",
 	"active",
 	"open",

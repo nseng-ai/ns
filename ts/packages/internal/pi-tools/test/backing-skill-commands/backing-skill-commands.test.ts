@@ -5,7 +5,7 @@ import { withTempRepoSkill } from "@ns/core/test-kit";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-} from "@ns/pi/commands";
+} from "@ns/core/command";
 
 const OBJECTIVE_COMMAND_SURFACES = [
 	"ns:objective:next",

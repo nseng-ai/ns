@@ -33,7 +33,8 @@ Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc e
 
 The project-local adapter registers:
 
-- `/ns:ccc:sidebar:pr-summary`
+- `/ns:ccc:sidebar:session-summary`
+- `/ns:ccc:sidebar:branch-state-summary`
 - `/ns:ccc:sidebar:objective-summary [objective-slug-or-path]`
 - `/ns:ccc:workspace:open-branch [branch]`
 - `/ns:ccc:workspace:dispatch-plan [--dry-run]`
@@ -94,7 +95,7 @@ The controller restores the previous model and thinking level on `agent_end`. If
 
 ## PR prompt shape
 
-For `/ns:ccc:sidebar:pr-summary`, the model should generate only these fields:
+For `/ns:ccc:sidebar:session-summary`, the model should generate only these fields:
 
 - `title`
 - `description`
@@ -109,7 +110,7 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 ## Variants
 
-`/ns:ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
+`/ns:ccc:sidebar:session-summary` summarizes the current Pi session through the model-assisted `ccc-sidebar` skill. The Goal line describes what the session is trying to accomplish, not the cmux update itself. `/ns:ccc:sidebar:branch-state-summary` summarizes the current branch's implementation state versus its parent through the same skill; its State line describes what the branch changes or needs next.
 
 `/ns:ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
@@ -188,7 +189,8 @@ Then reload Pi:
 Finally smoke-test from inside cmux:
 
 ```text
-/ns:ccc:sidebar:pr-summary
+/ns:ccc:sidebar:session-summary
+/ns:ccc:sidebar:branch-state-summary
 /ns:ccc:sidebar:objective-summary <objective-slug>
 /ns:ccc:workspace:dispatch-plan --dry-run
 /ns:ccc:surface:dispatch-plan --dry-run

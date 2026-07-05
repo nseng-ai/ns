@@ -5,6 +5,7 @@ import {
 	type ObjectiveSelectionSpec,
 } from "@ns/objective/api";
 
+import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "./command-surfaces.ts";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
@@ -118,7 +119,7 @@ Run the cmux branch-state sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested command: ns:ccc:sidebar:branch-state-summary.
+Requested command: ${CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME}.
 Summarize the current Git branch's implementation state relative to its parent branch.
 Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence when available, such as \`gt parent --no-interactive\`; if Graphite parent evidence is unavailable, explain the fallback basis tersely and use the best Git merge-base/upstream evidence you can resolve.
 The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug for the branch topic and the full title is max 45 chars.

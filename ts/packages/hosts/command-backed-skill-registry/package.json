@@ -13,7 +13,9 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/command-backed-skill-registry/test"
 	},
 	"dependencies": {
+		"@ns/ccc": "workspace:*",
 		"@ns/core": "workspace:*",
+		"@ns/flow": "workspace:*",
 		"@ns/handoff": "workspace:*",
 		"@ns/objective": "workspace:*"
 	},

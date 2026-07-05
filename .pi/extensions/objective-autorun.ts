@@ -20,7 +20,7 @@ import type { z as ZodNamespace } from "zod";
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
 // rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
-import { nsPiCommandSurface } from "../../ts/packages/hosts/pi/src/commands/surfaces.ts";
+import { nsCommandSurface } from "../../ts/packages/infra/core/src/primitives/command.ts";
 import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,
@@ -68,7 +68,7 @@ const requireFromPiTools = createRequire(
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
 
-const COMMAND_NAME = nsPiCommandSurface("objective", "autorun");
+const COMMAND_NAME = nsCommandSurface("objective", "autorun");
 const TOOL_NAME = "objective_runner_step";
 const WIDGET_KEY = "objective-runner-step";
 const SKILL_NAME = "objective-autorun";

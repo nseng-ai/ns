@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { buildPlanContentSlugPrompt, createBranchContextContext } from "@ns/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
 
-// Mock Pi command formatting for tests
-function formatImplBranchContextCommand(key: string): string {
+// Intentional golden literal: pins the agent-facing implementation command name
+// independently of formatImplBranchContextCommand in @ns/core/command.
+function expectedImplBranchContextCommand(key: string): string {
 	return `/ns:branch-context:impl-attached-plan ${key}`;
 }
 import type { StdinCapableCommandExecApi } from "@ns/core/command";
@@ -425,7 +426,7 @@ describe("CCC cmux command suite", () => {
 						"--cwd",
 						WORKTREE,
 						"--command",
-						`pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${formatImplBranchContextCommand(PLAN_KEY)}'`,
+						`pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${expectedImplBranchContextCommand(PLAN_KEY)}'`,
 					],
 					{},
 				),
@@ -501,7 +502,7 @@ describe("CCC cmux command suite", () => {
 			fileName: SAVED_PLAN_FILE_NAME,
 			content: PLAN_CONTENT,
 		});
-		const launchCommand = `pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${formatImplBranchContextCommand(PLAN_KEY)}'`;
+		const launchCommand = `pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${expectedImplBranchContextCommand(PLAN_KEY)}'`;
 		const surfaceLaunchCommand = `cd ${WORKTREE} && ${launchCommand}`;
 		const pi = new FakePi({
 			script: [

@@ -10,7 +10,7 @@ import type { GitGateway } from "@ns/capability-kit/git";
 import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
 import type { ScheduledTimer } from "@ns/core/timers";
 import { systemTimerScheduler } from "@ns/core/time";
-import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ns/pi/commands";
+import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ns/core/command";
 import { sendCommandProgressOrNotify } from "@ns/pi/commands/ack";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
@@ -32,7 +32,7 @@ import type {
 	ToolUpdateHandler,
 } from "./host-types.ts";
 
-export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ns/pi/commands";
+export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ns/core/command";
 const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
 
 interface WriteSavedPlanFileToolParams {

@@ -26,12 +26,13 @@ import {
 } from "./branch-slug.ts";
 import { getPiLaunchOptions, type PiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
 import type { TextResult } from "@ns/core/primitives";
+import { CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@ns/slot/api";
 import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
-const COMMAND_NAME = "ns:ccc:workspace:dispatch-prompt";
+const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
 

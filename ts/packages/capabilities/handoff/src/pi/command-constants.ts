@@ -1,10 +1,14 @@
-import { nsPiCommandSurface } from "@ns/pi/commands";
+import { nsCommandSurface } from "@ns/core/command";
 
-export const CREATE_HANDOFF_COMMAND_NAME = nsPiCommandSurface("handoff", "create");
-export const PICKUP_HANDOFF_COMMAND_NAME = nsPiCommandSurface("handoff", "pickup");
-export const LIST_HANDOFF_COMMAND_NAME = nsPiCommandSurface("handoff", "list");
-export const HANDOFF_TAB_COMMAND_NAME = nsPiCommandSurface("ccc", "handoff-tab");
-export const HANDOFF_SELF_COMMAND_NAME = nsPiCommandSurface("handoff", "self");
+export const CREATE_HANDOFF_COMMAND_NAME = nsCommandSurface("handoff", "create");
+export const PICKUP_HANDOFF_COMMAND_NAME = nsCommandSurface("handoff", "pickup");
+export const LIST_HANDOFF_COMMAND_NAME = nsCommandSurface("handoff", "list");
+// Deliberately minted in the ccc namespace: the handoff-tab workflow is a
+// cmux-tab UX surface owned end-to-end by handoff, not by the CCC catalog in
+// @ns/ccc/src/cmux/command-surfaces.ts. The command-backed-skill-registry uniqueness
+// test guards against a future CCC surface colliding with this name.
+export const HANDOFF_TAB_COMMAND_NAME = nsCommandSurface("ccc", "handoff-tab");
+export const HANDOFF_SELF_COMMAND_NAME = nsCommandSurface("handoff", "self");
 
 export const DERIVE_HANDOFF_SLUG_TOOL_NAME = "derive_handoff_slug_from_content";
 export const HANDOFF_TAB_LAUNCH_TOOL_NAME = "handoff_tab_launch";

@@ -106,6 +106,28 @@ export const WRITE_PLAN_COMMAND_NAME = "ns:plan:save";
 export const WRITE_GRILLED_PLAN_COMMAND_NAME = "ns:plan:grill-and-save";
 export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "ns:plan:impl-current";
 
+const NS_COMMAND_SEGMENT_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+
+export function nsCommandSurface(extensionId: string, action: string): string {
+	assertValidNsCommandPart(extensionId, "extension id");
+	for (const segment of action.split(":")) {
+		assertValidNsCommandPart(segment, "action segment");
+	}
+	return `ns:${extensionId}:${action}`;
+}
+
+export function formatImplBranchContextCommand(key: string): string {
+	return `/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${key}`;
+}
+
+function assertValidNsCommandPart(value: string, label: string): void {
+	if (!NS_COMMAND_SEGMENT_PATTERN.test(value)) {
+		throw new Error(
+			`Invalid ns command surface ${label}: ${JSON.stringify(value)}. Expected lowercase kebab-case without slashes or colons.`,
+		);
+	}
+}
+
 export type CommandBackedSkillRegistrationKind = "generic-backing-skill" | "specialized-command";
 
 export interface CommandBackedSkillRegistration {

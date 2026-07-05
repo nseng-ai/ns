@@ -2,15 +2,14 @@ import { describe, expect, test } from "vitest";
 
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	defineNsPiExtensionSurface,
 	formatImplBranchContextCommand,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	nsPiCommandSurface,
+	nsCommandSurface,
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-} from "../../src/commands/surfaces.ts";
+} from "../src/primitives/command.ts";
 
-describe("Pi command surfaces", () => {
+describe("ns command surfaces", () => {
 	test("keeps neutral command surface constants", () => {
 		expect(BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME).toBe("ns:branch-context:from-plan");
 		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("ns:branch-context:impl-attached-plan");
@@ -19,19 +18,19 @@ describe("Pi command surfaces", () => {
 	});
 
 	test("formats ns extension command surfaces", () => {
-		expect(nsPiCommandSurface("objective", "list")).toBe("ns:objective:list");
-		expect(nsPiCommandSurface("ccc", "workspace:dispatch-plan")).toBe(
+		expect(nsCommandSurface("objective", "list")).toBe("ns:objective:list");
+		expect(nsCommandSurface("ccc", "workspace:dispatch-plan")).toBe(
 			"ns:ccc:workspace:dispatch-plan",
 		);
-
-		const ccc = defineNsPiExtensionSurface("ccc");
-		expect(ccc.command("sidebar:session-summary")).toBe("ns:ccc:sidebar:session-summary");
+		expect(nsCommandSurface("ccc", "sidebar:session-summary")).toBe(
+			"ns:ccc:sidebar:session-summary",
+		);
 	});
 
 	test("rejects invalid ns extension command surface parts", () => {
-		expect(() => nsPiCommandSurface("Objective", "list")).toThrow("Invalid ns Pi command");
-		expect(() => nsPiCommandSurface("objective", "list/all")).toThrow("Invalid ns Pi command");
-		expect(() => nsPiCommandSurface("objective", "list:all:")).toThrow("Invalid ns Pi command");
+		expect(() => nsCommandSurface("Objective", "list")).toThrow("Invalid ns command surface");
+		expect(() => nsCommandSurface("objective", "list/all")).toThrow("Invalid ns command surface");
+		expect(() => nsCommandSurface("objective", "list:all:")).toThrow("Invalid ns command surface");
 	});
 
 	test("formats attached branch-context implementation commands", () => {

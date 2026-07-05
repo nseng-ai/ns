@@ -1,4 +1,4 @@
-import { nsPiCommandSurface } from "@ns/pi/commands";
+import { nsCommandSurface } from "@ns/core/command";
 import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import {
 	registerCliCommandExtension,
@@ -16,6 +16,7 @@ import {
 	chooseActiveObjectiveSlug,
 	completeObjectiveListArgs,
 	createObjectiveClient,
+	OBJECTIVE_LIST_STATUS_VALUES,
 	type ObjectiveClient,
 	type ObjectiveClientOptions,
 	objectiveCommandSpecs,
@@ -54,7 +55,7 @@ export type ObjectiveExtensionAPI = Pick<
 	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
-const OBJECTIVE_LIST_COMMAND_NAME = nsPiCommandSurface("objective", "list");
+const OBJECTIVE_LIST_COMMAND_NAME = nsCommandSurface("objective", "list");
 const OBJECTIVE_LIST_ARGUMENT_HINT =
 	"[--names] [--minimal] [--status all|active|open|closed] [--help]";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
@@ -299,7 +300,6 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 	return parseObjectiveCandidatesData(envelope.data);
 }
 
-const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 type ObjectiveListStatus = (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
 
 interface ObjectiveListRequestShape {

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@ns/handoff/pi";
+import {
+	CREATE_HANDOFF_COMMAND_NAME,
+	HANDOFF_TAB_COMMAND_NAME,
+	PICKUP_HANDOFF_COMMAND_NAME,
+} from "@ns/handoff/pi";
 import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@ns/objective/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
@@ -16,6 +20,9 @@ import {
 	visibleCommandBackedReplacementSurfaces,
 } from "../src/index.ts";
 
+// Built via join("") on purpose: repo-wide greps validating the /ns:* rename
+// sweep for these legacy prefixes as literals, and this test asserting their
+// absence must not show up as a hit.
 const LEGACY_OBJECTIVE_PREFIX = ["objective", ":"].join("");
 const LEGACY_HANDOFF_PREFIX = ["handoff", ":"].join("");
 const LEGACY_CCC_PREFIX = ["ccc", ":"].join("");
@@ -43,7 +50,12 @@ describe("command-backed skill registry", () => {
 	test("has unique skill names and surfaces", () => {
 		const registrations = commandBackedSkillRegistrations();
 		const skillNames = registrations.map((registration) => registration.skillName);
-		const surfaces = registrations.map((registration) => registration.surface);
+		// Handoff registers /ns:ccc:handoff-tab in the ccc namespace without a
+		// skill row; include it so a future CCC surface cannot collide silently.
+		const surfaces = [
+			...registrations.map((registration) => registration.surface),
+			HANDOFF_TAB_COMMAND_NAME,
+		];
 
 		expect(new Set(skillNames).size).toBe(skillNames.length);
 		expect(new Set(surfaces).size).toBe(surfaces.length);
@@ -60,6 +72,16 @@ describe("command-backed skill registry", () => {
 		);
 		expect(commandBackedSkillSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
 		expect(commandBackedSkillSurface("enriched-plan-save")).toBe(WRITE_PLAN_COMMAND_NAME);
+	});
+
+	test("uses CCC and Flow provider-owned registrations", () => {
+		expect(commandBackedSkillSurface("ccc-sidebar")).toBe("ns:ccc:sidebar:branch-state-summary");
+		expect(commandBackedSkillSurface("ns-flow-autobranch")).toBe("ns:flow:autobranch");
+		expect(commandBackedSkillSurface("ns-flow-branch-latest-commit")).toBe(
+			"ns:flow:branch-latest-commit",
+		);
+		expect(commandBackedSkillSurface("ns-flow-cp")).toBe("ns:flow:cp");
+		expect(commandBackedSkillSurface("ns-flow-submit")).toBe("ns:flow:submit");
 	});
 
 	test("uses Objective provider-owned command specs", () => {
@@ -92,7 +114,7 @@ describe("command-backed skill registry", () => {
 
 		expect(surfaces).toContain(CREATE_HANDOFF_COMMAND_NAME);
 		expect(surfaces).toContain(objectiveCreateCommandSpec.commandName);
-		expect(surfaces).toContain("ns:ccc:sidebar:pr-summary");
+		expect(surfaces).toContain("ns:ccc:sidebar:branch-state-summary");
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).not.toContain("foo:bar-baz");
 	});

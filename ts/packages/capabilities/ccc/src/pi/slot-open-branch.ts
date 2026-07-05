@@ -1,7 +1,10 @@
 import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { handleCccSlotOpenBranch, type CccSlotOpenBranchOptions } from "../api/handlers.ts";
+import {
+	CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME,
+	handleCccSlotOpenBranch,
+	type CccSlotOpenBranchOptions,
+} from "../api/handlers.ts";
 import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
-import { CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./surfaces.ts";
 
 const COMMAND_NAME = CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
 
