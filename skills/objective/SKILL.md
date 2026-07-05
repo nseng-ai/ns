@@ -5,7 +5,7 @@ description: "Conceptual questions about ns Objectives, ns objective list, expli
 
 # objective
 
-Read-only grounding for Objective skills: shared vocabulary, storage model, selection rules, status semantics, safety boundaries, and cross-cutting policy. Do not mutate files from this skill — every mutation procedure lives in the step skills.
+Read-only grounding for Objective skills: shared vocabulary, storage model, selection rules, status semantics, safety boundaries, and family-wide policy. Do not mutate files from this skill — every mutation procedure lives in the step skills.
 
 ## Concept
 

@@ -17,7 +17,7 @@ Active root: `.ns/objectives/<slug>/`. Archived records under `.ns/objective-arc
 - `objective.md`: optional Record Frontmatter carrying only `blocked` and `edges` (ADR 0025); `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only; semantic rows may include indented prose guidance.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
-- `orientation.md`: optional, agent-facing standing rule; present only for cross-cutting Objectives.
+- `orientation.md`: optional, agent-facing standing rule; present only for orienting Objectives.
 - `closed.md`: optional Closure Marker; existence means closed.
 
 Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `ns objective exec` for deterministic mechanics like candidate listing, file inventory, closed-marker detection, and tracking-gate git evidence.
