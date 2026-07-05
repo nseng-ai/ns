@@ -6,8 +6,16 @@
 	"bin": {
 		"ns": "bin/ns.js"
 	},
+	"exports": {
+		"./kernel/cli": "./src/kernel/cli.ts",
+		"./kernel/command-io": "./src/kernel/command-io.ts",
+		"./kernel/context": "./src/kernel/context.ts",
+		"./kernel/pi-text-generation": "./src/kernel/pi-text-generation.ts",
+		"./kernel/sdk": "./src/kernel/sdk.ts"
+	},
 	"files": [
 		"bin",
+		"kernel",
 		"README.md"
 	],
 	"publishConfig": {
@@ -40,6 +48,9 @@
 	},
 	"ns": {
 		"tier": "host",
+		"subpackages": [
+			"kernel"
+		],
 		"remainder": true
 	}
 }

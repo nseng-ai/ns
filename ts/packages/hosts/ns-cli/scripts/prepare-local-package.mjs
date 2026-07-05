@@ -15,6 +15,13 @@ const readmePath = resolve(packageRoot, "README.md");
 const sourceManifest = JSON.parse(await readFile(sourceManifestPath, "utf8"));
 const workspaceManifest = JSON.parse(await readFile(resolve(workspaceRoot, "package.json"), "utf8"));
 const workspaceYaml = await readFile(resolve(workspaceRoot, "pnpm-workspace.yaml"), "utf8");
+const kernelPublishExports = {
+	"./kernel/cli": "./kernel/cli.js",
+	"./kernel/command-io": "./kernel/command-io.js",
+	"./kernel/context": "./kernel/context.js",
+	"./kernel/pi-text-generation": "./kernel/pi-text-generation.js",
+	"./kernel/sdk": "./kernel/sdk.js",
+};
 
 assertSourceManifest(sourceManifest, workspaceManifest);
 
@@ -25,12 +32,16 @@ const publishBinDir = dirname(publishBin);
 await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishBinDir, { recursive: true });
 await mkdir(resolve(publishBinDir, "prompts"), { recursive: true });
+await mkdir(resolve(publishRoot, "kernel"), { recursive: true });
 await copyFile(bundledCli, publishBin);
 await copyFile(
 	resolve(packageRoot, "dist", "bundle", "prompts", "branch-context-impl.md"),
 	resolve(publishBinDir, "prompts", "branch-context-impl.md"),
 );
 await copyFile(readmePath, resolve(publishRoot, "README.md"));
+for (const exportPath of Object.values(kernelPublishExports)) {
+	await copyFile(resolve(packageRoot, "dist", "bundle", exportPath.slice(2)), resolve(publishRoot, exportPath.slice(2)));
+}
 await chmod(publishBin, 0o755);
 
 const manifest = {
@@ -39,6 +50,7 @@ const manifest = {
 	description: sourceManifest.description,
 	type: sourceManifest.type,
 	bin: sourceManifest.bin,
+	exports: kernelPublishExports,
 	files: sourceManifest.files,
 	publishConfig: sourceManifest.publishConfig,
 	engines: sourceManifest.engines,
@@ -70,13 +82,18 @@ function assertSourceManifest(manifest, workspaceManifest) {
 	if (
 		!Array.isArray(manifest.files) ||
 		!manifest.files.includes("bin") ||
-		manifest.files.includes("kernel") ||
+		!manifest.files.includes("kernel") ||
 		!manifest.files.includes("README.md")
 	) {
-		throw new Error("@nseng-ai/ns source manifest files must include bin and README.md, and must not include kernel.");
+		throw new Error("@nseng-ai/ns source manifest files must include bin, kernel, and README.md.");
 	}
-	if (manifest.exports !== undefined) {
-		throw new Error("@nseng-ai/ns source manifest must not export kernel subpaths.");
+	for (const [subpath, sourceTarget] of Object.entries(manifest.exports ?? {})) {
+		if (kernelPublishExports[subpath] === undefined) {
+			throw new Error(`Unexpected @nseng-ai/ns source export ${subpath}.`);
+		}
+		if (sourceTarget !== `./src${kernelPublishExports[subpath].slice(1, -3)}.ts`) {
+			throw new Error(`Unexpected @nseng-ai/ns source export target for ${subpath}: ${String(sourceTarget)}`);
+		}
 	}
 	if (manifest.files.includes("src")) {
 		throw new Error("@nseng-ai/ns source manifest files must not include src.");
@@ -102,8 +119,10 @@ function assertPublishManifest(manifest) {
 	if (manifest.bin.ns !== "bin/ns.js") {
 		throw new Error("Generated publish manifest bin.ns must point at bin/ns.js.");
 	}
-	if (manifest.exports !== undefined) {
-		throw new Error("Generated publish manifest must not export kernel subpaths from @nseng-ai/ns.");
+	for (const [subpath, publishTarget] of Object.entries(kernelPublishExports)) {
+		if (manifest.exports[subpath] !== publishTarget) {
+			throw new Error(`Generated publish manifest export ${subpath} must point at ${publishTarget}.`);
+		}
 	}
 	if (manifest.publishConfig?.access !== "public") {
 		throw new Error("Generated publish manifest publishConfig.access must be public.");
