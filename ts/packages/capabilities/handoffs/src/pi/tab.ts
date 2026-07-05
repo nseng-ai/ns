@@ -24,8 +24,8 @@ import {
 	PICKUP_HANDOFF_COMMAND_NAME,
 } from "./command-constants.ts";
 import { setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type { PiHandoffContext } from "./api-context.ts";
-import type { CommandContext, ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
+import type { HandoffCommandInvocation } from "./api-context.ts";
+import type { ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
 export type { HandoffTabLaunchResult };
 
@@ -54,14 +54,9 @@ export function buildHandoffTabPrompt(
 	return buildHandoffLaunchPrompt(HANDOFF_TAB_PROMPT_COPY, options);
 }
 
-export async function handleHandoffTabCommand(options: {
-	pi: ExtensionAPI;
-	args: string;
-	ctx: CommandContext;
-	handoffContext: PiHandoffContext;
-}): Promise<void> {
-	const { pi, args, ctx, handoffContext } = options;
-	await runHandoffCreateCommand(pi, args, ctx, {
+export async function handleHandoffTabCommand(options: HandoffCommandInvocation): Promise<void> {
+	const { pi, rawArgs, ctx, handoffContext } = options;
+	await runHandoffCreateCommand(pi, rawArgs, ctx, {
 		handoffContext,
 		statusKey: HANDOFF_TAB_STATUS_KEY,
 		promptCopy: HANDOFF_TAB_PROMPT_COPY,

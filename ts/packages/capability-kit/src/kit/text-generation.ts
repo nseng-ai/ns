@@ -33,25 +33,30 @@ export const LEGACY_CHANGES_MODEL_ENV = "PI_DRAFT_MODEL";
 export const SUBMIT_FAILURE_MODEL_ENV = "NS_SUBMIT_FAILURE_MODEL";
 export const PR_DESCRIPTION_MODEL_ENV = "NS_DEV_PR_DESCRIPTION_MODEL";
 
-export function selectCheckpointModelRef(env: Record<string, string | undefined>): string {
-	return (
-		firstEnvValue(env, CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV) ??
-		DEFAULT_CHECKPOINT_MODEL_REF
-	);
-}
+export const selectCheckpointModelRef = makeModelRefSelector(
+	DEFAULT_CHECKPOINT_MODEL_REF,
+	CHECKPOINT_MODEL_ENV,
+	LEGACY_CHECKPOINT_MODEL_ENV,
+);
+export const selectChangesModelRef = makeModelRefSelector(
+	DEFAULT_CHANGES_MODEL_REF,
+	CHANGES_MODEL_ENV,
+	LEGACY_CHANGES_MODEL_ENV,
+);
+export const selectSubmitFailureModelRef = makeModelRefSelector(
+	DEFAULT_SUBMIT_FAILURE_MODEL_REF,
+	SUBMIT_FAILURE_MODEL_ENV,
+);
+export const selectPrDescriptionModelRef = makeModelRefSelector(
+	DEFAULT_PR_DESCRIPTION_MODEL_REF,
+	PR_DESCRIPTION_MODEL_ENV,
+);
 
-export function selectChangesModelRef(env: Record<string, string | undefined>): string {
-	return (
-		firstEnvValue(env, CHANGES_MODEL_ENV, LEGACY_CHANGES_MODEL_ENV) ?? DEFAULT_CHANGES_MODEL_REF
-	);
-}
-
-export function selectSubmitFailureModelRef(env: Record<string, string | undefined>): string {
-	return firstEnvValue(env, SUBMIT_FAILURE_MODEL_ENV) ?? DEFAULT_SUBMIT_FAILURE_MODEL_REF;
-}
-
-export function selectPrDescriptionModelRef(env: Record<string, string | undefined>): string {
-	return firstEnvValue(env, PR_DESCRIPTION_MODEL_ENV) ?? DEFAULT_PR_DESCRIPTION_MODEL_REF;
+function makeModelRefSelector(
+	defaultRef: string,
+	...envNames: string[]
+): (env: Record<string, string | undefined>) => string {
+	return (env) => firstEnvValue(env, ...envNames) ?? defaultRef;
 }
 
 function firstEnvValue(

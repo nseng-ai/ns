@@ -11,7 +11,7 @@ import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./pl
 
 export const MAX_PLAN_CONTENT_CHARS = 32_000;
 
-export interface ContentSlugDerivationVariant {
+export interface PlanContentSlugVariantSeed {
 	slugKind: string;
 	promptIntroLines: readonly string[];
 	invalidSlugMessage: string;
@@ -30,7 +30,7 @@ export type { ContentSlugEvidence };
 export async function deriveContentSlug(
 	pi: CommandExecApi,
 	input: DeriveContentSlugInput,
-	variant: ContentSlugDerivationVariant,
+	variant: PlanContentSlugVariantSeed,
 ): Promise<ContentSlugEvidence> {
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
@@ -41,27 +41,31 @@ export async function deriveContentSlug(
 
 export function buildContentSlugPrompt(
 	content: string,
-	variant: ContentSlugDerivationVariant,
+	variant: PlanContentSlugVariantSeed,
 ): string {
 	return buildKitContentSlugPrompt(content, toKitContentSlugVariant(variant));
 }
 
+const PLAN_CONTENT_SLUG_NORMALIZATION = {
+	maxWords: MAX_PLAN_SLUG_WORDS,
+	stripSuffixes: ["-plan"],
+} satisfies KitContentSlugDerivationVariant["normalization"];
+
+const PLAN_CONTENT_SLUG_TRUNCATION = {
+	maxContentChars: MAX_PLAN_CONTENT_CHARS,
+	truncationMessage: "[Plan content truncated for slug generation]",
+} satisfies Pick<KitContentSlugDerivationVariant, "maxContentChars" | "truncationMessage">;
+
 export function normalizePlanContentSlugOutput(value: string): string | undefined {
-	return normalizeContentSlugOutput(value, {
-		maxWords: MAX_PLAN_SLUG_WORDS,
-		stripSuffixes: ["-plan"],
-	});
+	return normalizeContentSlugOutput(value, PLAN_CONTENT_SLUG_NORMALIZATION);
 }
 
 export function truncatePlanContentForSlug(content: string): string {
-	return truncateContentForSlug(content, {
-		maxContentChars: MAX_PLAN_CONTENT_CHARS,
-		truncationMessage: "[Plan content truncated for slug generation]",
-	});
+	return truncateContentForSlug(content, PLAN_CONTENT_SLUG_TRUNCATION);
 }
 
 function toKitContentSlugVariant(
-	variant: ContentSlugDerivationVariant,
+	variant: PlanContentSlugVariantSeed,
 ): KitContentSlugDerivationVariant {
 	return {
 		...variant,
@@ -74,12 +78,8 @@ function toKitContentSlugVariant(
 		],
 		contentHeading: "## Plan content",
 		emptyContentPlaceholder: "(empty plan content)",
-		maxContentChars: MAX_PLAN_CONTENT_CHARS,
-		truncationMessage: "[Plan content truncated for slug generation]",
-		normalization: {
-			maxWords: MAX_PLAN_SLUG_WORDS,
-			stripSuffixes: ["-plan"],
-		},
+		...PLAN_CONTENT_SLUG_TRUNCATION,
+		normalization: PLAN_CONTENT_SLUG_NORMALIZATION,
 		validateSlug: validatePlanSlug,
 	};
 }

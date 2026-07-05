@@ -23,6 +23,7 @@ import {
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
 	objectiveSelectionContextFromCommandContext,
+	objectiveSelectionHostFromExec,
 	parseObjectiveCandidatesData,
 	parseObjectiveListArgTokens,
 	renderObjectiveListMarkdown,
@@ -119,7 +120,7 @@ async function invokeObjectiveSkill(
 async function chooseObjectiveAndInvoke(invocation: ObjectiveInvocationContext): Promise<void> {
 	const { pi, ctx, spec } = invocation;
 	const slug = await chooseActiveObjectiveSlug(
-		pi,
+		objectiveSelectionHostFromExec(pi),
 		objectiveSelectionContextFromCommandContext(ctx),
 		spec,
 	);

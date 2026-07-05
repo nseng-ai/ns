@@ -2,13 +2,13 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	buildContentSlugPrompt,
 	deriveContentSlug,
-	type ContentSlugDerivationVariant,
+	type PlanContentSlugVariantSeed,
 	type ContentSlugEvidence,
 } from "./content-slug-derivation.ts";
 
 export type SavedPlanContentSlugEvidence = ContentSlugEvidence;
 
-const SAVED_PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
+const SAVED_PLAN_CONTENT_SLUG_VARIANT: PlanContentSlugVariantSeed = {
 	slugKind: "saved-plan filename slug",
 	promptIntroLines: [
 		"Generate the saved-plan filename slug for the Markdown implementation plan content below.",

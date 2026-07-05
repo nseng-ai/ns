@@ -258,18 +258,20 @@ class FakeGitGateway extends InMemoryGitGateway {
 	}
 
 	override async repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
-		this.calls.push("repoRoot");
-		return await super.repoRoot(params);
+		return await this.trackCall("repoRoot", () => super.repoRoot(params));
 	}
 
 	override async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
-		this.calls.push("currentBranch");
-		return await super.currentBranch(params);
+		return await this.trackCall("currentBranch", () => super.currentBranch(params));
 	}
 
 	override async originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		this.calls.push("originUrl");
-		return await super.originUrl(params);
+		return await this.trackCall("originUrl", () => super.originUrl(params));
+	}
+
+	private async trackCall<T>(name: string, run: () => Promise<T>): Promise<T> {
+		this.calls.push(name);
+		return await run();
 	}
 }
 

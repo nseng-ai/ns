@@ -1,4 +1,5 @@
 import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { LandContext } from "../api.ts";
 import { LandStackCommandStream, withCommandStreaming } from "./command-stream.ts";
 import {
@@ -22,7 +23,7 @@ export interface LandRuntime {
 export function createRuntimeLandContext(runtime: LandRuntime): LandContext {
 	return createLandContext(runtime.commands, {
 		graphite: runtime.graphite,
-		...(runtime.gitStateFs === undefined ? {} : { gitStateFs: runtime.gitStateFs }),
+		...optionalEntry("gitStateFs", runtime.gitStateFs),
 	});
 }
 
@@ -35,6 +36,6 @@ export function createLandRuntime(
 		source: pi,
 		commands: withCommandStreaming(pi, commandStream),
 		graphite: createLandGraphiteCommandChannel({ pi, commandStream }),
-		...(options.gitStateFs === undefined ? {} : { gitStateFs: options.gitStateFs }),
+		...optionalEntry("gitStateFs", options.gitStateFs),
 	};
 }

@@ -1,5 +1,5 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -110,7 +110,7 @@ describe("derivePlanContentSlug", () => {
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(buildSlugModelArgs("").slice(0, -1));
+		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(buildRawTextModelArgs("").slice(0, -1));
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
@@ -199,7 +199,7 @@ describe("derivePlanContentSlug", () => {
 		} catch (error) {
 			expectNoFallback(error);
 			expect((error as Error).message).toContain(
-				"Pi slug model command failed (exit code 143; process was killed or timed out).",
+				"Pi model command failed (exit code 143; process was killed or timed out).",
 			);
 		}
 		expect(pi.calls).toHaveLength(2);

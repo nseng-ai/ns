@@ -1,4 +1,5 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	completed,
 	failure,
@@ -109,7 +110,7 @@ export async function confirmAndFreeManagedSlots(
 	const cleanRepo = await assertCleanRepo(
 		pi,
 		plan.repoRoot,
-		runtime.gitStateFs === undefined ? {} : { gitStateFs: runtime.gitStateFs },
+		optionalEntry("gitStateFs", runtime.gitStateFs),
 	);
 	if (cleanRepo.type === "failure") return cleanRepo;
 	const conflicts = await detectWorktreeConflicts(

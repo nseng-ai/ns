@@ -33,7 +33,7 @@ export interface ParseJsonInputTextOptions<T> {
 	readonly schemaDescription?: string;
 }
 
-export interface ParseJsonInputValueOptions<T> {
+interface ParseJsonInputValueOptions<T> {
 	readonly value: unknown;
 	readonly schema: z.ZodType<T>;
 	readonly schemaDescription: string;
@@ -53,7 +53,7 @@ export async function loadJsonInput<T>(
 	});
 }
 
-export async function readJsonInputText(
+async function readJsonInputText(
 	options: ReadJsonInputTextOptions,
 ): Promise<JsonInputResult<string>> {
 	const canReadStdin = options.canReadStdin ?? true;
@@ -180,7 +180,7 @@ export function parseJsonInputText<T>(options: ParseJsonInputTextOptions<T>): Js
 	});
 }
 
-export function parseJsonInputValue<T>(options: ParseJsonInputValueOptions<T>): JsonInputResult<T> {
+function parseJsonInputValue<T>(options: ParseJsonInputValueOptions<T>): JsonInputResult<T> {
 	const parseResult = options.schema.safeParse(options.value);
 	if (!parseResult.success) {
 		return {

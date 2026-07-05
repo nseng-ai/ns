@@ -18,6 +18,7 @@ export type {
 export {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
+	objectiveSelectionHostFromExec,
 } from "../core/objective-selection-flow.ts";
 export type {
 	ObjectiveSelectionCommandContext,

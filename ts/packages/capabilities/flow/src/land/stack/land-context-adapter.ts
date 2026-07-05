@@ -1,4 +1,5 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
 	type GitWorktreeStateFs,
@@ -96,11 +97,7 @@ export function createLandContext(
 			currentBranch: async ({ repoRoot }) =>
 				toLandResult(await loadCurrentBranch(pi, repoRoot), "git", "repo-discovery"),
 			workingTreeStatus: async ({ repoRoot }) =>
-				loadWorkingTreeStatus(
-					pi,
-					repoRoot,
-					options.gitStateFs === undefined ? {} : { gitStateFs: options.gitStateFs },
-				),
+				loadWorkingTreeStatus(pi, repoRoot, optionalEntry("gitStateFs", options.gitStateFs)),
 			localBranchExists: async ({ repoRoot, branch }) =>
 				loadLocalBranchExists(pi, repoRoot, branch),
 			localBranchSha: async ({ repoRoot, branch }) =>
@@ -413,10 +410,7 @@ async function loadWorkingTreeStatus(
 		return landSuccess({ isClean: false });
 	}
 
-	const operation = detectInProgressOperation(
-		repoRoot,
-		options.gitStateFs === undefined ? {} : { fs: options.gitStateFs },
-	);
+	const operation = detectInProgressOperation(repoRoot, optionalEntry("fs", options.gitStateFs));
 	if (operation === undefined) return landSuccess({ isClean: true });
 	return landSuccess({ isClean: true, inProgressOperation: operation });
 }

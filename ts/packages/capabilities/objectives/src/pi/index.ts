@@ -11,6 +11,7 @@ export {
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
 	objectiveSelectionContextFromCommandContext,
+	objectiveSelectionHostFromExec,
 } from "../api/index.ts";
 export type {
 	BuildObjectiveSkillPromptOptions,

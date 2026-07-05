@@ -49,21 +49,20 @@ export interface CreatedGithubPrReviewLogEntry {
 }
 
 export class FakeGithubPrFeedbackGateway {
-	private readonly changedFilesByPr = new Map<number, GithubPrChangedFile[]>();
-	private readonly reviewCommentsByPr = new Map<number, GithubPrRestReviewComment[]>();
-	private readonly reviewThreadsByPr = new Map<number, GithubPrReviewThread[]>();
-	private readonly discussionCommentsByPr = new Map<number, GithubPrDiscussionComment[]>();
+	private readonly changedFilesByPr: Map<number, GithubPrChangedFile[]>;
+	private readonly reviewCommentsByPr: Map<number, GithubPrRestReviewComment[]>;
+	private readonly reviewThreadsByPr: Map<number, GithubPrReviewThread[]>;
+	private readonly discussionCommentsByPr: Map<number, GithubPrDiscussionComment[]>;
 	private readonly createdReviewsInternal: CreatedGithubPrReviewLogEntry[] = [];
 	private readonly failure: GithubPrFeedbackFailure | undefined;
 	private nextCommentId: number;
 
 	constructor(options: FakeGithubPrFeedbackGatewayOptions = {}) {
-		copyMapArray(options.changedFilesByPr, this.changedFilesByPr, copyChangedFile);
-		copyMapArray(options.reviewCommentsByPr, this.reviewCommentsByPr, copyReviewComment);
-		copyMapArray(options.reviewThreadsByPr, this.reviewThreadsByPr, copyReviewThread);
-		copyMapArray(
+		this.changedFilesByPr = copyMapArray(options.changedFilesByPr, copyChangedFile);
+		this.reviewCommentsByPr = copyMapArray(options.reviewCommentsByPr, copyReviewComment);
+		this.reviewThreadsByPr = copyMapArray(options.reviewThreadsByPr, copyReviewThread);
+		this.discussionCommentsByPr = copyMapArray(
 			options.discussionCommentsByPr,
-			this.discussionCommentsByPr,
 			copyDiscussionComment,
 		);
 		this.failure = options.failure;
@@ -239,9 +238,10 @@ function copyInlineCommentInput(comment: GithubPrInlineCommentInput): GithubPrIn
 
 function copyMapArray<TKey, TValue>(
 	source: ReadonlyMap<TKey, readonly TValue[]> | undefined,
-	target: Map<TKey, TValue[]>,
 	copy: (value: TValue) => TValue,
-): void {
-	if (source === undefined) return;
-	for (const [key, values] of source.entries()) target.set(key, values.map(copy));
+): Map<TKey, TValue[]> {
+	const copied = new Map<TKey, TValue[]>();
+	if (source === undefined) return copied;
+	for (const [key, values] of source.entries()) copied.set(key, values.map(copy));
+	return copied;
 }

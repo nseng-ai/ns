@@ -4,7 +4,7 @@ import {
 	type AutobranchPreparationInput,
 } from "../../src/autobranch/dirty-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@nseng-ai/foundation/branch-slug";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
 	eventIndex,
@@ -210,7 +210,7 @@ describe("prepareAutobranchPlan", () => {
 		expect(harness.readPaths).toEqual(["/repo/notes.txt"]);
 		expect(harness.statPaths).toEqual(["/repo/notes.txt"]);
 		const prompt = piPrompt(harness.calls);
-		expect(piCall(harness.calls).args).toEqual(buildSlugModelArgs(prompt));
+		expect(piCall(harness.calls).args).toEqual(buildRawTextModelArgs(prompt));
 		expect(prompt).toContain("## git status --porcelain\nM src/app.ts\n?? notes.txt");
 		expect(prompt).toContain(
 			"## git diff HEAD\ndiff --git a/src/app.ts b/src/app.ts\n+updated app",

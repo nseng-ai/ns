@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
@@ -67,7 +67,7 @@ describe("deriveSavedPlanContentSlug", () => {
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
 		expect(pi.calls[0]?.args).toEqual(
-			buildSlugModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)),
+			buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)),
 		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});

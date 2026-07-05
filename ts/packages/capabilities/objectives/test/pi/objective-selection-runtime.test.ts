@@ -4,7 +4,8 @@ import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 } from "../../src/api/index.ts";
-import type { CommandContext, ExecResult } from "@nseng-ai/pi/runtime/types";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import type { CommandContext } from "@nseng-ai/pi/runtime/types";
 
 describe("objective selection runtime behavior", () => {
 	test("objective selection context preserves UI notifications without select", async () => {
@@ -28,7 +29,6 @@ describe("objective selection runtime behavior", () => {
 	});
 
 	test("objective selection with notifications but no picker skips picker-only work", async () => {
-		const calls: Array<{ command: string; args: string[] }> = [];
 		const notifications: string[] = [];
 		const ctx: CommandContext = {
 			cwd: "/repo",
@@ -40,28 +40,24 @@ describe("objective selection runtime behavior", () => {
 			waitForIdle: async () => {},
 		};
 		const host = {
-			exec: async (command: string, args: string[]): Promise<ExecResult> => {
-				calls.push({ command, args });
-				if (command !== "objective") {
-					throw new Error(`unexpected command: ${command}`);
-				}
-
-				return {
-					code: 0,
-					killed: false,
-					stderr: "",
-					stdout: JSON.stringify({
-						exitCode: 0,
-						data: {
-							trunkBranch: "master",
-							rootPath: "/repo",
-							statusFilter: "active",
-							namesOnly: false,
-							records: [{ slug: "alpha", status: "active", latestUpdateIso: null }],
+			git: new InMemoryGitGateway(),
+			loadObjectiveList: async () => ({
+				type: "loaded" as const,
+				list: {
+					trunkBranch: "master",
+					rootPath: "/repo",
+					statusFilter: "active" as const,
+					namesOnly: false,
+					records: [
+						{
+							slug: "alpha",
+							status: "open" as const,
+							latestUpdateIso: null,
+							hasOutstandingChanges: false,
 						},
-					}),
-				};
-			},
+					],
+				},
+			}),
 		};
 
 		const slug = await chooseActiveObjectiveSlug(
@@ -75,7 +71,6 @@ describe("objective selection runtime behavior", () => {
 		);
 
 		expect(slug).toBeUndefined();
-		expect(calls).toEqual([]);
 		expect(notifications).toEqual([]);
 	});
 
@@ -91,20 +86,16 @@ describe("objective selection runtime behavior", () => {
 			waitForIdle: async () => {},
 		};
 		const host = {
-			exec: async (): Promise<ExecResult> => ({
-				code: 0,
-				killed: false,
-				stderr: "",
-				stdout: JSON.stringify({
-					exitCode: 0,
-					data: {
-						trunkBranch: "master",
-						rootPath: "/repo",
-						statusFilter: "active",
-						namesOnly: false,
-						records: [],
-					},
-				}),
+			git: new InMemoryGitGateway(),
+			loadObjectiveList: async () => ({
+				type: "loaded" as const,
+				list: {
+					trunkBranch: "master",
+					rootPath: "/repo",
+					statusFilter: "active" as const,
+					namesOnly: false,
+					records: [],
+				},
 			}),
 		};
 
@@ -133,12 +124,8 @@ describe("objective selection runtime behavior", () => {
 			waitForIdle: async () => {},
 		};
 		const host = {
-			exec: async (): Promise<ExecResult> => ({
-				code: 2,
-				killed: false,
-				stderr: "boom",
-				stdout: "",
-			}),
+			git: new InMemoryGitGateway(),
+			loadObjectiveList: async () => ({ type: "failed" as const, message: "boom" }),
 		};
 
 		const slug = await chooseActiveObjectiveSlug(

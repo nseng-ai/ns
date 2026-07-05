@@ -1,5 +1,5 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { describe, expect, test } from "vitest";
 
 import handoffExtension, {
@@ -155,7 +155,7 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool returns slug and key details", async () => {
 		const pi = new FakePi([
-			step("pi", buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
+			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
 				stdout: "associate-sessions-with-branches\n",
 			}),
 		]);
@@ -221,7 +221,7 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool reports slug-model failure without fallback", async () => {
 		const pi = new FakePi([
-			step("pi", buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
+			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
 				code: 1,
 				stderr: "model unavailable",
 			}),
@@ -254,7 +254,7 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool threads cwd and abort signal into model command", async () => {
 		const pi = new FakePi([
-			step("pi", buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
+			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
 				stdout: "associate-sessions-with-branches\n",
 			}),
 		]);

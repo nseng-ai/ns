@@ -101,7 +101,8 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 			commandName: HANDOFF_TAB_COMMAND_NAME,
 			commandDefinition: {
 				description: "Create a handoff and open a focused cmux tab to pick it up.",
-				handler: async (args, ctx) => handleHandoffTabCommand({ pi, args, ctx, handoffContext }),
+				handler: async (args, ctx) =>
+					handleHandoffTabCommand({ pi, rawArgs: args, ctx, handoffContext }),
 			},
 		});
 		registerCommandWithImmediateAck({

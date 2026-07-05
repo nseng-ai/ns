@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	buildContentSlugPrompt,
-	deriveContentSlug,
+	buildKitContentSlugPrompt,
+	deriveKitContentSlug,
 	normalizeContentSlugOutput,
 	truncateContentForSlug,
 	type ContentSlugDerivationVariant,
 } from "@nseng-ai/capability-kit/content-slug";
 import {
-	buildSlugModelArgs,
+	buildRawTextModelArgs,
 	type SlugModelCommandResult,
 } from "@nseng-ai/capability-kit/model-slug";
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
@@ -77,11 +77,11 @@ function expectNoFallback(error: unknown): void {
 	expect((error as Error).message).toContain(TEST_VARIANT.noFallbackLine);
 }
 
-describe("deriveContentSlug", () => {
+describe("deriveKitContentSlug", () => {
 	test("successful model output yields content slug evidence", async () => {
 		const exec = new FakeSlugExec({ stdout: "Content Slug Kit Artifact\n", code: 0 });
 
-		const evidence = await deriveContentSlug(exec, { content: CONTENT, cwd: CWD }, TEST_VARIANT);
+		const evidence = await deriveKitContentSlug(exec, { content: CONTENT, cwd: CWD }, TEST_VARIANT);
 
 		expect(evidence).toEqual({
 			slug: "content-slug-kit",
@@ -92,7 +92,7 @@ describe("deriveContentSlug", () => {
 		expect(exec.calls).toEqual([
 			{
 				command: "pi",
-				args: buildSlugModelArgs(buildContentSlugPrompt(CONTENT, TEST_VARIANT)),
+				args: buildRawTextModelArgs(buildKitContentSlugPrompt(CONTENT, TEST_VARIANT)),
 				options: { cwd: CWD, timeout: 60_000 },
 			},
 		]);
@@ -102,7 +102,7 @@ describe("deriveContentSlug", () => {
 		const controller = new AbortController();
 		const exec = new FakeSlugExec({ stdout: "Content Slug Kit\n", code: 0 });
 
-		await deriveContentSlug(
+		await deriveKitContentSlug(
 			exec,
 			{ content: CONTENT, cwd: CWD, signal: controller.signal },
 			TEST_VARIANT,
@@ -132,7 +132,7 @@ describe("deriveContentSlug", () => {
 
 		for (const [, exec, expectedMessage] of failureCases) {
 			try {
-				await deriveContentSlug(exec, { content: CONTENT, cwd: CWD }, TEST_VARIANT);
+				await deriveKitContentSlug(exec, { content: CONTENT, cwd: CWD }, TEST_VARIANT);
 				throw new Error("expected slug derivation to fail");
 			} catch (error) {
 				expectNoFallback(error);
@@ -144,7 +144,7 @@ describe("deriveContentSlug", () => {
 
 describe("content slug prompt and normalization helpers", () => {
 	test("prompt assembly includes only variant text and content", () => {
-		const prompt = buildContentSlugPrompt(CONTENT, TEST_VARIANT);
+		const prompt = buildKitContentSlugPrompt(CONTENT, TEST_VARIANT);
 
 		expect(prompt).toContain(TEST_VARIANT.promptIntroLines[0]);
 		expect(prompt).toContain("Return exactly one slug and no prose.");

@@ -5,7 +5,7 @@ export {
 	MAX_PLAN_CONTENT_CHARS,
 	normalizePlanContentSlugOutput,
 	truncatePlanContentForSlug,
-	type ContentSlugDerivationVariant,
+	type PlanContentSlugVariantSeed,
 	type ContentSlugEvidence,
 	type DeriveContentSlugInput,
 } from "./content-slug-derivation.ts";

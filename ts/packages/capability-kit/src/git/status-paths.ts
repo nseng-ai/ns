@@ -45,17 +45,13 @@ function collectGitStatusPaths(
 		const extracted = extractRecord(record, index);
 		if (!extracted.ok) return malformedRecord(record);
 		for (const path of extracted.paths) {
-			pushUnique(changedPaths, changedSeen, path);
+			if (changedSeen.has(path)) continue;
+			changedSeen.add(path);
+			changedPaths.push(path);
 		}
 		index += extracted.consumedRecords ?? 0;
 	}
 	return { ok: true, value: { changedPaths } };
-}
-
-function pushUnique(paths: string[], seen: Set<string>, path: string): void {
-	if (seen.has(path)) return;
-	seen.add(path);
-	paths.push(path);
 }
 
 function parsePrimaryRecord(
