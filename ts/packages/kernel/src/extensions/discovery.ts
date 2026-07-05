@@ -752,7 +752,10 @@ function moduleReferenceForEntryPath(entryPath: string): {
 		return {};
 	}
 	const specifier = parseDefaultReexportShimSpecifier(source);
-	return specifier === undefined ? {} : { moduleReference: { type: "package", specifier } };
+	return optionalEntry(
+		"moduleReference",
+		specifier === undefined ? undefined : { type: "package", specifier },
+	);
 }
 
 function parseDefaultReexportShimSpecifier(source: string): string | undefined {
