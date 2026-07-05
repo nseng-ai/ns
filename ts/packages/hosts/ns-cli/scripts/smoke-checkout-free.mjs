@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,10 @@ try {
 	await run("npm", ["install", "--silent", tarball], { cwd: tempRoot });
 
 	const nsBin = join(tempRoot, "node_modules", ".bin", process.platform === "win32" ? "ns.cmd" : "ns");
+	const installedPackageRoot = join(tempRoot, "node_modules", "@nseng-ai", "ns");
+	const installedCli = join(installedPackageRoot, "bin", "ns.js");
+	await assertInstalledPackageBoundary(nsBin, installedCli);
+
 	const help = await run(nsBin, ["objective", "list", "--help"], { cwd: tempRoot });
 	if (!help.stdout.includes("Usage: ns objective list")) {
 		throw new Error("Packed ns CLI did not render Objective list help.");
@@ -30,6 +34,23 @@ try {
 } finally {
 	if (process.env.NS_CLI_KEEP_SMOKE_DIR !== "1") {
 		await rm(tempRoot, { recursive: true, force: true });
+	}
+}
+
+async function assertInstalledPackageBoundary(nsBin, installedCli) {
+	const cliSource = await readFile(installedCli, "utf8");
+	if (!cliSource.startsWith("#!/usr/bin/env node\n")) {
+		throw new Error("Installed ns CLI is not a prebuilt executable JS file with a node shebang.");
+	}
+	if (cliSource.includes("run_checkout") || cliSource.includes("ts/node_modules")) {
+		throw new Error("Installed ns CLI appears to include the source checkout shim boundary.");
+	}
+	if (process.platform !== "win32") {
+		const resolvedBin = await realpath(nsBin);
+		const resolvedCli = await realpath(installedCli);
+		if (resolvedBin !== resolvedCli) {
+			throw new Error(`Installed .bin/ns does not resolve to packaged bin/ns.js: ${resolvedBin}`);
+		}
 	}
 }
 

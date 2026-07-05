@@ -34,15 +34,19 @@
   - Current `ns` evidence: preinstalled Objective catalog entries now carry in-process loader
     thunks for bundled Objective command modules, while specifier-based loading and
     project/global extension override precedence remain covered by tests.
-- [~] Introduce the build/bundle step and produce a checkout-free artifact (no
-  run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
+- [x] Introduce the build/bundle step and produce a checkout-free artifact (no
+      run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
   - Evidence: the artifact runs `ns objective list` on a machine with no repo checkout.
   - Current evidence: `@nseng-ai/ns` builds a local esbuild bundle and `pack:local`
     assembles an `@nseng-ai/ns` tarball whose `ns` bin runs `ns objective list` from a
-    foreign temp repo after `npm install <tarball>`.
-- [ ] Replace or retire the checkout-dependent shims for the published package boundary
+    foreign temp repo after `npm install <tarball>`; `publish:dry-run` now verifies the
+    same generated package root with `npm publish --dry-run`.
+- [x] Replace or retire the checkout-dependent shims for the published package boundary
       (legacy source shim paths such as pnpm `.bin` `NODE_PATH` assumptions and
       `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`).
+  - Evidence: the published-package boundary points at prebuilt `bin/ns.js`, and the
+    checkout-free smoke verifies the installed `.bin/ns` resolves to that packaged JS
+    without source-shim markers. Source-checkout shims remain dev-only.
 - [x] Decide the published npm name for every standalone-published package and the
       workspace-to-published name mapping strategy.
   - Decision: workspace manifests now use the external `@nseng-ai/*` scope directly; do
