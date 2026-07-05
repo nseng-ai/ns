@@ -1441,4 +1441,142 @@ describe("RealGithubPrFeedbackGateway", () => {
 		});
 		runner.assertDone();
 	});
+
+	test("fetches REST changed files and review comment summaries", async () => {
+		const changedFilesArgs = ["api", "--paginate", "repos/{owner}/{repo}/pulls/12/files"];
+		const reviewCommentsArgs = ["api", "--paginate", "repos/{owner}/{repo}/pulls/12/comments"];
+		const runner = new ScriptedCommandRunner([
+			step("gh", changedFilesArgs, {
+				stdout: JSON.stringify([
+					{ filename: "src/app.ts", status: "modified", patch: null },
+					{ path: "src/new.ts", status: "added", patch: "@@" },
+				]),
+			}),
+			step("gh", reviewCommentsArgs, {
+				stdout: JSON.stringify([
+					{ body: "body", user: { login: "octocat" } },
+					{ body: "bot", author: "github-actions[bot]" },
+				]),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getPrChangedFiles({ cwd: "/repo", prNumber: 12 })).toEqual({
+			ok: true,
+			value: [
+				{ path: "src/app.ts", status: "modified", patch: null },
+				{ path: "src/new.ts", status: "added", patch: "@@" },
+			],
+		});
+		expect(await gateway.getPrReviewComments({ cwd: "/repo", prNumber: 12 })).toEqual({
+			ok: true,
+			value: [
+				{ author: "octocat", body: "body" },
+				{ author: "github-actions[bot]", body: "bot" },
+			],
+		});
+		runner.assertDone();
+	});
+
+	test("upserts REST discussion comments by marker and author", async () => {
+		const listArgs = ["api", "--paginate", "repos/{owner}/{repo}/issues/12/comments"];
+		const updateArgs = [
+			"api",
+			"--method",
+			"PATCH",
+			"repos/{owner}/{repo}/issues/comments/44",
+			"-f",
+			"body=updated <!-- marker -->",
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", listArgs, {
+				stdout: JSON.stringify([
+					{ id: 44, body: "old <!-- marker -->", user: { login: "bot" }, html_url: "url" },
+				]),
+			}),
+			step("gh", updateArgs, {
+				stdout: JSON.stringify({ id: 44, body: "updated <!-- marker -->", user: { login: "bot" } }),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.upsertPrDiscussionCommentByMarker({
+				cwd: "/repo",
+				prNumber: 12,
+				marker: "<!-- marker -->",
+				authorLogin: "bot",
+				body: "updated <!-- marker -->",
+			}),
+		).toEqual({
+			ok: true,
+			value: {
+				type: "updated",
+				comment: { id: 44, body: "updated <!-- marker -->", author: "bot", url: "" },
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("fetches REST feedback fingerprint parts with legacy jq projections", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gh",
+				[
+					"api",
+					"--method",
+					"GET",
+					"repos/{owner}/{repo}/issues/12/comments?per_page=100&since=2026-06-01T00%3A00%3A00.000Z",
+					"--jq",
+					"[.[] | {id, created_at, updated_at, author: .user.login}]",
+				],
+				{ stdout: JSON.stringify([{ id: 1, created_at: "c", updated_at: "u", author: "bot" }]) },
+			),
+			step(
+				"gh",
+				[
+					"api",
+					"--method",
+					"GET",
+					"repos/{owner}/{repo}/pulls/12/reviews?per_page=100",
+					"--jq",
+					"[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]",
+				],
+				{ stdout: JSON.stringify([{ id: 2, node_id: "R", state: "COMMENTED", author: "bot" }]) },
+			),
+			step(
+				"gh",
+				[
+					"api",
+					"--method",
+					"GET",
+					"repos/{owner}/{repo}/pulls/12/comments?per_page=100&sort=updated&direction=desc&since=2026-06-01T00%3A00%3A00.000Z",
+					"--jq",
+					"[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
+				],
+				{
+					stdout: JSON.stringify([
+						{ id: 3, path: "src/app.ts", line: 7, created_at: "c", updated_at: "u", author: "bot" },
+					]),
+				},
+			),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getPrRestFeedbackFingerprintParts({
+				cwd: "/repo",
+				prNumber: 12,
+				sinceIso: "2026-06-01T00:00:00.000Z",
+			}),
+		).toMatchObject({
+			ok: true,
+			value: {
+				discussionComments: [{ id: 1, author: "bot", createdAt: "c", updatedAt: "u" }],
+				reviews: [{ id: 2, nodeId: "R", state: "COMMENTED", author: "bot" }],
+				reviewComments: [{ id: 3, path: "src/app.ts", line: 7, author: "bot" }],
+			},
+		});
+		runner.assertDone();
+	});
 });

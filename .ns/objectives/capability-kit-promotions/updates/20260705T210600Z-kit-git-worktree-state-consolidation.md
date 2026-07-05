@@ -1,6 +1,10 @@
 # Semantic Update: Kit git worktree-state consolidation
 
+## Summary
+
 The second-wave kit-git row landed on local branch `kit-git-worktree-state-consolidation`.
+
+## Objective Impact
 
 What changed:
 
@@ -29,3 +33,7 @@ Validation evidence:
 - `just ts-check`
 - `just`
 - grep verification: no remaining references to `GIT_OPERATION_MARKERS`, `resolveWorktreeAdminDir`, `gitPathsFromGitFile`, `DetectInProgressOperationOptions`, `defaultPathExists`, or `resolveGitPath` in the touched kit/slots/pi/flow areas.
+
+## Follow-Ups
+
+- None recorded for this semantic update.

@@ -112,7 +112,7 @@ Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
     `just`, and grep verification for retired duplicate model-invocation and
     first-line/truncation mechanics on local branch
     `promote-content-slug-derivation-capability-kit`.
-- [ ] Extract GitHub REST comment mechanics into a kit `github` subpath:
+- [x] Extract GitHub REST comment mechanics into a kit `github` subpath:
       pin — move paginated comment reads, inline-review create,
       discussion-comment POST/PATCH, and marker-based sticky-comment upsert
       out of `ts/packages/capabilities/reviews/src/gateways/github.ts`
@@ -124,6 +124,18 @@ Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
   - Policy: direct execution for an additive extraction; steer first if the
     kit surface wants to absorb Roaster-specific envelopes or if
     pr-feedback-watch's needs force a different contract.
+  - Evidence: extended `@nseng-ai/capability-kit/github/pr-feedback` with REST
+    changed-file/review-comment/discussion-comment/read-write/upsert and
+    fingerprint helpers plus fake support; migrated Roaster's real gateway to a
+    thin adapter over kit while preserving `RoasterResult` conversion; migrated
+    `pr-feedback-watch` REST fingerprint polling to kit through a local Pi
+    exec-to-command-runner adapter. Passed
+    `pnpm --dir ts --filter @nseng-ai/capability-kit test`,
+    `pnpm --dir ts --filter @nseng-ai/reviews test`,
+    `pnpm --dir ts --filter @internal/pi-tools test`,
+    `pnpm --dir ts run check`, `pnpm --dir ts run lint`,
+    `pnpm --dir ts run fmt:check`, `just ts-test-typescript-style-guard`, and
+    `just` on local branch `github-pr-feedback-comment-kit`.
 
 ## Parked
 
