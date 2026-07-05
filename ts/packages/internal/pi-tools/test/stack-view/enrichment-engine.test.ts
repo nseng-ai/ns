@@ -197,8 +197,11 @@ describe("stack enrichment engine", () => {
 		const checkKey = checkEnrichmentKey(check);
 		const seededThreadKey = requireThreadKey(seededThread);
 		const seededCheckKey = checkEnrichmentKey(seededCheck);
+		// Seed both a ready and a pending entry: memoized terminal/in-flight states
+		// are skipped by the enqueue path. (A `failed` seed is deliberately not used
+		// here — those are retried once; see the transient-retry test.)
 		store.set(seededThreadKey, { state: "ready", summary: "done" });
-		store.set(seededCheckKey, { state: "failed" });
+		store.set(seededCheckKey, { state: "pending" });
 
 		let changes = 0;
 		const engine = createStackEnrichmentEngine({
@@ -223,7 +226,7 @@ describe("stack enrichment engine", () => {
 		expect(store.get(checkKey)).toEqual({ state: "pending" });
 		// Memoized entries are left untouched.
 		expect(store.get(seededThreadKey)).toEqual({ state: "ready", summary: "done" });
-		expect(store.get(seededCheckKey)).toEqual({ state: "failed" });
+		expect(store.get(seededCheckKey)).toEqual({ state: "pending" });
 		// Exactly two new tasks were queued (thread + check); one onChange each.
 		expect(changes).toBe(2);
 
@@ -278,7 +281,8 @@ describe("stack enrichment engine", () => {
 		expect(options?.modelId).toBe(DEFAULT_FAST_MODEL.modelId);
 		expect(options?.reasoning).toBe("minimal");
 		expect(options?.maxTokens).toBe(96);
-		expect(options?.timeoutMs).toBe(30_000);
+		// The composed task signal is the single deadline; no fresh model-call timeout.
+		expect(options?.timeoutMs).toBeUndefined();
 		expect(options?.systemPrompt.length).toBeGreaterThan(0);
 		expect(options?.userText).toContain("please fix");
 
@@ -371,7 +375,7 @@ describe("stack enrichment engine", () => {
 		expect(exec.calls[0]?.command).toBe("gh");
 		expect(exec.calls[0]?.args).toEqual(["run", "view", "123", "--job", "456", "--log"]);
 		expect(model.calls[0]?.options.maxTokens).toBe(200);
-		expect(model.calls[0]?.options.timeoutMs).toBe(60_000);
+		expect(model.calls[0]?.options.timeoutMs).toBeUndefined();
 		expect(model.calls[0]?.options.userText).toContain("the failing log");
 
 		model.calls[0]?.deferred.resolve({ ok: true, text: "lint failed" });
@@ -380,7 +384,7 @@ describe("stack enrichment engine", () => {
 		expect(store.get(checkKey)).toEqual({ state: "ready", summary: "lint failed" });
 	});
 
-	it("degrades stickily when the registry is undefined", async () => {
+	it("degrades stickily on a systemic model failure and keeps the first reason", async () => {
 		const store = createEnrichmentStore();
 		const model = createFakeModel();
 		const exec = fakeExec({ stdout: "log" });
@@ -392,19 +396,99 @@ describe("stack enrichment engine", () => {
 			store,
 			execApi: exec.api,
 			cwd: CWD,
-			registry: undefined,
+			registry: fakeRegistry(),
+			callModelText: model.fn,
+			maxConcurrent: 2,
+		});
+
+		const done = engine.ensureAll(
+			modelOf([makePr({ unresolvedThreads: [thread], checkEntries: [check] })]),
+		);
+		await flushPromises();
+		expect(model.calls).toHaveLength(2);
+
+		// First systemic failure flips the engine to a sticky degraded state.
+		model.calls[0]?.deferred.resolve({ ok: false, reason: "auth", message: "invalid key" });
+		await flushPromises();
+		const firstReason = engine.degradedReason();
+		expect(firstReason).not.toBeNull();
+		expect(firstReason).toContain("invalid key");
+
+		// A second, differing systemic failure does not overwrite the first reason.
+		model.calls[1]?.deferred.resolve({ ok: false, reason: "empty-auth", message: "no key" });
+		await done;
+
+		expect(engine.degradedReason()).toBe(firstReason);
+		expect(store.get(threadKey)).toEqual({ state: "failed" });
+		expect(store.get(checkKey)).toEqual({ state: "failed" });
+	});
+
+	it("retries a transient failure once per engine, then stops", async () => {
+		const store = createEnrichmentStore();
+		const model = createFakeModel();
+		const thread = makeThread({ id: "a", lastCommentId: "a1" });
+		const threadKey = requireThreadKey(thread);
+		const pr = makePr({ unresolvedThreads: [thread] });
+		const engine = createStackEnrichmentEngine({
+			store,
+			execApi: unusedExec(),
+			cwd: CWD,
+			registry: fakeRegistry(),
 			callModelText: model.fn,
 		});
 
-		await engine.ensureAll(
-			modelOf([makePr({ unresolvedThreads: [thread], checkEntries: [check] })]),
-		);
-
-		expect(engine.degradedReason()).not.toBeNull();
+		// First pass fails transiently.
+		const firstDone = engine.ensureAll(modelOf([pr]));
+		await flushPromises();
+		expect(model.calls).toHaveLength(1);
+		model.calls[0]?.deferred.resolve({ ok: false, reason: "request-failed", message: "boom" });
+		await firstDone;
 		expect(store.get(threadKey)).toEqual({ state: "failed" });
-		expect(store.get(checkKey)).toEqual({ state: "failed" });
-		expect(model.calls).toHaveLength(0);
-		expect(exec.calls).toHaveLength(0);
+		expect(engine.degradedReason()).toBeNull();
+
+		// Second pass on the SAME engine re-queues the failed key exactly once.
+		const secondDone = engine.ensureAll(modelOf([pr]));
+		await flushPromises();
+		expect(model.calls).toHaveLength(2);
+		model.calls[1]?.deferred.resolve({ ok: false, reason: "request-failed", message: "boom" });
+		await secondDone;
+		expect(store.get(threadKey)).toEqual({ state: "failed" });
+
+		// A third pass does not re-queue: the one retry per failed key is spent.
+		await engine.ensureAll(modelOf([pr]));
+		await flushPromises();
+		expect(model.calls).toHaveLength(2);
+
+		engine.abort();
+	});
+
+	it("does not re-queue rows once degraded", async () => {
+		const store = createEnrichmentStore();
+		const model = createFakeModel();
+		const thread = makeThread({ id: "a", lastCommentId: "a1" });
+		const pr = makePr({ unresolvedThreads: [thread] });
+		const engine = createStackEnrichmentEngine({
+			store,
+			execApi: unusedExec(),
+			cwd: CWD,
+			registry: fakeRegistry(),
+			callModelText: model.fn,
+		});
+
+		// A systemic auth failure both fails the entry and sets degraded.
+		const done = engine.ensureAll(modelOf([pr]));
+		await flushPromises();
+		model.calls[0]?.deferred.resolve({ ok: false, reason: "auth", message: "nope" });
+		await done;
+		expect(engine.degradedReason()).not.toBeNull();
+
+		// Re-entering the same row produces no new model calls while degraded.
+		await engine.ensureAll(modelOf([pr]));
+		engine.ensureRow(pr);
+		await flushPromises();
+		expect(model.calls).toHaveLength(1);
+
+		engine.abort();
 	});
 
 	it("deletes only pending entries on abort while ready and failed persist, and ensureAll resolves", async () => {

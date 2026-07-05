@@ -144,6 +144,26 @@ describe("enrichment store", () => {
 		expect(store.get("c")).toEqual(ready("c"));
 	});
 
+	test("eviction skips pending entries and drops the oldest non-pending instead", () => {
+		const store = createEnrichmentStore({ maxEntries: 2 });
+		store.set("a", { state: "pending" });
+		store.set("b", ready("b"));
+		// "a" is the oldest but pending, so "b" (oldest non-pending) is evicted; the
+		// pending ownership marker survives.
+		store.set("c", ready("c"));
+		expect(store.get("a")).toEqual({ state: "pending" });
+		expect(store.get("b")).toBeUndefined();
+		expect(store.get("c")).toEqual(ready("c"));
+	});
+
+	test("eviction drops nothing when every over-capacity entry is pending", () => {
+		const store = createEnrichmentStore({ maxEntries: 1 });
+		store.set("a", { state: "pending" });
+		store.set("b", { state: "pending" });
+		expect(store.get("a")).toEqual({ state: "pending" });
+		expect(store.get("b")).toEqual({ state: "pending" });
+	});
+
 	test("get refreshes recency so a touched entry survives eviction", () => {
 		const store = createEnrichmentStore({ maxEntries: 2 });
 		store.set("a", ready("a"));
