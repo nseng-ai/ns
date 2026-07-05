@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
 
+import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { createPiHandoffContext, type PiHandoffContext } from "../../src/pi/api-context.ts";
 import {
 	buildHandoffLaunchRequest,
 	runHandoffCreateCommand,
@@ -51,6 +54,7 @@ describe("handoff launch flow helpers", () => {
 			const context = createContext({ cwd: repoDir });
 
 			await runHandoffCreateCommand(pi, "  finish the widget  ", context.ctx, {
+				handoffContext: createPiHandoffContext(pi),
 				statusKey: "handoff:test",
 				promptCopy: PROMPT_COPY,
 				startMessages: START_MESSAGES,
@@ -69,6 +73,28 @@ describe("handoff launch flow helpers", () => {
 			expect(prompt).toContain(`- Branch: ${BRANCH}`);
 			expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_test_launch");
 			expect(prompt).toContain(`test launch ${BRANCH}`);
+		});
+	});
+
+	test("runHandoffCreateCommand resolves the branch from supplied handoff context", async () => {
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const pi = new FakePi([], [skillCommandInfo(skillPath)]);
+			const context = createContext({ cwd: repoDir });
+			const handoffContext = {
+				commands: piExecApiToCommandExecApi(pi),
+				git: new InMemoryGitGateway({ currentBranch: "context/branch" }),
+			} satisfies PiHandoffContext;
+
+			await runHandoffCreateCommand(pi, "finish the widget", context.ctx, {
+				handoffContext,
+				statusKey: "handoff:test",
+				promptCopy: PROMPT_COPY,
+				startMessages: START_MESSAGES,
+			});
+
+			pi.assertDone();
+			expect(pi.execCalls).toEqual([]);
+			expect(pi.sentUserMessages[0]).toContain("- Branch: context/branch");
 		});
 	});
 

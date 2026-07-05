@@ -11,7 +11,7 @@ import {
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import { setStatus } from "./ui-status.ts";
-import { createPiHandoffStorageDeps } from "./api-context.ts";
+import { createPiHandoffGitGateway, createPiHandoffStorageDeps } from "./api-context.ts";
 import { HANDOFF_LIST_MESSAGE_TYPE, formatHandoffListPlain } from "./list-rendering.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 import type {
@@ -291,7 +291,7 @@ export async function handlePickupHandoffCommand(
 
 	let branch: string;
 	try {
-		branch = args.branch ?? (await currentBranch(pi, ctx, "pick up"));
+		branch = args.branch ?? (await currentBranch(createPiHandoffGitGateway(pi), ctx, "pick up"));
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
@@ -381,7 +381,9 @@ export async function handleListHandoffCommand(
 
 	let branch: string | undefined;
 	try {
-		branch = args.allBranches ? undefined : (args.branch ?? (await currentBranch(pi, ctx, "list")));
+		branch = args.allBranches
+			? undefined
+			: (args.branch ?? (await currentBranch(createPiHandoffGitGateway(pi), ctx, "list")));
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;

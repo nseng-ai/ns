@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { createDeferred } from "@nseng-ai/foundation/test-kit";
 
+import { createPiHandoffContext } from "../../src/pi/api-context.ts";
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";
 import { createHandoffSelfWorkflow } from "../../src/pi/self.ts";
 import type { HandoffCreateSkillLoader } from "../../src/pi/create-skill.ts";
@@ -451,6 +452,7 @@ describe("ns:handoff:self pure helpers", () => {
 
 function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
 	const workflow = createHandoffSelfWorkflow(pi, {
+		handoffContext: createPiHandoffContext(pi),
 		timeoutMs,
 		skillLoader: fakeHandoffCreateSkillLoader(),
 	});

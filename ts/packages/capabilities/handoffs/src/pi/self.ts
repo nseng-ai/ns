@@ -19,6 +19,7 @@ import {
 	HANDOFF_SELF_STATUS_KEY,
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 } from "./command-constants.ts";
+import type { PiHandoffContext } from "./api-context.ts";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type {
@@ -42,6 +43,7 @@ interface HandoffSelfPromptOptions {
 }
 
 interface HandoffSelfWorkflowOptions {
+	handoffContext: PiHandoffContext;
 	timeoutMs?: number;
 	skillLoader?: HandoffCreateSkillLoader;
 	timers?: TimerScheduler;
@@ -95,15 +97,17 @@ const HANDOFF_SELF_START_MESSAGES = {
 
 export function createHandoffSelfWorkflow(
 	pi: ExtensionAPI,
-	options: HandoffSelfWorkflowOptions = {},
+	options: HandoffSelfWorkflowOptions,
 ): {
 	buildTool(): ToolDefinition;
 	handleCommand(args: string, ctx: CommandContext): Promise<void>;
 } {
 	const timeoutMs = options.timeoutMs ?? HANDOFF_SELF_WORKFLOW_TIMEOUT_MS;
 	const timers = options.timers ?? systemTimerScheduler;
-	const prepareOptions =
-		options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader };
+	const prepareOptions = {
+		handoffContext: options.handoffContext,
+		...(options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader }),
+	};
 	let state: HandoffSelfWorkflowState = { type: "idle" };
 
 	function resetStarting(workflowId: string): void {
