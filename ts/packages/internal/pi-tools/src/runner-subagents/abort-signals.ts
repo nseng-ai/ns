@@ -7,5 +7,5 @@ export function uniqueAbortSignals(...signals: Array<AbortSignal | undefined>): 
 }
 
 export function hasAbortedSignal(...signals: Array<AbortSignal | undefined>): boolean {
-	return uniqueAbortSignals(...signals).some((signal) => signal.aborted);
+	return signals.some((signal) => signal?.aborted === true);
 }

@@ -6,6 +6,7 @@ import { loadPiAgentDefinition, type PiAgentDefinition } from "@ns/pi/runtime/ag
 import { unrefTimerScheduler } from "@ns/pi/shared/timers";
 import type { ToolContext, ToolDefinition, ToolResult } from "@ns/pi/runtime/tool-types";
 
+import { mapWithConcurrency } from "../runner-subagents/concurrency.ts";
 import {
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
@@ -25,6 +26,7 @@ import {
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	type ExploreBreadth,
+	type ExploreBreadthProfile,
 } from "./contract.ts";
 import {
 	dispatchExplorerSubagent,
@@ -83,10 +85,9 @@ export interface ExploreToolDetails {
 interface ExploreTaskOutcome {
 	index: number;
 	title: string;
-	result?: RunnerSubagentResult;
+	result: RunnerSubagentResult;
 	launchPlan?: ExplorerLaunchPlan;
 	failover?: ExplorerDispatchOutcome["failover"];
-	diagnostic?: string;
 }
 
 interface ExploreTaskState {
@@ -181,16 +182,9 @@ export const EXPLORE_PARAMETERS = {
 
 const FALLBACK_EXPLORER_TOOL_METADATA = {
 	label: "Explorer",
-	description:
-		"Launch 2+ read-only explorer subagents for parallel codebase reconnaissance and return ordered scout findings.",
-	promptSnippet: "Launch parallel read-only explorer scouts for unknown codebase reconnaissance.",
-	promptGuidelines: [
-		"Use explore to launch 2+ read-only scout subagents for unknown codebase reconnaissance.",
-		"Use explore only for reconnaissance; do not use explore for implementation, review verdicts, long-horizon planning, or tasks requiring bash, edits, or writes.",
-		"Prefer direct read or grep over explore when you already know the exact file or symbol.",
-		"For explore, give each task one focused question and concrete scope hints so parallel scouts do not overlap.",
-		'For explore, choose breadth "quick" for two obvious angles, "medium" for a normal subsystem map, and "very-thorough" only for broad unfamiliar areas.',
-	],
+	description: "explore is unavailable: explorer agent definition is misconfigured.",
+	promptSnippet: "explore is unavailable until its explorer agent definition is fixed.",
+	promptGuidelines: ["explore is unavailable until .ns/pi/agents/explorer.md is fixed."],
 };
 
 export default function exploreExtension(
@@ -210,7 +204,7 @@ export default function exploreExtension(
 		label: metadata.label,
 		description: metadata.description,
 		...(metadata.promptSnippet === undefined ? {} : { promptSnippet: metadata.promptSnippet }),
-		promptGuidelines: ensureExploreGuidelines(metadata.promptGuidelines),
+		promptGuidelines: metadata.promptGuidelines,
 		parameters: EXPLORE_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateExploreInput(params);
@@ -238,7 +232,7 @@ export default function exploreExtension(
 					pi,
 					ctx,
 					cwd,
-					input,
+					exploreInput: input,
 					maxConcurrency: profile.maxConcurrency,
 					signal: abortScope.signal,
 					dispatchExplorer,
@@ -275,14 +269,15 @@ function checkExplorerConfiguration(
 			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${EXPLORE_TOOL_NAME}".`,
 		};
 	}
+	const guidelinesMissingToolName = definition.promptGuidelines
+		.map((guideline, index) => (/\bexplore\b/u.test(guideline) ? undefined : index + 1))
+		.filter((index) => index !== undefined);
+	if (guidelinesMissingToolName.length > 0) {
+		return {
+			diagnostic: `${definition.filePath} promptGuidelines must mention "explore" in every guideline; missing guideline index(es): ${guidelinesMissingToolName.join(", ")}.`,
+		};
+	}
 	return { definition };
-}
-
-function ensureExploreGuidelines(guidelines: readonly string[]): string[] {
-	return guidelines.map((guideline) => {
-		if (/\bexplore\b/u.test(guideline)) return guideline;
-		return `For explore, ${guideline.charAt(0).toLowerCase()}${guideline.slice(1)}`;
-	});
 }
 
 function createExploreAbortScope(
@@ -319,32 +314,28 @@ function createExploreAbortScope(
 	};
 }
 
-async function runExploreTasks(input: {
+async function runExploreTasks(request: {
 	pi: RunnerSubagentPi;
 	ctx: ToolContext;
 	cwd: string;
-	input: ExploreInput;
+	exploreInput: ExploreInput;
 	maxConcurrency: number;
 	signal: AbortSignal;
 	dispatchExplorer: ExploreDispatchFunction;
 	onUpdate: ((update: Partial<ToolResult>) => void) | undefined;
 }): Promise<ExploreTaskOutcome[]> {
-	const states: ExploreTaskState[] = input.input.tasks.map((task) => ({
+	const states: ExploreTaskState[] = request.exploreInput.tasks.map((task) => ({
 		input: task,
 		state: "queued",
 	}));
-	const outcomes: Array<ExploreTaskOutcome | undefined> = Array.from({
-		length: input.input.tasks.length,
-	});
 	const runnerCtx: RunnerSubagentContext = {
-		cwd: input.cwd,
-		...(input.ctx.model === undefined ? {} : { model: input.ctx.model }),
-		signal: input.signal,
+		cwd: request.cwd,
+		...(request.ctx.model === undefined ? {} : { model: request.ctx.model }),
+		signal: request.signal,
 	};
-	let nextIndex = 0;
 
 	function emitProgress(): void {
-		input.onUpdate?.({
+		request.onUpdate?.({
 			content: [{ type: "text", text: renderExploreProgress(states) }],
 			details: {
 				status: "running",
@@ -357,22 +348,20 @@ async function runExploreTasks(input: {
 
 	emitProgress();
 
-	async function runNextTask(): Promise<void> {
-		for (;;) {
-			if (input.signal.aborted) return;
-			const index = nextIndex;
-			nextIndex += 1;
-			const state = states[index];
-			if (state === undefined) return;
+	const outcomes = await mapWithConcurrency({
+		items: states,
+		maxConcurrency: request.maxConcurrency,
+		signal: request.signal,
+		run: async (state, index) => {
 			state.state = "running";
 			emitProgress();
 			const outcome = await runOneExploreTask({
-				pi: input.pi,
+				pi: request.pi,
 				ctx: runnerCtx,
 				index,
 				state,
-				signal: input.signal,
-				dispatchExplorer: input.dispatchExplorer,
+				signal: request.signal,
+				dispatchExplorer: request.dispatchExplorer,
 				onProgress: (update) => {
 					state.latestUpdate = update;
 					emitProgress();
@@ -380,21 +369,18 @@ async function runExploreTasks(input: {
 			});
 			state.state = "done";
 			state.outcome = outcome;
-			outcomes[index] = outcome;
 			emitProgress();
-		}
-	}
+			return outcome;
+		},
+	});
 
-	const workerCount = Math.min(input.maxConcurrency, input.input.tasks.length);
-	await Promise.all(Array.from({ length: workerCount }, () => runNextTask()));
 	return outcomes.map((outcome, index) => {
 		if (outcome !== undefined) return outcome;
-		const title = input.input.tasks[index]?.title ?? `Task ${index + 1}`;
+		const title = request.exploreInput.tasks[index]?.title ?? `Task ${index + 1}`;
 		return {
 			index,
 			title,
-			diagnostic: abortReasonDiagnostic(input.signal, "Explore task was not started."),
-			result: cancelledResult(title, input.signal),
+			result: cancelledResult(title, request.signal, "Explore task was not started."),
 		};
 	});
 }
@@ -430,7 +416,6 @@ async function runOneExploreTask(input: {
 		return {
 			index: input.index,
 			title: input.state.input.title,
-			diagnostic,
 			result: input.signal.aborted
 				? cancelledResult(input.state.input.title, input.signal)
 				: errorResult(input.state.input.title, diagnostic),
@@ -440,7 +425,7 @@ async function runOneExploreTask(input: {
 
 function exploreToolResult(
 	input: ExploreInput,
-	profile: (typeof EXPLORE_BREADTH_PROFILES)[ExploreBreadth],
+	profile: ExploreBreadthProfile,
 	outcomes: readonly ExploreTaskOutcome[],
 ): ToolResult<ExploreToolDetails> {
 	const details = buildExploreToolDetails(input, profile, outcomes);
@@ -453,12 +438,12 @@ function exploreToolResult(
 
 function buildExploreToolDetails(
 	input: ExploreInput,
-	profile: (typeof EXPLORE_BREADTH_PROFILES)[ExploreBreadth],
+	profile: ExploreBreadthProfile,
 	outcomes: readonly ExploreTaskOutcome[],
 ): ExploreToolDetails {
 	const tasks = outcomes.map((outcome) => taskDetails(outcome, input.tasks.length));
 	const finalTextCount = outcomes.filter(
-		(outcome) => outcome.result?.status === "final-text",
+		(outcome) => outcome.result.status === "final-text",
 	).length;
 	const status = summarizeExploreToolStatus(outcomes, finalTextCount);
 	return {
@@ -477,21 +462,13 @@ function summarizeExploreToolStatus(
 ): ExploreToolStatus {
 	if (finalTextCount === outcomes.length) return "completed";
 	if (finalTextCount > 0) return "partial";
-	if (outcomes.some((outcome) => outcome.result?.status === "cancelled")) return "cancelled";
+	if (outcomes.some((outcome) => outcome.result.status === "cancelled")) return "cancelled";
 	return "failed";
 }
 
 function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTaskDetails {
 	const result = outcome.result;
-	if (result === undefined) {
-		return {
-			index: outcome.index,
-			title: outcome.title,
-			status: "configuration-error",
-			...(outcome.diagnostic === undefined ? {} : { diagnostic: outcome.diagnostic }),
-		};
-	}
-	const diagnostic = outcome.diagnostic ?? resultDiagnostic(result);
+	const diagnostic = resultDiagnostic(result);
 	const finalTextExcerpt =
 		result.status === "final-text"
 			? truncateExploreFinalText(result.finalText, taskCount)
@@ -519,7 +496,7 @@ function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTas
 
 function configurationErrorResult(
 	input: ExploreInput,
-	profile: (typeof EXPLORE_BREADTH_PROFILES)[ExploreBreadth],
+	profile: ExploreBreadthProfile,
 	diagnostic: string,
 ): ToolResult<ExploreToolDetails> {
 	return {
@@ -552,28 +529,22 @@ function configurationErrorResult(
 
 function formatExploreResultText(
 	input: ExploreInput,
-	profile: (typeof EXPLORE_BREADTH_PROFILES)[ExploreBreadth],
+	profile: ExploreBreadthProfile,
 	outcomes: readonly ExploreTaskOutcome[],
 	details: ExploreToolDetails,
 ): string {
-	const finalTextCount = outcomes.filter(
-		(outcome) => outcome.result?.status === "final-text",
-	).length;
+	const finalTextCount = details.tasks.filter((task) => task.status === "final-text").length;
 	const lines = [
-		`explore result: ${finalTextCount}/${outcomes.length} scouts produced final text (breadth: ${input.breadth}, concurrency: ${profile.maxConcurrency})`,
+		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${input.breadth}, concurrency: ${profile.maxConcurrency})`,
 	];
 	for (const outcome of outcomes) {
-		lines.push(
-			"",
-			`### ${outcome.index + 1}. ${outcome.title} — ${outcome.result?.status ?? "configuration-error"}`,
-		);
-		lines.push(
-			`Session: ${outcome.result?.sessionFile ?? outcome.result?.progress.sessionFile ?? "unavailable"}`,
-		);
-		const diagnostic =
-			outcome.diagnostic ??
-			(outcome.result === undefined ? undefined : resultDiagnostic(outcome.result));
-		if (outcome.result?.status === "final-text") {
+		const detail = details.tasks[outcome.index];
+		const status = detail?.status ?? outcome.result.status;
+		const sessionFile =
+			detail?.sessionFile ?? outcome.result.sessionFile ?? outcome.result.progress.sessionFile;
+		lines.push("", `### ${outcome.index + 1}. ${outcome.title} — ${status}`);
+		lines.push(`Session: ${sessionFile ?? "unavailable"}`);
+		if (outcome.result.status === "final-text") {
 			const excerpt = truncateExploreFinalText(outcome.result.finalText, input.tasks.length);
 			lines.push("", excerpt.text);
 			if (excerpt.truncated) {
@@ -582,8 +553,8 @@ function formatExploreResultText(
 					`[Final text excerpt truncated to ${excerpt.text.length} of ${excerpt.originalChars} characters. Full text is in the child Pi session file above.]`,
 				);
 			}
-		} else if (diagnostic !== undefined) {
-			lines.push(`Diagnostic: ${diagnostic}`);
+		} else if (detail?.diagnostic !== undefined) {
+			lines.push(`Diagnostic: ${detail.diagnostic}`);
 		}
 	}
 	if (details.status === "failed" || details.status === "cancelled") {
@@ -622,8 +593,7 @@ function renderExploreProgress(states: readonly ExploreTaskState[]): string {
 }
 
 function renderExploreTaskProgress(state: ExploreTaskState): string {
-	if (state.outcome !== undefined)
-		return `${state.input.title} ${state.outcome.result?.status ?? "error"}`;
+	if (state.outcome !== undefined) return `${state.input.title} ${state.outcome.result.status}`;
 	if (state.state === "queued") return `${state.input.title} queued`;
 	const update = state.latestUpdate;
 	const progress = update?.progress;
@@ -644,8 +614,12 @@ function compactProgress(text: string): string {
 	return `${text.slice(0, limit - 1)}…`;
 }
 
-function cancelledResult(title: string, signal: AbortSignal): RunnerSubagentResult {
-	const diagnostic = abortReasonDiagnostic(signal, "Explore task was cancelled.");
+function cancelledResult(
+	title: string,
+	signal: AbortSignal,
+	fallback = "Explore task was cancelled.",
+): RunnerSubagentResult {
+	const diagnostic = abortReasonDiagnostic(signal, fallback);
 	return {
 		status: "cancelled",
 		title,

@@ -28,7 +28,7 @@ const definition = makeExplorerAgentDefinition({
 	promptSnippet: "Markdown explore snippet.",
 	promptGuidelines: [
 		"Use explore for broad reconnaissance.",
-		"Prefer direct read when the exact file is known.",
+		"Use explore only after direct read when the exact file is known.",
 	],
 });
 
@@ -137,7 +137,7 @@ describe("explore extension", () => {
 		expect(tool.promptSnippet).toBe("Markdown explore snippet.");
 		expect(tool.promptGuidelines).toEqual([
 			"Use explore for broad reconnaissance.",
-			"For explore, prefer direct read when the exact file is known.",
+			"Use explore only after direct read when the exact file is known.",
 		]);
 		expect(tool.parameters.type).toBe("object");
 		expect(tool.parameters.required).toEqual(["tasks"]);
@@ -349,6 +349,24 @@ describe("explore extension", () => {
 		);
 		expect(wrong.isError).toBe(true);
 		expect(wrong.content[0]?.text).toContain('declares toolName "other"');
+
+		const missingGuidelineTool = registerExploreTool({
+			loadAgentDefinition: () =>
+				makeExplorerAgentDefinition({
+					promptGuidelines: ["Use explore for reconnaissance.", "Prefer direct reads."],
+				}),
+		});
+		const missingGuideline = await missingGuidelineTool.execute(
+			"tool-3",
+			exploreParams(2),
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		expect(missingGuideline.isError).toBe(true);
+		expect(missingGuideline.content[0]?.text).toContain(
+			'must mention "explore" in every guideline',
+		);
 	});
 
 	test("timeout aborts in-flight children and cancels the scheduled timer", async () => {

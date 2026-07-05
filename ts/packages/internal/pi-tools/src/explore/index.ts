@@ -14,6 +14,7 @@ export {
 	EXPLORER_READ_ONLY_TOOLS,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 	type ExploreBreadth,
+	type ExploreBreadthProfile,
 } from "./contract.ts";
 export {
 	resolveExplorerLaunchPlan,

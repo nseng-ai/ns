@@ -25,6 +25,7 @@ import {
 } from "./contract.ts";
 import {
 	dispatchRunnerSubagent,
+	mapWithConcurrency,
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
 	type JsonObject,
@@ -188,19 +189,10 @@ async function runCouncilSeatsWithConcurrencyLimit({
 	progressTracker,
 	reviewGuidance,
 }: RunCouncilSeatsOptions): Promise<ThermoCouncilReviewerOutcome[]> {
-	// Keep this local until a second caller needs the same ordered outcome/progress coupling.
-	if (seats.length === 0) return [];
-	const outcomes: Array<ThermoCouncilReviewerOutcome | undefined> = Array.from({
-		length: seats.length,
-	});
-	let nextIndex = 0;
-	const workerCount = Math.min(maxConcurrency, seats.length);
-	async function runNextSeat(): Promise<void> {
-		for (;;) {
-			const index = nextIndex;
-			nextIndex += 1;
-			const seat = seats[index];
-			if (seat === undefined) return;
+	const outcomes = await mapWithConcurrency({
+		items: seats,
+		maxConcurrency,
+		run: async (seat) => {
 			const outcome = await launchThermoCouncilReviewer({
 				pi,
 				ctx,
@@ -210,10 +202,9 @@ async function runCouncilSeatsWithConcurrencyLimit({
 				onProgress: (update) => progressTracker.recordProgress(seat, update),
 			});
 			progressTracker.recordOutcome(seat, outcome);
-			outcomes[index] = outcome;
-		}
-	}
-	await Promise.all(Array.from({ length: workerCount }, () => runNextSeat()));
+			return outcome;
+		},
+	});
 	return outcomes.map((outcome, index) => {
 		if (outcome === undefined) {
 			throw new Error(`Missing thermo-council outcome for seat index ${index}.`);

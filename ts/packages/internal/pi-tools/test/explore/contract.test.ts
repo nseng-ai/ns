@@ -41,6 +41,9 @@ describe("explorer contract", () => {
 
 		expect(definition.schema).toBe(PI_AGENT_DEFINITION_SCHEMA);
 		expect(bodyHeadings).toEqual([...EXPLORER_SCOUT_SECTION_HEADERS]);
+		expect(definition.promptGuidelines.every((guideline) => /\bexplore\b/u.test(guideline))).toBe(
+			true,
+		);
 	});
 
 	test("the real explorer agent definition loads from the workspace root", () => {

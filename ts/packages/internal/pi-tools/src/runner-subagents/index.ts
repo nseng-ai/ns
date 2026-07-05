@@ -1,3 +1,6 @@
+export { mapWithConcurrency } from "./concurrency.ts";
+export type { MapWithConcurrencyInput } from "./concurrency.ts";
+
 export {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	defaultRunnerSubagentLaunchMetadata,
