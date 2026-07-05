@@ -90,7 +90,7 @@ Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
     `pnpm --dir ts --filter @nseng-ai/ccc test`, `just ts-check`, `just`, and
     grep verification for retired duplicate symbols passed on local branch
     `kit-git-worktree-state-consolidation`.
-- [ ] Promote the content-slug derivation layer beside kit `model-slug`:
+- [x] Promote the content-slug derivation layer beside kit `model-slug`:
       pin — generalize
       `ts/packages/capabilities/plans/src/content-slug-derivation.ts`
       (`deriveContentSlug`, `buildContentSlugPrompt`, output normalization,
@@ -101,6 +101,17 @@ Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
       (`validateHandoffContentSlug`) stays in handoffs if not generalizable.
   - Policy: direct execution; steer first if the handoffs variant needs more
     than variant-config parameterization or wants any other new kit export.
+  - Evidence: added `@nseng-ai/capability-kit/content-slug`, migrated plans
+    compatibility wrappers and handoffs variant wrapper, and passed
+    `pnpm --dir ts --filter @nseng-ai/capability-kit test`,
+    `pnpm --dir ts --filter @nseng-ai/plans test`,
+    `pnpm --dir ts --filter @nseng-ai/handoffs test`,
+    `pnpm --dir ts --filter @nseng-ai/branch-context test`,
+    `pnpm --dir ts run fmt:check`, `pnpm --dir ts run lint`,
+    `pnpm --dir ts run check`, `just ts-test-typescript-style-guard`,
+    `just`, and grep verification for retired duplicate model-invocation and
+    first-line/truncation mechanics on local branch
+    `promote-content-slug-derivation-capability-kit`.
 - [ ] Extract GitHub REST comment mechanics into a kit `github` subpath:
       pin — move paginated comment reads, inline-review create,
       discussion-comment POST/PATCH, and marker-based sticky-comment upsert
