@@ -11,7 +11,7 @@ import {
 
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
-export type NsCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
+export type NsCommandSourceLevel = "built-in" | "preinstalled" | "global" | "project";
 
 export interface NsCommandPath {
 	group?: string;

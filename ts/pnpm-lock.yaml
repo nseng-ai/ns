@@ -99,6 +99,9 @@ importers:
       '@ns/ccc':
         specifier: workspace:*
         version: link:packages/capabilities/ccc
+      '@ns/cli':
+        specifier: workspace:*
+        version: link:packages/hosts/ns-cli
       '@ns/flow':
         specifier: workspace:*
         version: link:packages/capabilities/flow
@@ -444,6 +447,15 @@ importers:
       '@ns/handoff':
         specifier: workspace:*
         version: link:../../capabilities/handoff
+      '@ns/objective':
+        specifier: workspace:*
+        version: link:../../capabilities/objective
+
+  packages/hosts/ns-cli:
+    dependencies:
+      '@ns/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
       '@ns/objective':
         specifier: workspace:*
         version: link:../../capabilities/objective

@@ -27,6 +27,7 @@
 		"@ns/brmem": "workspace:*",
 		"@ns/capability-kit": "workspace:*",
 		"@ns/ccc": "workspace:*",
+		"@ns/cli": "workspace:*",
 		"@ns/core": "workspace:*",
 		"@ns/flow": "workspace:*",
 		"@ns/handoff": "workspace:*",

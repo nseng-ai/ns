@@ -28,7 +28,6 @@ describe("checked-in flow ns extension registry loading", () => {
 		const catalog = await loadNsCommandCatalog({
 			cwd,
 			homeDir,
-			env: { NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS: "1" },
 		});
 
 		expect(catalog.diagnostics).toEqual([]);

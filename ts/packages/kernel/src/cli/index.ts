@@ -46,6 +46,8 @@ import {
 	loadNsCommandCatalog,
 	loadSelectedNsCommand,
 	type ExtensionCommandCandidate,
+	type LoadNsCommandCatalogOptions,
+	type PreinstalledNsCommandCatalogLoader,
 	type SelectedNsCommandLoadResult,
 	type NsCommandCatalog,
 } from "../extensions/registry.ts";
@@ -73,9 +75,13 @@ import {
 
 export type { NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
+export type {
+	PreinstalledNsCommandCatalogEntry,
+	PreinstalledNsCommandCatalogLoader,
+} from "../extensions/registry.ts";
 
 interface NsCliExtensionRegistryDeps {
-	loadCommandCatalog?: (options: { cwd: string; homeDir?: string }) => Promise<NsCommandCatalog>;
+	loadCommandCatalog?: (options: LoadNsCommandCatalogOptions) => Promise<NsCommandCatalog>;
 	loadSelectedCommand?: (
 		candidate: ExtensionCommandCandidate,
 	) => Promise<SelectedNsCommandLoadResult>;
@@ -86,6 +92,7 @@ export interface NsCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdo
 	homeDir?: string;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	confirm?: NsConfirmPrompt;
+	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 	extensionRegistry?: NsCliExtensionRegistryDeps;
 }
 
@@ -116,7 +123,9 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			deps.extensionRegistry?.loadCommandCatalog ?? loadNsCommandCatalog
 		)({
 			cwd: resolvedCwd,
+			env: resolvedEnv,
 			...optionalEntry("homeDir", homeDir),
+			...optionalEntry("preinstalledCommandCatalog", deps.preinstalledCommandCatalog),
 		});
 		if (isCompletionResolverInvocation(args)) {
 			return await handleCompletionResolverInvocation({
@@ -465,7 +474,7 @@ const NS_BUILT_IN_HELP_GROUP = "Built-in Commands:";
 const NS_EXTENSION_HELP_GROUP = "Extensions:";
 // Dynamic ns extensions are one group deep today. A grouped command named
 // `exec-<name>` is mounted as hidden `ns <group> exec <name>` so agent-only
-// operations keep the same nested exec contract as first-party Clinkr groups.
+// operations keep the same nested exec contract as preinstalled Clinkr groups.
 const NS_EXEC_COMMAND_PREFIX = "exec-";
 
 function isGroupedExecCommand(commandInfo: NsCommandCliInfo): boolean {
