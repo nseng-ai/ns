@@ -117,7 +117,11 @@
     The reference-tree merge is **DONE** separately: `quick-reference.md` was folded into
     `workflows.md`, and `SKILL.md` now routes feature/bug/quick-lookup work to the single
     file. See update `2026-06-20T181500`. Now `command-backed` (reach reduced).
-  - `refactor-swarm` — rewrite; recap section + redundant examples.
+  - `refactor-swarm` — **DONE (rewrite, 2026-07-03).** 173 → 138 lines; "Key design
+    decisions" folded into binding sites; judgment-light boundary example kept, redundant
+    mechanical example dropped with its load-bearing facts relocated; applicability
+    conditions front-loaded for planning-time readers. 35-item contract diff passed. See
+    update `20260703T203512Z`.
   - `ccc-available-work`, `ccc-stack-map` — rewrite; twice-listed command recipes. Lift
     5 / 4 but cmux-niche (low reach) → sequenced last among rewrites.
   - `objective-refresh` — **DONE (rewrite).** SKILL.md 205→182 lines at the time;
