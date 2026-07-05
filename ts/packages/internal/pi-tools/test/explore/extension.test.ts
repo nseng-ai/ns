@@ -4,7 +4,8 @@ import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
-	EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS,
+	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
+	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
 	EXPLORE_TOOL_NAME,
 } from "../../src/explore/contract.ts";
 import exploreExtension, {
@@ -279,7 +280,7 @@ describe("explore extension", () => {
 	});
 
 	test("formats successful, partial, failed, and truncated results", async () => {
-		const longText = `${"x".repeat(EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS + 10)}END`;
+		const longText = `${"x".repeat(EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS + 10)}END`;
 		const partialTool = registerExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) => {
 				if (intent.title === "Scout 1") return finalOutcome(longText, "/tmp/one.jsonl");
@@ -301,8 +302,16 @@ describe("explore extension", () => {
 		expect(partialDetails.tasks[0]?.finalTextChars).toBe(longText.length);
 		expect(partialDetails.tasks[0]?.isFinalTextTruncated).toBe(true);
 		expect(partialText).toContain("1/2 scouts produced final text");
+		expect(partialText).toContain("Session: /tmp/one.jsonl");
 		expect(partialText).toContain("Diagnostic: child failed");
+		expect(partialText).toContain("Scout findings truncated to");
+		expect(partialText).toContain(
+			"Full raw child output is available in the child Pi session file above",
+		);
 		expect(partialText).not.toContain("END");
+		expect(partialText).not.toMatch(
+			/\binterim\b|result file|retrieval handle|retrievable on demand/iu,
+		);
 
 		const failedTool = registerExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) =>
@@ -318,6 +327,35 @@ describe("explore extension", () => {
 		expect(failed.isError).toBe(true);
 		expect((failed.details as ExploreToolDetails).status).toBe("failed");
 		expect(failed.content[0]?.text).toContain("No explorer scout produced usable final text");
+	});
+
+	test("bounds direct scout findings by per-task and total parent-context caps", async () => {
+		const taskCount = 8;
+		const perTaskBudget = Math.floor(EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS / taskCount);
+		const longText = `${"x".repeat(EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS + 10)}END`;
+		const tool = registerExploreTool({
+			dispatchExplorer: async (_pi, _ctx, intent) =>
+				finalOutcome(longText, `/tmp/${intent.title}.jsonl`),
+		});
+		const result = await tool.execute(
+			"tool-1",
+			{ breadth: "very-thorough", ...exploreParams(taskCount) },
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		const details = result.details as ExploreToolDetails;
+		const text = result.content[0]?.text ?? "";
+
+		expect(perTaskBudget).toBeLessThan(EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS);
+		expect(details.status).toBe("completed");
+		expect(details.tasks.every((task) => task.finalTextChars === longText.length)).toBe(true);
+		expect(details.tasks.every((task) => task.isFinalTextTruncated === true)).toBe(true);
+		expect(text).not.toContain("END");
+		expect(text).toContain(
+			`Scout findings truncated to ${perTaskBudget} of ${longText.length} characters`,
+		);
+		expect(text.indexOf("### 1. Scout 1")).toBeLessThan(text.indexOf("### 8. Scout 8"));
 	});
 
 	test("returns a friendly configuration error when explorer.md is missing or wrong", async () => {

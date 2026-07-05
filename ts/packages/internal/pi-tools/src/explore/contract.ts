@@ -18,8 +18,8 @@ export const EXPLORE_BREADTH_PROFILES: Record<ExploreBreadth, ExploreBreadthProf
 };
 
 export const EXPLORE_ABSOLUTE_MAX_TASKS = 8;
-export const EXPLORE_INTERIM_TOTAL_FINAL_TEXT_CAP_CHARS = 24_000;
-export const EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS = 4_000;
+export const EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS = 32_000;
+export const EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS = 8_000;
 
 /**
  * Pi core ships exactly seven tools (read, grep, find, ls, bash, edit, write) and
