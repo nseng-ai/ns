@@ -14,7 +14,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 - First-party implementation is TypeScript on Node 24+.
 - Package workspace: `ts/` with pnpm.
 - Default repo validation entrypoint: `just`.
-- Python: always use `uv` (for example, `uv run python ...`); never call bare `python` or `python3`.
+- Python: always use `uv` (for example, `uv run python ...`); never call bare `python` or `python3`. This applies to one-off shell snippets, JSON helpers, and any agent-authored command, not just project scripts.
 
 ## Architecture rules
 
