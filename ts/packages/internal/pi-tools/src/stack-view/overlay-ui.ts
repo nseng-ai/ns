@@ -41,7 +41,7 @@ import {
 import { sliceWrappedDetailLinesForViewport } from "../overlay-kit/viewport.ts";
 
 const BROWSE_FOOTER =
-	"↑↓/jk move · o open · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
+	"↑↓/jk move · o open · b paste branch · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
 
 /** Fixed cell widths for the right-hand columns of each list row. */
 const THREADS_CELL_WIDTH = 9;
@@ -51,6 +51,7 @@ const STATUS_CELL_WIDTH = 14;
 /** What the user asked the host to do when the overlay settled. */
 export type StackViewUiOutcome =
 	| { action: "open"; url: string }
+	| { action: "paste-branch"; branch: string }
 	| { action: "summarize" }
 	| { action: "refresh" }
 	| { action: "compose-inject"; draft: string }
@@ -266,6 +267,10 @@ export class StackViewOverlay implements Component {
 			this.settleOpen();
 			return;
 		}
+		if (data === "b") {
+			this.settlePasteBranch();
+			return;
+		}
 		if (data === "s") {
 			this.settle({ action: "summarize" });
 			return;
@@ -444,6 +449,12 @@ export class StackViewOverlay implements Component {
 		// ignore the keypress rather than settling on an empty URL.
 		if (selected === undefined || selected.graphiteUrl.length === 0) return;
 		this.settle({ action: "open", url: selected.graphiteUrl });
+	}
+
+	private settlePasteBranch(): void {
+		const selected = this.model.prs[this.selectedIndex];
+		if (selected === undefined) return;
+		this.settle({ action: "paste-branch", branch: selected.branch });
 	}
 
 	private scrollDetails(delta: number): void {
