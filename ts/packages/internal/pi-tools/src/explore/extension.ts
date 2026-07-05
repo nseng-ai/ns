@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import {
 	formatErrorMessage,
 	formatZodError,
@@ -24,6 +25,7 @@ import {
 	type RunnerSubagentUpdate,
 	type RunnerSubagentUsageMetadata,
 } from "../runner-subagents/extension-api.ts";
+import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
 import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
@@ -115,7 +117,15 @@ interface ExploreAbortScope {
 	dispose(): void;
 }
 
+interface ExploreProgressDetails {
+	status: "running";
+	done: number;
+	running: number;
+	taskCount: number;
+}
+
 const EXPLORE_DEFAULT_BREADTH: ExploreBreadth = "medium";
+const EXPLORE_PROGRESS_WIDGET_KEY = "ns.explore.progress";
 const EXPLORE_TITLE_MAX_CHARS = 120;
 const EXPLORE_PROMPT_MAX_CHARS = 4_000;
 
@@ -346,54 +356,50 @@ async function runExploreTasks(request: {
 	};
 
 	function emitProgress(): void {
-		request.onUpdate?.({
-			content: [{ type: "text", text: renderExploreProgress(states) }],
-			details: {
-				status: "running",
-				done: states.filter((state) => state.state === "done").length,
-				running: states.filter((state) => state.state === "running").length,
-				taskCount: states.length,
-			},
-		});
+		emitExploreProgress(request.ctx, states, request.onUpdate);
 	}
 
-	emitProgress();
+	try {
+		emitProgress();
 
-	const outcomes = await mapWithConcurrency({
-		items: states,
-		maxConcurrency: request.maxConcurrency,
-		signal: request.signal,
-		run: async (state, index) => {
-			state.state = "running";
-			emitProgress();
-			const outcome = await runOneExploreTask({
-				pi: request.pi,
-				ctx: runnerCtx,
+		const outcomes = await mapWithConcurrency({
+			items: states,
+			maxConcurrency: request.maxConcurrency,
+			signal: request.signal,
+			run: async (state, index) => {
+				state.state = "running";
+				emitProgress();
+				const outcome = await runOneExploreTask({
+					pi: request.pi,
+					ctx: runnerCtx,
+					index,
+					state,
+					signal: request.signal,
+					dispatchExplorer: request.dispatchExplorer,
+					onProgress: (update) => {
+						state.latestUpdate = update;
+						emitProgress();
+					},
+				});
+				state.state = "done";
+				state.outcome = outcome;
+				emitProgress();
+				return outcome;
+			},
+		});
+
+		return outcomes.map((outcome, index) => {
+			if (outcome !== undefined) return outcome;
+			const title = request.exploreInput.tasks[index]?.title ?? `Task ${index + 1}`;
+			return {
 				index,
-				state,
-				signal: request.signal,
-				dispatchExplorer: request.dispatchExplorer,
-				onProgress: (update) => {
-					state.latestUpdate = update;
-					emitProgress();
-				},
-			});
-			state.state = "done";
-			state.outcome = outcome;
-			emitProgress();
-			return outcome;
-		},
-	});
-
-	return outcomes.map((outcome, index) => {
-		if (outcome !== undefined) return outcome;
-		const title = request.exploreInput.tasks[index]?.title ?? `Task ${index + 1}`;
-		return {
-			index,
-			title,
-			result: cancelledResult(title, request.signal, "Explore task was not started."),
-		};
-	});
+				title,
+				result: cancelledResult(title, request.signal, "Explore task was not started."),
+			};
+		});
+	} finally {
+		setRunnerSubagentWidget(request.ctx, EXPLORE_PROGRESS_WIDGET_KEY, undefined);
+	}
 }
 
 async function runOneExploreTask(input: {
@@ -615,35 +621,94 @@ function diagnosticFor(outcome: ExploreTaskOutcome): string | undefined {
 	return resultDiagnostic(outcome.result);
 }
 
+function emitExploreProgress(
+	ctx: ToolContext,
+	states: readonly ExploreTaskState[],
+	onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
+): void {
+	onUpdate?.({
+		content: [{ type: "text", text: renderExploreProgress(states) }],
+		details: exploreProgressDetails(states),
+	});
+	setRunnerSubagentWidget(
+		ctx,
+		EXPLORE_PROGRESS_WIDGET_KEY,
+		formatExploreProgressWidgetLines(states),
+	);
+}
+
+function exploreProgressDetails(states: readonly ExploreTaskState[]): ExploreProgressDetails {
+	return {
+		status: "running",
+		done: states.filter((state) => state.state === "done").length,
+		running: states.filter((state) => state.state === "running").length,
+		taskCount: states.length,
+	};
+}
+
+function formatExploreProgressWidgetLines(states: readonly ExploreTaskState[]): string[] {
+	const details = exploreProgressDetails(states);
+	return [
+		`explore: ${details.done}/${details.taskCount} done, ${details.running} running`,
+		...states.map((state, index) => formatExploreTaskWidgetLine(state, index)),
+	];
+}
+
+interface ExploreTaskProgressDescription {
+	icon: string;
+	status: string;
+	activity?: string;
+}
+
+function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): string {
+	const description = describeExploreTaskProgress(state);
+	const suffix = description.activity === undefined ? "" : ` — ${description.activity}`;
+	return truncatePlain(
+		`${description.icon} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
+		180,
+	);
+}
+
+function describeExploreTaskProgress(state: ExploreTaskState): ExploreTaskProgressDescription {
+	if (state.outcome !== undefined) {
+		return {
+			icon: state.outcome.result.status === "final-text" ? "✓" : "✗",
+			status: state.outcome.result.status,
+			...optionalEntries({ activity: sessionFileFor(state.outcome.result) }),
+		};
+	}
+	if (state.state === "queued") return { icon: "·", status: "queued" };
+
+	const update = state.latestUpdate;
+	if (update === undefined) return { icon: "▶", status: "running" };
+	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
+	return {
+		icon: "▶",
+		status: update.progress.state,
+		...optionalEntries({
+			activity:
+				preview ??
+				update.progress.currentTool ??
+				(update.progress.turnCount > 0 ? `turn ${update.progress.turnCount}` : undefined),
+		}),
+	};
+}
+
 function renderExploreProgress(states: readonly ExploreTaskState[]): string {
-	const done = states.filter((state) => state.state === "done").length;
-	const running = states.filter((state) => state.state === "running").length;
+	const details = exploreProgressDetails(states);
 	const summaries = states.map(renderExploreTaskProgress).join("; ");
-	return compactProgress(
-		`explore: ${done}/${states.length} done, ${running} running — ${summaries}`,
+	return truncatePlain(
+		`explore: ${details.done}/${details.taskCount} done, ${details.running} running — ${summaries}`,
+		320,
 	);
 }
 
 function renderExploreTaskProgress(state: ExploreTaskState): string {
-	if (state.outcome !== undefined) return `${state.input.title} ${state.outcome.result.status}`;
-	if (state.state === "queued") return `${state.input.title} queued`;
-	const update = state.latestUpdate;
-	const progress = update?.progress;
-	const preview =
-		update === undefined ? undefined : runnerSubagentPrimaryActivityPreview(update.activity);
-	if (preview !== undefined && progress !== undefined)
-		return `${state.input.title} ${progress.state}: ${preview}`;
-	if (progress?.currentTool !== undefined)
-		return `${state.input.title} ${progress.state} ${progress.currentTool}`;
-	if (progress !== undefined && progress.turnCount > 0)
-		return `${state.input.title} ${progress.state} turn ${progress.turnCount}`;
-	return `${state.input.title} running`;
-}
-
-function compactProgress(text: string): string {
-	const limit = 320;
-	if (text.length <= limit) return text;
-	return `${text.slice(0, limit - 1)}…`;
+	const description = describeExploreTaskProgress(state);
+	if (description.activity === undefined || state.outcome !== undefined)
+		return `${state.input.title} ${description.status}`;
+	const separator = description.activity.startsWith("turn ") ? " " : ": ";
+	return `${state.input.title} ${description.status}${separator}${description.activity}`;
 }
 
 function cancelledResult(

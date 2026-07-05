@@ -48,8 +48,15 @@
       failure, wording regression, and multi-task total-cap behavior. Validation:
       focused explore Vitest suite, `pnpm --dir ts run check`, lint, and format check
       passed on branch `direct-parent-context-scout-findings`.
-- [ ] Live inline progress rendering: placeholder-sentinel per-task rows with status
+- [x] Live inline progress rendering: placeholder-sentinel per-task rows with status
       icons, recent tool-activity lines, and a done/running counter.
+      Outcome: `@internal/pi-tools/explore` now emits a display-only
+      `ns.explore.progress` widget through the existing safe runner-subagent widget
+      helper while preserving compact `onUpdate` progress for non-UI/transcript
+      sessions. Widget rows stay in input order, show queued/running/success/failure
+      icons, recent child activity/tool text, and done/running counts, then clear on
+      completion. Validation: focused explore Vitest suite, `pnpm --dir ts run check`,
+      lint, and format check passed on branch `explore-live-inline-progress-rendering`.
 - [ ] Decide the explorer-child home-directory-guard bypass (risk recorded in
       objective.md): accept, inject the guard, or document why prompt-scoping
       suffices. Injection is not an existing seam: `buildChildPiArgs` takes
