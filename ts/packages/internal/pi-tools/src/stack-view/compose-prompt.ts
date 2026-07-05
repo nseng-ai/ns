@@ -12,6 +12,8 @@
  * PRs are emitted BOTTOM-UP (nearest-trunk first): `model.prs` is top-first, so
  * it is reversed here.
  */
+import { truncateTextHead } from "@ns/core/text-truncation";
+
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";
 import { collapseWhitespace, entriesForCheckBucket, formatCheckEntryLabel } from "./format.ts";
@@ -199,5 +201,5 @@ function draftProtocolSection(): string {
 }
 
 function truncate(value: string, max: number): string {
-	return value.length > max ? `${value.slice(0, max)}${ELLIPSIS}` : value;
+	return truncateTextHead({ value, maxChars: max + ELLIPSIS.length, buildMarker: () => ELLIPSIS });
 }

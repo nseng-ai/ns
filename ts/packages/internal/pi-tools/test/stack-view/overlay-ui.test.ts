@@ -18,8 +18,6 @@ import {
 import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
 import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
-import type { ComposeViewPort } from "../../src/stack-view/compose-controller.ts";
-import type { ComposeTranscriptState } from "../../src/stack-view/compose-transcript.ts";
 import { composeBodyLayout } from "../../src/stack-view/compose-model.ts";
 import {
 	runStackViewOverlayUi,
@@ -28,7 +26,12 @@ import {
 	type StackViewOverlayUiContext,
 	type StackViewUiResult,
 } from "../../src/stack-view/overlay-ui.ts";
-import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";
+import {
+	checkEntryFixture,
+	createFakeComposePort,
+	type FakeComposePort,
+	threadDetailFixture,
+} from "./stack-view-fixtures.ts";
 import { identityTheme, taggingTheme } from "./stack-view-test-themes.ts";
 
 const ESC = String.fromCharCode(27);
@@ -904,55 +907,6 @@ describe("StackViewOverlay compose mode", () => {
 		expect(harness.tui.renders()).toBe(before + 1);
 	});
 });
-
-interface FakeComposePort {
-	port: ComposeViewPort;
-	sendCalls: string[];
-	abortCalls: () => number;
-	setTranscript(state: ComposeTranscriptState): void;
-	setDraft(draft: string | null): void;
-	setUnavailableReason(reason: string | null): void;
-}
-
-/** A scripted {@link ComposeViewPort}: settable state, records send/abortTurn. */
-function createFakeComposePort(): FakeComposePort {
-	let transcript: ComposeTranscriptState = { entries: [], isStreaming: false };
-	let draft: string | null = null;
-	let unavailableReason: string | null = null;
-	const sendCalls: string[] = [];
-	let abortCalls = 0;
-	const port: ComposeViewPort = {
-		get transcript() {
-			return transcript;
-		},
-		get draft() {
-			return draft;
-		},
-		get unavailableReason() {
-			return unavailableReason;
-		},
-		send: async (text) => {
-			sendCalls.push(text);
-		},
-		abortTurn: async () => {
-			abortCalls += 1;
-		},
-	};
-	return {
-		port,
-		sendCalls,
-		abortCalls: () => abortCalls,
-		setTranscript: (state) => {
-			transcript = state;
-		},
-		setDraft: (value) => {
-			draft = value;
-		},
-		setUnavailableReason: (reason) => {
-			unavailableReason = reason;
-		},
-	};
-}
 
 interface ComposeHarness {
 	view: StackViewOverlay;

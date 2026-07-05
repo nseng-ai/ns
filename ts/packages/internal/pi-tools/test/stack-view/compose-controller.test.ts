@@ -104,7 +104,7 @@ class FakeComposeSession implements ComposeSession {
 	private listeners: Array<(event: ComposeSessionEvent) => void> = [];
 	private readonly asks: string[] = [];
 	private aborts = 0;
-	private disposed = false;
+	private isDisposedValue = false;
 
 	constructor(
 		options: {
@@ -129,7 +129,7 @@ class FakeComposeSession implements ComposeSession {
 	}
 
 	get isDisposed(): boolean {
-		return this.disposed;
+		return this.isDisposedValue;
 	}
 
 	/** Directly push an event to current subscribers (used to prove no post-dispose leak). */
@@ -160,7 +160,7 @@ class FakeComposeSession implements ComposeSession {
 	}
 
 	dispose(): void {
-		this.disposed = true;
+		this.isDisposedValue = true;
 	}
 }
 

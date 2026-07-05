@@ -11,8 +11,6 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { z } from "zod";
-
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
@@ -38,7 +36,11 @@ import {
 	type ExecResult,
 } from "./exec.ts";
 import { buildSummaryPrompt, renderPlainSnapshot } from "./render.ts";
-import type { StackViewModel } from "./types.ts";
+import {
+	stackViewSnapshotDetailsSchema,
+	type SerializedStackViewModel,
+	type StackViewModel,
+} from "./types.ts";
 import { runStackViewOverlayUi, type StackViewUiResult } from "./overlay-ui.ts";
 
 /** The `/stack:view` slash-command name (also its `setStatus` key). */
@@ -437,77 +439,6 @@ function renderStackViewSnapshotMessage(
 		invalidate(): void {},
 	};
 }
-
-const stackViewPrChecksSchema = z.object({
-	passing: z.number(),
-	failing: z.number(),
-	pending: z.number(),
-	total: z.number(),
-});
-
-const stackViewPrThreadsSchema = z.object({
-	resolved: z.number(),
-	total: z.number(),
-});
-
-const stackViewCheckEntrySchema = z.object({
-	name: z.string(),
-	workflowName: z.string().nullable(),
-	bucket: z.enum(["passing", "failing", "pending"]),
-	// Additive fields: old persisted snapshots omit these, so default them.
-	status: z.string().nullable().default(null),
-	conclusion: z.string().nullable().default(null),
-	detailsUrl: z.string().nullable().default(null),
-	identity: z.string().nullable().default(null),
-});
-
-const stackViewThreadCommentSchema = z.object({
-	id: z.string(),
-	author: z.string().nullable(),
-	body: z.string(),
-	createdAt: z.string().nullable(),
-});
-
-const stackViewThreadDetailSchema = z.object({
-	path: z.string(),
-	line: z.number().nullable(),
-	author: z.string().nullable(),
-	// Additive fields: old persisted snapshots omit these, so default them.
-	id: z.string().nullable().default(null),
-	comments: z.array(stackViewThreadCommentSchema).default([]),
-	lastCommentId: z.string().nullable().default(null),
-	totalComments: z.number().default(0),
-});
-
-const stackViewPrSchema = z.object({
-	branch: z.string(),
-	parentBranch: z.string(),
-	number: z.number().nullable(),
-	title: z.string(),
-	url: z.string(),
-	graphiteUrl: z.string(),
-	isDraft: z.boolean(),
-	body: z.string(),
-	threads: stackViewPrThreadsSchema,
-	checks: stackViewPrChecksSchema,
-	checkEntries: z.array(stackViewCheckEntrySchema),
-	unresolvedThreads: z.array(stackViewThreadDetailSchema),
-	status: z.enum(["draft", "checks-failing", "unresolved", "ready", "no-pr"]),
-	objectiveSlugs: z.array(z.string()),
-});
-
-const serializedStackViewModelSchema = z.object({
-	trunk: z.string(),
-	currentBranch: z.string(),
-	owner: z.string(),
-	repo: z.string(),
-	prs: z.array(stackViewPrSchema),
-	objectivesBySlug: z.array(z.tuple([z.string(), z.array(z.number())])),
-});
-
-type SerializedStackViewModel = z.infer<typeof serializedStackViewModelSchema>;
-
-const stackViewSnapshotDetailsSchema = z.object({ model: serializedStackViewModelSchema });
 
 /** Rebuild a {@link StackViewModel} from message `details`; `undefined` on any shape mismatch. */
 export function stackViewModelFromDetails(details: unknown): StackViewModel | undefined {
