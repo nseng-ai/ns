@@ -116,6 +116,8 @@ export const downloadFeedbackResultSchema = z.object({
 	found: z.boolean(),
 	target: prTargetPayloadSchema,
 	counts: downloadFeedbackCountsSchema,
+	bodyMarkdown: z.string(),
+	instructionsMarkdown: z.string(),
 	markdown: z.string(),
 });
 

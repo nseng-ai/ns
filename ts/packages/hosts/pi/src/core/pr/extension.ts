@@ -23,10 +23,12 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
-const STACK_FEEDBACK_INSTRUCTIONS = readFileSync(
-	new URL("./pr-stack-feedback-instructions.md", import.meta.url),
-	"utf8",
-).trim();
+const COMMON_FEEDBACK_POLICY = readPromptMarkdown(
+	"../../../../../capabilities/address/src/core/download-feedback-common-policy.md",
+);
+const STACK_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
+	readPromptMarkdown("./pr-stack-feedback-instructions.md"),
+);
 
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -55,7 +57,7 @@ type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
 type MapBranchPrsData = z.output<typeof mapBranchPrsDataSchema>;
 interface StackFeedbackDownload {
 	entry: BranchPrEntry;
-	markdown: string;
+	bodyMarkdown: string;
 	counts: PrFeedbackDownloadCounts;
 }
 
@@ -376,7 +378,7 @@ async function downloadFeedbackForPr(
 	if (downloaded.type === "error") return { type: "error", message: downloaded.message };
 	return {
 		type: "ok",
-		value: { entry, markdown: downloaded.data.markdown, counts: downloaded.data.counts },
+		value: { entry, bodyMarkdown: downloaded.data.bodyMarkdown, counts: downloaded.data.counts },
 	};
 }
 
@@ -420,13 +422,13 @@ function buildStackDownloadFeedbackMarkdown(
 		...renderMissingStackBranches(missingBranches),
 		"",
 		"## Feedback by PR",
-		...downloads.flatMap(({ entry, markdown }) => [
+		...downloads.flatMap(({ entry, bodyMarkdown }) => [
 			"",
 			`## PR #${entry.pr_number}: ${entry.title}`,
 			`- Branch: ${entry.branch}`,
 			`- URL: ${entry.url}`,
 			"",
-			...demoteMarkdownHeadings(stripPrDownloadHeading(markdown)).split("\n"),
+			...demoteMarkdownHeadings(bodyMarkdown).split("\n"),
 		]),
 		"",
 		...renderStackDownloadFeedbackSummary(downloads, missingBranches),
@@ -504,8 +506,12 @@ function renderStackInstructions(): string[] {
 	return STACK_FEEDBACK_INSTRUCTIONS.split(/\r\n|\r|\n/u);
 }
 
-function stripPrDownloadHeading(markdown: string): string {
-	return markdown.replace(/^# PR feedback triage request(?:\r\n|\r|\n)+/u, "").trim();
+function readPromptMarkdown(path: string): string {
+	return readFileSync(new URL(path, import.meta.url), "utf8").trim();
+}
+
+function renderPromptTemplate(template: string): string {
+	return template.replace("{{common-feedback-policy}}", COMMON_FEEDBACK_POLICY);
 }
 
 function demoteMarkdownHeadings(markdown: string): string {

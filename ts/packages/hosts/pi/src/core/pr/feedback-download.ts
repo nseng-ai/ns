@@ -39,6 +39,8 @@ export const prFeedbackDownloadDataSchema = z.looseObject({
 	found: z.boolean(),
 	target: prFeedbackDownloadTargetSchema,
 	counts: prFeedbackDownloadCountsSchema,
+	bodyMarkdown: z.string(),
+	instructionsMarkdown: z.string(),
 	markdown: z.string(),
 });
 

@@ -136,17 +136,18 @@ describe("ns address exec download-feedback", () => {
 			markdown.indexOf("## Summary"),
 		);
 		expect(markdown.indexOf("Triage and group the feedback below")).toBe(-1);
-		expect(markdown.indexOf("Do not edit files yet")).toBeGreaterThan(
-			markdown.indexOf("## Instructions before responding"),
-		);
-		expect(markdown).toContain(
-			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt.",
-		);
-		expect(markdown).toContain("If the human asks you to address the feedback");
-		expect(markdown).toContain("inspect the current repository state before acting");
+		expect(markdown).toContain("Default single-PR feedback policies:");
+		expect(markdown).toContain("Inspect the current repository state before acting");
+		expect(markdown).toContain("Automatically address straightforward feedback");
+		expect(markdown).toContain("localized, mechanically verifiable, low-risk");
+		expect(markdown).toContain("directly on the immediate PR branch/current checkout");
+		expect(markdown).toContain("do not create an omnibus follow-up branch for single-PR feedback");
 		expect(markdown).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(markdown).toContain("include `--body <BODY>` when a reply is useful");
 		expect(markdown).toContain("do not use raw `gh api graphql` for those mutations");
+		expect(markdown).toContain("Present remaining ambiguous, complex");
+		expect(markdown).not.toContain("Do not edit files yet");
+		expect(markdown).not.toContain("wait for human confirmation");
 		expect(markdown.trim()).toMatch(/those mutations\.$/u);
 		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");
 		expect(markdown).toContain("- URL: https://example.test/pr/42");

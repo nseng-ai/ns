@@ -124,12 +124,17 @@ function counts(
 function downloadFeedbackData(
 	overrides: {
 		markdown?: string;
+		bodyMarkdown?: string;
+		instructionsMarkdown?: string;
 		found?: boolean;
 		prNumber?: number | null;
 		targetOverrides?: object;
 		countsOverrides?: object;
 	} = {},
 ): object {
+	const bodyMarkdown = overrides.bodyMarkdown ?? overrides.markdown ?? "Prompt body";
+	const instructionsMarkdown =
+		overrides.instructionsMarkdown ?? "## Instructions before responding";
 	return {
 		found: overrides.found ?? true,
 		target: {
@@ -143,7 +148,11 @@ function downloadFeedbackData(
 			...overrides.targetOverrides,
 		},
 		counts: overrides.countsOverrides ?? counts(),
-		markdown: overrides.markdown ?? "# Prompt",
+		bodyMarkdown,
+		instructionsMarkdown,
+		markdown:
+			overrides.markdown ??
+			["# PR feedback triage request", "", bodyMarkdown, "", instructionsMarkdown].join("\n"),
 	};
 }
 
@@ -297,10 +306,18 @@ describe("/pr:download-feedback", () => {
 
 describe("/pr:download-stack-feedback", () => {
 	test("discovers stack branches, downloads each PR, and pre-fills one stack prompt", async () => {
-		const pr101Markdown =
-			"# PR feedback triage request\n\n## Target PR\n- PR: 101\n\n## Unresolved review threads\n\nThread 101";
-		const pr102Markdown =
-			"# PR feedback triage request\n\n## Target PR\n- PR: 102\n\n## Discussion comments\n\nComment 102";
+		const pr101BodyMarkdown =
+			"## Target PR\n- PR: 101\n\n## Unresolved review threads\n\nThread 101";
+		const pr101Markdown = [
+			"# PR feedback triage request",
+			"",
+			pr101BodyMarkdown,
+			"",
+			"## Instructions before responding",
+			"Single-PR immediate PR instructions should not leak into stack prompts.",
+		].join("\n");
+		const pr102BodyMarkdown = "## Target PR\n- PR: 102\n\n## Discussion comments\n\nComment 102";
+		const pr102Markdown = ["# PR feedback triage request", "", pr102BodyMarkdown].join("\n");
 		const pi = new FakePi([
 			execResult({ stdout: envelope({ branches: ["branch-one", "branch-two"] }) }),
 			execResult({
@@ -329,6 +346,7 @@ describe("/pr:download-stack-feedback", () => {
 				stdout: envelope(
 					downloadFeedbackData({
 						markdown: pr101Markdown,
+						bodyMarkdown: pr101BodyMarkdown,
 						prNumber: 101,
 						countsOverrides: counts({ includedReviewThreads: 1, excludedResolvedThreads: 2 }),
 					}),
@@ -338,6 +356,7 @@ describe("/pr:download-stack-feedback", () => {
 				stdout: envelope(
 					downloadFeedbackData({
 						markdown: pr102Markdown,
+						bodyMarkdown: pr102BodyMarkdown,
 						prNumber: 102,
 						countsOverrides: counts({
 							includedDiscussionComments: 3,
@@ -407,22 +426,27 @@ describe("/pr:download-stack-feedback", () => {
 		);
 		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
 		expect(prompt).toContain("Default stack feedback policies:");
+		expect(prompt).toContain("Inspect the current repository state before acting");
+		expect(prompt).toContain("Automatically address straightforward feedback");
+		expect(prompt).toContain("localized, mechanically verifiable, low-risk");
 		expect(prompt).toContain("single omnibus follow-up PR at the current branch");
 		expect(prompt).toContain(
 			"Plan against the current remaining state, not stale original comments",
 		);
 		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
+		expect(prompt).toContain("remediation can happen in the omnibus follow-up PR");
 		expect(prompt).toContain("close all confirmed automation review threads stack-wide");
 		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
+		expect(prompt).toContain("include `--body <BODY>` when a reply is useful");
 		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
+		expect(prompt).toContain("Present remaining ambiguous, complex");
+		expect(prompt).toContain("summarize completed fixes, validation, GitHub thread actions");
 		expect(prompt).toContain(
-			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt",
+			"do not use raw `gh api graphql` for review-thread resolve/reply mutations",
 		);
-		expect(prompt).toContain("current repository state has been inspected");
-		expect(prompt).toContain("validation has passed");
-		expect(prompt).toContain(
-			"Do not use raw `gh api graphql` for review-thread resolve/reply mutations",
-		);
+		expect(prompt).not.toContain("Do not edit files yet");
+		expect(prompt).not.toContain("wait for human confirmation");
+		expect(prompt).not.toContain("Single-PR immediate PR instructions should not leak");
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
 			level: "info",
