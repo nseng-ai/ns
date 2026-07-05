@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { composePiAgentPrompt } from "@ns/pi/runtime/agent-definition";
+import { composePiAgentPrompt } from "@nseng-ai/pi/runtime/agent-definition";
 
 import {
 	EXPLORER_CHEAP_MODEL_SHORTHAND,

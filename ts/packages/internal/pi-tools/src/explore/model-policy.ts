@@ -1,5 +1,5 @@
-import { providerMatchesModelProviderFamily } from "@ns/core/model-slug";
-import type { ModelInfo } from "@ns/pi/runtime/types";
+import { providerMatchesModelProviderFamily } from "@nseng-ai/foundation/model-slug";
+import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 import type { IsProviderAuthConfigured } from "./auth.ts";
 import {

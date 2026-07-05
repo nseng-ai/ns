@@ -1,7 +1,7 @@
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,
-} from "@ns/pi/runtime/agent-definition";
+} from "@nseng-ai/pi/runtime/agent-definition";
 
 import type {
 	RunnerSubagentContext,
