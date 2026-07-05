@@ -33,6 +33,7 @@ export type LandGraphiteOperation =
 	| { kind: "trunk" }
 	| { kind: "submit-update"; branch: string; force?: boolean }
 	| { kind: "restack-upstack"; branch: string }
+	| { kind: "restack-branch-only"; branch: string }
 	| {
 			kind: "get-downstack-no-checkout";
 			branch: string;
@@ -161,6 +162,12 @@ export function restackUpstackOperation(
 	branch: string,
 ): Extract<LandGraphiteOperation, { kind: "restack-upstack" }> {
 	return { kind: "restack-upstack", branch };
+}
+
+export function restackBranchOnlyOperation(
+	branch: string,
+): Extract<LandGraphiteOperation, { kind: "restack-branch-only" }> {
+	return { kind: "restack-branch-only", branch };
 }
 
 export function getDownstackNoCheckoutOperation(input: {
@@ -306,6 +313,16 @@ const GRAPHITE_OPERATION_SPECS = {
 			"--branch",
 			operation.branch,
 			"--upstack",
+			"--no-interactive",
+		],
+	},
+	"restack-branch-only": {
+		kind: "restack-branch-only",
+		buildArgs: (operation) => [
+			"restack",
+			"--branch",
+			operation.branch,
+			"--only",
 			"--no-interactive",
 		],
 	},

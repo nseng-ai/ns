@@ -6,18 +6,8 @@ const PR_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const TRUNK = "main";
-const DESCENDANT = "feature-c";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-const SHA_C = "cccccccccccccccccccccccccccccccccccccccc";
-const SHA_D = "dddddddddddddddddddddddddddddddddddddddd";
-
-const BRANCH_SHAS: Record<string, string> = {
-	"feature-a": SHA_A,
-	"feature-b": SHA_B,
-	[DESCENDANT]: SHA_C,
-	"feature-d": SHA_D,
-};
 
 export interface LandStackScriptedExec {
 	command: string;
@@ -30,7 +20,6 @@ export interface MergeFeatureAOptions {
 	verifyState?: string;
 	includeCleanup?: boolean;
 	refreshTarget?: string | null;
-	postRestackRefreshBranches?: readonly string[];
 	title?: string;
 	body?: string | null;
 }
@@ -112,7 +101,7 @@ function mergeFeatureA(
 		steps.push(
 			childrenRecheckStep(topologyArgs, "feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",
 				sha: SHA_B,
@@ -120,13 +109,6 @@ function mergeFeatureA(
 				base: "feature-a",
 			}),
 		);
-		// post-restack refresh of the next forced-refresh target (the auto-maintained
-		// descendant); skipped-maintenance scenarios pass [] because there is no
-		// later gt get to guard.
-		const postRestackRefreshBranches = options.postRestackRefreshBranches ?? [DESCENDANT];
-		for (const refreshBranch of postRestackRefreshBranches) {
-			steps.push(guardShaStep(refreshBranch, BRANCH_SHAS[refreshBranch] ?? SHA_C));
-		}
 		steps.push(submitUpdateStep("feature-b"));
 	}
 	return steps;

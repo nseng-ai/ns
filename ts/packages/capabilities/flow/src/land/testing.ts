@@ -286,6 +286,7 @@ export interface InMemoryLandGraphiteGatewayState {
 	readonly submitUpdateResults?: Readonly<Record<string, OperationState>>;
 	readonly restackForSubmitResults?: Readonly<Record<string, OperationState>>;
 	readonly restackUpstackResults?: Readonly<Record<string, OperationState>>;
+	readonly restackBranchOnlyResults?: Readonly<Record<string, OperationState>>;
 	readonly branchChildren?: Readonly<Record<string, readonly string[]>>;
 	readonly branchChildrenFailure?: LandingBoundaryFailure;
 }
@@ -320,6 +321,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly submitUpdateResults: ReadonlyMap<string, OperationState>;
 	private readonly restackForSubmitResults: ReadonlyMap<string, OperationState>;
 	private readonly restackUpstackResults: ReadonlyMap<string, OperationState>;
+	private readonly restackBranchOnlyResults: ReadonlyMap<string, OperationState>;
 	private readonly branchChildrenByBranch: ReadonlyMap<string, readonly string[]>;
 	private readonly branchChildrenFailure: LandingBoundaryFailure | undefined;
 	private readonly trunkLog: LandRepoCall[] = [];
@@ -330,6 +332,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly refreshBranchFromRemoteLog: LandRefreshBranchFromRemoteCall[] = [];
 	private readonly deleteLocalBranchLog: LandDeleteLocalBranchCall[] = [];
 	private readonly restackUpstackLog: LandBranchCall[] = [];
+	private readonly restackBranchOnlyLog: LandBranchCall[] = [];
 	private readonly submitUpdateLog: LandSubmitUpdateCall[] = [];
 	private readonly branchChildrenLog: LandBranchChildrenCall[] = [];
 
@@ -351,6 +354,12 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		);
 		this.restackUpstackResults = new Map(
 			Object.entries(state.restackUpstackResults ?? {}).map(([branch, result]) => [
+				branch,
+				cloneData(result),
+			]),
+		);
+		this.restackBranchOnlyResults = new Map(
+			Object.entries(state.restackBranchOnlyResults ?? {}).map(([branch, result]) => [
 				branch,
 				cloneData(result),
 			]),
@@ -394,6 +403,10 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 
 	get restackUpstackCalls(): readonly LandBranchCall[] {
 		return cloneData(this.restackUpstackLog);
+	}
+
+	get restackBranchOnlyCalls(): readonly LandBranchCall[] {
+		return cloneData(this.restackBranchOnlyLog);
 	}
 
 	get submitUpdateCalls(): readonly LandSubmitUpdateCall[] {
@@ -498,6 +511,14 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	}): Promise<LandGraphiteCommandResult> {
 		this.restackUpstackLog.push({ repoRoot: request.repoRoot, branch: request.branch });
 		return commandResult(this.restackUpstackResults.get(request.branch));
+	}
+
+	async restackBranchOnly(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandGraphiteCommandResult> {
+		this.restackBranchOnlyLog.push({ repoRoot: request.repoRoot, branch: request.branch });
+		return commandResult(this.restackBranchOnlyResults.get(request.branch));
 	}
 
 	async submitUpdate(request: {

@@ -43,6 +43,7 @@ const REFRESH_ARGS = [
 	"--no-interactive",
 ];
 const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
+const RESTACK_ONLY_ARGS = ["restack", "--branch", "feature-b", "--only", "--no-interactive"];
 const SUBMIT_FORCE_ARGS = [
 	"submit",
 	"--branch",
@@ -281,6 +282,7 @@ describe("land context adapter facts", () => {
 				stderr: "fatal: 'feature-a' is already checked out at '/repo-slot'\n",
 			}),
 			step("gt", RESTACK_ARGS),
+			step("gt", RESTACK_ONLY_ARGS),
 			step("gt", SUBMIT_FORCE_ARGS),
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 				stdout: `${metadataDbJson([{ branch: "feature-a", children: ["feature-b"] }])}\n`,
@@ -304,6 +306,9 @@ describe("land context adapter facts", () => {
 		).resolves.toEqual({ type: "retained", branch: "feature-a", path: "/repo-slot" });
 		await expect(
 			context.graphite.restackUpstack({ repoRoot: ROOT, branch: "feature-b" }),
+		).resolves.toMatchObject({ type: "success" });
+		await expect(
+			context.graphite.restackBranchOnly({ repoRoot: ROOT, branch: "feature-b" }),
 		).resolves.toMatchObject({ type: "success" });
 		await expect(
 			context.graphite.submitUpdate({ repoRoot: ROOT, branch: "feature-b", force: true }),
@@ -330,6 +335,11 @@ describe("land context adapter facts", () => {
 			{
 				command: "gt",
 				args: RESTACK_ARGS,
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
+			{
+				command: "gt",
+				args: RESTACK_ONLY_ARGS,
 				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
 			},
 			{

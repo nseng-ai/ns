@@ -36,6 +36,7 @@ import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,
 	getDownstackNoCheckoutOperation,
+	restackBranchOnlyOperation,
 	restackUpstackOperation,
 	submitUpdateOperation,
 	type LandGraphiteCommandChannel,
@@ -136,6 +137,12 @@ export function createLandContext(
 					repoRoot,
 					operation: restackUpstackOperation(branch),
 				}),
+			restackBranchOnly: async ({ repoRoot, branch }) =>
+				runGraphiteMutation({
+					graphite,
+					repoRoot,
+					operation: restackBranchOnlyOperation(branch),
+				}),
 			submitUpdate: async ({ repoRoot, branch, force }) =>
 				runGraphiteMutation({
 					graphite,
@@ -199,7 +206,7 @@ interface PrepareGraphiteMutationOptions {
 	readonly repoRoot: string;
 	readonly operation: Extract<
 		LandGraphiteOperation,
-		{ readonly kind: "submit-update" | "restack-upstack" }
+		{ readonly kind: "submit-update" | "restack-upstack" | "restack-branch-only" }
 	>;
 	readonly failureCode: string;
 	readonly failureMessage: string;
@@ -274,7 +281,7 @@ async function runGraphiteMutation(options: {
 	readonly repoRoot: string;
 	readonly operation: Extract<
 		LandGraphiteOperation,
-		{ readonly kind: "submit-update" | "restack-upstack" }
+		{ readonly kind: "submit-update" | "restack-upstack" | "restack-branch-only" }
 	>;
 }): Promise<LandGraphiteCommandResult> {
 	const result = await options.graphite.run({

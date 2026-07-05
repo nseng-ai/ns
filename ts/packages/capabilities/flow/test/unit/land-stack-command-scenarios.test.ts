@@ -593,7 +593,7 @@ function mergeNumberedBranch(
 			]),
 			childrenRecheckStep(branch, [nextBranch]),
 			step("gt", ["delete", branch, "-f", "-q"]),
-			step("gt", ["restack", "--branch", nextBranch, "--upstack", "--no-interactive"]),
+			step("gt", ["restack", "--branch", nextBranch, "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: nextBranch,
 				sha: numberedSha(options.next),
@@ -601,9 +601,6 @@ function mergeNumberedBranch(
 				base: branch,
 			}),
 		);
-		if (options.next < (options.stackEnd ?? 11)) {
-			steps.push(guardShaStep(numberedBranch(options.next + 1), numberedSha(options.next + 1)));
-		}
 		steps.push(submitUpdateStep(nextBranch));
 		return steps;
 	}
@@ -1064,13 +1061,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 154,
+					calls: 145,
 					failures: 3,
 					categories: {
 						graphite: 54,
 						"github-cli": 45,
 						"github-api": 0,
-						git: 55,
+						git: 46,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 66 },
@@ -1080,13 +1077,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 336,
+					calls: 313,
 					failures: 3,
 					categories: {
 						graphite: 124,
 						"github-cli": 101,
 						"github-api": 0,
-						git: 111,
+						git: 88,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 150 },
@@ -1105,6 +1102,14 @@ describe("land-stack command scenarios", () => {
 			pi.assertDone();
 			expect(confirmations, scenario.name).toEqual([]);
 			expect(notifications.at(-1)?.level, scenario.name).toBe("success");
+			const restackArgs = pi.execCalls
+				.filter((call) => call.command === "gt" && call.args[0] === "restack")
+				.map((call) => call.args);
+			expect(restackArgs, scenario.name).toHaveLength(scenario.size - 1);
+			expect(
+				restackArgs.every((args) => args.includes("--only") && !args.includes("--upstack")),
+				scenario.name,
+			).toBe(true);
 			expect(summarizeExternalCallBaseline(telemetry), scenario.name).toEqual(scenario.expected);
 		}
 	});
@@ -1316,7 +1321,7 @@ describe("land-stack command scenarios", () => {
 		const restackFeatureBIndex = pi.execCalls.findIndex(
 			(call) =>
 				call.command === "gt" &&
-				sameArgs(call.args, ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+				sameArgs(call.args, ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 		);
 		const submitFeatureBIndex = pi.execCalls.findIndex((call) => call === submitCalls[0]);
 		const merge102Index = pi.execCalls.findIndex(
@@ -1360,7 +1365,7 @@ describe("land-stack command scenarios", () => {
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
 				shas: BRANCH_SHAS,
 			}),
-			...mergeFeatureA({ postRestackRefreshBranches: [DESCENDANT, "feature-d"] }),
+			...mergeFeatureA(),
 			...mergeFeatureBWithForkedDescendants(),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1391,7 +1396,7 @@ describe("land-stack command scenarios", () => {
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
 				shas: BRANCH_SHAS,
 			}),
-			...mergeFeatureA({ postRestackRefreshBranches: [DESCENDANT, "feature-d"] }),
+			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
 			guardShaStep(DESCENDANT, SHA_C),
 			step(
@@ -1566,7 +1571,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefreshBranches: [] }),
+			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
@@ -1626,7 +1631,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefreshBranches: [] }),
+			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
@@ -1677,7 +1682,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefreshBranches: [] }),
+			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, {
@@ -1717,7 +1722,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefreshBranches: [] }),
+			...mergeFeatureA(),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi } = await captureConsole(() => runLandStack("--yes", script, { hasUI: false }));
@@ -1840,7 +1845,7 @@ describe("land-stack command scenarios", () => {
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",
 				sha: SHA_B,
@@ -1871,7 +1876,7 @@ describe("land-stack command scenarios", () => {
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			guardShaStep("feature-b", SHA_B),
 			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 				code: 1,
@@ -2273,7 +2278,7 @@ describe("land-stack command scenarios", () => {
 			]),
 			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",
 				sha: SHA_B,
@@ -2832,7 +2837,7 @@ describe("land-stack command scenarios", () => {
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"], {
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"], {
 				code: 1,
 				stderr: "restack failed",
 			}),
@@ -2857,7 +2862,7 @@ describe("land-stack command scenarios", () => {
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
-			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",
 				sha: SHA_B,

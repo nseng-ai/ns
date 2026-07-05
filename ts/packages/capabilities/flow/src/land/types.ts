@@ -331,6 +331,10 @@ export interface LandGraphiteGateway {
 		readonly repoRoot: string;
 		readonly branch: string;
 	}): Promise<LandGraphiteCommandResult>;
+	restackBranchOnly(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandGraphiteCommandResult>;
 	submitUpdate(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
