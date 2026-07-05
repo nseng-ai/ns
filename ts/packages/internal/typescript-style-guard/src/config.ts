@@ -69,19 +69,6 @@ export const capabilityPackageNames = new Set([
 	"@ns/flow",
 ]);
 
-export const neutralPeerPackageNames = new Set([
-	"/cli-runtime",
-	"@ns/brmem",
-	"@ns/clinkr",
-	"@ns/capability-kit/cmux",
-	"@ns/core",
-	"@ns/capability-kit",
-	"@ns/core/exec",
-	"@ns/capability-kit/git",
-	"@ns/capability-kit/github",
-	"@ns/capability-kit/graphite",
-]);
-
 export const manifestDependencyFields = [
 	"dependencies",
 	"optionalDependencies",

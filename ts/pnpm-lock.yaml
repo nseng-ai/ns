@@ -435,6 +435,9 @@ importers:
 
   packages/hosts/command-backed-skill-registry:
     dependencies:
+      '@ns/branch-context':
+        specifier: workspace:*
+        version: link:../../capabilities/branch-context
       '@ns/ccc':
         specifier: workspace:*
         version: link:../../capabilities/ccc

@@ -1,5 +1,5 @@
 import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
-import { formatImplBranchContextCommand } from "@ns/core/command";
+import { formatImplBranchContextCommand } from "@ns/branch-context/pi";
 import {
 	CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
 	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,

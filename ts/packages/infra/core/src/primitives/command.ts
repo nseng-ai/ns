@@ -98,14 +98,6 @@ export interface TailTextOptions {
 
 export type CommandResolver = (name: string) => string | undefined;
 
-export const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
-export const BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME =
-	"ns:branch-context:upstack-impl-from-plan";
-export const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
-export const WRITE_PLAN_COMMAND_NAME = "ns:plan:save";
-export const WRITE_GRILLED_PLAN_COMMAND_NAME = "ns:plan:grill-and-save";
-export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "ns:plan:impl-current";
-
 const NS_COMMAND_SEGMENT_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
 export function nsCommandSurface(extensionId: string, action: string): string {
@@ -114,10 +106,6 @@ export function nsCommandSurface(extensionId: string, action: string): string {
 		assertValidNsCommandPart(segment, "action segment");
 	}
 	return `ns:${extensionId}:${action}`;
-}
-
-export function formatImplBranchContextCommand(key: string): string {
-	return `/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${key}`;
 }
 
 function assertValidNsCommandPart(value: string, label: string): void {
