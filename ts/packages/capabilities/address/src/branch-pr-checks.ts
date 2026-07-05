@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
 import { collectBranchPrChecks, type BranchPrChecksCollection } from "./core/branch-pr-checks.ts";
+import { branchPrMappingGapsMessage, hasBranchPrMappingGaps } from "./core/branch-pr-mapping.ts";
 import {
 	defineExecOperation,
 	gatewayOptions,
@@ -61,20 +62,18 @@ async function runBranchPrChecksOperation(
 	});
 	if (result.type === "failure") return prFeedbackFailureExit(result.message, result.failure);
 	const collection = result.collection;
-	if (collection.summary.missing === 0 && collection.summary.ambiguous === 0) return ok(collection);
-	return negative(unmappedBranchesMessage(collection), { data: collection });
+	const gaps = branchPrChecksMappingGaps(collection);
+	if (!hasBranchPrMappingGaps(gaps)) return ok(collection);
+	return negative(branchPrMappingGapsMessage(gaps), { data: collection });
 }
 
-function unmappedBranchesMessage(collection: BranchPrChecksCollection): string {
-	const missing = collection.entries
-		.filter((entry) => entry.status === "missing")
-		.map((entry) => entry.branch);
-	const ambiguous = collection.entries
-		.filter((entry) => entry.status === "ambiguous")
-		.map((entry) => entry.branch);
-	if (missing.length > 0 && ambiguous.length > 0) {
-		return `Could not map branches uniquely; missing: ${missing.join(", ")}; ambiguous: ${ambiguous.join(", ")}`;
-	}
-	if (ambiguous.length > 0) return `Multiple open PRs found for branches: ${ambiguous.join(", ")}`;
-	return `No open PR found for branches: ${missing.join(", ")}`;
+function branchPrChecksMappingGaps(collection: BranchPrChecksCollection) {
+	return {
+		missingBranches: collection.entries
+			.filter((entry) => entry.status === "missing")
+			.map((entry) => entry.branch),
+		ambiguousBranchNames: collection.entries
+			.filter((entry) => entry.status === "ambiguous")
+			.map((entry) => entry.branch),
+	};
 }

@@ -33,20 +33,15 @@ export interface FlowLandExternalCallTelemetryEvent {
 	count: 1;
 	status: FlowLandExternalCallStatus;
 	exitCode?: number;
-	wasKilled?: boolean;
+	isKilled?: boolean;
 	quota?: FlowLandExternalCallQuotaEstimate;
 }
 
 export type FlowLandExternalCallTelemetrySink = (event: FlowLandExternalCallTelemetryEvent) => void;
 
-export interface CommandInvocationMetadata {
-	githubGraphqlBranchCount?: number;
-}
-
 export interface CommandInvocation {
 	command: string;
 	args: readonly string[];
-	metadata?: CommandInvocationMetadata;
 }
 
 export interface CommandInvocationClassification {
@@ -75,131 +70,105 @@ export function commandExternalCallTelemetryEvent(
 		count: 1,
 		status: input.result.code === 0 ? "success" : "failure",
 		exitCode: input.result.code,
-		wasKilled: Boolean(input.result.killed),
+		isKilled: Boolean(input.result.killed),
 		...optionalEntry("quota", cloneQuotaEstimate(classification.quota)),
-	};
-}
-
-export interface GithubApiTelemetryInput {
-	operation: string;
-	display: string;
-	elapsedMs: number;
-	status: FlowLandExternalCallStatus;
-	quota?: FlowLandExternalCallQuotaEstimate;
-}
-
-export function githubApiExternalCallTelemetryEvent(
-	input: GithubApiTelemetryInput,
-): FlowLandExternalCallTelemetryEvent {
-	return {
-		type: "flow_land.external_call",
-		transport: "github-api",
-		category: "github-api",
-		operation: input.operation,
-		display: input.display,
-		elapsedMs: input.elapsedMs,
-		count: 1,
-		status: input.status,
-		...optionalEntry("quota", cloneQuotaEstimate(input.quota)),
 	};
 }
 
 export function classifyCommandInvocation(
 	invocation: CommandInvocation,
 ): CommandInvocationClassification {
-	return {
-		category: commandExternalCallCategory(invocation),
-		operation: commandExternalCallOperation(invocation),
-		...optionalEntry("quota", staticQuotaForInvocation(invocation)),
-	};
-}
-
-function commandExternalCallCategory(invocation: CommandInvocation): FlowLandExternalCallCategory {
-	if (invocation.command === GRAPHITE_COMMAND_NAME) return "graphite";
-	if (invocation.command === "ns" && isReadGraphiteBranchMetadataArgs(invocation.args)) {
-		return "graphite";
-	}
-	if (invocation.command === "gh") return "github-cli";
-	if (invocation.command === "git") return "git";
-	return "other-command";
-}
-
-function commandExternalCallOperation(invocation: CommandInvocation): string {
 	const { command, args } = invocation;
-	if (command === GRAPHITE_COMMAND_NAME && args.length > 0) return `gt ${args[0]}`;
-	if (command === "gh" && args[0] === "pr" && typeof args[1] === "string") {
-		return `gh pr ${args[1]}`;
+	if (command === GRAPHITE_COMMAND_NAME) {
+		return {
+			category: "graphite",
+			operation: args.length > 0 ? `gt ${args[0]}` : command,
+		};
 	}
-	if (command === "gh" && args[0] === "repo" && typeof args[1] === "string") {
-		return `gh repo ${args[1]}`;
-	}
-	if (command === "gh" && args[0] === "api" && args[1] === "graphql") {
-		return "gh api graphql";
-	}
-	if (command === "git" && typeof args[0] === "string") return `git ${args[0]}`;
 	if (command === "ns" && isReadGraphiteBranchMetadataArgs(args)) {
-		return "ns flow exec read-graphite-branch-metadata";
+		return {
+			category: "graphite",
+			operation: "ns flow exec read-graphite-branch-metadata",
+		};
 	}
-	return command;
+	if (command === "gh") return classifyGithubCliInvocation(args);
+	if (command === "git") {
+		return {
+			category: "git",
+			operation: typeof args[0] === "string" ? `git ${args[0]}` : command,
+		};
+	}
+	return { category: "other-command", operation: command };
 }
 
-export function staticQuotaForCommand(
-	command: string,
-	args: readonly string[],
-): FlowLandExternalCallQuotaEstimate | undefined {
-	return staticQuotaForInvocation({ command, args });
-}
-
-function staticQuotaForInvocation(
-	invocation: CommandInvocation,
-): FlowLandExternalCallQuotaEstimate | undefined {
-	const { command, args } = invocation;
-	if (command !== "gh") return undefined;
+function classifyGithubCliInvocation(args: readonly string[]): CommandInvocationClassification {
 	if (args[0] === "pr" && args[1] === "view" && args.includes("--json")) {
 		return {
-			kind: "static",
-			provider: "github",
-			graphqlRequests: 1,
-			restRequests: 0,
-			rateLimitCost: 1,
-			description: "gh pr view --json uses one GraphQL query",
+			category: "github-cli",
+			operation: "gh pr view",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 1,
+				restRequests: 0,
+				rateLimitCost: 1,
+				description: "gh pr view --json uses one GraphQL query",
+			},
 		};
 	}
 	if (args[0] === "pr" && args[1] === "merge") {
 		return {
-			kind: "static",
-			provider: "github",
-			graphqlRequests: 2,
-			restRequests: 0,
-			rateLimitCost: 2,
-			description: "gh pr merge uses one PR finder query plus one mergePullRequest mutation",
+			category: "github-cli",
+			operation: "gh pr merge",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 2,
+				restRequests: 0,
+				rateLimitCost: 2,
+				description: "gh pr merge uses one PR finder query plus one mergePullRequest mutation",
+			},
 		};
 	}
 	if (args[0] === "repo" && args[1] === "view" && args.includes("--json")) {
 		return {
-			kind: "static",
-			provider: "github",
-			graphqlRequests: 1,
-			restRequests: 0,
-			rateLimitCost: 1,
-			description: "gh repo view --json uses one GraphQL query",
+			category: "github-cli",
+			operation: "gh repo view",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 1,
+				restRequests: 0,
+				rateLimitCost: 1,
+				description: "gh repo view --json uses one GraphQL query",
+			},
 		};
 	}
 	if (args[0] === "api" && args[1] === "graphql") {
-		const branchCount = batchedPullRequestFactsBranchCount(invocation);
+		const branchCount = countGraphqlHeadFieldArguments(args);
 		return {
-			kind: "static",
-			provider: "github",
-			graphqlRequests: 1,
-			restRequests: 0,
-			rateLimitCost: Math.max(1, branchCount),
-			description:
-				branchCount > 0
-					? "gh api graphql batched PR facts uses one GraphQL query with one PR connection per branch"
-					: "gh api graphql uses one GraphQL query",
+			category: "github-cli",
+			operation: "gh api graphql",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 1,
+				restRequests: 0,
+				rateLimitCost: Math.max(1, branchCount),
+				description:
+					branchCount > 0
+						? "gh api graphql batched PR facts uses one GraphQL query with one PR connection per branch"
+						: "gh api graphql uses one GraphQL query",
+			},
 		};
 	}
-	return undefined;
+	if (args[0] === "pr" && typeof args[1] === "string") {
+		return { category: "github-cli", operation: `gh pr ${args[1]}` };
+	}
+	if (args[0] === "repo" && typeof args[1] === "string") {
+		return { category: "github-cli", operation: `gh repo ${args[1]}` };
+	}
+	return { category: "github-cli", operation: "gh" };
 }
 
 export function cloneQuotaEstimate(
@@ -207,13 +176,6 @@ export function cloneQuotaEstimate(
 ): FlowLandExternalCallQuotaEstimate | undefined {
 	if (quota === undefined) return undefined;
 	return { ...quota };
-}
-
-function batchedPullRequestFactsBranchCount(invocation: CommandInvocation): number {
-	if (invocation.metadata?.githubGraphqlBranchCount !== undefined) {
-		return invocation.metadata.githubGraphqlBranchCount;
-	}
-	return countGraphqlHeadFieldArguments(invocation.args);
 }
 
 function countGraphqlHeadFieldArguments(args: readonly string[]): number {

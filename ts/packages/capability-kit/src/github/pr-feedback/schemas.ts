@@ -149,23 +149,23 @@ export const ghReviewThreadsResponseSchema = z
 	})
 	.loose();
 
+const ghStatusCheckRollupSchema = z
+	.object({
+		contexts: z
+			.object({
+				nodes: z.array(z.unknown()),
+				pageInfo: z.object({ hasNextPage: z.boolean() }).loose(),
+			})
+			.loose(),
+	})
+	.loose()
+	.nullable();
+
 export const ghPrChecksResponseSchema = z
 	.object({
 		data: z.object({
 			repository: z.object({
-				pullRequest: z.object({
-					statusCheckRollup: z
-						.object({
-							contexts: z
-								.object({
-									nodes: z.array(z.unknown()),
-									pageInfo: z.object({ hasNextPage: z.boolean() }).loose(),
-								})
-								.loose(),
-						})
-						.loose()
-						.nullable(),
-				}),
+				pullRequest: z.object({ statusCheckRollup: ghStatusCheckRollupSchema }),
 			}),
 		}),
 	})
@@ -179,17 +179,7 @@ const ghBranchPrChecksNodeSchema = z
 		headRefName: z.string(),
 		headRefOid: z.string().nullable().optional(),
 		baseRefName: z.string(),
-		statusCheckRollup: z
-			.object({
-				contexts: z
-					.object({
-						nodes: z.array(z.unknown()),
-						pageInfo: z.object({ hasNextPage: z.boolean() }).loose(),
-					})
-					.loose(),
-			})
-			.loose()
-			.nullable(),
+		statusCheckRollup: ghStatusCheckRollupSchema,
 	})
 	.loose();
 

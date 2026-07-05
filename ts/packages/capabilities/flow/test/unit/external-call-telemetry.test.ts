@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
 	classifyCommandInvocation,
 	commandExternalCallTelemetryEvent,
-	githubApiExternalCallTelemetryEvent,
 } from "../../src/land/stack/external-call-telemetry.ts";
 
 describe("flow land external-call telemetry classification", () => {
@@ -80,7 +79,7 @@ describe("flow land external-call telemetry classification", () => {
 		});
 	});
 
-	test("allows explicit GraphQL branch count metadata", () => {
+	test("does not infer batched GraphQL branch count from query-only aliases", () => {
 		expect(
 			classifyCommandInvocation({
 				command: "gh",
@@ -88,14 +87,13 @@ describe("flow land external-call telemetry classification", () => {
 					"api",
 					"graphql",
 					"-f",
-					"query=query { repository { pullRequests(first: 1) { nodes { number } } } }",
+					"query=query { repository { head0: pullRequests(first: 1) { nodes { number } } head1: pullRequests(first: 1) { nodes { number } } } }",
 				],
-				metadata: { githubGraphqlBranchCount: 3 },
 			}).quota,
-		).toMatchObject({ rateLimitCost: 3 });
+		).toMatchObject({ rateLimitCost: 1 });
 	});
 
-	test("renames command telemetry killed field to wasKilled", () => {
+	test("renames command telemetry killed field to isKilled", () => {
 		const event = commandExternalCallTelemetryEvent({
 			command: "git",
 			args: ["status"],
@@ -109,23 +107,9 @@ describe("flow land external-call telemetry classification", () => {
 			operation: "git status",
 			status: "failure",
 			exitCode: 143,
-			wasKilled: true,
+			isKilled: true,
 		});
 		expect("killed" in event).toBe(false);
-	});
-
-	test("keeps direct GitHub API telemetry surface", () => {
-		expect(
-			githubApiExternalCallTelemetryEvent({
-				operation: "mergePullRequest",
-				display: "GitHub GraphQL mergePullRequest",
-				elapsedMs: 10,
-				status: "success",
-			}),
-		).toMatchObject({
-			transport: "github-api",
-			category: "github-api",
-			operation: "mergePullRequest",
-		});
+		expect("wasKilled" in event).toBe(false);
 	});
 });

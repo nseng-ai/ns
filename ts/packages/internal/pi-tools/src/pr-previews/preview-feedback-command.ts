@@ -18,6 +18,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "./extension.ts";
+import { execNsJson } from "./exec-ns-json.ts";
 
 const nullablePreviewStringSchema = z.string().nullable();
 const nullablePreviewNumberSchema = z.number().int().nullable();
@@ -103,15 +104,6 @@ interface LoadPreviewReviewThreadsOptions {
 	runtime: PrPreviewFeedbackCommandRuntime;
 	ctx: ExtensionContext;
 	prNumber: number;
-}
-
-interface ExecPrAddressWithSchemaOptions<T> {
-	runtime: PrPreviewFeedbackCommandRuntime;
-	ctx: ExtensionContext;
-	args: string[];
-	label: string;
-	schema: z.ZodType<T>;
-	allowFailureData?: boolean;
 }
 
 export function createPrPreviewFeedbackCommand(
@@ -209,7 +201,7 @@ async function runPrPreviewFeedbackCommand(
 async function loadPreviewFeedbackTarget(
 	options: LoadPreviewFeedbackTargetOptions,
 ): Promise<CommandResult<PreviewDownloadFeedbackData>> {
-	return await execPrAddressWithSchema({
+	return await execNsJson({
 		runtime: options.runtime,
 		ctx: options.ctx,
 		args: ["address", "exec", "download-feedback", ...options.args, "--format", "json"],
@@ -222,7 +214,7 @@ async function loadPreviewFeedbackTarget(
 async function loadPreviewReviewThreads(
 	options: LoadPreviewReviewThreadsOptions,
 ): Promise<CommandResult<PreviewReviewThreadsData>> {
-	return await execPrAddressWithSchema({
+	return await execNsJson({
 		runtime: options.runtime,
 		ctx: options.ctx,
 		args: [
@@ -236,23 +228,6 @@ async function loadPreviewReviewThreads(
 		],
 		label: `ns address exec pr-review-threads #${options.prNumber}`,
 		schema: previewReviewThreadsDataSchema,
-	});
-}
-
-async function execPrAddressWithSchema<T>(
-	options: ExecPrAddressWithSchemaOptions<T>,
-): Promise<CommandResult<T>> {
-	const result = await options.runtime.pi.exec("ns", options.args, {
-		cwd: options.ctx.cwd,
-		timeout: options.runtime.commandTimeoutMs,
-	});
-	return options.runtime.parseEnvelopeWithSchema({
-		label: options.label,
-		result,
-		schema: options.schema,
-		...(options.allowFailureData === undefined
-			? {}
-			: { allowFailureData: options.allowFailureData }),
 	});
 }
 

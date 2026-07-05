@@ -69,7 +69,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 		expect(write.path).toBe("/xdg-state/ns/flow/land/runs/run-1.json");
 		const parsed: unknown = JSON.parse(write.content);
 		expect(parsed).toEqual({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			runId: "run-1",
 			command: "sdl flow land",
 			startedAtMs: 1_000,
@@ -94,7 +94,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 					elapsedMs: 25,
 					status: "success",
 					exitCode: 0,
-					wasKilled: false,
+					isKilled: false,
 					quota: {
 						kind: "static",
 						provider: "github",
@@ -111,7 +111,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 					elapsedMs: 40,
 					status: "success",
 					exitCode: 0,
-					wasKilled: false,
+					isKilled: false,
 				},
 			],
 		});
@@ -180,7 +180,7 @@ function telemetryEvent(
 		count: 1,
 		status: "success",
 		exitCode: 0,
-		wasKilled: false,
+		isKilled: false,
 		...overrides,
 	};
 }

@@ -212,6 +212,12 @@ export interface CommandStreamPrLink {
 	url: string;
 }
 
+export interface CommandInvocation {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly display: string;
+}
+
 export interface CommandStreamMessageDetails {
 	prLinks: CommandStreamPrLink[];
 }

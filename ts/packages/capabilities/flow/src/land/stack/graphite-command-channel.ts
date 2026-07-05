@@ -7,7 +7,12 @@ import {
 } from "@ns/core/command";
 import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
-import type { CommandStreamFinish, LandStackExtensionAPI, FlowLandingPlan } from "./types.ts";
+import type {
+	CommandInvocation,
+	CommandStreamFinish,
+	LandStackExtensionAPI,
+	FlowLandingPlan,
+} from "./types.ts";
 
 const READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX = [
 	"flow",
@@ -75,8 +80,8 @@ export interface GraphiteCommandOptions<
 }
 
 export interface GraphiteCommandStream {
-	start(commandDisplay: string, command: string, args: readonly string[]): void;
-	finish(commandDisplay: string, finish: CommandStreamFinish): void;
+	start(invocation: CommandInvocation): void;
+	finish(invocation: CommandInvocation, finish: CommandStreamFinish): void;
 }
 
 const NOOP_GRAPHITE_COMMAND_STREAM: GraphiteCommandStream = {
@@ -430,12 +435,16 @@ async function runStandardGraphiteOperation(input: {
 async function withGraphiteCommandStream<T>(
 	input: WithGraphiteCommandStreamOptions<T>,
 ): Promise<T> {
-	const commandDisplay = formatCommand(GRAPHITE_COMMAND_NAME, input.commandOptions.args);
-	input.commandStream.start(commandDisplay, GRAPHITE_COMMAND_NAME, input.commandOptions.args);
+	const invocation: CommandInvocation = {
+		command: GRAPHITE_COMMAND_NAME,
+		args: input.commandOptions.args,
+		display: formatCommand(GRAPHITE_COMMAND_NAME, input.commandOptions.args),
+	};
+	input.commandStream.start(invocation);
 	const raw = await executeGraphiteCommand(input.pi, input.commandOptions);
 	const { finish, value } = input.finishAndValue(raw);
 	if (finish !== undefined) {
-		input.commandStream.finish(commandDisplay, finish);
+		input.commandStream.finish(invocation, finish);
 	}
 	return value;
 }

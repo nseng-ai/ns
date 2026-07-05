@@ -20,6 +20,7 @@ import {
 	type FlowLandExternalCallTelemetrySink,
 } from "./external-call-telemetry.ts";
 import type {
+	CommandInvocation,
 	CommandStreamMessageDetails,
 	CustomMessage,
 	LandStackExtensionAPI,
@@ -115,24 +116,24 @@ export class LandStackCommandStream {
 		this.liveProgress?.(event);
 	}
 
-	start(commandDisplay: string, command: string, args: readonly string[]): void {
-		this.commandStarts.set(commandDisplay, {
+	start(invocation: CommandInvocation): void {
+		this.commandStarts.set(invocation.display, {
 			startedAtMs: this.clock.nowMs(),
-			command,
-			args: [...args],
+			command: invocation.command,
+			args: [...invocation.args],
 		});
 		// Keep active subprocess visibility transient: completed command results are
 		// emitted separately, so a long-running Graphite/GitHub command does not pin a
 		// rewritten widget above the editor while it is still pending.
 		if (this.shouldShowRunningCommandStatus) {
-			this.io.phase(`land: running ${commandDisplay}...`);
+			this.io.phase(`land: running ${invocation.display}...`);
 		}
 	}
 
-	finish(commandDisplay: string, finish: { result: ExecResult; note?: string }): void {
+	finish(invocation: CommandInvocation, finish: { result: ExecResult; note?: string }): void {
 		const result = finish.result;
 		const icon = result.code === 0 ? "✓" : "✗";
-		const commandStart = this.takeCommandStart(commandDisplay);
+		const commandStart = this.takeCommandStart(invocation.display);
 		const elapsedMs =
 			commandStart === undefined
 				? undefined
@@ -142,14 +143,14 @@ export class LandStackCommandStream {
 				commandExternalCallTelemetryEvent({
 					command: commandStart.command,
 					args: commandStart.args,
-					commandDisplay,
+					commandDisplay: invocation.display,
 					elapsedMs,
 					result,
 				}),
 			);
 		}
 		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
-		const lines = [`${icon} $ ${commandDisplay}${suffix}`];
+		const lines = [`${icon} $ ${invocation.display}${suffix}`];
 		if (result.code !== 0) {
 			lines.push(...commandStreamOutputLines(result));
 		}
@@ -208,13 +209,13 @@ export function withCommandStreaming(
 ): LandStackExtensionAPI {
 	const wrapped: LandStackExtensionAPI = {
 		async exec(command, args, options) {
-			const commandDisplay = formatCommandForDisplay(command, args);
-			commandStream.start(commandDisplay, command, args);
+			const invocation = commandInvocationForDisplay(command, args);
+			commandStream.start(invocation);
 			const result = await runNormalizedExecResult(
 				async () => await pi.exec(command, args, options),
 			);
 			const finish = normalizeLandCommandFinish(command, args, result);
-			commandStream.finish(commandDisplay, finish);
+			commandStream.finish(invocation, finish);
 			return finish.result;
 		},
 	};
@@ -229,6 +230,14 @@ export function withCommandStreaming(
 		};
 	}
 	return wrapped;
+}
+
+function commandInvocationForDisplay(command: string, args: readonly string[]): CommandInvocation {
+	return {
+		command,
+		args: [...args],
+		display: formatCommandForDisplay(command, args),
+	};
 }
 
 export function formatCommandForDisplay(command: string, args: readonly string[]): string {

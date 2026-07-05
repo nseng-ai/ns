@@ -29,7 +29,6 @@ export interface FlowLandTelemetryTotals {
 export interface FlowLandExternalCallSummaryItem {
 	category: FlowLandExternalCallCategory;
 	elapsedMs: number;
-	count?: number;
 	status: FlowLandExternalCallStatus;
 	quota?: FlowLandExternalCallQuotaEstimate;
 }
@@ -57,18 +56,17 @@ export function summarizeExternalCalls(
 	let failures = 0;
 	let calls = 0;
 	for (const call of externalCalls) {
-		const count = call.count ?? 1;
-		calls += count;
+		calls += 1;
 		elapsedMs += call.elapsedMs;
-		if (call.status === "failure") failures += count;
+		if (call.status === "failure") failures += 1;
 		let categorySummary = categorySummaries.get(call.category);
 		if (categorySummary === undefined) {
 			categorySummary = { category: call.category, calls: 0, elapsedMs: 0, failures: 0 };
 			categorySummaries.set(call.category, categorySummary);
 		}
-		categorySummary.calls += count;
+		categorySummary.calls += 1;
 		categorySummary.elapsedMs += call.elapsedMs;
-		if (call.status === "failure") categorySummary.failures += count;
+		if (call.status === "failure") categorySummary.failures += 1;
 		if (call.quota !== undefined) {
 			githubQuota.graphqlRequests += call.quota.graphqlRequests;
 			githubQuota.restRequests += call.quota.restRequests;

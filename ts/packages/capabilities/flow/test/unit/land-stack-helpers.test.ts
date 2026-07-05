@@ -808,7 +808,7 @@ describe("land-stack pure helpers", () => {
 				count: 1,
 				status: "success",
 				exitCode: 0,
-				wasKilled: false,
+				isKilled: false,
 				quota: {
 					kind: "static",
 					provider: "github",

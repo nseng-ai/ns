@@ -4,7 +4,12 @@ import type {
 	GithubPrFeedbackGateway,
 } from "../api.ts";
 
-import { branchPrEntry, type BranchPrMappingEntry } from "./branch-pr-mapping.ts";
+import {
+	branchPrEntry,
+	branchPrMappingSummary,
+	type BranchPrMappingEntry,
+	type BranchPrMappingSummary,
+} from "./branch-pr-mapping.ts";
 import type { GatewayOptions } from "./gateways.ts";
 import {
 	statusChecksPayload,
@@ -39,12 +44,7 @@ export type BranchPrChecksEntry =
 
 export interface BranchPrChecksCollection {
 	entries: BranchPrChecksEntry[];
-	summary: {
-		requested: number;
-		matched: number;
-		missing: number;
-		ambiguous: number;
-	};
+	summary: BranchPrMappingSummary;
 }
 
 export type BranchPrChecksResult =
@@ -76,12 +76,12 @@ export async function collectBranchPrChecks(
 		type: "ok",
 		collection: {
 			entries,
-			summary: {
+			summary: branchPrMappingSummary({
 				requested: options.branches.length,
 				matched: entries.filter((entry) => entry.status === "found").length,
 				missing: entries.filter((entry) => entry.status === "missing").length,
 				ambiguous: entries.filter((entry) => entry.status === "ambiguous").length,
-			},
+			}),
 		},
 	};
 }

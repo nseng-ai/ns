@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-import {
-	PrPreviewChecksView,
-	type PrPreviewCheckLogLoadOptions,
-	type PrPreviewChecksViewModel,
-} from "./preview-checks-view.ts";
+import { PrPreviewChecksView, type PrPreviewCheckLogLoadOptions } from "./preview-checks-view.ts";
 import { loadCheckLogs } from "./preview-check-logs.ts";
 import {
 	aggregatePreviewChecksCounts,
@@ -13,6 +9,7 @@ import {
 	type PrPreviewChecksCounts,
 	type PrPreviewChecksStackEntry,
 	type PrPreviewChecksTarget,
+	type PrPreviewChecksViewModel,
 } from "./preview-checks-model.ts";
 import {
 	missingPreviewTargetMessage,
@@ -25,17 +22,18 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "./extension.ts";
+import { execNsJson } from "./exec-ns-json.ts";
 
 const nullablePreviewStringSchema = z.string().nullable();
 const nullablePreviewNumberSchema = z.number().int().nullable();
 const previewChecksTargetSchema = z.looseObject({
-	pr_number: nullablePreviewNumberSchema,
-	title: nullablePreviewStringSchema,
-	url: nullablePreviewStringSchema,
-	branch: nullablePreviewStringSchema,
-	head_ref_name: nullablePreviewStringSchema,
-	base_ref_name: nullablePreviewStringSchema,
-	head_ref_oid: nullablePreviewStringSchema,
+	pr_number: nullablePreviewNumberSchema.optional(),
+	title: nullablePreviewStringSchema.optional(),
+	url: nullablePreviewStringSchema.optional(),
+	branch: nullablePreviewStringSchema.optional(),
+	head_ref_name: nullablePreviewStringSchema.optional(),
+	base_ref_name: nullablePreviewStringSchema.optional(),
+	head_ref_oid: nullablePreviewStringSchema.optional(),
 });
 
 const previewChecksCountsSchema = z.looseObject({
@@ -99,8 +97,19 @@ type ParsedPrNumberArgs =
 	| { type: "valid"; args: string[]; prNumber?: number }
 	| { type: "invalid"; message: string };
 type PreviewChecksData = z.output<typeof previewChecksDataSchema>;
+type PreviewChecksTargetData = z.output<typeof previewChecksTargetSchema>;
 type StackBranchesData = z.output<typeof stackBranchesDataSchema>;
 type BranchPrChecksData = z.output<typeof branchPrChecksDataSchema>;
+
+const EMPTY_PREVIEW_TARGET = {
+	pr_number: null,
+	title: null,
+	url: null,
+	branch: null,
+	head_ref_name: null,
+	base_ref_name: null,
+	head_ref_oid: null,
+} satisfies PrPreviewChecksTarget;
 
 interface PrPreviewChecksCommandOptions {
 	statusKey: string;
@@ -154,7 +163,12 @@ async function runPrPreviewChecksCommand(
 		const modelResult =
 			parsedArgs.prNumber === undefined
 				? await loadStackPreviewChecksViewModel({ runtime, ctx })
-				: await loadSinglePreviewChecksViewModel({ runtime, ctx, args: parsedArgs.args });
+				: await loadSinglePreviewChecksViewModel({
+						runtime,
+						ctx,
+						args: parsedArgs.args,
+						knownPrNumber: parsedArgs.prNumber,
+					});
 		if (modelResult.type === "error") {
 			runtime.notify(ctx, modelResult.message, "error");
 			return;
@@ -186,24 +200,34 @@ async function runPrPreviewChecksCommand(
 }
 
 async function loadSinglePreviewChecksViewModel(
-	options: PrPreviewChecksExecContext & { args: readonly string[] },
+	options: PrPreviewChecksExecContext & {
+		args: readonly string[];
+		knownPrNumber?: number;
+	},
 ): Promise<CommandResult<PrPreviewChecksViewModel>> {
-	const data = await execPrChecks({ ...options, label: "ns address exec pr-checks" });
+	const data = await execPrChecks(options);
 	if (data.type === "error") return data;
-	const prNumber = resolvedPrNumber(data.value);
+	const target = previewTargetFromData(
+		data.value.target,
+		options.knownPrNumber === undefined ? {} : { pr_number: options.knownPrNumber },
+	);
 	if (!data.value.found) {
 		return {
 			type: "error",
-			message: missingPreviewTargetMessage(data.value.target, { preferredLocator: "branch" }),
+			message: missingPreviewTargetMessage(target, { preferredLocator: "branch" }),
 		};
 	}
+	const prNumber = resolvedPrNumberValue(target.pr_number);
 	if (prNumber === null) {
 		return {
 			type: "error",
 			message: "PR checks preview could not determine a positive target PR number.",
 		};
 	}
-	return { type: "ok", value: buildPreviewChecksViewModel(data.value, prNumber) };
+	return {
+		type: "ok",
+		value: buildPreviewChecksViewModel(data.value, { ...target, pr_number: prNumber }),
+	};
 }
 
 async function loadStackPreviewChecksViewModel(
@@ -233,19 +257,13 @@ async function fallbackToSinglePreviewChecksViewModel(
 }
 
 async function execPrChecks(
-	options: PrPreviewChecksExecContext & { args: readonly string[]; label: string },
+	options: PrPreviewChecksExecContext & { args: readonly string[] },
 ): Promise<CommandResult<PreviewChecksData>> {
-	const result = await options.runtime.pi.exec(
-		"ns",
-		["address", "exec", "pr-checks", ...options.args, "--format", "json"],
-		{
-			cwd: options.ctx.cwd,
-			timeout: options.runtime.commandTimeoutMs,
-		},
-	);
-	return options.runtime.parseEnvelopeWithSchema({
-		label: options.label,
-		result,
+	return await execNsJson({
+		runtime: options.runtime,
+		ctx: options.ctx,
+		args: ["address", "exec", "pr-checks", ...options.args, "--format", "json"],
+		label: "ns address exec pr-checks",
 		schema: previewChecksDataSchema,
 	});
 }
@@ -253,17 +271,11 @@ async function execPrChecks(
 async function execStackBranches(
 	options: PrPreviewChecksExecContext,
 ): Promise<CommandResult<StackBranchesData>> {
-	const result = await options.runtime.pi.exec(
-		"ns",
-		["slot", "gt", "exec", "stack-branches", "--format", "json"],
-		{
-			cwd: options.ctx.cwd,
-			timeout: options.runtime.commandTimeoutMs,
-		},
-	);
-	return options.runtime.parseEnvelopeWithSchema({
+	return await execNsJson({
+		runtime: options.runtime,
+		ctx: options.ctx,
+		args: ["slot", "gt", "exec", "stack-branches", "--format", "json"],
 		label: "ns slot gt exec stack-branches",
-		result,
 		schema: stackBranchesDataSchema,
 		allowFailureData: true,
 	});
@@ -272,9 +284,10 @@ async function execStackBranches(
 async function execBranchPrChecks(
 	options: PrPreviewChecksExecContext & { branches: readonly string[] },
 ): Promise<CommandResult<BranchPrChecksData>> {
-	const result = await options.runtime.pi.exec(
-		"ns",
-		[
+	return await execNsJson({
+		runtime: options.runtime,
+		ctx: options.ctx,
+		args: [
 			"address",
 			"exec",
 			"branch-pr-checks",
@@ -283,14 +296,7 @@ async function execBranchPrChecks(
 			"--format",
 			"json",
 		],
-		{
-			cwd: options.ctx.cwd,
-			timeout: options.runtime.commandTimeoutMs,
-		},
-	);
-	return options.runtime.parseEnvelopeWithSchema({
 		label: "ns address exec branch-pr-checks",
-		result,
 		schema: branchPrChecksDataSchema,
 		allowFailureData: true,
 	});
@@ -298,9 +304,9 @@ async function execBranchPrChecks(
 
 function buildPreviewChecksViewModel(
 	data: PreviewChecksData,
-	prNumber: number,
+	target: PrPreviewChecksTarget,
 ): PrPreviewChecksViewModel {
-	const entry = buildPreviewChecksStackEntry(data, fallbackTargetFromPreviewData(data, prNumber));
+	const entry = buildPreviewChecksStackEntry(data, fallbackTargetFromPreviewData(data, target));
 	return {
 		target: entry.target,
 		counts: entry.counts,
@@ -332,7 +338,7 @@ function buildPreviewChecksStackEntry(
 	fallback: PrPreviewChecksTarget,
 ): PrPreviewChecksStackEntry {
 	return {
-		target: mergeTargetWithFallback(data.target, fallback),
+		target: previewTargetFromData(data.target, fallback),
 		counts: checksCounts(data),
 		checks: sortPreviewChecks(data.checks),
 	};
@@ -346,57 +352,47 @@ function unmappedStackEntry(branch: string): PrPreviewChecksStackEntry {
 	};
 }
 
-function mergeTargetWithFallback(
-	target: PrPreviewChecksTarget,
-	fallback: PrPreviewChecksTarget,
-): PrPreviewChecksTarget {
-	return {
-		pr_number: resolvedPrNumberValue(target.pr_number) ?? fallback.pr_number,
-		title: target.title ?? fallback.title,
-		url: target.url ?? fallback.url,
-		branch: target.branch ?? fallback.branch,
-		head_ref_name: target.head_ref_name ?? fallback.head_ref_name,
-		base_ref_name: target.base_ref_name ?? fallback.base_ref_name,
-		head_ref_oid: target.head_ref_oid ?? fallback.head_ref_oid,
-	};
-}
-
 function fallbackTargetFromPreviewData(
 	data: PreviewChecksData,
-	prNumber: number,
+	target: PrPreviewChecksTarget,
 ): PrPreviewChecksTarget {
-	const branch = effectiveBranch(data.target) ?? "";
-	return {
-		...emptyPreviewTarget(),
-		pr_number: prNumber,
-		title: data.target.title ?? "(untitled)",
-		url: data.target.url ?? "",
-		branch,
-		head_ref_name: branch,
-		base_ref_name: data.target.base_ref_name ?? "",
-		head_ref_oid: data.target.head_ref_oid,
-	};
+	const branch = effectiveBranch(target) ?? "";
+	return previewTargetFromData(
+		{ ...target, branch },
+		{
+			...(target.pr_number === null ? {} : { pr_number: target.pr_number }),
+			title: "(untitled)",
+			url: "",
+			branch,
+			head_ref_name: branch,
+			base_ref_name: data.target.base_ref_name ?? "",
+		},
+	);
 }
 
 function fallbackTargetForUnmappedBranch(branch: string): PrPreviewChecksTarget {
-	return {
-		...emptyPreviewTarget(),
+	return previewTargetFromData({
 		title: "(no open PR mapped)",
 		branch,
 		head_ref_name: branch,
-	};
+	});
 }
 
-function emptyPreviewTarget(): PrPreviewChecksTarget {
-	return {
-		pr_number: null,
-		title: null,
-		url: null,
-		branch: null,
-		head_ref_name: null,
-		base_ref_name: null,
-		head_ref_oid: null,
-	};
+function previewTargetFromData(
+	target: Partial<PrPreviewChecksTarget> | PreviewChecksTargetData,
+	fallback: Partial<PrPreviewChecksTarget> = {},
+): PrPreviewChecksTarget {
+	const withFallbacks: PrPreviewChecksTarget = { ...EMPTY_PREVIEW_TARGET };
+	Object.assign(withFallbacks, presentEntries(fallback), presentEntries(target));
+	return withFallbacks;
+}
+
+function presentEntries<T extends object>(value: T): Partial<T> {
+	return Object.fromEntries(
+		Object.entries(value).filter(
+			([, entryValue]) => entryValue !== undefined && entryValue !== null,
+		),
+	) as Partial<T>;
 }
 
 function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksCounts {
@@ -407,10 +403,6 @@ function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksC
 		unknown: data.counts.unknown,
 		...(data.counts.hasMore === undefined ? {} : { hasMore: data.counts.hasMore }),
 	};
-}
-
-function resolvedPrNumber(data: PreviewChecksData): number | null {
-	return resolvedPrNumberValue(data.target.pr_number);
 }
 
 function resolvedPrNumberValue(prNumber: number | null): number | null {
