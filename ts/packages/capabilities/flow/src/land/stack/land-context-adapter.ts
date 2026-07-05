@@ -41,7 +41,7 @@ import {
 	type LandGraphiteCommandChannel,
 	type LandGraphiteOperation,
 } from "./graphite-command-channel.ts";
-import { loadPr } from "./pr-facts.ts";
+import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -63,6 +63,22 @@ import {
 import type { LandStackFailure } from "./errors.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
+
+function toApiPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
+	return {
+		number: pr.number,
+		title: pr.title,
+		body: pr.body,
+		state: pr.state,
+		isDraft: pr.isDraft,
+		headRefName: pr.headRefName,
+		baseRefName: pr.baseRefName,
+		headRefOid: pr.headRefOid,
+		...(pr.mergeStateStatus === undefined ? {} : { mergeStateStatus: pr.mergeStateStatus }),
+		...(pr.url === undefined ? {} : { url: pr.url }),
+		...(pr.mergedAt === undefined ? {} : { mergedAt: pr.mergedAt }),
+	};
+}
 
 export function createLandContext(
 	pi: LandStackExtensionAPI,
@@ -133,21 +149,14 @@ export function createLandContext(
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
 				const pr = await loadPr(pi, repoRoot, branchOrNumber);
 				if (pr.type === "failure") return toLandResult(pr, "github", "preflight");
-				return landSuccess({
-					number: pr.value.number,
-					title: pr.value.title,
-					body: pr.value.body,
-					state: pr.value.state,
-					isDraft: pr.value.isDraft,
-					headRefName: pr.value.headRefName,
-					baseRefName: pr.value.baseRefName,
-					headRefOid: pr.value.headRefOid,
-					...(pr.value.mergeStateStatus === undefined
-						? {}
-						: { mergeStateStatus: pr.value.mergeStateStatus }),
-					...(pr.value.url === undefined ? {} : { url: pr.value.url }),
-					...(pr.value.mergedAt === undefined ? {} : { mergedAt: pr.value.mergedAt }),
-				});
+				return landSuccess(toApiPullRequestFacts(pr.value));
+			},
+			pullRequestFactsByBranch: async ({ repoRoot, branches }) => {
+				const prs = await loadPrsByBranch(pi, repoRoot, branches);
+				if (prs.type === "failure") return toLandResult(prs, "github", "preflight");
+				return landSuccess(
+					new Map([...prs.value].map(([branch, pr]) => [branch, toApiPullRequestFacts(pr)])),
+				);
 			},
 			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
 				const mergeArgs = squashMergeArgs(pullRequest);

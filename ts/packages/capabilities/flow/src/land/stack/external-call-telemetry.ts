@@ -105,6 +105,12 @@ function commandExternalCallOperation(command: string, args: readonly string[]):
 	if (command === "gh" && args[0] === "pr" && typeof args[1] === "string") {
 		return `gh pr ${args[1]}`;
 	}
+	if (command === "gh" && args[0] === "repo" && typeof args[1] === "string") {
+		return `gh repo ${args[1]}`;
+	}
+	if (command === "gh" && args[0] === "api" && args[1] === "graphql") {
+		return "gh api graphql";
+	}
 	if (command === "git" && typeof args[0] === "string") return `git ${args[0]}`;
 	if (command === "ns" && isReadGraphiteBranchMetadataArgs(args)) {
 		return "ns flow exec read-graphite-branch-metadata";
@@ -116,8 +122,8 @@ export function staticQuotaForCommand(
 	command: string,
 	args: readonly string[],
 ): FlowLandExternalCallQuotaEstimate | undefined {
-	if (command !== "gh" || args[0] !== "pr") return undefined;
-	if (args[1] === "view" && args.includes("--json")) {
+	if (command !== "gh") return undefined;
+	if (args[0] === "pr" && args[1] === "view" && args.includes("--json")) {
 		return {
 			kind: "static",
 			provider: "github",
@@ -127,7 +133,7 @@ export function staticQuotaForCommand(
 			description: "gh pr view --json uses one GraphQL query",
 		};
 	}
-	if (args[1] === "merge") {
+	if (args[0] === "pr" && args[1] === "merge") {
 		return {
 			kind: "static",
 			provider: "github",
@@ -137,5 +143,35 @@ export function staticQuotaForCommand(
 			description: "gh pr merge uses one PR finder query plus one mergePullRequest mutation",
 		};
 	}
+	if (args[0] === "repo" && args[1] === "view" && args.includes("--json")) {
+		return {
+			kind: "static",
+			provider: "github",
+			graphqlRequests: 1,
+			restRequests: 0,
+			rateLimitCost: 1,
+			description: "gh repo view --json uses one GraphQL query",
+		};
+	}
+	if (args[0] === "api" && args[1] === "graphql") {
+		const branchCount = batchedPullRequestFactsAliasCount(args);
+		return {
+			kind: "static",
+			provider: "github",
+			graphqlRequests: 1,
+			restRequests: 0,
+			rateLimitCost: Math.max(1, branchCount),
+			description:
+				branchCount > 0
+					? "gh api graphql batched PR facts uses one GraphQL query with one PR connection per branch"
+					: "gh api graphql uses one GraphQL query",
+		};
+	}
 	return undefined;
+}
+
+function batchedPullRequestFactsAliasCount(args: readonly string[]): number {
+	const queryArg = args.find((arg) => arg.startsWith("query="));
+	if (queryArg === undefined) return 0;
+	return queryArg.match(/\bb\d+: pullRequests\(/g)?.length ?? 0;
 }
