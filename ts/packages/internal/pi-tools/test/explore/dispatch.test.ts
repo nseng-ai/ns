@@ -7,10 +7,8 @@ import {
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "../../src/explore/contract.ts";
 import {
-	createExplorerDispatcher,
-	isExplorerTransientFailureResult,
+	dispatchExplorerSubagent,
 	type DispatchExplorerSubagentOptions,
-	type ExplorerDispatcherDependencies,
 } from "../../src/explore/dispatch.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
@@ -49,12 +47,19 @@ function explorerIntent(
 	};
 }
 
-function explorerDispatcher(dependencies: ExplorerDispatcherDependencies = {}) {
-	return createExplorerDispatcher({
-		loadAgentDefinition: () => definition,
-		isProviderAuthConfigured: () => true,
-		...dependencies,
-	});
+type ExplorerDispatchTestDependencies = NonNullable<Parameters<typeof dispatchExplorerSubagent>[3]>;
+
+function explorerDispatcher(dependencies: ExplorerDispatchTestDependencies = {}) {
+	return (
+		pi: RunnerSubagentPi,
+		ctx: RunnerSubagentContext,
+		intent: DispatchExplorerSubagentOptions,
+	) =>
+		dispatchExplorerSubagent(pi, ctx, intent, {
+			loadAgentDefinition: () => definition,
+			isProviderAuthConfigured: () => true,
+			...dependencies,
+		});
 }
 
 function flagValue(args: readonly string[], flag: string): string | undefined {
@@ -268,7 +273,7 @@ describe("dispatchExplorerSubagent", () => {
 		expect(outcome.result.status).toBe("final-text");
 	});
 
-	test("keeps explorer transient failure policy explicit", () => {
+	test("keeps explorer transient failure policy explicit", async () => {
 		const expected = {
 			completed: false,
 			blocked: false,
@@ -291,7 +296,15 @@ describe("dispatchExplorerSubagent", () => {
 			"protocol-error",
 		];
 		for (const status of statuses) {
-			expect(isExplorerTransientFailureResult(makeResultWithStatus(status))).toBe(expected[status]);
+			const recording = createRecordingExplorerDispatch([
+				makeResultWithStatus(status),
+				makeFinalTextResult("## Start Here"),
+			]);
+			const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+			const outcome = await dispatch({}, anthropicCtx, explorerIntent());
+
+			expect(recording.calls).toHaveLength(expected[status] ? 2 : 1);
+			expect(outcome.failover !== undefined).toBe(expected[status]);
 		}
 	});
 });

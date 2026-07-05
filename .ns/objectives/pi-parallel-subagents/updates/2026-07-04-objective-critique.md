@@ -4,7 +4,9 @@ Red-team critique of this Objective as of branch `explorer-dispatch-auth-failove
 (head after `8e62380a4`). Read-only review; no changes applied. Suggested changes are
 recorded at the bottom and tracked as a roadmap item.
 
-## Verdict: go-with-changes
+## Summary
+
+Verdict: **go-with-changes**.
 
 The direction is sound and the adopt-vs-build decision is unusually well-evidenced — the
 load-bearing substrate claims were verified directly in code and hold. But the roadmap
@@ -106,3 +108,15 @@ non-blocking.
 3. Soften the Thesis's "no result context economy" to name the actual gap (scout-sized
    preview vs the existing 48k cap + pointer), and note the Anthropic-only cheap-model
    policy.
+
+## Objective Impact
+
+- Roadmap item 2's `[x]` is not trustworthy until the `.ji` path fix lands and the
+  explore suite passes on the branch head; item 3 is blocked on that.
+- Assumptions and Risks should gain two entries (home-directory-guard child bypass,
+  Anthropic-only cheap-model policy), and the Thesis's "no result context economy"
+  claim should be softened to name the actual gap.
+
+## Follow-Ups
+
+- Apply the three suggested changes above; tracked as a roadmap item.
