@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import type { GitGateway } from "@ns/capability-kit/git";
 
 import type {
@@ -10,6 +8,7 @@ import type {
 	GithubPrSummary,
 } from "../api.ts";
 
+import { readPromptMarkdown, renderPromptTemplate } from "./download-feedback-prompts.ts";
 import {
 	fetchFeedbackSnapshot,
 	reviewsForRequest,
@@ -26,9 +25,8 @@ import { buildDownloadFeedbackTargetPayload, type PrTargetPayload } from "./pr-t
 
 type DownloadFeedbackTargetPayload = PrTargetPayload;
 
-const COMMON_FEEDBACK_POLICY = readPromptMarkdown("./download-feedback-common-policy.md");
 const DOWNLOAD_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
-	readPromptMarkdown("./download-feedback-instructions.md"),
+	readPromptMarkdown("./download-feedback-instructions.md", import.meta.url),
 );
 
 export interface DownloadFeedbackCountsPayload {
@@ -257,14 +255,6 @@ function renderDownloadFeedbackSummary(
 		`- Empty PR-level reviews excluded: ${counts.excludedEmptyReviews}`,
 		`- Automation-like discussion comments excluded: ${counts.excludedAutomationComments}`,
 	];
-}
-
-function readPromptMarkdown(path: string): string {
-	return readFileSync(new URL(path, import.meta.url), "utf8").trim();
-}
-
-function renderPromptTemplate(template: string): string {
-	return template.replace("{{common-feedback-policy}}", COMMON_FEEDBACK_POLICY);
 }
 
 function renderReviewThreads(threads: readonly GithubPrReviewThread[]): string[] {

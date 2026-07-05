@@ -44,6 +44,7 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
+		"@ns/address": "workspace:*",
 		"@ns/capability-kit": "workspace:*",
 		"@ns/core": "workspace:*",
 		"@ns/kernel": "workspace:*",

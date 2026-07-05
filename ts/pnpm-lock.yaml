@@ -468,6 +468,9 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.79.1
+      '@ns/address':
+        specifier: workspace:*
+        version: link:../../capabilities/address
       '@ns/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit

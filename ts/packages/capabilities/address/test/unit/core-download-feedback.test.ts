@@ -52,6 +52,7 @@ describe("collectDownloadFeedback", () => {
 			"ns address exec close-review-threads --thread-ids-json",
 		);
 		expect(result.feedback.markdown).toContain("include `--body <BODY>` when a reply is useful");
+		expect(result.feedback.markdown).toContain("resubmit the PR with `ns flow submit`");
 		expect(result.feedback.markdown).toContain(
 			"do not use raw `gh api graphql` for those mutations",
 		);

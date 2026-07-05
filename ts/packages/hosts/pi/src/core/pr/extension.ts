@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs";
-
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
+import {
+	COMMON_FEEDBACK_POLICY,
+	readPromptMarkdown,
+	renderPromptTemplate,
+} from "@ns/address/download-feedback-prompts";
 import { formatZodError, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
@@ -23,11 +26,9 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
-const COMMON_FEEDBACK_POLICY = readPromptMarkdown(
-	"../../../../../capabilities/address/src/core/download-feedback-common-policy.md",
-);
 const STACK_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
-	readPromptMarkdown("./pr-stack-feedback-instructions.md"),
+	readPromptMarkdown("./pr-stack-feedback-instructions.md", import.meta.url),
+	COMMON_FEEDBACK_POLICY,
 );
 
 const stackBranchesDataSchema = z.looseObject({
@@ -504,14 +505,6 @@ function sumDownloadFeedbackCounts(
 
 function renderStackInstructions(): string[] {
 	return STACK_FEEDBACK_INSTRUCTIONS.split(/\r\n|\r|\n/u);
-}
-
-function readPromptMarkdown(path: string): string {
-	return readFileSync(new URL(path, import.meta.url), "utf8").trim();
-}
-
-function renderPromptTemplate(template: string): string {
-	return template.replace("{{common-feedback-policy}}", COMMON_FEEDBACK_POLICY);
 }
 
 function demoteMarkdownHeadings(markdown: string): string {

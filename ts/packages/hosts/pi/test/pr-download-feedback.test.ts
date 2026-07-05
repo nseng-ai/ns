@@ -438,6 +438,8 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("close all confirmed automation review threads stack-wide");
 		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(prompt).toContain("include `--body <BODY>` when a reply is useful");
+		expect(prompt).toContain("all downloaded stack feedback was handled by straightforward fixes");
+		expect(prompt).toContain("submit the omnibus follow-up/current stack with `ns flow submit`");
 		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
 		expect(prompt).toContain("Present remaining ambiguous, complex");
 		expect(prompt).toContain("summarize completed fixes, validation, GitHub thread actions");

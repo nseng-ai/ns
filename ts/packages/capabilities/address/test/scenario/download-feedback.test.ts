@@ -144,6 +144,8 @@ describe("ns address exec download-feedback", () => {
 		expect(markdown).toContain("do not create an omnibus follow-up branch for single-PR feedback");
 		expect(markdown).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(markdown).toContain("include `--body <BODY>` when a reply is useful");
+		expect(markdown).toContain("all downloaded feedback was handled by straightforward fixes");
+		expect(markdown).toContain("resubmit the PR with `ns flow submit`");
 		expect(markdown).toContain("do not use raw `gh api graphql` for those mutations");
 		expect(markdown).toContain("Present remaining ambiguous, complex");
 		expect(markdown).not.toContain("Do not edit files yet");
