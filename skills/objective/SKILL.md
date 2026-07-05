@@ -114,7 +114,7 @@ A minimal Closure Marker. Its existence means closed; closure meaning belongs in
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If no slug or path is explicit, run `ns objective list --minimal --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
+2. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
@@ -125,11 +125,13 @@ A picker UI may use deterministic git facts to group changed active Objectives f
 
 ## Repository status
 
-`ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, with local branch attribution included. It does not parse Objective prose or infer status from branches, and it has no Graphite branch projection, current-branch mode, detail view, or third active status.
+`ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, showing per-record status, latest update, and Objective Edge count. It does not parse Objective prose or infer status from branches, and it has no Graphite branch projection, current-branch mode, or third active status. Related-branch attribution and edge-annotation detail are no longer on `list`; use `ns objective show <slug>` for a single record.
 
 - `--status all` means all statuses in the active root only — archived records under `.ns/objective-archive/` are physically outside active discovery. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`.
-- `--minimal`: compact Objective/status/latest-update view without branch attribution.
+- `--minimal`: deprecated no-op retained for compatibility; `list` no longer renders branch attribution, so the flag no longer changes output.
 - `--names`: emits filtered active-root slugs, one per line; use it only for machine-readable active-slug extraction.
+
+`ns objective show <slug>` is the single-record detail view: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record, and every Objective Edge with both this record's annotation and the counterpart's back-edge annotation plus its active/archived/missing state. It is read-only and takes `--format md` / `--format json` like the other Objective commands.
 
 ## Tracking Gate
 

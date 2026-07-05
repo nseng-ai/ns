@@ -39,20 +39,17 @@ function result(parts: Partial<ObjectiveListResult>): ObjectiveListResult {
 }
 
 const TWO_RECORDS = result({
-	updatedBranchesIncluded: true,
 	records: [
 		{
 			slug: "alpha",
 			status: "open",
 			latestUpdateIso: "2026-06-27T16:00:00Z",
-			updatedBranches: ["feat/alpha", "feat/beta"],
 			hasOutstandingChanges: true,
 		},
 		{
 			slug: "bravo",
 			status: "closed",
 			latestUpdateIso: null,
-			updatedBranches: [],
 			hasOutstandingChanges: false,
 		},
 	],
@@ -84,7 +81,7 @@ describe("renderObjectiveListPretty colors", () => {
 		expect(out).toContain("x = uncommitted changes not yet recorded in an update");
 	});
 
-	test("ascii mode swaps glyphs and tree markers", () => {
+	test("ascii mode swaps status glyphs", () => {
 		const out = renderObjectiveListPretty(
 			TWO_RECORDS,
 			caps({ colorDepth: "none", canRenderUnicode: false }),
@@ -92,10 +89,7 @@ describe("renderObjectiveListPretty colors", () => {
 		);
 		expect(out).toContain("o open"); // open glyph
 		expect(out).toContain("v closed"); // done glyph
-		expect(out).toContain("|- feat/alpha"); // tee
-		expect(out).toContain("`- feat/beta"); // last
 		expect(out).not.toContain("●");
-		expect(out).not.toContain("├");
 	});
 });
 
@@ -106,28 +100,12 @@ describe("renderObjectiveListPretty layout", () => {
 		expect(out).toContain("—"); // null stamp still shows the em dash
 	});
 
-	test("branch attribution renders as dim tree sub-rows under each record", () => {
+	test("never renders branch sub-rows", () => {
 		const out = renderObjectiveListPretty(TWO_RECORDS, caps({ colorDepth: "none" }), NOW);
-		const lines = out.split("\n");
-		const alpha = lines.findIndex((line) => line.startsWith("alpha"));
-		expect(lines[alpha + 1]).toContain("├ feat/alpha");
-		expect(lines[alpha + 2]).toContain("└ feat/beta");
-	});
-
-	test("omits branch sub-rows when attribution is not included", () => {
-		const minimal = result({
-			records: [
-				{
-					slug: "alpha",
-					status: "open",
-					latestUpdateIso: null,
-					hasOutstandingChanges: false,
-				},
-			],
-		});
-		const out = renderObjectiveListPretty(minimal, caps({ colorDepth: "none" }), NOW);
 		expect(out).not.toContain("├");
 		expect(out).not.toContain("└");
+		expect(out).not.toContain("feat/alpha");
+		expect(out).not.toContain("feat/beta");
 	});
 
 	test("truncates the slug column against a narrow terminal", () => {
@@ -258,24 +236,6 @@ describe("renderObjectiveListPretty layout", () => {
 		const empty = result({ statusFilter: "closed", records: [] });
 		const out = renderObjectiveListPretty(empty, caps({ colorDepth: "none" }), NOW);
 		expect(out).toContain("No closed Objective records found.");
-	});
-
-	test("notes truncated branch attribution", () => {
-		const truncated = result({
-			updatedBranchesIncluded: true,
-			updatedBranchesTruncated: true,
-			records: [
-				{
-					slug: "alpha",
-					status: "open",
-					latestUpdateIso: null,
-					updatedBranches: ["feat/alpha"],
-					hasOutstandingChanges: false,
-				},
-			],
-		});
-		const out = renderObjectiveListPretty(truncated, caps({ colorDepth: "none" }), NOW);
-		expect(out).toContain("limited to newest 50 changed local branches");
 	});
 });
 

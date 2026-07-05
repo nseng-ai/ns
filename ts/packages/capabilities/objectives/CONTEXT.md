@@ -5,23 +5,27 @@ This context captures domain language for the `objective` capability package: th
 ## Language
 
 **`ns objective` command surface**:
-The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@nseng-ai/objectives/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
+The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `archive`, `check`, `list`, and `show` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@nseng-ai/objectives/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
 *Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:
-The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, attributing each record from Git path-touch facts rather than a Graphite stack projection.
-*Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory
+The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, reporting per-record status, latest update, and Objective Edge count. Local branch attribution is no longer a `list` concern; it moves to `ns objective show`.
+*Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory, per-record branch attribution
+
+**`ns objective show`**:
+The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and every Objective Edge with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus its active/archived/missing state.
+*Avoid*: Graphite stack projection, Objective selection authority, edge mutation surface, prose interpretation, hidden `exec` placement
 
 **EDGES list column**:
 The `ns objective list` column to the right of LATEST UPDATE showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with blocked STATUS rendering that uses the blocked glyph `⊘` (ascii fallback `!`, warn intent) and the text `blocked` while the machine lifecycle status remains `open`, per the root **Blocked Sentence** term.
-*Avoid*: edge detail rendering, annotation display, blocked lifecycle status in machine output, deriving blocked state from body prose
+*Avoid*: edge detail rendering (that is `ns objective show`), annotation display (that is `ns objective show`), blocked lifecycle status in machine output, deriving blocked state from body prose
 
 **Edge linting in `ns objective check`**:
 The structural **Record Frontmatter** lint in `ns objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every record across the active and archive roots with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; the linter never interprets **Edge Annotation** prose or derives blocked state.
 *Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
 
 **Hidden `ns objective exec`**:
-The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API.
+The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API. The visible `ns objective show` is the human-facing single-record detail sibling of the hidden `exec read-objective` filesystem reader, not a member of this group.
 *Avoid*: public human command, Objective Capability API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:

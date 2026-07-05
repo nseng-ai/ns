@@ -19,13 +19,11 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 	rootPath: ".ns/objectives",
 	statusFilter: "active",
 	namesOnly: false,
-	updatedBranchesIncluded: true,
 	records: [
 		{
 			slug: "alpha",
 			status: "open",
 			latestUpdateIso: "2026-06-13T09:10:00Z",
-			updatedBranches: ["feat/alpha"],
 			hasOutstandingChanges: false,
 		},
 	],
@@ -34,13 +32,12 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 describe("renderObjectiveListHuman", () => {
 	const esc = String.fromCharCode(0x1b);
 
-	test("renders the full human table with edges, blocked state text, and branch attribution continuations", () => {
+	test("renders the compact human table with edges and blocked state text", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
 			rootPath: ".ns/objectives",
 			statusFilter: "all",
 			namesOnly: false,
-			updatedBranchesIncluded: true,
 			records: [
 				{
 					slug: "alpha",
@@ -48,14 +45,12 @@ describe("renderObjectiveListHuman", () => {
 					isBlocked: true,
 					latestUpdateIso: "2026-06-13T09:10:00Z",
 					edgeCount: 2,
-					updatedBranches: ["feat/alpha", "feat/beta"],
 					hasOutstandingChanges: false,
 				},
 				{
 					slug: "bravo-objective",
 					status: "closed",
 					latestUpdateIso: null,
-					updatedBranches: [],
 					hasOutstandingChanges: true,
 				},
 			],
@@ -66,11 +61,10 @@ describe("renderObjectiveListHuman", () => {
 			"Root: .ns/objectives",
 			"Status filter: all",
 			"",
-			"OBJECTIVE        STATUS     LATEST UPDATE         EDGES  UPDATED BRANCHES",
-			"───────────────  ─────────  ────────────────────  ─────  ────────────────",
-			"alpha            ⊘ blocked  2026-06-13T09:10:00Z  2      ├ 1/2 feat/alpha",
-			"                                                         └ 2/2 feat/beta",
-			"bravo-objective  ✓ closed   (x) —                        —",
+			"OBJECTIVE        STATUS     LATEST UPDATE         EDGES",
+			"───────────────  ─────────  ────────────────────  ─────",
+			"alpha            ⊘ blocked  2026-06-13T09:10:00Z  2",
+			"bravo-objective  ✓ closed   (x) —",
 		]);
 	});
 
@@ -283,6 +277,68 @@ describe("objective list helpers", () => {
 				hasOutstandingChanges: false,
 			},
 		]);
+	});
+
+	test("list is always compact and --minimal is an accepted no-op", async () => {
+		// Local branches that touch the objective would have produced branch attribution under the
+		// old default; the compact list must ignore them and --minimal must not change the output.
+		const ctx: ObjectiveCliContext = {
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			repoRoot: "/repo",
+			trunkBranch: "master",
+			storage: new ObjectiveStorage(
+				new FakeObjectiveStorageGateway({
+					records: [
+						{
+							slug: "alpha",
+							objectiveMd: "# alpha\n\n## Thesis\n",
+							updates: { "2026-06-15T223520Z-progress.md": "# Progress\n" },
+						},
+					],
+				}),
+			),
+			git: new InMemoryGitGateway({
+				localBranchTips: [
+					{ name: "master", headIso: "2026-05-01T00:00:00Z" },
+					{ name: "feat/alpha", headIso: "2026-05-02T00:00:00Z" },
+				],
+				treeOids: {
+					"master|.ns/objectives": "trunk-tree",
+					"feat/alpha|.ns/objectives": "branch-tree",
+				},
+				changedPaths: {
+					"master...feat/alpha|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+				},
+			}),
+		};
+
+		const defaultExit = await runListObjectives(ctx, {
+			names: false,
+			status: "active",
+			minimal: false,
+		});
+		const minimalExit = await runListObjectives(ctx, {
+			names: false,
+			status: "active",
+			minimal: true,
+		});
+		if (defaultExit.type !== "ok") throw new Error("expected ok exit");
+		if (minimalExit.type !== "ok") throw new Error("expected ok exit");
+
+		// The compact list never carries branch attribution, and --minimal is identical to the default.
+		expect(defaultExit.data.records).toEqual([
+			{
+				slug: "alpha",
+				status: "open",
+				latestUpdateIso: "2026-06-15T22:35:20Z",
+				hasOutstandingChanges: false,
+			},
+		]);
+		expect(minimalExit.data).toEqual(defaultExit.data);
+		expect(renderObjectiveListHuman(minimalExit.data)).toBe(
+			renderObjectiveListHuman(defaultExit.data),
+		);
 	});
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {
