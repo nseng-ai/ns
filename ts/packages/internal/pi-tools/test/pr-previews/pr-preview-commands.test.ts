@@ -377,11 +377,7 @@ async function runPreviewCommand(options: RunPreviewCommandOptions): Promise<Fak
 	});
 }
 
-<<<<<<< Updated upstream
 async function runChecksPreviewCommand(options: RunPreviewCommandOptions): Promise<FakeContext> {
-=======
-async function runPreviewChecksCommand(options: RunPreviewCommandOptions): Promise<FakeContext> {
->>>>>>> Stashed changes
 	return await runRegisteredCommand({
 		pi: options.pi,
 		commandName: PR_PREVIEW_CHECKS_COMMAND_NAME,

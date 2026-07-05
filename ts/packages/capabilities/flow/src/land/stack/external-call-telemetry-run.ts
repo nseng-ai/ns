@@ -34,7 +34,7 @@ export type {
 	FlowLandTelemetryTotals,
 } from "./external-call-telemetry-summary.ts";
 
-export const FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION = 1;
+export const FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION = 2;
 
 export interface FlowLandExternalCallDiagnostic {
 	transport: FlowLandExternalCallTransport;
@@ -43,7 +43,7 @@ export interface FlowLandExternalCallDiagnostic {
 	elapsedMs: number;
 	status: FlowLandExternalCallStatus;
 	exitCode?: number;
-	wasKilled?: boolean;
+	isKilled?: boolean;
 	quota?: FlowLandExternalCallQuotaEstimate;
 }
 
@@ -165,7 +165,7 @@ function toDiagnosticExternalCall(
 		elapsedMs: event.elapsedMs,
 		status: event.status,
 		...optionalEntry("exitCode", event.exitCode),
-		...optionalEntry("wasKilled", event.wasKilled),
+		...optionalEntry("isKilled", event.isKilled),
 		...optionalEntry("quota", cloneQuotaEstimate(event.quota)),
 	};
 }

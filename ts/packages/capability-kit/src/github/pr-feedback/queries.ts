@@ -33,20 +33,32 @@ query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
   }
 }`;
 
+const PR_CHECKS_WORKFLOW_RUN_SELECTION = "workflow { name }";
+const BRANCH_PR_CHECKS_WORKFLOW_RUN_SELECTION =
+	"databaseId runNumber runAttempt createdAt updatedAt workflow { name }";
+
+function statusCheckRollupSelection(options: {
+	indent: string;
+	workflowRunSelection: string;
+}): string {
+	const { indent, workflowRunSelection } = options;
+	return `${indent}statusCheckRollup {
+${indent}  contexts(first: 100) {
+${indent}    pageInfo { hasNextPage }
+${indent}    nodes {
+${indent}      __typename
+${indent}      ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { ${workflowRunSelection} } } }
+${indent}      ... on StatusContext { context state createdAt targetUrl }
+${indent}    }
+${indent}  }
+${indent}}`;
+}
+
 export const prChecksQuery = `
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
-      statusCheckRollup {
-        contexts(first: 100) {
-          pageInfo { hasNextPage }
-          nodes {
-            __typename
-            ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { workflow { name } } } }
-            ... on StatusContext { context state createdAt targetUrl }
-          }
-        }
-      }
+${statusCheckRollupSelection({ indent: "      ", workflowRunSelection: PR_CHECKS_WORKFLOW_RUN_SELECTION })}
     }
   }
 }`;
@@ -64,16 +76,7 @@ export function branchPrChecksQuery(count: number): string {
 			`    b${index}: pullRequests(first: 2, states: OPEN, headRefName: $branch${index}, orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes {
         number title url headRefName headRefOid baseRefName
-        statusCheckRollup {
-          contexts(first: 100) {
-            pageInfo { hasNextPage }
-            nodes {
-              __typename
-              ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { databaseId runNumber runAttempt createdAt updatedAt workflow { name } } } }
-              ... on StatusContext { context state createdAt targetUrl }
-            }
-          }
-        }
+${statusCheckRollupSelection({ indent: "        ", workflowRunSelection: BRANCH_PR_CHECKS_WORKFLOW_RUN_SELECTION })}
       }
     }`,
 	).join("\n");

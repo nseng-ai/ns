@@ -74,9 +74,15 @@ export interface GraphiteCommandOptions<
 	timeoutMs: number;
 }
 
+export interface GraphiteCommandInvocation {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly display: string;
+}
+
 export interface GraphiteCommandStream {
-	start(commandDisplay: string, command: string, args: readonly string[]): void;
-	finish(commandDisplay: string, finish: CommandStreamFinish): void;
+	start(invocation: GraphiteCommandInvocation): void;
+	finish(invocation: GraphiteCommandInvocation, finish: CommandStreamFinish): void;
 }
 
 const NOOP_GRAPHITE_COMMAND_STREAM: GraphiteCommandStream = {
@@ -430,12 +436,16 @@ async function runStandardGraphiteOperation(input: {
 async function withGraphiteCommandStream<T>(
 	input: WithGraphiteCommandStreamOptions<T>,
 ): Promise<T> {
-	const commandDisplay = formatCommand(GRAPHITE_COMMAND_NAME, input.commandOptions.args);
-	input.commandStream.start(commandDisplay, GRAPHITE_COMMAND_NAME, input.commandOptions.args);
+	const invocation: GraphiteCommandInvocation = {
+		command: GRAPHITE_COMMAND_NAME,
+		args: input.commandOptions.args,
+		display: formatCommand(GRAPHITE_COMMAND_NAME, input.commandOptions.args),
+	};
+	input.commandStream.start(invocation);
 	const raw = await executeGraphiteCommand(input.pi, input.commandOptions);
 	const { finish, value } = input.finishAndValue(raw);
 	if (finish !== undefined) {
-		input.commandStream.finish(commandDisplay, finish);
+		input.commandStream.finish(invocation, finish);
 	}
 	return value;
 }

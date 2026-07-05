@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
-import { mapBranchesToOpenPrs } from "./core/branch-pr-mapping.ts";
+import {
+	branchPrMappingGapsMessage,
+	hasBranchPrMappingGaps,
+	mapBranchesToOpenPrs,
+} from "./core/branch-pr-mapping.ts";
 import { nonEmptyStringCollectionValidationMessage } from "./string-collection-validation.ts";
 import {
 	defineExecOperation,
@@ -63,9 +67,12 @@ async function runMapBranchPrsOperation(
 	});
 	if (mapping.type === "failure") return prFeedbackFailureExit(mapping.message, mapping.failure);
 	const result = mapping.mapping;
-	if (result.missingBranches.length === 0 && result.ambiguousBranches.length === 0)
-		return ok(result);
-	return negative(mappingFailureMessage(result), { data: result });
+	const gaps = {
+		missingBranches: result.missingBranches,
+		ambiguousBranchNames: result.ambiguousBranches.map((entry) => entry.branch),
+	};
+	if (!hasBranchPrMappingGaps(gaps)) return ok(result);
+	return negative(branchPrMappingGapsMessage(gaps), { data: result });
 }
 
 export function branchesValidationMessage(
@@ -78,14 +85,4 @@ export function branchesValidationMessage(
 		itemLabel: "branch",
 		duplicateCollectionLabel: "branches",
 	});
-}
-
-function mappingFailureMessage(result: MapBranchPrsResult): string {
-	const ambiguousBranchNames = result.ambiguousBranches.map((entry) => entry.branch);
-	if (result.missingBranches.length > 0 && ambiguousBranchNames.length > 0) {
-		return `Could not map branches uniquely; missing: ${result.missingBranches.join(", ")}; ambiguous: ${ambiguousBranchNames.join(", ")}`;
-	}
-	if (ambiguousBranchNames.length > 0)
-		return `Multiple open PRs found for branches: ${ambiguousBranchNames.join(", ")}`;
-	return `No open PR found for branches: ${result.missingBranches.join(", ")}`;
 }

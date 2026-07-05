@@ -16,16 +16,30 @@ export interface AmbiguousBranchPrMappingEntry {
 	candidates: BranchPrMappingEntry[];
 }
 
+export interface BranchPrMappingSummary {
+	requested: number;
+	matched: number;
+	missing: number;
+	ambiguous: number;
+}
+
 export interface BranchPrMapping {
 	branchPrs: BranchPrMappingEntry[];
 	missingBranches: string[];
 	ambiguousBranches: AmbiguousBranchPrMappingEntry[];
-	summary: {
-		requested: number;
-		matched: number;
-		missing: number;
-		ambiguous: number;
-	};
+	summary: BranchPrMappingSummary;
+}
+
+export interface BranchPrMappingSummaryInput {
+	requestedBranches: readonly string[];
+	matchedEntries: readonly unknown[];
+	missingBranches: readonly string[];
+	ambiguousBranches: readonly unknown[];
+}
+
+export interface BranchPrMappingGaps {
+	missingBranches: readonly string[];
+	ambiguousBranchNames: readonly string[];
 }
 
 export type BranchPrMappingResult =
@@ -72,15 +86,15 @@ export async function mapBranchesToOpenPrs(
 	return {
 		type: "ok",
 		mapping: {
-			branchPrs: branchPrs,
-			missingBranches: missingBranches,
-			ambiguousBranches: ambiguousBranches,
-			summary: {
-				requested: options.branches.length,
-				matched: branchPrs.length,
-				missing: missingBranches.length,
-				ambiguous: ambiguousBranches.length,
-			},
+			branchPrs,
+			missingBranches,
+			ambiguousBranches,
+			summary: branchPrMappingSummary({
+				requestedBranches: options.branches,
+				matchedEntries: branchPrs,
+				missingBranches,
+				ambiguousBranches,
+			}),
 		},
 	};
 }
@@ -98,6 +112,29 @@ export function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrMapp
 		head_ref_name: pr.headRefName,
 		base_ref_name: pr.baseRefName,
 	};
+}
+
+export function branchPrMappingSummary(input: BranchPrMappingSummaryInput): BranchPrMappingSummary {
+	return {
+		requested: input.requestedBranches.length,
+		matched: input.matchedEntries.length,
+		missing: input.missingBranches.length,
+		ambiguous: input.ambiguousBranches.length,
+	};
+}
+
+export function hasBranchPrMappingGaps(gaps: BranchPrMappingGaps): boolean {
+	return gaps.missingBranches.length > 0 || gaps.ambiguousBranchNames.length > 0;
+}
+
+export function branchPrMappingGapsMessage(gaps: BranchPrMappingGaps): string {
+	if (gaps.missingBranches.length > 0 && gaps.ambiguousBranchNames.length > 0) {
+		return `Could not map branches uniquely; missing: ${gaps.missingBranches.join(", ")}; ambiguous: ${gaps.ambiguousBranchNames.join(", ")}`;
+	}
+	if (gaps.ambiguousBranchNames.length > 0) {
+		return `Multiple open PRs found for branches: ${gaps.ambiguousBranchNames.join(", ")}`;
+	}
+	return `No open PR found for branches: ${gaps.missingBranches.join(", ")}`;
 }
 
 function prsGroupedByHeadBranch(

@@ -3,8 +3,6 @@ import { z } from "zod";
 import {
 	PrPreviewChecksView,
 	type PrPreviewCheckLogLoadOptions,
-	type PrPreviewChecksTarget,
-	type PrPreviewChecksViewModel,
 } from "./preview-checks-view.ts";
 import { loadCheckLogs } from "./preview-check-logs.ts";
 import {
@@ -14,6 +12,7 @@ import {
 	type PrPreviewChecksCounts,
 	type PrPreviewChecksStackEntry,
 	type PrPreviewChecksTarget,
+	type PrPreviewChecksViewModel,
 } from "./preview-checks-model.ts";
 import {
 	missingPreviewTargetMessage,
@@ -76,7 +75,6 @@ const previewChecksDataSchema = z.looseObject({
 	checks: z.array(previewCheckSchema),
 });
 
-<<<<<<< Updated upstream
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
 	current: z.string(),
@@ -98,22 +96,27 @@ const branchPrChecksDataSchema = z.looseObject({
 	entries: z.array(branchPrChecksEntrySchema),
 });
 
-=======
->>>>>>> Stashed changes
 type ParsedPrNumberArgs =
 	| { type: "valid"; args: string[]; prNumber?: number }
 	| { type: "invalid"; message: string };
 type PreviewChecksData = z.output<typeof previewChecksDataSchema>;
-<<<<<<< Updated upstream
+type PreviewChecksTargetData = z.output<typeof previewChecksTargetSchema>;
 type StackBranchesData = z.output<typeof stackBranchesDataSchema>;
 type BranchPrChecksData = z.output<typeof branchPrChecksDataSchema>;
-=======
-type PreviewChecksTargetData = z.output<typeof previewChecksTargetSchema>;
-type NullablePrPreviewChecksTarget = Omit<PrPreviewChecksTarget, "pr_number"> & {
-	pr_number: number | null;
-};
 
-const emptyPreviewTarget = {
+type PreviewTargetField = keyof PrPreviewChecksTarget;
+
+const PREVIEW_TARGET_FIELDS = [
+	"pr_number",
+	"title",
+	"url",
+	"branch",
+	"head_ref_name",
+	"base_ref_name",
+	"head_ref_oid",
+] as const satisfies readonly PreviewTargetField[];
+
+const EMPTY_PREVIEW_TARGET = {
 	pr_number: null,
 	title: null,
 	url: null,
@@ -121,8 +124,7 @@ const emptyPreviewTarget = {
 	head_ref_name: null,
 	base_ref_name: null,
 	head_ref_oid: null,
-} satisfies NullablePrPreviewChecksTarget;
->>>>>>> Stashed changes
+} satisfies PrPreviewChecksTarget;
 
 interface PrPreviewChecksCommandOptions {
 	statusKey: string;
@@ -176,37 +178,17 @@ async function runPrPreviewChecksCommand(
 		const modelResult =
 			parsedArgs.prNumber === undefined
 				? await loadStackPreviewChecksViewModel({ runtime, ctx })
-				: await loadSinglePreviewChecksViewModel({ runtime, ctx, args: parsedArgs.args });
+				: await loadSinglePreviewChecksViewModel({
+						runtime,
+						ctx,
+						args: parsedArgs.args,
+						knownPrNumber: parsedArgs.prNumber,
+					});
 		if (modelResult.type === "error") {
 			runtime.notify(ctx, modelResult.message, "error");
 			return;
 		}
-<<<<<<< Updated upstream
 		const model = modelResult.value;
-=======
-		const target = buildPreviewChecksTarget({
-			target: data.value.target,
-			knownPrNumber: parsedArgs.prNumber,
-		});
-		if (!data.value.found) {
-			runtime.notify(
-				ctx,
-				missingPreviewTargetMessage(target, { preferredLocator: "branch" }),
-				"warning",
-			);
-			return;
-		}
-		const prNumber = target.pr_number;
-		if (prNumber === null || prNumber <= 0) {
-			runtime.notify(
-				ctx,
-				"PR checks preview could not determine a positive target PR number.",
-				"error",
-			);
-			return;
-		}
-		const model = buildPreviewChecksViewModel(data.value, { ...target, pr_number: prNumber });
->>>>>>> Stashed changes
 		await ctx.ui.custom<void>(
 			(tui, theme, _keybindings, done) =>
 				new PrPreviewChecksView({
@@ -232,26 +214,32 @@ async function runPrPreviewChecksCommand(
 	}
 }
 
-<<<<<<< Updated upstream
 async function loadSinglePreviewChecksViewModel(
-	options: PrPreviewChecksExecContext & { args: readonly string[] },
+	options: PrPreviewChecksExecContext & {
+		args: readonly string[];
+		knownPrNumber?: number;
+	},
 ): Promise<CommandResult<PrPreviewChecksViewModel>> {
-	const data = await execPrChecks({ ...options, label: "ns address exec pr-checks" });
+	const data = await execPrChecks(options);
 	if (data.type === "error") return data;
-	const prNumber = resolvedPrNumber(data.value);
+	const target = previewTargetFromData(data.value.target, { prNumber: options.knownPrNumber });
 	if (!data.value.found) {
 		return {
 			type: "error",
-			message: missingPreviewTargetMessage(data.value.target, { preferredLocator: "branch" }),
+			message: missingPreviewTargetMessage(target, { preferredLocator: "branch" }),
 		};
 	}
+	const prNumber = resolvedPrNumberValue(target.pr_number);
 	if (prNumber === null) {
 		return {
 			type: "error",
 			message: "PR checks preview could not determine a positive target PR number.",
 		};
 	}
-	return { type: "ok", value: buildPreviewChecksViewModel(data.value, prNumber) };
+	return {
+		type: "ok",
+		value: buildPreviewChecksViewModel(data.value, { ...target, pr_number: prNumber }),
+	};
 }
 
 async function loadStackPreviewChecksViewModel(
@@ -281,50 +269,25 @@ async function fallbackToSinglePreviewChecksViewModel(
 }
 
 async function execPrChecks(
-	options: PrPreviewChecksExecContext & { args: readonly string[]; label: string },
+	options: PrPreviewChecksExecContext & { args: readonly string[] },
 ): Promise<CommandResult<PreviewChecksData>> {
-	const result = await options.runtime.pi.exec(
-		"ns",
-		["address", "exec", "pr-checks", ...options.args, "--format", "json"],
-		{
-			cwd: options.ctx.cwd,
-			timeout: options.runtime.commandTimeoutMs,
-		},
-	);
-	return options.runtime.parseEnvelopeWithSchema({
-		label: options.label,
-		result,
-=======
-async function execPrChecks(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-	args: readonly string[];
-}): Promise<CommandResult<PreviewChecksData>> {
 	return await execNsJson({
 		runtime: options.runtime,
 		ctx: options.ctx,
 		args: ["address", "exec", "pr-checks", ...options.args, "--format", "json"],
 		label: "ns address exec pr-checks",
->>>>>>> Stashed changes
 		schema: previewChecksDataSchema,
 	});
 }
 
-<<<<<<< Updated upstream
 async function execStackBranches(
 	options: PrPreviewChecksExecContext,
 ): Promise<CommandResult<StackBranchesData>> {
-	const result = await options.runtime.pi.exec(
-		"ns",
-		["slot", "gt", "exec", "stack-branches", "--format", "json"],
-		{
-			cwd: options.ctx.cwd,
-			timeout: options.runtime.commandTimeoutMs,
-		},
-	);
-	return options.runtime.parseEnvelopeWithSchema({
+	return await execNsJson({
+		runtime: options.runtime,
+		ctx: options.ctx,
+		args: ["slot", "gt", "exec", "stack-branches", "--format", "json"],
 		label: "ns slot gt exec stack-branches",
-		result,
 		schema: stackBranchesDataSchema,
 		allowFailureData: true,
 	});
@@ -333,9 +296,10 @@ async function execStackBranches(
 async function execBranchPrChecks(
 	options: PrPreviewChecksExecContext & { branches: readonly string[] },
 ): Promise<CommandResult<BranchPrChecksData>> {
-	const result = await options.runtime.pi.exec(
-		"ns",
-		[
+	return await execNsJson({
+		runtime: options.runtime,
+		ctx: options.ctx,
+		args: [
 			"address",
 			"exec",
 			"branch-pr-checks",
@@ -344,40 +308,17 @@ async function execBranchPrChecks(
 			"--format",
 			"json",
 		],
-		{
-			cwd: options.ctx.cwd,
-			timeout: options.runtime.commandTimeoutMs,
-		},
-	);
-	return options.runtime.parseEnvelopeWithSchema({
 		label: "ns address exec branch-pr-checks",
-		result,
 		schema: branchPrChecksDataSchema,
 		allowFailureData: true,
 	});
-=======
-function buildPreviewChecksTarget(options: {
-	readonly target: PreviewChecksTargetData;
-	readonly knownPrNumber: number | undefined;
-}): NullablePrPreviewChecksTarget {
-	const target = { ...emptyPreviewTarget, ...options.target };
-	return {
-		pr_number: options.target.pr_number ?? options.knownPrNumber ?? null,
-		title: target.title ?? null,
-		url: target.url ?? null,
-		branch: target.branch ?? null,
-		head_ref_name: target.head_ref_name ?? null,
-		base_ref_name: target.base_ref_name ?? null,
-		head_ref_oid: target.head_ref_oid ?? null,
-	};
->>>>>>> Stashed changes
 }
 
 function buildPreviewChecksViewModel(
 	data: PreviewChecksData,
 	target: PrPreviewChecksTarget,
 ): PrPreviewChecksViewModel {
-	const entry = buildPreviewChecksStackEntry(data, fallbackTargetFromPreviewData(data, prNumber));
+	const entry = buildPreviewChecksStackEntry(data, fallbackTargetFromPreviewData(data, target));
 	return {
 		target: entry.target,
 		counts: entry.counts,
@@ -424,56 +365,67 @@ function unmappedStackEntry(branch: string): PrPreviewChecksStackEntry {
 }
 
 function mergeTargetWithFallback(
-	target: PrPreviewChecksTarget,
+	target: PreviewChecksTargetData,
 	fallback: PrPreviewChecksTarget,
 ): PrPreviewChecksTarget {
-	return {
-		pr_number: resolvedPrNumberValue(target.pr_number) ?? fallback.pr_number,
-		title: target.title ?? fallback.title,
-		url: target.url ?? fallback.url,
-		branch: target.branch ?? fallback.branch,
-		head_ref_name: target.head_ref_name ?? fallback.head_ref_name,
-		base_ref_name: target.base_ref_name ?? fallback.base_ref_name,
-		head_ref_oid: target.head_ref_oid ?? fallback.head_ref_oid,
-	};
+	const merged: Partial<PrPreviewChecksTarget> = {};
+	for (const field of PREVIEW_TARGET_FIELDS) {
+		const value = previewTargetFieldValue(target, field) ?? fallback[field];
+		merged[field] = value;
+	}
+	return previewTargetFromData(merged);
 }
 
 function fallbackTargetFromPreviewData(
 	data: PreviewChecksData,
-	prNumber: number,
+	target: PrPreviewChecksTarget,
 ): PrPreviewChecksTarget {
-	const branch = effectiveBranch(data.target) ?? "";
-	return {
-		...emptyPreviewTarget(),
-		pr_number: prNumber,
-		title: data.target.title ?? "(untitled)",
-		url: data.target.url ?? "",
+	const branch = effectiveBranch(target) ?? "";
+	return previewTargetFromData(target, {
+		prNumber: target.pr_number ?? undefined,
+		title: target.title ?? "(untitled)",
+		url: target.url ?? "",
 		branch,
 		head_ref_name: branch,
 		base_ref_name: data.target.base_ref_name ?? "",
-		head_ref_oid: data.target.head_ref_oid,
-	};
+	});
 }
 
 function fallbackTargetForUnmappedBranch(branch: string): PrPreviewChecksTarget {
-	return {
-		...emptyPreviewTarget(),
+	return previewTargetFromData({
 		title: "(no open PR mapped)",
 		branch,
 		head_ref_name: branch,
+	});
+}
+
+function previewTargetFromData(
+	target: Partial<PrPreviewChecksTarget> | PreviewChecksTargetData,
+	overrides: Partial<Omit<PrPreviewChecksTarget, "pr_number">> & { prNumber?: number } = {},
+): PrPreviewChecksTarget {
+	const withOverrides = {
+		...EMPTY_PREVIEW_TARGET,
+		...target,
+		...overrides,
+		pr_number: target.pr_number ?? overrides.prNumber ?? null,
+	};
+	return {
+		pr_number: withOverrides.pr_number,
+		title: withOverrides.title,
+		url: withOverrides.url,
+		branch: withOverrides.branch,
+		head_ref_name: withOverrides.head_ref_name,
+		base_ref_name: withOverrides.base_ref_name,
+		head_ref_oid: withOverrides.head_ref_oid,
 	};
 }
 
-function emptyPreviewTarget(): PrPreviewChecksTarget {
-	return {
-		pr_number: null,
-		title: null,
-		url: null,
-		branch: null,
-		head_ref_name: null,
-		base_ref_name: null,
-		head_ref_oid: null,
-	};
+function previewTargetFieldValue(
+	target: PreviewChecksTargetData,
+	field: PreviewTargetField,
+): PrPreviewChecksTarget[PreviewTargetField] | null {
+	if (field === "pr_number") return resolvedPrNumberValue(target.pr_number ?? null);
+	return target[field] ?? null;
 }
 
 function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksCounts {
@@ -484,21 +436,8 @@ function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksC
 		unknown: data.counts.unknown,
 		...(data.counts.hasMore === undefined ? {} : { hasMore: data.counts.hasMore }),
 	};
-<<<<<<< Updated upstream
-}
-
-function resolvedPrNumber(data: PreviewChecksData): number | null {
-	return resolvedPrNumberValue(data.target.pr_number);
 }
 
 function resolvedPrNumberValue(prNumber: number | null): number | null {
 	return prNumber === null || prNumber <= 0 ? null : prNumber;
-=======
-	return {
-		target,
-		counts,
-		fetchedAt: new Date(),
-		checks: sortPreviewChecks(data.checks),
-	};
->>>>>>> Stashed changes
 }
