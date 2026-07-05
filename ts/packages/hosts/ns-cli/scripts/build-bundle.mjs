@@ -9,9 +9,17 @@ import { build } from "esbuild";
 import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const outfile = resolve(packageRoot, "dist", "bundle", "cli.js");
+const bundleRoot = resolve(packageRoot, "dist", "bundle");
+const outfile = resolve(bundleRoot, "cli.js");
 const bundleEntry = resolve(packageRoot, "dist", "bundle-entry.mjs");
-const bundledPromptsDir = resolve(packageRoot, "dist", "bundle", "prompts");
+const bundledPromptsDir = resolve(bundleRoot, "prompts");
+const kernelExportEntries = {
+	"kernel/cli": resolve(packageRoot, "src", "kernel", "cli.ts"),
+	"kernel/command-io": resolve(packageRoot, "src", "kernel", "command-io.ts"),
+	"kernel/context": resolve(packageRoot, "src", "kernel", "context.ts"),
+	"kernel/pi-text-generation": resolve(packageRoot, "src", "kernel", "pi-text-generation.ts"),
+	"kernel/sdk": resolve(packageRoot, "src", "kernel", "sdk.ts"),
+};
 
 await mkdir(dirname(outfile), { recursive: true });
 await writeFile(
@@ -38,6 +46,19 @@ await build({
 		js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
 	},
 	define: { "import.meta.main": "false" },
+	logLevel: "info",
+});
+await build({
+	entryPoints: kernelExportEntries,
+	outdir: bundleRoot,
+	bundle: true,
+	platform: "node",
+	format: "esm",
+	target: "node24",
+	external: publicRuntimeDependencies,
+	banner: {
+		js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
+	},
 	logLevel: "info",
 });
 
