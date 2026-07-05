@@ -99,8 +99,14 @@
       session JSONL. Non-blocking for completion.
 - [ ] In-process runtime adapter behind a runtime seam for context-forking use cases
       (subprocess remains the default). Non-blocking for completion.
-- [ ] Consolidation assessment: whether the chosen substrate can subsume
+- [x] Consolidation assessment: whether the chosen substrate can subsume
       `dispatchRunnerSubagent` and thermo-council's orchestration. Expected to park.
+      Outcome: do not subsume `dispatchRunnerSubagent`, and park shared orchestration
+      consolidation for thermo-council. Explore and thermo-council already share the
+      right low-level substrate (`dispatchRunnerSubagent`, `mapWithConcurrency`,
+      activity/progress helpers) while retaining divergent capability policy for
+      final-text scouts vs. terminal-capture review seats. Evidence:
+      `updates/2026-07-05-consolidation-assessment.md`.
 - [x] Apply the 2026-07-04 critique changes
       (`updates/2026-07-04-objective-critique.md`): fix the stale `.ji/` explorer path
       in `contract.ts`/`testing.ts` and correct the item-2 evidence above; record the
@@ -114,3 +120,8 @@
       itself is still open — split into its own item, now sequenced before dogfood.
 
 ## Parked
+
+- Shared higher-level parallel subagent orchestration for explore + thermo-council is
+  intentionally parked. Reassess only if a future third caller demonstrates a neutral
+  scheduler/progress abstraction that preserves capability-specific result contracts,
+  recovery, and reporting without coupling the tools together.
