@@ -18,10 +18,10 @@
  * worker loop; failures are recorded as `{ state: "failed" }`, and `ensureAll`
  * resolves (never rejects) once its tasks settle.
  */
-import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 
-import { callPiModelText } from "@ns/pi/models/call";
-import type { PiModelRegistryLike } from "@ns/pi/models/call";
+import { callPiModelText } from "@nseng-ai/pi/models/call";
+import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 
 import { checkLogUnavailableReason, fetchCheckLogTail } from "./check-logs.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";

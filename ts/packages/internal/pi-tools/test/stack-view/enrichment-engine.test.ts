@@ -1,11 +1,11 @@
-import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
-import { createDeferred, type Deferred } from "@ns/core/test-kit";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+import { createDeferred, type Deferred } from "@nseng-ai/foundation/test-kit";
 import type {
 	CallPiModelTextOptions,
 	PiModelRegistryLike,
 	PiModelTextResult,
 	callPiModelText,
-} from "@ns/pi/models/call";
+} from "@nseng-ai/pi/models/call";
 import { describe, expect, it } from "vitest";
 
 import { createStackEnrichmentEngine } from "../../src/stack-view/enrichment-engine.ts";
