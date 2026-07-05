@@ -16,7 +16,8 @@ import type { ObjectiveRecordDocumentReadResult } from "../storage.ts";
 import { activeRecordRelativePath, type ObjectiveStorage } from "../storage.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
-import { buildObjectiveBranchAttribution } from "./list-branch-attribution.ts";
+import { findObjectiveEdgeAnnotation } from "./edge-lint.ts";
+import { buildObjectiveBranchAttributionForContext } from "./list-branch-attribution.ts";
 import {
 	latestUpdateIsoFromUpdateNames,
 	objectiveStatusPresentation,
@@ -129,11 +130,7 @@ async function buildShowObjectiveResult(
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
 	const dirty = await ctx.git.hasUncommittedChangesUnder({ cwd: ctx.repoRoot, relativePath });
 	if (!dirty.ok) return { type: "git-error", error: dirty.error };
-	const attribution = await buildObjectiveBranchAttribution(ctx.git, {
-		repoRoot: ctx.repoRoot,
-		trunkBranch: ctx.trunkBranch,
-		slugs: new Set([target.slug]),
-	});
+	const attribution = await buildObjectiveBranchAttributionForContext(ctx, new Set([target.slug]));
 	if (attribution.type === "git-error") return attribution;
 
 	const document = await ctx.storage.readObjectiveRecordDocument(relativePath);
@@ -218,8 +215,7 @@ function backEdgeAnnotation(
 ): string | null {
 	const parsed = readParsedObjectiveFrontmatter(read);
 	if (parsed.frontmatter === null) return null;
-	const back = parsed.frontmatter.edges.find((edge) => edge.objective === ownSlug);
-	return back?.annotation ?? null;
+	return findObjectiveEdgeAnnotation(parsed.frontmatter, ownSlug);
 }
 
 export function renderShowObjectiveHuman(
@@ -263,11 +259,7 @@ function summaryLines(result: ShowObjectiveOkResult, caps: Caps, nowMs: number):
 		);
 	}
 	if (result.frontmatterMalformed !== undefined) {
-		lines.push(
-			...wrapPlain(`Frontmatter malformed: ${result.frontmatterMalformed}`, contentWidth(caps)).map(
-				(line) => dim(line),
-			),
-		);
+		lines.push(...dimWrappedLines(caps, `Frontmatter malformed: ${result.frontmatterMalformed}`));
 	}
 	return lines;
 }
@@ -285,10 +277,10 @@ function renderBranchLines(result: ShowObjectiveOkResult, caps: Caps): string[] 
 	}
 	if (result.isUpdatedBranchesTruncated) {
 		lines.push(
-			...wrapPlain(
+			...dimWrappedLines(
+				caps,
 				"Branch attribution truncated; older updated branches may be omitted.",
-				contentWidth(caps),
-			).map((line) => dim(line)),
+			),
 		);
 	}
 	return lines;
@@ -301,6 +293,10 @@ function renderHumanEdgeSections(edges: readonly ShowObjectiveEdge[], caps: Caps
 
 function contentWidth(caps: Caps, reserved = 0): number {
 	return Math.max(20, caps.columns) - reserved;
+}
+
+function dimWrappedLines(caps: Caps, text: string): string[] {
+	return wrapPlain(text, contentWidth(caps)).map((line) => dim(line));
 }
 
 function subtitleLine(result: ShowObjectiveOkResult, caps: Caps, nowMs: number): string {

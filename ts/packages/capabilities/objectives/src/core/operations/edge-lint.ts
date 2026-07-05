@@ -358,7 +358,7 @@ async function mirrorViolation(
 			value: violation(path, label, "counterpart Record Frontmatter is malformed"),
 		};
 	}
-	const hasMirror = counterpart.value.frontmatter.edges.some((edge) => edge.objective === slug);
+	const hasMirror = findObjectiveEdgeAnnotation(counterpart.value.frontmatter, slug) !== null;
 	if (!hasMirror) {
 		return {
 			ok: true,
@@ -372,6 +372,13 @@ type RecordFrontmatterClassification =
 	| { type: "absent" }
 	| { type: "malformed"; message: string }
 	| { type: "parsed"; frontmatter: ObjectiveRecordFrontmatter };
+
+export function findObjectiveEdgeAnnotation(
+	frontmatter: ObjectiveRecordFrontmatter,
+	slug: string,
+): string | null {
+	return frontmatter.edges.find((edge) => edge.objective === slug)?.annotation ?? null;
+}
 
 function classifyRecordFrontmatter(
 	document: ObjectiveRecordDocument,

@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { glyph, type GlyphName, type Intent } from "@nseng-ai/foundation/cli-theme";
-import { renderTextTable, type TextTableColumn } from "@nseng-ai/foundation/text-table";
+import { renderTextTable } from "@nseng-ai/foundation/text-table";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import {
@@ -22,7 +22,7 @@ import {
 } from "../storage.ts";
 
 import { removeOneTrailingNewline } from "./format.ts";
-import { buildObjectiveBranchAttribution } from "./list-branch-attribution.ts";
+import { buildObjectiveBranchAttributionForContext } from "./list-branch-attribution.ts";
 import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
@@ -106,11 +106,10 @@ export async function buildObjectiveListResult(
 		baseRecords.push(built.value);
 	}
 
-	const attribution = await buildObjectiveBranchAttribution(ctx.git, {
-		repoRoot: ctx.repoRoot,
-		trunkBranch: ctx.trunkBranch,
-		slugs: new Set(baseRecords.map((record) => record.slug)),
-	});
+	const attribution = await buildObjectiveBranchAttributionForContext(
+		ctx,
+		new Set(baseRecords.map((record) => record.slug)),
+	);
 	if (attribution.type === "git-error") return attribution;
 
 	const records = baseRecords.map((record) => {
@@ -153,7 +152,13 @@ export function renderObjectiveListHuman(
 	const renderCaps = resolveRenderCapabilities(caps);
 	parts.push(
 		`${renderTextTable({
-			columns: humanTableColumns(),
+			columns: [
+				{ header: "OBJECTIVE", style: "bold-cyan" },
+				{ header: "STATUS" },
+				{ header: "LATEST UPDATE", style: "dim" },
+				{ header: "BRANCHES" },
+				{ header: "EDGES" },
+			],
 			rows: result.records.map((record) => baseRecordCells(record, renderCaps)),
 			canEmitAnsi: caps.canEmitAnsi,
 			shouldDrawRule: true,
@@ -176,7 +181,11 @@ export function renderObjectiveListMarkdown(result: ObjectiveListResult): string
 		parts.push("\n", `${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
-	parts.push("\n", markdownTableHeader(), markdownTableSeparator());
+	parts.push(
+		"\n",
+		"| objective | status | latest update | branches | edges |\n",
+		"| --- | --- | --- | --- | --- |\n",
+	);
 	const markdownCaps = resolveSettledNonInteractiveCaps();
 	for (const record of result.records) {
 		parts.push(markdownRecordRow(record, markdownCaps));
@@ -362,16 +371,6 @@ function formatLatestUpdate(record: ObjectiveListRecord): string {
 	return formatted;
 }
 
-function humanTableColumns(): TextTableColumn[] {
-	return [
-		{ header: "OBJECTIVE", style: "bold-cyan" },
-		{ header: "STATUS" },
-		{ header: "LATEST UPDATE", style: "dim" },
-		{ header: "BRANCHES" },
-		{ header: "EDGES" },
-	];
-}
-
 export function updatedBranchCountCell(record: ObjectiveListRecord): string {
 	return String(record.updatedBranchCount ?? 0);
 }
@@ -384,14 +383,6 @@ function baseRecordCells(record: ObjectiveListRecord, caps: Caps): string[] {
 		updatedBranchCountCell(record),
 		edgeCountCell(record),
 	];
-}
-
-function markdownTableHeader(): string {
-	return "| objective | status | latest update | branches | edges |\n";
-}
-
-function markdownTableSeparator(): string {
-	return "| --- | --- | --- | --- | --- |\n";
 }
 
 function markdownRecordRow(record: ObjectiveListRecord, caps: Caps): string {
