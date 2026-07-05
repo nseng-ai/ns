@@ -90,7 +90,10 @@
       repo-local `.pi/extensions/explore.ts` shim that imports the package entrypoint
       instead of internal implementation code. Package validation passed with
       `pnpm --dir ts --filter @nseng-ai/ns-pi-subagents run check` and `pnpm --dir ts
-      --filter @nseng-ai/ns-pi-subagents run test` (5 files / 29 tests).
+      --filter @nseng-ai/ns-pi-subagents run test` (5 files / 29 tests). A follow-on
+      package-quality refactor split explore result/progress/type plumbing into focused
+      modules and made dispatch consume a validated explorer definition directly; PR
+      #3005 records that review-remediation evidence.
 - [ ] Fleet widget and transcript viewer (monitoring layers 2–3): persistent live list
       of background/running explorers plus drill-in transcript view backed by on-disk
       session JSONL. Non-blocking for completion.
