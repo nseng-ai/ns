@@ -1,3 +1,5 @@
+import type { GitCwdParams, GitGateway, GitOptionalResult } from "../git/contract.ts";
+
 export interface GithubPrIdentity {
 	owner: string;
 	repo: string;
@@ -8,6 +10,10 @@ export interface GithubRepositoryIdentity {
 	owner: string;
 	repo: string;
 }
+
+export type ResolveGithubRepositoryIdentityResult =
+	| GitOptionalResult<GithubRepositoryIdentity>
+	| { type: "unparseable" };
 
 export function githubPrIdentityFromUrl(
 	url: string,
@@ -49,6 +55,16 @@ export function githubRepositoryIdentityFromRemoteUrl(
 ): GithubRepositoryIdentity | undefined {
 	const normalized = normalizeGitRemoteUrl(url);
 	return githubRepositoryIdentityFromNormalizedRemoteUrl(normalized);
+}
+
+export async function resolveGithubRepositoryIdentityFromOrigin(
+	git: GitGateway,
+	params: GitCwdParams,
+): Promise<ResolveGithubRepositoryIdentityResult> {
+	const origin = await git.originUrl(params);
+	if (origin.type !== "found") return origin;
+	const identity = githubRepositoryIdentityFromRemoteUrl(origin.value.trim());
+	return identity === undefined ? { type: "unparseable" } : { type: "found", value: identity };
 }
 
 function githubUrlPathParts(url: string): readonly string[] | undefined {

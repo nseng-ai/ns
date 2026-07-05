@@ -21,6 +21,7 @@ import type { StackViewModel, StackViewPr } from "./types.ts";
 import type { StackEnrichmentPort } from "./enrichment-engine.ts";
 import type { ComposeViewPort } from "./compose-controller.ts";
 import { COMPOSE_FOOTER, ComposeView } from "./compose-view.ts";
+import { detachSubscription } from "./subscription.ts";
 import {
 	buildStackDetailRows,
 	buildStackIdentityLine,
@@ -31,17 +32,14 @@ import {
 	type StackRowCells,
 } from "./overlay-model.ts";
 import {
-	overlayChromeRows,
 	overlayHostOptions,
-	overlayInnerWidth,
-	overlayModalRows,
-	overlayTerminalRows,
+	overlayRenderLayout,
 	renderOverlayFrame,
 } from "../overlay-kit/frame.ts";
 import { sliceWrappedDetailLinesForViewport } from "../overlay-kit/viewport.ts";
 
 const BROWSE_FOOTER =
-	"↑↓/jk move · o open · b paste branch · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
+	"↑↓/jk move · o open · b copy branch · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
 
 /** Fixed cell widths for the right-hand columns of each list row. */
 const THREADS_CELL_WIDTH = 9;
@@ -51,7 +49,7 @@ const STATUS_CELL_WIDTH = 14;
 /** What the user asked the host to do when the overlay settled. */
 export type StackViewUiOutcome =
 	| { action: "open"; url: string }
-	| { action: "paste-branch"; branch: string }
+	| { action: "copy-branch"; branch: string }
 	| { action: "summarize" }
 	| { action: "refresh" }
 	| { action: "compose-inject"; draft: string }
@@ -149,11 +147,6 @@ export function runStackViewOverlayUi(
  * Seed the initial selection: an explicit request wins (clamped), else the
  * current-branch row, else the top of the stack (0 when the stack is empty).
  */
-function detachSubscription(unsubscribe: (() => void) | undefined): undefined {
-	unsubscribe?.();
-	return undefined;
-}
-
 function resolveInitialIndex(model: StackViewModel, requested: number | undefined): number {
 	const count = model.prs.length;
 	if (count === 0) return 0;
@@ -197,8 +190,12 @@ export class StackViewOverlay implements Component {
 
 	/** Fire-and-forget: queue enrichment for the currently selected row. */
 	private ensureSelectionEnriched(): void {
-		const pr = this.model.prs[this.selectedIndex];
+		const pr = this.selectedPr;
 		if (pr !== undefined) this.enrichment?.ensureRow(pr);
+	}
+
+	private get selectedPr(): StackViewPr | undefined {
+		return this.model.prs[this.selectedIndex];
 	}
 
 	/** Drop the enrichment and compose `onChange` subscriptions; safe to call more than once. */
@@ -213,8 +210,6 @@ export class StackViewOverlay implements Component {
 	}
 
 	render(width: number): string[] {
-		const innerWidth = overlayInnerWidth(width);
-		const height = overlayModalRows(overlayTerminalRows(this.tui.terminal.rows));
 		// Compose mode only renders when its port has been built (first entry); a
 		// bare `mode === "compose"` with no port falls back to the browse panel.
 		const composeView = this.mode === "compose" ? this.composeView : undefined;
@@ -222,7 +217,11 @@ export class StackViewOverlay implements Component {
 			this.color("text", buildStackIdentityLine(this.model)),
 			composeView === undefined ? this.renderRollupLine() : composeView.renderHeaderLine(),
 		];
-		const bodyRows = Math.max(1, height - overlayChromeRows(header.length));
+		const { innerWidth, bodyRows } = overlayRenderLayout({
+			width,
+			terminalRows: this.tui.terminal.rows,
+			headerLength: header.length,
+		});
 		const footer = this.color(
 			"dim",
 			composeView === undefined ? this.browseFooter() : COMPOSE_FOOTER,
@@ -268,7 +267,7 @@ export class StackViewOverlay implements Component {
 			return;
 		}
 		if (data === "b") {
-			this.settlePasteBranch();
+			this.settleCopyBranch();
 			return;
 		}
 		if (data === "s") {
@@ -369,10 +368,7 @@ export class StackViewOverlay implements Component {
 	}
 
 	private renderDetailLines(width: number, rows: number): string[] {
-		const detailRows = buildStackDetailRows(
-			this.model.prs[this.selectedIndex],
-			this.enrichment?.snapshot(),
-		);
+		const detailRows = buildStackDetailRows(this.selectedPr, this.enrichment?.snapshot());
 		const lines = detailRows.map((row) => this.colorizeDetailRow(row));
 		// The degradation notice is pinned below the scroll viewport (not part of
 		// the scrollable lines) so it stays visible on tall detail content.
@@ -444,17 +440,17 @@ export class StackViewOverlay implements Component {
 	}
 
 	private settleOpen(): void {
-		const selected = this.model.prs[this.selectedIndex];
+		const selected = this.selectedPr;
 		// A `no-pr` row (or any row without a Graphite URL) has nothing to open;
 		// ignore the keypress rather than settling on an empty URL.
 		if (selected === undefined || selected.graphiteUrl.length === 0) return;
 		this.settle({ action: "open", url: selected.graphiteUrl });
 	}
 
-	private settlePasteBranch(): void {
-		const selected = this.model.prs[this.selectedIndex];
+	private settleCopyBranch(): void {
+		const selected = this.selectedPr;
 		if (selected === undefined) return;
-		this.settle({ action: "paste-branch", branch: selected.branch });
+		this.settle({ action: "copy-branch", branch: selected.branch });
 	}
 
 	private scrollDetails(delta: number): void {

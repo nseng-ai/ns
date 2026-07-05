@@ -91,10 +91,12 @@ function fakeHost(): {
 	command: () => CapturedCommand;
 	sentMessages: unknown[];
 	deliveries: HostDelivery[];
+	execCalls: Array<{ command: string; args: readonly string[]; stdin?: string }>;
 } {
 	let captured: CapturedCommand | undefined;
 	const sentMessages: unknown[] = [];
 	const deliveries: HostDelivery[] = [];
+	const execCalls: Array<{ command: string; args: readonly string[]; stdin?: string }> = [];
 	const pi: ExtensionAPI = {
 		registerCommand(_name, options) {
 			captured = { handler: options.handler };
@@ -111,7 +113,12 @@ function fakeHost(): {
 			deliveries.push({ type: "message", message });
 		},
 		registerMessageRenderer() {},
-		async exec() {
+		async exec(command, args, options) {
+			execCalls.push({
+				command,
+				args,
+				...(options?.stdin === undefined ? {} : { stdin: options.stdin }),
+			});
 			return { stdout: "", stderr: "", code: 0, killed: false };
 		},
 	};
@@ -123,6 +130,7 @@ function fakeHost(): {
 		},
 		sentMessages,
 		deliveries,
+		execCalls,
 	};
 }
 
@@ -319,22 +327,25 @@ describe("stack-view extension enrichment wiring", () => {
 	});
 });
 
-describe("stack-view extension editor paste wiring", () => {
-	test("paste-branch shortcut inserts the selected branch into the parent editor", async () => {
+describe("stack-view extension clipboard wiring", () => {
+	test("copy-branch shortcut writes the selected branch to the clipboard", async () => {
 		const host = fakeHost();
-		const pasted: string[] = [];
 		const notifications: Array<{ message: string; level: string | undefined }> = [];
 		registerStackViewExtension(host.pi, { loadStackView: okLoader() });
 		const ctx = interactiveCtx("b");
-		ctx.ui.pasteToEditor = (text) => pasted.push(text);
 		ctx.ui.notify = (message, level) => notifications.push({ message, level });
 
 		await host.command().handler("", ctx);
 
-		expect(pasted).toEqual(["feature/1"]);
+		expect(host.execCalls).toEqual([
+			{
+				command: "/bin/sh",
+				args: ["-c", 'printf %s "$1" | pbcopy', "sh", "feature/1"],
+			},
+		]);
 		expect(host.deliveries).toEqual([]);
 		expect(notifications).toContainEqual({
-			message: "Pasted branch 'feature/1' into the editor.",
+			message: "Copied branch 'feature/1' to the clipboard.",
 			level: "info",
 		});
 	});

@@ -386,7 +386,7 @@ describe("StackViewOverlay chrome and budget", () => {
 		expect(text).toContain("PRs");
 		expect(text).toContain("ready");
 		expect(dividerIndex(lines)).toBeGreaterThan(0);
-		expect(text).toContain("o open · b paste branch · s summarize · r refresh");
+		expect(text).toContain("o open · b copy branch · s summarize · r refresh");
 	});
 });
 
@@ -514,7 +514,7 @@ describe("StackViewOverlay settles", () => {
 		expect(settled).toEqual([]);
 	});
 
-	test("settles paste-branch for the selected PR", () => {
+	test("settles copy-branch for the selected PR", () => {
 		const settled: StackViewUiResult[] = [];
 		const model = modelFixture({
 			currentBranch: "feature/1",
@@ -526,7 +526,7 @@ describe("StackViewOverlay settles", () => {
 		const view = newView(model, { initialIndex: 1, onDone: (result) => settled.push(result) });
 		view.handleInput?.("b");
 		expect(settled).toEqual([
-			{ outcome: { action: "paste-branch", branch: "feature/2" }, selectedIndex: 1 },
+			{ outcome: { action: "copy-branch", branch: "feature/2" }, selectedIndex: 1 },
 		]);
 	});
 
@@ -602,7 +602,7 @@ describe("StackViewOverlay enrichment", () => {
 
 	test("re-renders on engine change and stops once settled", () => {
 		const fake = createFakeEnrichment();
-		const recording = recordingTui();
+		const recording = renderRecordingTui();
 		const view = new StackViewOverlay({
 			tui: recording.tui,
 			theme: identityTheme(),
@@ -624,7 +624,7 @@ describe("StackViewOverlay enrichment", () => {
 
 	test("dispose unsubscribes idempotently", () => {
 		const fake = createFakeEnrichment();
-		const recording = recordingTui();
+		const recording = renderRecordingTui();
 		new StackViewOverlay({
 			tui: recording.tui,
 			theme: identityTheme(),
@@ -942,7 +942,7 @@ interface ComposeHarness {
 function newComposeView(options: { withCompose?: boolean; rows?: number } = {}): ComposeHarness {
 	const fake = createFakeComposePort();
 	const settled: StackViewUiResult[] = [];
-	const recording = recordingTui(options.rows ?? 30);
+	const recording = renderRecordingTui(options.rows ?? 30);
 	let getPortCalls = 0;
 	const compose: StackViewComposeOption = {
 		getPort: () => {
@@ -1046,10 +1046,10 @@ function runWithFakeCtx(
 	return harness;
 }
 
-function fakeTui(rows = 30): TUI {
+function fakeTui(rows = 30, onRender: () => void = () => {}): TUI {
 	const tui = {
 		terminal: fakeTerminal(rows),
-		requestRender() {},
+		requestRender: onRender,
 	} satisfies Partial<TUI>;
 	return tui as TUI;
 }
@@ -1166,15 +1166,9 @@ function createFakeEnrichment(): FakeEnrichment {
 }
 
 /** A fake TUI that counts requestRender calls. */
-function recordingTui(rows = 30): { tui: TUI; renders: () => number } {
+function renderRecordingTui(rows = 30): { tui: TUI; renders: () => number } {
 	let count = 0;
-	const tui = {
-		terminal: fakeTerminal(rows),
-		requestRender() {
-			count += 1;
-		},
-	} satisfies Partial<TUI>;
-	return { tui: tui as TUI, renders: () => count };
+	return { tui: fakeTui(rows, () => (count += 1)), renders: () => count };
 }
 
 function fakeTerminal(rows: number): TUI["terminal"] {
