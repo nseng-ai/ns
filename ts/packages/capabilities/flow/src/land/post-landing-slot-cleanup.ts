@@ -14,18 +14,22 @@ import {
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
 import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
+import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
+
+export interface PostLandingSlotCleanupPreview {
+	readonly branch: string;
+	readonly repoRoot: string;
+	readonly slotName: string;
+}
 
 export type PostLandingSlotCleanupDecision =
 	| { readonly type: "not-needed" }
 	| { readonly type: "approved" }
 	| { readonly type: "declined" };
 
-interface PostLandingSlotCleanupTarget {
-	readonly branch: string;
+interface PostLandingSlotCleanupTarget extends PostLandingSlotCleanupPreview {
 	readonly cleanupDetails: string;
-	readonly repoRoot: string;
-	readonly slotName: string;
 	readonly suggestedAction: string;
 }
 
@@ -33,6 +37,7 @@ interface ResolvePostLandingSlotCleanupDecisionOptions {
 	ctx: PrintAwareLandStackCommandContext;
 	args: ParsedArgs;
 	shape: LandingShape;
+	confirmation?: PreMergeConfirmation;
 }
 
 interface RunPostLandingSlotCleanupOptions {
@@ -43,16 +48,32 @@ interface RunPostLandingSlotCleanupOptions {
 	cleanupDecision: PostLandingSlotCleanupDecision;
 }
 
+export function planPostLandingSlotCleanup(options: {
+	args: ParsedArgs;
+	shape: LandingShape;
+}): PostLandingSlotCleanupPreview | undefined {
+	const target = postLandingCleanupTarget(options.args, options.shape);
+	if (target === undefined) return undefined;
+	return { branch: target.branch, repoRoot: target.repoRoot, slotName: target.slotName };
+}
+
 export async function resolvePostLandingSlotCleanupDecision({
 	ctx,
 	args,
 	shape,
+	confirmation,
 }: ResolvePostLandingSlotCleanupDecisionOptions): Promise<
 	LandStackResult<PostLandingSlotCleanupDecision>
 > {
 	const target = postLandingCleanupTarget(args, shape);
 	if (target === undefined) return success({ type: "not-needed" });
-	if (args.shouldSkipConfirmation || args.shouldForceCleanup) return success({ type: "approved" });
+	if (
+		confirmation === "already-approved" ||
+		args.shouldSkipConfirmation ||
+		args.shouldForceCleanup
+	) {
+		return success({ type: "approved" });
+	}
 
 	if (!ctx.hasUI) {
 		const landFailure = landStackFailure(
@@ -185,11 +206,7 @@ function postLandingCleanupTarget(
 	};
 }
 
-function formatPostLandingCleanupDetails(options: {
-	branch: string;
-	repoRoot: string;
-	slotName: string;
-}): string {
+function formatPostLandingCleanupDetails(options: PostLandingSlotCleanupPreview): string {
 	const freeCommand = formatCommand("ns", ["slot", "free", "--wt", options.slotName]);
 	const deleteCommand = formatGraphiteOperation(
 		deleteLocalBranchOperation({ branch: options.branch }),

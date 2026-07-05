@@ -3,7 +3,9 @@ import { describe, expect, test } from "vitest";
 import { optionalEntry } from "@ns/core/primitives";
 
 import { parseArgs } from "../../src/land/land-stack.ts";
+import { buildUpfrontStackConfirmation } from "../../src/land/landing-dispatch.ts";
 import {
+	planPostLandingSlotCleanup,
 	resolvePostLandingSlotCleanupDecision,
 	runPostLandingSlotCleanup,
 	type PostLandingSlotCleanupDecision,
@@ -128,6 +130,58 @@ describe("post-landing slot cleanup defaults", () => {
 		expect(fixture.confirmations).toEqual([]);
 		expect(worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(graphite.deleteLocalBranchCalls).toHaveLength(1);
+	});
+
+	test("approved stack confirmation counts as cleanup approval without prompting again", async () => {
+		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const fixture = createCleanupContext({ hasUI: true });
+		const args = expectParsed("");
+
+		const decision = await resolvePostLandingSlotCleanupDecision({
+			ctx: fixture.ctx,
+			args,
+			shape: managedShape(),
+			confirmation: "already-approved",
+		});
+		expect(decision).toEqual({ type: "success", value: { type: "approved" } });
+
+		const outcome = await runPostLandingSlotCleanup({
+			landContext: context,
+			ctx: fixture.ctx,
+			args,
+			shape: managedShape(),
+			cleanupDecision: expectDecision(decision),
+		});
+
+		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(fixture.confirmations).toEqual([]);
+		expect(worktrees.freeSlotsCalls).toHaveLength(1);
+		expect(graphite.deleteLocalBranchCalls).toHaveLength(1);
+	});
+
+	test("plans managed-slot cleanup for the upfront stack confirmation", () => {
+		const cleanupPreview = planPostLandingSlotCleanup({
+			args: expectParsed(""),
+			shape: managedShape(),
+		});
+
+		expect(cleanupPreview).toEqual({
+			branch: BRANCH,
+			repoRoot: SLOT_ROOT,
+			slotName: "slot-02",
+		});
+		expect(
+			planPostLandingSlotCleanup({ args: expectParsed("--preserve"), shape: managedShape() }),
+		).toBeUndefined();
+
+		const confirmationPreview = buildUpfrontStackConfirmation(managedShape(), cleanupPreview);
+		expect(confirmationPreview.impactLines).toContain(
+			"After a successful landing, free managed slot slot-02 and delete local branch feature/current.",
+		);
+		expect(confirmationPreview.planRows).toContainEqual({
+			label: "Cleanup",
+			value: "free slot-02; delete feature/current",
+		});
 	});
 
 	test("upfront decline keeps the slot and local branch after landing", async () => {
