@@ -26,7 +26,7 @@ export const EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS = 4_000;
  * explorer children always run with --no-extensions, so this positive allowlist is a
  * complete capability-level read-only guarantee: no bash, no edit, no write.
  */
-export const EXPLORER_READ_ONLY_TOOLS = ["read", "grep", "find", "ls"] as const;
+export { INTERROGATION_TOOLS as EXPLORER_READ_ONLY_TOOLS } from "../context-profiler/interrogation-prompt.ts";
 
 export const EXPLORER_SCOUT_SECTION_HEADERS = [
 	"## Files Retrieved",

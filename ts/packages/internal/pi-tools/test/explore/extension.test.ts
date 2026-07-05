@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualTimerScheduler } from "@ns/core/time/testing";
-import type { ToolContext, ToolDefinition, ToolResult } from "@ns/pi/runtime/tool-types";
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
 	EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS,
@@ -299,7 +299,7 @@ describe("explore extension", () => {
 		expect(partial.isError).toBeUndefined();
 		expect(partialDetails.status).toBe("partial");
 		expect(partialDetails.tasks[0]?.finalTextChars).toBe(longText.length);
-		expect(partialDetails.tasks[0]?.finalTextTruncated).toBe(true);
+		expect(partialDetails.tasks[0]?.isFinalTextTruncated).toBe(true);
 		expect(partialText).toContain("1/2 scouts produced final text");
 		expect(partialText).toContain("Diagnostic: child failed");
 		expect(partialText).not.toContain("END");

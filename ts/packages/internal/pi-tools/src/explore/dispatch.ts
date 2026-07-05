@@ -36,7 +36,7 @@ export interface DispatchExplorerSubagentOptions {
 	onProgress?: RunnerSubagentProgressCallback;
 }
 
-interface ExplorerDispatcherDependencies {
+export interface ExplorerDispatcherDependencies {
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 	isProviderAuthConfigured?: IsProviderAuthConfigured;
 	dispatchSubagent?: DispatchSubagentFn;
@@ -59,12 +59,18 @@ type ExplorerTransientFailureResult = Extract<
 	{ status: ExplorerTransientFailureStatus }
 >;
 
+export interface DispatchExplorerSubagentInput {
+	pi: RunnerSubagentPi;
+	ctx: RunnerSubagentContext;
+	intent: DispatchExplorerSubagentOptions;
+	dependencies?: ExplorerDispatcherDependencies;
+}
+
 export async function dispatchExplorerSubagent(
-	pi: RunnerSubagentPi,
-	ctx: RunnerSubagentContext,
-	intent: DispatchExplorerSubagentOptions,
-	dependencies: ExplorerDispatcherDependencies = {},
+	input: DispatchExplorerSubagentInput,
 ): Promise<ExplorerDispatchOutcome> {
+	const { pi, ctx, intent } = input;
+	const dependencies = input.dependencies ?? {};
 	const loadDefinition = dependencies.loadAgentDefinition ?? loadPiAgentDefinition;
 	const authProbe = dependencies.isProviderAuthConfigured ?? isProviderAuthConfigured;
 	const dispatch = dependencies.dispatchSubagent ?? dispatchRunnerSubagent;

@@ -1,10 +1,18 @@
 import { z } from "zod";
 
-import { formatErrorMessage, formatZodError, optionalEntries } from "@ns/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
-import { loadPiAgentDefinition, type PiAgentDefinition } from "@ns/pi/runtime/agent-definition";
-import { unrefTimerScheduler } from "@ns/pi/shared/timers";
-import type { ToolContext, ToolDefinition, ToolResult } from "@ns/pi/runtime/tool-types";
+import {
+	formatErrorMessage,
+	formatZodError,
+	optionalEntries,
+} from "@nseng-ai/foundation/primitives";
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import {
+	loadPiAgentDefinition,
+	type PiAgentDefinition,
+} from "@nseng-ai/pi/runtime/agent-definition";
+import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
+import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import { mapWithConcurrency } from "../runner-subagents/concurrency.ts";
 import {
@@ -69,7 +77,7 @@ export interface ExploreTaskDetails {
 	failover?: ExplorerDispatchOutcome["failover"];
 	usage?: RunnerSubagentUsageMetadata;
 	finalTextChars?: number;
-	finalTextTruncated?: boolean;
+	isFinalTextTruncated?: boolean;
 	diagnostic?: string;
 }
 
@@ -223,8 +231,11 @@ export default function exploreExtension(
 			const dispatchExplorer =
 				options.dispatchExplorer ??
 				((childPi, childCtx, intent) =>
-					dispatchExplorerSubagent(childPi, childCtx, intent, {
-						loadAgentDefinition: () => definition,
+					dispatchExplorerSubagent({
+						pi: childPi,
+						ctx: childCtx,
+						intent,
+						dependencies: { loadAgentDefinition: () => definition },
 					}));
 			const abortScope = createExploreAbortScope(signal, profile.wallClockMs, timers);
 			try {
@@ -269,12 +280,12 @@ function checkExplorerConfiguration(
 			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${EXPLORE_TOOL_NAME}".`,
 		};
 	}
-	const guidelinesMissingToolName = definition.promptGuidelines
+	const guidelineIndexesMissingExplore = definition.promptGuidelines
 		.map((guideline, index) => (/\bexplore\b/u.test(guideline) ? undefined : index + 1))
 		.filter((index) => index !== undefined);
-	if (guidelinesMissingToolName.length > 0) {
+	if (guidelineIndexesMissingExplore.length > 0) {
 		return {
-			diagnostic: `${definition.filePath} promptGuidelines must mention "explore" in every guideline; missing guideline index(es): ${guidelinesMissingToolName.join(", ")}.`,
+			diagnostic: `${definition.filePath} promptGuidelines must mention "explore" in every guideline; missing guideline index(es): ${guidelineIndexesMissingExplore.join(", ")}.`,
 		};
 	}
 	return { definition };
@@ -423,37 +434,45 @@ async function runOneExploreTask(input: {
 	}
 }
 
+interface ExploreRequest {
+	input: ExploreInput;
+	profile: ExploreBreadthProfile;
+}
+
 function exploreToolResult(
 	input: ExploreInput,
 	profile: ExploreBreadthProfile,
 	outcomes: readonly ExploreTaskOutcome[],
 ): ToolResult<ExploreToolDetails> {
-	const details = buildExploreToolDetails(input, profile, outcomes);
+	const request = { input, profile };
+	const finalTextCount = countFinalTextOutcomes(outcomes);
+	const details = buildExploreToolDetails(request, outcomes, finalTextCount);
 	return {
-		content: [{ type: "text", text: formatExploreResultText(input, profile, outcomes, details) }],
+		content: [{ type: "text", text: formatExploreResultText(request, outcomes, details) }],
 		details,
 		...(details.status === "failed" || details.status === "cancelled" ? { isError: true } : {}),
 	};
 }
 
 function buildExploreToolDetails(
-	input: ExploreInput,
-	profile: ExploreBreadthProfile,
+	request: ExploreRequest,
 	outcomes: readonly ExploreTaskOutcome[],
+	finalTextCount: number,
 ): ExploreToolDetails {
-	const tasks = outcomes.map((outcome) => taskDetails(outcome, input.tasks.length));
-	const finalTextCount = outcomes.filter(
-		(outcome) => outcome.result.status === "final-text",
-	).length;
+	const tasks = outcomes.map((outcome) => taskDetails(outcome, request.input.tasks.length));
 	const status = summarizeExploreToolStatus(outcomes, finalTextCount);
 	return {
 		status,
-		breadth: input.breadth,
-		taskCount: input.tasks.length,
-		maxConcurrency: profile.maxConcurrency,
-		wallClockMs: profile.wallClockMs,
+		breadth: request.input.breadth,
+		taskCount: request.input.tasks.length,
+		maxConcurrency: request.profile.maxConcurrency,
+		wallClockMs: request.profile.wallClockMs,
 		tasks,
 	};
+}
+
+function countFinalTextOutcomes(outcomes: readonly ExploreTaskOutcome[]): number {
+	return outcomes.filter((outcome) => outcome.result.status === "final-text").length;
 }
 
 function summarizeExploreToolStatus(
@@ -468,7 +487,7 @@ function summarizeExploreToolStatus(
 
 function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTaskDetails {
 	const result = outcome.result;
-	const diagnostic = resultDiagnostic(result);
+	const diagnostic = diagnosticFor(outcome);
 	const finalTextExcerpt =
 		result.status === "final-text"
 			? truncateExploreFinalText(result.finalText, taskCount)
@@ -479,7 +498,7 @@ function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTas
 		status: result.status,
 		elapsedMs: result.elapsedMs,
 		...optionalEntries({
-			sessionFile: result.sessionFile ?? result.progress.sessionFile,
+			sessionFile: sessionFileFor(result),
 			launchPlan: outcome.launchPlan,
 			failover: outcome.failover,
 			usage: result.usage,
@@ -489,7 +508,7 @@ function taskDetails(outcome: ExploreTaskOutcome, taskCount: number): ExploreTas
 			? {}
 			: {
 					finalTextChars: finalTextExcerpt.originalChars,
-					finalTextTruncated: finalTextExcerpt.truncated,
+					isFinalTextTruncated: finalTextExcerpt.truncated,
 				}),
 	};
 }
@@ -528,24 +547,24 @@ function configurationErrorResult(
 }
 
 function formatExploreResultText(
-	input: ExploreInput,
-	profile: ExploreBreadthProfile,
+	request: ExploreRequest,
 	outcomes: readonly ExploreTaskOutcome[],
 	details: ExploreToolDetails,
 ): string {
+	const outcomesByIndex = new Map(outcomes.map((outcome) => [outcome.index, outcome]));
 	const finalTextCount = details.tasks.filter((task) => task.status === "final-text").length;
 	const lines = [
-		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${input.breadth}, concurrency: ${profile.maxConcurrency})`,
+		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${request.input.breadth}, concurrency: ${request.profile.maxConcurrency})`,
 	];
-	for (const outcome of outcomes) {
-		const detail = details.tasks[outcome.index];
-		const status = detail?.status ?? outcome.result.status;
-		const sessionFile =
-			detail?.sessionFile ?? outcome.result.sessionFile ?? outcome.result.progress.sessionFile;
-		lines.push("", `### ${outcome.index + 1}. ${outcome.title} — ${status}`);
-		lines.push(`Session: ${sessionFile ?? "unavailable"}`);
-		if (outcome.result.status === "final-text") {
-			const excerpt = truncateExploreFinalText(outcome.result.finalText, input.tasks.length);
+	for (const detail of details.tasks) {
+		const outcome = outcomesByIndex.get(detail.index);
+		lines.push("", `### ${detail.index + 1}. ${detail.title} — ${detail.status}`);
+		lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
+		if (outcome?.result.status === "final-text") {
+			const excerpt = truncateExploreFinalText(
+				outcome.result.finalText,
+				request.input.tasks.length,
+			);
 			lines.push("", excerpt.text);
 			if (excerpt.truncated) {
 				lines.push(
@@ -553,7 +572,7 @@ function formatExploreResultText(
 					`[Final text excerpt truncated to ${excerpt.text.length} of ${excerpt.originalChars} characters. Full text is in the child Pi session file above.]`,
 				);
 			}
-		} else if (detail?.diagnostic !== undefined) {
+		} else if (detail.diagnostic !== undefined) {
 			lines.push(`Diagnostic: ${detail.diagnostic}`);
 		}
 	}
@@ -579,8 +598,21 @@ function truncateExploreFinalText(
 		EXPLORE_INTERIM_PER_TASK_FINAL_TEXT_CAP_CHARS,
 		Math.floor(EXPLORE_INTERIM_TOTAL_FINAL_TEXT_CAP_CHARS / taskCount),
 	);
-	if (originalChars <= perTaskBudget) return { text, truncated: false, originalChars };
-	return { text: text.slice(0, perTaskBudget), truncated: true, originalChars };
+	const truncatedText = truncateTextHead({
+		value: text,
+		maxChars: perTaskBudget,
+		buildMarker: () => "",
+		shouldTrimHead: false,
+	});
+	return { text: truncatedText, truncated: truncatedText.length < originalChars, originalChars };
+}
+
+function sessionFileFor(result: RunnerSubagentResult): string | undefined {
+	return result.sessionFile ?? result.progress.sessionFile;
+}
+
+function diagnosticFor(outcome: ExploreTaskOutcome): string | undefined {
+	return resultDiagnostic(outcome.result);
 }
 
 function renderExploreProgress(states: readonly ExploreTaskState[]): string {
@@ -626,7 +658,7 @@ function cancelledResult(
 		diagnostic,
 		...optionalEntries({ reason: abortReasonText(signal) }),
 		elapsedMs: 0,
-		progress: { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
+		progress: stoppedProgress(title),
 	};
 }
 
@@ -637,8 +669,12 @@ function errorResult(title: string, diagnostic: string): RunnerSubagentResult {
 		diagnostic,
 		error: { message: diagnostic },
 		elapsedMs: 0,
-		progress: { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
+		progress: stoppedProgress(title),
 	};
+}
+
+function stoppedProgress(title: string): RunnerSubagentResult["progress"] {
+	return { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 };
 }
 
 function abortReasonDiagnostic(signal: AbortSignal, fallback: string): string {
