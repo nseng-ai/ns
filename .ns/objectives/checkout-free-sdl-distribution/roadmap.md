@@ -67,8 +67,10 @@
     exists on the npm registry under `@nseng-ai/*` with expected version/bin/exports where
     applicable, install or `npm view` evidence is recorded, and private/internal/excluded
     packages are deliberately not treated as missing work.
+- [ ] Add release automation / CI for the intended public package set.
+  - Evidence: checked-in automation can build/package and dry-run or otherwise qualify the
+    public package set before publication, the release lane is documented, and it covers
+    the multi-package public set rather than only the first `@nseng-ai/ns` publish.
 
 ## Parked
 
-- [ ] Release automation / CI for the published packages; manual publishes are enough for
-      this Objective's package-set completion.

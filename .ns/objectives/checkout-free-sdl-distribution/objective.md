@@ -88,15 +88,16 @@ it describes the pre-work state.
   (`ts/scripts/source-cli-shim-template`) `run_checkout` refuses to run without
   `ts/node_modules`. The published-package boundary must not depend on either — it points
   at prebuilt `bin/ns.js`; those source shims remain dev-only.
+- **Add release automation / CI for public packages.** The Objective now includes the
+  repeatable release lane for the intended public package set: CI or equivalent checked-in
+  automation should build/package/dry-run or otherwise qualify public packages before
+  publication, so follow-on package releases are not purely manual one-offs.
 
 ## Non-Goals
 
 - Not a standalone `objective` binary; the surface stays the `ns` CLI.
 - No contributor/dev-environment onboarding (`just`, pnpm, direnv, `slot`, source shims);
   those keep the run-from-source model.
-- No release automation / CI for the published packages in v1 (parked); manual publishes
-  are acceptable, but the Objective's product end state is that every package intended to
-  be public has been published and verified.
 - Not re-homing or renaming capability packages beyond what publishability requires
   (distribution-motivated package consolidation into `@nseng-ai/*` subpaths is in scope
   only as triage outcomes, not as a general re-homing program).
@@ -114,6 +115,8 @@ it describes the pre-work state.
   workspace package designated as public/standalone.
 - Registry-backed install or `npm view` evidence exists for the intended public package
   set, with internal/private/excluded packages deliberately absent from that set.
+- Release automation / CI for the intended public package set is checked in and documented
+  enough to qualify future package releases without relying only on ad hoc local commands.
 - The build/bundle/package step is reproducible from a clean clone and documented.
 
 ## Assumptions and Risks
@@ -127,8 +130,9 @@ Risks:
 
 - **Public package set follow-through.** The first registry package is now published and
   smoke-verified, but the Objective now stays open until every package intended to be
-  public is published and verified. Follow-on release automation remains explicitly parked;
-  future versions still need deliberate release discipline outside this v1 Objective.
+  public is published and verified. Release automation / CI is now active Objective scope;
+  future versions still need deliberate release discipline, but the repeatable lane should
+  be established here rather than left as a parked follow-up.
 - Removing the jiti source-path aliases risks breaking first-party extension discovery and
   the `.ns/extensions/*` re-export parity test
   (`ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts`);
