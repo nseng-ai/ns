@@ -79,7 +79,11 @@ Assumptions:
   `resolveExplorerLaunchPlan` downshifts to Haiku only for Anthropic-family parents or
   when Anthropic auth is configured; non-Anthropic sessions inherit the parent model at
   full price. Acceptable for this repo's dogfood environment, but in tension with the
-  "cheaper model by default" completion criterion outside it.
+  "cheaper model by default" completion criterion outside it. The two cheap paths can
+  also diverge: Anthropic-family parents get the `haiku` shorthand (resolved by Pi at
+  child launch) while the auth-probe path pins `anthropic/claude-haiku-4-5`
+  (`contract.ts`); when Anthropic ships the next Haiku, the shorthand upgrades with Pi
+  and the pin does not. Any divergence should be a recorded decision, not drift.
 
 Risks:
 
@@ -98,9 +102,15 @@ Risks:
 - Explorer children launch with `--no-extensions`, which is part of the read-only
   guarantee but also strips `.pi/extensions/home-directory-guard.ts` — a child with
   `grep`/`find` has no home-root guard and no cwd jail, so *scope* is prompt-enforced
-  only (`.ns/pi/agents/explorer.md`). Decision pending (accept, inject the guard via
-  the existing `--extension runtimeExtensionPath` seam in `subagent-process.ts`, or
-  document why prompt-scoping suffices); tracked as an open question and roadmap item.
+  only (`.ns/pi/agents/explorer.md`). Decision pending (accept, inject the guard, or
+  document why prompt-scoping suffices); tracked as an open question and roadmap item,
+  and it **gates dogfooding**: fake-driven build items may proceed, but real explorer
+  children must not run routinely until the decision is made. The inject option is not
+  free — `buildChildPiArgs` accepts an `--extension` path (`subagent-process.ts`) but
+  it is populated only from generated terminal-runtime files, and
+  `RunnerSubagentOptions` exposes no caller-facing extension-injection surface, so
+  injection costs a small plumbing slice (new option, threading, coexistence with the
+  terminal runtime extension, tests).
 
 ## Open Questions
 
@@ -113,8 +123,10 @@ Risks:
   engineered platform code from the start (same update). Since moved with the rest of
   pi-tools to `ts/packages/internal/pi-tools`.
 - How to close the explorer-child home-directory-guard bypass (see Risks): accept,
-  inject the guard extension through the `runtimeExtensionPath` seam, or document
-  prompt-scoping as sufficient.
+  inject the guard extension (requires a new caller-facing extension-injection option
+  on the dispatch surface — no existing seam reaches `--extension` for final-text
+  children), or document prompt-scoping as sufficient. Gates roadmap item "Dogfood in
+  real ns work".
 - Whether the in-process fork-runtime adapter is worth the Pi SDK coupling, and what the
   runtime seam looks like (Gateway-style interface with subprocess + in-process
   adapters).

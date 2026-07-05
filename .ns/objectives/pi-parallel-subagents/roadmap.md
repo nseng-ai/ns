@@ -33,8 +33,17 @@
       findings on disk, retrievable on demand.
 - [ ] Live inline progress rendering: placeholder-sentinel per-task rows with status
       icons, recent tool-activity lines, and a done/running counter.
+- [ ] Decide the explorer-child home-directory-guard bypass (risk recorded in
+      objective.md): accept, inject the guard, or document why prompt-scoping
+      suffices. Injection is not an existing seam: `buildChildPiArgs` takes
+      `--extension` only from generated terminal-runtime files, and
+      `RunnerSubagentOptions` has no caller-facing extension-injection surface, so
+      that option costs a small plumbing slice (new option, threading, coexistence
+      with the terminal runtime extension, tests). **Gates the dogfood item below** —
+      real explorer children must not run routinely while child scope is
+      prompt-enforced only. Record the decision as an update.
 - [ ] Dogfood in real ns work and tune the tool description and scout contract from
-      observed transcripts.
+      observed transcripts. Gated on the home-directory-guard bypass decision above.
       Evidence: at least one real task completed using explore fan-out, with prompt
       adjustments captured as an update.
 - [ ] Fleet widget and transcript viewer (monitoring layers 2–3): persistent live list
@@ -54,10 +63,6 @@
       (`contract.ts` now points at `.ns/pi/agents/explorer.md`; all 17 explore tests
       pass). Record edits applied 2026-07-05 alongside moving this record from the
       stale `.sdl/objectives/` root to `.ns/objectives/`. The guard-bypass *decision*
-      itself is still open — split into the item below.
-- [ ] Decide the explorer-child home-directory-guard bypass (risk recorded in
-      objective.md): accept, inject the guard via the `--extension
-      runtimeExtensionPath` seam in `subagent-process.ts`, or document why
-      prompt-scoping suffices. Record the decision as an update.
+      itself is still open — split into its own item, now sequenced before dogfood.
 
 ## Parked
