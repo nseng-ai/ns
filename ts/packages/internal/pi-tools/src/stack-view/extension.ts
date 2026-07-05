@@ -9,8 +9,7 @@
  * only the host capabilities stack-view actually uses.
  */
 import type { Api, Model } from "@earendil-works/pi-ai";
-import type { ModelRegistry, Theme } from "@earendil-works/pi-coding-agent";
-import type { Component, TUI } from "@earendil-works/pi-tui";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
@@ -42,7 +41,11 @@ import {
 	type SerializedStackViewModel,
 	type StackViewModel,
 } from "./types.ts";
-import { runStackViewOverlayUi, type StackViewUiResult } from "./overlay-ui.ts";
+import {
+	runStackViewOverlayUi,
+	type StackViewCustomUi,
+	type StackViewUiResult,
+} from "./overlay-ui.ts";
 
 /** The `/stack:view` slash-command name (also its `setStatus` key). */
 export const STACK_VIEW_COMMAND_NAME = "stack:view";
@@ -72,18 +75,9 @@ export interface CommandContext {
 	 */
 	modelRegistry: ModelRegistry & PiModelRegistryLike;
 	waitForIdle(): Promise<void>;
-	ui: {
+	ui: StackViewCustomUi & {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		custom?<T>(
-			factory: (
-				tui: TUI,
-				theme: Theme,
-				keybindings: unknown,
-				done: (value: T) => void,
-			) => Component,
-			options?: unknown,
-		): Promise<T>;
 	};
 }
 
