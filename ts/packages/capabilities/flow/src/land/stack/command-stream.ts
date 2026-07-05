@@ -2,6 +2,7 @@ import { createCommandIo } from "@ns/kernel/command-io";
 import type { NsCommandIo } from "@ns/kernel/sdk";
 import { type ExecResult, formatCommand, runNormalizedExecResult } from "@ns/core/command";
 import type { Clock } from "@ns/core/clock";
+import { optionalEntry } from "@ns/core/primitives";
 import { systemClock } from "@ns/core/time";
 import { formatElapsedMs } from "@ns/core/time-format";
 import {
@@ -35,6 +36,12 @@ export interface LandLiveProgressEvent {
 
 export type LandLiveProgressSink = (event: LandLiveProgressEvent) => void;
 
+export interface FlowLandObservabilityChannels {
+	readonly progressIo?: NsCommandIo;
+	readonly liveProgress?: LandLiveProgressSink;
+	readonly externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
+}
+
 interface LandStackCommandStreamOptions {
 	/** Emit transient "running command" status. Off for non-interactive CLI. */
 	shouldShowRunningCommandStatus?: boolean;
@@ -46,6 +53,15 @@ interface LandStackCommandStreamOptions {
 	liveProgress?: LandLiveProgressSink;
 	/** Flow-owned structured external-call telemetry side channel. */
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
+}
+
+export function landCommandStreamObservabilityOptions(
+	channels: FlowLandObservabilityChannels,
+): Pick<LandStackCommandStreamOptions, "liveProgress" | "externalCallTelemetry"> {
+	return {
+		...optionalEntry("liveProgress", channels.liveProgress),
+		...optionalEntry("externalCallTelemetry", channels.externalCallTelemetry),
+	};
 }
 
 /**

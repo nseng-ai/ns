@@ -55,12 +55,12 @@ When stopping for judgment reasons, report to the human rather than grinding: a 
 
 ## End of run
 
-Finish with a run report: steps run and their statuses, the local branch stack and commits produced, Semantic Updates written, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch. Do not push, submit, open PRs, or launch a separate handoff unless the human separately asks after the runner run report.
+Finish with a run report: steps run and their statuses, the local branch stack and commits produced, Semantic Updates written, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch. Do not perform forbidden external actions or launch a separate handoff unless the human separately asks after the runner run report.
 
 ## Hard boundaries
 
 - One judgment checkpoint per step: never begin the next step without reading the previous checkpoint and deciding.
-- Never push, submit, publish, merge, open PRs, or perform write-capable external actions — the run ends with local stacked branches handed back to the normal Graphite/flow workflow. In particular, no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR leaves the machine from an autorun.
+- Canonical forbidden-action wording (source: `ts/packages/capabilities/objective/src/runner/prompt.ts`, `OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE`): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization." The run ends with local stacked branches handed back to the normal Graphite/flow workflow.
 - Never commit on trunk; never write Objective tracking silently — tracking goes through `objective-update` only, between steps.
 - Never mutate the worktree between a step's begin and finish; the gate fails the step loudly if you do.
 - Stop conditions come from the Objective's prose and the list above, not from optimism about the next step.

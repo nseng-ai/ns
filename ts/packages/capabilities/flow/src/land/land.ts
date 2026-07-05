@@ -1,11 +1,14 @@
 import { runWithNsCommandIo } from "@ns/kernel/command-io";
 import type { NsCommandIo, NsConfirmOptions } from "@ns/kernel/sdk";
 import type { ExecOutputListener } from "@ns/core/command";
+import { optionalEntry } from "@ns/core/primitives";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createCliCommandIo } from "@ns/kernel/command-io";
 import {
 	createLandUiCommandIo,
+	landCommandStreamObservabilityOptions,
 	LandStackCommandStream,
+	type FlowLandObservabilityChannels,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
 import type {
@@ -36,7 +39,11 @@ import type {
 } from "./stack/types.ts";
 
 export type { ExtensionMode, NotifyLevel, PrintOutput } from "./stack/types.ts";
-export type { FlowLandExternalCallTelemetryEvent, FlowLandExternalCallTelemetrySink };
+export type {
+	FlowLandExternalCallTelemetryEvent,
+	FlowLandExternalCallTelemetrySink,
+	FlowLandObservabilityChannels,
+};
 export type { ValidPullRequestView } from "../land/isolated-fast-path.ts";
 export { isIsolatedFastPath, parsePullRequestView } from "../land/isolated-fast-path.ts";
 
@@ -89,11 +96,7 @@ export type LandCliConfirmPrompt = (
 	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
-interface RunLandCommandOptions {
-	progressIo?: NsCommandIo;
-	liveProgress?: LandLiveProgressSink;
-	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
-}
+type RunLandCommandOptions = FlowLandObservabilityChannels;
 
 async function runLandCommand(
 	pi: LandExtensionAPI,
@@ -123,20 +126,14 @@ async function runLandCommand(
 	const commandStream = new LandStackCommandStream(progressIo ?? createLandUiCommandIo(pi, ctx), {
 		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
-		...(options.externalCallTelemetry === undefined
-			? {}
-			: { externalCallTelemetry: options.externalCallTelemetry }),
+		...landCommandStreamObservabilityOptions(options),
 	});
 	const runtime = createLandRuntime(pi, commandStream);
 	return await runLandingDispatch({
 		runtime,
 		ctx,
 		parsedArgs: args.value,
-		...(progressIo === undefined ? {} : { progressIo }),
-		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
-		...(options.externalCallTelemetry === undefined
-			? {}
-			: { externalCallTelemetry: options.externalCallTelemetry }),
+		observabilityChannels: options,
 	});
 }
 
@@ -191,8 +188,11 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	const confirm = input.confirm;
 	const caps = input.caps;
 	const progressIo = input.progressIo ?? createCliCommandIo(input);
-	const liveProgress = input.liveProgress;
-	const externalCallTelemetry = input.externalCallTelemetry;
+	const observabilityChannels: FlowLandObservabilityChannels = {
+		progressIo,
+		...optionalEntry("liveProgress", input.liveProgress),
+		...optionalEntry("externalCallTelemetry", input.externalCallTelemetry),
+	};
 	const outcome = await runWithNsCommandIo(
 		progressIo,
 		async () =>
@@ -224,11 +224,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 									renderLandConfirmationDetails(caps, details),
 							}),
 				},
-				{
-					progressIo,
-					...(liveProgress === undefined ? {} : { liveProgress }),
-					...(externalCallTelemetry === undefined ? {} : { externalCallTelemetry }),
-				},
+				observabilityChannels,
 			),
 	);
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;

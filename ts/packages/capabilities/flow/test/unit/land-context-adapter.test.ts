@@ -6,7 +6,12 @@ import { createLandContext } from "../../src/land/stack/land-context-adapter.ts"
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { createLandGraphiteCommandChannel } from "../../src/land/stack/graphite-command-channel.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
-import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
+import {
+	formatLiveBranchTips,
+	metadataDbJson,
+	TOPOLOGY_COMMAND,
+	topologyArgs,
+} from "./land-test-helpers.ts";
 
 const ROOT = "/repo";
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
@@ -206,12 +211,6 @@ describe("land context adapter facts", () => {
 
 	test("snapshots backup refs with the existing rotate-prune-write git argv", async () => {
 		const oldRef = `${BACKUP_REF_NAMESPACE}/old`;
-		const backupSnapshotListArgs = [
-			"for-each-ref",
-			"--format=%(refname)%09%(objectname)",
-			"refs/heads/feature-a",
-			"refs/heads/feature-b",
-		];
 		const backupSnapshotFetchArgs = [
 			"fetch",
 			"--quiet",
@@ -226,11 +225,13 @@ describe("land context adapter facts", () => {
 				stdout: `${oldRef}\n`,
 			}),
 			step("git", ["update-ref", "-d", oldRef]),
-			step("git", backupSnapshotListArgs, {
-				stdout: [
-					"refs/heads/feature-a\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					"refs/heads/feature-b\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				].join("\n"),
+			step("git", FOR_EACH_REF_ARGS, {
+				stdout: formatLiveBranchTips(["feature-a", "feature-b"], {
+					shaOverrides: {
+						"feature-a": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						"feature-b": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					},
+				}),
 			}),
 			step("git", backupSnapshotFetchArgs),
 		]);
@@ -262,8 +263,8 @@ describe("land context adapter facts", () => {
 			},
 			{
 				command: "git",
-				args: backupSnapshotListArgs,
-				options: { cwd: ROOT, timeout: 30000 },
+				args: FOR_EACH_REF_ARGS,
+				options: { cwd: ROOT, timeout: 10000 },
 			},
 			{
 				command: "git",
@@ -305,10 +306,10 @@ describe("land context adapter facts", () => {
 			}),
 		).resolves.toEqual({ type: "retained", branch: "feature-a", path: "/repo-slot" });
 		await expect(
-			context.graphite.restackUpstack({ repoRoot: ROOT, branch: "feature-b" }),
+			context.graphite.restack({ repoRoot: ROOT, branch: "feature-b", scope: "upstack" }),
 		).resolves.toMatchObject({ type: "success" });
 		await expect(
-			context.graphite.restackBranchOnly({ repoRoot: ROOT, branch: "feature-b" }),
+			context.graphite.restack({ repoRoot: ROOT, branch: "feature-b", scope: "branch-only" }),
 		).resolves.toMatchObject({ type: "success" });
 		await expect(
 			context.graphite.submitUpdate({ repoRoot: ROOT, branch: "feature-b", force: true }),

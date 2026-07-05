@@ -7,6 +7,7 @@ import {
 	bucketPresentation,
 	countsSummary,
 	buildCheckDetailRows,
+	effectiveBranch,
 	buildCheckRowLabel,
 	buildStackEntryRowLabel,
 	previewChecksStackEntries,
@@ -408,9 +409,8 @@ export class PrPreviewChecksView implements Component {
 
 	private moveStackSelection(delta: number): void {
 		const entries = previewChecksStackEntries(this.model);
-		if (entries.length <= 1) return;
-		const next = clamp(this.selectedTargetIndex + delta, 0, entries.length - 1);
-		if (next === this.selectedTargetIndex) return;
+		const next = moveIndex(this.selectedTargetIndex, delta, entries.length - 1);
+		if (next === null) return;
 		this.selectedTargetIndex = next;
 		this.selectedCheckIndex = 0;
 		this.listScroll = 0;
@@ -420,9 +420,9 @@ export class PrPreviewChecksView implements Component {
 
 	private moveCheckSelection(delta: number): void {
 		const entry = previewChecksStackEntries(this.model)[this.selectedTargetIndex];
-		if (entry === undefined || entry.checks.length === 0) return;
-		const next = clamp(this.selectedCheckIndex + delta, 0, entry.checks.length - 1);
-		if (next === this.selectedCheckIndex) return;
+		if (entry === undefined) return;
+		const next = moveIndex(this.selectedCheckIndex, delta, entry.checks.length - 1);
+		if (next === null) return;
 		this.selectedCheckIndex = next;
 		this.detailScroll = 0;
 		this.tui.requestRender();
@@ -494,13 +494,13 @@ export function buildPreviewHeaderLines(model: PrPreviewChecksViewModel): string
 	const entries = previewChecksStackEntries(model);
 	if (entries.length > 1) {
 		const counts = aggregatePreviewChecksCounts(entries);
-		const current = model.target.head_ref_name ?? model.target.branch ?? "?";
+		const current = effectiveBranch(model.target) ?? "?";
 		return [
 			`Stack checks preview · ${entries.length} PRs · current ${current}`,
 			`checks ${countsSummary(counts)} · snapshot ${model.fetchedAt.toISOString()}`,
 		];
 	}
-	const head = model.target.head_ref_name ?? model.target.branch ?? "?";
+	const head = effectiveBranch(model.target) ?? "?";
 	const base = model.target.base_ref_name ?? "?";
 	const counts = model.counts;
 	return [
@@ -520,12 +520,16 @@ export function buildEmptyStateLines(model: PrPreviewChecksViewModel): string[] 
 
 function initialTargetIndex(model: PrPreviewChecksViewModel): number {
 	const entries = previewChecksStackEntries(model);
-	const modelBranch = model.target.head_ref_name ?? model.target.branch;
+	const modelBranch = effectiveBranch(model.target);
 	if (modelBranch === null) return 0;
-	const index = entries.findIndex(
-		(entry) => (entry.target.head_ref_name ?? entry.target.branch) === modelBranch,
-	);
+	const index = entries.findIndex((entry) => effectiveBranch(entry.target) === modelBranch);
 	return index === -1 ? 0 : index;
+}
+
+function moveIndex(current: number, delta: number, max: number): number | null {
+	if (max < 0) return null;
+	const next = clamp(current + delta, 0, max);
+	return next === current ? null : next;
 }
 
 function createLogLoadSignal(timeoutMs: number): AbortSignal {

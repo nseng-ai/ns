@@ -22,12 +22,29 @@ export function metadataDbJson(
 	);
 }
 
-export function formatLiveBranchTips(branches: readonly string[]): string {
-	if (branches.length === 0) return "";
-	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
+export interface FormatLiveBranchTipsOptions {
+	readonly shaOverrides?: Readonly<Record<string, string>>;
+	readonly shaForBranch?: (branch: string) => string | undefined;
+	readonly defaultSha?: string;
 }
 
-export function formatLiveBranchTip(branch: string): string {
+export function formatLiveBranchTips(
+	branches: readonly string[],
+	options: FormatLiveBranchTipsOptions = {},
+): string {
+	if (branches.length === 0) return "";
+	return `${branches.map((branch) => formatLiveBranchTip(branch, options)).join("\n")}\n`;
+}
+
+export function formatLiveBranchTip(
+	branch: string,
+	options: FormatLiveBranchTipsOptions = {},
+): string {
 	if (branch.includes("\t")) return branch;
-	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
+	const sha =
+		options.shaOverrides?.[branch] ??
+		options.shaForBranch?.(branch) ??
+		options.defaultSha ??
+		"0".repeat(40);
+	return `${branch}\t${sha}\t2026-01-01T00:00:00Z`;
 }

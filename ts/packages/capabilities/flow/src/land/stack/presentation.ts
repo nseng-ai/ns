@@ -10,7 +10,11 @@ import { formatCommandDetails } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
 import { landUsageOptionRows, landUsageTokens } from "./flags.ts";
-import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
+import {
+	formatGraphiteOperation,
+	restackOperation,
+	restackTargetForSubmit,
+} from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement } from "./landing-plan.ts";
 import type {
 	CommandStreamMessageDetails,
@@ -92,7 +96,7 @@ export function formatPlan(plan: FlowLandingPlan): string {
 		}
 		if (restackTarget) {
 			lines.push(
-				`  Command: ${formatGraphiteOperation({ kind: "restack-upstack", branch: restackTarget })}`,
+				`  Command: ${formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))}`,
 			);
 		}
 		lines.push(

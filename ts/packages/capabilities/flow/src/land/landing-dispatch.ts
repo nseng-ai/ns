@@ -1,7 +1,6 @@
-import type { NsCommandIo } from "@ns/kernel/sdk";
+import { optionalEntry } from "@ns/core/primitives";
 import { executeStackLanding } from "./land-stack.ts";
-import type { LandLiveProgressSink } from "./stack/command-stream.ts";
-import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
+import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./stack/land-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
@@ -22,16 +21,14 @@ interface RunLandingDispatchOptions {
 	runtime: LandRuntime;
 	ctx: PrintAwareLandStackCommandContext;
 	parsedArgs: ParsedArgs;
-	progressIo?: NsCommandIo;
-	liveProgress?: LandLiveProgressSink;
-	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
+	observabilityChannels: FlowLandObservabilityChannels;
 }
 
 export async function runLandingDispatch(
 	options: RunLandingDispatchOptions,
 ): Promise<LandStackOutcome> {
-	const progressIo = options.progressIo;
 	const { runtime } = options;
+	const { observabilityChannels } = options;
 	const shape = await loadLandingShape(runtime.commands, options.ctx.cwd, {
 		graphite: runtime.graphite,
 	});
@@ -61,7 +58,7 @@ export async function runLandingDispatch(
 			ctx: options.ctx,
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
-			...(progressIo === undefined ? {} : { progressIo }),
+			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
 		return await finishAfterLanding(outcome, {
 			ctx: options.ctx,
@@ -83,11 +80,7 @@ export async function runLandingDispatch(
 		...(options.parsedArgs.shouldSkipConfirmation
 			? {}
 			: { preMergeConfirmation: "already-approved" }),
-		...(progressIo === undefined ? {} : { io: progressIo }),
-		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
-		...(options.externalCallTelemetry === undefined
-			? {}
-			: { externalCallTelemetry: options.externalCallTelemetry }),
+		observabilityChannels,
 	});
 	return await finishAfterLanding(outcome, {
 		ctx: options.ctx,

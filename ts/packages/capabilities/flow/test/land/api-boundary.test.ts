@@ -174,11 +174,7 @@ describe("@ns/flow/land API boundary", () => {
 						result: { stdout: "", stderr: "", code: 0, killed: false },
 					}),
 					deleteLocalBranch: async () => ({ type: "deleted" }),
-					restackUpstack: async () => ({
-						type: "success",
-						result: { stdout: "", stderr: "", code: 0, killed: false },
-					}),
-					restackBranchOnly: async () => ({
+					restack: async () => ({
 						type: "success",
 						result: { stdout: "", stderr: "", code: 0, killed: false },
 					}),

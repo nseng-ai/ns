@@ -1,4 +1,5 @@
 import { formatCommand } from "@ns/core/command";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ns/capability-kit/git";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import {
 	landCompleted,
@@ -36,8 +37,7 @@ import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,
 	getDownstackNoCheckoutOperation,
-	restackBranchOnlyOperation,
-	restackUpstackOperation,
+	restackOperation,
 	submitUpdateOperation,
 	type LandGraphiteCommandChannel,
 	type LandGraphiteOperation,
@@ -131,17 +131,11 @@ export function createLandContext(
 				refreshBranchFromRemote({ graphite, repoRoot, branch, checkedOutConflictHandling }),
 			deleteLocalBranch: async ({ repoRoot, branch, checkedOutConflictHandling }) =>
 				deleteLocalBranch({ graphite, repoRoot, branch, checkedOutConflictHandling }),
-			restackUpstack: async ({ repoRoot, branch }) =>
+			restack: async ({ repoRoot, branch, scope }) =>
 				runGraphiteMutation({
 					graphite,
 					repoRoot,
-					operation: restackUpstackOperation(branch),
-				}),
-			restackBranchOnly: async ({ repoRoot, branch }) =>
-				runGraphiteMutation({
-					graphite,
-					repoRoot,
-					operation: restackBranchOnlyOperation(branch),
+					operation: restackOperation({ branch, scope }),
 				}),
 			submitUpdate: async ({ repoRoot, branch, force }) =>
 				runGraphiteMutation({
@@ -206,7 +200,7 @@ interface PrepareGraphiteMutationOptions {
 	readonly repoRoot: string;
 	readonly operation: Extract<
 		LandGraphiteOperation,
-		{ readonly kind: "submit-update" | "restack-upstack" | "restack-branch-only" }
+		{ readonly kind: "submit-update" | "restack" }
 	>;
 	readonly failureCode: string;
 	readonly failureMessage: string;
@@ -281,7 +275,7 @@ async function runGraphiteMutation(options: {
 	readonly repoRoot: string;
 	readonly operation: Extract<
 		LandGraphiteOperation,
-		{ readonly kind: "submit-update" | "restack-upstack" | "restack-branch-only" }
+		{ readonly kind: "submit-update" | "restack" }
 	>;
 }): Promise<LandGraphiteCommandResult> {
 	const result = await options.graphite.run({
@@ -331,7 +325,7 @@ async function prepareRestackForSubmit(options: {
 	return await prepareGraphiteMutation({
 		graphite: options.graphite,
 		repoRoot: options.repoRoot,
-		operation: restackUpstackOperation(options.branch),
+		operation: restackOperation({ branch: options.branch, scope: "upstack" }),
 		failureCode: "submit_restack_failed",
 		failureMessage: "gt restack failed before any PRs were landed.",
 	});
@@ -490,79 +484,67 @@ async function snapshotBackupRefs(
 async function loadBackupSnapshotShas(
 	options: SnapshotBackupRefsOptions,
 ): Promise<LandResult<ReadonlyMap<string, string>>> {
-	const refs = options.branches.map(localBranchRef);
-	const args = ["for-each-ref", "--format=%(refname)%09%(objectname)", ...refs];
-	const listed = await exec({
-		pi: options.pi,
-		command: "git",
-		args,
-		cwd: options.repoRoot,
-		timeoutMs: GIT_TIMEOUT_MS,
-	});
-	const commandDisplay = formatCommand("git", args);
-	if (listed.code !== 0) {
+	const tips = await loadLiveLocalBranchTips(options.pi, options.repoRoot);
+	const commandDisplay = formatCommand("git", GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS);
+	if (tips.type === "failure") {
 		return landFailure({
 			type: "boundary",
 			phase: "merge",
 			source: "git",
 			code: "backup_ref_snapshot_list_failed",
-			message: `Could not list local branch SHAs for pre-land backup refs; no PRs were landed.\n${formatCommandDetails(listed, commandDisplay)}`,
+			message: `Could not list local branch SHAs for pre-land backup refs; no PRs were landed.\n${tips.failure.message}`,
 			displayCommand: commandDisplay,
 		});
 	}
 
-	const shasByRef = parseBackupSnapshotShaRows(listed.stdout);
-	if (shasByRef.type === "failure") {
-		return landFailure({
-			type: "boundary",
-			phase: "merge",
-			source: "git",
-			code: "backup_ref_snapshot_parse_failed",
-			message: `Could not parse local branch SHAs for pre-land backup refs; no PRs were landed.\n${shasByRef.failure.message}`,
-			displayCommand: commandDisplay,
-		});
-	}
-
+	const requestedBranches = new Set(options.branches);
 	const shas = new Map<string, string>();
-	for (const branch of options.branches) {
-		const ref = localBranchRef(branch);
-		const sha = shasByRef.value.get(ref);
-		if (sha === undefined) {
-			return landFailure({
-				type: "boundary",
-				phase: "merge",
-				source: "git",
-				code: "backup_ref_snapshot_branch_failed",
-				message: `Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${commandDisplay} did not return ${ref}.`,
-				displayCommand: commandDisplay,
-			});
+	for (const tip of tips.value) {
+		if (!requestedBranches.has(tip.name)) continue;
+		if (tip.headSha == null) {
+			return landFailure(backupRefSnapshotBranchFailure(tip.name, commandDisplay));
 		}
-		shas.set(branch, sha);
+		shas.set(tip.name, tip.headSha);
+	}
+
+	for (const branch of options.branches) {
+		if (!shas.has(branch))
+			return landFailure(backupRefSnapshotBranchFailure(branch, commandDisplay));
 	}
 	return landSuccess(shas);
 }
 
-function parseBackupSnapshotShaRows(stdout: string): LandStackResult<ReadonlyMap<string, string>> {
-	const shas = new Map<string, string>();
-	for (const line of stdout.split(/\r?\n/).filter(Boolean)) {
-		const [ref, sha, extra] = line.split("\t");
-		if (!ref || !sha || extra !== undefined) {
-			return failure(landStackFailure(`Malformed git for-each-ref row: ${line}`));
-		}
-		shas.set(ref, sha);
-	}
-	return success(shas);
+function backupRefSnapshotBranchFailure(branch: string, commandDisplay: string): LandingFailure {
+	return {
+		type: "boundary",
+		phase: "merge",
+		source: "git",
+		code: "backup_ref_snapshot_branch_failed",
+		message: `Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${commandDisplay} did not return an exact SHA for ${branch}.`,
+		displayCommand: commandDisplay,
+	};
+}
+
+function missingBackupSnapshotShaForWrite(branch: string): LandingFailure {
+	return {
+		type: "boundary",
+		phase: "merge",
+		source: "git",
+		code: "backup_ref_snapshot_sha_missing",
+		message: `Could not write pre-land backup ref for ${branch}; no PRs were landed. Exact snapshot SHA was missing before backup ref write.`,
+	};
 }
 
 async function writeBackupSnapshotRefs(
 	options: SnapshotBackupRefsOptions & { readonly shas: ReadonlyMap<string, string> },
 ): Promise<LandingFailure | undefined> {
 	if (options.branches.length === 0) return undefined;
-	const refspecs = options.branches.map((branch) => {
+	const refspecs: string[] = [];
+	for (const branch of options.branches) {
 		const sha = options.shas.get(branch);
-		const source = sha ?? localBranchRef(branch);
-		return `+${source}:${BACKUP_REF_NAMESPACE}/${branch}`;
-	});
+		if (sha === undefined) return missingBackupSnapshotShaForWrite(branch);
+		refspecs.push(`+${sha}:${BACKUP_REF_NAMESPACE}/${branch}`);
+	}
 	const args = ["fetch", "--quiet", "--no-tags", ".", ...refspecs];
 	const fetched = await exec({
 		pi: options.pi,

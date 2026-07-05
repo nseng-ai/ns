@@ -7,6 +7,7 @@ import type { LandStackCommandStream } from "./command-stream.ts";
 import {
 	formatGraphiteOperation,
 	parseGitCheckedOutElsewhere,
+	restackOperation,
 	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
@@ -19,7 +20,7 @@ import { validateOpenPrBasics } from "../api.ts";
 import { loadPr } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
-import type { LandContext } from "../api.ts";
+import type { LandContext, LandGraphiteRestackScope } from "../api.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
@@ -57,7 +58,6 @@ interface MaintenanceTargetPlan {
 	readonly branches: readonly string[];
 	readonly refreshCheckedOutConflictHandling: "defer" | "fail";
 	readonly deleteCheckedOutConflictHandling: "retain" | "fail";
-	readonly restackScope: "branch-only" | "upstack";
 	readonly skippedScopeText: (branch: string) => string;
 	readonly isOptionalDescendant: boolean;
 	readonly shouldHaltOnRefreshFailure: boolean;
@@ -271,7 +271,7 @@ async function refreshExpectedShaAfterRestack(
 	options: MaintenanceBranchOperationContext,
 ): Promise<GraphiteMaintenanceOutcome | undefined> {
 	const { runtime, repoRoot, plan, prNumber, maintenanceBranch, state, maintenance } = options;
-	if (maintenance.restackScope === "branch-only") return undefined;
+	if (!shouldRefreshExpectedShasAfterRestack(maintenance)) return undefined;
 	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
 	// expectation for later forced refresh targets; comparing against pre-restack
 	// SHAs would false-positive on every 3+ branch stack and on forked descendants.
@@ -661,15 +661,11 @@ async function restackMaintenanceBranch(
 ): Promise<GraphiteMaintenanceOutcome> {
 	const { landContext, repoRoot, prNumber, maintenanceBranch, maintenance, ctx } = options;
 	setStatus(ctx, `restacking ${maintenanceBranch}...`);
-	const restacked = await (maintenance.restackScope === "branch-only"
-		? landContext.graphite.restackBranchOnly({
-				repoRoot,
-				branch: maintenanceBranch,
-			})
-		: landContext.graphite.restackUpstack({
-				repoRoot,
-				branch: maintenanceBranch,
-			}));
+	const restacked = await landContext.graphite.restack({
+		repoRoot,
+		branch: maintenanceBranch,
+		scope: scopeForMaintenanceRestack(maintenance),
+	});
 	if (restacked.type !== "failure") return { kind: "proceed" };
 
 	return failOrWarn(maintenance.severity, {
@@ -694,10 +690,9 @@ function optionalDescendantRefreshDeferredWarning(
 	getCommandDisplay: string,
 	checkoutConflict: CheckedOutElsewhere,
 ): LandingWarning {
-	const restackCommandDisplay = formatGraphiteOperation({
-		kind: "restack-upstack",
-		branch: descendantBranch,
-	});
+	const restackCommandDisplay = formatGraphiteOperation(
+		restackOperation({ branch: descendantBranch, scope: "upstack" }),
+	);
 	const submitCommandDisplay = formatGraphiteOperation({
 		kind: "submit-update",
 		branch: descendantBranch,
@@ -751,6 +746,14 @@ function localCleanupAndDescendantScopeText(branch: string): string {
 	return `local branch ${branch} cleanup and descendant restack/update were`;
 }
 
+function scopeForMaintenanceRestack(maintenance: MaintenanceTargetPlan): LandGraphiteRestackScope {
+	return maintenance.isOptionalDescendant ? "upstack" : "branch-only";
+}
+
+function shouldRefreshExpectedShasAfterRestack(maintenance: MaintenanceTargetPlan): boolean {
+	return scopeForMaintenanceRestack(maintenance) === "upstack";
+}
+
 function buildMaintenanceTargetPlan(
 	mode: MaintenanceMode,
 	branches: readonly string[],
@@ -763,7 +766,6 @@ function buildMaintenanceTargetPlan(
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
-				restackScope: "branch-only",
 				skippedScopeText: localCleanupOnlyScopeText,
 				isOptionalDescendant: false,
 				shouldHaltOnRefreshFailure: true,
@@ -775,7 +777,6 @@ function buildMaintenanceTargetPlan(
 				branches,
 				refreshCheckedOutConflictHandling: "defer",
 				deleteCheckedOutConflictHandling: "fail",
-				restackScope: "upstack",
 				skippedScopeText: localCleanupAndDescendantScopeText,
 				isOptionalDescendant: true,
 				shouldHaltOnRefreshFailure: false,
@@ -787,7 +788,6 @@ function buildMaintenanceTargetPlan(
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "retain",
-				restackScope: "branch-only",
 				skippedScopeText: localCleanupOnlyScopeText,
 				isOptionalDescendant: false,
 				shouldHaltOnRefreshFailure: false,
@@ -799,7 +799,6 @@ function buildMaintenanceTargetPlan(
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
-				restackScope: "upstack",
 				skippedScopeText: localCleanupAndDescendantScopeText,
 				isOptionalDescendant: true,
 				shouldHaltOnRefreshFailure: false,

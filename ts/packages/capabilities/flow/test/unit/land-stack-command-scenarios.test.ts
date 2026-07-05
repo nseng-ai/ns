@@ -15,6 +15,7 @@ import type {
 	FlowLandExternalCallCategory,
 	FlowLandExternalCallTelemetryEvent,
 } from "../../src/land/stack/external-call-telemetry.ts";
+import { summarizeExternalCalls } from "../../src/land/stack/external-call-telemetry-summary.ts";
 import { LAND_PHASES } from "../../src/phase-stream/phase-stream-specs.ts";
 import {
 	executeStackLanding,
@@ -32,7 +33,6 @@ import {
 	BACKUP_ROTATION_STEP,
 	backupRefSteps,
 	backupSnapshotFetchArgs,
-	backupSnapshotListArgs,
 } from "./land-stack-backup-ref-fixtures.ts";
 import {
 	createChildrenRecheckStep,
@@ -379,21 +379,15 @@ function buildRepoIntro(options: RepoIntroOptions): ScriptedExec[] {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
 		step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
-			stdout: formatLiveBranchTips(
-				liveBranches.map((branch) => liveBranchTipForTest(branch, options.branchShaOverrides)),
-			),
+			stdout: formatLiveBranchTips(liveBranches, {
+				...(options.branchShaOverrides === undefined
+					? {}
+					: { shaOverrides: options.branchShaOverrides }),
+				shaForBranch: testShaForBranch,
+			}),
 		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
-}
-
-function liveBranchTipForTest(
-	branch: string,
-	shaOverrides: Record<string, string> | undefined,
-): string {
-	if (branch.includes("\t")) return branch;
-	const sha = shaOverrides?.[branch] ?? testShaForBranch(branch);
-	return `${branch}\t${sha}\t2026-01-01T00:00:00Z`;
 }
 
 function testShaForBranch(branch: string): string {
@@ -526,10 +520,6 @@ function backupRefStepsForNumberedBranches(start: number, end: number): Scripted
 	);
 }
 
-function elevenPrLandingScript(): ScriptedExec[] {
-	return linearStackLandingScript(11);
-}
-
 function linearStackLandingScript(size: number): ScriptedExec[] {
 	return [
 		...numberedPreflight({ end: size, current: size }),
@@ -543,9 +533,13 @@ function linearStackLandingScript(size: number): ScriptedExec[] {
 	].flat();
 }
 
+type MergeNumberedBranchOptions =
+	| { next: number; stackEnd: number; finalCheckedOut?: boolean; mergeCode?: number }
+	| { next?: undefined; stackEnd?: undefined; finalCheckedOut?: boolean; mergeCode?: number };
+
 function mergeNumberedBranch(
 	index: number,
-	options: { next?: number; finalCheckedOut?: boolean; mergeCode?: number; stackEnd?: number } = {},
+	options: MergeNumberedBranchOptions = {},
 ): ScriptedExec[] {
 	const branch = numberedBranch(index);
 	const sha = numberedSha(index);
@@ -912,6 +906,7 @@ interface ExternalCallBaselineSummary {
 function summarizeExternalCallBaseline(
 	events: readonly FlowLandExternalCallTelemetryEvent[],
 ): ExternalCallBaselineSummary {
+	const totals = summarizeExternalCalls(events);
 	const categories: Record<FlowLandExternalCallCategory, number> = {
 		graphite: 0,
 		"github-cli": 0,
@@ -919,20 +914,15 @@ function summarizeExternalCallBaseline(
 		git: 0,
 		"other-command": 0,
 	};
-	const githubQuota = { graphqlRequests: 0, restRequests: 0, rateLimitCost: 0 };
-	let failures = 0;
-
-	for (const event of events) {
-		categories[event.category] += event.count;
-		if (event.status === "failure") failures += event.count;
-		if (event.quota !== undefined) {
-			githubQuota.graphqlRequests += event.quota.graphqlRequests;
-			githubQuota.restRequests += event.quota.restRequests;
-			githubQuota.rateLimitCost += event.quota.rateLimitCost;
-		}
+	for (const item of totals.byCategory) {
+		categories[item.category] = item.calls;
 	}
-
-	return { calls: events.length, failures, categories, githubQuota };
+	return {
+		calls: totals.calls,
+		failures: totals.failures,
+		categories,
+		githubQuota: totals.githubQuota,
+	};
 }
 
 async function captureConsole<T>(run: () => Promise<T>): Promise<T> {
@@ -1022,7 +1012,7 @@ describe("land-stack command scenarios", () => {
 		const liveProgressEvents: LandLiveProgressEvent[] = [];
 		const { pi, notifications, confirmations, messages } = await runLandStack(
 			"--yes",
-			elevenPrLandingScript(),
+			linearStackLandingScript(11),
 			{ executeOptions: { liveProgress: (event) => liveProgressEvents.push(event) } },
 		);
 
@@ -1117,7 +1107,7 @@ describe("land-stack command scenarios", () => {
 	test("interactive large-stack landing asks one stack-path confirmation", async () => {
 		const { pi, notifications, confirmations, messages } = await runLandStack(
 			"",
-			elevenPrLandingScript(),
+			linearStackLandingScript(11),
 			{ confirms: [true] },
 		);
 
@@ -1137,7 +1127,7 @@ describe("land-stack command scenarios", () => {
 			...numberedPreflight({ end: 11, current: 11 }),
 			...backupRefStepsForNumberedBranches(1, 11),
 			...Array.from({ length: 9 }, (_, offset) => offset + 1).flatMap((index) =>
-				mergeNumberedBranch(index, { next: index + 1 }),
+				mergeNumberedBranch(index, { next: index + 1, stackEnd: 11 }),
 			),
 			mergeNumberedBranch(10, { mergeCode: 1 }),
 		].flat();
@@ -1482,7 +1472,7 @@ describe("land-stack command scenarios", () => {
 			(call, index) =>
 				index > staleDeleteIndex &&
 				call.command === "git" &&
-				sameArgs(call.args, backupSnapshotListArgs(["feature-a"])),
+				sameArgs(call.args, [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS]),
 		);
 		const snapshotWriteIndex = pi.execCalls.findIndex(
 			(call, index) =>
@@ -1541,8 +1531,8 @@ describe("land-stack command scenarios", () => {
 			...singleBranchPreflight(""),
 			BACKUP_ROTATION_STEP,
 			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE]),
-			step("git", backupSnapshotListArgs(["feature-a"]), {
-				stdout: `refs/heads/feature-a\t${SHA_A}\n`,
+			step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
+				stdout: formatLiveBranchTips(["feature-a"], { shaOverrides: { "feature-a": SHA_A } }),
 			}),
 			step("git", backupSnapshotFetchArgs(["feature-a"]), {
 				code: 1,

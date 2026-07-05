@@ -196,6 +196,8 @@ export interface RestackRequirement {
 	readonly parent: string;
 }
 
+export type LandGraphiteRestackScope = "branch-only" | "upstack";
+
 export type WorktreeConflict =
 	| CurrentWorktreeConflict
 	| ManagedSlotWorktree
@@ -327,13 +329,10 @@ export interface LandGraphiteGateway {
 		readonly branch: string;
 		readonly checkedOutConflictHandling: "fail" | "retain";
 	}): Promise<LandGraphiteDeleteLocalBranchResult>;
-	restackUpstack(request: {
+	restack(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-	}): Promise<LandGraphiteCommandResult>;
-	restackBranchOnly(request: {
-		readonly repoRoot: string;
-		readonly branch: string;
+		readonly scope: LandGraphiteRestackScope;
 	}): Promise<LandGraphiteCommandResult>;
 	submitUpdate(request: {
 		readonly repoRoot: string;

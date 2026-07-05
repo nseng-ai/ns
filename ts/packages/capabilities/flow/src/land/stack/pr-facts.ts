@@ -15,6 +15,18 @@ interface BatchedPullRequestParseResult {
 	readonly prs: ReadonlyMap<string, PullRequestSnapshot>;
 }
 
+interface GhJsonRequest<T> {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly args: readonly string[];
+	readonly execFailureMessage: string;
+	readonly parseFailureMessage: (error: unknown) => string;
+	readonly validationFailureMessage: string;
+	readonly parse: (value: unknown) => T | undefined;
+}
+
+const BATCHED_PULL_REQUEST_FACTS_MIN_BRANCHES = 3;
+
 export const GH_REPO_VIEW_NAME_WITH_OWNER_ARGS = ["repo", "view", "--json", "nameWithOwner"];
 
 export function batchedPullRequestFactsGraphqlArgs(
@@ -41,33 +53,16 @@ export async function loadPr(
 	branchOrNumber: string,
 ): Promise<LandStackResult<PullRequestSnapshot>> {
 	const args = ["pr", "view", branchOrNumber, "--json", PR_FIELDS];
-	const result = await exec({ pi, command: "gh", args, cwd: repoRoot, timeoutMs: GH_TIMEOUT_MS });
-	if (result.code !== 0) {
-		return failure(
-			landStackFailure(
-				`Could not load GitHub PR for ${branchOrNumber}.\n${formatCommandDetails(result, formatCommand("gh", args))}`,
-			),
-		);
-	}
-
-	let raw: unknown;
-	try {
-		raw = JSON.parse(result.stdout);
-	} catch (error) {
-		return failure(
-			landStackFailure(
-				`Failed to parse gh pr view output for ${branchOrNumber}: ${formatErrorMessage(error)}.`,
-			),
-		);
-	}
-
-	const pr = parsePullRequestSnapshot(raw);
-	if (pr === undefined) {
-		return failure(
-			landStackFailure(`gh pr view for ${branchOrNumber} did not return required PR fields.`),
-		);
-	}
-	return success(pr);
+	return await execAndParseJson({
+		pi,
+		repoRoot,
+		args,
+		execFailureMessage: `Could not load GitHub PR for ${branchOrNumber}.`,
+		parseFailureMessage: (error) =>
+			`Failed to parse gh pr view output for ${branchOrNumber}: ${formatErrorMessage(error)}.`,
+		validationFailureMessage: `gh pr view for ${branchOrNumber} did not return required PR fields.`,
+		parse: parsePullRequestSnapshot,
+	});
 }
 
 export async function loadPrsByBranch(
@@ -76,60 +71,71 @@ export async function loadPrsByBranch(
 	branches: readonly string[],
 ): Promise<LandStackResult<ReadonlyMap<string, PullRequestSnapshot>>> {
 	if (branches.length === 0) return success(new Map());
-	if (branches.length === 1) {
-		const [branch] = branches;
-		if (branch === undefined) return success(new Map());
-		const pr = await loadPr(pi, repoRoot, branch);
-		if (pr.type === "failure") return pr;
-		return success(new Map([[branch, pr.value]]));
+	if (branches.length < BATCHED_PULL_REQUEST_FACTS_MIN_BRANCHES) {
+		return await loadPrsByBranchSequentially(pi, repoRoot, branches);
 	}
 
 	const repo = await loadGitHubRepositoryName(pi, repoRoot);
 	if (repo.type === "failure") return repo;
 
 	const args = batchedPullRequestFactsGraphqlArgs(repo.value, branches);
-	const result = await exec({ pi, command: "gh", args, cwd: repoRoot, timeoutMs: GH_TIMEOUT_MS });
-	if (result.code !== 0) {
-		return failure(
-			landStackFailure(
-				`Could not load batched GitHub PR facts.\n${formatCommandDetails(result, formatCommand("gh", args))}`,
-			),
-		);
-	}
-
-	let raw: unknown;
-	try {
-		raw = JSON.parse(result.stdout);
-	} catch (error) {
-		return failure(
-			landStackFailure(
-				`Failed to parse batched gh api graphql PR output: ${formatErrorMessage(error)}.`,
-			),
-		);
-	}
-
-	const parsed = parseBatchedPullRequestFacts(raw, branches);
-	if (parsed === undefined) {
-		return failure(landStackFailure("Batched gh api graphql PR output had an unexpected shape."));
-	}
-	return success(parsed.prs);
+	const parsed = await execAndParseJson({
+		pi,
+		repoRoot,
+		args,
+		execFailureMessage: "Could not load batched GitHub PR facts.",
+		parseFailureMessage: (error) =>
+			`Failed to parse batched gh api graphql PR output: ${formatErrorMessage(error)}.`,
+		validationFailureMessage: "Batched gh api graphql PR output had an unexpected shape.",
+		parse: (value) => parseBatchedPullRequestFacts(value, branches),
+	});
+	if (parsed.type === "failure") return parsed;
+	return success(parsed.value.prs);
 }
 
 async function loadGitHubRepositoryName(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandStackResult<GitHubRepositoryName>> {
-	const result = await exec({
+	return await execAndParseJson({
 		pi,
-		command: "gh",
+		repoRoot,
 		args: GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
-		cwd: repoRoot,
+		execFailureMessage: "Could not resolve GitHub repository name.",
+		parseFailureMessage: (error) =>
+			`Failed to parse gh repo view output: ${formatErrorMessage(error)}.`,
+		validationFailureMessage: "gh repo view did not return nameWithOwner.",
+		parse: parseGitHubRepositoryName,
+	});
+}
+
+async function loadPrsByBranchSequentially(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+	branches: readonly string[],
+): Promise<LandStackResult<ReadonlyMap<string, PullRequestSnapshot>>> {
+	const prs = new Map<string, PullRequestSnapshot>();
+	for (const branch of branches) {
+		const pr = await loadPr(pi, repoRoot, branch);
+		if (pr.type === "failure") return pr;
+		prs.set(branch, pr.value);
+	}
+	return success(prs);
+}
+
+async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStackResult<T>> {
+	const args = [...request.args];
+	const result = await exec({
+		pi: request.pi,
+		command: "gh",
+		args,
+		cwd: request.repoRoot,
 		timeoutMs: GH_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
-				`Could not resolve GitHub repository name.\n${formatCommandDetails(result, formatCommand("gh", GH_REPO_VIEW_NAME_WITH_OWNER_ARGS))}`,
+				`${request.execFailureMessage}\n${formatCommandDetails(result, formatCommand("gh", args))}`,
 			),
 		);
 	}
@@ -138,16 +144,12 @@ async function loadGitHubRepositoryName(
 	try {
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
-		return failure(
-			landStackFailure(`Failed to parse gh repo view output: ${formatErrorMessage(error)}.`),
-		);
+		return failure(landStackFailure(request.parseFailureMessage(error)));
 	}
 
-	const repo = parseGitHubRepositoryName(raw);
-	if (repo === undefined) {
-		return failure(landStackFailure("gh repo view did not return nameWithOwner."));
-	}
-	return success(repo);
+	const parsed = request.parse(raw);
+	if (parsed === undefined) return failure(landStackFailure(request.validationFailureMessage));
+	return success(parsed);
 }
 
 function batchedPullRequestFactsQuery(branchCount: number): string {

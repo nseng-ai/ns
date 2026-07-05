@@ -1,9 +1,11 @@
 import type { NsCommandIo } from "@ns/kernel/sdk";
-import { formatErrorMessage } from "@ns/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
 import {
 	LandStackCommandStream,
 	createLandUiCommandIo,
+	landCommandStreamObservabilityOptions,
 	renderCommandStreamMessage,
+	type FlowLandObservabilityChannels,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
 import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
@@ -41,6 +43,7 @@ export interface ExecuteStackLandingOptions {
 	liveProgress?: LandLiveProgressSink;
 	graphite?: LandGraphiteCommandChannel;
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
+	observabilityChannels?: FlowLandObservabilityChannels;
 }
 
 export function registerLandStackRenderer(
@@ -65,13 +68,11 @@ export async function executeStackLanding(
 ): Promise<LandStackOutcome> {
 	const landed: LandedPr[] = [];
 	const warnings: LandingWarning[] = [];
-	const io = options.io ?? createLandUiCommandIo(pi, ctx);
+	const observabilityChannels = executeStackLandingObservabilityChannels(options);
+	const io = observabilityChannels.progressIo ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
-		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
-		...(options.externalCallTelemetry === undefined
-			? {}
-			: { externalCallTelemetry: options.externalCallTelemetry }),
+		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
 	const createdRuntime = createLandRuntime(pi, commandStream);
@@ -111,6 +112,18 @@ export async function executeStackLanding(
 	} finally {
 		setStatus(ctx, undefined);
 	}
+}
+
+function executeStackLandingObservabilityChannels(
+	options: ExecuteStackLandingOptions,
+): FlowLandObservabilityChannels {
+	return (
+		options.observabilityChannels ?? {
+			...optionalEntry("progressIo", options.io),
+			...optionalEntry("liveProgress", options.liveProgress),
+			...optionalEntry("externalCallTelemetry", options.externalCallTelemetry),
+		}
+	);
 }
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {

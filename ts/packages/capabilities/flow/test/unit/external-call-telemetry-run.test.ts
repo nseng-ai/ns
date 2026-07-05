@@ -94,7 +94,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 					elapsedMs: 25,
 					status: "success",
 					exitCode: 0,
-					killed: false,
+					wasKilled: false,
 					quota: {
 						kind: "static",
 						provider: "github",
@@ -111,7 +111,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 					elapsedMs: 40,
 					status: "success",
 					exitCode: 0,
-					killed: false,
+					wasKilled: false,
 				},
 			],
 		});
@@ -180,7 +180,7 @@ function telemetryEvent(
 		count: 1,
 		status: "success",
 		exitCode: 0,
-		killed: false,
+		wasKilled: false,
 		...overrides,
 	};
 }

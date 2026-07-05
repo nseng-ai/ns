@@ -8,6 +8,7 @@ import {
 import { loadCheckLogs } from "./preview-check-logs.ts";
 import {
 	aggregatePreviewChecksCounts,
+	effectiveBranch,
 	sortPreviewChecks,
 	type PrPreviewChecksCounts,
 	type PrPreviewChecksStackEntry,
@@ -113,6 +114,11 @@ interface PrPreviewChecksCommandRuntime extends PrPreviewChecksCommandOptions {
 	pi: ExtensionAPI;
 }
 
+interface PrPreviewChecksExecContext {
+	runtime: PrPreviewChecksCommandRuntime;
+	ctx: ExtensionContext;
+}
+
 export function createPrPreviewChecksCommand(
 	pi: ExtensionAPI,
 	options: PrPreviewChecksCommandOptions,
@@ -126,11 +132,9 @@ export function createPrPreviewChecksCommand(
 	};
 }
 
-async function runPrPreviewChecksCommand(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	rawArgs: string;
-	ctx: ExtensionContext;
-}): Promise<void> {
+async function runPrPreviewChecksCommand(
+	options: PrPreviewChecksExecContext & { rawArgs: string },
+): Promise<void> {
 	const { runtime, rawArgs, ctx } = options;
 	const parsedArgs = runtime.parseOptionalPrNumberArgs(
 		rawArgs,
@@ -181,11 +185,9 @@ async function runPrPreviewChecksCommand(options: {
 	}
 }
 
-async function loadSinglePreviewChecksViewModel(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-	args: readonly string[];
-}): Promise<CommandResult<PrPreviewChecksViewModel>> {
+async function loadSinglePreviewChecksViewModel(
+	options: PrPreviewChecksExecContext & { args: readonly string[] },
+): Promise<CommandResult<PrPreviewChecksViewModel>> {
 	const data = await execPrChecks({ ...options, label: "ns address exec pr-checks" });
 	if (data.type === "error") return data;
 	const prNumber = resolvedPrNumber(data.value);
@@ -204,10 +206,9 @@ async function loadSinglePreviewChecksViewModel(options: {
 	return { type: "ok", value: buildPreviewChecksViewModel(data.value, prNumber) };
 }
 
-async function loadStackPreviewChecksViewModel(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-}): Promise<CommandResult<PrPreviewChecksViewModel>> {
+async function loadStackPreviewChecksViewModel(
+	options: PrPreviewChecksExecContext,
+): Promise<CommandResult<PrPreviewChecksViewModel>> {
 	const stack = await execStackBranches(options);
 	if (stack.type === "error" || stack.value.branches.length === 0) {
 		return await fallbackToSinglePreviewChecksViewModel(options);
@@ -225,19 +226,15 @@ async function loadStackPreviewChecksViewModel(options: {
 	return { type: "ok", value: buildStackPreviewChecksViewModel(stack.value, entries) };
 }
 
-async function fallbackToSinglePreviewChecksViewModel(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-}): Promise<CommandResult<PrPreviewChecksViewModel>> {
+async function fallbackToSinglePreviewChecksViewModel(
+	options: PrPreviewChecksExecContext,
+): Promise<CommandResult<PrPreviewChecksViewModel>> {
 	return await loadSinglePreviewChecksViewModel({ ...options, args: [] });
 }
 
-async function execPrChecks(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-	args: readonly string[];
-	label: string;
-}): Promise<CommandResult<PreviewChecksData>> {
+async function execPrChecks(
+	options: PrPreviewChecksExecContext & { args: readonly string[]; label: string },
+): Promise<CommandResult<PreviewChecksData>> {
 	const result = await options.runtime.pi.exec(
 		"ns",
 		["address", "exec", "pr-checks", ...options.args, "--format", "json"],
@@ -253,10 +250,9 @@ async function execPrChecks(options: {
 	});
 }
 
-async function execStackBranches(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-}): Promise<CommandResult<StackBranchesData>> {
+async function execStackBranches(
+	options: PrPreviewChecksExecContext,
+): Promise<CommandResult<StackBranchesData>> {
 	const result = await options.runtime.pi.exec(
 		"ns",
 		["slot", "gt", "exec", "stack-branches", "--format", "json"],
@@ -273,11 +269,9 @@ async function execStackBranches(options: {
 	});
 }
 
-async function execBranchPrChecks(options: {
-	runtime: PrPreviewChecksCommandRuntime;
-	ctx: ExtensionContext;
-	branches: readonly string[];
-}): Promise<CommandResult<BranchPrChecksData>> {
+async function execBranchPrChecks(
+	options: PrPreviewChecksExecContext & { branches: readonly string[] },
+): Promise<CommandResult<BranchPrChecksData>> {
 	const result = await options.runtime.pi.exec(
 		"ns",
 		[
@@ -320,9 +314,7 @@ function buildStackPreviewChecksViewModel(
 	entries: readonly PrPreviewChecksStackEntry[],
 ): PrPreviewChecksViewModel {
 	const currentEntry =
-		entries.find(
-			(entry) => (entry.target.head_ref_name ?? entry.target.branch) === stack.current,
-		) ??
+		entries.find((entry) => effectiveBranch(entry.target) === stack.current) ??
 		entries[0] ??
 		unmappedStackEntry(stack.current);
 	const counts = aggregatePreviewChecksCounts(entries);
@@ -348,7 +340,7 @@ function buildPreviewChecksStackEntry(
 
 function unmappedStackEntry(branch: string): PrPreviewChecksStackEntry {
 	return {
-		target: mergeTargetWithFallback(emptyPreviewTarget(), fallbackTargetForUnmappedBranch(branch)),
+		target: fallbackTargetForUnmappedBranch(branch),
 		counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
 		checks: [],
 	};
@@ -373,8 +365,9 @@ function fallbackTargetFromPreviewData(
 	data: PreviewChecksData,
 	prNumber: number,
 ): PrPreviewChecksTarget {
-	const branch = data.target.head_ref_name ?? data.target.branch ?? "";
+	const branch = effectiveBranch(data.target) ?? "";
 	return {
+		...emptyPreviewTarget(),
 		pr_number: prNumber,
 		title: data.target.title ?? "(untitled)",
 		url: data.target.url ?? "",
@@ -387,13 +380,10 @@ function fallbackTargetFromPreviewData(
 
 function fallbackTargetForUnmappedBranch(branch: string): PrPreviewChecksTarget {
 	return {
-		pr_number: null,
+		...emptyPreviewTarget(),
 		title: "(no open PR mapped)",
-		url: null,
 		branch,
 		head_ref_name: branch,
-		base_ref_name: null,
-		head_ref_oid: null,
 	};
 }
 
