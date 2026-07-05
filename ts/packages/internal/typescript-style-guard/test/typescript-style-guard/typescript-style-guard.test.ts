@@ -581,9 +581,9 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
-			name: "allowlisted sdk to capability debt is accepted",
+			name: "retired sdk to slot capability debt is rejected",
 			edges: [{ from: "@ns/kernel", to: "@ns/slot" }],
-			expectedViolation: false,
+			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
 			name: "capability to capability is allowed",

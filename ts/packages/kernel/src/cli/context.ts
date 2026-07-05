@@ -4,19 +4,23 @@ import {
 	createClinkrInteraction,
 	renderCapabilitiesForTerminal,
 	resolveProcessCaps,
+	type ClinkrInteraction,
 } from "@ns/clinkr";
 import { readStdinLine } from "@ns/core/cli-runtime";
 import { runCommand } from "@ns/core/exec";
-import type { SlotCliContext } from "@ns/slot/api";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";
 import type { NsConfirmPrompt, NsExtensionApi } from "../sdk/index.ts";
 import type { TextGenerator } from "../sdk/index.ts";
 
-export interface NsCliContext extends SlotCliContext {
+export interface NsCliContext {
 	context: NsExtensionApi;
+	cwd: string;
+	env: Record<string, string | undefined>;
+	interaction: ClinkrInteraction;
 	stdout: (text: string) => void;
+	stderr: (text: string) => void;
 }
 
 export interface RealNsCommandContextOptions {
@@ -66,6 +70,15 @@ export function createRealNsCommandContext(
 		},
 		...(confirm === undefined ? {} : { confirm }),
 	};
+}
+
+export function createNsCliInteraction(options: {
+	stderr: (text: string) => void;
+}): ClinkrInteraction {
+	return createClinkrInteraction({
+		stdin: readStdinLine,
+		stderr: options.stderr,
+	});
 }
 
 export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
