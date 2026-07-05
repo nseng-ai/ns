@@ -45,7 +45,7 @@ Rules:
 - Moving `.ns/objectives/<old>/` to `.ns/objectives/<new>/` or `.ns/objective-archive/<old>/` to `.ns/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
 - Moving `.ns/objectives/<slug>/` to `.ns/objective-archive/<slug>/` is Objective archive, not slug migration.
 - Open/closed state and active/archived location are orthogonal: `closed.md` records closure state; root location controls whether normal active workflows discover the record.
-- Do not add YAML frontmatter, UUIDs, registries, or hidden attachment metadata.
+- Do not add UUIDs, registries, or hidden attachment metadata. The only sanctioned YAML is optional Record Frontmatter at the top of `objective.md`, carrying exactly `blocked` and `edges` (ADR 0025; see Record Frontmatter below).
 - V1 starts fresh from `.ns/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
 ## Documentation Surfaces
@@ -89,6 +89,26 @@ Objectives also take recognizable prose-only **patterns** — Umbrella (formerly
 Optional execution-friendly `## Definition of Progress` and `## Runner Policy` sections may be added for Objectives that should let future `objective-next` runs proactively offer confirmed execution. Ordinary Objectives may omit these sections and remain recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
 
 Agent-facing progressive-disclosure details live in skill references: `skills/objective/references/execution-policy.md`, `skills/objective-create/references/execution-friendly-create.md`, and `skills/objective-next/references/confirmed-execution.md`.
+
+### Record Frontmatter
+
+`objective.md` may begin with optional **Record Frontmatter**: a YAML block carrying exactly two keys, `blocked` and `edges`, and nothing else (ADR 0025). Most records have no frontmatter; readers behave identically either way.
+
+```yaml
+---
+blocked: First external publish is gated on checkout-free distribution landing.
+edges:
+  - objective: checkout-free-sdl-distribution
+    annotation: Consumed as a hard dependency; must land before this ships externally.
+---
+```
+
+Rules:
+
+- **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`, with the required **Edge Annotation** written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
+- **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean; blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
+- **Mutation is skill-owned.** There is no public CLI mutation surface; the `objective-create`, `objective-update`, and `objective-close` step skills own writing edges and judging Blocked Sentences. Because edges are mirrored, an edge mutation is a two-file edit touching the counterpart record's frontmatter — the one sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter block.
+- **Verification**: after any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
 
 ### `roadmap.md`
 
@@ -169,7 +189,7 @@ Rules:
 - Closure context belongs in `objective.md` under `## Closure`.
 - `closed.md` may be minimal; its content is not the source of closure meaning.
 - Closing an objective does not move its directory; archive/unarchive is a separate explicit operation.
-- Closed active objectives are readable by `objective-current` but are not eligible for `objective-next` by default.
+- Closed active objectives remain readable (for example via `ns objective exec read-objective`) but are not eligible for `objective-next` by default.
 - Archived objectives are outside normal Objective discovery regardless of whether `closed.md` exists.
 - There is no `objective-reopen` workflow in v1.
 
@@ -192,7 +212,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective archive`, `ns objective exec read-objective`, `ns objective exec load-orientations`, and `ns objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, `ns objective archive`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose, and the runner's local commit is runner-owned bookkeeping around a verified step (ADR 0024), not a prose mutation surface.
 
 ### `ns objective list`
 
@@ -244,6 +264,19 @@ Shipped CLI:
 - Run `ns objective show <slug>` for the default human detail view.
 - Run `ns objective show <slug> --format md` for Markdown detail output.
 - Run `ns objective show <slug> --format json` for the machine envelope including branch attribution and edge details.
+
+### `ns objective check`
+
+Checks Objective record structure without interpreting prose meaning.
+
+Contract:
+
+- `ns objective check <slug>` checks one record: required files, required Markdown heading presence, and Record Frontmatter structure — edge shape, mirror lookups in counterpart records, non-empty Edge Annotations, non-empty Blocked Sentence, at most one edge per unordered slug pair, and no keys beyond `blocked` and `edges`.
+- `ns objective check --all` sweeps every record's Record Frontmatter across the active and archive roots and reports structural edge/blocked violations.
+- Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
+- Heading checks are presence-only structure; the command does not interpret prose meaning, roadmap state, or execution policy.
+- Supports `--format md` / `--format json` like the other Objective commands.
+- Run it after any Record Frontmatter edit; the mutating step skills require this.
 
 ### `ns objective exec load-orientations`
 
@@ -306,23 +339,6 @@ Future CLI pushdown candidates:
 - Directory and heading scaffolding.
 - Safe refusal when the target path already exists.
 
-### `objective-current`
-
-Reads and summarizes the current state of an objective.
-
-Contract:
-
-- Resolve the objective using the selection rules.
-- Read `objective.md`, `roadmap.md`, recent `updates/`, and `closed.md` presence.
-- Report assumptions and risks alongside completion criteria, open questions, roadmap state, and recent updates.
-- Report whether the objective is closed.
-- Do not mutate files.
-
-Shipped CLI:
-
-- Candidate objective listing: `ns objective list` (active root only).
-- Closed-marker detection and structured inventory: `ns objective list` (per-record) and `ns objective exec read-objective <slug>` (active-root per-record raw Markdown plus closed state and missing-file notes).
-
 ### `objective-next`
 
 Acts as the front door for advancing an active objective: recommend next work, steer planning, offer confirmed execution when explicit Objective policy allows it, or execute a concrete recommendation when the user gives a clear affirmative confirmation in the current conversation.
@@ -348,11 +364,7 @@ Contract:
 Shipped CLI:
 
 - Active candidate filtering: `ns objective list` lists active-root open candidates by default; `ns objective list --status all` reports active-root closed records too.
-
-Future CLI pushdown candidates:
-
-- Read-only branch evidence collection and changed-path classification for an explicitly selected objective.
-- A structured Tracking Gate report (the LM still authors the materiality interpretation).
+- Deterministic Tracking Gate evidence: `ns objective exec tracking-gate <slug> --format json` (the LM still authors the materiality interpretation).
 
 ### `objective-update`
 
@@ -415,6 +427,21 @@ Shipped CLI:
 - Run `ns objective archive <slug>` to remove a record from normal active discovery.
 - Run `ns objective archive <slug> --unarchive` to make an archived record active again.
 
+### `ns objective exec tracking-gate`
+
+Collects deterministic Tracking Gate evidence for one explicitly selected slug.
+
+Contract:
+
+- Resolve the trunk branch and branch-diff basis (`git.trunkBranch`, `git.revisionRange`) from checkout-local git facts.
+- Report uncommitted worktree evidence (`uncommitted.repository`, `uncommitted.objective`) and committed branch-diff evidence split into `branchDiff.objectiveChangedPaths` (under `.ns/objectives/<slug>/`) and `branchDiff.materialNonObjectivePaths` (outside it), plus `summary.*` booleans/nulls for quick gate decisions.
+- Read-only: collect facts only; the LM authors the materiality interpretation and any update-and-continue routing.
+- Supports `--format md` / `--format json` like the other Objective commands.
+
+### Objective Runner (`runner-begin` / `runner-finish`)
+
+`ns objective exec runner-begin` and `ns objective exec runner-finish` are the deterministic bookends of one verified Objective Runner step: begin checks preconditions (LBYL) and emits step facts plus the subagent prompt; finish validates the subagent report fail-closed, runs the verification gate, creates the runner-owned local-only commit with provenance trailers, and prints the Runner Checkpoint. Design lives in ADR 0022 (Objective Runner) and ADR 0024 (decomposed begin/finish); the parent-facing contract lives in `skills/objective-runner-step/SKILL.md`, and the loop around repeated steps in `skills/objective-autorun/SKILL.md`. The legacy blocking `ns objective exec runner-step` remains only during the transition and is scheduled for deletion.
+
 ### `ns objective exec runner-subagent-usage`
 
 Summarizes Pi runner-subagent JSONL session files for Objective stack digest workflows.
@@ -429,11 +456,11 @@ Contract:
 
 The **Tracking Gate** is a read-only check phase used by `objective-next`. Its purpose is to avoid recommending new work when branch or worktree evidence suggests meaningful objective progress has not been recorded.
 
-Markdown-only v1 behavior:
+Behavior:
 
-- Inspect current uncommitted changes and branch diff when available.
-- Look for material non-objective changes that plausibly advance the selected objective.
-- Look for corresponding changes under `.ns/objectives/<slug>/`.
+- Collect deterministic evidence with `ns objective exec tracking-gate <slug> --format json`; do not hand-roll branch-base detection or shell pipelines for this gate.
+- Look for material non-objective changes (`branchDiff.materialNonObjectivePaths`, uncommitted evidence) that plausibly advance the selected objective.
+- Look for corresponding changes under `.ns/objectives/<slug>/` (`branchDiff.objectiveChangedPaths`, `uncommitted.objective`).
 - If material objective progress appears clearly unrecorded for the same selected objective, block next-work recommendation, perform the explicit `objective-update` workflow, reread the objective and repo evidence, and then continue `objective-next`.
 - If material progress appears likely but evidence, objective fit, or update scope is ambiguous, ask whether to run `objective-update` for the same selected objective.
 - If ambiguous-case confirmation is pending or declined, stop without a next-work recommendation.
@@ -441,7 +468,7 @@ Markdown-only v1 behavior:
 
 The Tracking Gate check itself must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When it clearly blocks, `objective-next` routes into the explicit `objective-update` workflow for the same selected objective; when it ambiguously blocks, it may offer a user-confirmed handoff to `objective-update`. Any file changes belong to that explicit update workflow, not to the read-only gate check.
 
-Deterministic git comparison and changed-path scope facts for the Tracking Gate are left as future CLI work; collection of branch evidence and semantic materiality both remain LM/human-authored in v1.
+Deterministic git comparison and changed-path scope facts ship as `ns objective exec tracking-gate`; semantic materiality interpretation remains LM/human-authored.
 
 ## PR Tracking Policy
 
@@ -462,10 +489,10 @@ Good CLI responsibilities:
 - Move Objective records between active and archived roots without editing prose. *(shipped: `ns objective archive`.)*
 - Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `ns objective exec runner-subagent-usage`.)*
 - Scaffold required files and headings. *(future.)*
-- Detect missing `## Assumptions and Risks` sections. *(future.)*
+- Detect missing required files, headings, and Record Frontmatter structure. *(shipped: `ns objective check`.)*
 - Generate timestamped update filenames. *(future.)*
-- Report changed-path facts for an explicitly selected objective. *(future.)*
-- Collect read-only Tracking Gate evidence. *(future.)*
+- Report changed-path facts and collect read-only Tracking Gate evidence for an explicitly selected objective. *(shipped: `ns objective exec tracking-gate`.)*
+- Own the deterministic bookends of a verified runner step. *(shipped: `ns objective exec runner-begin` / `runner-finish`.)*
 - Enforce one-objective-per-update guardrails. *(future.)*
 
 Responsibilities that should remain LM/human-authored:
