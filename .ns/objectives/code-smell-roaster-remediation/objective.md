@@ -192,14 +192,14 @@ Assumptions:
   inaccurate evidence, so re-verification at pickup is required, not optional.
 - Cluster-to-package mapping in `references/` is pre-reorg and must be
   re-mapped, not merely double-checked. The July 2026 workspace consolidation
-  regrouped `ts/packages/` into `infra/{brmem,clinkr,core}`,
+  regrouped `ts/packages/` into `infra/{brmem,clinkr,foundation}`,
   `capabilities/*`, `capability-kit`, `hosts/{pi,nscc}`, `kernel`,
-  `local/pi-tools`, and `tools/*`: the former standalone `exec`,
+  `internal/pi-tools`, and `tools/*`: the former standalone `exec`,
   `cli-runtime`, `cli-theme`, `time`, and `test-kit` packages now live under
   `infra/foundation/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
   `capability-kit/src/*`; the `@local-pi-tools/*` sub-packages were
   consolidated into one `@internal/pi-tools` package at
-  `ts/packages/local/pi-tools`; the `sdlcc` host was renamed `nscc`;
+  `ts/packages/internal/pi-tools`; the `sdlcc` host was renamed `nscc`;
   `worktree-status` moved into `hosts/pi/src/worktree-status`; and
   `capabilities/land` was absorbed into `capabilities/flow/src/land`. The
   first-party CLI was also renamed `sdl` → `ns` and the repo state root
@@ -211,8 +211,8 @@ Assumptions:
   bundle-data-clump), consistent with the precedent Objectives.
 - Most of the 162 findings are independent, package-local refactors safe to
   parallelize across PRs; a minority (large Divergent Change god-files such as
-  `local/pi-tools/src/thermo-council/orchestrator.ts` or
-  `local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts`) are
+  `internal/pi-tools/src/thermo-council/orchestrator.ts` or
+  `internal/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts`) are
   larger design decisions better split across multiple slices within their
   cluster.
 
@@ -234,9 +234,9 @@ Risks:
   than folding into a larger cluster PR. Two have already been split this way
   (`backing-skill-commands` `extension.ts` and `hosts/pi`
   `commands/cli-extension.ts` — see `roadmap.md`). Still pending, at their
-  post-reorg paths: `local/pi-tools/src/thermo-council/orchestrator.ts`
-  (~620 lines), `local/pi-tools/src/pr-feedback-watch/feedback-watch/
-  controller.ts` (~820 lines), `local/pi-tools/src/grill/extension.ts`
+  post-reorg paths: `internal/pi-tools/src/thermo-council/orchestrator.ts`
+  (~620 lines), `internal/pi-tools/src/pr-feedback-watch/feedback-watch/
+  controller.ts` (~820 lines), `internal/pi-tools/src/grill/extension.ts`
   (~550 lines), and `capability-kit/src/graphite/status.ts`.
 - **Mechanical extraction risk:** "extract a shared helper" fixes can
   introduce a real but non-obvious behavior difference (e.g., differing error

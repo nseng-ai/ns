@@ -10,7 +10,7 @@ site — all landed and merged to `master`.
 What you see now: everything above is trunk reality (migration slices,
 round-trip retirement, channel, `--force`, catalogs all merged 2026-07-02;
 `plan-mapping.ts` gone, no `runRaw`/`LandPlanForFlow`/`preloadedShape`).
-Post-landing renames apply: package `@ns/flow`, CLI `ns flow …`,
+Post-landing renames apply: package `@nseng-ai/flow`, CLI `ns flow …`,
 `land-stack/` is now `land/stack/`. Only the Parked presentation row
 (review #5) remains — an owner promote/re-scope/drop decision gates closure.
 Avoid: adding wrappers, mirror types, or mappers at the compatibility
