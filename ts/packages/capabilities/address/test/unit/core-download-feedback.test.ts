@@ -52,6 +52,7 @@ describe("collectDownloadFeedback", () => {
 			"ns address exec close-review-threads --thread-ids-json",
 		);
 		expect(result.feedback.markdown).toContain("include `--body <BODY>` when a reply is useful");
+		expect(result.feedback.markdown).toContain("resubmit the PR with `ns flow submit`");
 		expect(result.feedback.markdown).toContain(
 			"do not use raw `gh api graphql` for those mutations",
 		);
@@ -118,6 +119,11 @@ describe("collectDownloadFeedback", () => {
 			includeEmptyReviews: false,
 		});
 
+		const bodyMarkdown = [
+			"No PR found for branch feature/missing: no PR found",
+			"",
+			"No GitHub PR was found for this target. Check out a branch with an open PR or run with `--pr-number <number>`.",
+		].join("\n");
 		expect(result).toEqual({
 			type: "miss",
 			message: "No PR found for branch feature/missing: no PR found",
@@ -133,13 +139,9 @@ describe("collectDownloadFeedback", () => {
 					base_ref_name: null,
 				},
 				counts: zeroCounts(),
-				markdown: [
-					"# PR feedback triage request",
-					"",
-					"No PR found for branch feature/missing: no PR found",
-					"",
-					"No GitHub PR was found for this target. Check out a branch with an open PR or run with `--pr-number <number>`.",
-				].join("\n"),
+				bodyMarkdown,
+				instructionsMarkdown: "",
+				markdown: ["# PR feedback triage request", "", bodyMarkdown].join("\n"),
 			},
 		});
 		expect(result.type).toBe("miss");

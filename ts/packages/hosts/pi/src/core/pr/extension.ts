@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs";
-
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
+import {
+	COMMON_FEEDBACK_POLICY,
+	readPromptMarkdown,
+	renderPromptTemplate,
+} from "@ns/address/download-feedback-prompts";
 import { formatZodError, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
@@ -23,10 +26,10 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
-const STACK_FEEDBACK_INSTRUCTIONS = readFileSync(
-	new URL("./pr-stack-feedback-instructions.md", import.meta.url),
-	"utf8",
-).trim();
+const STACK_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
+	readPromptMarkdown("./pr-stack-feedback-instructions.md", import.meta.url),
+	COMMON_FEEDBACK_POLICY,
+);
 
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -55,7 +58,7 @@ type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
 type MapBranchPrsData = z.output<typeof mapBranchPrsDataSchema>;
 interface StackFeedbackDownload {
 	entry: BranchPrEntry;
-	markdown: string;
+	bodyMarkdown: string;
 	counts: PrFeedbackDownloadCounts;
 }
 
@@ -376,7 +379,7 @@ async function downloadFeedbackForPr(
 	if (downloaded.type === "error") return { type: "error", message: downloaded.message };
 	return {
 		type: "ok",
-		value: { entry, markdown: downloaded.data.markdown, counts: downloaded.data.counts },
+		value: { entry, bodyMarkdown: downloaded.data.bodyMarkdown, counts: downloaded.data.counts },
 	};
 }
 
@@ -420,13 +423,13 @@ function buildStackDownloadFeedbackMarkdown(
 		...renderMissingStackBranches(missingBranches),
 		"",
 		"## Feedback by PR",
-		...downloads.flatMap(({ entry, markdown }) => [
+		...downloads.flatMap(({ entry, bodyMarkdown }) => [
 			"",
 			`## PR #${entry.pr_number}: ${entry.title}`,
 			`- Branch: ${entry.branch}`,
 			`- URL: ${entry.url}`,
 			"",
-			...demoteMarkdownHeadings(stripPrDownloadHeading(markdown)).split("\n"),
+			...demoteMarkdownHeadings(bodyMarkdown).split("\n"),
 		]),
 		"",
 		...renderStackDownloadFeedbackSummary(downloads, missingBranches),
@@ -502,10 +505,6 @@ function sumDownloadFeedbackCounts(
 
 function renderStackInstructions(): string[] {
 	return STACK_FEEDBACK_INSTRUCTIONS.split(/\r\n|\r|\n/u);
-}
-
-function stripPrDownloadHeading(markdown: string): string {
-	return markdown.replace(/^# PR feedback triage request(?:\r\n|\r|\n)+/u, "").trim();
 }
 
 function demoteMarkdownHeadings(markdown: string): string {

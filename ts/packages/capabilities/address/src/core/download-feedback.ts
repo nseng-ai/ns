@@ -8,6 +8,7 @@ import type {
 	GithubPrSummary,
 } from "../api.ts";
 
+import { readPromptMarkdown, renderPromptTemplate } from "./download-feedback-prompts.ts";
 import {
 	fetchFeedbackSnapshot,
 	reviewsForRequest,
@@ -24,6 +25,10 @@ import { buildDownloadFeedbackTargetPayload, type PrTargetPayload } from "./pr-t
 
 type DownloadFeedbackTargetPayload = PrTargetPayload;
 
+const DOWNLOAD_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
+	readPromptMarkdown("./download-feedback-instructions.md", import.meta.url),
+);
+
 export interface DownloadFeedbackCountsPayload {
 	includedReviewThreads: number;
 	includedReviews: number;
@@ -37,6 +42,14 @@ export interface DownloadFeedbackPayload {
 	found: boolean;
 	target: DownloadFeedbackTargetPayload;
 	counts: DownloadFeedbackCountsPayload;
+	bodyMarkdown: string;
+	instructionsMarkdown: string;
+	markdown: string;
+}
+
+interface DownloadFeedbackMarkdownParts {
+	bodyMarkdown: string;
+	instructionsMarkdown: string;
 	markdown: string;
 }
 
@@ -97,17 +110,18 @@ export async function collectDownloadFeedback(
 
 	const included = selectIncludedFeedback(snapshotResult.snapshot, options);
 	const prTarget = targetFromPr(target.pr, target.branch);
+	const markdown = buildDownloadFeedbackMarkdown({
+		target: prTarget,
+		counts: included.counts,
+		feedback: included,
+	});
 	return {
 		type: "ok",
 		feedback: {
 			found: true,
 			target: prTarget,
 			counts: included.counts,
-			markdown: buildDownloadFeedbackMarkdown({
-				target: prTarget,
-				counts: included.counts,
-				feedback: included,
-			}),
+			...markdown,
 		},
 	};
 }
@@ -165,17 +179,18 @@ function buildMissingPrResult(
 	message: string,
 ): DownloadFeedbackPayload {
 	const counts = zeroCounts();
+	const bodyMarkdown = [
+		message,
+		"",
+		"No GitHub PR was found for this target. Check out a branch with an open PR or run with `--pr-number <number>`.",
+	].join("\n");
 	return {
 		found: false,
 		target,
 		counts,
-		markdown: [
-			"# PR feedback triage request",
-			"",
-			message,
-			"",
-			"No GitHub PR was found for this target. Check out a branch with an open PR or run with `--pr-number <number>`.",
-		].join("\n"),
+		bodyMarkdown,
+		instructionsMarkdown: "",
+		markdown: ["# PR feedback triage request", "", bodyMarkdown].join("\n"),
 	};
 }
 
@@ -183,10 +198,8 @@ function buildDownloadFeedbackMarkdown(options: {
 	readonly target: DownloadFeedbackTargetPayload;
 	readonly counts: DownloadFeedbackCountsPayload;
 	readonly feedback: IncludedFeedback;
-}): string {
-	return [
-		"# PR feedback triage request",
-		"",
+}): DownloadFeedbackMarkdownParts {
+	const bodyMarkdown = [
 		"Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.",
 		"",
 		"## Target PR",
@@ -210,9 +223,18 @@ function buildDownloadFeedbackMarkdown(options: {
 		...renderDiscussionComments(options.feedback.discussionComments),
 		"",
 		...renderDownloadFeedbackSummary(options.target, options.counts),
-		"",
-		...renderSinglePrInstructions(),
 	].join("\n");
+	return {
+		bodyMarkdown,
+		instructionsMarkdown: DOWNLOAD_FEEDBACK_INSTRUCTIONS,
+		markdown: [
+			"# PR feedback triage request",
+			"",
+			bodyMarkdown,
+			"",
+			DOWNLOAD_FEEDBACK_INSTRUCTIONS,
+		].join("\n"),
+	};
 }
 
 function renderDownloadFeedbackSummary(
@@ -232,17 +254,6 @@ function renderDownloadFeedbackSummary(
 		`- Resolved review threads excluded: ${counts.excludedResolvedThreads}`,
 		`- Empty PR-level reviews excluded: ${counts.excludedEmptyReviews}`,
 		`- Automation-like discussion comments excluded: ${counts.excludedAutomationComments}`,
-	];
-}
-
-function renderSinglePrInstructions(): string[] {
-	return [
-		"## Instructions before responding",
-		"Triage and group the feedback above. Identify likely code, docs, and test changes. Ask clarifying questions for ambiguity.",
-		"",
-		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt.",
-		"",
-		'If the human asks you to address the feedback, inspect the current repository state before acting. After implementing or verifying the fix and running appropriate validation, close review threads with `ns address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --format json`; include `--body <BODY>` when a reply is useful. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql` for those mutations.',
 	];
 }
 

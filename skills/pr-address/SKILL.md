@@ -20,7 +20,7 @@ Manual CLI fallback:
 ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session prefill. It is triage-only: downloaded feedback alone does not authorize editing files, resolving threads, replying on GitHub, pushing, or submitting. During initial triage, propose a plan and wait for human confirmation.
+The JSON result includes a `markdown` field intended for editor/session prefill. The generated prompt authorizes automatic handling of straightforward feedback: inspect the current repo state, fix localized/mechanically-verifiable/low-risk items, validate, and close addressed review threads via `ns address exec close-review-threads`. Single-PR downloads should fix the immediate PR/current checkout; stack downloads should put straightforward stack-wide fixes in a single omnibus follow-up PR/current branch unless the human explicitly asks for downstack surgery. Ask before ambiguous, high-risk, product/design, broad-refactor, human-authored, or dirty-tree work.
 
 ## Current primitive surface
 
@@ -45,7 +45,7 @@ Mutation primitives:
 - `resolve-review-thread --thread-id <id>`
 - `close-review-threads --thread-ids-json '{"threadIds":["<id>"]}' [--body <body>]`
 
-After the user has asked you to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed, use `ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json` for confirmed bulk review-thread closure. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
+After current repo state has been inspected, a fix is implemented or verified, and appropriate validation has passed, use `ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json` for confirmed bulk review-thread closure. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
 
 For one-off mutations, use `ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `ns address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
 
