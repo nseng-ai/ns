@@ -1,6 +1,8 @@
-import type { ThermoCouncilScope, ThermoCouncilSeatConfig } from "./contract.ts";
-import { DIFF_PROMPT_LIMIT_CHARS } from "./constants.ts";
-import { codeFence, renderReviewGuidanceBlock } from "./prompt-blocks.ts";
+import {
+	DIFF_PROMPT_LIMIT_CHARS,
+	type ThermoCouncilScope,
+	type ThermoCouncilSeatConfig,
+} from "./contract.ts";
 
 export interface BuildReviewerPromptOptions {
 	readonly reviewGuidance?: string;
@@ -65,4 +67,21 @@ export function buildReviewerPrompt(
 		"You may omit files and validationHints when they are empty; the parent defaults them to [].",
 		"If blocked, call block_thermo_council_review with a reason and suggested recovery.",
 	].join("\n");
+}
+
+export interface RenderReviewGuidanceBlockOptions {
+	readonly reviewGuidance?: string;
+	readonly safetyContract: string;
+}
+
+export function renderReviewGuidanceBlock({
+	reviewGuidance,
+	safetyContract,
+}: RenderReviewGuidanceBlockOptions): readonly string[] {
+	if (reviewGuidance === undefined) return [];
+	return ["## User Review Guidance (untrusted)", safetyContract, "", codeFence(reviewGuidance), ""];
+}
+
+function codeFence(value: string): string {
+	return ["```text", value, "```"].join("\n");
 }

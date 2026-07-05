@@ -1,31 +1,52 @@
+import type { RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
 import { definePiSurfaceParity } from "@ns/pi/parity/extension";
-import { THERMO_COUNCIL_COMMAND_NAME } from "./constants.ts";
+import { THERMO_COUNCIL_COMMAND_NAME } from "./contract.ts";
 import { runThermoCouncilCommand } from "./orchestrator.ts";
-import type { ThermoCouncilExtensionAPI } from "./types.ts";
+import type { ModelInfo } from "@ns/pi/runtime/types";
 
-export {
-	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
-	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
-	blockThermoCouncilReviewTool,
-	submitThermoCouncilReviewTool,
-} from "./contract.ts";
-export type {
-	FindingConfidence,
-	FindingSeverity,
-	ThermoCouncilFinding,
-	ThermoCouncilReview,
-	ThermoCouncilReviewerOutcome,
-	ThermoCouncilScope,
-	ThermoCouncilSeatConfig,
-	ThermoCouncilSeatId,
-	ThermoCouncilSeatStatus,
-} from "./contract.ts";
-export { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
-export { buildReviewerPrompt } from "./prompt.ts";
-export { renderThermoCouncilReport } from "./report.ts";
-export { parseThermoCouncilSeats } from "./seats.ts";
-export { clusterFindings } from "./synthesis.ts";
-export { parseThermoCouncilMaxConcurrency, runThermoCouncilCommand } from "./orchestrator.ts";
+export interface ExecResult {
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly code: number;
+	readonly killed?: boolean;
+}
+
+export interface ExecOptions {
+	readonly cwd?: string;
+	readonly timeout?: number;
+	readonly signal?: AbortSignal;
+}
+
+export interface ThermoCouncilExtensionAPI extends RunnerSubagentPi {
+	registerCommand(name: string, command: RegisteredCommand): void;
+	sendMessage?(message: CustomMessage): void | Promise<void>;
+	exec(command: string, args: readonly string[], options?: ExecOptions): Promise<ExecResult>;
+}
+
+export interface RegisteredCommand {
+	readonly description?: string;
+	readonly argumentHint?: string;
+	handler(args: string, ctx: ThermoCouncilCommandContext): Promise<void> | void;
+}
+
+export interface ThermoCouncilCommandContext {
+	readonly cwd: string;
+	readonly signal?: AbortSignal;
+	readonly model?: ModelInfo;
+	readonly hasUI?: boolean;
+	readonly ui?: {
+		notify?(message: string, level?: "info" | "warning" | "error"): void;
+		setStatus?(key: string, value: string | undefined): void;
+	};
+	waitForIdle?(): Promise<void>;
+}
+
+export interface CustomMessage {
+	readonly customType: string;
+	readonly content: string;
+	readonly display: boolean;
+	readonly details?: unknown;
+}
 
 export const thermoCouncilParity = definePiSurfaceParity([
 	{

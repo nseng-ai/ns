@@ -137,6 +137,15 @@ export interface AnalysisVerdicts {
 	analysisSummary?: string;
 }
 
+export interface EpisodeScopeSeed extends AnalysisVerdicts {
+	label: string;
+	kind: EpisodeKind;
+	outcome: EpisodeOutcome | null;
+	turnRange: TurnRange;
+}
+
+export type InterrogationScope = { type: "session" } | { type: "episode"; seed: EpisodeScopeSeed };
+
 /**
  * Optional annotation over the turn list. Episodes are never structural: the
  * deterministic view is complete without them, and LM segmentation only

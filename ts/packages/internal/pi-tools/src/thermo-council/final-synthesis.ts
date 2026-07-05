@@ -4,10 +4,13 @@ import type {
 	RunnerSubagentUpdate,
 } from "@internal/pi-tools/runner-subagents";
 import { dispatchRunnerSubagent, resultDiagnostic } from "@internal/pi-tools/runner-subagents";
-import type { ThermoCouncilReviewerOutcome, ThermoCouncilScope } from "./contract.ts";
-import { SAFETY_NOTE } from "./constants.ts";
-import { renderReviewGuidanceBlock } from "./prompt-blocks.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./types.ts";
+import {
+	SAFETY_NOTE,
+	type ThermoCouncilReviewerOutcome,
+	type ThermoCouncilScope,
+} from "./contract.ts";
+import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./extension.ts";
+import { renderReviewGuidanceBlock } from "./prompt.ts";
 
 const SYNTHESIS_MODEL_ENV = "THERMO_COUNCIL_SYNTHESIS_MODEL";
 const MAX_SYNTHESIS_SOURCE_CHARS = 120_000;

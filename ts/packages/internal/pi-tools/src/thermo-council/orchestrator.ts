@@ -12,6 +12,8 @@ import {
 import {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+	THERMO_COUNCIL_COMMAND_NAME,
+	THERMO_COUNCIL_MESSAGE_TYPE,
 	blockThermoCouncilReviewTool,
 	blockedReviewSchema,
 	reviewSchema,
@@ -33,18 +35,17 @@ import {
 import { parseLmJson } from "@ns/pi/models/lm-json";
 import { errorMessage } from "@ns/pi/shared/errors";
 import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@internal/pi-tools/runner-subagents";
-import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
-import { summarizeThermoCouncilReviewerOutcome } from "./outcomes.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import {
 	renderFatalReport,
 	renderFinalSynthesisFailureReport,
 	renderThermoCouncilReport,
+	summarizeThermoCouncilReviewerOutcome,
 } from "./report.ts";
 import { collectThermoCouncilScope } from "./scope.ts";
-import { parseThermoCouncilSeats } from "./seats.ts";
-import type { EnvReader, ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./types.ts";
+import { parseThermoCouncilSeats, type EnvReader } from "./seats.ts";
+import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./extension.ts";
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;

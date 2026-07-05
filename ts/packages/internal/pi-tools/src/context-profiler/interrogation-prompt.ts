@@ -1,18 +1,11 @@
-import { analysisVerdictFields, type LiveRegion } from "./model.ts";
+import {
+	analysisVerdictFields,
+	type EpisodeScopeSeed,
+	type InterrogationScope,
+	type LiveRegion,
+} from "./model.ts";
 
 export const INTERROGATION_TOOLS = ["read", "grep", "find", "ls"] as const;
-
-export interface EpisodeScopeSeed {
-	label: string;
-	kind: string;
-	outcome: string | null;
-	turnRange: { start: number; end: number };
-	efficiency?: string;
-	relevance?: string;
-	analysisSummary?: string;
-}
-
-export type InterrogationScope = { type: "session" } | { type: "episode"; seed: EpisodeScopeSeed };
 
 export function buildInterrogationSystemPrompt(options: {
 	sessionId: string;

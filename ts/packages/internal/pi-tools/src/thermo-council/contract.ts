@@ -2,6 +2,12 @@ import { z } from "zod";
 
 import type { RunnerSubagentTerminalToolDefinition } from "@internal/pi-tools/runner-subagents";
 
+export const THERMO_COUNCIL_COMMAND_NAME = "thermo-council";
+export const THERMO_COUNCIL_MESSAGE_TYPE = "thermo-council-report";
+export const DIFF_PROMPT_LIMIT_CHARS = 80_000;
+export const SAFETY_NOTE =
+	"No branches were created, no commits were made, no Branch Memory entries were written, no repo report files were written, and no remotes were mutated by /thermo-council.";
+
 export const SUBMIT_THERMO_COUNCIL_REVIEW_TOOL = "submit_thermo_council_review";
 export const BLOCK_THERMO_COUNCIL_REVIEW_TOOL = "block_thermo_council_review";
 

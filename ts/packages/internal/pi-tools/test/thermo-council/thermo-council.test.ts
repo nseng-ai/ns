@@ -23,8 +23,8 @@ import thermoCouncilExtension, {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
-} from "../../src/thermo-council/extension.ts";
-import { reviewerOutcomeFromRunnerResult } from "../../src/thermo-council/orchestrator.ts";
+	reviewerOutcomeFromRunnerResult,
+} from "../../src/thermo-council/index.ts";
 import {
 	FakeSpawnedChildProcess,
 	createFakeRunnerSubagentDispatcher,
