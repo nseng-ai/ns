@@ -277,10 +277,49 @@ interface PrNodeFixture {
 	url: string;
 	isDraft?: boolean;
 	threads?: { isResolved: boolean }[];
+	/** Raw review-thread nodes carrying detail (path/line/author); overrides `threads` when set. */
+	reviewThreadNodes?: unknown[];
+	/** Raw `statusCheckRollup.contexts` nodes to roll up into checks/checkEntries. */
+	checkNodes?: unknown[];
+}
+
+/** A passing CheckRun node carrying a workflow name, in the fetched contexts.nodes shape. */
+function passingCheckRunNode(name: string, workflowName: string): unknown {
+	return {
+		__typename: "CheckRun",
+		name,
+		status: "COMPLETED",
+		conclusion: "SUCCESS",
+		startedAt: null,
+		completedAt: null,
+		detailsUrl: null,
+		checkSuite: {
+			workflowRun: {
+				databaseId: null,
+				runNumber: null,
+				runAttempt: null,
+				createdAt: null,
+				updatedAt: null,
+				workflow: { name: workflowName },
+			},
+		},
+	};
+}
+
+/** An unresolved review-thread node carrying detail, in the fetched reviewThreads.nodes shape. */
+function unresolvedThreadNode(path: string, line: number, author: string): unknown {
+	return {
+		isResolved: false,
+		path,
+		line,
+		originalLine: null,
+		comments: { nodes: [{ author: { login: author } }] },
+	};
 }
 
 function prConnection(node?: PrNodeFixture): object {
 	if (node === undefined) return { nodes: [] };
+	const reviewThreadNodes = node.reviewThreadNodes ?? node.threads;
 	return {
 		nodes: [
 			{
@@ -288,9 +327,25 @@ function prConnection(node?: PrNodeFixture): object {
 				title: node.title,
 				url: node.url,
 				isDraft: node.isDraft ?? false,
-				...(node.threads === undefined
+				...(reviewThreadNodes === undefined
 					? {}
-					: { reviewThreads: { totalCount: node.threads.length, nodes: node.threads } }),
+					: { reviewThreads: { totalCount: reviewThreadNodes.length, nodes: reviewThreadNodes } }),
+				...(node.checkNodes === undefined
+					? {}
+					: {
+							commits: {
+								nodes: [
+									{
+										commit: {
+											statusCheckRollup: {
+												state: "PENDING",
+												contexts: { totalCount: node.checkNodes.length, nodes: node.checkNodes },
+											},
+										},
+									},
+								],
+							},
+						}),
 			},
 		],
 	};
@@ -309,6 +364,8 @@ function threeBranchPrQueryStep(): ScriptedExec {
 				title: "Top PR",
 				url: "https://github.com/acme/repo-name/pull/103",
 				isDraft: true,
+				reviewThreadNodes: [unresolvedThreadNode("src/top.ts", 5, "reviewer")],
+				checkNodes: [passingCheckRunNode("build", "CI")],
 			}),
 			b1: prConnection({
 				number: 102,
@@ -511,8 +568,10 @@ describe("loadStackView happy path", () => {
 				graphiteUrl: "https://app.graphite.com/github/pr/acme/repo-name/103",
 				isDraft: true,
 				body: "",
-				threads: { resolved: 0, total: 0 },
-				checks: NO_CHECKS,
+				threads: { resolved: 0, total: 1 },
+				checks: { passing: 1, failing: 0, pending: 0, total: 1 },
+				checkEntries: [{ name: "build", workflowName: "CI", bucket: "passing" }],
+				unresolvedThreads: [{ path: "src/top.ts", line: 5, author: "reviewer" }],
 				status: "draft",
 				objectiveSlugs: ["alpha"],
 			},
@@ -527,6 +586,8 @@ describe("loadStackView happy path", () => {
 				body: "",
 				threads: { resolved: 1, total: 1 },
 				checks: NO_CHECKS,
+				checkEntries: [],
+				unresolvedThreads: [],
 				status: "ready",
 				objectiveSlugs: ["alpha", "beta"],
 			},
@@ -543,6 +604,8 @@ describe("loadStackView happy path", () => {
 				body: "",
 				threads: { resolved: 0, total: 0 },
 				checks: NO_CHECKS,
+				checkEntries: [],
+				unresolvedThreads: [],
 				status: "no-pr",
 				objectiveSlugs: ["gamma"],
 			},

@@ -12,15 +12,20 @@
  *
  * The `contexts.nodes` selection mirrors `githubWorktreePrStatusQuery` in
  * `@nseng-ai/capability-kit/github/pr-status` so `classifyGithubStatusCheck` /
- * `tallyGithubStatusChecks` see exactly the item shape they expect (including
+ * `normalizeGithubStatusChecks` see exactly the item shape they expect (including
  * `__typename`, the CheckRun conclusion/status/workflow-run fields used for
  * workflow-run dedupe, and the StatusContext state/context fields).
  */
 import { z } from "zod";
 
-import type { StackViewPrChecks, StackViewPrThreads } from "./types.ts";
+import type {
+	StackViewCheckEntry,
+	StackViewPrChecks,
+	StackViewPrThreads,
+	StackViewThreadDetail,
+} from "./types.ts";
 import type { CommandExecApi } from "./exec.ts";
-import { tallyGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
+import { normalizeGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -34,6 +39,10 @@ export interface StackPrData {
 	reviewDecision: string | null;
 	threads: StackViewPrThreads;
 	checks: StackViewPrChecks;
+	/** Named check entries backing the detail pane, aligned with {@link checks}' unknown→pending fold. */
+	checkEntries: StackViewCheckEntry[];
+	/** Unresolved-thread locations, limited to the first 100 fetched threads. */
+	unresolvedThreads: StackViewThreadDetail[];
 }
 
 /** Result of parsing a batched stack-PR GraphQL response. */
@@ -73,7 +82,7 @@ export interface FetchRepoIdentityParams {
 /**
  * The CheckRun/StatusContext field selection for `statusCheckRollup.contexts.nodes`.
  * Mirrors `githubWorktreePrStatusQuery` so the parsed items feed
- * `classifyGithubStatusCheck` / `tallyGithubStatusChecks` unchanged.
+ * `classifyGithubStatusCheck` / `normalizeGithubStatusChecks` unchanged.
  */
 const STATUS_CHECK_FIELDS =
 	"__typename ... on CheckRun{name status conclusion startedAt completedAt detailsUrl checkSuite{workflowRun{databaseId runNumber runAttempt createdAt updatedAt workflow{name}}}} ... on StatusContext{context state createdAt targetUrl}";
@@ -88,7 +97,7 @@ export function buildStackPrQuery(branches: string[]): string {
 		return (
 			`b${index}: pullRequests(headRefName: ${graphqlStringLiteral(branch)}, states: [OPEN], first: 1)` +
 			"{nodes{number title url isDraft body reviewDecision" +
-			" reviewThreads(first:100){totalCount nodes{isResolved}}" +
+			" reviewThreads(first:100){totalCount nodes{isResolved path line originalLine comments(first:1){nodes{author{login}}}}}" +
 			" commits(last:1){nodes{commit{statusCheckRollup{state" +
 			` contexts(first:100){totalCount nodes{${STATUS_CHECK_FIELDS}}}}}}}}}`
 		);
@@ -121,10 +130,30 @@ function graphqlStringLiteral(value: string): string {
 	return `"${escaped}"`;
 }
 
+const reviewThreadCommentsSchema = z
+	.object({
+		nodes: z
+			.array(z.object({ author: z.object({ login: z.string() }).loose().nullish() }).loose())
+			.default([]),
+	})
+	.loose();
+
 const reviewThreadsSchema = z
 	.object({
 		totalCount: z.number().int().nonnegative().default(0),
-		nodes: z.array(z.object({ isResolved: z.boolean().default(false) }).loose()).default([]),
+		nodes: z
+			.array(
+				z
+					.object({
+						isResolved: z.boolean().default(false),
+						path: z.string().nullish(),
+						line: z.number().int().nullish(),
+						originalLine: z.number().int().nullish(),
+						comments: reviewThreadCommentsSchema.nullish(),
+					})
+					.loose(),
+			)
+			.default([]),
 	})
 	.loose();
 
@@ -208,6 +237,7 @@ function stackPrDataFromAlias(aliasValue: unknown): StackPrData | null {
 	if (!connection.success) return null;
 	const node = connection.data.nodes[0];
 	if (node === undefined) return null;
+	const checks = checksFromNode(node.commits);
 	return {
 		number: node.number,
 		title: node.title,
@@ -216,7 +246,9 @@ function stackPrDataFromAlias(aliasValue: unknown): StackPrData | null {
 		body: node.body,
 		reviewDecision: node.reviewDecision ?? null,
 		threads: threadCountsFromNode(node.reviewThreads),
-		checks: checkCountsFromNode(node.commits),
+		checks: checks.counts,
+		checkEntries: checks.entries,
+		unresolvedThreads: unresolvedThreadDetailsFromNode(node.reviewThreads),
 	};
 }
 
@@ -231,22 +263,57 @@ function threadCountsFromNode(
 	return { resolved, total: Math.max(reviewThreads.totalCount, reviewThreads.nodes.length) };
 }
 
-function checkCountsFromNode(
-	commits: z.infer<typeof commitsSchema> | null | undefined,
-): StackViewPrChecks {
+/**
+ * Extract the unresolved review threads' detail (path/line/author) from the
+ * fetched nodes for the detail pane. Only the first 100 threads are fetched, so
+ * this list can be truncated; the authoritative unresolved *count* still comes
+ * from {@link threadCountsFromNode} (via `totalCount`), so a paginated PR keeps
+ * an honest total even when this list is short.
+ */
+function unresolvedThreadDetailsFromNode(
+	reviewThreads: z.infer<typeof reviewThreadsSchema> | null | undefined,
+): StackViewThreadDetail[] {
+	if (reviewThreads === null || reviewThreads === undefined) return [];
+	return reviewThreads.nodes
+		.filter((thread) => !thread.isResolved)
+		.map((thread) => ({
+			path: thread.path ?? "",
+			line: thread.line ?? thread.originalLine ?? null,
+			author: thread.comments?.nodes[0]?.author?.login ?? null,
+		}));
+}
+
+/**
+ * Roll up the CI checks for a PR into both the bucket counts and the named
+ * entries backing the detail pane. Both derive from the same
+ * `normalizeGithubStatusChecks` pass so the entries stay consistent with the
+ * counts' `unknown`→`pending` fold.
+ */
+function checksFromNode(commits: z.infer<typeof commitsSchema> | null | undefined): {
+	counts: StackViewPrChecks;
+	entries: StackViewCheckEntry[];
+} {
 	const contexts = commits?.nodes[0]?.commit.statusCheckRollup?.contexts;
 	const nodes = contexts?.nodes ?? [];
 	const totalCount = contexts?.totalCount ?? nodes.length;
-	const tally = tallyGithubStatusChecks(nodes, { hasMore: totalCount > nodes.length });
+	const { counts: tally, checks } = normalizeGithubStatusChecks(nodes, {
+		hasMore: totalCount > nodes.length,
+	});
 	// Fold `unknown` checks into `pending` so they never silently vanish and can
 	// never mark a PR as failing; `total` stays the sum of the visible buckets.
 	const pending = tally.pending + tally.unknown;
-	return {
+	const counts: StackViewPrChecks = {
 		passing: tally.passing,
 		failing: tally.failing,
 		pending,
 		total: tally.passing + tally.failing + pending,
 	};
+	const entries: StackViewCheckEntry[] = checks.map((entry) => ({
+		name: entry.name,
+		workflowName: entry.workflowName,
+		bucket: entry.bucket === "unknown" ? "pending" : entry.bucket,
+	}));
+	return { counts, entries };
 }
 
 function graphqlErrorMessages(json: unknown): readonly string[] | undefined {

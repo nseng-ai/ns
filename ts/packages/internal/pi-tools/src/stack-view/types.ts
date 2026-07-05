@@ -19,6 +19,23 @@ export interface StackViewPrChecks {
 	total: number;
 }
 
+/** Which rollup bucket a named check landed in. Upstream `unknown` is folded into `pending`. */
+export type StackViewCheckBucket = "passing" | "failing" | "pending";
+
+/** One named CI check for the detail pane. */
+export interface StackViewCheckEntry {
+	name: string;
+	workflowName: string | null;
+	bucket: StackViewCheckBucket;
+}
+
+/** One unresolved review thread for the detail pane. `line` is null for file-level comments. */
+export interface StackViewThreadDetail {
+	path: string;
+	line: number | null;
+	author: string | null;
+}
+
 /**
  * Derived merge-readiness of a stack row, in priority order:
  * no PR, draft, checks failing, unresolved review threads, otherwise ready.
@@ -37,6 +54,10 @@ export interface StackViewPr {
 	body: string;
 	threads: StackViewPrThreads;
 	checks: StackViewPrChecks;
+	/** Named check entries backing the detail pane. */
+	checkEntries: StackViewCheckEntry[];
+	/** Unresolved-thread locations, limited to the first 100 fetched threads. */
+	unresolvedThreads: StackViewThreadDetail[];
 	status: StackViewPrStatus;
 	objectiveSlugs: string[];
 }
