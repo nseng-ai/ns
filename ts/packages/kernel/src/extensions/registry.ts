@@ -28,7 +28,10 @@ import {
 } from "./discovery.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
+	fileModuleReference,
+	loadedModuleReference,
 	moduleReferenceDisplay,
+	packageModuleReference,
 	type NsCommandModuleLoader,
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
@@ -82,15 +85,27 @@ export interface DiagnosticClassification {
 	warnings: readonly ExtensionErrorDiagnostic[];
 }
 
-export interface PreinstalledNsCommandCatalogEntry {
+export type PreinstalledNsCommandCatalogEntry =
+	| PreinstalledNsCommandPackageCatalogEntry
+	| PreinstalledNsCommandLoadedCatalogEntry;
+
+export interface PreinstalledNsCommandCatalogEntryBase {
 	readonly group?: string;
 	readonly groupDescription?: string;
 	readonly name: string;
 	readonly description: string;
 	readonly fullDescription: string;
 	readonly path?: readonly string[];
+}
+
+export interface PreinstalledNsCommandPackageCatalogEntry extends PreinstalledNsCommandCatalogEntryBase {
 	readonly moduleSpecifier: string;
-	readonly load?: NsCommandModuleLoader;
+	readonly load?: undefined;
+}
+
+export interface PreinstalledNsCommandLoadedCatalogEntry extends PreinstalledNsCommandCatalogEntryBase {
+	readonly displayPath: string;
+	readonly load: NsCommandModuleLoader;
 }
 
 export type PreinstalledNsCommandCatalogLoader = () =>
@@ -437,19 +452,29 @@ function collectPackageDirs(options: {
 function preinstalledCandidateForCatalogEntry(
 	entry: PreinstalledNsCommandCatalogEntry,
 ): ExternalNsCommandCandidate {
+	const displayPath = preinstalledCatalogEntryDisplayPath(entry);
 	return {
 		...preinstalledCatalogEntryCommandInfo(entry),
-		moduleReference:
-			entry.load === undefined
-				? { type: "package", specifier: entry.moduleSpecifier }
-				: { type: "loaded", displayPath: entry.moduleSpecifier, load: entry.load },
+		moduleReference: preinstalledCatalogEntryModuleReference(entry),
 		hasStaticCommandInfo: true,
 		source: {
 			level: "preinstalled",
-			label: `preinstalled package ${entry.moduleSpecifier}`,
-			path: entry.moduleSpecifier,
+			label: `preinstalled package ${displayPath}`,
+			path: displayPath,
 		},
 	};
+}
+
+function preinstalledCatalogEntryModuleReference(
+	entry: PreinstalledNsCommandCatalogEntry,
+): NsCommandModuleReference {
+	if (entry.load !== undefined) return loadedModuleReference(entry.displayPath, entry.load);
+	return packageModuleReference(entry.moduleSpecifier);
+}
+
+function preinstalledCatalogEntryDisplayPath(entry: PreinstalledNsCommandCatalogEntry): string {
+	if (entry.load !== undefined) return entry.displayPath;
+	return entry.moduleSpecifier;
 }
 
 function preinstalledCatalogEntryCommandInfo(
@@ -489,10 +514,8 @@ function discoveredCommandCandidate(options: {
 }): ExternalNsCommandCandidate {
 	return {
 		...toCommandCliInfo(options.command),
-		moduleReference: options.command.moduleReference ?? {
-			type: "file",
-			path: options.command.entryPath,
-		},
+		moduleReference:
+			options.command.moduleReference ?? fileModuleReference(options.command.entryPath),
 		entryPath: options.command.entryPath,
 		hasStaticCommandInfo: options.command.hasStaticCommandInfo,
 		source: {

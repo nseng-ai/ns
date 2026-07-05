@@ -12,7 +12,7 @@ export const objectivePreinstalledNsCommandCatalog = objectiveRepoLocalNsExtensi
 		description: descriptor.command.summary,
 		fullDescription: descriptor.command.description,
 		...optionalEntry("path", descriptor.manifestPath),
-		moduleSpecifier: descriptor.packageExport,
+		displayPath: descriptor.packageExport,
 		load: () => defineExtension({ commands: [descriptor.command] }),
 	}),
 ) satisfies readonly PreinstalledNsCommandCatalogEntry[];

@@ -3,7 +3,10 @@ import { chmod, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { branchContextImplPromptTemplatePath } from "@ns/branch-context/api/prompt-assets";
 import { build } from "esbuild";
+
+import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outfile = resolve(packageRoot, "dist", "bundle", "cli.js");
@@ -30,12 +33,7 @@ await build({
 	platform: "node",
 	format: "esm",
 	target: "node24",
-	external: [
-		"@earendil-works/pi-ai",
-		"@earendil-works/pi-coding-agent",
-		"jiti",
-		"zod",
-	],
+	external: publicRuntimeDependencies,
 	banner: {
 		js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
 	},
@@ -53,17 +51,7 @@ await copyRuntimeAssets();
 async function copyRuntimeAssets() {
 	await mkdir(bundledPromptsDir, { recursive: true });
 	await copyFile(
-		resolve(
-			packageRoot,
-			"..",
-			"..",
-			"capabilities",
-			"branch-context",
-			"src",
-			"core",
-			"prompts",
-			"branch-context-impl.md",
-		),
+		branchContextImplPromptTemplatePath(),
 		resolve(bundledPromptsDir, "branch-context-impl.md"),
 	);
 }

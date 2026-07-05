@@ -127,7 +127,12 @@ describe("extension registry", () => {
 			homeDir: workspace.homeDir,
 			preinstalledCommandCatalog: () => [
 				{
-					...preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
+					group: "tools",
+					groupDescription: "tools commands.",
+					name: "scan",
+					description: "scan command.",
+					fullDescription: "scan command.",
+					displayPath: "@example/tools/ns/commands/scan",
 					load: () =>
 						defineExtension({
 							commands: [

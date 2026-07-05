@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
+		"@ns/branch-context": "workspace:*",
 		"@ns/kernel": "workspace:*",
 		"@ns/objective": "workspace:*",
 		"jiti": "catalog:",

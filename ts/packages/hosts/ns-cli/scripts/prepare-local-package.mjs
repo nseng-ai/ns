@@ -3,19 +3,14 @@ import { chmod, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promise
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
+
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspaceRoot = resolve(packageRoot, "..", "..", "..");
 const publishRoot = resolve(packageRoot, "dist", "publish");
 const bundledCli = resolve(packageRoot, "dist", "bundle", "cli.js");
 const publishBinDir = resolve(publishRoot, "bin");
 const publishBin = resolve(publishBinDir, "ns.js");
-const publicExternalDependencies = [
-	"@earendil-works/pi-ai",
-	"@earendil-works/pi-coding-agent",
-	"jiti",
-	"zod",
-];
-
 const sourceManifest = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
 const workspaceManifest = JSON.parse(await readFile(resolve(workspaceRoot, "package.json"), "utf8"));
 const workspaceYaml = await readFile(resolve(workspaceRoot, "pnpm-workspace.yaml"), "utf8");
@@ -38,7 +33,7 @@ const manifest = {
 	files: ["bin", "README.md"],
 	engines: { node: workspaceManifest.engines.node },
 	dependencies: Object.fromEntries(
-		publicExternalDependencies.map((name) => [name, catalogVersion(workspaceYaml, name)]),
+		publicRuntimeDependencies.map((name) => [name, catalogVersion(workspaceYaml, name)]),
 	),
 };
 
