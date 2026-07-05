@@ -1,11 +1,11 @@
+import type { StackInfo } from "@nseng-ai/capability-kit/graphite/stack";
+import { parseJsonUnknown } from "@nseng-ai/capability-kit/github/graphql-json";
 import { failure, negative, ok, usageError } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
 import type { LocalBranchTip, WorktreeOccupancy } from "../../../../core/gateways/repository.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
-import { parseJsonObject } from "../../../../core/json.ts";
-import type { StackInfo } from "@nseng-ai/capability-kit/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";
@@ -205,11 +205,11 @@ function parseExpectedSnapshot(
 	| { type: "ok"; snapshot: QuiescenceSnapshot | null }
 	| { type: "usage-error"; message: string; data: { argument: string } } {
 	if (value === undefined) return { type: "ok", snapshot: null };
-	const parsed = parseJsonObject(value);
-	if (parsed.type === "failure") {
+	const parsed = parseJsonUnknown(value);
+	if (parsed.type === "error") {
 		return {
 			type: "usage-error",
-			message: `Invalid --expect-snapshot-json: ${parsed.message}`,
+			message: `Invalid --expect-snapshot-json: ${jsonParseErrorMessage(parsed.error)}`,
 			data: { argument: "--expect-snapshot-json" },
 		};
 	}
@@ -222,6 +222,10 @@ function parseExpectedSnapshot(
 		};
 	}
 	return { type: "ok", snapshot: validation.data };
+}
+
+function jsonParseErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function collectOccupancyBlockers(options: {
