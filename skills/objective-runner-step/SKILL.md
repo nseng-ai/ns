@@ -105,4 +105,4 @@ The runner will never, in any mode:
 
 And you, the parent, never mutate the worktree between begin and finish — the gate makes violations loud, not silent.
 
-If you need any of those, do them yourself as the parent after the checkpoint, through the normal workflows and only when separately authorized. The legacy blocking `ns objective exec runner-step` still exists during the transition but no skill flow uses it; it is scheduled for deletion.
+If you need any of those, do them yourself as the parent after the checkpoint, through the normal workflows and only when separately authorized.

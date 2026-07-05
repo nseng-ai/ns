@@ -15,8 +15,8 @@ const RUNNER_FINISH_DESCRIPTION =
 /**
  * Pi-free finish bookend. Renderers return the checkpoint verbatim for exit-0
  * states; non-ok checkpoint exits use runner-local stdout emission for
- * human/markdown modes and suppress it in JSON mode, matching the legacy
- * runner-step behavior until clinkr owns non-ok stdout artifacts structurally.
+ * human/markdown modes and suppress it in JSON mode until clinkr owns non-ok
+ * stdout artifacts structurally.
  */
 export const objectiveExecRunnerFinishNsCommand: NsCommand<
 	typeof runnerFinishRequestSchema,

@@ -1,9 +1,7 @@
 /**
  * Shared child-report contract: the typed report shape, statuses, mandated
- * narrative sections, and the checkpoint narrative renderer. Both report
- * media consume this module — the JSON report file (`report-file.ts`, the
- * ADR 0024 flow) and the legacy marker-block parser (`report-marker.ts`,
- * deleted with the blocking `runner-step`).
+ * narrative sections, and the checkpoint narrative renderer for the JSON
+ * report file (`report-file.ts`) used by the decomposed ADR 0024 flow.
  */
 
 export const RUNNER_REPORT_STATUSES = ["ready-for-parent-commit", "stop", "blocked"] as const;

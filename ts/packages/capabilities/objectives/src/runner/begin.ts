@@ -56,9 +56,9 @@ export type RunnerBeginResult = z.infer<typeof runnerBeginResultSchema>;
 /**
  * Runs the begin bookend: request hygiene, preconditions, prompt construction.
  *
- * Exit mapping mirrors `runner-step` (ADR 0022/0024): `usageError` for
- * malformed requests with nothing dispatched, `negative` for LBYL refusals,
- * `failure` for infrastructure errors, `ok` with the step facts otherwise.
+ * Exit mapping: `usageError` for malformed requests with nothing dispatched,
+ * `negative` for LBYL refusals, `failure` for infrastructure errors, `ok`
+ * with the step facts otherwise.
  */
 export async function runRunnerBegin(
 	ctx: ObjectiveRunnerCoreContext,
@@ -118,7 +118,7 @@ export async function runRunnerBegin(
 		objectivePath,
 		mode,
 		baseBranch,
-		reportChannel: { type: "json-file", reportPath },
+		reportPath,
 		...optionalEntry("guidance", guidance.guidance),
 		...(mode === "recover" ? { recoverContext: { branch: baseBranch, changedPaths } } : {}),
 	});

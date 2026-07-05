@@ -21,26 +21,10 @@ import {
 } from "../../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../../src/core/storage.ts";
 import type {
-	ObjectiveRunnerContext,
+	ObjectiveRunnerCoreContext,
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../../../src/runner/context.ts";
-// ADR0024-LEGACY-DELETE(import, plus the childScripts option, the
-// childSession members of RunnerFakesContext, and childReportText below).
-import {
-	FakeChildSessionGateway,
-	type FakeChildSessionScript,
-} from "../../../src/runner/testing.ts";
-// ADR0024-LEGACY-DELETE(import): marker constants feed only childReportText below.
-import {
-	OBJECTIVE_RUNNER_REPORT_BEGIN,
-	OBJECTIVE_RUNNER_REPORT_END,
-} from "../../../src/runner/report-marker.ts";
-import {
-	RUNNER_REPORT_SECTION_TITLES,
-	type RunnerReportSectionTitle,
-	type RunnerReportStatus,
-} from "../../../src/runner/report.ts";
 
 interface FailureState {
 	type: "failure";
@@ -131,7 +115,6 @@ export interface RunnerFakesOptions {
 	storage?: FakeObjectiveStorageGatewayOptions;
 	git?: SequencedGitGatewayState;
 	graphite?: InMemoryGraphiteGatewayState;
-	childScripts?: readonly FakeChildSessionScript[];
 	/** Overrides for every `ctx.commands.exec` result (defaults to exit 0). */
 	execResult?: Partial<ExecResult>;
 	/** Per-call `ctx.commands.exec` overrides; the last value repeats once exhausted. */
@@ -141,19 +124,16 @@ export interface RunnerFakesOptions {
 	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
 }
 
-export interface RunnerFakesContext extends ObjectiveRunnerContext {
+export interface RunnerFakesContext extends ObjectiveRunnerCoreContext {
 	git: SequencedGitGateway;
 	graphite: InMemoryGraphiteBranchGateway;
-	childSession: FakeChildSessionGateway;
 	stdoutChunks: string[];
-	stderrChunks: string[];
 	phases: string[];
 	execCalls: RecordedExecCall[];
 }
 
 export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): RunnerFakesContext {
 	const stdoutChunks: string[] = [];
-	const stderrChunks: string[] = [];
 	const phases: string[] = [];
 	const execCalls: RecordedExecCall[] = [];
 	const gitState = options.git ?? {};
@@ -187,12 +167,8 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 				};
 			},
 		},
-		childSession: new FakeChildSessionGateway(options.childScripts ?? []),
 		writeStdout(text) {
 			stdoutChunks.push(text);
-		},
-		writeStderr(text) {
-			stderrChunks.push(text);
 		},
 		phase(label) {
 			phases.push(label);
@@ -207,60 +183,7 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 			return Object.hasOwn(textFiles, path) ? { type: "present" } : { type: "missing" };
 		},
 		stdoutChunks,
-		stderrChunks,
 		phases,
 		execCalls,
 	};
-}
-
-export interface ChildReportTextOptions {
-	status?: RunnerReportStatus;
-	branch?: string;
-	roadmapItems?: readonly string[];
-	commitSubject?: string;
-	omitCommitSubject?: boolean;
-	commitBody?: readonly string[];
-	stopReason?: string;
-	sectionOverrides?: Partial<Record<RunnerReportSectionTitle, string>>;
-	omitSections?: readonly RunnerReportSectionTitle[];
-}
-
-/**
- * ADR0024-LEGACY-DELETE(function + ChildReportTextOptions): builds the legacy
- * marker-block report; only legacy runner-step tests consume it.
- *
- * Builds a well-formed child report block wrapped in surrounding chatter.
- */
-export function childReportText(options: ChildReportTextOptions = {}): string {
-	const status = options.status ?? "ready-for-parent-commit";
-	const lines = [
-		`status: ${status}`,
-		`branch: ${options.branch ?? "feature/demo-step"}`,
-		"roadmapItems:",
-		...(options.roadmapItems ?? ["Slice 1 — demo slice"]).map((item) => `- ${item}`),
-	];
-	if (options.omitCommitSubject !== true && status === "ready-for-parent-commit") {
-		lines.push(`commitSubject: ${options.commitSubject ?? "Implement demo slice"}`);
-	}
-	if (options.commitSubject !== undefined && status !== "ready-for-parent-commit") {
-		lines.push(`commitSubject: ${options.commitSubject}`);
-	}
-	if (options.commitBody !== undefined && options.commitBody.length > 0) {
-		lines.push("commitBody:", ...options.commitBody.map((bodyLine) => `- ${bodyLine}`));
-	}
-	if (options.stopReason !== undefined) lines.push(`stopReason: ${options.stopReason}`);
-	lines.push("");
-	const omitted = new Set(options.omitSections ?? []);
-	for (const title of RUNNER_REPORT_SECTION_TITLES) {
-		if (omitted.has(title)) continue;
-		const body = options.sectionOverrides?.[title] ?? `${title} content.`;
-		lines.push(`## ${title}`, body, "");
-	}
-	return [
-		"Some final assistant chatter before the report.",
-		OBJECTIVE_RUNNER_REPORT_BEGIN,
-		...lines,
-		OBJECTIVE_RUNNER_REPORT_END,
-		"Trailing chatter.",
-	].join("\n");
 }

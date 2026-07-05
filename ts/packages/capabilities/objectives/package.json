@@ -12,7 +12,6 @@
 		"./ns/commands/exec-read-objective": "./src/ns/commands/exec-read-objective.ts",
 		"./ns/commands/exec-runner-begin": "./src/ns/commands/exec-runner-begin.ts",
 		"./ns/commands/exec-runner-finish": "./src/ns/commands/exec-runner-finish.ts",
-		"./ns/commands/exec-runner-step": "./src/ns/commands/exec-runner-step.ts",
 		"./ns/commands/exec-runner-subagent-usage": "./src/ns/commands/exec-runner-subagent-usage.ts",
 		"./ns/commands/exec-tracking-gate": "./src/ns/commands/exec-tracking-gate.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
