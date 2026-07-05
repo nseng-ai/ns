@@ -12,13 +12,7 @@ import {
 	type PrPreviewFeedbackViewModel,
 } from "./preview-feedback-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
-import {
-	overlayChromeRows,
-	overlayInnerWidth,
-	overlayModalRows,
-	overlayTerminalRows,
-	renderOverlayFrame,
-} from "../overlay-kit/frame.ts";
+import { overlayRenderLayout, renderOverlayFrame } from "../overlay-kit/frame.ts";
 import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
@@ -58,14 +52,16 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	render(width: number): string[] {
-		const innerWidth = overlayInnerWidth(width);
-		const height = overlayModalRows(overlayTerminalRows(this.tui.terminal.rows));
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
 			"↑↓/jk select · PgUp/PgDn scroll · q/esc close · preview only",
 		);
-		const bodyRows = Math.max(1, height - overlayChromeRows(header.length));
+		const { innerWidth, bodyRows } = overlayRenderLayout({
+			width,
+			terminalRows: this.tui.terminal.rows,
+			headerLength: header.length,
+		});
 		const body = this.renderBody(innerWidth, bodyRows);
 		return renderOverlayFrame({
 			header,

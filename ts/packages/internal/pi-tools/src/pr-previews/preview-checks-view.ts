@@ -19,13 +19,7 @@ import {
 } from "./preview-checks-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
 import { parseCheckLogSummaryMarkdownLine } from "./preview-view-utilities.ts";
-import {
-	overlayChromeRows,
-	overlayInnerWidth,
-	overlayModalRows,
-	overlayTerminalRows,
-	renderOverlayFrame,
-} from "../overlay-kit/frame.ts";
+import { overlayRenderLayout, renderOverlayFrame } from "../overlay-kit/frame.ts";
 import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
 
 const DEFAULT_LOG_LOAD_TIMEOUT_MS = 90_000;
@@ -100,11 +94,13 @@ export class PrPreviewChecksView implements Component {
 	}
 
 	render(width: number): string[] {
-		const innerWidth = overlayInnerWidth(width);
-		const height = overlayModalRows(overlayTerminalRows(this.tui.terminal.rows));
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color("dim", this.footerText());
-		const bodyRows = Math.max(1, height - overlayChromeRows(header.length));
+		const { innerWidth, bodyRows } = overlayRenderLayout({
+			width,
+			terminalRows: this.tui.terminal.rows,
+			headerLength: header.length,
+		});
 		const body = this.renderBody(innerWidth, bodyRows);
 		return renderOverlayFrame({
 			header,

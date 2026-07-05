@@ -9,13 +9,13 @@
  * explicit no-ops on the entry list, and `isStreaming` is toggled only via
  * {@link setStreaming}.
  */
+import type { SideSessionEvent } from "../side-session/events.ts";
 
-/** One event from the compose side-session (the I/O half maps AgentSession events to these). */
-export type ComposeSessionEvent =
-	| { type: "assistant-delta"; text: string }
-	| { type: "assistant-end" }
-	| { type: "retry"; attempt: number; maxAttempts: number; message: string }
-	| { type: "turn-end" };
+/** Tool-less subset of the shared side-session event stream. */
+export type ComposeSessionEvent = Exclude<
+	SideSessionEvent,
+	{ type: "tool-start" } | { type: "tool-end" }
+>;
 
 export interface ComposeTranscriptEntry {
 	kind: "user" | "assistant" | "notice";

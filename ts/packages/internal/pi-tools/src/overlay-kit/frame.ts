@@ -11,7 +11,7 @@ import { fitToWidth } from "@nseng-ai/pi/terminal/layout";
 /** Rows assumed when the host reports no terminal height. */
 export const FALLBACK_TERMINAL_ROWS = 24;
 /** Floor width the chrome renders at; narrower terminals still get a full box. */
-export const MIN_RENDER_WIDTH = 40;
+export const MIN_RENDER_WIDTH_COLS = 40;
 /** Host overlay max-height fraction shared by bordered modals. */
 export const OVERLAY_MAX_HEIGHT_RATIO = 0.85;
 /** Host overlay vertical margin in terminal rows. */
@@ -24,7 +24,7 @@ export function overlayTerminalRows(rows: number | null | undefined): number {
 
 /** Content width inside the border: `safeWidth - 2`, floored at 1. */
 export function overlayInnerWidth(width: number): number {
-	return Math.max(1, Math.max(MIN_RENDER_WIDTH, width) - 2);
+	return Math.max(1, Math.max(MIN_RENDER_WIDTH_COLS, width) - 2);
 }
 
 /**
@@ -44,6 +44,17 @@ export function overlayModalRows(terminalRows: number): number {
 	const available = Math.max(1, terminalRows - 2 * OVERLAY_MARGIN_ROWS);
 	const budget = Math.min(Math.floor(terminalRows * OVERLAY_MAX_HEIGHT_RATIO), available);
 	return Math.max(1, budget);
+}
+
+export function overlayRenderLayout(options: {
+	width: number;
+	terminalRows: number | null | undefined;
+	headerLength: number;
+}): { innerWidth: number; bodyRows: number } {
+	const innerWidth = overlayInnerWidth(options.width);
+	const height = overlayModalRows(overlayTerminalRows(options.terminalRows));
+	const bodyRows = Math.max(1, height - overlayChromeRows(options.headerLength));
+	return { innerWidth, bodyRows };
 }
 
 export interface OverlayHostOptions {
@@ -75,7 +86,7 @@ export interface OverlayFrameOptions {
 	body: readonly string[];
 	/** Already-colored footer line, rendered on its own row above the bottom border. */
 	footer: string;
-	/** The raw render width the host requested; the frame clamps it to {@link MIN_RENDER_WIDTH}. */
+	/** The raw render width the host requested; the frame clamps it to {@link MIN_RENDER_WIDTH_COLS}. */
 	width: number;
 	/** Colorizes the border glyphs (the views pass their `border` theme color). */
 	colorizeBorder: (text: string) => string;
@@ -87,7 +98,7 @@ export interface OverlayFrameOptions {
  * width-fit so the three views share one byte-for-byte chrome.
  */
 export function renderOverlayFrame(options: OverlayFrameOptions): string[] {
-	const safeWidth = Math.max(MIN_RENDER_WIDTH, options.width);
+	const safeWidth = Math.max(MIN_RENDER_WIDTH_COLS, options.width);
 	const innerWidth = overlayInnerWidth(options.width);
 	const border = (left: string, right: string): string =>
 		options.colorizeBorder(`${left}${"─".repeat(Math.max(0, safeWidth - 2))}${right}`);

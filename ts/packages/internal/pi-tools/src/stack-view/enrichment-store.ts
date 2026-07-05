@@ -39,14 +39,14 @@ export function createEnrichmentStore(options?: { maxEntries?: number }): Enrich
 		// the in-flight task. Evict the oldest non-pending entry; if every entry
 		// over capacity is pending, evict nothing.
 		while (entries.size > maxEntries) {
-			let didEvict = false;
+			let hasEvicted = false;
 			for (const [key, entry] of entries) {
 				if (entry.state === "pending") continue;
 				entries.delete(key);
-				didEvict = true;
+				hasEvicted = true;
 				break;
 			}
-			if (!didEvict) break;
+			if (!hasEvicted) break;
 		}
 	}
 

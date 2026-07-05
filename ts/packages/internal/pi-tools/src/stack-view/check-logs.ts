@@ -14,8 +14,6 @@ import { CHECK_LOG_TAIL_MAX_CHARS } from "./enrichment-prompts.ts";
 import type { CommandExecApi } from "./exec.ts";
 import type { StackViewCheckEntry } from "./types.ts";
 
-export { githubActionsJobLogArgs } from "../pr-previews/preview-check-logs.ts";
-
 /** Resolved log source for a check: the proven `gh` argv, or the reason it is unavailable. */
 export type ResolveCheckLogSourceResult =
 	| { ok: true; args: string[] }

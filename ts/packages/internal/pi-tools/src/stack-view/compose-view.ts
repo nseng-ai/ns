@@ -6,6 +6,7 @@ import { fitToWidth } from "@nseng-ai/pi/terminal/layout";
 
 import type { StackThemeColor } from "./format.ts";
 import type { ComposeViewPort } from "./compose-controller.ts";
+import { detachSubscription } from "./subscription.ts";
 import {
 	COMPOSE_ROLE_DISPLAY,
 	composeBodyLayout,
@@ -121,8 +122,7 @@ export class ComposeView {
 	}
 
 	dispose(): void {
-		this.unsubscribe?.();
-		this.unsubscribe = undefined;
+		this.unsubscribe = detachSubscription(this.unsubscribe);
 		this.editor = null;
 	}
 

@@ -15,6 +15,7 @@ import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import type { ComposeSession, ComposeSessionFactory } from "./compose-session.ts";
 import { extractDraft, stripDraftBlock } from "./compose-draft.ts";
+import { createChangeEmitter } from "./change-emitter.ts";
 import { buildComposeSystemPrompt } from "./compose-prompt.ts";
 import {
 	EMPTY_COMPOSE_TRANSCRIPT,
@@ -59,7 +60,7 @@ export class ComposeController implements ComposeViewPort {
 	private readonly stackModel: StackViewModel;
 	private readonly enrichment: StackEnrichmentPort;
 	private readonly factory: ComposeSessionFactory;
-	private readonly changeListeners = new Set<() => void>();
+	private readonly changeEmitter = createChangeEmitter();
 
 	private transcriptState: ComposeTranscriptState;
 	private draftValue: string | null;
@@ -101,10 +102,7 @@ export class ComposeController implements ComposeViewPort {
 	}
 
 	onChange(listener: () => void): () => void {
-		this.changeListeners.add(listener);
-		return () => {
-			this.changeListeners.delete(listener);
-		};
+		return this.changeEmitter.onChange(listener);
 	}
 
 	async send(text: string): Promise<void> {
@@ -228,7 +226,7 @@ export class ComposeController implements ComposeViewPort {
 	}
 
 	private emitChange(): void {
-		for (const listener of this.changeListeners) listener();
+		this.changeEmitter.emitChange();
 	}
 
 	private emitNotice(text: string): void {

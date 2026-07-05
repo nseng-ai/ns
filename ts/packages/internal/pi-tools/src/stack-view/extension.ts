@@ -36,13 +36,14 @@ import {
 	type ExecResult,
 } from "./exec.ts";
 import { buildSummaryPrompt, renderPlainSnapshot } from "./render.ts";
+import type { StackViewModel } from "./types.ts";
 import {
 	stackViewSnapshotDetailsSchema,
 	type SerializedStackViewModel,
-	type StackViewModel,
-} from "./types.ts";
+} from "./snapshot-schema.ts";
 import {
 	runStackViewOverlayUi,
+	type StackViewComposeOption,
 	type StackViewCustomUi,
 	type StackViewUiResult,
 } from "./overlay-ui.ts";
@@ -78,7 +79,6 @@ export interface CommandContext {
 	ui: StackViewCustomUi & {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		pasteToEditor?(text: string): void;
 	};
 }
 
@@ -248,37 +248,12 @@ async function handleStackViewCommand(
 		cwd: ctx.cwd,
 		registry: ctx.modelRegistry,
 	});
-	// Compose is available only when the parent session has a model; the controller
-	// is built lazily on first entry and disposed when the stack context turns
-	// stale (refresh) or the loop exits.
-	const composeModel = ctx.model;
-	let composeController: ComposeControllerHandle | undefined;
-	const disposeCompose = (): void => {
-		composeController?.dispose();
-		composeController = undefined;
-	};
-	const composeOption =
-		composeModel === undefined
-			? undefined
-			: {
-					getPort: (): ComposeViewPort => {
-						// Memoize one controller per live stack model: rebuilding the overlay
-						// (e.g. the `open` outcome's continue) must NOT destroy the in-progress
-						// side session, transcript, or draft. Only `refresh` (fresh stack) and
-						// the loop `finally` dispose it, forcing a later rebuild.
-						if (composeController === undefined) {
-							composeController = deps.composeControllerFactory({
-								cwd: ctx.cwd,
-								model: composeModel,
-								modelRegistry: ctx.modelRegistry,
-								stackModel: model,
-								enrichment: engine,
-								factory: createPiComposeSessionFactory(),
-							});
-						}
-						return composeController;
-					},
-				};
+	const composeLifecycle = createComposeLifecycle({
+		ctx,
+		getStackModel: () => model,
+		enrichment: engine,
+		composeControllerFactory: deps.composeControllerFactory,
+	});
 	try {
 		let selectedIndex: number | undefined;
 		for (;;) {
@@ -287,7 +262,7 @@ async function handleStackViewCommand(
 				result = await runStackViewOverlayUi(model, ctx, {
 					...(selectedIndex === undefined ? {} : { selectedIndex }),
 					enrichment: engine,
-					...(composeOption === undefined ? {} : { compose: composeOption }),
+					...(composeLifecycle.option === undefined ? {} : { compose: composeLifecycle.option }),
 				});
 			} catch (error) {
 				// The overlay threw — a real bug or a Pi-runtime drift. Surface it instead
@@ -309,13 +284,13 @@ async function handleStackViewCommand(
 				case "open":
 					await openGraphiteUrl(session, outcome.url);
 					continue;
-				case "paste-branch":
-					pasteBranchToEditor(ctx, outcome.branch);
+				case "copy-branch":
+					await copyBranchToClipboard(session, outcome.branch);
 					return;
 				case "refresh": {
 					// The stack context is about to change; dispose the compose controller
 					// so the next compose entry rebuilds one over the fresh stack model.
-					disposeCompose();
+					composeLifecycle.disposeAll();
 					const previousBranch = model.prs[selectedIndex]?.branch;
 					const reloaded = await loadStackViewWithStatus(session, deps.loadStackView);
 					if (reloaded.type === "not-on-stack") {
@@ -350,19 +325,65 @@ async function handleStackViewCommand(
 			}
 		}
 	} finally {
-		disposeCompose();
+		composeLifecycle.disposeAll();
 		engine.abort();
 	}
 }
 
-/** Paste a selected branch into the parent editor, warning only when the host lacks that API. */
-function pasteBranchToEditor(ctx: CommandContext, branch: string): void {
-	if (ctx.ui.pasteToEditor === undefined) {
-		ctx.ui.notify(`Selected branch: ${branch} (editor paste is unavailable).`, "warning");
-		return;
-	}
-	ctx.ui.pasteToEditor(branch);
-	ctx.ui.notify(`Pasted branch '${truncateDisplayLine(branch, 80)}' into the editor.`, "info");
+interface StackViewComposeLifecycle {
+	option: StackViewComposeOption | undefined;
+	disposeAll(): void;
+}
+
+function createComposeLifecycle(options: {
+	ctx: CommandContext;
+	getStackModel(): StackViewModel;
+	enrichment: StackEnrichmentPort;
+	composeControllerFactory: ComposeControllerFactory;
+}): StackViewComposeLifecycle {
+	const composeModel = options.ctx.model;
+	let composeController: ComposeControllerHandle | undefined;
+	const disposeAll = (): void => {
+		composeController?.dispose();
+		composeController = undefined;
+	};
+	if (composeModel === undefined) return { option: undefined, disposeAll };
+	return {
+		option: {
+			getPort: (): ComposeViewPort => {
+				// Memoize one controller per live stack model: rebuilding the overlay
+				// (e.g. the `open` outcome's continue) must NOT destroy the in-progress
+				// side session, transcript, or draft. Only `refresh` (fresh stack) and
+				// the loop `finally` dispose it, forcing a later rebuild.
+				if (composeController === undefined) {
+					composeController = options.composeControllerFactory({
+						cwd: options.ctx.cwd,
+						model: composeModel,
+						modelRegistry: options.ctx.modelRegistry,
+						stackModel: options.getStackModel(),
+						enrichment: options.enrichment,
+						factory: createPiComposeSessionFactory(),
+					});
+				}
+				return composeController;
+			},
+		},
+		disposeAll,
+	};
+}
+
+/** Copy a selected branch to the system clipboard through `pbcopy`; warn gently on failure. */
+async function copyBranchToClipboard(
+	session: StackViewCommandSession,
+	branch: string,
+): Promise<void> {
+	const displayBranch = truncateDisplayLine(branch, 80);
+	await runAndNotify(session, {
+		exec: () => session.pi.exec("/bin/sh", ["-c", 'printf %s "$1" | pbcopy', "sh", branch]),
+		success: `Copied branch '${displayBranch}' to the clipboard.`,
+		failure: (result) =>
+			`Could not copy branch '${displayBranch}' to the clipboard (exit ${result.code}).`,
+	});
 }
 
 /** Load the stack while showing an ephemeral status line, clearing it when done. */
@@ -378,12 +399,30 @@ async function loadStackViewWithStatus(
 	}
 }
 
+interface RunAndNotifyOptions {
+	exec(): Promise<ExecResult>;
+	success?: string;
+	failure(result: ExecResult): string;
+}
+
+async function runAndNotify(
+	session: StackViewCommandSession,
+	options: RunAndNotifyOptions,
+): Promise<void> {
+	const result = await options.exec();
+	if (commandSucceeded(result)) {
+		if (options.success !== undefined) session.ctx.ui.notify(options.success, "info");
+		return;
+	}
+	session.ctx.ui.notify(options.failure(result), "warning");
+}
+
 /** Fire the URL through the host `open` command; notify gently (never throw) on nonzero exit. */
 async function openGraphiteUrl(session: StackViewCommandSession, url: string): Promise<void> {
-	const result = await session.pi.exec("open", [url]);
-	if (!commandSucceeded(result)) {
-		session.ctx.ui.notify(`Could not open ${url} (exit ${result.code}).`, "warning");
-	}
+	await runAndNotify(session, {
+		exec: () => session.pi.exec("open", [url]),
+		failure: (result) => `Could not open ${url} (exit ${result.code}).`,
+	});
 }
 
 /**

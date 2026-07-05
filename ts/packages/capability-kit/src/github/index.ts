@@ -10,5 +10,10 @@ export {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	githubRepositoryIdentityFromRemoteUrl,
 	normalizeGitRemoteUrl,
+	resolveGithubRepositoryIdentityFromOrigin,
 } from "./identity.ts";
-export type { GithubPrIdentity, GithubRepositoryIdentity } from "./identity.ts";
+export type {
+	GithubPrIdentity,
+	GithubRepositoryIdentity,
+	ResolveGithubRepositoryIdentityResult,
+} from "./identity.ts";
