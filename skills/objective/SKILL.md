@@ -48,6 +48,7 @@ Use these step skills for explicit workflow requests:
 
 - For standing / ongoing / no-natural-finish-line Objectives, read `references/standing-objectives.md`.
 - For execution-friendly Objective policy, `## Definition of Progress`, `## Runner Policy`, row-level `Policy:`, or Objective runner concepts, read `references/execution-policy.md`.
+- For Objective patterns — umbrella (formerly synthesis), child, autoobjective, orienting (formerly cross-cutting), ideation, or "which shape should this Objective take" — read `references/objective-patterns.md`.
 
 ## Files
 
@@ -101,7 +102,7 @@ Optional branch names, URLs, or explicit status words may be included only when 
 
 ### orientation.md
 
-Optional, agent-facing standing rule (≈8 content lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for cross-cutting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines; lifecycle/graduation metadata stays in `roadmap.md`, never here.
+Optional, agent-facing standing rule (≈8 content lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for orienting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines; lifecycle/graduation metadata stays in `roadmap.md`, never here.
 
 Re-deriving `orientation.md` means preserving or correcting the durable `Direction`/`Getting to` lines and shrinking or removing the temporary `What you see now`/`Avoid` lines as the migration lands, with lifecycle/graduation metadata staying in `roadmap.md` as above.
 

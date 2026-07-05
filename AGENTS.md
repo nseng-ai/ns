@@ -31,15 +31,15 @@ each as a repo rule while present:
 
     ns objective exec load-orientations --format md
 
-Each `orientation.md` is the standing, agent-facing rule for an in-flight cross-cutting
-initiative — it states where that part of the system is going vs. what you see in the
-code now, and what to avoid. Design lives in ADRs, vocabulary in CONTEXT.md, full status
+Each `orientation.md` is the standing, agent-facing rule for an in-flight orienting
+Objective — an initiative whose direction cuts across all work; it states where that
+part of the system is going vs. what you see in the code now, and what to avoid. Design lives in ADRs, vocabulary in CONTEXT.md, full status
 in the objective's `roadmap.md`. The command owns deterministic inventory and
 closed-marker mechanics and emits headers plus raw file contents. A file leaves this set
 automatically when its objective closes (`closed.md` appears). Not every objective has
 one — only those whose direction every agent must respect.
 
-For the full slate of in-flight initiatives (not just the cross-cutting ones above), run
+For the full slate of in-flight initiatives (not just the orienting ones above), run
 `objective list`. Before starting work, check whether your task overlaps an active
 objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 
