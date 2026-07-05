@@ -56,14 +56,14 @@ afterEach(() => {
 });
 
 describe("ns extension loader CLI integration", () => {
-	test("foreign repo without .ns extensions discovers bundled Objective command help", async () => {
+	test("kernel CLI has no preinstalled commands without host injection", async () => {
 		const cwd = await createEmptyProject();
-		const run = runWithFakes({ args: ["objective", "list", "--help"], state: { exec: [] }, cwd });
+		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ns objective list");
-		expect(help).toContain("List Objective records in the current checkout.");
+		expect(help).not.toContain("objective");
+		expect(help).not.toContain("List Objective records in the current checkout.");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 	});

@@ -119,7 +119,7 @@ js-test: ts-test
 # Install the ns shim to ~/.local/bin so `ns` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-ns: (_install-ts-shim "ns" "ts/packages/kernel/src/cli/index.ts" "just install-ns or just install-tools")
+install-ns: (_install-ts-shim "ns" "ts/packages/hosts/ns-cli/src/cli.ts" "just install-ns or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/ns"
     @echo "removed stale project venv ns script if present"
 
@@ -180,7 +180,7 @@ areg-check: _ts-workspace-ready
 objective-check: _ts-workspace-ready _objective-check
 
 _objective-check:
-    node {{justfile_directory()}}/ts/packages/kernel/src/cli/index.ts objective check --all
+    node {{justfile_directory()}}/ts/packages/hosts/ns-cli/src/cli.ts objective check --all
 
 refresh-skills: _ts-workspace-ready
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}

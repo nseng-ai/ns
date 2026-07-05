@@ -1,0 +1,20 @@
+{
+	"name": "@ns/cli",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"ns": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/ns-cli/test"
+	},
+	"dependencies": {
+		"@ns/kernel": "workspace:*",
+		"@ns/objective": "workspace:*"
+	},
+	"ns": {
+		"tier": "host"
+	}
+}

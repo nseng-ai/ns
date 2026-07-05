@@ -92,9 +92,9 @@ describe("ns completion CLI", () => {
 			expectedLoadLog: ["tools/scan"],
 		},
 		{
-			name: "two-segment first-party command path",
+			name: "two-segment preinstalled command path",
 			path: ["slot", "gc"],
-			candidate: { name: "gc", segments: ["slot", "gc"], sourceLevel: "first-party" as const },
+			candidate: { name: "gc", segments: ["slot", "gc"], sourceLevel: "preinstalled" as const },
 			command: helloCommand({
 				name: "gc",
 				schema: z.object({ shouldDeleteBranches: z.boolean().default(false) }),
@@ -239,7 +239,7 @@ describe("ns completion CLI", () => {
 interface FakeCompletionPath {
 	group?: string;
 	segments?: readonly string[];
-	sourceLevel?: "first-party" | "global" | "project";
+	sourceLevel?: "preinstalled" | "global" | "project";
 }
 
 interface FakeCompletionRegistryOptions {

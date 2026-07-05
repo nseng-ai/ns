@@ -8,6 +8,7 @@ import { branchContextRepoLocalNsExtension } from "@ns/branch-context/repo-local
 import { flowRepoLocalNsExtension } from "@ns/flow/repo-local-ns-extension";
 import { handoffRepoLocalNsExtension } from "@ns/handoff/repo-local-ns-extension";
 import { objectiveRepoLocalNsExtension } from "@ns/objective/repo-local-ns-extension";
+import { objectivePreinstalledNsCommandCatalog } from "@ns/objective/ns/preinstalled-catalog";
 import { roasterRepoLocalNsExtension } from "@ns/roaster/repo-local-ns-extension";
 import type {
 	RepoLocalNsExtensionCommandDescriptor,
@@ -17,10 +18,7 @@ import {
 	discoverNsPackageCommands,
 	type DiscoveredExtensionCommand,
 } from "../../src/extensions/discovery.ts";
-import {
-	firstPartyCommandCatalog,
-	type FirstPartyCommandCatalogEntry,
-} from "../../src/extensions/first-party-catalog.ts";
+import type { PreinstalledNsCommandCatalogEntry } from "../../src/extensions/registry.ts";
 
 interface NormalizedManifestCommand {
 	readonly name: string;
@@ -78,9 +76,9 @@ describe("repo-local ns extension manifest parity", () => {
 		}
 	});
 
-	test("bundled Objective catalog matches the package-owned Objective descriptor", () => {
+	test("Objective-owned preinstalled catalog matches the package-owned Objective descriptor", () => {
 		const actualCommands = sortCatalogCommands(
-			firstPartyCommandCatalog.map((command) => normalizeCatalogCommand(command)),
+			objectivePreinstalledNsCommandCatalog.map((command) => normalizeCatalogCommand(command)),
 		);
 		const expectedCommands = sortCatalogCommands(
 			objectiveRepoLocalNsExtension.commands.map((command) =>
@@ -88,14 +86,16 @@ describe("repo-local ns extension manifest parity", () => {
 			),
 		);
 
-		expect(firstPartyCommandCatalog.every((entry) => entry.group === "objective")).toBe(true);
 		expect(
-			firstPartyCommandCatalog.every(
+			objectivePreinstalledNsCommandCatalog.every((entry) => entry.group === "objective"),
+		).toBe(true);
+		expect(
+			objectivePreinstalledNsCommandCatalog.every(
 				(entry) => entry.groupDescription === objectiveRepoLocalNsExtension.description,
 			),
 		).toBe(true);
 		expect(actualCommands).toEqual(expectedCommands);
-		expect(JSON.stringify(firstPartyCommandCatalog)).not.toContain("@ns/ccc/");
+		expect(JSON.stringify(objectivePreinstalledNsCommandCatalog)).not.toContain("@ns/ccc/");
 	});
 
 	for (const descriptor of REPO_LOCAL_EXTENSION_DESCRIPTORS) {
@@ -176,7 +176,9 @@ function normalizeDescriptorCommand(
 	};
 }
 
-function normalizeCatalogCommand(command: FirstPartyCommandCatalogEntry): NormalizedCatalogCommand {
+function normalizeCatalogCommand(
+	command: PreinstalledNsCommandCatalogEntry,
+): NormalizedCatalogCommand {
 	return {
 		name: command.name,
 		...(command.path === undefined ? {} : { path: command.path }),

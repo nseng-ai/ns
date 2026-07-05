@@ -3,10 +3,10 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 
 import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
-import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
+import { commandInfoForLoadedCommand, commandKey } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,
@@ -16,7 +16,6 @@ import {
 } from "../../src/extensions/registry.ts";
 
 const tempDirs: string[] = [];
-const previousFirstPartyExtensionSetting = process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 
 interface Workspace {
 	cwd: string;
@@ -68,17 +67,16 @@ export default defineExtension({
 `;
 }
 
-beforeAll(() => {
-	process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
-});
-
-afterAll(() => {
-	if (previousFirstPartyExtensionSetting === undefined) {
-		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
-		return;
-	}
-	process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;
-});
+function preinstalledEntry(group: string, name: string, moduleSpecifier: string) {
+	return {
+		group,
+		groupDescription: `${group} commands.`,
+		name,
+		description: `${name} command.`,
+		fullDescription: `${name} command.`,
+		moduleSpecifier,
+	};
+}
 
 afterEach(() => {
 	for (const directory of tempDirs.splice(0)) {
@@ -97,30 +95,74 @@ describe("extension registry", () => {
 		expect(loaded.commandInfos).toEqual([]);
 	});
 
-	test("bundled first-party catalog contributes Objective commands without kernel imports", async () => {
+	test("injected preinstalled catalog contributes package commands", async () => {
 		const workspace = await createWorkspace();
-		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
-		try {
-			const loaded = await loadNsCommandCatalog({
-				cwd: workspace.cwd,
-				homeDir: workspace.homeDir,
-			});
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => [
+				preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
+				preinstalledEntry("tools", "doctor", "@example/tools/ns/commands/doctor"),
+			],
+		});
 
-			expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-			expect(loaded.candidates.get("objective/list")).toMatchObject({
-				name: "list",
-				group: "objective",
-				moduleReference: { type: "package", specifier: "@ns/objective/ns/commands/list" },
-				source: { level: "first-party" },
-			});
-			expect(loaded.candidates.get("objective/exec-load-orientations")).toMatchObject({
-				name: "exec-load-orientations",
-				group: "objective",
-				source: { level: "first-party" },
-			});
-		} finally {
-			process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
-		}
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect(loaded.candidates.get("tools/scan")).toMatchObject({
+			name: "scan",
+			group: "tools",
+			moduleReference: { type: "package", specifier: "@example/tools/ns/commands/scan" },
+			source: { level: "preinstalled" },
+		});
+		expect(loaded.candidates.get("tools/doctor")).toMatchObject({
+			name: "doctor",
+			group: "tools",
+			source: { level: "preinstalled" },
+		});
+	});
+
+	test("source-dev preinstalled discovery yields to injected catalog duplicates", async () => {
+		const workspace = await createWorkspace();
+		const sourceCatalog = await loadNsCommandCatalog({
+			cwd: process.cwd(),
+			homeDir: workspace.homeDir,
+		});
+		const sourceCandidate = [...sourceCatalog.candidates.values()].find(
+			(candidate) =>
+				candidate.source.level === "preinstalled" &&
+				candidate.source.label.startsWith("source-dev package "),
+		);
+		expect(sourceCandidate).toBeDefined();
+		if (sourceCandidate === undefined) return;
+		const key = commandKey(sourceCandidate);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: process.cwd(),
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => [
+				{
+					...(sourceCandidate.group === undefined ? {} : { group: sourceCandidate.group }),
+					...(sourceCandidate.groupDescription === undefined
+						? {}
+						: { groupDescription: sourceCandidate.groupDescription }),
+					...(sourceCandidate.segments === undefined ? {} : { path: sourceCandidate.segments }),
+					name: sourceCandidate.name,
+					description: "Injected duplicate.",
+					fullDescription: "Injected duplicate.",
+					moduleSpecifier: "@example/source-dev-duplicate",
+				},
+			],
+		});
+
+		expect(loaded.candidates.get(key)).toMatchObject({
+			moduleReference: { type: "package", specifier: "@example/source-dev-duplicate" },
+			source: { level: "preinstalled", path: "@example/source-dev-duplicate" },
+		});
+		expect(loaded.diagnostics).not.toContainEqual(
+			expect.objectContaining({
+				code: "extension_command_duplicate_in_level",
+				commandName: key,
+			}),
+		);
 	});
 
 	test("XDG global commands are loaded and legacy global commands are ignored", async () => {
@@ -208,44 +250,42 @@ describe("extension registry", () => {
 		expect(result).toEqual({ ok: true, message: "project greet" });
 	});
 
-	test("project Objective manifest overrides bundled first-party Objective catalog", async () => {
+	test("project manifest overrides injected preinstalled catalog", async () => {
 		const workspace = await createWorkspace();
-		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
-		try {
-			writeProjectManifest(workspace, "objective", {
-				ns: {
-					group: "objective",
-					description: "Project Objective overrides.",
-					commands: [
-						{
-							name: "list",
-							description: "Project Objective list.",
-							entry: "./src/list.ts",
-						},
-					],
-				},
-			});
-			writeFile(
-				join(workspace.cwd, ".ns", "extensions", "objective", "src", "list.ts"),
-				commandEntry("list", "project objective list"),
-			);
+		writeProjectManifest(workspace, "tools", {
+			ns: {
+				group: "tools",
+				description: "Project tools override.",
+				commands: [
+					{
+						name: "scan",
+						description: "Project scan.",
+						entry: "./src/scan.ts",
+					},
+				],
+			},
+		});
+		writeFile(
+			join(workspace.cwd, ".ns", "extensions", "tools", "src", "scan.ts"),
+			commandEntry("scan", "project scan"),
+		);
 
-			const loaded = await loadNsCommandCatalog({
-				cwd: workspace.cwd,
-				homeDir: workspace.homeDir,
-			});
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => [
+				preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
+			],
+		});
 
-			expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-			expect(loaded.candidates.get("objective/list")).toMatchObject({
-				description: "Project Objective list.",
-				source: { level: "project" },
-			});
-			expect(
-				loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
-			).toHaveLength(1);
-		} finally {
-			process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
-		}
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect(loaded.candidates.get("tools/scan")).toMatchObject({
+			description: "Project scan.",
+			source: { level: "project" },
+		});
+		expect(
+			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
+		).toHaveLength(1);
 	});
 
 	test("manifest metadata customizes catalog help without importing command entries", async () => {

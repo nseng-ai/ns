@@ -1,18 +1,10 @@
-export interface FirstPartyCommandCatalogEntry {
-	readonly group: string;
-	readonly groupDescription: string;
-	readonly name: string;
-	readonly description: string;
-	readonly fullDescription: string;
-	readonly path?: readonly string[];
-	readonly moduleSpecifier: string;
-}
+import type { PreinstalledNsCommandCatalogEntry } from "@ns/kernel/cli";
 
-const OBJECTIVE_PACKAGE_NAME = "@ns/objective";
+const OBJECTIVE_PACKAGE_EXPORT_PREFIX = "@ns/objective/ns/commands";
 const OBJECTIVE_GROUP = "objective";
 const OBJECTIVE_GROUP_DESCRIPTION = "Inspect and maintain ns Objective records.";
 
-const objectiveCommands = [
+const objectivePreinstalledCommands = [
 	{
 		name: "list",
 		description: "List Objective records in the current checkout.",
@@ -65,16 +57,17 @@ const objectiveCommands = [
 	readonly description: string;
 }[];
 
-export const firstPartyCommandCatalog: readonly FirstPartyCommandCatalogEntry[] =
-	objectiveCommands.map((command) => ({
+export const objectivePreinstalledNsCommandCatalog = objectivePreinstalledCommands.map(
+	(command) => ({
 		group: OBJECTIVE_GROUP,
 		groupDescription: OBJECTIVE_GROUP_DESCRIPTION,
 		name: command.name,
 		description: command.description,
 		fullDescription: command.description,
-		moduleSpecifier: `${OBJECTIVE_PACKAGE_NAME}/ns/commands/${command.name}`,
-	}));
+		moduleSpecifier: `${OBJECTIVE_PACKAGE_EXPORT_PREFIX}/${command.name}`,
+	}),
+) satisfies readonly PreinstalledNsCommandCatalogEntry[];
 
-export function listFirstPartyCommandCatalogEntries(): readonly FirstPartyCommandCatalogEntry[] {
-	return firstPartyCommandCatalog;
+export function listObjectivePreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
+	return objectivePreinstalledNsCommandCatalog;
 }
