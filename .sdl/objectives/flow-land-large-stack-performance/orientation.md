@@ -2,7 +2,7 @@
 
 Getting to: `/sdl:flow:land` emits structured timing/count/quota facts for Graphite, `gh`, and direct GitHub API interactions, with lightweight XDG/state JSON diagnostics and concise verbose summaries.
 
-What you see now — legacy, do not copy: stack landing can hide repeated Graphite and GitHub CLI costs; command timings and quota are not yet a reusable data source.
+What you see now: telemetry events, per-run XDG/state JSON diagnostics, and verbose summaries exist (`ts/packages/capabilities/flow/src/land/stack/external-call-telemetry*.ts`); no measured large-stack baseline is recorded yet, so optimization rows are not actionable.
 
 Avoid: ad-hoc one-off timers, durable metrics databases, speculative restack/merge rewrites, or dropping safety gates to save subprocesses.
 
