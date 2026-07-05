@@ -138,10 +138,10 @@ current (`src/land/stack/` was `src/land-stack/` when the work landed).
   own test (verified importer graph); adding one failure is one catalog entry
   (`src/phase-stream/failure-catalog.ts` idiom,
   `test/unit/failure-catalog.test.ts`).
-- **Closure gate — open.** The Parked row (#5) must be promoted, re-scoped,
-  or explicitly dropped with rationale in closure prose before `closed.md` is
-  written; full TS validation (`just` entrypoint) must be green on the final
-  state at close time. This is the only remaining gate.
+- **Closure gate — satisfied.** The Parked presentation row (#5) was
+  explicitly dropped after a fresh inventory found deliberate, documented
+  separations rather than a remaining deepening target; full repo validation
+  (`just` entrypoint) passed on the final state before closure.
 
 ## Definition of Progress
 
@@ -160,16 +160,16 @@ deleted) compatibility boundary, or edits to historical `updates/` files.
 ## Runner Policy
 
 Spent: no `Policy: direct` or `Policy: preview` rows remain executable. The
-one remaining action — the Parked row's promote/re-scope/drop decision — is
-owner judgment, not runner-executable work. The historical policy that
-governed the migration (autonomous slices under a deterministic slice gate;
-mutation-command argv frozen byte-for-byte; read-only fact-command argv
+Parked row's promote/re-scope/drop decision is complete: the row was dropped
+with rationale and no follow-on implementation slice. The historical policy
+that governed the migration (autonomous slices under a deterministic slice
+gate; mutation-command argv frozen byte-for-byte; read-only fact-command argv
 relaxed 2026-07-02; scoped file-boundary exceptions for capability-kit/ccc
 test pins) is recorded in
 `updates/2026-07-02T181138Z-autonomous-slice-policy.md` and
-`updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`. What will
-not happen unless explicitly requested: closing or archiving this Objective,
-mutating GitHub, or landing anything on `master`.
+`updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`. What did
+not happen: GitHub mutation, PR submission, archiving, or landing anything
+from this update on `master`.
 
 ## Assumptions and Risks
 
@@ -194,13 +194,16 @@ mutating GitHub, or landing anything on `master`.
 
 **Risks**
 
-- **Parked-row premise decay (the remaining live risk).** The presentation
-  re-inventory premise gets staler while the record stays open: beyond the
-  extraction churn the parked note predicted, trunk has since refactored land
-  presentation and confirmation flow. The three files still exist at
-  `src/land/stack/` (`presentation.ts` 514 lines, `land-presentation.ts` 132,
-  `command-stream.ts` 250 — near the recorded 519/132/250), but any promotion
-  must start with a fresh inventory.
+- **Parked-row premise decay — resolved by dropping.** Fresh inventory on
+  2026-07-05 found that the surface did not partially collapse for free:
+  `presentation.ts` owns domain-authored plan/success/failure/notification
+  text, `land-presentation.ts` is the CLI-style facade over shared result
+  block and confirmation rendering, and `command-stream.ts` owns command
+  streaming, Pi rich-message rendering, telemetry, and live progress. Some
+  presentation/progress routing now also lives deliberately at the CLI edge
+  (`src/ns/commands/land.ts`) and Flow/Pi adapter (`src/land/land.ts`). The
+  split reflects real seams and ANSI-free Pi constraints, so broad
+  consolidation was dropped rather than promoted.
 - **Extraction blast radius — retired.** The live merge path runs on the Land
   Domain Core's gateways with the round trip deleted; the migration completed
   under the slice gate with mutation argv pins unchanged.
@@ -222,6 +225,36 @@ mutating GitHub, or landing anything on `master`.
   streaming). A neutral home / real substitution seam still waits for a
   second consumer, per Non-Goals.
 - What does the land presentation surface (#5) look like after the extraction
-  and the subsequent trunk refactors — still three files split by mechanism,
-  or partially collapsed for free? Re-inventory at promotion time; this is
-  the closure-gate decision's first act.
+  and subsequent trunk refactors? Answered 2026-07-05: still intentionally
+  split by mechanism and edge constraints, with no clear deepening target for
+  this Objective; future UX or presentation work should start from a new
+  objective or concrete product requirement rather than this parked review
+  candidate.
+
+## Closure
+
+Outcome: completed.
+
+This Objective delivered the round-2 Flow deepening work and the Land Domain
+extraction it uncovered: the operation-shaped Graphite channel, real
+`regenerate-pr --force` semantics, forwarder-shim deletion, Land Domain Core
+migration, compatibility round-trip retirement, submit gateway de-leak, and
+one-edit-site failure catalogs are all landed on `master` as recorded in the
+roadmap and Semantic Updates.
+
+The final closure gate was the parked review #5 presentation row. A fresh
+2026-07-05 inventory checked the current land presentation surface and found
+intentional seams rather than remaining duplicated decision logic:
+`src/land/stack/presentation.ts` owns domain-authored plan, success, failure,
+warning, and notification text; `src/land/stack/land-presentation.ts` is the
+CLI styling facade over shared result-block and confirmation rendering;
+`src/land/stack/command-stream.ts` owns command-stream messages, Pi rich
+messages, external-call telemetry, and live progress; `src/ns/commands/land.ts`
+owns CLI phase/progress routing; and `src/land/land.ts` wires the CLI-only
+styled renderers while keeping the Pi command-stream path ANSI-free. Because
+no broad consolidation target remained, the row was explicitly dropped with
+this rationale instead of promoted or re-scoped.
+
+Validation: full repo `just` passed on 2026-07-05 after the Objective record
+was updated. No GitHub, PR submission, archive, or source-code mutation was
+performed as part of closure.
