@@ -10,7 +10,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
 	createPiSideSessionFactory,
-	type SideSession,
+	type CreateSideSessionResult,
 	type SideSessionAskResult,
 } from "../side-session/factory.ts";
 import type { ComposeSessionEvent } from "./compose-transcript.ts";
@@ -26,7 +26,7 @@ export interface ComposeSession {
 
 export type CreateComposeSessionResult =
 	| { ok: true; value: ComposeSession }
-	| { ok: false; code: "spawn-failed"; message: string };
+	| Extract<CreateSideSessionResult, { ok: false }>;
 
 export interface ComposeSessionFactory {
 	create(options: {
@@ -44,39 +44,21 @@ export function createPiComposeSessionFactory(): ComposeSessionFactory {
 			// Empty allowlist → no tools enabled (context-only drafting agent).
 			const result = await factory.create({ ...options, tools: [] });
 			if (!result.ok) return result;
-			return { ok: true, value: new PiComposeSession(result.value) };
+			const inner = result.value;
+			return {
+				ok: true,
+				value: {
+					subscribe(listener) {
+						return inner.subscribe((event) => {
+							if (event.type === "tool-start" || event.type === "tool-end") return;
+							listener(event);
+						});
+					},
+					ask: inner.ask.bind(inner),
+					abortTurn: inner.abortTurn.bind(inner),
+					dispose: inner.dispose.bind(inner),
+				},
+			};
 		},
 	};
-}
-
-/**
- * Narrows the shared side-session's event stream to {@link ComposeSessionEvent}.
- * Tool events are unreachable with `tools: []`; the guard filters them defensively
- * and lets the compiler narrow the remainder onto the compose event union.
- */
-class PiComposeSession implements ComposeSession {
-	private readonly inner: SideSession;
-
-	constructor(inner: SideSession) {
-		this.inner = inner;
-	}
-
-	subscribe(listener: (event: ComposeSessionEvent) => void): () => void {
-		return this.inner.subscribe((event) => {
-			if (event.type === "tool-start" || event.type === "tool-end") return;
-			listener(event);
-		});
-	}
-
-	ask(text: string): Promise<ComposeAskResult> {
-		return this.inner.ask(text);
-	}
-
-	abortTurn(): Promise<void> {
-		return this.inner.abortTurn();
-	}
-
-	dispose(): void {
-		this.inner.dispose();
-	}
 }

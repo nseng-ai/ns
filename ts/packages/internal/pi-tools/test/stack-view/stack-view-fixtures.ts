@@ -1,5 +1,6 @@
 import type { ComposeViewPort } from "../../src/stack-view/compose-controller.ts";
 import type { ComposeTranscriptState } from "../../src/stack-view/compose-transcript.ts";
+import type { ComposeControllerHandle } from "../../src/stack-view/extension.ts";
 import type {
 	StackViewCheckEntry,
 	StackViewModel,
@@ -80,24 +81,44 @@ export interface FakeComposePort {
 	fireOnChange(): void;
 }
 
+interface ComposeViewPortState {
+	transcript: ComposeTranscriptState;
+	draft: string | null;
+	unavailableReason: string | null;
+}
+
+function buildComposeViewPort(options: {
+	state: () => ComposeViewPortState;
+	send: (text: string) => Promise<void>;
+	abortTurn: () => Promise<void>;
+	onChange: (listener: () => void) => () => void;
+}): ComposeViewPort {
+	return {
+		get transcript() {
+			return options.state().transcript;
+		},
+		get draft() {
+			return options.state().draft;
+		},
+		get unavailableReason() {
+			return options.state().unavailableReason;
+		},
+		send: options.send,
+		abortTurn: options.abortTurn,
+		onChange: options.onChange,
+	};
+}
+
 /** A scripted {@link ComposeViewPort}: settable state, records send/abortTurn, drives onChange. */
-export function createFakeComposePort(options: { draft?: string | null } = {}): FakeComposePort {
+export function createFakeComposePort(): FakeComposePort {
 	let transcript: ComposeTranscriptState = { entries: [], isStreaming: false };
-	let draft: string | null = options.draft ?? null;
+	let draft: string | null = null;
 	let unavailableReason: string | null = null;
 	const sendCalls: string[] = [];
 	let abortCalls = 0;
 	const listeners = new Set<() => void>();
-	const port: ComposeViewPort = {
-		get transcript() {
-			return transcript;
-		},
-		get draft() {
-			return draft;
-		},
-		get unavailableReason() {
-			return unavailableReason;
-		},
+	const port = buildComposeViewPort({
+		state: () => ({ transcript, draft, unavailableReason }),
 		send: async (text) => {
 			sendCalls.push(text);
 		},
@@ -110,7 +131,7 @@ export function createFakeComposePort(options: { draft?: string | null } = {}): 
 				listeners.delete(listener);
 			};
 		},
-	};
+	});
 	return {
 		port,
 		sendCalls,
@@ -131,7 +152,7 @@ export function createFakeComposePort(options: { draft?: string | null } = {}): 
 }
 
 export interface FakeComposeControllerHandle {
-	handle: ComposeViewPort & { dispose(): void };
+	handle: ComposeControllerHandle;
 	disposeCalls: () => number;
 }
 
@@ -143,18 +164,12 @@ export function createFakeComposeControllerHandle(
 	let disposeCalls = 0;
 	return {
 		handle: {
-			get transcript() {
-				return transcript;
-			},
-			get draft() {
-				return draft;
-			},
-			get unavailableReason() {
-				return null;
-			},
-			send: async () => {},
-			abortTurn: async () => {},
-			onChange: () => () => {},
+			...buildComposeViewPort({
+				state: () => ({ transcript, draft, unavailableReason: null }),
+				send: async () => {},
+				abortTurn: async () => {},
+				onChange: () => () => {},
+			}),
 			dispose: () => {
 				disposeCalls += 1;
 			},

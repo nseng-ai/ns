@@ -39,16 +39,13 @@ import {
 } from "./overlay-model.ts";
 import {
 	overlayChromeRows,
+	overlayHostOptions,
 	overlayInnerWidth,
 	overlayModalRows,
 	overlayTerminalRows,
 	renderOverlayFrame,
 } from "../overlay-kit/frame.ts";
-import {
-	OVERLAY_MARGIN,
-	OVERLAY_MAX_HEIGHT_RATIO,
-	sliceWrappedDetailLinesForViewport,
-} from "../overlay-kit/viewport.ts";
+import { sliceWrappedDetailLinesForViewport } from "../overlay-kit/viewport.ts";
 
 /** Rows the compose transcript scrolls per PgUp/PgDn press. */
 const COMPOSE_PAGE_LINES = 8;
@@ -155,15 +152,7 @@ export function runStackViewOverlayUi(
 				...(options.enrichment === undefined ? {} : { enrichment: options.enrichment }),
 				...(options.compose === undefined ? {} : { compose: options.compose }),
 			}),
-		{
-			overlay: true,
-			overlayOptions: {
-				width: "90%",
-				maxHeight: `${Math.round(OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
-				margin: OVERLAY_MARGIN,
-			},
-			onHandle: (handle: { focus(): void }) => handle.focus(),
-		},
+		overlayHostOptions(),
 	);
 }
 
@@ -171,6 +160,11 @@ export function runStackViewOverlayUi(
  * Seed the initial selection: an explicit request wins (clamped), else the
  * current-branch row, else the top of the stack (0 when the stack is empty).
  */
+function detachSubscription(unsubscribe: (() => void) | undefined): undefined {
+	unsubscribe?.();
+	return undefined;
+}
+
 function resolveInitialIndex(model: StackViewModel, requested: number | undefined): number {
 	const count = model.prs.length;
 	if (count === 0) return 0;
@@ -183,9 +177,9 @@ function padWindowRows(options: {
 	lines: readonly string[];
 	rows: number;
 	width: number;
-	padTop: boolean;
+	shouldPadTop: boolean;
 }): string[] {
-	const pad = options.padTop ? Math.max(0, options.rows - options.lines.length) : 0;
+	const pad = options.shouldPadTop ? Math.max(0, options.rows - options.lines.length) : 0;
 	return Array.from({ length: options.rows }, (_unused, row) =>
 		fitToWidth(options.lines[row - pad] ?? "", options.width),
 	);
@@ -244,14 +238,8 @@ export class StackViewOverlay implements Component {
 
 	/** Drop the enrichment and compose `onChange` subscriptions; safe to call more than once. */
 	private disposeSubscription(): void {
-		if (this.unsubscribe !== undefined) {
-			this.unsubscribe();
-			this.unsubscribe = undefined;
-		}
-		if (this.composeUnsub !== undefined) {
-			this.composeUnsub();
-			this.composeUnsub = undefined;
-		}
+		this.unsubscribe = detachSubscription(this.unsubscribe);
+		this.composeUnsub = detachSubscription(this.composeUnsub);
 	}
 
 	/** Host teardown hook: the `ctx.ui.custom` contract may call this on unmount. */
@@ -609,7 +597,7 @@ export class StackViewOverlay implements Component {
 			lines: window.lines,
 			rows: layout.transcriptRows,
 			width,
-			padTop: true,
+			shouldPadTop: true,
 		});
 
 		const separator = this.color("dim", "─".repeat(Math.max(1, width)));
@@ -637,7 +625,7 @@ export class StackViewOverlay implements Component {
 			rows: draftRows,
 			scrollFromBottom: 0,
 		});
-		return padWindowRows({ lines: window.lines, rows: draftRows, width, padTop: false });
+		return padWindowRows({ lines: window.lines, rows: draftRows, width, shouldPadTop: false });
 	}
 
 	private colorizeComposeLine(line: ComposeTranscriptLine): string {

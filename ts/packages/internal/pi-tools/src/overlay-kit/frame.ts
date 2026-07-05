@@ -8,12 +8,14 @@
  */
 import { fitToWidth } from "@nseng-ai/pi/terminal/layout";
 
-import { OVERLAY_MARGIN, OVERLAY_MAX_HEIGHT_RATIO } from "./viewport.ts";
-
 /** Rows assumed when the host reports no terminal height. */
 export const FALLBACK_TERMINAL_ROWS = 24;
 /** Floor width the chrome renders at; narrower terminals still get a full box. */
 export const MIN_RENDER_WIDTH = 40;
+/** Host overlay max-height fraction shared by bordered modals. */
+export const OVERLAY_MAX_HEIGHT_RATIO = 0.85;
+/** Host overlay vertical margin in terminal rows. */
+export const OVERLAY_MARGIN_ROWS = 1;
 
 /** Resolve the terminal row count, applying the fallback when the host omits it. */
 export function overlayTerminalRows(rows: number | null | undefined): number {
@@ -39,9 +41,31 @@ export function overlayChromeRows(headerLength: number): number {
  * footer and bottom border stay inside the visible overlay.
  */
 export function overlayModalRows(terminalRows: number): number {
-	const available = Math.max(1, terminalRows - 2 * OVERLAY_MARGIN);
+	const available = Math.max(1, terminalRows - 2 * OVERLAY_MARGIN_ROWS);
 	const budget = Math.min(Math.floor(terminalRows * OVERLAY_MAX_HEIGHT_RATIO), available);
 	return Math.max(1, budget);
+}
+
+export interface OverlayHostOptions {
+	overlay: true;
+	overlayOptions: {
+		width: "90%";
+		maxHeight: string;
+		margin: number;
+	};
+	onHandle: (handle: { focus(): void }) => void;
+}
+
+export function overlayHostOptions(): OverlayHostOptions {
+	return {
+		overlay: true,
+		overlayOptions: {
+			width: "90%",
+			maxHeight: `${Math.round(OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
+			margin: OVERLAY_MARGIN_ROWS,
+		},
+		onHandle: (handle) => handle.focus(),
+	};
 }
 
 export interface OverlayFrameOptions {
@@ -64,7 +88,7 @@ export interface OverlayFrameOptions {
  */
 export function renderOverlayFrame(options: OverlayFrameOptions): string[] {
 	const safeWidth = Math.max(MIN_RENDER_WIDTH, options.width);
-	const innerWidth = Math.max(1, safeWidth - 2);
+	const innerWidth = overlayInnerWidth(options.width);
 	const border = (left: string, right: string): string =>
 		options.colorizeBorder(`${left}${"─".repeat(Math.max(0, safeWidth - 2))}${right}`);
 	const boxLine = (value: string): string =>

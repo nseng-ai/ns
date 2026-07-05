@@ -20,7 +20,7 @@ import {
 	PrPreviewChecksView,
 	type PrPreviewChecksViewModel,
 } from "../../src/pr-previews/preview-checks-view.ts";
-import { OVERLAY_MARGIN, OVERLAY_MAX_HEIGHT_RATIO } from "../../src/overlay-kit/viewport.ts";
+import { OVERLAY_MARGIN_ROWS, OVERLAY_MAX_HEIGHT_RATIO } from "../../src/overlay-kit/frame.ts";
 import { identityTheme, taggingTheme } from "./preview-test-themes.ts";
 
 describe("PR checks preview vertical layout", () => {
@@ -69,7 +69,7 @@ describe("PR checks preview vertical layout", () => {
 		const rendered = view.render(120);
 		const overlayRows = Math.min(
 			Math.floor(terminalRows * OVERLAY_MAX_HEIGHT_RATIO),
-			terminalRows - 2 * OVERLAY_MARGIN,
+			terminalRows - 2 * OVERLAY_MARGIN_ROWS,
 		);
 
 		expect(rendered).toHaveLength(overlayRows);

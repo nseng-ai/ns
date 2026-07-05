@@ -39,6 +39,10 @@ export function graphqlErrorMessages(json: unknown): readonly string[] | undefin
 	if (parsed.type === "invalid") return undefined;
 	const errors = parsed.errors;
 	if (errors === undefined || errors.length === 0) return undefined;
+	return extractGraphqlErrorMessages(errors);
+}
+
+export function extractGraphqlErrorMessages(errors: readonly unknown[]): readonly string[] {
 	const messages = errors.flatMap((error) => {
 		if (!isRecord(error)) return [];
 		const message = error.message;

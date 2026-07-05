@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
 import { missingPreviewTargetMessage } from "./preview-view-utilities.ts";
-import { OVERLAY_MARGIN, OVERLAY_MAX_HEIGHT_RATIO } from "../overlay-kit/viewport.ts";
+import { overlayHostOptions } from "../overlay-kit/frame.ts";
 import type {
 	PrPreviewFeedbackComment,
 	PrPreviewFeedbackCounts,
@@ -180,15 +180,7 @@ async function runPrPreviewFeedbackCommand(
 					model,
 					onClose: () => done(undefined),
 				}),
-			{
-				overlay: true,
-				overlayOptions: {
-					width: "90%",
-					maxHeight: `${Math.round(OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
-					margin: OVERLAY_MARGIN,
-				},
-				onHandle: (handle: { focus(): void }) => handle.focus(),
-			},
+			overlayHostOptions(),
 		);
 	} finally {
 		ctx.ui?.setStatus?.(runtime.statusKey, undefined);
