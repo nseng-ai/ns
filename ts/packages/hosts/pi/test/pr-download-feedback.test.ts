@@ -428,17 +428,35 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("Default stack feedback policies:");
 		expect(prompt).toContain("Inspect the current repository state before acting");
 		expect(prompt).toContain("Automatically address straightforward feedback");
-		expect(prompt).toContain("localized, mechanically verifiable, low-risk");
+		expect(prompt).toContain("bounded, reviewable fix without a product/design decision");
+		expect(prompt).toContain("classify feedback groups as AUTO, STEER, or DEFER");
+		expect(prompt).toContain("AUTO may include multi-file edits");
+		expect(prompt).toContain("dependency additions that satisfy repo layering/package policy");
+		expect(prompt).toContain("schema/type source-of-truth consolidation");
+		expect(prompt).toContain("localized control-flow refactors");
+		expect(prompt).toContain("already fixed or stale against the current repo state");
+		expect(prompt).toContain("STEER is required when the change would alter user-visible behavior");
+		expect(prompt).toContain("uncertain or failed dependency/layering check");
+		expect(prompt).toContain("Grouping feedback is for triage clarity");
+		expect(prompt).toContain(
+			"do not convert many small comments into a surprisingly broad refactor",
+		);
+		expect(prompt).toContain("If the AUTO plan becomes broad");
+		expect(prompt).toContain("unless the user explicitly asked for hands-off execution");
 		expect(prompt).toContain("single omnibus follow-up PR at the current branch");
 		expect(prompt).toContain(
 			"Plan against the current remaining state, not stale original comments",
 		);
 		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
 		expect(prompt).toContain("remediation can happen in the omnibus follow-up PR");
-		expect(prompt).toContain("close all confirmed automation review threads stack-wide");
+		expect(prompt).toContain("Close review threads only for feedback directly addressed");
+		expect(prompt).toContain("already fixed/stale against the current repo state");
+		expect(prompt).toContain(
+			"Do not close threads merely because a broad related refactor might have made them stale",
+		);
 		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(prompt).toContain("include `--body <BODY>` when a reply is useful");
-		expect(prompt).toContain("all downloaded stack feedback was handled by straightforward fixes");
+		expect(prompt).toContain("all downloaded stack feedback was handled by AUTO fixes");
 		expect(prompt).toContain("submit the omnibus follow-up/current stack with `ns flow submit`");
 		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
 		expect(prompt).toContain("Present remaining ambiguous, complex");

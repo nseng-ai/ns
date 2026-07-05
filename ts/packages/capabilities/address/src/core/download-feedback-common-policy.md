@@ -1,5 +1,8 @@
 - Inspect the current repository state before acting.
-- Automatically address straightforward feedback when it is localized, mechanically verifiable, low-risk, and does not require a product/design decision or broad refactor.
+- Automatically address straightforward feedback only when it qualifies as AUTO under the policy below.
+
+{{auto-triage-policy}}
+
 - If a thread cannot be resolved or replied to after validation, report that failure in the final summary instead of silently leaving it open.
-- Present remaining ambiguous, complex, human-authored, high-risk, or non-local feedback for human curation instead of editing through it.
+- Present remaining ambiguous, complex, human-authored, high-risk, ownership/layering-uncertain, or conflicting feedback for human curation instead of editing through it.
 - After all automatic actions complete, summarize completed fixes, validation, GitHub thread actions, and remaining feedback.

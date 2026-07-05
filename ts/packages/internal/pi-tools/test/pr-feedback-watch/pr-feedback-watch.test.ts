@@ -419,8 +419,9 @@ describe("pr feedback watch download helpers", () => {
 		expect(prompt).toContain("download/download-feedback:123:1");
 		expect(prompt).toContain("Inspect the current repository state before acting");
 		expect(prompt).toContain("Automatically address straightforward feedback");
-		expect(prompt).toContain("localized, mechanically verifiable, low-risk");
-		expect(prompt).toContain("you must close every addressed review thread");
+		expect(prompt).toContain("bounded, reviewable");
+		expect(prompt).toContain("If the AUTO plan becomes surprisingly broad");
+		expect(prompt).toContain("you must close only review threads directly addressed");
 		expect(prompt).toContain("cannot be resolved or replied to after validation");
 		expect(prompt).toContain("Do not push, submit, create branches");
 		expect(prompt).toContain("present remaining feedback for human curation");

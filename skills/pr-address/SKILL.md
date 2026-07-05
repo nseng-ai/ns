@@ -20,7 +20,7 @@ Manual CLI fallback:
 ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session prefill. The generated prompt authorizes automatic handling of straightforward feedback: inspect the current repo state, fix localized/mechanically-verifiable/low-risk items, validate, and close addressed review threads via `ns address exec close-review-threads`. Single-PR downloads should fix the immediate PR/current checkout; stack downloads should put straightforward stack-wide fixes in a single omnibus follow-up PR/current branch unless the human explicitly asks for downstack surgery. Ask before ambiguous, high-risk, product/design, broad-refactor, human-authored, or dirty-tree work.
+The JSON result includes a `markdown` field intended for editor/session prefill. The generated prompt's automatic-triage rules are sourced from `ts/packages/capabilities/address/src/core/download-feedback-common-policy.md`, which includes the authored `download-feedback-auto-triage-policy.md` fragment; follow that source-of-truth policy rather than restating it here. Single-PR downloads should fix the immediate PR/current checkout; stack downloads should put policy-eligible straightforward stack-wide fixes in a single omnibus follow-up PR/current branch unless the human explicitly asks for downstack surgery.
 
 ## Current primitive surface
 

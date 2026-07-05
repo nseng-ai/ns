@@ -2,7 +2,6 @@ import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import {
-	COMMON_FEEDBACK_POLICY,
 	readPromptMarkdown,
 	renderPromptTemplate,
 } from "@nseng-ai/address/download-feedback-prompts";
@@ -28,7 +27,6 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
 const STACK_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
 	readPromptMarkdown("./pr-stack-feedback-instructions.md", import.meta.url),
-	COMMON_FEEDBACK_POLICY,
 );
 
 const stackBranchesDataSchema = z.looseObject({
