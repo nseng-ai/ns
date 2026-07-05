@@ -7,12 +7,23 @@
 		"ns": "./src/cli.ts"
 	},
 	"scripts": {
+		"build:bundle": "node scripts/build-bundle.mjs",
 		"check": "tsgo -p tsconfig.json",
+		"pack:local": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm pack ./dist/publish --pack-destination dist",
+		"smoke:checkout-free": "node scripts/smoke-checkout-free.mjs",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/ns-cli/test"
 	},
 	"dependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@ns/branch-context": "workspace:*",
 		"@ns/kernel": "workspace:*",
-		"@ns/objective": "workspace:*"
+		"@ns/objective": "workspace:*",
+		"jiti": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"esbuild": "catalog:"
 	},
 	"ns": {
 		"tier": "host"

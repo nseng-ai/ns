@@ -1,5 +1,9 @@
 import { formatUnknownError } from "./command-registry.ts";
-import { moduleReferenceDisplay, type NsCommandModuleReference } from "./module-reference.ts";
+import {
+	matchNsCommandModuleReference,
+	moduleReferenceDisplay,
+	type NsCommandModuleReference,
+} from "./module-reference.ts";
 import { importDefaultExport } from "../runtime/module-import.ts";
 import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 
@@ -33,8 +37,11 @@ export async function loadNsExtensionContribution(
 }
 
 async function loadDefaultExport(reference: NsCommandModuleReference): Promise<unknown> {
-	if (reference.type === "file") return await loadNsUserModuleDefault(reference.path);
-	return await importDefaultExport(reference.specifier);
+	return await matchNsCommandModuleReference(reference, {
+		file: async (fileReference) => await loadNsUserModuleDefault(fileReference.path),
+		package: async (packageReference) => await importDefaultExport(packageReference.specifier),
+		loaded: async (loadedReference) => await loadedReference.load(),
+	});
 }
 
 function diagnostic(code: string, message: string, path: string): ExtensionLoadDiagnostic {

@@ -37,7 +37,7 @@ interface NormalizedCatalogCommand {
 	readonly name: string;
 	readonly path?: readonly string[];
 	readonly description: string;
-	readonly moduleSpecifier: string;
+	readonly displayPath: string;
 }
 
 const REPO_LOCAL_EXTENSION_ROOT = "../.ns/extensions";
@@ -183,8 +183,13 @@ function normalizeCatalogCommand(
 		name: command.name,
 		...(command.path === undefined ? {} : { path: command.path }),
 		description: command.description,
-		moduleSpecifier: command.moduleSpecifier,
+		displayPath: catalogCommandDisplayPath(command),
 	};
+}
+
+function catalogCommandDisplayPath(command: PreinstalledNsCommandCatalogEntry): string {
+	if (command.load !== undefined) return command.displayPath;
+	return command.moduleSpecifier;
 }
 
 function normalizeDescriptorCatalogCommand(
@@ -195,7 +200,7 @@ function normalizeDescriptorCatalogCommand(
 		name,
 		...(command.manifestPath === undefined ? {} : { path: command.manifestPath }),
 		description: command.command.summary,
-		moduleSpecifier: command.packageExport,
+		displayPath: command.packageExport,
 	};
 }
 

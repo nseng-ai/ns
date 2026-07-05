@@ -19,9 +19,10 @@ import type { CommandExecApi } from "@ns/core/exec";
 import type { GitGateway } from "@ns/capability-kit/git";
 import { resolveSelectedSavedPlanFile } from "@ns/plans";
 import type { BranchContextContext } from "./context.ts";
+import { branchContextImplPromptTemplateUrl } from "./prompt-assets.ts";
 
 const BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE = readFileSync(
-	new URL("./prompts/branch-context-impl.md", import.meta.url),
+	branchContextImplPromptTemplateUrl(),
 	"utf8",
 ).trimEnd();
 
