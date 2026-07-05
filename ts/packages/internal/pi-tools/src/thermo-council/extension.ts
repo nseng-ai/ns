@@ -1,31 +1,8 @@
 import { definePiSurfaceParity } from "@ns/pi/parity/extension";
-import { THERMO_COUNCIL_COMMAND_NAME } from "./constants.ts";
-import { runThermoCouncilCommand } from "./orchestrator.ts";
-import type { ThermoCouncilExtensionAPI } from "./types.ts";
 
-export {
-	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
-	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
-	blockThermoCouncilReviewTool,
-	submitThermoCouncilReviewTool,
-} from "./contract.ts";
-export type {
-	FindingConfidence,
-	FindingSeverity,
-	ThermoCouncilFinding,
-	ThermoCouncilReview,
-	ThermoCouncilReviewerOutcome,
-	ThermoCouncilScope,
-	ThermoCouncilSeatConfig,
-	ThermoCouncilSeatId,
-	ThermoCouncilSeatStatus,
-} from "./contract.ts";
-export { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
-export { buildReviewerPrompt } from "./prompt.ts";
-export { renderThermoCouncilReport } from "./report.ts";
-export { parseThermoCouncilSeats } from "./seats.ts";
-export { clusterFindings } from "./synthesis.ts";
-export { parseThermoCouncilMaxConcurrency, runThermoCouncilCommand } from "./orchestrator.ts";
+import { THERMO_COUNCIL_COMMAND_NAME } from "./contract.ts";
+import type { ThermoCouncilExtensionAPI } from "./host-api.ts";
+import { runThermoCouncilCommand } from "./orchestrator.ts";
 
 export const thermoCouncilParity = definePiSurfaceParity([
 	{

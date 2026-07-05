@@ -1,16 +1,11 @@
 import { type ExecResult, formatCommandResultFailure, normalizeExecResult } from "@ns/core/exec";
-import type {
-	ThermoCouncilCommandContext,
-	ThermoCouncilExtensionAPI,
-	ScopeResult,
-	ScopeResultFailed,
-} from "./types.ts";
-import {
-	DIFF_PROMPT_LIMIT_CHARS,
-	DIFF_TIMEOUT_MS,
-	GIT_TIMEOUT_MS,
-	RUBRIC_REF,
-} from "./constants.ts";
+
+import { DIFF_PROMPT_LIMIT_CHARS, type ThermoCouncilScope } from "./contract.ts";
+import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
+
+const GIT_TIMEOUT_MS = 30_000;
+const DIFF_TIMEOUT_MS = 60_000;
+const RUBRIC_REF = "HEAD:.ns/reviews/thermonuclear-review/review.md";
 
 interface GitOptions {
 	readonly pi: ThermoCouncilExtensionAPI;
@@ -36,6 +31,18 @@ interface ProbeGitFailure {
 }
 
 type ProbeGitResult = LoadedGitResult | ProbeGitFailure;
+
+export interface ScopeResultLoaded {
+	readonly type: "loaded";
+	readonly scope: ThermoCouncilScope;
+}
+
+export interface ScopeResultFailed {
+	readonly type: "failed";
+	readonly message: string;
+}
+
+export type ScopeResult = ScopeResultLoaded | ScopeResultFailed;
 
 export async function collectThermoCouncilScope(
 	pi: ThermoCouncilExtensionAPI,

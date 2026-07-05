@@ -1,5 +1,15 @@
-import type { ThermoCouncilSeatConfig } from "./contract.ts";
-import type { DefaultSeat, EnvReader } from "./types.ts";
+import type { ThermoCouncilSeatConfig, ThermoCouncilSeatId } from "./contract.ts";
+
+export interface EnvReader {
+	readonly get: (name: string) => string | undefined;
+}
+
+interface DefaultSeat {
+	readonly id: ThermoCouncilSeatId;
+	readonly label: string;
+	readonly model: string;
+	readonly envVar: string;
+}
 
 interface ModelOverrideOptions {
 	readonly seatSpecific: string | undefined;

@@ -23,8 +23,8 @@ import thermoCouncilExtension, {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
-} from "../../src/thermo-council/extension.ts";
-import { reviewerOutcomeFromRunnerResult } from "../../src/thermo-council/orchestrator.ts";
+	reviewerOutcomeFromRunnerResult,
+} from "../../src/thermo-council/index.ts";
 import {
 	FakeSpawnedChildProcess,
 	createFakeRunnerSubagentDispatcher,
@@ -827,6 +827,17 @@ describe("thermo council extension", () => {
 		expect(prompt).toContain("do not create branches");
 		expect(prompt).toContain("tool restrictions");
 		expect(prompt).toContain(SUBMIT_THERMO_COUNCIL_REVIEW_TOOL);
+	});
+
+	test("reviewer prompt uses collision-safe fences for untrusted text", () => {
+		const prompt = buildReviewerPrompt(
+			baseScope({ diffText: "diff touches markdown\n```ts\nconst value = 1;\n```" }),
+			seat("anthropic-fable", "Anthropic Fable"),
+			{ reviewGuidance: "inspect fenced markdown\n```markdown\n# title\n```" },
+		);
+
+		expect(prompt).toContain("````text\ninspect fenced markdown\n```markdown\n# title\n```\n````");
+		expect(prompt).toContain("````text\ndiff touches markdown\n```ts\nconst value = 1;\n```\n````");
 	});
 
 	test("synthesis clusters strong text-only findings without file paths", () => {

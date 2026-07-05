@@ -5,6 +5,10 @@ import {
 	type RunnerSubagentDispatcherDependencies,
 } from "./subagent-process.ts";
 
+export type { RunnerSubagentDispatcherDependencies } from "./subagent-process.ts";
+export { createRuntimeConfig } from "./subagent-runtime.ts";
+export type { RuntimeResultV1 } from "./subagent-runtime.ts";
+
 export {
 	emptyRunnerSubagentActivity,
 	runnerSubagentPrimaryActivityPreview,

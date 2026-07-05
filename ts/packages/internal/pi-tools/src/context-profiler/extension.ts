@@ -22,14 +22,13 @@ import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
 import { createCodexAnalysisModelGateway } from "./analysis-model-gateway.ts";
 import type { BundlePersistenceState } from "./bundle.ts";
 import { createFsBundleStore } from "./bundle-store.ts";
-import { errorMessage } from "./errors.ts";
+import { errorMessage } from "@ns/pi/shared/errors";
 import {
 	InterrogationController,
 	type InterrogationAttachment,
 } from "./interrogation-controller.ts";
 import { createPiInterrogationSessionFactory } from "./interrogation-session.ts";
-import type { InterrogationScope } from "./interrogation-prompt.ts";
-import type { ProfileSnapshot } from "./model.ts";
+import type { InterrogationScope, ProfileSnapshot } from "./model.ts";
 import {
 	buildProfile,
 	captureCurrentState,

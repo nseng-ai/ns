@@ -1,13 +1,5 @@
-import type { ModelInfo } from "@ns/pi/runtime/types";
 import type { RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
-import type {
-	FindingConfidence,
-	FindingSeverity,
-	ThermoCouncilFinding,
-	ThermoCouncilScope,
-	ThermoCouncilSeatConfig,
-	ThermoCouncilSeatId,
-} from "./contract.ts";
+import type { ModelInfo } from "@ns/pi/runtime/types";
 
 export interface ExecResult {
 	readonly stdout: string;
@@ -51,42 +43,4 @@ export interface CustomMessage {
 	readonly content: string;
 	readonly display: boolean;
 	readonly details?: unknown;
-}
-
-export interface EnvReader {
-	readonly get: (name: string) => string | undefined;
-}
-
-export interface ScopeResultLoaded {
-	readonly type: "loaded";
-	readonly scope: ThermoCouncilScope;
-}
-
-export interface ScopeResultFailed {
-	readonly type: "failed";
-	readonly message: string;
-}
-
-export type ScopeResult = ScopeResultLoaded | ScopeResultFailed;
-
-export interface FlatFinding {
-	readonly seat: ThermoCouncilSeatConfig;
-	readonly finding: ThermoCouncilFinding;
-}
-
-export interface FindingCluster {
-	readonly title: string;
-	readonly files: readonly string[];
-	readonly support: readonly ThermoCouncilSeatConfig[];
-	readonly findings: readonly FlatFinding[];
-	readonly severity: FindingSeverity;
-	readonly confidence: FindingConfidence;
-	readonly rankScore: number;
-}
-
-export interface DefaultSeat {
-	readonly id: ThermoCouncilSeatId;
-	readonly label: string;
-	readonly model: string;
-	readonly envVar: string;
 }

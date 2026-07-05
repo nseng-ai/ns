@@ -26,12 +26,13 @@ import {
 	buildChatLines,
 	type ChatLine,
 } from "./interrogation-render.ts";
-import { scopeForRegion, type InterrogationScope } from "./interrogation-prompt.ts";
+import { scopeForRegion } from "./interrogation-prompt.ts";
 import type { TranscriptState } from "./interrogation-transcript.ts";
 import type {
 	BaseMember,
 	BaseRegion,
 	DelegationClaim,
+	InterrogationScope,
 	LiveRegion,
 	LiveTurn,
 	ProfileSnapshot,

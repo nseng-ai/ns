@@ -11,8 +11,8 @@ Five candidates from the review, in priority order:
 1. **pr-previews twins merge (Parked).** The checks/feedback view/command/model clones remain a real deepening candidate, but the work is parked by explicit direction before seam classification or implementation. Reopen only with a concrete reason to pay the abstraction risk and first classify the drifted presentation differences as parameters or accidents.
 2. **Parity assertion helper (Strong; touches `@ns/pi`).** One `expectPiSurfaceParity(register, metadata)`-shaped helper beside `@ns/pi/parity/testing`; each subpackage's parity test becomes one call. Stops the template being copied into the next Internal Pi-tool package.
 3. **runner-subagents interface narrowing (Landed).** The export map now keeps root, `/extension`, and deliberate `/testing`; dropped `/json-events`, `/presentation`, `/process`, `/runtime`, and `/usage`; deleted the 13-line `usage.ts` shim; retained `extension-api.ts` as the internal type/API home because the pass-through-facade concern was stale against current code.
-4. **context-profiler interrogation consolidation (Worth exploring).** Consolidate the five interrogation fragments behind the controller's interface (session/prompt/transcript/render become internals); relocate `InterrogationScope` to the model, where its consumers live; delete the `errors.ts` and `lm-json.ts` shims.
-5. **thermo-council flattening (Worth exploring).** One barrel instead of `index.ts` → `extension.ts` → six files; one type home instead of the `contract.ts`/`types.ts` split; fold the `outcomes.ts`/`prompt-blocks.ts`/`constants.ts` fragments into the orchestrator that uses them; give `reviewerOutcomeFromRunnerResult` a deliberate test surface (export it or test through the command).
+4. **context-profiler interrogation consolidation (Landed).** The interrogation scope model now lives in `model.ts`; production consumers still route through the controller/view seam while prompt/render/session/transcript remain source-internal units with focused tests; the `errors.ts` and `lm-json.ts` shims are deleted in favor of direct neutral helper imports.
+5. **thermo-council flattening (Landed).** The root `index.ts` is now the deliberate consumer/test barrel; `extension.ts` is focused on Pi registration/parity and extension host types; `contract.ts` owns public domain/terminal constants and types; adapter/helper types moved to owning modules; `outcomes.ts`, `prompt-blocks.ts`, `constants.ts`, and `types.ts` are deleted; `reviewerOutcomeFromRunnerResult` is a deliberate root-tested helper surface.
 
 ## Non-Goals
 
@@ -24,7 +24,7 @@ Five candidates from the review, in priority order:
 ## Completion Criteria
 
 - Candidate 2 landed: the six parity test files are one-call consumers of a shared helper.
-- Candidates 1 and 3–5 each resolved: landed, explicitly parked with rationale, or dropped with recorded rationale — a Semantic Update, or an ADR when the reason should stop future architecture reviews from re-suggesting the same deepening.
+- Candidates 1 and 3–5 each resolved: candidate 1 parked with rationale; candidates 3–5 landed with Semantic Updates and roadmap evidence.
 - Evidence noted in roadmap rows or Semantic Updates: targeted tests plus relevant repo checks passed for each landed slice.
 
 ## Assumptions and Risks
@@ -39,10 +39,14 @@ Risks:
 
 - Premature abstraction in the twins merge: some drifted differences may be deliberate per-surface presentation rather than drift bugs. The merge design must classify each difference as parameter or accident before unifying; getting this wrong bakes the wrong interface into the deep module.
 - Candidate 2 edits `@ns/pi`, a host package outside pi-tools. Parity helpers are an explicitly neutral `@ns/pi` family, so the change should be additive, but it must coordinate with `cross-harness-parity` conventions rather than inventing new parity vocabulary.
-- thermo-council is the thinnest-tested subpackage (one 1142-line integration test over 1929 src lines); flattening its barrels has weak regression cover, which is part of why candidate 5 is worth-exploring rather than strong.
-- Grilling may kill candidates 3–5 entirely; the completion criteria deliberately allow resolved-not-landed so this does not strand the Objective.
+- thermo-council remains comparatively integration-test-heavy, but the flattening slice preserved command behavior and passed the focused thermo-council tests plus format/lint/type/style guards.
+- Candidates 3–5 survived grilling and landed; the completion criteria allowed resolved-not-landed for lower-confidence candidates, but no active non-parked deepening work remains.
 
 ## Open Questions
 
 - If pr-previews is reopened, where exactly does the preview-surface seam sit — a generic list/detail modal component, a shared base implementation, or a render-function toolkit? Grill before implementation.
-- Should `context-profiler/view.ts` (1047 lines, no test imports it) get coverage as part of candidate 4, or as a separate follow-up? The interrogation consolidation must at minimum not grow it.
+- `context-profiler/view.ts` remains large and still lacks direct view tests; candidate 4 did not grow it materially (1047 → 1048 import-only lines). Treat view coverage as a separate follow-up, not unfinished Objective scope.
+
+## Closure
+
+Closed after the final two active candidates landed. Candidate 1 is explicitly parked with rationale; candidates 2–5 have roadmap evidence and Semantic Updates; no non-parked roadmap work remains. Final validation evidence for the closing slice: focused context-profiler and thermo-council Vitest commands passed, and `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just ts-test-typescript-style-guard` passed on 2026-07-05.

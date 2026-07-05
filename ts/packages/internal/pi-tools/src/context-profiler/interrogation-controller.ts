@@ -5,9 +5,9 @@ import {
 	buildInterrogationSystemPrompt,
 	buildInterrogationUserMessage,
 	scopesEqual,
-	type InterrogationScope,
 } from "./interrogation-prompt.ts";
 import type { InterrogationSession, InterrogationSessionFactory } from "./interrogation-session.ts";
+import type { InterrogationScope } from "./model.ts";
 import {
 	appendNotice,
 	appendUser,

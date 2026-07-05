@@ -6,7 +6,21 @@ import type {
 	ThermoCouncilSeatConfig,
 	ThermoCouncilSeatId,
 } from "./contract.ts";
-import type { FindingCluster, FlatFinding } from "./types.ts";
+
+export interface FlatFinding {
+	readonly seat: ThermoCouncilSeatConfig;
+	readonly finding: ThermoCouncilFinding;
+}
+
+export interface FindingCluster {
+	readonly title: string;
+	readonly files: readonly string[];
+	readonly support: readonly ThermoCouncilSeatConfig[];
+	readonly findings: readonly FlatFinding[];
+	readonly severity: FindingSeverity;
+	readonly confidence: FindingConfidence;
+	readonly rankScore: number;
+}
 
 export function clusterFindings(
 	completed: readonly Extract<ThermoCouncilReviewerOutcome, { readonly type: "completed" }>[],

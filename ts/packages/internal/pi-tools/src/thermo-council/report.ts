@@ -1,14 +1,41 @@
 import { buildFencedTextBlock } from "@ns/core/primitives";
 
-import type {
-	ThermoCouncilReviewerOutcome,
-	ThermoCouncilScope,
-	ThermoCouncilSeatStatus,
+import {
+	SAFETY_NOTE,
+	type ThermoCouncilReviewerOutcome,
+	type ThermoCouncilScope,
+	type ThermoCouncilSeatStatus,
 } from "./contract.ts";
-import { SAFETY_NOTE } from "./constants.ts";
-import { summarizeThermoCouncilReviewerOutcome } from "./outcomes.ts";
-import { clusterFindings, uniqueStrings } from "./synthesis.ts";
-import type { FindingCluster } from "./types.ts";
+import { clusterFindings, uniqueStrings, type FindingCluster } from "./synthesis.ts";
+
+export interface ThermoCouncilReviewerOutcomeSummary {
+	readonly progress: string;
+	readonly diagnostic: string;
+}
+
+export function summarizeThermoCouncilReviewerOutcome(
+	outcome: ThermoCouncilReviewerOutcome,
+): ThermoCouncilReviewerOutcomeSummary {
+	switch (outcome.type) {
+		case "completed": {
+			const findingCount = outcome.review.findings.length;
+			return {
+				progress: `${outcome.seat.label} completed (${findingCount} findings)`,
+				diagnostic: `${findingCount} findings`,
+			};
+		}
+		case "blocked":
+			return {
+				progress: `${outcome.seat.label} blocked`,
+				diagnostic: outcome.reason,
+			};
+		case "failed":
+			return {
+				progress: `${outcome.seat.label} failed`,
+				diagnostic: outcome.diagnostic,
+			};
+	}
+}
 
 export function renderThermoCouncilReport(
 	scope: ThermoCouncilScope,

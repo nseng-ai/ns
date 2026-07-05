@@ -28,7 +28,7 @@ import {
 	type PersistedBundle,
 } from "./bundle.ts";
 import type { BundleStore, WriteEpisodesFileResult } from "./bundle-store.ts";
-import { errorMessage } from "./errors.ts";
+import { errorMessage } from "@ns/pi/shared/errors";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
