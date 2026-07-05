@@ -25,7 +25,7 @@ import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { callPiModelText } from "@nseng-ai/pi/models/call";
 import type { PiModelCallFailureReason, PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 
-import { fetchCheckLogTail, resolveCheckLogSource } from "./check-logs.ts";
+import { fetchCheckLogTail } from "./check-logs.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
 	CHECK_LOG_TAIL_MAX_CHARS,
@@ -51,24 +51,21 @@ const CHECK_MAX_TOKENS = 200;
 /** A settled enrichment result the engine records (never `pending`). */
 type SettledEntry = Extract<EnrichmentEntry, { state: "ready" } | { state: "failed" }>;
 
-/** Failure reasons that make the model path unusable for the rest of the session. */
-type SystemicFailureReason = Extract<
-	PiModelCallFailureReason,
-	"model-unavailable" | "auth" | "empty-auth"
->;
+const SYSTEMIC_FAILURE_MESSAGES = {
+	"model-unavailable": "Enrichment model is unavailable",
+	auth: "Enrichment model authentication failed",
+	"empty-auth": "Enrichment model authentication is not configured",
+} as const satisfies Partial<Record<PiModelCallFailureReason, string>>;
+
+type SystemicFailureReason = keyof typeof SYSTEMIC_FAILURE_MESSAGES;
 
 function isSystemicFailure(reason: PiModelCallFailureReason): reason is SystemicFailureReason {
-	return reason === "model-unavailable" || reason === "auth" || reason === "empty-auth";
+	return reason in SYSTEMIC_FAILURE_MESSAGES;
 }
 
 /** Concise, human-readable degraded reason for a systemic model failure. */
 function describeSystemicFailure(reason: SystemicFailureReason, message: string | null): string {
-	const base =
-		reason === "model-unavailable"
-			? "Enrichment model is unavailable"
-			: reason === "auth"
-				? "Enrichment model authentication failed"
-				: "Enrichment model authentication is not configured";
+	const base = SYSTEMIC_FAILURE_MESSAGES[reason];
 	return message === null ? `${base}.` : `${base}: ${message}`;
 }
 
@@ -163,7 +160,10 @@ export function createStackEnrichmentEngine(
 	function enqueueRowTasks(pr: StackViewPr): void {
 		for (const task of rowTasks(pr)) {
 			const existing = store.get(task.key);
-			if (existing !== undefined && !shouldRetry(task.key, existing)) continue;
+			if (existing !== undefined) {
+				if (!canRetry(task.key, existing)) continue;
+				retriedKeys.add(task.key);
+			}
 			store.set(task.key, { state: "pending" });
 			pendingKeys.add(task.key);
 			totalQueued += 1;
@@ -176,11 +176,8 @@ export function createStackEnrichmentEngine(
 	// is retried once per engine (a transient failure must not be negative-cached
 	// for the whole session), but never while degraded: a systemic failure means
 	// the model path is dead, so re-queueing would only hammer it.
-	function shouldRetry(key: string, existing: EnrichmentEntry): boolean {
-		if (existing.state !== "failed") return false;
-		if (degraded !== null || retriedKeys.has(key)) return false;
-		retriedKeys.add(key);
-		return true;
+	function canRetry(key: string, existing: EnrichmentEntry): boolean {
+		return existing.state === "failed" && degraded === null && !retriedKeys.has(key);
 	}
 
 	function pump(): void {
@@ -247,7 +244,6 @@ export function createStackEnrichmentEngine(
 	}
 
 	async function runCheckTask(task: { entry: StackViewCheckEntry }): Promise<SettledEntry> {
-		if (!resolveCheckLogSource(task.entry).ok) return { state: "failed" };
 		// One composed signal for the whole task: a single 60s budget shared by the
 		// log fetch and the model call, rather than a fresh timer per operation.
 		const signal = taskSignal(CHECK_TASK_TIMEOUT_MS);

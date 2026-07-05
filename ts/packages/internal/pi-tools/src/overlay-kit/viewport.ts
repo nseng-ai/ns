@@ -8,14 +8,6 @@ import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 
-/**
- * Overlay sizing shared by the bordered modals. The host overlay clips rendered
- * lines to `floor(rows * maxHeight)` capped by `rows - 2 * margin`; views that
- * size themselves to the overlay budget should use these same values.
- */
-export const OVERLAY_MAX_HEIGHT_RATIO = 0.85;
-export const OVERLAY_MARGIN = 1;
-
 export interface WrappedDetailViewportOptions {
 	lines: readonly string[];
 	width: number;
@@ -32,14 +24,21 @@ export interface WrappedDetailViewport {
 export function sliceWrappedDetailLinesForViewport(
 	options: WrappedDetailViewportOptions,
 ): WrappedDetailViewport {
-	const wrappedDetailLines = wrapDetailLines(options.lines, options.width);
-	const maxScroll = Math.max(0, wrappedDetailLines.length - options.rows);
-	const scroll = clamp(options.scroll, 0, maxScroll);
+	const viewport = wrapDetailLinesForViewport(options);
 	return {
-		lines: wrappedDetailLines.slice(scroll, scroll + options.rows),
-		scroll,
-		maxScroll,
+		lines: viewport.lines.slice(viewport.scroll, viewport.scroll + options.rows),
+		scroll: viewport.scroll,
+		maxScroll: viewport.maxScroll,
 	};
+}
+
+export function wrapDetailLinesForViewport(
+	options: WrappedDetailViewportOptions,
+): WrappedDetailViewport {
+	const lines = wrapDetailLines(options.lines, options.width);
+	const maxScroll = Math.max(0, lines.length - options.rows);
+	const scroll = clamp(options.scroll, 0, maxScroll);
+	return { lines, scroll, maxScroll };
 }
 
 export function wrapDetailLines(lines: readonly string[], width: number): string[] {

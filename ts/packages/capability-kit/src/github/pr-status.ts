@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { parseGraphqlErrors, parseJsonUnknown } from "./graphql-json.ts";
+import {
+	extractGraphqlErrorMessages,
+	parseGraphqlErrors,
+	parseJsonUnknown,
+} from "./graphql-json.ts";
 import { isRecord } from "@nseng-ai/foundation/primitives";
 
 export interface GithubReviewThreadCounts {
@@ -168,7 +172,7 @@ export function parseGithubWorktreePrStatusJsonResult(
 		graphqlErrors.errors !== undefined &&
 		graphqlErrors.errors.length > 0
 	) {
-		return { type: "graphql-errors", messages: graphqlErrorMessages(graphqlErrors.errors) };
+		return { type: "graphql-errors", messages: extractGraphqlErrorMessages(graphqlErrors.errors) };
 	}
 
 	const result = githubWorktreePrStatusResponseSchema.safeParse(parsed.value);
@@ -534,18 +538,6 @@ function classifyInvalidJson(stdout: string): "github-unicorn-html" | "html" | "
 
 function looksLikeHtml(value: string): boolean {
 	return /^<(?:!doctype\s+html\b|html\b|head\b|body\b)/i.test(value);
-}
-
-// Array-based variant kept local; see `graphqlErrorMessages` in `./graphql-json.ts` for the whole-JSON helper.
-function graphqlErrorMessages(errors: readonly unknown[]): readonly string[] {
-	const messages = errors.flatMap((error) => {
-		if (!isRecord(error)) return [];
-		const message = error.message;
-		if (typeof message !== "string") return [];
-		const trimmed = message.trim();
-		return trimmed.length > 0 ? [trimmed] : [];
-	});
-	return messages.length > 0 ? messages : ["GitHub returned GraphQL errors without messages"];
 }
 
 function classifyCheckRun(value: Record<string, unknown>): GithubCheckBucket {

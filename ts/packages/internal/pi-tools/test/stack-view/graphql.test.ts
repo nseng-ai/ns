@@ -243,7 +243,6 @@ interface PrNodeOverrides {
 	url?: string;
 	isDraft?: boolean;
 	body?: string;
-	reviewDecision?: string | null;
 	reviewThreads?: unknown;
 	commits?: unknown;
 }
@@ -255,7 +254,6 @@ function prNode(overrides: PrNodeOverrides = {}): unknown {
 		url: "https://github.com/acme/repo/pull/101",
 		isDraft: false,
 		body: "Body text",
-		reviewDecision: "APPROVED",
 		reviewThreads: threadsConnection(0, 0),
 		commits: commitsConnection([]),
 		...overrides,
@@ -328,7 +326,6 @@ describe("parseStackPrResponse happy path", () => {
 					url: "https://github.com/acme/repo/pull/11",
 					isDraft: false,
 					body: "first body",
-					reviewDecision: "REVIEW_REQUIRED",
 					reviewThreads: threadsConnection(2, 1),
 					commits: commitsConnection([
 						checkRun("build", "COMPLETED", "SUCCESS"),
@@ -345,7 +342,6 @@ describe("parseStackPrResponse happy path", () => {
 					url: "https://github.com/acme/repo/pull/22",
 					isDraft: true,
 					body: "second body",
-					reviewDecision: null,
 					reviewThreads: threadsConnection(3, 0),
 					commits: commitsConnection([
 						statusContext("ci/deploy", "SUCCESS"),
@@ -366,7 +362,6 @@ describe("parseStackPrResponse happy path", () => {
 			url: "https://github.com/acme/repo/pull/11",
 			isDraft: false,
 			body: "first body",
-			reviewDecision: "REVIEW_REQUIRED",
 			threads: { resolved: 2, total: 3 },
 			checks: { passing: 2, failing: 1, pending: 1, total: 4 },
 			checkEntries: [
@@ -406,7 +401,6 @@ describe("parseStackPrResponse happy path", () => {
 			url: "https://github.com/acme/repo/pull/22",
 			isDraft: true,
 			body: "second body",
-			reviewDecision: null,
 			threads: { resolved: 3, total: 3 },
 			checks: { passing: 1, failing: 0, pending: 1, total: 2 },
 			checkEntries: [
@@ -443,7 +437,7 @@ describe("parseStackPrResponse happy path", () => {
 		expect(result.prs[0]?.checks).toEqual({ passing: 1, failing: 0, pending: 2, total: 3 });
 	});
 
-	it("treats a missing reviewDecision as null and defaults missing scalar fields", () => {
+	it("defaults missing scalar fields", () => {
 		const response = repoResponse({
 			b0: aliasNode({ number: 7 }),
 		});
@@ -456,7 +450,6 @@ describe("parseStackPrResponse happy path", () => {
 			url: "",
 			isDraft: false,
 			body: "",
-			reviewDecision: null,
 			threads: { resolved: 0, total: 0 },
 			checks: { passing: 0, failing: 0, pending: 0, total: 0 },
 			checkEntries: [],
