@@ -57,17 +57,24 @@
       icons, recent child activity/tool text, and done/running counts, then clear on
       completion. Validation: focused explore Vitest suite, `pnpm --dir ts run check`,
       lint, and format check passed on branch `explore-live-inline-progress-rendering`.
-- [ ] Decide the explorer-child home-directory-guard bypass (risk recorded in
+- [x] Decide the explorer-child home-directory-guard bypass (risk recorded in
       objective.md): accept, inject the guard, or document why prompt-scoping
       suffices. Injection is not an existing seam: `buildChildPiArgs` takes
       `--extension` only from generated terminal-runtime files, and
       `RunnerSubagentOptions` has no caller-facing extension-injection surface, so
       that option costs a small plumbing slice (new option, threading, coexistence
-      with the terminal runtime extension, tests). **Gates the dogfood item below** —
-      real explorer children must not run routinely while child scope is
-      prompt-enforced only. Record the decision as an update.
+      with the terminal runtime extension, tests).
+      Outcome: accept prompt-level local policy for dogfooding. Explorer children
+      still launch with `--no-extensions` and the read-only tool allowlist; the
+      explorer prompt now instructs children to read and obey root `AGENTS.local.md`
+      when present. This checkout's `AGENTS.local.md` is ignored/local-only and
+      carries the workstation-specific home-root rule. This is not a capability
+      sandbox or extension-equivalent guard. Evidence:
+      `updates/2026-07-05-explorer-local-policy-decision.md`.
 - [ ] Dogfood in real ns work and tune the tool description and scout contract from
-      observed transcripts. Gated on the home-directory-guard bypass decision above.
+      observed transcripts. Unblocked by the local-policy decision above; use the
+      root `AGENTS.local.md` convention during dogfood and record whether
+      prompt-level scope guidance is sufficient.
       Evidence: at least one real task completed using explore fan-out, with prompt
       adjustments captured as an update.
 - [ ] Fleet widget and transcript viewer (monitoring layers 2–3): persistent live list
