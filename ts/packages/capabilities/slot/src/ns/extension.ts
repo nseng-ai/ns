@@ -5,10 +5,7 @@ import {
 	type ClinkrDynamicCompletionRequest,
 } from "@ns/clinkr";
 import { optionalEntry } from "@ns/core/primitives";
-import {
-	createSdlDomainCommand,
-	type SdlDomainCommandOptions,
-} from "@ns/capability-kit/ns-command";
+import { createNsDomainCommand, type NsDomainCommandOptions } from "@ns/capability-kit/ns-command";
 import {
 	installMarkerBlock,
 	markerSurfaceInstallRequestSchema,
@@ -23,9 +20,9 @@ import { z } from "zod";
 
 import {
 	defineExtension,
-	type SdlCommand,
-	type SdlCommandSchema,
-	type SdlExtensionApi,
+	type NsCommand,
+	type NsCommandSchema,
+	type NsExtensionApi,
 } from "@ns/kernel/sdk";
 
 import {
@@ -104,32 +101,32 @@ import {
 	runResize,
 } from "../lifecycle/operations/index.ts";
 
-const sdlShellIntegrationBeginMarker = "# >>> ns shell integration >>>";
-const sdlShellIntegrationEndMarker = "# <<< ns shell integration <<<";
-const sdlShellShowRequestSchema = markerSurfaceShowRequestSchema;
-const sdlShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
+const nsShellIntegrationBeginMarker = "# >>> ns shell integration >>>";
+const nsShellIntegrationEndMarker = "# <<< ns shell integration <<<";
+const nsShellShowRequestSchema = markerSurfaceShowRequestSchema;
+const nsShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
 	yes: z.boolean().default(false).describe("Confirm shell rc-file update without prompting."),
 });
-const sdlShellShowResultSchema = markerSurfaceShowResultSchema;
-const sdlShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
+const nsShellShowResultSchema = markerSurfaceShowResultSchema;
+const nsShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
 	cancelled: z.boolean().default(false),
 });
 
-type SlotSdlCommandOptions<S extends SdlCommandSchema, T> = Omit<
-	SdlDomainCommandOptions<S, T, SlotCliContext>,
+type SlotNsCommandOptions<S extends NsCommandSchema, T> = Omit<
+	NsDomainCommandOptions<S, T, SlotCliContext>,
 	"createContext"
 >;
 
-function slotCommand<S extends SdlCommandSchema, T>(
-	options: SlotSdlCommandOptions<S, T>,
-): SdlCommand<S, T> {
-	return createSdlDomainCommand({
+function slotCommand<S extends NsCommandSchema, T>(
+	options: SlotNsCommandOptions<S, T>,
+): NsCommand<S, T> {
+	return createNsDomainCommand({
 		...options,
 		createContext: createSlotExtensionContext,
 	});
 }
 
-async function createSlotExtensionContext(ctx: SdlExtensionApi): Promise<SlotCliContext> {
+async function createSlotExtensionContext(ctx: NsExtensionApi): Promise<SlotCliContext> {
 	return await createRealSlotContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
@@ -141,7 +138,7 @@ async function createSlotExtensionContext(ctx: SdlExtensionApi): Promise<SlotCli
 }
 
 async function completeCheckoutBranches(
-	ctx: SdlExtensionApi,
+	ctx: NsExtensionApi,
 	request: ClinkrDynamicCompletionRequest,
 ) {
 	if (request.current.startsWith("-")) return { candidates: [] };
@@ -155,22 +152,22 @@ async function completeCheckoutBranches(
 	};
 }
 
-function renderSdlShellWrapperScript(): string {
+function renderNsShellWrapperScript(): string {
 	return renderCommandCdWrapperScript({ commandName: "ns" });
 }
 
-async function runSdlShellShow(
-	ctx: SdlExtensionApi,
-	request: z.output<typeof sdlShellShowRequestSchema>,
+async function runNsShellShow(
+	ctx: NsExtensionApi,
+	request: z.output<typeof nsShellShowRequestSchema>,
 ) {
 	const selected = resolveRequestedShell(request.shell, ctx.env);
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	return ok({ shell: selected.shell, script: renderSdlShellWrapperScript() });
+	return ok({ shell: selected.shell, script: renderNsShellWrapperScript() });
 }
 
-async function runSdlShellInstall(
-	ctx: SdlExtensionApi,
-	request: z.output<typeof sdlShellInstallRequestSchema>,
+async function runNsShellInstall(
+	ctx: NsExtensionApi,
+	request: z.output<typeof nsShellInstallRequestSchema>,
 ) {
 	const selected = resolveRequestedShell(request.shell, ctx.env);
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
@@ -202,9 +199,9 @@ async function runSdlShellInstall(
 	}
 	const installed = await installMarkerBlock({
 		rcPath,
-		beginMarker: sdlShellIntegrationBeginMarker,
-		payload: renderSdlShellWrapperScript(),
-		endMarker: sdlShellIntegrationEndMarker,
+		beginMarker: nsShellIntegrationBeginMarker,
+		payload: renderNsShellWrapperScript(),
+		endMarker: nsShellIntegrationEndMarker,
 	});
 	return ok({
 		shell: selected.shell,
@@ -214,13 +211,13 @@ async function runSdlShellInstall(
 	});
 }
 
-function renderSdlShellShow(result: unknown): string {
-	const parsed = sdlShellShowResultSchema.parse(result);
+function renderNsShellShow(result: unknown): string {
+	const parsed = nsShellShowResultSchema.parse(result);
 	return parsed.script;
 }
 
-function renderSdlShellInstall(result: unknown): string {
-	const parsed = sdlShellInstallResultSchema.parse(result);
+function renderNsShellInstall(result: unknown): string {
+	const parsed = nsShellInstallResultSchema.parse(result);
 	if (parsed.cancelled)
 		return `Cancelled ns shell integration install for ${parsed.shell} in ${parsed.rcPath}`;
 	if (parsed.isAlreadyInstalled)
@@ -407,21 +404,21 @@ export default defineExtension({
 			name: "show",
 			summary: "Print the parent-shell wrapper script.",
 			description: "Print the parent-shell wrapper script.",
-			schema: sdlShellShowRequestSchema,
+			schema: nsShellShowRequestSchema,
 			options: shellShowOptionSpecs,
-			resultSchema: sdlShellShowResultSchema,
-			renderHuman: renderSdlShellShow,
-			run: runSdlShellShow,
+			resultSchema: nsShellShowResultSchema,
+			renderHuman: renderNsShellShow,
+			run: runNsShellShow,
 		},
 		{
 			name: "install",
 			summary: "Install the parent-shell wrapper in the detected or selected rc file.",
 			description: "Install the parent-shell wrapper in the detected or selected rc file.",
-			schema: sdlShellInstallRequestSchema,
+			schema: nsShellInstallRequestSchema,
 			options: shellInstallOptionSpecs,
-			resultSchema: sdlShellInstallResultSchema,
-			renderHuman: renderSdlShellInstall,
-			run: runSdlShellInstall,
+			resultSchema: nsShellInstallResultSchema,
+			renderHuman: renderNsShellInstall,
+			run: runNsShellInstall,
 		},
 	],
 });

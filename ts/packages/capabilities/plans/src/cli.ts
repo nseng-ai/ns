@@ -97,7 +97,7 @@ export interface PlansCliContext {
 const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
-	description: "Enriched-plan operations. An enriched plan is any plan saved into sdl.",
+	description: "Enriched-plan operations. An enriched plan is any plan saved into ns.",
 	prepareRun: ({ deps, cwd }) => {
 		const commands = deps.commands ?? new NodeCommandExecApi();
 		const context: PlansCliContext = {

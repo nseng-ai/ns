@@ -6,7 +6,7 @@
 //
 // Flow owns the ordered phase list and typed progress events. This module wires the small stream seams
 // together: phase-state transitions, transcript tail buffering, lifecycle cleanup, and clinkr-backed
-// TTY/non-TTY rendering. Lower layers stay domain-pure and emit `SdlProgressPhaseEvent`s keyed by stable
+// TTY/non-TTY rendering. Lower layers stay domain-pure and emit `NsProgressPhaseEvent`s keyed by stable
 // `phaseKey`s.
 //
 // This is the one `flow → clinkr` edge. The event type lives in `@ns/kernel/sdk`, so clinkr stays free
@@ -21,8 +21,8 @@ import {
 	systemStreamClock,
 	type StreamSinkDeps,
 } from "@ns/clinkr/stream";
-import type { SdlProgressPhaseEvent } from "@ns/kernel/sdk";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsProgressPhaseEvent } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";
@@ -46,7 +46,7 @@ export interface PhaseStream {
 	/** Update the live region header after begin without changing phase state. */
 	setTitle(title: string): void;
 	/** The `onPhase` listener: advance the phase list and repaint / emit a transient. */
-	emit(event: SdlProgressPhaseEvent): void;
+	emit(event: NsProgressPhaseEvent): void;
 	/**
 	 * Feed a raw subprocess transcript chunk into the live region's tail line (TTY only; a no-op
 	 * otherwise). Routing the transcript THROUGH the sink keeps `log-update` the sole writer, so its
@@ -89,7 +89,7 @@ export function createPhaseStream(
 		renderer.render();
 	}
 
-	function emit(event: SdlProgressPhaseEvent): void {
+	function emit(event: NsProgressPhaseEvent): void {
 		const transition = phases.apply(event);
 		switch (transition.type) {
 			case "ignored":
@@ -158,7 +158,7 @@ export interface SettledPhaseStreamOutcome<T> {
 
 export interface PhaseStreamController {
 	setTitle(title: string): void;
-	emit(event: SdlProgressPhaseEvent): void;
+	emit(event: NsProgressPhaseEvent): void;
 	note(text: string): void;
 	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
 	stop(): Promise<void>;
@@ -238,7 +238,7 @@ export function createPhaseStreamController(
 }
 
 /** Resolve flow streaming caps from the command host context's explicit render capabilities. */
-export function resolveFlowStreamCaps(ctx: SdlExtensionApi): Caps {
+export function resolveFlowStreamCaps(ctx: NsExtensionApi): Caps {
 	return resolveRenderCapabilities(ctx.renderCapabilities);
 }
 
@@ -249,7 +249,7 @@ export function resolveFlowStreamCaps(ctx: SdlExtensionApi): Caps {
  *    output, with nothing leaking to `process.*`. The settled frame and the per-phase transients
  *    both flow through the same live channel (zero cursor escapes).
  */
-export function flowStreamDeps(ctx: SdlExtensionApi, caps: Caps): StreamSinkDeps {
+export function flowStreamDeps(ctx: NsExtensionApi, caps: Caps): StreamSinkDeps {
 	if (caps.isTty) {
 		return { writer: createStdoutStreamWriter(), clock: systemStreamClock };
 	}

@@ -1,11 +1,11 @@
 import { expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/runtime/module-loader.ts";
+import { createNsJiti } from "../../src/runtime/module-loader.ts";
 
 // This intentionally proves real workspace/package import compatibility through Jiti.
 // Keep this smoke in the integration lane; default tests should cover local alias logic directly.
 test("repo-local migration extensions can import internal migration subpaths", async () => {
-	const jiti = createSdlJiti();
+	const jiti = createNsJiti();
 
 	const pendingWorktreeModule = await jiti.import<
 		typeof import("@ns/capability-kit/pending-worktree")
@@ -46,9 +46,9 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	]);
 
 	const aretroCollectEvidenceModule = await jiti.import<{
-		aretroExecCollectEvidenceSdlCommand: { name: string };
+		aretroExecCollectEvidenceNsCommand: { name: string };
 	}>("@ns/aretro/ns/commands/exec-collect-evidence");
-	expect(aretroCollectEvidenceModule.aretroExecCollectEvidenceSdlCommand.name).toBe(
+	expect(aretroCollectEvidenceModule.aretroExecCollectEvidenceNsCommand.name).toBe(
 		"exec-collect-evidence",
 	);
 
@@ -60,14 +60,14 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	]);
 
 	const handoffListModule = await jiti.import<{
-		handoffListSdlCommand: { name: string };
+		handoffListNsCommand: { name: string };
 	}>("@ns/handoff/ns/commands/list");
-	expect(handoffListModule.handoffListSdlCommand.name).toBe("list");
+	expect(handoffListModule.handoffListNsCommand.name).toBe("list");
 
 	const objectiveListModule = await jiti.import<{
-		objectiveListSdlCommand: { name: string };
+		objectiveListNsCommand: { name: string };
 	}>("@ns/objective/ns/commands/list");
-	expect(objectiveListModule.objectiveListSdlCommand.name).toBe("list");
+	expect(objectiveListModule.objectiveListNsCommand.name).toBe("list");
 
 	// jiti tripwire: this command's module graph includes the real Pi
 	// child-session adapter and must load without pulling the optional

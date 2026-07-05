@@ -1,10 +1,10 @@
 import { prepareCheckpointMessage } from "@ns/capability-kit/checkpoint-flow";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 import { selectCheckpointModelRef } from "@ns/capability-kit/text-generation";
 
 import { draftChangesSummary } from "../changes/changes-model-summary.ts";
 
-export type FlowTextGenerationContext = Pick<SdlExtensionApi, "env" | "textGenerator">;
+export type FlowTextGenerationContext = Pick<NsExtensionApi, "env" | "textGenerator">;
 
 export function prepareFlowChangesSummary(
 	ctx: FlowTextGenerationContext,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@ns/kernel/cli";
+import { listNsCommands } from "@ns/kernel/cli";
 
 import { runCliWithFakes } from "./ns-cli-fakes.ts";
 
@@ -14,9 +14,9 @@ function runUnavailableRegeneratePrCli(args: readonly string[]) {
 	);
 }
 
-describe("sdl flow regenerate-pr CLI availability", () => {
+describe("ns flow regenerate-pr CLI availability", () => {
 	test("regenerate-pr is not registered as a built-in command after the kernel reset", () => {
-		expect(listSdlCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
+		expect(listNsCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
 	});
 
 	test("regenerate-pr help and invocation are unavailable without a project extension", async () => {

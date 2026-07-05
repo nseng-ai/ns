@@ -1,27 +1,27 @@
 import { describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 import type { ExecResult } from "@ns/core/exec";
-import type { SdlExecOptions, SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExecOptions, NsExtensionApi } from "@ns/kernel/sdk";
 
 import {
-	createSdlCommandRunner,
-	SdlCommandExecApi,
-	SdlStdinCapableCommandExecApi,
+	createNsCommandRunner,
+	NsCommandExecApi,
+	NsStdinCapableCommandExecApi,
 } from "@ns/capability-kit/command-runner";
-import { execSdlGit, readSdlGitPorcelainStatus } from "@ns/capability-kit/git";
+import { execNsGit, readNsGitPorcelainStatus } from "@ns/capability-kit/git";
 
 interface ExecCall {
 	command: string;
 	args: string[];
-	options?: SdlExecOptions;
+	options?: NsExecOptions;
 }
 
-describe("SDL command runner adapter", () => {
+describe("ns command runner adapter", () => {
 	test("executes commands with copied args and converted options", async () => {
 		const success = makeExecResult({ stdout: "ok\n" });
 		const { api, calls } = createFakeApi([success]);
-		const runner = createSdlCommandRunner(api);
+		const runner = createNsCommandRunner(api);
 		const args = ["status"];
 
 		const result = await runner("git", args, {
@@ -43,7 +43,7 @@ describe("SDL command runner adapter", () => {
 	test("marks stdin-capable exec support", async () => {
 		const success = makeExecResult({ stdout: "ok\n" });
 		const { api, calls } = createFakeApi([success]);
-		const commands = new SdlStdinCapableCommandExecApi(api);
+		const commands = new NsStdinCapableCommandExecApi(api);
 
 		const result = await commands.exec("brmem", ["store"], { stdin: "payload" });
 
@@ -52,14 +52,14 @@ describe("SDL command runner adapter", () => {
 		expect(calls[0]?.options?.stdin).toBe("payload");
 	});
 
-	test("refuses cwd outside the SDL host cwd", async () => {
+	test("refuses cwd outside the ns host cwd", async () => {
 		const { api, calls } = createFakeApi([]);
-		const result = await new SdlCommandExecApi(api).exec("git", ["status"], { cwd: "/elsewhere" });
+		const result = await new NsCommandExecApi(api).exec("git", ["status"], { cwd: "/elsewhere" });
 
 		expect(result).toEqual({
 			code: 2,
 			stdout: "",
-			stderr: "SDL command execution is scoped to /repo; refusing command cwd /elsewhere.",
+			stderr: "ns command execution is scoped to /repo; refusing command cwd /elsewhere.",
 			killed: false,
 		});
 		expect(calls).toEqual([]);
@@ -71,14 +71,14 @@ describe("SDL command runner adapter", () => {
 		const failedResult = makeExecResult({ code: 128, stderr: "fatal\n" });
 		const { api, calls } = createFakeApi([cleanResult, dirtyResult, failedResult]);
 
-		await expect(execSdlGit(api, ["status"], 42)).resolves.toBe(cleanResult);
-		await expect(readSdlGitPorcelainStatus(api)).resolves.toEqual({
+		await expect(execNsGit(api, ["status"], 42)).resolves.toBe(cleanResult);
+		await expect(readNsGitPorcelainStatus(api)).resolves.toEqual({
 			ok: true,
 			isClean: false,
 			stdout: " M src/app.ts\n",
 			result: dirtyResult,
 		});
-		await expect(readSdlGitPorcelainStatus(api, 100)).resolves.toEqual({
+		await expect(readNsGitPorcelainStatus(api, 100)).resolves.toEqual({
 			ok: false,
 			result: failedResult,
 		});
@@ -93,7 +93,7 @@ describe("SDL command runner adapter", () => {
 });
 
 function createFakeApi(results: readonly ExecResult[]): {
-	api: SdlExtensionApi;
+	api: NsExtensionApi;
 	calls: ExecCall[];
 } {
 	const pending = [...results];
@@ -102,8 +102,8 @@ function createFakeApi(results: readonly ExecResult[]): {
 		api: {
 			cwd: "/repo",
 			env: {},
-			commandIo: noopSdlCommandIo,
-			progress: noopSdlProgress,
+			commandIo: noopNsCommandIo,
+			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
 			textGenerator: {
 				async generateText() {

@@ -65,14 +65,14 @@ Guard no-UI flows deliberately. Use `shouldNotifyWhenNoUi: true` only when the n
 
 ### Cross CLI/Pi progress
 
-If the same workflow is reachable from both a ji CLI command and a Pi slash-command mirror, do not solve progress only with Pi helpers or `ctx.ui.setStatus(...)`. Put the progress seam in the lower orchestration layer with SDK `SdlCommandIo`:
+If the same workflow is reachable from both a ji CLI command and a Pi slash-command mirror, do not solve progress only with Pi helpers or `ctx.ui.setStatus(...)`. Put the progress seam in the lower orchestration layer with SDK `NsCommandIo`:
 
 - use `io.phase(...)` for human-facing intermediate progress;
 - use durable command presentation or `io.notify(...)` for final summaries and diagnostics;
 - in CLI adapters, route phases to `ctx.onOutput?.("stderr", text)` when available, otherwise to `stderr`;
-- in Pi rendered flows, avoid duplicating a custom `pi.sendMessage(...)` stream through `SdlCommandIo`; use `SdlCommandIo` as the fallback when no rendered/live message path exists.
+- in Pi rendered flows, avoid duplicating a custom `pi.sendMessage(...)` stream through `NsCommandIo`; use `NsCommandIo` as the fallback when no rendered/live message path exists.
 
-For CCC-owned orchestration, read `ts/packages/capabilities/ccc/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `SdlCommandIo` is the portable seam for shared CLI/Pi execution.
+For CCC-owned orchestration, read `ts/packages/capabilities/ccc/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
 
 ## Checklist for adding or changing a command
 

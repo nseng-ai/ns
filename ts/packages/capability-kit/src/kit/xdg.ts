@@ -3,10 +3,10 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export {
-	requireSdlStatePath,
+	requireNsStatePath,
 	requireXdgPath,
 	resolvePathOverride,
-	resolveSdlXdgPath,
+	resolveNsXdgPath,
 	resolveXdgHome,
 	type XdgDirectoryKind,
 	type XdgPathError,

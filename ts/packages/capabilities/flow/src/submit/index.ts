@@ -6,9 +6,9 @@ export {
 	type StablePatchIdForPrResult,
 } from "./github-pr-gateway.ts";
 export {
-	createSdlPrDescriptionRuntime,
+	createNsPrDescriptionRuntime,
 	formatPromptSourceLabel,
-	type SdlPrDescriptionRuntime,
+	type NsPrDescriptionRuntime,
 } from "./pr-description-regenerate.ts";
 export {
 	applyPreparedPrDescriptionUpdate,

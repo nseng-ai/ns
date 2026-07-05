@@ -1,22 +1,19 @@
-import {
-	createSdlDomainCommand,
-	type SdlDomainCommandOptions,
-} from "@ns/capability-kit/ns-command";
-import type { SdlCommand, SdlCommandSchema } from "@ns/kernel/sdk";
+import { createNsDomainCommand, type NsDomainCommandOptions } from "@ns/capability-kit/ns-command";
+import type { NsCommand, NsCommandSchema } from "@ns/kernel/sdk";
 
 import type { RoasterRuntime } from "../core/context.ts";
-import { createSdlRoasterRuntime } from "./context.ts";
+import { createNsRoasterRuntime } from "./context.ts";
 
-type RoasterSdlCommandOptions<S extends SdlCommandSchema, T> = Omit<
-	SdlDomainCommandOptions<S, T, RoasterRuntime>,
+type RoasterNsCommandOptions<S extends NsCommandSchema, T> = Omit<
+	NsDomainCommandOptions<S, T, RoasterRuntime>,
 	"createContext"
 >;
 
-export function roasterSdlCommand<S extends SdlCommandSchema, T>(
-	options: RoasterSdlCommandOptions<S, T>,
-): SdlCommand<S, T> {
-	return createSdlDomainCommand({
+export function roasterNsCommand<S extends NsCommandSchema, T>(
+	options: RoasterNsCommandOptions<S, T>,
+): NsCommand<S, T> {
+	return createNsDomainCommand({
 		...options,
-		createContext: createSdlRoasterRuntime,
+		createContext: createNsRoasterRuntime,
 	});
 }

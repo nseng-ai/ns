@@ -9,7 +9,7 @@ import { mapFromRecordOrMap, type ExplicitUndefined } from "@ns/core/primitives"
 import type { ReviewCatalogFailure, RoasterResult } from "../core/failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
-const SDL_DIRNAME = ".ns";
+const NS_DIRNAME = ".ns";
 const REVIEWS_DIRNAME = "reviews";
 
 export interface ReviewSource {
@@ -108,7 +108,7 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		const repoRoot = await this.gitGateway.repoRoot({ cwd, signal });
 		if (!repoRoot.ok)
 			return error({ type: "reviews-dir-missing", message: repoRoot.error.message });
-		return { type: "ok", value: join(repoRoot.value, SDL_DIRNAME, REVIEWS_DIRNAME) };
+		return { type: "ok", value: join(repoRoot.value, NS_DIRNAME, REVIEWS_DIRNAME) };
 	}
 }
 

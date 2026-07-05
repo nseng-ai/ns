@@ -3,7 +3,7 @@ import { defineExtension } from "@ns/kernel/sdk";
 import { branchContextCommand } from "../command.ts";
 import { handleLoad, loadPlanResultSchema, loadRequestSchema } from "../../core/operations.ts";
 
-export const branchContextLoadSdlCommand = branchContextCommand({
+export const branchContextLoadNsCommand = branchContextCommand({
 	name: "load",
 	summary: "Load an attached branch-context plan.",
 	description:
@@ -15,5 +15,5 @@ export const branchContextLoadSdlCommand = branchContextCommand({
 });
 
 export default defineExtension({
-	commands: [branchContextLoadSdlCommand],
+	commands: [branchContextLoadNsCommand],
 });

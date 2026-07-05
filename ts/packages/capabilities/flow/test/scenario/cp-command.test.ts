@@ -186,7 +186,7 @@ describe("project-local cp extension behavior", () => {
 		expect(formattedExecCalls(run.context)).not.toContain("git log -1 --oneline");
 	});
 
-	test("checkpoint model can be selected by SDL environment with legacy fallback", async () => {
+	test("checkpoint model can be selected by ns environment with legacy fallback", async () => {
 		const selected = runCpWithFakes({
 			env: {
 				NS_CHECKPOINT_MODEL: "openai-codex/custom-mini",

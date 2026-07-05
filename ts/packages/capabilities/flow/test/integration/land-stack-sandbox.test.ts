@@ -23,7 +23,7 @@
  *   appearing child skips local deletion entirely (TOCTOU protection).
  *
  * Boundary: the shims encode the tools' contracts, so this suite validates
- * SDL's orchestration against those contracts; drift in real `gt`/`gh`
+ * ns's orchestration against those contracts; drift in real `gt`/`gh`
  * behavior is covered by land-stack-graphite-cli.test.ts instead.
  */
 
@@ -410,7 +410,7 @@ async function withSandbox(
 	const env = {
 		...process.env,
 		PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
-		SDL_SANDBOX_STATE: statePath,
+		NS_SANDBOX_STATE: statePath,
 	};
 
 	try {
@@ -451,7 +451,7 @@ async function initializeGitStack(
 		cwd: git.repoRoot,
 		env: git.env,
 		command: "git",
-		args: ["config", "user.name", "SDL Test"],
+		args: ["config", "user.name", "ns Test"],
 	});
 	await commitFile({ git, path: "README.md", content: "initial\n", message: "initial" });
 	await createBranchWithCommit({ git, branch: FEATURE_A, startPoint: TRUNK });
@@ -619,9 +619,9 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const { basename } = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const statePath = process.env.SDL_SANDBOX_STATE;
+const statePath = process.env.NS_SANDBOX_STATE;
 if (!statePath) {
-  console.error("SDL_SANDBOX_STATE is required");
+  console.error("NS_SANDBOX_STATE is required");
   process.exit(2);
 }
 const command = basename(process.argv[1]);

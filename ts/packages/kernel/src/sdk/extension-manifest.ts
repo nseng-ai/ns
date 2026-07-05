@@ -1,6 +1,6 @@
 import { z } from "./schema.ts";
 
-export const sdlExtensionManifestCommandSchema = z.looseObject({
+export const nsExtensionManifestCommandSchema = z.looseObject({
 	name: z.string().optional(),
 	path: z.array(z.string()).optional(),
 	group: z.string().optional(),
@@ -9,17 +9,17 @@ export const sdlExtensionManifestCommandSchema = z.looseObject({
 	entry: z.string().optional(),
 });
 
-export const sdlExtensionManifestSchema = z.looseObject({
+export const nsExtensionManifestSchema = z.looseObject({
 	description: z.string().optional(),
 	group: z.string().optional(),
 	commands: z.array(z.unknown()).optional(),
 });
 
-export const sdlExtensionPackageManifestSchema = z.looseObject({
+export const nsExtensionPackageManifestSchema = z.looseObject({
 	description: z.string().optional(),
-	ns: sdlExtensionManifestSchema.optional(),
+	ns: nsExtensionManifestSchema.optional(),
 });
 
-export type SdlExtensionManifestCommand = z.infer<typeof sdlExtensionManifestCommandSchema>;
-export type SdlExtensionManifest = z.infer<typeof sdlExtensionManifestSchema>;
-export type SdlExtensionPackageManifest = z.infer<typeof sdlExtensionPackageManifestSchema>;
+export type NsExtensionManifestCommand = z.infer<typeof nsExtensionManifestCommandSchema>;
+export type NsExtensionManifest = z.infer<typeof nsExtensionManifestSchema>;
+export type NsExtensionPackageManifest = z.infer<typeof nsExtensionPackageManifestSchema>;

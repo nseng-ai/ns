@@ -1,3 +1,3 @@
-import { prAddressSdlExtension } from "../../ns-command.ts";
+import { prAddressNsExtension } from "../../ns-command.ts";
 
-export default prAddressSdlExtension("pr-review-threads");
+export default prAddressNsExtension("pr-review-threads");

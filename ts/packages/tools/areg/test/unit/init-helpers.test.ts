@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	claudeBlock,
-	parseSdlAregAgents,
+	parseNsAregAgents,
 	parseLegacyAregJsonAgents,
 } from "../../src/operations/init.ts";
 import { appendBlock, managedBlockBounds } from "../../src/operations/managed-markdown-block.ts";
@@ -13,16 +13,16 @@ import {
 
 describe("init config helpers", () => {
 	test("parses ns.toml areg agents and validates bad values", () => {
-		expect(parseSdlAregAgents('[areg]\nagents = ["codex", "cursor"]\n')).toEqual({
+		expect(parseNsAregAgents('[areg]\nagents = ["codex", "cursor"]\n')).toEqual({
 			ok: true,
 			value: ["codex", "cursor"],
 		});
-		expect(parseSdlAregAgents("[areg]\nagents = []\n")).toEqual({ ok: true, value: [] });
-		expect(parseSdlAregAgents("[areg\n")).toMatchObject({
+		expect(parseNsAregAgents("[areg]\nagents = []\n")).toEqual({ ok: true, value: [] });
+		expect(parseNsAregAgents("[areg\n")).toMatchObject({
 			ok: false,
 			error: { message: expect.stringContaining("Invalid TOML") },
 		});
-		expect(parseSdlAregAgents('[areg]\nagents = [""]\n')).toMatchObject({
+		expect(parseNsAregAgents('[areg]\nagents = [""]\n')).toMatchObject({
 			ok: false,
 			error: { message: expect.stringContaining("non-empty string list") },
 		});

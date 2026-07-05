@@ -1,4 +1,4 @@
-import { requireXdgPath, resolveSdlXdgPath } from "@ns/capability-kit/xdg";
+import { requireXdgPath, resolveNsXdgPath } from "@ns/capability-kit/xdg";
 
 import {
 	resolveClinkrInteraction,
@@ -88,7 +88,7 @@ export async function createRealSlotContext(options: {
 }
 
 export function resolveSlotsRoot(env: Record<string, string | undefined>): string {
-	return requireXdgPath(resolveSdlXdgPath({ kind: "state", env, segments: ["slots"] }));
+	return requireXdgPath(resolveNsXdgPath({ kind: "state", env, segments: ["slots"] }));
 }
 
 function formatSlotConfirmationPrompt(caps: Caps | undefined): ConfirmationPromptFormatter {

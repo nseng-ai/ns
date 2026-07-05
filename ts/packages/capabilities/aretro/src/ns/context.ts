@@ -1,14 +1,14 @@
-import { createSdlGitGateway } from "@ns/capability-kit/git";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import { createNsGitGateway } from "@ns/capability-kit/git";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import type { AretroCliContext } from "../context.ts";
 import { PiJsonlSessionSource } from "../sessions/pi-jsonl-source.ts";
 
-export function createSdlAretroContext(ctx: SdlExtensionApi): AretroCliContext {
+export function createNsAretroContext(ctx: NsExtensionApi): AretroCliContext {
 	return {
 		cwd: ctx.cwd,
 		env: ctx.env as NodeJS.ProcessEnv,
-		git: createSdlGitGateway(ctx),
+		git: createNsGitGateway(ctx),
 		sessionSource: new PiJsonlSessionSource(),
 	};
 }

@@ -7,7 +7,7 @@ import {
 	handleCreate,
 } from "../../core/operations.ts";
 
-export const branchContextFromPlanSdlCommand = branchContextCommand({
+export const branchContextFromPlanNsCommand = branchContextCommand({
 	name: "from-plan",
 	summary: "Create branch context from a saved plan.",
 	description: "Create a branch context entry from a saved plan file for agent implementation.",
@@ -17,5 +17,5 @@ export const branchContextFromPlanSdlCommand = branchContextCommand({
 });
 
 export default defineExtension({
-	commands: [branchContextFromPlanSdlCommand],
+	commands: [branchContextFromPlanNsCommand],
 });

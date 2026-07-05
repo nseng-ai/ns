@@ -1,38 +1,35 @@
-import {
-	defineRepoLocalSdlExtensionDescriptor,
-	repoLocalSdlCommandDescriptor,
-} from "@ns/kernel/sdk";
+import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
 
-import { objectiveArchiveSdlCommand } from "./commands/archive.ts";
-import { objectiveCheckSdlCommand } from "./commands/check.ts";
-import { objectiveExecListCandidatesSdlCommand } from "./commands/exec-list-candidates.ts";
-import { objectiveExecLoadOrientationsSdlCommand } from "./commands/exec-load-orientations.ts";
-import { objectiveExecReadObjectiveSdlCommand } from "./commands/exec-read-objective.ts";
-import { objectiveExecRunnerBeginSdlCommand } from "./commands/exec-runner-begin.ts";
-import { objectiveExecRunnerFinishSdlCommand } from "./commands/exec-runner-finish.ts";
-import { objectiveExecRunnerStepSdlCommand } from "./commands/exec-runner-step.ts";
-import { objectiveExecRunnerSubagentUsageSdlCommand } from "./commands/exec-runner-subagent-usage.ts";
-import { objectiveExecTrackingGateSdlCommand } from "./commands/exec-tracking-gate.ts";
-import { objectiveListSdlCommand } from "./commands/list.ts";
+import { objectiveArchiveNsCommand } from "./commands/archive.ts";
+import { objectiveCheckNsCommand } from "./commands/check.ts";
+import { objectiveExecListCandidatesNsCommand } from "./commands/exec-list-candidates.ts";
+import { objectiveExecLoadOrientationsNsCommand } from "./commands/exec-load-orientations.ts";
+import { objectiveExecReadObjectiveNsCommand } from "./commands/exec-read-objective.ts";
+import { objectiveExecRunnerBeginNsCommand } from "./commands/exec-runner-begin.ts";
+import { objectiveExecRunnerFinishNsCommand } from "./commands/exec-runner-finish.ts";
+import { objectiveExecRunnerStepNsCommand } from "./commands/exec-runner-step.ts";
+import { objectiveExecRunnerSubagentUsageNsCommand } from "./commands/exec-runner-subagent-usage.ts";
+import { objectiveExecTrackingGateNsCommand } from "./commands/exec-tracking-gate.ts";
+import { objectiveListNsCommand } from "./commands/list.ts";
 
-export const objectiveRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
+export const objectiveRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "objective",
-	description: "Inspect and maintain SDL Objective records.",
+	description: "Inspect and maintain ns Objective records.",
 	commands: [
-		objectiveListSdlCommand,
-		objectiveCheckSdlCommand,
-		objectiveArchiveSdlCommand,
-		objectiveExecListCandidatesSdlCommand,
-		objectiveExecLoadOrientationsSdlCommand,
-		objectiveExecReadObjectiveSdlCommand,
-		objectiveExecRunnerBeginSdlCommand,
-		objectiveExecRunnerFinishSdlCommand,
+		objectiveListNsCommand,
+		objectiveCheckNsCommand,
+		objectiveArchiveNsCommand,
+		objectiveExecListCandidatesNsCommand,
+		objectiveExecLoadOrientationsNsCommand,
+		objectiveExecReadObjectiveNsCommand,
+		objectiveExecRunnerBeginNsCommand,
+		objectiveExecRunnerFinishNsCommand,
 		// ADR0024-LEGACY-DELETE(entry + its import above): legacy blocking command.
-		objectiveExecRunnerStepSdlCommand,
-		objectiveExecRunnerSubagentUsageSdlCommand,
-		objectiveExecTrackingGateSdlCommand,
+		objectiveExecRunnerStepNsCommand,
+		objectiveExecRunnerSubagentUsageNsCommand,
+		objectiveExecTrackingGateNsCommand,
 	].map((command) =>
-		repoLocalSdlCommandDescriptor({
+		repoLocalNsCommandDescriptor({
 			command,
 			packageExportPrefix: "@ns/objective/ns/commands",
 		}),

@@ -1,6 +1,6 @@
 // Formal clinkr display import boundary: production core and non-display subpaths must stay display-free.
 // The root export (`@ns/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
-// SDL house-style display now lives outside Clinkr in `@ns/core/cli-theme`; Clinkr's only display-adjacent
+// ns house-style display now lives outside Clinkr in `@ns/core/cli-theme`; Clinkr's only display-adjacent
 // production subpath is `@ns/clinkr/stream`, the owner of `log-update`. This guard scans production
 // source import/export literals directly so future re-exports, side-effect imports, and lazy imports
 // cannot silently pull display bytes into non-display consumers.
@@ -211,7 +211,7 @@ function productionCliThemeImportOffenders(): readonly BoundaryOffender[] {
 			offenders.push({
 				file: fileForReport(file),
 				specifier,
-				reason: "Clinkr production source must not import the SDL CLI theme package",
+				reason: "Clinkr production source must not import the ns CLI theme package",
 			});
 		}
 	}
@@ -262,7 +262,7 @@ describe("clinkr display import boundary", () => {
 		expect(productionDisplayDependencyOffenders()).toEqual([]);
 	});
 
-	test("clinkr production source does not import the SDL CLI theme package", () => {
+	test("clinkr production source does not import the ns CLI theme package", () => {
 		expect(productionCliThemeImportOffenders()).toEqual([]);
 	});
 

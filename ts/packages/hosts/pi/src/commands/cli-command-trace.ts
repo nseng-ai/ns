@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import process from "node:process";
 
-import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@ns/capability-kit/xdg";
+import { ensurePrivateParentDirectorySync, requireNsStatePath } from "@ns/capability-kit/xdg";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "NS_PI_CLI_TRACE";
@@ -13,7 +13,7 @@ const TRACE_OUTPUT_PREVIEW_CHARS = 500;
 type TraceFields = Record<string, unknown>;
 
 export function cliCommandTracePath(env: Record<string, string | undefined> = process.env): string {
-	return requireSdlStatePath({
+	return requireNsStatePath({
 		env,
 		overrideEnvName: TRACE_PATH_ENV,
 		segments: ["pi-cli-command-extension", DEFAULT_TRACE_FILENAME],

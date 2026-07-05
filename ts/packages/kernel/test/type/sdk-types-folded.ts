@@ -2,18 +2,18 @@ import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
-	SdlExtensionManifest,
-	SdlExtensionManifestCommand,
-	SdlExtensionPackageManifest,
-	SdlCommandIo,
-	SdlCommandMessageOptions,
-	SdlCommandRequest,
-	SdlExtensionApi,
-	SdlNotifyLevel,
-	SdlProgress,
-	SdlProgressPhaseEvent,
-	SdlProgressPhaseListener,
-	SdlResult,
+	NsExtensionManifest,
+	NsExtensionManifestCommand,
+	NsExtensionPackageManifest,
+	NsCommandIo,
+	NsCommandMessageOptions,
+	NsCommandRequest,
+	NsExtensionApi,
+	NsNotifyLevel,
+	NsProgress,
+	NsProgressPhaseEvent,
+	NsProgressPhaseListener,
+	NsResult,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
@@ -29,7 +29,7 @@ const commandSchema = z.object({
 	retries: z.number().int().default(0),
 });
 
-type CommandRequest = SdlCommandRequest<typeof commandSchema>;
+type CommandRequest = NsCommandRequest<typeof commandSchema>;
 type CommandRequestChecks = [
 	Assert<IsAny<CommandRequest> extends false ? true : false>,
 	Assert<IsEqual<CommandRequest, { name: string; retries: number }>>,
@@ -37,14 +37,14 @@ type CommandRequestChecks = [
 
 const commandRequestChecks: CommandRequestChecks = [true, true];
 const positionalSpec: PositionalSpec = { position: 0 };
-const manifestCommand: SdlExtensionManifestCommand = {
+const manifestCommand: NsExtensionManifestCommand = {
 	name: "changes",
 	path: ["flow", "changes"],
 	description: "Show changes.",
 	entry: "./src/changes.ts",
 };
-const manifest: SdlExtensionManifest = { group: "flow", commands: [manifestCommand] };
-const packageManifest: SdlExtensionPackageManifest = {
+const manifest: NsExtensionManifest = { group: "flow", commands: [manifestCommand] };
+const packageManifest: NsExtensionPackageManifest = {
 	description: "Flow commands.",
 	ns: manifest,
 };
@@ -85,21 +85,21 @@ const textGenerator: TextGenerator = {
 
 const execResult: ExecResult = { code: 0, stdout: "ok", stderr: "", killed: false };
 const commandOk: boolean = execResult.code === 0 && !execResult.killed;
-const successfulResult: SdlResult = ok("done");
-const failedResult: SdlResult = failed("nope", 2);
-const notifyLevel: SdlNotifyLevel = "info";
-const messageOptions: SdlCommandMessageOptions = { level: notifyLevel, details: { ok: true } };
-const commandIo: SdlCommandIo = {
+const successfulResult: NsResult = ok("done");
+const failedResult: NsResult = failed("nope", 2);
+const notifyLevel: NsNotifyLevel = "info";
+const messageOptions: NsCommandMessageOptions = { level: notifyLevel, details: { ok: true } };
+const commandIo: NsCommandIo = {
 	phase: () => {},
 	notify: () => {},
 	message: () => {},
 	clearPhase: () => {},
 };
-const progressEvent: SdlProgressPhaseEvent = { type: "phase-started", phaseKey: "test" };
-const progressListener: SdlProgressPhaseListener = (_event) => {};
-const progress: SdlProgress = { phase: progressListener };
+const progressEvent: NsProgressPhaseEvent = { type: "phase-started", phaseKey: "test" };
+const progressListener: NsProgressPhaseListener = (_event) => {};
+const progress: NsProgress = { phase: progressListener };
 
-function acceptsExtensionApi(api: SdlExtensionApi): string {
+function acceptsExtensionApi(api: NsExtensionApi): string {
 	api.commandIo.notify("checked");
 	api.progress.phase(progressEvent);
 	return api.cwd;

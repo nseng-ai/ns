@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	composePiAgentPrompt,
-	findSdlPiAgentsDir,
+	findNsPiAgentsDir,
 	loadPiAgentDefinition,
 	parsePiAgentDefinitionMarkdown,
 } from "../src/runtime/agent-definition.ts";
@@ -98,7 +98,7 @@ describe("Pi agent definitions", () => {
 		mkdirSync(join(root, ".ns", "pi", "agents"), { recursive: true });
 		mkdirSync(nested, { recursive: true });
 
-		expect(findSdlPiAgentsDir(nested)).toBe(join(root, ".ns", "pi", "agents"));
+		expect(findNsPiAgentsDir(nested)).toBe(join(root, ".ns", "pi", "agents"));
 	});
 
 	test("loads runner.md by name", () => {

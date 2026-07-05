@@ -1,4 +1,4 @@
-// The visual core of SDL CLI theme: a semantic palette (success/warn/error/accent/muted)
+// The visual core of ns CLI theme: a semantic palette (success/warn/error/accent/muted)
 // and the `paint`/`paintSwatch`/`dim`/`bold` colorizers that degrade it across color rungs.
 //
 // Design decision (approved 2026-06-27): emit the dialed-in SGR strings DIRECTLY rather than letting

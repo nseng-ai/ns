@@ -41,7 +41,7 @@ const SUPPORTED_FRONTMATTER_FIELDS = new Set<string>([
 	"promptGuidelines",
 ]);
 
-export function findSdlPiAgentsDir(cwd: string): string | undefined {
+export function findNsPiAgentsDir(cwd: string): string | undefined {
 	const root = findWorkspaceRootByMarkers({
 		cwd,
 		markers: [join(".ns", "pi", "agents")],
@@ -58,7 +58,7 @@ export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDe
 		);
 	}
 
-	const agentsDir = findSdlPiAgentsDir(cwd);
+	const agentsDir = findNsPiAgentsDir(cwd);
 	if (agentsDir === undefined) {
 		throw new Error(`Could not find .ns/pi/agents while walking up from ${cwd}.`);
 	}

@@ -1,22 +1,22 @@
-import { createSdlGitGateway } from "@ns/capability-kit/git";
+import { createNsGitGateway } from "@ns/capability-kit/git";
 import type { GitGateway } from "@ns/capability-kit/git";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import { RealObjectiveStorageGateway } from "../core/real-storage.ts";
 import { ObjectiveStorage } from "../core/storage.ts";
 import type { ObjectiveCliContext } from "../core/context.ts";
 
 /** Gateway substitutions for derived contexts (runner overrides, tests). */
-export interface CreateSdlObjectiveContextOptions {
+export interface CreateNsObjectiveContextOptions {
 	git?: GitGateway;
 	storage?: ObjectiveStorage;
 }
 
-export async function createSdlObjectiveContext(
-	ctx: SdlExtensionApi,
-	options: CreateSdlObjectiveContextOptions = {},
+export async function createNsObjectiveContext(
+	ctx: NsExtensionApi,
+	options: CreateNsObjectiveContextOptions = {},
 ): Promise<ObjectiveCliContext> {
-	const git = options.git ?? createSdlGitGateway(ctx);
+	const git = options.git ?? createNsGitGateway(ctx);
 	const repoRootResult = await git.optionalRepoRoot({ cwd: ctx.cwd });
 	const repoRoot = repoRootResult.type === "found" ? repoRootResult.value : ctx.cwd;
 	const trunkBranchResult = await git.trunkBranch({ cwd: repoRoot });

@@ -1,5 +1,5 @@
 import type { ExecResult, PiExecResultLike } from "@ns/core/command";
-import type { SdlConfirmOptions } from "@ns/kernel/sdk";
+import type { NsConfirmOptions } from "@ns/kernel/sdk";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -63,7 +63,7 @@ export interface LandStackCommandContext {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
-		confirm(title: string, message: string, options?: SdlConfirmOptions): Promise<boolean>;
+		confirm(title: string, message: string, options?: NsConfirmOptions): Promise<boolean>;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,
@@ -73,7 +73,7 @@ export interface LandStackCommandContext {
 	};
 	waitForIdle(): Promise<void>;
 	/**
-	 * CLI-only house-style result-block renderer (house-style §4). Set only by the SDL CLI edge
+	 * CLI-only house-style result-block renderer (house-style §4). Set only by the ns CLI edge
 	 * (`runLandCli`); absent in the Pi command-stream path, which keeps plain notify text colored by
 	 * `renderCommandStreamMessage`. Wraps a settled result message's first line as a bold +
 	 * intent-painted + glyph headline with the remainder at normal weight. Because it is wired only on

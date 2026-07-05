@@ -4,30 +4,30 @@ import {
 	type BrmemGateway,
 	type BrmemSourceReader,
 } from "@ns/brmem";
-import { createSdlClinkrInteraction, SdlStdinCapableCommandExecApi } from "@ns/capability-kit";
+import { createNsClinkrInteraction, NsStdinCapableCommandExecApi } from "@ns/capability-kit";
 import { optionalEntries } from "@ns/core/primitives";
-import { createSdlGitGateway } from "@ns/capability-kit/git";
+import { createNsGitGateway } from "@ns/capability-kit/git";
 import type { ClinkrInteraction, ConfirmationRequest } from "@ns/clinkr";
 import type { GitGateway } from "@ns/capability-kit/git";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import type { HandoffCliContext } from "../core/context.ts";
 
-interface HandoffSdlExtensionOverrides {
+interface HandoffNsExtensionOverrides {
 	brmem?: BrmemGateway;
 	git?: GitGateway;
 	sourceReader?: BrmemSourceReader;
 	interaction?: ClinkrInteraction;
 }
 
-export async function createSdlHandoffContext(ctx: SdlExtensionApi): Promise<HandoffCliContext> {
+export async function createNsHandoffContext(ctx: NsExtensionApi): Promise<HandoffCliContext> {
 	const overrides = readHandoffOverrides(ctx);
-	const git = overrides?.git ?? createSdlGitGateway(ctx);
+	const git = overrides?.git ?? createNsGitGateway(ctx);
 	const brmem =
 		overrides?.brmem ??
 		new RealGitBrmemGateway({
 			cwd: ctx.cwd,
-			commands: new SdlStdinCapableCommandExecApi(ctx),
+			commands: new NsStdinCapableCommandExecApi(ctx),
 			git,
 		});
 	const stderr = ctx.stderr ?? (() => {});
@@ -39,7 +39,7 @@ export async function createSdlHandoffContext(ctx: SdlExtensionApi): Promise<Han
 		sourceReader: overrides?.sourceReader ?? new NodeBrmemSourceReader(),
 		interaction:
 			overrides?.interaction ??
-			createSdlClinkrInteraction(ctx, {
+			createNsClinkrInteraction(ctx, {
 				title: "Handoff confirmation",
 				formatMessage: formatConfirmationMessage,
 			}),
@@ -47,10 +47,10 @@ export async function createSdlHandoffContext(ctx: SdlExtensionApi): Promise<Han
 	};
 }
 
-function readHandoffOverrides(ctx: SdlExtensionApi): HandoffSdlExtensionOverrides | undefined {
+function readHandoffOverrides(ctx: NsExtensionApi): HandoffNsExtensionOverrides | undefined {
 	const raw = ctx.extensions?.handoff;
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
-	const overrides = raw as Partial<HandoffSdlExtensionOverrides>;
+	const overrides = raw as Partial<HandoffNsExtensionOverrides>;
 	return optionalEntries({
 		brmem: overrides.brmem,
 		git: overrides.git,

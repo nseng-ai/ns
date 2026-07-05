@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { runCli } from "@ns/kernel/cli";
 
-describe("sdl slot CLI", () => {
-	it("keeps CLI metadata on the owning sdl entrypoint", async () => {
+describe("ns slot CLI", () => {
+	it("keeps CLI metadata on the owning ns entrypoint", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
 		expect(version.stdout.join("")).toBe("0.1.0\n");
@@ -15,7 +15,7 @@ describe("sdl slot CLI", () => {
 		);
 	});
 
-	it("mounts the Slot command tree under sdl slot", async () => {
+	it("mounts the Slot command tree under ns slot", async () => {
 		const run = runScenario(["slot", "--help"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -25,13 +25,13 @@ describe("sdl slot CLI", () => {
 		expect(output).toContain("gt");
 	});
 
-	it("keeps hidden Slot exec commands invocable under sdl slot", async () => {
+	it("keeps hidden Slot exec commands invocable under ns slot", async () => {
 		const run = runScenario(["slot", "gt", "exec", "stack-branches", "--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("stack-branches");
 	});
 
-	it("shows canonical SDL shell integration from sdl slot shell", async () => {
+	it("shows canonical ns shell integration from ns slot shell", async () => {
 		const run = runScenario(["slot", "shell", "show", "--shell", "zsh"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");

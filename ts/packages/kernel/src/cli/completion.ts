@@ -2,20 +2,20 @@ import { z } from "zod";
 
 import { renderClinkrCompletionScript, type ClinkrCompletionShell } from "@ns/clinkr/completion";
 
-export const sdlCompletionShells = ["bash", "zsh", "fish"] as const;
+export const nsCompletionShells = ["bash", "zsh", "fish"] as const;
 
-export const sdlCompletionScriptResultSchema = z.object({
-	shell: z.enum(sdlCompletionShells),
+export const nsCompletionScriptResultSchema = z.object({
+	shell: z.enum(nsCompletionShells),
 	script: z.string(),
 });
 
-export type SdlCompletionScriptResult = z.infer<typeof sdlCompletionScriptResultSchema>;
+export type NsCompletionScriptResult = z.infer<typeof nsCompletionScriptResultSchema>;
 
-export function renderSdlCompletionScriptResult(result: SdlCompletionScriptResult): string {
+export function renderNsCompletionScriptResult(result: NsCompletionScriptResult): string {
 	return result.script;
 }
 
-export function buildSdlCompletionScript(shell: ClinkrCompletionShell): SdlCompletionScriptResult {
+export function buildNsCompletionScript(shell: ClinkrCompletionShell): NsCompletionScriptResult {
 	return {
 		shell,
 		script: renderClinkrCompletionScript({

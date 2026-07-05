@@ -1,5 +1,5 @@
-import { runWithSdlCommandIo } from "@ns/kernel/command-io";
-import type { SdlCommandIo, SdlConfirmOptions } from "@ns/kernel/sdk";
+import { runWithNsCommandIo } from "@ns/kernel/command-io";
+import type { NsCommandIo, NsConfirmOptions } from "@ns/kernel/sdk";
 import type { ExecOutputListener } from "@ns/core/command";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createCliCommandIo } from "@ns/kernel/command-io";
@@ -81,11 +81,11 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 export type LandCliConfirmPrompt = (
 	title: string,
 	message: string,
-	options?: SdlConfirmOptions,
+	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
 interface RunLandCommandOptions {
-	progressIo?: SdlCommandIo;
+	progressIo?: NsCommandIo;
 	liveProgress?: LandLiveProgressSink;
 }
 
@@ -129,11 +129,11 @@ async function runLandCommand(
 }
 
 /**
- * Lower-level adapter used by the SDL CLI extension.
+ * Lower-level adapter used by the ns CLI extension.
  *
  * This intentionally does not use `registerCliCommandExtension`: that helper lives
  * above Flow in `@ns/pi` and owns Pi slash-command registration and
- * rendering. This adapter must stay below that package so SDL CLI execution can
+ * rendering. This adapter must stay below that package so ns CLI execution can
  * reuse Flow land orchestration through the intentional private Flow/Pi package cycle.
  */
 export interface LandCliInput {
@@ -149,7 +149,7 @@ export interface LandCliInput {
 	onOutput?: ExecOutputListener;
 	confirm?: LandCliConfirmPrompt;
 	/** Optional progress sink; when omitted, the legacy CLI command stream is used. */
-	progressIo?: SdlCommandIo;
+	progressIo?: NsCommandIo;
 	/** Optional Flow-owned structured live-progress sink for dynamic land titles. */
 	liveProgress?: LandLiveProgressSink;
 	/**
@@ -178,7 +178,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	const caps = input.caps;
 	const progressIo = input.progressIo ?? createCliCommandIo(input);
 	const liveProgress = input.liveProgress;
-	const outcome = await runWithSdlCommandIo(
+	const outcome = await runWithNsCommandIo(
 		progressIo,
 		async () =>
 			await runLandCommand(

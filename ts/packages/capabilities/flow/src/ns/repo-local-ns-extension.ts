@@ -1,7 +1,4 @@
-import {
-	defineRepoLocalSdlExtensionDescriptor,
-	repoLocalSdlCommandDescriptor,
-} from "@ns/kernel/sdk";
+import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
 
 import { flowAutobranchCommand } from "./commands/autobranch.ts";
 import { flowAutoslotCommand } from "./commands/autoslot.ts";
@@ -15,7 +12,7 @@ import { flowPushCommand } from "./commands/push.ts";
 import { flowRegeneratePrCommand } from "./commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "./commands/submit.ts";
 
-export const flowRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
+export const flowRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "flow",
 	description: "Checkpoint, branch, submit, and land Graphite-backed work.",
 	commands: [
@@ -31,7 +28,7 @@ export const flowRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
 		flowPullTrunkCommand,
 		flowExecReadGraphiteBranchMetadataCommand,
 	].map((command) =>
-		repoLocalSdlCommandDescriptor({
+		repoLocalNsCommandDescriptor({
 			command,
 			packageExportPrefix: "@ns/flow/commands",
 		}),

@@ -80,7 +80,7 @@ describe("project extension shared flow foundations", () => {
 
 		expect(worktreeSource).toContain("@ns/capability-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
-		expect(worktreeSource).toContain("execSdlCommand");
+		expect(worktreeSource).toContain("execNsCommand");
 		const cccPackageName = ["@sdl", "ccc"].join("/");
 		for (const source of [autoslotSource, landSource, pullTrunkSource, flowPackage]) {
 			expect(source).not.toContain(cccPackageName);
@@ -110,14 +110,14 @@ describe("project extension shared flow foundations", () => {
 		await expect(access(REMOVED_CORE_DIR_PATH, constants.F_OK)).rejects.toThrow();
 		expect(worktreeSource).toContain("@ns/capability-kit/pending-worktree");
 		expect(worktreeSource).toContain("@ns/capability-kit/git");
-		expect(worktreeSource).toContain("execSdlGit");
+		expect(worktreeSource).toContain("execNsGit");
 		expect(worktreeSource).not.toContain("./git.ts");
 		expect(worktreeSource).not.toContain("execFlowGit");
 		expect(worktreeSource).not.toContain('ctx.exec("git"');
 		expect(worktreeSource).not.toContain("isClean");
 		expect(pushSource).toContain("@ns/capability-kit/git");
-		expect(pushSource).toContain("readSdlGitPorcelainStatus");
-		expect(pushSource).toContain("execSdlGit");
+		expect(pushSource).toContain("readNsGitPorcelainStatus");
+		expect(pushSource).toContain("execNsGit");
 		expect(pushSource).not.toContain("../shared/git.ts");
 		expect(pushSource).not.toContain("execFlowGit");
 		expect(pushSource).not.toContain('ctx.exec("git"');

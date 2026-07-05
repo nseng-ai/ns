@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	renderRunnerSubagentUsageMarkdown,
 	runnerSubagentUsageRequestSchema,
@@ -8,7 +8,7 @@ import {
 	runRunnerSubagentUsage,
 } from "../../core/operations/runner-subagent-usage.ts";
 
-export const objectiveExecRunnerSubagentUsageSdlCommand = objectiveSdlCommand({
+export const objectiveExecRunnerSubagentUsageNsCommand = objectiveNsCommand({
 	name: "exec-runner-subagent-usage",
 	summary: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 	description: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
@@ -21,5 +21,5 @@ export const objectiveExecRunnerSubagentUsageSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveExecRunnerSubagentUsageSdlCommand],
+	commands: [objectiveExecRunnerSubagentUsageNsCommand],
 });

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@ns/kernel/cli";
+import { listNsCommands } from "@ns/kernel/cli";
 
 import {
 	runCliWithFakes,
@@ -75,9 +75,9 @@ afterEach(() => {
 	}
 });
 
-describe("empty SDL kernel CLI help and parsing", () => {
+describe("empty ns kernel CLI help and parsing", () => {
 	test("static command metadata is empty", () => {
-		expect(listSdlCommands()).toEqual([]);
+		expect(listNsCommands()).toEqual([]);
 	});
 
 	test("top-level help remains available without domain built-ins", async () => {
@@ -137,7 +137,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 	});
 });
 
-describe("sdl extension discovery without dynamic imports", () => {
+describe("ns extension discovery without dynamic imports", () => {
 	test("manifest metadata appears in top-level help without importing the entry", async () => {
 		const cwd = await createManifestProject(
 			{
@@ -164,7 +164,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("invalid inferred SDL command entry name warns during top-level help", async () => {
+	test("invalid inferred ns command entry name warns during top-level help", async () => {
 		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 

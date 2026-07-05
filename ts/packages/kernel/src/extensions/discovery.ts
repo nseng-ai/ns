@@ -8,25 +8,25 @@ import {
 	type ZodIssueLike,
 } from "@ns/core/primitives";
 import {
-	sdlExtensionManifestCommandSchema,
-	sdlExtensionPackageManifestSchema,
-	type SdlExtensionManifestCommand,
-	type SdlExtensionPackageManifest,
+	nsExtensionManifestCommandSchema,
+	nsExtensionPackageManifestSchema,
+	type NsExtensionManifestCommand,
+	type NsExtensionPackageManifest,
 } from "../sdk/index.ts";
 
 import {
-	SDL_COMMAND_NAME_PATTERN,
-	SDL_COMMAND_NAME_RULE,
+	NS_COMMAND_NAME_PATTERN,
+	NS_COMMAND_NAME_RULE,
 	commandLeafName,
 	formatUnknownError,
-	type SdlCommandCandidate,
+	type NsCommandCandidate,
 } from "./command-registry.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
 export interface DiscoveredExtensionCommand extends Pick<
-	SdlCommandCandidate,
+	NsCommandCandidate,
 	| "group"
 	| "name"
 	| "segments"
@@ -88,12 +88,12 @@ const manifestStructureIssueRules: readonly ZodIssuePathRule<ManifestStructureIs
 ];
 
 type PackageManifestParseResult =
-	| { outcome: "ok"; manifest: SdlExtensionPackageManifest }
+	| { outcome: "ok"; manifest: NsExtensionPackageManifest }
 	| { outcome: "parse-failed"; diagnostic: ExtensionDiscoveryDiagnostic }
 	| { outcome: "schema-failed"; issues: readonly ZodIssueLike[] };
 
 type PackageManifestDiscoveryResolution =
-	| { outcome: "ok"; manifest: SdlExtensionPackageManifest }
+	| { outcome: "ok"; manifest: NsExtensionPackageManifest }
 	| { outcome: "unavailable"; result: ExtensionDiscoveryResult };
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
@@ -203,7 +203,7 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 	};
 }
 
-export function discoverSdlPackageCommands(
+export function discoverNsPackageCommands(
 	rootDir: string,
 	packageDir: string,
 ): ExtensionDiscoveryResult {
@@ -233,7 +233,7 @@ function readPackageManifest(packageJsonPath: string): PackageManifestParseResul
 			),
 		};
 	}
-	const manifestResult = sdlExtensionPackageManifestSchema.safeParse(parsed);
+	const manifestResult = nsExtensionPackageManifestSchema.safeParse(parsed);
 	if (!manifestResult.success) {
 		return { outcome: "schema-failed", issues: manifestResult.error.issues };
 	}
@@ -270,9 +270,9 @@ function discoverPackageCommands(
 	rootDir: string,
 	packageDir: string,
 	packageJsonPath: string,
-	parsedManifest?: SdlExtensionPackageManifest,
+	parsedManifest?: NsExtensionPackageManifest,
 ): ExtensionDiscoveryResult {
-	let manifest: SdlExtensionPackageManifest;
+	let manifest: NsExtensionPackageManifest;
 	if (parsedManifest === undefined) {
 		const resolution = resolvePackageManifest(packageJsonPath, (issues) => ({
 			commands: [],
@@ -338,7 +338,7 @@ function manifestStructureDiagnostic(
 	if (kind === "commands-not-array") return commandsNotArrayDiagnostic(packageJsonPath);
 	return diagnostic(
 		"extension_manifest_invalid",
-		`Extension manifest contains invalid SDL metadata: ${packageJsonPath}.`,
+		`Extension manifest contains invalid ns metadata: ${packageJsonPath}.`,
 		{ path: packageJsonPath },
 	);
 }
@@ -346,7 +346,7 @@ function manifestStructureDiagnostic(
 function missingNsDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagnostic {
 	return diagnostic(
 		"extension_manifest_missing_ns",
-		`Extension manifest must contain an sdl object: ${packageJsonPath}.`,
+		`Extension manifest must contain an ns object: ${packageJsonPath}.`,
 		{ path: packageJsonPath },
 	);
 }
@@ -386,12 +386,12 @@ function commandForDirectEntry(options: {
 }):
 	| { ok: true; command: DiscoveredExtensionCommand }
 	| { ok: false; diagnostic: ExtensionDiscoveryDiagnostic } {
-	if (!SDL_COMMAND_NAME_PATTERN.test(options.name)) {
+	if (!NS_COMMAND_NAME_PATTERN.test(options.name)) {
 		return {
 			ok: false,
 			diagnostic: diagnostic(
 				"extension_command_name_invalid",
-				`SDL command entry name inferred from ${options.entryPath} must match ${SDL_COMMAND_NAME_RULE}.`,
+				`ns command entry name inferred from ${options.entryPath} must match ${NS_COMMAND_NAME_RULE}.`,
 				{ path: options.entryPath, commandName: options.name },
 			),
 		};
@@ -409,7 +409,7 @@ function commandForManifestEntry(options: {
 }):
 	| { ok: true; command: DiscoveredExtensionCommand }
 	| { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
-	const entryResult = sdlExtensionManifestCommandSchema.safeParse(options.entry);
+	const entryResult = nsExtensionManifestCommandSchema.safeParse(options.entry);
 	if (!entryResult.success) {
 		return {
 			ok: false,
@@ -433,12 +433,12 @@ function commandForManifestEntry(options: {
 
 	if (
 		parsedEntry.entry.name !== undefined &&
-		!SDL_COMMAND_NAME_PATTERN.test(parsedEntry.entry.name)
+		!NS_COMMAND_NAME_PATTERN.test(parsedEntry.entry.name)
 	) {
 		diagnostics.push(
 			diagnostic(
 				"extension_manifest_command_name_invalid",
-				`Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${parsedEntry.entry.name}.`,
+				`Extension manifest command name must match ${NS_COMMAND_NAME_RULE}: ${parsedEntry.entry.name}.`,
 				diagnosticLocation(options.packageJsonPath, commandName),
 			),
 		);
@@ -571,7 +571,7 @@ function commandNameFromManifestPath(segments: readonly string[] | undefined): s
 }
 
 function parseManifestCommandEntry(options: {
-	entry: SdlExtensionManifestCommand;
+	entry: NsExtensionManifestCommand;
 	packageGroup: string | undefined;
 	packageGroupDescription: string | undefined;
 	packageJsonPath: string;
@@ -679,10 +679,10 @@ function groupDiagnostic(options: {
 }): ExtensionDiscoveryDiagnostic | undefined {
 	if (options.group === undefined) return undefined;
 	const group = readNonEmptyString(options.group);
-	if (group !== undefined && SDL_COMMAND_NAME_PATTERN.test(group)) return undefined;
+	if (group !== undefined && NS_COMMAND_NAME_PATTERN.test(group)) return undefined;
 	return diagnostic(
 		"extension_manifest_command_group_invalid",
-		`Extension manifest command group must match ${SDL_COMMAND_NAME_RULE}.`,
+		`Extension manifest command group must match ${NS_COMMAND_NAME_RULE}.`,
 		diagnosticLocation(options.packageJsonPath, options.commandName),
 	);
 }
@@ -698,7 +698,7 @@ function parseManifestPath(value: unknown): {
 			diagnostics: [
 				diagnostic(
 					"extension_manifest_command_path_invalid",
-					`Extension manifest command path must be a non-empty array of segments matching ${SDL_COMMAND_NAME_RULE}.`,
+					`Extension manifest command path must be a non-empty array of segments matching ${NS_COMMAND_NAME_RULE}.`,
 				),
 			],
 		};
@@ -706,14 +706,14 @@ function parseManifestPath(value: unknown): {
 	const segments = value.filter((segment): segment is string => typeof segment === "string");
 	if (
 		segments.length !== value.length ||
-		segments.some((segment) => !SDL_COMMAND_NAME_PATTERN.test(segment))
+		segments.some((segment) => !NS_COMMAND_NAME_PATTERN.test(segment))
 	) {
 		return {
 			value: undefined,
 			diagnostics: [
 				diagnostic(
 					"extension_manifest_command_path_invalid",
-					`Extension manifest command path segments must match ${SDL_COMMAND_NAME_RULE}.`,
+					`Extension manifest command path segments must match ${NS_COMMAND_NAME_RULE}.`,
 				),
 			],
 		};
@@ -731,7 +731,7 @@ function buildCommand(options: {
 	entryPath: string;
 	rootDir: string;
 }): DiscoveredExtensionCommand {
-	const description = `Run SDL command entry '${options.name}'.`;
+	const description = `Run ns command entry '${options.name}'.`;
 	return {
 		kind: options.kind,
 		name: options.name,

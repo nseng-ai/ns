@@ -22,7 +22,7 @@ afterEach(() => {
 	}
 });
 
-describe("sdl completion CLI extension loader integration", () => {
+describe("ns completion CLI extension loader integration", () => {
 	test("project extension command schema is importable for selected option completion", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",

@@ -2,13 +2,13 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import type { SdlCliDeps } from "../../src/cli/index.ts";
+import type { NsCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
-	SelectedSdlCommandLoadResult,
+	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import type { SdlCommand, SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsCommand, NsExtensionApi } from "@ns/kernel/sdk";
 
 function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
 	const registry = fakeRoasterRegistry();
@@ -22,7 +22,7 @@ function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
 	return { ...run, registry };
 }
 
-describe("Roaster SDL command face", () => {
+describe("Roaster ns command face", () => {
 	test("top-level help discovers Roaster manifest metadata without loading selected code", async () => {
 		const run = runWithFakeRoasterExtension({ args: ["--help"] });
 
@@ -99,7 +99,7 @@ describe("Roaster SDL command face", () => {
 		expect(run.registry.loadLog).toEqual(["roaster/exec-publish-findings"]);
 	});
 
-	test("selected visible Roaster path routes parsed requests and the SDL API", async () => {
+	test("selected visible Roaster path routes parsed requests and the ns API", async () => {
 		const run = runWithFakeRoasterExtension({
 			args: ["roaster", "review", "list", "--format", "json", "--ci", "--base-ref", "main"],
 			cwd: "/workspace/project",
@@ -120,7 +120,7 @@ describe("Roaster SDL command face", () => {
 		expect(run.registry.loadLog).toEqual(["roaster/review/list"]);
 	});
 
-	test("selected hidden Roaster path routes parsed requests and SDL stdin", async () => {
+	test("selected hidden Roaster path routes parsed requests and ns stdin", async () => {
 		const run = runWithFakeRoasterExtension({
 			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
 			state: { stdin: '{"status":"ok"}' },
@@ -144,11 +144,11 @@ describe("Roaster SDL command face", () => {
 interface FakeRoasterRegistry {
 	loadLog: string[];
 	loadCommandCatalog: NonNullable<
-		NonNullable<SdlCliDeps["extensionRegistry"]>["loadCommandCatalog"]
+		NonNullable<NsCliDeps["extensionRegistry"]>["loadCommandCatalog"]
 	>;
 	loadSelectedCommand: (
 		candidate: ExtensionCommandCandidate,
-	) => Promise<SelectedSdlCommandLoadResult>;
+	) => Promise<SelectedNsCommandLoadResult>;
 }
 
 interface FakeRoasterCommandSpec {
@@ -156,7 +156,7 @@ interface FakeRoasterCommandSpec {
 	readonly description: string;
 	readonly entryPath: string;
 	readonly segments?: readonly string[];
-	readonly command: SdlCommand;
+	readonly command: NsCommand;
 }
 
 const fakeRoasterCommandSpecs = [
@@ -320,7 +320,7 @@ function fakeRoasterCommand(options: {
 	summary: string;
 	description: string;
 	schema?: z.ZodObject;
-}): SdlCommand {
+}): NsCommand {
 	return {
 		name: options.name,
 		summary: options.summary,
@@ -346,7 +346,7 @@ function fakeRoasterCommand(options: {
 	};
 }
 
-async function readStdin(ctx: SdlExtensionApi): Promise<string> {
+async function readStdin(ctx: NsExtensionApi): Promise<string> {
 	return await (ctx.stdin?.() ?? Promise.resolve(""));
 }
 

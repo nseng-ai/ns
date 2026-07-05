@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import {
 	discoverExtensionsInRoot,
-	discoverSdlPackageCommands,
+	discoverNsPackageCommands,
 } from "../../src/extensions/discovery.ts";
 
 const tempDirs: string[] = [];
@@ -58,11 +58,11 @@ describe("extension discovery", () => {
 				command.entryPath,
 			]),
 		).toEqual([
-			["file", "bare", "Run SDL command entry 'bare'.", join(root, "bare.ts")],
-			["dir-index", "dir-js", "Run SDL command entry 'dir-js'.", join(root, "dir-js", "index.js")],
-			["dir-index", "dir-ts", "Run SDL command entry 'dir-ts'.", join(root, "dir-ts", "index.ts")],
+			["file", "bare", "Run ns command entry 'bare'.", join(root, "bare.ts")],
+			["dir-index", "dir-js", "Run ns command entry 'dir-js'.", join(root, "dir-js", "index.js")],
+			["dir-index", "dir-ts", "Run ns command entry 'dir-ts'.", join(root, "dir-ts", "index.ts")],
 			["package", "custom", "Custom command.", join(root, "package-ext", "src", "index.ts")],
-			["file", "plain", "Run SDL command entry 'plain'.", join(root, "plain.js")],
+			["file", "plain", "Run ns command entry 'plain'.", join(root, "plain.js")],
 		]);
 	});
 
@@ -238,7 +238,7 @@ describe("extension discovery", () => {
 		]);
 	});
 
-	test("manifest sdl.commands must be an array", async () => {
+	test("manifest ns.commands must be an array", async () => {
 		const root = await createTempDir();
 		writeFile(
 			join(root, "bad", "package.json"),
@@ -258,7 +258,7 @@ describe("extension discovery", () => {
 			join(root, "bad-commands", "package.json"),
 			JSON.stringify({ ns: { commands: "./src/index.ts" } }),
 		);
-		writeFile(join(root, "bad-sdl", "package.json"), JSON.stringify({ ns: "commands" }));
+		writeFile(join(root, "bad-ns", "package.json"), JSON.stringify({ ns: "commands" }));
 
 		const result = discoverExtensionsInRoot(root);
 
@@ -269,12 +269,12 @@ describe("extension discovery", () => {
 		]);
 	});
 
-	test("bulk SDL package discovery suppresses manifest structure diagnostics", async () => {
+	test("bulk ns package discovery suppresses manifest structure diagnostics", async () => {
 		const root = await createTempDir();
 		const packageDir = join(root, "ordinary-package");
 		writeFile(join(packageDir, "package.json"), JSON.stringify({ ns: "commands" }));
 
-		const result = discoverSdlPackageCommands(root, packageDir);
+		const result = discoverNsPackageCommands(root, packageDir);
 
 		expect(result).toEqual({ commands: [], diagnostics: [] });
 	});

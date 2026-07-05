@@ -102,7 +102,7 @@ export function renderArchiveObjective(
 			headline: `Refusing to ${verb} Objective ${result.slug}.`,
 			body: `Destination already exists:\n  ${result.destinationPath}`,
 			guidance:
-				"Move or remove the destination before retrying; SDL will not merge or overwrite Objective records.",
+				"Move or remove the destination before retrying; ns will not merge or overwrite Objective records.",
 		});
 	}
 	if (result.status === "source-not-directory") {

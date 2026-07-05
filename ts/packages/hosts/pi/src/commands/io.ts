@@ -1,10 +1,10 @@
 import { createCommandIo } from "@ns/kernel/command-io";
-import type { SdlCommandIo, SdlNotifyLevel } from "@ns/kernel/sdk";
+import type { NsCommandIo, NsNotifyLevel } from "@ns/kernel/sdk";
 
 interface PiCommandIoContext {
 	ui: {
 		setStatus?(key: string, value: string | undefined): void;
-		notify(message: string, level?: SdlNotifyLevel): void;
+		notify(message: string, level?: NsNotifyLevel): void;
 	};
 }
 
@@ -16,7 +16,7 @@ export interface PiCommandIoOptions {
 export function commandIoFromPiContext(
 	ctx: PiCommandIoContext,
 	options: PiCommandIoOptions,
-): SdlCommandIo {
+): NsCommandIo {
 	return createCommandIo({
 		...(ctx.ui.setStatus === undefined
 			? {}

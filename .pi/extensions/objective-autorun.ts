@@ -11,10 +11,10 @@ import type { z as ZodNamespace } from "zod";
 // Runner Checkpoint for the parent to judge. Judgment stays in the parent LLM per ADR 0022/0024.
 //
 // Promotion path, once the flow proves itself in real Pi runs:
-// (a) command → an `@sdl/objective/pi` command spec (`objectiveCommandSpecs` in
+// (a) command → an `@ns/objective/pi` command spec (`objectiveCommandSpecs` in
 //     ts/packages/capabilities/objective/src/core/objective-command-specs.ts) with an auto parity
 //     table entry;
-// (b) tool → a new `@sdl-local/pi-tools` subpackage beside thermo-council (package.json `exports`
+// (b) tool → a new `@ns-local/pi-tools` subpackage beside thermo-council (package.json `exports`
 //     + `sdl.subpackages` + `.pi/lib/workspace-packages.ts` fallback map + parity test).
 //
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace

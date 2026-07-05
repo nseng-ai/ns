@@ -1,26 +1,26 @@
 import type { ClinkrInteraction, ConfirmationRequest } from "@ns/clinkr";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
-export interface SdlClinkrInteractionOptions {
+export interface NsClinkrInteractionOptions {
 	title: string;
 	formatMessage?: (request: ConfirmationRequest) => string;
 }
 
-export interface SdlCwdEnvStdinContext {
+export interface NsCwdEnvStdinContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	stdin(): Promise<string>;
 }
 
 /**
- * Adapts SDL's callback-style confirmation hook into Clinkr's semantic
+ * Adapts ns's callback-style confirmation hook into Clinkr's semantic
  * interaction interface. Clinkr's `createClinkrInteraction` owns terminal
  * line-reading prompts; this helper is the sanctioned bridge for hosts that
- * already expose `SdlExtensionApi.confirm` instead of raw stdin/stderr.
+ * already expose `NsExtensionApi.confirm` instead of raw stdin/stderr.
  */
-export function createSdlClinkrInteraction(
-	ctx: SdlExtensionApi,
-	options: SdlClinkrInteractionOptions,
+export function createNsClinkrInteraction(
+	ctx: NsExtensionApi,
+	options: NsClinkrInteractionOptions,
 ): ClinkrInteraction {
 	const confirmPrompt = ctx.confirm;
 	if (confirmPrompt === undefined) {
@@ -33,7 +33,7 @@ export function createSdlClinkrInteraction(
 		confirm: async (request) => {
 			const approved = await confirmPrompt(
 				options.title,
-				formatSdlConfirmationMessage(options, request),
+				formatNsConfirmationMessage(options, request),
 			);
 			return approved ? { type: "confirmed" } : { type: "declined" };
 		},
@@ -42,23 +42,23 @@ export function createSdlClinkrInteraction(
 }
 
 /**
- * Builds the common SDL exec context shape for commands whose SDL-host entry
- * receives cwd/env from `SdlExtensionApi` but intentionally has no stdin stream.
+ * Builds the common ns exec context shape for commands whose ns-host entry
+ * receives cwd/env from `NsExtensionApi` but intentionally has no stdin stream.
  */
-export function createSdlCwdEnvStdinContext(ctx: SdlExtensionApi): SdlCwdEnvStdinContext {
+export function createNsCwdEnvStdinContext(ctx: NsExtensionApi): NsCwdEnvStdinContext {
 	return {
 		cwd: ctx.cwd,
 		env: ctx.env,
-		stdin: readEmptySdlStdin,
+		stdin: readEmptyNsStdin,
 	};
 }
 
-export async function readEmptySdlStdin(): Promise<string> {
+export async function readEmptyNsStdin(): Promise<string> {
 	return "";
 }
 
-function formatSdlConfirmationMessage(
-	options: SdlClinkrInteractionOptions,
+function formatNsConfirmationMessage(
+	options: NsClinkrInteractionOptions,
 	request: ConfirmationRequest,
 ): string {
 	return options.formatMessage?.(request) ?? request.message;

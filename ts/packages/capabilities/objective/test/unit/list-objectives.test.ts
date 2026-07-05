@@ -252,7 +252,7 @@ describe("objective list helpers", () => {
 		expect(emptyFrontmatter).toEqual(withoutFrontmatter);
 
 		// Malformed frontmatter renders safely minimal — like no frontmatter — instead of
-		// erroring the list; reporting it is the `sdl objective check` linter's job.
+		// erroring the list; reporting it is the `ns objective check` linter's job.
 		const malformedFrontmatter = await listWithObjectiveMd("---\nblocked: [\n---\n# alpha\n");
 		expect(malformedFrontmatter).toEqual(withoutFrontmatter);
 

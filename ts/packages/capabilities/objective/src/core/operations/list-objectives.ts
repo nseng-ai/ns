@@ -280,7 +280,7 @@ interface ObjectiveListFrontmatterFacts {
  * never interpreted. Safe minimal rendering: a record whose `objective.md` is missing,
  * unreadable, or carries malformed frontmatter lists exactly like one with no frontmatter
  * (blank EDGES cell, no blocked indicator) — reporting malformed frontmatter is the
- * `sdl objective check` linter's job, and the list must not error or mis-render over it.
+ * `ns objective check` linter's job, and the list must not error or mis-render over it.
  */
 async function readListFrontmatterFacts(
 	storage: ObjectiveStorage,

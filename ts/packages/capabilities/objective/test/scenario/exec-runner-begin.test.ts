@@ -10,9 +10,9 @@ import type {
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../../src/runner/context.ts";
-import { objectiveExecRunnerBeginSdlCommand } from "../../src/ns/commands/exec-runner-begin.ts";
+import { objectiveExecRunnerBeginNsCommand } from "../../src/ns/commands/exec-runner-begin.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
-import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
+import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
 const REPORT_PATH = "/scratch/step-1-report.json";
@@ -51,8 +51,8 @@ interface ScenarioOptions {
 	outputFormat?: "human" | "json" | "markdown";
 }
 
-function makeApi(options: ScenarioOptions = {}): FakeObjectiveSdlApi {
-	return new FakeObjectiveSdlApi({
+function makeApi(options: ScenarioOptions = {}): FakeObjectiveNsApi {
+	return new FakeObjectiveNsApi({
 		git: new SequencedGitGateway(options.git ?? cleanGitState()),
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: openObjectiveStorage(),
@@ -62,18 +62,18 @@ function makeApi(options: ScenarioOptions = {}): FakeObjectiveSdlApi {
 	});
 }
 
-function assertJsonEnvelopeStdout<T>(api: FakeObjectiveSdlApi, exit: ClinkrExit<T>): unknown {
+function assertJsonEnvelopeStdout<T>(api: FakeObjectiveNsApi, exit: ClinkrExit<T>): unknown {
 	const stdout = `${api.stdoutChunks.join("")}${envelopeJsonText(toMachineEnvelope(exit))}`;
 	expect(stdout).not.toMatch(/^# Runner Begin:/u);
 	return JSON.parse(stdout) as unknown;
 }
 
-describe("sdl objective exec runner-begin scenarios", () => {
+describe("ns objective exec runner-begin scenarios", () => {
 	test("happy default: emits facts and a json-file prompt, dispatches nothing", async () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -100,7 +100,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		const api = makeApi({ outputFormat: "json" });
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -113,7 +113,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: "../scratch/report.json" },
 			{ api },
 		);
@@ -133,7 +133,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, recover: true, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -150,7 +150,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 	test("guidance reaches the prompt verbatim, inline and via @file", async () => {
 		const inlineApi = makeApi();
 		const inlineExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH, guidance: "Only touch the parser." },
 			{ api: inlineApi },
 		);
@@ -165,7 +165,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 			}),
 		});
 		const fileExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH, guidance: "@notes/guidance.md" },
 			{ api: fileApi },
 		);
@@ -181,7 +181,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 			{ slug: "bad/slug", reportPath: REPORT_PATH },
 		]) {
 			const api = makeApi();
-			const exit = await runObjectiveCommand(objectiveExecRunnerBeginSdlCommand, request, { api });
+			const exit = await runObjectiveCommand(objectiveExecRunnerBeginNsCommand, request, { api });
 			expect(exit.type).toBe("usageError");
 		}
 	});
@@ -190,7 +190,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG },
 			{ api },
 		);
@@ -204,7 +204,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		for (const reportPath of ["/repo/report.json", "report.json", "/repo", "sub/dir/report.json"]) {
 			const api = makeApi();
 			const exit = await runObjectiveCommand(
-				objectiveExecRunnerBeginSdlCommand,
+				objectiveExecRunnerBeginNsCommand,
 				{ slug: SLUG, reportPath },
 				{ api },
 			);
@@ -220,7 +220,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -236,7 +236,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -252,7 +252,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		const api = makeApi();
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH, guidance: "@missing/notes.md" },
 			{ api },
 		);
@@ -268,7 +268,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 		});
 
 		const exit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api },
 		);
@@ -281,7 +281,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 	test("clean tree and trunk branch are negative refusals in recover mode", async () => {
 		const cleanApi = makeApi({ git: cleanGitState({ currentBranch: "feature/x" }) });
 		const cleanExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, recover: true, reportPath: REPORT_PATH },
 			{ api: cleanApi },
 		);
@@ -291,7 +291,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 			git: cleanGitState({ statusPaths: { changedPaths: ["src/a.ts"] } }),
 		});
 		const trunkExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, recover: true, reportPath: REPORT_PATH },
 			{ api: trunkApi },
 		);
@@ -301,7 +301,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 	});
 
 	test("closed objective and unknown slug map to refusal and usage error", async () => {
-		const closedApi = new FakeObjectiveSdlApi({
+		const closedApi = new FakeObjectiveNsApi({
 			git: new SequencedGitGateway(cleanGitState()),
 			graphite: new InMemoryGraphiteBranchGateway({}),
 			storage: new ObjectiveStorage(
@@ -310,7 +310,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 			readTextFile: missingReportFileReader(),
 		});
 		const closedExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: SLUG, reportPath: REPORT_PATH },
 			{ api: closedApi },
 		);
@@ -318,7 +318,7 @@ describe("sdl objective exec runner-begin scenarios", () => {
 
 		const unknownApi = makeApi();
 		const unknownExit = await runObjectiveCommand(
-			objectiveExecRunnerBeginSdlCommand,
+			objectiveExecRunnerBeginNsCommand,
 			{ slug: "never-heard-of-it", reportPath: REPORT_PATH },
 			{ api: unknownApi },
 		);

@@ -6,10 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { runCli } from "@ns/kernel/cli";
 
-import {
-	sdlShellIntegrationBeginMarker,
-	sdlShellIntegrationEndMarker,
-} from "../../src/cli/shell.ts";
+import { nsShellIntegrationBeginMarker, nsShellIntegrationEndMarker } from "../../src/cli/shell.ts";
 
 const tempHomes: string[] = [];
 
@@ -17,7 +14,7 @@ afterEach(async () => {
 	await Promise.all(tempHomes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
 });
 
-describe("sdl shell CLI", () => {
+describe("ns shell CLI", () => {
 	it("shows the zsh parent-shell wrapper", async () => {
 		const run = runScenario(["shell", "show", "--shell", "zsh"]);
 		expect(await run.exit).toBe(0);
@@ -46,8 +43,8 @@ describe("sdl shell CLI", () => {
 		const rc = await readFile(join(home, ".zshrc"), "utf8");
 		expect(rc).toMatch(/^existing\n\n# >>> ns shell integration >>>/);
 		expect(rc).toContain("NS_CD_DIRECTIVE_FILE");
-		expect(rc).toContain(sdlShellIntegrationEndMarker);
-		expect(countOccurrences(rc, sdlShellIntegrationBeginMarker)).toBe(1);
+		expect(rc).toContain(nsShellIntegrationEndMarker);
+		expect(countOccurrences(rc, nsShellIntegrationBeginMarker)).toBe(1);
 		expect(second.stdout.join("")).toContain('"isAlreadyInstalled": true');
 	});
 

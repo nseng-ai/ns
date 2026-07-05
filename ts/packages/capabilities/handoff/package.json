@@ -11,7 +11,7 @@
 		"./ns/commands/gc": "./src/ns/commands/gc.ts",
 		"./ns/commands/create": "./src/ns/commands/create.ts",
 		"./ns/commands/pickup": "./src/ns/commands/pickup.ts",
-		"./repo-local-sdl-extension": "./src/ns/repo-local-ns-extension.ts",
+		"./repo-local-ns-extension": "./src/ns/repo-local-ns-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},

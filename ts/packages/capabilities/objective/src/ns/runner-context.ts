@@ -1,12 +1,12 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { SdlCommandExecApi } from "@ns/capability-kit/command-runner";
+import { NsCommandExecApi } from "@ns/capability-kit/command-runner";
 import type { GitGateway } from "@ns/capability-kit/git";
 import { RealGraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
 import type { GraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
 import type { CommandExecApi } from "@ns/core/exec";
 import { errorCodeFromUnknown, formatErrorMessage, optionalEntries } from "@ns/core/primitives";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";
 import type { ChildSessionGateway } from "../runner/child-session.ts";
@@ -16,7 +16,7 @@ import type {
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../runner/context.ts";
-import { createSdlObjectiveContext } from "./context.ts";
+import { createNsObjectiveContext } from "./context.ts";
 
 /**
  * ADR0024-LEGACY-DELETE(this interface, ObjectiveRunnerComposition, the
@@ -55,15 +55,15 @@ export interface ObjectiveRunnerOverrides {
  * dispatch. Reads the same `ctx.extensions.objectiveRunner` overrides; a
  * `childSession` override is simply ignored here.
  */
-export async function createSdlObjectiveRunnerCoreContext(
-	ctx: SdlExtensionApi,
+export async function createNsObjectiveRunnerCoreContext(
+	ctx: NsExtensionApi,
 	overrides: ObjectiveRunnerOverrides | undefined = readObjectiveRunnerOverrides(ctx),
 ): Promise<ObjectiveRunnerCoreContext> {
-	const base = await createSdlObjectiveContext(
+	const base = await createNsObjectiveContext(
 		ctx,
 		optionalEntries({ git: overrides?.git, storage: overrides?.storage }),
 	);
-	const commands = overrides?.commands ?? new SdlCommandExecApi(ctx);
+	const commands = overrides?.commands ?? new NsCommandExecApi(ctx);
 	return {
 		...base,
 		commands,
@@ -79,12 +79,12 @@ export async function createSdlObjectiveRunnerCoreContext(
 }
 
 // ADR0024-LEGACY-DELETE(function): only exec-runner-step builds this context.
-export async function createSdlObjectiveRunnerContext(
-	ctx: SdlExtensionApi,
+export async function createNsObjectiveRunnerContext(
+	ctx: NsExtensionApi,
 	composition: ObjectiveRunnerComposition,
 ): Promise<ObjectiveRunnerContext> {
 	const overrides = readObjectiveRunnerOverrides(ctx);
-	const core = await createSdlObjectiveRunnerCoreContext(ctx, overrides);
+	const core = await createNsObjectiveRunnerCoreContext(ctx, overrides);
 	return {
 		...core,
 		childSession:
@@ -94,7 +94,7 @@ export async function createSdlObjectiveRunnerContext(
 	};
 }
 
-function readObjectiveRunnerOverrides(ctx: SdlExtensionApi): ObjectiveRunnerOverrides | undefined {
+function readObjectiveRunnerOverrides(ctx: NsExtensionApi): ObjectiveRunnerOverrides | undefined {
 	const raw = ctx.extensions?.objectiveRunner;
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
 	const overrides = raw as Partial<ObjectiveRunnerOverrides>;

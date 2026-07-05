@@ -93,7 +93,7 @@ function buildTierMetadataViolation(
 	metadata: PackageMetadata,
 	reason: string,
 ): SourceRuleViolation {
-	const position = findSdlTierPosition(metadata);
+	const position = findNsTierPosition(metadata);
 	return {
 		rule: BAN_PACKAGE_TIER_LAYERING,
 		path: metadata.packageJsonPath,
@@ -103,12 +103,12 @@ function buildTierMetadataViolation(
 	};
 }
 
-function findSdlTierPosition(metadata: PackageMetadata): TextPosition {
-	const sdlOffset = metadata.manifestContent.indexOf('"ns"');
-	if (sdlOffset >= 0) {
-		const tierOffset = metadata.manifestContent.indexOf('"tier"', sdlOffset);
+function findNsTierPosition(metadata: PackageMetadata): TextPosition {
+	const nsOffset = metadata.manifestContent.indexOf('"ns"');
+	if (nsOffset >= 0) {
+		const tierOffset = metadata.manifestContent.indexOf('"tier"', nsOffset);
 		if (tierOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, tierOffset);
-		return lineAndColumnForOffset(metadata.manifestContent, sdlOffset);
+		return lineAndColumnForOffset(metadata.manifestContent, nsOffset);
 	}
 	const nameOffset = metadata.manifestContent.indexOf(`"${metadata.name}"`);
 	return lineAndColumnForOffset(metadata.manifestContent, Math.max(0, nameOffset));

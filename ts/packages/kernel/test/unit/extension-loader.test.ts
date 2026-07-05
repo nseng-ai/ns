@@ -5,9 +5,9 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { validateSdlExtensionContribution } from "../../src/extensions/command-registry.ts";
-import { loadSdlExtensionContribution } from "../../src/extensions/loader.ts";
-import { z, type SdlCommand } from "@ns/kernel/sdk";
+import { validateNsExtensionContribution } from "../../src/extensions/command-registry.ts";
+import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
+import { z, type NsCommand } from "@ns/kernel/sdk";
 
 const tempDirs: string[] = [];
 
@@ -42,14 +42,14 @@ export default defineExtension({
 });
 `);
 
-		const loaded = await loadSdlExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution(modulePath);
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateSdlExtensionContribution(loaded.defaultExport, "greet", modulePath);
+		const validation = validateNsExtensionContribution(loaded.defaultExport, "greet", modulePath);
 		expect(validation.ok).toBe(true);
 		if (!validation.ok) return;
-		const command: SdlCommand | undefined = validation.command;
+		const command: NsCommand | undefined = validation.command;
 		expect(command?.name).toBe("greet");
 		expect(command?.schema).toBeInstanceOf(z.ZodObject);
 	});
@@ -68,11 +68,11 @@ export default defineExtension({
 });
 `);
 
-		const loaded = await loadSdlExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution(modulePath);
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateSdlExtensionContribution(
+		const validation = validateNsExtensionContribution(
 			loaded.defaultExport,
 			{ name: "review-list", segments: ["roaster", "review", "list"] },
 			modulePath,
@@ -85,12 +85,12 @@ export default defineExtension({
 	test("object-shaped commandless default export is left to selected command validation", async () => {
 		const modulePath = await createModule("export default { name: 'greet' };\n");
 
-		const loaded = await loadSdlExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution(modulePath);
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
 		expect(
-			validateSdlExtensionContribution(loaded.defaultExport, "greet", modulePath),
+			validateNsExtensionContribution(loaded.defaultExport, "greet", modulePath),
 		).toMatchObject({
 			ok: false,
 			message: expect.stringContaining('expected a command entry named "greet" in commands[]'),
@@ -100,7 +100,7 @@ export default defineExtension({
 	test("import failures are structured errors", async () => {
 		const modulePath = await createModule("throw new Error('boom');\n");
 
-		const loaded = await loadSdlExtensionContribution(modulePath);
+		const loaded = await loadNsExtensionContribution(modulePath);
 
 		expect(loaded).toMatchObject({
 			ok: false,

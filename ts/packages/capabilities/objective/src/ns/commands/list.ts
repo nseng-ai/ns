@@ -1,7 +1,7 @@
 import { resolveRenderCapabilities } from "@ns/clinkr";
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	listObjectivesRequestSchema,
 	objectiveListResultSchema,
@@ -10,7 +10,7 @@ import {
 } from "../../core/operations/list-objectives.ts";
 import { renderObjectiveListPretty } from "../../core/operations/list-objectives-pretty.ts";
 
-export const objectiveListSdlCommand = objectiveSdlCommand({
+export const objectiveListNsCommand = objectiveNsCommand({
 	name: "list",
 	summary: "List Objective records in the current checkout.",
 	description: "List Objective records in the current checkout.",
@@ -24,5 +24,5 @@ export const objectiveListSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveListSdlCommand],
+	commands: [objectiveListNsCommand],
 });

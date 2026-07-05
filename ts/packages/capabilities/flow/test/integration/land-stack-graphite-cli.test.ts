@@ -127,7 +127,7 @@ async function initializeGraphiteStack(repoRoot: string, env: NodeJS.ProcessEnv)
 		cwd: repoRoot,
 		env,
 		command: "git",
-		args: ["config", "user.name", "SDL Test"],
+		args: ["config", "user.name", "ns Test"],
 	});
 
 	await writeFile(join(repoRoot, "README.md"), "initial\n");

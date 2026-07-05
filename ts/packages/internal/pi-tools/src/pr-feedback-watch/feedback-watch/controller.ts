@@ -573,12 +573,12 @@ export class PrFeedbackWatchController {
 		session: ActiveSession,
 	): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
 		if (this.runner !== undefined) return { type: "resolved", runner: this.runner };
-		const pathSdl = await this.pi.exec("which", ["ns"], {
+		const pathNs = await this.pi.exec("which", ["ns"], {
 			cwd: session.cwd,
 			timeout: GIT_TIMEOUT_MS,
 			signal: session.abortController.signal,
 		});
-		if (!pathSdl.killed && pathSdl.code === 0 && pathSdl.stdout.trim().length > 0) {
+		if (!pathNs.killed && pathNs.code === 0 && pathNs.stdout.trim().length > 0) {
 			this.runner = { command: "ns", baseArgs: ["address"] };
 			return { type: "resolved", runner: this.runner };
 		}

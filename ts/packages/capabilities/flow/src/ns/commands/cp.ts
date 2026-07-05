@@ -1,6 +1,6 @@
-import type { SdlProgressPhaseListener } from "@ns/kernel/sdk";
+import type { NsProgressPhaseListener } from "@ns/kernel/sdk";
 import type { TextGenerator } from "@ns/capability-kit/text-generation";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@ns/kernel/sdk";
+import { defineExtension, failed, ok, z, type NsCommand } from "@ns/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,
@@ -14,7 +14,7 @@ import {
 } from "@ns/capability-kit/text-generation";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
-	createSdlCheckpointRuntime,
+	createNsCheckpointRuntime,
 	runCheckpointWorkflow,
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
@@ -38,14 +38,14 @@ const cpRequestSchema = z.object({
 
 type CpRequest = z.output<typeof cpRequestSchema>;
 
-export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
+export const flowCpCommand: NsCommand<typeof cpRequestSchema> = {
 	name: "cp",
 	summary: "Create a checkpoint commit for the current diff.",
 	description: CP_COMMAND_DESCRIPTION,
 	schema: cpRequestSchema,
 	options: { dryRun: { short: "-n" } },
 	async run(ctx, request: CpRequest) {
-		const runtime = createSdlCheckpointRuntime(ctx);
+		const runtime = createNsCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
 			const result = await runCpCore({
@@ -92,7 +92,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
-	onPhase?: SdlProgressPhaseListener;
+	onPhase?: NsProgressPhaseListener;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {

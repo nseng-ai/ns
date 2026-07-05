@@ -1,4 +1,4 @@
-// Composable aligned-column + key/value primitives for SDL CLI theme buffered surfaces. Generalized from
+// Composable aligned-column + key/value primitives for ns CLI theme buffered surfaces. Generalized from
 // the throwaway harness's `renderObjectiveList` column math, with the objective-specific columns lifted
 // out into a caller-supplied column spec + rows. Pure: column specs + rows in, styled lines out.
 //

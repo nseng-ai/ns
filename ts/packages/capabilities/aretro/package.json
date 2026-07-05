@@ -5,7 +5,7 @@
 	"exports": {
 		"./ns/commands/exec-collect-evidence": "./src/ns/commands/exec-collect-evidence.ts",
 		"./ns/commands/exec-read-evidence-detail": "./src/ns/commands/exec-read-evidence-detail.ts",
-		"./repo-local-sdl-extension": "./src/repo-local-ns-extension.ts"
+		"./repo-local-ns-extension": "./src/repo-local-ns-extension.ts"
 	},
 	"files": [
 		"src"

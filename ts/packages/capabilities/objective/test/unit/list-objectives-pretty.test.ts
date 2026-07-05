@@ -2,7 +2,7 @@ import type { Caps, ColorDepth } from "@ns/clinkr";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
-import { objectiveListSdlCommand } from "../../src/ns/commands/list.ts";
+import { objectiveListNsCommand } from "../../src/ns/commands/list.ts";
 import {
 	relativeTime,
 	renderObjectiveListPretty,
@@ -145,7 +145,7 @@ describe("renderObjectiveListPretty layout", () => {
 		expect(out).toContain("…");
 	});
 
-	test("SDL renderHuman uses settled caps instead of process TTY state", () => {
+	test("ns renderHuman uses settled caps instead of process TTY state", () => {
 		vi.stubEnv("FORCE_COLOR", "3");
 		const originalIsTty = process.stdout.isTTY;
 		const originalColumns = process.stdout.columns;
@@ -153,7 +153,7 @@ describe("renderObjectiveListPretty layout", () => {
 		Object.defineProperty(process.stdout, "columns", { value: 36, configurable: true });
 		try {
 			const out =
-				objectiveListSdlCommand.renderHuman?.(
+				objectiveListNsCommand.renderHuman?.(
 					result({
 						records: [
 							{

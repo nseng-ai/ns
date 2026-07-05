@@ -1,4 +1,4 @@
-// Per-phase status line grammar for SDL CLI theme streaming surface. A status line is one composed row that
+// Per-phase status line grammar for ns CLI theme streaming surface. A status line is one composed row that
 // reports where a single phase stands (pending → active → done/skipped/failed). This module is a PURE
 // string builder: it owns the glyph/color/indent grammar for each state but no sequencing, no timers,
 // and no I/O. The streaming sink advances `tick` and composes whole frames from these lines.

@@ -6,7 +6,7 @@ import type { CommandExecApi } from "@ns/core/exec";
 import { RealGitGateway } from "@ns/capability-kit/git";
 import type { GitGateway } from "@ns/capability-kit/git";
 
-import { resolveSdlXdgPath } from "@ns/capability-kit/xdg";
+import { resolveNsXdgPath } from "@ns/capability-kit/xdg";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import type { BrmemEnvOption } from "./env.ts";
@@ -48,7 +48,7 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 
 	globalPromptRoots(): readonly string[] {
 		const roots: string[] = [];
-		const xdgRoot = resolveSdlXdgPath({
+		const xdgRoot = resolveNsXdgPath({
 			kind: "config",
 			env: this.env,
 			segments: ["brmem", "prompts"],

@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { objectiveSdlCommand } from "../command.ts";
+import { objectiveNsCommand } from "../command.ts";
 import {
 	listCandidatesRequestSchema,
 	listCandidatesResultSchema,
@@ -8,7 +8,7 @@ import {
 	runListCandidates,
 } from "../../core/operations/list-candidates.ts";
 
-export const objectiveExecListCandidatesSdlCommand = objectiveSdlCommand({
+export const objectiveExecListCandidatesNsCommand = objectiveNsCommand({
 	name: "exec-list-candidates",
 	summary: "List active Objective slug candidates for shell and agent autocomplete.",
 	description: "List active Objective slug candidates for shell and agent autocomplete.",
@@ -19,5 +19,5 @@ export const objectiveExecListCandidatesSdlCommand = objectiveSdlCommand({
 });
 
 export default defineExtension({
-	commands: [objectiveExecListCandidatesSdlCommand],
+	commands: [objectiveExecListCandidatesNsCommand],
 });

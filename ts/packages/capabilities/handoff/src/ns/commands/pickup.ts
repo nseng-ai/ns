@@ -1,6 +1,6 @@
 import { defineExtension } from "@ns/kernel/sdk";
 
-import { handoffSdlCommand } from "../command.ts";
+import { handoffNsCommand } from "../command.ts";
 import {
 	pickupRequestSchema,
 	pickupResultSchema,
@@ -8,7 +8,7 @@ import {
 	runPickup,
 } from "../../core/operations/pickup.ts";
 
-export const handoffPickupSdlCommand = handoffSdlCommand({
+export const handoffPickupNsCommand = handoffNsCommand({
 	name: "pickup",
 	summary: "Pick up a handoff by slug.",
 	description: "Read one handoff artifact by exact slug.",
@@ -21,5 +21,5 @@ export const handoffPickupSdlCommand = handoffSdlCommand({
 });
 
 export default defineExtension({
-	commands: [handoffPickupSdlCommand],
+	commands: [handoffPickupNsCommand],
 });

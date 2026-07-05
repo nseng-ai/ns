@@ -26,7 +26,7 @@ export type RunnerFilePresenceResult =
  * (Graphite tracking check, raw command exec for `git diff --check`) and the
  * presentation seams the step contract requires: `writeStdout` is a tactical
  * Runner Checkpoint stream for human/markdown modes until clinkr owns non-ok
- * stdout artifacts, and `phase` mirrors `SdlCommandIo.phase` transient phase text.
+ * stdout artifacts, and `phase` mirrors `NsCommandIo.phase` transient phase text.
  */
 export interface ObjectiveRunnerCoreContext extends ObjectiveCliContext {
 	graphite: GraphiteBranchGateway;

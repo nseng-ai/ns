@@ -1,9 +1,9 @@
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
-import type { ClinkrDynamicCompletionRequest, SdlExtensionApi } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
+import type { ClinkrDynamicCompletionRequest, NsExtensionApi } from "@ns/kernel/sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { createSdlDomainCommand } from "@ns/capability-kit/ns-command";
+import { createNsDomainCommand } from "@ns/capability-kit/ns-command";
 
 interface TestContext {
 	readonly cwd: string;
@@ -12,9 +12,9 @@ interface TestContext {
 const requestSchema = z.object({ name: z.string() });
 const resultSchema = z.object({ greeting: z.string() });
 
-describe("SDL domain command helper", () => {
-	test("adapts an SDL extension context before invoking the domain handler", async () => {
-		const command = createSdlDomainCommand({
+describe("ns domain command helper", () => {
+	test("adapts an ns extension context before invoking the domain handler", async () => {
+		const command = createNsDomainCommand({
 			name: "hello",
 			summary: "Say hello",
 			description: "Says hello through a domain context.",
@@ -34,7 +34,7 @@ describe("SDL domain command helper", () => {
 	});
 
 	test("preserves dynamic completion providers", async () => {
-		const command = createSdlDomainCommand({
+		const command = createNsDomainCommand({
 			name: "hello",
 			summary: "Say hello",
 			description: "Says hello through a domain context.",
@@ -58,7 +58,7 @@ describe("SDL domain command helper", () => {
 	});
 
 	test("parses unknown render payloads through the result schema", () => {
-		const command = createSdlDomainCommand({
+		const command = createNsDomainCommand({
 			name: "hello",
 			summary: "Say hello",
 			description: "Says hello through a domain context.",
@@ -75,12 +75,12 @@ describe("SDL domain command helper", () => {
 	});
 });
 
-function fakeApi(): SdlExtensionApi {
+function fakeApi(): NsExtensionApi {
 	return {
 		cwd: "/repo",
 		env: {},
-		commandIo: noopSdlCommandIo,
-		progress: noopSdlProgress,
+		commandIo: noopNsCommandIo,
+		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		textGenerator: {
 			async generateText() {

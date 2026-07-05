@@ -34,7 +34,7 @@ export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout
 const entry = defineCli<AregCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
-	description: "Manage SDL agent registry projects.",
+	description: "Manage ns agent registry projects.",
 	prepareRun: ({ deps, cwd, env }) => {
 		const context = deps.context ?? createRealAregContext({ cwd, env });
 		const runContext: AregCliContext = {

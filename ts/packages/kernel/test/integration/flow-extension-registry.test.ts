@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extensions/registry.ts";
+import { loadNsCommandCatalog, loadSelectedNsCommand } from "../../src/extensions/registry.ts";
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 import { runCliWithFakes } from "../scenario/ns-cli-fakes.ts";
 
@@ -17,7 +17,7 @@ afterEach(() => {
 	}
 });
 
-describe("checked-in flow SDL extension registry loading", () => {
+describe("checked-in flow ns extension registry loading", () => {
 	test("real loader discovers and imports every checked-in flow command entry", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "ns-flow-extension-registry-"));
 		tempDirs.push(directory);
@@ -25,7 +25,7 @@ describe("checked-in flow SDL extension registry loading", () => {
 		const homeDir = join(directory, "home");
 		installCheckedInFlowExtension(cwd);
 
-		const catalog = await loadSdlCommandCatalog({
+		const catalog = await loadNsCommandCatalog({
 			cwd,
 			homeDir,
 			env: { NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS: "1" },
@@ -48,7 +48,7 @@ describe("checked-in flow SDL extension registry loading", () => {
 
 		const failures: string[] = [];
 		for (const [key, candidate] of catalog.candidates) {
-			const loaded = await loadSelectedSdlCommand(candidate);
+			const loaded = await loadSelectedNsCommand(candidate);
 			if (!loaded.ok) failures.push(`${key}: ${loaded.diagnostic.message}`);
 		}
 		expect(failures).toEqual([]);

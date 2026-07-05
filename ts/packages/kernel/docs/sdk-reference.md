@@ -6,7 +6,7 @@ Import the SDK's own surface from the package itself:
 
 ```ts
 import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
-import type { SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
+import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 ```
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ji host.
@@ -30,16 +30,16 @@ The exports are grouped by the role they play when authoring a command: you **de
 Declares a ji extension. The default export of every ji extension module is a call to `defineExtension()`.
 
 ```ts
-function defineExtension(extension: SdlExtension): SdlExtension;
+function defineExtension(extension: NsExtension): NsExtension;
 ```
 
 **Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its job is entirely at the type level: a family of overloads preserves per-command schema inference (so each command's `run` sees the request type implied by its own `schema`) for up to four explicit commands plus a rest tuple. You do not interact with the overloads directly; pass an extension object and TypeScript infers the rest.
 
 **Parameters.**
 
-- `extension: SdlExtension` — the extension to declare. Commands are optional; `defineExtension({})` is a valid commandless extension.
+- `extension: NsExtension` — the extension to declare. Commands are optional; `defineExtension({})` is a valid commandless extension.
 
-**Returns.** The same `SdlExtension`, with command types preserved.
+**Returns.** The same `NsExtension`, with command types preserved.
 
 **Notes.**
 
@@ -63,12 +63,12 @@ export default defineExtension({
 });
 ```
 
-### `SdlExtension`
+### `NsExtension`
 
 The shape of a ji extension.
 
 ```ts
-interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
+interface NsExtension<TCommands extends readonly NsCommand[] = readonly NsCommand[]> {
   commands?: TCommands | undefined;
 }
 ```
@@ -89,37 +89,37 @@ export default defineExtension({});
 
 ## Repo-local extension descriptors
 
-### `repoLocalSdlCommandDescriptor()`
+### `repoLocalNsCommandDescriptor()`
 
 Builds a descriptor for a checked-in `.ns/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.ns/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
 
 ```ts
-function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOptions): RepoLocalSdlExtensionCommandDescriptor;
+function repoLocalNsCommandDescriptor(options: RepoLocalNsCommandDescriptorOptions): RepoLocalNsExtensionCommandDescriptor;
 ```
 
 Repo-local first-party extensions in this repository use this command-leaf pattern:
 
 1. The implementation package owns a `src/repo-local-ns-extension.ts` descriptor.
-2. Each public command module exports its named `SdlCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
+2. Each public command module exports its named `NsCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
 3. `.ns/extensions/<group>/package.json` lists one manifest command entry per command leaf.
 4. `.ns/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
 
 Do not point multiple manifest command entries at a shared `.ns/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
 
-`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ns/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
+`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ns/branch-context/ns/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
 
 ```ts
-import { repoLocalSdlCommandDescriptor } from "@ns/kernel/sdk";
+import { repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
 
-const descriptor = repoLocalSdlCommandDescriptor({
+const descriptor = repoLocalNsCommandDescriptor({
   command: attachCommand,
   manifestPath: ["exec", "attach"],
-  packageExportPrefix: "@ns/branch-context/sdl/commands",
+  packageExportPrefix: "@ns/branch-context/ns/commands",
 });
 // manifestEntry: "./src/commands/attach.ts"
-// packageExport: "@ns/branch-context/sdl/commands/attach"
+// packageExport: "@ns/branch-context/ns/commands/attach"
 
-const routeEncodedDescriptor = repoLocalSdlCommandDescriptor({
+const routeEncodedDescriptor = repoLocalNsCommandDescriptor({
   command: reviewListCommand,
   manifestName: "review-list",
   manifestPath: ["review", "list"],
@@ -129,7 +129,7 @@ const routeEncodedDescriptor = repoLocalSdlCommandDescriptor({
 // packageExport: "@ns/roaster/commands/review-list"
 ```
 
-### `defineRepoLocalSdlExtensionDescriptor()`
+### `defineRepoLocalNsExtensionDescriptor()`
 
 Declares the package-owned descriptor that parity tests compare against a checked-in repo-local extension manifest. It returns its argument unchanged.
 
@@ -137,12 +137,12 @@ Declares the package-owned descriptor that parity tests compare against a checke
 
 ## Commands
 
-### `SdlCommand`
+### `NsCommand`
 
 One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `ns <name>`; manifest-grouped packages can present the same flat command name under a group such as `ns flow <name>`.
 
 ```ts
-interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
+interface NsCommand<S extends NsCommandSchema = z.ZodObject, T = unknown> {
   name: string;
   summary: string;
   description: string;
@@ -151,8 +151,8 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
   resultSchema?: z.ZodType<T> | undefined;
   renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
   renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
-  completionProvider?: SdlCommandCompletionProvider | undefined;
-  run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult | ClinkrExit<T>> | SdlResult | ClinkrExit<T>;
+  completionProvider?: NsCommandCompletionProvider | undefined;
+  run(ctx: NsExtensionApi, request: z.output<S>): Promise<NsResult | ClinkrExit<T>> | NsResult | ClinkrExit<T>;
 }
 ```
 
@@ -161,12 +161,12 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 - `name` — the flat command name. Must match `[a-z][a-z0-9-]*`: no nested groups, slashes, colons, spaces, or uppercase.
 - `summary` — required one-line text shown in `ns --help`.
 - `description` — full help text shown in `ns <cmd> --help`.
-- `schema?` — a Zod object schema (`SdlCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
+- `schema?` — a Zod object schema (`NsCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
 - `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the ji kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
-- `completionProvider?` — optional shell-completion hook for dynamic values. It receives the `SdlExtensionApi` and a Clinkr completion request (`current`, `previous`, command `args`, and `positionalIndex`). Its candidates are appended to static command/option/enum candidates and deduped. Completion stdout remains candidate-only; provider failures are omitted from stdout, keep resolver exit code `0`, and may be reported concisely on stderr.
-- `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `SdlResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
+- `completionProvider?` — optional shell-completion hook for dynamic values. It receives the `NsExtensionApi` and a Clinkr completion request (`current`, `previous`, command `args`, and `positionalIndex`). Its candidates are appended to static command/option/enum candidates and deduped. Completion stdout remains candidate-only; provider failures are omitted from stdout, keep resolver exit code `0`, and may be reported concisely on stderr.
+- `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `NsResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
 
 **Example.** Declared inline so `request` is inferred from `schema`:
 
@@ -186,11 +186,11 @@ export default defineExtension({
 });
 ```
 
-### `SdlCommandCompletionProvider`
+### `NsCommandCompletionProvider`
 
 ```ts
-type SdlCommandCompletionProvider = (
-  ctx: SdlExtensionApi,
+type NsCommandCompletionProvider = (
+  ctx: NsExtensionApi,
   request: ClinkrDynamicCompletionRequest,
 ) =>
   | Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
@@ -237,10 +237,10 @@ export default defineExtension({
 
 The user-facing setup, resolver behavior, supported shells, and limitations for ns shell completion are documented in [`../README.md`](../README.md) under "Shell completion".
 
-### `SdlCommandSchema`
+### `NsCommandSchema`
 
 ```ts
-type SdlCommandSchema = z.ZodObject;
+type NsCommandSchema = z.ZodObject;
 ```
 
 The schema type a command may declare. Always a Zod object, built with `z` imported from `@ns/kernel/sdk`.
@@ -249,15 +249,15 @@ The schema type a command may declare. Always a Zod object, built with `z` impor
 
 ```ts
 import { z } from "@ns/kernel/sdk";
-import type { SdlCommandSchema } from "@ns/kernel/sdk";
+import type { NsCommandSchema } from "@ns/kernel/sdk";
 
-const schema: SdlCommandSchema = z.object({ force: z.boolean().default(false) });
+const schema: NsCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
 
-### `SdlCommandRequest`
+### `NsCommandRequest`
 
 ```ts
-type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;
+type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;
 ```
 
 The parsed-request type derived from a command's schema — the type `run` receives as its second argument. Useful when `run` is a named function declared apart from the command object.
@@ -266,11 +266,11 @@ The parsed-request type derived from a command's schema — the type `run` recei
 
 ```ts
 import { z } from "@ns/kernel/sdk";
-import type { SdlCommandRequest, SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
+import type { NsCommandRequest, NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
-function runAutobranch(ctx: SdlExtensionApi, request: SdlCommandRequest<typeof schema>): SdlResult {
+function runAutobranch(ctx: NsExtensionApi, request: NsCommandRequest<typeof schema>): NsResult {
   return ok(request.slug ?? "(auto)"); // request is { slug?: string }
 }
 ```
@@ -306,12 +306,12 @@ interface PositionalSpec {
 
 ji package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ji`, and command-entry fields are accepted and preserved.
 
-### `sdlExtensionManifestCommandSchema`
+### `nsExtensionManifestCommandSchema`
 
 Validates one known `ji.commands[]` entry shape.
 
 ```ts
-const command = sdlExtensionManifestCommandSchema.parse({
+const command = nsExtensionManifestCommandSchema.parse({
   name: "changes",
   path: ["flow", "changes"],
   description: "Show changes.",
@@ -322,12 +322,12 @@ const command = sdlExtensionManifestCommandSchema.parse({
 
 Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain ji kernel responsibilities.
 
-### `sdlExtensionManifestSchema` / `sdlExtensionPackageManifestSchema`
+### `nsExtensionManifestSchema` / `nsExtensionPackageManifestSchema`
 
 Validate the known `ji` object and package-level manifest wrapper.
 
 ```ts
-const manifest = sdlExtensionPackageManifestSchema.parse({
+const manifest = nsExtensionPackageManifestSchema.parse({
   description: "Flow command package.",
   ns: {
     group: "flow",
@@ -337,7 +337,7 @@ const manifest = sdlExtensionPackageManifestSchema.parse({
 });
 ```
 
-The inferred types are exported as `SdlExtensionManifestCommand`, `SdlExtensionManifest`, and `SdlExtensionPackageManifest`.
+The inferred types are exported as `NsExtensionManifestCommand`, `NsExtensionManifest`, and `NsExtensionPackageManifest`.
 
 ## Text helpers
 
@@ -402,12 +402,12 @@ const excerpt = truncateTextHeadTail({
 
 ## Results
 
-### `SdlResult`
+### `NsResult`
 
 The value a command's `run` returns.
 
 ```ts
-type SdlResult =
+type NsResult =
   | { ok: true; message: string }
   | { ok: false; exitCode: number; message: string };
 ```
@@ -417,9 +417,9 @@ A discriminated union on `ok`. Construct values with `ok()` and `failed()` rathe
 **Example.**
 
 ```ts
-import type { SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
+import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 
-function run(ctx: SdlExtensionApi): SdlResult {
+function run(ctx: NsExtensionApi): NsResult {
   return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
 }
 ```
@@ -429,7 +429,7 @@ function run(ctx: SdlExtensionApi): SdlResult {
 Builds a success result.
 
 ```ts
-function ok(message: string): SdlResult;
+function ok(message: string): NsResult;
 ```
 
 **Parameters.** `message` — the success message printed to the user.
@@ -445,7 +445,7 @@ return ok("Pushed the current branch.");
 Builds a failure result.
 
 ```ts
-function failed(message: string, exitCode?: number): SdlResult;
+function failed(message: string, exitCode?: number): NsResult;
 ```
 
 **Parameters.**
@@ -463,25 +463,25 @@ return failed("Working tree is dirty; commit or stash first.", 2);
 
 ## Execution context
 
-### `SdlExtensionApi`
+### `NsExtensionApi`
 
 The capabilities a command receives as the first argument to `run`. ji owns the host environment; the command owns the exact external commands, prompts, and policy it applies.
 
 ```ts
-interface SdlExtensionApi {
+interface NsExtensionApi {
   cwd: string;
   env: Record<string, string | undefined>;
-  exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
+  exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
   textGenerator: TextGenerator;
-  commandIo: SdlCommandIo;
-  progress: SdlProgress;
+  commandIo: NsCommandIo;
+  progress: NsProgress;
   renderCapabilities: RenderCapabilities;
   outputFormat?: ClinkrFormat;
   stdout?: ((text: string) => void) | undefined;
   stderr?: ((text: string) => void) | undefined;
   stdin?: (() => Promise<string>) | undefined;
-  onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
-  confirm?: SdlConfirmPrompt | undefined;
+  onOutput?: ((stream: NsOutputStream, text: string) => void) | undefined;
+  confirm?: NsConfirmPrompt | undefined;
   extensions?: Readonly<Record<string, unknown>> | undefined;
 }
 ```
@@ -493,19 +493,19 @@ interface SdlExtensionApi {
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.
-- `progress` — required structured phase-progress sink. Command authors can call `ctx.progress.phase(event)` with `SdlProgressPhaseEvent` values when a host or capability wants typed phase lifecycle events.
+- `progress` — required structured phase-progress sink. Command authors can call `ctx.progress.phase(event)` with `NsProgressPhaseEvent` values when a host or capability wants typed phase lifecycle events.
 - `renderCapabilities` — required host terminal rendering capabilities for human output and previews. Use this explicit field for color/unicode decisions; do not transport terminal capabilities through `extensions`.
 - `outputFormat?` — host-selected command output format, useful only for commands that stream durable output before returning.
 - `stdout?` / `stderr?` — durable output hooks for commands that stream multiple chunks before returning. `stdout` is reserved for primary output.
 - `stdin?` — optional full stdin reader for commands that consume a finite payload.
-- `onOutput?` — transient live-progress hook for UI bridges, tagged by `SdlOutputStream`.
-- `confirm?` — optional interactive confirmation hook (`SdlConfirmPrompt`).
+- `onOutput?` — transient live-progress hook for UI bridges, tagged by `NsOutputStream`.
+- `confirm?` — optional interactive confirmation hook (`NsConfirmPrompt`).
 - `extensions?` — project-local extension bag. A command owns any values it reads from it.
 
 **Example.**
 
 ```ts
-async run(ctx: SdlExtensionApi) {
+async run(ctx: NsExtensionApi) {
   const root = await ctx.exec("git", ["rev-parse", "--show-toplevel"], {
     timeoutMs: 30_000,
   });
@@ -514,23 +514,23 @@ async run(ctx: SdlExtensionApi) {
 }
 ```
 
-### `SdlCommandIo`
+### `NsCommandIo`
 
-Host-adapted human command-output service. It is always present on `SdlExtensionApi`.
+Host-adapted human command-output service. It is always present on `NsExtensionApi`.
 
 ```ts
-type SdlNotifyLevel = "info" | "warning" | "error";
+type NsNotifyLevel = "info" | "warning" | "error";
 
-interface SdlCommandMessageOptions {
-  level?: SdlNotifyLevel;
+interface NsCommandMessageOptions {
+  level?: NsNotifyLevel;
   details?: unknown;
   isRichOnly?: boolean;
 }
 
-interface SdlCommandIo {
+interface NsCommandIo {
   phase(message: string): void;
-  notify(message: string, level?: SdlNotifyLevel): void;
-  message(message: string, options?: SdlCommandMessageOptions): void;
+  notify(message: string, level?: NsNotifyLevel): void;
+  message(message: string, options?: NsCommandMessageOptions): void;
   clearPhase(): void;
 }
 ```
@@ -540,32 +540,32 @@ interface SdlCommandIo {
 - `message` emits durable human-facing scrollback; rich hosts may use `details`, while text-only hosts may render as phase text or drop `isRichOnly` messages.
 - `clearPhase` clears sticky transient phase state where the host has one.
 
-### `SdlProgress`
+### `NsProgress`
 
-Structured phase-progress sink. It is always present on `SdlExtensionApi` and may be a no-op in non-interactive hosts.
+Structured phase-progress sink. It is always present on `NsExtensionApi` and may be a no-op in non-interactive hosts.
 
 ```ts
-type SdlProgressPhaseEvent =
+type NsProgressPhaseEvent =
   | { type: "phase-started"; phaseKey: string; label?: string }
   | { type: "phase-progress"; phaseKey: string; label: string }
   | { type: "phase-done"; phaseKey: string; detail?: string }
   | { type: "phase-failed"; phaseKey: string; detail: string };
 
-type SdlProgressPhaseListener = (event: SdlProgressPhaseEvent) => void;
+type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 
-interface SdlProgress {
-  phase(event: SdlProgressPhaseEvent): void;
+interface NsProgress {
+  phase(event: NsProgressPhaseEvent): void;
 }
 ```
 
 Low-level `stdout`, `stderr`, and `onOutput` hooks remain compatibility primitives for durable stream output and transient live-output bridges. `ctx.commandIo` and `ctx.progress` are the preferred SDK services for command-authored human output and typed progress.
 
-### `SdlExecOptions`
+### `NsExecOptions`
 
 Options for `ctx.exec`.
 
 ```ts
-interface SdlExecOptions {
+interface NsExecOptions {
   timeoutMs?: number;
   stdin?: string | undefined;
   onStdout?: ((text: string) => void) | undefined;

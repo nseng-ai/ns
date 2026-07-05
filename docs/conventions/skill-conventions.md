@@ -56,7 +56,7 @@ Do not maintain a full skill-kind table in this document. Use representative exa
 
 ### Public Skill Authoring — No Internal References
 
-Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference sdl-internal module paths, class names, or implementation details in their `SKILL.md` files or frontmatter descriptions. Describe *what* CLI operations to call (e.g., `ns address exec pr-reviews`), not *how* they are implemented. Implementation details belong in source code, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
+Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference ns-internal module paths, class names, or implementation details in their `SKILL.md` files or frontmatter descriptions. Describe *what* CLI operations to call (e.g., `ns address exec pr-reviews`), not *how* they are implemented. Implementation details belong in source code, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
 
 ### Skill Model Examples
 
@@ -66,7 +66,7 @@ When a skill body references model tiers or per-dispatch model selection, keep t
 
 See [Matt Pocock Skills Upstream Adaptation Guide](../agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, ji overlays, and future upstream update checklist.
 
-- `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party sdl work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
+- `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party ns work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.
 - For repo-local skills, `skills/<name>/` is the canonical source — edit files there directly. `.agents/skills/<name>` is a symlink back to that source, and editing through either path is equivalent. (`unlisted` skills are the exception: they have no `.agents/skills/<name>` mirror, so `skills/<name>/` is the only editable path.)
 - Do not apply first-party language standards, style guides, or refactoring skills (for example `dignified-python`, `typescript-style`, `python-fake-driven-testing`, or `fdt-refactor-mock-to-fake`) to code inside vendored (real-directory) entries under `.agents/skills/` unless the user explicitly asks to modify the vendored dependency itself.
@@ -78,4 +78,4 @@ Use `/code:*` as the Pi slash-command namespace for codebase/source-control mana
 
 Use `code-*` for code/source-control workflow skills, whether published or repo-private. The code-skill family does not use an `internal-` name prefix: visibility is controlled by frontmatter, and internal/prototype skills must carry `metadata.internal: true`. The `internal-` prefix remains available for repo-private skills in other domains.
 
-`dev-` no longer means "codebase-related." Do not introduce new `dev-*` skills for codebase/source-control work. Prefer the domain namespace (`sdl-*`, `code-*`, `ccc-*`, etc.) for new workflow skills; any future `dev-*` skill needs an explicit product decision.
+`dev-` no longer means "codebase-related." Do not introduce new `dev-*` skills for codebase/source-control work. Prefer the domain namespace (`ns-*`, `code-*`, `ccc-*`, etc.) for new workflow skills; any future `dev-*` skill needs an explicit product decision.

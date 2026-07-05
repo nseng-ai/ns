@@ -33,7 +33,7 @@ import type {
 } from "../../runner/child-session.ts";
 import { createEventChannel, type EventChannel } from "../../runner/event-channel.ts";
 
-export const SDL_RUNNER_PI_BIN_ENV = "NS_RUNNER_PI_BIN";
+export const NS_RUNNER_PI_BIN_ENV = "NS_RUNNER_PI_BIN";
 
 const DEFAULT_STDERR_TAIL_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_SIGKILL_GRACE_MS = 10_000;
@@ -139,7 +139,7 @@ async function runPiChildSession(
 	// report "no activity yet" until the child itself produces something.
 	emitLine(`child session: ${sessionFile}`);
 
-	const command = deps.env[SDL_RUNNER_PI_BIN_ENV] ?? "pi";
+	const command = deps.env[NS_RUNNER_PI_BIN_ENV] ?? "pi";
 	const spawnPiChildProcess = deps.spawn ?? defaultSpawnPiChildProcess;
 	let child: SpawnedPiChildProcess;
 	try {

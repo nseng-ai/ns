@@ -1,5 +1,5 @@
-import { SdlCommandExecApi } from "@ns/capability-kit/command-runner";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import { NsCommandExecApi } from "@ns/capability-kit/command-runner";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import {
 	createRealRoasterContext,
@@ -7,8 +7,8 @@ import {
 	type RoasterRuntime,
 } from "../core/context.ts";
 
-export function createSdlRoasterRuntime(ctx: SdlExtensionApi): RoasterRuntime {
-	const execApi = new SdlCommandExecApi(ctx);
+export function createNsRoasterRuntime(ctx: NsExtensionApi): RoasterRuntime {
+	const execApi = new NsCommandExecApi(ctx);
 	return createRoasterRuntime(
 		createRealRoasterContext({
 			cwd: ctx.cwd,

@@ -12,32 +12,32 @@ import {
 	resolveRequestedShell,
 } from "@ns/capability-kit/shell-support";
 
-import type { SdlCliContext } from "./context.ts";
+import type { NsCliContext } from "./context.ts";
 
-export const sdlShellIntegrationBeginMarker = "# >>> ns shell integration >>>";
-export const sdlShellIntegrationEndMarker = "# <<< ns shell integration <<<";
+export const nsShellIntegrationBeginMarker = "# >>> ns shell integration >>>";
+export const nsShellIntegrationEndMarker = "# <<< ns shell integration <<<";
 
-export const sdlShellShowRequestSchema = markerSurfaceShowRequestSchema;
-export const sdlShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
+export const nsShellShowRequestSchema = markerSurfaceShowRequestSchema;
+export const nsShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
 	yes: z.boolean().default(false).describe("Confirm shell rc-file update without prompting."),
 });
-export const sdlShellShowResultSchema = markerSurfaceShowResultSchema;
-export const sdlShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
+export const nsShellShowResultSchema = markerSurfaceShowResultSchema;
+export const nsShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
 	cancelled: z.boolean().default(false),
 });
 
-export type SdlShellShowRequest = z.infer<typeof sdlShellShowRequestSchema>;
-export type SdlShellInstallRequest = z.infer<typeof sdlShellInstallRequestSchema>;
-export type SdlShellShowResult = z.infer<typeof sdlShellShowResultSchema>;
-export type SdlShellInstallResult = z.infer<typeof sdlShellInstallResultSchema>;
+export type NsShellShowRequest = z.infer<typeof nsShellShowRequestSchema>;
+export type NsShellInstallRequest = z.infer<typeof nsShellInstallRequestSchema>;
+export type NsShellShowResult = z.infer<typeof nsShellShowResultSchema>;
+export type NsShellInstallResult = z.infer<typeof nsShellInstallResultSchema>;
 
-export async function runSdlShellShow(ctx: SdlCliContext, request: SdlShellShowRequest) {
+export async function runNsShellShow(ctx: NsCliContext, request: NsShellShowRequest) {
 	const selected = resolveRequestedShell(request.shell, ctx.env);
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	return ok({ shell: selected.shell, script: renderSdlShellWrapperScript() });
+	return ok({ shell: selected.shell, script: renderNsShellWrapperScript() });
 }
 
-export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellInstallRequest) {
+export async function runNsShellInstall(ctx: NsCliContext, request: NsShellInstallRequest) {
 	const selected = resolveRequestedShell(request.shell, ctx.env);
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
 	const rcPath = rcPathForShell(selected.shell, ctx.env);
@@ -59,14 +59,14 @@ export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellIn
 				rcPath: rcPath,
 				isAlreadyInstalled: false,
 				cancelled: true,
-			} satisfies SdlShellInstallResult);
+			} satisfies NsShellInstallResult);
 		}
 	}
 	const installed = await installMarkerBlock({
 		rcPath,
-		beginMarker: sdlShellIntegrationBeginMarker,
-		payload: renderSdlShellWrapperScript(),
-		endMarker: sdlShellIntegrationEndMarker,
+		beginMarker: nsShellIntegrationBeginMarker,
+		payload: renderNsShellWrapperScript(),
+		endMarker: nsShellIntegrationEndMarker,
 	});
 	return ok({
 		shell: selected.shell,
@@ -76,11 +76,11 @@ export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellIn
 	});
 }
 
-export function renderSdlShellShow(result: SdlShellShowResult): string {
+export function renderNsShellShow(result: NsShellShowResult): string {
 	return result.script;
 }
 
-export function renderSdlShellInstall(result: SdlShellInstallResult): string {
+export function renderNsShellInstall(result: NsShellInstallResult): string {
 	if (result.cancelled)
 		return `Cancelled ns shell integration install for ${result.shell} in ${result.rcPath}`;
 	if (result.isAlreadyInstalled)
@@ -88,6 +88,6 @@ export function renderSdlShellInstall(result: SdlShellInstallResult): string {
 	return `Installed ns shell integration for ${result.shell} in ${result.rcPath}`;
 }
 
-export function renderSdlShellWrapperScript(): string {
+export function renderNsShellWrapperScript(): string {
 	return renderCommandCdWrapperScript({ commandName: "ns" });
 }

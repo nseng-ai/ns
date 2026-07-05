@@ -18,7 +18,7 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in handoff SDL extension registry", () => {
+describe("checked-in handoff ns extension registry", () => {
 	test("discovers the handoff group and imports a representative leaf", async () => {
 		const cwd = await createHandoffProject();
 

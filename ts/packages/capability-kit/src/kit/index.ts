@@ -1,7 +1,7 @@
 export {
-	createSdlCommandRunner,
-	SdlCommandExecApi,
-	SdlStdinCapableCommandExecApi,
+	createNsCommandRunner,
+	NsCommandExecApi,
+	NsStdinCapableCommandExecApi,
 } from "./command-runner.ts";
 export {
 	commandFailure,
@@ -16,11 +16,11 @@ export {
 	type GatewayResult,
 	type Result,
 } from "./gateway-result.ts";
-export { createSdlDomainCommand, type SdlDomainCommandOptions } from "./ns-command.ts";
+export { createNsDomainCommand, type NsDomainCommandOptions } from "./ns-command.ts";
 export {
-	createSdlClinkrInteraction,
-	createSdlCwdEnvStdinContext,
-	readEmptySdlStdin,
-	type SdlClinkrInteractionOptions,
-	type SdlCwdEnvStdinContext,
+	createNsClinkrInteraction,
+	createNsCwdEnvStdinContext,
+	readEmptyNsStdin,
+	type NsClinkrInteractionOptions,
+	type NsCwdEnvStdinContext,
 } from "./ns-context.ts";

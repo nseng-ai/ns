@@ -9,7 +9,7 @@ const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/ccc/", import.meta.url));
-const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
+const NS_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
@@ -28,7 +28,7 @@ const CCC_WORKSPACE_IMPORTS = [
 	"@ns/capability-kit/checkpoint-flow",
 ] as const;
 
-const SDL_EXPORT_IMPORTS = [
+const NS_EXPORT_IMPORTS = [
 	"@ns/capability-kit/checkpoint-flow",
 	"@ns/capability-kit/checkpoint-message",
 	"@ns/core/exec",
@@ -135,11 +135,11 @@ describe("Node runtime import smoke", () => {
 
 	test("kernel package imports every declared export subpath under Node", () => {
 		const result = runNodeEval({
-			cwd: SDL_PACKAGE_ROOT,
-			source: buildPackageImportScript(SDL_EXPORT_IMPORTS),
+			cwd: NS_PACKAGE_ROOT,
+			source: buildPackageImportScript(NS_EXPORT_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result, { cwd: SDL_PACKAGE_ROOT, label: "kernel package imports" });
+		expectSuccessfulNodeRun(result, { cwd: NS_PACKAGE_ROOT, label: "kernel package imports" });
 		expect(result.stdout).toContain("imported 10 package specifiers");
 	});
 });

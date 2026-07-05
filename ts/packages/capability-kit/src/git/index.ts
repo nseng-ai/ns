@@ -3,9 +3,9 @@ import path from "node:path";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
 import { commandSucceeded, formatCommand, formatCommandFailure } from "@ns/core/exec";
 import { formatErrorMessage } from "@ns/core/primitives";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
-import { SdlCommandExecApi } from "../kit/command-runner.ts";
+import { NsCommandExecApi } from "../kit/command-runner.ts";
 import { firstNonEmptyLine, nonEmptyLines } from "@ns/core/text-normalization";
 import type {
 	GitBranchParams,
@@ -494,8 +494,8 @@ function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
 	});
 }
 
-export function createSdlGitGateway(ctx: SdlExtensionApi): GitGateway {
-	return new RealGitGateway(new SdlCommandExecApi(ctx));
+export function createNsGitGateway(ctx: NsExtensionApi): GitGateway {
+	return new RealGitGateway(new NsCommandExecApi(ctx));
 }
 
 export interface GitWorktreePorcelainEntry {
@@ -573,12 +573,12 @@ export function parseGitWorktreePorcelain(stdout: string): GitWorktreePorcelainE
 	return entries;
 }
 
-export type SdlGitPorcelainStatusResult =
+export type NsGitPorcelainStatusResult =
 	| { ok: true; isClean: boolean; stdout: string; result: ExecResult }
 	| { ok: false; result: ExecResult };
 
-export interface ExecSdlCommandOptions {
-	ctx: SdlExtensionApi;
+export interface ExecNsCommandOptions {
+	ctx: NsExtensionApi;
 	command: string;
 	args: readonly string[];
 	cwd?: string;
@@ -592,17 +592,17 @@ interface CliExecOptions {
 	timeout?: number;
 }
 
-interface SdlCliExecAdapterOptions {
-	ctx: SdlExtensionApi;
+interface NsCliExecAdapterOptions {
+	ctx: NsExtensionApi;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
 }
 
-export async function execSdlCommand(options: ExecSdlCommandOptions): Promise<ExecResult> {
+export async function execNsCommand(options: ExecNsCommandOptions): Promise<ExecResult> {
 	if (options.cwd !== undefined && options.cwd !== options.ctx.cwd) {
 		return {
 			code: 2,
 			stdout: "",
-			stderr: `SDL command execution is scoped to ${options.ctx.cwd}; refusing command cwd ${options.cwd}.`,
+			stderr: `ns command execution is scoped to ${options.ctx.cwd}; refusing command cwd ${options.cwd}.`,
 			killed: false,
 		};
 	}
@@ -616,9 +616,9 @@ export async function execSdlCommand(options: ExecSdlCommandOptions): Promise<Ex
 		: await options.ctx.exec(options.command, [...options.args], execOptions);
 }
 
-export function createSdlCliExecAdapter(options: SdlCliExecAdapterOptions) {
+export function createNsCliExecAdapter(options: NsCliExecAdapterOptions) {
 	return async (command: string, args: string[], execOptions?: CliExecOptions) =>
-		await execSdlCommand({
+		await execNsCommand({
 			ctx: options.ctx,
 			command,
 			args,
@@ -633,12 +633,12 @@ export function createSdlCliExecAdapter(options: SdlCliExecAdapterOptions) {
 		});
 }
 
-export async function execSdlGit(
-	ctx: SdlExtensionApi,
+export async function execNsGit(
+	ctx: NsExtensionApi,
 	args: readonly string[],
 	timeoutMs?: number,
 ): Promise<ExecResult> {
-	return await execSdlCommand({
+	return await execNsCommand({
 		ctx,
 		command: "git",
 		args,
@@ -646,11 +646,11 @@ export async function execSdlGit(
 	});
 }
 
-export async function readSdlGitPorcelainStatus(
-	ctx: SdlExtensionApi,
+export async function readNsGitPorcelainStatus(
+	ctx: NsExtensionApi,
 	timeoutMs?: number,
-): Promise<SdlGitPorcelainStatusResult> {
-	const result = await execSdlGit(ctx, ["status", "--porcelain"], timeoutMs);
+): Promise<NsGitPorcelainStatusResult> {
+	const result = await execNsGit(ctx, ["status", "--porcelain"], timeoutMs);
 	if (!commandSucceeded(result)) return { ok: false, result };
 
 	const stdout = result.stdout;

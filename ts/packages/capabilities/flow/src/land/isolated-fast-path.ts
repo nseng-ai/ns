@@ -1,4 +1,4 @@
-import type { SdlCommandIo } from "@ns/kernel/sdk";
+import type { NsCommandIo } from "@ns/kernel/sdk";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
 import { toLandStackFailure } from "./stack/landing-plan.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
@@ -23,7 +23,7 @@ interface RunIsolatedFastPathLandingOptions {
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;
-	progressIo?: SdlCommandIo;
+	progressIo?: NsCommandIo;
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
@@ -118,7 +118,7 @@ export async function runIsolatedFastPathLanding(
 function progress(
 	ctx: PrintAwareLandStackCommandContext,
 	message: string,
-	options: { progressIo?: SdlCommandIo } = {},
+	options: { progressIo?: NsCommandIo } = {},
 ): void {
 	if (options.progressIo !== undefined) {
 		options.progressIo.phase(message);

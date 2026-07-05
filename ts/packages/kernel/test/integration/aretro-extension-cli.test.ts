@@ -19,8 +19,8 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in Aretro SDL extension loading", () => {
-	test("exposes hidden Aretro exec command help through the SDL command face", async () => {
+describe("checked-in Aretro ns extension loading", () => {
+	test("exposes hidden Aretro exec command help through the ns command face", async () => {
 		const cwd = await createAretroProject();
 
 		const rootHelp = runWithRealAretroExtension({ args: ["aretro", "--help"], cwd });
@@ -49,7 +49,7 @@ describe("checked-in Aretro SDL extension loading", () => {
 		expect(detailHelp.stdout.join("")).toContain("Usage: ns aretro exec read-evidence-detail");
 	});
 
-	test("publishes schema and runs collect-evidence through the SDL command face", async () => {
+	test("publishes schema and runs collect-evidence through the ns command face", async () => {
 		const cwd = await createAretroProject();
 		const sessionRoot = join(cwd, "sessions");
 		await mkdir(sessionRoot, { recursive: true });

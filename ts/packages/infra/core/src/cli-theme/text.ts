@@ -1,4 +1,4 @@
-// Width and layout helpers for SDL CLI theme. Layout math must measure VISIBLE cells, not bytes, so
+// Width and layout helpers for ns CLI theme. Layout math must measure VISIBLE cells, not bytes, so
 // `visibleWidth` strips terminal escapes before counting and the padders pad by plain width.
 
 import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";

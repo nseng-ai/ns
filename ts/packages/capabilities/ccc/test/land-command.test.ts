@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { Caps } from "@ns/clinkr";
 import { stripAnsi } from "@ns/clinkr/testing";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ns/capability-kit/git";
-import type { SdlConfirmOptions } from "@ns/kernel/sdk";
+import type { NsConfirmOptions } from "@ns/kernel/sdk";
 import { ScriptedQueue } from "@ns/core/test-kit";
 import {
 	parsePullRequestView,
@@ -84,7 +84,7 @@ interface Notification {
 interface Confirmation {
 	title: string;
 	message: string;
-	options?: SdlConfirmOptions;
+	options?: NsConfirmOptions;
 }
 
 class FakePi implements LandExtensionAPI {
@@ -178,7 +178,7 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
 			},
-			async confirm(title: string, message: string, options?: SdlConfirmOptions): Promise<boolean> {
+			async confirm(title: string, message: string, options?: NsConfirmOptions): Promise<boolean> {
 				confirmations.push({ title, message, ...(options === undefined ? {} : { options }) });
 				return false;
 			},

@@ -21,7 +21,7 @@ const PR_URL = "https://github.com/acme/repo/pull/123";
 const ERROR_TRUECOLOR = "\x1b[38;2;248;81;73m";
 const generatedText = `Improve PR descriptions
 
-This regenerates the PR title and body with the sdl-owned prompt.
+This regenerates the PR title and body with the ns-owned prompt.
 
 ## Key Changes
 

@@ -1,23 +1,23 @@
-import { createSdlCwdEnvStdinContext } from "@ns/capability-kit/ns-context";
-import { defineExtension, type SdlExtensionApi } from "@ns/kernel/sdk";
+import { createNsCwdEnvStdinContext } from "@ns/capability-kit/ns-context";
+import { defineExtension, type NsExtensionApi } from "@ns/kernel/sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
 import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
 
-export function prAddressSdlCommand(operationName: string) {
+export function prAddressNsCommand(operationName: string) {
 	const operation = findOperation(operationName);
-	return operation.toSdlCommand(createExecContext);
+	return operation.toNsCommand(createExecContext);
 }
 
-export function prAddressSdlExtension(operationName: string) {
-	return defineExtension({ commands: [prAddressSdlCommand(operationName)] });
+export function prAddressNsExtension(operationName: string) {
+	return defineExtension({ commands: [prAddressNsCommand(operationName)] });
 }
 
-function createExecContext(ctx: SdlExtensionApi): PrAddressExecContext {
+function createExecContext(ctx: NsExtensionApi): PrAddressExecContext {
 	return {
 		context: createRealPrAddressContext(),
-		...createSdlCwdEnvStdinContext(ctx),
+		...createNsCwdEnvStdinContext(ctx),
 	};
 }
 

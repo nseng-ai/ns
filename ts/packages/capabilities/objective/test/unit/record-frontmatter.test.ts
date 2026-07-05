@@ -100,7 +100,7 @@ describe("splitObjectiveRecordDocument", () => {
 	});
 
 	test("marks wrongly-typed edge entries malformed", () => {
-		const content = `---\nedges:\n  - checkout-free-sdl-distribution\n---\n${RECORD_BODY}`;
+		const content = `---\nedges:\n  - checkout-free-ns-distribution\n---\n${RECORD_BODY}`;
 		expect(splitObjectiveRecordDocument(content).frontmatter).toMatchObject({
 			type: "malformed",
 		});

@@ -7,11 +7,11 @@ import {
 	runReviewList,
 	type ReviewListRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ns/command.ts";
+import { roasterNsCommand } from "../ns/command.ts";
 
 const REVIEW_LIST_DESCRIPTION = `List configured Roaster review definitions.
 
-This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, then delegates through the curated @ns/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
+This ns command adapts ns execution context to Roaster's gateway-injected runtime, then delegates through the curated @ns/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
 
 export interface ReviewListCommandMetadata {
 	readonly name: string;
@@ -20,7 +20,7 @@ export interface ReviewListCommandMetadata {
 }
 
 export function createReviewListCommand(metadata: ReviewListCommandMetadata) {
-	return roasterSdlCommand({
+	return roasterNsCommand({
 		...metadata,
 		schema: reviewListRequestSchema,
 		options: {

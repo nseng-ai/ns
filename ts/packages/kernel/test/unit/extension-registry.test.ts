@@ -5,14 +5,14 @@ import { dirname, join } from "node:path";
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,
 	loadListingCommandInfos,
-	loadSdlCommandCatalog,
-	loadSelectedSdlCommand,
+	loadNsCommandCatalog,
+	loadSelectedNsCommand,
 } from "../../src/extensions/registry.ts";
 
 const tempDirs: string[] = [];
@@ -90,7 +90,7 @@ describe("extension registry", () => {
 	test("catalog can be empty without built-ins or external extensions", async () => {
 		const workspace = await createWorkspace();
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual([]);
@@ -101,7 +101,7 @@ describe("extension registry", () => {
 		const workspace = await createWorkspace();
 		delete process.env.NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 		try {
-			const loaded = await loadSdlCommandCatalog({
+			const loaded = await loadNsCommandCatalog({
 				cwd: workspace.cwd,
 				homeDir: workspace.homeDir,
 			});
@@ -122,7 +122,7 @@ describe("extension registry", () => {
 		writeLegacyGlobalExtension(workspace, "legacy.ts", commandEntry("legacy", "legacy greet"));
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "xdg greet"));
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(
@@ -132,15 +132,15 @@ describe("extension registry", () => {
 		const selected = loaded.candidates.get("greet");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
-		const command = await loadSelectedSdlCommand(selected);
+		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
 		const result = await command.command.run(
 			{
 				cwd: workspace.cwd,
 				env: {},
-				commandIo: noopSdlCommandIo,
-				progress: noopSdlProgress,
+				commandIo: noopNsCommandIo,
+				progress: noopNsProgress,
 				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
@@ -162,31 +162,31 @@ describe("extension registry", () => {
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "global greet"));
 		writeProjectExtension(workspace, "greet.ts", commandEntry("greet", "project greet"));
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(
 			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
 		).toHaveLength(1);
 		expect(loaded.commandInfos.find((info) => info.name === "cp")?.description).toBe(
-			"Run SDL command entry 'cp'.",
+			"Run ns command entry 'cp'.",
 		);
 		expect(loaded.commandInfos.find((info) => info.name === "greet")?.description).toBe(
-			"Run SDL command entry 'greet'.",
+			"Run ns command entry 'greet'.",
 		);
 
 		const selected = loaded.candidates.get("greet");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
-		const command = await loadSelectedSdlCommand(selected);
+		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
 		const result = await command.command.run(
 			{
 				cwd: workspace.cwd,
 				env: {},
-				commandIo: noopSdlCommandIo,
-				progress: noopSdlProgress,
+				commandIo: noopNsCommandIo,
+				progress: noopNsProgress,
 				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
@@ -221,7 +221,7 @@ describe("extension registry", () => {
 			"throw new Error('should not import during discovery');\n",
 		);
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(loaded.commandInfos.find((info) => info.name === "hello")).toEqual({
@@ -239,7 +239,7 @@ describe("extension registry", () => {
 			commandEntry("hello", "hello from loaded command"),
 		);
 
-		const catalog = await loadSdlCommandCatalog({
+		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
 		});
@@ -274,7 +274,7 @@ describe("extension registry", () => {
 			"throw new Error('should not import package commands for listing');\n",
 		);
 
-		const catalog = await loadSdlCommandCatalog({
+		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
 		});
@@ -311,7 +311,7 @@ describe("extension registry", () => {
 			commandEntry("list", "list"),
 		);
 
-		const catalog = await loadSdlCommandCatalog({
+		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
 		});
@@ -341,7 +341,7 @@ describe("extension registry", () => {
 			"throw new Error('group manifest entries should not load for listing');\n",
 		);
 
-		const catalog = await loadSdlCommandCatalog({
+		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
 		});
@@ -362,7 +362,7 @@ describe("extension registry", () => {
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "hello.ts", "throw new Error('listing boom');\n");
 
-		const catalog = await loadSdlCommandCatalog({
+		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
 		});
@@ -371,8 +371,8 @@ describe("extension registry", () => {
 		expect(loaded.commandInfos).toEqual([
 			{
 				name: "hello",
-				description: "Run SDL command entry 'hello'.",
-				fullDescription: "Run SDL command entry 'hello'.",
+				description: "Run ns command entry 'hello'.",
+				fullDescription: "Run ns command entry 'hello'.",
 			},
 		]);
 		expect(loaded.diagnostics).toEqual([
@@ -402,7 +402,7 @@ describe("extension registry", () => {
 		});
 	});
 
-	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
+	test("one ns extension module can contribute multiple manifest-listed commands", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
 			ns: {
@@ -426,22 +426,22 @@ export default defineExtension({
 `,
 		);
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual(["bye", "hello"]);
 		const selected = loaded.candidates.get("bye");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
-		const command = await loadSelectedSdlCommand(selected);
+		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
 		const result = await command.command.run(
 			{
 				cwd: workspace.cwd,
 				env: {},
-				commandIo: noopSdlCommandIo,
-				progress: noopSdlProgress,
+				commandIo: noopNsCommandIo,
+				progress: noopNsProgress,
 				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
@@ -468,7 +468,7 @@ export default defineExtension({
 			commandEntry("one", "pkg"),
 		);
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(
@@ -490,7 +490,7 @@ export default defineExtension({
 			commandEntry("list", "list"),
 		);
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(
@@ -508,7 +508,7 @@ export default defineExtension({
 		writeProjectExtension(workspace, "Bad.ts", commandEntry("Bad", "bad"));
 		writeProjectExtension(workspace, "throws.ts", "throw new Error('boom');\n");
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(
@@ -517,7 +517,7 @@ export default defineExtension({
 		const selected = loaded.candidates.get("throws");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
-		const command = await loadSelectedSdlCommand(selected);
+		const command = await loadSelectedNsCommand(selected);
 		expect(command).toMatchObject({
 			ok: false,
 			diagnostic: { code: "ns_extension_contribution_import_failed", commandName: "throws" },

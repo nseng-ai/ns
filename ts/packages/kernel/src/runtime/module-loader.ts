@@ -8,16 +8,16 @@ import { isRecord } from "@ns/core/primitives";
 
 import {
 	defineExtension,
-	defineRepoLocalSdlExtensionDescriptor,
+	defineRepoLocalNsExtensionDescriptor,
 	failed,
-	noopSdlCommandIo,
-	repoLocalSdlCommandDescriptor,
-	noopSdlProgress,
+	noopNsCommandIo,
+	repoLocalNsCommandDescriptor,
+	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	sdlExtensionManifestCommandSchema,
-	sdlExtensionManifestSchema,
-	sdlExtensionPackageManifestSchema,
+	nsExtensionManifestCommandSchema,
+	nsExtensionManifestSchema,
+	nsExtensionPackageManifestSchema,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
@@ -25,10 +25,10 @@ import {
 	z,
 } from "../sdk/index.ts";
 
-const SDL_SDK_DIR = dirname(fileURLToPath(import.meta.url));
-const SDL_SRC_DIR = dirname(SDL_SDK_DIR);
+const NS_SDK_DIR = dirname(fileURLToPath(import.meta.url));
+const NS_SRC_DIR = dirname(NS_SDK_DIR);
 
-/** Module specifier that SDL command entries import the SDK from. */
+/** Module specifier that ns command entries import the SDK from. */
 const SDK_SPECIFIER = "@ns/kernel/sdk";
 const CCC_AUTOSLOT_SPECIFIER = "@ns/ccc/autoslot";
 const CCC_LAND_SPECIFIER = "@ns/ccc/land";
@@ -47,22 +47,22 @@ const OBJECTIVE_PACKAGE_NAME = "@ns/objective";
 const FLOW_PACKAGE_NAME = "@ns/flow";
 const ROASTER_PACKAGE_NAME = "@ns/roaster";
 
-const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "ccc", "src");
-const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
-const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "capability-kit", "src");
-const ADDRESS_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "address");
+const CCC_SRC_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "ccc", "src");
+const CORE_SRC_DIR = join(NS_SRC_DIR, "..", "..", "infra", "core", "src");
+const CAPABILITY_KIT_SRC_DIR = join(NS_SRC_DIR, "..", "..", "capability-kit", "src");
+const ADDRESS_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "address");
 const ADDRESS_PACKAGE_JSON_PATH = join(ADDRESS_PACKAGE_DIR, "package.json");
-const ARETRO_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "aretro");
+const ARETRO_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "aretro");
 const ARETRO_PACKAGE_JSON_PATH = join(ARETRO_PACKAGE_DIR, "package.json");
-const BRANCH_CONTEXT_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "branch-context");
+const BRANCH_CONTEXT_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "branch-context");
 const BRANCH_CONTEXT_PACKAGE_JSON_PATH = join(BRANCH_CONTEXT_PACKAGE_DIR, "package.json");
-const HANDOFF_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "handoff");
+const HANDOFF_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "handoff");
 const HANDOFF_PACKAGE_JSON_PATH = join(HANDOFF_PACKAGE_DIR, "package.json");
-const OBJECTIVE_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "objective");
+const OBJECTIVE_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "objective");
 const OBJECTIVE_PACKAGE_JSON_PATH = join(OBJECTIVE_PACKAGE_DIR, "package.json");
-const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
+const FLOW_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
-const ROASTER_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "roaster");
+const ROASTER_PACKAGE_DIR = join(NS_SRC_DIR, "..", "..", "capabilities", "roaster");
 const ROASTER_PACKAGE_JSON_PATH = join(ROASTER_PACKAGE_DIR, "package.json");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "ns", "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "ns", "land.ts");
@@ -74,7 +74,7 @@ const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives", "primitives
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "terminal", "text-normalization.ts");
 const GIT_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "git", "index.ts");
 
-const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
+const NS_INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@ns/kernel/cli": "cli/index.ts",
 	"@ns/kernel/context": "cli/context.ts",
 	"@ns/kernel/pi-text-generation": "runtime/pi-text-generation.ts",
@@ -91,7 +91,7 @@ const CAPABILITY_KIT_MODULE_PATHS = {
 
 function buildInternalWorkspaceAliases(): Record<string, string> {
 	return {
-		...buildModuleAliasMap(SDL_SRC_DIR, SDL_INTERNAL_WORKSPACE_MODULE_PATHS),
+		...buildModuleAliasMap(NS_SRC_DIR, NS_INTERNAL_WORKSPACE_MODULE_PATHS),
 		...buildModuleAliasMap(CAPABILITY_KIT_SRC_DIR, CAPABILITY_KIT_MODULE_PATHS),
 	};
 }
@@ -108,38 +108,38 @@ function buildModuleAliasMap(
 	);
 }
 
-const SDL_COMMAND_EXPORT_PREFIX = "./ns/commands/";
+const NS_COMMAND_EXPORT_PREFIX = "./ns/commands/";
 
 const PACKAGE_COMMAND_ALIAS_SOURCES = [
 	{
 		packageName: ADDRESS_PACKAGE_NAME,
 		packageDir: ADDRESS_PACKAGE_DIR,
 		packageJsonPath: ADDRESS_PACKAGE_JSON_PATH,
-		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+		exportPrefix: NS_COMMAND_EXPORT_PREFIX,
 	},
 	{
 		packageName: ARETRO_PACKAGE_NAME,
 		packageDir: ARETRO_PACKAGE_DIR,
 		packageJsonPath: ARETRO_PACKAGE_JSON_PATH,
-		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+		exportPrefix: NS_COMMAND_EXPORT_PREFIX,
 	},
 	{
 		packageName: BRANCH_CONTEXT_PACKAGE_NAME,
 		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
 		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
-		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+		exportPrefix: NS_COMMAND_EXPORT_PREFIX,
 	},
 	{
 		packageName: HANDOFF_PACKAGE_NAME,
 		packageDir: HANDOFF_PACKAGE_DIR,
 		packageJsonPath: HANDOFF_PACKAGE_JSON_PATH,
-		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+		exportPrefix: NS_COMMAND_EXPORT_PREFIX,
 	},
 	{
 		packageName: OBJECTIVE_PACKAGE_NAME,
 		packageDir: OBJECTIVE_PACKAGE_DIR,
 		packageJsonPath: OBJECTIVE_PACKAGE_JSON_PATH,
-		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+		exportPrefix: NS_COMMAND_EXPORT_PREFIX,
 	},
 	{
 		packageName: FLOW_PACKAGE_NAME,
@@ -254,18 +254,18 @@ function stripLeadingDotSlash(path: string): string {
 
 // Keep this object in sync with all runtime value exports from @ns/kernel/sdk; type-only exports are erased.
 // Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
-const sdlSdkVirtualModule = {
+const nsSdkVirtualModule = {
 	defineExtension,
-	defineRepoLocalSdlExtensionDescriptor,
+	defineRepoLocalNsExtensionDescriptor,
 	failed,
-	noopSdlCommandIo,
-	repoLocalSdlCommandDescriptor,
-	noopSdlProgress,
+	noopNsCommandIo,
+	repoLocalNsCommandDescriptor,
+	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	sdlExtensionManifestCommandSchema,
-	sdlExtensionManifestSchema,
-	sdlExtensionPackageManifestSchema,
+	nsExtensionManifestCommandSchema,
+	nsExtensionManifestSchema,
+	nsExtensionPackageManifestSchema,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
@@ -274,7 +274,7 @@ const sdlSdkVirtualModule = {
 } satisfies Record<string, unknown>;
 
 /**
- * Create the SDL-aware jiti instance used for user-authored modules.
+ * Create the ns-aware jiti instance used for user-authored modules.
  *
  * The load-bearing option is `virtualModules`: it binds `@ns/kernel/sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
@@ -287,7 +287,7 @@ const sdlSdkVirtualModule = {
  * command subpaths are aliased narrowly from that package's `exports` map
  * without adding general `node_modules` package discovery.
  */
-export function createSdlJiti(): ReturnType<typeof createJiti> {
+export function createNsJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			...buildInternalWorkspaceAliases(),
@@ -304,18 +304,18 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		},
 		moduleCache: false,
 		virtualModules: {
-			[SDK_SPECIFIER]: sdlSdkVirtualModule,
+			[SDK_SPECIFIER]: nsSdkVirtualModule,
 		},
 	});
 }
 
 /**
- * Load the default export of a TypeScript or JavaScript SDL user module.
+ * Load the default export of a TypeScript or JavaScript ns user module.
  *
  * Callers validate the returned value according to the command-entry contract.
  * Throws when the file cannot be transpiled or imported.
  */
-export async function loadSdlUserModuleDefault(modulePath: string): Promise<unknown> {
-	const jiti = createSdlJiti();
+export async function loadNsUserModuleDefault(modulePath: string): Promise<unknown> {
+	const jiti = createNsJiti();
 	return jiti.import(modulePath, { default: true });
 }

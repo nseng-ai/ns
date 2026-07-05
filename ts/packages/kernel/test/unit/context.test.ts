@@ -2,11 +2,11 @@ import process from "node:process";
 
 import { describe, expect, test } from "vitest";
 
-import { createRealSdlCommandContext } from "@ns/kernel/context";
+import { createRealNsCommandContext } from "@ns/kernel/context";
 
-describe("real SDL command context", () => {
+describe("real ns command context", () => {
 	test("forwards stdin to executed commands", async () => {
-		const ctx = createRealSdlCommandContext({ cwd: process.cwd(), env: process.env });
+		const ctx = createRealNsCommandContext({ cwd: process.cwd(), env: process.env });
 
 		const result = await ctx.exec(process.execPath, ["-e", "process.stdin.pipe(process.stdout)"], {
 			stdin: "hello from stdin",

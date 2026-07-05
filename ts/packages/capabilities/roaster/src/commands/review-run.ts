@@ -7,13 +7,13 @@ import {
 	runReviewByKey,
 	type ReviewRunRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ns/command.ts";
+import { roasterNsCommand } from "../ns/command.ts";
 
 const REVIEW_RUN_DESCRIPTION = `Run a configured Roaster review over the current diff.
 
-This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, delegates review execution through the shared Roaster operation wrapper, writes the Roaster Branch Memory review log, and preserves review-run failure semantics. Discovery and group help read only manifest metadata; selected execution may run git, model, and Branch Memory operations.`;
+This ns command adapts ns execution context to Roaster's gateway-injected runtime, delegates review execution through the shared Roaster operation wrapper, writes the Roaster Branch Memory review log, and preserves review-run failure semantics. Discovery and group help read only manifest metadata; selected execution may run git, model, and Branch Memory operations.`;
 
-export const roasterReviewRunCommand = roasterSdlCommand({
+export const roasterReviewRunCommand = roasterNsCommand({
 	name: "run",
 	summary: "Run a configured Roaster review over the current diff.",
 	description: REVIEW_RUN_DESCRIPTION,

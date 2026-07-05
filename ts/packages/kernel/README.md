@@ -1,6 +1,6 @@
 # ji
 
-`ji` is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling. The package still carries `@sdl/kernel` naming until the package-scope sweep lands.
+`ji` is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling. The package now exposes the active kernel SDK as `@ns/kernel` and `@ns/kernel/sdk`.
 
 The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@ns/ccc` may continue to own repo-specific orchestration internals, but ji owns the public lifecycle command surface once a workflow moves to `ji`.
 
@@ -165,10 +165,10 @@ ji extension authors import the SDK surface, including schema builder `z`, from 
 
 ```ts
 import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
-import type { SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
+import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 ```
 
-`@ns/kernel/sdk` is the ji author SDK subpackage and the SDK layer; `@ns/kernel` is the host/kernel container that loads extensions. That `@ns/kernel/sdk` subpath is the public author API for ji extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
+`@ns/kernel/sdk` is the ji author SDK subpackage and the SDK layer; `@ns/kernel` is the host/kernel container that loads extensions. That `@ns/kernel/sdk` subpath is the public author API for ji extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `NsExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
 
 ji command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal ji implementation modules.
 

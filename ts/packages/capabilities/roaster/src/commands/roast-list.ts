@@ -7,11 +7,11 @@ import {
 	runRoastSkillList,
 	type RoastSkillListRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ns/command.ts";
+import { roasterNsCommand } from "../ns/command.ts";
 
 const ROAST_LIST_DESCRIPTION = `List Roaster review-skill command entries generated from review definitions.`;
 
-export const roasterRoastListCommand = roasterSdlCommand({
+export const roasterRoastListCommand = roasterNsCommand({
 	name: "list",
 	summary: "List Roaster review-skill commands.",
 	description: ROAST_LIST_DESCRIPTION,

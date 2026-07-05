@@ -10,11 +10,11 @@ import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
-import type { SdlCommand, SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
+import type { NsCommand, NsExtensionApi, NsResult } from "@ns/kernel/sdk";
 import { failed } from "@ns/kernel/sdk";
 
 import {
-	ScriptedSdlTestContext,
+	ScriptedNsTestContext,
 	type RunWithFakesDefaults,
 	type ScriptedExecResponse,
 	type TestState,
@@ -30,7 +30,7 @@ interface RunFlowCommandWithFakesOptions {
 }
 
 interface FlowCommandFixture {
-	command: SdlCommand;
+	command: NsCommand;
 	request: unknown;
 	defaults: RunWithFakesDefaults;
 	options: RunFlowCommandWithFakesOptions;
@@ -424,7 +424,7 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
 	const cwd = fixture.options.cwd ?? "/work";
 	const homeDir = fixture.options.homeDir ?? join(cwd, ".home");
-	const context = new ScriptedSdlTestContext(fixture.options.state, {
+	const context = new ScriptedNsTestContext(fixture.options.state, {
 		cwd,
 		env: { HOME: homeDir, ...(fixture.options.env ?? {}) },
 		execResponses: fixture.defaults.execResponses,
@@ -460,12 +460,12 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 }
 
 async function runFlowCommand(input: {
-	context: SdlExtensionApi;
-	command: SdlCommand;
+	context: NsExtensionApi;
+	command: NsCommand;
 	request: unknown;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-}): Promise<{ exitCode: number; result: SdlResult }> {
+}): Promise<{ exitCode: number; result: NsResult }> {
 	const parsedRequest = input.command.schema?.safeParse(input.request) ?? {
 		success: true,
 		data: {},
@@ -473,23 +473,23 @@ async function runFlowCommand(input: {
 	if (!parsedRequest.success) {
 		const issue = parsedRequest.error.issues[0]?.message ?? "request did not match command schema";
 		const result = failed(`Invalid request for command ${input.command.name}: ${issue}`, 2);
-		writeSdlResultOutput(result, input);
+		writeNsResultOutput(result, input);
 		return { exitCode: 2, result };
 	}
 	const result = await input.command.run(input.context, parsedRequest.data);
-	if (!isSdlResult(result)) {
+	if (!isNsResult(result)) {
 		throw new Error(`Flow test command ${input.command.name} returned a rendered result.`);
 	}
-	writeSdlResultOutput(result, input);
+	writeNsResultOutput(result, input);
 	return { exitCode: result.ok ? 0 : result.exitCode, result };
 }
 
-function isSdlResult(result: unknown): result is SdlResult {
+function isNsResult(result: unknown): result is NsResult {
 	return typeof result === "object" && result !== null && "ok" in result;
 }
 
-function writeSdlResultOutput(
-	result: SdlResult,
+function writeNsResultOutput(
+	result: NsResult,
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
 	if (result.message === "") return;

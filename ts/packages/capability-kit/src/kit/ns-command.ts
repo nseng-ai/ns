@@ -1,30 +1,30 @@
 import type {
 	ClinkrExit,
 	RenderCapabilities,
-	SdlCommand,
-	SdlCommandSchema,
-	SdlExtensionApi,
+	NsCommand,
+	NsCommandSchema,
+	NsExtensionApi,
 } from "@ns/kernel/sdk";
 import type { z } from "zod";
 
-export interface SdlDomainCommandOptions<S extends SdlCommandSchema, T, TContext> {
+export interface NsDomainCommandOptions<S extends NsCommandSchema, T, TContext> {
 	name: string;
 	summary: string;
 	description: string;
 	schema: S;
 	resultSchema: z.ZodType<T>;
-	positionals?: SdlCommand<S, T>["positionals"];
-	options?: SdlCommand<S, T>["options"];
-	completionProvider?: SdlCommand<S, T>["completionProvider"];
+	positionals?: NsCommand<S, T>["positionals"];
+	options?: NsCommand<S, T>["options"];
+	completionProvider?: NsCommand<S, T>["completionProvider"];
 	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
-	createContext(ctx: SdlExtensionApi): Promise<TContext> | TContext;
+	createContext(ctx: NsExtensionApi): Promise<TContext> | TContext;
 	handler(ctx: TContext, request: z.output<S>): Promise<ClinkrExit<T>> | ClinkrExit<T>;
 }
 
-export function createSdlDomainCommand<S extends SdlCommandSchema, T, TContext>(
-	options: SdlDomainCommandOptions<S, T, TContext>,
-): SdlCommand<S, T> {
+export function createNsDomainCommand<S extends NsCommandSchema, T, TContext>(
+	options: NsDomainCommandOptions<S, T, TContext>,
+): NsCommand<S, T> {
 	return {
 		name: options.name,
 		summary: options.summary,
@@ -48,7 +48,7 @@ export function createSdlDomainCommand<S extends SdlCommandSchema, T, TContext>(
 					renderMarkdown: (data: unknown, caps: RenderCapabilities) =>
 						options.renderMarkdown?.(options.resultSchema.parse(data), caps) ?? "",
 				}),
-		run: async (ctx: SdlExtensionApi, request: z.output<S>) => {
+		run: async (ctx: NsExtensionApi, request: z.output<S>) => {
 			const domainContext = await options.createContext(ctx);
 			return await options.handler(domainContext, request);
 		},

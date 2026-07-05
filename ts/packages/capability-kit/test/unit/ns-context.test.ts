@@ -1,17 +1,17 @@
 import { describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
 import type { ExecResult } from "@ns/core/exec";
-import type { SdlExtensionApi } from "@ns/kernel/sdk";
+import type { NsExtensionApi } from "@ns/kernel/sdk";
 
 import {
-	createSdlClinkrInteraction,
-	createSdlCwdEnvStdinContext,
+	createNsClinkrInteraction,
+	createNsCwdEnvStdinContext,
 } from "@ns/capability-kit/ns-context";
 
-describe("SDL context adapters", () => {
+describe("ns context adapters", () => {
 	test("creates a non-interactive aborting Clinkr interaction when confirm is unavailable", async () => {
-		const interaction = createSdlClinkrInteraction(fakeApi(), { title: "Confirm" });
+		const interaction = createNsClinkrInteraction(fakeApi(), { title: "Confirm" });
 
 		expect(interaction.isInteractive()).toBe(false);
 		await expect(
@@ -19,9 +19,9 @@ describe("SDL context adapters", () => {
 		).resolves.toEqual({ type: "aborted" });
 	});
 
-	test("maps SDL confirm approval to confirmed", async () => {
+	test("maps ns confirm approval to confirmed", async () => {
 		const prompts: Array<{ title: string; message: string }> = [];
-		const interaction = createSdlClinkrInteraction(
+		const interaction = createNsClinkrInteraction(
 			fakeApi({
 				confirm: async (title, message) => {
 					prompts.push({ title, message });
@@ -38,8 +38,8 @@ describe("SDL context adapters", () => {
 		expect(prompts).toEqual([{ title: "Deploy", message: "Formatted: Continue?" }]);
 	});
 
-	test("maps SDL confirm rejection to declined", async () => {
-		const interaction = createSdlClinkrInteraction(fakeApi({ confirm: async () => false }), {
+	test("maps ns confirm rejection to declined", async () => {
+		const interaction = createNsClinkrInteraction(fakeApi({ confirm: async () => false }), {
 			title: "Confirm",
 		});
 
@@ -50,7 +50,7 @@ describe("SDL context adapters", () => {
 
 	test("uses the request message when no formatter is supplied", async () => {
 		let capturedMessage = "";
-		const interaction = createSdlClinkrInteraction(
+		const interaction = createNsClinkrInteraction(
 			fakeApi({
 				confirm: (_title, message) => {
 					capturedMessage = message;
@@ -65,9 +65,9 @@ describe("SDL context adapters", () => {
 		expect(capturedMessage).toBe("Use original");
 	});
 
-	test("creates cwd/env/stdin context from SDL host context", async () => {
+	test("creates cwd/env/stdin context from ns host context", async () => {
 		const env = { NS_TEST: "1" };
-		const context = createSdlCwdEnvStdinContext(fakeApi({ env }));
+		const context = createNsCwdEnvStdinContext(fakeApi({ env }));
 
 		expect(context.cwd).toBe("/repo");
 		expect(context.env).toBe(env);
@@ -75,12 +75,12 @@ describe("SDL context adapters", () => {
 	});
 });
 
-function fakeApi(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
+function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 	return {
 		cwd: "/repo",
 		env: {},
-		commandIo: noopSdlCommandIo,
-		progress: noopSdlProgress,
+		commandIo: noopNsCommandIo,
+		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		textGenerator: {
 			async generateText() {

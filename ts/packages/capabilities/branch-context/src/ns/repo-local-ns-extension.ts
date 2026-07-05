@@ -1,29 +1,26 @@
-import {
-	defineRepoLocalSdlExtensionDescriptor,
-	repoLocalSdlCommandDescriptor,
-} from "@ns/kernel/sdk";
+import { defineRepoLocalNsExtensionDescriptor, repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
 
-import { branchContextAttachSdlCommand } from "./commands/attach.ts";
-import { branchContextCheckSdlCommand } from "./commands/check.ts";
-import { branchContextDeleteSdlCommand } from "./commands/delete.ts";
-import { branchContextFromPlanSdlCommand } from "./commands/from-plan.ts";
-import { branchContextListSdlCommand } from "./commands/list.ts";
-import { branchContextLoadSdlCommand } from "./commands/load.ts";
+import { branchContextAttachNsCommand } from "./commands/attach.ts";
+import { branchContextCheckNsCommand } from "./commands/check.ts";
+import { branchContextDeleteNsCommand } from "./commands/delete.ts";
+import { branchContextFromPlanNsCommand } from "./commands/from-plan.ts";
+import { branchContextListNsCommand } from "./commands/list.ts";
+import { branchContextLoadNsCommand } from "./commands/load.ts";
 
 const BRANCH_CONTEXT_COMMANDS = [
-	branchContextFromPlanSdlCommand,
-	branchContextLoadSdlCommand,
-	branchContextAttachSdlCommand,
-	branchContextListSdlCommand,
-	branchContextCheckSdlCommand,
-	branchContextDeleteSdlCommand,
+	branchContextFromPlanNsCommand,
+	branchContextLoadNsCommand,
+	branchContextAttachNsCommand,
+	branchContextListNsCommand,
+	branchContextCheckNsCommand,
+	branchContextDeleteNsCommand,
 ] as const;
 
-export const branchContextRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
+export const branchContextRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "branch-context",
 	description: "Create and load branch-scoped implementation context.",
 	commands: BRANCH_CONTEXT_COMMANDS.map((command) =>
-		repoLocalSdlCommandDescriptor({
+		repoLocalNsCommandDescriptor({
 			command,
 			manifestPath: ["exec", command.name],
 			packageExportPrefix: "@ns/branch-context/ns/commands",

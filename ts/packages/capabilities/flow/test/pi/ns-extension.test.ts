@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@ns/pi/commands/cli-extension";
-import sdlExtension, { type SdlExtensionAPI } from "../../src/pi/ns-extension.ts";
+import nsExtension, { type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
 import type { CommandContext } from "@ns/pi/commands/cli-extension";
 
-type RegisteredCommand = Parameters<SdlExtensionAPI["registerCommand"]>[1];
-type CustomMessage = Parameters<NonNullable<SdlExtensionAPI["sendMessage"]>>[0];
+type RegisteredCommand = Parameters<NsExtensionAPI["registerCommand"]>[1];
+type CustomMessage = Parameters<NonNullable<NsExtensionAPI["sendMessage"]>>[0];
 type FlowCommandName =
 	| "changes"
 	| "cp"
@@ -31,7 +31,7 @@ const FLOW_COMMANDS = [
 	"pull-trunk",
 ] as const satisfies readonly FlowCommandName[];
 
-class FakePi implements SdlExtensionAPI {
+class FakePi implements NsExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messageRenderers = new Map<string, unknown>();
 	readonly sentMessages: CustomMessage[] = [];
@@ -87,11 +87,11 @@ function createContext(cwd: string): CommandContext {
 	};
 }
 
-describe("sdl Pi extension", () => {
-	test("exposes only nested flow SDL lifecycle mirrors", () => {
+describe("ns Pi extension", () => {
+	test("exposes only nested flow ns lifecycle mirrors", () => {
 		const pi = new FakePi();
 
-		sdlExtension(pi);
+		nsExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `ns:flow:${name}`));
 		for (const oldName of [
@@ -122,10 +122,10 @@ describe("sdl Pi extension", () => {
 	});
 
 	for (const commandName of FLOW_COMMANDS) {
-		test(`routes sdl flow ${commandName} to the SDL CLI with flow argv`, async () => {
+		test(`routes ns flow ${commandName} to the ns CLI with flow argv`, async () => {
 			const pi = new FakePi();
 			const runCliCalls: string[][] = [];
-			sdlExtension(pi, {
+			nsExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
 					deps?.stdout?.(`pi-custom-${commandName}`);

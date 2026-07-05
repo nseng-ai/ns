@@ -10,8 +10,8 @@ import type { PositionalSpec } from "@ns/clinkr/raw";
 import type { ExplicitUndefined } from "@ns/core/primitives";
 import type { z } from "zod";
 
-import type { SdlExtensionApi } from "./execution.ts";
-import type { SdlResult } from "./result.ts";
+import type { NsExtensionApi } from "./execution.ts";
+import type { NsResult } from "./result.ts";
 
 export type {
 	ClinkrCompletionCandidate,
@@ -24,17 +24,17 @@ export type {
 	RenderCapabilities,
 } from "@ns/clinkr";
 
-export type SdlCommandSchema = z.ZodObject;
-export type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;
-export type SdlCommandCompletionProvider = (
-	ctx: SdlExtensionApi,
+export type NsCommandSchema = z.ZodObject;
+export type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;
+export type NsCommandCompletionProvider = (
+	ctx: NsExtensionApi,
 	request: ClinkrDynamicCompletionRequest,
 ) =>
 	| Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
 	| ClinkrCompletionResult
 	| readonly ClinkrCompletionCandidate[];
 
-export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
+export interface NsCommand<S extends NsCommandSchema = z.ZodObject, T = unknown> {
 	name: string;
 	summary: string;
 	description: string;
@@ -56,66 +56,54 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknow
 		"public-api-compatibility",
 		(data: unknown, caps: RenderCapabilities) => string
 	>;
-	completionProvider?: ExplicitUndefined<"public-api-compatibility", SdlCommandCompletionProvider>;
+	completionProvider?: ExplicitUndefined<"public-api-compatibility", NsCommandCompletionProvider>;
 	run(
-		ctx: SdlExtensionApi,
+		ctx: NsExtensionApi,
 		request: z.output<S>,
-	): Promise<SdlResult | ClinkrExit<T>> | SdlResult | ClinkrExit<T>;
+	): Promise<NsResult | ClinkrExit<T>> | NsResult | ClinkrExit<T>;
 }
 
-export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
+export interface NsExtension<TCommands extends readonly NsCommand[] = readonly NsCommand[]> {
 	commands?: ExplicitUndefined<"overload-selector", TCommands>;
 }
 
-type SdlCommandTuple<TSchemas extends readonly SdlCommandSchema[]> = {
-	readonly [Index in keyof TSchemas]: SdlCommand<TSchemas[Index]>;
+type NsCommandTuple<TSchemas extends readonly NsCommandSchema[]> = {
+	readonly [Index in keyof TSchemas]: NsCommand<TSchemas[Index]>;
 };
 
 export function defineExtension(extension: {
 	commands?: ExplicitUndefined<"overload-selector", never>;
-}): SdlExtension<readonly []>;
-export function defineExtension(extension: SdlExtension<readonly []>): SdlExtension<readonly []>;
-export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject>(
-	extension: SdlExtension<readonly [SdlCommand<S1>]>,
-): SdlExtension<readonly [SdlCommand<S1>]>;
+}): NsExtension<readonly []>;
+export function defineExtension(extension: NsExtension<readonly []>): NsExtension<readonly []>;
+export function defineExtension<S1 extends NsCommandSchema = z.ZodObject>(
+	extension: NsExtension<readonly [NsCommand<S1>]>,
+): NsExtension<readonly [NsCommand<S1>]>;
 export function defineExtension<
-	S1 extends SdlCommandSchema = z.ZodObject,
-	S2 extends SdlCommandSchema = z.ZodObject,
+	S1 extends NsCommandSchema = z.ZodObject,
+	S2 extends NsCommandSchema = z.ZodObject,
 >(
-	extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>]>,
-): SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>]>;
+	extension: NsExtension<readonly [NsCommand<S1>, NsCommand<S2>]>,
+): NsExtension<readonly [NsCommand<S1>, NsCommand<S2>]>;
 export function defineExtension<
-	S1 extends SdlCommandSchema = z.ZodObject,
-	S2 extends SdlCommandSchema = z.ZodObject,
-	S3 extends SdlCommandSchema = z.ZodObject,
+	S1 extends NsCommandSchema = z.ZodObject,
+	S2 extends NsCommandSchema = z.ZodObject,
+	S3 extends NsCommandSchema = z.ZodObject,
 >(
-	extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>]>,
-): SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>]>;
+	extension: NsExtension<readonly [NsCommand<S1>, NsCommand<S2>, NsCommand<S3>]>,
+): NsExtension<readonly [NsCommand<S1>, NsCommand<S2>, NsCommand<S3>]>;
 export function defineExtension<
-	S1 extends SdlCommandSchema = z.ZodObject,
-	S2 extends SdlCommandSchema = z.ZodObject,
-	S3 extends SdlCommandSchema = z.ZodObject,
-	S4 extends SdlCommandSchema = z.ZodObject,
-	const SRest extends readonly SdlCommandSchema[] = readonly [],
+	S1 extends NsCommandSchema = z.ZodObject,
+	S2 extends NsCommandSchema = z.ZodObject,
+	S3 extends NsCommandSchema = z.ZodObject,
+	S4 extends NsCommandSchema = z.ZodObject,
+	const SRest extends readonly NsCommandSchema[] = readonly [],
 >(
-	extension: SdlExtension<
-		readonly [
-			SdlCommand<S1>,
-			SdlCommand<S2>,
-			SdlCommand<S3>,
-			SdlCommand<S4>,
-			...SdlCommandTuple<SRest>,
-		]
+	extension: NsExtension<
+		readonly [NsCommand<S1>, NsCommand<S2>, NsCommand<S3>, NsCommand<S4>, ...NsCommandTuple<SRest>]
 	>,
-): SdlExtension<
-	readonly [
-		SdlCommand<S1>,
-		SdlCommand<S2>,
-		SdlCommand<S3>,
-		SdlCommand<S4>,
-		...SdlCommandTuple<SRest>,
-	]
+): NsExtension<
+	readonly [NsCommand<S1>, NsCommand<S2>, NsCommand<S3>, NsCommand<S4>, ...NsCommandTuple<SRest>]
 >;
-export function defineExtension(extension: SdlExtension): SdlExtension {
+export function defineExtension(extension: NsExtension): NsExtension {
 	return extension;
 }
