@@ -34,7 +34,8 @@ export async function loadNsExtensionContribution(
 
 async function loadDefaultExport(reference: NsCommandModuleReference): Promise<unknown> {
 	if (reference.type === "file") return await loadNsUserModuleDefault(reference.path);
-	return await importDefaultExport(reference.specifier);
+	if (reference.type === "package") return await importDefaultExport(reference.specifier);
+	return await reference.load();
 }
 
 function diagnostic(code: string, message: string, path: string): ExtensionLoadDiagnostic {

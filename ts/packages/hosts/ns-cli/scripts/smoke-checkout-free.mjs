@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
+
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const tempRoot = await mkdtemp(join(tmpdir(), "ns-cli-checkout-free-"));
+
+try {
+	const pack = await run("pnpm", ["run", "pack:local"], { cwd: packageRoot });
+	const tarball = resolveTarball(pack.stdout);
+	await writeFile(join(tempRoot, "package.json"), "{\"private\":true,\"type\":\"module\"}\n");
+	await run("git", ["init"], { cwd: tempRoot });
+	await run("npm", ["install", "--silent", tarball], { cwd: tempRoot });
+
+	const nsBin = join(tempRoot, "node_modules", ".bin", process.platform === "win32" ? "ns.cmd" : "ns");
+	const help = await run(nsBin, ["objective", "list", "--help"], { cwd: tempRoot });
+	if (!help.stdout.includes("Usage: ns objective list")) {
+		throw new Error("Packed ns CLI did not render Objective list help.");
+	}
+	const list = await run(nsBin, ["objective", "list", "--format", "md", "--minimal"], {
+		cwd: tempRoot,
+	});
+	if (!list.stdout.includes("# Objective records in this checkout")) {
+		throw new Error("Packed ns CLI did not run Objective list from the foreign repo.");
+	}
+	process.stdout.write(`checkout-free smoke passed: ${tempRoot}\n`);
+} finally {
+	if (process.env.NS_CLI_KEEP_SMOKE_DIR !== "1") {
+		await rm(tempRoot, { recursive: true, force: true });
+	}
+}
+
+function resolveTarball(stdout) {
+	const matches = stdout.match(/[^\s]+\.tgz/g) ?? [];
+	const tarball = matches.at(-1);
+	if (tarball === undefined) {
+		throw new Error(`Could not find packed tarball in output:\n${stdout}`);
+	}
+	return resolve(packageRoot, "dist", tarball);
+}
+
+function run(command, args, options) {
+	return new Promise((resolvePromise, reject) => {
+		const child = spawn(command, args, {
+			cwd: options.cwd,
+			env: process.env,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdout = "";
+		let stderr = "";
+		child.stdout.setEncoding("utf8");
+		child.stderr.setEncoding("utf8");
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk;
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk;
+		});
+		child.on("error", reject);
+		child.on("close", (code, signal) => {
+			if (code === 0) {
+				resolvePromise({ stdout, stderr });
+				return;
+			}
+			reject(
+				new Error(
+					`${command} ${args.join(" ")} failed with ${signal ?? code}\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+				),
+			);
+		});
+	});
+}

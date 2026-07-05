@@ -21,16 +21,22 @@
     (`@ns/kernel`, `@ns/capability-kit`, `@ns/flow`, `@ns/ccc`), excluded host/internal
     packages (`@ns/pi`, `nscc`, `@internal/pi-tools`), and non-runtime internal tooling
     (`@internal/typescript-style-guard`).
-- [ ] Replace the source-path module loader
-      (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ji/objective` + its hidden
-      `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
-      paths. Reconcile the checked-in `.ji/extensions/*` re-export manifests and keep the
-      parity test green.
+- [~] Replace the source-path module loader
+  (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ji/objective` + its hidden
+  `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
+  paths. Reconcile the checked-in `.ji/extensions/*` re-export manifests and keep the
+  parity test green.
   - Evidence: `ji objective exec …` commands run from the built artifact with no workspace
     source tree present.
-- [ ] Introduce the build/bundle step and produce a checkout-free artifact (no
-      run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
+  - Current `ns` evidence: preinstalled Objective catalog entries now carry in-process loader
+    thunks for bundled Objective command modules, while specifier-based loading and
+    project/global extension override precedence remain covered by tests.
+- [~] Introduce the build/bundle step and produce a checkout-free artifact (no
+  run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
   - Evidence: the artifact runs `ji objective list` on a machine with no repo checkout.
+  - Current `ns` evidence: `@ns/cli` builds a local esbuild bundle and `pack:local` assembles an
+    `@nseng-ai/ns` tarball whose `ns` bin runs `ns objective list` from a foreign temp repo
+    after `npm install <tarball>`.
 - [ ] Replace the checkout-dependent shims (pnpm `.bin/ji` `NODE_PATH`; installer template
       `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`) for
       the published package.

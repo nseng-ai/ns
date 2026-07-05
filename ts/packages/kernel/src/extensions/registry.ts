@@ -27,7 +27,11 @@ import {
 	type ExtensionDiscoveryDiagnostic,
 } from "./discovery.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
-import { moduleReferenceDisplay, type NsCommandModuleReference } from "./module-reference.ts";
+import {
+	moduleReferenceDisplay,
+	type NsCommandModuleLoader,
+	type NsCommandModuleReference,
+} from "./module-reference.ts";
 import { isPathInside, type ExplicitUndefined } from "@ns/core/primitives";
 import { requireXdgPath, resolveNsXdgPath } from "@ns/core/xdg-path";
 import type { NsCommand } from "../sdk/index.ts";
@@ -86,6 +90,7 @@ export interface PreinstalledNsCommandCatalogEntry {
 	readonly fullDescription: string;
 	readonly path?: readonly string[];
 	readonly moduleSpecifier: string;
+	readonly load?: NsCommandModuleLoader;
 }
 
 export type PreinstalledNsCommandCatalogLoader = () =>
@@ -434,7 +439,10 @@ function preinstalledCandidateForCatalogEntry(
 ): ExternalNsCommandCandidate {
 	return {
 		...preinstalledCatalogEntryCommandInfo(entry),
-		moduleReference: { type: "package", specifier: entry.moduleSpecifier },
+		moduleReference:
+			entry.load === undefined
+				? { type: "package", specifier: entry.moduleSpecifier }
+				: { type: "loaded", displayPath: entry.moduleSpecifier, load: entry.load },
 		hasStaticCommandInfo: true,
 		source: {
 			level: "preinstalled",

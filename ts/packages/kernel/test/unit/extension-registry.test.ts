@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { noopNsCommandIo, noopNsProgress } from "@ns/kernel/sdk";
+import { defineExtension, noopNsCommandIo, noopNsProgress, ok } from "@ns/kernel/sdk";
 import { commandInfoForLoadedCommand, commandKey } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -118,6 +118,60 @@ describe("extension registry", () => {
 			group: "tools",
 			source: { level: "preinstalled" },
 		});
+	});
+
+	test("thunk-backed preinstalled entries load without package resolution", async () => {
+		const workspace = await createWorkspace();
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => [
+				{
+					...preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
+					load: () =>
+						defineExtension({
+							commands: [
+								{
+									name: "scan",
+									summary: "Scan from a thunk.",
+									description: "Scan from a thunk.",
+									run: () => ok("thunk scan"),
+								},
+							],
+						}),
+				},
+			],
+		});
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		const selected = loaded.candidates.get("tools/scan");
+		expect(selected).toMatchObject({
+			moduleReference: { type: "loaded", displayPath: "@example/tools/ns/commands/scan" },
+		});
+		if (selected === undefined) return;
+
+		const command = await loadSelectedNsCommand(selected);
+		expect(command.ok).toBe(true);
+		if (!command.ok) return;
+		const result = await command.command.run(
+			{
+				cwd: workspace.cwd,
+				env: {},
+				commandIo: noopNsCommandIo,
+				progress: noopNsProgress,
+				renderCapabilities: { canEmitAnsi: false },
+				async exec() {
+					return { code: 0, stdout: "", stderr: "", killed: false };
+				},
+				textGenerator: {
+					async generateText() {
+						return { ok: true, text: "" };
+					},
+				},
+			},
+			{},
+		);
+		expect(result).toEqual({ ok: true, message: "thunk scan" });
 	});
 
 	test("source-dev preinstalled discovery yields to injected catalog duplicates", async () => {

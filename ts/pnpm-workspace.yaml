@@ -5,6 +5,7 @@ packages:
 
 allowBuilds:
   '@google/genai': true
+  esbuild: true
   protobufjs: true
 
 catalog:
@@ -18,6 +19,7 @@ catalog:
   '@withgraphite/graphite-cli': ^1.8.6
   ansis: ^4.3.1
   commander: ^14.0.0
+  esbuild: ^0.27.0
   jiti: 2.7.0
   jsonc-parser: ^3.3.1
   log-update: ^8.0.0
