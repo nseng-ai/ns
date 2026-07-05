@@ -1,10 +1,90 @@
 ---
 title: "Objectives"
-description: "TODO: Lorum ipsum placeholder content."
+description: "Durable, checked-in planning records for work that outlives a single agent session."
 ---
 
-> **TODO:** Lorum ipsum placeholder content. Replace this generated page with accurate ns documentation.
+An **Objective** is a durable, checked-in narrative record for a unit of planned work
+that spans multiple sessions, branches, or pull requests. It states what the work is
+for, what done means, what the current plan is, and what has actually happened — as
+plain Markdown committed to your repository.
 
-## Lorum ipsum
+## The problem it solves
 
-Lorum ipsum dolor sit amet, consectetur adipiscing elit. TODO: replace this placeholder with real content before publishing.
+A coding agent's context lifetime is the session. Real work isn't: a migration, a
+feature with a dependency chain, a hardening effort — these run for days or weeks across
+many sessions and branches. Without a durable carrier of intent, every new session
+starts cold, re-derives the plan from the diff, and drifts. That drift is where slop
+comes from: output with no durable intent behind it and no memory of why.
+
+Objectives are the boundary. The record owns the *why* and the *what's left*; each agent
+session picks it up, does a slice, and writes back what happened. A fresh session weeks
+later starts from the accumulated narrative, not an empty window.
+
+Two properties make this work:
+
+- **Git-native.** Records are ordinary files in your repository — no hidden database, no
+  service, no separate account. They travel with clones, they diff, and changes to them
+  are reviewed in pull requests like any other change.
+- **Shared between humans and agents.** The same record your agent maintains is the one
+  you read and edit. There is no separate dashboard to fall out of sync with reality.
+
+## The record
+
+Each Objective lives in a directory under `.ns/objectives/`, named by a durable slug:
+
+<Files>
+  <Folder name=".ns/objectives" defaultOpen>
+    <Folder name="api-typed-handlers" defaultOpen>
+      <File name="objective.md" />
+      <File name="roadmap.md" />
+      <Folder name="updates">
+        <File name="20260705T114219Z-first-slice-landed.md" />
+      </Folder>
+      <File name="closed.md" />
+    </Folder>
+  </Folder>
+</Files>
+
+- **`objective.md`** — the durable statement: a thesis for why the work matters, scope
+  and non-goals, completion criteria, and assumptions and risks. This is the part that
+  changes rarely and keeps every session pointed at the same destination.
+- **`roadmap.md`** — the current plan as semantic steps under `## Work` (with a
+  `## Parked` section for deferred items). Rows carry one of three statuses: `[ ]` open,
+  `[~]` in progress, `[x]` done. Steps are units of meaning, not time estimates.
+- **`updates/`** — an append-only series of dated updates. Each records what happened,
+  how it impacts the Objective, and any follow-ups. This is the narrative memory that
+  future sessions load.
+- **`closed.md`** — a marker whose existence means the Objective is closed. Closing
+  never deletes history; the record stays in the repository.
+
+The directory name is the Objective's durable identity. Titles and prose can be
+reworded freely; the slug persists.
+
+## The lifecycle
+
+Objectives move through a simple loop, driven by skills your agent invokes in your
+harness (Claude Code, Codex, or Pi):
+
+1. **Create** — `objective-create` scaffolds a new record from a statement of intent.
+2. **Advance** — `objective-next` reads the record, reconciles it against what has
+   actually landed, and recommends the next useful slice of work.
+3. **Update** — `objective-update` records progress after a work session or merged PR:
+   a dated update plus roadmap status changes.
+4. **Close** — `objective-close` records the closure rationale and writes the closed
+   marker when completion criteria are met.
+
+Alongside the skills, the [`ns objective` CLI](/docs/tools/objective) is the
+deterministic surface for humans and scripts: list records, show one with its details,
+validate structure, and archive completed records out of the active set.
+
+Because everything is Markdown, you can also just edit the files. The skills exist to
+keep records consistent and evidence-linked, not to gatekeep them.
+
+## What Objectives are not
+
+- **Not an issue tracker.** An Objective is a narrative for one coherent unit of work,
+  not a queue of tickets. It records intent and evidence, not assignees and due dates.
+- **Not a status dashboard.** Progress lives in prose updates linked to real changes,
+  not burndown metrics.
+- **Not hidden state.** There is no server and no sync. If it isn't in your repository,
+  it doesn't exist.

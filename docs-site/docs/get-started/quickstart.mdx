@@ -1,10 +1,141 @@
 ---
 title: "Quickstart"
-description: "TODO: Lorum ipsum placeholder content."
+description: "Activate Objectives in your repository and run your first create → advance → close loop."
 ---
 
-> **TODO:** Lorum ipsum placeholder content. Replace this generated page with accurate ns documentation.
+This quickstart takes a repository from nothing to a working Objective loop: install the
+`ns` CLI, activate Objectives in your repo, then drive your first Objective through its
+lifecycle with your coding agent.
 
-## Lorum ipsum
+An **Objective** is a durable, checked-in planning record for work that outlives a single
+agent session — multi-session, multi-branch, or multi-PR work. Your agent reads and
+maintains the record; you review it in ordinary diffs. See
+[Objectives](/docs/concepts/objectives) for the full concept.
 
-Lorum ipsum dolor sit amet, consectetur adipiscing elit. TODO: replace this placeholder with real content before publishing.
+<Steps>
+
+<Step>
+
+## Install the ns CLI
+
+```bash
+npm install -g @nseng-ai/ns
+```
+
+See [Installation](/docs/get-started/installation) for prerequisites and verification.
+
+> **Coming with the first release:** `@nseng-ai/ns` is not yet published to npm.
+
+</Step>
+
+<Step>
+
+## Initialize your repository
+
+> **Expected flow — coming with the first release.** `ns init` is designed and decided
+> but not yet shipped; the exact flag surface may be refined before release.
+
+From your repository root, initialize for the harness you use:
+
+```bash
+ns init --harness claude-code   # or: codex, pi
+```
+
+The harness is always explicit — `ns init` never guesses — and your choice is persisted
+to `ns.toml` so re-runs don't need the flag. Initialization does three things:
+
+1. **Instructs your agents.** Writes a minimal, harness-neutral instruction block into
+   `AGENTS.md`, fenced by managed `ns:objectives` `BEGIN`/`END` markers so it is
+   idempotent, upgradeable, and removable without touching your own content. For Claude
+   Code it also ensures `CLAUDE.md` imports `AGENTS.md` via the `@AGENTS.md` reference.
+   The block teaches agents that Objectives exist, to check `ns objective list` before
+   non-trivial work, and to use the Objective skills.
+2. **Installs the Objective skills** into your harness's skill root — `.claude/skills/`
+   for Claude Code, `.agents/skills/` for Codex and Pi — by copying them from the
+   installed package. (Note: Codex loads skills into context unconditionally; Claude
+   Code loads them on demand.)
+3. **Creates `.ns/objectives/`** and verifies git posture. `ns init` writes files but
+   never commits — you review and commit the changes yourself.
+
+Commit the result:
+
+```bash
+git add AGENTS.md CLAUDE.md .ns .claude .agents ns.toml
+git commit -m "Activate ns objectives"
+```
+
+</Step>
+
+<Step>
+
+## Create your first Objective
+
+In your harness, ask your agent to create an Objective for a real unit of work:
+
+> Create an objective for migrating our API layer to typed handlers.
+
+The agent uses the `objective-create` skill to scaffold a record under
+`.ns/objectives/<slug>/`: an `objective.md` stating the thesis, scope, non-goals, and
+completion criteria, and a `roadmap.md` breaking the work into semantic steps. It's
+Markdown in your repo — read it, edit it, and commit it like any other file.
+
+Verify from the terminal:
+
+```bash
+ns objective list
+ns objective show <slug>
+```
+
+</Step>
+
+<Step>
+
+## Advance the work
+
+In any later session — hours or weeks later, on any branch — ask:
+
+> What's next on the api-typed-handlers objective?
+
+The agent uses the `objective-next` skill: it reads the record, checks tracking against
+what actually landed, and recommends the next useful slice. Because the record is
+checked in, a fresh agent session starts with the full history of intent instead of an
+empty context window.
+
+</Step>
+
+<Step>
+
+## Record progress
+
+After a work session or a merged PR:
+
+> Update the objective with what we landed.
+
+The agent uses the `objective-update` skill to append a dated update recording what
+happened and how it moves the roadmap, and to mark roadmap rows done. Progress is
+evidence-linked prose, not a checkbox dashboard.
+
+</Step>
+
+<Step>
+
+## Close it
+
+When the completion criteria are met:
+
+> Close the objective.
+
+The agent uses the `objective-close` skill to record the closure rationale and mark the
+record closed. Nothing is deleted — the full narrative stays in your repository history.
+Closed records drop out of the default `ns objective list`.
+
+</Step>
+
+</Steps>
+
+## Where to go next
+
+- [Objectives](/docs/concepts/objectives) — the concept, the record format, and why
+  durable planning beats session memory.
+- [`ns objective` CLI reference](/docs/tools/objective) — the deterministic command
+  surface for listing, inspecting, and maintaining records.
