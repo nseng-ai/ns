@@ -1,3 +1,5 @@
+import type { ComposeViewPort } from "../../src/stack-view/compose-controller.ts";
+import type { ComposeTranscriptState } from "../../src/stack-view/compose-transcript.ts";
 import type {
 	StackViewCheckEntry,
 	StackViewModel,
@@ -64,5 +66,86 @@ export function stackViewModelFixture(overrides: Partial<StackViewModel> = {}): 
 		repo: "widgets",
 		objectivesBySlug: new Map(),
 		...overrides,
+	};
+}
+
+export interface FakeComposePort {
+	port: ComposeViewPort;
+	sendCalls: string[];
+	abortCalls: () => number;
+	setTranscript(state: ComposeTranscriptState): void;
+	setDraft(draft: string | null): void;
+	setUnavailableReason(reason: string | null): void;
+}
+
+/** A scripted {@link ComposeViewPort}: settable state, records send/abortTurn. */
+export function createFakeComposePort(options: { draft?: string | null } = {}): FakeComposePort {
+	let transcript: ComposeTranscriptState = { entries: [], isStreaming: false };
+	let draft: string | null = options.draft ?? null;
+	let unavailableReason: string | null = null;
+	const sendCalls: string[] = [];
+	let abortCalls = 0;
+	const port: ComposeViewPort = {
+		get transcript() {
+			return transcript;
+		},
+		get draft() {
+			return draft;
+		},
+		get unavailableReason() {
+			return unavailableReason;
+		},
+		send: async (text) => {
+			sendCalls.push(text);
+		},
+		abortTurn: async () => {
+			abortCalls += 1;
+		},
+	};
+	return {
+		port,
+		sendCalls,
+		abortCalls: () => abortCalls,
+		setTranscript: (state) => {
+			transcript = state;
+		},
+		setDraft: (value) => {
+			draft = value;
+		},
+		setUnavailableReason: (reason) => {
+			unavailableReason = reason;
+		},
+	};
+}
+
+export interface FakeComposeControllerHandle {
+	handle: ComposeViewPort & { dispose(): void };
+	disposeCalls: () => number;
+}
+
+export function createFakeComposeControllerHandle(
+	options: { draft?: string | null } = {},
+): FakeComposeControllerHandle {
+	const transcript: ComposeTranscriptState = { entries: [], isStreaming: false };
+	const draft = options.draft ?? null;
+	let disposeCalls = 0;
+	return {
+		handle: {
+			get transcript() {
+				return transcript;
+			},
+			get draft() {
+				return draft;
+			},
+			get unavailableReason() {
+				return null;
+			},
+			send: async () => {},
+			abortTurn: async () => {},
+			dispose: () => {
+				disposeCalls += 1;
+			},
+		},
+		disposeCalls: () => disposeCalls,
 	};
 }

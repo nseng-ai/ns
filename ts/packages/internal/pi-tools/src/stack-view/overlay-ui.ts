@@ -167,6 +167,18 @@ function resolveInitialIndex(model: StackViewModel, requested: number | undefine
 	return currentIndex >= 0 ? currentIndex : 0;
 }
 
+function padWindowRows(options: {
+	lines: readonly string[];
+	rows: number;
+	width: number;
+	padTop: boolean;
+}): string[] {
+	const pad = options.padTop ? Math.max(0, options.rows - options.lines.length) : 0;
+	return Array.from({ length: options.rows }, (_unused, row) =>
+		fitToWidth(options.lines[row - pad] ?? "", options.width),
+	);
+}
+
 export class StackViewOverlay implements Component {
 	private readonly tui: TUI;
 	private readonly theme: Theme;
@@ -591,10 +603,12 @@ export class StackViewOverlay implements Component {
 		this.composeScroll = window.scrollFromBottom;
 		// Pin an under-filled transcript to the bottom of its pane so the newest
 		// lines sit just above the editor rather than floating at the top.
-		const transcriptPad = Math.max(0, layout.transcriptRows - window.lines.length);
-		const transcriptRows = Array.from({ length: layout.transcriptRows }, (_unused, row) =>
-			fitToWidth(window.lines[row - transcriptPad] ?? "", width),
-		);
+		const transcriptRows = padWindowRows({
+			lines: window.lines,
+			rows: layout.transcriptRows,
+			width,
+			padTop: true,
+		});
 
 		const separator = this.color("dim", "─".repeat(Math.max(1, width)));
 		const editorRows = editorLines.map((line) => fitToWidth(line, width));
@@ -621,9 +635,7 @@ export class StackViewOverlay implements Component {
 			rows: draftRows,
 			scrollFromBottom: 0,
 		});
-		return Array.from({ length: draftRows }, (_unused, row) =>
-			fitToWidth(window.lines[row] ?? "", width),
-		);
+		return padWindowRows({ lines: window.lines, rows: draftRows, width, padTop: false });
 	}
 
 	private colorizeComposeLine(line: ComposeTranscriptLine): string {

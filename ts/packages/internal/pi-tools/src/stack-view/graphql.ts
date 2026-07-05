@@ -26,6 +26,7 @@ import type {
 	StackViewThreadDetail,
 } from "./types.ts";
 import type { StackViewExecContext } from "./exec.ts";
+import type { GithubRepositoryIdentity } from "@nseng-ai/capability-kit/github";
 import { normalizeGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
@@ -62,13 +63,12 @@ export type FetchStackPrsResult =
 
 export interface FetchStackPrsParams extends StackViewExecContext {
 	branches: string[];
-	owner: string;
-	repo: string;
+	repoIdentity: GithubRepositoryIdentity;
 }
 
 /** Result of resolving the current repo's `owner`/`repo` identity via `gh`. */
 export type FetchRepoIdentityResult =
-	| { type: "ok"; owner: string; repo: string }
+	| { type: "ok"; repoIdentity: GithubRepositoryIdentity }
 	| { type: "exec-error"; message: string }
 	| { type: "invalid-json"; message: string }
 	| { type: "schema-mismatch" };
@@ -384,9 +384,9 @@ export async function fetchStackPrs(params: FetchStackPrsParams): Promise<FetchS
 			"-f",
 			`query=${query}`,
 			"-f",
-			`owner=${params.owner}`,
+			`owner=${params.repoIdentity.owner}`,
 			"-f",
-			`repo=${params.repo}`,
+			`repo=${params.repoIdentity.repo}`,
 		],
 		{ cwd: params.cwd },
 	);
@@ -434,10 +434,10 @@ export async function fetchRepoIdentity(
 
 	const parsed = repoIdentitySchema.safeParse(json);
 	if (!parsed.success) return { type: "schema-mismatch" };
-	return { type: "ok", owner: parsed.data.owner.login, repo: parsed.data.name };
+	return { type: "ok", repoIdentity: { owner: parsed.data.owner.login, repo: parsed.data.name } };
 }
 
 /** Build the Graphite app URL for a PR. */
-export function graphiteUrl(owner: string, repo: string, prNumber: number): string {
-	return `https://app.graphite.com/github/pr/${owner}/${repo}/${prNumber}`;
+export function graphiteUrl(repoIdentity: GithubRepositoryIdentity, prNumber: number): string {
+	return `https://app.graphite.com/github/pr/${repoIdentity.owner}/${repoIdentity.repo}/${prNumber}`;
 }

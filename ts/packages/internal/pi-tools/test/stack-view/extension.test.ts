@@ -19,6 +19,7 @@ import type { ComposeControllerOptions } from "../../src/stack-view/compose-cont
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
 import type { LoadStackViewResult } from "../../src/stack-view/data.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
+import { createFakeComposeControllerHandle } from "./stack-view-fixtures.ts";
 import { identityTheme } from "./stack-view-test-themes.ts";
 
 const ESC = "\x1b";
@@ -233,31 +234,6 @@ function nonInteractiveCtx(): CommandContext {
 	};
 }
 
-/** A fake compose controller handle: settable draft, records dispose. */
-function fakeComposeController(draft: string | null): {
-	handle: ComposeControllerHandle;
-	disposeCalls: () => number;
-} {
-	let disposeCalls = 0;
-	const handle: ComposeControllerHandle = {
-		get transcript() {
-			return { entries: [], isStreaming: false };
-		},
-		get draft() {
-			return draft;
-		},
-		get unavailableReason() {
-			return null;
-		},
-		send: async () => {},
-		abortTurn: async () => {},
-		dispose: () => {
-			disposeCalls += 1;
-		},
-	};
-	return { handle, disposeCalls: () => disposeCalls };
-}
-
 interface RecordingComposeFactory {
 	factory: (options: ComposeControllerOptions) => ComposeControllerHandle;
 	controllers: Array<{ disposeCalls: () => number; stackBranch: string }>;
@@ -268,7 +244,7 @@ function recordingComposeFactory(draft: string | null): RecordingComposeFactory 
 	const controllers: Array<{ disposeCalls: () => number; stackBranch: string }> = [];
 	return {
 		factory: (options) => {
-			const controller = fakeComposeController(draft);
+			const controller = createFakeComposeControllerHandle({ draft });
 			controllers.push({
 				disposeCalls: controller.disposeCalls,
 				stackBranch: options.stackModel.currentBranch,
