@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import packageExtension from "../src/extension.ts";
+import packageExtension from "../src/explore/extension.ts";
 import { EXPLORE_TOOL_NAME } from "../src/explore/contract.ts";
 import { makeExplorerAgentDefinition } from "../src/explore/testing.ts";
 import type { ExploreExtensionAPI } from "../src/explore/extension.ts";
@@ -22,13 +22,13 @@ class FakePi implements ExploreExtensionAPI {
 }
 
 describe("ns-pi-subagents package", () => {
-	test("Pi manifest points at the package extension entrypoint", () => {
+	test("Pi manifest points directly at the explore extension entrypoint", () => {
 		const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
 			pi?: { extensions?: string[] };
 		};
 		const extensionPath = manifest.pi?.extensions?.[0];
 
-		expect(extensionPath).toBe("./src/extension.ts");
+		expect(extensionPath).toBe("./src/explore/extension.ts");
 		if (extensionPath === undefined) throw new Error("Missing Pi extension path.");
 		expect(existsSync(join(packageRoot, "..", extensionPath))).toBe(true);
 	});

@@ -49,6 +49,13 @@ export {
 	extractRunnerSubagentToolCallPayloadsFromSessionJsonl,
 	isRecord,
 } from "./json-events.ts";
+export {
+	createFakeRunnerSubagentDispatcher,
+	FakeSpawnedChildProcess,
+	jsonLine,
+	sessionMessageLine,
+	waitForSpawn,
+} from "./testing.ts";
 export type {
 	JsonRecord,
 	RunnerSubagentJsonEventParserOptions,

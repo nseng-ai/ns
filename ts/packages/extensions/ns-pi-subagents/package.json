@@ -6,12 +6,12 @@
 	"keywords": ["pi-package"],
 	"files": ["src", "README.md"],
 	"exports": {
-		"./extension": "./src/extension.ts",
+		"./extension": "./src/explore/extension.ts",
 		"./explore": "./src/explore/index.ts",
 		"./explore/testing": "./src/explore/testing.ts"
 	},
 	"pi": {
-		"extensions": ["./src/extension.ts"]
+		"extensions": ["./src/explore/extension.ts"]
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

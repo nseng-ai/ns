@@ -28,7 +28,7 @@ export {
 	jsonLine,
 	sessionMessageLine,
 	waitForSpawn,
-} from "@internal/pi-tools/runner-subagents/testing";
+} from "@internal/pi-tools/runner-subagents";
 
 export function makeExplorerAgentDefinition(
 	overrides: Partial<PiAgentDefinition> = {},

@@ -9,7 +9,7 @@ The package manifest declares:
 
 ```json
 {
-  "pi": { "extensions": ["./src/extension.ts"] }
+  "pi": { "extensions": ["./src/explore/extension.ts"] }
 }
 ```
 
@@ -29,6 +29,6 @@ Behavioral guarantees and limits:
 
 ## Public exports
 
-- `@nseng-ai/ns-pi-subagents/extension` — default Pi extension entrypoint.
+- `@nseng-ai/ns-pi-subagents/extension` — default Pi extension entrypoint, exported directly from `src/explore/extension.ts`.
 - `@nseng-ai/ns-pi-subagents/explore` — explore constants, dispatcher, extension helpers, and types.
 - `@nseng-ai/ns-pi-subagents/explore/testing` — test helpers for package tests and consumers.
