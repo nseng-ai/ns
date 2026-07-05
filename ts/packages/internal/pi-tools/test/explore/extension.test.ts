@@ -75,6 +75,12 @@ function createDeferred<T>(): Deferred<T> {
 	return { promise, resolve, reject };
 }
 
+function deferredAt<T>(deferreds: readonly Deferred<T>[], index: number): Deferred<T> {
+	const deferred = deferreds[index];
+	if (deferred === undefined) throw new Error(`Missing deferred at index ${index}.`);
+	return deferred;
+}
+
 function toolContext(options: ToolContextOptions = {}): ToolContext {
 	const widgetCalls = options.widgetCalls;
 	return {
@@ -232,7 +238,7 @@ describe("explore extension", () => {
 			inFlight += 1;
 			maxInFlight = Math.max(maxInFlight, inFlight);
 			try {
-				return await deferreds[index]!.promise;
+				return await deferredAt(deferreds, index).promise;
 			} finally {
 				inFlight -= 1;
 			}
@@ -249,12 +255,12 @@ describe("explore extension", () => {
 
 		expect(started).toEqual(["Scout 1", "Scout 2", "Scout 3"]);
 		expect(maxInFlight).toBe(3);
-		deferreds[1]!.resolve(finalOutcome("second", "/tmp/two.jsonl"));
+		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await settleMicrotasks();
 		expect(started).toEqual(["Scout 1", "Scout 2", "Scout 3", "Scout 4"]);
-		deferreds[3]!.resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
-		deferreds[2]!.resolve(finalOutcome("third", "/tmp/three.jsonl"));
-		deferreds[0]!.resolve(finalOutcome("first", "/tmp/one.jsonl"));
+		deferredAt(deferreds, 3).resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
+		deferredAt(deferreds, 2).resolve(finalOutcome("third", "/tmp/three.jsonl"));
+		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
 		const result = await running;
 		const details = result.details as ExploreToolDetails;
 		const text = result.content[0]?.text ?? "";
@@ -275,7 +281,7 @@ describe("explore extension", () => {
 		const deferreds = Array.from({ length: 4 }, () => createDeferred<ExplorerDispatchOutcome>());
 		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
 			const index = Number(intent.title.replace("Scout ", "")) - 1;
-			return await deferreds[index]!.promise;
+			return await deferredAt(deferreds, index).promise;
 		};
 		const widgetCalls: WidgetCall[] = [];
 		const tool = registerExploreTool({ dispatchExplorer });
@@ -297,15 +303,15 @@ describe("explore extension", () => {
 		expect(initialLines.join("\n")).toContain("· 4. Scout 4");
 		expect(initialLines.join("\n")).toContain("queued");
 
-		deferreds[1]!.resolve(finalOutcome("second", "/tmp/two.jsonl"));
+		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await settleMicrotasks();
 		const progressedLines = latestWidgetContent(widgetCalls);
 		expect(progressedLines[0]).toContain("explore: 1/4 done, 3 running");
 		expect(progressedLines.join("\n")).toContain("✓ 2. Scout 2");
 
-		deferreds[0]!.resolve(finalOutcome("first", "/tmp/one.jsonl"));
-		deferreds[2]!.resolve(finalOutcome("third", "/tmp/three.jsonl"));
-		deferreds[3]!.resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
+		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
+		deferredAt(deferreds, 2).resolve(finalOutcome("third", "/tmp/three.jsonl"));
+		deferredAt(deferreds, 3).resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
 		await running;
 
 		const finalCall = widgetCalls.at(-1);
@@ -328,7 +334,7 @@ describe("explore extension", () => {
 		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
 			const index = Number(intent.title.replace("Scout ", "")) - 1;
 			intent.onProgress?.(progressUpdate);
-			return await deferreds[index]!.promise;
+			return await deferredAt(deferreds, index).promise;
 		};
 		const widgetCalls: WidgetCall[] = [];
 		const tool = registerExploreTool({ dispatchExplorer });
@@ -343,8 +349,8 @@ describe("explore extension", () => {
 
 		expect(latestWidgetContent(widgetCalls).join("\n")).toContain("Reading file map.");
 
-		deferreds[0]!.resolve(finalOutcome("first", "/tmp/one.jsonl"));
-		deferreds[1]!.resolve(finalOutcome("second", "/tmp/two.jsonl"));
+		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
+		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await running;
 	});
 

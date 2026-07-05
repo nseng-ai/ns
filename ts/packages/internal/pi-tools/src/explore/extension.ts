@@ -653,28 +653,41 @@ function formatExploreProgressWidgetLines(states: readonly ExploreTaskState[]): 
 	];
 }
 
+interface ExploreTaskProgressDescription {
+	status: string;
+	activity?: string;
+}
+
 function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): string {
-	const status = exploreTaskStatusText(state);
-	const activity = exploreTaskActivityText(state);
-	const suffix = activity === undefined ? "" : ` — ${activity}`;
-	return compactWidgetLine(
-		`${exploreTaskStatusIcon(state)} ${index + 1}. ${state.input.title} — ${status}${suffix}`,
+	const description = describeExploreTaskProgress(state);
+	const suffix = description.activity === undefined ? "" : ` — ${description.activity}`;
+	return truncateWithEllipsis(
+		`${exploreTaskStatusIcon(state)} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
+		180,
 	);
 }
 
-function exploreTaskStatusText(state: ExploreTaskState): string {
-	if (state.outcome !== undefined) return state.outcome.result.status;
-	if (state.state === "queued") return "queued";
-	return state.latestUpdate?.progress.state ?? "running";
-}
+function describeExploreTaskProgress(state: ExploreTaskState): ExploreTaskProgressDescription {
+	if (state.outcome !== undefined) {
+		return {
+			status: state.outcome.result.status,
+			...optionalEntries({ activity: sessionFileFor(state.outcome.result) }),
+		};
+	}
+	if (state.state === "queued") return { status: "queued" };
 
-function exploreTaskActivityText(state: ExploreTaskState): string | undefined {
-	if (state.outcome !== undefined) return sessionFileFor(state.outcome.result);
 	const update = state.latestUpdate;
-	if (update === undefined) return undefined;
+	if (update === undefined) return { status: "running" };
 	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
-	if (preview !== undefined) return preview;
-	return update.progress.currentTool;
+	return {
+		status: update.progress.state,
+		...optionalEntries({
+			activity:
+				preview ??
+				update.progress.currentTool ??
+				(update.progress.turnCount > 0 ? `turn ${update.progress.turnCount}` : undefined),
+		}),
+	};
 }
 
 function exploreTaskStatusIcon(state: ExploreTaskState): string {
@@ -682,39 +695,24 @@ function exploreTaskStatusIcon(state: ExploreTaskState): string {
 	return state.outcome.result.status === "final-text" ? "✓" : "✗";
 }
 
-function compactWidgetLine(text: string): string {
-	const limit = 180;
-	if (text.length <= limit) return text;
-	return `${text.slice(0, limit - 1)}…`;
-}
-
 function renderExploreProgress(states: readonly ExploreTaskState[]): string {
-	const done = states.filter((state) => state.state === "done").length;
-	const running = states.filter((state) => state.state === "running").length;
+	const details = exploreProgressDetails(states);
 	const summaries = states.map(renderExploreTaskProgress).join("; ");
-	return compactProgress(
-		`explore: ${done}/${states.length} done, ${running} running — ${summaries}`,
+	return truncateWithEllipsis(
+		`explore: ${details.done}/${details.taskCount} done, ${details.running} running — ${summaries}`,
+		320,
 	);
 }
 
 function renderExploreTaskProgress(state: ExploreTaskState): string {
-	if (state.outcome !== undefined) return `${state.input.title} ${state.outcome.result.status}`;
-	if (state.state === "queued") return `${state.input.title} queued`;
-	const update = state.latestUpdate;
-	const progress = update?.progress;
-	const preview =
-		update === undefined ? undefined : runnerSubagentPrimaryActivityPreview(update.activity);
-	if (preview !== undefined && progress !== undefined)
-		return `${state.input.title} ${progress.state}: ${preview}`;
-	if (progress?.currentTool !== undefined)
-		return `${state.input.title} ${progress.state} ${progress.currentTool}`;
-	if (progress !== undefined && progress.turnCount > 0)
-		return `${state.input.title} ${progress.state} turn ${progress.turnCount}`;
-	return `${state.input.title} running`;
+	const description = describeExploreTaskProgress(state);
+	if (description.activity === undefined || state.outcome !== undefined)
+		return `${state.input.title} ${description.status}`;
+	const separator = description.activity.startsWith("turn ") ? " " : ": ";
+	return `${state.input.title} ${description.status}${separator}${description.activity}`;
 }
 
-function compactProgress(text: string): string {
-	const limit = 320;
+function truncateWithEllipsis(text: string, limit: number): string {
 	if (text.length <= limit) return text;
 	return `${text.slice(0, limit - 1)}…`;
 }
