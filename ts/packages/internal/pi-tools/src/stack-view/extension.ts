@@ -12,6 +12,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
@@ -265,21 +266,22 @@ async function handleStackViewCommand(
 		composeModel === undefined
 			? undefined
 			: {
-					createPort: (onChange: () => void): ComposeViewPort => {
-						// Every recreation path (e.g. the `open` outcome's continue rebuilds
-						// the overlay) must release the prior controller's side session.
-						disposeCompose();
-						const controller = deps.composeControllerFactory({
-							cwd: ctx.cwd,
-							model: composeModel,
-							modelRegistry: ctx.modelRegistry,
-							stackModel: model,
-							enrichment: engine,
-							factory: createPiComposeSessionFactory(),
-							onChange,
-						});
-						composeController = controller;
-						return controller;
+					getPort: (): ComposeViewPort => {
+						// Memoize one controller per live stack model: rebuilding the overlay
+						// (e.g. the `open` outcome's continue) must NOT destroy the in-progress
+						// side session, transcript, or draft. Only `refresh` (fresh stack) and
+						// the loop `finally` dispose it, forcing a later rebuild.
+						if (composeController === undefined) {
+							composeController = deps.composeControllerFactory({
+								cwd: ctx.cwd,
+								model: composeModel,
+								modelRegistry: ctx.modelRegistry,
+								stackModel: model,
+								enrichment: engine,
+								factory: createPiComposeSessionFactory(),
+							});
+						}
+						return composeController;
 					},
 				};
 	try {
@@ -292,9 +294,11 @@ async function handleStackViewCommand(
 					enrichment: engine,
 					...(composeOption === undefined ? {} : { compose: composeOption }),
 				});
-			} catch {
-				// Custom UI support can be absent or drift across Pi runtimes; fall back
-				// to the durable plain snapshot rather than failing the command.
+			} catch (error) {
+				// The overlay threw — a real bug or a Pi-runtime drift. Surface it instead
+				// of swallowing it, then fall back to the durable plain snapshot rather
+				// than failing the command.
+				ctx.ui.notify(`stack view: overlay failed (${errorMessage(error)})`, "warning");
 				sendSnapshotMessage(session, model);
 				return;
 			}
@@ -306,47 +310,46 @@ async function handleStackViewCommand(
 			selectedIndex = result.selectedIndex;
 			const outcome = result.outcome;
 
-			if (outcome.action === "open") {
-				await openGraphiteUrl(session, outcome.url);
-				continue;
-			}
-
-			if (outcome.action === "refresh") {
-				// The stack context is about to change; dispose the compose controller
-				// so the next compose entry rebuilds one over the fresh stack model.
-				disposeCompose();
-				const previousBranch = model.prs[selectedIndex]?.branch;
-				const reloaded = await loadStackViewWithStatus(session, deps.loadStackView);
-				if (reloaded.type === "not-on-stack") {
-					ctx.ui.notify(reloaded.reason, "info");
-					return;
+			switch (outcome.action) {
+				case "open":
+					await openGraphiteUrl(session, outcome.url);
+					continue;
+				case "refresh": {
+					// The stack context is about to change; dispose the compose controller
+					// so the next compose entry rebuilds one over the fresh stack model.
+					disposeCompose();
+					const previousBranch = model.prs[selectedIndex]?.branch;
+					const reloaded = await loadStackViewWithStatus(session, deps.loadStackView);
+					if (reloaded.type === "not-on-stack") {
+						ctx.ui.notify(reloaded.reason, "info");
+						return;
+					}
+					if (reloaded.type === "error") {
+						ctx.ui.notify(reloaded.message, "error");
+						return;
+					}
+					model = reloaded.model;
+					selectedIndex = reselectByBranch(model, previousBranch, selectedIndex);
+					continue;
 				}
-				if (reloaded.type === "error") {
-					ctx.ui.notify(reloaded.message, "error");
+				case "summarize":
+					sendSnapshotMessage(session, model);
+					pi.sendUserMessage(buildSummaryPrompt(model));
 					return;
+				case "compose-inject":
+					// Anchor the transcript with the stack snapshot, then deliver the drafted
+					// message as a follow-up so the parent agent acts on it next turn.
+					sendSnapshotMessage(session, model);
+					pi.sendUserMessage(outcome.draft, { deliverAs: "followUp" });
+					return;
+				case "close":
+					sendSnapshotMessage(session, model);
+					return;
+				default: {
+					const exhaustive: never = outcome;
+					return exhaustive;
 				}
-				model = reloaded.model;
-				selectedIndex = reselectByBranch(model, previousBranch, selectedIndex);
-				continue;
 			}
-
-			if (outcome.action === "summarize") {
-				sendSnapshotMessage(session, model);
-				pi.sendUserMessage(buildSummaryPrompt(model));
-				return;
-			}
-
-			if (outcome.action === "compose-inject") {
-				// Anchor the transcript with the stack snapshot, then deliver the drafted
-				// message as a follow-up so the parent agent acts on it next turn.
-				sendSnapshotMessage(session, model);
-				pi.sendUserMessage(outcome.draft, { deliverAs: "followUp" });
-				return;
-			}
-
-			// close
-			sendSnapshotMessage(session, model);
-			return;
 		}
 	} finally {
 		disposeCompose();

@@ -208,15 +208,22 @@ function scriptedCtx(scripts: string[][], model: Model<Api> | undefined): Comman
 }
 
 /** An interactive ctx whose custom UI rejects after mount: the thrown-overlay fallback path. */
-function rejectingCustomCtx(): CommandContext {
+function rejectingCustomCtx(): {
+	ctx: CommandContext;
+	notifications: Array<{ message: string; level: string | undefined }>;
+} {
+	const notifications: Array<{ message: string; level: string | undefined }> = [];
 	const ctx = interactiveCtx();
+	ctx.ui.notify = (message, level) => {
+		notifications.push({ message, level });
+	};
 	ctx.ui.custom = <T>(
 		factory: (tui: TUI, theme: Theme, keybindings: unknown, done: (value: T) => void) => Component,
 	): Promise<T> => {
 		factory(fakeTui(), identityTheme(), undefined, () => {});
 		return Promise.reject(new Error("custom UI unsupported"));
 	};
-	return ctx;
+	return { ctx, notifications };
 }
 
 /** A non-interactive ctx: the plain-snapshot fallback path. */
@@ -278,16 +285,26 @@ describe("stack-view extension enrichment wiring", () => {
 		expect(engines[0]?.abortCalls()).toBe(1);
 	});
 
-	test("aborts the engine when the custom UI rejects (snapshot fallback path)", async () => {
+	test("aborts the engine and surfaces a warning when the custom UI rejects (snapshot fallback path)", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		registerStackViewExtension(host.pi, { engineFactory: factory, loadStackView: okLoader() });
 
-		await host.command().handler("", rejectingCustomCtx());
+		const { ctx, notifications } = rejectingCustomCtx();
+		await host.command().handler("", ctx);
 
 		expect(engines).toHaveLength(1);
 		expect(engines[0]?.abortCalls()).toBe(1);
 		expect(host.sentMessages).toHaveLength(1); // fell back to the plain snapshot
+		// The overlay failure is surfaced at warning level, not silently swallowed, and
+		// the concrete error message rides along.
+		expect(notifications).toContainEqual({
+			message: expect.stringContaining("overlay failed"),
+			level: "warning",
+		});
+		expect(notifications.some((entry) => entry.message.includes("custom UI unsupported"))).toBe(
+			true,
+		);
 	});
 
 	test("never creates the engine on the non-interactive fallback path", async () => {
@@ -346,17 +363,18 @@ describe("stack-view extension compose wiring", () => {
 		expect(compose.controllers[0]?.disposeCalls()).toBe(1);
 	});
 
-	test("re-entering compose after an open outcome disposes the prior controller", async () => {
+	test("re-entering compose after an open outcome keeps the same controller and its draft", async () => {
 		const host = fakeHost();
-		const compose = recordingComposeFactory(null);
+		const compose = recordingComposeFactory("keep me");
 		registerStackViewExtension(host.pi, {
 			loadStackView: okLoader(),
 			composeControllerFactory: compose.factory,
 		});
 
-		// First overlay: enter compose (controller #1), Esc, `o` opens the PR URL
-		// (the loop continues without disposing anything itself). Second overlay:
-		// enter compose again — createPort must release controller #1 first.
+		// First overlay: enter compose (controller #1), Esc, `o` opens the PR URL and the
+		// loop continues (rebuilding the overlay) WITHOUT disposing anything. Second overlay:
+		// enter compose again — getPort must hand back the SAME memoized controller, so its
+		// in-progress side session, transcript, and draft survive the open round-trip.
 		await host.command().handler(
 			"",
 			scriptedCtx(
@@ -368,9 +386,9 @@ describe("stack-view extension compose wiring", () => {
 			),
 		);
 
-		expect(compose.controllers).toHaveLength(2);
+		// Built exactly once across the round-trip, and disposed only by the loop finally.
+		expect(compose.controllers).toHaveLength(1);
 		expect(compose.controllers[0]?.disposeCalls()).toBe(1);
-		expect(compose.controllers[1]?.disposeCalls()).toBe(1); // the finally teardown
 	});
 
 	test("offers no compose option when the session has no model", async () => {
