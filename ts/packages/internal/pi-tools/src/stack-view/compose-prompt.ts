@@ -14,7 +14,9 @@
  */
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";
+import { collapseWhitespace, entriesForCheckBucket, formatCheckEntryLabel } from "./format.ts";
 import type {
+	StackViewCheckBucket,
 	StackViewCheckEntry,
 	StackViewModel,
 	StackViewPr,
@@ -28,6 +30,13 @@ export const COMPOSE_MAX_THREAD_COMMENTS = 5;
 
 const ELLIPSIS = "…";
 const NO_DIAGNOSIS = "(no diagnosis available)";
+
+interface PromptWriter {
+	push(...texts: string[]): void;
+	readyCheckSummary(entry: StackViewCheckEntry): string | null;
+	readyThreadSummary(thread: StackViewThreadDetail): string | null;
+	toText(): string;
+}
 
 export function buildComposeSystemPrompt(options: {
 	model: StackViewModel;
@@ -55,103 +64,102 @@ function contextSection(
 	model: StackViewModel,
 	enrichment: ReadonlyMap<string, EnrichmentEntry>,
 ): string {
-	const lines: string[] = ["# Stack context"];
-	lines.push(
+	const writer = createPromptWriter(enrichment);
+	writer.push("# Stack context");
+	writer.push(
 		`Stack: ${model.owner}/${model.repo} (trunk: ${model.trunk}, current branch: ${model.currentBranch})`,
 	);
 	const bottomUp = [...model.prs].reverse();
 	bottomUp.forEach((pr, index) => {
-		lines.push("");
-		appendPrSection(lines, pr, index + 1, bottomUp.length, enrichment);
+		writer.push("");
+		appendPrSection(writer, { pr, position: index + 1, total: bottomUp.length });
 	});
-	return lines.join("\n");
+	return writer.toText();
+}
+
+function createPromptWriter(enrichment: ReadonlyMap<string, EnrichmentEntry>): PromptWriter {
+	const lines: string[] = [];
+	return {
+		push(...texts) {
+			lines.push(...texts);
+		},
+		readyCheckSummary(entry) {
+			const result = enrichment.get(checkEnrichmentKey(entry));
+			return result?.state === "ready" ? result.summary : null;
+		},
+		readyThreadSummary(thread) {
+			const key = threadEnrichmentKey(thread);
+			if (key === null) return null;
+			const result = enrichment.get(key);
+			return result?.state === "ready" ? result.summary : null;
+		},
+		toText() {
+			return lines.join("\n");
+		},
+	};
 }
 
 function appendPrSection(
-	lines: string[],
-	pr: StackViewPr,
-	position: number,
-	total: number,
-	enrichment: ReadonlyMap<string, EnrichmentEntry>,
+	writer: PromptWriter,
+	options: { pr: StackViewPr; position: number; total: number },
 ): void {
+	const { pr, position, total } = options;
 	const heading =
 		pr.number === null ? `(no PR) ${pr.branch}` : `#${pr.number} ${collapseWhitespace(pr.title)}`;
-	lines.push(`## PR ${position}/${total}: ${heading}`);
-	lines.push(`branch: ${pr.branch} → ${pr.parentBranch}`);
-	lines.push(`status: ${pr.status}`);
+	writer.push(`## PR ${position}/${total}: ${heading}`);
+	writer.push(`branch: ${pr.branch} → ${pr.parentBranch}`);
+	writer.push(`status: ${pr.status}`);
 
-	appendFailingChecks(lines, pr, enrichment);
-	appendUnresolvedThreads(lines, pr, enrichment);
-	appendPendingChecks(lines, pr);
+	appendCheckBucketSection(writer, pr, {
+		bucket: "failing",
+		label: "FAILING CHECKS",
+		withDetail: (entry) => (writer.readyCheckSummary(entry) ?? NO_DIAGNOSIS).split("\n"),
+	});
+	appendUnresolvedThreads(writer, pr);
+	appendCheckBucketSection(writer, pr, { bucket: "pending", label: "PENDING CHECKS" });
 
 	if (pr.objectiveSlugs.length > 0) {
-		lines.push(`objectives: ${pr.objectiveSlugs.join(", ")}`);
+		writer.push(`objectives: ${pr.objectiveSlugs.join(", ")}`);
 	}
 }
 
-function appendFailingChecks(
-	lines: string[],
+function appendCheckBucketSection(
+	writer: PromptWriter,
 	pr: StackViewPr,
-	enrichment: ReadonlyMap<string, EnrichmentEntry>,
+	options: {
+		bucket: StackViewCheckBucket;
+		label: string;
+		withDetail?: (entry: StackViewCheckEntry) => string[];
+	},
 ): void {
-	const failing = pr.checkEntries.filter((entry) => entry.bucket === "failing");
-	if (failing.length === 0) return;
-	lines.push(`FAILING CHECKS (${failing.length}):`);
-	for (const entry of failing) {
-		lines.push(`- ${checkEntryLabel(entry)}`);
-		const diagnosis = readyCheckSummary(entry, enrichment) ?? NO_DIAGNOSIS;
-		for (const line of diagnosis.split("\n")) lines.push(`  ${line}`);
+	const entries = entriesForCheckBucket(pr.checkEntries, options.bucket);
+	if (entries.length === 0) return;
+	writer.push(`${options.label} (${entries.length}):`);
+	for (const entry of entries) {
+		writer.push(`- ${formatCheckEntryLabel(entry)}`);
+		for (const line of options.withDetail?.(entry) ?? []) writer.push(`  ${line}`);
 	}
 }
 
-function appendUnresolvedThreads(
-	lines: string[],
-	pr: StackViewPr,
-	enrichment: ReadonlyMap<string, EnrichmentEntry>,
-): void {
+function appendUnresolvedThreads(writer: PromptWriter, pr: StackViewPr): void {
 	if (pr.unresolvedThreads.length === 0) return;
-	lines.push(`UNRESOLVED THREADS (${pr.unresolvedThreads.length}):`);
+	writer.push(`UNRESOLVED THREADS (${pr.unresolvedThreads.length}):`);
 	for (const thread of pr.unresolvedThreads) {
-		lines.push(`- thread ${threadHeader(thread)}`);
-		const asks = readyThreadSummary(thread, enrichment);
-		if (asks !== null) lines.push(`  asks: ${collapseWhitespace(asks)}`);
-		appendThreadComments(lines, thread);
+		writer.push(`- thread ${threadHeader(thread)}`);
+		const asks = writer.readyThreadSummary(thread);
+		if (asks !== null) writer.push(`  asks: ${collapseWhitespace(asks)}`);
+		appendThreadComments(writer, thread);
 	}
 }
 
-function appendThreadComments(lines: string[], thread: StackViewThreadDetail): void {
+function appendThreadComments(writer: PromptWriter, thread: StackViewThreadDetail): void {
 	const shown = thread.comments.slice(0, COMPOSE_MAX_THREAD_COMMENTS);
 	for (const comment of shown) {
 		const author = comment.author ?? "(unknown)";
-		lines.push(`  ${author}: ${truncate(comment.body, COMPOSE_COMMENT_BODY_MAX_CHARS)}`);
+		writer.push(`  ${author}: ${truncate(comment.body, COMPOSE_COMMENT_BODY_MAX_CHARS)}`);
 	}
 	const more = thread.totalComments - shown.length;
-	if (more > 0) lines.push(`  (+${more} more comments)`);
-}
-
-function appendPendingChecks(lines: string[], pr: StackViewPr): void {
-	const pending = pr.checkEntries.filter((entry) => entry.bucket === "pending");
-	if (pending.length === 0) return;
-	lines.push(`PENDING CHECKS (${pending.length}):`);
-	for (const entry of pending) lines.push(`- ${checkEntryLabel(entry)}`);
-}
-
-function readyCheckSummary(
-	entry: StackViewCheckEntry,
-	enrichment: ReadonlyMap<string, EnrichmentEntry>,
-): string | null {
-	const result = enrichment.get(checkEnrichmentKey(entry));
-	return result?.state === "ready" ? result.summary : null;
-}
-
-function readyThreadSummary(
-	thread: StackViewThreadDetail,
-	enrichment: ReadonlyMap<string, EnrichmentEntry>,
-): string | null {
-	const key = threadEnrichmentKey(thread);
-	if (key === null) return null;
-	const result = enrichment.get(key);
-	return result?.state === "ready" ? result.summary : null;
+	if (more > 0) writer.push(`  (+${more} more comments)`);
 }
 
 function threadHeader(thread: StackViewThreadDetail): string {
@@ -160,10 +168,6 @@ function threadHeader(thread: StackViewThreadDetail): string {
 	const parts = [thread.id ?? "(unknown id)", withLine];
 	if (thread.author !== null) parts.push(thread.author);
 	return parts.join(" · ");
-}
-
-function checkEntryLabel(entry: StackViewCheckEntry): string {
-	return entry.workflowName !== null ? `${entry.name} (${entry.workflowName})` : entry.name;
 }
 
 function draftContentSteeringSection(): string {
@@ -196,8 +200,4 @@ function draftProtocolSection(): string {
 
 function truncate(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, max)}${ELLIPSIS}` : value;
-}
-
-function collapseWhitespace(value: string): string {
-	return value.replace(/\s+/g, " ").trim();
 }

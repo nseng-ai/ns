@@ -25,6 +25,7 @@ import {
 	replaceLastAssistantText,
 	replaceLastNotice,
 	setStreaming,
+	type ComposeSessionEvent,
 	type ComposeTranscriptState,
 } from "./compose-transcript.ts";
 import type { StackEnrichmentPort } from "./enrichment-engine.ts";
@@ -116,11 +117,9 @@ export class ComposeController implements ComposeViewPort {
 		if (!started) return; // reason already surfaced via unavailableReason / notices.
 		const session = this.session;
 		if (session === null) return;
-		this.transcriptState = setStreaming(appendUser(this.transcriptState, trimmed), true);
-		this.onChange();
+		this.setTranscript(setStreaming(appendUser(this.transcriptState, trimmed), true));
 		const result = await session.ask(trimmed).finally(() => {
-			this.transcriptState = setStreaming(this.transcriptState, false);
-			this.onChange();
+			this.setTranscript(setStreaming(this.transcriptState, false));
 		});
 		if (!result.ok) this.emitNotice(`prompt failed: ${result.message}`);
 	}
@@ -153,11 +152,9 @@ export class ComposeController implements ComposeViewPort {
 		try {
 			// Force a full enrichment pass so the system prompt reflects the freshest
 			// summaries; surface progress in a single, replace-in-place notice.
-			this.transcriptState = appendNotice(this.transcriptState, "enriching stack…");
-			this.onChange();
+			this.setTranscript(appendNotice(this.transcriptState, "enriching stack…"));
 			this.enrichmentUnsub = this.enrichment.onChange(() => {
-				this.transcriptState = replaceLastNotice(this.transcriptState, this.enrichNoticeText());
-				this.onChange();
+				this.setTranscript(replaceLastNotice(this.transcriptState, this.enrichNoticeText()));
 			});
 			await this.enrichment.ensureAll(this.stackModel);
 			this.enrichmentUnsub?.();
@@ -165,8 +162,7 @@ export class ComposeController implements ComposeViewPort {
 			// Disposed while enriching: stop before touching the dead view or paying
 			// for a session spawn that would be dropped immediately.
 			if (this.isDisposed) return false;
-			this.transcriptState = replaceLastNotice(this.transcriptState, this.enrichNoticeText());
-			this.onChange();
+			this.setTranscript(replaceLastNotice(this.transcriptState, this.enrichNoticeText()));
 
 			const systemPrompt = buildComposeSystemPrompt({
 				model: this.stackModel,
@@ -190,9 +186,7 @@ export class ComposeController implements ComposeViewPort {
 			}
 			this.session = result.value;
 			this.unsubscribeSession = this.session.subscribe((event) => {
-				this.transcriptState = applyComposeEvent(this.transcriptState, event);
-				if (event.type === "assistant-end") this.handleAssistantEnd();
-				this.onChange();
+				this.applySessionEvent(event);
 			});
 			return true;
 		} finally {
@@ -202,20 +196,21 @@ export class ComposeController implements ComposeViewPort {
 		}
 	}
 
+	private applySessionEvent(event: ComposeSessionEvent): void {
+		const next = applyComposeEvent(this.transcriptState, event);
+		this.setTranscript(event.type === "assistant-end" ? this.handleAssistantEnd(next) : next);
+	}
+
 	/** On assistant-end: promote a draft block to `draft`, or notice its absence. */
-	private handleAssistantEnd(): void {
-		const text = lastAssistantText(this.transcriptState);
-		if (text === null) return;
+	private handleAssistantEnd(state: ComposeTranscriptState): ComposeTranscriptState {
+		const text = lastAssistantText(state);
+		if (text === null) return state;
 		const draft = extractDraft(text);
 		if (draft === null) {
-			this.transcriptState = appendNotice(
-				this.transcriptState,
-				"reply had no draft block — kept previous draft",
-			);
-			return;
+			return appendNotice(state, "reply had no draft block — kept previous draft");
 		}
 		this.draftValue = draft;
-		this.transcriptState = replaceLastAssistantText(this.transcriptState, stripDraftBlock(text));
+		return replaceLastAssistantText(state, stripDraftBlock(text));
 	}
 
 	private enrichNoticeText(): string {
@@ -224,8 +219,12 @@ export class ComposeController implements ComposeViewPort {
 		return `enriching stack… ${progress.done}/${progress.total}`;
 	}
 
-	private emitNotice(text: string): void {
-		this.transcriptState = appendNotice(this.transcriptState, text);
+	private setTranscript(next: ComposeTranscriptState): void {
+		this.transcriptState = next;
 		this.onChange();
+	}
+
+	private emitNotice(text: string): void {
+		this.setTranscript(appendNotice(this.transcriptState, text));
 	}
 }

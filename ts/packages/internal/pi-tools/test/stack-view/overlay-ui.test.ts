@@ -3,7 +3,6 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { describe, expect, test } from "vitest";
 
 import type {
-	StackViewCheckEntry,
 	StackViewModel,
 	StackViewPr,
 	StackViewThreadDetail,
@@ -19,17 +18,26 @@ import {
 import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
 import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
+import type { ComposeViewPort } from "../../src/stack-view/compose-controller.ts";
+import type { ComposeTranscriptState } from "../../src/stack-view/compose-transcript.ts";
+import { composeBodyLayout } from "../../src/stack-view/compose-model.ts";
 import {
 	runStackViewOverlayUi,
 	StackViewOverlay,
+	type StackViewComposeOption,
 	type StackViewOverlayUiContext,
 	type StackViewUiResult,
 } from "../../src/stack-view/overlay-ui.ts";
+import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";
 import { identityTheme, taggingTheme } from "./stack-view-test-themes.ts";
 
 const ESC = String.fromCharCode(27);
 const KEY_PAGE_DOWN = `${ESC}[6~`;
 const KEY_PAGE_UP = `${ESC}[5~`;
+const TAB = "\t";
+const CTRL_C = "\x03";
+const CTRL_Y = "\x19";
+const ENTER = "\r";
 
 describe("overlay-model units", () => {
 	describe("stackListRows", () => {
@@ -136,14 +144,14 @@ describe("overlay-model units", () => {
 					threads: { resolved: 1, total: 3 },
 					checks: { passing: 2, failing: 1, pending: 1, total: 4 },
 					checkEntries: [
-						checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" }),
-						checkEntry({ name: "unit", workflowName: null, bucket: "pending" }),
-						checkEntry({ name: "build", workflowName: "CI", bucket: "passing" }),
-						checkEntry({ name: "typecheck", workflowName: null, bucket: "passing" }),
+						checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
+						checkEntryFixture({ name: "unit", workflowName: null, bucket: "pending" }),
+						checkEntryFixture({ name: "build", workflowName: "CI", bucket: "passing" }),
+						checkEntryFixture({ name: "typecheck", workflowName: null, bucket: "passing" }),
 					],
 					unresolvedThreads: [
-						threadDetail({ path: "src/a.ts", line: 10, author: "alice" }),
-						threadDetail({ path: "src/b.ts", line: null, author: "bob" }),
+						threadDetailFixture({ path: "src/a.ts", line: 10, author: "alice" }),
+						threadDetailFixture({ path: "src/b.ts", line: null, author: "bob" }),
 					],
 					objectiveSlugs: ["obj-a", "obj-b"],
 				}),
@@ -181,7 +189,7 @@ describe("overlay-model units", () => {
 			const rows = buildStackDetailRows(
 				prFixture({
 					threads: { resolved: 0, total: 1 },
-					unresolvedThreads: [threadDetail({ path: "", line: 5, author: null })],
+					unresolvedThreads: [threadDetailFixture({ path: "", line: 5, author: null })],
 				}),
 			);
 			expect(rows.map((row) => row.text)).toContain("(file unknown):5");
@@ -191,7 +199,7 @@ describe("overlay-model units", () => {
 			const rows = buildStackDetailRows(
 				prFixture({
 					threads: { resolved: 0, total: 3 },
-					unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 1, author: "alice" })],
+					unresolvedThreads: [threadDetailFixture({ path: "src/a.ts", line: 1, author: "alice" })],
 				}),
 			);
 			const truncation = rows.find((row) => row.role === "truncation-note");
@@ -218,7 +226,7 @@ describe("overlay-model units", () => {
 		});
 
 		test("shows a summarizing placeholder after the thread while its summary is pending", () => {
-			const thread = threadDetail({
+			const thread = threadDetailFixture({
 				id: "t1",
 				path: "src/a.ts",
 				line: 3,
@@ -234,7 +242,7 @@ describe("overlay-model units", () => {
 		});
 
 		test("renders a ready thread summary with collapsed whitespace after the thread", () => {
-			const thread = threadDetail({
+			const thread = threadDetailFixture({
 				id: "t1",
 				path: "src/a.ts",
 				line: 3,
@@ -255,7 +263,7 @@ describe("overlay-model units", () => {
 		});
 
 		test("a failed thread summary degrades to the bare thread row", () => {
-			const thread = threadDetail({
+			const thread = threadDetailFixture({
 				id: "t1",
 				path: "src/a.ts",
 				line: 3,
@@ -272,7 +280,7 @@ describe("overlay-model units", () => {
 		});
 
 		test("emits check-why continuation rows for a multi-line ready check summary, capped at three lines", () => {
-			const check = checkEntry({
+			const check = checkEntryFixture({
 				name: "lint",
 				workflowName: "CI",
 				bucket: "failing",
@@ -296,7 +304,7 @@ describe("overlay-model units", () => {
 		});
 
 		test("without an enrichment map, emits no summary rows but still lists passing checks", () => {
-			const thread = threadDetail({
+			const thread = threadDetailFixture({
 				id: "t1",
 				path: "src/a.ts",
 				line: 3,
@@ -308,8 +316,8 @@ describe("overlay-model units", () => {
 				unresolvedThreads: [thread],
 				checks: { passing: 1, failing: 1, pending: 0, total: 2 },
 				checkEntries: [
-					checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" }),
-					checkEntry({ name: "build", workflowName: "CI", bucket: "passing" }),
+					checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
+					checkEntryFixture({ name: "build", workflowName: "CI", bucket: "passing" }),
 				],
 			});
 
@@ -332,7 +340,9 @@ describe("overlay-model units", () => {
 			const rows = buildStackDetailRows(
 				prFixture({
 					checks: { passing: 0, failing: 1, pending: 0, total: 1 },
-					checkEntries: [checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" })],
+					checkEntries: [
+						checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
+					],
 				}),
 			);
 			expect(rows.some((row) => row.text.startsWith("PASSING CHECKS"))).toBe(false);
@@ -432,7 +442,7 @@ describe("StackViewOverlay detail pane", () => {
 					title: "First",
 					checks: { passing: 0, failing: 20, pending: 0, total: 20 },
 					checkEntries: Array.from({ length: 20 }, (_unused, index) =>
-						checkEntry({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
+						checkEntryFixture({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
 					),
 				}),
 				prFixture({ number: 2, branch: "feature/2", title: "Second" }),
@@ -453,7 +463,7 @@ describe("StackViewOverlay detail pane", () => {
 			title: "Long",
 			checks: { passing: 0, failing: 40, pending: 0, total: 40 },
 			checkEntries: Array.from({ length: 40 }, (_unused, index) =>
-				checkEntry({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
+				checkEntryFixture({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
 			),
 		});
 		const view = newView(modelFixture({ currentBranch: "feature/1", prs: [pr] }), {
@@ -607,7 +617,7 @@ describe("StackViewOverlay enrichment", () => {
 
 	test("progressively fills the detail pane as a thread summary arrives", () => {
 		const fake = createFakeEnrichment();
-		const thread = threadDetail({
+		const thread = threadDetailFixture({
 			id: "t1",
 			path: "src/a.ts",
 			line: 2,
@@ -664,7 +674,7 @@ describe("StackViewOverlay enrichment", () => {
 		const fake = createFakeEnrichment();
 		fake.setDegradedReason("model registry unavailable");
 		const manyThreads = Array.from({ length: 40 }, (_unused, index) =>
-			threadDetail({ path: `src/file-${index}.ts`, line: index + 1 }),
+			threadDetailFixture({ path: `src/file-${index}.ts`, line: index + 1 }),
 		);
 		const model = modelFixture({
 			currentBranch: "feature/1",
@@ -749,6 +759,242 @@ describe("runStackViewOverlayUi", () => {
 	});
 });
 
+describe("composeBodyLayout", () => {
+	test("collapses the draft below 12 rows and apportions ~30% above", () => {
+		const cases: Array<{
+			bodyRows: number;
+			editorRows: number;
+			transcriptRows: number;
+			draftRows: number;
+		}> = [
+			{ bodyRows: 5, editorRows: 1, transcriptRows: 1, draftRows: 1 },
+			{ bodyRows: 5, editorRows: 3, transcriptRows: 1, draftRows: 1 },
+			{ bodyRows: 11, editorRows: 1, transcriptRows: 7, draftRows: 1 },
+			{ bodyRows: 11, editorRows: 3, transcriptRows: 5, draftRows: 1 },
+			{ bodyRows: 12, editorRows: 1, transcriptRows: 6, draftRows: 3 },
+			{ bodyRows: 12, editorRows: 3, transcriptRows: 4, draftRows: 3 },
+			{ bodyRows: 20, editorRows: 1, transcriptRows: 11, draftRows: 6 },
+			{ bodyRows: 20, editorRows: 3, transcriptRows: 9, draftRows: 6 },
+			{ bodyRows: 40, editorRows: 1, transcriptRows: 27, draftRows: 10 },
+			{ bodyRows: 40, editorRows: 3, transcriptRows: 25, draftRows: 10 },
+		];
+		for (const item of cases) {
+			expect(composeBodyLayout({ bodyRows: item.bodyRows, editorRows: item.editorRows })).toEqual({
+				transcriptRows: item.transcriptRows,
+				draftRows: item.draftRows,
+			});
+		}
+	});
+});
+
+describe("StackViewOverlay compose mode", () => {
+	test("`p` and Tab enter compose only when the compose option is present", () => {
+		const withCompose = newComposeView();
+		withCompose.view.handleInput?.("p");
+		expect(withCompose.view.render(120).join("\n")).toContain("compose ·");
+
+		const viaTab = newComposeView();
+		viaTab.view.handleInput?.(TAB);
+		expect(viaTab.view.render(120).join("\n")).toContain("compose ·");
+
+		const noCompose = newComposeView({ withCompose: false });
+		noCompose.view.handleInput?.("p");
+		const text = noCompose.view.render(120).join("\n");
+		expect(text).not.toContain("compose ·");
+		expect(text).toContain("s summarize");
+		expect(noCompose.settled).toEqual([]);
+	});
+
+	test("browse footer advertises compose only when the option is present", () => {
+		expect(newComposeView().view.render(120).join("\n")).toContain("p compose");
+		expect(newComposeView({ withCompose: false }).view.render(120).join("\n")).not.toContain(
+			"p compose",
+		);
+	});
+
+	test("typed characters reach the editor and Enter submits the trimmed text", () => {
+		const harness = newComposeView();
+		harness.view.handleInput?.("p");
+		for (const char of " hi ") harness.view.handleInput?.(char);
+		harness.view.handleInput?.(ENTER);
+		expect(harness.fake.sendCalls).toEqual(["hi"]);
+	});
+
+	test("`q` types into the editor and never closes the overlay", () => {
+		const harness = newComposeView();
+		harness.view.handleInput?.("p");
+		harness.view.handleInput?.("q");
+		expect(harness.settled).toEqual([]);
+		harness.view.handleInput?.(ENTER);
+		expect(harness.fake.sendCalls).toEqual(["q"]);
+	});
+
+	test("Esc returns to browse and re-entering compose reuses the same port", () => {
+		const harness = newComposeView();
+		harness.view.handleInput?.("p");
+		expect(harness.createPortCalls()).toBe(1);
+		harness.view.handleInput?.(ESC);
+		expect(harness.view.render(120).join("\n")).not.toContain("compose ·");
+		harness.view.handleInput?.("p");
+		expect(harness.view.render(120).join("\n")).toContain("compose ·");
+		expect(harness.createPortCalls()).toBe(1);
+	});
+
+	test("Ctrl+Y with a non-empty draft settles compose-inject", () => {
+		const harness = newComposeView();
+		harness.fake.setDraft("drafted reply");
+		harness.view.handleInput?.("p");
+		harness.view.handleInput?.(CTRL_Y);
+		expect(harness.settled).toEqual([
+			{ outcome: { action: "compose-inject", draft: "drafted reply" }, selectedIndex: 0 },
+		]);
+	});
+
+	test("Ctrl+Y with no draft does not settle and shows a transient hint", () => {
+		const harness = newComposeView();
+		harness.view.handleInput?.("p");
+		harness.view.handleInput?.(CTRL_Y);
+		expect(harness.settled).toEqual([]);
+		expect(harness.view.render(120).join("\n")).toContain("no draft yet");
+	});
+
+	test("Ctrl+C aborts the current turn through the port", () => {
+		const harness = newComposeView();
+		harness.view.handleInput?.("p");
+		harness.view.handleInput?.(CTRL_C);
+		expect(harness.fake.abortCalls()).toBe(1);
+	});
+
+	test("PgUp scrolls the transcript window", () => {
+		const harness = newComposeView();
+		harness.fake.setTranscript({
+			entries: Array.from({ length: 60 }, (_unused, index) => ({
+				kind: "assistant" as const,
+				text: `line ${index}`,
+			})),
+			isStreaming: false,
+		});
+		harness.view.handleInput?.("p");
+		const before = harness.view.render(120).join("\n");
+		harness.view.handleInput?.(KEY_PAGE_UP);
+		expect(harness.view.render(120).join("\n")).not.toBe(before);
+	});
+
+	test("the draft pane collapses to a status line on a tiny terminal", () => {
+		const harness = newComposeView({ rows: 14 });
+		harness.fake.setDraft("a\nb\nc");
+		harness.view.handleInput?.("p");
+		expect(harness.view.render(120).join("\n")).toContain("draft: 3 lines · ctrl+y to inject");
+	});
+
+	test("surfaces the port's unavailable reason in the compose header", () => {
+		const harness = newComposeView();
+		harness.fake.setUnavailableReason("no model selected in this session");
+		harness.view.handleInput?.("p");
+		expect(harness.view.render(120).join("\n")).toContain(
+			"unavailable: no model selected in this session",
+		);
+	});
+
+	test("a port onChange requests a re-render", () => {
+		const harness = newComposeView();
+		harness.view.handleInput?.("p");
+		const before = harness.tui.renders();
+		harness.fireOnChange();
+		expect(harness.tui.renders()).toBe(before + 1);
+	});
+});
+
+interface FakeComposePort {
+	port: ComposeViewPort;
+	sendCalls: string[];
+	abortCalls: () => number;
+	setTranscript(state: ComposeTranscriptState): void;
+	setDraft(draft: string | null): void;
+	setUnavailableReason(reason: string | null): void;
+}
+
+/** A scripted {@link ComposeViewPort}: settable state, records send/abortTurn. */
+function createFakeComposePort(): FakeComposePort {
+	let transcript: ComposeTranscriptState = { entries: [], isStreaming: false };
+	let draft: string | null = null;
+	let unavailableReason: string | null = null;
+	const sendCalls: string[] = [];
+	let abortCalls = 0;
+	const port: ComposeViewPort = {
+		get transcript() {
+			return transcript;
+		},
+		get draft() {
+			return draft;
+		},
+		get unavailableReason() {
+			return unavailableReason;
+		},
+		send: async (text) => {
+			sendCalls.push(text);
+		},
+		abortTurn: async () => {
+			abortCalls += 1;
+		},
+	};
+	return {
+		port,
+		sendCalls,
+		abortCalls: () => abortCalls,
+		setTranscript: (state) => {
+			transcript = state;
+		},
+		setDraft: (value) => {
+			draft = value;
+		},
+		setUnavailableReason: (reason) => {
+			unavailableReason = reason;
+		},
+	};
+}
+
+interface ComposeHarness {
+	view: StackViewOverlay;
+	fake: FakeComposePort;
+	settled: StackViewUiResult[];
+	createPortCalls: () => number;
+	fireOnChange: () => void;
+	tui: { renders: () => number };
+}
+
+/** Build an overlay wired to a fake compose port, capturing the createPort onChange. */
+function newComposeView(options: { withCompose?: boolean; rows?: number } = {}): ComposeHarness {
+	const fake = createFakeComposePort();
+	const settled: StackViewUiResult[] = [];
+	const recording = recordingTui(options.rows ?? 30);
+	let createPortCalls = 0;
+	let capturedOnChange: () => void = () => {};
+	const compose: StackViewComposeOption = {
+		createPort: (onChange) => {
+			createPortCalls += 1;
+			capturedOnChange = onChange;
+			return fake.port;
+		},
+	};
+	const view = new StackViewOverlay({
+		tui: recording.tui,
+		theme: identityTheme(),
+		model: bigModel(),
+		initialIndex: 0,
+		done: (result) => settled.push(result),
+		...(options.withCompose === false ? {} : { compose }),
+	});
+	return {
+		view,
+		fake,
+		settled,
+		createPortCalls: () => createPortCalls,
+		fireOnChange: () => capturedOnChange(),
+		tui: { renders: recording.renders },
+	};
+}
+
 interface NewViewOptions {
 	initialIndex?: number;
 	onDone?: (result: StackViewUiResult) => void;
@@ -828,10 +1074,11 @@ function runWithFakeCtx(
 }
 
 function fakeTui(rows = 30): TUI {
-	return {
-		terminal: { rows },
+	const tui = {
+		terminal: fakeTerminal(rows),
 		requestRender() {},
-	} as TUI;
+	} satisfies Partial<TUI>;
+	return tui as TUI;
 }
 
 function dividerIndex(lines: string[]): number {
@@ -858,40 +1105,12 @@ function bigModel(): StackViewModel {
 				status: "checks-failing",
 				threads: { resolved: 1, total: 2 },
 				checks: { passing: 1, failing: 1, pending: 0, total: 2 },
-				checkEntries: [checkEntry({ name: "lint", workflowName: "CI", bucket: "failing" })],
-				unresolvedThreads: [threadDetail({ path: "src/a.ts", line: 4, author: "alice" })],
+				checkEntries: [checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" })],
+				unresolvedThreads: [threadDetailFixture({ path: "src/a.ts", line: 4, author: "alice" })],
 			}),
 			prFixture({ number: 2, branch: "feature/2", title: "Second", status: "ready" }),
 		],
 	});
-}
-
-/** Build a check entry, defaulting the detail-only fields the overlay model ignores. */
-function checkEntry(overrides: Partial<StackViewCheckEntry> = {}): StackViewCheckEntry {
-	return {
-		name: "check",
-		workflowName: null,
-		bucket: "passing",
-		status: null,
-		conclusion: null,
-		detailsUrl: null,
-		identity: null,
-		...overrides,
-	};
-}
-
-/** Build a thread detail, defaulting the comment/id fields the overlay model ignores. */
-function threadDetail(overrides: Partial<StackViewThreadDetail> = {}): StackViewThreadDetail {
-	return {
-		id: null,
-		path: "",
-		line: null,
-		author: null,
-		comments: [],
-		lastCommentId: null,
-		totalComments: 0,
-		...overrides,
-	};
 }
 
 function prFixture(overrides: Partial<StackViewPr> = {}): StackViewPr {
@@ -977,12 +1196,17 @@ function createFakeEnrichment(): FakeEnrichment {
 function recordingTui(rows = 30): { tui: TUI; renders: () => number } {
 	let count = 0;
 	const tui = {
-		terminal: { rows },
+		terminal: fakeTerminal(rows),
 		requestRender() {
 			count += 1;
 		},
-	} as TUI;
-	return { tui, renders: () => count };
+	} satisfies Partial<TUI>;
+	return { tui: tui as TUI, renders: () => count };
+}
+
+function fakeTerminal(rows: number): TUI["terminal"] {
+	const terminal = { rows } satisfies Partial<TUI["terminal"]>;
+	return terminal as TUI["terminal"];
 }
 
 function modelFixture(overrides: Partial<StackViewModel> = {}): StackViewModel {

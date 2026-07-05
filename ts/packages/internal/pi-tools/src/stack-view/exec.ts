@@ -17,6 +17,12 @@ export type {
 	PiExecApiLike,
 } from "@nseng-ai/foundation/exec";
 
+/** Shared exec context threaded through stack-view I/O helpers. */
+export interface StackViewExecContext {
+	execApi: CommandExecApi;
+	cwd: string;
+}
+
 /** Adapt the Pi host `exec` into the `CommandExecApi` gateway for stack-view. */
 export function stackViewExecApi(pi: PiExecApiLike): CommandExecApi {
 	return piExecApiToCommandExecApi(pi);

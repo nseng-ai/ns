@@ -3,24 +3,19 @@
  * Objectives a branch touches relative to its parent. We diff the branch against
  * its parent restricted to `.ns/objectives` and map the changed paths to slugs.
  *
- * The path→slug mapping is reimplemented here (not imported): the canonical
- * helper `objectiveSlugsFromPaths` lives as a private function inside the
- * `@nseng-ai/objective` package's `list-branch-attribution.ts` and is not exposed on
- * any public export surface, so importing it would require a deep import into
- * capability internals. The mapping is small and mirrors
- * `objectiveSlugFromActivePath` / `isValidObjectiveSlug` from that package.
+ * The path→slug mapping is intentionally local: package-tier layering forbids
+ * this internal Pi tool from depending on the `@nseng-ai/objective` capability package.
+ * The branch-diffing wrapper is the genuinely stack-view-specific logic.
  *
  * Error model matches `graphql.ts`: exec failure is a typed error value, never a
  * throw. A successful diff with no objective paths simply yields an empty list.
  */
-import type { CommandExecApi } from "./exec.ts";
+import type { StackViewExecContext } from "./exec.ts";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 
 const OBJECTIVES_ROOT = ".ns/objectives";
 
-export interface ObjectiveSlugsForBranchParams {
-	execApi: CommandExecApi;
-	cwd: string;
+export interface ObjectiveSlugsForBranchParams extends StackViewExecContext {
 	branch: string;
 	parentBranch: string;
 }
