@@ -4,9 +4,6 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentDispatcherDependencies } from "@internal/pi-tools/runner-subagents/process";
-import type { RuntimeResultV1 } from "@internal/pi-tools/runner-subagents/runtime";
-import { createRuntimeConfig } from "@internal/pi-tools/runner-subagents/runtime";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type JsonObject,
@@ -31,7 +28,10 @@ import { reviewerOutcomeFromRunnerResult } from "../../src/thermo-council/orches
 import {
 	FakeSpawnedChildProcess,
 	createFakeRunnerSubagentDispatcher,
+	createRuntimeConfig,
 	jsonLine,
+	type RunnerSubagentDispatcherDependencies,
+	type RuntimeResultV1,
 	type SpawnCall,
 } from "@internal/pi-tools/runner-subagents/testing";
 

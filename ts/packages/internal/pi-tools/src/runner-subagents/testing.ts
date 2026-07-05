@@ -15,6 +15,9 @@ import {
 	type RuntimeResultV1,
 } from "./subagent-runtime.ts";
 
+export { createRuntimeConfig };
+export type { RunnerSubagentDispatcherDependencies, RuntimeResultV1 };
+
 export interface SpawnCall {
 	command: string;
 	args: string[];

@@ -15,12 +15,7 @@
 		"./pr-previews/extension": "./src/pr-previews/extension.ts",
 		"./runner-subagents": "./src/runner-subagents/index.ts",
 		"./runner-subagents/extension": "./src/runner-subagents/extension.ts",
-		"./runner-subagents/json-events": "./src/runner-subagents/json-events.ts",
-		"./runner-subagents/presentation": "./src/runner-subagents/presentation.ts",
-		"./runner-subagents/process": "./src/runner-subagents/subagent-process.ts",
-		"./runner-subagents/runtime": "./src/runner-subagents/subagent-runtime.ts",
 		"./runner-subagents/testing": "./src/runner-subagents/testing.ts",
-		"./runner-subagents/usage": "./src/runner-subagents/usage.ts",
 		"./thermo-council": "./src/thermo-council/index.ts",
 		"./thermo-council/extension": "./src/thermo-council/extension.ts"
 	},

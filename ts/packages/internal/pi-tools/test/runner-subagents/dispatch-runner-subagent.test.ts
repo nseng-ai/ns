@@ -13,7 +13,6 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 } from "@internal/pi-tools/runner-subagents";
-import type { RunnerSubagentDispatcherDependencies } from "@internal/pi-tools/runner-subagents/process";
 import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
@@ -27,6 +26,7 @@ import {
 	createFakeRunnerSubagentDispatcher,
 	jsonLine,
 	sessionMessageLine,
+	type RunnerSubagentDispatcherDependencies,
 	waitForSpawn,
 } from "@internal/pi-tools/runner-subagents/testing";
 
