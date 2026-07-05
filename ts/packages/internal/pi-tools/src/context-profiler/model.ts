@@ -137,12 +137,14 @@ export interface AnalysisVerdicts {
 	analysisSummary?: string;
 }
 
-export interface EpisodeScopeSeed extends AnalysisVerdicts {
+export interface EpisodeSpan extends AnalysisVerdicts {
 	label: string;
 	kind: EpisodeKind;
 	outcome: EpisodeOutcome | null;
 	turnRange: TurnRange;
 }
+
+export type EpisodeScopeSeed = EpisodeSpan;
 
 export type InterrogationScope = { type: "session" } | { type: "episode"; seed: EpisodeScopeSeed };
 
@@ -151,21 +153,13 @@ export type InterrogationScope = { type: "session" } | { type: "episode"; seed: 
  * deterministic view is complete without them, and LM segmentation only
  * supplies these as additive input.
  */
-export interface EpisodeAnnotation extends AnalysisVerdicts {
-	label: string;
-	kind: EpisodeKind;
+export interface EpisodeAnnotation extends EpisodeSpan {
 	outcome: EpisodeOutcome;
-	turnRange: TurnRange;
 }
 
 /** One LIVE-section overview row: a span of turns with a label. */
-export interface LiveRegion extends AnalysisVerdicts {
+export interface LiveRegion extends EpisodeSpan {
 	id: string;
-	label: string;
-	kind: EpisodeKind;
-	/** Null for deterministic/unannotated rows; set only by episode annotations. */
-	outcome: EpisodeOutcome | null;
-	turnRange: TurnRange;
 	tokens: TokenCount;
 	/** True when the span contains the last live turn. */
 	isCurrent: boolean;

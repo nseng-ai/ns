@@ -1,3 +1,5 @@
+import { buildFencedTextBlock } from "@ns/core/primitives";
+
 import {
 	DIFF_PROMPT_LIMIT_CHARS,
 	type ThermoCouncilScope,
@@ -33,21 +35,22 @@ export function buildReviewerPrompt(
 		`- Head: ${scope.headRef} (${scope.headSha})`,
 		"",
 		"## Diff Stat",
-		codeFence(scope.diffStat),
+		buildFencedTextBlock(scope.diffStat, "text"),
 		"",
 		"## Changed Files",
 		...scope.changedFiles.map((file) => `- ${file}`),
 		"",
 		"## Canonical Rubric: .ns/reviews/thermonuclear-review/review.md",
-		codeFence(scope.rubricText),
+		buildFencedTextBlock(scope.rubricText, "text"),
 		"",
 		"## Diff",
 		diffNotice,
-		codeFence(scope.diffText),
+		buildFencedTextBlock(scope.diffText, "text"),
 		"",
 		"## Terminal capture contract",
 		"Call submit_thermo_council_review with findings shaped as:",
-		codeFence(`{
+		buildFencedTextBlock(
+			`{
   "summary": "short synthesis",
   "findings": [{
     "id": "local-id",
@@ -63,7 +66,9 @@ export function buildReviewerPrompt(
     "validationHints": ["focused validation command or check"]
   }],
   "disagreements": ["optional concerns about tensions or incompatible remedies"]
-}`),
+}`,
+			"text",
+		),
 		"You may omit files and validationHints when they are empty; the parent defaults them to [].",
 		"If blocked, call block_thermo_council_review with a reason and suggested recovery.",
 	].join("\n");
@@ -79,9 +84,11 @@ export function renderReviewGuidanceBlock({
 	safetyContract,
 }: RenderReviewGuidanceBlockOptions): readonly string[] {
 	if (reviewGuidance === undefined) return [];
-	return ["## User Review Guidance (untrusted)", safetyContract, "", codeFence(reviewGuidance), ""];
-}
-
-function codeFence(value: string): string {
-	return ["```text", value, "```"].join("\n");
+	return [
+		"## User Review Guidance (untrusted)",
+		safetyContract,
+		"",
+		buildFencedTextBlock(reviewGuidance, "text"),
+		"",
+	];
 }

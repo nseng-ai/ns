@@ -3,20 +3,16 @@ import { EventEmitter } from "node:events";
 import type { Clock } from "@ns/core/clock";
 import type { TimerScheduler } from "@ns/core/timers";
 
-import type {
-	RunnerSubagentDispatcherDependencies,
-	SpawnChildProcessOptions,
-	SpawnedChildProcess,
-} from "./subagent-process.ts";
 import {
 	createRuntimeConfig,
-	type RunnerSubagentRuntimeFiles,
-	type RuntimeResultReadResult,
+	type RunnerSubagentDispatcherDependencies,
 	type RuntimeResultV1,
-} from "./subagent-runtime.ts";
+} from "./extension-api.ts";
+import type { SpawnChildProcessOptions, SpawnedChildProcess } from "./subagent-process.ts";
+import type { RunnerSubagentRuntimeFiles, RuntimeResultReadResult } from "./subagent-runtime.ts";
 
-export { createRuntimeConfig };
-export type { RunnerSubagentDispatcherDependencies, RuntimeResultV1 };
+export { createRuntimeConfig } from "./extension-api.ts";
+export type { RunnerSubagentDispatcherDependencies, RuntimeResultV1 } from "./extension-api.ts";
 
 export interface SpawnCall {
 	command: string;

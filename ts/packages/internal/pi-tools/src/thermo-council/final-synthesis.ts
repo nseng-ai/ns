@@ -9,7 +9,7 @@ import {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 } from "./contract.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./extension.ts";
+import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
 import { renderReviewGuidanceBlock } from "./prompt.ts";
 
 const SYNTHESIS_MODEL_ENV = "THERMO_COUNCIL_SYNTHESIS_MODEL";

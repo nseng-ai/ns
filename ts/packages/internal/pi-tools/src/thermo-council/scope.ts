@@ -1,6 +1,7 @@
 import { type ExecResult, formatCommandResultFailure, normalizeExecResult } from "@ns/core/exec";
+
 import { DIFF_PROMPT_LIMIT_CHARS, type ThermoCouncilScope } from "./contract.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./extension.ts";
+import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 const DIFF_TIMEOUT_MS = 60_000;

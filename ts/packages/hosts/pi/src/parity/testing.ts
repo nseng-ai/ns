@@ -92,15 +92,7 @@ export async function expectPiSurfaceParity<TPi>(
 		metadata,
 	});
 
-	if (
-		comparison.missingMetadata.length > 0 ||
-		comparison.staleMetadata.length > 0 ||
-		comparison.duplicateMetadataKeys.length > 0
-	) {
-		throw new Error(formatParityComparisonFailure(comparison));
-	}
-
-	expect(comparison).toEqual({
+	expect(comparison, formatParityComparisonFailure(comparison)).toEqual({
 		missingMetadata: [],
 		staleMetadata: [],
 		duplicateMetadataKeys: [],

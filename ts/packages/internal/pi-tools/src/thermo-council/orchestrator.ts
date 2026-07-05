@@ -44,8 +44,8 @@ import {
 	summarizeThermoCouncilReviewerOutcome,
 } from "./report.ts";
 import { collectThermoCouncilScope } from "./scope.ts";
+import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
 import { parseThermoCouncilSeats, type EnvReader } from "./seats.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./extension.ts";
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;
