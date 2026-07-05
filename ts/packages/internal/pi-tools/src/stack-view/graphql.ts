@@ -22,6 +22,7 @@ import type {
 	StackViewCheckEntry,
 	StackViewPrChecks,
 	StackViewPrThreads,
+	StackViewThreadComment,
 	StackViewThreadDetail,
 } from "./types.ts";
 import type { CommandExecApi } from "./exec.ts";
@@ -97,7 +98,9 @@ export function buildStackPrQuery(branches: string[]): string {
 		return (
 			`b${index}: pullRequests(headRefName: ${graphqlStringLiteral(branch)}, states: [OPEN], first: 1)` +
 			"{nodes{number title url isDraft body reviewDecision" +
-			" reviewThreads(first:100){totalCount nodes{isResolved path line originalLine comments(first:1){nodes{author{login}}}}}" +
+			" reviewThreads(first:100){totalCount nodes{id isResolved path line originalLine" +
+			" comments(first:30){totalCount nodes{id body author{login} createdAt}}" +
+			" lastComment: comments(last:1){nodes{id}}}}" +
 			" commits(last:1){nodes{commit{statusCheckRollup{state" +
 			` contexts(first:100){totalCount nodes{${STATUS_CHECK_FIELDS}}}}}}}}}`
 		);
@@ -132,10 +135,24 @@ function graphqlStringLiteral(value: string): string {
 
 const reviewThreadCommentsSchema = z
 	.object({
+		totalCount: z.number().int().nonnegative().default(0),
 		nodes: z
-			.array(z.object({ author: z.object({ login: z.string() }).loose().nullish() }).loose())
+			.array(
+				z
+					.object({
+						id: z.string().nullish(),
+						body: z.string().nullish(),
+						author: z.object({ login: z.string() }).loose().nullish(),
+						createdAt: z.string().nullish(),
+					})
+					.loose(),
+			)
 			.default([]),
 	})
+	.loose();
+
+const reviewThreadLastCommentSchema = z
+	.object({ nodes: z.array(z.object({ id: z.string().nullish() }).loose()).default([]) })
 	.loose();
 
 const reviewThreadsSchema = z
@@ -145,11 +162,13 @@ const reviewThreadsSchema = z
 			.array(
 				z
 					.object({
+						id: z.string().nullish(),
 						isResolved: z.boolean().default(false),
 						path: z.string().nullish(),
 						line: z.number().int().nullish(),
 						originalLine: z.number().int().nullish(),
 						comments: reviewThreadCommentsSchema.nullish(),
+						lastComment: reviewThreadLastCommentSchema.nullish(),
 					})
 					.loose(),
 			)
@@ -264,8 +283,9 @@ function threadCountsFromNode(
 }
 
 /**
- * Extract the unresolved review threads' detail (path/line/author) from the
- * fetched nodes for the detail pane. Only the first 100 threads are fetched, so
+ * Extract the unresolved review threads' detail (id, location, author, fetched
+ * comments, and last-comment change key) from the fetched nodes for the detail
+ * pane and downstream enrichment. Only the first 100 threads are fetched, so
  * this list can be truncated; the authoritative unresolved *count* still comes
  * from {@link threadCountsFromNode} (via `totalCount`), so a paginated PR keeps
  * an honest total even when this list is short.
@@ -276,11 +296,33 @@ function unresolvedThreadDetailsFromNode(
 	if (reviewThreads === null || reviewThreads === undefined) return [];
 	return reviewThreads.nodes
 		.filter((thread) => !thread.isResolved)
-		.map((thread) => ({
-			path: thread.path ?? "",
-			line: thread.line ?? thread.originalLine ?? null,
-			author: thread.comments?.nodes[0]?.author?.login ?? null,
-		}));
+		.map((thread) => {
+			const comments = commentsFromThread(thread.comments);
+			return {
+				id: thread.id ?? null,
+				path: thread.path ?? "",
+				line: thread.line ?? thread.originalLine ?? null,
+				author: comments[0]?.author ?? null,
+				comments,
+				lastCommentId: thread.lastComment?.nodes[0]?.id ?? null,
+				// `totalComments` stays honest via the larger of the connection's
+				// `totalCount` and the fetched node count (it can only under-count).
+				totalComments: Math.max(thread.comments?.totalCount ?? 0, comments.length),
+			};
+		});
+}
+
+/** Map the fetched comment nodes into the plain {@link StackViewThreadComment} shape (missing scalars → ""/null). */
+function commentsFromThread(
+	comments: z.infer<typeof reviewThreadCommentsSchema> | null | undefined,
+): StackViewThreadComment[] {
+	if (comments === null || comments === undefined) return [];
+	return comments.nodes.map((comment) => ({
+		id: comment.id ?? "",
+		author: comment.author?.login ?? null,
+		body: comment.body ?? "",
+		createdAt: comment.createdAt ?? null,
+	}));
 }
 
 /**
@@ -312,6 +354,12 @@ function checksFromNode(commits: z.infer<typeof commitsSchema> | null | undefine
 		name: entry.name,
 		workflowName: entry.workflowName,
 		bucket: entry.bucket === "unknown" ? "pending" : entry.bucket,
+		status: entry.status,
+		conclusion: entry.conclusion,
+		// StatusContexts carry their external URL in `targetUrl`; CheckRuns in
+		// `detailsUrl`. Fold them so the entry's URL is populated for both kinds.
+		detailsUrl: entry.detailsUrl ?? entry.targetUrl,
+		identity: entry.identity,
 	}));
 	return { counts, entries };
 }

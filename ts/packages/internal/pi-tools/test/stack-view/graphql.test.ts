@@ -9,7 +9,12 @@ import {
 	type FetchStackPrsResult,
 } from "../../src/stack-view/graphql.ts";
 import type { CommandExecApi, ExecOptions, ExecResult } from "../../src/stack-view/exec.ts";
-import { deriveStatus, type StackViewStatusInput } from "../../src/stack-view/types.ts";
+import {
+	deriveStatus,
+	type StackViewCheckEntry,
+	type StackViewStatusInput,
+	type StackViewThreadDetail,
+} from "../../src/stack-view/types.ts";
 
 const CWD = "/repo";
 
@@ -88,27 +93,57 @@ function checkRunWithWorkflow(
 	};
 }
 
-function statusContext(context: string, state: string): unknown {
-	return { __typename: "StatusContext", context, state, createdAt: null, targetUrl: null };
+function statusContext(context: string, state: string, targetUrl: string | null = null): unknown {
+	return { __typename: "StatusContext", context, state, createdAt: null, targetUrl };
 }
 
+/** Expected {@link StackViewCheckEntry} the parse produces for a node, keeping assertions terse. */
+function checkEntry(fields: {
+	name: string;
+	workflowName?: string | null;
+	bucket: "passing" | "failing" | "pending";
+	status?: string | null;
+	conclusion?: string | null;
+	detailsUrl?: string | null;
+	identity: string | null;
+}): StackViewCheckEntry {
+	return {
+		name: fields.name,
+		workflowName: fields.workflowName ?? null,
+		bucket: fields.bucket,
+		status: fields.status ?? null,
+		conclusion: fields.conclusion ?? null,
+		detailsUrl: fields.detailsUrl ?? null,
+		identity: fields.identity,
+	};
+}
+
+const COMMENT_CREATED_AT = "2026-01-01T00:00:00Z";
+const COMMENT_BODY = "comment body";
+
 interface ThreadNodeOverrides {
+	id?: string | null;
 	isResolved?: boolean;
 	path?: string;
 	line?: number | null;
 	originalLine?: number | null;
 	author?: string | null;
 	comments?: unknown;
+	lastComment?: unknown;
 }
 
 /**
  * One review-thread node in the fetched `reviewThreads.nodes` shape. By default a
- * single comment authored by `octocat` is attached; pass an explicit `comments`
+ * single comment authored by `octocat` (id/body/createdAt derived) plus a
+ * `lastComment` alias is attached; pass an explicit `comments` / `lastComment`
  * (including `undefined`) to model a missing connection, an empty `nodes`, or a
- * null author. Omit `path` to model a file-level thread with no path.
+ * null author. Omit `path` to model a file-level thread with no path. Thread and
+ * comment ids derive from the author so multi-thread fixtures stay distinct.
  */
 function threadNode(overrides: ThreadNodeOverrides = {}): unknown {
+	const login = overrides.author ?? "octocat";
 	const node: Record<string, unknown> = {
+		id: "id" in overrides ? overrides.id : `rt-${login}`,
 		isResolved: overrides.isResolved ?? false,
 		line: overrides.line ?? null,
 		originalLine: overrides.originalLine ?? null,
@@ -117,9 +152,47 @@ function threadNode(overrides: ThreadNodeOverrides = {}): unknown {
 	if ("comments" in overrides) {
 		node.comments = overrides.comments;
 	} else {
-		node.comments = { nodes: [{ author: { login: overrides.author ?? "octocat" } }] };
+		node.comments = {
+			totalCount: 1,
+			nodes: [
+				{ id: `c-${login}`, body: COMMENT_BODY, author: { login }, createdAt: COMMENT_CREATED_AT },
+			],
+		};
+	}
+	if ("lastComment" in overrides) {
+		node.lastComment = overrides.lastComment;
+	} else {
+		node.lastComment = { nodes: [{ id: `c-${login}` }] };
 	}
 	return node;
+}
+
+/**
+ * The {@link StackViewThreadDetail} the parse produces for a default-shape
+ * {@link threadNode} with the given author (single derived comment). Keeps the
+ * connection-driven assertions readable.
+ */
+function expectedThread(fields: {
+	path: string;
+	line: number | null;
+	author: string;
+}): StackViewThreadDetail {
+	return {
+		id: `rt-${fields.author}`,
+		path: fields.path,
+		line: fields.line,
+		author: fields.author,
+		comments: [
+			{
+				id: `c-${fields.author}`,
+				author: fields.author,
+				body: COMMENT_BODY,
+				createdAt: COMMENT_CREATED_AT,
+			},
+		],
+		lastCommentId: `c-${fields.author}`,
+		totalComments: 1,
+	};
 }
 
 function threadsConnection(
@@ -244,11 +317,16 @@ describe("buildStackPrQuery", () => {
 		expect(query).toContain('headRefName: "bell\\u0007end"');
 	});
 
-	it("selects per-thread detail (path/line/originalLine and the first comment's author)", () => {
+	it("selects per-thread detail (id, path/line/originalLine, comments, and the lastComment alias)", () => {
 		const query = buildStackPrQuery(["main"]);
 		expect(query).toContain(
-			"reviewThreads(first:100){totalCount nodes{isResolved path line originalLine comments(first:1){nodes{author{login}}}}}",
+			"reviewThreads(first:100){totalCount nodes{id isResolved path line originalLine" +
+				" comments(first:30){totalCount nodes{id body author{login} createdAt}}" +
+				" lastComment: comments(last:1){nodes{id}}}}",
 		);
+		// The pieces the change-detection key and detail pane depend on.
+		expect(query).toContain("comments(first:30)");
+		expect(query).toContain("lastComment: comments(last:1)");
 	});
 });
 
@@ -305,12 +383,35 @@ describe("parseStackPrResponse happy path", () => {
 			threads: { resolved: 2, total: 3 },
 			checks: { passing: 2, failing: 1, pending: 1, total: 4 },
 			checkEntries: [
-				{ name: "build", workflowName: null, bucket: "passing" },
-				{ name: "unit", workflowName: null, bucket: "passing" },
-				{ name: "e2e", workflowName: null, bucket: "failing" },
-				{ name: "lint", workflowName: null, bucket: "pending" },
+				checkEntry({
+					name: "build",
+					bucket: "passing",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					identity: "check-run:build",
+				}),
+				checkEntry({
+					name: "unit",
+					bucket: "passing",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					identity: "check-run:unit",
+				}),
+				checkEntry({
+					name: "e2e",
+					bucket: "failing",
+					status: "COMPLETED",
+					conclusion: "FAILURE",
+					identity: "check-run:e2e",
+				}),
+				checkEntry({
+					name: "lint",
+					bucket: "pending",
+					status: "IN_PROGRESS",
+					identity: "check-run:lint",
+				}),
 			],
-			unresolvedThreads: [{ path: "unresolved/0.ts", line: 1, author: "author0" }],
+			unresolvedThreads: [expectedThread({ path: "unresolved/0.ts", line: 1, author: "author0" })],
 		});
 		expect(second).toEqual({
 			number: 22,
@@ -322,8 +423,12 @@ describe("parseStackPrResponse happy path", () => {
 			threads: { resolved: 3, total: 3 },
 			checks: { passing: 1, failing: 0, pending: 1, total: 2 },
 			checkEntries: [
-				{ name: "ci/deploy", workflowName: null, bucket: "passing" },
-				{ name: "ci/security", workflowName: null, bucket: "pending" },
+				checkEntry({ name: "ci/deploy", bucket: "passing", identity: "status-context:ci/deploy" }),
+				checkEntry({
+					name: "ci/security",
+					bucket: "pending",
+					identity: "status-context:ci/security",
+				}),
 			],
 			unresolvedThreads: [],
 		});
@@ -392,8 +497,8 @@ describe("parseStackPrResponse unresolved-thread detail", () => {
 			],
 		});
 		expect(pr?.unresolvedThreads).toEqual([
-			{ path: "src/a.ts", line: 12, author: "bob" },
-			{ path: "src/b.ts", line: 34, author: "carol" },
+			expectedThread({ path: "src/a.ts", line: 12, author: "bob" }),
+			expectedThread({ path: "src/b.ts", line: 34, author: "carol" }),
 		]);
 	});
 
@@ -418,8 +523,8 @@ describe("parseStackPrResponse unresolved-thread detail", () => {
 			],
 		});
 		expect(pr?.unresolvedThreads).toEqual([
-			{ path: "src/a.ts", line: 7, author: "bob" },
-			{ path: "src/b.ts", line: null, author: "carol" },
+			expectedThread({ path: "src/a.ts", line: 7, author: "bob" }),
+			expectedThread({ path: "src/b.ts", line: null, author: "carol" }),
 		]);
 	});
 
@@ -428,27 +533,124 @@ describe("parseStackPrResponse unresolved-thread detail", () => {
 			totalCount: 1,
 			nodes: [threadNode({ isResolved: false, line: 3, author: "bob" })],
 		});
-		expect(pr?.unresolvedThreads).toEqual([{ path: "", line: 3, author: "bob" }]);
+		expect(pr?.unresolvedThreads).toEqual([expectedThread({ path: "", line: 3, author: "bob" })]);
 	});
 
 	it("yields a null author when comments are missing, empty, or carry a null author", () => {
 		const pr = parseOne({
 			totalCount: 3,
 			nodes: [
-				threadNode({ isResolved: false, path: "src/a.ts", line: 1, comments: undefined }),
-				threadNode({ isResolved: false, path: "src/b.ts", line: 2, comments: { nodes: [] } }),
 				threadNode({
+					id: "rt-a",
+					isResolved: false,
+					path: "src/a.ts",
+					line: 1,
+					comments: undefined,
+					lastComment: undefined,
+				}),
+				threadNode({
+					id: "rt-b",
+					isResolved: false,
+					path: "src/b.ts",
+					line: 2,
+					comments: { nodes: [] },
+					lastComment: { nodes: [] },
+				}),
+				threadNode({
+					id: "rt-c",
 					isResolved: false,
 					path: "src/c.ts",
 					line: 3,
 					comments: { nodes: [{ author: null }] },
+					lastComment: { nodes: [{ id: "c-c" }] },
 				}),
 			],
 		});
 		expect(pr?.unresolvedThreads).toEqual([
-			{ path: "src/a.ts", line: 1, author: null },
-			{ path: "src/b.ts", line: 2, author: null },
-			{ path: "src/c.ts", line: 3, author: null },
+			{
+				id: "rt-a",
+				path: "src/a.ts",
+				line: 1,
+				author: null,
+				comments: [],
+				lastCommentId: null,
+				totalComments: 0,
+			},
+			{
+				id: "rt-b",
+				path: "src/b.ts",
+				line: 2,
+				author: null,
+				comments: [],
+				lastCommentId: null,
+				totalComments: 0,
+			},
+			{
+				id: "rt-c",
+				path: "src/c.ts",
+				line: 3,
+				author: null,
+				comments: [{ id: "", author: null, body: "", createdAt: null }],
+				lastCommentId: "c-c",
+				totalComments: 1,
+			},
+		]);
+	});
+
+	it("parses adversarial threads: missing id → null, empty comments, and a missing lastComment alias", () => {
+		const pr = parseOne({
+			totalCount: 1,
+			nodes: [
+				threadNode({
+					id: null,
+					isResolved: false,
+					path: "src/adversarial.ts",
+					line: 9,
+					comments: { totalCount: 0, nodes: [] },
+					lastComment: undefined,
+				}),
+			],
+		});
+		expect(pr?.unresolvedThreads).toEqual([
+			{
+				id: null,
+				path: "src/adversarial.ts",
+				line: 9,
+				author: null,
+				comments: [],
+				lastCommentId: null,
+				totalComments: 0,
+			},
+		]);
+	});
+
+	it("keeps totalComments honest from totalCount when it exceeds fetched comment nodes", () => {
+		const pr = parseOne({
+			totalCount: 1,
+			nodes: [
+				threadNode({
+					id: "rt-big",
+					isResolved: false,
+					path: "src/big.ts",
+					line: 4,
+					comments: {
+						totalCount: 42,
+						nodes: [{ id: "c1", body: "first", author: { login: "dana" }, createdAt: null }],
+					},
+					lastComment: { nodes: [{ id: "c42" }] },
+				}),
+			],
+		});
+		expect(pr?.unresolvedThreads).toEqual([
+			{
+				id: "rt-big",
+				path: "src/big.ts",
+				line: 4,
+				author: "dana",
+				comments: [{ id: "c1", author: "dana", body: "first", createdAt: null }],
+				lastCommentId: "c42",
+				totalComments: 42,
+			},
 		]);
 	});
 });
@@ -464,21 +666,47 @@ describe("parseStackPrResponse check entries", () => {
 		return result.prs[0];
 	}
 
-	it("projects a CheckRun's name, workflow name, and bucket", () => {
+	it("projects a CheckRun's name, workflow name, bucket, status/conclusion, and identity", () => {
 		const pr = parseChecks([
 			checkRunWithWorkflow("typecheck", "CI", "COMPLETED", "SUCCESS"),
 			checkRunWithWorkflow("e2e", "CI", "COMPLETED", "FAILURE"),
 		]);
 		expect(pr?.checkEntries).toEqual([
-			{ name: "typecheck", workflowName: "CI", bucket: "passing" },
-			{ name: "e2e", workflowName: "CI", bucket: "failing" },
+			checkEntry({
+				name: "typecheck",
+				workflowName: "CI",
+				bucket: "passing",
+				status: "COMPLETED",
+				conclusion: "SUCCESS",
+				identity: "check-run:CI:typecheck",
+			}),
+			checkEntry({
+				name: "e2e",
+				workflowName: "CI",
+				bucket: "failing",
+				status: "COMPLETED",
+				conclusion: "FAILURE",
+				identity: "check-run:CI:e2e",
+			}),
 		]);
 	});
 
-	it("projects a StatusContext's context as the name with a null workflow name", () => {
+	it("projects a StatusContext's context as the name with null workflow/status/conclusion", () => {
 		const pr = parseChecks([statusContext("ci/deploy", "SUCCESS")]);
 		expect(pr?.checkEntries).toEqual([
-			{ name: "ci/deploy", workflowName: null, bucket: "passing" },
+			checkEntry({ name: "ci/deploy", bucket: "passing", identity: "status-context:ci/deploy" }),
+		]);
+	});
+
+	it("folds a StatusContext's targetUrl into the entry's detailsUrl", () => {
+		const pr = parseChecks([statusContext("ci/deploy", "SUCCESS", "https://ci.example/build/1")]);
+		expect(pr?.checkEntries).toEqual([
+			checkEntry({
+				name: "ci/deploy",
+				bucket: "passing",
+				identity: "status-context:ci/deploy",
+				detailsUrl: "https://ci.example/build/1",
+			}),
 		]);
 	});
 
@@ -489,8 +717,20 @@ describe("parseStackPrResponse check entries", () => {
 			checkRun("mystery", "COMPLETED", "SOMETHING_NEW"),
 		]);
 		expect(pr?.checkEntries).toEqual([
-			{ name: "ok", workflowName: null, bucket: "passing" },
-			{ name: "mystery", workflowName: null, bucket: "pending" },
+			checkEntry({
+				name: "ok",
+				bucket: "passing",
+				status: "COMPLETED",
+				conclusion: "SUCCESS",
+				identity: "check-run:ok",
+			}),
+			checkEntry({
+				name: "mystery",
+				bucket: "pending",
+				status: "COMPLETED",
+				conclusion: "SOMETHING_NEW",
+				identity: "check-run:mystery",
+			}),
 		]);
 	});
 });
