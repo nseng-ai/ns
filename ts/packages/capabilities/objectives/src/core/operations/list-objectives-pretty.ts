@@ -15,11 +15,9 @@ import {
 	paint,
 	padCell,
 	padPlain,
-	treeMarkers,
 	truncatePlain,
 } from "@nseng-ai/foundation/cli-theme";
 
-import { MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 import {
 	edgeCountCell,
 	emptyMessage,
@@ -64,9 +62,8 @@ function subtitle(result: ObjectiveListResult): string {
 /**
  * Render the Objective list as the house-style human surface.
  *
- * Note on the table primitive: this list interleaves per-row branch-attribution sub-rows (a tree)
- * beneath each record and carries a separate fixed-width outstanding-changes gutter, so it composes
- * from the lower-level cell primitives (paint / glyph / padCell / treeMarkers) rather than the flat
+ * Note on the table primitive: this list carries a separate fixed-width outstanding-changes gutter,
+ * so it composes from the lower-level cell primitives (paint / glyph / padCell) rather than the flat
  * `renderTable` — which lays out exactly one line per row. That's a deliberate fit, not a gap.
  */
 export function renderObjectiveListPretty(
@@ -82,7 +79,6 @@ export function renderObjectiveListPretty(
 		return lines.join("\n");
 	}
 
-	const includeBranches = result.updatedBranchesIncluded === true;
 	const maxSlug = Math.max(...result.records.map((r) => r.slug.length), "OBJECTIVE".length);
 	const statusW = "X blocked".length; // widest plain status cell ("{glyph} blocked")
 	const flagW = "x".length; // the outstanding-changes flag gets its own spaced column
@@ -115,15 +111,6 @@ export function renderObjectiveListPretty(
 		const edgesCell = edgeCountCell(record);
 
 		lines.push(`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${edgesCell}`.trimEnd());
-
-		if (includeBranches) {
-			const branches = record.updatedBranches ?? [];
-			const markers = treeMarkers(caps);
-			branches.forEach((branch, index) => {
-				const marker = index === branches.length - 1 ? markers.last : markers.tee;
-				lines.push(`  ${dim(clip(caps, `${marker} ${branch}`, caps.columns - 2))}`);
-			});
-		}
 	}
 
 	const legends: string[] = [];
@@ -131,14 +118,6 @@ export function renderObjectiveListPretty(
 		legends.push(dim("x = uncommitted changes not yet recorded in an update"));
 	}
 	if (legends.length > 0) lines.push("", ...legends);
-	if (result.updatedBranchesTruncated === true) {
-		lines.push(
-			"",
-			dim(
-				`Updated branch attribution limited to newest ${MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS} changed local branches.`,
-			),
-		);
-	}
 
 	return lines.join("\n");
 }

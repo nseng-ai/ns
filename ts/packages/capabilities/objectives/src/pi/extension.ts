@@ -387,7 +387,7 @@ function objectiveListRequestFromParsedArgs(
 }
 
 function renderObjectiveListHelp(): string {
-	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Hide local branch attribution.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
+	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Deprecated no-op; the list is always compact.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
 }
 
 export const objectiveParity = definePiSurfaceParity([

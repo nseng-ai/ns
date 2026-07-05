@@ -9,6 +9,11 @@
 				"entry": "./src/commands/list.ts"
 			},
 			{
+				"name": "show",
+				"description": "Show one Objective record with branches and edge annotations.",
+				"entry": "./src/commands/show.ts"
+			},
+			{
 				"name": "check",
 				"description": "Check one Objective record, or sweep all record edges with --all.",
 				"entry": "./src/commands/check.ts"

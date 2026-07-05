@@ -22,10 +22,6 @@ import {
 } from "../storage.ts";
 
 import { removeOneTrailingNewline } from "./format.ts";
-import {
-	buildObjectiveBranchAttribution,
-	MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS,
-} from "./list-branch-attribution.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
 
@@ -34,10 +30,7 @@ export const listObjectivesRequestSchema = z.object({
 	status: objectiveStatusFilterSchema
 		.default("active")
 		.describe("Filter Objective records by checkout-local status."),
-	minimal: z
-		.boolean()
-		.default(false)
-		.describe("Hide local branch attribution and show the compact Objective list."),
+	minimal: z.boolean().default(false).describe("Deprecated no-op; the list is always compact."),
 });
 
 export const objectiveListRecordSchema = z.object({
@@ -51,7 +44,6 @@ export const objectiveListRecordSchema = z.object({
 	latestUpdateIso: z.string().nullable(),
 	/** Present only when Record Frontmatter declares at least one Objective Edge. */
 	edgeCount: z.number().int().positive().optional(),
-	updatedBranches: z.array(z.string()).optional(),
 	hasOutstandingChanges: z.boolean(),
 });
 
@@ -60,8 +52,6 @@ export const objectiveListResultSchema = z.object({
 	rootPath: z.string(),
 	statusFilter: objectiveStatusFilterSchema,
 	namesOnly: z.boolean(),
-	updatedBranchesIncluded: z.boolean().optional(),
-	updatedBranchesTruncated: z.boolean().optional(),
 	records: z.array(objectiveListRecordSchema),
 });
 
@@ -94,19 +84,6 @@ export async function buildObjectiveListResult(
 	const filtered = inventory.value.records.filter((record) =>
 		matchesStatusFilter(record.status, request.status),
 	);
-	const includeBranchAttribution = shouldIncludeBranchAttribution(request);
-	let updatedBranchesBySlug: ReadonlyMap<string, readonly string[]> = new Map();
-	let isUpdatedBranchesTruncated = false;
-	if (includeBranchAttribution) {
-		const attribution = await buildObjectiveBranchAttribution(ctx.git, {
-			repoRoot: ctx.repoRoot,
-			trunkBranch: ctx.trunkBranch,
-			slugs: new Set(filtered.map((record) => record.slug)),
-		});
-		if (attribution.type === "git-error") return attribution;
-		updatedBranchesBySlug = attribution.value.updatedBranchesBySlug;
-		isUpdatedBranchesTruncated = attribution.value.isTruncated;
-	}
 
 	const builtRecords = await Promise.all(
 		filtered.map((record) =>
@@ -116,7 +93,6 @@ export async function buildObjectiveListResult(
 				repoRoot: ctx.repoRoot,
 				slug: record.slug,
 				status: record.status,
-				updatedBranches: updatedBranchesBySlug.get(record.slug),
 			}),
 		),
 	);
@@ -134,8 +110,6 @@ export async function buildObjectiveListResult(
 			rootPath: activeRootRelativePath(),
 			statusFilter: request.status,
 			namesOnly: request.names,
-			...(includeBranchAttribution ? { updatedBranchesIncluded: true } : {}),
-			...(isUpdatedBranchesTruncated ? { updatedBranchesTruncated: true } : {}),
 			records,
 		},
 	};
@@ -157,24 +131,16 @@ export function renderObjectiveListHuman(
 		parts.push(`${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
-	const includeUpdatedBranches = result.updatedBranchesIncluded === true;
 	const renderCaps = resolveRenderCapabilities(caps);
 	parts.push(
 		`${renderTextTable({
-			columns: humanTableColumns(includeUpdatedBranches),
-			rows: result.records.map((record) =>
-				humanRecordCells(record, includeUpdatedBranches, renderCaps),
-			),
+			columns: humanTableColumns(),
+			rows: result.records.map((record) => baseRecordCells(record, renderCaps)),
 			canEmitAnsi: caps.canEmitAnsi,
 			shouldDrawRule: true,
 			headerStyle: "bold-cyan",
 		})}\n`,
 	);
-	if (result.updatedBranchesTruncated === true) {
-		parts.push(
-			`Updated branch attribution limited to newest ${MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS} changed local branches.\n`,
-		);
-	}
 	return removeOneTrailingNewline(parts.join(""));
 }
 
@@ -191,16 +157,10 @@ export function renderObjectiveListMarkdown(result: ObjectiveListResult): string
 		parts.push("\n", `${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
-	parts.push("\n", markdownTableHeader(result), markdownTableSeparator(result));
+	parts.push("\n", markdownTableHeader(), markdownTableSeparator());
 	const markdownCaps = resolveSettledNonInteractiveCaps();
 	for (const record of result.records) {
-		parts.push(markdownRecordRow(record, result.updatedBranchesIncluded === true, markdownCaps));
-	}
-	if (result.updatedBranchesTruncated === true) {
-		parts.push(
-			"\n",
-			`_Updated branch attribution limited to newest ${MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS} changed local branches; older updated branches may be omitted._\n`,
-		);
+		parts.push(markdownRecordRow(record, markdownCaps));
 	}
 	return removeOneTrailingNewline(parts.join(""));
 }
@@ -235,7 +195,6 @@ interface BuildObjectiveListRecordOptions {
 	repoRoot: string;
 	slug: string;
 	status: ObjectiveRecordStatus;
-	updatedBranches: readonly string[] | undefined;
 }
 
 async function buildObjectiveListRecord(
@@ -262,9 +221,6 @@ async function buildObjectiveListRecord(
 			...(facts.isBlocked ? { isBlocked: true } : {}),
 			latestUpdateIso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
 			...(facts.edgeCount > 0 ? { edgeCount: facts.edgeCount } : {}),
-			...(options.updatedBranches === undefined
-				? {}
-				: { updatedBranches: [...options.updatedBranches] }),
 			hasOutstandingChanges: dirty.value,
 		},
 	};
@@ -306,10 +262,6 @@ function updateNameIso(name: string): string | null {
 	const extended = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})Z(?:-|\.md$)/u.exec(name);
 	if (extended !== null) return `${extended[1]}T${extended[2]}:${extended[3]}:${extended[4]}Z`;
 	return null;
-}
-
-function shouldIncludeBranchAttribution(request: ListObjectivesRequest): boolean {
-	return !request.names && !request.minimal;
 }
 
 export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
@@ -359,15 +311,13 @@ function formatLatestUpdate(record: ObjectiveListRecord): string {
 	return formatted;
 }
 
-function humanTableColumns(shouldIncludeUpdatedBranches: boolean): TextTableColumn[] {
-	const columns: TextTableColumn[] = [
+function humanTableColumns(): TextTableColumn[] {
+	return [
 		{ header: "OBJECTIVE", style: "bold-cyan" },
 		{ header: "STATUS" },
 		{ header: "LATEST UPDATE", style: "dim" },
 		{ header: "EDGES" },
 	];
-	if (shouldIncludeUpdatedBranches) columns.push({ header: "UPDATED BRANCHES" });
-	return columns;
 }
 
 function baseRecordCells(record: ObjectiveListRecord, caps: Caps): string[] {
@@ -379,53 +329,15 @@ function baseRecordCells(record: ObjectiveListRecord, caps: Caps): string[] {
 	];
 }
 
-function humanRecordCells(
-	record: ObjectiveListRecord,
-	shouldIncludeUpdatedBranches: boolean,
-	caps: Caps,
-): string[] {
-	const cells = baseRecordCells(record, caps);
-	if (shouldIncludeUpdatedBranches) cells.push(humanUpdatedBranchesCell(record));
-	return cells;
-}
-
-function humanUpdatedBranchesCell(record: ObjectiveListRecord): string {
-	const branches = record.updatedBranches ?? [];
-	if (branches.length === 0) return "—";
-	return branches
-		.map((branch, index) => formatBranchLine(index + 1, branches.length, branch))
-		.join("\n");
-}
-
-function markdownTableHeader(result: ObjectiveListResult): string {
-	if (result.updatedBranchesIncluded === true)
-		return "| objective | status | latest update | edges | updated branches |\n";
+function markdownTableHeader(): string {
 	return "| objective | status | latest update | edges |\n";
 }
 
-function markdownTableSeparator(result: ObjectiveListResult): string {
-	if (result.updatedBranchesIncluded === true) return "| --- | --- | --- | --- | --- |\n";
+function markdownTableSeparator(): string {
 	return "| --- | --- | --- | --- |\n";
 }
 
-function markdownRecordRow(
-	record: ObjectiveListRecord,
-	shouldIncludeUpdatedBranches: boolean,
-	caps: Caps,
-): string {
+function markdownRecordRow(record: ObjectiveListRecord, caps: Caps): string {
 	const cells = baseRecordCells(record, caps);
-	if (shouldIncludeUpdatedBranches) cells.push(formatUpdatedBranches(record));
 	return `| ${cells.join(" | ")} |\n`;
-}
-
-function formatUpdatedBranches(record: ObjectiveListRecord): string {
-	const branches = record.updatedBranches ?? [];
-	if (branches.length === 0) return "—";
-	return branches.join(", ");
-}
-
-function formatBranchLine(index: number, branchCount: number, branch: string): string {
-	const marker = index === branchCount ? "└" : "├";
-	if (branchCount === 1) return `${marker} ${branch}`;
-	return `${marker} ${index}/${branchCount} ${branch}`;
 }

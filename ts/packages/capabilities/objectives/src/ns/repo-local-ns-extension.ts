@@ -14,12 +14,14 @@ import { objectiveExecRunnerStepNsCommand } from "./commands/exec-runner-step.ts
 import { objectiveExecRunnerSubagentUsageNsCommand } from "./commands/exec-runner-subagent-usage.ts";
 import { objectiveExecTrackingGateNsCommand } from "./commands/exec-tracking-gate.ts";
 import { objectiveListNsCommand } from "./commands/list.ts";
+import { objectiveShowNsCommand } from "./commands/show.ts";
 
 export const objectiveRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "objective",
 	description: "Inspect and maintain ns Objective records.",
 	commands: [
 		objectiveListNsCommand,
+		objectiveShowNsCommand,
 		objectiveCheckNsCommand,
 		objectiveArchiveNsCommand,
 		objectiveExecListCandidatesNsCommand,
