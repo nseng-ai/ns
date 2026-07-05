@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
-import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
+import type {
+	ToolContext,
+	ToolDefinition,
+	ToolResult,
+	WidgetPlacement,
+} from "@nseng-ai/pi/runtime/tool-types";
 
 import {
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
@@ -44,6 +49,13 @@ class FakePi implements ExploreExtensionAPI {
 interface ToolContextOptions {
 	cwd?: string;
 	model?: ToolContext["model"];
+	widgetCalls?: WidgetCall[];
+}
+
+interface WidgetCall {
+	key: string;
+	content: string[] | undefined;
+	options: { placement?: WidgetPlacement } | undefined;
 }
 
 interface Deferred<T> {
@@ -64,12 +76,26 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 function toolContext(options: ToolContextOptions = {}): ToolContext {
+	const widgetCalls = options.widgetCalls;
 	return {
 		cwd: options.cwd ?? ROOT,
-		hasUI: false,
+		hasUI: widgetCalls !== undefined,
 		mode: "json",
 		...(options.model === undefined ? {} : { model: options.model }),
-		ui: { notify: () => {} },
+		ui: {
+			notify: () => {},
+			...(widgetCalls === undefined
+				? {}
+				: {
+						setWidget: (
+							key: string,
+							content: string[] | undefined,
+							options: { placement?: WidgetPlacement } | undefined,
+						) => {
+							widgetCalls.push({ key, content, options });
+						},
+					}),
+		},
 	};
 }
 
@@ -125,6 +151,12 @@ async function settleMicrotasks(count = 5): Promise<void> {
 	for (let index = 0; index < count; index += 1) {
 		await Promise.resolve();
 	}
+}
+
+function latestWidgetContent(widgetCalls: readonly WidgetCall[]): string[] {
+	const content = widgetCalls.findLast((call) => call.content !== undefined)?.content;
+	if (content === undefined) throw new Error("Expected a widget content update.");
+	return content;
 }
 
 describe("explore extension", () => {
@@ -237,6 +269,83 @@ describe("explore extension", () => {
 		expect(text.indexOf("### 1. Scout 1")).toBeLessThan(text.indexOf("### 2. Scout 2"));
 		expect(text.indexOf("### 2. Scout 2")).toBeLessThan(text.indexOf("### 3. Scout 3"));
 		expect(maxInFlight).toBe(3);
+	});
+
+	test("renders live widget rows during fan-out and clears on completion", async () => {
+		const deferreds = Array.from({ length: 4 }, () => createDeferred<ExplorerDispatchOutcome>());
+		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
+			const index = Number(intent.title.replace("Scout ", "")) - 1;
+			return await deferreds[index]!.promise;
+		};
+		const widgetCalls: WidgetCall[] = [];
+		const tool = registerExploreTool({ dispatchExplorer });
+		const running = tool.execute(
+			"tool-1",
+			{ breadth: "medium", ...exploreParams(4) },
+			undefined,
+			undefined,
+			toolContext({ widgetCalls }),
+		);
+		await settleMicrotasks();
+
+		const initialLines = latestWidgetContent(widgetCalls);
+		expect(initialLines[0]).toContain("explore: 0/4 done, 3 running");
+		expect(initialLines.findIndex((line) => line.includes("Scout 1"))).toBeLessThan(
+			initialLines.findIndex((line) => line.includes("Scout 4")),
+		);
+		expect(initialLines.join("\n")).toContain("▶ 1. Scout 1");
+		expect(initialLines.join("\n")).toContain("· 4. Scout 4");
+		expect(initialLines.join("\n")).toContain("queued");
+
+		deferreds[1]!.resolve(finalOutcome("second", "/tmp/two.jsonl"));
+		await settleMicrotasks();
+		const progressedLines = latestWidgetContent(widgetCalls);
+		expect(progressedLines[0]).toContain("explore: 1/4 done, 3 running");
+		expect(progressedLines.join("\n")).toContain("✓ 2. Scout 2");
+
+		deferreds[0]!.resolve(finalOutcome("first", "/tmp/one.jsonl"));
+		deferreds[2]!.resolve(finalOutcome("third", "/tmp/three.jsonl"));
+		deferreds[3]!.resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
+		await running;
+
+		const finalCall = widgetCalls.at(-1);
+		expect(finalCall).toMatchObject({ key: "ns.explore.progress", content: undefined });
+		expect(widgetCalls.every((call) => call.options?.placement === "aboveEditor")).toBe(true);
+	});
+
+	test("renders recent child activity in widget rows", async () => {
+		const deferreds = Array.from({ length: 2 }, () => createDeferred<ExplorerDispatchOutcome>());
+		const progressUpdate: RunnerSubagentUpdate = {
+			progress: {
+				state: "running",
+				currentTool: "read",
+				toolCount: 1,
+				turnCount: 1,
+				elapsedMs: 10,
+			},
+			activity: { assistantPreview: "Reading file map." },
+		};
+		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
+			const index = Number(intent.title.replace("Scout ", "")) - 1;
+			intent.onProgress?.(progressUpdate);
+			return await deferreds[index]!.promise;
+		};
+		const widgetCalls: WidgetCall[] = [];
+		const tool = registerExploreTool({ dispatchExplorer });
+		const running = tool.execute(
+			"tool-1",
+			{ breadth: "quick", ...exploreParams(2) },
+			undefined,
+			undefined,
+			toolContext({ widgetCalls }),
+		);
+		await settleMicrotasks();
+
+		expect(latestWidgetContent(widgetCalls).join("\n")).toContain("Reading file map.");
+
+		deferreds[0]!.resolve(finalOutcome("first", "/tmp/one.jsonl"));
+		deferreds[1]!.resolve(finalOutcome("second", "/tmp/two.jsonl"));
+		await running;
 	});
 
 	test("passes child intent, cwd, combined signal, and progress callback", async () => {
