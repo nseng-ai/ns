@@ -15,7 +15,7 @@ export const objectiveListNsCommand = objectiveNsCommand({
 	summary: "List Objective records in the current checkout.",
 	description: "List Objective records in the current checkout.",
 	schema: listObjectivesRequestSchema,
-	options: { names: { short: "-n" }, status: { short: "-s" }, minimal: { short: "-m" } },
+	options: { names: { short: "-n" }, status: { short: "-s" } },
 	resultSchema: objectiveListResultSchema,
 	handler: runListObjectives,
 	renderHuman: (data, caps) =>

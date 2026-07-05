@@ -2,13 +2,7 @@ import type { ObjectiveStatusFilter } from "./operations/list-objectives.ts";
 
 import type { ObjectiveCliCompletionItem } from "./objective-candidates.ts";
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = [
-	"--names",
-	"--minimal",
-	"--status",
-	"--help",
-	"-h",
-] as const;
+const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--status", "--help", "-h"] as const;
 export const OBJECTIVE_LIST_STATUS_VALUES = [
 	"all",
 	"active",
@@ -57,7 +51,7 @@ export function parseObjectiveListArgTokens(
 			isHelpRequested = true;
 			continue;
 		}
-		if (token === "--names" || token === "--minimal") {
+		if (token === "--names") {
 			args.push(token);
 			continue;
 		}

@@ -1,5 +1,14 @@
 import { failure, negative, ok, type Caps, type ClinkrExit } from "@nseng-ai/clinkr";
-import { bold, dim, glyph, paint, treeMarkers } from "@nseng-ai/foundation/cli-theme";
+import {
+	bold,
+	dim,
+	glyph,
+	paint,
+	renderBufferedReport,
+	treeMarkers,
+	wrapPlain,
+	type Intent,
+} from "@nseng-ai/foundation/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -11,10 +20,11 @@ import { buildObjectiveBranchAttribution } from "./list-branch-attribution.ts";
 import {
 	latestUpdateIsoFromUpdateNames,
 	objectiveStatusPresentation,
-	type ObjectiveListRecord,
+	type ObjectiveStatusPresentationInput,
 } from "./list-objectives.ts";
 import { relativeTime } from "./list-objectives-pretty.ts";
-import { resolveObjectiveRecordTarget } from "./objective-target.ts";
+import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
+import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
 export const showObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to show."),
@@ -39,7 +49,7 @@ export const showObjectiveOkResultSchema = z.object({
 	slug: z.string(),
 	path: z.string(),
 	rootPath: z.string(),
-	closed: z.boolean(),
+	isClosed: z.boolean(),
 	// Blocked Sentence from this record's own frontmatter parse; null when unblocked or without frontmatter.
 	blockedSentence: z.string().nullable(),
 	// Present only when this record's frontmatter is malformed; edge/blocked facts then read as empty,
@@ -49,13 +59,13 @@ export const showObjectiveOkResultSchema = z.object({
 	updateCount: z.number().int(),
 	hasOutstandingChanges: z.boolean(),
 	updatedBranches: z.array(z.string()),
-	updatedBranchesTruncated: z.boolean(),
+	isUpdatedBranchesTruncated: z.boolean(),
 	edges: z.array(showObjectiveEdgeSchema),
 });
 
 const showObjectiveNonOkBaseSchema = z.object({
 	rootPath: z.string(),
-	rootExists: z.boolean(),
+	hasRoot: z.boolean(),
 	slug: z.string().nullable(),
 	path: z.string().nullable(),
 });
@@ -107,10 +117,7 @@ async function buildShowObjectiveResult(
 			type: "ok",
 			value: {
 				status: target.status,
-				rootPath: target.rootPath,
-				rootExists: target.hasRoot,
-				slug: target.slug,
-				path: target.path,
+				...targetToEmptyResultFields(target),
 			},
 		};
 	}
@@ -149,14 +156,14 @@ async function buildShowObjectiveResult(
 			slug: target.slug,
 			path: relativePath,
 			rootPath: target.rootPath,
-			closed: files.value.closedMd,
+			isClosed: files.value.closedMd,
 			blockedSentence: facts.blockedSentence,
 			...(facts.malformed === undefined ? {} : { frontmatterMalformed: facts.malformed }),
 			latestUpdateIso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
 			updateCount: updates.value.length,
 			hasOutstandingChanges: dirty.value,
 			updatedBranches: [...(attribution.value.updatedBranchesBySlug.get(target.slug) ?? [])],
-			updatedBranchesTruncated: attribution.value.isTruncated,
+			isUpdatedBranchesTruncated: attribution.value.isTruncated,
 			edges,
 		},
 	};
@@ -175,13 +182,15 @@ interface ShowObjectiveFrontmatterFacts {
  * malformed frontmatter, though `show` surfaces the parse message via `frontmatterMalformed`.
  */
 function frontmatterFacts(read: ObjectiveRecordDocumentReadResult): ShowObjectiveFrontmatterFacts {
-	if (read.type !== "ok") return { blockedSentence: null, edges: [] };
-	const parse = read.document.frontmatter;
-	if (parse === undefined) return { blockedSentence: null, edges: [] };
-	if (parse.type === "malformed") {
-		return { blockedSentence: null, edges: [], malformed: parse.message };
+	const parsed = readParsedObjectiveFrontmatter(read);
+	if (parsed.frontmatter === null) {
+		return {
+			blockedSentence: null,
+			edges: [],
+			...(parsed.malformed === undefined ? {} : { malformed: parsed.malformed }),
+		};
 	}
-	return { blockedSentence: parse.frontmatter.blocked, edges: parse.frontmatter.edges };
+	return { blockedSentence: parsed.frontmatter.blocked, edges: parsed.frontmatter.edges };
 }
 
 async function resolveEdgeCounterpart(
@@ -207,10 +216,9 @@ function backEdgeAnnotation(
 	read: ObjectiveRecordDocumentReadResult,
 	ownSlug: string,
 ): string | null {
-	if (read.type !== "ok") return null;
-	const parse = read.document.frontmatter;
-	if (parse === undefined || parse.type === "malformed") return null;
-	const back = parse.frontmatter.edges.find((edge) => edge.objective === ownSlug);
+	const parsed = readParsedObjectiveFrontmatter(read);
+	if (parsed.frontmatter === null) return null;
+	const back = parsed.frontmatter.edges.find((edge) => edge.objective === ownSlug);
 	return back?.annotation ?? null;
 }
 
@@ -221,52 +229,133 @@ export function renderShowObjectiveHuman(
 ): string {
 	if (result.status !== "ok") return "No Objective record selected.";
 
-	const lines: string[] = [bold(`Objective ${result.slug}`)];
-	const presentation = objectiveStatusPresentation(presentationRecord(result));
-	const statusGlyph = paint(caps, presentation.intent, glyph(caps, presentation.glyphName));
-	lines.push(`Status: ${statusGlyph} ${presentation.word}`);
-	if (result.blockedSentence !== null) lines.push(`Blocked: ${result.blockedSentence}`);
-	if (result.frontmatterMalformed !== undefined) {
-		lines.push(dim(`Frontmatter malformed: ${result.frontmatterMalformed}`));
+	const presentation = objectiveStatusPresentation(statusPresentationInput(result));
+	const statusStyled = `${paint(caps, presentation.intent, glyph(caps, presentation.glyphName))} ${paint(
+		caps,
+		presentation.intent,
+		presentation.word,
+	)}`;
+	return renderBufferedReport({
+		caps: { canEmitAnsi: caps.colorDepth !== "none", caps },
+		title: `${bold("Objective")} ${bold(paint(caps, "accent", result.slug))}  ${statusStyled}`,
+		titleStyle: "plain",
+		sections: [
+			{ title: "", lines: summaryLines(result, caps, nowMs) },
+			{ title: bold("Branches"), lines: renderBranchLines(result, caps) },
+			{ title: bold("Edges"), lines: renderHumanEdgeSections(result.edges, caps) },
+		],
+	});
+}
+
+function summaryLines(result: ShowObjectiveOkResult, caps: Caps, nowMs: number): string[] {
+	const lines = [dim(subtitleLine(result, caps, nowMs))];
+	if (result.hasOutstandingChanges) {
+		lines.push(paint(caps, "warn", "Uncommitted changes not yet recorded in an update."));
 	}
-	lines.push(`Root: ${result.rootPath}`);
-	lines.push(`Path: ${result.path}`);
+	if (result.blockedSentence !== null) {
+		lines.push(
+			...labeledWrappedBlock({
+				caps,
+				label: "Blocked",
+				labelStyled: paint(caps, "warn", bold("Blocked")),
+				text: result.blockedSentence,
+			}),
+		);
+	}
+	if (result.frontmatterMalformed !== undefined) {
+		lines.push(
+			...wrapPlain(`Frontmatter malformed: ${result.frontmatterMalformed}`, contentWidth(caps)).map(
+				(line) => dim(line),
+			),
+		);
+	}
+	return lines;
+}
 
-	const stamp = result.latestUpdateIso === null ? "—" : relativeTime(result.latestUpdateIso, nowMs);
-	lines.push(`Latest update: ${stamp}  (updates: ${result.updateCount})`);
-	lines.push(`Outstanding changes: ${result.hasOutstandingChanges ? "yes" : "no"}`);
-
-	lines.push("", bold("Branches"));
+function renderBranchLines(result: ShowObjectiveOkResult, caps: Caps): string[] {
+	const lines: string[] = [];
 	if (result.updatedBranches.length === 0) {
 		lines.push(dim("No local branches touch this record."));
 	} else {
 		const markers = treeMarkers(caps);
 		result.updatedBranches.forEach((branch, index) => {
 			const marker = index === result.updatedBranches.length - 1 ? markers.last : markers.tee;
-			lines.push(dim(`${marker} ${branch}`));
+			lines.push(`${dim(marker)} ${branch}`);
 		});
 	}
-	if (result.updatedBranchesTruncated) {
-		lines.push(dim("Branch attribution truncated; older updated branches may be omitted."));
+	if (result.isUpdatedBranchesTruncated) {
+		lines.push(
+			...wrapPlain(
+				"Branch attribution truncated; older updated branches may be omitted.",
+				contentWidth(caps),
+			).map((line) => dim(line)),
+		);
 	}
+	return lines;
+}
 
-	lines.push("", bold("Edges"));
-	if (result.edges.length === 0) {
-		lines.push(dim("No Objective Edges declared."));
-	} else {
-		for (const edge of result.edges) {
-			lines.push(`${edge.objective}  [${edge.counterpart.state}]`);
-			lines.push(`  this record: ${edge.annotation}`);
-			lines.push(`  ${edge.objective}: ${counterpartAnnotationText(edge.counterpart)}`);
-		}
+function renderHumanEdgeSections(edges: readonly ShowObjectiveEdge[], caps: Caps): string[] {
+	if (edges.length === 0) return [dim("No Objective Edges declared.")];
+	return edges.flatMap((edge) => renderEdgeLines(edge, caps));
+}
+
+function contentWidth(caps: Caps, reserved = 0): number {
+	return Math.max(20, caps.columns) - reserved;
+}
+
+function subtitleLine(result: ShowObjectiveOkResult, caps: Caps, nowMs: number): string {
+	const separator = caps.canRenderUnicode ? "  ·  " : "  -  ";
+	const updatesFact =
+		result.updateCount === 0
+			? "no updates"
+			: `${result.updateCount} update${result.updateCount === 1 ? "" : "s"}`;
+	const parts = [result.path, updatesFact];
+	if (result.latestUpdateIso !== null) {
+		parts.push(`latest ${relativeTime(result.latestUpdateIso, nowMs)}`);
 	}
-	return lines.join("\n");
+	return parts.join(separator);
+}
+
+/** Label + prose with a hanging indent: wrap the plain text first, then prefix and style. */
+function labeledWrappedBlock(options: {
+	caps: Caps;
+	label: string;
+	labelStyled: string;
+	text: string;
+}): string[] {
+	const indent = options.label.length + 2;
+	const width = contentWidth(options.caps, indent);
+	return wrapPlain(options.text, width).map((line, index) =>
+		index === 0 ? `${options.labelStyled}  ${line}` : `${" ".repeat(indent)}${line}`,
+	);
+}
+
+function edgeStateIntent(state: ShowObjectiveEdgeCounterpart["state"]): Intent {
+	if (state === "active") return "muted";
+	if (state === "archived") return "warn";
+	return "error";
+}
+
+// The counterpart's back-edge annotation is deliberately absent from the human surface: in the
+// healthy case it restates the own-side annotation. Both sides remain on `--format md`.
+function renderEdgeLines(edge: ShowObjectiveEdge, caps: Caps): string[] {
+	const intent = edgeStateIntent(edge.counterpart.state);
+	const lines = [
+		`${paint(caps, intent, glyph(caps, "open"))} ${bold(paint(caps, "accent", edge.objective))}  ${paint(
+			caps,
+			intent,
+			edge.counterpart.state,
+		)}`,
+	];
+	const width = contentWidth(caps, 4);
+	for (const line of wrapPlain(edge.annotation, width)) lines.push(`    ${dim(line)}`);
+	return lines;
 }
 
 export function renderShowObjectiveMarkdown(result: ShowObjectiveResult): string {
 	if (result.status !== "ok") return "_No Objective record selected._";
 
-	const presentation = objectiveStatusPresentation(presentationRecord(result));
+	const presentation = objectiveStatusPresentation(statusPresentationInput(result));
 	const stamp = result.latestUpdateIso ?? "—";
 	const parts = [`# Objective \`${result.slug}\`\n\n`, `Status: ${presentation.word}\n`];
 	if (result.blockedSentence !== null) parts.push(`Blocked: ${result.blockedSentence}\n`);
@@ -287,7 +376,7 @@ export function renderShowObjectiveMarkdown(result: ShowObjectiveResult): string
 		for (const branch of result.updatedBranches) parts.push(`- \`${branch}\`\n`);
 		parts.push("\n");
 	}
-	if (result.updatedBranchesTruncated) {
+	if (result.isUpdatedBranchesTruncated) {
 		parts.push("_Branch attribution truncated; older updated branches may be omitted._\n\n");
 	}
 
@@ -308,12 +397,9 @@ function counterpartAnnotationText(counterpart: ShowObjectiveEdgeCounterpart): s
 	return counterpart.annotation ?? "(no recorded back-edge annotation)";
 }
 
-function presentationRecord(result: ShowObjectiveOkResult): ObjectiveListRecord {
+function statusPresentationInput(result: ShowObjectiveOkResult): ObjectiveStatusPresentationInput {
 	return {
-		slug: result.slug,
-		status: result.closed ? "closed" : "open",
+		status: result.isClosed ? "closed" : "open",
 		...(result.blockedSentence === null ? {} : { isBlocked: true }),
-		latestUpdateIso: result.latestUpdateIso,
-		hasOutstandingChanges: result.hasOutstandingChanges,
 	};
 }

@@ -22,6 +22,8 @@ import {
 } from "../storage.ts";
 
 import { removeOneTrailingNewline } from "./format.ts";
+import { buildObjectiveBranchAttribution } from "./list-branch-attribution.ts";
+import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
 
@@ -30,7 +32,6 @@ export const listObjectivesRequestSchema = z.object({
 	status: objectiveStatusFilterSchema
 		.default("active")
 		.describe("Filter Objective records by checkout-local status."),
-	minimal: z.boolean().default(false).describe("Deprecated no-op; the list is always compact."),
 });
 
 export const objectiveListRecordSchema = z.object({
@@ -44,6 +45,8 @@ export const objectiveListRecordSchema = z.object({
 	latestUpdateIso: z.string().nullable(),
 	/** Present only when Record Frontmatter declares at least one Objective Edge. */
 	edgeCount: z.number().int().positive().optional(),
+	/** Present only when at least one local non-trunk branch touches this Objective record. */
+	updatedBranchCount: z.number().int().positive().optional(),
 	hasOutstandingChanges: z.boolean(),
 });
 
@@ -96,12 +99,28 @@ export async function buildObjectiveListResult(
 			}),
 		),
 	);
-	const records: ObjectiveListRecord[] = [];
+	const baseRecords: ObjectiveListRecord[] = [];
 	for (const built of builtRecords) {
 		if (built.type === "storage-error") return built;
 		if (built.type === "git-error") return built;
-		records.push(built.value);
+		baseRecords.push(built.value);
 	}
+
+	const attribution = await buildObjectiveBranchAttribution(ctx.git, {
+		repoRoot: ctx.repoRoot,
+		trunkBranch: ctx.trunkBranch,
+		slugs: new Set(baseRecords.map((record) => record.slug)),
+	});
+	if (attribution.type === "git-error") return attribution;
+
+	const records = baseRecords.map((record) => {
+		const updatedBranchCount =
+			attribution.value.updatedBranchesBySlug.get(record.slug)?.length ?? 0;
+		return {
+			...record,
+			...(updatedBranchCount > 0 ? { updatedBranchCount } : {}),
+		};
+	});
 
 	return {
 		type: "ok",
@@ -243,30 +262,57 @@ async function readListFrontmatterFacts(
 	recordRelativePath: string,
 ): Promise<ObjectiveListFrontmatterFacts> {
 	const read = await storage.readObjectiveRecordDocument(recordRelativePath);
-	if (read.type !== "ok") return { edgeCount: 0, isBlocked: false };
-	const parse = read.document.frontmatter;
-	if (parse === undefined || parse.type === "malformed") return { edgeCount: 0, isBlocked: false };
+	const parsed = readParsedObjectiveFrontmatter(read);
+	if (parsed.frontmatter === null) return { edgeCount: 0, isBlocked: false };
 	return {
-		edgeCount: parse.frontmatter.edges.length,
-		isBlocked: parse.frontmatter.blocked !== null,
+		edgeCount: parsed.frontmatter.edges.length,
+		isBlocked: parsed.frontmatter.blocked !== null,
 	};
 }
 
 function updateNameIso(name: string): string | null {
 	// Objective update filenames in this repo are timestamp-prefixed. This parser intentionally
 	// accepts the live timestamp forms and leaves non-timestamp Markdown names without latest-update facts.
+	const fullyCompact = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z(?:-|\.md$)/u.exec(name);
+	if (fullyCompact !== null) {
+		return timestampPartsIso(
+			`${fullyCompact[1]}-${fullyCompact[2]}-${fullyCompact[3]}`,
+			fullyCompact[4] ?? "00",
+			fullyCompact[5] ?? "00",
+			fullyCompact[6] ?? "00",
+		);
+	}
 	const compact = /^(\d{4}-\d{2}-\d{2})T(\d{2})(\d{2})(\d{2})Z(?:-|\.md$)/u.exec(name);
-	if (compact !== null) return `${compact[1]}T${compact[2]}:${compact[3]}:${compact[4]}Z`;
+	if (compact !== null)
+		return timestampPartsIso(
+			compact[1] ?? "",
+			compact[2] ?? "00",
+			compact[3] ?? "00",
+			compact[4] ?? "00",
+		);
 	const minute = /^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})(?:-|\.md$)/u.exec(name);
-	if (minute !== null) return `${minute[1]}T${minute[2]}:${minute[3]}:00Z`;
+	if (minute !== null)
+		return timestampPartsIso(minute[1] ?? "", minute[2] ?? "00", minute[3] ?? "00", "00");
 	const extended = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})Z(?:-|\.md$)/u.exec(name);
-	if (extended !== null) return `${extended[1]}T${extended[2]}:${extended[3]}:${extended[4]}Z`;
+	if (extended !== null)
+		return timestampPartsIso(
+			extended[1] ?? "",
+			extended[2] ?? "00",
+			extended[3] ?? "00",
+			extended[4] ?? "00",
+		);
 	return null;
+}
+
+function timestampPartsIso(date: string, hour: string, minute: string, second: string): string {
+	return `${date}T${hour}:${minute}:${second}Z`;
 }
 
 export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
 	return records.map((record) => record.slug).join("\n");
 }
+
+export type ObjectiveStatusPresentationInput = Pick<ObjectiveListRecord, "status" | "isBlocked">;
 
 export interface ObjectiveStatusPresentation {
 	glyphName: Extract<GlyphName, "open" | "done" | "blocked">;
@@ -277,7 +323,7 @@ export interface ObjectiveStatusPresentation {
 // Blocked remains an open lifecycle state for filtering and machine output, but human surfaces
 // render the blocked state directly in the STATUS text instead of relying on a separate indicator.
 export function objectiveStatusPresentation(
-	record: ObjectiveListRecord,
+	record: ObjectiveStatusPresentationInput,
 ): ObjectiveStatusPresentation {
 	if (record.status === "closed") {
 		return { glyphName: "done", intent: "success", word: "closed" };
@@ -289,7 +335,10 @@ export function objectiveStatusPresentation(
 }
 
 function recordStatusCell(record: ObjectiveListRecord, caps: Caps): string {
-	const presentation = objectiveStatusPresentation(record);
+	return formatStatusPlain(caps, objectiveStatusPresentation(record));
+}
+
+export function formatStatusPlain(caps: Caps, presentation: ObjectiveStatusPresentation): string {
 	return `${glyph(caps, presentation.glyphName)} ${presentation.word}`;
 }
 
@@ -316,8 +365,13 @@ function humanTableColumns(): TextTableColumn[] {
 		{ header: "OBJECTIVE", style: "bold-cyan" },
 		{ header: "STATUS" },
 		{ header: "LATEST UPDATE", style: "dim" },
+		{ header: "BRANCHES" },
 		{ header: "EDGES" },
 	];
+}
+
+export function updatedBranchCountCell(record: ObjectiveListRecord): string {
+	return String(record.updatedBranchCount ?? 0);
 }
 
 function baseRecordCells(record: ObjectiveListRecord, caps: Caps): string[] {
@@ -325,16 +379,17 @@ function baseRecordCells(record: ObjectiveListRecord, caps: Caps): string[] {
 		record.slug,
 		recordStatusCell(record, caps),
 		formatLatestUpdate(record),
+		updatedBranchCountCell(record),
 		edgeCountCell(record),
 	];
 }
 
 function markdownTableHeader(): string {
-	return "| objective | status | latest update | edges |\n";
+	return "| objective | status | latest update | branches | edges |\n";
 }
 
 function markdownTableSeparator(): string {
-	return "| --- | --- | --- | --- |\n";
+	return "| --- | --- | --- | --- | --- |\n";
 }
 
 function markdownRecordRow(record: ObjectiveListRecord, caps: Caps): string {

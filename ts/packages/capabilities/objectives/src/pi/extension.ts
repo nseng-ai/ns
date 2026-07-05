@@ -58,8 +58,7 @@ export type ObjectiveExtensionAPI = Pick<
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_EXTENSION_ID = "objective";
 const OBJECTIVE_LIST_COMMAND_NAME = nsCommandSurface(OBJECTIVE_EXTENSION_ID, "list");
-const OBJECTIVE_LIST_ARGUMENT_HINT =
-	"[--names] [--minimal] [--status all|active|open|closed] [--help]";
+const OBJECTIVE_LIST_ARGUMENT_HINT = "[--names] [--status all|active|open|closed] [--help]";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
@@ -304,7 +303,6 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 
 interface ObjectiveListRequestShape {
 	names: boolean;
-	minimal: boolean;
 	status: ObjectiveStatusFilter;
 }
 
@@ -364,15 +362,11 @@ async function runObjectiveListCommand(
 function objectiveListRequestFromParsedArgs(
 	parsed: ObjectiveListParsedArgs,
 ): ObjectiveListRequestShape {
-	const request: ObjectiveListRequestShape = { names: false, minimal: false, status: "active" };
+	const request: ObjectiveListRequestShape = { names: false, status: "active" };
 	for (let index = 0; index < parsed.args.length; index += 1) {
 		const arg = parsed.args[index];
 		if (arg === "--names") {
 			request.names = true;
-			continue;
-		}
-		if (arg === "--minimal") {
-			request.minimal = true;
 			continue;
 		}
 		if (arg === "--status") {
@@ -387,7 +381,7 @@ function objectiveListRequestFromParsedArgs(
 }
 
 function renderObjectiveListHelp(): string {
-	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Deprecated no-op; the list is always compact.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
+	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
 }
 
 export const objectiveParity = definePiSurfaceParity([

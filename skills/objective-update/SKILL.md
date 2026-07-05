@@ -43,7 +43,7 @@ Mutation boundary:
 1. Resolve ambiguous invocation intent first.
 2. Use an explicit user-provided slug/path under `.ns/objectives/<slug>/` when present.
 3. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
-4. Otherwise run `ns objective list --minimal --format md` immediately.
+4. Otherwise run `ns objective list --format md` immediately.
 5. If exactly one active Objective exists and update intent is explicit, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
 6. If multiple active Objectives exist, present the command output and ask for one slug/path; do not ask a generic question before showing options.
 7. If none exist, say so and suggest `objective-create` when appropriate.
@@ -167,7 +167,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 
 ## Stop / ask
 
-Stop or ask when selection is ambiguous/absent after presenting `ns objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, UUID, hidden metadata, state-machine behavior, or YAML/frontmatter beyond Record Frontmatter's sanctioned `blocked` and `edges` keys; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
+Stop or ask when selection is ambiguous/absent after presenting `ns objective list --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, UUID, hidden metadata, state-machine behavior, or YAML/frontmatter beyond Record Frontmatter's sanctioned `blocked` and `edges` keys; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
 For archived paths, ask whether to unarchive before updating Objective tracking. For existing update mutation, explain that updates are immutable and offer to write a new corrective update when appropriate. For unclear closure, leave the Objective open unless the user clarifies.
 

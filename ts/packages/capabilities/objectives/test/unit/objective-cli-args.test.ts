@@ -9,17 +9,17 @@ import {
 
 describe("objective list argument policy", () => {
 	test("completions advertise checkout-local options and status values", () => {
-		expect(values("")).toEqual(["--names", "--minimal", "--status", "--help", "-h"]);
+		expect(values("")).toEqual(["--names", "--status", "--help", "-h"]);
 		expect(values("--status ")).toEqual(["all", "active", "open", "closed"]);
 		expect(values("--status=o")).toEqual(["--status=open"]);
 		expect(values("--view")).toEqual([]);
 	});
 
 	test("parses accepted checkout-local list arguments", () => {
-		expect(parseObjectiveListArgs("--names --minimal --status all")).toEqual({
+		expect(parseObjectiveListArgs("--names --status all")).toEqual({
 			type: "valid",
 			args: {
-				args: ["--names", "--minimal", "--status", "all"],
+				args: ["--names", "--status", "all"],
 				isHelpRequested: false,
 			},
 		});
@@ -47,6 +47,7 @@ describe("objective list argument policy", () => {
 	});
 
 	test("rejects removed and unsupported list arguments", () => {
+		expectInvalid(parseObjectiveListArgs("--minimal"), /Unsupported \/ns:objective:list argument/);
 		expectInvalid(parseObjectiveListArgs("--current"), /--current is no longer supported/);
 		expectInvalid(parseObjectiveListArgs("--view detail"), /--view is no longer supported/);
 		expectInvalid(parseObjectiveListArgs("--status in-flight"), /Unsupported --status/);

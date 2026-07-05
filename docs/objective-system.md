@@ -190,11 +190,11 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective archive`, `ns objective exec read-objective`, `ns objective exec load-orientations`, and `ns objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective archive`, `ns objective exec read-objective`, `ns objective exec load-orientations`, and `ns objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
 
 ### `ns objective list`
 
-Lists Objective records in the current checkout.
+Lists compact Objective records in the current checkout.
 
 Contract:
 
@@ -204,27 +204,44 @@ Contract:
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
-- Include local non-trunk branch attribution by default for the listed checkout-local Objective records. `--names` remains slug-only.
-- Provide a `--minimal` flag that hides local branch attribution and shows the compact Objective/status/latest-update list.
 - Compute `latest_update_iso` from the newest committed update touching `.ns/objectives/<slug>/` when available; otherwise report `null`.
 - Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.ns/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
-- By default, report local branches whose net `.ns/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.ns/objectives/`.
-- Branch attribution first prefilters all local non-trunk branches by `.ns/objectives` tree changes, then limits expensive path walks to the newest 50 changed local branches. If that limit is hit, JSON sets `data.updated_branches_truncated` to true and human/Markdown output notes that older updated branches may be omitted.
-- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state. By default, `data.updated_branches_included` is true and each record contains an `updated_branches` array. With `--minimal` or `--names`, branch-attribution fields are omitted.
-- Do not parse Markdown prose, summarize Objective bodies, choose a canonical branch, or depend on Graphite.
-- The shipped command has no Graphite branch projection, third active status, current-branch mode, or detail view.
+- Render Record Frontmatter facts compactly: a `blocked:` sentence displays as blocked state text while lifecycle status remains `open`, and declared Objective Edges contribute an edge count. Missing, unreadable, or malformed frontmatter lists like a record with no frontmatter; `ns objective check` reports malformed frontmatter.
+- Include a compact related-branch count for each record: the number of local non-trunk branches that `ns objective show <slug>` would list under Branches, subject to the same branch-walk ceiling. `list` shows counts only; `show` is the drill-down surface for branch names.
+- Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, `latest_update_iso`, `has_outstanding_changes`, optional `is_blocked` / `edge_count`, and optional `updated_branch_count` when at least one local non-trunk branch touches the record.
+- Do not parse Markdown prose, summarize Objective bodies, list related branch names, choose a canonical branch, or depend on Graphite.
+- The shipped command has no Graphite branch projection, third active status, current-branch mode, branch-attribution name view, or detail view. Use `ns objective show <slug>` for single-record details and related-branch attribution.
 
 Shipped CLI:
 
-- Run `ns objective list` for the default active/open Objective inventory with local branch attribution.
-- Run `ns objective list --format md` for markdown output with local branch attribution.
-- Run `ns objective list --format json` for the machine envelope with local branch attribution.
-- Run `ns objective list --minimal` for the compact active/open Objective inventory without local branch attribution.
+- Run `ns objective list` for the default compact active/open Objective inventory.
+- Run `ns objective list --format md` for markdown output.
+- Run `ns objective list --format json` for the machine envelope.
 - Run `ns objective list --status all` to include open and closed active-root Objective records.
 - Run `ns objective list --status closed` for closed active-root Objective records.
-- Run `ns objective list --status all --format md` for a Markdown table with local branch attribution.
-- Run `ns objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
+- Run `ns objective list --status all --format md` for a Markdown table.
+- Run `ns objective list --status closed --format json` for machine-readable closed records.
 - Run `ns objective list --names` to print active slugs, one per line.
+
+### `ns objective show`
+
+Shows one Objective record in detail.
+
+Contract:
+
+- Resolve an explicit slug (or slug-like path) to one Objective record without mutating files. Missing or invalid slugs return structured non-ok result data rather than guessing a record.
+- Report status and Blocked Sentence, latest update and update count, outstanding changes under the record path, root/path facts, and malformed-frontmatter messages when present.
+- Attribute related local branches for this single record: local non-trunk branches whose `.ns/objectives` changes touch the shown slug are listed under Branches. If the branch walk ceiling is hit, human/Markdown output notes that branch attribution is truncated and JSON sets `updated_branches_truncated`.
+- Render every Objective Edge declared by this record with this record's annotation plus the counterpart's back-edge annotation when available. Counterparts are resolved active-first, then archive, then `missing`; malformed or unreadable counterpart frontmatter produces no back-edge annotation.
+- Emit machine JSON as a Clinkr envelope whose ok `data` includes `slug`, `path`, `root_path`, `closed`, `blocked_sentence`, optional `frontmatter_malformed`, `latest_update_iso`, `update_count`, `has_outstanding_changes`, `updated_branches`, `updated_branches_truncated`, and `edges`.
+- Support `--format md` and `--format json` like other Objective commands.
+- Do not summarize Objective prose, choose a canonical implementation branch, or depend on Graphite.
+
+Shipped CLI:
+
+- Run `ns objective show <slug>` for the default human detail view.
+- Run `ns objective show <slug> --format md` for Markdown detail output.
+- Run `ns objective show <slug> --format json` for the machine envelope including branch attribution and edge details.
 
 ### `ns objective exec load-orientations`
 

@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { paint } from "../../src/cli-theme/palette.ts";
-import { padCell, padPlain, truncatePlain, visibleWidth } from "../../src/cli-theme/text.ts";
+import {
+	padCell,
+	padPlain,
+	truncatePlain,
+	visibleWidth,
+	wrapPlain,
+} from "../../src/cli-theme/text.ts";
 
 function caps(): Caps {
 	return { isTty: true, colorDepth: "truecolor", columns: 80, canRenderUnicode: true };
@@ -60,5 +66,37 @@ describe("padCell", () => {
 	test("no padding when plain width already meets width", () => {
 		const colored = paint(caps(), "success", "okay");
 		expect(padCell(colored, "okay", 4)).toBe(colored);
+	});
+});
+
+describe("wrapPlain", () => {
+	test("text that fits stays on one line", () => {
+		expect(wrapPlain("short text", 20)).toEqual(["short text"]);
+	});
+
+	test("wraps greedily at word boundaries", () => {
+		expect(wrapPlain("aaa bbb ccc ddd", 7)).toEqual(["aaa bbb", "ccc ddd"]);
+	});
+
+	test("a word at exactly the width fills its line", () => {
+		expect(wrapPlain("abcde fgh", 5)).toEqual(["abcde", "fgh"]);
+	});
+
+	test("a word longer than the width sits alone unbroken", () => {
+		expect(wrapPlain("a verylongtoken b", 6)).toEqual(["a", "verylongtoken", "b"]);
+	});
+
+	test("width at or below zero clamps to one column and terminates", () => {
+		expect(wrapPlain("a b c", 0)).toEqual(["a", "b", "c"]);
+		expect(wrapPlain("a b c", -5)).toEqual(["a", "b", "c"]);
+	});
+
+	test("empty and whitespace-only input yield no lines", () => {
+		expect(wrapPlain("", 10)).toEqual([]);
+		expect(wrapPlain("   ", 10)).toEqual([]);
+	});
+
+	test("interior whitespace runs collapse to single spaces", () => {
+		expect(wrapPlain("aaa   bbb\n\tccc", 20)).toEqual(["aaa bbb ccc"]);
 	});
 });

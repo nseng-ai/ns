@@ -84,7 +84,7 @@ describe("objectiveTabModule.loadModel", () => {
 		expect(calls).toEqual([
 			{
 				command: "ns",
-				args: ["objective", "list", "--minimal", "--format", "json"],
+				args: ["objective", "list", "--format", "json"],
 				options: { cwd: "/repo", timeout: 10_000 },
 			},
 		]);

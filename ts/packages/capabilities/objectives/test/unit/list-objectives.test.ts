@@ -61,10 +61,10 @@ describe("renderObjectiveListHuman", () => {
 			"Root: .ns/objectives",
 			"Status filter: all",
 			"",
-			"OBJECTIVE        STATUS     LATEST UPDATE         EDGES",
-			"───────────────  ─────────  ────────────────────  ─────",
-			"alpha            ⊘ blocked  2026-06-13T09:10:00Z  2",
-			"bravo-objective  ✓ closed   (x) —",
+			"OBJECTIVE        STATUS     LATEST UPDATE         BRANCHES  EDGES",
+			"───────────────  ─────────  ────────────────────  ────────  ─────",
+			"alpha            ⊘ blocked  2026-06-13T09:10:00Z  0         2",
+			"bravo-objective  ✓ closed   (x) —                 0",
 		]);
 	});
 
@@ -88,9 +88,9 @@ describe("renderObjectiveListHuman", () => {
 		};
 
 		const lines = renderObjectiveListMarkdown(result).split("\n");
-		expect(lines).toContain("| objective | status | latest update | edges |");
-		expect(lines).toContain("| alpha | ⊘ blocked | — | 2 |");
-		expect(lines).toContain("| bravo | ● open | — |  |");
+		expect(lines).toContain("| objective | status | latest update | branches | edges |");
+		expect(lines).toContain("| alpha | ⊘ blocked | — | 0 | 2 |");
+		expect(lines).toContain("| bravo | ● open | — | 0 |  |");
 	});
 
 	test("human status cells use canonical ASCII glyph fallbacks", () => {
@@ -166,6 +166,21 @@ describe("objective list helpers", () => {
 		expect(latestUpdateIsoFromUpdateNames(["alpha.md", "zeta.md"])).toBeNull();
 	});
 
+	test("parses fully-compact update timestamps", () => {
+		expect(latestUpdateIsoFromUpdateNames(["20260701T185244Z-grilling-decisions.md"])).toBe(
+			"2026-07-01T18:52:44Z",
+		);
+	});
+
+	test("orders fully-compact names against dashed forms by timestamp", () => {
+		expect(
+			latestUpdateIsoFromUpdateNames([
+				"2026-06-15T223520Z-typescript-package-read-objective.md",
+				"20260701T185244Z-grilling-decisions.md",
+			]),
+		).toBe("2026-07-01T18:52:44Z");
+	});
+
 	test("fake-backed branch attribution prefilters branches and attributes active objective slugs", async () => {
 		const git = new InMemoryGitGateway({
 			localBranchTips: [
@@ -224,7 +239,7 @@ describe("objective list helpers", () => {
 				),
 				git: new InMemoryGitGateway(),
 			};
-			return await runListObjectives(ctx, { names: false, status: "active", minimal: true });
+			return await runListObjectives(ctx, { names: false, status: "active" });
 		};
 
 		// A record without frontmatter lists exactly as before: no edge/blocked keys at all.
@@ -250,8 +265,7 @@ describe("objective list helpers", () => {
 		const malformedFrontmatter = await listWithObjectiveMd("---\nblocked: [\n---\n# alpha\n");
 		expect(malformedFrontmatter).toEqual(withoutFrontmatter);
 
-		// Blocked sentence and edges surface as blocked state text and the edge count,
-		// including under --minimal.
+		// Blocked sentence and edges surface as blocked state text and the edge count.
 		const blockedWithEdges = await listWithObjectiveMd(
 			[
 				"---",
@@ -279,9 +293,7 @@ describe("objective list helpers", () => {
 		]);
 	});
 
-	test("list is always compact and --minimal is an accepted no-op", async () => {
-		// Local branches that touch the objective would have produced branch attribution under the
-		// old default; the compact list must ignore them and --minimal must not change the output.
+	test("list records carry the related local branch count for show drill-down", async () => {
 		const ctx: ObjectiveCliContext = {
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
@@ -301,44 +313,26 @@ describe("objective list helpers", () => {
 			git: new InMemoryGitGateway({
 				localBranchTips: [
 					{ name: "master", headIso: "2026-05-01T00:00:00Z" },
-					{ name: "feat/alpha", headIso: "2026-05-02T00:00:00Z" },
+					{ name: "feat/newer", headIso: "2026-05-03T00:00:00Z" },
+					{ name: "feat/older", headIso: "2026-05-02T00:00:00Z" },
 				],
 				treeOids: {
 					"master|.ns/objectives": "trunk-tree",
-					"feat/alpha|.ns/objectives": "branch-tree",
+					"feat/newer|.ns/objectives": "newer-tree",
+					"feat/older|.ns/objectives": "older-tree",
 				},
 				changedPaths: {
-					"master...feat/alpha|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+					"master...feat/newer|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+					"master...feat/older|.ns/objectives": [".ns/objectives/alpha/roadmap.md"],
 				},
 			}),
 		};
 
-		const defaultExit = await runListObjectives(ctx, {
-			names: false,
-			status: "active",
-			minimal: false,
-		});
-		const minimalExit = await runListObjectives(ctx, {
-			names: false,
-			status: "active",
-			minimal: true,
-		});
-		if (defaultExit.type !== "ok") throw new Error("expected ok exit");
-		if (minimalExit.type !== "ok") throw new Error("expected ok exit");
+		const exit = await runListObjectives(ctx, { names: false, status: "active" });
+		if (exit.type !== "ok") throw new Error("expected ok exit");
 
-		// The compact list never carries branch attribution, and --minimal is identical to the default.
-		expect(defaultExit.data.records).toEqual([
-			{
-				slug: "alpha",
-				status: "open",
-				latestUpdateIso: "2026-06-15T22:35:20Z",
-				hasOutstandingChanges: false,
-			},
-		]);
-		expect(minimalExit.data).toEqual(defaultExit.data);
-		expect(renderObjectiveListHuman(minimalExit.data)).toBe(
-			renderObjectiveListHuman(defaultExit.data),
-		);
+		expect(exit.data.records[0]).toMatchObject({ slug: "alpha", updatedBranchCount: 2 });
+		expect(renderObjectiveListHuman(exit.data)).toContain("2");
 	});
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {
