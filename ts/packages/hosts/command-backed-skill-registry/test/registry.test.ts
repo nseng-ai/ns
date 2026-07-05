@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@ns/ccc/api";
 import {
 	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_TAB_COMMAND_NAME,
@@ -75,7 +76,9 @@ describe("command-backed skill registry", () => {
 	});
 
 	test("uses CCC and Flow provider-owned registrations", () => {
-		expect(commandBackedSkillSurface("ccc-sidebar")).toBe("ns:ccc:sidebar:branch-state-summary");
+		expect(commandBackedSkillSurface("ccc-sidebar")).toBe(
+			CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
+		);
 		expect(commandBackedSkillSurface("ns-flow-autobranch")).toBe("ns:flow:autobranch");
 		expect(commandBackedSkillSurface("ns-flow-branch-latest-commit")).toBe(
 			"ns:flow:branch-latest-commit",
@@ -114,7 +117,7 @@ describe("command-backed skill registry", () => {
 
 		expect(surfaces).toContain(CREATE_HANDOFF_COMMAND_NAME);
 		expect(surfaces).toContain(objectiveCreateCommandSpec.commandName);
-		expect(surfaces).toContain("ns:ccc:sidebar:branch-state-summary");
+		expect(surfaces).toContain(CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME);
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).not.toContain("foo:bar-baz");
 	});

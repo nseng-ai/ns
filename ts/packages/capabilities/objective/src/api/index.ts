@@ -53,6 +53,7 @@ export type {
 } from "../core/objective-selection.ts";
 export {
 	completeObjectiveListArgs,
+	isObjectiveListStatus,
 	OBJECTIVE_LIST_STATUS_VALUES,
 	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
@@ -83,6 +84,7 @@ export { renderObjectiveListMarkdown } from "../core/operations/list-objectives.
 export type {
 	ObjectiveListRecord,
 	ObjectiveListResult,
+	ObjectiveStatusFilter,
 } from "../core/operations/list-objectives.ts";
 export type { ReadObjectiveResult } from "../core/operations/read-objective.ts";
 export type { ObjectiveCliContext } from "../core/context.ts";

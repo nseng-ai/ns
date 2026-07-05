@@ -16,6 +16,10 @@ export const OBJECTIVE_LIST_STATUS_VALUES = [
 	"closed",
 ] as const satisfies readonly ObjectiveStatusFilter[];
 
+export function isObjectiveListStatus(value: string | undefined): value is ObjectiveStatusFilter {
+	return value !== undefined && (OBJECTIVE_LIST_STATUS_VALUES as readonly string[]).includes(value);
+}
+
 export interface ObjectiveListParsedArgs {
 	args: string[];
 	isHelpRequested: boolean;
@@ -159,8 +163,8 @@ function findForbiddenObjectiveListArg(
 }
 
 function parseObjectiveListStatus(value: string): ObjectiveListStatusParseResult {
-	if ((OBJECTIVE_LIST_STATUS_VALUES as readonly string[]).includes(value)) {
-		return { type: "valid", value: value as ObjectiveStatusFilter };
+	if (isObjectiveListStatus(value)) {
+		return { type: "valid", value };
 	}
 
 	return {

@@ -16,7 +16,7 @@ import {
 	chooseActiveObjectiveSlug,
 	completeObjectiveListArgs,
 	createObjectiveClient,
-	OBJECTIVE_LIST_STATUS_VALUES,
+	isObjectiveListStatus,
 	type ObjectiveClient,
 	type ObjectiveClientOptions,
 	objectiveCommandSpecs,
@@ -30,6 +30,7 @@ import {
 	type ObjectiveCommandSpec,
 	type ObjectiveCreateCommandSpec,
 	type ObjectiveListParsedArgs,
+	type ObjectiveStatusFilter,
 } from "../api/index.ts";
 import { definePiSurfaceParity } from "@ns/pi/parity/extension";
 import { expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "@ns/pi/skills/expansion";
@@ -301,12 +302,10 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 	return parseObjectiveCandidatesData(envelope.data);
 }
 
-type ObjectiveListStatus = (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
-
 interface ObjectiveListRequestShape {
 	names: boolean;
 	minimal: boolean;
-	status: ObjectiveListStatus;
+	status: ObjectiveStatusFilter;
 }
 
 function mapObjectiveListParsedArgs(args: readonly string[]): ParsedCliCommandArgs {
@@ -385,18 +384,6 @@ function objectiveListRequestFromParsedArgs(
 		}
 	}
 	return request;
-}
-
-function isObjectiveListStatus(value: string | undefined): value is ObjectiveListStatus {
-	switch (value) {
-		case "all":
-		case "active":
-		case "open":
-		case "closed":
-			return true;
-		default:
-			return false;
-	}
 }
 
 function renderObjectiveListHelp(): string {
