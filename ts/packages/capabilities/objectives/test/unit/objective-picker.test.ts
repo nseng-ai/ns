@@ -4,117 +4,32 @@ import type { ObjectiveList, ObjectiveListRecord } from "../../src/api/index.ts"
 import {
 	changedActiveObjectiveSelection,
 	formatObjectiveChoice,
+	objectiveChangedSlugsFromPaths,
 	objectiveChoiceMap,
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
-	parseObjectiveDiffChangedSlugs,
-	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
 } from "../../src/api/index.ts";
 
-describe("parseObjectiveDiffChangedSlugs", () => {
-	test("modified Objective path produces a slug", () => {
-		expect(parseObjectiveDiffChangedSlugs("M\t.ns/objectives/alpha/objective.md\n")).toEqual([
-			"alpha",
-		]);
-	});
-
-	test("deleted Objective path produces a slug", () => {
-		expect(parseObjectiveDiffChangedSlugs("D\t.ns/objectives/alpha/roadmap.md\n")).toEqual([
-			"alpha",
-		]);
-	});
-
-	test("rename includes old and new slugs", () => {
+describe("objectiveChangedSlugsFromPaths", () => {
+	test("Objective paths produce deduplicated sorted slugs", () => {
 		expect(
-			parseObjectiveDiffChangedSlugs(
-				"R100\t.ns/objectives/bravo/objective.md\t.ns/objectives/charlie/objective.md\n",
-			),
-		).toEqual(["bravo", "charlie"]);
+			objectiveChangedSlugsFromPaths([
+				".ns/objectives/zeta/objective.md",
+				".ns/objectives/alpha/roadmap.md",
+				".ns/objectives/zeta/roadmap.md",
+			]),
+		).toEqual(["alpha", "zeta"]);
 	});
 
-	test("copy includes old and new slugs", () => {
+	test("archive, unrelated, and Objective root paths are ignored", () => {
 		expect(
-			parseObjectiveDiffChangedSlugs(
-				"C075\t.ns/objectives/delta/roadmap.md\t.ns/objectives/echo/roadmap.md\n",
-			),
-		).toEqual(["delta", "echo"]);
-	});
-
-	test("non-Objective paths are ignored", () => {
-		expect(parseObjectiveDiffChangedSlugs("M\tdocs/readme.md\n")).toEqual([]);
-	});
-
-	test("Objective root without slug is ignored", () => {
-		expect(parseObjectiveDiffChangedSlugs("M\t.ns/objectives\n")).toEqual([]);
-	});
-
-	test("duplicate slugs are deduplicated and sorted", () => {
-		const stdout = [
-			"M\t.ns/objectives/zeta/objective.md",
-			"M\t.ns/objectives/alpha/objective.md",
-			"D\t.ns/objectives/zeta/roadmap.md",
-		].join("\n");
-
-		expect(parseObjectiveDiffChangedSlugs(stdout)).toEqual(["alpha", "zeta"]);
-	});
-
-	test("empty output returns an empty array", () => {
-		expect(parseObjectiveDiffChangedSlugs("\n")).toEqual([]);
-	});
-});
-
-describe("parseObjectiveStatusChangedSlugs", () => {
-	test("modified Objective path produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs(" M .ns/objectives/alpha/objective.md\0")).toEqual([
-			"alpha",
-		]);
-	});
-
-	test("deleted Objective path produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs(" D .ns/objectives/alpha/roadmap.md\0")).toEqual([
-			"alpha",
-		]);
-	});
-
-	test("untracked Objective file produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs("?? .ns/objectives/bravo/objective.md\0")).toEqual([
-			"bravo",
-		]);
-	});
-
-	test("archive-root paths are ignored", () => {
-		expect(
-			parseObjectiveStatusChangedSlugs(" M .ns/objective-archive/alpha/objective.md\0"),
+			objectiveChangedSlugsFromPaths([
+				".ns/objective-archive/alpha/objective.md",
+				"docs/readme.md",
+				".ns/objectives",
+			]),
 		).toEqual([]);
-	});
-
-	test("unrelated paths are ignored", () => {
-		expect(parseObjectiveStatusChangedSlugs(" M docs/readme.md\0")).toEqual([]);
-	});
-
-	test("duplicate slugs are deduplicated and sorted", () => {
-		const stdout = [
-			" M .ns/objectives/zeta/objective.md",
-			" A .ns/objectives/alpha/objective.md",
-			" D .ns/objectives/zeta/roadmap.md",
-			"",
-		].join("\0");
-
-		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["alpha", "zeta"]);
-	});
-
-	test("rename includes old and new slugs", () => {
-		const stdout =
-			"R  .ns/objectives/new-name/objective.md\0.ns/objectives/old-name/objective.md\0";
-
-		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["new-name", "old-name"]);
-	});
-
-	test("copy includes old and new slugs", () => {
-		const stdout = "C  .ns/objectives/echo/objective.md\0.ns/objectives/delta/objective.md\0";
-
-		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["delta", "echo"]);
 	});
 });
 

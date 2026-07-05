@@ -358,14 +358,15 @@ describe("in-memory git gateway", () => {
 		expect(git.statusPathsCalls).toEqual([{ cwd: ROOT }]);
 	});
 
-	test("returns canned status paths and supports failure state", async () => {
+	test("returns canned status paths, filters pathspecs, and supports failure state", async () => {
 		const dirty = new InMemoryGitGateway({
-			statusPaths: { changedPaths: ["a.ts"] },
+			statusPaths: { changedPaths: ["a.ts", ".ns/objectives/alpha/objective.md"] },
 		});
-		expect(await dirty.statusPaths({ cwd: ROOT })).toEqual({
+		expect(await dirty.statusPaths({ cwd: ROOT, pathspecs: [".ns/objectives"] })).toEqual({
 			ok: true,
-			value: { changedPaths: ["a.ts"] },
+			value: { changedPaths: [".ns/objectives/alpha/objective.md"] },
 		});
+		expect(dirty.statusPathsCalls).toEqual([{ cwd: ROOT, pathspecs: [".ns/objectives"] }]);
 
 		const failing = new InMemoryGitGateway({ statusPaths: { type: "failure" } });
 		expect(await failing.statusPaths({ cwd: ROOT })).toMatchObject({

@@ -1,14 +1,14 @@
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
 	changedActiveObjectiveSelection,
+	objectiveChangedSlugsFromPaths,
 	objectiveChoiceMap,
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
-	parseObjectiveDiffChangedSlugs,
-	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
 import {
@@ -214,17 +214,14 @@ async function objectiveDiffChangedSlugs(
 	options: ObjectiveDiffChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
-	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".ns/objectives"];
 	try {
-		const result = await host.exec("git", args, {
+		const result = await objectiveSelectionGitGateway(host).changedPathsUnderWithRenames({
 			cwd: ctx.cwd,
-			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
+			revisionRange: `${trunkBranch}...HEAD`,
+			relativePath: ".ns/objectives",
 		});
-		if (result.code !== 0 || result.killed) {
-			return [];
-		}
-
-		return parseObjectiveDiffChangedSlugs(result.stdout);
+		if (!result.ok) return [];
+		return objectiveChangedSlugsFromPaths(result.value);
 	} catch {
 		// Diff evidence is advisory; command startup failures should fall back to the normal picker.
 		return [];
@@ -235,21 +232,30 @@ async function objectiveStatusChangedSlugs(
 	options: ObjectiveStatusChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx } = options;
-	const args = ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"];
 	try {
-		const result = await host.exec("git", args, {
+		const result = await objectiveSelectionGitGateway(host).statusPaths({
 			cwd: ctx.cwd,
-			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
+			pathspecs: [".ns/objectives"],
 		});
-		if (result.code !== 0 || result.killed) {
-			return [];
-		}
-
-		return parseObjectiveStatusChangedSlugs(result.stdout);
+		if (!result.ok) return [];
+		return objectiveChangedSlugsFromPaths(result.value.changedPaths);
 	} catch {
 		// Dirty-check evidence is advisory; command startup failures should fall back to committed evidence.
 		return [];
 	}
+}
+
+function objectiveSelectionGitGateway(host: ObjectiveSelectionHost): RealGitGateway {
+	return new RealGitGateway(
+		{
+			exec: (command, args, options = {}) =>
+				host.exec(command, args, {
+					...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+					timeout: options.timeout ?? OBJECTIVE_COMMAND_TIMEOUT_MS,
+				}),
+		},
+		{ timeoutMs: OBJECTIVE_COMMAND_TIMEOUT_MS },
+	);
 }
 
 function hasObjectivePicker(ctx: ObjectiveSelectionContext): ctx is ObjectivePickerContext {

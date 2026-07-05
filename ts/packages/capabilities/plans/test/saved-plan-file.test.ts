@@ -348,6 +348,13 @@ class FakeGitGateway implements GitGateway {
 		return { ok: true, value: [] };
 	}
 
+	async changedPathsUnderWithRenames(
+		_params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
+		this.calls.push("changedPathsUnderWithRenames");
+		return { ok: true, value: [] };
+	}
+
 	async statusPaths(_params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
 		this.calls.push("statusPaths");
 		return { ok: true, value: { changedPaths: [] } };

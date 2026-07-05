@@ -18,51 +18,12 @@ export interface ChangedActiveObjectiveSelectionOptions {
 	changeBasisLabel?: string;
 }
 
-export function parseObjectiveDiffChangedSlugs(stdout: string): string[] {
+export function objectiveChangedSlugsFromPaths(paths: readonly string[]): string[] {
 	const slugs = new Set<string>();
-	for (const line of stdout.split(/\r?\n/)) {
-		const trimmedLine = line.trimEnd();
-		if (!trimmedLine) {
-			continue;
-		}
-
-		for (const path of changedObjectivePathsFromNameStatusLine(trimmedLine)) {
-			const slug = objectiveSlugFromPath(path);
-			if (slug) {
-				slugs.add(slug);
-			}
-		}
-	}
-
-	return [...slugs].sort((left, right) => left.localeCompare(right));
-}
-
-export function parseObjectiveStatusChangedSlugs(stdout: string): string[] {
-	const slugs = new Set<string>();
-	const entries = stdout.split("\0");
-	for (let index = 0; index < entries.length; index += 1) {
-		const entry = entries[index] ?? "";
-		if (!entry) {
-			continue;
-		}
-
-		const status = entry.slice(0, 2);
-		const path = entry.slice(3);
-		if (!status.trim() || status === "!!" || !path) {
-			continue;
-		}
-
+	for (const path of paths) {
 		const slug = objectiveSlugFromPath(path);
 		if (slug) {
 			slugs.add(slug);
-		}
-		if (isRenameOrCopyStatus(status)) {
-			const secondPath = entries[index + 1] ?? "";
-			const secondSlug = objectiveSlugFromPath(secondPath);
-			if (secondSlug) {
-				slugs.add(secondSlug);
-			}
-			index += 1;
 		}
 	}
 
@@ -149,21 +110,6 @@ export function objectiveDiffPickerTitle(title: string, selection: ObjectiveDiff
 	return `${title} (${suffix})`;
 }
 
-function changedObjectivePathsFromNameStatusLine(line: string): string[] {
-	const fields = line.split("\t");
-	const status = fields[0] ?? "";
-	if (!status) {
-		return [];
-	}
-
-	if (status.startsWith("R") || status.startsWith("C")) {
-		return fields.slice(1).filter(Boolean);
-	}
-
-	const path = fields[1];
-	return path ? [path] : [];
-}
-
 function objectiveSlugFromPath(path: string): string | undefined {
 	const parts = path.split("/");
 	if (parts.length < 4 || parts[0] !== ".ns" || parts[1] !== "objectives") {
@@ -172,10 +118,6 @@ function objectiveSlugFromPath(path: string): string | undefined {
 
 	const slug = parts[2];
 	return slug ? slug : undefined;
-}
-
-function isRenameOrCopyStatus(status: string): boolean {
-	return status.includes("R") || status.includes("C");
 }
 
 function defaultChangeBasisLabel(trunkBranch: string): string {

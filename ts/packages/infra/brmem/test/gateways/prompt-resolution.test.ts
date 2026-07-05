@@ -156,6 +156,12 @@ class FakeGitGateway implements GitGateway {
 		throw new Error("FakeGitGateway.changedPathsUnder should not be called");
 	}
 
+	async changedPathsUnderWithRenames(
+		_params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
+		throw new Error("FakeGitGateway.changedPathsUnderWithRenames should not be called");
+	}
+
 	async statusPaths(_params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
 		throw new Error("FakeGitGateway.statusPaths should not be called");
 	}

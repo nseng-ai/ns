@@ -719,6 +719,7 @@ const unusedGitGateway: GitGateway = {
 	listLocalBranchTips: async () => unexpectedCall("listLocalBranchTips"),
 	treeOidsAtRefs: async () => unexpectedCall("treeOidsAtRefs"),
 	changedPathsUnder: async () => unexpectedCall("changedPathsUnder"),
+	changedPathsUnderWithRenames: async () => unexpectedCall("changedPathsUnderWithRenames"),
 	statusPaths: async () => unexpectedCall("statusPaths"),
 	stagePaths: async () => unexpectedCall("stagePaths"),
 	commit: async () => unexpectedCall("commit"),

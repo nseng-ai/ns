@@ -64,6 +64,10 @@ export interface GitRevisionRangePathParams extends GitPathParams {
 	revisionRange: string;
 }
 
+export interface GitStatusPathsParams extends GitCwdParams {
+	pathspecs?: readonly string[];
+}
+
 export interface GitStagePathsParams extends GitCwdParams {
 	paths: readonly string[];
 }
@@ -117,7 +121,10 @@ export interface GitGateway {
 		params: GitRefsPathParams,
 	): Promise<GitResult<Readonly<Record<string, string | null>>>>;
 	changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>>;
-	statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>>;
+	changedPathsUnderWithRenames(
+		params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>>;
+	statusPaths(params: GitStatusPathsParams): Promise<GitResult<GitStatusPathFacts>>;
 	stagePaths(params: GitStagePathsParams): Promise<GitOperationResult>;
 	commit(params: GitCommitParams): Promise<GitResult<string>>;
 }

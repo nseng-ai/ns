@@ -24,10 +24,11 @@ import type {
 	GitRevisionRangePathParams,
 	GitStagePathsParams,
 	GitStatusPathFacts,
+	GitStatusPathsParams,
 	KnownGitErrorCode,
 } from "./contract.ts";
 import { rejectEmptyStagePaths } from "./contract.ts";
-import { parseGitStatusPaths } from "./status-paths.ts";
+import { parseGitNameStatusPaths, parseGitStatusPaths } from "./status-paths.ts";
 
 export type {
 	GitBranchParams,
@@ -47,9 +48,10 @@ export type {
 	GitRevisionRangePathParams,
 	GitStagePathsParams,
 	GitStatusPathFacts,
+	GitStatusPathsParams,
 	KnownGitErrorCode,
 } from "./contract.ts";
-export { parseGitStatusPaths } from "./status-paths.ts";
+export { parseGitNameStatusPaths, parseGitStatusPaths } from "./status-paths.ts";
 export {
 	readLocalBranchRefs,
 	type LocalBranchRefDirent,
@@ -81,11 +83,17 @@ interface GitExpectSuccessFailure {
 	title: string;
 }
 
+export interface RealGitGatewayOptions {
+	timeoutMs?: number;
+}
+
 export class RealGitGateway implements GitGateway {
 	private readonly execApi: CommandExecApi;
+	private readonly timeoutMs: number;
 
-	constructor(execApi: CommandExecApi) {
+	constructor(execApi: CommandExecApi, options: RealGitGatewayOptions = {}) {
 		this.execApi = execApi;
+		this.timeoutMs = options.timeoutMs ?? GIT_TIMEOUT_MS;
 	}
 
 	async repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
@@ -370,8 +378,29 @@ export class RealGitGateway implements GitGateway {
 		return { ok: true, value: nonEmptyLines(run.value.result.stdout) };
 	}
 
-	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
-		const run = await this.runGitExpectingSuccess(params, ["status", "--porcelain=v1", "-z"], {
+	async changedPathsUnderWithRenames(
+		params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
+		const run = await this.runGitExpectingSuccess(
+			params,
+			["diff", "--name-status", "-M", params.revisionRange, "--", params.relativePath],
+			{
+				code: "git_changed_paths_failed",
+				title: "git changed path lookup failed",
+			},
+		);
+		if (!run.ok) return run;
+		const parsed = parseGitNameStatusPaths(run.value.result.stdout);
+		if (!parsed.ok) return parsed;
+		return { ok: true, value: parsed.value.changedPaths };
+	}
+
+	async statusPaths(params: GitStatusPathsParams): Promise<GitResult<GitStatusPathFacts>> {
+		const args = ["status", "--porcelain=v1", "-z"];
+		if (params.pathspecs !== undefined) {
+			args.push("--", ...params.pathspecs);
+		}
+		const run = await this.runGitExpectingSuccess(params, args, {
 			code: "git_status_paths_failed",
 			title: "git status --porcelain=v1 -z failed",
 		});
@@ -417,7 +446,7 @@ export class RealGitGateway implements GitGateway {
 	private async runGit(params: GitCwdParams, args: string[]): Promise<CommandRunResult> {
 		const displayCommand = formatCommand("git", args);
 		try {
-			const result = await this.execApi.exec("git", args, execOptions(params, GIT_TIMEOUT_MS));
+			const result = await this.execApi.exec("git", args, execOptions(params, this.timeoutMs));
 			return { ok: true, value: { result, displayCommand } };
 		} catch (caught) {
 			const message = formatErrorMessage(caught);

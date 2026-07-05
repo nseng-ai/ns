@@ -295,6 +295,9 @@ function createUnusedGitGateway(): GitGateway {
 		async changedPathsUnder() {
 			return { ok: true, value: [] };
 		},
+		async changedPathsUnderWithRenames() {
+			return { ok: true, value: [] };
+		},
 		async statusPaths() {
 			return { ok: true, value: { changedPaths: [] } };
 		},
