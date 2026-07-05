@@ -12,13 +12,18 @@ import type {
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
-import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
+import {
+	confirmLandStackAction,
+	type PreMergeConfirmation,
+} from "./stack/pre-merge-confirmation.ts";
 import type { LandContext } from "./api.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import {
+	planPostLandingSlotCleanup,
 	resolvePostLandingSlotCleanupDecision,
 	runPostLandingSlotCleanup,
 	type PostLandingSlotCleanupDecision,
+	type PostLandingSlotCleanupPreview,
 } from "./post-landing-slot-cleanup.ts";
 
 interface RunLandingDispatchOptions {
@@ -56,6 +61,10 @@ export async function runLandingDispatch(
 	}
 
 	const landContext = createRuntimeLandContext(runtime);
+	const cleanupPreview = planPostLandingSlotCleanup({
+		args: options.parsedArgs,
+		shape: shape.value,
+	});
 	if (isIsolatedFastPath(shape.value.stack)) {
 		const result = await runIsolatedFastPathLanding<PostLandingSlotCleanupDecision>({
 			github: landContext.github,
@@ -79,16 +88,18 @@ export async function runLandingDispatch(
 		});
 	}
 
-	const confirmationOutcome = await confirmStackModeIfNeeded(options.ctx, shape.value, {
+	const confirmationResult = await confirmStackModeIfNeeded(options.ctx, shape.value, {
 		isDryRun: options.parsedArgs.isDryRun,
 		shouldSkipConfirmation: options.parsedArgs.shouldSkipConfirmation,
+		...optionalEntry("cleanupPreview", cleanupPreview),
 	});
-	if (confirmationOutcome.type === "failure") return confirmationOutcome;
+	if (confirmationResult.outcome.type === "failure") return confirmationResult.outcome;
 
 	const cleanupDecision = await resolvePostLandingSlotCleanupDecision({
 		ctx: options.ctx,
 		args: options.parsedArgs,
 		shape: shape.value,
+		...optionalEntry("confirmation", confirmationResult.cleanupConfirmation),
 	});
 	if (cleanupDecision.type === "failure") return cleanupDecision;
 
@@ -123,15 +134,25 @@ async function finishAfterLanding(
 	return await runPostLandingSlotCleanup(options);
 }
 
+interface StackModeConfirmationResult {
+	outcome: LandStackOutcome;
+	cleanupConfirmation?: PreMergeConfirmation;
+}
+
 async function confirmStackModeIfNeeded(
 	ctx: PrintAwareLandStackCommandContext,
 	shape: LandingShape,
-	options: { isDryRun: boolean; shouldSkipConfirmation: boolean },
-): Promise<LandStackOutcome> {
-	const confirmationDetails = buildUpfrontStackConfirmation(shape);
-	return await confirmLandStackAction({
+	options: {
+		isDryRun: boolean;
+		shouldSkipConfirmation: boolean;
+		cleanupPreview?: PostLandingSlotCleanupPreview;
+	},
+): Promise<StackModeConfirmationResult> {
+	const confirmationDetails = buildUpfrontStackConfirmation(shape, options.cleanupPreview);
+	const shouldPrompt = !options.isDryRun && !options.shouldSkipConfirmation;
+	const outcome = await confirmLandStackAction({
 		ctx,
-		shouldPrompt: !options.isDryRun && !options.shouldSkipConfirmation,
+		shouldPrompt,
 		title: "Land stack?",
 		details:
 			ctx.renderConfirmationDetails?.(confirmationDetails) ??
@@ -141,9 +162,17 @@ async function confirmStackModeIfNeeded(
 		defaultAnswer: "yes",
 		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
 	});
+	const cleanupConfirmation: PreMergeConfirmation | undefined =
+		outcome.type === "success" && options.cleanupPreview !== undefined && shouldPrompt
+			? "already-approved"
+			: undefined;
+	return { outcome, ...optionalEntry("cleanupConfirmation", cleanupConfirmation) };
 }
 
-function buildUpfrontStackConfirmation(shape: LandingShape): LandConfirmationPreview {
+export function buildUpfrontStackConfirmation(
+	shape: LandingShape,
+	cleanupPreview?: PostLandingSlotCleanupPreview,
+): LandConfirmationPreview {
 	const stack = shape.stack;
 	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
 	const prCount = `${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"}`;
@@ -153,11 +182,24 @@ function buildUpfrontStackConfirmation(shape: LandingShape): LandConfirmationPre
 			"Squash-merge the selected Graphite path from bottom to top.",
 			"Refresh remaining upstack PRs after each merge.",
 			"Delete landed local Graphite branches once they are safe to remove.",
+			...(cleanupPreview === undefined
+				? []
+				: [
+						`After a successful landing, free managed slot ${cleanupPreview.slotName} and delete local branch ${cleanupPreview.branch}.`,
+					]),
 		],
 		planRows: [
 			{ label: "Stack", value: prCount },
 			{ label: "Range", value: `${bottomBranch} → ${stack.actualCurrentBranch}` },
 			{ label: "Target", value: stack.trunk },
+			...(cleanupPreview === undefined
+				? []
+				: [
+						{
+							label: "Cleanup",
+							value: `free ${cleanupPreview.slotName}; delete ${cleanupPreview.branch}`,
+						},
+					]),
 			...(stack.descendantBranches.length === 0
 				? []
 				: [
