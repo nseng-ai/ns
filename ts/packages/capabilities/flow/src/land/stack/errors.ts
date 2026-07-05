@@ -14,6 +14,7 @@ export interface LandStackFailureOptions {
 	 * it is notified at `error` level to flip the exit code. Defaults to `failure`.
 	 */
 	outcome?: "refusal" | "failure";
+	refusalReason?: "declined" | "non-interactive";
 }
 
 export interface LandStackFailure {
@@ -26,6 +27,7 @@ export interface LandStackFailure {
 	failedPr: number | undefined;
 	suggestedAction: string | undefined;
 	outcome: "refusal" | "failure";
+	refusalReason?: "declined" | "non-interactive";
 }
 
 export type LandStackResult<T> =
@@ -48,6 +50,7 @@ export function landStackFailure(
 		failedPr: options.failedPr,
 		suggestedAction: options.suggestedAction,
 		outcome: options.outcome ?? "failure",
+		...(options.refusalReason === undefined ? {} : { refusalReason: options.refusalReason }),
 	};
 }
 

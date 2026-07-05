@@ -21,9 +21,14 @@ import { createInMemoryLandContext } from "../../src/land/testing.ts";
 const SLOT_ROOT = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-02";
 const BRANCH = "feature/current";
 
+interface CleanupConfirmation {
+	readonly title: string;
+	readonly options?: { readonly defaultAnswer?: "yes" | "no" };
+}
+
 interface CleanupContextFixture {
 	readonly ctx: PrintAwareLandStackCommandContext;
-	readonly confirmations: string[];
+	readonly confirmations: CleanupConfirmation[];
 	readonly notifications: Array<{ readonly message: string; readonly level?: NotifyLevel }>;
 }
 
@@ -31,7 +36,7 @@ function createCleanupContext(options: {
 	readonly hasUI: boolean;
 	readonly shouldConfirm?: boolean;
 }): CleanupContextFixture {
-	const confirmations: string[] = [];
+	const confirmations: CleanupConfirmation[] = [];
 	const notifications: Array<{ message: string; level?: NotifyLevel }> = [];
 	return {
 		ctx: {
@@ -41,8 +46,11 @@ function createCleanupContext(options: {
 				notify(message, level) {
 					notifications.push({ message, ...optionalEntry("level", level) });
 				},
-				async confirm(title) {
-					confirmations.push(title);
+				async confirm(title, _message, confirmOptions) {
+					confirmations.push({
+						title,
+						...(confirmOptions === undefined ? {} : { options: confirmOptions }),
+					});
 					return options.shouldConfirm ?? true;
 				},
 				setStatus() {},
@@ -102,7 +110,12 @@ describe("post-landing slot cleanup defaults", () => {
 		});
 
 		expect(outcome).toEqual({ type: "success", value: undefined });
-		expect(fixture.confirmations).toEqual(["Free current slot and delete local branch?"]);
+		expect(fixture.confirmations).toEqual([
+			{
+				title: "Free current slot and delete local branch?",
+				options: { defaultAnswer: "yes" },
+			},
+		]);
 		expect(worktrees.freeSlotsCalls).toEqual([
 			{
 				repoRoot: SLOT_ROOT,
@@ -205,7 +218,12 @@ describe("post-landing slot cleanup defaults", () => {
 		});
 
 		expect(outcome.type).toBe("failure");
-		expect(fixture.confirmations).toEqual(["Free current slot and delete local branch?"]);
+		expect(fixture.confirmations).toEqual([
+			{
+				title: "Free current slot and delete local branch?",
+				options: { defaultAnswer: "yes" },
+			},
+		]);
 		expect(fixture.notifications.at(-1)).toEqual({
 			message: `land stopped: Skipped post-landing cleanup by upfront choice; PRs were landed but slot-02 and local branch ${BRANCH} were kept.`,
 			level: "warning",

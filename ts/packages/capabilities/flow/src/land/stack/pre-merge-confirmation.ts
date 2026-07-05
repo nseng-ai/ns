@@ -47,6 +47,7 @@ export async function confirmLandStackAction(
 		const landFailure = landStackFailure(options.nonInteractiveMessage, {
 			...options.nonInteractiveFailureOptions,
 			outcome: "refusal",
+			refusalReason: "non-interactive",
 		});
 		options.onFailure?.(landFailure);
 		return failure(landFailure);
@@ -60,9 +61,12 @@ export async function confirmLandStackAction(
 	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
 	if (confirmed) return completed();
 
-	const cancellationFailureOptions = options.cancellationFailureOptions ?? {
-		level: "info",
-		outcome: "refusal",
+	const cancellationFailureOptions = {
+		...(options.cancellationFailureOptions ?? {
+			level: "info",
+			outcome: "refusal",
+		}),
+		refusalReason: "declined" as const,
 	};
 	const landFailure = landStackFailure(
 		options.cancellationMessage ?? LANDING_CANCELLED_MESSAGE,
