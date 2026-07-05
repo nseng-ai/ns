@@ -25,6 +25,7 @@ import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { callPiModelText } from "@nseng-ai/pi/models/call";
 import type { PiModelCallFailureReason, PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 
+import { createChangeEmitter } from "./change-emitter.ts";
 import { fetchCheckLogTail } from "./check-logs.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
@@ -121,7 +122,7 @@ export function createStackEnrichmentEngine(
 	const maxConcurrent = Math.max(1, options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT);
 
 	const controller = new AbortController();
-	const listeners = new Set<() => void>();
+	const changeEmitter = createChangeEmitter();
 	const queue: EnrichmentTask[] = [];
 	// Keys this engine set to `pending` and has not yet settled; the eviction set
 	// for abort() so we only drop pending entries this engine owns.
@@ -134,12 +135,6 @@ export function createStackEnrichmentEngine(
 	let activeWorkers = 0;
 	let totalQueued = 0;
 	let degraded: string | null = null;
-
-	function emitChange(): void {
-		// Snapshot first: a listener may unsubscribe (mutating the set) during emit.
-		const snapshot = [...listeners];
-		for (const listener of snapshot) listener();
-	}
 
 	function rowTasks(pr: StackViewPr): EnrichmentTask[] {
 		const tasks: EnrichmentTask[] = [];
@@ -168,7 +163,7 @@ export function createStackEnrichmentEngine(
 			pendingKeys.add(task.key);
 			totalQueued += 1;
 			queue.push(task);
-			emitChange();
+			changeEmitter.emitChange();
 		}
 	}
 
@@ -214,7 +209,7 @@ export function createStackEnrichmentEngine(
 	function settle(key: string, entry: SettledEntry): void {
 		pendingKeys.delete(key);
 		store.set(key, entry);
-		emitChange();
+		changeEmitter.emitChange();
 	}
 
 	async function processTask(task: EnrichmentTask): Promise<void> {
@@ -325,12 +320,7 @@ export function createStackEnrichmentEngine(
 		degradedReason() {
 			return degraded;
 		},
-		onChange(listener) {
-			listeners.add(listener);
-			return () => {
-				listeners.delete(listener);
-			};
-		},
+		onChange: changeEmitter.onChange,
 		abort() {
 			controller.abort();
 			// Drop queued-but-unstarted work and evict this engine's still-pending
@@ -343,7 +333,7 @@ export function createStackEnrichmentEngine(
 			pendingKeys.clear();
 			for (const key of evicted) {
 				store.delete(key);
-				emitChange();
+				changeEmitter.emitChange();
 			}
 			notifyIdle();
 		},

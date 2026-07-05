@@ -14,7 +14,7 @@ import {
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
-import { githubRepositoryIdentityFromRemoteUrl } from "@nseng-ai/capability-kit/github/identity";
+import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/capability-kit/github/identity";
 import {
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJsonResult,
@@ -548,9 +548,8 @@ async function loadGitHubRepositoryIdentity(
 	signal?: AbortSignal,
 ): Promise<{ owner: string; repo: string } | undefined> {
 	if (signal?.aborted) return undefined;
-	const origin = await git.originUrl({ cwd, signal });
-	if (origin.type !== "found") return undefined;
-	return githubRepositoryIdentityFromRemoteUrl(origin.value);
+	const identity = await resolveGithubRepositoryIdentityFromOrigin(git, { cwd, signal });
+	return identity.type === "found" ? identity.value : undefined;
 }
 
 function currentHeadIdentity(gitPaths: WorktreeStatusGitPaths): WorktreeStatusIdentity["head"] {

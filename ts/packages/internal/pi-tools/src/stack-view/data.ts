@@ -28,7 +28,7 @@ import {
 	type StackPrData,
 } from "./graphql.ts";
 import {
-	githubRepositoryIdentityFromRemoteUrl,
+	resolveGithubRepositoryIdentityFromOrigin,
 	type GithubRepositoryIdentity,
 } from "@nseng-ai/capability-kit/github";
 import { objectiveSlugsForBranch } from "./objectives.ts";
@@ -194,20 +194,19 @@ async function resolveRepoIdentity(
 	git: GitGateway,
 	cwd: string,
 ): Promise<ResolveRepoIdentityResult> {
-	const origin = await git.originUrl({ cwd });
-	if (origin.type === "found") {
-		const repoIdentity = githubRepositoryIdentityFromRemoteUrl(origin.value.trim());
-		if (repoIdentity !== undefined) return { type: "ok", repoIdentity };
+	const identity = await resolveGithubRepositoryIdentityFromOrigin(git, { cwd });
+	if (identity.type === "found") return { type: "ok", repoIdentity: identity.value };
+	if (identity.type === "error") {
+		return {
+			type: "error",
+			message: `Could not determine the GitHub repository from the origin remote: ${identity.error.message}`,
+		};
+	}
+	if (identity.type === "unparseable") {
 		return {
 			type: "error",
 			message:
 				"Could not determine the GitHub repository from the origin remote: its URL is not a GitHub repository URL.",
-		};
-	}
-	if (origin.type === "error") {
-		return {
-			type: "error",
-			message: `Could not determine the GitHub repository from the origin remote: ${origin.error.message}`,
 		};
 	}
 	return {

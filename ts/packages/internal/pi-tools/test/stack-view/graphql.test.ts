@@ -10,12 +10,8 @@ import {
 import type { CommandExecApi, ExecOptions, ExecResult } from "../../src/stack-view/exec.ts";
 import { stackViewExecApi } from "../../src/stack-view/exec.ts";
 import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
-import {
-	deriveStatus,
-	type StackViewCheckEntry,
-	type StackViewStatusInput,
-	type StackViewThreadDetail,
-} from "../../src/stack-view/types.ts";
+import { deriveStatus, type StackViewStatusInput } from "../../src/stack-view/types.ts";
+import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";
 
 const CWD = "/repo";
 
@@ -98,26 +94,8 @@ function statusContext(context: string, state: string, targetUrl: string | null 
 	return { __typename: "StatusContext", context, state, createdAt: null, targetUrl };
 }
 
-/** Expected {@link StackViewCheckEntry} the parse produces for a node, keeping assertions terse. */
-function checkEntry(fields: {
-	name: string;
-	workflowName?: string | null;
-	bucket: "passing" | "failing" | "pending";
-	status?: string | null;
-	conclusion?: string | null;
-	detailsUrl?: string | null;
-	identity: string | null;
-}): StackViewCheckEntry {
-	return {
-		name: fields.name,
-		workflowName: fields.workflowName ?? null,
-		bucket: fields.bucket,
-		status: fields.status ?? null,
-		conclusion: fields.conclusion ?? null,
-		detailsUrl: fields.detailsUrl ?? null,
-		identity: fields.identity,
-	};
-}
+/** Expected check entry the parse produces for a node, keeping assertions terse. */
+const checkEntry = checkEntryFixture;
 
 const COMMENT_CREATED_AT = "2026-01-01T00:00:00Z";
 const COMMENT_BODY = "comment body";
@@ -169,16 +147,12 @@ function threadNode(overrides: ThreadNodeOverrides = {}): unknown {
 }
 
 /**
- * The {@link StackViewThreadDetail} the parse produces for a default-shape
- * {@link threadNode} with the given author (single derived comment). Keeps the
- * connection-driven assertions readable.
+ * The thread detail the parse produces for a default-shape {@link threadNode}
+ * with the given author (single derived comment). Keeps the connection-driven
+ * assertions readable.
  */
-function expectedThread(fields: {
-	path: string;
-	line: number | null;
-	author: string;
-}): StackViewThreadDetail {
-	return {
+function expectedThread(fields: { path: string; line: number | null; author: string }) {
+	return threadDetailFixture({
 		id: `rt-${fields.author}`,
 		path: fields.path,
 		line: fields.line,
@@ -193,7 +167,7 @@ function expectedThread(fields: {
 		],
 		lastCommentId: `c-${fields.author}`,
 		totalComments: 1,
-	};
+	});
 }
 
 function threadsConnection(

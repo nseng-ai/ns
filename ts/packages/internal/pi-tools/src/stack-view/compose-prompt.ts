@@ -47,6 +47,11 @@ interface EnrichmentReader {
 	readyThreadSummary(thread: StackViewThreadDetail): string | null;
 }
 
+interface PromptContext {
+	writer: PromptWriter;
+	enrichmentReader: EnrichmentReader;
+}
+
 export function buildComposeSystemPrompt(options: {
 	model: StackViewModel;
 	enrichment: ReadonlyMap<string, EnrichmentEntry>;
@@ -73,18 +78,20 @@ function contextSection(
 	model: StackViewModel,
 	enrichment: ReadonlyMap<string, EnrichmentEntry>,
 ): string {
-	const writer = createPromptWriter();
-	const enrichmentReader = createEnrichmentReader(enrichment);
-	writer.push("# Stack context");
-	writer.push(
+	const context: PromptContext = {
+		writer: createPromptWriter(),
+		enrichmentReader: createEnrichmentReader(enrichment),
+	};
+	context.writer.push("# Stack context");
+	context.writer.push(
 		`Stack: ${model.owner}/${model.repo} (trunk: ${model.trunk}, current branch: ${model.currentBranch})`,
 	);
 	const bottomUp = [...model.prs].reverse();
 	bottomUp.forEach((pr, index) => {
-		writer.push("");
-		appendPrSection(writer, enrichmentReader, { pr, position: index + 1, total: bottomUp.length });
+		context.writer.push("");
+		appendPrSection(context, { pr, position: index + 1, total: bottomUp.length });
 	});
-	return writer.toText();
+	return context.writer.toText();
 }
 
 function createPromptWriter(): PromptWriter {
@@ -104,23 +111,28 @@ function createEnrichmentReader(
 ): EnrichmentReader {
 	return {
 		readyCheckSummary(entry) {
-			const result = enrichment.get(checkEnrichmentKey(entry));
-			return result?.state === "ready" ? result.summary : null;
+			return readySummary(checkEnrichmentKey(entry), enrichment);
 		},
 		readyThreadSummary(thread) {
-			const key = threadEnrichmentKey(thread);
-			if (key === null) return null;
-			const result = enrichment.get(key);
-			return result?.state === "ready" ? result.summary : null;
+			return readySummary(threadEnrichmentKey(thread), enrichment);
 		},
 	};
 }
 
+function readySummary(
+	key: string | null,
+	enrichment: ReadonlyMap<string, EnrichmentEntry>,
+): string | null {
+	if (key === null) return null;
+	const result = enrichment.get(key);
+	return result?.state === "ready" ? result.summary : null;
+}
+
 function appendPrSection(
-	writer: PromptWriter,
-	enrichmentReader: EnrichmentReader,
+	context: PromptContext,
 	options: { pr: StackViewPr; position: number; total: number },
 ): void {
+	const { writer, enrichmentReader } = context;
 	const { pr, position, total } = options;
 	const heading =
 		pr.number === null ? `(no PR) ${pr.branch}` : `#${pr.number} ${collapseWhitespace(pr.title)}`;
@@ -133,7 +145,7 @@ function appendPrSection(
 		label: "FAILING CHECKS",
 		withDetail: (entry) => (enrichmentReader.readyCheckSummary(entry) ?? NO_DIAGNOSIS).split("\n"),
 	});
-	appendUnresolvedThreads(writer, enrichmentReader, pr);
+	appendUnresolvedThreads(context, pr);
 	appendCheckBucketSection(writer, pr, { bucket: "pending", label: "PENDING CHECKS" });
 
 	if (pr.objectiveSlugs.length > 0) {
@@ -159,11 +171,8 @@ function appendCheckBucketSection(
 	}
 }
 
-function appendUnresolvedThreads(
-	writer: PromptWriter,
-	enrichmentReader: EnrichmentReader,
-	pr: StackViewPr,
-): void {
+function appendUnresolvedThreads(context: PromptContext, pr: StackViewPr): void {
+	const { writer, enrichmentReader } = context;
 	if (pr.unresolvedThreads.length === 0) return;
 	writer.push(`UNRESOLVED THREADS (${pr.unresolvedThreads.length}):`);
 	for (const thread of pr.unresolvedThreads) {
