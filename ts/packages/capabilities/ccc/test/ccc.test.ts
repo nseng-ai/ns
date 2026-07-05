@@ -27,6 +27,7 @@ import registerCccExtension, {
 } from "@nseng-ai/ccc/pi";
 import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
+import { buildLaunchPrompt } from "../src/cmux/dispatch-prompt.ts";
 import {
 	BRANCH,
 	FAST_MODEL,
@@ -145,6 +146,24 @@ describe("CCC cmux command suite", () => {
 		registerCccExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual(CCC_COMMAND_NAMES);
+	});
+
+	test("dispatch launch prompt keeps the user prompt at the bottom", () => {
+		const prompt = [
+			"Address this review feedback.",
+			"",
+			"Totals:",
+			"- Unresolved review threads included: 11",
+		].join("\n");
+
+		const launchPrompt = buildLaunchPrompt(prompt, "Created from trunk.");
+
+		expect(launchPrompt).toContain("## Completion instructions\n");
+		expect(launchPrompt).toContain("## Dispatch context\nCreated from trunk.\n");
+		expect(launchPrompt.endsWith(prompt)).toBe(true);
+		expect(launchPrompt.indexOf("## Completion instructions")).toBeLessThan(
+			launchPrompt.indexOf(prompt),
+		);
 	});
 
 	test("ns:ccc:sidebar:session-summary queues session-aware skill prompt and restores the previous model", async () => {

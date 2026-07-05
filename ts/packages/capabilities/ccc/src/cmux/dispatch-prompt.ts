@@ -427,16 +427,17 @@ export function formatDispatchPromptStorageFailure(
 }
 
 export function buildLaunchPrompt(prompt: string, contextNote?: string): string {
-	const lines = [prompt, ""];
-	if (contextNote !== undefined) {
-		lines.push("## Dispatch context", contextNote, "");
-	}
-	lines.push(
+	const lines = [
 		"## Completion instructions",
 		"After you finish the implementation:",
 		"1. Create or update the branch commit using the repo's normal workflow.",
 		"2. Then run `!ns flow submit`.",
-	);
+		"",
+	];
+	if (contextNote !== undefined) {
+		lines.push("## Dispatch context", contextNote, "");
+	}
+	lines.push(prompt);
 	return lines.join("\n");
 }
 
