@@ -446,15 +446,15 @@ interface ExploreRequest {
 }
 
 function exploreToolResult(
-	input: ExploreInput,
-	profile: ExploreBreadthProfile,
+	request: ExploreRequest,
 	outcomes: readonly ExploreTaskOutcome[],
 ): ToolResult<ExploreToolDetails> {
-	const request = { input, profile };
 	const finalTextCount = countFinalTextOutcomes(outcomes);
 	const { details, finalTextExcerpts } = buildExploreToolDetails(request, outcomes, finalTextCount);
 	return {
-		content: [{ type: "text", text: formatExploreResultText(details, finalTextExcerpts) }],
+		content: [
+			{ type: "text", text: formatExploreResultText(details, finalTextExcerpts, finalTextCount) },
+		],
 		details,
 		...(details.status === "failed" || details.status === "cancelled" ? { isError: true } : {}),
 	};
@@ -539,8 +539,7 @@ function taskDetails(
 }
 
 function configurationErrorResult(
-	input: ExploreInput,
-	profile: ExploreBreadthProfile,
+	request: ExploreRequest,
 	diagnostic: string,
 ): ToolResult<ExploreToolDetails> {
 	return {
@@ -556,11 +555,11 @@ function configurationErrorResult(
 		],
 		details: {
 			status: "configuration-error",
-			breadth: input.breadth,
-			taskCount: input.tasks.length,
-			maxConcurrency: profile.maxConcurrency,
-			wallClockMs: profile.wallClockMs,
-			tasks: input.tasks.map((task, index) => ({
+			breadth: request.input.breadth,
+			taskCount: request.input.tasks.length,
+			maxConcurrency: request.profile.maxConcurrency,
+			wallClockMs: request.profile.wallClockMs,
+			tasks: request.input.tasks.map((task, index) => ({
 				index,
 				title: task.title,
 				status: "configuration-error",
@@ -574,8 +573,8 @@ function configurationErrorResult(
 function formatExploreResultText(
 	details: ExploreToolDetails,
 	finalTextExcerpts: ReadonlyArray<TruncatedExploreText | undefined>,
+	finalTextCount: number,
 ): string {
-	const finalTextCount = details.tasks.filter((task) => task.status === "final-text").length;
 	const lines = [
 		`explore result: ${finalTextCount}/${details.taskCount} scouts produced final text (breadth: ${details.breadth}, concurrency: ${details.maxConcurrency})`,
 	];
