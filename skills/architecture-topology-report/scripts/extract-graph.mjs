@@ -49,6 +49,12 @@ const OUT = arg("out", false);
 // Tier ids and package dependency policy are derived from the shared
 // style-guard taxonomy data via tiers.mjs.
 const TIER_SET = new Set(PACKAGE_TIER_IDS);
+const EXCLUDED_DIRS = ["node_modules", "dist"];
+const EXCLUDED_DIR_SET = new Set(EXCLUDED_DIRS);
+
+function findExcludedDirArgs() {
+  return EXCLUDED_DIRS.map((dir) => `-not -path ${JSON.stringify(`*/${dir}/*`)}`).join(" ");
+}
 
 function toPosix(path) {
   return path.split("\\").join("/");
@@ -65,7 +71,7 @@ function sourceFilePathsUnder(dir, options = {}) {
   for (const e of entries) {
     const p = join(dir, e.name);
     if (e.isDirectory()) {
-      if (e.name === "node_modules" || options.rootOnly) continue;
+      if (EXCLUDED_DIR_SET.has(e.name) || options.rootOnly) continue;
       paths.push(...sourceFilePathsUnder(p, options));
     } else if (
       e.isFile() &&
@@ -103,7 +109,7 @@ function countLoc(dir) {
 let files;
 try {
   files = execSync(
-    `find ${JSON.stringify(ROOT)} -name package.json -not -path "*/node_modules/*"`,
+    `find ${JSON.stringify(ROOT)} -name package.json ${findExcludedDirArgs()}`,
     { encoding: "utf8" },
   )
     .trim()
