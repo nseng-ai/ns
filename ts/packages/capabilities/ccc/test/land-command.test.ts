@@ -846,6 +846,7 @@ describe("code land command", () => {
 			{
 				title: "Free current slot and delete local branch?",
 				message: expect.stringContaining("$ ns slot free --wt slot-01"),
+				options: { defaultAnswer: "yes" },
 			},
 		]);
 		expect(events.indexOf("confirm:Free current slot and delete local branch?")).toBeLessThan(

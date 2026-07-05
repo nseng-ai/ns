@@ -14,7 +14,10 @@ import {
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
 import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
-import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
+import {
+	confirmLandStackAction,
+	type PreMergeConfirmation,
+} from "./stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
 
 export interface PostLandingSlotCleanupPreview {
@@ -75,28 +78,34 @@ export async function resolvePostLandingSlotCleanupDecision({
 		return success({ type: "approved" });
 	}
 
-	if (!ctx.hasUI) {
-		const landFailure = landStackFailure(
-			[
-				"Refusing to land before merge: post-landing slot cleanup requires confirmation in non-interactive mode. No PRs were landed.",
-				target.cleanupDetails,
-				"Re-run with --yes or --force to approve cleanup, or --preserve to land while keeping the current managed slot and local branch.",
-			].join("\n\n"),
-			{
-				outcome: "refusal",
-				suggestedAction:
-					"Pass --yes or --force to approve cleanup, or --preserve to keep the current slot and local branch.",
-			},
-		);
-		presentFailureOutcome(ctx, landFailure);
-		return failure(landFailure);
-	}
+	const confirmationOutcome = await confirmLandStackAction({
+		ctx,
+		shouldPrompt: true,
+		title: "Free current slot and delete local branch?",
+		details: target.cleanupDetails,
+		nonInteractiveMessage: [
+			"Refusing to land before merge: post-landing slot cleanup requires confirmation in non-interactive mode. No PRs were landed.",
+			target.cleanupDetails,
+			"Re-run with --yes or --force to approve cleanup, or --preserve to land while keeping the current managed slot and local branch.",
+		].join("\n\n"),
+		nonInteractiveFailureOptions: {
+			suggestedAction:
+				"Pass --yes or --force to approve cleanup, or --preserve to keep the current slot and local branch.",
+		},
+		cancellationMessage: "Skipped post-landing cleanup by upfront choice.",
+		cancellationFailureOptions: {
+			level: "warning",
+			outcome: "refusal",
+			suggestedAction: target.suggestedAction,
+		},
+		defaultAnswer: "yes",
+	});
+	if (confirmationOutcome.type === "success") return success({ type: "approved" });
+	if (confirmationOutcome.failure.refusalReason === "declined")
+		return success({ type: "declined" });
 
-	const confirmed = await ctx.ui.confirm(
-		"Free current slot and delete local branch?",
-		target.cleanupDetails,
-	);
-	return success({ type: confirmed ? "approved" : "declined" });
+	presentFailureOutcome(ctx, confirmationOutcome.failure);
+	return failure(confirmationOutcome.failure);
 }
 
 export async function runPostLandingSlotCleanup({
