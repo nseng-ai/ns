@@ -170,8 +170,12 @@
     recently grew via the Record Frontmatter / edge-mutation documentation (commit
     `2fa3e2e1c`) — re-audit its debt at pickup.
   - Elevation candidates (clarity/sprawl, not duplication — re-audit
-    `2026-06-20T140000`): `brmem` (296 ln at audit, now 334 — rewrite; still `normal`,
-    high blast radius), `objective` (126 ln at audit, now 164 after the Record
+    `2026-06-20T140000`): `brmem` — **DONE (rewrite, 2026-07-03).** 334 → 270 lines;
+    frontmatter/description byte-identical (`normal` routing unchanged);
+    extract-contract-then-diff passed on a 75-item contract; Command-chooser/per-command
+    triple-homing collapsed (chooser = pure routing table, shared rules in one
+    Cross-command section, gc semantics 4 sites → 1). `areg check` OK. See update
+    `20260703T202952Z`. `objective` (126 ln at audit, now 164 after the Record
     Frontmatter section — rewrite; still `normal`), `code-resolve-merge-conflicts`
     (safety-critical → **surgical**; now `command-backed`). `ccc-branch-triage` and
     `handoff-pickup` stay parked.
