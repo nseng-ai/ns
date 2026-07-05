@@ -16,6 +16,7 @@
 import type { CommandExecApi, StackViewExecContext } from "./exec.ts";
 import {
 	deriveStatus,
+	type StackBranchLineage,
 	type StackViewModel,
 	type StackViewPr,
 	type StackViewPrStatus,
@@ -113,7 +114,7 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 	// Zip each branch with its parent once (nearest-trunk row's parent is the
 	// trunk itself), so the `?? stack.trunk` fallback is applied a single time.
 	const orderedBranches = orderStackBranches(stack);
-	const rowInputs = orderedBranches.map((branch, index) => ({
+	const lineages: StackBranchLineage[] = orderedBranches.map((branch, index) => ({
 		branch,
 		parentBranch: orderedBranches[index + 1] ?? stack.trunk,
 	}));
@@ -129,8 +130,8 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 	const [stackPrs, objectiveSlugsByRow] = await Promise.all([
 		fetchStackPrs({ execApi, cwd, branches: orderedBranches, repoIdentity }),
 		Promise.all(
-			rowInputs.map(async ({ branch, parentBranch }) => {
-				const result = await objectiveSlugsForBranch({ execApi, cwd, branch, parentBranch });
+			lineages.map(async (lineage) => {
+				const result = await objectiveSlugsForBranch({ execApi, cwd, lineage });
 				// A single branch's objective diff failing must not fail the whole
 				// load: objective attribution is display-only metadata, so degrade
 				// this row to no slugs and keep going.
@@ -142,10 +143,9 @@ export async function loadStackView(params: LoadStackViewParams): Promise<LoadSt
 	if (stackPrs.type !== "ok") return { type: "error", message: stackPrsErrorMessage(stackPrs) };
 
 	const prs = stackPrs.prs;
-	const rows = rowInputs.map((input, index) =>
+	const rows = lineages.map((lineage, index) =>
 		buildStackViewPr({
-			branch: input.branch,
-			parentBranch: input.parentBranch,
+			lineage,
 			prData: prs[index] ?? null,
 			objectiveSlugs: objectiveSlugsByRow[index] ?? [],
 			repoIdentity,
@@ -231,8 +231,7 @@ function stackPrsErrorMessage(stackPrs: Exclude<FetchStackPrsResult, { type: "ok
 }
 
 interface BuildStackViewPrParams {
-	branch: string;
-	parentBranch: string;
+	lineage: StackBranchLineage;
 	prData: StackPrData | null;
 	objectiveSlugs: string[];
 	repoIdentity: GithubRepositoryIdentity;
@@ -240,11 +239,11 @@ interface BuildStackViewPrParams {
 
 /** Build a single stack row, degrading to a `no-pr` row when the branch has no open PR. */
 function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
-	const { branch, parentBranch, prData, objectiveSlugs, repoIdentity } = params;
+	const { lineage, prData, objectiveSlugs, repoIdentity } = params;
 	if (prData === null) {
 		return {
-			branch,
-			parentBranch,
+			branch: lineage.branch,
+			parentBranch: lineage.parentBranch,
 			number: null,
 			title: "",
 			url: "",
@@ -260,8 +259,8 @@ function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
 		};
 	}
 	return {
-		branch,
-		parentBranch,
+		branch: lineage.branch,
+		parentBranch: lineage.parentBranch,
 		number: prData.number,
 		title: prData.title,
 		url: prData.url,

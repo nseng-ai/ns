@@ -10,9 +10,9 @@
  * focusable — and the final selection rides back with the outcome so the host can
  * re-open the panel preserving the user's place.
  */
-import { Editor, Key, matchesKey } from "@earendil-works/pi-tui";
+import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import { clamp, fitToWidth, padRight, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
 
@@ -20,14 +20,7 @@ import { checkBucketColor, statusColor, type StackThemeColor } from "./format.ts
 import type { StackViewModel, StackViewPr } from "./types.ts";
 import type { StackEnrichmentPort } from "./enrichment-engine.ts";
 import type { ComposeViewPort } from "./compose-controller.ts";
-import {
-	COMPOSE_ROLE_DISPLAY,
-	composeBodyLayout,
-	composeTranscriptWindow,
-	draftLineCount,
-	flattenComposeTranscript,
-	type ComposeTranscriptLine,
-} from "./compose-model.ts";
+import { COMPOSE_FOOTER, ComposeView } from "./compose-view.ts";
 import {
 	buildStackDetailRows,
 	buildStackIdentityLine,
@@ -47,13 +40,8 @@ import {
 } from "../overlay-kit/frame.ts";
 import { sliceWrappedDetailLinesForViewport } from "../overlay-kit/viewport.ts";
 
-/** Rows the compose transcript scrolls per PgUp/PgDn press. */
-const COMPOSE_PAGE_LINES = 8;
-
 const BROWSE_FOOTER =
 	"↑↓/jk move · o open · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
-const COMPOSE_FOOTER =
-	"enter send · ctrl+y accept & inject · ctrl+c abort · pgup/pgdn scroll · esc back";
 
 /** Fixed cell widths for the right-hand columns of each list row. */
 const THREADS_CELL_WIDTH = 9;
@@ -173,18 +161,6 @@ function resolveInitialIndex(model: StackViewModel, requested: number | undefine
 	return currentIndex >= 0 ? currentIndex : 0;
 }
 
-function padWindowRows(options: {
-	lines: readonly string[];
-	rows: number;
-	width: number;
-	shouldPadTop: boolean;
-}): string[] {
-	const pad = options.shouldPadTop ? Math.max(0, options.rows - options.lines.length) : 0;
-	return Array.from({ length: options.rows }, (_unused, row) =>
-		fitToWidth(options.lines[row - pad] ?? "", options.width),
-	);
-}
-
 export class StackViewOverlay implements Component {
 	private readonly tui: TUI;
 	private readonly theme: Theme;
@@ -197,16 +173,8 @@ export class StackViewOverlay implements Component {
 	private detailScroll: number;
 	/** "browse" is the master/detail panel; "compose" is the drafting side-session. */
 	private mode: "browse" | "compose";
-	/** The compose port, fetched once on first entry and retained for the overlay's lifetime. */
-	private composePort: ComposeViewPort | undefined;
-	/** Live compose `onChange` unsubscribe; detached on teardown (the port itself is host-owned). */
-	private composeUnsub: (() => void) | undefined;
-	/** The embedded input, built lazily on first compose input; nulled on dispose. */
-	private editor: Editor | null;
-	/** Transient inline hint shown in the compose header; cleared on the next input. */
-	private composeHint: string | undefined;
-	/** Rows the compose transcript is scrolled up from the bottom (0 pins to newest). */
-	private composeScroll: number;
+	/** Compose collaborator, fetched once on first entry and retained for the overlay's lifetime. */
+	private composeView: ComposeView | undefined;
 	/** Live `onChange` unsubscribe; cleared once disposed so teardown is idempotent. */
 	private unsubscribe: (() => void) | undefined;
 
@@ -221,11 +189,7 @@ export class StackViewOverlay implements Component {
 		this.listScroll = 0;
 		this.detailScroll = 0;
 		this.mode = "browse";
-		this.composePort = undefined;
-		this.composeUnsub = undefined;
-		this.editor = null;
-		this.composeHint = undefined;
-		this.composeScroll = 0;
+		this.composeView = undefined;
 		this.unsubscribe = this.enrichment?.onChange(() => this.tui.requestRender());
 		this.ensureSelectionEnriched();
 	}
@@ -239,15 +203,12 @@ export class StackViewOverlay implements Component {
 	/** Drop the enrichment and compose `onChange` subscriptions; safe to call more than once. */
 	private disposeSubscription(): void {
 		this.unsubscribe = detachSubscription(this.unsubscribe);
-		this.composeUnsub = detachSubscription(this.composeUnsub);
+		this.composeView?.dispose();
 	}
 
 	/** Host teardown hook: the `ctx.ui.custom` contract may call this on unmount. */
 	dispose(): void {
 		this.disposeSubscription();
-		// The embedded Editor exposes no unsubscribe/dispose surface; drop the
-		// reference so a reopened overlay rebuilds a fresh input.
-		this.editor = null;
 	}
 
 	render(width: number): string[] {
@@ -255,17 +216,20 @@ export class StackViewOverlay implements Component {
 		const height = overlayModalRows(overlayTerminalRows(this.tui.terminal.rows));
 		// Compose mode only renders when its port has been built (first entry); a
 		// bare `mode === "compose"` with no port falls back to the browse panel.
-		const port = this.mode === "compose" ? this.composePort : undefined;
+		const composeView = this.mode === "compose" ? this.composeView : undefined;
 		const header = [
 			this.color("text", buildStackIdentityLine(this.model)),
-			port === undefined ? this.renderRollupLine() : this.renderComposeHeaderLine(port),
+			composeView === undefined ? this.renderRollupLine() : composeView.renderHeaderLine(),
 		];
 		const bodyRows = Math.max(1, height - overlayChromeRows(header.length));
-		const footer = this.color("dim", port === undefined ? this.browseFooter() : COMPOSE_FOOTER);
+		const footer = this.color(
+			"dim",
+			composeView === undefined ? this.browseFooter() : COMPOSE_FOOTER,
+		);
 		const body =
-			port === undefined
+			composeView === undefined
 				? this.renderBody(innerWidth, bodyRows)
-				: this.renderComposeBody(innerWidth, bodyRows, port);
+				: composeView.renderBody(innerWidth, bodyRows);
 		return renderOverlayFrame({
 			header,
 			body,
@@ -487,149 +451,32 @@ export class StackViewOverlay implements Component {
 		this.tui.requestRender();
 	}
 
-	/** Switch to compose mode, fetching the port and attaching a repaint listener on first entry. */
+	/** Switch to compose mode, fetching the port and building the collaborator on first entry. */
 	private enterCompose(): void {
 		this.mode = "compose";
-		this.composeHint = undefined;
-		if (this.composePort === undefined && this.compose !== undefined) {
-			const port = this.compose.getPort();
-			this.composePort = port;
-			this.composeUnsub = port.onChange(() => this.tui.requestRender());
+		if (this.composeView === undefined && this.compose !== undefined) {
+			this.composeView = new ComposeView({
+				tui: this.tui,
+				theme: this.theme,
+				port: this.compose.getPort(),
+			});
 		}
 		this.tui.requestRender();
 	}
 
 	private handleComposeInput(data: string): void {
-		// Any keypress clears a stale transient hint; ctrl+y re-sets it below.
-		this.composeHint = undefined;
-		if (matchesKey(data, Key.escape)) {
-			// Esc drops back to browse; the port is retained for a later re-entry.
-			this.mode = "browse";
-			this.tui.requestRender();
-			return;
-		}
-		const port = this.composePort;
-		if (port === undefined) {
-			this.tui.requestRender();
-			return;
-		}
-		if (matchesKey(data, Key.ctrl("c"))) {
-			void port.abortTurn();
-			this.tui.requestRender();
-			return;
-		}
-		if (matchesKey(data, Key.ctrl("y"))) {
-			const draft = port.draft;
-			if (draft !== null && draft.trim().length > 0) {
-				this.settle({ action: "compose-inject", draft });
+		const result = this.composeView?.handleInput(data) ?? { type: "continue" };
+		switch (result.type) {
+			case "continue":
 				return;
-			}
-			this.composeHint = "no draft yet";
-			this.tui.requestRender();
-			return;
+			case "back":
+				this.mode = "browse";
+				this.tui.requestRender();
+				return;
+			case "inject":
+				this.settle({ action: "compose-inject", draft: result.draft });
+				return;
 		}
-		if (matchesKey(data, Key.pageUp)) {
-			this.scrollCompose(COMPOSE_PAGE_LINES);
-			return;
-		}
-		if (matchesKey(data, Key.pageDown)) {
-			this.scrollCompose(-COMPOSE_PAGE_LINES);
-			return;
-		}
-		// All other input flows to the embedded editor (printable chars, Enter → submit).
-		this.ensureEditor().handleInput(data);
-		this.tui.requestRender();
-	}
-
-	private scrollCompose(delta: number): void {
-		this.composeScroll = Math.max(0, this.composeScroll + delta);
-		this.tui.requestRender();
-	}
-
-	/** Lazily build the embedded editor; its `onSubmit` forwards prompts to the port. */
-	private ensureEditor(): Editor {
-		if (this.editor !== null) return this.editor;
-		const editor = new Editor(
-			this.tui,
-			{ borderColor: (value) => this.color("border", value), selectList: getSelectListTheme() },
-			{ paddingX: 0 },
-		);
-		editor.onSubmit = (text) => {
-			const trimmed = text.trim();
-			if (trimmed.length === 0) return;
-			const port = this.composePort;
-			if (port === undefined) return;
-			editor.addToHistory(trimmed);
-			editor.setText("");
-			void port.send(trimmed);
-			this.tui.requestRender();
-		};
-		this.editor = editor;
-		return editor;
-	}
-
-	private renderComposeHeaderLine(port: ComposeViewPort): string {
-		const segments = [`compose · draft ${draftLineCount(port.draft)} lines`];
-		if (this.composeHint !== undefined) segments.push(this.composeHint);
-		if (port.unavailableReason !== null) segments.push(`unavailable: ${port.unavailableReason}`);
-		return this.color("text", segments.join(" · "));
-	}
-
-	private renderComposeBody(width: number, bodyRows: number, port: ComposeViewPort): string[] {
-		const editor = this.ensureEditor();
-		editor.disableSubmit = port.transcript.isStreaming || port.unavailableReason !== null;
-		const editorLines = editor.render(width);
-		const layout = composeBodyLayout({ bodyRows, editorRows: editorLines.length });
-
-		const transcript = flattenComposeTranscript(port.transcript).map((line) =>
-			this.colorizeComposeLine(line),
-		);
-		const window = composeTranscriptWindow({
-			lines: transcript,
-			width,
-			rows: layout.transcriptRows,
-			scrollFromBottom: this.composeScroll,
-		});
-		this.composeScroll = window.scrollFromBottom;
-		// Pin an under-filled transcript to the bottom of its pane so the newest
-		// lines sit just above the editor rather than floating at the top.
-		const transcriptRows = padWindowRows({
-			lines: window.lines,
-			rows: layout.transcriptRows,
-			width,
-			shouldPadTop: true,
-		});
-
-		const separator = this.color("dim", "─".repeat(Math.max(1, width)));
-		const editorRows = editorLines.map((line) => fitToWidth(line, width));
-		const draftRows = this.renderDraftPane(width, layout.draftRows, port.draft);
-
-		const lines = [...transcriptRows, separator, ...editorRows, separator, ...draftRows];
-		// Normalize to exactly bodyRows so the modal chrome budget stays intact. On a
-		// tiny body the layout can overflow (transcript floored at 1); keep the tail so
-		// the editor and draft pane survive, trimming the oldest transcript instead.
-		if (lines.length >= bodyRows) return lines.slice(lines.length - bodyRows);
-		return [...lines, ...Array.from({ length: bodyRows - lines.length }, () => "")];
-	}
-
-	private renderDraftPane(width: number, draftRows: number, draft: string | null): string[] {
-		if (draftRows === 1) {
-			const status = `draft: ${draftLineCount(draft)} lines · ctrl+y to inject`;
-			return [fitToWidth(this.color("dim", status), width)];
-		}
-		const colored = (draft ?? "").split("\n").map((line) => this.color("text", line));
-		// Tail-anchored: show the END of the draft when it overflows the pane.
-		const window = composeTranscriptWindow({
-			lines: colored,
-			width,
-			rows: draftRows,
-			scrollFromBottom: 0,
-		});
-		return padWindowRows({ lines: window.lines, rows: draftRows, width, shouldPadTop: false });
-	}
-
-	private colorizeComposeLine(line: ComposeTranscriptLine): string {
-		return this.color(COMPOSE_ROLE_DISPLAY[line.role].color, line.text);
 	}
 
 	private browseFooter(): string {
