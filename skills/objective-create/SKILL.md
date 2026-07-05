@@ -6,13 +6,11 @@ description: "Create a new Objective record under .ns/objectives/<slug>/. Use wh
 
 # objective-create
 
-Create a new Objective record under `.ns/objectives/<slug>/`.
-
-Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
+Create exactly one new Objective record under `.ns/objectives/<slug>/`. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this skill stays self-contained for its own happy path.
 
 ## Required shape
 
-Active root only for newly created records:
+New records live in the active root only:
 
 ```text
 .ns/objectives/<slug>/
@@ -22,103 +20,66 @@ Active root only for newly created records:
   updates/
 ```
 
-Also check the archive root before creating a slug:
+`objective.md` required headings: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`.
 
-```text
-.ns/objective-archive/<slug>/
-```
+- `## Assumptions and Risks` must distinguish assumptions from risks, with enough context for a future `objective-update` to mark an assumption incorrect, a risk de-risked or not, or add newly discovered ones.
+- Default to planning-only: execution-policy sections are never mandatory and appear only when the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point. When they apply, read `references/execution-friendly-create.md` before asking policy questions.
+- For a standing / ongoing / no-natural-finish-line Objective, load the `objective` skill's standing Objectives reference before drafting completion criteria and roadmap.
 
-`objective.md` required headings:
+`roadmap.md` required headings: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only.
 
-- `# <Title>`
-- `## Thesis`
-- `## Scope`
-- `## Non-Goals`
-- `## Completion Criteria`
-- `## Assumptions and Risks`
-- `## Open Questions`
-
-Ordinary planning-only Objectives should omit execution policy sections unless explicitly requested. Do not make execution policy mandatory.
-
-`## Assumptions and Risks` should distinguish assumptions from risks in prose or bullets, with enough context for future `objective-update` calls to mark an assumption incorrect, a risk de-risked/not de-risked, or add newly discovered assumptions and risks.
-
-`roadmap.md` required headings:
-
-- `# Roadmap`
-- `## Work`
-- `## Parked`
-
-Use only `[ ]`, `[~]`, and `[x]` roadmap statuses.
-
-Roadmap item quality:
-
-- Initial roadmap items must be substantive semantic work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up.
-- Size roadmap items by human-legible decision count and thesis clarity, not by diff size, file count, or line count. A broad mechanical change can be one simple item when it implements one clear decision; a small mixed change may need multiple items.
-- Do not add a final routine validation-only row by default, such as `run just`, `run tests`, `wait for CI`, or `full repo validation`.
-- During the creation interview, if validation appears as a possible branch point, steer it into completion evidence unless validation/test/CI behavior is itself in scope.
-- The initial roadmap may include expected evidence under a semantic row, such as `Evidence: targeted tests and relevant repo checks passed`; do not make that evidence a standalone final row.
-- Roadmap rows may include indented prose guidance only when needed; treat it as prose, not machine state.
-
-## Conditional references
-
-- If the user asks for a standing/ongoing/no-natural-finish-line Objective, load the `objective` skill's standing Objectives reference before drafting completion criteria and roadmap.
-- If the user asks for execution-friendly behavior, `objective-next` execution, autonomous/runner behavior, or durable Runner Policy, read `references/execution-friendly-create.md` before interviewing about policy.
+- Every initial row is substantive semantic work: deliverables, decisions, de-risking, implementation slices, documentation/product changes, or meaningful follow-up. Size rows by human-legible decision count and thesis clarity, not diff size, file count, or line count — a broad mechanical change can be one row when it implements one clear decision; a small mixed change may need several.
+- No routine validation-only row (`run just`, `run tests`, `wait for CI`, `full repo validation`) unless validation/test/CI behavior is itself in scope. When validation surfaces as a branch point in the interview, steer it into completion evidence under a semantic row — e.g. an indented `Evidence: targeted tests and relevant repo checks passed` — never a standalone final row.
+- Rows may carry indented prose guidance when needed; it is prose, not machine state.
 
 ## Slug and path
 
-- Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing files.
-- Use only `.ns/objectives/<slug>/`. Do not create records under `docs/objectives/` or other locations.
-- Treat the slug directory as durable identity. Command/product/prose renames should update an existing Objective's title and body, not create a new slug.
-- Before creating a slug that appears to be a rename or replacement of existing work, run `ns objective list --minimal --status all --format md`; if it shows a likely existing Objective, stop and ask whether the user meant `objective-update`, a direct read with `ns objective exec read-objective <slug> --format md`, or an explicit slug migration.
-- Do not add registries, UUIDs, hidden attachment metadata, or state-machine behavior. The only sanctioned YAML/frontmatter is Record Frontmatter carrying exactly `blocked` and `edges` (see the `objective` umbrella skill and the Record Frontmatter section below); add no other frontmatter keys.
-- If `.ns/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read with `ns objective exec read-objective <slug> --format md`; never overwrite. Use `ns objective exec read-objective <slug> --format md` to check active records: it returns a `not_found` envelope when the slug has no active record, and otherwise emits the existing record.
-- If `.ns/objective-archive/<slug>/` exists, stop and ask whether the user wants to unarchive instead of creating a duplicate slug. Use `ns objective archive <slug> --unarchive` when unarchive is the right intent.
-- Objective records are Markdown; read and edit Markdown directly. Use `ns objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
+- Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing any file.
+- Write only under `.ns/objectives/<slug>/`; never `docs/objectives/` or anywhere else.
+- The slug directory is durable identity: command/product/prose renames update an existing Objective's title and body, never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --minimal --status all --format md`; if a likely existing Objective appears, stop and ask whether the user meant `objective-update`, a direct read, or an explicit slug migration.
+- Check both roots before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read — never overwrite. If `.ns/objective-archive/<slug>/` exists, stop and ask whether to unarchive (`ns objective archive <slug> --unarchive`) instead of creating a duplicate slug.
+- Records are Markdown: write them directly, using `ns objective exec` only for deterministic reads. No registries, UUIDs, hidden attachment metadata, or state-machine behavior; the only sanctioned YAML is Record Frontmatter below.
 
 ## Record Frontmatter: initial edges and Blocked Sentence
 
-Record Frontmatter (defined in the `objective` umbrella skill) is optional and usually absent at creation. Add it only when the interview surfaces a real fact:
+Record Frontmatter (defined in the `objective` umbrella skill) carries exactly `blocked` and `edges` — never any other key. It is usually absent at creation: omit the block entirely unless the interview surfaces a real fact.
 
-- **Initial edges.** When the new Objective has a durable relationship to an existing record (for example, it consumes another Objective as a hard dependency), declare the edge at creation. An edge is a mirrored two-file edit: add the `{objective: <slug>, annotation: <sentence>}` entry to the new record's frontmatter **and** add the mirror entry to the counterpart record's frontmatter — editing the counterpart's frontmatter is the sanctioned exception to creating/editing only the new record, limited strictly to that frontmatter block. Write each annotation from its own record's perspective; the two sentences should differ because perspective is the payload. At most one edge per unordered slug pair.
-- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation (by another objective, an external dependency, anything); the value must be a non-empty sentence saying why. Blocked is a sub-state of open; presence is the state.
-- Omit the frontmatter block entirely when there are no edges and no blocked state. Never add keys beyond `blocked` and `edges`.
-- After writing any frontmatter, verify with `ns objective check <new-slug>` (validates the record's edges including the counterpart mirror) or `ns objective check --all`.
+- **Initial edges.** When the new Objective has a durable relationship to an existing record (for example, it consumes another Objective as a hard dependency), declare the edge at creation. An edge is a mirrored two-file edit: add the `{objective: <slug>, annotation: <sentence>}` entry to the new record's frontmatter **and** the mirror entry to the counterpart record's frontmatter — editing that counterpart block is the one sanctioned edit outside the new record, limited strictly to its frontmatter. Write each annotation from its own record's perspective; the two sentences should differ, because perspective is the payload. At most one edge per unordered slug pair.
+- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation (by another objective, an external dependency, anything); the value is a non-empty sentence saying why. Presence is the state; blocked is a sub-state of open.
+- After writing any frontmatter, run `ns objective check <new-slug>` (validates the record's edges including counterpart mirrors) or `ns objective check --all`.
+
+## Interview
+
+Interview the user relentlessly before writing (inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md)) until shared understanding covers title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and a semantic initial roadmap — or the user chooses to stop questioning and write.
+
+- Walk each branch of the design tree, resolving dependencies between decisions one by one; focus on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or — when relevant — execution policy.
+- Explore the codebase or existing docs instead of asking questions whose answers are discoverable locally.
+- Ask one unresolved question at a time, including your recommended answer so the user can confirm or correct it, as a compact numbered menu with domain-specific labels — never an open-ended continuation prompt. Tell the user they can answer with a number or a custom correction.
+- Menu order: recommended path first, main alternative(s) next, and — only after the slug is explicitly confirmed — a final stop option reading exactly `Stop and create Objective <slug>`, confirmed slug verbatim. If the slug is unconfirmed, omit the stop option and resolve slug confirmation first.
+- Never write generic or invented durable content; keep interviewing until you don't have to.
 
 ## Workflow
 
-1. Gather enough context to write a useful title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and semantic initial roadmap.
-2. Default to planning-only unless the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point. Load the relevant conditional reference before asking policy-specific questions.
-3. Conduct a user interview before writing, inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md):
-   - Interview the user relentlessly about every aspect of the objective until shared understanding is reached.
-   - Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
-   - Explore the codebase or existing docs instead of asking questions whose answers can be discovered locally.
-   - Ask only one unresolved question at a time.
-   - For each question, include your recommended answer so the user can confirm or correct it, then present a compact numbered menu instead of an open-ended continuation prompt.
-   - Numbered menus should include the recommended path first, the main alternative(s) next, and a final stop option only after the slug has been explicitly confirmed. The stop option must be exactly `Stop and create Objective <slug>`, including the confirmed slug verbatim. If the slug is not confirmed yet, omit the stop option and resolve slug confirmation first. Use domain-specific labels so the choices are concrete (for example: `1) Skill-only steelthread`, `2) Dedicated CLI commands`, `3) Stop and create Objective objective-create-stop-option-guidance`). Tell the user they can answer with a number or a custom correction.
-   - Focus especially on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or execution policy when relevant.
-   - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Objective.
-4. Create `.ns/objectives/<slug>/`, `.ns/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
-5. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section and execution-friendly sections only when requested or made relevant by the interview.
-6. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per the section above — including the mirrored entry in each counterpart record's frontmatter — and run `ns objective check <slug>`. Otherwise write no frontmatter.
-7. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
-8. Do not create an initial update file. Do not create `closed.md`.
+1. Run the interview; confirm the slug and clear both roots per Slug and path, loading any conditional reference before its questions.
+2. Create `.ns/objectives/<slug>/` with `updates/`, `objective.md`, and `roadmap.md` per Required shape, in concise human-readable narrative.
+3. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per its section — including the counterpart mirrors — and run `ns objective check <slug>`; otherwise write no frontmatter.
+4. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the umbrella skill's format: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Lifecycle/graduation metadata stays in `roadmap.md`, never in `orientation.md`.
+5. Create no initial file under `updates/` and no `closed.md`.
 
 ## Stop / ask
 
 - The slug is missing, unconfirmed, invalid-looking, or points outside `.ns/objectives/`.
-- The target Objective directory already exists.
-- The requested Objective looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
-- The user has not provided enough durable context to avoid inventing thesis, scope, completion criteria, assumptions, risks, or requested execution policy.
-- The request appears to need multiple Objectives; create only one and ask the user to run the command again for others.
+- The target Objective directory already exists (active or archived).
+- The request looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
+- Durable context is too thin to write thesis, scope, completion criteria, assumptions, risks, or requested execution policy without inventing them.
+- The request needs multiple Objectives: create only one and ask the user to run the command again for the others.
 
 ## Verify
 
-- Confirm the directory contains `objective.md`, `roadmap.md`, and `updates/`.
-- Confirm `objective.md` contains `## Assumptions and Risks`.
-- If the Objective is cross-cutting, confirm `orientation.md` exists and follows the format; otherwise confirm it is absent. `orientation.md` is optional, never required.
-- If the Objective is execution-friendly, verify it against `references/execution-friendly-create.md`.
-- If the Objective is planning-only, confirm execution policy sections are absent unless the user explicitly asked to include them.
-- If Record Frontmatter was written, confirm it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and `ns objective check <slug>` passes; if not written, confirm `objective.md` starts with `# <Title>` and no frontmatter fence.
-- Confirm no files outside the new Objective's directory changed, except counterpart `objective.md` frontmatter blocks touched by mirrored edge entries.
-- Confirm there is no initial file under `updates/` and no `closed.md`.
+- The directory contains `objective.md`, `roadmap.md`, and `updates/`, and `objective.md` contains `## Assumptions and Risks`.
+- If cross-cutting, `orientation.md` exists and follows the format; otherwise it is absent. It is optional, never required.
+- If execution-friendly, verify against `references/execution-friendly-create.md`; if planning-only, execution policy sections are absent unless explicitly requested.
+- If Record Frontmatter was written, it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and `ns objective check <slug>` passes; if not written, `objective.md` starts with `# <Title>` and no frontmatter fence.
+- No files outside the new Objective's directory changed, except counterpart `objective.md` frontmatter blocks touched by mirrored edge entries.
+- There is no initial file under `updates/` and no `closed.md`.
 - Summarize the created slug, first planned roadmap item, most important assumption or risk captured, and whether the Objective is planning-only or execution-friendly.

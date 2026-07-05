@@ -177,9 +177,12 @@
     catalog has shrunk to ~8 inline lines across the Workflow prose of a 76-line
     SKILL.md; a reference split would add indirection without saving load.
   - `objective-close` — **surgical** (already clean, lift 1).
-  - `objective-create` — rewrite; body work beyond its description. Note (2026-07-03):
-    recently grew via the Record Frontmatter / edge-mutation documentation (commit
-    `2fa3e2e1c`) — re-audit its debt at pickup.
+  - `objective-create` — **DONE (rewrite, 2026-07-03).** 124 → 85 lines; archive-root
+    check, planning-only default, and validation bullets each collapsed to one home;
+    Conditional-references section dissolved into firing sites; edge-mutation mechanics
+    single-homed under Record Frontmatter with step pointer; Required shape kept
+    self-contained per the family rule. 63-item contract diff passed; stop-option text
+    and `not_found` envelope verbatim. See update `20260703T203606Z`.
   - Elevation candidates (clarity/sprawl, not duplication — re-audit
     `2026-06-20T140000`): `brmem` — **DONE (rewrite, 2026-07-03).** 334 → 270 lines;
     frontmatter/description byte-identical (`normal` routing unchanged);
