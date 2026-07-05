@@ -1,0 +1,331 @@
+/**
+ * GitHub GraphQL access for the `/stack:view` panel. This module builds ONE
+ * batched query for every branch in the stack (one aliased `pullRequests`
+ * selection per branch), runs it through the injected exec seam, and parses the
+ * response defensively into per-branch PR data.
+ *
+ * Error model (kept consistent with `objectives.ts`): failures are returned as
+ * typed discriminated-union values, never thrown. Per-branch parse problems
+ * degrade to `null` (a branch with no open PR), while whole-response problems
+ * (exec failure, invalid JSON, GraphQL errors, top-level schema mismatch) are
+ * surfaced as their own result variants so the caller can decide how loud to be.
+ *
+ * The `contexts.nodes` selection mirrors `githubWorktreePrStatusQuery` in
+ * `@nseng-ai/capability-kit/github/pr-status` so `classifyGithubStatusCheck` /
+ * `tallyGithubStatusChecks` see exactly the item shape they expect (including
+ * `__typename`, the CheckRun conclusion/status/workflow-run fields used for
+ * workflow-run dedupe, and the StatusContext state/context fields).
+ */
+import { z } from "zod";
+
+import type { StackViewPrChecks, StackViewPrThreads } from "./types.ts";
+import type { CommandExecApi } from "./exec.ts";
+import { tallyGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+
+/** Per-branch PR data produced by the GraphQL layer; branch/parent/status/objectives are added downstream in `data.ts`. */
+export interface StackPrData {
+	number: number;
+	title: string;
+	url: string;
+	isDraft: boolean;
+	body: string;
+	reviewDecision: string | null;
+	threads: StackViewPrThreads;
+	checks: StackViewPrChecks;
+}
+
+/** Result of parsing a batched stack-PR GraphQL response. */
+export type StackPrParseResult =
+	| { type: "ok"; prs: (StackPrData | null)[] }
+	| { type: "graphql-errors"; messages: readonly string[] }
+	| { type: "schema-mismatch" };
+
+/** Result of running the batched stack-PR query end to end. */
+export type FetchStackPrsResult =
+	| { type: "ok"; prs: (StackPrData | null)[] }
+	| { type: "exec-error"; message: string }
+	| { type: "invalid-json"; message: string }
+	| { type: "graphql-errors"; messages: readonly string[] }
+	| { type: "schema-mismatch" };
+
+export interface FetchStackPrsParams {
+	execApi: CommandExecApi;
+	cwd: string;
+	branches: string[];
+	owner: string;
+	repo: string;
+}
+
+/** Result of resolving the current repo's `owner`/`repo` identity via `gh`. */
+export type FetchRepoIdentityResult =
+	| { type: "ok"; owner: string; repo: string }
+	| { type: "exec-error"; message: string }
+	| { type: "invalid-json"; message: string }
+	| { type: "schema-mismatch" };
+
+export interface FetchRepoIdentityParams {
+	execApi: CommandExecApi;
+	cwd: string;
+}
+
+/**
+ * The CheckRun/StatusContext field selection for `statusCheckRollup.contexts.nodes`.
+ * Mirrors `githubWorktreePrStatusQuery` so the parsed items feed
+ * `classifyGithubStatusCheck` / `tallyGithubStatusChecks` unchanged.
+ */
+const STATUS_CHECK_FIELDS =
+	"__typename ... on CheckRun{name status conclusion startedAt completedAt detailsUrl checkSuite{workflowRun{databaseId runNumber runAttempt createdAt updatedAt workflow{name}}}} ... on StatusContext{context state createdAt targetUrl}";
+
+/**
+ * Build ONE GraphQL document with an alias (`b0`, `b1`, …) per branch. Branch
+ * names are embedded as GraphQL string literals (safely escaped); `owner`/`repo`
+ * are passed as GraphQL variables so the caller supplies them via `-f`.
+ */
+export function buildStackPrQuery(branches: string[]): string {
+	const aliases = branches.map((branch, index) => {
+		return (
+			`b${index}: pullRequests(headRefName: ${graphqlStringLiteral(branch)}, states: [OPEN], first: 1)` +
+			"{nodes{number title url isDraft body reviewDecision" +
+			" reviewThreads(first:100){totalCount nodes{isResolved}}" +
+			" commits(last:1){nodes{commit{statusCheckRollup{state" +
+			` contexts(first:100){totalCount nodes{${STATUS_CHECK_FIELDS}}}}}}}}}`
+		);
+	});
+	return `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){${aliases.join(" ")}}}`;
+}
+
+/** Escape an arbitrary branch name into a valid GraphQL string literal (handles quotes, backslashes, control chars). */
+function graphqlStringLiteral(value: string): string {
+	const escaped = value.replace(/[\\"\u0000-\u001f]/g, (char) => {
+		switch (char) {
+			case "\\":
+				return "\\\\";
+			case '"':
+				return '\\"';
+			case "\b":
+				return "\\b";
+			case "\f":
+				return "\\f";
+			case "\n":
+				return "\\n";
+			case "\r":
+				return "\\r";
+			case "\t":
+				return "\\t";
+			default:
+				return `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`;
+		}
+	});
+	return `"${escaped}"`;
+}
+
+const reviewThreadsSchema = z
+	.object({
+		totalCount: z.number().int().nonnegative().default(0),
+		nodes: z.array(z.object({ isResolved: z.boolean().default(false) }).loose()).default([]),
+	})
+	.loose();
+
+const contextsSchema = z
+	.object({
+		totalCount: z.number().int().nonnegative().default(0),
+		nodes: z.array(z.unknown()).default([]),
+	})
+	.loose();
+
+const commitsSchema = z
+	.object({
+		nodes: z
+			.array(
+				z
+					.object({
+						commit: z
+							.object({
+								statusCheckRollup: z
+									.object({ contexts: contextsSchema.nullish() })
+									.loose()
+									.nullish(),
+							})
+							.loose(),
+					})
+					.loose(),
+			)
+			.default([]),
+	})
+	.loose();
+
+const prNodeSchema = z
+	.object({
+		number: z.number().int().positive(),
+		title: z.string().default(""),
+		url: z.string().default(""),
+		isDraft: z.boolean().default(false),
+		body: z.string().default(""),
+		reviewDecision: z.string().nullish(),
+		reviewThreads: reviewThreadsSchema.nullish(),
+		commits: commitsSchema.nullish(),
+	})
+	.loose();
+
+const prConnectionSchema = z.object({ nodes: z.array(prNodeSchema).default([]) }).loose();
+
+const stackPrResponseSchema = z
+	.object({
+		data: z.object({ repository: z.record(z.string(), z.unknown()).nullish() }).loose(),
+	})
+	.loose();
+
+const graphqlErrorsSchema = z
+	.object({
+		errors: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
+	})
+	.loose();
+
+/**
+ * Parse a batched stack-PR GraphQL response. Returns per-branch PR data aligned
+ * with `branches` (positionally, via the `b{index}` aliases) or `null` for a
+ * branch without an open PR. GraphQL errors and a missing/`null` `repository`
+ * are surfaced as typed variants; any other malformed alias degrades to `null`.
+ */
+export function parseStackPrResponse(json: unknown, branches: string[]): StackPrParseResult {
+	const errorMessages = graphqlErrorMessages(json);
+	if (errorMessages !== undefined) return { type: "graphql-errors", messages: errorMessages };
+
+	const root = stackPrResponseSchema.safeParse(json);
+	if (!root.success) return { type: "schema-mismatch" };
+
+	const repository = root.data.data.repository;
+	if (repository === null || repository === undefined) return { type: "schema-mismatch" };
+
+	const prs = branches.map((_branch, index) => stackPrDataFromAlias(repository[`b${index}`]));
+	return { type: "ok", prs };
+}
+
+function stackPrDataFromAlias(aliasValue: unknown): StackPrData | null {
+	const connection = prConnectionSchema.safeParse(aliasValue);
+	if (!connection.success) return null;
+	const node = connection.data.nodes[0];
+	if (node === undefined) return null;
+	return {
+		number: node.number,
+		title: node.title,
+		url: node.url,
+		isDraft: node.isDraft,
+		body: node.body,
+		reviewDecision: node.reviewDecision ?? null,
+		threads: threadCountsFromNode(node.reviewThreads),
+		checks: checkCountsFromNode(node.commits),
+	};
+}
+
+function threadCountsFromNode(
+	reviewThreads: z.infer<typeof reviewThreadsSchema> | null | undefined,
+): StackViewPrThreads {
+	if (reviewThreads === null || reviewThreads === undefined) return { resolved: 0, total: 0 };
+	const resolved = reviewThreads.nodes.filter((thread) => thread.isResolved).length;
+	// `resolved` counts only the fetched nodes (first 100). When `totalCount`
+	// exceeds the fetched node count the resolved figure degrades gracefully
+	// (it can only under-count), so `total` stays honest via the larger of the two.
+	return { resolved, total: Math.max(reviewThreads.totalCount, reviewThreads.nodes.length) };
+}
+
+function checkCountsFromNode(
+	commits: z.infer<typeof commitsSchema> | null | undefined,
+): StackViewPrChecks {
+	const contexts = commits?.nodes[0]?.commit.statusCheckRollup?.contexts;
+	const nodes = contexts?.nodes ?? [];
+	const totalCount = contexts?.totalCount ?? nodes.length;
+	const tally = tallyGithubStatusChecks(nodes, { hasMore: totalCount > nodes.length });
+	// Fold `unknown` checks into `pending` so they never silently vanish and can
+	// never mark a PR as failing; `total` stays the sum of the visible buckets.
+	const pending = tally.pending + tally.unknown;
+	return {
+		passing: tally.passing,
+		failing: tally.failing,
+		pending,
+		total: tally.passing + tally.failing + pending,
+	};
+}
+
+function graphqlErrorMessages(json: unknown): readonly string[] | undefined {
+	const parsed = graphqlErrorsSchema.safeParse(json);
+	if (!parsed.success) return undefined;
+	const errors = parsed.data.errors;
+	if (errors === undefined || errors.length === 0) return undefined;
+	const messages = errors.flatMap((error) => {
+		const message = error.message?.trim();
+		return message !== undefined && message.length > 0 ? [message] : [];
+	});
+	return messages.length > 0 ? messages : ["GitHub returned GraphQL errors without messages"];
+}
+
+/** Run the batched stack-PR query through the exec seam and parse the result. */
+export async function fetchStackPrs(params: FetchStackPrsParams): Promise<FetchStackPrsResult> {
+	const query = buildStackPrQuery(params.branches);
+	const result = await params.execApi.exec(
+		"gh",
+		[
+			"api",
+			"graphql",
+			"-f",
+			`query=${query}`,
+			"-f",
+			`owner=${params.owner}`,
+			"-f",
+			`repo=${params.repo}`,
+		],
+		{ cwd: params.cwd },
+	);
+	if (!commandSucceeded(result))
+		return { type: "exec-error", message: commandFailureReason(result) };
+
+	let json: unknown;
+	try {
+		json = JSON.parse(result.stdout);
+	} catch (error) {
+		return { type: "invalid-json", message: formatErrorMessage(error) };
+	}
+
+	const parsed = parseStackPrResponse(json, params.branches);
+	switch (parsed.type) {
+		case "ok":
+			return { type: "ok", prs: parsed.prs };
+		case "graphql-errors":
+			return { type: "graphql-errors", messages: parsed.messages };
+		case "schema-mismatch":
+			return { type: "schema-mismatch" };
+	}
+}
+
+const repoIdentitySchema = z
+	.object({ name: z.string(), owner: z.object({ login: z.string() }).loose() })
+	.loose();
+
+/** Resolve the current repo's `owner`/`repo` via `gh repo view --json owner,name`. */
+export async function fetchRepoIdentity(
+	params: FetchRepoIdentityParams,
+): Promise<FetchRepoIdentityResult> {
+	const result = await params.execApi.exec("gh", ["repo", "view", "--json", "owner,name"], {
+		cwd: params.cwd,
+	});
+	if (!commandSucceeded(result))
+		return { type: "exec-error", message: commandFailureReason(result) };
+
+	let json: unknown;
+	try {
+		json = JSON.parse(result.stdout);
+	} catch (error) {
+		return { type: "invalid-json", message: formatErrorMessage(error) };
+	}
+
+	const parsed = repoIdentitySchema.safeParse(json);
+	if (!parsed.success) return { type: "schema-mismatch" };
+	return { type: "ok", owner: parsed.data.owner.login, repo: parsed.data.name };
+}
+
+/** Build the Graphite app URL for a PR. */
+export function graphiteUrl(owner: string, repo: string, prNumber: number): string {
+	return `https://app.graphite.com/github/pr/${owner}/${repo}/${prNumber}`;
+}
