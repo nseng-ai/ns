@@ -11,7 +11,7 @@ import {
 	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
-import { INTERROGATION_TOOLS } from "./interrogation-prompt.ts";
+import { READ_ONLY_SUBAGENT_TOOLS } from "../runner-subagents/read-only-tools.ts";
 
 export type InterrogationEvent =
 	| { type: "assistant-delta"; text: string }
@@ -108,7 +108,7 @@ export function createPiInterrogationSessionFactory(): InterrogationSessionFacto
 					cwd: options.bundleDir,
 					model: options.model,
 					modelRegistry: options.modelRegistry,
-					tools: [...INTERROGATION_TOOLS],
+					tools: [...READ_ONLY_SUBAGENT_TOOLS],
 					resourceLoader,
 					sessionManager: SessionManager.inMemory(options.bundleDir),
 					settingsManager,

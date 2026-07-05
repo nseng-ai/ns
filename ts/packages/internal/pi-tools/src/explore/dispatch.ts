@@ -14,7 +14,8 @@ import {
 	type RunnerSubagentResult,
 } from "../runner-subagents/extension-api.ts";
 import { hasAbortedSignal } from "../runner-subagents/abort-signals.ts";
-import { EXPLORER_AGENT_NAME, EXPLORER_READ_ONLY_TOOLS } from "./contract.ts";
+import { READ_ONLY_SUBAGENT_TOOLS } from "../runner-subagents/read-only-tools.ts";
+import { EXPLORER_AGENT_NAME } from "./contract.ts";
 import {
 	resolveExplorerLaunchPlan,
 	type ExplorerLaunchPlan,
@@ -87,7 +88,7 @@ export async function dispatchExplorerSubagent(
 		title: intent.title,
 		prompt: childPrompt,
 		returnMode: "final-text",
-		tools: EXPLORER_READ_ONLY_TOOLS,
+		tools: READ_ONLY_SUBAGENT_TOOLS,
 		...(intent.signal === undefined ? {} : { signal: intent.signal }),
 		...(intent.onProgress === undefined ? {} : { onProgress: intent.onProgress }),
 	};

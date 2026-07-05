@@ -4,9 +4,6 @@ import {
 	type InterrogationScope,
 	type LiveRegion,
 } from "./model.ts";
-
-export const INTERROGATION_TOOLS = ["read", "grep", "find", "ls"] as const;
-
 export function buildInterrogationSystemPrompt(options: {
 	sessionId: string;
 	bundleDir: string;

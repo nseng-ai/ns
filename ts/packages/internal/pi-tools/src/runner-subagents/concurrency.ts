@@ -12,7 +12,9 @@ export async function mapWithConcurrency<T, R>({
 	run,
 }: MapWithConcurrencyInput<T, R>): Promise<Array<R | undefined>> {
 	if (items.length === 0) return [];
-	if (maxConcurrency < 1) return Array.from({ length: items.length });
+	if (maxConcurrency < 1) {
+		throw new Error("mapWithConcurrency requires maxConcurrency to be at least 1.");
+	}
 
 	const results: Array<R | undefined> = Array.from({ length: items.length });
 	let nextIndex = 0;
