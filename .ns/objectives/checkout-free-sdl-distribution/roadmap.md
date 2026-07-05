@@ -12,17 +12,20 @@
   - Consequence: core capability loading should resolve installed package JS, not checkout
     source paths; jiti may remain a dev/package-extension convenience but not the runtime path
     for bundled first-party capabilities.
-- [x] Triage every runtime workspace dependency of `@ns/kernel` (transitively): per package,
-      decide publish vs bundle-inline vs exclude. Record the table. `@ns/kernel` itself must
-      stop being `private` (or be superseded by a published wrapper).
+- [x] Triage every runtime workspace dependency of `@nseng-ai/kernel` (transitively): per
+      package, decide publish vs bundle-inline vs exclude. Record the table.
+      `@nseng-ai/kernel` itself must stop being `private` (or be superseded by a published
+      wrapper).
   - Decision table recorded in
-    `updates/20260704T235456Z-runtime-dependency-triage-decisions.md`.
-  - Current private inventory is 8 packages: runtime/loader-referenced
-    (`@ns/kernel`, `@ns/capability-kit`, `@ns/flow`, `@ns/ccc`), excluded host/internal
-    packages (`@ns/pi`, `nscc`, `@internal/pi-tools`), and non-runtime internal tooling
+    `updates/20260704T235456Z-runtime-dependency-triage-decisions.md`; current package
+    names have since moved to the external `@nseng-ai/*` workspace scope.
+  - Current private inventory is runtime/loader-referenced (`@nseng-ai/kernel`,
+    `@nseng-ai/capability-kit`, `@nseng-ai/flow`, `@nseng-ai/ccc`), excluded
+    host/internal packages (`@nseng-ai/pi`, `nscc`, `@internal/pi-tools`,
+    `@nseng-ai/pi-command-surfaces`), and non-runtime internal tooling
     (`@internal/typescript-style-guard`).
 - [~] Replace the source-path module loader
-  (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@ns/objective` + its hidden
+  (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@nseng-ai/objective` + its hidden
   `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
   paths. Reconcile the checked-in `.ns/extensions/*` re-export manifests and keep the
   parity test green.
@@ -34,21 +37,20 @@
 - [~] Introduce the build/bundle step and produce a checkout-free artifact (no
   run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
   - Evidence: the artifact runs `ns objective list` on a machine with no repo checkout.
-  - Current `ns` evidence: `@ns/cli` builds a local esbuild bundle and `pack:local` assembles an
-    `@nseng-ai/ns` tarball whose `ns` bin runs `ns objective list` from a foreign temp repo
-    after `npm install <tarball>`.
-- [ ] Replace the checkout-dependent shims (pnpm `.bin/ns` `NODE_PATH`; installer template
-      `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`) for
-      the published package.
-- [ ] Decide the published npm name for every standalone-published package
-      (`@ns/capability-kit` and `@ns/flow` at minimum, plus `@ns/kernel` or its wrapper and
-      the already-public capability packages) and the workspace-to-published name mapping
-      strategy — rename workspace packages to their published names vs per-package
-      publish-root generation with dependency-name rewriting. The single-manifest
-      `@ns/cli` → `@nseng-ai/ns` rename works only because the CLI bundle inlines its
-      workspace dependencies; it does not extend to a published dependency graph.
-      (Decision recorded 2026-07-05: standalone publishing is committed, see
-      `updates/20260705T123551Z-standalone-package-publishing-decision.md`.)
+  - Current evidence: `@nseng-ai/ns` builds a local esbuild bundle and `pack:local`
+    assembles an `@nseng-ai/ns` tarball whose `ns` bin runs `ns objective list` from a
+    foreign temp repo after `npm install <tarball>`.
+- [ ] Replace or retire the checkout-dependent shims for the published package boundary
+      (legacy source shim paths such as pnpm `.bin` `NODE_PATH` assumptions and
+      `ts/scripts/source-cli-shim-template` `run_checkout` requiring `ts/node_modules`).
+- [x] Decide the published npm name for every standalone-published package and the
+      workspace-to-published name mapping strategy.
+  - Decision: workspace manifests now use the external `@nseng-ai/*` scope directly; do
+    not build a per-package `@ns/*` to `@nseng-ai/*` dependency-name rewrite layer.
+    Runtime packages already carry names such as `@nseng-ai/ns`, `@nseng-ai/kernel`,
+    `@nseng-ai/capability-kit`, `@nseng-ai/flow`, and `@nseng-ai/objective`.
+  - Remaining implementation work: private runtime packages still need publish metadata,
+    private flips or wrapper decisions, build outputs, and install verification.
 - [ ] Publish a versioned `@nseng-ai/ns` package to npm and confirm a global/`npx`
       install runs `ns objective …` against a foreign repo.
   - Evidence: the `ship-objectives-to-customers` end-to-end verification can install `ns`
