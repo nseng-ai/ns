@@ -25,10 +25,18 @@
       SIGTERM-escalation question. Haiku-recon assumption held in the smoke; the
       no-`bash` risk was not stressed. Fan-out tool and `.pi/extensions/` shim are
       item 3.
-- [ ] Model-invocable fan-out tool: parent-facing prompt engineering (parallel calls in
+- [x] Model-invocable fan-out tool: parent-facing prompt engineering (parallel calls in
       one message, never delegate understanding, quick/medium/very-thorough breadth
       vocabulary, prefer direct grep/read for known targets) plus depth, concurrency,
       and wall-clock guards.
+      Outcome: `@internal/pi-tools/explore/extension` registers `explore` with 2+
+      task schema validation, quick/medium/very-thorough breadth caps, bounded ordered
+      concurrency, TimerScheduler-backed wall-clock aborts, compact progress updates,
+      friendly `.ns/pi/agents/explorer.md` configuration errors, interim capped child
+      final-text excerpts, and the repo-local `.pi/extensions/explore.ts` shim. Tests:
+      focused explore Vitest suite (24 tests), `pnpm --dir ts run check`, lint, and
+      format check passed on branch `explore-fan-out-tool`. Item 4 preview/pointer and
+      item 5 live widget remain open.
 - [ ] Preview + pointer result plumbing: bounded preview in parent context, full
       findings on disk, retrievable on demand.
 - [ ] Live inline progress rendering: placeholder-sentinel per-task rows with status

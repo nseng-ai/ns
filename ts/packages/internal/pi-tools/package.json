@@ -8,6 +8,7 @@
 		"./context-profiler": "./src/context-profiler/index.ts",
 		"./context-profiler/extension": "./src/context-profiler/extension.ts",
 		"./explore": "./src/explore/index.ts",
+		"./explore/extension": "./src/explore/extension.ts",
 		"./explore/testing": "./src/explore/testing.ts",
 		"./grill": "./src/grill/index.ts",
 		"./grill/extension": "./src/grill/extension.ts",
