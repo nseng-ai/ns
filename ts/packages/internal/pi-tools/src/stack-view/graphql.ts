@@ -26,8 +26,15 @@ import type {
 	StackViewThreadDetail,
 } from "./types.ts";
 import type { StackViewExecContext } from "./exec.ts";
-import type { GithubRepositoryIdentity } from "@nseng-ai/capability-kit/github";
+import {
+	GITHUB_CLI_TIMEOUT_MS,
+	type GithubRepositoryIdentity,
+} from "@nseng-ai/capability-kit/github";
 import { normalizeGithubStatusChecks } from "@nseng-ai/capability-kit/github/pr-status";
+import {
+	graphqlErrorMessages,
+	parseJsonUnknown,
+} from "@nseng-ai/capability-kit/github/graphql-json";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -66,15 +73,6 @@ export interface FetchStackPrsParams extends StackViewExecContext {
 	repoIdentity: GithubRepositoryIdentity;
 }
 
-/** Result of resolving the current repo's `owner`/`repo` identity via `gh`. */
-export type FetchRepoIdentityResult =
-	| { type: "ok"; repoIdentity: GithubRepositoryIdentity }
-	| { type: "exec-error"; message: string }
-	| { type: "invalid-json"; message: string }
-	| { type: "schema-mismatch" };
-
-export type FetchRepoIdentityParams = StackViewExecContext;
-
 /**
  * The CheckRun/StatusContext field selection for `statusCheckRollup.contexts.nodes`.
  * Mirrors `githubWorktreePrStatusQuery` so the parsed items feed
@@ -84,14 +82,16 @@ const STATUS_CHECK_FIELDS =
 	"__typename ... on CheckRun{name status conclusion startedAt completedAt detailsUrl checkSuite{workflowRun{databaseId runNumber runAttempt createdAt updatedAt workflow{name}}}} ... on StatusContext{context state createdAt targetUrl}";
 
 /**
- * Build ONE GraphQL document with an alias (`b0`, `b1`, …) per branch. Branch
- * names are embedded as GraphQL string literals (safely escaped); `owner`/`repo`
- * are passed as GraphQL variables so the caller supplies them via `-f`.
+ * Build ONE GraphQL document with an alias (`b0`, `b1`, …) per branch. Each
+ * branch name is passed as its own `$branch{index}: String!` variable (supplied
+ * by the caller via `-f`), alongside the `$owner`/`$repo` variables; the
+ * per-branch `headRefName` references `$branch{index}`.
  */
 export function buildStackPrQuery(branches: string[]): string {
-	const aliases = branches.map((branch, index) => {
+	const branchVariables = branches.map((_branch, index) => `,$branch${index}:String!`).join("");
+	const aliases = branches.map((_branch, index) => {
 		return (
-			`b${index}: pullRequests(headRefName: ${graphqlStringLiteral(branch)}, states: [OPEN], first: 1)` +
+			`b${index}: pullRequests(headRefName: $branch${index}, states: [OPEN], first: 1)` +
 			"{nodes{number title url isDraft body reviewDecision" +
 			" reviewThreads(first:100){totalCount nodes{id isResolved path line originalLine" +
 			" comments(first:30){totalCount nodes{id body author{login} createdAt}}" +
@@ -100,32 +100,7 @@ export function buildStackPrQuery(branches: string[]): string {
 			` contexts(first:100){totalCount nodes{${STATUS_CHECK_FIELDS}}}}}}}}}`
 		);
 	});
-	return `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){${aliases.join(" ")}}}`;
-}
-
-/** Escape an arbitrary branch name into a valid GraphQL string literal (handles quotes, backslashes, control chars). */
-function graphqlStringLiteral(value: string): string {
-	const escaped = value.replace(/[\\"\u0000-\u001f]/g, (char) => {
-		switch (char) {
-			case "\\":
-				return "\\\\";
-			case '"':
-				return '\\"';
-			case "\b":
-				return "\\b";
-			case "\f":
-				return "\\f";
-			case "\n":
-				return "\\n";
-			case "\r":
-				return "\\r";
-			case "\t":
-				return "\\t";
-			default:
-				return `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`;
-		}
-	});
-	return `"${escaped}"`;
+	return `query($owner:String!,$repo:String!${branchVariables}){repository(owner:$owner,name:$repo){${aliases.join(" ")}}}`;
 }
 
 const reviewThreadCommentsSchema = z
@@ -220,12 +195,6 @@ const stackPrResponseSchema = z
 	})
 	.loose();
 
-const graphqlErrorsSchema = z
-	.object({
-		errors: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
-	})
-	.loose();
-
 /**
  * Parse a batched stack-PR GraphQL response. Returns per-branch PR data aligned
  * with `branches` (positionally, via the `b{index}` aliases) or `null` for a
@@ -305,11 +274,12 @@ function unresolvedThreadDetailsFromNode(
 		});
 }
 
-/** Map the fetched comment nodes into the plain {@link StackViewThreadComment} shape (missing scalars → ""/null). */
+/** The larger of the reported total and the fetched node count, so a paginated total never under-reports. */
 function honestTotal(totalCount: number, fetchedLength: number): number {
 	return Math.max(totalCount, fetchedLength);
 }
 
+/** Map the fetched comment nodes into the plain {@link StackViewThreadComment} shape (missing scalars → ""/null). */
 function commentsFromThread(
 	comments: z.infer<typeof reviewThreadCommentsSchema> | null | undefined,
 ): StackViewThreadComment[] {
@@ -361,21 +331,12 @@ function checksFromNode(commits: z.infer<typeof commitsSchema> | null | undefine
 	return { counts, entries };
 }
 
-function graphqlErrorMessages(json: unknown): readonly string[] | undefined {
-	const parsed = graphqlErrorsSchema.safeParse(json);
-	if (!parsed.success) return undefined;
-	const errors = parsed.data.errors;
-	if (errors === undefined || errors.length === 0) return undefined;
-	const messages = errors.flatMap((error) => {
-		const message = error.message?.trim();
-		return message !== undefined && message.length > 0 ? [message] : [];
-	});
-	return messages.length > 0 ? messages : ["GitHub returned GraphQL errors without messages"];
-}
-
 /** Run the batched stack-PR query through the exec seam and parse the result. */
 export async function fetchStackPrs(params: FetchStackPrsParams): Promise<FetchStackPrsResult> {
 	const query = buildStackPrQuery(params.branches);
+	// Each branch rides as its own `-f branch{index}=…` variable, positionally
+	// aligned with the `$branch{index}` declarations `buildStackPrQuery` emits.
+	const branchArgs = params.branches.flatMap((branch, index) => ["-f", `branch${index}=${branch}`]);
 	const result = await params.execApi.exec(
 		"gh",
 		[
@@ -387,54 +348,19 @@ export async function fetchStackPrs(params: FetchStackPrsParams): Promise<FetchS
 			`owner=${params.repoIdentity.owner}`,
 			"-f",
 			`repo=${params.repoIdentity.repo}`,
+			...branchArgs,
 		],
-		{ cwd: params.cwd },
+		{ cwd: params.cwd, timeout: GITHUB_CLI_TIMEOUT_MS },
 	);
 	if (!commandSucceeded(result))
 		return { type: "exec-error", message: commandFailureReason(result) };
 
-	let json: unknown;
-	try {
-		json = JSON.parse(result.stdout);
-	} catch (error) {
-		return { type: "invalid-json", message: formatErrorMessage(error) };
-	}
+	const parsed = parseJsonUnknown(result.stdout);
+	if (parsed.type === "error")
+		return { type: "invalid-json", message: formatErrorMessage(parsed.error) };
 
-	const parsed = parseStackPrResponse(json, params.branches);
-	switch (parsed.type) {
-		case "ok":
-			return { type: "ok", prs: parsed.prs };
-		case "graphql-errors":
-			return { type: "graphql-errors", messages: parsed.messages };
-		case "schema-mismatch":
-			return { type: "schema-mismatch" };
-	}
-}
-
-const repoIdentitySchema = z
-	.object({ name: z.string(), owner: z.object({ login: z.string() }).loose() })
-	.loose();
-
-/** Resolve the current repo's `owner`/`repo` via `gh repo view --json owner,name`. */
-export async function fetchRepoIdentity(
-	params: FetchRepoIdentityParams,
-): Promise<FetchRepoIdentityResult> {
-	const result = await params.execApi.exec("gh", ["repo", "view", "--json", "owner,name"], {
-		cwd: params.cwd,
-	});
-	if (!commandSucceeded(result))
-		return { type: "exec-error", message: commandFailureReason(result) };
-
-	let json: unknown;
-	try {
-		json = JSON.parse(result.stdout);
-	} catch (error) {
-		return { type: "invalid-json", message: formatErrorMessage(error) };
-	}
-
-	const parsed = repoIdentitySchema.safeParse(json);
-	if (!parsed.success) return { type: "schema-mismatch" };
-	return { type: "ok", repoIdentity: { owner: parsed.data.owner.login, repo: parsed.data.name } };
+	// `StackPrParseResult`'s variants are all assignable to `FetchStackPrsResult`.
+	return parseStackPrResponse(parsed.value, params.branches);
 }
 
 /** Build the Graphite app URL for a PR. */

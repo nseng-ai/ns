@@ -5,7 +5,7 @@
  * can depend on it without pulling in exec or GraphQL concerns.
  */
 
-import type { GithubRepositoryIdentity } from "@ns/capability-kit/github";
+import type { GithubRepositoryIdentity } from "@nseng-ai/capability-kit/github";
 import { z } from "zod";
 
 /** Review-thread resolution counts for a single PR. */

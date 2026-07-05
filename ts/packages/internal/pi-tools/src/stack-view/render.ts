@@ -8,7 +8,7 @@
  * Row ordering follows the model: `model.prs` is top-of-stack first, and the
  * trunk is carried separately on `model.trunk`.
  */
-import { buildFencedTextBlock } from "@ns/core/primitives";
+import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 
 import {
 	entriesForCheckBucket,
