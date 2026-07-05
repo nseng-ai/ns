@@ -1,8 +1,8 @@
 // Shared finite result-block primitives for house-style side-effect outcomes.
 //
-// This sits in the opt-in theme layer because the same generic block shape is now proven across Flow
-// and CCC. Domain-specific facts (git transcripts, land plans, autoslot state) stay in their owning
-// packages; this module owns only the common headline + body/guidance/cwd layout grammar.
+// This sits in the opt-in theme layer because several workflow owners use the same generic block
+// shape. Domain-specific facts and recovery details stay in their owning packages; this module owns
+// only the common headline + body/guidance/cwd layout grammar.
 
 import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@ns/clinkr";
 import { glyph } from "./glyphs.ts";

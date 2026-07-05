@@ -540,18 +540,10 @@ type ShellCommandSpec<T> = Omit<
 	"name" | "description"
 >;
 
-// Keep this shell command face ns-owned instead of resurrecting the old generic Slot
-// builder. The reusable abstraction we expect here is future typed shell contributions
-// rendered by ns inside one managed shell integration, not extension-owned rc-file
-// mutation or a Slot-owned command helper.
-//
-// Intended shell-ownership boundary (target end-state; consolidation deferred):
-//   - Slot exposes worktree paths only and stays out of shell-integration concerns.
-//   - ns/core owns wrapper-script generation, the parent-shell integration, and
-//     mounting (this group) as one cohesive unit.
-// Known deferred drift from that boundary: cd-directive generation still lives in
-// Slot's `navigation-result.ts`/`shell/cd-directive.ts`. That is the next consolidation
-// step, not a sanctioned long-term split — do not add new shell-integration logic to Slot.
+// Keep this shell command face kernel-owned instead of delegating parent-shell integration
+// to one extension. The reusable abstraction we expect here is future typed shell
+// contributions rendered inside one managed shell integration, not extension-owned rc-file
+// mutation or command helpers that each install their own wrapper.
 function buildNsShellGroup(): ClinkrGroup<NsCliContext> {
 	const shell = new ClinkrGroup<NsCliContext>({
 		name: "shell",
