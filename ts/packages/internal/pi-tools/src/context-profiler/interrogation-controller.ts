@@ -99,7 +99,7 @@ export class InterrogationController implements InterrogationViewPort {
 			if (result.ok) result.value.dispose();
 			return { ok: false, reason: "interrogation was closed" };
 		}
-		if (!result.ok) return this.markUnavailable(result.error.message);
+		if (!result.ok) return this.markUnavailable(result.message);
 		this.session = result.value;
 		this.session.subscribe((event) => {
 			this.transcript = applyInterrogationEvent(this.transcript, event);
@@ -133,7 +133,7 @@ export class InterrogationController implements InterrogationViewPort {
 				this.transcript = setStreaming(this.transcript, false);
 				this.onTranscriptChange();
 			});
-		if (!result.ok) this.emitNotice(`prompt failed: ${result.error.message}`);
+		if (!result.ok) this.emitNotice(`prompt failed: ${result.message}`);
 	}
 
 	async abortTurn(): Promise<void> {
