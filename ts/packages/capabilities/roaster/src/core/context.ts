@@ -11,7 +11,7 @@ import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "../gateways
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
-import type { ExplicitUndefined } from "@ns/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@ns/core/primitives";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
@@ -83,7 +83,7 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 		reviewRunner: options.reviewRunner ?? new ClaudeCodeProcessReviewRunner({ execApi }),
 		cwd: options.cwd,
 		env: options.env,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 		stdin: options.stdin,
 		stdout: options.stdout,
 		stderr: options.stderr,
@@ -99,7 +99,7 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 		runScope: {
 			cwd,
 			env,
-			...(signal === undefined ? {} : { signal }),
+			...optionalEntry("signal", signal),
 		},
 	};
 }
@@ -114,6 +114,6 @@ export function environmentOptions(scope: RoasterRunScope): RoasterEnvironmentOp
 export function catalogOptions(scope: RoasterRunScope): RoasterCatalogOptions {
 	return {
 		cwd: scope.cwd,
-		...(scope.signal === undefined ? {} : { signal: scope.signal }),
+		...optionalEntry("signal", scope.signal),
 	};
 }
