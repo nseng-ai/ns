@@ -29,6 +29,7 @@ Current checkout facts:
 - [@ns/objective](./ts/packages/capabilities/objective/CONTEXT.md) — Objective CLI/capability vocabulary for the canonical `ns objective` command surface (`archive`/`check`/`list`), hidden `ns objective exec` skill/agent fact helpers, checkout-local `ns objective list` behavior, checked-in Objective record storage that cites the root ns system terms, the retired top-level `objective` binary policy, the Objective Capability API (`@ns/objective/api`) with its Objective Client and gateway-injected Objective Domain Core, and the Objective Capability Dependency Boundary (only the `pi` subpackage may import `@ns/pi` as an optional peer).
 - [@ns/slot](./ts/packages/capabilities/slot/CONTEXT.md) — worktree slot vocabulary for Slots, Slot Pool, Slot Records/Inventory, Slot Repo Context, Slot Checkout Target, the `ns slot ...` command surface, the `@ns/slot/api` Capability API, checkout side-effect policy, ns-owned parent-shell navigation/shell mounts, and `ns slot gt` command helpers.
 - [@ns/flow](./ts/packages/capabilities/flow/CONTEXT.md) — Flow lifecycle vocabulary for the `ns flow ...` command face, `@ns/flow/api` compatibility boundary consumed by CCC, Flow-owned submit/autobranch/land execution, the internal `land/stack/` domain core, and future API narrowing candidates that must not be removed without a compatibility plan.
+
 ### Planned TypeScript package contexts
 
 These are active TypeScript package context targets for later focused domain-language sessions. Do not recreate deleted Python package paths when authoring them.
@@ -77,6 +78,7 @@ These are current map seeds, not final readback output. Package-context phases s
 - **CCC → @ns/flow**: CCC consumes Flow-owned autobranch, autoslot, trunk-pull, and land behavior through the curated `@ns/flow/api` Capability API; CCC must not import Flow private `src/...` modules or bypass the Flow Capability API.
 - **@ns/flow land/stack → gateway facts**: Flow's `land/stack/` domain core owns renderer-independent land-domain types, fakes, and stack preflight planning over injected Git, Graphite, GitHub PR, and worktree-slot gateway facts; it does not export CLI parsing, completions, renderer registration, or presentation helpers.
 - **Flow submit → @ns/capability-kit/graphite + @ns/capability-kit**: Flow owns submit, PR-regeneration, Graphite-submit, and autobranch workflow policy in `@ns/flow`/Flow-owned internals. `@ns/capability-kit/graphite` owns neutral Graphite command adapters, facts, and mechanics; `@ns/capability-kit` owns shared capability substrate such as gateway result/error helpers.
+
 ## Flagged Ambiguities
 
 Carry these collisions forward to focused package-context phases. Do not finalize them here.

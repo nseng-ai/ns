@@ -1,6 +1,7 @@
 # @ns/slot
 
 `@ns/slot` owns Slot domain logic, operations, the Slot Capability API, and the bundled ns extension contribution for `ns slot ...`. The supported command-line surface is **only** through the ns binary:
+
 ```bash
 ns slot list
 ns slot checkout feature-x
@@ -8,6 +9,7 @@ ns slot gt exec stack-branches --format json
 ```
 
 The package does not expose or install a top-level `slot` executable. The ns kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@ns/slot/api` rather than parsing command output.
+
 ## Installation
 
 Install the ns tool shim with the repository tool installation flow, then invoke Slot commands as `ns slot ...`. There is no `just install-slot` recipe and no supported `$HOME/.local/bin/slot` shim.
@@ -40,6 +42,7 @@ ns slot shell install --shell bash
 `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 
 During the extension-contract transition, the Slot ns extension uses the current `@ns/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+
 ## Completion
 
 Standalone Slot completion is not supported. Use ns-level shell completion when available; do not install completion for a `slot` command.

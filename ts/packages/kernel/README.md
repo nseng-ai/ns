@@ -5,6 +5,7 @@
 ## Command catalog
 
 The kernel builds a command catalog from lightweight metadata before it imports selected command code. Catalog entries can come from four source levels, in increasing precedence:
+
 ```text
 built-in command table < preinstalled extension metadata < $XDG_DATA_HOME/ns/extensions < <cwd>/.ns/extensions
 ```
@@ -24,6 +25,7 @@ Global and project extension roots support these one-level entry shapes:
 ```
 
 Direct files and directory indexes infer one command-entry name from the file or directory name. Package manifests provide command metadata without importing command modules:
+
 ```json
 {
 	"ns": {
@@ -93,6 +95,7 @@ Limitations:
 ## Extension authoring API
 
 Extension modules default-export an extension object created with `defineExtension()` from `@ns/kernel/sdk`. Command contributions live in the extension's optional `commands` array:
+
 ```ts
 import { defineExtension, ok, z } from "@ns/kernel/sdk";
 
@@ -116,6 +119,7 @@ export default defineExtension({
 Single-file extension modules are leaf authoring surfaces, not shared libraries. Workspace packages must not import from `.ns/extensions/*.ts` files. If reusable behavior proves out inside one extension, move or copy the contract into an owning package and expose it deliberately through `@ns/kernel/sdk` or another documented package export.
 
 ## Boundary checklist
+
 Use these cut lines when deciding where code belongs:
 
 - **Kernel service:** discovery, loading, precedence, command presentation, completion, execution/context primitives, shell integration, and small author helpers with proven reuse or explicit necessity.
