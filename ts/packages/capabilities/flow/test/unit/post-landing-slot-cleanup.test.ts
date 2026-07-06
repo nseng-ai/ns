@@ -62,18 +62,21 @@ function createCleanupContext(options: {
 	};
 }
 
-function managedShape(): LandingShape {
+function managedShape(
+	overrides: { readonly current?: string; readonly landingBranches?: string[] } = {},
+): LandingShape {
+	const current = overrides.current ?? BRANCH;
 	return {
 		repoRoot: SLOT_ROOT,
-		current: BRANCH,
+		current,
 		trunk: "main",
 		metadataDbPath: "/repo/.git/.graphite/metadata.db",
 		stack: {
 			trunk: "main",
-			current: BRANCH,
-			actualCurrentBranch: BRANCH,
-			landingTargetBranch: BRANCH,
-			landingBranches: [BRANCH],
+			current,
+			actualCurrentBranch: current,
+			landingTargetBranch: current,
+			landingBranches: overrides.landingBranches ?? [current],
 			remainingLandingBranches: [],
 			descendantBranches: [],
 			descendantRootBranches: [],
@@ -230,6 +233,40 @@ describe("post-landing slot cleanup defaults", () => {
 		});
 		expect(worktrees.freeSlotsCalls).toEqual([]);
 		expect(graphite.deleteLocalBranchCalls).toEqual([]);
+	});
+
+	test("cleanup on trunk frees the slot but keeps the local trunk branch", async () => {
+		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const fixture = createCleanupContext({ hasUI: true });
+		const shape = managedShape({ current: "main", landingBranches: [] });
+
+		const decision = await resolvePostLandingSlotCleanupDecision({
+			ctx: fixture.ctx,
+			args: expectParsed(""),
+			shape,
+		});
+		expect(decision).toEqual({ type: "success", value: { type: "approved" } });
+
+		const outcome = await runPostLandingSlotCleanup({
+			landContext: context,
+			ctx: fixture.ctx,
+			args: expectParsed(""),
+			shape,
+			cleanupDecision: expectDecision(decision),
+		});
+
+		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(worktrees.freeSlotsCalls).toEqual([
+			{
+				repoRoot: SLOT_ROOT,
+				slots: [{ type: "managed-slot", branch: "main", path: SLOT_ROOT, slotName: "slot-02" }],
+			},
+		]);
+		expect(graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(fixture.notifications.at(-1)).toEqual({
+			message: "Post-landing cleanup complete: freed slot-02; local trunk branch main was kept.",
+			level: "success",
+		});
 	});
 
 	test("--preserve and --dry-run do not prompt or clean up", async () => {

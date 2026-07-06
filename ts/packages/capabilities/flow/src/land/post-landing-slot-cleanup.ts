@@ -33,7 +33,28 @@ export type PostLandingSlotCleanupDecision =
 
 interface PostLandingSlotCleanupTarget extends PostLandingSlotCleanupPreview {
 	readonly cleanupDetails: string;
+	readonly localBranchDisposition: LocalBranchCleanupDisposition;
 	readonly suggestedAction: string;
+}
+
+type LocalBranchCleanupDisposition =
+	| {
+			readonly type: "delete";
+			readonly detailLine: string;
+			readonly intro: string;
+			readonly successMessage: string;
+	  }
+	| {
+			readonly type: "keep-trunk";
+			readonly detailLine: string;
+			readonly intro: string;
+			readonly successMessage: string;
+	  };
+
+interface PostLandingCleanupContext {
+	readonly branch: string;
+	readonly localBranchDisposition: LocalBranchCleanupDisposition;
+	readonly slotName: string;
 }
 
 interface ResolvePostLandingSlotCleanupDecisionOptions {
@@ -159,29 +180,32 @@ export async function runPostLandingSlotCleanup({
 			return presentFailureOutcome(ctx, landFailure);
 		}
 
-		setStatus(ctx, `deleting ${target.branch}...`);
-		const deleteOperation = deleteLocalBranchOperation({
-			branch: target.branch,
-			checkedOutConflictHandling: "fail",
-		});
-		const deletion = await landContext.graphite.deleteLocalBranch({
-			repoRoot: target.repoRoot,
-			branch: target.branch,
-			checkedOutConflictHandling: "fail",
-		});
-		if (deletion.type !== "deleted") {
-			const landFailure = landStackFailure(
-				`PRs were landed and ${target.slotName} was freed, but deleting local branch ${target.branch} failed.`,
-				{
-					commandDisplay:
-						deletion.type === "failed"
-							? deletion.commandDisplay
-							: formatGraphiteOperation(deleteOperation),
-					...(deletion.type === "failed" ? { result: deletion.result } : {}),
-					suggestedAction: `Delete local branch ${target.branch} manually when safe.`,
-				},
-			);
-			return presentFailureOutcome(ctx, landFailure);
+		if (target.localBranchDisposition.type === "delete") {
+			const branch = target.branch;
+			setStatus(ctx, `deleting ${branch}...`);
+			const deleteOperation = deleteLocalBranchOperation({
+				branch,
+				checkedOutConflictHandling: "fail",
+			});
+			const deletion = await landContext.graphite.deleteLocalBranch({
+				repoRoot: target.repoRoot,
+				branch,
+				checkedOutConflictHandling: "fail",
+			});
+			if (deletion.type !== "deleted") {
+				const landFailure = landStackFailure(
+					`PRs were landed and ${target.slotName} was freed, but deleting local branch ${branch} failed.`,
+					{
+						commandDisplay:
+							deletion.type === "failed"
+								? deletion.commandDisplay
+								: formatGraphiteOperation(deleteOperation),
+						...(deletion.type === "failed" ? { result: deletion.result } : {}),
+						suggestedAction: `Delete local branch ${branch} manually when safe.`,
+					},
+				);
+				return presentFailureOutcome(ctx, landFailure);
+			}
 		}
 	} finally {
 		setStatus(ctx, undefined);
@@ -189,7 +213,7 @@ export async function runPostLandingSlotCleanup({
 
 	notifyPrintAware({
 		ctx,
-		message: `Post-landing cleanup complete: freed ${target.slotName} and deleted local branch ${target.branch}.`,
+		message: target.localBranchDisposition.successMessage,
 		level: "success",
 		kind: "success",
 	});
@@ -206,33 +230,72 @@ function postLandingCleanupTarget(
 	if (slotName === undefined) return undefined;
 
 	const branch = shape.stack.actualCurrentBranch;
+	const localBranchDisposition = localBranchCleanupDisposition({
+		branch,
+		isTrunk: branch === shape.stack.trunk,
+		slotName,
+	});
+	const cleanupContext: PostLandingCleanupContext = { branch, localBranchDisposition, slotName };
 	return {
 		branch,
-		cleanupDetails: formatPostLandingCleanupDetails({ branch, repoRoot: shape.repoRoot, slotName }),
+		cleanupDetails: formatPostLandingCleanupDetails({
+			...cleanupContext,
+			repoRoot: shape.repoRoot,
+		}),
+		localBranchDisposition,
 		repoRoot: shape.repoRoot,
 		slotName,
-		suggestedAction: postLandingCleanupSuggestedAction(slotName, branch),
+		suggestedAction: postLandingCleanupSuggestedAction(cleanupContext),
 	};
 }
 
-function formatPostLandingCleanupDetails(options: PostLandingSlotCleanupPreview): string {
-	const freeCommand = formatCommand("ns", ["slot", "free", "--wt", options.slotName]);
-	const deleteCommand = formatGraphiteOperation(
-		deleteLocalBranchOperation({ branch: options.branch }),
-	);
+function localBranchCleanupDisposition(options: {
+	readonly branch: string;
+	readonly isTrunk: boolean;
+	readonly slotName: string;
+}): LocalBranchCleanupDisposition {
+	if (options.isTrunk) {
+		return {
+			type: "keep-trunk",
+			detailLine: `Local branch: ${options.branch} (trunk; will not be deleted)`,
+			intro:
+				"Post-landing cleanup will detach the current managed slot to trunk. The local trunk branch is kept.",
+			successMessage: `Post-landing cleanup complete: freed ${options.slotName}; local trunk branch ${options.branch} was kept.`,
+		};
+	}
+	return {
+		type: "delete",
+		detailLine: `Local branch: ${options.branch}`,
+		intro:
+			"Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+		successMessage: `Post-landing cleanup complete: freed ${options.slotName} and deleted local branch ${options.branch}.`,
+	};
+}
+
+function formatPostLandingCleanupDetails(
+	options: PostLandingCleanupContext & { readonly repoRoot: string },
+): string {
 	return [
-		"Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+		options.localBranchDisposition.intro,
 		"",
 		`Slot: ${options.slotName}`,
 		`Worktree: ${options.repoRoot}`,
-		`Local branch: ${options.branch}`,
+		options.localBranchDisposition.detailLine,
 		"",
 		"Commands:",
-		`$ ${freeCommand}`,
-		`$ ${deleteCommand}`,
+		...postLandingCleanupCommands(options).map((command) => `$ ${command}`),
 	].join("\n");
 }
 
-function postLandingCleanupSuggestedAction(slotName: string, branch: string): string {
-	return `Run ${formatCommand("ns", ["slot", "free", "--wt", slotName])}, then ${formatGraphiteOperation(deleteLocalBranchOperation({ branch }))} when safe.`;
+function postLandingCleanupCommands(options: PostLandingCleanupContext): string[] {
+	const commands = [formatCommand("ns", ["slot", "free", "--wt", options.slotName])];
+	if (options.localBranchDisposition.type === "delete") {
+		commands.push(formatGraphiteOperation(deleteLocalBranchOperation({ branch: options.branch })));
+	}
+	return commands;
+}
+
+function postLandingCleanupSuggestedAction(options: PostLandingCleanupContext): string {
+	const commands = postLandingCleanupCommands(options);
+	return `Run ${commands.join(", then ")} when safe.`;
 }

@@ -45,10 +45,23 @@ export async function runLandingDispatch(
 		return presentFailureOutcome(options.ctx, shape.failure);
 	}
 
+	const landContext = createRuntimeLandContext(runtime);
+	const cleanupPreview = planPostLandingSlotCleanup({
+		args: options.parsedArgs,
+		shape: shape.value,
+	});
 	if (
 		shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
 		shape.value.stack.landingBranches.length === 0
 	) {
+		if (cleanupPreview !== undefined) {
+			return await resolveAndFinishPostLandingCleanup({
+				ctx: options.ctx,
+				args: options.parsedArgs,
+				shape: shape.value,
+				landContext,
+			});
+		}
 		const message = `Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`;
 		presentBrief({
 			ctx: options.ctx,
@@ -60,11 +73,6 @@ export async function runLandingDispatch(
 		return completed();
 	}
 
-	const landContext = createRuntimeLandContext(runtime);
-	const cleanupPreview = planPostLandingSlotCleanup({
-		args: options.parsedArgs,
-		shape: shape.value,
-	});
 	if (isIsolatedFastPath(shape.value.stack)) {
 		const result = await runIsolatedFastPathLanding<PostLandingSlotCleanupDecision>({
 			github: landContext.github,
@@ -95,13 +103,13 @@ export async function runLandingDispatch(
 	});
 	if (confirmationResult.outcome.type === "failure") return confirmationResult.outcome;
 
-	const cleanupDecision = await resolvePostLandingSlotCleanupDecision({
+	const cleanupDecision = await resolvePostLandingCleanupForDispatch({
 		ctx: options.ctx,
 		args: options.parsedArgs,
 		shape: shape.value,
 		...optionalEntry("confirmation", confirmationResult.cleanupConfirmation),
 	});
-	if (cleanupDecision.type === "failure") return cleanupDecision;
+	if (cleanupDecision.type === "outcome") return cleanupDecision.outcome;
 
 	const outcome = await executeStackLanding(runtime.source, options.ctx, options.parsedArgs, {
 		shouldSkipMainConfirmation: true,
@@ -120,18 +128,48 @@ export async function runLandingDispatch(
 	});
 }
 
+interface FinishAfterLandingOptions {
+	ctx: PrintAwareLandStackCommandContext;
+	args: ParsedArgs;
+	shape: LandingShape;
+	landContext: LandContext;
+	cleanupDecision: PostLandingSlotCleanupDecision;
+}
+
 async function finishAfterLanding(
 	outcome: LandStackOutcome,
-	options: {
-		ctx: PrintAwareLandStackCommandContext;
-		args: ParsedArgs;
-		shape: LandingShape;
-		landContext: LandContext;
-		cleanupDecision: PostLandingSlotCleanupDecision;
-	},
+	options: FinishAfterLandingOptions,
 ): Promise<LandStackOutcome> {
 	if (outcome.type === "failure") return outcome;
 	return await runPostLandingSlotCleanup(options);
+}
+
+async function resolveAndFinishPostLandingCleanup(
+	options: Omit<FinishAfterLandingOptions, "cleanupDecision"> & {
+		confirmation?: PreMergeConfirmation;
+	},
+): Promise<LandStackOutcome> {
+	const cleanupDecision = await resolvePostLandingCleanupForDispatch(options);
+	if (cleanupDecision.type === "outcome") return cleanupDecision.outcome;
+	return await runPostLandingSlotCleanup({
+		...options,
+		cleanupDecision: cleanupDecision.value,
+	});
+}
+
+type DispatchCleanupDecision =
+	| { readonly type: "decision"; readonly value: PostLandingSlotCleanupDecision }
+	| { readonly type: "outcome"; readonly outcome: LandStackOutcome };
+
+async function resolvePostLandingCleanupForDispatch(options: {
+	ctx: PrintAwareLandStackCommandContext;
+	args: ParsedArgs;
+	shape: LandingShape;
+	confirmation?: PreMergeConfirmation;
+}): Promise<DispatchCleanupDecision> {
+	const cleanupDecision = await resolvePostLandingSlotCleanupDecision(options);
+	if (cleanupDecision.type === "failure") return { type: "outcome", outcome: cleanupDecision };
+	return { type: "decision", value: cleanupDecision.value };
 }
 
 interface StackModeConfirmationResult {
