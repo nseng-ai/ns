@@ -23,21 +23,17 @@ export interface ProgressPhaseStateStoreOptions {
 	readonly unknownKeyPolicy?: ProgressPhaseUnknownKeyPolicy;
 }
 
-export type ProgressPhaseApplyResult =
-	| { readonly type: "ignored" }
-	| { readonly type: "updated"; readonly view?: ProgressPhaseView };
-
 export interface ProgressPhaseStateStore {
 	views(): readonly ProgressPhaseView[];
 	title(): string | undefined;
-	apply(event: NsProgressPhaseEvent): ProgressPhaseApplyResult;
+	apply(event: NsProgressPhaseEvent): ProgressPhaseView | undefined;
 	failActive(): void;
 	settleOpenPhases(): void;
 }
 
 interface PhaseRecord {
 	spec: ProgressPhaseSpec;
-	detail: string | undefined;
+	runtimeDetail: string | undefined;
 	state: ProgressPhaseState;
 	label: string | undefined;
 	history: string[];
@@ -65,17 +61,17 @@ export function createProgressPhaseStateStore(
 		return currentTitle;
 	}
 
-	function apply(event: NsProgressPhaseEvent): ProgressPhaseApplyResult {
+	function apply(event: NsProgressPhaseEvent): ProgressPhaseView | undefined {
 		switch (event.type) {
 			case "phases-declared":
 				currentTitle = event.title;
 				records = event.phases.map(createRecord);
 				indexByKey = indexRecords(records);
 				activeLocation = undefined;
-				return { type: "updated" };
+				return undefined;
 			case "title-changed":
 				currentTitle = event.title;
-				return { type: "updated" };
+				return undefined;
 			case "phase-started":
 				return applyStarted(event.phaseKey, event.label);
 			case "phase-progress":
@@ -87,44 +83,47 @@ export function createProgressPhaseStateStore(
 		}
 	}
 
-	function applyStarted(phaseKey: string, label: string | undefined): ProgressPhaseApplyResult {
+	function applyStarted(
+		phaseKey: string,
+		label: string | undefined,
+	): ProgressPhaseView | undefined {
 		const location = ensureLocation(phaseKey);
-		if (location === undefined) return { type: "ignored" };
+		if (location === undefined) return undefined;
 		setActive(location);
 		const record = recordAt(location);
-		if (record === undefined) return { type: "ignored" };
+		if (record === undefined) return undefined;
 		const nextLabel = label ?? record.spec.label;
 		const nextRecord = { ...withSupersededLabel(record, nextLabel), label: nextLabel };
 		replaceRecord(location, nextRecord);
-		return { type: "updated", view: viewForRecord(nextRecord) };
+		return viewAt(location);
 	}
 
-	function applyProgress(phaseKey: string, label: string): ProgressPhaseApplyResult {
+	function applyProgress(phaseKey: string, label: string): ProgressPhaseView | undefined {
 		const location = ensureLocation(phaseKey);
-		if (location === undefined) return { type: "ignored" };
+		if (location === undefined) return undefined;
 		ensureProgressTargetActive(location);
 		const record = recordAt(location);
-		if (record === undefined) return { type: "ignored" };
+		if (record === undefined) return undefined;
 		const nextRecord = { ...withSupersededLabel(record, label), label };
 		replaceRecord(location, nextRecord);
-		return { type: "updated", view: viewForRecord(nextRecord) };
+		return viewAt(location);
 	}
 
-	function applyDone(phaseKey: string, detail: string | undefined): ProgressPhaseApplyResult {
+	function applyDone(phaseKey: string, detail: string | undefined): ProgressPhaseView | undefined {
 		const location = ensureLocation(phaseKey);
-		if (location === undefined) return { type: "ignored" };
+		if (location === undefined) return undefined;
 		const record = recordAt(location);
-		if (record === undefined) return { type: "ignored" };
+		if (record === undefined) return undefined;
 		const nextRecord = completeRecord(record, detail);
 		replaceRecord(location, nextRecord);
-		return { type: "updated", view: viewForRecord(nextRecord) };
+		return viewAt(location);
 	}
 
-	function applyFailed(phaseKey: string, detail: string): ProgressPhaseApplyResult {
+	function applyFailed(phaseKey: string, detail: string): ProgressPhaseView | undefined {
 		const location = ensureLocation(phaseKey);
-		if (location === undefined) return { type: "ignored" };
+		if (location === undefined) return undefined;
 		const record = recordAt(location);
-		if (record === undefined) return { type: "ignored" };
+		if (record === undefined) return undefined;
 		const nextRecord = {
 			...withSupersededLabel(record, detail),
 			state: "failed",
@@ -132,7 +131,7 @@ export function createProgressPhaseStateStore(
 		} satisfies PhaseRecord;
 		replaceRecord(location, nextRecord);
 		failParentForSubstep(location);
-		return { type: "updated", view: viewForRecord(nextRecord) };
+		return viewAt(location);
 	}
 
 	function ensureLocation(phaseKey: string): PhaseLocation | undefined {
@@ -149,6 +148,11 @@ export function createProgressPhaseStateStore(
 	function recordAt(location: PhaseLocation): PhaseRecord | undefined {
 		if (location.type === "top") return records[location.index];
 		return records[location.parentIndex]?.substeps[location.index];
+	}
+
+	function viewAt(location: PhaseLocation): ProgressPhaseView | undefined {
+		const record = recordAt(location);
+		return record === undefined ? undefined : viewForRecord(record);
 	}
 
 	function replaceRecord(location: PhaseLocation, record: PhaseRecord): void {
@@ -176,8 +180,7 @@ export function createProgressPhaseStateStore(
 	}
 
 	function activateSubstep(location: Extract<PhaseLocation, { type: "substep" }>): void {
-		records = markEarlierDone(records, location.parentIndex);
-		const parent = records[location.parentIndex];
+		const parent = activateParentForSubstep(location);
 		if (parent === undefined) return;
 		const substeps = markEarlierDone(parent.substeps, location.index);
 		const substep = substeps[location.index];
@@ -190,9 +193,19 @@ export function createProgressPhaseStateStore(
 					} satisfies PhaseRecord);
 		records = replaceAt(records, location.parentIndex, {
 			...parent,
-			state: "active",
 			substeps: nextSubsteps,
 		} satisfies PhaseRecord);
+	}
+
+	function activateParentForSubstep(
+		location: Extract<PhaseLocation, { type: "substep" }>,
+	): PhaseRecord | undefined {
+		records = markEarlierDone(records, location.parentIndex);
+		const parent = records[location.parentIndex];
+		if (parent === undefined) return undefined;
+		const activeParent = { ...parent, state: "active" } satisfies PhaseRecord;
+		records = replaceAt(records, location.parentIndex, activeParent);
+		return activeParent;
 	}
 
 	function ensureProgressTargetActive(location: PhaseLocation): void {
@@ -203,11 +216,7 @@ export function createProgressPhaseStateStore(
 		}
 		if (location.type === "top") return;
 		if (record?.state === "active") {
-			records = markEarlierDone(records, location.parentIndex);
-			const parent = records[location.parentIndex];
-			if (parent !== undefined) {
-				records = replaceAt(records, location.parentIndex, { ...parent, state: "active" });
-			}
+			activateParentForSubstep(location);
 			activeLocation = location;
 		}
 	}
@@ -246,7 +255,7 @@ export function createProgressPhaseStateStore(
 function createRecord(spec: ProgressPhaseSpec): PhaseRecord {
 	return {
 		spec: copySpec(spec),
-		detail: spec.detail,
+		runtimeDetail: undefined,
 		state: "pending",
 		label: spec.label,
 		history: [],
@@ -265,10 +274,11 @@ function copySpec(spec: ProgressPhaseSpec): ProgressPhaseSpec {
 }
 
 function viewForRecord(record: PhaseRecord): ProgressPhaseView {
+	const detail = detailForRecord(record);
 	return {
 		key: record.spec.key,
 		name: record.spec.name,
-		...(record.detail === undefined ? {} : { detail: record.detail }),
+		...(detail === undefined ? {} : { detail }),
 		state: record.state,
 		label: record.label,
 		history: record.history.slice(),
@@ -301,12 +311,16 @@ function withSupersededLabel(record: PhaseRecord, nextLabel: string | undefined)
 	return { ...record, history: [...record.history, previous] };
 }
 
+function detailForRecord(record: PhaseRecord): string | undefined {
+	return record.runtimeDetail ?? record.spec.detail;
+}
+
 function settleSubstepsDone(parent: PhaseRecord): PhaseRecord {
 	return {
 		...parent,
 		substeps: parent.substeps.map((substep) => {
 			if (substep.state === "active") {
-				return { ...withSupersededLabel(substep, substep.detail), state: "done" };
+				return { ...withSupersededLabel(substep, detailForRecord(substep)), state: "done" };
 			}
 			if (substep.state === "pending") return { ...substep, state: "skipped" };
 			return substep;
@@ -315,15 +329,16 @@ function settleSubstepsDone(parent: PhaseRecord): PhaseRecord {
 }
 
 function setDone(record: PhaseRecord): PhaseRecord {
-	const labeled = record.state === "active" ? withSupersededLabel(record, record.detail) : record;
+	const labeled =
+		record.state === "active" ? withSupersededLabel(record, detailForRecord(record)) : record;
 	return settleSubstepsDone({ ...labeled, state: "done" });
 }
 
 function completeRecord(record: PhaseRecord, detail: string | undefined): PhaseRecord {
-	const settledDetail = detail ?? record.detail;
+	const settledDetail = detail ?? detailForRecord(record);
 	return settleSubstepsDone({
 		...withSupersededLabel(record, settledDetail),
-		detail: settledDetail,
+		runtimeDetail: detail ?? record.runtimeDetail,
 		state: "done",
 		label: settledDetail ?? record.label,
 	});
