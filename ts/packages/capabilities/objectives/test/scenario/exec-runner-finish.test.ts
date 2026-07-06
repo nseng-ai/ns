@@ -129,10 +129,9 @@ describe("ns objective exec runner-finish scenarios", () => {
 		);
 		expect(exit.data.checkpointMarkdown).not.toContain("- usage:");
 		expect(api.phases).toEqual(["validating-inputs", "verifying", "committing"]);
-		expect(api.execCalls.map((call) => call.args)).toEqual([
-			["diff", "--cached", "--quiet", "--exit-code"],
-			["diff", "--cached", "--check"],
-		]);
+		expect(api.execCalls.map((call) => call.args)).toEqual([]);
+		expect(api.runnerGit.hasStagedChangesCalls).toEqual([{ cwd: "/repo" }]);
+		expect(api.runnerGit.checkStagedWhitespaceCalls).toEqual([{ cwd: "/repo" }]);
 		expect(api.runnerGit.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 		// ok exits leave stdout to the renderers.
 		expect(api.stdoutChunks).toEqual([]);
@@ -252,7 +251,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 	});
 
 	test("pre-existing staged changes fail index-clean and are not committed", async () => {
-		const api = makeApi({ execResults: [{ code: 1 }] });
+		const api = makeApi({ git: gateHappyGitState({ stagedChanges: true }) });
 
 		const exit = await runObjectiveCommand(
 			objectiveExecRunnerFinishNsCommand,
@@ -270,7 +269,14 @@ describe("ns objective exec runner-finish scenarios", () => {
 	});
 
 	test("cached diff failure is a verification failure and is not committed", async () => {
-		const api = makeApi({ execResults: [{}, { code: 2, stderr: "trailing whitespace" }] });
+		const api = makeApi({
+			git: gateHappyGitState({
+				checkStagedWhitespaceFailure: {
+					code: "git_staged_whitespace_failed",
+					message: "git diff --cached --check failed: trailing whitespace",
+				},
+			}),
+		});
 
 		const exit = await runObjectiveCommand(
 			objectiveExecRunnerFinishNsCommand,
@@ -284,11 +290,9 @@ describe("ns objective exec runner-finish scenarios", () => {
 		const diffCheck = exit.data?.gateChecks.find((check) => check.id === "diff-check");
 		expect(diffCheck?.status).toBe("failed");
 		expect(diffCheck?.detail).toContain("trailing whitespace");
-		expect(api.execCalls.map((call) => call.args)).toEqual([
-			["diff", "--cached", "--quiet", "--exit-code"],
-			["diff", "--cached", "--check"],
-			["reset", "--"],
-		]);
+		expect(api.execCalls.map((call) => call.args)).toEqual([]);
+		expect(api.runnerGit.checkStagedWhitespaceCalls).toEqual([{ cwd: "/repo" }]);
+		expect(api.runnerGit.unstageAllCalls).toEqual([{ cwd: "/repo" }]);
 		expect(api.runnerGit.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 		expect(api.runnerGit.commitCalls).toEqual([]);
 	});
