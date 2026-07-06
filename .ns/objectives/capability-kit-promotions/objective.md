@@ -197,3 +197,40 @@ Risks:
 - Should flow's `selectPrDescriptionModelRef` eventually join the kit's
   `select*ModelRef` family, and should `parseJsonUnknown` be rehomed to a
   neutral subpath? Both parked pending a deliberate kit-surface decision.
+
+## Closure
+
+Closed as completed. All `## Work` rows are `[x]`: the five Tier 1 duplicate
+adoptions, the three deliberately pulled second-wave Tier 2 promotions, and
+the JSON-input third-wave promotion all landed with their local duplicates
+deleted, consumers migrated to capability-kit surfaces, and evidence recorded
+in `roadmap.md` plus Semantic Updates.
+
+Key delivered kit surfaces and extensions:
+
+- Existing kit text-generation, git, model-slug, GitGateway, and JSON parsing
+  surfaces now cover the Tier 1 local duplicates in flow, ccc, objectives,
+  handoffs, and slots.
+- Kit `git` now covers worktree/admin-dir and operation-in-progress mechanics
+  used by slots, flow, and hosts/pi, with consumer-specific wording kept local.
+- Kit `content-slug` now owns shared content-slug derivation mechanics while
+  plans and handoffs retain their package-specific wrapper/validation wording.
+- Kit `github/pr-feedback` now owns reusable GitHub REST PR feedback/comment
+  mechanics with fake support, while reviews retains Roaster envelopes and
+  pi-tools retains watch/UI behavior.
+- Kit `json-input` now owns one-of source loading plus parse/validation helpers
+  used by pr-feedback and the cleanly fitting reviews sites.
+
+Validation evidence is captured in the row notes and updates, including targeted
+package tests, `pnpm --dir ts run check`, lint/format checks where relevant,
+`just ts-test-typescript-style-guard` for style-sensitive slices, and green
+`just` runs on the delivering branches. No remaining Work row is open, and the
+Completion Criteria explicitly require only that Parked rows remain recorded,
+not that they be triaged or executed.
+
+Remaining follow-ups are intentionally parked future scope: git output
+classification, PR-link parsing, result-typed fs gateway, shell-install helper,
+small helper placement decisions, brmem/artifact-store layering, payload store
+placement, PR-address seam decisions, Pi parsing placement, deferred kit-surface
+tidies, and slots/flow worktree coupling. Pull any of those into Work only via a
+new explicit Objective update or future Objective.
