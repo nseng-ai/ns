@@ -28,8 +28,8 @@
     flow's direct `smol-toml` dependency, rejects legacy `[flow.hooks]`, and passes targeted
     submit hook unit/scenario tests including `--no-hooks`.
 - [x] Migrate prompt points: `flow.submit.pr-description` (manifest `default` file,
-  id-based `.ns/prompts` name, generalized env dev-override reported by the catalog) and
-  branch-context `plans-write`.
+      id-based `.ns/prompts` name, generalized env dev-override reported by the catalog) and
+      branch-context `plans-write`.
   - Landed: local branch `point-system-prompt-points-FRHJRE` commit `efa6745a2`
     declares both override prompt points, moves default prompt bodies into manifest markdown
     files, renames the checked-in plans-write prompt to `.ns/prompts/branch-context.plans-write.md`,
