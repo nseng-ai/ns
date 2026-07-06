@@ -25,7 +25,7 @@ The umbrella skill owns the storage model, required headings, and status semanti
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
 - One sanctioned exception: an Objective Edge mutation is a mirrored two-file edit, so adding, removing, or rewording an edge also edits the counterpart record's `objective.md` Record Frontmatter — and nothing else in the counterpart record (see the `objective` umbrella skill's Record Frontmatter section).
 - Never move, delete, recreate, or normalize Objective slug directories during an update. The slug directory is durable identity; explicit slug migration is separate.
-- Never edit, rewrite, amend, normalize, delete, move, or recreate an existing file under `updates/`. Existing Semantic Updates are immutable historical records.
+- Treat existing Semantic Updates as immutable historical records per the `objective` umbrella skill; create new update files instead of changing old ones.
 
 ## Select exactly one Objective
 
@@ -110,13 +110,9 @@ Write a new Semantic Update for a distinct finding, blocker, decision, risk chan
 
 Never amend an existing update for stale evidence, corrected counts, renamed concepts, same-branch/PR verification wording, duplicate shipped/progress wording, typo cleanup, formatting cleanup, closure, or any other reason.
 
-When a material Objective PR directly advances, de-risks, or completes the selected Objective, record it in the new Semantic Update as Objective PR evidence using the shared bullet convention when helpful:
+When a material Objective PR directly advances, de-risks, or completes the selected Objective, record it in the new Semantic Update as Objective PR evidence using the shared convention from the `objective` umbrella skill when helpful.
 
-```markdown
-- PR #123: <short summary/title> — <Objective impact>
-```
-
-PR evidence remains optional; do not require GitHub evidence when local branch evidence is sufficient and the update does not claim PR, review, CI, or merge state. Do not record every associated branch/PR. Use merged PR wording only after `gh pr view` or other explicit evidence confirms merge state.
+PR evidence remains optional; do not require GitHub evidence when local branch evidence is sufficient and the update does not claim PR, review, CI, or merge state.
 
 ### Verification evidence
 

@@ -12,15 +12,7 @@ Answer: “what branches and Objectives can I continue to work on right now?” 
 
 ## Default posture
 
-This skill is observational and read-only. Collect evidence, rank candidates, and report availability. Do not mutate live state while using this skill.
-
-Do not:
-
-- rename, focus, close, or otherwise mutate cmux workspaces or surfaces;
-- send text or keys to cmux panes;
-- create, delete, clean, check out, rebase, restack, submit, land, or otherwise mutate Git or Graphite state;
-- edit Objective records, Branch Memory, handoffs, branch-context attachments, or local files;
-- call GitHub mutation commands.
+This skill follows the shared ccc observational posture in `../ccc-stack-map/references/cmux-read-only-posture.md`: collect evidence, rank candidates, and report availability without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state.
 
 If the user asks for cleanup or continuation after the report, treat that as a separate follow-up task with the appropriate skill.
 

@@ -20,13 +20,7 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
 2. If already closed, stop unless the user explicitly asks to amend closure context.
 3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale. For an Umbrella Objective (see the `objective` skill's Objective patterns reference), closure additionally requires each Child Objective closed or explicitly parked, with cross-child lessons and synthesized closure evidence recorded in the parent.
 4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
-5. When material PR evidence supports the completed or abandoned outcome, summarize it in `## Closure` with PR numbers and Objective impact. Use the shared Objective PR evidence bullet convention when a list is clearer than prose:
-
-   ```markdown
-   - PR #123: <short summary/title> — <Objective impact>
-   ```
-
-   Closure PR evidence is not a broad PR ledger and should not trigger historical backfill. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence.
+5. When material PR evidence supports the completed or abandoned outcome, summarize it in `## Closure` with PR numbers and Objective impact, using the shared Objective PR evidence convention from the `objective` umbrella skill when a list is clearer than prose. Do not turn closure PR evidence into a broad PR ledger or historical backfill.
 6. Re-judge Record Frontmatter (defined in the `objective` umbrella skill) around the closure:
    - **Edge counterparts' Blocked Sentences.** For each entry under the closing record's `edges:`, read the counterpart record's frontmatter. You are closing the thing their annotation may say gates them: when a counterpart's `blocked:` sentence rests on this Objective, re-judge it — clear it if this closure removes the gate, or reword it if a narrower gate remains. This is skill judgment, never a machine auto-flip, and editing the counterpart's `objective.md` frontmatter block (and nothing else in that record) is the sanctioned mirrored exception.
    - **The record's own Blocked Sentence.** Blocked is a sub-state of open, so a closing record should not keep a live `blocked:` sentence; re-judge and normally remove it as part of closure.

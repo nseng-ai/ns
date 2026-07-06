@@ -12,14 +12,7 @@ Render a read-only cmux × Graphite stack map: a Graphite-stack-shaped view with
 
 ## Default posture
 
-This skill is observational by default. Collect facts and render an overlay; do not clean anything up during the same request.
-
-Do **not** do any of the following unless the user separately asks for a follow-up mutation:
-
-- rename, focus, close, or otherwise mutate cmux workspaces or surfaces;
-- send text or keys to cmux panes;
-- mutate Git or Graphite state;
-- edit files.
+This skill follows `references/cmux-read-only-posture.md`: collect facts and render an overlay without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state. Do not clean anything up during the same request.
 
 This is an internal local skill and should be installed with `metadata.internal: true` / `INSTALL_INTERNAL_SKILLS=1` when managed by `npx skills`.
 
