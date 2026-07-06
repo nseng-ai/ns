@@ -8,7 +8,6 @@ import type {
 	ActivationFilesOperationResult,
 	EnsureObjectivesDirectoryResult,
 	InstructionFileParams,
-	InstructionFileReadResult,
 	ProjectConfigFileParams,
 	TextFileReadResult,
 	WriteInstructionFileParams,
@@ -17,58 +16,29 @@ import type {
 import { OBJECTIVES_DIRECTORY_RELATIVE_PATH } from "./activation-files.ts";
 
 export class RealActivationFilesGateway implements ActivationFilesGateway {
-	async readInstructionFile(params: InstructionFileParams): Promise<InstructionFileReadResult> {
-		try {
-			const content = await readFile(path.join(params.repoRoot, params.file), "utf8");
-			return { type: "found", content };
-		} catch (error) {
-			if (errnoCode(error) === "ENOENT") return { type: "missing" };
-			return {
-				type: "error",
-				error: { code: "instruction-file-read-failed", message: formatErrorMessage(error) },
-			};
-		}
+	async readInstructionFile(params: InstructionFileParams): Promise<TextFileReadResult> {
+		return readTextFile(params.repoRoot, params.file, "instruction-file-read-failed");
 	}
 
 	async writeInstructionFile(
 		params: WriteInstructionFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		try {
-			await writeFile(path.join(params.repoRoot, params.file), params.content, "utf8");
-			return { ok: true };
-		} catch (error) {
-			return {
-				ok: false,
-				error: { code: "instruction-file-write-failed", message: formatErrorMessage(error) },
-			};
-		}
+		return writeTextFile(
+			params.repoRoot,
+			params.file,
+			params.content,
+			"instruction-file-write-failed",
+		);
 	}
 
 	async readProjectConfigFile(params: ProjectConfigFileParams): Promise<TextFileReadResult> {
-		try {
-			const content = await readFile(path.join(params.repoRoot, "ns.toml"), "utf8");
-			return { type: "found", content };
-		} catch (error) {
-			if (errnoCode(error) === "ENOENT") return { type: "missing" };
-			return {
-				type: "error",
-				error: { code: "ns-toml-read-failed", message: formatErrorMessage(error) },
-			};
-		}
+		return readTextFile(params.repoRoot, "ns.toml", "ns-toml-read-failed");
 	}
 
 	async writeProjectConfigFile(
 		params: WriteProjectConfigFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		try {
-			await writeFile(path.join(params.repoRoot, "ns.toml"), params.content, "utf8");
-			return { ok: true };
-		} catch (error) {
-			return {
-				ok: false,
-				error: { code: "ns-toml-write-failed", message: formatErrorMessage(error) },
-			};
-		}
+		return writeTextFile(params.repoRoot, "ns.toml", params.content, "ns-toml-write-failed");
 	}
 
 	async ensureObjectivesDirectory(params: {
@@ -101,6 +71,40 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 				},
 			};
 		}
+	}
+}
+
+async function readTextFile(
+	repoRoot: string,
+	relativePath: string,
+	errorCode: string,
+): Promise<TextFileReadResult> {
+	try {
+		const content = await readFile(path.join(repoRoot, relativePath), "utf8");
+		return { type: "found", content };
+	} catch (error) {
+		if (errnoCode(error) === "ENOENT") return { type: "missing" };
+		return {
+			type: "error",
+			error: { code: errorCode, message: formatErrorMessage(error) },
+		};
+	}
+}
+
+async function writeTextFile(
+	repoRoot: string,
+	relativePath: string,
+	content: string,
+	errorCode: string,
+): Promise<ActivationFilesOperationResult> {
+	try {
+		await writeFile(path.join(repoRoot, relativePath), content, "utf8");
+		return { ok: true };
+	} catch (error) {
+		return {
+			ok: false,
+			error: { code: errorCode, message: formatErrorMessage(error) },
+		};
 	}
 }
 

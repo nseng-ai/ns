@@ -1,34 +1,33 @@
 import type {
-	ActivationFilesErrorInfo,
 	ActivationFilesGateway,
 	ActivationFilesOperationResult,
 	EnsureObjectivesDirectoryResult,
 	InstructionFileName,
 	InstructionFileParams,
-	InstructionFileReadResult,
 	ProjectConfigFileParams,
 	TextFileReadResult,
 	WriteInstructionFileParams,
 	WriteProjectConfigFileParams,
 } from "./activation-files.ts";
 import { INSTRUCTION_FILE_NAMES } from "./activation-files.ts";
+import type { NsInitErrorInfo } from "./error-info.ts";
 
 export interface InMemoryActivationFilesState {
 	instructionFiles?: Readonly<Partial<Record<InstructionFileName, string>>>;
 	projectConfigFile?: string;
-	objectivesDirectoryPresent?: boolean;
-	readFailure?: ActivationFilesErrorInfo;
-	writeFailure?: ActivationFilesErrorInfo;
-	ensureObjectivesDirectoryFailure?: ActivationFilesErrorInfo;
+	hasObjectivesDirectory?: boolean;
+	readFailure?: NsInitErrorInfo;
+	writeFailure?: NsInitErrorInfo;
+	ensureObjectivesDirectoryFailure?: NsInitErrorInfo;
 }
 
 export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 	private readonly instructionFiles: Map<InstructionFileName, string>;
 	private projectConfigFile: string | undefined;
-	private objectivesDirectoryPresent: boolean;
-	private readonly readFailure: ActivationFilesErrorInfo | undefined;
-	private readonly writeFailure: ActivationFilesErrorInfo | undefined;
-	private readonly ensureObjectivesDirectoryFailure: ActivationFilesErrorInfo | undefined;
+	private hasObjectivesDirectoryValue: boolean;
+	private readonly readFailure: NsInitErrorInfo | undefined;
+	private readonly writeFailure: NsInitErrorInfo | undefined;
+	private readonly ensureObjectivesDirectoryFailure: NsInitErrorInfo | undefined;
 
 	constructor(state: InMemoryActivationFilesState = {}) {
 		this.instructionFiles = new Map();
@@ -37,13 +36,13 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 			if (content !== undefined) this.instructionFiles.set(name, content);
 		}
 		this.projectConfigFile = state.projectConfigFile;
-		this.objectivesDirectoryPresent = state.objectivesDirectoryPresent ?? false;
+		this.hasObjectivesDirectoryValue = state.hasObjectivesDirectory ?? false;
 		this.readFailure = state.readFailure;
 		this.writeFailure = state.writeFailure;
 		this.ensureObjectivesDirectoryFailure = state.ensureObjectivesDirectoryFailure;
 	}
 
-	async readInstructionFile(params: InstructionFileParams): Promise<InstructionFileReadResult> {
+	async readInstructionFile(params: InstructionFileParams): Promise<TextFileReadResult> {
 		if (this.readFailure !== undefined) return { type: "error", error: this.readFailure };
 		const content = this.instructionFiles.get(params.file);
 		if (content === undefined) return { type: "missing" };
@@ -77,8 +76,8 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 		if (this.ensureObjectivesDirectoryFailure !== undefined) {
 			return { ok: false, error: this.ensureObjectivesDirectoryFailure };
 		}
-		if (this.objectivesDirectoryPresent) return { ok: true, value: { created: false } };
-		this.objectivesDirectoryPresent = true;
+		if (this.hasObjectivesDirectoryValue) return { ok: true, value: { created: false } };
+		this.hasObjectivesDirectoryValue = true;
 		return { ok: true, value: { created: true } };
 	}
 
@@ -91,6 +90,6 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 	}
 
 	hasObjectivesDirectory(): boolean {
-		return this.objectivesDirectoryPresent;
+		return this.hasObjectivesDirectoryValue;
 	}
 }

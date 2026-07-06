@@ -33,9 +33,7 @@ export function applyObjectiveInstructionBlock(input: {
 	});
 	if (parsed.type === "malformed") return { type: "malformed", reason: parsed.reason };
 	if (parsed.type === "missing") {
-		const base = input.text.trimEnd();
-		const content = base === "" ? `${block}\n` : `${base}\n\n${block}\n`;
-		return { type: "applied", content, change: "appended" };
+		return { type: "applied", content: appendSection(input.text, block), change: "appended" };
 	}
 	if (input.text.slice(parsed.start, parsed.end) === block) {
 		return { type: "applied", content: input.text, change: "unchanged" };
@@ -58,8 +56,10 @@ export interface EnsureClaudeAgentsImportResult {
 
 export function ensureClaudeAgentsImport(input: { text: string }): EnsureClaudeAgentsImportResult {
 	if (input.text.includes("@AGENTS.md")) return { content: input.text, change: "unchanged" };
-	const base = input.text.trimEnd();
-	const content =
-		base === "" ? `${CLAUDE_AGENTS_IMPORT_LINE}\n` : `${base}\n\n${CLAUDE_AGENTS_IMPORT_LINE}\n`;
-	return { content, change: "appended" };
+	return { content: appendSection(input.text, CLAUDE_AGENTS_IMPORT_LINE), change: "appended" };
+}
+
+function appendSection(existing: string, section: string): string {
+	const base = existing.trimEnd();
+	return base === "" ? `${section}\n` : `${base}\n\n${section}\n`;
 }

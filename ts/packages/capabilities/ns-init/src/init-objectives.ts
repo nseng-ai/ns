@@ -32,8 +32,10 @@ const skillMaterializeResultSchema = z.discriminatedUnion("type", [
 	}),
 ]);
 
+const fileChangeStatusSchema = z.enum(["created", "appended", "replaced", "unchanged"]);
+
 const fileChangeSchema = z.object({
-	change: z.enum(["created", "appended", "replaced", "unchanged"]),
+	change: fileChangeStatusSchema,
 });
 
 export const initObjectivesResultSchema = z.object({
@@ -41,9 +43,9 @@ export const initObjectivesResultSchema = z.object({
 	trunkBranch: z.string(),
 	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 	harnessSource: z.enum(["explicit", "ns-toml"]),
-	nsToml: z.object({ change: z.enum(["created", "appended", "replaced", "unchanged"]) }),
+	nsToml: fileChangeSchema,
 	agentsInstructionFile: fileChangeSchema,
-	claudeInstructionFile: z.object({ change: z.enum(["created", "appended", "unchanged"]) }),
+	claudeInstructionFile: z.object({ change: fileChangeStatusSchema.exclude(["replaced"]) }),
 	objectivesDirectory: z.object({ created: z.boolean() }),
 	skills: skillMaterializeResultSchema,
 });
@@ -135,12 +137,7 @@ async function resolveHarnesses(
 
 	const read = await context.files.readProjectConfigFile({ repoRoot: options.repoRoot });
 	if (read.type === "error") {
-		return {
-			type: "failure",
-			errorType: "ns-init-config-read-failed",
-			message: read.error.message,
-			data: read.error,
-		};
+		return configFailure("ns-init-config-read-failed", read.error);
 	}
 
 	if (explicit !== undefined) {
@@ -149,12 +146,7 @@ async function resolveHarnesses(
 			harnesses: explicit.harnesses,
 		});
 		if (plan.type === "error") {
-			return {
-				type: "failure",
-				errorType: "ns-init-config-invalid",
-				message: plan.error.message,
-				data: plan.error,
-			};
+			return configFailure("ns-init-config-invalid", plan.error);
 		}
 		if (plan.change !== "unchanged") {
 			const write = await context.files.writeProjectConfigFile({
@@ -162,12 +154,7 @@ async function resolveHarnesses(
 				content: plan.content,
 			});
 			if (!write.ok) {
-				return {
-					type: "failure",
-					errorType: "ns-init-config-write-failed",
-					message: write.error.message,
-					data: write.error,
-				};
+				return configFailure("ns-init-config-write-failed", write.error);
 			}
 		}
 		return {
@@ -179,30 +166,15 @@ async function resolveHarnesses(
 	}
 
 	if (read.type === "missing") {
-		return {
-			type: "usage-error",
-			message:
-				"Pass at least one --harness on first ns init run, or add top-level harnesses to ns.toml.",
-			data: { argument: "harness", configFile: "ns.toml" },
-		};
+		return harnessUsageError();
 	}
 
 	const parsed = parseNsTomlHarnesses(read.content);
 	if (parsed.type === "missing") {
-		return {
-			type: "usage-error",
-			message:
-				"Pass at least one --harness on first ns init run, or add top-level harnesses to ns.toml.",
-			data: { argument: "harness", configFile: "ns.toml" },
-		};
+		return harnessUsageError();
 	}
 	if (parsed.type === "error") {
-		return {
-			type: "failure",
-			errorType: "ns-init-config-invalid",
-			message: parsed.error.message,
-			data: parsed.error,
-		};
+		return configFailure("ns-init-config-invalid", parsed.error);
 	}
 	return {
 		type: "ok",
@@ -216,6 +188,24 @@ type ActivationFailure = Exclude<
 	Awaited<ReturnType<typeof activateObjectives>>,
 	{ type: "activated" }
 >;
+
+function harnessUsageError(): HarnessResolution {
+	return {
+		type: "usage-error",
+		message:
+			"Pass at least one --harness on first ns init run, or add top-level harnesses to ns.toml.",
+		data: { argument: "harness", configFile: "ns.toml" },
+	};
+}
+
+function configFailure(errorType: string, error: { message: string }): HarnessResolution {
+	return {
+		type: "failure",
+		errorType,
+		message: error.message,
+		data: error,
+	};
+}
 
 function activationFailure(result: ActivationFailure): ClinkrExit<InitObjectivesResult> {
 	switch (result.type) {
