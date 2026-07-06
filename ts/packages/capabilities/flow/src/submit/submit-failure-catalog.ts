@@ -125,21 +125,27 @@ export function formatCurrentPrVerificationFailureCause(
 }
 
 function formatEmptyBranchFailure(branchName: string | undefined): string {
-	if (branchName === undefined) {
-		return [
-			"The submit stack contains an empty branch, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
-			"",
-			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ns flow submit`.",
-			"Otherwise, commit real changes to it, then rerun `ns flow submit`.",
-		].join("\n");
-	}
+	const isUnknownBranch = branchName === undefined;
+	const branchLine = isUnknownBranch ? "▸ <unknown empty branch>" : `▸ ${branchName}`;
+	const deleteGuidance = isUnknownBranch
+		? "If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ns flow submit`."
+		: `If ${branchName} has no remaining work, delete it, then rerun \`ns flow submit\`:`;
 	return [
-		`Branch ${branchName} is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.`,
+		"WARNING: This branch does not introduce any changes:",
+		branchLine,
 		"",
-		`If ${branchName} has no remaining work, delete it, then rerun \`ns flow submit\`:`,
-		`    gt delete ${branchName} -f -q`,
-		"(switch to its parent/downstack branch first if Graphite cannot delete the checked-out branch)",
-		`Otherwise, commit real changes to ${branchName}, then rerun \`ns flow submit\`.`,
+		"Graphite will not submit empty branches because GitHub rejects empty PRs. Nothing was submitted.",
+		"",
+		deleteGuidance,
+		...(isUnknownBranch
+			? []
+			: [
+					`    gt delete ${branchName} -f -q`,
+					"(switch to its parent/downstack branch first if Graphite cannot delete the checked-out branch)",
+				]),
+		isUnknownBranch
+			? "Otherwise, commit real changes to it, then rerun `ns flow submit`."
+			: `Otherwise, commit real changes to ${branchName}, then rerun \`ns flow submit\`.`,
 	].join("\n");
 }
 

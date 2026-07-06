@@ -1117,8 +1117,10 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
+		expect(error).toContain("WARNING: This branch does not introduce any changes:");
+		expect(error).toContain("▸ code-smell/tools-vibechk-exec-artifact-bounds");
 		expect(error).toContain(
-			"Branch code-smell/tools-vibechk-exec-artifact-bounds is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
+			"Graphite will not submit empty branches because GitHub rejects empty PRs. Nothing was submitted.",
 		);
 		expect(error).toContain("gt delete code-smell/tools-vibechk-exec-artifact-bounds -f -q");
 		expect(error).toContain("Raw log:");
@@ -1171,15 +1173,20 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		if (!result.ok) {
 			expect(
 				result.message.startsWith(
-					"Branch empty-branch-test is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
+					"WARNING: This branch does not introduce any changes:\n▸ empty-branch-test",
 				),
 			).toBe(true);
+			expect(result.message).toContain(
+				"Graphite will not submit empty branches because GitHub rejects empty PRs. Nothing was submitted.",
+			);
 			expect(result.message).toContain("gt delete empty-branch-test -f -q");
 			expect(result.message.match(/^Raw log: /gmu)).toHaveLength(1);
 		}
 		const error = run.stderr.join("");
+		expect(error).toContain("WARNING: This branch does not introduce any changes:");
+		expect(error).toContain("▸ empty-branch-test");
 		expect(error).toContain(
-			"Branch empty-branch-test is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
+			"Graphite will not submit empty branches because GitHub rejects empty PRs. Nothing was submitted.",
 		);
 		expect(error).toContain("gt delete empty-branch-test -f -q");
 		expect(error).toContain("Raw log:");
