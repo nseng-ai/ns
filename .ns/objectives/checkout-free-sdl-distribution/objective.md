@@ -115,11 +115,9 @@ Assumptions:
 
 Risks:
 
-- **The long pole, not fully retired.** Every prior capability accepted the
-  run-from-source shim and deferred publishing. The loader alias removal and the local
-  bundle/dry-run have de-risked the mechanism, but the first real npm publish and the
-  private-dep publishability treatment remain unproven. Package consolidation has already
-  shrunk the private closure from the originally recorded ~29 of 45 packages to 9 of 25.
+- **First-publish follow-through.** The first registry package is now published and
+  smoke-verified, but follow-on release automation remains explicitly parked; future
+  versions still need deliberate release discipline outside this v1 Objective.
 - Removing the jiti source-path aliases risks breaking first-party extension discovery and
   the `.ns/extensions/*` re-export parity test
   (`ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts`);
@@ -154,6 +152,6 @@ Risks:
   (`updates/20260705T123551Z-standalone-package-publishing-decision.md`).
   `@nseng-ai/kernel` specifically remains `private: true` permanently, folded into the
   published `@nseng-ai/ns` bundle rather than published standalone.
-- The exact first npm publish authorization and release mechanics remain open; release
-  automation/CI is parked, so the first publish can be manual once the local package
-  artifact and private-runtime publishability are ready.
+- ~~The exact first npm publish authorization and release mechanics~~ — resolved by the
+  first manual registry publish of `@nseng-ai/ns@0.1.0` and a registry-backed `npx`
+  smoke from a foreign repo. Release automation/CI remains parked.
