@@ -7,8 +7,9 @@ import type {
 	SkillLookupRootDescriptor,
 	SkillLookupSourceType,
 } from "@nseng-ai/foundation/skill-lookup";
-import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
+import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
 
 // The git methods areg consumes: resolve the repo root and materialize
 // worktree-relative git paths (for example `info/exclude`). A full `GitGateway`
@@ -113,29 +114,16 @@ export interface AregSkillxWorkspaceGateway {
 	cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult>;
 }
 
-export type AregPathState =
-	| { type: "missing" }
-	| { type: "file" }
-	| { type: "directory" }
-	| { type: "symlink"; target: string }
-	| { type: "other" };
-
-export type AregTextFileState =
-	| { type: "missing" }
-	| { type: "file"; text: string }
-	| { type: "directory" }
-	| { type: "symlink"; target: string }
-	| { type: "other" }
-	| { type: "unreadable"; message: string };
+export type { PathState, TextFileState };
 
 export interface AregCheckSkillInspection {
 	name: string;
-	skillsPath: AregPathState;
-	agentsPath: AregPathState;
-	claudePath: AregPathState;
-	localSkillMd: AregTextFileState;
-	remoteSkillMd: AregTextFileState;
-	openaiPolicy: AregTextFileState;
+	skillsPath: PathState;
+	agentsPath: PathState;
+	claudePath: PathState;
+	localSkillMd: TextFileState;
+	remoteSkillMd: TextFileState;
+	openaiPolicy: TextFileState;
 }
 
 export function missingCheckSkillInspection(name: string): AregCheckSkillInspection {
@@ -184,8 +172,8 @@ export interface AregSkillFindSkillInspection {
 	root: SkillLookupRoot;
 	sourceType: SkillLookupSourceType;
 	baseRelativePath: string;
-	skillDir: AregPathState;
-	skillMd: AregTextFileState;
+	skillDir: PathState;
+	skillMd: TextFileState;
 }
 
 export interface AregSkillFindRootsInspection {
@@ -196,11 +184,11 @@ export interface AregSkillKindSkillInspection {
 	name: string;
 	sourceType: AregSkillKindSourceType;
 	baseRelativePath: string;
-	skillDir: AregPathState;
-	skillMd: AregTextFileState;
-	openaiPolicy: AregTextFileState;
-	agentsPath: AregPathState;
-	claudePath: AregPathState;
+	skillDir: PathState;
+	skillMd: TextFileState;
+	openaiPolicy: TextFileState;
+	agentsPath: PathState;
+	claudePath: PathState;
 }
 
 export interface AregReplacementInspection {
@@ -226,22 +214,22 @@ export interface AregSkillInspectionRequest {
 
 export interface AregProjectBaseInspection {
 	projectDir: string;
-	projectPathState: AregPathState;
-	lockfile: AregTextFileState;
-	nsToml: AregTextFileState;
-	aregJson: AregTextFileState;
+	projectPathState: PathState;
+	lockfile: TextFileState;
+	nsToml: TextFileState;
+	aregJson: TextFileState;
 }
 
 export interface AregInstructionFilesInspection {
-	agentsMd: AregTextFileState;
-	claudeMd: AregTextFileState;
-	claudeDir: AregPathState;
-	claudeSettings: AregTextFileState;
+	agentsMd: TextFileState;
+	claudeMd: TextFileState;
+	claudeDir: PathState;
+	claudeSettings: TextFileState;
 }
 
 export interface AregPiArtifactsInspection {
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
+	piDir: PathState;
+	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
 }
 

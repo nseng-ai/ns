@@ -2,9 +2,9 @@ import { lstat, readlink } from "node:fs/promises";
 
 import { errorCodeFromUnknown, isPathInside } from "@nseng-ai/foundation/primitives";
 
-import type { AregPathState } from "../gateways.ts";
+import type { PathState } from "../gateways.ts";
 
-export async function inspectPath(candidate: string): Promise<AregPathState> {
+export async function inspectPath(candidate: string): Promise<PathState> {
 	try {
 		const info = await lstat(candidate);
 		if (info.isSymbolicLink()) return { type: "symlink", target: await readlink(candidate) };

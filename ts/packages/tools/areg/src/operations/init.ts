@@ -11,7 +11,7 @@ import { resultErr, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
+import type { AregInitTextWritePlan, PathState, TextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import {
 	appendBlock,
@@ -293,11 +293,11 @@ async function buildInitTextPlan(
 	ctx: AregCliContext,
 	inspection: {
 		projectDir: string;
-		agentsMd: AregTextFileState;
-		claudeMd: AregTextFileState;
-		nsToml: AregTextFileState;
-		claudeDir: AregPathState;
-		claudeSettings: AregTextFileState;
+		agentsMd: TextFileState;
+		claudeMd: TextFileState;
+		nsToml: TextFileState;
+		claudeDir: PathState;
+		claudeSettings: TextFileState;
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
 ): Promise<Result<InitTextPlan>> {
@@ -337,7 +337,7 @@ async function buildInitTextPlan(
 }
 
 function planNsToml(
-	state: AregTextFileState,
+	state: TextFileState,
 	agents: readonly string[],
 ): Result<AregInitTextWritePlan> {
 	if (state.type === "missing")
@@ -360,7 +360,7 @@ function planNsToml(
 async function planClaudeMd(
 	ctx: AregCliContext,
 	projectDir: string,
-	state: AregTextFileState,
+	state: TextFileState,
 	options: { yes: boolean; noAppend: boolean },
 ): Promise<Result<AregInitTextWritePlan | SkippedFile>> {
 	let includeAgentsRef = true;
@@ -391,7 +391,7 @@ async function planManagedBlock(
 	ctx: AregCliContext,
 	input: {
 		path: "AGENTS.md" | "CLAUDE.md";
-		state: AregTextFileState;
+		state: TextFileState;
 		newFileContent: string;
 		block: string;
 		markers: ManagedMarkers;
@@ -497,8 +497,8 @@ async function confirmManagedBlockChange(
 }
 
 function planSettings(
-	claudeDirState: AregPathState,
-	settingsState: AregTextFileState,
+	claudeDirState: PathState,
+	settingsState: TextFileState,
 ): Result<AregInitTextWritePlan | SkippedFile> {
 	const claudeDir = validateOptionalDirectoryState({
 		pathLabel: ".claude",

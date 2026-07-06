@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { parseLockfileData } from "../../src/operations/check.ts";
+import { parseInspectedLockfile, parseLockfileData } from "../src/skills-lockfile.ts";
 
 const VALID_HASH = "a".repeat(64);
 
@@ -15,7 +15,7 @@ function entry(
 	};
 }
 
-describe("areg check lockfile parser", () => {
+describe("skills lockfile parser", () => {
 	test("parses typed entries sorted by skill name", () => {
 		const result = parseLockfileData({
 			version: 1,
@@ -72,5 +72,31 @@ describe("areg check lockfile parser", () => {
 		if (result.ok) return;
 		expect(result.error.message).toContain("Invalid skills-lock.json");
 		expect(result.error.message).toContain(expected);
+	});
+
+	test("reports a missing lockfile from an inspected text-file state", () => {
+		const result = parseInspectedLockfile({
+			projectDir: "/repo",
+			lockfile: { type: "missing" },
+		});
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "lockfile_missing" },
+		});
+	});
+
+	test("parses a lockfile from an inspected text-file state", () => {
+		const result = parseInspectedLockfile({
+			projectDir: "/repo",
+			lockfile: {
+				type: "file",
+				text: JSON.stringify({ version: 1, skills: { demo: entry() } }),
+			},
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.value.skills.map((skill) => skill.name)).toEqual(["demo"]);
 	});
 });

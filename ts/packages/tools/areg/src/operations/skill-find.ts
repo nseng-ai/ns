@@ -13,7 +13,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregSkillFindSkillInspection } from "../gateways.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
-import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
+import { parseSkillFrontmatterBlock } from "@nseng-ai/harness-artifacts/api";
 import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
 
 const skillFindRootSchema = z.enum(SKILL_LOOKUP_ROOTS);

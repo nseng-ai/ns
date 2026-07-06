@@ -300,6 +300,15 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
+  packages/capabilities/harness-artifacts:
+    dependencies:
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
   packages/capabilities/ns-init:
     dependencies:
       '@nseng-ai/capability-kit':
@@ -698,6 +707,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/harness-artifacts':
+        specifier: workspace:*
+        version: link:../../capabilities/harness-artifacts
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel

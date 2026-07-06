@@ -1,4 +1,6 @@
-import type { AregErrorInfo, AregPathState } from "../gateways.ts";
+import type { ErrorInfo } from "@nseng-ai/foundation/result";
+
+import type { PathState } from "./fs-state.ts";
 
 export function expectedAgentsSkillSymlinkTarget(skillName: string): string {
 	return `../../skills/${skillName}`;
@@ -8,13 +10,13 @@ export function expectedClaudeSkillSymlinkTarget(skillName: string): string {
 	return `../../.agents/skills/${skillName}`;
 }
 
-export function isAgentsSkillMirror(pathState: AregPathState, skillName: string): boolean {
+export function isAgentsSkillMirror(pathState: PathState, skillName: string): boolean {
 	return (
 		pathState.type === "symlink" && pathState.target === expectedAgentsSkillSymlinkTarget(skillName)
 	);
 }
 
-export function isClaudeSkillMirror(pathState: AregPathState, skillName: string): boolean {
+export function isClaudeSkillMirror(pathState: PathState, skillName: string): boolean {
 	return (
 		pathState.type === "symlink" && pathState.target === expectedClaudeSkillSymlinkTarget(skillName)
 	);
@@ -87,10 +89,10 @@ export function expectedMirrorTarget(relativePath: string): string | undefined {
  */
 export function classifySkillMirrorSymlinkState(
 	relativePath: string,
-	state: AregPathState | undefined,
+	state: PathState | undefined,
 	description: string,
 	target: string,
-): AregErrorInfo | undefined {
+): ErrorInfo | undefined {
 	const expectedTarget = expectedMirrorTarget(relativePath);
 	if (expectedTarget === undefined)
 		return {

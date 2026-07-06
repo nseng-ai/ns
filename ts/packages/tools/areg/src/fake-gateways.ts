@@ -22,7 +22,7 @@ import type {
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
 	AregOperationResult,
-	AregPathState,
+	PathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregProjectDirRequest,
@@ -47,14 +47,14 @@ import type {
 	AregSkillxInstalledSkill,
 	AregSkillxWorkspaceCleanupRequest,
 	AregSkillxWorkspaceGateway,
-	AregTextFileState,
+	TextFileState,
 	AregToolCheckResult,
 } from "./gateways.ts";
 import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-classification.ts";
 import {
 	classifySkillMirrorSymlinkState,
 	parseSkillMirrorRelativePath,
-} from "./operations/skill-mirror-conventions.ts";
+} from "@nseng-ai/harness-artifacts/api";
 
 export type FakeAregProjectOperation =
 	| { type: "inspect-project-base"; cwd: string; projectPath: string }
@@ -79,23 +79,23 @@ export type FakeAregProjectOperation =
 
 export interface FakeAregCheckSkillOptions {
 	name: string;
-	skillsPath?: AregPathState;
-	agentsPath?: AregPathState;
-	claudePath?: AregPathState;
-	localSkillMd?: AregTextFileState | string;
-	remoteSkillMd?: AregTextFileState | string;
-	openaiPolicy?: AregTextFileState | string;
+	skillsPath?: PathState;
+	agentsPath?: PathState;
+	claudePath?: PathState;
+	localSkillMd?: TextFileState | string;
+	remoteSkillMd?: TextFileState | string;
+	openaiPolicy?: TextFileState | string;
 }
 
 export interface FakeAregSkillKindSkillOptions {
 	name: string;
 	sourceType?: AregSkillKindSourceType;
 	baseRelativePath?: string;
-	skillDir?: AregPathState;
-	skillMd?: AregTextFileState | string;
-	openaiPolicy?: AregTextFileState | string;
-	agentsPath?: AregPathState;
-	claudePath?: AregPathState;
+	skillDir?: PathState;
+	skillMd?: TextFileState | string;
+	openaiPolicy?: TextFileState | string;
+	agentsPath?: PathState;
+	claudePath?: PathState;
 }
 
 export interface FakeAregSkillFindSkillOptions {
@@ -103,23 +103,23 @@ export interface FakeAregSkillFindSkillOptions {
 	root?: SkillLookupRoot;
 	sourceType?: SkillLookupSourceType;
 	baseRelativePath?: string;
-	skillDir?: AregPathState;
-	skillMd?: AregTextFileState | string;
+	skillDir?: PathState;
+	skillMd?: TextFileState | string;
 }
 
 export interface FakeAregProjectGatewayOptions {
 	projectDir?: string;
-	projectPathState?: AregPathState;
-	targetPathState?: AregPathState;
-	lockfile?: AregTextFileState | object | string;
-	nsToml?: AregTextFileState | string;
-	aregJson?: AregTextFileState | object | string;
-	agentsMd?: AregTextFileState | string;
-	claudeMd?: AregTextFileState | string;
-	claudeDir?: AregPathState;
-	claudeSettings?: AregTextFileState | string;
-	piDir?: AregPathState;
-	piSettings?: AregTextFileState | object | string;
+	projectPathState?: PathState;
+	targetPathState?: PathState;
+	lockfile?: TextFileState | object | string;
+	nsToml?: TextFileState | string;
+	aregJson?: TextFileState | object | string;
+	agentsMd?: TextFileState | string;
+	claudeMd?: TextFileState | string;
+	claudeDir?: PathState;
+	claudeSettings?: TextFileState | string;
+	piDir?: PathState;
+	piSettings?: TextFileState | object | string;
 	replacementSurfaces?: readonly string[];
 	piSkillInventory?: Partial<AregPiSkillInventoryInspection>;
 	skillsDirectoryNames?: readonly string[];
@@ -138,10 +138,10 @@ export interface FakeAregProjectGatewayOptions {
 
 export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly projectDir: string;
-	private readonly projectPathState: AregPathState;
-	private readonly files: Map<string, AregTextFileState>;
-	private readonly claudeDir: AregPathState;
-	private readonly piDir: AregPathState;
+	private readonly projectPathState: PathState;
+	private readonly files: Map<string, TextFileState>;
+	private readonly claudeDir: PathState;
+	private readonly piDir: PathState;
 	private readonly replacementSurfaces: readonly string[];
 	private readonly piSkillInventory: AregPiSkillInventoryInspection | undefined;
 	private readonly skillsDirectoryNames: readonly string[];
@@ -483,7 +483,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return this.log.map(copyProjectOperation);
 	}
 
-	private fileState(relativePath: string): AregTextFileState {
+	private fileState(relativePath: string): TextFileState {
 		return copyTextFileState(this.files.get(relativePath) ?? { type: "missing" });
 	}
 
@@ -860,8 +860,8 @@ function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspecti
 interface SkillInspectionCore {
 	name: string;
 	baseRelativePath: string;
-	skillDir: AregPathState;
-	skillMd: AregTextFileState;
+	skillDir: PathState;
+	skillMd: TextFileState;
 }
 
 function copySkillInspectionCore(skill: SkillInspectionCore): SkillInspectionCore {
@@ -935,13 +935,13 @@ function skillForRelativePath(
 	return skills.find((skill) => relativePath.startsWith(`${skill.baseRelativePath}/`));
 }
 
-function normalizeTextFileState(value: AregTextFileState | object | string): AregTextFileState {
+function normalizeTextFileState(value: TextFileState | object | string): TextFileState {
 	if (typeof value === "string") return { type: "file", text: value };
-	if ("type" in value) return copyTextFileState(value as AregTextFileState);
+	if ("type" in value) return copyTextFileState(value as TextFileState);
 	return { type: "file", text: `${JSON.stringify(value, null, 2)}\n` };
 }
 
-function copyTextFileState(state: AregTextFileState): AregTextFileState {
+function copyTextFileState(state: TextFileState): TextFileState {
 	return { ...state };
 }
 
@@ -955,7 +955,7 @@ function copyPiSkillInventory(
 	};
 }
 
-function copyPathState(state: AregPathState): AregPathState {
+function copyPathState(state: PathState): PathState {
 	return { ...state };
 }
 

@@ -34,7 +34,7 @@ import type {
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
-	AregTextFileState,
+	TextFileState,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { errorInfo } from "./errors.ts";
@@ -517,7 +517,7 @@ interface ScanSkillRootOptions {
 interface ScannedSkillRootEntry {
 	name: string;
 	dirent: Dirent;
-	skillMd: AregTextFileState;
+	skillMd: TextFileState;
 }
 
 async function scanSkillRootEntries(

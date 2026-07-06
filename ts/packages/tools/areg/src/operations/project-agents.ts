@@ -8,7 +8,7 @@ import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { err, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
-import type { AregTextFileState } from "../gateways.ts";
+import type { TextFileState } from "../gateways.ts";
 import { rejectTextState } from "./file-state.ts";
 
 export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
@@ -25,8 +25,8 @@ const aregSettingsSchema = {
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
-	nsToml: AregTextFileState;
-	aregJson: AregTextFileState;
+	nsToml: TextFileState;
+	aregJson: TextFileState;
 }): Result<string[]> {
 	if (input.explicitAgents.length > 0) return { ok: true, value: [...input.explicitAgents] };
 	const nsAgents = parseNsAregAgentsFromState(input.nsToml);
@@ -94,7 +94,7 @@ function validateNonEmptyStringList(
 	return { ok: true, value: result };
 }
 
-function parseNsAregAgentsFromState(state: AregTextFileState): Result<string[]> {
+function parseNsAregAgentsFromState(state: TextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file")
 		return rejectTextState({
@@ -106,7 +106,7 @@ function parseNsAregAgentsFromState(state: AregTextFileState): Result<string[]> 
 	return parseNsAregAgents(state.text, "ns.toml");
 }
 
-function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {
+function parseLegacyAregJsonAgentsFromState(state: TextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file")
 		return rejectTextState({

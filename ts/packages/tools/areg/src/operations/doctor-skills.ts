@@ -6,13 +6,13 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckSkillInspection,
-	AregPathState,
+	PathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
-	AregTextFileState,
+	TextFileState,
 } from "../gateways.ts";
 import { uniqueSortedStrings } from "../sort.ts";
 import { renderDoctorSkills } from "./doctor-skills-report.ts";
@@ -24,7 +24,7 @@ import {
 import { parsePiSettings } from "./pi-settings.ts";
 import { collectCheckSkillInspections, collectSkillKindInspections } from "./project-inspection.ts";
 import { buildSkillKindRecords, type SkillKindRecord } from "./skill-kind-inference.ts";
-import { isAgentsSkillMirror, isClaudeSkillMirror } from "./skill-mirror-conventions.ts";
+import { isAgentsSkillMirror, isClaudeSkillMirror } from "@nseng-ai/harness-artifacts/api";
 
 const doctorStatusValues = ["ok", "warning", "error"] as const;
 
@@ -57,8 +57,8 @@ export interface DoctorSkillsInspection {
 	skillInventory: AregSkillNameInventory;
 	piSkillInventory: AregPiSkillInventoryInspection;
 	replacement: AregReplacementInspection;
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
+	piDir: PathState;
+	piSettings: TextFileState;
 	checkSkills: readonly AregCheckSkillInspection[];
 	skillKindSkills: readonly AregSkillKindSkillInspection[];
 }
