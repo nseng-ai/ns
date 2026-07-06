@@ -10,9 +10,10 @@ import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { ThinkingLevel } from "@nseng-ai/pi/runtime/types";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
+	RunnerSubagentFleetRegistry,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
@@ -28,7 +29,7 @@ import {
 	sessionMessageLine,
 	type RunnerSubagentDispatcherDependencies,
 	waitForSpawn,
-} from "@internal/pi-tools/runner-subagents/testing";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents/testing";
 
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";
@@ -178,6 +179,7 @@ interface ToolContextOptions {
 	hasUI?: boolean;
 	mode?: ToolContext["mode"];
 	model?: ToolContext["model"];
+	sessionManager?: ToolContext["sessionManager"];
 	ui?: Partial<ToolContext["ui"]>;
 }
 
@@ -187,6 +189,7 @@ function toolContext(options: ToolContextOptions = {}): ToolContext {
 		hasUI: options.hasUI ?? true,
 		mode: options.mode ?? "tui",
 		...(options.model === undefined ? {} : { model: options.model }),
+		...(options.sessionManager === undefined ? {} : { sessionManager: options.sessionManager }),
 		ui: {
 			notify: () => {},
 			...(options.ui === undefined ? {} : options.ui),
@@ -267,14 +270,57 @@ describe("dispatch_runner_subagent extension", () => {
 		]);
 	});
 
-	test("fails fast when runner.md declares a different toolName", () => {
+	test("registers a degraded tool when runner.md declares a different toolName", async () => {
 		const pi = new FakePi();
 		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
 
-		expect(() => dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot })).toThrow(
-			/declares toolName.*expected/,
+		dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
+
+		const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
+		expect(tool).toBeDefined();
+		const result = await tool!.execute(
+			"tool-1",
+			{ title: "Bad runner", prompt: "Do work." },
+			undefined,
+			undefined,
+			toolContext(),
 		);
-		expect(pi.tools.size).toBe(0);
+		expect(result.content[0]?.text).toMatch(/declares toolName.*expected/);
+		expect(result.details).toMatchObject({ status: "error", title: "Bad runner" });
+	});
+
+	test("registers dispatch runs in the subagent fleet", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: SESSION_FILE,
+			sessionFileText: sessionMessageLine(finalTextMessage("Fleet result.")),
+		});
+		const pi = new FakePi(runner.dependencies);
+		const fleetRegistry = new RunnerSubagentFleetRegistry();
+		const definitionRoot = createRunnerDefinitionRoot();
+		dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot, fleetRegistry });
+		const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
+		expect(tool).toBeDefined();
+
+		const running = tool!.execute(
+			"tool-1",
+			{ title: "Fleet dispatch", prompt: "Report through fleet." },
+			undefined,
+			undefined,
+			toolContext({ sessionManager: { getSessionFile: () => "/tmp/parent.jsonl" } }),
+		);
+		const call = await waitForSpawn(runner.calls);
+		call.process.emitStdout(finalTextMessage("Fleet result."));
+		call.process.close(0);
+		await running;
+
+		const [run] = fleetRegistry.snapshot();
+		expect(run?.parentSessionFile).toBe("/tmp/parent.jsonl");
+		expect(run?.tasks[0]).toMatchObject({
+			title: "Fleet dispatch",
+			state: "done",
+			finalStatus: "final-text",
+			sessionFile: SESSION_FILE,
+		});
 	});
 
 	test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {

@@ -12,7 +12,7 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentProgressCallback,
 	type RunnerSubagentResult,
-} from "@internal/pi-tools/runner-subagents";
+} from "../runner-subagents/index.ts";
 import {
 	resolveExplorerLaunchPlan,
 	type ExplorerLaunchPlan,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { RunnerSubagentTerminalToolDefinition } from "@internal/pi-tools/runner-subagents";
+import type { RunnerSubagentTerminalToolDefinition } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 
 export const THERMO_COUNCIL_COMMAND_NAME = "thermo-council";
 export const THERMO_COUNCIL_MESSAGE_TYPE = "thermo-council-report";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { READ_ONLY_SUBAGENT_TOOLS } from "@internal/pi-tools/runner-subagents";
+import { READ_ONLY_SUBAGENT_TOOLS } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
 	createInProcessExplorerRuntime,
 	type InProcessExplorerSession,

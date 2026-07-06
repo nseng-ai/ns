@@ -2,15 +2,15 @@ import { describe, expect, test } from "vitest";
 
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
-import { RunnerSubagentFleetRegistry } from "@internal/pi-tools/runner-subagents";
+import { RunnerSubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
-	EXPLORE_FLEET_STATUS_KEY,
-	EXPLORE_FLEET_WIDGET_KEY,
-	formatExploreFleetStatusText,
-	formatExploreFleetTaskLines,
-	formatExploreFleetWidgetLines,
-	syncExploreFleetDisplay,
-} from "../../src/explore/fleet.ts";
+	SUBAGENT_FLEET_STATUS_KEY,
+	SUBAGENT_FLEET_WIDGET_KEY,
+	formatSubagentFleetStatusText,
+	formatSubagentFleetTaskLines,
+	formatSubagentFleetWidgetLines,
+	syncSubagentFleetDisplay,
+} from "../../src/fleet/display.ts";
 import { makeErrorResult, makeFinalTextResult } from "../../src/explore/testing.ts";
 
 describe("runner subagent fleet display for explore", () => {
@@ -22,13 +22,13 @@ describe("runner subagent fleet display for explore", () => {
 		if (first === undefined || second === undefined) throw new Error("missing task ids");
 
 		registry.markRunning(first);
-		expect(formatExploreFleetWidgetLines(registry.snapshot())).toEqual([
-			"explore fleet: 1 running, 1 queued · F2/alt+e · /ns:explore:fleet",
+		expect(formatSubagentFleetWidgetLines(registry.snapshot())).toEqual([
+			"subagent fleet: 1 running, 1 queued · F2/alt+e · /ns:subagents:fleet",
 		]);
 
 		registry.markDone(first, { ...makeFinalTextResult("done"), sessionFile: "/tmp/one.jsonl" });
 		registry.markDone(second, { ...makeErrorResult("failed"), sessionFile: "/tmp/two.jsonl" });
-		expect(formatExploreFleetWidgetLines(registry.snapshot())).toEqual([]);
+		expect(formatSubagentFleetWidgetLines(registry.snapshot())).toEqual([]);
 	});
 
 	test("formats the no-UI task dump with per-task status and session files", () => {
@@ -41,8 +41,8 @@ describe("runner subagent fleet display for explore", () => {
 		registry.markDone(first, { ...makeFinalTextResult("done"), sessionFile: "/tmp/one.jsonl" });
 		registry.markDone(second, { ...makeErrorResult("failed"), sessionFile: "/tmp/two.jsonl" });
 
-		const lines = formatExploreFleetTaskLines(registry.snapshot());
-		expect(lines[0]).toBe("explore fleet: 1 done, 1 failed");
+		const lines = formatSubagentFleetTaskLines(registry.snapshot());
+		expect(lines[0]).toBe("subagent fleet: 1 done, 1 failed");
 		expect(lines.join("\n")).toContain("✓ Scout files — final-text — /tmp/one.jsonl");
 		expect(lines.join("\n")).toContain("✗ Scout tests — error — /tmp/two.jsonl");
 		expect(registry.tasksWithSessionFiles().map((task) => task.sessionFile)).toEqual([
@@ -73,7 +73,7 @@ describe("runner subagent fleet display for explore", () => {
 
 	test("summarizes active fleet state in the footer status with the shortcut hint", () => {
 		const registry = new RunnerSubagentFleetRegistry();
-		expect(formatExploreFleetStatusText(registry.snapshot())).toBeUndefined();
+		expect(formatSubagentFleetStatusText(registry.snapshot())).toBeUndefined();
 
 		const run = registry.startRun([{ title: "Scout files" }, { title: "Scout tests" }]);
 		const first = run.tasks[0]?.id;
@@ -81,18 +81,18 @@ describe("runner subagent fleet display for explore", () => {
 		if (first === undefined || second === undefined) throw new Error("missing task ids");
 
 		registry.markRunning(first);
-		expect(formatExploreFleetStatusText(registry.snapshot())).toBe(
-			"explore fleet: 1 running, 1 queued · F2/alt+e",
+		expect(formatSubagentFleetStatusText(registry.snapshot())).toBe(
+			"subagent fleet: 1 running, 1 queued · F2/alt+e",
 		);
 
 		registry.markRunning(second);
 		registry.markDone(first, makeFinalTextResult("done"));
-		expect(formatExploreFleetStatusText(registry.snapshot())).toBe(
-			"explore fleet: 1 running · F2/alt+e",
+		expect(formatSubagentFleetStatusText(registry.snapshot())).toBe(
+			"subagent fleet: 1 running · F2/alt+e",
 		);
 
 		registry.markDone(second, makeErrorResult("failed"));
-		expect(formatExploreFleetStatusText(registry.snapshot())).toBeUndefined();
+		expect(formatSubagentFleetStatusText(registry.snapshot())).toBeUndefined();
 	});
 
 	test("syncs widget lines and footer status through the tool context", () => {
@@ -110,23 +110,23 @@ describe("runner subagent fleet display for explore", () => {
 		};
 
 		const registry = new RunnerSubagentFleetRegistry();
-		syncExploreFleetDisplay(ctx, registry.snapshot());
-		expect(widgetCalls.at(-1)).toEqual({ key: EXPLORE_FLEET_WIDGET_KEY, content: undefined });
-		expect(statusCalls.at(-1)).toEqual({ key: EXPLORE_FLEET_STATUS_KEY, value: undefined });
+		syncSubagentFleetDisplay(ctx, registry.snapshot());
+		expect(widgetCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_WIDGET_KEY, content: undefined });
+		expect(statusCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_STATUS_KEY, value: undefined });
 
 		const run = registry.startRun([{ title: "Scout files" }]);
 		const only = run.tasks[0]?.id;
 		if (only === undefined) throw new Error("missing task id");
 		registry.markRunning(only);
-		syncExploreFleetDisplay(ctx, registry.snapshot());
+		syncSubagentFleetDisplay(ctx, registry.snapshot());
 		expect(widgetCalls.at(-1)?.content).toEqual([
-			"explore fleet: 1 running · F2/alt+e · /ns:explore:fleet",
+			"subagent fleet: 1 running · F2/alt+e · /ns:subagents:fleet",
 		]);
-		expect(statusCalls.at(-1)?.value).toBe("explore fleet: 1 running · F2/alt+e");
+		expect(statusCalls.at(-1)?.value).toBe("subagent fleet: 1 running · F2/alt+e");
 
 		registry.markDone(only, makeFinalTextResult("done"));
-		syncExploreFleetDisplay(ctx, registry.snapshot());
-		expect(widgetCalls.at(-1)).toEqual({ key: EXPLORE_FLEET_WIDGET_KEY, content: undefined });
-		expect(statusCalls.at(-1)).toEqual({ key: EXPLORE_FLEET_STATUS_KEY, value: undefined });
+		syncSubagentFleetDisplay(ctx, registry.snapshot());
+		expect(widgetCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_WIDGET_KEY, content: undefined });
+		expect(statusCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_STATUS_KEY, value: undefined });
 	});
 });

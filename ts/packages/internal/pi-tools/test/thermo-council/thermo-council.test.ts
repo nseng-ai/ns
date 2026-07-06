@@ -9,7 +9,7 @@ import {
 	type JsonObject,
 	type RunnerSubagentCompletedResult,
 	type RunnerSubagentStoppedWithoutTerminalResult,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
@@ -33,7 +33,7 @@ import {
 	type RunnerSubagentDispatcherDependencies,
 	type RuntimeResultV1,
 	type SpawnCall,
-} from "@internal/pi-tools/runner-subagents/testing";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents/testing";
 
 interface RegisteredCommand {
 	readonly description?: string;

@@ -14,7 +14,7 @@ import {
 	mapWithConcurrency,
 	type JsonObject,
 	type RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";

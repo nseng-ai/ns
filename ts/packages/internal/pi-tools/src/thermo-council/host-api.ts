@@ -1,4 +1,7 @@
-import type { RunnerSubagentContext, RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
+import type {
+	RunnerSubagentContext,
+	RunnerSubagentPi,
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 export interface ExecResult {

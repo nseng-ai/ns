@@ -4,7 +4,7 @@ import {
 	type RunnerSubagentOptions,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
-} from "@internal/pi-tools/runner-subagents";
+} from "../runner-subagents/index.ts";
 
 export interface ExplorerRuntimeDispatchInput {
 	pi: RunnerSubagentPi;

@@ -1,8 +1,11 @@
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
-import { dispatchRunnerSubagent, resultDiagnostic } from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import {
+	dispatchRunnerSubagent,
+	resultDiagnostic,
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
 	SAFETY_NOTE,
 	type ThermoCouncilReviewerOutcome,
