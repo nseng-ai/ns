@@ -452,27 +452,13 @@ export class RealGitGateway implements GitGateway {
 	async hasStagedChanges(params: GitCwdParams): Promise<GitResult<boolean>> {
 		const run = await this.runGit(params, ["diff", "--cached", "--quiet", "--exit-code"]);
 		if (!run.ok) return run;
-		if (run.value.result.killed) {
-			return error(
-				"git_staged_probe_failed",
-				formatCommandFailure(
-					"git diff --cached --quiet --exit-code failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
-		if (run.value.result.code === 0) return { ok: true, value: false };
-		if (run.value.result.code === 1) return { ok: true, value: true };
+		const { result, displayCommand } = run.value;
+		if (!result.killed && result.code === 0) return { ok: true, value: false };
+		if (!result.killed && result.code === 1) return { ok: true, value: true };
 		return error(
 			"git_staged_probe_failed",
-			formatCommandFailure(
-				"git diff --cached --quiet --exit-code failed",
-				run.value.displayCommand,
-				run.value.result,
-			),
-			run.value.displayCommand,
+			formatCommandFailure("git diff --cached --quiet --exit-code failed", displayCommand, result),
+			displayCommand,
 		);
 	}
 

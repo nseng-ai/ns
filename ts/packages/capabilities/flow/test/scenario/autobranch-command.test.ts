@@ -35,7 +35,7 @@ describe("flow autobranch command outcomes", () => {
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
 			"git check-ref-format --branch move-work",
-			"git show-ref --verify --quiet refs/heads/move-work",
+			"git rev-parse --verify refs/heads/move-work",
 			"git for-each-ref --format=%(refname) refs/heads/move-work/",
 			expect.stringMatching(/^git stash push --include-untracked -m pi-autobranch:\d+:move-work$/),
 			"git stash list --format=%gd%x00%s",

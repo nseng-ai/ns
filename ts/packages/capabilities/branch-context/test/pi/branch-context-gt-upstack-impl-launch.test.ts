@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
@@ -12,6 +10,7 @@ import {
 	type BranchContextGtUpstackImplContext,
 	type BranchContextGtUpstackImplNewSessionOptions,
 } from "../../src/pi/gt/upstack-impl-launch.ts";
+import { createGtUpstackImplGitGateway } from "../../src/pi/gt/git-gateway.ts";
 import { FakePi, ROOT, step } from "./branch-context-extension-support.ts";
 
 const BRANCH = "branch-contexts/widget-flow";
@@ -91,17 +90,13 @@ function checkoutStep(result: Parameters<typeof step>[2] = {}): ReturnType<typeo
 	return step("git", ["checkout", BRANCH], result);
 }
 
-function gitForPi(pi: FakePi): RealGitGateway {
-	return new RealGitGateway(piExecApiToCommandExecApi(pi), { timeoutMs: 30_000 });
-}
-
 describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 	test("checks out the branch and dispatches impl in a new session", async () => {
 		const pi = new FakePi([checkoutStep()]);
 		const ctx = new FakeGtUpstackImplContext({ parentSession: "/sessions/source.jsonl" });
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			git: gitForPi(pi),
+			git: createGtUpstackImplGitGateway(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -147,7 +142,7 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 		const ctx = new FakeGtUpstackImplContext();
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			git: gitForPi(pi),
+			git: createGtUpstackImplGitGateway(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -180,7 +175,7 @@ checkout failed`,
 		const ctx = new FakeGtUpstackImplContext();
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			git: gitForPi(pi),
+			git: createGtUpstackImplGitGateway(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -205,7 +200,7 @@ Error: git is unavailable`,
 		ctx.shouldCancelNewSession = true;
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			git: gitForPi(pi),
+			git: createGtUpstackImplGitGateway(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -222,7 +217,7 @@ Error: git is unavailable`,
 		ctx.shouldThrowBeforeReplacement = true;
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			git: gitForPi(pi),
+			git: createGtUpstackImplGitGateway(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -246,7 +241,7 @@ Error: git is unavailable`,
 
 		await expect(
 			runBranchContextGtUpstackImplLaunch({
-				git: gitForPi(pi),
+				git: createGtUpstackImplGitGateway(pi),
 				ctx,
 				statusKey: STATUS_KEY,
 				target: { branch: BRANCH, key: KEY },

@@ -9,12 +9,12 @@ import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 // The git methods aretro consumes: resolve the repo root and the current branch
 // when collecting retro evidence. A full `GitGateway` is assignable to this.
-export type RetrosGitGateway = Pick<GitGateway, "optionalRepoRoot" | "currentBranch">;
+export type AretroGitGateway = Pick<GitGateway, "optionalRepoRoot" | "currentBranch">;
 
 export interface AretroCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
-	git: RetrosGitGateway;
+	git: AretroGitGateway;
 	sessionSource: SessionSource;
 }
 
@@ -22,7 +22,7 @@ export function createRealAretroContext(
 	options: {
 		cwd?: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		git?: RetrosGitGateway;
+		git?: AretroGitGateway;
 		sessionSource?: SessionSource;
 	} = {},
 ): AretroCliContext {

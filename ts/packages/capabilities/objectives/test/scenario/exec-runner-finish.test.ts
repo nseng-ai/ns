@@ -10,6 +10,7 @@ import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
 import { objectiveExecRunnerFinishNsCommand } from "../../src/ns/commands/exec-runner-finish.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
+import { stagedWhitespaceFailure } from "../support/git-fixtures.ts";
 import { FakeObjectiveNsApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
@@ -251,7 +252,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 	});
 
 	test("pre-existing staged changes fail index-clean and are not committed", async () => {
-		const api = makeApi({ git: gateHappyGitState({ stagedChanges: true }) });
+		const api = makeApi({ git: gateHappyGitState({ hasStagedChanges: true }) });
 
 		const exit = await runObjectiveCommand(
 			objectiveExecRunnerFinishNsCommand,
@@ -271,10 +272,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 	test("cached diff failure is a verification failure and is not committed", async () => {
 		const api = makeApi({
 			git: gateHappyGitState({
-				checkStagedWhitespaceFailure: {
-					code: "git_staged_whitespace_failed",
-					message: "git diff --cached --check failed: trailing whitespace",
-				},
+				checkStagedWhitespaceFailure: stagedWhitespaceFailure(),
 			}),
 		});
 

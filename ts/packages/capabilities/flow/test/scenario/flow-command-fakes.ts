@@ -123,12 +123,12 @@ interface BranchLatestCommitExecOptions {
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
 	const segments = branchName.split("/");
 	const parentResponses = segments.slice(1).map((_, index) => ({
-		match: `git show-ref --verify --quiet refs/heads/${segments.slice(0, index + 1).join("/")}`,
+		match: `git rev-parse --verify refs/heads/${segments.slice(0, index + 1).join("/")}`,
 		result: { code: 1 },
 	}));
 	return [
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
-		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
+		{ match: `git rev-parse --verify refs/heads/${branchName}`, result: { code: 1 } },
 		...parentResponses,
 		{ match: `git for-each-ref --format=%(refname) refs/heads/${branchName}/`, result: {} },
 	];
@@ -137,7 +137,7 @@ function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
 function exactExistingBranchResponse(branchName: string): ScriptedExecResponse[] {
 	return [
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
-		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: {} },
+		{ match: `git rev-parse --verify refs/heads/${branchName}`, result: {} },
 	];
 }
 
@@ -177,12 +177,12 @@ function branchLatestCommitExecThroughSourceReset(
 		// Transaction: recovery (backup) branch availability.
 		{ match: /^git check-ref-format --branch autobranch-backup\/feature\/\d+$/, result: {} },
 		{
-			match: /^git show-ref --verify --quiet refs\/heads\/autobranch-backup\/feature\/\d+$/,
+			match: /^git rev-parse --verify refs\/heads\/autobranch-backup\/feature\/\d+$/,
 			result: { code: 1 },
 		},
-		{ match: "git show-ref --verify --quiet refs/heads/autobranch-backup", result: { code: 1 } },
+		{ match: "git rev-parse --verify refs/heads/autobranch-backup", result: { code: 1 } },
 		{
-			match: "git show-ref --verify --quiet refs/heads/autobranch-backup/feature",
+			match: "git rev-parse --verify refs/heads/autobranch-backup/feature",
 			result: { code: 1 },
 		},
 		{
@@ -292,7 +292,7 @@ function autobranchDirtyExecThroughStashList(): ScriptedExecResponse[] {
 		},
 		// Preparation: branch name availability for the requested slug.
 		{ match: "git check-ref-format --branch move-work", result: {} },
-		{ match: "git show-ref --verify --quiet refs/heads/move-work", result: { code: 1 } },
+		{ match: "git rev-parse --verify refs/heads/move-work", result: { code: 1 } },
 		{ match: "git for-each-ref --format=%(refname) refs/heads/move-work/", result: { stdout: "" } },
 		// Transaction: stash pending changes, then locate the new stash entry by its message.
 		{

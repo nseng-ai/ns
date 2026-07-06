@@ -159,26 +159,10 @@ export async function runLatestCommitAutobranchTransaction(
 
 	const verified = await input.git.headSha();
 	if (!verified.ok) {
-		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
-		return {
-			ok: false,
-			kind: "head_verify_failed",
-			backupBranch: backupBranch.name,
-			branchName: input.plan.branchName,
-			actualHead: verified.details,
-			...recovery,
-		};
+		return await headVerifyFailed(input, backupBranch.name, verified.details);
 	}
 	if (verified.value !== input.plan.originalHeadSha) {
-		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
-		return {
-			ok: false,
-			kind: "head_verify_failed",
-			backupBranch: backupBranch.name,
-			branchName: input.plan.branchName,
-			actualHead: verified.value,
-			...recovery,
-		};
+		return await headVerifyFailed(input, backupBranch.name, verified.value);
 	}
 
 	const deleted = await input.git.deleteBranch(backupBranch.name);
@@ -268,6 +252,22 @@ async function restoreSourceBranch(
 		return { ok: false, error: restored.details };
 	}
 	return { ok: true };
+}
+
+async function headVerifyFailed(
+	input: LatestCommitTransactionInput,
+	backupBranch: string,
+	actualHead: string,
+): Promise<Extract<LatestCommitTransactionResult, { ok: false; kind: "head_verify_failed" }>> {
+	const recovery = await restoreSourceAndDeleteCreatedBranch(input);
+	return {
+		ok: false,
+		kind: "head_verify_failed",
+		backupBranch,
+		branchName: input.plan.branchName,
+		actualHead,
+		...recovery,
+	};
 }
 
 async function restoreSourceAndDeleteCreatedBranch(

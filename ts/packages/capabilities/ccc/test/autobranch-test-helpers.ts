@@ -78,6 +78,9 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 			if (command === "git" && args[0] === "show-ref") {
 				return { code: 1, stdout: "", stderr: "", killed: false };
 			}
+			if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
+				return { code: 1, stdout: "", stderr: "", killed: false };
+			}
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
 				return options.shouldStashPushFail === true

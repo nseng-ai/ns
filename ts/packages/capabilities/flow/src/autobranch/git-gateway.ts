@@ -1,6 +1,6 @@
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { RealGitGateway, type GitGateway, type GitResult } from "@nseng-ai/capability-kit/git";
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
+import { normalizeExecResult, type CommandExecApi } from "@nseng-ai/foundation/command";
 
 import type { AutobranchExec, CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
@@ -41,15 +41,33 @@ export interface AutobranchGitGateway {
 	isBranchNameAvailable(branchName: string): Promise<boolean>;
 }
 
+type AutobranchProviderGitGateway = Pick<
+	GitGateway,
+	"currentBranch" | "headCommit" | "validateBranchRef" | "localBranchPresence"
+>;
+
 export interface AutobranchGitGatewayInput {
 	cwd: string;
 	exec: AutobranchExec;
-	git?: Pick<GitGateway, "currentBranch" | "headCommit">;
+}
+
+function createAutobranchProviderGitGateway(exec: AutobranchExec): AutobranchProviderGitGateway {
+	return new RealGitGateway(createAutobranchCommandExecApi(exec));
+}
+
+function createAutobranchCommandExecApi(exec: AutobranchExec): CommandExecApi {
+	return {
+		async exec(command, args, options) {
+			return normalizeExecResult(
+				await exec(command, args, options?.timeout ?? GIT_FACT_TIMEOUT_MS),
+			);
+		},
+	};
 }
 
 export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): AutobranchGitGateway {
-	const providerGit = input.git ?? new RealGitGateway(createCwdBoundExecApi(input));
-	const raw = (args: string[], timeout: number) => input.exec("git", args, timeout);
+	const providerGit = createAutobranchProviderGitGateway(input.exec);
+	const raw = (args: string[], timeout: number) => runGit(input.exec, args, timeout);
 	return {
 		async currentBranch() {
 			const branch = await providerGit.currentBranch({ cwd: input.cwd });
@@ -67,31 +85,29 @@ export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): Au
 		// exposes a semantically equivalent method whose errors translate without changing autobranch output.
 		async headParents() {
 			const result = await raw(["rev-list", "--parents", "-n", "1", "HEAD"], GIT_FACT_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			const [headSha, ...parentShas] = result.stdout.trim().split(/\s+/).filter(Boolean);
+			if (!result.ok) return result;
+			const [headSha, ...parentShas] = result.value.stdout.trim().split(/\s+/).filter(Boolean);
 			if (!headSha) return { ok: false, details: "git rev-list returned no HEAD commit." };
 			return { ok: true, value: { headSha, parentShas } };
 		},
 		async headCommitMessage() {
 			const result = await raw(["log", "-1", "--format=%B"], GIT_FACT_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: result.stdout };
+			return mapGitCommand(result, (value) => value.stdout);
 		},
 		async headCommitDiff() {
 			const result = await raw(["diff", "HEAD^", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: result.stdout };
+			return mapGitCommand(result, (value) => value.stdout);
 		},
 		async upstreamOf(branch) {
 			const result = await raw(
 				["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branch}`],
 				GIT_FACT_TIMEOUT_MS,
 			);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: firstNonEmptyLine(result.stdout) };
+			return mapGitCommand(result, (value) => firstNonEmptyLine(value.stdout));
 		},
 		async isAncestor(ancestor, descendant) {
-			const result = await raw(
+			const result = await input.exec(
+				"git",
 				["merge-base", "--is-ancestor", ancestor, descendant],
 				GIT_FACT_TIMEOUT_MS,
 			);
@@ -101,79 +117,76 @@ export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): Au
 		},
 		async listStashes() {
 			const result = await raw(["stash", "list", "--format=%gd%x00%s"], GIT_FACT_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: parseStashEntries(result.stdout) };
+			return mapGitCommand(result, (value) => parseStashEntries(value.stdout));
 		},
 		async createBranchAt(branch, sha) {
-			const result = await raw(["branch", branch, sha], GIT_MUTATION_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: undefined };
+			return mapGitCommand(
+				await raw(["branch", branch, sha], GIT_MUTATION_TIMEOUT_MS),
+				() => undefined,
+			);
 		},
 		async resetHardTo(ref) {
-			const result = await raw(["reset", "--hard", ref], GIT_MUTATION_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: undefined };
+			return mapGitCommand(
+				await raw(["reset", "--hard", ref], GIT_MUTATION_TIMEOUT_MS),
+				() => undefined,
+			);
 		},
 		async deleteBranch(branch) {
-			const result = await raw(["branch", "-D", branch], GIT_MUTATION_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: undefined };
+			return mapGitCommand(
+				await raw(["branch", "-D", branch], GIT_MUTATION_TIMEOUT_MS),
+				() => undefined,
+			);
 		},
 		async checkout(branch) {
-			const result = await raw(["checkout", branch], GIT_MUTATION_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: undefined };
+			return mapGitCommand(
+				await raw(["checkout", branch], GIT_MUTATION_TIMEOUT_MS),
+				() => undefined,
+			);
 		},
 		async stashPush(message) {
-			const result = await raw(
-				["stash", "push", "--include-untracked", "-m", message],
-				STASH_PUSH_TIMEOUT_MS,
+			return mapGitCommand(
+				await raw(["stash", "push", "--include-untracked", "-m", message], STASH_PUSH_TIMEOUT_MS),
+				() => undefined,
 			);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: undefined };
 		},
 		async stashPop(ref) {
-			const result = await raw(["stash", "pop", ref], STASH_POP_TIMEOUT_MS);
-			if (result.code !== 0) return commandFailure(result);
-			return { ok: true, value: undefined };
+			return mapGitCommand(await raw(["stash", "pop", ref], STASH_POP_TIMEOUT_MS), () => undefined);
 		},
 		async isBranchNameAvailable(branchName) {
-			const valid = await raw(["check-ref-format", "--branch", branchName], BRANCH_NAME_TIMEOUT_MS);
-			if (valid.code !== 0) return false;
+			const valid = await providerGit.validateBranchRef({ cwd: input.cwd, branch: branchName });
+			if (!valid.ok) return false;
 
-			const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
-			for (const ref of refsToCheck) {
-				const exists = await raw(["show-ref", "--verify", "--quiet", ref], BRANCH_NAME_TIMEOUT_MS);
-				if (exists.code !== 1) return false;
+			for (const branch of [branchName, ...branchParentNames(branchName)]) {
+				const exists = await providerGit.localBranchPresence({ cwd: input.cwd, branch });
+				if (exists.type !== "absent") return false;
 			}
 
+			// capability-kit does not yet expose a child-ref enumeration verb, so keep this
+			// autobranch-only guard raw while sharing the ref validation and exact-presence probes.
 			const childRefs = await raw(
 				["for-each-ref", "--format=%(refname)", `${branchHeadRef(branchName)}/`],
 				BRANCH_NAME_TIMEOUT_MS,
 			);
-			return childRefs.code === 0 && childRefs.stdout.trim().length === 0;
+			return childRefs.ok && childRefs.value.stdout.trim().length === 0;
 		},
 	};
 }
 
-function createCwdBoundExecApi(input: AutobranchGitGatewayInput): CommandExecApi {
-	return {
-		async exec(command, args, options) {
-			if (options?.cwd !== undefined && options.cwd !== input.cwd) {
-				return {
-					code: 2,
-					stdout: "",
-					stderr: `autobranch git execution is scoped to ${input.cwd}; refusing command cwd ${options.cwd}.`,
-					killed: false,
-				};
-			}
-			return toExecResult(await input.exec(command, args, options?.timeout ?? GIT_FACT_TIMEOUT_MS));
-		},
-	};
+async function runGit(
+	exec: AutobranchExec,
+	args: string[],
+	timeout: number,
+): Promise<AutobranchGitResult<CommandResult>> {
+	const result = await exec("git", args, timeout);
+	if (result.code !== 0) return commandFailure(result);
+	return { ok: true, value: result };
 }
 
-function toExecResult(result: CommandResult): ExecResult {
-	return { ...result, killed: result.killed ?? false };
+function mapGitCommand<T>(
+	result: AutobranchGitResult<CommandResult>,
+	mapValue: (value: CommandResult) => T,
+): AutobranchGitResult<T> {
+	return result.ok ? { ok: true, value: mapValue(result.value) } : result;
 }
 
 function adaptGitResult<T>(result: GitResult<T>): AutobranchGitResult<T> {
@@ -188,13 +201,13 @@ function branchHeadRef(branchName: string): string {
 	return `refs/heads/${branchName}`;
 }
 
-function branchParentHeadRefs(branchName: string): string[] {
+function branchParentNames(branchName: string): string[] {
 	const segments = branchName.split("/");
-	const refs: string[] = [];
+	const names: string[] = [];
 	for (let index = 1; index < segments.length; index += 1) {
-		refs.push(branchHeadRef(segments.slice(0, index).join("/")));
+		names.push(segments.slice(0, index).join("/"));
 	}
-	return refs;
+	return names;
 }
 
 function parseStashEntries(stdout: string): StashEntry[] {

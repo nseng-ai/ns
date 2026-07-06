@@ -50,6 +50,9 @@ function createHarness(options: HarnessOptions = {}) {
 		if (command === "git" && args[0] === "ls-files") return ok("");
 		if (command === "git" && args[0] === "check-ref-format") return ok();
 		if (command === "git" && args[0] === "show-ref") return fail("not found");
+		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
+			return fail("not found");
+		}
 		if (command === "git" && args[0] === "stash" && args[1] === "push")
 			return ok("Saved working directory\n");
 		if (command === "git" && args[0] === "stash" && args[1] === "list")
@@ -85,7 +88,7 @@ function createHarness(options: HarnessOptions = {}) {
 		args: { slug: "test-branch" },
 		caps: TEST_CAPS,
 		now: () => 123,
-		exec: (command, args) => exec(command, args),
+		exec: (command, args, _timeout) => exec(command, args),
 		slotClient: {
 			async checkoutCurrent() {
 				events.push("slot-client:current");

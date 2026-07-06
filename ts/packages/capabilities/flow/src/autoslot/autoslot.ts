@@ -49,29 +49,28 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			hasError = true;
 		},
 	});
-	await runWithNsCommandIo(
-		io,
-		async (io) =>
-			await createAutoslotFlow({
-				cwd: input.cwd,
-				args: input.args,
-				caps: input.caps,
-				exec: (command, commandArgs, timeout) =>
-					input.exec(command, commandArgs, { cwd: input.cwd, timeout }),
-				prepareCheckpointMessage: (snapshot) =>
-					prepareAutobranchCheckpointMessage(snapshot, input.env),
-				commitPreparedCheckpointMessage: (message) =>
-					commitAutobranchCheckpointMessage(
-						(command, commandArgs, commandCwd, timeout) =>
-							input.exec(command, commandArgs, { cwd: commandCwd, timeout }),
-						input.cwd,
-						message,
-					),
-				io,
-				env: input.env,
-				slotClient: createFlowSlotClient({ cwd: input.cwd, env: input.env }),
-			}),
-	);
+	await runWithNsCommandIo(io, async (io) => {
+		const exec = (command: string, commandArgs: string[], timeout: number) =>
+			input.exec(command, commandArgs, { cwd: input.cwd, timeout });
+		await createAutoslotFlow({
+			cwd: input.cwd,
+			args: input.args,
+			caps: input.caps,
+			exec,
+			prepareCheckpointMessage: (snapshot) =>
+				prepareAutobranchCheckpointMessage(snapshot, input.env),
+			commitPreparedCheckpointMessage: (message) =>
+				commitAutobranchCheckpointMessage(
+					(command, commandArgs, commandCwd, timeout) =>
+						input.exec(command, commandArgs, { cwd: commandCwd, timeout }),
+					input.cwd,
+					message,
+				),
+			io,
+			env: input.env,
+			slotClient: createFlowSlotClient({ cwd: input.cwd, env: input.env }),
+		});
+	});
 	return hasError ? 1 : 0;
 }
 

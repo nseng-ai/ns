@@ -31,18 +31,11 @@ export async function findAvailableBranchName<TName extends string>(
 	candidates: Iterable<{ name: TName; hasSuffix: boolean }>,
 ): Promise<({ ok: true } & AvailableBranchName & { name: TName }) | undefined> {
 	for (const candidate of candidates) {
-		if (await isBranchNameAvailable(input, candidate.name)) {
+		if (await input.git.isBranchNameAvailable(candidate.name)) {
 			return { ok: true, name: candidate.name, hasSuffix: candidate.hasSuffix };
 		}
 	}
 	return undefined;
-}
-
-async function isBranchNameAvailable(
-	input: BranchNameAvailabilityInput,
-	branchName: string,
-): Promise<boolean> {
-	return input.git.isBranchNameAvailable(branchName);
 }
 
 export function* branchNameCandidates<TName extends string>(

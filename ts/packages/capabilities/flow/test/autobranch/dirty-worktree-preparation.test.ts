@@ -7,6 +7,7 @@ import { MAX_BRANCH_SLUG_LENGTH } from "@nseng-ai/foundation/branch-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
+	createFakeBranchAvailability,
 	eventIndex,
 	fail,
 	ok,
@@ -78,20 +79,7 @@ function createHarness(options: HarnessOptions = {}) {
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
-		git: {
-			async isBranchNameAvailable(branchName: string): Promise<boolean> {
-				const valid = await exec("git", ["check-ref-format", "--branch", branchName]);
-				if (valid.code !== 0) return false;
-
-				const exists = await exec("git", [
-					"show-ref",
-					"--verify",
-					"--quiet",
-					`refs/heads/${branchName}`,
-				]);
-				return exists.code === 1;
-			},
-		},
+		git: createFakeBranchAvailability(exec),
 		prepareCheckpointMessage: async (preparedSnapshot) => {
 			events.push("prepare");
 			expect(preparedSnapshot.status).toBe(snapshot.status);

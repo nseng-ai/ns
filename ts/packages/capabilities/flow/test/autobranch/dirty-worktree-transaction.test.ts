@@ -3,8 +3,7 @@ import {
 	runAutobranchTransaction,
 	type AutobranchTransactionInput,
 } from "../../src/autobranch/dirty-worktree.ts";
-import { createAutobranchGitGateway } from "../../src/autobranch/git-gateway.ts";
-import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
+import { createTestAutobranchGitGateway, eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	shouldStashPushFail?: boolean;
@@ -45,7 +44,7 @@ function createHarness(options: HarnessOptions = {}) {
 		checkpointMessage: "[cp] Update checkpoint tests\n\n- Add coverage",
 		now: () => 123,
 		exec,
-		git: createAutobranchGitGateway({ cwd: "/repo", exec }),
+		git: createTestAutobranchGitGateway("/repo", exec),
 		commitPreparedCheckpointMessage: async (message) => {
 			events.push(`commit:${message}`);
 			return commitResult;

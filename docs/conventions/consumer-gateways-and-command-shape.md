@@ -31,6 +31,8 @@ Sharing an actual gateway *object* across capabilities (not just the contract ty
 
 ## Inversion rule
 
+Production codepaths should receive concrete provider gateways from their entrypoint context rather than constructing `Real*Gateway` adapters in the middle of domain flow logic. Entrypoints are responsible for binding the gateway to the correct exec channel, cwd, telemetry, timeout, and environment semantics, then attaching the narrowed Consumer Gateway to the context passed inward. This keeps gateway wiring visible at I/O boundaries and prevents deep helpers from silently choosing a different command channel.
+
 Duplication is not debt until divergence would be a bug. Two capabilities each owning a 3-line argv builder is healthy; consolidate into a shared kit export only when the two must not diverge. A premature shared export couples two consumers that had no reason to move together.
 
 ## Justified single-consumer kit export

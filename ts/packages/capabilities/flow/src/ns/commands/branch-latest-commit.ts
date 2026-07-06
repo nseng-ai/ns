@@ -1,4 +1,3 @@
-import { createAutobranchGitGateway } from "../../autobranch/git-gateway.ts";
 import {
 	createLatestCommitAutobranchFlow,
 	type LatestCommitAutobranchInput,
@@ -11,7 +10,7 @@ import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-r
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
-import { execExtensionCommand, loadFlowPendingWorktreeSnapshot } from "../worktree.ts";
+import { createAutobranchExecContext, loadFlowPendingWorktreeSnapshot } from "../worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
 
@@ -68,20 +67,13 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			);
 		}
 
-		const exec = (command: string, commandArgs: string[], timeout: number) =>
-			execExtensionCommand({
-				ctx,
-				command,
-				args: commandArgs,
-				cwd: snapshot.root,
-				timeoutMs: timeout,
-			});
+		const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
 		const result = await createLatestCommitAutobranchFlow({
 			cwd: snapshot.root,
 			args,
 			snapshot,
 			exec,
-			git: createAutobranchGitGateway({ cwd: snapshot.root, exec }),
+			git,
 		});
 		if (!result.ok) {
 			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
