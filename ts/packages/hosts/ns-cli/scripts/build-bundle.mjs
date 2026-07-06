@@ -6,12 +6,20 @@ import { fileURLToPath } from "node:url";
 import { branchContextImplPromptTemplatePath } from "@nseng-ai/branch-context/api/prompt-assets";
 import { build } from "esbuild";
 
+import { kernelBundleEntryName, kernelSubpaths } from "./kernel-subpaths.mjs";
 import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const outfile = resolve(packageRoot, "dist", "bundle", "cli.js");
+const bundleRoot = resolve(packageRoot, "dist", "bundle");
+const outfile = resolve(bundleRoot, "cli.js");
 const bundleEntry = resolve(packageRoot, "dist", "bundle-entry.mjs");
-const bundledPromptsDir = resolve(packageRoot, "dist", "bundle", "prompts");
+const bundledPromptsDir = resolve(bundleRoot, "prompts");
+const kernelExportEntries = Object.fromEntries(
+	kernelSubpaths.map((subpath) => [
+		kernelBundleEntryName(subpath),
+		resolve(packageRoot, "src", "kernel", `${subpath}.ts`),
+	]),
+);
 
 await mkdir(dirname(outfile), { recursive: true });
 await writeFile(
@@ -38,6 +46,19 @@ await build({
 		js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
 	},
 	define: { "import.meta.main": "false" },
+	logLevel: "info",
+});
+await build({
+	entryPoints: kernelExportEntries,
+	outdir: bundleRoot,
+	bundle: true,
+	platform: "node",
+	format: "esm",
+	target: "node24",
+	external: publicRuntimeDependencies,
+	banner: {
+		js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
+	},
 	logLevel: "info",
 });
 
