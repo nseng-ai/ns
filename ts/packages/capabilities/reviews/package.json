@@ -1,6 +1,6 @@
 {
 	"name": "@nseng-ai/reviews",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",

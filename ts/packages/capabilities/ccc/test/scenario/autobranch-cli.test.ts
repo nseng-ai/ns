@@ -110,7 +110,7 @@ describe("ccc CLI", () => {
 
 		const version = runWithFakes(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(output(version).stdout).toBe("0.1.0\n");
+		expect(output(version).stdout).toBe("0.1.1\n");
 
 		const runtime = runWithFakes(["--runtime"]);
 		expect(await runtime.exit).toBe(0);

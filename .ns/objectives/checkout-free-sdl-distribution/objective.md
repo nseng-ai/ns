@@ -86,10 +86,11 @@ it describes the pre-work state.
   (`ts/scripts/source-cli-shim-template`) `run_checkout` refuses to run without
   `ts/node_modules`. The published-package boundary must not depend on either — it points
   at prebuilt `bin/ns.js`; those source shims remain dev-only.
-- **Add release automation / CI for public packages.** The Objective now includes the
-  repeatable release lane for the intended public package set: CI or equivalent checked-in
-  automation should build/package/dry-run or otherwise qualify public packages before
-  publication, so follow-on package releases are not purely manual one-offs.
+- **Add local release automation for public packages.** The Objective now includes the
+  repeatable local release lane for the intended public package set: checked-in commands
+  should bump coordinated versions, build/package/dry-run, guard interactive publication,
+  and verify public packages after publication, so follow-on package releases are not
+  purely manual one-offs.
 
 ## Non-Goals
 
@@ -113,8 +114,9 @@ it describes the pre-work state.
   workspace package designated as public/standalone.
 - Registry-backed install or `npm view` evidence exists for the intended public package
   set, with internal/private/excluded packages deliberately absent from that set.
-- Release automation / CI for the intended public package set is checked in and documented
-  enough to qualify future package releases without relying only on ad hoc local commands.
+- Local release automation for the intended public package set is checked in and documented
+  enough to qualify and guard future package releases without relying on ad hoc command
+  sequences.
 - The build/bundle/package step is reproducible from a clean clone and documented.
 
 ## Assumptions and Risks
@@ -128,7 +130,7 @@ Risks:
 
 - **Public package set follow-through.** The first registry package is now published and
   smoke-verified, but the Objective now stays open until every package intended to be
-  public is published and verified. Release automation / CI is now active Objective scope;
+  public is published and verified. Local release automation is now active Objective scope;
   future versions still need deliberate release discipline, but the repeatable lane should
   be established here rather than left as a parked follow-up.
 - Removing the jiti source-path aliases risks breaking first-party extension discovery and
@@ -167,7 +169,7 @@ Risks:
   than published standalone; public consumers use `@nseng-ai/ns/kernel/*` subpaths.
 - ~~The exact first npm publish authorization and release mechanics~~ — resolved by the
   first manual registry publish of `@nseng-ai/ns@0.1.0` and a registry-backed `npx`
-  smoke from a foreign repo. Release automation/CI remains parked.
+  smoke from a foreign repo. Follow-on release automation is local-command based, not CI.
 - Which packages are in the final intended-public registry set, and which versions/evidence
   prove each one has been successfully published? The Objective now closes only after that
   package set is published and verified, not after the first CLI package alone.

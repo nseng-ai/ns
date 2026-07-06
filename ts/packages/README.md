@@ -25,14 +25,19 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 
 Package names, public import specifiers, binary names, and workspace dependency names are independent of this filesystem taxonomy and should remain stable unless an explicit package-rename plan says otherwise.
 
-## Public package release qualification
+## Public package local release flow
 
-Run `pnpm --dir ts run release:qualify-public` to qualify the first public-package batch (`@nseng-ai/capability-kit` and `@nseng-ai/flow`) without registry writes. The command prints the full intended public package set, runs each batch package's `check` and `test` scripts, prepares `dist/publish` package roots with registry-compatible dependency specs, rewrites folded kernel imports to the public `@nseng-ai/ns/kernel/*` subpaths, rejects `workspace:`/`catalog:`/private-package leakage, and runs `npm publish --dry-run` for the generated roots.
+The intended public `@nseng-ai/*` package set is released locally through root `just` commands; no CI workflow is involved.
 
-Use `pnpm --dir ts run release:qualify-public -- --all` to qualify the complete intended public package set, including `@nseng-ai/ccc`. Use `--skip-checks` or `--skip-dry-run` only for local diagnosis; those modes are not release evidence.
+1. Run `just bump-version VERSION` to update every intended public source manifest to the coordinated version and refresh `ts/pnpm-lock.yaml`. This command performs no npm registry writes.
+2. Inspect the manifest/lockfile diff and run relevant local validation.
+3. Run `just publish-dry-run VERSION` to print the exact package/version publish plan and run full-set qualification with `npm publish --dry-run`. This command allows a dirty worktree and performs no npm registry writes.
+4. Commit the version changes so the worktree is clean.
+5. Run `just publish VERSION` only from an interactive TTY. It requires a clean worktree, reruns the full no-write qualification, fails before publishing if any intended package already exists at `VERSION`, prints the publish plan, requires typing `publish VERSION`, publishes each generated root with `npm publish --access public`, and then runs strict registry verification.
+6. Record the strict verifier evidence in the Objective update for the release session.
 
-Run `pnpm --dir ts run release:verify-public` to perform read-only npm registry readback for the full intended public package set. The verifier runs `npm view` for each expected package/version and reports registry `name`, `version`, `dist.tarball`, publish `time`, plus declared `bin` and top-level `exports` evidence. It does not publish packages or perform any registry writes.
+`pnpm --dir ts run release:qualify-public -- --all --version VERSION` remains the lower-level no-write qualification command. It prepares `dist/publish` package roots with registry-compatible dependency specs, rewrites folded kernel imports to the public `@nseng-ai/ns/kernel/*` subpaths, rejects `workspace:`/`catalog:`/private-package leakage, and runs `npm publish --dry-run` for the generated roots. Use `--skip-checks` or `--skip-dry-run` only for local diagnosis; those modes are not release evidence.
 
-By default, `release:verify-public` is report-oriented: missing or mismatched packages are printed but the command exits `0` after completing the inventory. Use `pnpm --dir ts run release:verify-public -- --strict` after an authorized publish when every package is expected to exist; strict mode exits nonzero for missing, mismatched, or errored packages. Use `pnpm --dir ts run release:verify-public -- --version <version>` to verify a coordinated release version for every intended public package instead of reading expected versions from local workspace manifests.
+Run `pnpm --dir ts run release:verify-public -- --version VERSION` to perform read-only npm registry readback for the full intended public package set. The verifier runs `npm view` for each expected package/version and reports registry `name`, `version`, `dist.tarball`, publish `time`, plus declared `bin` and top-level `exports` evidence. It does not publish packages or perform any registry writes. By default, missing or mismatched packages are printed but the command exits `0`; use `--strict` after an authorized publish when every package is expected to exist.
 
-Release evidence should run `release:qualify-public -- --all` before publishing and `release:verify-public -- --strict` after an authorized publish. The verifier output is post-publish registry evidence only; actual publishing still requires separate human authorization.
+`just publish VERSION` has no resume mode. If publishing fails after some packages have been published, a rerun at the same version will fail the already-published precheck; choose a new version or implement an explicit future resume mode.

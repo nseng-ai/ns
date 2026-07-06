@@ -237,11 +237,11 @@ describe("plans CLI help, version, and dispatch pins", () => {
 	test("prints -V and ignores trailing version args", async () => {
 		const short = await runWithFakes(["-V"]);
 		expect(await short.exit).toBe(0);
-		expect(short.stdout.join("")).toBe("0.1.0\n");
+		expect(short.stdout.join("")).toBe("0.1.1\n");
 
 		const trailing = await runWithFakes(["--version", "extra-arg"]);
 		expect(await trailing.exit).toBe(0);
-		expect(trailing.stdout.join("")).toBe("0.1.0\n");
+		expect(trailing.stdout.join("")).toBe("0.1.1\n");
 		// PINNED QUIRK (clinkr-migration): top-level --version ignores trailing arguments.
 	});
 

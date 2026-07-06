@@ -107,7 +107,7 @@ describe("plans list CLI", () => {
 			stderr: version.stderr,
 		});
 		expect(versionExitCode).toBe(0);
-		expect(version.stdoutText()).toBe("0.1.0\n");
+		expect(version.stdoutText()).toBe("0.1.1\n");
 	});
 
 	test("prints list help", async () => {
