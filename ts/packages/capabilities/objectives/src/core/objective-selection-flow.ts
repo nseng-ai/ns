@@ -1,4 +1,5 @@
 import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
@@ -40,9 +41,10 @@ export function objectiveSelectionHostFromExec(
 ): ObjectiveSelectionHost {
 	return {
 		git: new RealGitGateway(execApi, { timeoutMs: OBJECTIVE_COMMAND_TIMEOUT_MS }),
-		...(execApi.loadObjectiveList === undefined
-			? {}
-			: { loadObjectiveList: execApi.loadObjectiveList.bind(execApi) }),
+		...optionalEntry(
+			"loadObjectiveList",
+			execApi.loadObjectiveList === undefined ? undefined : execApi.loadObjectiveList.bind(execApi),
+		),
 	};
 }
 

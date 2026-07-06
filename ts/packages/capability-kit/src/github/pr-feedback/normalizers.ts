@@ -100,7 +100,7 @@ export function normalizeReviewCommentSummary(
 ): GithubPrReviewCommentSummary {
 	return {
 		body: comment.body,
-		author: normalizeAuthor(comment.user ?? comment.author ?? null),
+		author: normalizeAuthorField(comment),
 	};
 }
 
@@ -111,7 +111,7 @@ export function normalizeRestReviewComment(
 		id: comment.numericId,
 		reviewId: numericOptional(comment.pull_request_review_id),
 		body: comment.body,
-		author: normalizeAuthor(comment.user ?? comment.author ?? null),
+		author: normalizeAuthorField(comment),
 		path: comment.path,
 		line: comment.line ?? null,
 		createdAt: comment.created_at ?? "",
@@ -129,7 +129,7 @@ export function normalizeRestReview(
 		state: review.state,
 		submittedAt: review.submitted_at ?? null,
 		commitId: review.commit_id ?? null,
-		author: normalizeAuthor(review.user ?? review.author ?? null),
+		author: normalizeAuthorField(review),
 	};
 }
 
@@ -140,11 +140,18 @@ export function normalizeDiscussionComment(
 	return {
 		id: comment.numericId,
 		body: comment.body,
-		author: normalizeAuthor(comment.user ?? comment.author ?? null),
+		author: normalizeAuthorField(comment),
 		url,
 		...(comment.created_at === undefined ? {} : { createdAt: comment.created_at }),
 		...(comment.updated_at === undefined ? {} : { updatedAt: comment.updated_at }),
 	};
+}
+
+function normalizeAuthorField(entity: {
+	readonly user?: z.infer<typeof ghAuthorSchema> | undefined;
+	readonly author?: z.infer<typeof ghAuthorSchema> | undefined;
+}): string {
+	return normalizeAuthor(entity.user ?? entity.author ?? null);
 }
 
 function numericOptional(value: string | number | null | undefined): number | null {

@@ -1,9 +1,9 @@
 import type { CommandResult } from "./shared.ts";
 import {
 	deriveSlugWithModel,
-	formatSlugModelFailure,
+	formatRawTextModelFailure,
 	RAW_TEXT_MODEL_TIMEOUT_MS,
-	type SlugModelFailure,
+	type RawTextModelFailure,
 } from "@nseng-ai/capability-kit/model-slug";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import { truncateText } from "./shared.ts";
@@ -45,7 +45,7 @@ export interface BranchSlugDerivationInput {
 
 export type BranchSlugModelResult =
 	| { ok: true; baseSlug: string; source: "model" }
-	| { ok: false; failure: SlugModelFailure; formattedFailure: string };
+	| { ok: false; failure: RawTextModelFailure; formattedFailure: string };
 
 export function prepareRequestedBranchSlug(slug: string | undefined): RequestedBranchSlugResult {
 	if (!slug) {
@@ -92,6 +92,6 @@ export async function deriveBranchSlug(
 	return {
 		ok: false,
 		failure: result.failure,
-		formattedFailure: formatSlugModelFailure(result.failure),
+		formattedFailure: formatRawTextModelFailure(result.failure),
 	};
 }

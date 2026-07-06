@@ -19,7 +19,7 @@ import {
 	HANDOFF_SELF_STATUS_KEY,
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 } from "./command-constants.ts";
-import type { PiHandoffContext } from "./api-context.ts";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type {
@@ -43,7 +43,7 @@ interface HandoffSelfPromptOptions {
 }
 
 interface HandoffSelfWorkflowOptions {
-	handoffContext: PiHandoffContext;
+	git: GitGateway;
 	timeoutMs?: number;
 	skillLoader?: HandoffCreateSkillLoader;
 	timers?: TimerScheduler;
@@ -105,7 +105,7 @@ export function createHandoffSelfWorkflow(
 	const timeoutMs = options.timeoutMs ?? HANDOFF_SELF_WORKFLOW_TIMEOUT_MS;
 	const timers = options.timers ?? systemTimerScheduler;
 	const prepareOptions = {
-		handoffContext: options.handoffContext,
+		git: options.git,
 		...(options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader }),
 	};
 	let state: HandoffSelfWorkflowState = { type: "idle" };

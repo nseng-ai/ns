@@ -9,10 +9,10 @@ import {
 } from "@nseng-ai/capability-kit/content-slug";
 import {
 	buildRawTextModelArgs,
-	type SlugModelCommandResult,
+	type RawTextModelCommandResult,
+	type RawTextModelExecOptions,
 } from "@nseng-ai/capability-kit/model-slug";
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
-import type { SlugModelExecOptions } from "@nseng-ai/capability-kit/model-slug";
 
 const CWD = "/repo";
 const CONTENT = "# Add Content Slug Kit\n\nExtract slug mechanics into a shared kit helper.\n";
@@ -20,22 +20,22 @@ const CONTENT = "# Add Content Slug Kit\n\nExtract slug mechanics into a shared 
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: SlugModelExecOptions;
+	options: RawTextModelExecOptions;
 }
 
 class FakeSlugExec {
 	readonly calls: ExecCall[] = [];
-	private readonly results: SlugModelCommandResult[];
+	private readonly results: RawTextModelCommandResult[];
 
-	constructor(results: SlugModelCommandResult | readonly SlugModelCommandResult[]) {
+	constructor(results: RawTextModelCommandResult | readonly RawTextModelCommandResult[]) {
 		this.results = Array.isArray(results) ? [...results] : [results];
 	}
 
 	exec(
 		command: string,
 		args: string[],
-		options: SlugModelExecOptions,
-	): Promise<SlugModelCommandResult> {
+		options: RawTextModelExecOptions,
+	): Promise<RawTextModelCommandResult> {
 		this.calls.push({ command, args: [...args], options: { ...options } });
 		const result = this.results.shift();
 		if (result === undefined) {

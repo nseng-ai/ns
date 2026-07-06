@@ -1,5 +1,5 @@
 import { failure, ok, negative, type ClinkrExit } from "@nseng-ai/clinkr";
-import { parseJsonInputText } from "@nseng-ai/capability-kit/json-input";
+import { parseJsonInputText, type JsonInputError } from "@nseng-ai/capability-kit/json-input";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -458,10 +458,18 @@ async function readFindingsPayload(
 	return {
 		type: "error",
 		error: {
-			type: result.error.errorType,
+			type: reviewRunnerFailureTypeFromJsonInputError(result.error),
 			message: result.error.message,
 		},
 	};
+}
+
+function reviewRunnerFailureTypeFromJsonInputError(
+	error: JsonInputError,
+): "review-execution-invalid-json" | "review-execution-invalid-findings" {
+	return error.errorType === "invalid-json"
+		? "review-execution-invalid-json"
+		: "review-execution-invalid-findings";
 }
 
 export async function buildReviewLogResult(

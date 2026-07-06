@@ -5,27 +5,27 @@ import {
 	buildRawTextModelArgs,
 	deriveSlugWithModel,
 	generateRawTextWithModel,
-	type SlugModelCommandResult,
-	type SlugModelExecOptions,
+	type RawTextModelCommandResult,
+	type RawTextModelExecOptions,
 } from "@nseng-ai/capability-kit/model-slug";
 
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: SlugModelExecOptions;
+	options: RawTextModelExecOptions;
 }
 
-function recordingExec(calls: ExecCall[], result: SlugModelCommandResult) {
+function recordingExec(calls: ExecCall[], result: RawTextModelCommandResult) {
 	return recordingExecSequence(calls, [result]);
 }
 
-function recordingExecSequence(calls: ExecCall[], results: SlugModelCommandResult[]) {
+function recordingExecSequence(calls: ExecCall[], results: RawTextModelCommandResult[]) {
 	const remainingResults = [...results];
 	return (
 		command: string,
 		args: string[],
-		options: SlugModelExecOptions,
-	): Promise<SlugModelCommandResult> => {
+		options: RawTextModelExecOptions,
+	): Promise<RawTextModelCommandResult> => {
 		calls.push({ command, args: [...args], options: { ...options } });
 		const result = remainingResults.shift();
 		if (result === undefined) {

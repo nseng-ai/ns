@@ -452,7 +452,7 @@ describe("ns:handoff:self pure helpers", () => {
 
 function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
 	const workflow = createHandoffSelfWorkflow(pi, {
-		handoffContext: createPiHandoffContext(pi),
+		git: createPiHandoffContext(pi).git,
 		timeoutMs,
 		skillLoader: fakeHandoffCreateSkillLoader(),
 	});
