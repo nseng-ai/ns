@@ -5,10 +5,11 @@
 ns extensibility and configuration surfaces converge on one model: extensions **define
 points** (typed places in the workflows they own), consumers **install hooks** (scripts)
 and **prompts** (pure LM content) at them through repo config, and a kernel-owned shared
-loader plus **point catalog** make the whole configuration introspectable. The full
-decided design is in this record's `brief.md`; this objective tracks implementing it and
-retiring the fragmented predecessors (four ad-hoc `ns.toml` parsers, three prompt
-resolution ladders, the provisional `[flow.hooks]` key).
+loader plus **point catalog** make the whole configuration introspectable. The durable
+decision is ADR 0031 (`docs/adr/0031-point-system.md`); current vocabulary lives in root
+`CONTEXT.md` and `ts/packages/kernel/CONTEXT.md`. This objective tracked implementing the
+model and retiring the fragmented predecessors (four ad-hoc `ns.toml` parsers, three
+prompt resolution ladders, the provisional `[flow.hooks]` key).
 
 ## Scope
 
@@ -19,7 +20,7 @@ resolution ladders, the provisional `[flow.hooks]` key).
 - Migrations onto the point system: `flow.submit.pre` (hooks), `flow.submit.pr-description`
   and branch-context `plans-write` (override prompt points), roaster/areg/ns-init settings.
 - CLI introspection under the `ns extension` group: `points` and `point <id>`.
-- Graduating `brief.md` into an ADR plus CONTEXT.md vocabulary at the end.
+- Graduating the temporary brief into ADR 0031 plus root/kernel CONTEXT.md vocabulary.
 
 ## Non-Goals
 
@@ -41,8 +42,8 @@ resolution ladders, the provisional `[flow.hooks]` key).
   `[flow.hooks]` no longer exists; prompt files use id-based names.
 - roaster, areg, and ns-init harnesses settings are manifest-declared and loader-validated.
 - `ns extension points` and `ns extension point <id>` ship with scenario coverage.
-- The ADR and CONTEXT.md vocabulary (point, hook, prompt, install, define, point catalog)
-  are landed and `brief.md`'s role is superseded.
+- ADR 0031 and CONTEXT.md vocabulary (point, hook, prompt, install, define, point catalog)
+  are landed and the temporary brief is deleted.
 
 ## Definition of Progress
 
@@ -55,7 +56,7 @@ Progress is keepable when:
 
 Do not keep changes that:
 
-- Alter the decided model in `brief.md` (vocabulary, manifest or `[points]` shapes,
+- Alter the decided model in ADR 0031 (vocabulary, manifest or `[points]` shapes,
   resolution ladder, typing axes) without an explicit user decision recorded first.
 - Leave a config surface half-migrated across slices (old parser and new loader both live
   for the same key).
@@ -67,11 +68,11 @@ output against this repo's own configuration (self-hosting is the first consumer
 
 This Objective is execution-friendly for `objective-next` under the boundaries below.
 
-- Direct execution is allowed when: implementing roadmap slices whose contracts
-  `brief.md` already pins — the kernel loader, `ns.points` discovery, point catalog, the
-  named migrations, and the `ns extension` catalog CLI — as TypeScript code plus tests,
-  with Objective tracking updates routed through `objective-update`.
-- Steer or ask first when: a slice would change the decided model in `brief.md`, expand
+- Direct execution is allowed when: maintaining roadmap slices whose contracts ADR 0031
+  pins — the kernel loader, `ns.points` discovery, point catalog, the named migrations,
+  and the `ns extension` catalog CLI — as TypeScript code plus tests, with Objective
+  tracking updates routed through `objective-update`.
+- Steer or ask first when: a slice would change the decided model in ADR 0031, expand
   the kernel SDK public surface beyond it, add dependencies beyond `smol-toml` and
   existing catalog tooling, restructure packages/subpackages (ADR 0022/0023 territory),
   or touch anything listed under Non-Goals.
@@ -119,3 +120,15 @@ Risks:
   narrow gateway interface for testability (fake-driven testing conventions favor the
   latter).
 - Naming scheme for generalized prompt dev-override env vars.
+
+## Closure
+
+Closed 2026-07-06 as completed. All implementation rows landed before the documentation
+slice: the kernel shared loader and point catalog exist, flow/prompt/settings migrations
+retired the targeted provisional surfaces, and `ns extension points` / `ns extension point
+<id>` ship with scenario coverage. The final slice graduated the temporary brief into ADR
+0031 plus root and kernel CONTEXT.md vocabulary, deleted the brief, and removed the active
+orientation because closed Objectives leave the always-load orientation set.
+
+Deferred items remain intentionally parked outside this Objective: extension distribution
+UX, global installations, first-class agent-task points, and an SDLC lifecycle lens.
