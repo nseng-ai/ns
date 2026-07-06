@@ -22,7 +22,7 @@ import {
 	type NsCommandCandidate,
 } from "./command-registry.ts";
 import type { NsCommandModuleReference } from "./module-reference.ts";
-import { scanExtensionRoot } from "./root-discovery.ts";
+import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export interface DiscoveredExtensionCommand extends Pick<

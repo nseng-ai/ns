@@ -5,7 +5,7 @@ import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitive
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
-import { scanExtensionRoot } from "../extensions/root-discovery.ts";
+import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
 import { NS_COMMAND_NAME_PATTERN } from "../sdk/command-name.ts";
 import {
 	nsExtensionManifestPointSchema,
