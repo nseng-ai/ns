@@ -4,6 +4,8 @@ import { formatCommandDetails } from "@nseng-ai/foundation/command";
 export type { CommandResult };
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 
+// Autobranch command execution is cwd-bound at the command/API boundary. Callers construct this
+// function for exactly one worktree root and do not pass cwd separately through autobranch internals.
 export type AutobranchExec = (
 	command: string,
 	args: string[],

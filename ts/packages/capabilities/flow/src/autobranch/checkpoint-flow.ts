@@ -50,7 +50,7 @@ export async function createFlowAutobranchCheckpointFlow(
 		};
 	}
 
-	const git = createAutobranchGitGateway(input.exec);
+	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
 		return createLatestCommitAutobranchFlow({

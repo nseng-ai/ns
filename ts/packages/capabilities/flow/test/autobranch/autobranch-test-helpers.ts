@@ -46,7 +46,7 @@ export function createGitWorldHarness(options: GitWorldExecOptions = {}): {
 	const harness = createGitWorldExec(options);
 	return {
 		...harness,
-		git: createAutobranchGitGateway(harness.exec),
+		git: createAutobranchGitGateway({ cwd: "/repo", exec: harness.exec }),
 	};
 }
 

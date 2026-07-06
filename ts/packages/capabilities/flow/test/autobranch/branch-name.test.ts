@@ -14,28 +14,60 @@ function createBranchAvailabilityHarness(options: BranchAvailabilityHarnessOptio
 	const invalidBranches = options.invalidBranches ?? new Set<string>();
 	const childRefs = options.childRefs ?? [];
 
+	async function exec(command: string, args: string[]): Promise<CommandResult> {
+		calls.push({ command, args });
+		if (command === "git" && args[0] === "check-ref-format") {
+			const branchName = args.at(-1) ?? "";
+			return invalidBranches.has(branchName) ? fail("invalid ref") : ok();
+		}
+		if (command === "git" && args[0] === "show-ref") {
+			const branchName = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			return existingBranches.has(branchName) ? ok() : fail("missing ref");
+		}
+		if (command === "git" && args[0] === "for-each-ref") {
+			const prefix = args.at(-1) ?? "";
+			return ok(childRefs.filter((ref) => ref.startsWith(prefix)).join("\n"));
+		}
+		return ok();
+	}
+
 	return {
 		calls,
 		input: {
-			cwd: "/repo",
-			exec: async (command: string, args: string[]): Promise<CommandResult> => {
-				calls.push({ command, args });
-				if (command === "git" && args[0] === "check-ref-format") {
-					const branchName = args.at(-1) ?? "";
-					return invalidBranches.has(branchName) ? fail("invalid ref") : ok();
-				}
-				if (command === "git" && args[0] === "show-ref") {
-					const branchName = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-					return existingBranches.has(branchName) ? ok() : fail("missing ref");
-				}
-				if (command === "git" && args[0] === "for-each-ref") {
-					const prefix = args.at(-1) ?? "";
-					return ok(childRefs.filter((ref) => ref.startsWith(prefix)).join("\n"));
-				}
-				return ok();
+			git: {
+				async isBranchNameAvailable(branchName: string): Promise<boolean> {
+					const valid = await exec("git", ["check-ref-format", "--branch", branchName]);
+					if (valid.code !== 0) return false;
+
+					const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
+					for (const ref of refsToCheck) {
+						const exists = await exec("git", ["show-ref", "--verify", "--quiet", ref]);
+						if (exists.code !== 1) return false;
+					}
+
+					const childRefsResult = await exec("git", [
+						"for-each-ref",
+						"--format=%(refname)",
+						`${branchHeadRef(branchName)}/`,
+					]);
+					return childRefsResult.code === 0 && childRefsResult.stdout.trim().length === 0;
+				},
 			},
 		},
 	};
+}
+
+function branchHeadRef(branchName: string): string {
+	return `refs/heads/${branchName}`;
+}
+
+function branchParentHeadRefs(branchName: string): string[] {
+	const segments = branchName.split("/");
+	const refs: string[] = [];
+	for (let index = 1; index < segments.length; index += 1) {
+		refs.push(branchHeadRef(segments.slice(0, index).join("/")));
+	}
+	return refs;
 }
 
 function candidate(name: string, hasSuffix = false): { name: string; hasSuffix: boolean } {

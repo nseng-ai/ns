@@ -69,13 +69,19 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 		}
 
 		const exec = (command: string, commandArgs: string[], timeout: number) =>
-			execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout });
+			execExtensionCommand({
+				ctx,
+				command,
+				args: commandArgs,
+				cwd: snapshot.root,
+				timeoutMs: timeout,
+			});
 		const result = await createLatestCommitAutobranchFlow({
 			cwd: snapshot.root,
 			args,
 			snapshot,
 			exec,
-			git: createAutobranchGitGateway(exec),
+			git: createAutobranchGitGateway({ cwd: snapshot.root, exec }),
 		});
 		if (!result.ok) {
 			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)

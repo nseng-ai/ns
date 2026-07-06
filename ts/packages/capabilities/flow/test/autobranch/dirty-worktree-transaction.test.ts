@@ -45,7 +45,7 @@ function createHarness(options: HarnessOptions = {}) {
 		checkpointMessage: "[cp] Update checkpoint tests\n\n- Add coverage",
 		now: () => 123,
 		exec,
-		git: createAutobranchGitGateway(exec),
+		git: createAutobranchGitGateway({ cwd: "/repo", exec }),
 		commitPreparedCheckpointMessage: async (message) => {
 			events.push(`commit:${message}`);
 			return commitResult;
