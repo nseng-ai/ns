@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { DEFAULT_COLUMNS } from "@nseng-ai/clinkr";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
-import type { StreamClock, StreamSinkDeps, StreamWriter } from "@nseng-ai/clinkr/stream";
+import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import { spinnerFrame } from "@nseng-ai/foundation/cli-theme";
 
 import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
@@ -16,6 +16,7 @@ import {
 	runSettledPhaseStream,
 	type PhaseSpec,
 } from "../../src/phase-stream/phase-stream.ts";
+import { streamCapture, type RecordingClock } from "./stream-test-helpers.ts";
 
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
@@ -79,46 +80,6 @@ function ctx(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 	};
 }
 
-// Fake clock: records sleeps and resolves synchronously (copied seam from clinkr's sink.test.ts).
-interface RecordingClock extends StreamClock {
-	readonly sleeps: number[];
-}
-
-function fakeClock(): RecordingClock {
-	const sleeps: number[] = [];
-	return {
-		sleeps,
-		async sleep(ms: number): Promise<void> {
-			sleeps.push(ms);
-		},
-	};
-}
-
-interface CapturedWriter {
-	writer: StreamWriter;
-	writes: string[];
-	redraws: string[];
-	dones: number[];
-}
-
-function fakeWriter(): CapturedWriter {
-	const writes: string[] = [];
-	const redraws: string[] = [];
-	const dones: number[] = [];
-	const writer: StreamWriter = {
-		write: (text) => {
-			writes.push(text);
-		},
-		redraw: (frame) => {
-			redraws.push(frame);
-		},
-		done: () => {
-			dones.push(1);
-		},
-	};
-	return { writer, writes, redraws, dones };
-}
-
 interface Harness {
 	deps: StreamSinkDeps;
 	clock: RecordingClock;
@@ -129,17 +90,7 @@ interface Harness {
 }
 
 function harness(): Harness {
-	const clock = fakeClock();
-	const { writer, writes, redraws, dones } = fakeWriter();
-	const outputs: string[] = [];
-	const deps: StreamSinkDeps = {
-		clock,
-		writer,
-		onOutput: (line) => {
-			outputs.push(line);
-		},
-	};
-	return { deps, clock, writes, redraws, dones, outputs };
+	return streamCapture();
 }
 
 // No cursor-control escapes; SGR (color/bold/dim) are allowed.

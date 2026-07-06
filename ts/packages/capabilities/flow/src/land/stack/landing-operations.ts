@@ -200,31 +200,6 @@ export async function prepareMergeLoopState(
 	});
 }
 
-function settleDescendantMatrix(
-	plan: FlowLandingPlan,
-	matrix: LandMatrixProgressSink | undefined,
-): void {
-	if (matrix === undefined) return;
-	const descendantCount = plan.descendantMaintenance.branches.length;
-	switch (plan.descendantMaintenance.kind) {
-		case "auto":
-			matrix.setGlobal("descendants", {
-				state: "done",
-				text: `${descendantCount} descendant ${descendantCount === 1 ? "branch" : "branches"} refreshed`,
-			});
-			return;
-		case "skipped":
-			matrix.setGlobal("descendants", {
-				state: "skipped",
-				text: plan.descendantMaintenance.reason,
-			});
-			return;
-		case "none":
-			matrix.setGlobal("descendants", { state: "skipped", text: "not required" });
-			return;
-	}
-}
-
 export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	runtime: LandRuntime;
 	landContext: LandContext;
@@ -396,6 +371,5 @@ export async function runMergeLoop(
 			options.commandStream?.matrix?.setCell(branch, "restack", { state: "done" });
 		}
 	}
-	settleDescendantMatrix(options.plan, options.commandStream?.matrix);
 	return success(state.cleanup);
 }

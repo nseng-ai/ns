@@ -125,7 +125,6 @@ export async function runLandingDispatch(
 		shape: shape.value,
 		landContext,
 		cleanupDecision: cleanupDecision.value,
-		landMatrix: observabilityChannels.landMatrix,
 	});
 }
 
@@ -139,22 +138,10 @@ interface FinishAfterLandingOptions {
 
 async function finishAfterLanding(
 	outcome: LandStackOutcome,
-	options: FinishAfterLandingOptions & {
-		landMatrix?: FlowLandObservabilityChannels["landMatrix"];
-	},
+	options: FinishAfterLandingOptions,
 ): Promise<LandStackOutcome> {
 	if (outcome.type === "failure") return outcome;
-	if (options.cleanupDecision.type === "not-needed") {
-		options.landMatrix?.setGlobal("cleanup", { state: "skipped", text: "not required" });
-		return await runPostLandingSlotCleanup(options);
-	}
-	options.landMatrix?.setGlobal("cleanup", { state: "active", text: "cleaning up local branch…" });
-	const cleanupOutcome = await runPostLandingSlotCleanup(options);
-	options.landMatrix?.setGlobal("cleanup", {
-		state: cleanupOutcome.type === "failure" ? "failed" : "done",
-		text: cleanupOutcome.type === "failure" ? "cleanup failed" : "cleanup complete",
-	});
-	return cleanupOutcome;
+	return await runPostLandingSlotCleanup(options);
 }
 
 async function resolveAndFinishPostLandingCleanup(

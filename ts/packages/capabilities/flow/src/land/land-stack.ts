@@ -94,23 +94,14 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
-		commandStream.matrix?.setGlobal("preflight", {
-			state: "active",
-			text: "checking stack and PRs…",
-		});
 		const plan = await buildLandingPlan(runtime, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 		});
 		if (plan.type === "failure") {
-			commandStream.matrix?.setGlobal("preflight", { state: "failed", text: "preflight failed" });
 			presentLandStackFailure({ session, failure: plan.failure });
 			return failure(plan.failure);
 		}
 		commandStream.matrix?.setRows(landMatrixRowsFromPlan(plan.value));
-		commandStream.matrix?.setGlobal("preflight", {
-			state: "done",
-			text: `${plan.value.stack.landingBranches.length} PR${plan.value.stack.landingBranches.length === 1 ? "" : "s"} ready to land into ${plan.value.stack.trunk}`,
-		});
 		return await executeLandingPlan({
 			runtime,
 			parsedArgs,
