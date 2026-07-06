@@ -1,3 +1,8 @@
+import {
+	createProgressPhaseStateStore,
+	type ProgressPhaseSpec,
+	type ProgressPhaseView,
+} from "@nseng-ai/kernel/progress-phase-state";
 import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { PhaseState, StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
@@ -23,225 +28,88 @@ export interface PhaseStateStore {
 	settleOpenPhases(): void;
 }
 
-interface PhaseRecord {
-	spec: PhaseSpec | PhaseSubstepSpec;
-	state: PhaseState;
-	label: string | undefined;
-	history: string[];
-	substeps: PhaseRecord[];
-}
-
-type PhaseLocation =
-	| { type: "top"; index: number }
-	| { type: "substep"; parentIndex: number; index: number };
-
 export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateStore {
-	let records = specs.map(createRecord);
-	// Phase keys are expected to be globally unique across top-level phases and declared substeps.
-	const indexByKey = new Map<string, PhaseLocation>();
-	records.forEach((record, index) => {
-		indexByKey.set(record.spec.key, { type: "top", index });
-		record.substeps.forEach((substep, substepIndex) => {
-			indexByKey.set(substep.spec.key, {
-				type: "substep",
-				parentIndex: index,
-				index: substepIndex,
-			});
-		});
-	});
-	let activeLocation: PhaseLocation | undefined;
+	const store = createProgressPhaseStateStore({ phases: specs.map(progressSpecForPhase) });
+	const itemByKey = indexItems(specs);
 
 	function views(): readonly PhaseView[] {
-		return records.map(viewForRecord);
-	}
-
-	function createRecord(spec: PhaseSpec | PhaseSubstepSpec): PhaseRecord {
-		return {
-			spec,
-			state: "pending",
-			label: spec.item.label,
-			history: [],
-			substeps: "substeps" in spec ? (spec.substeps?.map(createRecord) ?? []) : [],
-		};
-	}
-
-	function viewForRecord(record: PhaseRecord): PhaseView {
-		return {
-			item: record.spec.item,
-			state: record.state,
-			label: record.label,
-			history: record.history.slice(),
-			substeps: record.substeps.map(viewForRecord),
-		};
-	}
-
-	function recordAt(location: PhaseLocation): PhaseRecord | undefined {
-		if (location.type === "top") return records[location.index];
-		return records[location.parentIndex]?.substeps[location.index];
-	}
-
-	function replaceRecord(location: PhaseLocation, record: PhaseRecord): void {
-		if (location.type === "top") {
-			records[location.index] = record;
-			return;
-		}
-		const parent = records[location.parentIndex];
-		if (parent === undefined) return;
-		const substeps = parent.substeps.slice();
-		substeps[location.index] = record;
-		records[location.parentIndex] = { ...parent, substeps };
-	}
-
-	function withSupersededLabel(record: PhaseRecord, newLabel: string | undefined): PhaseRecord {
-		const previous = record.label;
-		if (previous === undefined || previous === newLabel) return record;
-		return { ...record, history: [...record.history, previous] };
-	}
-
-	function settleSubstepsDone(parent: PhaseRecord): PhaseRecord {
-		return {
-			...parent,
-			substeps: parent.substeps.map((substep) => {
-				if (substep.state === "active") {
-					return { ...withSupersededLabel(substep, substep.spec.item.detail), state: "done" };
-				}
-				if (substep.state === "pending") return { ...substep, state: "skipped" };
-				return substep;
-			}),
-		};
-	}
-
-	function setDone(record: PhaseRecord): PhaseRecord {
-		const labeled =
-			record.state === "active" ? withSupersededLabel(record, record.spec.item.detail) : record;
-		return settleSubstepsDone({ ...labeled, state: "done" });
-	}
-
-	function completeRecord(record: PhaseRecord): PhaseRecord {
-		return settleSubstepsDone({
-			...withSupersededLabel(record, record.spec.item.detail),
-			state: "done",
-		});
-	}
-
-	function markEarlierDone(items: readonly PhaseRecord[], index: number): PhaseRecord[] {
-		return items.map((record, itemIndex) => {
-			if (itemIndex >= index) return record;
-			if (record.state === "pending" || record.state === "active") return setDone(record);
-			return record;
-		});
-	}
-
-	function activateParent(location: Extract<PhaseLocation, { type: "substep" }>): void {
-		records = markEarlierDone(records, location.parentIndex);
-		const parent = records[location.parentIndex];
-		if (parent === undefined) return;
-		records[location.parentIndex] = { ...parent, state: "active" };
-	}
-
-	function setActive(location: PhaseLocation): void {
-		if (location.type === "top") {
-			records = markEarlierDone(records, location.index);
-			const record = recordAt(location);
-			if (record !== undefined) replaceRecord(location, { ...record, state: "active" });
-		} else {
-			activateSubstep(location);
-		}
-		activeLocation = location;
-	}
-
-	function activateSubstep(location: Extract<PhaseLocation, { type: "substep" }>): void {
-		activateParent(location);
-		const parent = records[location.parentIndex];
-		if (parent === undefined) return;
-		const substeps = markEarlierDone(parent.substeps, location.index);
-		const substep = substeps[location.index];
-		if (substep !== undefined) substeps[location.index] = { ...substep, state: "active" };
-		records[location.parentIndex] = { ...parent, substeps };
-	}
-
-	function ensureProgressTargetActive(location: PhaseLocation): void {
-		const record = recordAt(location);
-		if (record?.state === "pending") {
-			setActive(location);
-			return;
-		}
-		if (location.type === "top") return;
-		if (record?.state === "active") {
-			activateParent(location);
-			activeLocation = location;
-		}
+		return store.views().map(viewForProgressView);
 	}
 
 	function apply(event: NsProgressPhaseEvent): PhaseTransition {
 		if (event.type === "phases-declared" || event.type === "title-changed") {
 			return { type: "ignored" };
 		}
-		const location = indexByKey.get(event.phaseKey);
-		if (location === undefined) return { type: "ignored" };
-		const record = recordAt(location);
-		if (record === undefined) return { type: "ignored" };
+
+		const result = store.apply(event);
+		if (result.type === "ignored") return { type: "ignored" };
 
 		switch (event.type) {
-			case "phase-started": {
-				setActive(location);
-				const currentRecord = recordAt(location) ?? record;
-				const label = event.label ?? currentRecord.spec.item.label;
-				replaceRecord(location, { ...withSupersededLabel(currentRecord, label), label });
-				return { type: "surface", line: label };
-			}
-			case "phase-progress": {
-				ensureProgressTargetActive(location);
-				const currentRecord = recordAt(location) ?? record;
-				replaceRecord(location, {
-					...withSupersededLabel(currentRecord, event.label),
-					label: event.label,
-				});
+			case "phase-started":
+				return { type: "surface", line: result.view?.label };
+			case "phase-progress":
 				return { type: "surface", line: event.label };
-			}
-			case "phase-done": {
-				replaceRecord(location, completeRecord(recordAt(location) ?? record));
+			case "phase-done":
+			case "phase-failed":
 				return { type: "render", clearTranscript: true };
-			}
-			case "phase-failed": {
-				const failed = {
-					...withSupersededLabel(recordAt(location) ?? record, event.detail),
-					state: "failed" as const,
-					label: event.detail,
-				};
-				replaceRecord(location, failed);
-				if (location.type === "substep") {
-					const parent = records[location.parentIndex];
-					if (parent !== undefined) records[location.parentIndex] = { ...parent, state: "failed" };
-				}
-				return { type: "render", clearTranscript: true };
-			}
 		}
 	}
 
 	function failActive(): void {
-		if (activeLocation === undefined) return;
-		const record = recordAt(activeLocation);
-		if (record === undefined) return;
-		replaceRecord(activeLocation, { ...record, state: "failed" });
-		if (activeLocation.type === "substep") {
-			const parent = records[activeLocation.parentIndex];
-			if (parent !== undefined)
-				records[activeLocation.parentIndex] = { ...parent, state: "failed" };
-		}
+		store.failActive();
 	}
 
 	function settleOpenPhases(): void {
-		const hasFailure = records.some(
-			(record) =>
-				record.state === "failed" || record.substeps.some((substep) => substep.state === "failed"),
-		);
-		if (hasFailure) return;
-		records = records.map((record) => {
-			if (record.state === "pending" || record.state === "active") return setDone(record);
-			return record;
-		});
+		store.settleOpenPhases();
+	}
+
+	function viewForProgressView(view: ProgressPhaseView): PhaseView {
+		const item = itemByKey.get(view.key) ?? itemForProgressView(view);
+		return {
+			item,
+			state: view.state,
+			label: view.label,
+			history: view.history,
+			substeps: view.substeps.map(viewForProgressView),
+		};
 	}
 
 	return { views, apply, failActive, settleOpenPhases };
+}
+
+function progressSpecForPhase(spec: PhaseSpec): ProgressPhaseSpec {
+	return {
+		...baseProgressSpec(spec),
+		...(spec.substeps === undefined ? {} : { substeps: spec.substeps.map(progressSpecForSubstep) }),
+	};
+}
+
+function progressSpecForSubstep(spec: PhaseSubstepSpec): ProgressPhaseSpec {
+	return baseProgressSpec(spec);
+}
+
+function baseProgressSpec(spec: PhaseSpec | PhaseSubstepSpec): ProgressPhaseSpec {
+	return {
+		key: spec.key,
+		name: spec.item.name,
+		...(spec.item.label === undefined ? {} : { label: spec.item.label }),
+		detail: spec.item.detail,
+	};
+}
+
+function indexItems(specs: readonly PhaseSpec[]): ReadonlyMap<string, StatusLineItem> {
+	const itemByKey = new Map<string, StatusLineItem>();
+	for (const spec of specs) {
+		itemByKey.set(spec.key, spec.item);
+		for (const substep of spec.substeps ?? []) itemByKey.set(substep.key, substep.item);
+	}
+	return itemByKey;
+}
+
+function itemForProgressView(view: ProgressPhaseView): StatusLineItem {
+	return {
+		name: view.name,
+		detail: view.detail ?? view.name,
+		...(view.label === undefined ? {} : { label: view.label }),
+	};
 }

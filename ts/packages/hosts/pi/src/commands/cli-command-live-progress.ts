@@ -1,3 +1,8 @@
+import {
+	createProgressPhaseStateStore,
+	type ProgressPhaseState,
+	type ProgressPhaseView,
+} from "@nseng-ai/kernel/progress-phase-state";
 import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
@@ -42,20 +47,8 @@ interface LiveOutputLine {
 	text: string;
 }
 
-type WidgetPhaseState = "pending" | "active" | "done" | "failed";
-
-interface WidgetPhase {
-	key: string;
-	name: string;
-	defaultLabel: string | undefined;
-	doneDetail: string | undefined;
-	text: string | undefined;
-	state: WidgetPhaseState;
-}
-
 class StructuredPhaseWidget {
-	private title: string | undefined;
-	private phases: WidgetPhase[] = [];
+	private readonly store = createProgressPhaseStateStore({ unknownKeyPolicy: "append" });
 	private hasEvents = false;
 
 	get isActive(): boolean {
@@ -64,62 +57,7 @@ class StructuredPhaseWidget {
 
 	applyPhaseEvent(event: NsProgressPhaseEvent): void {
 		this.hasEvents = true;
-		switch (event.type) {
-			case "phases-declared":
-				this.title = event.title;
-				this.phases = event.phases.map((phase) => ({
-					key: phase.key,
-					name: phase.name,
-					defaultLabel: phase.label,
-					doneDetail: phase.detail,
-					text: undefined,
-					state: "pending",
-				}));
-				break;
-			case "title-changed":
-				this.title = event.title;
-				break;
-			case "phase-started": {
-				const index = this.ensurePhase(event.phaseKey);
-				this.markEarlierDone(index);
-				const phase = this.phases[index];
-				if (phase !== undefined) {
-					phase.state = "active";
-					phase.text = event.label ?? phase.defaultLabel;
-				}
-				break;
-			}
-			case "phase-progress": {
-				const index = this.ensurePhase(event.phaseKey);
-				const phase = this.phases[index];
-				if (phase !== undefined) {
-					if (phase.state === "pending") {
-						this.markEarlierDone(index);
-						phase.state = "active";
-					}
-					phase.text = event.label;
-				}
-				break;
-			}
-			case "phase-done": {
-				const index = this.ensurePhase(event.phaseKey);
-				const phase = this.phases[index];
-				if (phase !== undefined) {
-					phase.state = "done";
-					phase.text = event.detail ?? phase.doneDetail ?? phase.text;
-				}
-				break;
-			}
-			case "phase-failed": {
-				const index = this.ensurePhase(event.phaseKey);
-				const phase = this.phases[index];
-				if (phase !== undefined) {
-					phase.state = "failed";
-					phase.text = event.detail;
-				}
-				break;
-			}
-		}
+		this.store.apply(event);
 	}
 
 	lines(input: {
@@ -129,11 +67,13 @@ class StructuredPhaseWidget {
 		elapsed: string;
 		latestOutput: LiveOutputLine | undefined;
 	}): string[] {
+		const phases = this.store.views();
 		const lines = [this.headerLine(input)];
-		const nameWidth = Math.max(0, ...this.phases.map((phase) => phase.name.length));
-		for (const phase of this.phases) {
+		const nameWidth = Math.max(0, ...phases.map((phase) => phase.name.length));
+		for (const phase of phases) {
 			const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(nameWidth)}`;
-			lines.push(phase.text === undefined ? prefix : `${prefix}  ${phase.text}`);
+			const text = textForWidgetPhase(phase);
+			lines.push(text === undefined ? prefix : `${prefix}  ${text}`);
 		}
 		if (input.latestOutput !== undefined) {
 			lines.push(`  ${formatLiveOutputLine(input.latestOutput)}`);
@@ -148,34 +88,15 @@ class StructuredPhaseWidget {
 		elapsed: string;
 	}): string {
 		const invocationTitle = `${input.cliName} ${input.argv.join(" ")}`;
-		const titleSuffix =
-			this.title !== undefined && this.title !== invocationTitle ? ` — ${this.title}` : "";
+		const title = this.store.title();
+		const titleSuffix = title !== undefined && title !== invocationTitle ? ` — ${title}` : "";
 		return `/${input.piCommandName}${titleSuffix} (${input.elapsed} elapsed)`;
 	}
+}
 
-	private ensurePhase(phaseKey: string): number {
-		const existingIndex = this.phases.findIndex((phase) => phase.key === phaseKey);
-		if (existingIndex >= 0) return existingIndex;
-		this.phases.push({
-			key: phaseKey,
-			name: phaseKey,
-			defaultLabel: undefined,
-			doneDetail: undefined,
-			text: undefined,
-			state: "pending",
-		});
-		return this.phases.length - 1;
-	}
-
-	private markEarlierDone(index: number): void {
-		for (let phaseIndex = 0; phaseIndex < index; phaseIndex += 1) {
-			const phase = this.phases[phaseIndex];
-			if (phase === undefined) continue;
-			if (phase.state !== "pending" && phase.state !== "active") continue;
-			phase.state = "done";
-			phase.text = phase.doneDetail ?? phase.text;
-		}
-	}
+function textForWidgetPhase(phase: ProgressPhaseView): string | undefined {
+	if (phase.state === "done" || phase.state === "skipped") return phase.detail ?? phase.label;
+	return phase.label;
 }
 
 export class LiveCommandProgress {
@@ -399,7 +320,7 @@ function formatLiveOutputLine(line: LiveOutputLine): string {
 	return truncateDisplayLine(`${line.stream}: ${line.text}`, LIVE_PROGRESS_MAX_LINE_CHARS);
 }
 
-function phaseGlyph(state: WidgetPhaseState): string {
+function phaseGlyph(state: ProgressPhaseState): string {
 	switch (state) {
 		case "done":
 			return "✓";
@@ -407,6 +328,8 @@ function phaseGlyph(state: WidgetPhaseState): string {
 			return "▸";
 		case "pending":
 			return "·";
+		case "skipped":
+			return "–";
 		case "failed":
 			return "✗";
 	}

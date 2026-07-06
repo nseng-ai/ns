@@ -8,6 +8,7 @@
 		"./command-io": "./src/runtime/command-io.ts",
 		"./context": "./src/cli/context.ts",
 		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
+		"./progress-phase-state": "./src/sdk/progress-phase-state.ts",
 		"./sdk": "./src/sdk/index.ts"
 	},
 	"ns": {
@@ -25,7 +26,8 @@
 			"./cli",
 			"./command-io",
 			"./context",
-			"./pi-text-generation"
+			"./pi-text-generation",
+			"./progress-phase-state"
 		]
 	},
 	"bin": {
