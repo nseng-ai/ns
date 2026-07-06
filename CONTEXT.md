@@ -12,17 +12,45 @@ The product's proper name. Always lowercase, including at sentence starts; rewri
 A checked-in documentation workstream for durable multi-session, multi-branch, or multi-PR work.
 *Avoid*: hidden agent state, ticket
 
-**Synthesis Objective**:
-A prose-only **Objective** pattern that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence.
-*Avoid*: Fire-and-forget umbrella, mirrored task tracker, hidden parent state, Objective CLI feature
+**Umbrella Objective**:
+A prose-only **Objective** pattern that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (renamed from Synthesis Objective per `docs/adr/0030-rename-synthesis-objective-to-umbrella-objective.md`).
+*Avoid*: Synthesis Objective (retired name), fire-and-forget umbrella, mirrored task tracker, hidden parent state, Objective CLI feature
 
 **Child Objective**:
-A narrower **Objective** created from a parent **Synthesis Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
+A narrower **Objective** created from a parent **Umbrella Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
 *Avoid*: Subticket, hidden task, third Objective status
 
 **Autoobjective**:
 A prose-only **Objective** pattern whose roadmap and runner policy are intentionally shaped for repeated **Objective Runner** steps with parent-LM checkpoints between committed slices.
 *Avoid*: Machine category, third Objective status, hidden task queue, unattended batch controller
+
+**Ideation Objective**:
+A prose-only **Objective** pattern for the formation phase: the **Destination** is settled first, but the roadmap is deliberately a **Frontier** of open **Question Rows** — not yet executable slices — and questions too coarse to state precisely are held as **Fog** rather than pre-sliced. It reaches **Crystallization** as questions resolve; ideation is a phase every Objective passes through, and this pattern names deliberately staying there while the way is found.
+*Avoid*: Forming/Shaping/Discovery/Wayfinding Objective, separate map artifact, ticket tracker, third Objective status
+
+**Destination**:
+The settled end-state an **Ideation Objective** is finding its way to — its thesis and completion criteria, fixed before any questions are charted because it shapes what every question asks.
+*Avoid*: vision statement, moving target, roadmap row
+
+**Question Row**:
+A roadmap row in an **Ideation Objective** that is an open decision or investigation rather than executable work, typed as one of grilling, research, prototype, or task, carrying explicit blocked-by references to other rows, and sized to one agent session.
+*Avoid*: ticket, task-tracker item, execution row, subissue
+
+**Frontier**:
+The open, unblocked **Question Rows** of an **Ideation Objective** — the questions answerable now. Resolving a frontier row records the decision, may unblock other rows, and graduates any **Fog** the answer made specifiable into new rows.
+*Avoid*: backlog, task queue, next-up list
+
+**Fog**:
+The deliberately coarse view of decisions an **Ideation Objective** can tell are coming but cannot yet phrase sharply, held as a marked cluster under `## Open Questions` and never pre-sliced into rows. The test against a **Question Row**: can the question be stated precisely now — not answered.
+*Avoid*: sharp open question, hidden backlog, placeholder rows
+
+**Crystallization**:
+The phase exit of an **Ideation Objective**: the **Frontier** empties of **Question Rows** and the remaining roadmap is ordinary execution work. Crystallization is a recognizable condition, not a status, marker, or ceremony.
+*Avoid*: closure, third Objective status, graduation ceremony
+
+**Orienting Objective**:
+A prose-only **Objective** pattern defined by carrying `orientation.md`: a standing, agent-facing rule stating the direction every agent — including agents on unrelated work — must respect while the record is open. The orientation joins the always-load set (`ns objective exec load-orientations`) and leaves it automatically at closure. The name is what it does: it orients agents.
+*Avoid*: Cross-cutting Objective (retired name), orientation-bearing Objective, ambient Objective, orientation registry
 
 **Durable Narrative Roadmap Record**:
 The role of an **Objective** as human-readable context and ordered work guidance, without owning workflow-control semantics.

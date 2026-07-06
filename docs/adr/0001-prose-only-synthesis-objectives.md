@@ -1,5 +1,9 @@
 # ADR 0001: Prose-only Synthesis Objectives
 
+## Status
+
+Accepted; naming superseded by ADR 0030 (the pattern is now **Umbrella Objective**; this ADR's substance stands)
+
 ## Context
 
 The existing fire-and-forget umbrella Objective pattern is useful when a parent only creates child Objectives and then stops tracking their work. The TypeScript toolchain port needs a different parent shape: child Objectives should own implementation details, but the parent should retain cross-child lessons, migration guides, synthesized outcomes, and closure evidence.

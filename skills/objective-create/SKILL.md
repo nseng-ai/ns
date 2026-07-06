@@ -16,7 +16,7 @@ New records live in the active root only:
 .ns/objectives/<slug>/
   objective.md
   roadmap.md
-  orientation.md  # optional; cross-cutting Objectives only
+  orientation.md  # optional; orienting Objectives only
   updates/
 ```
 
@@ -63,7 +63,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 1. Run the interview; confirm the slug and clear both roots per Slug and path, loading any conditional reference before its questions.
 2. Create `.ns/objectives/<slug>/` with `updates/`, `objective.md`, and `roadmap.md` per Required shape, in concise human-readable narrative.
 3. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per its section — including the counterpart mirrors — and run `ns objective check <slug>`; otherwise write no frontmatter.
-4. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the umbrella skill's format: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Lifecycle/graduation metadata stays in `roadmap.md`, never in `orientation.md`.
+4. If the Objective is orienting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the umbrella skill's format: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Lifecycle/graduation metadata stays in `roadmap.md`, never in `orientation.md`.
 5. Create no initial file under `updates/` and no `closed.md`.
 
 ## Stop / ask
@@ -77,7 +77,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 ## Verify
 
 - The directory contains `objective.md`, `roadmap.md`, and `updates/`, and `objective.md` contains `## Assumptions and Risks`.
-- If cross-cutting, `orientation.md` exists and follows the format; otherwise it is absent. It is optional, never required.
+- If orienting, `orientation.md` exists and follows the format; otherwise it is absent. It is optional, never required.
 - If execution-friendly, verify against `references/execution-friendly-create.md`; if planning-only, execution policy sections are absent unless explicitly requested.
 - If Record Frontmatter was written, it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and `ns objective check <slug>` passes; if not written, `objective.md` starts with `# <Title>` and no frontmatter fence.
 - No files outside the new Objective's directory changed, except counterpart `objective.md` frontmatter blocks touched by mirrored edge entries.

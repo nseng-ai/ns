@@ -162,7 +162,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 7. Re-judge the record's own Blocked Sentence and mutate edges (mirrored two-file edits) when evidence warrants; after any Record Frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
 8. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
 9. Apply the Closure Gate.
-10. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
+10. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become orienting (its direction now binds unrelated agents) and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
 11. Report per Verify.
 
 ## Stop / ask
@@ -179,5 +179,5 @@ For archived paths, ask whether to unarchive before updating Objective tracking.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
 - If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists; if not, confirm no `closed.md` was created by this invocation.
-- If `orientation.md` was re-derived or newly added, confirm it was done only because the Objective is cross-cutting and not closing, and that it follows the format; `orientation.md` remains optional.
+- If `orientation.md` was re-derived or newly added, confirm it was done only because the Objective is orienting and not closing, and that it follows the format; `orientation.md` remains optional.
 - Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; verification run or skipped.

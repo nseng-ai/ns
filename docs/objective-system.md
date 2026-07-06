@@ -29,7 +29,7 @@ Each objective is keyed by its directory slug. Active records use this shape:
 .ns/objectives/<slug>/
   objective.md
   roadmap.md
-  orientation.md   # optional; cross-cutting active Objectives only
+  orientation.md   # optional; orienting active Objectives only
   updates/
   closed.md        # optional; existence means closed
 ```
@@ -84,6 +84,8 @@ Additional narrative sections are allowed when they clarify the work, but avoid 
 
 For standing Objectives with no natural goal-met finish line, `## Completion Criteria` should describe retirement or closure criteria. Standing design rationale lives in [Standing Objectives & Objective Runners](pi/standing-objectives-and-runners.md); agent-facing guidance lives in `skills/objective/references/standing-objectives.md`.
 
+Objectives also take recognizable prose-only **patterns** — Umbrella (formerly Synthesis; ADR 0030), Child, Standing, Autoobjective, Orienting (formerly cross-cutting), and Ideation. Patterns compose, are never a machine category or frontmatter key, and are recognized by reading the record; product surfaces that need a pattern's properties verify at dispatch time and refuse when unsatisfied. The agent-facing catalog lives in `skills/objective/references/objective-patterns.md`; canonical terms live in the root `CONTEXT.md`.
+
 Optional execution-friendly `## Definition of Progress` and `## Runner Policy` sections may be added for Objectives that should let future `objective-next` runs proactively offer confirmed execution. Ordinary Objectives may omit these sections and remain recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
 
 Agent-facing progressive-disclosure details live in skill references: `skills/objective/references/execution-policy.md`, `skills/objective-create/references/execution-friendly-create.md`, and `skills/objective-next/references/confirmed-execution.md`.
@@ -127,7 +129,7 @@ Do not add task IDs, owners, priority fields, due dates, lifecycle metadata, or 
 
 ### `orientation.md`
 
-`orientation.md` is an optional agent-facing standing rule for cross-cutting active Objectives whose direction unrelated agents must respect. Presence of a direct `.ns/objectives/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.ns/objectives/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
+`orientation.md` is an optional agent-facing standing rule for orienting active Objectives whose direction unrelated agents must respect. Presence of a direct `.ns/objectives/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.ns/objectives/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
 
 ### `updates/`
 
