@@ -199,8 +199,9 @@ export async function runSubmitCommand(
 		shouldForce: options.force,
 	});
 	const commandParams = submitCommandParams(options);
-	emitPhase(options, { type: "phase-started", phaseKey: "preflight" });
-	options.submitMatrix?.setGlobal("preflight", { state: "active" });
+	emitSubmitPhase(options, { type: "phase-started", phaseKey: "preflight" }, (matrix) =>
+		matrix.setGlobal("preflight", { state: "active" }),
+	);
 	options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	options.submitMatrix?.setRunningCommands([]);
@@ -303,15 +304,16 @@ export async function runSubmitCommand(
 		options.submitMatrix?.setGlobal("restack", { state: "done", text: "restack complete" });
 	}
 
-	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
-	options.submitMatrix?.setRunningCommands([
-		"gt log --stack --reverse --no-interactive",
-		"gt trunk --no-interactive",
-		"gt branch info --no-interactive --branch <stack-branch>",
-		"git log --format=%B%x00 <parent>..<branch>",
-		"git diff <parent>..<branch>",
-		"gt modify --no-interactive",
-	]);
+	emitSubmitPhase(options, { type: "phase-started", phaseKey: "metadata" }, (matrix) =>
+		matrix.setRunningCommands([
+			"gt log --stack --reverse --no-interactive",
+			"gt trunk --no-interactive",
+			"gt branch info --no-interactive --branch <stack-branch>",
+			"git log --format=%B%x00 <parent>..<branch>",
+			"git diff <parent>..<branch>",
+			"gt modify --no-interactive",
+		]),
+	);
 	const prewrite = await prepareSubmitPrMetadata({
 		cwd: options.cwd,
 		env: options.prDescription.env,
@@ -335,12 +337,15 @@ export async function runSubmitCommand(
 		});
 	}
 
-	emitPhase(options, {
-		type: "phase-started",
-		phaseKey: "submit",
-		label: submitCommandDisplay,
-	});
-	options.submitMatrix?.setAllCells("submit", { state: "active", text: submitCommandDisplay });
+	emitSubmitPhase(
+		options,
+		{
+			type: "phase-started",
+			phaseKey: "submit",
+			label: submitCommandDisplay,
+		},
+		(matrix) => matrix.setAllCells("submit", { state: "active", text: submitCommandDisplay }),
+	);
 	options.submitMatrix?.setRunningCommands([submitCommandDisplay]);
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	options.submitMatrix?.setRunningCommands([]);
@@ -369,8 +374,9 @@ export async function runSubmitCommand(
 	}
 
 	options.submitMatrix?.setAllCells("submit", { state: "done", text: "stack submitted" });
-	emitPhase(options, { type: "phase-started", phaseKey: "verification" });
-	options.submitMatrix?.setAllCells("verify", { state: "active", text: "checking current PR" });
+	emitSubmitPhase(options, { type: "phase-started", phaseKey: "verification" }, (matrix) =>
+		matrix.setAllCells("verify", { state: "active", text: "checking current PR" }),
+	);
 	options.submitMatrix?.setRunningCommands([CURRENT_PR_COMMAND_DISPLAY]);
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
 	options.submitMatrix?.setRunningCommands([]);
@@ -418,14 +424,18 @@ export async function runSubmitCommand(
 			text: "current PR not detected",
 		});
 	}
-	emitPhase(options, {
-		type: "phase-started",
-		phaseKey: "descriptions",
-		label: formatDescriptionPhaseStart(prLinks.length),
-	});
-	options.submitMatrix?.setAllCells("description", {
-		state: prLinks.length === 0 ? "skipped" : "active",
-	});
+	emitSubmitPhase(
+		options,
+		{
+			type: "phase-started",
+			phaseKey: "descriptions",
+			label: formatDescriptionPhaseStart(prLinks.length),
+		},
+		(matrix) =>
+			matrix.setAllCells("description", {
+				state: prLinks.length === 0 ? "skipped" : "active",
+			}),
+	);
 	options.submitMatrix?.setRunningCommands(
 		prLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
 	);
@@ -604,6 +614,15 @@ function emitPhase(
 	event: NsProgressPhaseEvent,
 ): void {
 	options.onPhase?.(event);
+}
+
+function emitSubmitPhase(
+	options: Pick<RunSubmitCommandOptions, "onPhase" | "submitMatrix">,
+	event: NsProgressPhaseEvent,
+	updateMatrix: (matrix: SubmitMatrixProgressSink) => void,
+): void {
+	emitPhase(options, event);
+	if (options.submitMatrix !== undefined) updateMatrix(options.submitMatrix);
 }
 
 function shouldFailPostSubmitVerification(

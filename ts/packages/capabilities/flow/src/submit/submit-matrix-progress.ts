@@ -5,6 +5,7 @@ import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import {
 	createMatrixProgressController,
 	renderMatrixProgressFrame,
+	rowsWithKey,
 	updateForPhase,
 	type MatrixCellState,
 	type MatrixCellUpdate,
@@ -141,7 +142,7 @@ export function createSubmitMatrixProgressController(options: {
 		caps: options.caps,
 		deps: options.deps,
 		title: options.title,
-		rows: submitRowsForCore(options.rows),
+		rows: rowsWithKey(options.rows, (row) => row.branch),
 		columns: SUBMIT_MATRIX_COLUMNS,
 		globalRows: SUBMIT_MATRIX_GLOBAL_ROWS,
 		phases: SUBMIT_PHASES,
@@ -187,7 +188,7 @@ export function createSubmitMatrixProgressController(options: {
 
 	return {
 		begin: controller.begin,
-		setRows: (rows) => controller.setRows(submitRowsForCore(rows)),
+		setRows: (rows) => controller.setRows(rowsWithKey(rows, (row) => row.branch)),
 		setRunningCommands: controller.setRunningCommands,
 		setGlobal: controller.setGlobal,
 		setGlobalSubstep: controller.setGlobalSubstep,
@@ -241,14 +242,10 @@ export function renderSubmitMatrixProgressFrame(input: {
 		columns: SUBMIT_MATRIX_COLUMNS,
 		...(input.runningCommands === undefined ? {} : { runningCommands: input.runningCommands }),
 		globals: input.globals,
-		rows: input.rows.map((row) => ({ ...row, rowKey: row.branch })),
+		rows: rowsWithKey(input.rows, (row) => row.branch),
 		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
 		...(input.tick === undefined ? {} : { tick: input.tick }),
 	});
-}
-
-function submitRowsForCore(rows: readonly SubmitMatrixRowSpec[]) {
-	return rows.map((row) => ({ ...row, rowKey: row.branch }));
 }
 
 function isSubmitMatrixRowView(

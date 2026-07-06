@@ -1,7 +1,7 @@
 import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { PhaseState, StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
-import type { PhaseSpec } from "./phase-stream-specs.ts";
+import type { PhaseSpec, PhaseSubstepSpec } from "./phase-stream-specs.ts";
 
 export interface PhaseView {
 	item: StatusLineItem;
@@ -24,7 +24,7 @@ export interface PhaseStateStore {
 }
 
 interface PhaseRecord {
-	spec: PhaseSpec;
+	spec: PhaseSpec | PhaseSubstepSpec;
 	state: PhaseState;
 	label: string | undefined;
 	history: string[];
@@ -63,13 +63,13 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		return records.map(viewForRecord);
 	}
 
-	function createRecord(spec: PhaseSpec): PhaseRecord {
+	function createRecord(spec: PhaseSpec | PhaseSubstepSpec): PhaseRecord {
 		return {
 			spec,
 			state: "pending",
 			label: spec.item.label,
 			history: [],
-			substeps: spec.substeps?.map(createRecord) ?? [],
+			substeps: "substeps" in spec ? (spec.substeps?.map(createRecord) ?? []) : [],
 		};
 	}
 
@@ -106,28 +106,23 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		settleSubstepsDone(record);
 	}
 
-	function markEarlierTopDone(index: number): void {
+	function markEarlierDone(items: readonly PhaseRecord[], index: number): void {
 		for (let i = 0; i < index; i += 1) {
-			const record = records[i];
+			const record = items[i];
 			if (record !== undefined && (record.state === "pending" || record.state === "active")) {
 				setDone(record);
 			}
 		}
 	}
 
-	function markEarlierSiblingDone(parent: PhaseRecord, index: number): void {
-		for (let i = 0; i < index; i += 1) {
-			const substep = parent.substeps[i];
-			if (substep !== undefined && (substep.state === "pending" || substep.state === "active")) {
-				if (substep.state === "active") pushSupersededLabel(substep, substep.spec.item.detail);
-				substep.state = "done";
-			}
-		}
+	function activateParent(location: Extract<PhaseLocation, { type: "substep" }>): void {
+		markEarlierDone(records, location.parentIndex);
+		location.parent.state = "active";
 	}
 
 	function setActive(location: PhaseLocation): void {
 		if (location.type === "top") {
-			markEarlierTopDone(location.index);
+			markEarlierDone(records, location.index);
 			location.record.state = "active";
 		} else {
 			activateSubstep(location);
@@ -136,24 +131,19 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 	}
 
 	function activateSubstep(location: Extract<PhaseLocation, { type: "substep" }>): void {
-		markEarlierTopDone(location.parentIndex);
-		location.parent.state = "active";
-		markEarlierSiblingDone(location.parent, location.index);
+		activateParent(location);
+		markEarlierDone(location.parent.substeps, location.index);
 		location.record.state = "active";
 	}
 
 	function ensureProgressTargetActive(location: PhaseLocation): void {
-		if (location.type === "top") {
-			if (location.record.state === "pending") setActive(location);
-			return;
-		}
 		if (location.record.state === "pending") {
 			setActive(location);
 			return;
 		}
+		if (location.type === "top") return;
 		if (location.record.state === "active") {
-			markEarlierTopDone(location.parentIndex);
-			location.parent.state = "active";
+			activateParent(location);
 			activeLocation = location;
 		}
 	}

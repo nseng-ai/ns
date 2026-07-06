@@ -221,7 +221,7 @@ describe("forwarded progress", () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps } = harness();
 		const progress = recordingProgress();
-		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps, forward: progress.sink });
 		const phaseEvent = { type: "phase-started", phaseKey: "a" } satisfies NsProgressPhaseEvent;
 
 		stream.begin("title");
@@ -248,7 +248,7 @@ describe("forwarded progress", () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws, outputs } = harness();
 		const progress = recordingProgress();
-		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps, forward: progress.sink });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -270,7 +270,7 @@ describe("forwarded progress", () => {
 		const c = caps();
 		const { deps, redraws } = harness();
 		const progress = recordingProgress();
-		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps, forward: progress.sink });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -283,7 +283,7 @@ describe("forwarded progress", () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, outputs } = harness();
 		const progress = recordingProgress(false);
-		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps, forward: progress.sink });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -299,7 +299,7 @@ describe("non-tty settle path", () => {
 	test("routes one transient per started/progress to onOutput and emits one settled all-done frame", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, clock, writes, redraws, outputs } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -326,7 +326,7 @@ describe("non-tty settle path", () => {
 	test("a failed phase stops the settle; later phases stay pending and the cursor is never touched", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -347,7 +347,7 @@ describe("non-tty settle path", () => {
 	test("non-tty settled frame includes progress history while transient output stays unchanged", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, outputs, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -370,7 +370,7 @@ describe("non-tty settle path", () => {
 	test("non-tty settled frame uses the latest title", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -385,7 +385,7 @@ describe("inferred completion", () => {
 	test("starting a later phase infers done for every skipped earlier phase", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -403,7 +403,7 @@ describe("declared substeps", () => {
 	test("begin renders declared substeps as pending rows", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
 		stream.begin("ns flow submit");
 		const frame = redraws[redraws.length - 1] ?? "";
@@ -422,7 +422,7 @@ describe("declared substeps", () => {
 	test("substep lifecycle activates the parent and infers earlier sibling completion", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
 		stream.begin("ns flow submit");
 		stream.emit({ type: "phase-started", phaseKey: "inspect" });
@@ -442,7 +442,7 @@ describe("declared substeps", () => {
 	test("next top-level phase settles active and never-started substeps", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes } = harness();
-		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
 		stream.begin("ns flow submit");
 		stream.emit({ type: "phase-started", phaseKey: "inspect" });
@@ -462,7 +462,7 @@ describe("declared substeps", () => {
 	test("substep failure and failActive mark the substep and parent failed", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
 		stream.begin("ns flow submit");
 		stream.emit({ type: "phase-started", phaseKey: "generate" });
@@ -482,7 +482,7 @@ describe("declared substeps", () => {
 	test("substep label history renders below the substep", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
 		stream.begin("ns flow submit");
 		stream.emit({ type: "phase-started", phaseKey: "generate" });
@@ -503,7 +503,7 @@ describe("declared substeps", () => {
 	test("non-tty substep transitions surface transient lines and settle with substep rows", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, outputs } = harness();
-		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
 		stream.begin("ns flow submit");
 		stream.emit({ type: "phase-started", phaseKey: "inspect" });
@@ -616,7 +616,7 @@ describe("tty live region", () => {
 	test("dynamic title update repaints the live header", async () => {
 		const c = caps();
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -629,7 +629,7 @@ describe("tty live region", () => {
 	test("phase progress labels persist as chronological sub-rows when a phase settles", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -654,7 +654,7 @@ describe("tty live region", () => {
 	test("consecutive duplicate phase labels do not create duplicate sub-rows", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -672,7 +672,7 @@ describe("tty live region", () => {
 	test("failed phase keeps its prior progress trail and renders failure detail on the row", async () => {
 		const c = caps({ colorDepth: "none" });
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -692,7 +692,7 @@ describe("tty live region", () => {
 	test("pump advances the spinner, events repaint at once, and the cursor is hidden then restored", async () => {
 		const c = caps();
 		const { deps, clock, writes, redraws, dones } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		expect(writes).toContain(CURSOR_HIDE);
@@ -722,7 +722,7 @@ describe("tty live region", () => {
 	test("a raw transcript chunk rides inside the live region as a dimmed tail, never a direct write", async () => {
 		const c = caps();
 		const { deps, writes, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -750,7 +750,7 @@ describe("tty live region", () => {
 	test("a phase-done clears the transcript tail so it does not bleed into the next phase", async () => {
 		const c = caps();
 		const { deps, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
@@ -766,7 +766,7 @@ describe("tty live region", () => {
 	test("note is a no-op in a non-tty: the transcript routes to the context instead", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws, outputs } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.note("Pushing branch…\n");
@@ -780,7 +780,7 @@ describe("tty live region", () => {
 	test("fail marks the active phase and the final repaint shows it failed", async () => {
 		const c = caps();
 		const { deps, writes, redraws } = harness();
-		const stream = createPhaseStream(c, SPECS, deps);
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
