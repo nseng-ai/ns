@@ -323,7 +323,7 @@ describe("dispatch_runner_subagent extension", () => {
 		});
 	});
 
-		test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {
+	test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: SESSION_FILE,
 			sessionFileText: sessionUsageJsonl(),

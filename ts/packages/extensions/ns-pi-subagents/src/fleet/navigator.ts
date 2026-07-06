@@ -39,7 +39,10 @@ import {
 	sortedFleetTasks,
 	taskIcon,
 } from "./display.ts";
-import type { ExploreReadTextFileDependencies, ReadTextFile } from "../explore/read-text-dependencies.ts";
+import type {
+	ExploreReadTextFileDependencies,
+	ReadTextFile,
+} from "../explore/read-text-dependencies.ts";
 import type { CommandRegistrar } from "./transcript-viewer.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";

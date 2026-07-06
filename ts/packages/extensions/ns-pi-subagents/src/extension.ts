@@ -9,17 +9,13 @@ import {
 	type ExploreExtensionAPI,
 	type ExploreExtensionOptions,
 } from "./explore/extension.ts";
-import {
-	registerSubagentFleetCommand,
-	registerSubagentFleetShortcut,
-} from "./fleet/navigator.ts";
+import { registerSubagentFleetCommand, registerSubagentFleetShortcut } from "./fleet/navigator.ts";
 import { registerExploreTranscriptCommand } from "./fleet/transcript-viewer.ts";
 
 export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI & DispatchRunnerSubagentExtensionAPI;
 
-export interface NsPiSubagentsExtensionOptions
-	extends ExploreExtensionOptions,
-		DispatchRunnerSubagentExtensionOptions {}
+export type NsPiSubagentsExtensionOptions = ExploreExtensionOptions &
+	DispatchRunnerSubagentExtensionOptions;
 
 export default function nsPiSubagentsExtension(
 	pi: NsPiSubagentsExtensionAPI,

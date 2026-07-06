@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import packageExtension from "../src/extension.ts";
 import { EXPLORE_TOOL_NAME } from "../src/explore/contract.ts";
 import { makeExplorerAgentDefinition } from "../src/explore/testing.ts";
@@ -15,6 +16,10 @@ const manifestPath = join(packageRoot, "..", "package.json");
 
 class FakePi implements NsPiSubagentsExtensionAPI {
 	readonly tools = new Map<string, ToolDefinition>();
+
+	async exec(_command: string, _args: string[], _options?: ExecOptions): Promise<ExecResult> {
+		return { stdout: "", stderr: "", code: 0, killed: false };
+	}
 
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);

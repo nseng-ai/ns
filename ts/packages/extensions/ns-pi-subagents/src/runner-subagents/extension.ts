@@ -111,7 +111,9 @@ const FALLBACK_RUNNER_TOOL_METADATA = {
 	label: "Forked Pi subagent",
 	description: "dispatch_runner_subagent is unavailable: runner agent definition is misconfigured.",
 	promptSnippet: "dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed.",
-	promptGuidelines: ["dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed."],
+	promptGuidelines: [
+		"dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed.",
+	],
 };
 
 export default function dispatchRunnerSubagentExtension(
@@ -126,7 +128,10 @@ export function registerDispatchRunnerSubagentTool(
 	options: DispatchRunnerSubagentExtensionOptions = {},
 ): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
-	const registrationCheck = checkRunnerConfiguration(loadAgentDefinition, options.cwd ?? process.cwd());
+	const registrationCheck = checkRunnerConfiguration(
+		loadAgentDefinition,
+		options.cwd ?? process.cwd(),
+	);
 	const metadata = registrationCheck.ok
 		? registrationCheck.definition
 		: FALLBACK_RUNNER_TOOL_METADATA;
@@ -143,7 +148,11 @@ export function registerDispatchRunnerSubagentTool(
 			if (!registrationCheck.ok) {
 				return {
 					content: [{ type: "text", text: registrationCheck.diagnostic }],
-					details: { status: "error", title: input.title, diagnostic: registrationCheck.diagnostic },
+					details: {
+						status: "error",
+						title: input.title,
+						diagnostic: registrationCheck.diagnostic,
+					},
 				};
 			}
 

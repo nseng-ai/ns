@@ -673,7 +673,9 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "internal pi tool to internal pi tool is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/ns-pi-subagents/runner-subagents" }],
+			edges: [
+				{ from: "@internal/pi-tools/grill", to: "@nseng-ai/ns-pi-subagents/runner-subagents" },
+			],
 			expectedViolation: false,
 		},
 		{

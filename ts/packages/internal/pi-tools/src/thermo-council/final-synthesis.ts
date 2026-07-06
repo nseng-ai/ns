@@ -3,7 +3,10 @@ import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 } from "@nseng-ai/ns-pi-subagents/runner-subagents";
-import { dispatchRunnerSubagent, resultDiagnostic } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import {
+	dispatchRunnerSubagent,
+	resultDiagnostic,
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
 	SAFETY_NOTE,
 	type ThermoCouncilReviewerOutcome,

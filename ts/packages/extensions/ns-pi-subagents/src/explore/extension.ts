@@ -34,10 +34,7 @@ import { SUBAGENT_FLEET_ENTRY_HINT, syncSubagentFleetDisplay } from "../fleet/di
 import type { RegisterShortcutFunction } from "../fleet/navigator.ts";
 import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
-import type {
-	CommandRegistrar,
-	TranscriptViewerDependencies,
-} from "../fleet/transcript-viewer.ts";
+import type { CommandRegistrar, TranscriptViewerDependencies } from "../fleet/transcript-viewer.ts";
 import {
 	abortReasonDiagnostic,
 	cancelledResult,
