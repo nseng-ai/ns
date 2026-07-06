@@ -10,12 +10,17 @@ import {
 	type DispatchPromptPayloadOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
 
+export interface CccSlotDispatchFromTrunkOptions extends DispatchPromptPayloadOptions {
+	metadataDbAccess?: GraphiteMetadataDbAccess;
+}
+
 export function registerCccSlotDispatchFromTrunkCommand(
 	pi: ExtensionAPI,
-	options: DispatchPromptPayloadOptions = {},
+	options: CccSlotDispatchFromTrunkOptions = {},
 ): void {
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
 	registerCommandWithImmediateAck({
@@ -33,6 +38,7 @@ export function registerCccSlotDispatchFromTrunkCommand(
 					args,
 					ctx,
 					...optionalEntry("slotClient", options.slotClient),
+					...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 					notifyProgress,
 				});
 			},

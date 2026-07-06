@@ -63,6 +63,15 @@ describe("statusLine grammar (color)", () => {
 			`  ${dim(glyph(c, "bullet"))} ${dim(name)} ${dim("pending")}`,
 		);
 	});
+
+	test("compact settled text omits skipped detail and pending literal", () => {
+		expect(statusLine({ caps: c, item: item, state: "skipped", showSettledText: false })).toBe(
+			`  ${paint(c, "muted", glyph(c, "skip"))} ${dim(name)}`,
+		);
+		expect(statusLine({ caps: c, item: item, state: "pending", showSettledText: false })).toBe(
+			`  ${dim(glyph(c, "bullet"))} ${dim(name)}`,
+		);
+	});
 });
 
 describe("statusLine label fallback", () => {

@@ -83,6 +83,39 @@ describe("land matrix progress", () => {
 		expect(output).toContain("Restack");
 		expect(output).toContain("feature/a (#123)");
 	});
+
+	test("renders inactive global rows without redundant detail text", () => {
+		const output = stripAnsi(
+			renderLandMatrixProgressFrame({
+				caps: caps(),
+				title: "ns flow land",
+				globals: [
+					{
+						key: "prepare",
+						label: "Prepare",
+						detail: "not required",
+						activeLabel: "preparing stack for merge…",
+						state: "skipped",
+						substeps: [
+							{
+								key: "slots",
+								label: "Slots",
+								detail: "managed slots free",
+								activeLabel: "freeing managed slots…",
+								state: "pending",
+							},
+						],
+					},
+				],
+				rows: [],
+			}).join("\n"),
+		);
+
+		expect(output).toContain("Prepare");
+		expect(output).toContain("Slots");
+		expect(output).not.toContain("not required");
+		expect(output).not.toContain("pending");
+	});
 });
 
 function landRowView(row: LandMatrixRowSpec) {

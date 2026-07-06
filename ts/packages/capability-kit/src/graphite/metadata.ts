@@ -185,6 +185,24 @@ export type GraphiteTopologyParseResult =
 	  }
 	| { readonly type: "not_array" };
 
+export type GraphiteTrunkBranchResolution =
+	| { readonly type: "trunk"; readonly branch: string }
+	| { readonly type: "none" }
+	| { readonly type: "ambiguous"; readonly branches: readonly string[] };
+
+export function resolveGraphiteTrunkBranchFromTopology(
+	topology: GraphiteTopology,
+): GraphiteTrunkBranchResolution {
+	const trunks = [...topology.values()]
+		.filter((row) => row.isTrunkMarked)
+		.map((row) => row.branch)
+		.sort();
+	if (trunks.length === 0) return { type: "none" };
+	const branch = trunks[0];
+	if (trunks.length === 1 && branch !== undefined) return { type: "trunk", branch };
+	return { type: "ambiguous", branches: trunks };
+}
+
 export function hasExpectedGraphiteBranchMetadataSchema(value: unknown): boolean {
 	if (!Array.isArray(value)) return false;
 	const names = new Set<string>();
