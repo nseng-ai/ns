@@ -1,6 +1,8 @@
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
 import { runGitHubCliAsExecResult } from "@nseng-ai/capability-kit/github/cli";
+import { parseJsonUnknown } from "@nseng-ai/capability-kit/github/graphql-json";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -8,8 +10,6 @@ import {
 	createSlotDiagnosticSinkFromEnv,
 	type SlotDiagnosticSink,
 } from "../diagnostics.ts";
-import { parseJsonObject } from "../json.ts";
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
@@ -99,11 +99,15 @@ export class RealSlotPrGateway implements SlotPrGateway {
 				failure: failureFromExec(result.stdout, result.stderr, result.code),
 			};
 		}
-		const parsedJson = parseJsonObject(result.stdout);
-		if (parsedJson.type === "failure")
+		const parsedJson = parseJsonUnknown(result.stdout);
+		if (parsedJson.type === "error")
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, parsedJson.message, result.code),
+				failure: failureFromExec(
+					result.stdout,
+					jsonParseErrorMessage(parsedJson.error),
+					result.code,
+				),
 			};
 		const parsed = prSummarySchema.safeParse(parsedJson.value);
 		if (!parsed.success)
@@ -130,11 +134,15 @@ export class RealSlotPrGateway implements SlotPrGateway {
 				type: "failure",
 				failure: failureFromExec(result.stdout, result.stderr, result.code),
 			};
-		const parsedJson = parseJsonObject(result.stdout);
-		if (parsedJson.type === "failure")
+		const parsedJson = parseJsonUnknown(result.stdout);
+		if (parsedJson.type === "error")
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, parsedJson.message, result.code),
+				failure: failureFromExec(
+					result.stdout,
+					jsonParseErrorMessage(parsedJson.error),
+					result.code,
+				),
 			};
 		const parsed = graphQlBatchSchema.safeParse(parsedJson.value);
 		if (!parsed.success)
@@ -202,11 +210,15 @@ export class RealSlotPrGateway implements SlotPrGateway {
 				type: "failure",
 				failure: failureFromExec(result.stdout, result.stderr, result.code),
 			};
-		const parsedJson = parseJsonObject(result.stdout);
-		if (parsedJson.type === "failure")
+		const parsedJson = parseJsonUnknown(result.stdout);
+		if (parsedJson.type === "error")
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, parsedJson.message, result.code),
+				failure: failureFromExec(
+					result.stdout,
+					jsonParseErrorMessage(parsedJson.error),
+					result.code,
+				),
 			};
 		const parsed = ghRepoViewSchema.safeParse(parsedJson.value);
 		if (!parsed.success)
@@ -306,6 +318,10 @@ export function prFailureMessage(failure: PrGatewayFailure, fallbackPrefix = "gh
 		failure.stdout.trim() ||
 		`${fallbackPrefix} ${failure.returnCode ?? "unknown"}`
 	);
+}
+
+function jsonParseErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function failureFromExec(
