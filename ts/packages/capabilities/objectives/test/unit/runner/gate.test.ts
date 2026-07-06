@@ -66,10 +66,10 @@ describe("verifyRunnerStep", () => {
 			["stage-candidate", "passed"],
 			["diff-check", "passed"],
 		]);
-		expect(ctx.execCalls).toEqual([
-			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
-			{ command: "git", args: ["diff", "--cached", "--check"] },
-		]);
+		expect(ctx.execCalls).toEqual([]);
+		expect(ctx.git.hasStagedChangesCalls).toEqual([{ cwd: "/repo" }]);
+		expect(ctx.git.checkStagedWhitespaceCalls).toEqual([{ cwd: "/repo" }]);
+		expect(ctx.git.unstageAllCalls).toEqual([]);
 		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 		expect(ctx.graphite.checkBranchTrackedCalls).toEqual([
 			{ cwd: "/repo", branch: "feature/demo-step" },
@@ -207,7 +207,7 @@ describe("verifyRunnerStep", () => {
 	});
 
 	test("fails index-clean and does not stage when the child pre-staged changes", async () => {
-		const ctx = gateContext({ execResults: [{ code: 1 }] });
+		const ctx = gateContext({ git: { stagedChanges: true } });
 
 		const outcome = await verifyRunnerStep(ctx, {
 			mode: "default",
@@ -221,6 +221,7 @@ describe("verifyRunnerStep", () => {
 		expect(byId.get("index-clean")?.status).toBe("failed");
 		expect(byId.get("stage-candidate")?.status).toBe("skipped");
 		expect(byId.get("diff-check")?.status).toBe("skipped");
+		expect(ctx.git.hasStagedChangesCalls).toEqual([{ cwd: "/repo" }]);
 		expect(ctx.git.stagePathsCalls).toEqual([]);
 	});
 
@@ -239,9 +240,9 @@ describe("verifyRunnerStep", () => {
 		expect(byId.get("stage-candidate")?.status).toBe("skipped");
 		expect(byId.get("diff-check")?.status).toBe("skipped");
 		expect(ctx.git.stagePathsCalls).toEqual([]);
-		expect(ctx.execCalls).toEqual([
-			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
-		]);
+		expect(ctx.execCalls).toEqual([]);
+		expect(ctx.git.hasStagedChangesCalls).toEqual([{ cwd: "/repo" }]);
+		expect(ctx.git.checkStagedWhitespaceCalls).toEqual([]);
 	});
 
 	test("fails stage-candidate and skips cached diff when staging fails", async () => {
@@ -266,14 +267,19 @@ describe("verifyRunnerStep", () => {
 		expect(byId.get("stage-candidate")?.status).toBe("failed");
 		expect(byId.get("stage-candidate")?.detail).toContain("index locked");
 		expect(byId.get("diff-check")?.status).toBe("skipped");
-		expect(ctx.execCalls).toEqual([
-			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
-		]);
+		expect(ctx.execCalls).toEqual([]);
+		expect(ctx.git.hasStagedChangesCalls).toEqual([{ cwd: "/repo" }]);
+		expect(ctx.git.checkStagedWhitespaceCalls).toEqual([]);
 	});
 
-	test("fails diff-check when git diff --cached --check exits nonzero", async () => {
+	test("fails diff-check when the staged whitespace check fails", async () => {
 		const ctx = gateContext({
-			execResults: [{}, { code: 2, stderr: "trailing whitespace" }],
+			git: {
+				checkStagedWhitespaceFailure: {
+					code: "git_staged_whitespace_failed",
+					message: "git diff --cached --check failed: trailing whitespace",
+				},
+			},
 		});
 
 		const outcome = await verifyRunnerStep(ctx, {
@@ -289,21 +295,24 @@ describe("verifyRunnerStep", () => {
 		const check = byId.get("diff-check");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("trailing whitespace");
-		expect(ctx.execCalls).toEqual([
-			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
-			{ command: "git", args: ["diff", "--cached", "--check"] },
-			{ command: "git", args: ["reset", "--"] },
-		]);
+		expect(ctx.execCalls).toEqual([]);
+		expect(ctx.git.checkStagedWhitespaceCalls).toEqual([{ cwd: "/repo" }]);
+		expect(ctx.git.unstageAllCalls).toEqual([{ cwd: "/repo" }]);
 		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 	});
 
 	test("reports unstage failure without masking the cached diff-check failure", async () => {
 		const ctx = gateContext({
-			execResults: [
-				{},
-				{ code: 2, stderr: "trailing whitespace" },
-				{ code: 128, stderr: "index locked" },
-			],
+			git: {
+				checkStagedWhitespaceFailure: {
+					code: "git_staged_whitespace_failed",
+					message: "git diff --cached --check failed: trailing whitespace",
+				},
+				unstageAllFailure: {
+					code: "git_unstage_failed",
+					message: "index locked",
+				},
+			},
 		});
 
 		const outcome = await verifyRunnerStep(ctx, {
@@ -321,11 +330,9 @@ describe("verifyRunnerStep", () => {
 		expect(check?.detail).toContain("trailing whitespace");
 		expect(check?.detail).toContain("Best-effort unstage failed");
 		expect(check?.detail).toContain("index locked");
-		expect(ctx.execCalls).toEqual([
-			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
-			{ command: "git", args: ["diff", "--cached", "--check"] },
-			{ command: "git", args: ["reset", "--"] },
-		]);
+		expect(ctx.execCalls).toEqual([]);
+		expect(ctx.git.checkStagedWhitespaceCalls).toEqual([{ cwd: "/repo" }]);
+		expect(ctx.git.unstageAllCalls).toEqual([{ cwd: "/repo" }]);
 		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 	});
 

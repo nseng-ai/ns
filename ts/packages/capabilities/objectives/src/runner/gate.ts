@@ -1,5 +1,4 @@
 import type { GitCurrentBranchResult } from "@nseng-ai/capability-kit/git";
-import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
 import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
@@ -198,11 +197,15 @@ async function graphiteTrackedCheck(
 }
 
 async function indexCleanCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateCheckResult> {
-	const result = await ctx.commands.exec("git", ["diff", "--cached", "--quiet", "--exit-code"], {
-		cwd: ctx.repoRoot,
-	});
-	if (commandSucceeded(result)) return { id: "index-clean", status: "passed" };
-	if (result.code === 1 && !result.killed) {
+	const staged = await ctx.git.hasStagedChanges({ cwd: ctx.repoRoot });
+	if (!staged.ok) {
+		return {
+			id: "index-clean",
+			status: "failed",
+			detail: `Could not probe staged changes: ${staged.error.message}`,
+		};
+	}
+	if (staged.value) {
 		return {
 			id: "index-clean",
 			status: "failed",
@@ -210,11 +213,7 @@ async function indexCleanCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateChe
 				"Index already has staged changes; unstage them before runner-finish because the runner owns staging.",
 		};
 	}
-	return {
-		id: "index-clean",
-		status: "failed",
-		detail: `git diff --cached --quiet --exit-code failed: ${formatCommandDetails(result)}`,
-	};
+	return { id: "index-clean", status: "passed" };
 }
 
 function candidateCheckPair(
@@ -248,21 +247,19 @@ async function stageCandidateAndDiffCheck(
 			},
 		);
 	}
-	const result = await ctx.commands.exec("git", ["diff", "--cached", "--check"], {
-		cwd: ctx.repoRoot,
-	});
-	if (commandSucceeded(result)) {
+	const whitespace = await ctx.git.checkStagedWhitespace({ cwd: ctx.repoRoot });
+	if (whitespace.ok) {
 		return candidateCheckPair({ status: "passed" }, { status: "passed" });
 	}
-	const diffCheckDetail = `git diff --cached --check failed: ${formatCommandDetails(result)}`;
-	const reset = await ctx.commands.exec("git", ["reset", "--"], { cwd: ctx.repoRoot });
+	const diffCheckDetail = whitespace.error.message;
+	const unstaged = await ctx.git.unstageAll({ cwd: ctx.repoRoot });
 	return candidateCheckPair(
 		{ status: "passed" },
 		{
 			status: "failed",
-			detail: commandSucceeded(reset)
+			detail: unstaged.ok
 				? diffCheckDetail
-				: `${diffCheckDetail}\nBest-effort unstage failed: ${formatCommandDetails(reset)}`,
+				: `${diffCheckDetail}\nBest-effort unstage failed: ${unstaged.error.message}`,
 		},
 	);
 }
