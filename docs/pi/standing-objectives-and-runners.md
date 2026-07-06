@@ -29,7 +29,7 @@ The Objective/Runner split is load-bearing:
 - The **Objective** is the durable narrative spec: goal, boundaries, assumptions, progress rubric, and reusable learnings.
 - The **Runner** is the harness that advances the Objective: it chooses moves, manages branches when requested, validates, keeps or rejects work, and stops.
 
-Today's system mostly lives in the bounded/human quadrant, with `objective-stack-impl` occupying a bounded/autonomous-ish specialized stack runner role. General Objective advancement now enters through `objective-next`, which can recommend, steer, offer confirmed execution when durable policy permits it, or execute a concrete current-session recommendation when the user gives a clear affirmative confirmation.
+Today's system mostly lives in the bounded/human quadrant, with `objective-autorun` (which absorbed the retired `objective-stack-impl`) occupying a bounded/autonomous-ish specialized stack runner role. General Objective advancement now enters through `objective-next`, which can recommend, steer, offer confirmed execution when durable policy permits it, or execute a concrete current-session recommendation when the user gives a clear affirmative confirmation.
 
 |                       | **Bounded**                                             | **Standing**                                            |
 | --------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
@@ -239,9 +239,9 @@ Default PR wording is: `PR submission is out of scope for this launch.`
 
 There is no fixed default pass count. The runner proposes a bounded scope in the preview, and the human confirms it. For an immediate follow-up to a concrete `objective-next` recommendation, any clear affirmative confirmation can be enough when the recommendation already named one coherent step, likely scope, and completion evidence; otherwise `objective-next` restates a preview and asks.
 
-### Relationship to `objective-stack-impl`
+### Relationship to `objective-autorun`
 
-Keep `objective-stack-impl` as the specialized planned-stack runner. It remains useful when the user explicitly wants one Objective implemented as a small Graphite stack. General recommend/steer/confirmed-execution behavior belongs to `objective-next`.
+`objective-stack-impl`, the pre-runner specialized planned-stack skill, was retired into `objective-autorun` (2026-07-05): each committed runner step stacks on the last, so autorun is the path for implementing one Objective as a small Graphite stack, now with a launch preview and an end-of-run digest graduated from the retired skill. General recommend/steer/confirmed-execution behavior belongs to `objective-next`.
 
 ---
 
@@ -304,7 +304,7 @@ These remain intentionally deferred until real use clarifies them:
 
 - exact execution-preview format;
 - branch naming and candidate-branch cleanup mechanics when branch or commit work is confirmed;
-- how much `objective-next` and `objective-stack-impl` should share implementation guidance;
+- how much `objective-next` and `objective-autorun` should share implementation guidance;
 - whether stable runner behavior should eventually move from skill prose into deterministic CLI fact helpers;
 - whether `## Runner Policy` should gain more standard example bullets after real use.
 

@@ -444,7 +444,7 @@ Contract:
 
 ### `ns objective exec runner-subagent-usage`
 
-Summarizes Pi runner-subagent JSONL session files for Objective stack digest workflows.
+Summarizes Pi runner-subagent JSONL session files for Objective run digest workflows.
 
 Contract:
 
@@ -487,7 +487,7 @@ Good CLI responsibilities:
 - Detect closed markers. *(shipped for active-root records: `ns objective list`, `ns objective exec read-objective`, and `ns objective exec load-orientations` use direct `closed.md` presence.)*
 - Load active Objective orientation files for agent onboarding. *(shipped: `ns objective exec load-orientations`.)*
 - Move Objective records between active and archived roots without editing prose. *(shipped: `ns objective archive`.)*
-- Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `ns objective exec runner-subagent-usage`.)*
+- Summarize runner-subagent session usage for Objective run digestion. *(shipped: `ns objective exec runner-subagent-usage`.)*
 - Scaffold required files and headings. *(future.)*
 - Detect missing required files, headings, and Record Frontmatter structure. *(shipped: `ns objective check`.)*
 - Generate timestamped update filenames. *(future.)*

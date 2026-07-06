@@ -112,7 +112,7 @@ describe("areg check Pi replacement helpers", () => {
 		expect(commandBackedSkillSurface("branch-context-impl")).toBe(
 			"ns:branch-context:impl-attached-plan",
 		);
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ns:objective:stack-impl");
+		expect(commandBackedSkillSurface("objective-autorun")).toBe("ns:objective:autorun");
 		expect(commandBackedSkillSurface("custom-command")).toBeUndefined();
 		expect(commandBackedSkillSurface("nocommand")).toBeUndefined();
 	});

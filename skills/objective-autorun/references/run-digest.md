@@ -1,17 +1,18 @@
-# objective-stack-impl — telemetry and final response
+# objective-autorun — run digest and telemetry
 
-Reached from `SKILL.md` when you hit a stop condition and are about to write the final
-response. Holds the runner-subagent digest-telemetry procedure and the exact
-`## Stack implementation digest` structure the final response must emit.
+Reached from `SKILL.md` when the run stops and you are about to write the run report.
+Holds the runner-subagent digest-telemetry procedure and the exact `## Autorun digest`
+structure the final response must emit.
 
-## Stack implementation digest telemetry
+## Runner subagent usage telemetry
 
-Before the final response, use the current-session slice result list to collect all non-empty subagent session file paths.
+Before the final response, collect the non-empty subagent session file paths the harness
+returned for this run's dispatches, when available.
 
 If no subagent session files are available:
 
 - do not run `ns objective exec runner-subagent-usage`;
-- state: `Runner subagent usage telemetry unavailable: no subagent sessionFile paths were returned.`
+- state: `Runner subagent usage telemetry unavailable: no subagent session file paths were returned.`
 
 If one or more subagent session files are available, run:
 
@@ -29,49 +30,48 @@ Use telemetry only for factual usage accounting: per-subagent and aggregate toke
 
 ## Final response requirements
 
-When you stop, produce a final response with a section titled exactly:
+When the run stops, produce a final response with a section titled exactly:
 
 ```md
-## Stack implementation digest
+## Autorun digest
 ```
 
 Use this structure, adapting details honestly to the run:
 
 ```md
-## Stack implementation digest
+## Autorun digest
 
 ### Objective
 
 - slug: `<objective-slug>`
 - state: open/closed/unknown
 
-### Slices attempted
+### Steps run
 
-| slice     | branch     | subagent status | session file            | validation | commit           |
-| --------- | ---------- | --------------- | ----------------------- | ---------- | ---------------- |
-| `<slice>` | `<branch>` | `<status>`      | `<path-or-unavailable>` | `<result>` | `<hash-or-none>` |
+| step | branch     | checkpoint status | report path             | commit           |
+| ---- | ---------- | ----------------- | ----------------------- | ---------------- |
+| 1    | `<branch>` | `<status>`        | `<path-or-unavailable>` | `<hash-or-none>` |
+
+Include every attempt, including `--recover` attempts, with its checkpoint status
+(`committed`, `stop`, `blocked`, `verification-failed`, `malfunction`).
 
 ### What changed
 
-- Parent-authored summary of meaningful code, prompt, test, or docs changes.
+- Parent-authored summary of meaningful code, prompt, test, or docs changes across the run.
 - Mention files changed only when they help the reader inspect the run.
-
-### Validation
-
-- `<command>` — passed/failed/skipped, with short interpretation.
 
 ### Runner subagent usage
 
 - Include `ns objective exec runner-subagent-usage --format md ...` output, a compact transcription, or the explicit unavailable reason.
-- Keep telemetry separate from validation evidence.
+- Keep telemetry separate from the checkpoints' verified facts.
 
 ### Objective tracking
 
-- Objective updates recorded: yes/no, with file names if known.
+- Semantic Updates recorded: yes/no, with file names if known.
 - Updates still needed: yes/no, with reason.
 
 ### Recommended next action
 
-- Inspect diff / continue next slice / run objective-update / close Objective / ask for product decision.
-- State that PR submission was intentionally left undone unless the user requested it.
+- Continue with another run / inspect the branch stack / run objective-update / close Objective / ask for product decision.
+- State that HEAD is on the last step's branch and that push/submit/PR actions were intentionally not performed.
 ```

@@ -1,7 +1,7 @@
 ---
 name: objective-autorun
 disable-model-invocation: true
-description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"drive the objective forward\", \"execute the autoobjective\", or \"run N runner steps\". For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
+description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"drive the objective forward\", \"execute the autoobjective\", \"run N runner steps\", or \"implement this Objective as a stack\" (each committed step stacks on the last), including when the Pi /ns:objective:autorun picker injects an explicit slug. For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
 ---
 
 # objective-autorun
@@ -16,8 +16,9 @@ This is parent-judgment iteration per ADR 0022/0024, not batch mode. The runner 
 
 1. **Select the Objective** by explicit slug/path per the umbrella skill's selection rules. Read its `objective.md`, `roadmap.md`, `orientation.md` (if present), and any `## Runner Policy` / `## Definition of Progress` sections (see the `objective` skill's `references/execution-policy.md`). Stop/ask boundaries live in that prose — consume them; do not invent your own.
 2. **Capture the launch scope** from the user: which roadmap slice(s) to pursue, an optional step budget ("run 3 steps" is a hard cap on begin→finish cycles, never a quota to fill), and any standing guidance to carry into every step.
-3. **Check preconditions**: Objective open, worktree clean, HEAD on the named branch the first step should build on. `runner-begin` enforces these too (LBYL), but a refusal you could have predicted is a wasted invocation.
-4. **Pick a step-artifact home**: the harness scratchpad (outside the repo worktree), with numbered per-step pairs — `step-<n>-facts.json` and `step-<n>-report.json`. Every attempt, including every `--recover` attempt, gets a fresh report path; begin refuses a used one.
+3. **Preview and confirm.** Before the first begin, present a compact launch preview — the selected slug, the roadmap slice(s) in scope with one-line theses, the step budget if any, expected validation posture, exact stop conditions, and a reminder that push/submit/PR actions will not happen — and wait for an explicit affirmative (`yes`, `proceed`, or a clear equivalent). If the user asks for changes, revise and re-present; if the scope changes materially mid-run, stop and re-preview. Draw slice boundaries by human-legible decision count and thesis clarity, never by diff size.
+4. **Check preconditions**: Objective open, worktree clean, HEAD on the named branch the first step should build on. `runner-begin` enforces these too (LBYL), but a refusal you could have predicted is a wasted invocation.
+5. **Pick a step-artifact home**: the harness scratchpad (outside the repo worktree), with numbered per-step pairs — `step-<n>-facts.json` and `step-<n>-report.json`. Every attempt, including every `--recover` attempt, gets a fresh report path; begin refuses a used one.
 
 ## The loop
 
@@ -55,7 +56,7 @@ When stopping for judgment reasons, report to the human rather than grinding: a 
 
 ## End of run
 
-Finish with a run report: steps run and their statuses, the local branch stack and commits produced, Semantic Updates written, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch. Do not perform forbidden external actions or launch a separate handoff unless the human separately asks after the runner run report.
+When the run stops, read `references/run-digest.md` first, then finish with the `## Autorun digest` run report it specifies: steps run with checkpoint statuses, the local branch stack and commits produced, Semantic Updates written, runner-subagent usage telemetry, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch. Do not perform forbidden external actions or launch a separate handoff unless the human separately asks after the run report.
 
 ## Hard boundaries
 

@@ -28,20 +28,20 @@ const OBJECTIVE_COMMAND_NAMES = [
 	"ns:objective:next",
 	"ns:objective:update",
 	"ns:objective:close",
-	"ns:objective:stack-impl",
+	"ns:objective:autorun",
 ] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
 type ObjectiveSkillName =
 	| "objective-next"
 	| "objective-update"
 	| "objective-close"
-	| "objective-stack-impl";
+	| "objective-autorun";
 
 const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
 	"ns:objective:next": "objective-next",
 	"ns:objective:update": "objective-update",
 	"ns:objective:close": "objective-close",
-	"ns:objective:stack-impl": "objective-stack-impl",
+	"ns:objective:autorun": "objective-autorun",
 };
 
 const LEGACY_OBJECTIVE_LIST_COMMAND_NAME = ["objective", ":", "list"].join("");
@@ -51,8 +51,8 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"ns:objective:update":
 		"Run objective-update for this explicitly selected Objective slug or path:",
 	"ns:objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
-	"ns:objective:stack-impl":
-		"Run objective-stack-impl for this explicitly selected Objective slug or path:",
+	"ns:objective:autorun":
+		"Run objective-autorun for this explicitly selected Objective slug or path:",
 };
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
@@ -258,22 +258,22 @@ function createContext(
 	return { ctx, notifications, selections, waitForIdleCalls: () => waits };
 }
 
-const STACK_SKILL_MARKDOWN = `---
-name: objective-stack-impl
+const AUTORUN_SKILL_MARKDOWN = `---
+name: objective-autorun
 hidden-frontmatter-token: do-not-include
 ---
 
-# Test Objective Stack Skill
+# Test Objective Autorun Skill
 
 Use the selected Objective.
 `;
 
-function withStackImplSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Promise<T> {
+function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Promise<T> {
 	return withTempRepoSkill(
 		{
-			skillName: "objective-stack-impl",
-			markdown: STACK_SKILL_MARKDOWN,
-			prefix: "objective-stack-impl-",
+			skillName: "objective-autorun",
+			markdown: AUTORUN_SKILL_MARKDOWN,
+			prefix: "objective-autorun-",
 		},
 		callback,
 	);
@@ -303,7 +303,7 @@ interface RunObjectiveListOptions {
 	objectiveClient?: ObjectiveClient;
 }
 
-async function runObjectiveStackImpl(
+async function runObjectiveAutorun(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
@@ -316,10 +316,10 @@ async function runObjectiveStackImpl(
 }> {
 	const pi = new FakePi(script, commandInfos);
 	objectiveExtension(pi);
-	const command = pi.commands.get("ns:objective:stack-impl");
+	const command = pi.commands.get("ns:objective:autorun");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("ns:objective:stack-impl was not registered");
+		throw new Error("ns:objective:autorun was not registered");
 	}
 
 	const context = createContext(contextOptions);
@@ -607,19 +607,19 @@ test("does not register removed Objective commands", () => {
 	expect(pi.commands.has("objective:current")).toBe(false);
 });
 
-describe("ns:objective:stack-impl command", () => {
+describe("ns:objective:autorun command", () => {
 	test("registers the skill-backed wrapper command", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
 
-		expect(pi.commands.has("ns:objective:stack-impl")).toBe(true);
+		expect(pi.commands.has("ns:objective:autorun")).toBe(true);
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
-		await withStackImplSkill(async ({ skillPath, skillDir }) => {
-			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
-				skillCommandInfo("objective-stack-impl", skillPath, skillDir),
+		await withAutorunSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveAutorun("  bravo  ", [], {}, [
+				skillCommandInfo("objective-autorun", skillPath, skillDir),
 			]);
 
 			result.pi.assertDone();
@@ -628,46 +628,46 @@ describe("ns:objective:stack-impl command", () => {
 			expect(result.waitForIdleCalls()).toBe(1);
 			expect(result.pi.sentUserMessages).toHaveLength(1);
 			expect(result.pi.sentUserMessages[0]).toContain(
-				`<skill name="objective-stack-impl" location="${skillPath}">`,
+				`<skill name="objective-autorun" location="${skillPath}">`,
 			);
 			expect(result.pi.sentUserMessages[0]).toContain(
-				"# Test Objective Stack Skill\n\nUse the selected Objective.",
+				"# Test Objective Autorun Skill\n\nUse the selected Objective.",
 			);
 			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
 			expect(result.pi.sentUserMessages[0]).toContain(
-				"Run objective-stack-impl for this explicitly selected Objective slug or path:",
+				"Run objective-autorun for this explicitly selected Objective slug or path:",
 			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:stack-impl")).toBe(false);
+			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:autorun")).toBe(false);
 			expect(result.notifications).toContainEqual({
-				message: "Invoking objective-stack-impl for bravo.",
+				message: "Invoking objective-autorun for bravo.",
 				level: "info",
 			});
 		});
 	});
 
 	test("explicit slug falls back when the portable skill is unavailable", async () => {
-		const result = await runObjectiveStackImpl("bravo");
+		const result = await runObjectiveAutorun("bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls).toEqual([]);
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"The objective-stack-impl skill was not found among loaded Pi skills.",
+			"The objective-autorun skill was not found among loaded Pi skills.",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 		expect(result.notifications).toContainEqual({
-			message: "objective-stack-impl skill was not found; using fallback prompt.",
+			message: "objective-autorun skill was not found; using fallback prompt.",
 			level: "warning",
 		});
 	});
 
 	test("empty args load active candidates with objective list json and git evidence", async () => {
-		await withStackImplSkill(async ({ skillPath, skillDir }) => {
-			const result = await runObjectiveStackImpl(
+		await withAutorunSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveAutorun(
 				"",
 				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
 				{},
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -688,8 +688,8 @@ describe("ns:objective:stack-impl command", () => {
 	});
 
 	test("changed Objective grouping matches objective-next", async () => {
-		await withStackImplSkill(async ({ skillPath, skillDir }) => {
-			const result = await runObjectiveStackImpl(
+		await withAutorunSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveAutorun(
 				"",
 				[
 					listStep(["alpha", "bravo", "charlie"]),
@@ -697,13 +697,12 @@ describe("ns:objective:stack-impl command", () => {
 					statusStep(""),
 				],
 				{},
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
 			expect(result.selections[0]).toEqual({
-				title:
-					"Select an active Objective for stack implementation (only Objective changed vs master)",
+				title: "Select an active Objective to autorun (only Objective changed vs master)",
 				items: [
 					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 					"View other active Objectives…",
@@ -714,8 +713,8 @@ describe("ns:objective:stack-impl command", () => {
 	});
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
-		await withStackImplSkill(async ({ skillPath, skillDir }) => {
-			const result = await runObjectiveStackImpl(
+		await withAutorunSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveAutorun(
 				"",
 				[
 					listStep(["alpha", "bravo", "charlie"]),
@@ -723,12 +722,12 @@ describe("ns:objective:stack-impl command", () => {
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
 			expect(result.selections[1]).toEqual({
-				title: "Select an active Objective for stack implementation (other active Objectives)",
+				title: "Select an active Objective to autorun (other active Objectives)",
 				items: [
 					"alpha — open — latest update 2026-01-01T00:00:00Z",
 					"charlie — open — latest update 2026-01-03T00:00:00Z",
@@ -739,7 +738,7 @@ describe("ns:objective:stack-impl command", () => {
 	});
 
 	test("picker cancellation sends no prompt", async () => {
-		const result = await runObjectiveStackImpl(
+		const result = await runObjectiveAutorun(
 			"",
 			[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
 			{ cancelSelect: true },
@@ -753,7 +752,7 @@ describe("ns:objective:stack-impl command", () => {
 	});
 
 	test("zero active Objectives sends no prompt", async () => {
-		const result = await runObjectiveStackImpl("", [listStep([])]);
+		const result = await runObjectiveAutorun("", [listStep([])]);
 
 		result.pi.assertDone();
 		expect(result.notifications).toEqual([
@@ -1203,7 +1202,7 @@ describe("objective command shared selection policy", () => {
 			expectNoObjectiveListExec(result);
 		}
 
-		const stackResult = await runObjectiveStackImpl("", [listStep([])]);
+		const stackResult = await runObjectiveAutorun("", [listStep([])]);
 
 		stackResult.pi.assertDone();
 		expectNoObjectiveListExec(stackResult);

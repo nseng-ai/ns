@@ -284,11 +284,6 @@
       "sourceType": "local",
       "computedHash": "f00f0d671c638a7cb6fe77b33c58fe612ebf83f07839cf78abe9364475cbf1e0"
     },
-    "objective-stack-impl": {
-      "source": "skills/objective-stack-impl",
-      "sourceType": "local",
-      "computedHash": "578e812204bc4cf81a076c61786f4ccccbde4a82fba930ad478c4a6faadbbe7f"
-    },
     "objective-update": {
       "source": "skills/objective-update",
       "sourceType": "local",
