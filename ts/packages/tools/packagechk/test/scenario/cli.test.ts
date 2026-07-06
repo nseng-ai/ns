@@ -139,13 +139,13 @@ describe("packagechk CLI", () => {
 			},
 		});
 
-		const run = await runPackagechk(["@sdl-io/aretro", "--registry", "npm"], {
+		const run = await runPackagechk(["@sdl-io/retros", "--registry", "npm"], {
 			registryGateway: gateway,
 		});
 
 		expect(run.code).toBe(1);
-		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@sdl-io%2Faretro"]);
-		expect(run.stderr).toContain("https://www.npmjs.com/package/@sdl-io/aretro");
+		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@sdl-io%2Fretros"]);
+		expect(run.stderr).toContain("https://www.npmjs.com/package/@sdl-io/retros");
 	});
 
 	test("real gateway preserves validation and metadata behavior", async () => {

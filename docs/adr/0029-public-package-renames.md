@@ -3,7 +3,7 @@
 ADR 0028 made workspace name equal published npm name: whatever a package is called in
 the workspace is what a consumer sees on npm from the day it publishes. That decision
 left a residual problem — several packages still carried generic or internal-sounding
-workspace names (`core`, `objective`, `slot`, `handoff`, `address`, `aretro`, `roaster`)
+workspace names (`core`, `objective`, `slot`, `handoff`, `address`, the branch-retrospective evidence package, `roaster`)
 that were never chosen as public product surface, only as convenient internal labels.
 With the standalone-publish surface widening, those names were about to freeze into npm
 forever.
@@ -18,7 +18,7 @@ moves to match, before the npm surface widens further:**
 | `@nseng-ai/slot`      | `@nseng-ai/slots`       | `ts/packages/capabilities/slots`       |
 | `@nseng-ai/handoff`   | `@nseng-ai/handoffs`    | `ts/packages/capabilities/handoffs`    |
 | `@nseng-ai/address`   | `@nseng-ai/pr-feedback` | `ts/packages/capabilities/pr-feedback` |
-| `@nseng-ai/aretro`    | `@nseng-ai/retros`      | `ts/packages/capabilities/retros`      |
+| branch-retro evidence | `@nseng-ai/retros`      | `ts/packages/capabilities/retros`      |
 | `@nseng-ai/roaster`   | `@nseng-ai/reviews`     | `ts/packages/capabilities/reviews`     |
 
 `@nseng-ai/kernel` is deliberately **not** part of this rename and stays unpublished
@@ -26,14 +26,18 @@ standalone: it remains a private internal workspace package whose runtime ships 
 folded inside the `@nseng-ai/ns` esbuild bundle. Nothing about ADR 0026's or ADR 0028's
 `@nseng-ai/ns` CLI publish target changes.
 
-CLI command names, bin names, `/ns:*` slash-command names, and domain vocabulary are
-unchanged by this ADR — only npm package names and package directory paths moved. `ns
+CLI command names, bin names, `/ns:*` slash-command names, and domain vocabulary were
+initially unchanged by this ADR — only npm package names and package directory paths moved. `ns
 objective ...` stays `ns objective ...` even though the package behind it is now
 `@nseng-ai/objectives`; the `slot` binary stays `slot`; Roaster stays the name of the
 review engine and `roaster` stays the CLI subcommand even though its package is now
 `@nseng-ai/reviews`; Handoff stays the name of the artifact even though its package is
 now `@nseng-ai/handoffs`. Product vocabulary and npm package identity are independent
-axes; this ADR only moves the latter.
+axes.
+
+Amendment (2026-07-06): Retro is the exception to that initial command-vocabulary
+rule. Its command face, repo-local extension group, tests, docs, and agent-facing skill
+references now use `ns retro exec ...` and Retro naming throughout.
 
 Consequences:
 

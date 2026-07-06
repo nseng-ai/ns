@@ -5,8 +5,8 @@
  * privacy-conscious retrospective evidence from branch sessions.
  */
 
-export type { AretroCliContext } from "./context.ts";
-export { createRealAretroContext } from "./context.ts";
+export type { RetrosCliContext } from "./context.ts";
+export { createRealRetrosContext } from "./context.ts";
 export type { EvidenceEnvelope } from "./contracts.ts";
 export { evidenceEnvelopeSchema } from "./contracts.ts";
 export type {

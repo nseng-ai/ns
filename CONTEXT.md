@@ -166,12 +166,17 @@ The two leading nouns are orthogonal, not synonyms: an **Extension** is the tech
 **Extension**:
 The technical construct — a package that plugs into the SDK via `defineExtension()`. General and third-party-buildable: a first-party extension implements a **Capability**, but the construct is open to third-party extensions that are not ns capabilities.
 *Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@nseng-ai/kernel/sdk` "ns extension API" or "Pi runtime extension API")
+
+**Noun-oriented extension**:
+An **Extension** whose command-group slug names the singular domain noun users operate on, not the package name and not an implementation acronym. Prefer stable domain nouns that read like ns command families — `ns objective ...`, `ns handoff ...`, `ns retro ...` — even when the npm package is plural for package-naming reasons (`@nseng-ai/objectives`, `@nseng-ai/handoffs`, `@nseng-ai/retros`). Use plural command groups only when the domain noun is genuinely plural or collection-shaped in user language. This term governs command-facing vocabulary, not TypeScript symbol names or npm package identity.
+*Avoid*: package-oriented command group, implementation acronym command group, plural-by-package-name, CLI family named after the package
+
 **Capability**:
 A first-party ns feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
-An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
+An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, roaster, retro, and **CCC**), as opposed to a third-party extension.
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:

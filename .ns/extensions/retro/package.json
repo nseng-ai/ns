@@ -1,7 +1,7 @@
 {
 	"ns": {
 		"description": "Collect branch retrospective evidence for agents.",
-		"group": "aretro",
+		"group": "retro",
 		"commands": [
 			{
 				"name": "exec-collect-evidence",
@@ -10,7 +10,7 @@
 			},
 			{
 				"name": "exec-read-evidence-detail",
-				"description": "Read Aretro evidence detail from a payload pointer.",
+				"description": "Read Retro evidence detail from a payload pointer.",
 				"entry": "./src/commands/exec-read-evidence-detail.ts"
 			}
 		]

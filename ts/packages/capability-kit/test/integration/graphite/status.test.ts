@@ -84,7 +84,7 @@ describe("Graphite metadata real sqlite integration", () => {
 			});
 			if (status.type !== "tracked")
 				throw new Error("expected copied Graphite fixture to track master");
-			expect(status.children).toContain("add-aretro-branch-retro-command");
+			expect(status.children).toContain("add-retros-branch-retro-command");
 			expect(status.children.length).toBeGreaterThan(10);
 		});
 	});

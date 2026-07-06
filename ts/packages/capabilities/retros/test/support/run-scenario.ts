@@ -1,13 +1,13 @@
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
-import type { AretroCliContext } from "../../src/context.ts";
+import type { RetrosCliContext } from "../../src/context.ts";
 import { FakeSessionSource } from "../../src/sessions/source-fake.ts";
 
 export interface ScenarioRunOptions {
 	cwd?: string;
 	env?: NodeJS.ProcessEnv;
-	context?: AretroCliContext;
+	context?: RetrosCliContext;
 }
 
 export interface ScenarioRun {
@@ -23,7 +23,7 @@ export function runScenario(
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
-	const context: AretroCliContext = options.context ?? {
+	const context: RetrosCliContext = options.context ?? {
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		git: new InMemoryGitGateway(),

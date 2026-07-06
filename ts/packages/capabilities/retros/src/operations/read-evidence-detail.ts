@@ -1,7 +1,7 @@
 import { failure, ok } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-import type { AretroCliContext } from "../context.ts";
+import type { RetrosCliContext } from "../context.ts";
 import { PayloadError } from "../payloads/errors.ts";
 import { readJsonPayloadArtifact, resolveJsonPointer, type JsonValue } from "../payloads/lookup.ts";
 
@@ -32,7 +32,7 @@ export const readEvidenceDetailResultSchema = z.object({
 export type ReadEvidenceDetailResult = z.infer<typeof readEvidenceDetailResultSchema>;
 
 export async function runReadEvidenceDetail(
-	_context: AretroCliContext,
+	_context: RetrosCliContext,
 	request: ReadEvidenceDetailRequest,
 ) {
 	const pointerError = dataPointerError(request.jsonPointer);
@@ -113,7 +113,7 @@ function validatePayloadData(envelope: JsonValue, payloadPath: string): void {
 	if (typeof data !== "object" || data === null || Array.isArray(data)) {
 		throw new PayloadError(
 			"payload-lookup-failed",
-			`Raw payload artifact data must be an aretro detail object: ${payloadPath}`,
+			`Raw payload artifact data must be a retro detail object: ${payloadPath}`,
 		);
 	}
 	const schemaVersion = (data as Record<string, unknown>).schemaVersion;

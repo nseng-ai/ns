@@ -3,7 +3,7 @@
 import { ClinkrGroup } from "@nseng-ai/clinkr";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 
-import { createRealAretroContext, type AretroCliContext } from "./context.ts";
+import { createRealRetrosContext, type RetrosCliContext } from "./context.ts";
 import {
 	collectEvidenceRequestSchema,
 	collectEvidenceResultSchema,
@@ -17,13 +17,13 @@ import {
 	runReadEvidenceDetail,
 } from "./operations/read-evidence-detail.ts";
 
-const entry = defineCli<AretroCliContext, CliDeps, undefined>({
+const entry = defineCli<RetrosCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
 	description: "Branch session retrospective evidence operations.",
 	prepareRun: ({ deps, cwd, env }) => {
-		const context = deps.context ?? createRealAretroContext({ cwd, env });
-		const runContext: AretroCliContext = {
+		const context = deps.context ?? createRealRetrosContext({ cwd, env });
+		const runContext: RetrosCliContext = {
 			...context,
 			cwd,
 			env: deps.env ?? context.env,
@@ -31,7 +31,7 @@ const entry = defineCli<AretroCliContext, CliDeps, undefined>({
 		return { type: "run", context: runContext, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
-		const execGroup = new ClinkrGroup<AretroCliContext>({
+		const execGroup = new ClinkrGroup<RetrosCliContext>({
 			name: "exec",
 			description: "Commands for use by skills (not interactive users).",
 			isHidden: true,
@@ -62,10 +62,10 @@ const entry = defineCli<AretroCliContext, CliDeps, undefined>({
 export const VERSION = entry.version;
 
 export interface CliDeps extends CliEntrypointDeps {
-	context?: AretroCliContext;
+	context?: RetrosCliContext;
 }
 
-export function buildCli(): ClinkrGroup<AretroCliContext> {
+export function buildCli(): ClinkrGroup<RetrosCliContext> {
 	return entry.buildCli(undefined);
 }
 

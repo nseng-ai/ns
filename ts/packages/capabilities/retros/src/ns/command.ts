@@ -4,19 +4,19 @@ import {
 } from "@nseng-ai/capability-kit/ns-command";
 import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
 
-import type { AretroCliContext } from "../context.ts";
-import { createNsAretroContext } from "./context.ts";
+import type { RetrosCliContext } from "../context.ts";
+import { createNsRetrosContext } from "./context.ts";
 
-type AretroNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	NsDomainCommandOptions<S, T, AretroCliContext>,
+type RetrosNsCommandOptions<S extends NsCommandSchema, T> = Omit<
+	NsDomainCommandOptions<S, T, RetrosCliContext>,
 	"createContext"
 >;
 
-export function aretroNsCommand<S extends NsCommandSchema, T>(
-	options: AretroNsCommandOptions<S, T>,
+export function retrosNsCommand<S extends NsCommandSchema, T>(
+	options: RetrosNsCommandOptions<S, T>,
 ): NsCommand<S, T> {
 	return createNsDomainCommand({
 		...options,
-		createContext: createNsAretroContext,
+		createContext: createNsRetrosContext,
 	});
 }

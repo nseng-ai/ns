@@ -215,34 +215,34 @@ describe("packagechk claim commands", () => {
 	test("claim-npm dry-run and scoped publish preserve package names", async () => {
 		const registry = new FakePackageRegistryGateway({
 			results: {
-				"npm:@sdl-io/aretro": availableResult("npm", {
-					inputName: "@sdl-io/aretro",
-					lookupName: "@sdl-io/aretro",
+				"npm:@sdl-io/retros": availableResult("npm", {
+					inputName: "@sdl-io/retros",
+					lookupName: "@sdl-io/retros",
 				}),
 			},
 		});
 		const publisher = new FakeNpmPublishGateway();
 
-		const dryRun = await runPackagechk(["claim-npm", "@sdl-io/aretro", "--dry-run"], {
+		const dryRun = await runPackagechk(["claim-npm", "@sdl-io/retros", "--dry-run"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
 		expect(dryRun.code).toBe(0);
-		expect(dryRun.stderr).toContain("Package name: @sdl-io/aretro");
+		expect(dryRun.stderr).toContain("Package name: @sdl-io/retros");
 		expect(dryRun.stderr).toContain("Would write: package.json");
 		expect(dryRun.stderr).toContain("Would write: README.md");
 		expect(dryRun.stderr).toContain("Would write: index.js");
 		expect(dryRun.stderr).toContain("Would run: npm publish --access=public");
-		expect(dryRun.stderr).toContain("npm URL: https://www.npmjs.com/package/@sdl-io/aretro");
+		expect(dryRun.stderr).toContain("npm URL: https://www.npmjs.com/package/@sdl-io/retros");
 		expect(publisher.toolChecks).toBe(0);
 
-		const published = await runPackagechk(["claim-npm", "@sdl-io/aretro", "--yes"], {
+		const published = await runPackagechk(["claim-npm", "@sdl-io/retros", "--yes"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
 		expect(published.code).toBe(0);
-		expect(published.stderr).toContain("✓ Claimed npm package name '@sdl-io/aretro'.");
-		expect(registry.checkedNames("npm")).toEqual(["@sdl-io/aretro"]);
+		expect(published.stderr).toContain("✓ Claimed npm package name '@sdl-io/retros'.");
+		expect(registry.checkedNames("npm")).toEqual(["@sdl-io/retros"]);
 		expect(publisher.toolChecks).toBe(1);
 		expect(publisher.publishedProjectDirs).toHaveLength(1);
 	});

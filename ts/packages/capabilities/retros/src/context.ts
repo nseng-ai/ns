@@ -7,25 +7,25 @@ import type { SessionSource } from "./sessions/source.ts";
 import { PiJsonlSessionSource } from "./sessions/pi-jsonl-source.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-// The git methods aretro consumes: resolve the repo root and the current branch
+// The git methods retro consumes: resolve the repo root and the current branch
 // when collecting retro evidence. A full `GitGateway` is assignable to this.
-export type AretroGitGateway = Pick<GitGateway, "optionalRepoRoot" | "currentBranch">;
+export type RetrosGitGateway = Pick<GitGateway, "optionalRepoRoot" | "currentBranch">;
 
-export interface AretroCliContext {
+export interface RetrosCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
-	git: AretroGitGateway;
+	git: RetrosGitGateway;
 	sessionSource: SessionSource;
 }
 
-export function createRealAretroContext(
+export function createRealRetrosContext(
 	options: {
 		cwd?: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		git?: AretroGitGateway;
+		git?: RetrosGitGateway;
 		sessionSource?: SessionSource;
 	} = {},
-): AretroCliContext {
+): RetrosCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const git = options.git ?? new RealGitGateway(new NodeCommandExecApi());

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { VERSION } from "../../src/cli.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 
-describe("aretro CLI shape", () => {
+describe("retro CLI shape", () => {
 	it("prints version and TypeScript runtime diagnostics", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
@@ -23,7 +23,7 @@ describe("aretro CLI shape", () => {
 		const run = runScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("retros");
+		expect(help).toContain("retro");
 		expect(help).toContain("retrospective evidence");
 		expect(help).not.toContain("collect-evidence");
 		expect(help).not.toContain("read-evidence-detail");
@@ -54,7 +54,7 @@ describe("aretro CLI shape", () => {
 	});
 });
 
-describe("aretro exec collect-evidence", () => {
+describe("retro exec collect-evidence", () => {
 	it("returns JSON envelope with expected top-level fields", async () => {
 		const run = runScenario([
 			"exec",
@@ -113,7 +113,7 @@ describe("aretro exec collect-evidence", () => {
 	});
 });
 
-describe("aretro exec read-evidence-detail", () => {
+describe("retro exec read-evidence-detail", () => {
 	it("requires --payload-path and --json-pointer options", async () => {
 		const run = runScenario(["exec", "read-evidence-detail", "--format", "json"]);
 		expect(await run.exit).not.toBe(0);
@@ -237,7 +237,7 @@ describe("aretro exec read-evidence-detail", () => {
 });
 
 function writePayloadEnvelope(envelope: unknown, descriptor: string): string {
-	const payloadDir = join(tmpdir(), `aretro-${descriptor}`, "sessions", "smoke", "payloads");
+	const payloadDir = join(tmpdir(), `retro-${descriptor}`, "sessions", "smoke", "payloads");
 	mkdirSync(payloadDir, { recursive: true });
 	const payloadPath = join(payloadDir, `20260101t000000z-0001-${descriptor}.raw.json`);
 	writeFileSync(payloadPath, `${JSON.stringify(envelope, null, 2)}\n`);
