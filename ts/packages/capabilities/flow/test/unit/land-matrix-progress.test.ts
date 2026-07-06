@@ -96,6 +96,34 @@ describe("land matrix progress", () => {
 		const output = stripAnsi(lines.join("\n"));
 		expectPendingMatrixRows(output);
 	});
+
+	test("centers initial pending dots in the matrix columns", () => {
+		const rows = [
+			{
+				branch: "feature/very-long-branch-name-that-truncates",
+				prNumber: 123,
+				label: "feature/very-long-branch-name-that-truncates (#123)",
+			},
+		];
+		const lines = renderLandMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow land — 0/1 target PRs merged",
+			runningCommands: [],
+			rows: rows.map((row) => pendingLandRowView(row)),
+		});
+
+		const plainLines = lines.map((line) => stripAnsi(line));
+		const headerLine = plainLines.find((line) => line.includes("Branch / PR"));
+		const rowLine = plainLines.find((line) => line.includes("feature/very-long-branch-name"));
+		if (headerLine === undefined || rowLine === undefined) throw new Error("missing matrix lines");
+
+		expect(dotIndexes(rowLine)).toEqual([
+			headerLine.indexOf("Gate") + 2,
+			headerLine.indexOf("Merge") + 2,
+			headerLine.indexOf("Verify") + 2,
+			headerLine.indexOf("Restack") + 3,
+		]);
+	});
 });
 
 function expectPendingMatrixRows(output: string): void {
@@ -106,6 +134,16 @@ function expectPendingMatrixRows(output: string): void {
 	for (const rowLine of rowLines) {
 		expect(rowLine.match(/·/g)).toHaveLength(4);
 	}
+}
+
+function dotIndexes(line: string): number[] {
+	const indexes: number[] = [];
+	let index = line.indexOf("·");
+	while (index >= 0) {
+		indexes.push(index);
+		index = line.indexOf("·", index + 1);
+	}
+	return indexes;
 }
 
 function landRowView(row: LandMatrixRowSpec) {

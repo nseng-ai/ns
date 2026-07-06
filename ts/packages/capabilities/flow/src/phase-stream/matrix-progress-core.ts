@@ -7,6 +7,7 @@ import {
 } from "@nseng-ai/clinkr/stream";
 import {
 	bold,
+	centerCell,
 	dim,
 	ellipsisFor,
 	padPlain,
@@ -493,7 +494,7 @@ function renderMatrixRow<ColumnKey extends string>(
 		labelWidth(caps),
 	);
 	const cells = columns
-		.map((column) => padPlain(renderCell(caps, row.cells[column.key], tick), column.width))
+		.map((column) => centerCell(renderCell(caps, row.cells[column.key], tick), column.width))
 		.join("  ");
 	return `${label}  ${cells}`;
 }

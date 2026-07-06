@@ -20,4 +20,4 @@ export { PHASE_NAME_WIDTH, statusLine } from "./status-line.ts";
 export type { PhaseState, StatusLineItem, StatusLineOptions } from "./status-line.ts";
 export { cell, kv, renderTable } from "./table.ts";
 export type { Cell, Column, ColumnWidth, RenderTableOptions } from "./table.ts";
-export { padCell, padPlain, truncatePlain, visibleWidth, wrapPlain } from "./text.ts";
+export { centerCell, padCell, padPlain, truncatePlain, visibleWidth, wrapPlain } from "./text.ts";
