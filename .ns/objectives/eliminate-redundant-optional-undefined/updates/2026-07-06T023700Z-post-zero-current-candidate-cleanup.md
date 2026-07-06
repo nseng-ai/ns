@@ -8,17 +8,17 @@ Plan-format note: the attached branch-context plan did not include new-format cu
 
 Before metrics:
 
-| Scope | Raw optional-undefined properties | Typed `ExplicitUndefined` contracts | Legacy preserve markers | Undefined-normalization/check lines |
-| --- | ---: | ---: | ---: | ---: |
-| `ts` | 8 | 96 | 0 | 2606 |
-| scoped candidate files | 8 | 1 | 0 | 47 |
+| Scope                  | Raw optional-undefined properties | Typed `ExplicitUndefined` contracts | Legacy preserve markers | Undefined-normalization/check lines |
+| ---------------------- | --------------------------------: | ----------------------------------: | ----------------------: | ----------------------------------: |
+| `ts`                   |                                 8 |                                  96 |                       0 |                                2606 |
+| scoped candidate files |                                 8 |                                   1 |                       0 |                                  47 |
 
 After metrics:
 
-| Scope | Raw optional-undefined properties | Typed `ExplicitUndefined` contracts | Legacy preserve markers | Undefined-normalization/check lines |
-| --- | ---: | ---: | ---: | ---: |
-| `ts` | 3 | 96 | 0 | 2609 |
-| scoped candidate files | 3 | 1 | 0 | 47 |
+| Scope                  | Raw optional-undefined properties | Typed `ExplicitUndefined` contracts | Legacy preserve markers | Undefined-normalization/check lines |
+| ---------------------- | --------------------------------: | ----------------------------------: | ----------------------: | ----------------------------------: |
+| `ts`                   |                                 3 |                                  96 |                       0 |                                2609 |
+| scoped candidate files |                                 3 |                                   1 |                       0 |                                  47 |
 
 Scoped candidate files measured:
 
