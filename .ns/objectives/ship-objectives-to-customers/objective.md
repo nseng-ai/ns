@@ -19,7 +19,7 @@ The Objective capability is the first SDL feature we ship to external customers.
 
 Shipping Objectives externally means a customer with no SDL checkout and no dev toolchain can: install the `ns` CLI from npm, get the objective skills into whichever harness they use (Claude Code, Codex, or Pi), bootstrap their own repo so their agents actually reach for objectives, and follow real documentation — with no standalone objective binary.
 
-**Naming (ADR 0026 `rename-ji-to-ns`, amended by ADR 0028):** the shipped customer surface is the `ns` CLI, and the core cutover has landed — the repo's binary is now `ns`, consumer dirs are `.ns/` (`.ns/objectives/`, `.ns/extensions/`), config is `ns.toml`. The workspace package scope is bare `@nseng-ai/*` (ADR 0028 chose bare `@nseng-ai/*`, superseding ADR 0026's interim `@ns/*` workspace-scope plan), so the packages this Objective touches are `@nseng-ai/kernel` (`ts/packages/kernel`), `@nseng-ai/objectives` (`ts/packages/capabilities/objectives`), and `@nseng-ai/foundation` (`ts/packages/infra/foundation`, with a `./managed-region` export). The published customer CLI target is `@nseng-ai/ns` (`ts/packages/hosts/ns-cli`). All new surface this Objective builds stays ns-named — `ns init`, `ns skills`, `ns objective …`, `ns:objectives:*` block markers, the `@nseng-ai/init` package. The dev/repo bin still runs from source (`ts/packages/kernel/package.json` bin → `./src/cli/index.ts`), but run-from-source is no longer the only path: `checkout-free-sdl-distribution` has folded kernel into a bundled `@nseng-ai/ns` package whose local pack and checkout-free smoke already run `ns objective list` from a foreign repo — only the actual npm publish and a real global/`npx` install verification remain (see the dependency status below).
+**Naming (ADR 0026 `rename-ji-to-ns`, amended by ADR 0028):** the shipped customer surface is the `ns` CLI, and the core cutover has landed — the repo's binary is now `ns`, consumer dirs are `.ns/` (`.ns/objectives/`, `.ns/extensions/`), config is `ns.toml`. The workspace package scope is bare `@nseng-ai/*` (ADR 0028 chose bare `@nseng-ai/*`, superseding ADR 0026's interim `@ns/*` workspace-scope plan), so the packages this Objective touches are `@nseng-ai/kernel` (`ts/packages/kernel`), `@nseng-ai/objectives` (`ts/packages/capabilities/objectives`), and `@nseng-ai/foundation` (`ts/packages/infra/foundation`, with a `./managed-region` export). The published customer CLI target is `@nseng-ai/ns` (`ts/packages/hosts/ns-cli`). All new surface this Objective builds stays ns-named — `ns init`, `ns skills`, `ns objective …`, `ns:objectives:*` block markers, the `@nseng-ai/ns-init` package. The dev/repo bin still runs from source (`ts/packages/kernel/package.json` bin → `./src/cli/index.ts`), but run-from-source is no longer the only path: `checkout-free-sdl-distribution` has folded kernel into a bundled `@nseng-ai/ns` package whose local pack and checkout-free smoke already run `ns objective list` from a foreign repo — only the actual npm publish and a real global/`npx` install verification remain (see the dependency status below).
 
 This Objective owns the end-to-end customer onboarding thread. Treat it as the parent/umbrella Objective for the customer Objective shipment: its formal Objective Edges identify subobjectives whose delivered scope is consumed here. The sequencing order is:
 
@@ -94,12 +94,15 @@ Resolved 2026-07-01 in a design grilling session (full record:
 
 Derived design (first build slice, see the update for full rationale): skill delivery
 depends on `skill-management-subsystem`'s copy-into-harness-roots slice (not areg's symlink
-model); `ns init` lives in a new `@nseng-ai/init` capability package reusing
+model); `ns init` lives in a new `@nseng-ai/ns-init` capability package (amended
+2026-07-05 from the grilling session's `@nseng-ai/init`: the ns-attached name says this is
+the ns product bootstrapping itself, not a generic peer capability; the package is
+`private: true` permanently and ships only folded into the `@nseng-ai/ns` bundle) reusing
 `@nseng-ai/foundation/managed-region`; `--harness` is explicit/required (no sniffed default); git
 posture is verify-and-write, never commit; the skill step is a faked `SkillMaterializer`
 gateway until the bundle lands.
 
 ## Open Questions
 
-- None outstanding. Reopen here if the `@nseng-ai/init` build or the `checkout-free-sdl-distribution`
+- None outstanding. Reopen here if the `@nseng-ai/ns-init` build or the `checkout-free-sdl-distribution`
   dependency surfaces a new fork.
