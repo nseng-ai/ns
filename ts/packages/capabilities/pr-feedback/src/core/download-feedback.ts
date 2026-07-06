@@ -1,8 +1,7 @@
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
-
 import type {
 	GithubPrDiscussionComment,
 	PrAddressGithubGateway,
+	PrAddressGitGateway,
 	GithubPrReview,
 	GithubPrReviewThread,
 	GithubPrSummary,
@@ -59,7 +58,7 @@ export type DownloadFeedbackResult =
 	| PrTargetFailureResult;
 
 export interface CollectDownloadFeedbackOptions {
-	git: GitGateway;
+	git: PrAddressGitGateway;
 	prFeedback: PrAddressGithubGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber?: number;

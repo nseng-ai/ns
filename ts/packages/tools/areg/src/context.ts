@@ -1,11 +1,11 @@
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 
 import type {
 	AregGithubGateway,
+	AregGitGateway,
 	AregHostGateway,
 	AregNpxSkillsGateway,
 	AregProjectGateway,
@@ -26,7 +26,7 @@ export interface AregCliContext {
 	github: AregGithubGateway;
 	skillxWorkspace: AregSkillxWorkspaceGateway;
 	project: AregProjectGateway;
-	git: GitGateway;
+	git: AregGitGateway;
 	npxSkills: AregNpxSkillsGateway;
 	prompt: AregPromptGateway;
 	interaction: ClinkrInteraction;

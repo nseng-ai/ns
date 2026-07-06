@@ -3,7 +3,6 @@ import { lstat, mkdir, readdir, realpath, rm, rmdir, unlink, writeFile } from "n
 import path from "node:path";
 
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { visibleCommandBackedReplacementSurfaces } from "@nseng-ai/command-backed-skill-registry";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
@@ -20,6 +19,7 @@ import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	AregErrorInfo,
+	AregGitGateway,
 	AregPiSkillInventoryInspection,
 	AregProjectFileDeleteRequest,
 	AregProjectGateway,
@@ -61,9 +61,9 @@ const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 const AREG_VISIBLE_REPLACEMENT_SURFACES = visibleCommandBackedReplacementSurfaces();
 
 export class RealAregProjectGateway implements AregProjectGateway {
-	private readonly git: GitGateway;
+	private readonly git: AregGitGateway;
 
-	constructor(options: { git?: GitGateway } = {}) {
+	constructor(options: { git?: AregGitGateway } = {}) {
 		this.git = options.git ?? new RealGitGateway(new NodeCommandExecApi());
 	}
 
@@ -736,7 +736,7 @@ async function listChildNames(directory: string): Promise<string[]> {
 
 async function readLocallyExcludedSkillNames(options: {
 	projectDir: string;
-	git: GitGateway;
+	git: AregGitGateway;
 }): Promise<string[]> {
 	const gitPath = await options.git.gitPath({
 		cwd: options.projectDir,
