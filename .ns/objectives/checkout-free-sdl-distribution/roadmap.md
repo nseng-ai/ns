@@ -62,11 +62,16 @@
     install from a throwaway foreign git repo ran `ns objective list` plus the hidden
     `ns objective exec tracking-gate` surface without an ns checkout.
   - This is first-publish evidence, not the Objective's final closure state.
-- [ ] Publish and verify every workspace package intended to be public/standalone.
+- [x] Publish and verify every workspace package intended to be public/standalone.
   - Evidence: the final intended-public package set is recorded, each package in that set
     exists on the npm registry under `@nseng-ai/*` with expected version/bin/exports where
     applicable, install or `npm view` evidence is recorded, and private/internal/excluded
     packages are deliberately not treated as missing work.
+  - Current evidence: `updates/20260706T035113Z-full-public-package-registry-publish-verified.md`
+    records strict registry verification for all 19 intended public packages at `0.1.1`,
+    including `@nseng-ai/ns` bin/kernel-export metadata and a registry-backed checkout-free
+    `npx -y @nseng-ai/ns@0.1.1 objective list --format md` smoke from a throwaway foreign
+    git repository.
 - [x] Add local release automation for the intended public package set.
   - Evidence: checked-in local commands can bump coordinated versions, build/package and
     dry-run the public package set before publication, guard the write-capable publish
