@@ -1,5 +1,6 @@
 import { splitMarkdownFrontmatter } from "@nseng-ai/foundation/markdown-frontmatter";
 import { formatErrorMessage, formatZodError, isRecord } from "@nseng-ai/foundation/primitives";
+import { resultErr, type Result } from "@nseng-ai/foundation/result";
 import { parse } from "yaml";
 
 import {
@@ -143,9 +144,7 @@ function splitFrontmatter(source: string): FrontmatterSplitResult {
 	};
 }
 
-type StringFieldResult =
-	| { readonly ok: true; readonly value: string }
-	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
+type StringFieldResult = Result<string, ReviewDefinitionParseError>;
 
 function requireStringField(
 	frontmatter: Readonly<Record<string, unknown>>,
@@ -167,9 +166,7 @@ function requireStringField(
 	return { ok: true, value: value.trim() };
 }
 
-type ModelProfileResult =
-	| { readonly ok: true; readonly value: string }
-	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
+type ModelProfileResult = Result<string, ReviewDefinitionParseError>;
 
 function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): ModelProfileResult {
 	if (!("model_profile" in frontmatter)) return { ok: true, value: "quick" };
@@ -183,9 +180,7 @@ function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): Mode
 	return { ok: true, value: value.trim() };
 }
 
-type LocalOnlyResult =
-	| { readonly ok: true; readonly value: boolean }
-	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
+type LocalOnlyResult = Result<boolean, ReviewDefinitionParseError>;
 
 function parseLocalOnly(frontmatter: Readonly<Record<string, unknown>>): LocalOnlyResult {
 	if (!("local_only" in frontmatter)) return { ok: true, value: false };
@@ -196,9 +191,7 @@ function parseLocalOnly(frontmatter: Readonly<Record<string, unknown>>): LocalOn
 	return { ok: true, value };
 }
 
-type ApplicabilityResult =
-	| { readonly ok: true; readonly value: ReviewApplicability }
-	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
+type ApplicabilityResult = Result<ReviewApplicability, ReviewDefinitionParseError>;
 
 function parseApplicability(frontmatter: Readonly<Record<string, unknown>>): ApplicabilityResult {
 	if (!("applies_to" in frontmatter)) return { ok: true, value: { include: [], exclude: [] } };
@@ -234,9 +227,7 @@ interface RequirePatternListOptions {
 	readonly shouldAllowEmpty: boolean;
 }
 
-type PatternListResult =
-	| { readonly ok: true; readonly value: string[] }
-	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
+type PatternListResult = Result<string[], ReviewDefinitionParseError>;
 
 function requirePatternList(
 	appliesTo: Readonly<Record<string, unknown>>,
@@ -305,11 +296,18 @@ function validateApplicabilityPattern(
 	return { ok: true, value: normalized };
 }
 
+type ReviewDefinitionFailureResult = Extract<
+	Result<never, ReviewDefinitionParseError>,
+	{ readonly ok: false }
+>;
+
 function failure(
 	code: ReviewDefinitionParseErrorCode,
 	message: string,
-): { readonly ok: false; readonly error: ReviewDefinitionParseError } {
-	return { ok: false, error: { code, message } };
+): ReviewDefinitionFailureResult {
+	const result = resultErr<never, ReviewDefinitionParseError>({ code, message });
+	if (!result.ok) return result;
+	throw new Error("unreachable resultErr success");
 }
 
 function sortedUnknownKeys(

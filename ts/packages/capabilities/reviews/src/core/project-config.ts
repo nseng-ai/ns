@@ -1,4 +1,5 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
+import { resultErr, type Result } from "@nseng-ai/foundation/result";
 import { parse } from "smol-toml";
 
 export interface RoasterDiffProjectConfig {
@@ -103,17 +104,11 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 	return args;
 }
 
-type DiffConfigParseResult =
-	| { readonly ok: true; readonly value: RoasterDiffProjectConfig }
-	| { readonly ok: false; readonly error: ProjectConfigError };
+type DiffConfigParseResult = Result<RoasterDiffProjectConfig, ProjectConfigError>;
 
-type ExcludeParseResult =
-	| { readonly ok: true; readonly value: readonly string[] }
-	| { readonly ok: false; readonly error: ProjectConfigError };
+type ExcludeParseResult = Result<readonly string[], ProjectConfigError>;
 
-type ModelProfilesParseResult =
-	| { readonly ok: true; readonly value: RoasterModelProfilesProjectConfig }
-	| { readonly ok: false; readonly error: ProjectConfigError };
+type ModelProfilesParseResult = Result<RoasterModelProfilesProjectConfig, ProjectConfigError>;
 
 export function isRoasterModelProfileKey(value: string): value is RoasterModelProfileKey {
 	return MODEL_PROFILE_KEYS.includes(value as RoasterModelProfileKey);
@@ -201,7 +196,7 @@ function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): Exclu
 function validateRoasterExcludePattern(
 	pattern: string,
 	pathLabel: string | undefined,
-): { readonly ok: true } | { readonly ok: false; readonly error: ProjectConfigError } {
+): Result<void, ProjectConfigError> {
 	if (pattern.startsWith(":(")) {
 		return failure(
 			"invalid-exclude",
@@ -226,14 +221,15 @@ function validateRoasterExcludePattern(
 			),
 		);
 	}
-	return { ok: true };
+	return { ok: true, value: undefined };
 }
 
-function failure(
-	code: ProjectConfigErrorCode,
-	message: string,
-): { readonly ok: false; readonly error: ProjectConfigError } {
-	return { ok: false, error: { code, message } };
+type ProjectConfigFailure = Extract<Result<never, ProjectConfigError>, { readonly ok: false }>;
+
+function failure(code: ProjectConfigErrorCode, message: string): ProjectConfigFailure {
+	const result = resultErr<never, ProjectConfigError>({ code, message });
+	if (!result.ok) return result;
+	throw new Error("unreachable resultErr success");
 }
 
 function formatMessage(message: string, pathLabel: string | undefined): string {

@@ -3,6 +3,7 @@ import { execApiToCommandRunner, type CommandExecApi } from "@nseng-ai/foundatio
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
+import type { GithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 
 import {
 	ClaudeCodeProcessReviewRunner,
@@ -16,7 +17,7 @@ import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/prim
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
 export type ReviewsGithubPrFeedbackGateway = Pick<
-	RealGithubPrFeedbackGateway,
+	GithubPrFeedbackGateway,
 	| "getPrChangedFiles"
 	| "getPrReviewComments"
 	| "getPrReviewThreads"

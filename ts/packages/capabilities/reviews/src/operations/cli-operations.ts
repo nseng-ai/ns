@@ -573,14 +573,10 @@ interface LoadedDefinition {
 	readonly definition: ReviewDefinition;
 }
 
-type LoadDefinitionsResult =
-	| { readonly ok: true; readonly value: readonly LoadedDefinition[] }
-	| { readonly ok: false; readonly error: ReviewFailure };
-
 async function loadDefinitions(
 	ctx: RoasterRuntime,
 	keys: readonly string[],
-): Promise<LoadDefinitionsResult> {
+): Promise<ReviewResult<readonly LoadedDefinition[]>> {
 	const loaded: LoadedDefinition[] = [];
 	for (const key of keys) {
 		const parsed = await loadParsedReviewDefinition({

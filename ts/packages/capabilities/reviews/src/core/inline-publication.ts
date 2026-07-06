@@ -33,17 +33,15 @@ export async function postInlineFindings(
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
 	const githubOptions = environmentOptions(options.runScope);
-	const changedFilesResult = await readGithubOrEmptyResult(
-		{ ...githubOptions, prNumber: options.prNumber },
-		(params) => ctx.github.getPrChangedFiles(params),
+	const changedFilesResult = await readGithubOrEmptyResult(() =>
+		ctx.github.getPrChangedFiles({ ...githubOptions, prNumber: options.prNumber }),
 	);
-	if ("type" in changedFilesResult) return changedFilesResult.result;
+	if (changedFilesResult.type === "empty") return changedFilesResult.result;
 
-	const reviewCommentsResult = await readGithubOrEmptyResult(
-		{ ...githubOptions, prNumber: options.prNumber },
-		(params) => ctx.github.getPrReviewComments(params),
+	const reviewCommentsResult = await readGithubOrEmptyResult(() =>
+		ctx.github.getPrReviewComments({ ...githubOptions, prNumber: options.prNumber }),
 	);
-	if ("type" in reviewCommentsResult) return reviewCommentsResult.result;
+	if (reviewCommentsResult.type === "empty") return reviewCommentsResult.result;
 
 	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
 	const existingMarkers = new Set(
@@ -96,19 +94,18 @@ export async function postInlineFindings(
 }
 
 type GithubReadOrEmptyResult<T> =
-	| { readonly ok: true; readonly value: T }
+	| { readonly type: "value"; readonly value: T }
 	| { readonly type: "empty"; readonly result: PostInlineFindingsResult };
 
-async function readGithubOrEmptyResult<T, TOptions extends { readonly cwd: string | undefined }>(
-	options: TOptions,
-	call: (options: TOptions) => Promise<Result<T, GithubPrFeedbackFailure>>,
+async function readGithubOrEmptyResult<T>(
+	call: () => Promise<Result<T, GithubPrFeedbackFailure>>,
 ): Promise<GithubReadOrEmptyResult<T>> {
 	try {
-		const result = await call(options);
+		const result = await call();
 		if (!result.ok) {
 			return { type: "empty", result: { ...emptyInlineResult(), apiError: result.error.message } };
 		}
-		return result;
+		return { type: "value", value: result.value };
 	} catch (caught) {
 		return {
 			type: "empty",

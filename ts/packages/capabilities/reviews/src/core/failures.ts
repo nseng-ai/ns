@@ -49,7 +49,7 @@ export interface ReviewFailure<
 	readonly code: Code;
 }
 
-export type ReviewResult<T, E extends ErrorInfo<object> = ReviewFailure> = Result<T, E>;
+export type ReviewResult<T> = Result<T, ReviewFailure>;
 
 export type ReviewDefinitionFailure = ReviewFailure<ReviewDefinitionFailureCode>;
 export type ReviewCatalogFailure = ReviewFailure<ReviewCatalogFailureCode>;

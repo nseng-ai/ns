@@ -6,6 +6,7 @@ import {
 } from "@nseng-ai/clinkr";
 import { parseJsonInputText } from "@nseng-ai/capability-kit/json-input";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
+import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import {
@@ -78,7 +79,7 @@ export function parseFindingsPayloadResult(
 	options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string } = {},
 ): FindingsPayloadParseResult {
 	const data = parseJson(raw);
-	if (data.type === "error") return payloadError(data.message);
+	if (!data.ok) return payloadError(data.error.message);
 	if (!machineEnvelopeSchema.safeParse(data.value).success)
 		return payloadError("expected a clinkr envelope with top-level 'status' and 'exitCode'");
 
@@ -306,9 +307,7 @@ function publicationError(
 	return { ok: false, error: { fatalFailurePhase, reason, message } };
 }
 
-type JsonResult =
-	| { readonly type: "ok"; readonly value: unknown }
-	| { readonly type: "error"; readonly message: string };
+type JsonResult = Result<unknown, { readonly code: "invalid-json"; readonly message: string }>;
 
 function parseJson(raw: string): JsonResult {
 	const result = parseJsonInputText({
@@ -316,8 +315,8 @@ function parseJson(raw: string): JsonResult {
 		schema: z.unknown(),
 		jsonDescription: "review-run envelope JSON",
 	});
-	if (result.type === "ok") return result;
-	return { type: "error", message: result.error.message };
+	if (result.type === "ok") return resultOk(result.value);
+	return resultErr({ code: "invalid-json", message: result.error.message });
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {

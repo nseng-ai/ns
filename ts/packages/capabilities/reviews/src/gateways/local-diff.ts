@@ -7,6 +7,7 @@ import {
 	formatCommand,
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { resultErr } from "@nseng-ai/foundation/result";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 
@@ -190,7 +191,7 @@ function localDiffCopy(value: LocalDiff): LocalDiff {
 }
 
 function error(errorValue: LocalDiffFailure): ReviewResult<never> {
-	return { ok: false, error: errorValue };
+	return resultErr(errorValue);
 }
 
 function execOptions(
