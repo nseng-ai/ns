@@ -135,9 +135,10 @@ Risks:
   (`updates/2026-07-05-explorer-local-policy-decision.md`).
 - ~~Whether the in-process fork-runtime adapter is worth the Pi SDK coupling, and what the
   runtime seam looks like (Gateway-style interface with subprocess + in-process
-  adapters).~~ Resolved 2026-07-05: intentionally parked as a future runtime-adapter
-  exploration; subprocess execution remains the completed/default substrate for this
-  Objective (`updates/2026-07-05-park-optional-follow-ons.md`).
+  adapters).~~ Resolved 2026-07-05: add an explicit `ExplorerRuntime` seam; keep
+  subprocess dispatch as the default runtime; expose the in-process adapter only through
+  explicit injection for future context-forking dogfood
+  (`updates/2026-07-05-optional-follow-ons-implemented.md`).
 - Whether `/investigate` (in-process today, with a recorded parity gap vs Claude Code's
   out-of-process investigator) should migrate onto the explore substrate.
 - ~~The exact package boundary for `ns-pi-subagents`: whether it remains an ns-internal
