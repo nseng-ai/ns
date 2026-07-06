@@ -53,6 +53,131 @@ interface WidgetPhase {
 	state: WidgetPhaseState;
 }
 
+class StructuredPhaseWidget {
+	private title: string | undefined;
+	private phases: WidgetPhase[] = [];
+	private hasEvents = false;
+
+	get isActive(): boolean {
+		return this.hasEvents;
+	}
+
+	applyPhaseEvent(event: NsProgressPhaseEvent): void {
+		this.hasEvents = true;
+		switch (event.type) {
+			case "phases-declared":
+				this.title = event.title;
+				this.phases = event.phases.map((phase) => ({
+					key: phase.key,
+					name: phase.name,
+					defaultLabel: phase.label,
+					doneDetail: phase.detail,
+					text: undefined,
+					state: "pending",
+				}));
+				break;
+			case "title-changed":
+				this.title = event.title;
+				break;
+			case "phase-started": {
+				const index = this.ensurePhase(event.phaseKey);
+				this.markEarlierDone(index);
+				const phase = this.phases[index];
+				if (phase !== undefined) {
+					phase.state = "active";
+					phase.text = event.label ?? phase.defaultLabel;
+				}
+				break;
+			}
+			case "phase-progress": {
+				const index = this.ensurePhase(event.phaseKey);
+				const phase = this.phases[index];
+				if (phase !== undefined) {
+					if (phase.state === "pending") {
+						this.markEarlierDone(index);
+						phase.state = "active";
+					}
+					phase.text = event.label;
+				}
+				break;
+			}
+			case "phase-done": {
+				const index = this.ensurePhase(event.phaseKey);
+				const phase = this.phases[index];
+				if (phase !== undefined) {
+					phase.state = "done";
+					phase.text = event.detail ?? phase.doneDetail ?? phase.text;
+				}
+				break;
+			}
+			case "phase-failed": {
+				const index = this.ensurePhase(event.phaseKey);
+				const phase = this.phases[index];
+				if (phase !== undefined) {
+					phase.state = "failed";
+					phase.text = event.detail;
+				}
+				break;
+			}
+		}
+	}
+
+	lines(input: {
+		cliName: string;
+		argv: readonly string[];
+		piCommandName: string;
+		elapsed: string;
+		latestOutput: LiveOutputLine | undefined;
+	}): string[] {
+		const lines = [this.headerLine(input)];
+		const nameWidth = Math.max(0, ...this.phases.map((phase) => phase.name.length));
+		for (const phase of this.phases) {
+			const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(nameWidth)}`;
+			lines.push(phase.text === undefined ? prefix : `${prefix}  ${phase.text}`);
+		}
+		if (input.latestOutput !== undefined) {
+			lines.push(`  ${formatLiveOutputLine(input.latestOutput)}`);
+		}
+		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
+	}
+
+	private headerLine(input: {
+		cliName: string;
+		argv: readonly string[];
+		piCommandName: string;
+		elapsed: string;
+	}): string {
+		const invocationTitle = `${input.cliName} ${input.argv.join(" ")}`;
+		const titleSuffix =
+			this.title !== undefined && this.title !== invocationTitle ? ` — ${this.title}` : "";
+		return `/${input.piCommandName}${titleSuffix} (${input.elapsed} elapsed)`;
+	}
+
+	private ensurePhase(phaseKey: string): number {
+		const existingIndex = this.phases.findIndex((phase) => phase.key === phaseKey);
+		if (existingIndex >= 0) return existingIndex;
+		this.phases.push({
+			key: phaseKey,
+			name: phaseKey,
+			defaultLabel: undefined,
+			doneDetail: undefined,
+			text: undefined,
+			state: "pending",
+		});
+		return this.phases.length - 1;
+	}
+
+	private markEarlierDone(index: number): void {
+		for (let phaseIndex = 0; phaseIndex < index; phaseIndex += 1) {
+			const phase = this.phases[phaseIndex];
+			if (phase === undefined) continue;
+			if (phase.state !== "pending" && phase.state !== "active") continue;
+			phase.state = "done";
+			phase.text = phase.doneDetail ?? phase.text;
+		}
+	}
+}
+
 export class LiveCommandProgress {
 	private readonly ctx: LiveCommandProgressContext;
 	private readonly options: LiveCommandProgressOptions;
@@ -64,9 +189,7 @@ export class LiveCommandProgress {
 	private stdoutPending = "";
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
-	private structuredTitle: string | undefined;
-	private structuredPhases: WidgetPhase[] = [];
-	private hasPhaseEvents = false;
+	private readonly structuredWidget = new StructuredPhaseWidget();
 	private lastStatusValue: string | undefined;
 	private timer: ScheduledTimer | undefined;
 	private isClosed = false;
@@ -118,63 +241,7 @@ export class LiveCommandProgress {
 	}
 
 	applyPhaseEvent(event: NsProgressPhaseEvent): void {
-		this.hasPhaseEvents = true;
-		switch (event.type) {
-			case "phases-declared":
-				this.structuredTitle = event.title;
-				this.structuredPhases = event.phases.map((phase) => ({
-					key: phase.key,
-					name: phase.name,
-					defaultLabel: phase.label,
-					doneDetail: phase.detail,
-					text: undefined,
-					state: "pending",
-				}));
-				break;
-			case "title-changed":
-				this.structuredTitle = event.title;
-				break;
-			case "phase-started": {
-				const index = this.ensureStructuredPhase(event.phaseKey);
-				this.markEarlierStructuredPhasesDone(index);
-				const phase = this.structuredPhases[index];
-				if (phase !== undefined) {
-					phase.state = "active";
-					phase.text = event.label ?? phase.defaultLabel;
-				}
-				break;
-			}
-			case "phase-progress": {
-				const index = this.ensureStructuredPhase(event.phaseKey);
-				const phase = this.structuredPhases[index];
-				if (phase !== undefined) {
-					if (phase.state === "pending") {
-						this.markEarlierStructuredPhasesDone(index);
-						phase.state = "active";
-					}
-					phase.text = event.label;
-				}
-				break;
-			}
-			case "phase-done": {
-				const index = this.ensureStructuredPhase(event.phaseKey);
-				const phase = this.structuredPhases[index];
-				if (phase !== undefined) {
-					phase.state = "done";
-					phase.text = event.detail ?? phase.doneDetail ?? phase.text;
-				}
-				break;
-			}
-			case "phase-failed": {
-				const index = this.ensureStructuredPhase(event.phaseKey);
-				const phase = this.structuredPhases[index];
-				if (phase !== undefined) {
-					phase.state = "failed";
-					phase.text = event.detail;
-				}
-				break;
-			}
-		}
+		this.structuredWidget.applyPhaseEvent(event);
 		this.render();
 	}
 
@@ -245,8 +312,14 @@ export class LiveCommandProgress {
 	}
 
 	private widgetLines(elapsed: string): string[] {
-		if (this.hasPhaseEvents) {
-			return this.structuredWidgetLines(elapsed);
+		if (this.structuredWidget.isActive) {
+			return this.structuredWidget.lines({
+				cliName: this.options.cliName,
+				argv: this.options.argv,
+				piCommandName: this.options.piCommandName,
+				elapsed,
+				latestOutput: this.recentOutputLines().at(-1),
+			});
 		}
 
 		const lines = [
@@ -270,53 +343,6 @@ export class LiveCommandProgress {
 			lines.push(formatLiveOutputLine(line));
 		}
 		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
-	}
-
-	private structuredWidgetLines(elapsed: string): string[] {
-		const lines = [this.structuredHeaderLine(elapsed)];
-		const nameWidth = Math.max(0, ...this.structuredPhases.map((phase) => phase.name.length));
-		for (const phase of this.structuredPhases) {
-			const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(nameWidth)}`;
-			lines.push(phase.text === undefined ? prefix : `${prefix}  ${phase.text}`);
-		}
-		const latestOutput = this.recentOutputLines().at(-1);
-		if (latestOutput !== undefined) {
-			lines.push(`  ${formatLiveOutputLine(latestOutput)}`);
-		}
-		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
-	}
-
-	private structuredHeaderLine(elapsed: string): string {
-		const invocationTitle = `${this.options.cliName} ${this.options.argv.join(" ")}`;
-		const titleSuffix =
-			this.structuredTitle !== undefined && this.structuredTitle !== invocationTitle
-				? ` — ${this.structuredTitle}`
-				: "";
-		return `/${this.options.piCommandName}${titleSuffix} (${elapsed} elapsed)`;
-	}
-
-	private ensureStructuredPhase(phaseKey: string): number {
-		const existingIndex = this.structuredPhases.findIndex((phase) => phase.key === phaseKey);
-		if (existingIndex >= 0) return existingIndex;
-		this.structuredPhases.push({
-			key: phaseKey,
-			name: phaseKey,
-			defaultLabel: undefined,
-			doneDetail: undefined,
-			text: undefined,
-			state: "pending",
-		});
-		return this.structuredPhases.length - 1;
-	}
-
-	private markEarlierStructuredPhasesDone(index: number): void {
-		for (let phaseIndex = 0; phaseIndex < index; phaseIndex += 1) {
-			const phase = this.structuredPhases[phaseIndex];
-			if (phase === undefined) continue;
-			if (phase.state !== "pending" && phase.state !== "active") continue;
-			phase.state = "done";
-			phase.text = phase.doneDetail ?? phase.text;
-		}
 	}
 
 	private recordOutput(stream: OutputStreamName, text: string): void {

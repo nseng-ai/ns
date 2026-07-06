@@ -21,6 +21,7 @@ import {
 	systemStreamClock,
 	type StreamSinkDeps,
 } from "@nseng-ai/clinkr/stream";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	NsExtensionApi,
 	NsProgress,
@@ -42,8 +43,8 @@ function phaseInfos(specs: readonly PhaseSpec[]): readonly NsProgressPhaseInfo[]
 	return specs.map((spec) => ({
 		key: spec.key,
 		name: spec.item.name,
-		...(spec.item.label === undefined ? {} : { label: spec.item.label }),
-		...(spec.item.detail === undefined ? {} : { detail: spec.item.detail }),
+		...optionalEntry("label", spec.item.label),
+		...optionalEntry("detail", spec.item.detail),
 	}));
 }
 
@@ -69,19 +70,21 @@ export interface PhaseStream {
 	stop(): Promise<void>;
 }
 
-export function createPhaseStream(
-	caps: Caps,
-	specs: readonly PhaseSpec[],
-	deps: StreamSinkDeps,
-	forward?: NsProgress,
-): PhaseStream {
-	const isForwarding = forward?.isLive === true;
-	const sink = createStreamSink(caps, deps);
-	const phases = createPhaseStateStore(specs);
+export interface CreatePhaseStreamOptions {
+	caps: Caps;
+	specs: readonly PhaseSpec[];
+	deps: StreamSinkDeps;
+	forward?: NsProgress;
+}
+
+export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
+	const isForwarding = options.forward?.isLive === true;
+	const sink = createStreamSink(options.caps, options.deps);
+	const phases = createPhaseStateStore(options.specs);
 	const tail = createTranscriptTail();
-	const lifecycle = createPhaseStreamLifecycle(caps, sink);
+	const lifecycle = createPhaseStreamLifecycle(options.caps, sink);
 	const renderer = createPhaseStreamRenderer({
-		caps,
+		caps: options.caps,
 		sink,
 		views: phases.views,
 		tailLine: tail.line,
@@ -89,10 +92,10 @@ export function createPhaseStream(
 
 	function begin(title: string): void {
 		if (isForwarding) {
-			forward.phase({
+			options.forward?.phase({
 				type: "phases-declared",
 				title,
-				phases: phaseInfos(specs),
+				phases: phaseInfos(options.specs),
 			});
 		}
 		renderer.setTitle(title);
@@ -102,19 +105,19 @@ export function createPhaseStream(
 	}
 
 	function setTitle(title: string): void {
-		if (isForwarding) forward.phase({ type: "title-changed", title });
+		if (isForwarding) options.forward?.phase({ type: "title-changed", title });
 		renderer.setTitle(title);
 		renderer.render();
 	}
 
 	function emit(event: NsProgressPhaseEvent): void {
-		if (isForwarding) forward.phase(event);
+		if (isForwarding) options.forward?.phase(event);
 		const transition = phases.apply(event);
 		switch (transition.type) {
 			case "ignored":
 				return;
 			case "surface":
-				if (!isForwarding || caps.isTty) renderer.surface(transition.line);
+				if (!isForwarding || options.caps.isTty) renderer.surface(transition.line);
 				return;
 			case "render":
 				if (transition.clearTranscript) tail.clear();
@@ -124,7 +127,7 @@ export function createPhaseStream(
 	}
 
 	function note(text: string): void {
-		if (!caps.isTty) return;
+		if (!options.caps.isTty) return;
 		tail.note(text);
 		renderer.render();
 	}
@@ -152,21 +155,15 @@ export function createPhaseStream(
 	return { begin, setTitle, emit, note, fail, finish, stop };
 }
 
-export interface RunPhaseStreamOptions<T> {
-	caps: Caps;
-	specs: readonly PhaseSpec[];
-	deps: StreamSinkDeps;
-	forward?: NsProgress;
+interface PhaseStreamRunOptions extends CreatePhaseStreamOptions {
 	title: string;
+}
+
+export interface RunPhaseStreamOptions<T> extends PhaseStreamRunOptions {
 	body: (stream: PhaseStream) => Promise<T>;
 }
 
-export interface RunSettledPhaseStreamOptions<T> {
-	caps: Caps;
-	specs: readonly PhaseSpec[];
-	deps: StreamSinkDeps;
-	forward?: NsProgress;
-	title: string;
+export interface RunSettledPhaseStreamOptions<T> extends PhaseStreamRunOptions {
 	body: (stream: PhaseStream) => Promise<SettledPhaseStreamOutcome<T>>;
 }
 
@@ -185,17 +182,12 @@ export interface PhaseStreamController {
 	stop(): Promise<void>;
 }
 
-export interface CreatePhaseStreamControllerOptions {
-	caps: Caps;
-	specs: readonly PhaseSpec[];
-	deps: StreamSinkDeps;
-	forward?: NsProgress;
-	title: string;
+export interface CreatePhaseStreamControllerOptions extends PhaseStreamRunOptions {
 	begin?: "immediate" | "lazy";
 }
 
 export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Promise<T> {
-	const stream = createPhaseStream(options.caps, options.specs, options.deps, options.forward);
+	const stream = createPhaseStream(options);
 	stream.begin(options.title);
 	try {
 		return await options.body(stream);
@@ -211,7 +203,7 @@ export async function runSettledPhaseStream<T>(
 		caps: options.caps,
 		specs: options.specs,
 		deps: options.deps,
-		...(options.forward === undefined ? {} : { forward: options.forward }),
+		...optionalEntry("forward", options.forward),
 		title: options.title,
 		body: async (stream) => {
 			const outcome = await options.body(stream);
@@ -231,7 +223,7 @@ export function createPhaseStreamController(
 
 	function ensureStream(): PhaseStream {
 		if (stream !== undefined) return stream;
-		stream = createPhaseStream(options.caps, options.specs, options.deps, options.forward);
+		stream = createPhaseStream(options);
 		stream.begin(currentTitle);
 		return stream;
 	}

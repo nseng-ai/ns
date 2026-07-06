@@ -4,10 +4,15 @@ import type { StatusLineItem } from "@nseng-ai/foundation/cli-theme";
  * One declared phase: a stable sequencing `key` plus its presentational status-line payload.
  * `substeps` supports one declared child level; nesting substeps beyond that is not rendered.
  */
+export interface PhaseSubstepSpec {
+	key: string;
+	item: StatusLineItem;
+}
+
 export interface PhaseSpec {
 	key: string;
 	item: StatusLineItem;
-	substeps?: readonly PhaseSpec[];
+	substeps?: readonly PhaseSubstepSpec[];
 }
 
 /** Checkpoint workflow phases, shared by `flow cp` and submit's folded checkpoint progress. */

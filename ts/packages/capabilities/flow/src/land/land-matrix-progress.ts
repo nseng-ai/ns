@@ -5,6 +5,7 @@ import type { NsProgress } from "@nseng-ai/kernel/sdk";
 import {
 	createMatrixProgressController,
 	renderMatrixProgressFrame,
+	rowsWithKey,
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
 	type MatrixGlobalRowSpec,
@@ -151,7 +152,7 @@ export function createLandMatrixProgressController(options: {
 	function setRows(rows: readonly LandMatrixRowSpec[]): void {
 		liveState.totalPrs = rows.length;
 		controller.setTitle(formatLandProgressTitle(liveState));
-		controller.setRows(landRowsForCore(rows));
+		controller.setRows(rowsWithKey(rows, (row) => row.branch));
 	}
 
 	function recordMergedPr(prNumber: number): void {
@@ -197,8 +198,4 @@ export function renderLandMatrixProgressFrame(input: {
 		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
 		...(input.tick === undefined ? {} : { tick: input.tick }),
 	});
-}
-
-function landRowsForCore(rows: readonly LandMatrixRowSpec[]) {
-	return rows.map((row) => ({ ...row, rowKey: row.branch }));
 }

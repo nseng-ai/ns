@@ -35,7 +35,8 @@ import {
 	slotNameFromPath,
 } from "./worktrees.ts";
 import { setStatus } from "./presentation.ts";
-import type { LandMatrixProgressSink } from "../land-matrix-progress.ts";
+import type { LandMatrixColumnKey, LandMatrixProgressSink } from "../land-matrix-progress.ts";
+import { runTrackedMatrixStep } from "../../phase-stream/matrix-progress-core.ts";
 import {
 	confirmPreMergeMaintenance,
 	optionalField,
@@ -233,6 +234,30 @@ export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	warnings: LandingWarning[];
 }
 
+interface WithMatrixCellStepOptions<T> {
+	matrix: LandMatrixProgressSink | undefined;
+	branch: string;
+	column: LandMatrixColumnKey;
+	op: () => Promise<LandStackResult<T>>;
+}
+
+async function withMatrixCellStep<T>(
+	options: WithMatrixCellStepOptions<T>,
+): Promise<LandStackResult<T>> {
+	return await runTrackedMatrixStep({
+		onActive: () => {
+			options.matrix?.setCell(options.branch, options.column, { state: "active" });
+		},
+		onDone: () => {
+			options.matrix?.setCell(options.branch, options.column, { state: "done" });
+		},
+		onFailed: () => {
+			options.matrix?.setCell(options.branch, options.column, { state: "failed" });
+		},
+		op: options.op,
+	});
+}
+
 export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
@@ -252,81 +277,90 @@ export async function runMergeLoop(
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
-		options.commandStream?.matrix?.setCell(branch, "gate", { state: "active" });
-		const localSha = await options.landContext.git.localBranchSha({ repoRoot, branch });
-		if (localSha.type === "failure") {
-			options.commandStream?.matrix?.setCell(branch, "gate", { state: "failed" });
-			return failure(toLandStackFailure(localSha.failure));
-		}
-		const pr = await options.landContext.github.pullRequestFacts({
-			repoRoot,
-			branchOrNumber: branch,
-		});
-		if (pr.type === "failure") {
-			options.commandStream?.matrix?.setCell(branch, "gate", { state: "failed" });
-			return failure(toLandStackFailure(pr.failure));
-		}
-		const currentPr = pr.value;
-		const mergeGate = validateStrictMergeGate({
+		const gated = await withMatrixCellStep({
+			matrix: options.commandStream?.matrix,
 			branch,
-			localSha: localSha.value,
-			pr: currentPr,
-			trunk: stack.trunk,
+			column: "gate",
+			op: async () => {
+				const localSha = await options.landContext.git.localBranchSha({ repoRoot, branch });
+				if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
+				const pr = await options.landContext.github.pullRequestFacts({
+					repoRoot,
+					branchOrNumber: branch,
+				});
+				if (pr.type === "failure") return failure(toLandStackFailure(pr.failure));
+				const mergeGate = validateStrictMergeGate({
+					branch,
+					localSha: localSha.value,
+					pr: pr.value,
+					trunk: stack.trunk,
+				});
+				if (mergeGate.type === "failure") return failure(toLandStackFailure(mergeGate.failure));
+				return success(pr.value);
+			},
 		});
-		if (mergeGate.type === "failure") {
-			options.commandStream?.matrix?.setCell(branch, "gate", { state: "failed" });
-			return failure(toLandStackFailure(mergeGate.failure));
-		}
-		options.commandStream?.matrix?.setCell(branch, "gate", { state: "done" });
-		options.commandStream?.matrix?.setCell(branch, "merge", { state: "active" });
-		options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
-		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
-		const merge = await options.landContext.github.squashMergePullRequest({
-			repoRoot,
-			pullRequest: currentPr,
+		if (gated.type === "failure") return gated;
+		const currentPr = gated.value;
+		const merged = await withMatrixCellStep({
+			matrix: options.commandStream?.matrix,
+			branch,
+			column: "merge",
+			op: async () => {
+				options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
+				setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
+				const merge = await options.landContext.github.squashMergePullRequest({
+					repoRoot,
+					pullRequest: currentPr,
+				});
+				return merge.type === "failure"
+					? failure(stackMergeRejectedFailure(merge.failure, currentPr, branch))
+					: success(undefined);
+			},
 		});
-		if (merge.type === "failure") {
-			options.commandStream?.matrix?.setCell(branch, "merge", { state: "failed" });
-			return failure(stackMergeRejectedFailure(merge.failure, currentPr, branch));
-		}
-		options.commandStream?.matrix?.setCell(branch, "merge", { state: "done" });
-		options.commandStream?.matrix?.setCell(branch, "verify", { state: "active" });
-		setStatus(ctx, `verifying #${currentPr.number}...`);
-		const verified = await options.landContext.github.pullRequestFacts({
-			repoRoot,
-			branchOrNumber: String(currentPr.number),
+		if (merged.type === "failure") return merged;
+		const verified = await withMatrixCellStep({
+			matrix: options.commandStream?.matrix,
+			branch,
+			column: "verify",
+			op: async () => {
+				setStatus(ctx, `verifying #${currentPr.number}...`);
+				const facts = await options.landContext.github.pullRequestFacts({
+					repoRoot,
+					branchOrNumber: String(currentPr.number),
+				});
+				if (facts.type === "failure") {
+					return failure(
+						landStackFailure(
+							`gh pr merge exited 0, but verification could not load PR #${currentPr.number}; local Graphite cleanup skipped.\n${facts.failure.message}`,
+							{
+								failedBranch: branch,
+								failedPr: currentPr.number,
+								suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
+							},
+						),
+					);
+				}
+				if (
+					facts.value.state !== "MERGED" ||
+					!facts.value.mergedAt ||
+					facts.value.baseRefName !== stack.trunk ||
+					facts.value.headRefName !== branch
+				) {
+					return failure(
+						landStackFailure(
+							"gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.",
+							{
+								failedBranch: branch,
+								failedPr: currentPr.number,
+								suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
+							},
+						),
+					);
+				}
+				return success(facts.value);
+			},
 		});
-		if (verified.type === "failure") {
-			options.commandStream?.matrix?.setCell(branch, "verify", { state: "failed" });
-			return failure(
-				landStackFailure(
-					`gh pr merge exited 0, but verification could not load PR #${currentPr.number}; local Graphite cleanup skipped.\n${verified.failure.message}`,
-					{
-						failedBranch: branch,
-						failedPr: currentPr.number,
-						suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
-					},
-				),
-			);
-		}
-		if (
-			verified.value.state !== "MERGED" ||
-			!verified.value.mergedAt ||
-			verified.value.baseRefName !== stack.trunk ||
-			verified.value.headRefName !== branch
-		) {
-			options.commandStream?.matrix?.setCell(branch, "verify", { state: "failed" });
-			return failure(
-				landStackFailure(
-					"gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.",
-					{
-						failedBranch: branch,
-						failedPr: currentPr.number,
-						suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
-					},
-				),
-			);
-		}
+		if (verified.type === "failure") return verified;
 		const prUrl = verified.value.url ?? currentPr.url;
 		landed.push({
 			branch,

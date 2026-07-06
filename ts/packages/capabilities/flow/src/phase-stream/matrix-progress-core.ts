@@ -39,6 +39,13 @@ export interface MatrixRowSpec {
 	label: string;
 }
 
+export function rowsWithKey<Row extends { label: string }>(
+	rows: readonly Row[],
+	keyOf: (row: Row) => string,
+): readonly (Row & MatrixRowSpec)[] {
+	return rows.map((row) => ({ ...row, rowKey: keyOf(row) }));
+}
+
 export interface MatrixGlobalRowSpec<GlobalKey extends string> {
 	key: GlobalKey;
 	label: string;
@@ -190,9 +197,10 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 	}
 
 	function setGlobal(key: GlobalKey, update: MatrixCellUpdate): void {
-		const row = state.globals.find((global) => global.key === key);
+		const rowIndex = state.globals.findIndex((global) => global.key === key);
+		const row = state.globals[rowIndex];
 		if (row === undefined) return;
-		applyCellUpdate(row, update);
+		state.globals[rowIndex] = applyCellUpdate(row, update);
 		ensureBegun();
 		render();
 	}
@@ -203,9 +211,10 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		update: MatrixCellUpdate,
 	): void {
 		const row = state.globals.find((global) => global.key === globalKey);
-		const substep = row?.substeps.find((item) => item.key === substepKey);
-		if (substep === undefined) return;
-		applyCellUpdate(substep, update);
+		const substepIndex = row?.substeps.findIndex((item) => item.key === substepKey) ?? -1;
+		const substep = row?.substeps[substepIndex];
+		if (row === undefined || substep === undefined) return;
+		row.substeps[substepIndex] = applyCellUpdate(substep, update);
 		ensureBegun();
 		render();
 	}
@@ -358,6 +367,23 @@ export function updateForPhase(state: MatrixCellState, text: string | undefined)
 	return { state, ...(text === undefined ? {} : { text }) };
 }
 
+export interface RunTrackedMatrixStepOptions<Result extends { type: string }> {
+	onActive(): void;
+	onDone(result: Result): void;
+	onFailed(result: Result): void;
+	op(): Promise<Result>;
+}
+
+export async function runTrackedMatrixStep<Result extends { type: string }>(
+	options: RunTrackedMatrixStepOptions<Result>,
+): Promise<Result> {
+	options.onActive();
+	const result = await options.op();
+	if (result.type === "failure") options.onFailed(result);
+	else options.onDone(result);
+	return result;
+}
+
 export function settleActiveCells<ColumnKey extends string, GlobalKey extends string>(
 	state: { globals: MatrixGlobalView<GlobalKey>[]; rows: MatrixRowView<ColumnKey>[] },
 	columns: readonly MatrixColumnSpec<ColumnKey>[],
@@ -377,13 +403,13 @@ export function settleActiveCells<ColumnKey extends string, GlobalKey extends st
 	}
 }
 
-export function applyCellUpdate(
-	cell: { state: MatrixCellState; text?: string },
+export function applyCellUpdate<Cell extends { state: MatrixCellState; text?: string }>(
+	cell: Cell,
 	update: MatrixCellUpdate,
-): void {
-	cell.state = update.state;
-	if (update.text === undefined) delete cell.text;
-	else cell.text = update.text;
+): Cell {
+	if (update.text !== undefined) return { ...cell, state: update.state, text: update.text };
+	const { text: _text, ...cellWithoutText } = cell;
+	return { ...cellWithoutText, state: update.state } as Cell;
 }
 
 function createMatrixProgressRenderer<ColumnKey extends string, GlobalKey extends string>(options: {
