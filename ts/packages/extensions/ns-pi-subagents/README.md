@@ -17,7 +17,7 @@ In this slice the package is a private workspace package. Pi package setups can 
 
 ## Tool
 
-The extension registers the `explore` tool. A parent agent provides two or more focused read-only scouting tasks, and the extension launches child Pi sessions for each task. Results are returned as bounded direct findings with session-file paths for raw transcripts.
+The extension registers the `explore` tool. A parent agent provides one or more focused read-only scouting tasks, and the extension launches child Pi sessions for each task. Results are returned as bounded direct findings with session-file paths for raw transcripts.
 
 Behavioral guarantees and limits:
 

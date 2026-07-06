@@ -201,7 +201,7 @@ describe("explore extension", () => {
 		expect(tool.parameters.required).toEqual(["tasks"]);
 		expect(tool.parameters.additionalProperties).toBe(false);
 		expect((tool.parameters.properties as Record<string, unknown>).tasks).toEqual(
-			expect.objectContaining({ minItems: 2, maxItems: 8 }),
+			expect.objectContaining({ minItems: 1, maxItems: 8 }),
 		);
 	});
 
@@ -215,13 +215,7 @@ describe("explore extension", () => {
 		});
 
 		await expect(
-			tool.execute(
-				"tool-1",
-				{ tasks: [{ title: "One", prompt: "Only one." }] },
-				undefined,
-				undefined,
-				toolContext(),
-			),
+			tool.execute("tool-1", { tasks: [] }, undefined, undefined, toolContext()),
 		).rejects.toThrow("tasks: Too small");
 		await expect(
 			tool.execute(
@@ -234,7 +228,7 @@ describe("explore extension", () => {
 		).rejects.toThrow('Too many explore tasks for breadth "quick"');
 		const result = await tool.execute(
 			"tool-3",
-			exploreParams(3),
+			{ tasks: [{ title: "One", prompt: "Only one." }] },
 			undefined,
 			undefined,
 			toolContext(),
@@ -243,7 +237,8 @@ describe("explore extension", () => {
 
 		expect(details.breadth).toBe("medium");
 		expect(details.maxConcurrency).toBe(3);
-		expect(dispatchCalls).toEqual(["Scout 1", "Scout 2", "Scout 3"]);
+		expect(details.tasks.map((task) => task.title)).toEqual(["One"]);
+		expect(dispatchCalls).toEqual(["One"]);
 	});
 
 	test("dispatches ordered tasks with bounded concurrency", async () => {

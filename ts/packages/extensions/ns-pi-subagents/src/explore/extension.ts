@@ -91,14 +91,14 @@ export const EXPLORE_PARAMETERS = {
 			type: "string",
 			enum: EXPLORE_BREADTH_VALUES,
 			description:
-				'Optional breadth profile. Use "quick" for two obvious angles, "medium" for a normal subsystem map, and "very-thorough" only for broad unfamiliar areas.',
+				'Optional breadth profile. Use "quick" for one or two obvious angles, "medium" for a normal subsystem map, and "very-thorough" only for broad unfamiliar areas.',
 		},
 		tasks: {
 			type: "array",
-			minItems: 2,
+			minItems: 1,
 			maxItems: EXPLORE_ABSOLUTE_MAX_TASKS,
 			description:
-				"Two or more focused read-only scout tasks. Each task should ask one concrete reconnaissance question with scope hints.",
+				"One or more focused read-only scout tasks. Each task should ask one concrete reconnaissance question with scope hints. A single task is appropriate for one deep standalone investigation question.",
 			items: {
 				type: "object",
 				properties: {

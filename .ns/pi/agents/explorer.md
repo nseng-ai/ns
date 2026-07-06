@@ -8,6 +8,7 @@ promptSnippet: Launch fast read-only explorer subagents and return structured sc
 promptGuidelines:
   - Use explore for read-only reconnaissance whose answer is a map of files, symbols, and starting points, not for implementation, review judgment, or planning.
   - Use explore only when direct read/grep is insufficient; prefer direct read/grep yourself when you already know the exact file or symbol.
+  - Use explore with a single task when you need one deep read-only investigation answered with evidence.
   - For explore, give each explorer one focused question with concrete scope hints (directories, naming conventions, subsystems) so parallel explorers do not overlap.
   - For explore, explorers run with a read-only tool allowlist (read, grep, find, ls) on a cheap model by default; do not delegate tasks that need bash, file edits, or long-horizon reasoning.
 ---

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import investigateExtension from "../src/core/investigate/extension.ts";
 import modelShortcutExtension from "../src/core/model-shortcuts/extension.ts";
 import prExtension from "../src/core/pr/extension.ts";
 import {
@@ -11,12 +10,10 @@ import {
 import { loadPiExtensionParityRecords } from "../src/parity/registry.ts";
 import { definePiSurfaceParity } from "../src/runtime/parity-extension.ts";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
-import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 
 async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 
-	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, prExtension);
 	// The worktree-status implementation lives in @nseng-ai/pi/worktree-status and is
@@ -28,25 +25,6 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	});
 
 	return pi.surfaces();
-}
-
-function registerInvestigateWithFakeDefinition(
-	pi: Parameters<typeof investigateExtension>[0],
-): void {
-	investigateExtension(pi, { loadAgentDefinition: () => fakeInvestigatorAgentDefinition() });
-}
-
-function fakeInvestigatorAgentDefinition(): PiAgentDefinition {
-	return {
-		schema: "ns.pi-agent.v1",
-		name: "investigator",
-		toolName: "investigate",
-		label: "Investigator",
-		description: "Run a fixture investigation.",
-		promptGuidelines: [],
-		body: "Investigate this prompt:\n\n{{prompt}}",
-		filePath: "/fixture/.ns/pi/agents/investigator.md",
-	};
 }
 
 describe("Pi extension parity metadata", () => {

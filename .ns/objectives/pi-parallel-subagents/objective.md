@@ -139,8 +139,11 @@ Risks:
   subprocess dispatch as the default runtime; expose the in-process adapter only through
   explicit injection for future context-forking dogfood
   (`updates/2026-07-05-optional-follow-ons-implemented.md`).
-- Whether `/investigate` (in-process today, with a recorded parity gap vs Claude Code's
-  out-of-process investigator) should migrate onto the explore substrate.
+- ~~Whether `/investigate` (in-process today, with a recorded parity gap vs Claude Code's
+  out-of-process investigator) should migrate onto the explore substrate.~~ Resolved
+  2026-07-05: eliminated in both harnesses; explore absorbs the use case including
+  single-task deep investigations
+  (`updates/2026-07-05-investigate-eliminated-explore-single-task.md`).
 - ~~The exact package boundary for `ns-pi-subagents`: whether it remains an ns-internal
   workspace package first or is prepared for external distribution immediately.~~
   Resolved 2026-07-05: ship as a private ns workspace Pi extension package first;

@@ -21,7 +21,7 @@ export const exploreInputSchema = z
 					prompt: z.string().trim().min(1).max(EXPLORE_PROMPT_MAX_CHARS),
 				}),
 			)
-			.min(2)
+			.min(1)
 			.max(EXPLORE_ABSOLUTE_MAX_TASKS),
 	})
 	.strict()
