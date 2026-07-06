@@ -24,7 +24,10 @@ import {
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
 import type { LandStackCommandContext, LandedPr, FlowLandingPlan } from "./types.ts";
 import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
-import type { MatrixCellUpdate } from "../../phase-stream/matrix-progress-core.ts";
+import {
+	runTrackedMatrixStep,
+	type MatrixCellUpdate,
+} from "../../phase-stream/matrix-progress-core.ts";
 
 export interface LandingSession {
 	ctx: LandStackCommandContext;
@@ -52,21 +55,33 @@ export async function preparePlanForMerge(
 	return result;
 }
 
+interface WithPrepareSubstepOptions<T> {
+	commandStream: LandStackCommandStream;
+	substep: string;
+	failureUpdate: MatrixCellUpdate;
+	op: () => Promise<LandStackResult<T>>;
+}
+
 async function withPrepareSubstep<T>(
-	commandStream: LandStackCommandStream,
-	substep: string,
-	failureUpdate: MatrixCellUpdate,
-	op: () => Promise<LandStackResult<T>>,
+	options: WithPrepareSubstepOptions<T>,
 ): Promise<LandStackResult<T>> {
-	commandStream.matrix?.setGlobalSubstep("prepare", substep, { state: "active" });
-	const result = await op();
-	if (result.type === "failure") {
-		commandStream.matrix?.setGlobalSubstep("prepare", substep, { state: "failed" });
-		commandStream.matrix?.setGlobal("prepare", failureUpdate);
-	} else {
-		commandStream.matrix?.setGlobalSubstep("prepare", substep, { state: "done" });
-	}
-	return result;
+	return await runTrackedMatrixStep({
+		onActive: () => {
+			options.commandStream.matrix?.setGlobalSubstep("prepare", options.substep, {
+				state: "active",
+			});
+		},
+		onDone: () => {
+			options.commandStream.matrix?.setGlobalSubstep("prepare", options.substep, { state: "done" });
+		},
+		onFailed: () => {
+			options.commandStream.matrix?.setGlobalSubstep("prepare", options.substep, {
+				state: "failed",
+			});
+			options.commandStream.matrix?.setGlobal("prepare", options.failureUpdate);
+		},
+		op: options.op,
+	});
 }
 
 async function preparePlanForMergeCore(
@@ -92,11 +107,11 @@ async function preparePlanForMergeCore(
 	});
 
 	if (plan.managedSlotConflicts.length > 0) {
-		const slotOutcome = await withPrepareSubstep(
+		const slotOutcome = await withPrepareSubstep({
 			commandStream,
-			"slots",
-			{ state: "failed", text: "slot cleanup failed" },
-			async () =>
+			substep: "slots",
+			failureUpdate: { state: "failed", text: "slot cleanup failed" },
+			op: async () =>
 				await confirmAndFreeManagedSlots({
 					runtime,
 					ctx,
@@ -104,7 +119,7 @@ async function preparePlanForMergeCore(
 					landContext: getLandContext(),
 					confirmation: preMergeConfirmation,
 				}),
-		);
+		});
 		if (slotOutcome.type === "failure") return slotOutcome;
 	} else {
 		commandStream.matrix?.setGlobalSubstep("prepare", "slots", {
@@ -149,32 +164,32 @@ async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<FlowLandingPlan>> {
 	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
-	const submitOutcome = await withPrepareSubstep(
+	const submitOutcome = await withPrepareSubstep({
 		commandStream,
-		"update",
-		{ state: "failed", text: "PR update failed" },
-		async () =>
+		substep: "update",
+		failureUpdate: { state: "failed", text: "PR update failed" },
+		op: async () =>
 			await confirmAndSubmitRequiredPrUpdates({
 				ctx,
 				plan,
 				landContext,
 				confirmation: preMergeConfirmation,
 			}),
-	);
+	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
-	const rechecked = await withPrepareSubstep(
+	const rechecked = await withPrepareSubstep({
 		commandStream,
-		"recheck",
-		{ state: "failed", text: "recheck failed" },
-		async () =>
+		substep: "recheck",
+		failureUpdate: { state: "failed", text: "recheck failed" },
+		op: async () =>
 			await buildLandingPlan(runtime, ctx.cwd, {
 				shouldAllowSubmitRequiredState: true,
 				landingBranchLimit: plan.stack.landingBranches.length,
 			}),
-	);
+	});
 	if (rechecked.type === "failure") return rechecked;
 
 	commandStream.matrix?.setRows(landMatrixRowsFromPlan(rechecked.value));

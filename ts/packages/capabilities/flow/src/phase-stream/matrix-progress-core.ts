@@ -367,6 +367,23 @@ export function updateForPhase(state: MatrixCellState, text: string | undefined)
 	return { state, ...(text === undefined ? {} : { text }) };
 }
 
+export interface RunTrackedMatrixStepOptions<Result extends { type: string }> {
+	onActive(): void;
+	onDone(result: Result): void;
+	onFailed(result: Result): void;
+	op(): Promise<Result>;
+}
+
+export async function runTrackedMatrixStep<Result extends { type: string }>(
+	options: RunTrackedMatrixStepOptions<Result>,
+): Promise<Result> {
+	options.onActive();
+	const result = await options.op();
+	if (result.type === "failure") options.onFailed(result);
+	else options.onDone(result);
+	return result;
+}
+
 export function settleActiveCells<ColumnKey extends string, GlobalKey extends string>(
 	state: { globals: MatrixGlobalView<GlobalKey>[]; rows: MatrixRowView<ColumnKey>[] },
 	columns: readonly MatrixColumnSpec<ColumnKey>[],

@@ -36,6 +36,7 @@ import {
 } from "./worktrees.ts";
 import { setStatus } from "./presentation.ts";
 import type { LandMatrixColumnKey, LandMatrixProgressSink } from "../land-matrix-progress.ts";
+import { runTrackedMatrixStep } from "../../phase-stream/matrix-progress-core.ts";
 import {
 	confirmPreMergeMaintenance,
 	optionalField,
@@ -233,16 +234,28 @@ export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	warnings: LandingWarning[];
 }
 
+interface WithMatrixCellStepOptions<T> {
+	matrix: LandMatrixProgressSink | undefined;
+	branch: string;
+	column: LandMatrixColumnKey;
+	op: () => Promise<LandStackResult<T>>;
+}
+
 async function withMatrixCellStep<T>(
-	matrix: LandMatrixProgressSink | undefined,
-	branch: string,
-	column: LandMatrixColumnKey,
-	op: () => Promise<LandStackResult<T>>,
+	options: WithMatrixCellStepOptions<T>,
 ): Promise<LandStackResult<T>> {
-	matrix?.setCell(branch, column, { state: "active" });
-	const result = await op();
-	matrix?.setCell(branch, column, { state: result.type === "failure" ? "failed" : "done" });
-	return result;
+	return await runTrackedMatrixStep({
+		onActive: () => {
+			options.matrix?.setCell(options.branch, options.column, { state: "active" });
+		},
+		onDone: () => {
+			options.matrix?.setCell(options.branch, options.column, { state: "done" });
+		},
+		onFailed: () => {
+			options.matrix?.setCell(options.branch, options.column, { state: "failed" });
+		},
+		op: options.op,
+	});
 }
 
 export async function runMergeLoop(
@@ -264,11 +277,11 @@ export async function runMergeLoop(
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
-		const gated = await withMatrixCellStep(
-			options.commandStream?.matrix,
+		const gated = await withMatrixCellStep({
+			matrix: options.commandStream?.matrix,
 			branch,
-			"gate",
-			async () => {
+			column: "gate",
+			op: async () => {
 				const localSha = await options.landContext.git.localBranchSha({ repoRoot, branch });
 				if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
 				const pr = await options.landContext.github.pullRequestFacts({
@@ -285,14 +298,14 @@ export async function runMergeLoop(
 				if (mergeGate.type === "failure") return failure(toLandStackFailure(mergeGate.failure));
 				return success(pr.value);
 			},
-		);
+		});
 		if (gated.type === "failure") return gated;
 		const currentPr = gated.value;
-		const merged = await withMatrixCellStep(
-			options.commandStream?.matrix,
+		const merged = await withMatrixCellStep({
+			matrix: options.commandStream?.matrix,
 			branch,
-			"merge",
-			async () => {
+			column: "merge",
+			op: async () => {
 				options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
 				setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
 				const merge = await options.landContext.github.squashMergePullRequest({
@@ -303,13 +316,13 @@ export async function runMergeLoop(
 					? failure(stackMergeRejectedFailure(merge.failure, currentPr, branch))
 					: success(undefined);
 			},
-		);
+		});
 		if (merged.type === "failure") return merged;
-		const verified = await withMatrixCellStep(
-			options.commandStream?.matrix,
+		const verified = await withMatrixCellStep({
+			matrix: options.commandStream?.matrix,
 			branch,
-			"verify",
-			async () => {
+			column: "verify",
+			op: async () => {
 				setStatus(ctx, `verifying #${currentPr.number}...`);
 				const facts = await options.landContext.github.pullRequestFacts({
 					repoRoot,
@@ -346,7 +359,7 @@ export async function runMergeLoop(
 				}
 				return success(facts.value);
 			},
-		);
+		});
 		if (verified.type === "failure") return verified;
 		const prUrl = verified.value.url ?? currentPr.url;
 		landed.push({
