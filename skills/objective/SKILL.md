@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Conceptual questions about ns Objectives, ns objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
+description: "Conceptual questions about ns Objectives, Objective patterns (umbrella, orienting, ideation, standing), ns objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
 ---
 
 # objective
@@ -115,8 +115,9 @@ A minimal Closure Marker. Its existence means closed; closure meaning belongs in
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
-3. If no candidates exist, say so and suggest `objective-create` when appropriate.
+2. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before running active-Objective workflows.
+3. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
+4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
