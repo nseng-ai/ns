@@ -130,7 +130,6 @@ function registerExploreTool(
 
 function finalOutcome(text: string, sessionFile: string): ExplorerDispatchOutcome {
 	return {
-		definition,
 		launchPlan: { kind: "inherit" },
 		result: { ...makeFinalTextResult(text), sessionFile },
 	};
@@ -138,7 +137,6 @@ function finalOutcome(text: string, sessionFile: string): ExplorerDispatchOutcom
 
 function errorOutcome(diagnostic: string, sessionFile: string): ExplorerDispatchOutcome {
 	return {
-		definition,
 		launchPlan: { kind: "inherit" },
 		result: { ...makeErrorResult(diagnostic), sessionFile },
 	};
@@ -369,7 +367,6 @@ describe("explore extension", () => {
 		const updates: Partial<ToolResult>[] = [];
 		const dispatchExplorer: ExploreDispatchFunction = async (_pi, ctx, intent) => {
 			expect(ctx.cwd).toBe("/custom");
-			expect(intent.cwd).toBe("/custom");
 			expect(intent.prompt).toContain("Find area");
 			expect(intent.signal).toBeDefined();
 			seenSignals.push(intent.signal!);
@@ -530,7 +527,6 @@ describe("explore extension", () => {
 			childSignals.push(intent.signal);
 			if (intent.signal.aborted)
 				return {
-					definition,
 					launchPlan: { kind: "inherit" },
 					result: makeErrorResult("already aborted"),
 				};
@@ -539,7 +535,6 @@ describe("explore extension", () => {
 					"abort",
 					() => {
 						resolve({
-							definition,
 							launchPlan: { kind: "inherit" },
 							result: {
 								status: "cancelled",

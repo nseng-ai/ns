@@ -61,8 +61,8 @@ function explorerDispatcher(dependencies: ExplorerDispatchTestDependencies = {})
 			pi,
 			ctx,
 			intent,
+			definition,
 			dependencies: {
-				loadAgentDefinition: () => definition,
 				isProviderAuthConfigured: () => true,
 				...dependencies,
 			},
@@ -136,7 +136,6 @@ describe("dispatchExplorerSubagent", () => {
 		expect(outcome.result.status).toBe("final-text");
 		expect(outcome.launchPlan).toEqual({ kind: "cheap", model: EXPLORER_CHEAP_MODEL_SHORTHAND });
 		expect(outcome.failover).toBeUndefined();
-		expect(outcome.definition).toBe(definition);
 	});
 
 	test("fails over once to the inherited model when the cheap attempt errors", async () => {
