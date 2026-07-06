@@ -13,6 +13,7 @@
 		"./checkpoint-flow": "./src/kit/checkpoint-flow.ts",
 		"./checkpoint-message": "./src/kit/checkpoint-message.ts",
 		"./command-runner": "./src/kit/command-runner.ts",
+		"./content-slug": "./src/kit/content-slug.ts",
 		"./gateway-result": "./src/kit/gateway-result.ts",
 		"./git": "./src/git/index.ts",
 		"./git/testing": "./src/git/testing.ts",
