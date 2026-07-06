@@ -29,7 +29,13 @@ import {
 	type RunnerSubagentUsageMetadata,
 } from "@internal/pi-tools/runner-subagents";
 import { EXPLORE_FLEET_COMMAND_NAME, EXPLORE_FLEET_SHORTCUTS } from "./contract.ts";
-import { formatExploreFleetTaskLines, sortedFleetTasks, taskIcon } from "./fleet.ts";
+import {
+	formatExploreFleetTaskLines,
+	latestParentSessionFile,
+	sortedFleetTasks,
+	taskIcon,
+} from "./fleet.ts";
+import type { ExploreReadTextFileDependencies, ReadTextFile } from "./read-text-dependencies.ts";
 import type { CommandRegistrar } from "./transcript-viewer.ts";
 
 export { EXPLORE_FLEET_COMMAND_NAME, EXPLORE_FLEET_SHORTCUTS } from "./contract.ts";
@@ -40,9 +46,7 @@ const PARENT_ENTRY_TITLE = "Parent Pi session";
 const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
 const DETAIL_FOOTER = "j/k scroll · f follow · p prompt · r reload · b back · q/Esc close";
 
-export interface ExploreFleetNavigatorDependencies {
-	readTextFile?: (path: string) => Promise<string>;
-}
+export type ExploreFleetNavigatorDependencies = ExploreReadTextFileDependencies;
 
 export interface ExploreFleetTaskDetail {
 	task: RunnerSubagentFleetTaskSnapshot;
@@ -83,6 +87,20 @@ interface CommandRegistrarHost {
 interface ShortcutRegistrarHost {
 	registerShortcut: RegisterShortcutFunction;
 }
+
+interface ParentFleetNavigatorEntry {
+	kind: "parent";
+	id: typeof EXPLORE_FLEET_PARENT_ENTRY_ID;
+	title: string;
+	sessionFile: string;
+}
+
+interface TaskFleetNavigatorEntry {
+	kind: "task";
+	task: RunnerSubagentFleetTaskSnapshot;
+}
+
+type FleetNavigatorEntry = ParentFleetNavigatorEntry | TaskFleetNavigatorEntry;
 
 export function registerExploreFleetCommand<TPi extends object>(input: {
 	pi: TPi;
@@ -165,7 +183,7 @@ export async function openExploreFleetNavigator(input: {
 export interface ExploreFleetNavigatorOptions {
 	tui: Pick<TuiHandle, "requestRender">;
 	registry: RunnerSubagentFleetRegistry;
-	readTextFile: (path: string) => Promise<string>;
+	readTextFile: ReadTextFile;
 	done(value: undefined): void;
 	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
 	parentSessionFile?: string;
@@ -174,13 +192,13 @@ export interface ExploreFleetNavigatorOptions {
 export class ExploreFleetNavigator implements RenderComponent {
 	private readonly tui: Pick<TuiHandle, "requestRender">;
 	private readonly registry: RunnerSubagentFleetRegistry;
-	private readonly readTextFile: (path: string) => Promise<string>;
+	private readonly readTextFile: ReadTextFile;
 	private readonly done: (value: undefined) => void;
 	private readonly fallbackParentSessionFile: string | undefined;
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
-	private tasks: RunnerSubagentFleetTaskSnapshot[];
-	private selectedTaskId: string | undefined;
+	private entries: FleetNavigatorEntry[];
+	private selectedEntryId: string | undefined;
 	private detail: ExploreFleetTaskDetail | undefined;
 	private detailScroll = 0;
 	private detailMaxScroll = 0;
@@ -196,10 +214,10 @@ export class ExploreFleetNavigator implements RenderComponent {
 		this.readTextFile = options.readTextFile;
 		this.done = options.done;
 		this.fallbackParentSessionFile = options.parentSessionFile;
-		this.tasks = this.readTasks();
-		this.selectedTaskId = defaultSelectionId(this.tasks);
+		this.entries = this.readEntries();
+		this.selectedEntryId = defaultSelectionId(this.entries);
 		this.unsubscribe = this.registry.subscribe(() => {
-			this.refreshTasks();
+			this.refreshEntries();
 			if (this.mode === "detail") this.scheduleDetailLoad();
 			this.tui.requestRender();
 		});
@@ -296,18 +314,18 @@ export class ExploreFleetNavigator implements RenderComponent {
 	}
 
 	private moveSelection(delta: number): void {
-		if (this.tasks.length === 0) return;
+		if (this.entries.length === 0) return;
 		const currentIndex = Math.max(
 			0,
-			this.tasks.findIndex((task) => task.id === this.selectedTaskId),
+			this.entries.findIndex((entry) => entryId(entry) === this.selectedEntryId),
 		);
-		const nextIndex = Math.min(this.tasks.length - 1, Math.max(0, currentIndex + delta));
-		this.selectedTaskId = this.tasks[nextIndex]?.id;
+		const nextIndex = Math.min(this.entries.length - 1, Math.max(0, currentIndex + delta));
+		this.selectedEntryId = entryId(this.entries[nextIndex]);
 		this.tui.requestRender();
 	}
 
 	private openSelectedDetail(): void {
-		if (this.selectedTask() === undefined) return;
+		if (this.selectedEntry() === undefined) return;
 		this.mode = "detail";
 		this.detail = undefined;
 		this.detailScroll = 0;
@@ -323,19 +341,19 @@ export class ExploreFleetNavigator implements RenderComponent {
 			this.hasQueuedRead = true;
 			return;
 		}
-		const task = this.selectedTask();
-		if (task === undefined) return;
+		const entry = this.selectedEntry();
+		if (entry === undefined) return;
 		this.isReadInFlight = true;
-		void this.runDetailLoad(task);
+		void this.runDetailLoad(entry);
 	}
 
-	private async runDetailLoad(task: RunnerSubagentFleetTaskSnapshot): Promise<void> {
+	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
 		const detail = await loadFleetTaskDetail({
-			task,
+			task: taskSnapshotForDetail(entry),
 			readTextFile: this.readTextFile,
 		});
 		this.isReadInFlight = false;
-		if (!this.isDisposed && this.mode === "detail" && this.selectedTaskId === task.id) {
+		if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
 			this.detail = detail;
 			this.tui.requestRender();
 		}
@@ -345,59 +363,62 @@ export class ExploreFleetNavigator implements RenderComponent {
 		}
 	}
 
-	private refreshTasks(): void {
-		this.tasks = this.readTasks();
+	private refreshEntries(): void {
+		this.entries = this.readEntries();
 		if (
-			this.selectedTaskId !== undefined &&
-			this.tasks.some((task) => task.id === this.selectedTaskId)
+			this.selectedEntryId !== undefined &&
+			this.entries.some((entry) => entryId(entry) === this.selectedEntryId)
 		) {
 			return;
 		}
-		this.selectedTaskId = defaultSelectionId(this.tasks);
+		this.selectedEntryId = defaultSelectionId(this.entries);
 	}
 
-	private readTasks(): RunnerSubagentFleetTaskSnapshot[] {
+	private readEntries(): FleetNavigatorEntry[] {
 		const runs = this.registry.snapshot();
 		const parent = parentSessionEntry(runs, this.fallbackParentSessionFile);
-		const tasks = sortedFleetTasks(runs);
+		const tasks = sortedFleetTasks(runs).map(
+			(task): FleetNavigatorEntry => ({ kind: "task", task }),
+		);
 		return parent === undefined ? tasks : [parent, ...tasks];
 	}
 
-	private selectedTask(): RunnerSubagentFleetTaskSnapshot | undefined {
-		return this.tasks.find((task) => task.id === this.selectedTaskId);
+	private selectedEntry(): FleetNavigatorEntry | undefined {
+		return this.entries.find((entry) => entryId(entry) === this.selectedEntryId);
 	}
 
 	private listHeader(): string[] {
-		const counts = fleetCounts(this.tasks);
+		const counts = fleetCounts(this.entries);
 		return [
 			`explore fleet: ${counts.running} running · ${counts.queued} queued · ${counts.done} done`,
 		];
 	}
 
 	private listBody(innerWidth: number, bodyRows: number): string[] {
-		if (this.tasks.length === 0) {
+		if (this.entries.length === 0) {
 			return ["No explore subagents have run in this Pi session yet."];
 		}
 		const selectedIndex = Math.max(
 			0,
-			this.tasks.findIndex((task) => task.id === this.selectedTaskId),
+			this.entries.findIndex((entry) => entryId(entry) === this.selectedEntryId),
 		);
-		const window = windowRange(this.tasks.length, selectedIndex, bodyRows);
-		const lines = this.tasks
+		const window = windowRange(this.entries.length, selectedIndex, bodyRows);
+		const lines = this.entries
 			.slice(window.start, window.end)
-			.map((task) => this.listTaskLine(task, innerWidth));
+			.map((entry) => this.listEntryLine(entry, innerWidth));
 		if (window.start > 0) lines[0] = `… ${window.start} earlier`;
-		if (window.end < this.tasks.length) {
-			lines[lines.length - 1] = `… ${this.tasks.length - window.end} more`;
+		if (window.end < this.entries.length) {
+			lines[lines.length - 1] = `… ${this.entries.length - window.end} more`;
 		}
 		return lines;
 	}
 
-	private listTaskLine(task: RunnerSubagentFleetTaskSnapshot, innerWidth: number): string {
-		const marker = task.id === this.selectedTaskId ? "▸" : " ";
-		if (task.id === EXPLORE_FLEET_PARENT_ENTRY_ID) {
-			return truncatePlain(`${marker} ◉ ${task.title}`, innerWidth);
+	private listEntryLine(entry: FleetNavigatorEntry, innerWidth: number): string {
+		const marker = entryId(entry) === this.selectedEntryId ? "▸" : " ";
+		if (entry.kind === "parent") {
+			return truncatePlain(`${marker} ◉ ${entry.title}`, innerWidth);
 		}
+		const task = entry.task;
 		const status = task.finalStatus ?? task.state;
 		const activity = task.state === "running" ? task.latestActivity : undefined;
 		const suffix = activity === undefined ? "" : ` — ${activity}`;
@@ -408,14 +429,19 @@ export class ExploreFleetNavigator implements RenderComponent {
 	}
 
 	private detailHeader(): string[] {
-		const task = this.selectedTask();
-		if (task === undefined) return ["No selected explore task."];
+		const entry = this.selectedEntry();
+		if (entry === undefined) return ["No selected explore task."];
 		const detail = this.detail;
 		if (detail === undefined) {
-			return [task.title, "loading child session…", "", `session: ${task.sessionFile ?? "—"}`];
+			return [
+				entryTitle(entry),
+				"loading session…",
+				"",
+				`session: ${entrySessionFile(entry) ?? "—"}`,
+			];
 		}
 		return [
-			task.title,
+			entryTitle(entry),
 			`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatElapsed(detail.elapsedMs)}`,
 			usageLine(detail),
 			`session: ${detail.sessionFile ?? "no session file yet"}`,
@@ -471,7 +497,7 @@ export class ExploreFleetNavigator implements RenderComponent {
 
 export async function loadFleetTaskDetail(input: {
 	task: RunnerSubagentFleetTaskSnapshot;
-	readTextFile: (path: string) => Promise<string>;
+	readTextFile: ReadTextFile;
 }): Promise<ExploreFleetTaskDetail> {
 	const sessionFile = input.task.sessionFile;
 	if (sessionFile === undefined) return placeholderDetail(input.task, "no session file yet");
@@ -554,45 +580,61 @@ function promptPreview(prompt: string): string {
 	return firstLine;
 }
 
-function fleetCounts(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): {
+function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
 	running: number;
 	queued: number;
 	done: number;
 } {
-	const children = tasks.filter((task) => task.id !== EXPLORE_FLEET_PARENT_ENTRY_ID);
+	const tasks = entries.flatMap((entry) => (entry.kind === "task" ? [entry.task] : []));
 	return {
-		running: children.filter((task) => task.state === "running").length,
-		queued: children.filter((task) => task.state === "queued").length,
-		done: children.filter((task) => task.state === "done").length,
+		running: tasks.filter((task) => task.state === "running").length,
+		queued: tasks.filter((task) => task.state === "queued").length,
+		done: tasks.filter((task) => task.state === "done").length,
 	};
 }
 
-/**
- * The parent Pi session rendered as a pinned navigator entry: opening it reuses
- * the same session-file detail view the child explorers get.
- */
+/** Parent Pi session rendered as a pinned navigator entry above child explorers. */
 function parentSessionEntry(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 	fallbackSessionFile?: string,
-): RunnerSubagentFleetTaskSnapshot | undefined {
-	const sessionFile =
-		runs
-			.map((run) => run.parentSessionFile)
-			.filter((file) => file !== undefined)
-			.at(-1) ?? fallbackSessionFile;
+): ParentFleetNavigatorEntry | undefined {
+	const sessionFile = latestParentSessionFile(runs) ?? fallbackSessionFile;
 	if (sessionFile === undefined) return undefined;
 	return {
+		kind: "parent",
 		id: EXPLORE_FLEET_PARENT_ENTRY_ID,
-		runId: EXPLORE_FLEET_PARENT_ENTRY_ID,
-		index: -1,
 		title: PARENT_ENTRY_TITLE,
-		state: "running",
 		sessionFile,
 	};
 }
 
-function defaultSelectionId(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): string | undefined {
-	return (tasks.find((task) => task.id !== EXPLORE_FLEET_PARENT_ENTRY_ID) ?? tasks[0])?.id;
+function defaultSelectionId(entries: readonly FleetNavigatorEntry[]): string | undefined {
+	return entryId(entries.find((entry) => entry.kind === "task") ?? entries[0]);
+}
+
+function entryId(entry: FleetNavigatorEntry | undefined): string | undefined {
+	if (entry === undefined) return undefined;
+	return entry.kind === "parent" ? entry.id : entry.task.id;
+}
+
+function entryTitle(entry: FleetNavigatorEntry): string {
+	return entry.kind === "parent" ? entry.title : entry.task.title;
+}
+
+function entrySessionFile(entry: FleetNavigatorEntry): string | undefined {
+	return entry.kind === "parent" ? entry.sessionFile : entry.task.sessionFile;
+}
+
+function taskSnapshotForDetail(entry: FleetNavigatorEntry): RunnerSubagentFleetTaskSnapshot {
+	if (entry.kind === "task") return entry.task;
+	return {
+		id: entry.id,
+		runId: entry.id,
+		index: -1,
+		title: entry.title,
+		state: "running",
+		sessionFile: entry.sessionFile,
+	};
 }
 
 function windowRange(

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
+	EXPLORE_MIN_TASKS,
 	EXPLORE_BREADTH_VALUES,
 	type ExploreBreadth,
 } from "./contract.ts";
@@ -21,7 +22,7 @@ export const exploreInputSchema = z
 					prompt: z.string().trim().min(1).max(EXPLORE_PROMPT_MAX_CHARS),
 				}),
 			)
-			.min(1)
+			.min(EXPLORE_MIN_TASKS)
 			.max(EXPLORE_ABSOLUTE_MAX_TASKS),
 	})
 	.strict()

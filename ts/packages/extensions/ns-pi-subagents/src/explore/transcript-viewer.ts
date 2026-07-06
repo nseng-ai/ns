@@ -9,6 +9,7 @@ import {
 	type RunnerSubagentFleetRegistry,
 	type RunnerSubagentFleetTaskSnapshot,
 } from "@internal/pi-tools/runner-subagents";
+import type { ExploreReadTextFileDependencies } from "./read-text-dependencies.ts";
 
 export const EXPLORE_TRANSCRIPT_COMMAND_NAME = "ns:explore:transcript";
 
@@ -23,9 +24,7 @@ export interface TranscriptView {
 	entries: readonly TranscriptEntry[];
 }
 
-export interface TranscriptViewerDependencies {
-	readTextFile?: (path: string) => Promise<string>;
-}
+export type TranscriptViewerDependencies = ExploreReadTextFileDependencies;
 
 export function registerExploreTranscriptCommand(input: {
 	pi: { registerCommand?: CommandRegistrar };
