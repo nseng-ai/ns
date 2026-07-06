@@ -8,12 +8,25 @@ import {
 } from "../src/instruction-block.ts";
 
 describe("renderObjectiveInstructionBlock", () => {
-	it("teaches the lean day-one contract", () => {
+	it("renders the finalized lean day-one contract", () => {
 		const block = renderObjectiveInstructionBlock();
-		expect(block).toContain("<!-- ns:objectives:begin v1 -->");
-		expect(block).toContain("ns objective list");
+		expect(block).toMatch(/^<!-- ns:objectives:begin v1 -->\n## Objectives\n/);
 		expect(block).toContain(".ns/objectives/");
-		expect(block).toContain("<!-- ns:objectives:end -->");
+		expect(block).toContain("ns objective list");
+		expect(block).toContain("objective.md");
+		expect(block).toContain("roadmap.md");
+		expect(block).toContain("objective skills");
+		expect(block).toContain("create, advance, update, and");
+		expect(block).toMatch(/\n<!-- ns:objectives:end -->$/);
+	});
+
+	it("does not include opt-in or harness-specific guidance", () => {
+		const block = renderObjectiveInstructionBlock();
+		expect(block).not.toContain("load-orientations");
+		expect(block).not.toContain("Tracking-Gate");
+		expect(block).not.toContain("SDL");
+		expect(block).not.toContain("Pi");
+		expect(block).not.toContain("Claude");
 	});
 });
 
