@@ -366,14 +366,7 @@ export class RealGitGateway implements GitGateway {
 	async changedPathsUnder(
 		params: GitRevisionRangePathParams,
 	): Promise<GitResult<readonly string[]>> {
-		const run = await this.runGitExpectingSuccess(
-			params,
-			["diff", "--name-only", params.revisionRange, "--", params.relativePath],
-			{
-				code: "git_changed_paths_failed",
-				title: "git changed path lookup failed",
-			},
-		);
+		const run = await this.runChangedPathsDiff(params, ["--name-only"]);
 		if (!run.ok) return run;
 		return { ok: true, value: nonEmptyLines(run.value.result.stdout) };
 	}
@@ -381,14 +374,7 @@ export class RealGitGateway implements GitGateway {
 	async changedPathsUnderWithRenames(
 		params: GitRevisionRangePathParams,
 	): Promise<GitResult<readonly string[]>> {
-		const run = await this.runGitExpectingSuccess(
-			params,
-			["diff", "--name-status", "-M", params.revisionRange, "--", params.relativePath],
-			{
-				code: "git_changed_paths_failed",
-				title: "git changed path lookup failed",
-			},
-		);
+		const run = await this.runChangedPathsDiff(params, ["--name-status", "-M"]);
 		if (!run.ok) return run;
 		const parsed = parseGitNameStatusPaths(run.value.result.stdout);
 		if (!parsed.ok) return parsed;
@@ -426,6 +412,20 @@ export class RealGitGateway implements GitGateway {
 		});
 		if (!run.ok) return run;
 		return await this.headCommit(params);
+	}
+
+	private async runChangedPathsDiff(
+		params: GitRevisionRangePathParams,
+		nameArgs: readonly string[],
+	): Promise<GitResult<CommandRun>> {
+		return await this.runGitExpectingSuccess(
+			params,
+			["diff", ...nameArgs, params.revisionRange, "--", params.relativePath],
+			{
+				code: "git_changed_paths_failed",
+				title: "git changed path lookup failed",
+			},
+		);
 	}
 
 	private async runGitExpectingSuccess(

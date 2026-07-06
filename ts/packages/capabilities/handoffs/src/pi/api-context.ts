@@ -20,7 +20,13 @@ export function createPiHandoffGitGateway(pi: ExtensionAPI): GitGateway {
 }
 
 export function createPiHandoffStorageDeps(pi: ExtensionAPI, cwd: string): HandoffReadStorageDeps {
-	const context = createPiHandoffContext(pi);
+	return createPiHandoffStorageDepsFromContext(createPiHandoffContext(pi), cwd);
+}
+
+export function createPiHandoffStorageDepsFromContext(
+	context: PiHandoffContext,
+	cwd: string,
+): HandoffReadStorageDeps {
 	return {
 		brmem: new RealGitBrmemReadGateway({ cwd, commands: context.commands, git: context.git }),
 		git: context.git,

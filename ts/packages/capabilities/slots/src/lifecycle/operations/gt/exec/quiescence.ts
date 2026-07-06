@@ -1,6 +1,7 @@
 import type { StackInfo } from "@nseng-ai/capability-kit/graphite/stack";
 import { parseJsonUnknown } from "@nseng-ai/capability-kit/github/graphql-json";
 import { failure, negative, ok, usageError } from "@nseng-ai/clinkr";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
@@ -209,7 +210,7 @@ function parseExpectedSnapshot(
 	if (parsed.type === "error") {
 		return {
 			type: "usage-error",
-			message: `Invalid --expect-snapshot-json: ${jsonParseErrorMessage(parsed.error)}`,
+			message: `Invalid --expect-snapshot-json: ${formatErrorMessage(parsed.error)}`,
 			data: { argument: "--expect-snapshot-json" },
 		};
 	}
@@ -222,10 +223,6 @@ function parseExpectedSnapshot(
 		};
 	}
 	return { type: "ok", snapshot: validation.data };
-}
-
-function jsonParseErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 function collectOccupancyBlockers(options: {

@@ -12,6 +12,8 @@ import {
 
 import {
 	applyPreparedPrDescriptionUpdate,
+	DEFAULT_PR_DESCRIPTION_MODEL_REF,
+	PR_DESCRIPTION_MODEL_ENV,
 	createNsPrDescriptionRuntime,
 	formatPromptSourceLabel,
 	prDescriptionFingerprintPolicyForForce,
@@ -21,10 +23,8 @@ import {
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
-const PR_DESCRIPTION_MODEL_ENV = "NS_DEV_PR_DESCRIPTION_MODEL";
 const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ns/prompts/pr-description.md";
-const DEFAULT_PR_DESCRIPTION_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
 const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and ns-managed generated body region.
 

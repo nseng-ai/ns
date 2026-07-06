@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import {
 	GENERATED_BODY_MARKER,
 	formatManagedGeneratedRegion,
@@ -23,7 +23,12 @@ const GENERATION = {
 	promptSource: PROMPT_SOURCE,
 } as const;
 const DEFAULT_PR = prDetails({});
-const UNUSED_GIT = createUnusedGitGateway();
+const UNUSED_GIT = new InMemoryGitGateway({
+	currentBranch: "feature/demo",
+	trunkBranch: "main",
+	headCommit: "HEAD",
+	existingBranches: ["feature/demo"],
+});
 
 interface EditCall {
 	readonly number: number;
@@ -245,67 +250,5 @@ function preparedMetadata(overrides: { title: string; body: string }) {
 		body: overrides.body,
 		commitRange: "main..feature/demo",
 		promptSource: PROMPT_SOURCE,
-	};
-}
-
-function createUnusedGitGateway(): GitGateway {
-	return {
-		async repoRoot() {
-			return { ok: true, value: "/repo" };
-		},
-		async optionalRepoRoot() {
-			return { type: "found", value: "/repo" };
-		},
-		async currentBranch() {
-			return { type: "branch", branch: "feature/demo" };
-		},
-		async isInsideWorkTree() {
-			return { ok: true, value: true };
-		},
-		async trunkBranch() {
-			return { type: "found", value: "main" };
-		},
-		async originUrl() {
-			return { type: "missing" };
-		},
-		async headCommit() {
-			return { ok: true, value: "HEAD" };
-		},
-		async gitPath() {
-			return { ok: true, value: "" };
-		},
-		async validateBranchRef() {
-			return { ok: true };
-		},
-		async localBranchPresence() {
-			return { type: "present", refName: "refs/heads/feature/demo", displayCommand: "git" };
-		},
-		async createBranchAtHead() {
-			return { ok: true };
-		},
-		async hasUncommittedChangesUnder() {
-			return { ok: true, value: false };
-		},
-		async listLocalBranchTips() {
-			return { ok: true, value: [] };
-		},
-		async treeOidsAtRefs() {
-			return { ok: true, value: {} };
-		},
-		async changedPathsUnder() {
-			return { ok: true, value: [] };
-		},
-		async changedPathsUnderWithRenames() {
-			return { ok: true, value: [] };
-		},
-		async statusPaths() {
-			return { ok: true, value: { changedPaths: [] } };
-		},
-		async stagePaths() {
-			return { ok: true };
-		},
-		async commit() {
-			return { ok: true, value: "HEAD" };
-		},
 	};
 }

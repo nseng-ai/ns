@@ -13,7 +13,7 @@ import {
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { ScriptedCommandRunner, startupErrorStep, step } from "@nseng-ai/foundation/exec/testing";
 
 describe("formatSubmitSuccessText", () => {
@@ -703,27 +703,7 @@ const unusedTextGenerator: TextGenerator = {
 	generateText: async () => unexpectedCall("generateText"),
 };
 
-const unusedGitGateway: GitGateway = {
-	repoRoot: async () => unexpectedCall("repoRoot"),
-	optionalRepoRoot: async () => unexpectedCall("optionalRepoRoot"),
-	currentBranch: async () => unexpectedCall("currentBranch"),
-	isInsideWorkTree: async () => unexpectedCall("isInsideWorkTree"),
-	trunkBranch: async () => unexpectedCall("trunkBranch"),
-	originUrl: async () => unexpectedCall("originUrl"),
-	headCommit: async () => unexpectedCall("headCommit"),
-	gitPath: async () => unexpectedCall("gitPath"),
-	validateBranchRef: async () => unexpectedCall("validateBranchRef"),
-	localBranchPresence: async () => unexpectedCall("localBranchPresence"),
-	createBranchAtHead: async () => unexpectedCall("createBranchAtHead"),
-	hasUncommittedChangesUnder: async () => unexpectedCall("hasUncommittedChangesUnder"),
-	listLocalBranchTips: async () => unexpectedCall("listLocalBranchTips"),
-	treeOidsAtRefs: async () => unexpectedCall("treeOidsAtRefs"),
-	changedPathsUnder: async () => unexpectedCall("changedPathsUnder"),
-	changedPathsUnderWithRenames: async () => unexpectedCall("changedPathsUnderWithRenames"),
-	statusPaths: async () => unexpectedCall("statusPaths"),
-	stagePaths: async () => unexpectedCall("stagePaths"),
-	commit: async () => unexpectedCall("commit"),
-};
+const unusedGitGateway = new InMemoryGitGateway();
 
 function unexpectedCall(name: string): never {
 	throw new Error(`Unexpected test call: ${name}`);
