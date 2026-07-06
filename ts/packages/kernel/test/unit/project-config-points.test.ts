@@ -12,6 +12,7 @@ import {
 	loadPointCatalog,
 	loadProjectConfig,
 	parseProjectConfigToml,
+	resolvePromptPointSource,
 	type PointDefinition,
 	type ProjectConfigGateway,
 	type ProjectConfigPathExistsResult,
@@ -263,6 +264,64 @@ context_lines = "wide"
 				severity: "info",
 				code: "point_override_in_effect",
 				path: "flow.submit.pr-description",
+			}),
+		]);
+	});
+
+	test("catalog reports prompt env overrides as source info and diagnostics", () => {
+		const gateway = new InMemoryProjectConfigGateway({
+			"ns.toml": `[points]
+"flow.submit.pr-description" = ".ns/prompts/flow.submit.pr-description.md"
+`,
+		});
+
+		const catalog = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway,
+			pointDefinitions,
+			promptEnvOverrides: [
+				{ pointId: "flow.submit.pr-description", envVar: "NS_DEV_PR_DESCRIPTION_PROMPT" },
+			],
+			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "dev.md" },
+		});
+
+		expect(catalog.entries[0]?.installations).toEqual([
+			{
+				source: "env-prompt",
+				pointId: "flow.submit.pr-description",
+				envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+				path: "dev.md",
+			},
+			{
+				source: "ns.toml",
+				installation: {
+					pointId: "flow.submit.pr-description",
+					accepts: "prompt",
+					path: ".ns/prompts/flow.submit.pr-description.md",
+				},
+			},
+		]);
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+			type: "env",
+			pointId: "flow.submit.pr-description",
+			envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+			path: "dev.md",
+		});
+		expect(catalog.diagnostics).toEqual([
+			expect.objectContaining({
+				severity: "info",
+				code: "point_prompt_env_override_in_effect",
+				path: "flow.submit.pr-description",
+			}),
+			expect.objectContaining({
+				severity: "info",
+				code: "point_override_in_effect",
+				path: "flow.submit.pr-description",
+			}),
+			expect.objectContaining({
+				severity: "info",
+				code: "point_defined_uninstalled",
+				path: "flow.submit.pre",
 			}),
 		]);
 	});
