@@ -1,44 +1,27 @@
 import type { Caps } from "@nseng-ai/clinkr";
-import {
-	createStreamSink,
-	type StreamSink,
-	type StreamSinkDeps,
-	type FrameRenderer,
-} from "@nseng-ai/clinkr/stream";
-import {
-	bold,
-	dim,
-	ellipsisFor,
-	padPlain,
-	paint,
-	spinnerFrame,
-	statusLine,
-	truncatePlain,
-} from "@nseng-ai/foundation/cli-theme";
+import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
-import { createPhaseStreamLifecycle } from "../phase-stream/phase-stream-lifecycle.ts";
 import {
-	CHECKPOINT_PHASES,
-	SUBMIT_PHASES,
-	type PhaseSpec,
-} from "../phase-stream/phase-stream-specs.ts";
-import { createTranscriptTail } from "../phase-stream/phase-stream-tail.ts";
+	createMatrixProgressController,
+	renderMatrixProgressFrame,
+	updateForPhase,
+	type MatrixCellState,
+	type MatrixCellUpdate,
+	type MatrixColumnSpec,
+	type MatrixGlobalRowSpec,
+	type MatrixGlobalView,
+	type MatrixRowView,
+} from "../phase-stream/matrix-progress-core.ts";
+import { CHECKPOINT_PHASES, SUBMIT_PHASES } from "../phase-stream/phase-stream-specs.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 
-export type SubmitMatrixCellState = "pending" | "active" | "done" | "skipped" | "failed";
+export type SubmitMatrixCellState = MatrixCellState;
 export type SubmitMatrixColumnKey = "metadata" | "submit" | "verify" | "description";
 export type SubmitMatrixGlobalKey = "inventory" | "checkpoint" | "preflight" | "restack";
+export type SubmitMatrixCellUpdate = MatrixCellUpdate;
 
-export interface SubmitMatrixCellUpdate {
-	state: SubmitMatrixCellState;
-	text?: string;
-}
-
-export interface SubmitMatrixColumnSpec {
-	key: SubmitMatrixColumnKey;
-	label: string;
-}
+export type SubmitMatrixColumnSpec = MatrixColumnSpec<SubmitMatrixColumnKey>;
 
 export interface SubmitMatrixRowSpec {
 	branch: string;
@@ -47,13 +30,7 @@ export interface SubmitMatrixRowSpec {
 	pr?: SubmitPrLink;
 }
 
-export interface SubmitMatrixGlobalRowSpec {
-	key: SubmitMatrixGlobalKey;
-	label: string;
-	detail: string;
-	activeLabel: string;
-	substeps?: readonly { key: string; label: string; detail: string; activeLabel: string }[];
-}
+export type SubmitMatrixGlobalRowSpec = MatrixGlobalRowSpec<SubmitMatrixGlobalKey>;
 
 export interface SubmitStackTopology {
 	currentBranch: string;
@@ -94,43 +71,19 @@ export interface SubmitMatrixProgressController extends SubmitMatrixProgressSink
 	stop(): Promise<void>;
 }
 
-interface MatrixCellView {
-	state: SubmitMatrixCellState;
-	text?: string;
-}
-
-interface MatrixRowView {
+export interface SubmitMatrixRowView {
 	branch: string;
 	label: string;
 	kind: "existing" | "new";
 	pr?: SubmitPrLink;
-	cells: Record<SubmitMatrixColumnKey, MatrixCellView>;
-}
-
-interface MatrixGlobalView {
-	key: SubmitMatrixGlobalKey;
-	label: string;
-	detail: string;
-	activeLabel: string;
-	state: SubmitMatrixCellState;
-	text?: string;
-	substeps: MatrixGlobalSubstepView[];
-}
-
-interface MatrixGlobalSubstepView {
-	key: string;
-	label: string;
-	detail: string;
-	activeLabel: string;
-	state: SubmitMatrixCellState;
-	text?: string;
+	cells: MatrixRowView<SubmitMatrixColumnKey>["cells"];
 }
 
 export const SUBMIT_MATRIX_COLUMNS: readonly SubmitMatrixColumnSpec[] = [
-	{ key: "metadata", label: "Metadata" },
-	{ key: "submit", label: "Submit" },
-	{ key: "verify", label: "Verify" },
-	{ key: "description", label: "Description" },
+	{ key: "metadata", label: "Metadata", width: 8 },
+	{ key: "submit", label: "Submit", width: 6 },
+	{ key: "verify", label: "Verify", width: 6 },
+	{ key: "description", label: "Description", width: 11 },
 ];
 
 export const SUBMIT_MATRIX_GLOBAL_ROWS: readonly SubmitMatrixGlobalRowSpec[] = [
@@ -184,172 +137,75 @@ export function createSubmitMatrixProgressController(options: {
 	rows: readonly SubmitMatrixRowSpec[];
 	forward?: NsProgress;
 }): SubmitMatrixProgressController {
-	const sink = createStreamSink(options.caps, options.deps);
-	const lifecycle = createPhaseStreamLifecycle(options.caps, sink);
-	const tail = createTranscriptTail();
-	const state = createSubmitMatrixState(options.rows);
-	const renderer = createSubmitMatrixRenderer({
+	const controller = createMatrixProgressController({
 		caps: options.caps,
-		sink,
+		deps: options.deps,
 		title: options.title,
-		runningCommands: () => state.runningCommands,
-		globals: () => state.globals,
-		rows: () => state.rows,
-		tailLine: tail.line,
+		rows: submitRowsForCore(options.rows),
+		columns: SUBMIT_MATRIX_COLUMNS,
+		globalRows: SUBMIT_MATRIX_GLOBAL_ROWS,
+		phases: SUBMIT_PHASES,
+		...(options.forward === undefined ? {} : { forward: options.forward }),
+		begin: "lazy",
 	});
-	const isForwarding = options.forward?.isLive === true;
-
-	function render(): void {
-		renderer.render();
-	}
-
-	function begin(): void {
-		if (isForwarding) {
-			options.forward?.phase({
-				type: "phases-declared",
-				title: options.title,
-				phases: phaseInfos(SUBMIT_PHASES),
-			});
-		}
-		lifecycle.startLiveRegion();
-		render();
-		lifecycle.startPump();
-	}
-
-	function setRows(rows: readonly SubmitMatrixRowSpec[]): void {
-		state.rows = createSubmitMatrixRowViews(rows);
-		render();
-	}
-
-	function setRunningCommands(commands: readonly string[]): void {
-		state.runningCommands = [...commands];
-		render();
-	}
-
-	function setGlobal(key: SubmitMatrixGlobalKey, update: SubmitMatrixCellUpdate): void {
-		const row = state.globals.find((global) => global.key === key);
-		if (row === undefined) return;
-		applyCellUpdate(row, update);
-		render();
-	}
-
-	function setGlobalSubstep(
-		globalKey: SubmitMatrixGlobalKey,
-		substepKey: string,
-		update: SubmitMatrixCellUpdate,
-	): void {
-		const row = state.globals.find((global) => global.key === globalKey);
-		const substep = row?.substeps.find((item) => item.key === substepKey);
-		if (substep === undefined) return;
-		applyCellUpdate(substep, update);
-		render();
-	}
-
-	function setCell(
-		branch: string,
-		column: SubmitMatrixColumnKey,
-		update: SubmitMatrixCellUpdate,
-	): void {
-		const row = state.rows.find((item) => item.branch === branch);
-		if (row === undefined) return;
-		row.cells[column] = matrixCellFromUpdate(update);
-		render();
-	}
-
-	function setAllCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void {
-		for (const row of state.rows) {
-			row.cells[column] = matrixCellFromUpdate(update);
-		}
-		render();
-	}
-
-	function setAllOtherCells(
-		column: SubmitMatrixColumnKey,
-		branch: string,
-		update: SubmitMatrixCellUpdate,
-	): void {
-		for (const row of state.rows) {
-			if (row.branch === branch) continue;
-			row.cells[column] = matrixCellFromUpdate(update);
-		}
-		render();
-	}
 
 	function applyGlobalPhaseEvent(key: SubmitMatrixGlobalKey, event: NsProgressPhaseEvent): void {
 		if (!("phaseKey" in event)) return;
 		if (event.phaseKey === key) {
-			if (event.type === "phase-started") setGlobal(key, updateForPhase("active", event.label));
-			if (event.type === "phase-done") setGlobal(key, updateForPhase("done", event.detail));
-			if (event.type === "phase-failed") setGlobal(key, updateForPhase("failed", event.detail));
+			if (event.type === "phase-started")
+				controller.setGlobal(key, updateForPhase("active", event.label));
+			if (event.type === "phase-done")
+				controller.setGlobal(key, updateForPhase("done", event.detail));
+			if (event.type === "phase-failed")
+				controller.setGlobal(key, updateForPhase("failed", event.detail));
 			return;
 		}
 		if (event.type === "phase-started") {
-			setRunningCommands(checkpointCommandsForPhase(event.phaseKey));
-			setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
+			controller.setRunningCommands(checkpointCommandsForPhase(event.phaseKey));
+			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-progress") {
-			setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
+			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-done") {
-			setRunningCommands([]);
-			setGlobalSubstep(key, event.phaseKey, updateForPhase("done", event.detail));
+			controller.setRunningCommands([]);
+			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("done", event.detail));
 		}
 		if (event.type === "phase-failed") {
-			setRunningCommands([]);
-			setGlobalSubstep(key, event.phaseKey, updateForPhase("failed", event.detail));
+			controller.setRunningCommands([]);
+			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("failed", event.detail));
 		}
 	}
 
 	function applyPrLinks(prLinks: readonly SubmitPrLink[]): void {
-		applyPrLinksToRows(state.rows, prLinks);
-		render();
-	}
-
-	function note(text: string): void {
-		if (!options.caps.isTty) return;
-		tail.note(text);
-		render();
-	}
-
-	function failActive(): void {
-		settleActiveCells(state, "failed");
-		render();
-	}
-
-	async function finish(
-		finishOptions: { isFailed?: boolean; finalLines?: readonly string[] } = {},
-	): Promise<void> {
-		await lifecycle.drainPump();
-		if (finishOptions.isFailed === true) failActive();
-		else settleActiveCells(state, "done");
-		tail.clear();
-		render();
-		sink.finish(finishOptions.finalLines ?? []);
-		await lifecycle.stop();
-	}
-
-	async function stop(): Promise<void> {
-		await lifecycle.stop();
+		controller.updateRows((rows) => {
+			const submitRows = rows.filter(isSubmitMatrixRowView);
+			if (submitRows.length !== rows.length) return;
+			applyPrLinksToRows(submitRows, prLinks);
+		});
 	}
 
 	return {
-		begin,
-		setRows,
-		setRunningCommands,
-		setGlobal,
-		setGlobalSubstep,
-		setCell,
-		setAllCells,
-		setAllOtherCells,
+		begin: controller.begin,
+		setRows: (rows) => controller.setRows(submitRowsForCore(rows)),
+		setRunningCommands: controller.setRunningCommands,
+		setGlobal: controller.setGlobal,
+		setGlobalSubstep: controller.setGlobalSubstep,
+		setCell: controller.setCell,
+		setAllCells: controller.setAllCells,
+		setAllOtherCells: controller.setAllOtherCells,
 		applyGlobalPhaseEvent,
 		applyPrLinks,
-		note,
-		finish,
-		stop,
+		note: controller.note,
+		finish: controller.finish,
+		stop: controller.stop,
 	};
 }
 
-export function applyPrLinksToRows(rows: MatrixRowView[], prLinks: readonly SubmitPrLink[]): void {
+export function applyPrLinksToRows(
+	rows: SubmitMatrixRowView[],
+	prLinks: readonly SubmitPrLink[],
+): void {
 	const existingNumbers = new Set(
 		rows.flatMap((row) => {
 			const number = row.pr === undefined ? undefined : prNumberFromLink(row.pr);
@@ -374,210 +230,31 @@ export function renderSubmitMatrixProgressFrame(input: {
 	caps: Caps;
 	title: string;
 	runningCommands?: readonly string[];
-	globals: readonly MatrixGlobalView[];
-	rows: readonly MatrixRowView[];
+	globals: readonly MatrixGlobalView<SubmitMatrixGlobalKey>[];
+	rows: readonly SubmitMatrixRowView[];
 	tailLine?: string;
 	tick?: number;
 }): readonly string[] {
-	const tick = input.tick ?? 0;
-	const lines = [bold(input.title), renderRunningCommands(input.caps, input.runningCommands ?? [])];
-	for (const global of input.globals) {
-		lines.push(renderGlobalLine(input.caps, global, tick));
-		for (const substep of global.substeps) {
-			lines.push(renderGlobalSubstepLine(input.caps, substep, tick));
-		}
-	}
-	lines.push("");
-	lines.push(renderHeader(input.caps));
-	for (const row of input.rows) {
-		lines.push(renderMatrixRow(input.caps, row, tick));
-	}
-	if (input.tailLine !== undefined) {
-		lines.push(
-			`       ${dim(truncatePlain(input.tailLine, Math.max(0, input.caps.columns - 7), ellipsisFor(input.caps)))}`,
-		);
-	}
-	return lines;
-}
-
-function createSubmitMatrixState(rows: readonly SubmitMatrixRowSpec[]): {
-	runningCommands: string[];
-	globals: MatrixGlobalView[];
-	rows: MatrixRowView[];
-} {
-	return {
-		runningCommands: [],
-		globals: SUBMIT_MATRIX_GLOBAL_ROWS.map((row) => ({
-			key: row.key,
-			label: row.label,
-			detail: row.detail,
-			activeLabel: row.activeLabel,
-			state: "pending",
-			substeps: (row.substeps ?? []).map((substep) => ({ ...substep, state: "pending" })),
-		})),
-		rows: createSubmitMatrixRowViews(rows),
-	};
-}
-
-function createSubmitMatrixRowViews(rows: readonly SubmitMatrixRowSpec[]): MatrixRowView[] {
-	return rows.map((row) => ({
-		branch: row.branch,
-		label: row.label,
-		kind: row.kind,
-		...(row.pr === undefined ? {} : { pr: row.pr }),
-		cells: {
-			metadata: { state: "pending" },
-			submit: { state: "pending" },
-			verify: { state: "pending" },
-			description: { state: "pending" },
-		},
-	}));
-}
-
-function createSubmitMatrixRenderer(options: {
-	caps: Caps;
-	sink: StreamSink;
-	title: string;
-	runningCommands: () => readonly string[];
-	globals: () => readonly MatrixGlobalView[];
-	rows: () => readonly MatrixRowView[];
-	tailLine: () => string | undefined;
-}): { render(): void } {
-	const frame: FrameRenderer = (tick) => {
-		const tailLine = options.tailLine();
-		return renderSubmitMatrixProgressFrame({
-			caps: options.caps,
-			title: options.title,
-			runningCommands: options.runningCommands(),
-			globals: options.globals(),
-			rows: options.rows(),
-			...(tailLine === undefined ? {} : { tailLine }),
-			tick,
-		});
-	};
-	return {
-		render: () => options.sink.render(frame),
-	};
-}
-
-function renderRunningCommands(caps: Caps, commands: readonly string[]): string {
-	const text = commands.length === 0 ? "Running: —" : `Running: ${commands.join("; ")}`;
-	return dim(truncatePlain(text, caps.columns, ellipsisFor(caps)));
-}
-
-function renderGlobalLine(caps: Caps, row: MatrixGlobalView, tick: number): string {
-	return statusLine({
-		caps,
-		item: { name: row.label, detail: row.text ?? row.detail, label: row.text ?? row.activeLabel },
-		state: row.state,
-		tick,
+	return renderMatrixProgressFrame({
+		caps: input.caps,
+		title: input.title,
+		columns: SUBMIT_MATRIX_COLUMNS,
+		...(input.runningCommands === undefined ? {} : { runningCommands: input.runningCommands }),
+		globals: input.globals,
+		rows: input.rows.map((row) => ({ ...row, rowKey: row.branch })),
+		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
+		...(input.tick === undefined ? {} : { tick: input.tick }),
 	});
 }
 
-function renderGlobalSubstepLine(caps: Caps, row: MatrixGlobalSubstepView, tick: number): string {
-	const rendered = statusLine({
-		caps: { ...caps, columns: Math.max(0, caps.columns - 4) },
-		item: { name: row.label, detail: row.text ?? row.detail, label: row.text ?? row.activeLabel },
-		state: row.state,
-		tick,
-	});
-	return `    ${rendered}`;
+function submitRowsForCore(rows: readonly SubmitMatrixRowSpec[]) {
+	return rows.map((row) => ({ ...row, rowKey: row.branch }));
 }
 
-function renderHeader(caps: Caps): string {
-	return dim(
-		`${padPlain("Branch / PR", labelWidth(caps))}  ${SUBMIT_MATRIX_COLUMNS.map((column) => padPlain(column.label, columnWidth(column.key))).join("  ")}`,
-	);
-}
-
-function renderMatrixRow(caps: Caps, row: MatrixRowView, tick: number): string {
-	const label = padPlain(
-		truncatePlain(row.label, labelWidth(caps), ellipsisFor(caps)),
-		labelWidth(caps),
-	);
-	const cells = SUBMIT_MATRIX_COLUMNS.map((column) =>
-		padPlain(renderCell(caps, row.cells[column.key], tick), columnWidth(column.key)),
-	).join("  ");
-	return `${label}  ${cells}`;
-}
-
-function renderCell(caps: Caps, cell: MatrixCellView, tick: number): string {
-	switch (cell.state) {
-		case "pending":
-			return dim("·");
-		case "active":
-			return paint(caps, "accent", spinnerFrame(caps, tick));
-		case "done":
-			return "✓";
-		case "skipped":
-			return dim("–");
-		case "failed":
-			return "✗";
-	}
-}
-
-function labelWidth(caps: Caps): number {
-	return Math.max(18, Math.min(36, caps.columns - 44));
-}
-
-function columnWidth(column: SubmitMatrixColumnKey): number {
-	switch (column) {
-		case "metadata":
-			return 8;
-		case "submit":
-			return 6;
-		case "verify":
-			return 6;
-		case "description":
-			return 11;
-	}
-}
-
-function phaseInfos(specs: readonly PhaseSpec[]) {
-	return specs.map((spec) => ({
-		key: spec.key,
-		name: spec.item.name,
-		...(spec.item.label === undefined ? {} : { label: spec.item.label }),
-		...(spec.item.detail === undefined ? {} : { detail: spec.item.detail }),
-	}));
-}
-
-function updateForPhase(
-	state: SubmitMatrixCellState,
-	text: string | undefined,
-): SubmitMatrixCellUpdate {
-	return { state, ...(text === undefined ? {} : { text }) };
-}
-
-function matrixCellFromUpdate(update: SubmitMatrixCellUpdate): MatrixCellView {
-	return { state: update.state, ...(update.text === undefined ? {} : { text: update.text }) };
-}
-
-function applyCellUpdate(
-	cell: { state: SubmitMatrixCellState; text?: string },
-	update: SubmitMatrixCellUpdate,
-): void {
-	cell.state = update.state;
-	if (update.text === undefined) delete cell.text;
-	else cell.text = update.text;
-}
-
-function settleActiveCells(
-	state: { globals: MatrixGlobalView[]; rows: MatrixRowView[] },
-	target: SubmitMatrixCellState,
-): void {
-	for (const global of state.globals) {
-		if (global.state === "active") global.state = target;
-		for (const substep of global.substeps) {
-			if (substep.state === "active") substep.state = target;
-		}
-	}
-	for (const row of state.rows) {
-		for (const column of SUBMIT_MATRIX_COLUMNS) {
-			const cell = row.cells[column.key];
-			if (cell.state === "active") row.cells[column.key] = { ...cell, state: target };
-		}
-	}
+function isSubmitMatrixRowView(
+	row: MatrixRowView<SubmitMatrixColumnKey>,
+): row is MatrixRowView<SubmitMatrixColumnKey> & SubmitMatrixRowView {
+	return "branch" in row && typeof row.branch === "string" && "kind" in row;
 }
 
 function checkpointCommandsForPhase(phaseKey: string): readonly string[] {

@@ -1,4 +1,12 @@
 import { runLandCli } from "../../land/land.ts";
+import {
+	BASE_LAND_TITLE,
+	createLandMatrixProgressController,
+	formatLandProgressTitle,
+	type LandLiveProgressState,
+	type LandMatrixProgressController,
+} from "../../land/land-matrix-progress.ts";
+export { formatLandProgressTitle } from "../../land/land-matrix-progress.ts";
 import type {
 	LandLiveProgressEvent,
 	LandLiveProgressSink,
@@ -50,7 +58,9 @@ export const flowLandCommand: NsCommand<typeof landSchema> = {
 		const telemetry = createFlowLandTelemetryRun({ env: ctx.env, clock: systemClock });
 		let telemetryFinish: FlowLandTelemetryRunFinish | undefined;
 		const rawArgs = landRawArgsFromCommandRequest(request);
-		const progress = createLandCliProgress(ctx, caps);
+		const progress = caps.isTty
+			? createLandMatrixCliProgress(ctx, caps)
+			: createLandCliProgress(ctx, caps);
 		try {
 			const result = await runFlowCli({
 				ctx,
@@ -73,6 +83,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = {
 						caps,
 						progressIo: progress.io,
 						liveProgress: progress.liveProgress,
+						...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
 						externalCallTelemetry: telemetry.sink,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 					}),
@@ -94,26 +105,66 @@ export default defineExtension({
 interface LandCliProgress {
 	io: NsCommandIo;
 	liveProgress: LandLiveProgressSink;
+	landMatrix?: LandMatrixProgressController;
 	finish(exitCode: number): Promise<void>;
 	flushFailureDetails(exitCode: number): void;
 	stop(): Promise<void>;
 }
 
-export interface LandLiveProgressState {
-	totalPrs?: number;
-	landedPrs: number;
-}
+function createLandMatrixCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress {
+	const matrix = createLandMatrixProgressController({
+		caps,
+		deps: flowStreamDeps(ctx, caps),
+		...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
+	});
+	const failureDetails: string[] = [];
+	const seenFailureDetails = new Set<string>();
 
-const BASE_LAND_TITLE = "ns flow land";
+	function recordFailureDetail(message: string): void {
+		const normalized = message.trim();
+		if (normalized === "" || seenFailureDetails.has(normalized)) return;
+		seenFailureDetails.add(normalized);
+		failureDetails.push(normalized);
+	}
 
-export function formatLandProgressTitle(state: LandLiveProgressState): string {
-	if (state.totalPrs !== undefined) {
-		return `${BASE_LAND_TITLE} — ${state.landedPrs}/${state.totalPrs} target PRs merged`;
+	function routeMessage(message: string, level: NsNotifyLevel): void {
+		const normalized = message.trim();
+		if (normalized === "") return;
+		if (level === "error" || normalized.startsWith("✗")) {
+			if (level === "error" || !normalized.startsWith("✗ $")) {
+				recordFailureDetail(normalized);
+			}
+			matrix.note(normalized);
+			return;
+		}
+		if (normalized.startsWith("→ ")) {
+			matrix.note(normalized.slice(2));
+		}
 	}
-	if (state.landedPrs > 0) {
-		return `${BASE_LAND_TITLE} — ${state.landedPrs} target PR${state.landedPrs === 1 ? "" : "s"} merged`;
-	}
-	return BASE_LAND_TITLE;
+
+	return {
+		io: createCommandIo({
+			phaseTransient: (message) => {
+				if (!message.trim().startsWith("land: running ")) matrix.note(message);
+			},
+			notifyUi: (message, level = "info") => {
+				routeMessage(message, level);
+			},
+			richMessage: (message, options) => {
+				routeMessage(message, options.level);
+			},
+		}),
+		liveProgress: (event) => matrix.recordMergedPr(event.prNumber),
+		landMatrix: matrix,
+		finish: async (exitCode) => {
+			await matrix.finish({ isFailed: exitCode !== 0 });
+		},
+		flushFailureDetails: (exitCode) => {
+			if (exitCode === 0 || failureDetails.length === 0) return;
+			ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
+		},
+		stop: matrix.stop,
+	};
 }
 
 function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress {
