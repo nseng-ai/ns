@@ -77,7 +77,13 @@ export function buildRunnerChildPrompt(options: BuildRunnerChildPromptOptions): 
 	if (options.recoverContext !== undefined) {
 		parts.push("", recoverPreamble(options.recoverContext));
 	}
-	parts.push("", "Rules:", rules(options), "", jsonReportContract(options.mode, options.reportPath));
+	parts.push(
+		"",
+		"Rules:",
+		rules(options),
+		"",
+		jsonReportContract(options.mode, options.reportPath),
+	);
 	if (options.guidance !== undefined) {
 		parts.push("", "Parent guidance (follow it within the rules above):", options.guidance);
 	}
