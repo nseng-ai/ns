@@ -8,8 +8,13 @@ import { parseJsonInputText } from "@nseng-ai/capability-kit/json-input";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
-import type { RoasterGitHubGateway } from "../gateways/github.ts";
+import {
+	environmentOptions,
+	ROASTER_BOT_LOGIN,
+	type ReviewsGithubPrFeedbackGateway,
+	type RoasterRunScope,
+} from "./context.ts";
+import { callGithub } from "./github-feedback-failures.ts";
 import {
 	buildFindingsCommentMachineState,
 	parseFindingsCommentBody,
@@ -145,7 +150,7 @@ export type PublishFindingsResult =
 	| { readonly type: "error"; readonly error: PublicationError };
 
 export async function publishFindings(
-	ctx: { readonly github: RoasterGitHubGateway; readonly runScope: RoasterRunScope },
+	ctx: { readonly github: ReviewsGithubPrFeedbackGateway; readonly runScope: RoasterRunScope },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
@@ -157,12 +162,15 @@ export async function publishFindings(
 		runScope: ctx.runScope,
 	});
 	const marker = summaryMarkerForReview(parsed.payload.reviewName);
-	const existing = await ctx.github.findPrDiscussionCommentByMarker({
-		...environmentOptions(ctx.runScope),
-		prNumber: options.prNumber,
-		marker,
-		authorLogin: ROASTER_BOT_LOGIN,
-	});
+	const existing = await callGithub(
+		{
+			...environmentOptions(ctx.runScope),
+			prNumber: options.prNumber,
+			marker,
+			authorLogin: ROASTER_BOT_LOGIN,
+		},
+		(params) => ctx.github.findPrDiscussionCommentByMarker(params),
+	);
 	if (existing.type === "error")
 		return publicationError("summary-lookup", "github-lookup-failed", existing.error.message);
 
@@ -185,8 +193,14 @@ export async function publishFindings(
 	const githubOptions = environmentOptions(ctx.runScope);
 	const written =
 		existing.value === null
-			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody, githubOptions)
-			: await ctx.github.updatePrDiscussionComment(existing.value.id, nextBody, githubOptions);
+			? await callGithub(
+					{ ...githubOptions, prNumber: options.prNumber, body: nextBody },
+					(params) => ctx.github.addPrDiscussionComment(params),
+				)
+			: await callGithub(
+					{ ...githubOptions, commentId: existing.value.id, body: nextBody },
+					(params) => ctx.github.updatePrDiscussionComment(params),
+				);
 	if (written.type === "error")
 		return publicationError("summary-write", "github-write-failed", written.error.message);
 

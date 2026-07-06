@@ -1,6 +1,7 @@
 import { parsePatchFiles, type Hunk } from "@pierre/diffs";
+import type { GithubPrChangedFile } from "@nseng-ai/capability-kit/github/pr-feedback";
 
-import type { InlineClassificationResult, PRChangedFile, ReviewFinding } from "./models.ts";
+import type { InlineClassificationResult, ReviewFinding } from "./models.ts";
 
 const INLINE_PATCH_FILE = "__roaster_inline__.patch";
 
@@ -34,7 +35,7 @@ function syntheticUnifiedPatch(patch: string): string {
 
 export function classifyInlineFindings(
 	findings: readonly ReviewFinding[],
-	changedFiles: readonly PRChangedFile[],
+	changedFiles: readonly GithubPrChangedFile[],
 ): InlineClassificationResult {
 	const changedByPath = new Map(changedFiles.map((file) => [file.path, file]));
 	const linesByPath = new Map(

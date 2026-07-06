@@ -1,13 +1,13 @@
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { execApiToCommandRunner, type CommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 
 import {
 	ClaudeCodeProcessReviewRunner,
 	type ReviewRunnerGateway,
 } from "../gateways/review-runner.ts";
-import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "../gateways/github.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
@@ -15,12 +15,23 @@ import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/prim
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
+export type ReviewsGithubPrFeedbackGateway = Pick<
+	RealGithubPrFeedbackGateway,
+	| "getPrChangedFiles"
+	| "getPrReviewComments"
+	| "getPrReviewThreads"
+	| "createPrReview"
+	| "findPrDiscussionCommentByMarker"
+	| "addPrDiscussionComment"
+	| "updatePrDiscussionComment"
+>;
+
 export interface RoasterGateways {
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly reviewLog: ReviewLogGateway;
-	readonly github: RoasterGitHubGateway;
+	readonly github: ReviewsGithubPrFeedbackGateway;
 	readonly reviewRunner: ReviewRunnerGateway;
 }
 
@@ -79,7 +90,7 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 		localDiff: new RealLocalDiffGateway({ execApi, gitGateway }),
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
 		reviewLog: options.reviewLog ?? new RealReviewLogGateway({ execApi }),
-		github: new RealRoasterGitHubGateway(execApi),
+		github: new RealGithubPrFeedbackGateway(execApiToCommandRunner(execApi)),
 		reviewRunner: options.reviewRunner ?? new ClaudeCodeProcessReviewRunner({ execApi }),
 		cwd: options.cwd,
 		env: options.env,

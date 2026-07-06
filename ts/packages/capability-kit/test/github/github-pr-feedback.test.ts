@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandRunner, ExecOptions } from "@nseng-ai/foundation/exec";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
+import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import { ScriptedCommandRunner, step } from "@nseng-ai/foundation/exec/testing";
 
 import {
@@ -1578,5 +1579,84 @@ describe("RealGithubPrFeedbackGateway", () => {
 			},
 		});
 		runner.assertDone();
+	});
+});
+
+describe("FakeGithubPrFeedbackGateway discussion comment markers", () => {
+	test("finds marker comments only for the requested author", async () => {
+		const gateway = new FakeGithubPrFeedbackGateway({
+			discussionCommentsByPr: new Map([
+				[
+					7,
+					[
+						{ id: 1, body: "hello <!-- marker -->", author: "impostor", url: "" },
+						{ id: 2, body: "hello <!-- marker -->", author: "bot", url: "" },
+						{ id: 3, body: "unrelated", author: "bot", url: "" },
+					],
+				],
+			]),
+		});
+
+		expect(
+			await gateway.findPrDiscussionCommentByMarker({
+				prNumber: 7,
+				marker: "<!-- marker -->",
+				authorLogin: "bot",
+			}),
+		).toEqual({
+			ok: true,
+			value: { id: 2, body: "hello <!-- marker -->", author: "bot", url: "" },
+		});
+	});
+
+	test("upserts by marker: creates when missing then updates in place", async () => {
+		const gateway = new FakeGithubPrFeedbackGateway();
+
+		expect(
+			await gateway.upsertPrDiscussionCommentByMarker({
+				prNumber: 7,
+				marker: "<!-- marker -->",
+				authorLogin: "bot",
+				body: "first <!-- marker -->",
+			}),
+		).toEqual({
+			ok: true,
+			value: {
+				type: "created",
+				comment: { id: 1, body: "first <!-- marker -->", author: "bot", url: "" },
+			},
+		});
+
+		expect(
+			await gateway.upsertPrDiscussionCommentByMarker({
+				prNumber: 7,
+				marker: "<!-- marker -->",
+				authorLogin: "bot",
+				body: "second <!-- marker -->",
+			}),
+		).toEqual({
+			ok: true,
+			value: {
+				type: "updated",
+				comment: { id: 1, body: "second <!-- marker -->", author: "bot", url: "" },
+			},
+		});
+	});
+
+	test("records review-thread and marker-find calls including caller options", async () => {
+		const gateway = new FakeGithubPrFeedbackGateway();
+
+		await gateway.getPrReviewThreads({ cwd: "/repo", env: {}, prNumber: 7 });
+		await gateway.findPrDiscussionCommentByMarker({
+			cwd: "/repo",
+			prNumber: 7,
+			marker: "<!-- marker -->",
+			authorLogin: "bot",
+		});
+
+		expect(gateway.reviewThreadCalls()).toEqual([{ cwd: "/repo", env: {}, prNumber: 7 }]);
+		expect(gateway.markerFindCalls()).toEqual([
+			{ cwd: "/repo", prNumber: 7, marker: "<!-- marker -->", authorLogin: "bot" },
+		]);
 	});
 });

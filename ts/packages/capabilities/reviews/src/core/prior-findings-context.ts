@@ -1,4 +1,7 @@
-import type { GithubPrReviewThread } from "@nseng-ai/capability-kit/github/pr-feedback";
+import type {
+	GithubPrFeedbackOptions,
+	GithubPrReviewThread,
+} from "@nseng-ai/capability-kit/github/pr-feedback";
 
 import type { GitHubGatewayFailure, RoasterFailure } from "./failures.ts";
 import {
@@ -10,18 +13,15 @@ import {
 } from "./findings-comment.ts";
 import type { PriorFindingsPromptContext, PriorFindingsPromptContextEntry } from "./models.ts";
 import { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
-import {
-	copyGitHubGatewayOptions,
-	type GitHubGatewayOptions,
-	type RoasterGitHubGateway,
-} from "../gateways/github.ts";
+import type { ReviewsGithubPrFeedbackGateway } from "./context.ts";
+import { callGithub } from "./github-feedback-failures.ts";
 
 export type PriorFindingResolutionStatus = PriorFindingsPromptContextEntry["resolutionStatus"];
 export type PriorFindingContextEntry = PriorFindingsPromptContextEntry;
 export type PriorFindingsContext = PriorFindingsPromptContext;
 
 type PriorFindingsContextGateway = Pick<
-	RoasterGitHubGateway,
+	ReviewsGithubPrFeedbackGateway,
 	"findPrDiscussionCommentByMarker" | "getPrReviewThreads"
 >;
 
@@ -41,7 +41,7 @@ export type GatherPriorFindingsContextResult =
 			readonly error?: GitHubGatewayFailure;
 	  };
 
-export interface GatherPriorFindingsContextOptions extends GitHubGatewayOptions {
+export interface GatherPriorFindingsContextOptions extends GithubPrFeedbackOptions {
 	readonly prNumber: number;
 	readonly reviewName: string;
 	readonly cap: number;
@@ -58,14 +58,17 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const githubOptions = copyGitHubGatewayOptions(options);
+	const githubOptions = copyFeedbackOptions(options);
 	const marker = summaryMarkerForReview(options.reviewName);
-	const summaryComment = await gateway.findPrDiscussionCommentByMarker({
-		...githubOptions,
-		prNumber: options.prNumber,
-		marker,
-		authorLogin: ROASTER_BOT_LOGIN,
-	});
+	const summaryComment = await callGithub(
+		{
+			...githubOptions,
+			prNumber: options.prNumber,
+			marker,
+			authorLogin: ROASTER_BOT_LOGIN,
+		},
+		(params) => gateway.findPrDiscussionCommentByMarker(params),
+	);
 	if (summaryComment.type === "error") {
 		return withoutContext(
 			"github-read-failed",
@@ -96,7 +99,10 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const reviewThreads = await gateway.getPrReviewThreads(options.prNumber, githubOptions);
+	const reviewThreads = await callGithub(
+		{ ...githubOptions, prNumber: options.prNumber },
+		(params) => gateway.getPrReviewThreads(params),
+	);
 	if (reviewThreads.type === "error") {
 		return withoutContext(
 			"github-read-failed",
@@ -150,6 +156,14 @@ function resolutionStatusForThreads(
 ): PriorFindingResolutionStatus {
 	if (threads.length === 0) return "unknown";
 	return threads.some((thread) => !thread.isResolved) ? "unresolved" : "resolved";
+}
+
+function copyFeedbackOptions(options: GithubPrFeedbackOptions): GithubPrFeedbackOptions {
+	return {
+		cwd: options.cwd,
+		...(options.env === undefined ? {} : { env: options.env }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	};
 }
 
 function githubGatewayFailure(error: RoasterFailure): GitHubGatewayFailure {

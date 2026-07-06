@@ -1,7 +1,12 @@
+import type {
+	GithubPrFeedbackFailure,
+	GithubPrInlineCommentInput,
+} from "@nseng-ai/capability-kit/github/pr-feedback";
+import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
+import type { Result } from "@nseng-ai/foundation/result";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterRuntime } from "../../src/core/context.ts";
-import type { RoasterResult } from "../../src/core/failures.ts";
 import {
 	buildFindingsCommentMachineState,
 	extractInlineMarkers,
@@ -17,14 +22,10 @@ import {
 	type FindingsPayload,
 	type LastReviewedHeadState,
 } from "../../src/core/findings-publication.ts";
-import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
-import type {
-	PRInlineCommentInput,
-	ReviewFinding,
-	ReviewInputCoverage,
-} from "../../src/core/models.ts";
+import type { ReviewFinding, ReviewInputCoverage } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
+import { githubDiscussionComment } from "../support/github-fixtures.ts";
 import { FailingDiscussionGateway } from "../support/github-gateways.ts";
 
 const WARNING_FINDING: ReviewFinding = {
@@ -355,7 +356,7 @@ describe("publishFindings", () => {
 		if (result.type === "error") {
 			expect(result.error.fatalFailurePhase).toBe("summary-write");
 			expect(result.error.reason).toBe("github-write-failed");
-			expect(result.error.message).toBe("discussion write failed");
+			expect(result.error.message).toContain("discussion write failed");
 		}
 	});
 
@@ -376,7 +377,9 @@ describe("publishFindings", () => {
 
 		expect(result.type).toBe("ok");
 		if (result.type === "ok") {
-			expect(result.value.inlineStatus.apiError).toBe("inline validation failed");
+			expect(result.value.inlineStatus.apiError).toBe(
+				"GitHub response for create PR review: did not match the expected shape: inline validation failed in /repo",
+			);
 			expect(result.value.summaryStatus).toEqual({
 				type: "posted",
 				marker: "<!-- roaster:typescript-style -->",
@@ -385,7 +388,7 @@ describe("publishFindings", () => {
 	});
 
 	test("posts Last-reviewed head state and current findings in the machine block", async () => {
-		const github = new FakeRoasterGitHubGateway();
+		const github = new FakeGithubPrFeedbackGateway();
 		const runtime = createRoasterRuntime(fakeRoasterContext({ github }));
 
 		const result = await publishFindings(runtime, {
@@ -401,8 +404,8 @@ describe("publishFindings", () => {
 			marker: "<!-- roaster:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
-		expect(written.type).toBe("ok");
-		if (written.type === "ok") {
+		expect(written.ok).toBe(true);
+		if (written.ok) {
 			const state = parseFindingsCommentMachineState(written.value?.body ?? "");
 			expect(state?.lastReviewedHead).toEqual(LAST_REVIEWED_HEAD);
 			expect(state?.priorFindings.findings.map((record) => record.finding)).toEqual([
@@ -419,9 +422,12 @@ describe("publishFindings", () => {
 		const existingBody = renderFindingsComment(payload({ count: 1, findings: [WARNING_FINDING] }), {
 			machineState: existingState,
 		});
-		const github = new FakeRoasterGitHubGateway({
+		const github = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([
-				[47, [{ id: 10, body: existingBody, author: "github-actions[bot]" }]],
+				[
+					47,
+					[githubDiscussionComment({ id: 10, body: existingBody, author: "github-actions[bot]" })],
+				],
 			]),
 		});
 		const runtime = createRoasterRuntime(fakeRoasterContext({ github }));
@@ -442,8 +448,8 @@ describe("publishFindings", () => {
 			marker: "<!-- roaster:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
-		expect(written.type).toBe("ok");
-		if (written.type === "ok") {
+		expect(written.ok).toBe(true);
+		if (written.ok) {
 			expect(written.value?.body).toContain("**No findings** against base `main`. ✅");
 			const state = parseFindingsCommentMachineState(written.value?.body ?? "");
 			expect(state?.priorFindings.findings.map((record) => record.finding.summary)).toEqual([
@@ -470,15 +476,18 @@ describe("preserveActivityLog", () => {
 	});
 });
 
-class InlineFailureGateway extends FakeRoasterGitHubGateway {
-	override async createPrReview(
-		_prNumber: number,
-		_comments: readonly PRInlineCommentInput[],
-		_options: GitHubGatewayOptions,
-	): Promise<RoasterResult<void>> {
+class InlineFailureGateway extends FakeGithubPrFeedbackGateway {
+	override async createPrReview(_params: {
+		readonly prNumber: number;
+		readonly comments: readonly GithubPrInlineCommentInput[];
+	}): Promise<Result<void, GithubPrFeedbackFailure>> {
 		return {
-			type: "error",
-			error: { type: "github-response-invalid", message: "inline validation failed" },
+			ok: false,
+			error: {
+				code: "github_pr_feedback_response_invalid",
+				message: "inline validation failed",
+				details: { operation: "createPrReview" },
+			},
 		};
 	}
 }

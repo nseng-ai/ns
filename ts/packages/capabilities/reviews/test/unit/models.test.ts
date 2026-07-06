@@ -12,10 +12,6 @@ import {
 	inlinePostingStatusSchema,
 	localDiffSchema,
 	postInlineFindingsResultSchema,
-	prChangedFileSchema,
-	prDiscussionCommentSchema,
-	prInlineCommentInputSchema,
-	prReviewCommentSchema,
 	reviewDefinitionSchema,
 	reviewFindingSchema,
 	reviewExecutionResponseSchema,
@@ -289,20 +285,6 @@ describe("roaster domain schemas", () => {
 });
 
 describe("GitHub and publication schemas", () => {
-	test("preserves nullable GitHub file patches and normalizes consumed comment shapes", () => {
-		expect(
-			prChangedFileSchema.parse({ path: "image.png", status: "added", patch: null }).patch,
-		).toBeNull();
-		expect(
-			prReviewCommentSchema.parse({ author: "github-actions[bot]", body: "<!-- marker -->" })
-				.author,
-		).toBe("github-actions[bot]");
-		expect(
-			prInlineCommentInputSchema.parse({ path: "src/app.ts", line: 4, body: "inline" }).line,
-		).toBe(4);
-		expect(prDiscussionCommentSchema.parse({ id: 123, body: "summary" }).id).toBe(123);
-	});
-
 	test("validates inline classification and posting status payloads", () => {
 		const finding = reviewFindingSchema.parse({
 			path: "src/app.ts",

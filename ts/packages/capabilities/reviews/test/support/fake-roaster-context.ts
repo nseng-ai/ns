@@ -7,7 +7,8 @@ import {
 	FakeReviewRunnerGateway,
 	type ReviewRunnerGateway,
 } from "../../src/gateways/review-runner.ts";
-import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
+import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
+import type { ReviewsGithubPrFeedbackGateway } from "../../src/core/context.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import {
 	FakeReviewCatalogGateway,
@@ -21,7 +22,7 @@ export interface FakeRoasterContextOptions {
 	readonly localDiff?: LocalDiffGateway;
 	readonly reviewCatalog?: ReviewCatalogGateway;
 	readonly reviewLog?: ReviewLogGateway;
-	readonly github?: RoasterGitHubGateway;
+	readonly github?: ReviewsGithubPrFeedbackGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
@@ -50,7 +51,7 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		localDiff: options.localDiff ?? new FakeLocalDiffGateway(),
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
 		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
-		github: options.github ?? new FakeRoasterGitHubGateway(),
+		github: options.github ?? new FakeGithubPrFeedbackGateway(),
 		reviewRunner: options.reviewRunner ?? new FakeReviewRunnerGateway(),
 		cwd: options.cwd ?? "/repo",
 		env: options.env ?? {},

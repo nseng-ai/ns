@@ -5,15 +5,6 @@ export const reviewInputOmissionReasonValues = [
 	"file-exceeds-cap",
 	"diff-budget-exhausted",
 ] as const;
-export const prChangedFileStatusValues = [
-	"added",
-	"removed",
-	"modified",
-	"renamed",
-	"copied",
-	"changed",
-	"unchanged",
-] as const;
 export const inlineFallbackReasonValues = [
 	"missing-path",
 	"missing-line",
@@ -241,40 +232,6 @@ export const reviewRunResultSchema = z
 		path: ["count"],
 	});
 export type ReviewRunResult = z.infer<typeof reviewRunResultSchema>;
-
-export const prChangedFileSchema = z
-	.object({
-		path: nonBlankStringSchema,
-		status: z.enum(prChangedFileStatusValues).or(nonBlankStringSchema),
-		patch: z.string().nullable(),
-	})
-	.strict();
-export type PRChangedFile = z.infer<typeof prChangedFileSchema>;
-
-export const prReviewCommentSchema = z
-	.object({
-		author: nonBlankStringSchema,
-		body: z.string(),
-	})
-	.strict();
-export type PRReviewComment = z.infer<typeof prReviewCommentSchema>;
-
-export const prInlineCommentInputSchema = z
-	.object({
-		path: nonBlankStringSchema,
-		line: z.int().positive(),
-		body: nonBlankStringSchema,
-	})
-	.strict();
-export type PRInlineCommentInput = z.infer<typeof prInlineCommentInputSchema>;
-
-export const prDiscussionCommentSchema = z
-	.object({
-		id: z.int().positive(),
-		body: z.string(),
-	})
-	.strict();
-export type PRDiscussionComment = z.infer<typeof prDiscussionCommentSchema>;
 
 export const inlineTargetSchema = z
 	.object({
