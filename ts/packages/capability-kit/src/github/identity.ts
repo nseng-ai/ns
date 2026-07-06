@@ -58,7 +58,7 @@ export function githubRepositoryIdentityFromRemoteUrl(
 }
 
 export async function resolveGithubRepositoryIdentityFromOrigin(
-	git: GitGateway,
+	git: Pick<GitGateway, "originUrl">,
 	params: GitCwdParams,
 ): Promise<ResolveGithubRepositoryIdentityResult> {
 	const origin = await git.originUrl(params);

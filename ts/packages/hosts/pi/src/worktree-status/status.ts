@@ -541,7 +541,7 @@ function assertNever(value: never): never {
 }
 
 async function loadGitHubRepositoryIdentity(
-	git: GitGateway,
+	git: Pick<GitGateway, "originUrl">,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<{ owner: string; repo: string } | undefined> {

@@ -13,6 +13,7 @@ export type KnownGitErrorCode =
 	| "current-branch-failed"
 	| "git_branch_tips_failed"
 	| "git_changed_paths_failed"
+	| "git_checkout_failed"
 	| "git_commit_failed"
 	| "git_common_dir_empty"
 	| "git_common_dir_failed"
@@ -20,10 +21,13 @@ export type KnownGitErrorCode =
 	| "git_path_empty"
 	| "git_path_failed"
 	| "git_stage_paths_failed"
+	| "git_staged_probe_failed"
+	| "git_staged_whitespace_failed"
 	| "git_startup_failed"
 	| "git_status_parse_failed"
 	| "git_status_paths_failed"
 	| "git_tree_oid_failed"
+	| "git_unstage_failed"
 	| "head_commit_empty"
 	| "head_commit_failed"
 	| "origin-url-failed"
@@ -132,4 +136,8 @@ export interface GitGateway {
 	statusPaths(params: GitStatusPathsParams): Promise<GitResult<GitStatusPathFacts>>;
 	stagePaths(params: GitStagePathsParams): Promise<GitOperationResult>;
 	commit(params: GitCommitParams): Promise<GitResult<string>>;
+	hasStagedChanges(params: GitCwdParams): Promise<GitResult<boolean>>;
+	checkStagedWhitespace(params: GitCwdParams): Promise<GitOperationResult>;
+	unstageAll(params: GitCwdParams): Promise<GitOperationResult>;
+	checkout(params: GitBranchParams): Promise<GitOperationResult>;
 }
