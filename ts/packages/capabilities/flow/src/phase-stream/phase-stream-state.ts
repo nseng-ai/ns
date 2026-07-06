@@ -7,6 +7,7 @@ export interface PhaseView {
 	item: StatusLineItem;
 	state: PhaseState;
 	label: string | undefined;
+	history: readonly string[];
 }
 
 export type PhaseTransition =
@@ -24,6 +25,7 @@ export interface PhaseStateStore {
 export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateStore {
 	const states: PhaseState[] = specs.map(() => "pending");
 	const labels: (string | undefined)[] = specs.map((spec) => spec.item.label);
+	const histories: string[][] = specs.map(() => []);
 	const indexByKey = new Map(specs.map((spec, index) => [spec.key, index] as const));
 	let activeIndex = -1;
 
@@ -32,12 +34,15 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 			item: spec.item,
 			state: states[index] ?? "pending",
 			label: labels[index],
+			history: histories[index]?.slice() ?? [],
 		}));
 	}
 
 	function markEarlierDone(index: number): void {
 		for (let i = 0; i < index; i += 1) {
 			const state = states[i];
+			const spec = specs[i];
+			if (state === "active" && spec !== undefined) pushSupersededLabel(i, spec.item.detail);
 			if (state === "pending" || state === "active") states[i] = "done";
 		}
 	}
@@ -46,6 +51,12 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		markEarlierDone(index);
 		states[index] = "active";
 		activeIndex = index;
+	}
+
+	function pushSupersededLabel(index: number, newLabel: string | undefined): void {
+		const previous = labels[index];
+		if (previous === undefined || previous === newLabel) return;
+		histories[index]?.push(previous);
 	}
 
 	function apply(event: NsProgressPhaseEvent): PhaseTransition {
@@ -58,18 +69,24 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		if (spec === undefined) return { type: "ignored" };
 
 		switch (event.type) {
-			case "phase-started":
+			case "phase-started": {
 				setActive(index);
-				labels[index] = event.label ?? spec.item.label;
+				const label = event.label ?? spec.item.label;
+				pushSupersededLabel(index, label);
+				labels[index] = label;
 				return { type: "surface", line: labels[index] };
+			}
 			case "phase-progress":
 				if (states[index] === "pending") setActive(index);
+				pushSupersededLabel(index, event.label);
 				labels[index] = event.label;
 				return { type: "surface", line: event.label };
 			case "phase-done":
+				pushSupersededLabel(index, spec.item.detail);
 				states[index] = "done";
 				return { type: "render", clearTranscript: true };
 			case "phase-failed":
+				pushSupersededLabel(index, event.detail);
 				states[index] = "failed";
 				labels[index] = event.detail;
 				return { type: "render", clearTranscript: true };
@@ -85,6 +102,8 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		if (hasFailure) return;
 		for (let i = 0; i < states.length; i += 1) {
 			const state = states[i];
+			const spec = specs[i];
+			if (state === "active" && spec !== undefined) pushSupersededLabel(i, spec.item.detail);
 			if (state === "pending" || state === "active") states[i] = "done";
 		}
 	}

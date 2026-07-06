@@ -25,9 +25,15 @@ export function createPhaseStreamRenderer(
 	const frame: FrameRenderer = (tick) => {
 		const lines = [
 			bold(header),
-			...options.views().map((view) => {
+			...options.views().flatMap((view) => {
 				const item = view.label === undefined ? view.item : { ...view.item, label: view.label };
-				return statusLine({ caps: options.caps, item: item, state: view.state, tick: tick });
+				return [
+					statusLine({ caps: options.caps, item: item, state: view.state, tick: tick }),
+					...view.history.map(
+						(entry) =>
+							`      ${dim(truncatePlain(entry, Math.max(0, options.caps.columns - 6), ellipsisFor(options.caps)))}`,
+					),
+				];
 			}),
 		];
 		const tail = options.tailLine();

@@ -131,6 +131,24 @@ function expectNoCursorEscapes(text: string): void {
 	expect(text).not.toMatch(/\x1b\[\d*[JK]/);
 }
 
+function plain(text: string): string {
+	return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function expectContainsInOrder(text: string, expected: readonly string[]): void {
+	const normalized = plain(text);
+	let offset = 0;
+	for (const entry of expected) {
+		const index = normalized.indexOf(entry, offset);
+		expect(index, `missing ${entry} after ${offset} in:\n${normalized}`).toBeGreaterThanOrEqual(0);
+		offset = index + entry.length;
+	}
+}
+
+function occurrences(text: string, needle: string): number {
+	return plain(text).split(needle).length - 1;
+}
+
 // Let queued microtasks (the spinner pump's resumed iterations) run.
 async function flush(times: number): Promise<void> {
 	for (let i = 0; i < times; i += 1) await Promise.resolve();
@@ -307,6 +325,29 @@ describe("non-tty settle path", () => {
 		expect(settled).not.toContain("gamma done");
 	});
 
+	test("non-tty settled frame includes progress history while transient output stays unchanged", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, outputs, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 1" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 2" });
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+		await stream.finish();
+
+		expect(redraws).toHaveLength(0);
+		expect(outputs).toEqual(["alpha working…", "alpha step 1", "alpha step 2"]);
+		const settled = writes[0] ?? "";
+		expectContainsInOrder(settled, [
+			"alpha done",
+			"      alpha working…",
+			"      alpha step 1",
+			"      alpha step 2",
+		]);
+	});
+
 	test("non-tty settled frame uses the latest title", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes } = harness();
@@ -440,6 +481,69 @@ describe("tty live region", () => {
 
 		expect(redraws[redraws.length - 1]).toContain("updated title");
 		await stream.finish();
+	});
+
+	test("phase progress labels persist as chronological sub-rows when a phase settles", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 1" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 2" });
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+		stream.emit({ type: "phase-started", phaseKey: "b" });
+
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"title",
+			"✓ Alpha         alpha done",
+			"      alpha working…",
+			"      alpha step 1",
+			"      alpha step 2",
+			"Beta          beta working…",
+		]);
+	});
+
+	test("consecutive duplicate phase labels do not create duplicate sub-rows", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "same label" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "same label" });
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expect(occurrences(frame, "      alpha working…")).toBe(1);
+		expect(occurrences(frame, "      same label")).toBe(1);
+	});
+
+	test("failed phase keeps its prior progress trail and renders failure detail on the row", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "almost there" });
+		stream.emit({ type: "phase-failed", phaseKey: "a", detail: "boom" });
+
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"✗ Alpha         boom",
+			"      alpha working…",
+			"      almost there",
+		]);
 	});
 
 	test("pump advances the spinner, events repaint at once, and the cursor is hidden then restored", async () => {
