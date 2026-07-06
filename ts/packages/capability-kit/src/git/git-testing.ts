@@ -54,6 +54,11 @@ export interface InMemoryGitGatewayState {
 	stagePathsFailure?: GitErrorInfo;
 	commitSha?: string;
 	commitFailure?: GitErrorInfo;
+	stagedChanges?: boolean;
+	hasStagedChangesFailure?: GitErrorInfo;
+	checkStagedWhitespaceFailure?: GitErrorInfo;
+	unstageAllFailure?: GitErrorInfo;
+	checkoutFailure?: GitErrorInfo;
 }
 
 export interface GitCall {
@@ -92,7 +97,7 @@ export interface GitCommitCall extends GitCall {
 export class InMemoryGitGateway implements GitGateway {
 	private readonly repoRootState: ValueState<string>;
 	private readonly optionalRepoRootState: OptionalValueState<string>;
-	private readonly currentBranchState: CurrentBranchState;
+	private currentBranchState: CurrentBranchState;
 	private readonly isInsideWorkTreeState: ValueState<boolean>;
 	private readonly trunkBranchState: OptionalValueState<string>;
 	private readonly originUrlState: OptionalValueState<string>;
@@ -117,6 +122,11 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly stagePathsFailure: GitErrorInfo | undefined;
 	private readonly commitSha: string;
 	private readonly commitFailure: GitErrorInfo | undefined;
+	private stagedChangesState: boolean;
+	private readonly hasStagedChangesFailure: GitErrorInfo | undefined;
+	private readonly checkStagedWhitespaceFailure: GitErrorInfo | undefined;
+	private readonly unstageAllFailure: GitErrorInfo | undefined;
+	private readonly checkoutFailure: GitErrorInfo | undefined;
 	private readonly repoRootLog: GitCall[] = [];
 	private readonly optionalRepoRootLog: GitCall[] = [];
 	private readonly currentBranchLog: GitCall[] = [];
@@ -137,6 +147,10 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly statusPathsLog: GitStatusPathsCall[] = [];
 	private readonly stagePathsLog: GitStagePathsCall[] = [];
 	private readonly commitLog: GitCommitCall[] = [];
+	private readonly hasStagedChangesLog: GitCall[] = [];
+	private readonly checkStagedWhitespaceLog: GitCall[] = [];
+	private readonly unstageAllLog: GitCall[] = [];
+	private readonly checkoutLog: GitBranchCall[] = [];
 
 	constructor(state: InMemoryGitGatewayState = {}) {
 		this.repoRootState = state.repoRoot ?? "/repo";
@@ -179,6 +193,11 @@ export class InMemoryGitGateway implements GitGateway {
 		this.stagePathsFailure = state.stagePathsFailure;
 		this.commitSha = state.commitSha ?? "fedcba9876543210fedcba9876543210fedcba98";
 		this.commitFailure = state.commitFailure;
+		this.stagedChangesState = state.stagedChanges ?? false;
+		this.hasStagedChangesFailure = state.hasStagedChangesFailure;
+		this.checkStagedWhitespaceFailure = state.checkStagedWhitespaceFailure;
+		this.unstageAllFailure = state.unstageAllFailure;
+		this.checkoutFailure = state.checkoutFailure;
 	}
 
 	get repoRootCalls(): readonly GitCall[] {
@@ -262,6 +281,22 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get commitCalls(): readonly GitCommitCall[] {
 		return this.commitLog.map((call) => ({ ...call }));
+	}
+
+	get hasStagedChangesCalls(): readonly GitCall[] {
+		return copyCalls(this.hasStagedChangesLog);
+	}
+
+	get checkStagedWhitespaceCalls(): readonly GitCall[] {
+		return copyCalls(this.checkStagedWhitespaceLog);
+	}
+
+	get unstageAllCalls(): readonly GitCall[] {
+		return copyCalls(this.unstageAllLog);
+	}
+
+	get checkoutCalls(): readonly GitBranchCall[] {
+		return copyBranchCalls(this.checkoutLog);
 	}
 
 	get existingBranches(): readonly string[] {
@@ -474,6 +509,40 @@ export class InMemoryGitGateway implements GitGateway {
 			return { ok: false, error: { ...this.commitFailure } };
 		}
 		return { ok: true, value: this.commitSha };
+	}
+
+	async hasStagedChanges(params: GitCwdParams): Promise<GitResult<boolean>> {
+		this.hasStagedChangesLog.push(callFromParams(params));
+		if (this.hasStagedChangesFailure !== undefined) {
+			return { ok: false, error: { ...this.hasStagedChangesFailure } };
+		}
+		return { ok: true, value: this.stagedChangesState };
+	}
+
+	async checkStagedWhitespace(params: GitCwdParams): Promise<GitOperationResult> {
+		this.checkStagedWhitespaceLog.push(callFromParams(params));
+		if (this.checkStagedWhitespaceFailure !== undefined) {
+			return { ok: false, error: { ...this.checkStagedWhitespaceFailure } };
+		}
+		return { ok: true };
+	}
+
+	async unstageAll(params: GitCwdParams): Promise<GitOperationResult> {
+		this.unstageAllLog.push(callFromParams(params));
+		if (this.unstageAllFailure !== undefined) {
+			return { ok: false, error: { ...this.unstageAllFailure } };
+		}
+		this.stagedChangesState = false;
+		return { ok: true };
+	}
+
+	async checkout(params: GitBranchParams): Promise<GitOperationResult> {
+		this.checkoutLog.push(branchCallFromParams(params));
+		if (this.checkoutFailure !== undefined) {
+			return { ok: false, error: { ...this.checkoutFailure } };
+		}
+		this.currentBranchState = params.branch;
+		return { ok: true };
 	}
 }
 

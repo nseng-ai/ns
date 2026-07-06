@@ -426,4 +426,59 @@ describe("in-memory git gateway", () => {
 			error: { code: "git_commit_failed", message: "commit denied" },
 		});
 	});
+
+	test("defaults staged changes to a clean index", async () => {
+		const git = new InMemoryGitGateway();
+
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toEqual({ ok: true, value: false });
+	});
+
+	test("models staged-changes state, unstage, and checkout mutations with call logs", async () => {
+		const git = new InMemoryGitGateway({
+			stagedChanges: true,
+			currentBranch: "feature/source-plan",
+		});
+
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toEqual({ ok: true, value: true });
+		expect(await git.checkStagedWhitespace({ cwd: ROOT })).toEqual({ ok: true });
+		expect(await git.unstageAll({ cwd: ROOT })).toEqual({ ok: true });
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toEqual({ ok: true, value: false });
+		expect(await git.checkout({ cwd: ROOT, branch: BRANCH })).toEqual({ ok: true });
+		expect(await git.currentBranch({ cwd: ROOT })).toEqual({ type: "branch", branch: BRANCH });
+
+		expect(git.hasStagedChangesCalls).toEqual([{ cwd: ROOT }, { cwd: ROOT }]);
+		expect(git.checkStagedWhitespaceCalls).toEqual([{ cwd: ROOT }]);
+		expect(git.unstageAllCalls).toEqual([{ cwd: ROOT }]);
+		expect(git.checkoutCalls).toEqual([{ cwd: ROOT, branch: BRANCH }]);
+	});
+
+	test("supports configured staged-changes, whitespace, unstage, and checkout failures", async () => {
+		const git = new InMemoryGitGateway({
+			stagedChanges: true,
+			hasStagedChangesFailure: { code: "git_staged_probe_failed", message: "probe denied" },
+			checkStagedWhitespaceFailure: {
+				code: "git_staged_whitespace_failed",
+				message: "whitespace denied",
+			},
+			unstageAllFailure: { code: "git_unstage_failed", message: "unstage denied" },
+			checkoutFailure: { code: "git_checkout_failed", message: "checkout denied" },
+		});
+
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toEqual({
+			ok: false,
+			error: { code: "git_staged_probe_failed", message: "probe denied" },
+		});
+		expect(await git.checkStagedWhitespace({ cwd: ROOT })).toEqual({
+			ok: false,
+			error: { code: "git_staged_whitespace_failed", message: "whitespace denied" },
+		});
+		expect(await git.unstageAll({ cwd: ROOT })).toEqual({
+			ok: false,
+			error: { code: "git_unstage_failed", message: "unstage denied" },
+		});
+		expect(await git.checkout({ cwd: ROOT, branch: BRANCH })).toEqual({
+			ok: false,
+			error: { code: "git_checkout_failed", message: "checkout denied" },
+		});
+	});
 });

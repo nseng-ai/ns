@@ -449,6 +449,61 @@ export class RealGitGateway implements GitGateway {
 		return await this.headCommit(params);
 	}
 
+	async hasStagedChanges(params: GitCwdParams): Promise<GitResult<boolean>> {
+		const run = await this.runGit(params, ["diff", "--cached", "--quiet", "--exit-code"]);
+		if (!run.ok)
+			return error("git_staged_probe_failed", run.error.message, run.error.displayCommand);
+		if (run.value.result.killed) {
+			return error(
+				"git_staged_probe_failed",
+				formatCommandFailure(
+					"git diff --cached --quiet --exit-code failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
+		}
+		if (run.value.result.code === 0) return { ok: true, value: false };
+		if (run.value.result.code === 1) return { ok: true, value: true };
+		return error(
+			"git_staged_probe_failed",
+			formatCommandFailure(
+				"git diff --cached --quiet --exit-code failed",
+				run.value.displayCommand,
+				run.value.result,
+			),
+			run.value.displayCommand,
+		);
+	}
+
+	async checkStagedWhitespace(params: GitCwdParams): Promise<GitOperationResult> {
+		const run = await this.runGitExpectingSuccess(params, ["diff", "--cached", "--check"], {
+			code: "git_staged_whitespace_failed",
+			title: "git diff --cached --check failed",
+		});
+		if (!run.ok) return run;
+		return { ok: true };
+	}
+
+	async unstageAll(params: GitCwdParams): Promise<GitOperationResult> {
+		const run = await this.runGitExpectingSuccess(params, ["reset", "--"], {
+			code: "git_unstage_failed",
+			title: "git reset failed",
+		});
+		if (!run.ok) return run;
+		return { ok: true };
+	}
+
+	async checkout(params: GitBranchParams): Promise<GitOperationResult> {
+		const run = await this.runGitExpectingSuccess(params, ["checkout", params.branch], {
+			code: "git_checkout_failed",
+			title: "git checkout failed",
+		});
+		if (!run.ok) return run;
+		return { ok: true };
+	}
+
 	private async runChangedPathsDiff(
 		params: GitRevisionRangePathParams,
 		nameArgs: readonly string[],

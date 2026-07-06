@@ -684,4 +684,100 @@ describe("real git gateway", () => {
 		});
 		commands.assertDone();
 	});
+
+	test("probes staged changes via the cached diff exit-code protocol", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { code: 0 }),
+			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { code: 1 }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toEqual({ ok: true, value: false });
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toEqual({ ok: true, value: true });
+		commands.assertDone();
+		expect(commands.execCalls.map((call) => call.args)).toEqual([
+			["diff", "--cached", "--quiet", "--exit-code"],
+			["diff", "--cached", "--quiet", "--exit-code"],
+		]);
+	});
+
+	test("maps unexpected staged-changes probe outcomes to git_staged_probe_failed", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { code: 128, stderr: "boom" }),
+			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { killed: true }),
+			errorStep("git", ["diff", "--cached", "--quiet", "--exit-code"], new Error("spawn ENOENT")),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_staged_probe_failed" },
+		});
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_staged_probe_failed" },
+		});
+		expect(await git.hasStagedChanges({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_staged_probe_failed" },
+		});
+		commands.assertDone();
+	});
+
+	test("checks staged whitespace as a two-state cached diff", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["diff", "--cached", "--check"], { code: 0 }),
+			step("git", ["diff", "--cached", "--check"], { code: 2, stderr: "trailing whitespace" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.checkStagedWhitespace({ cwd: ROOT })).toEqual({ ok: true });
+		expect(await git.checkStagedWhitespace({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_staged_whitespace_failed" },
+		});
+		commands.assertDone();
+		expect(commands.execCalls.map((call) => call.args)).toEqual([
+			["diff", "--cached", "--check"],
+			["diff", "--cached", "--check"],
+		]);
+	});
+
+	test("unstages the index and reports reset failures", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["reset", "--"], { code: 0 }),
+			step("git", ["reset", "--"], { code: 1, stderr: "reset failed" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.unstageAll({ cwd: ROOT })).toEqual({ ok: true });
+		expect(await git.unstageAll({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_unstage_failed" },
+		});
+		commands.assertDone();
+		expect(commands.execCalls.map((call) => call.args)).toEqual([
+			["reset", "--"],
+			["reset", "--"],
+		]);
+	});
+
+	test("checks out a branch and reports checkout failures", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["checkout", BRANCH], { code: 0 }),
+			step("git", ["checkout", BRANCH], { code: 1, stderr: "checkout failed" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.checkout({ cwd: ROOT, branch: BRANCH })).toEqual({ ok: true });
+		expect(await git.checkout({ cwd: ROOT, branch: BRANCH })).toMatchObject({
+			ok: false,
+			error: { code: "git_checkout_failed" },
+		});
+		commands.assertDone();
+		expect(commands.execCalls.map((call) => call.args)).toEqual([
+			["checkout", BRANCH],
+			["checkout", BRANCH],
+		]);
+	});
 });

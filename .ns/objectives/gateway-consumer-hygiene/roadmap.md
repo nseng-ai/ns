@@ -2,8 +2,8 @@
 
 ## Work
 
-- [~] **A — Docs bundle** (lands with this Objective): publish the Consumer
-  Gateway / command-shape convention and its routing.
+- [x] **A — Docs bundle** (lands with this Objective): publish the Consumer
+      Gateway / command-shape convention and its routing.
   - `docs/conventions/consumer-gateways-and-command-shape.md` (new): the
     three-tier rule (Consumer Gateways, kit-owned command-shape, gateway-object
     sharing) plus the inversion rule and the justified single-consumer
@@ -18,8 +18,9 @@
   - Root `CONTEXT.md`: new **Consumer Gateway** term beside Gateway/Kit Gateway.
   - Policy: lands as this Objective's own slice; no separate execution row.
   - Evidence: `just dprint-fix` clean; cited file/symbol references verified at
-    write time.
-- [ ] **B — Kit export demotion**: move the flow-only `execNs*` family
+    write time. Landed on `gateway-hygiene/docs-and-objective`; full `just`
+    green.
+- [x] **B — Kit export demotion**: move the flow-only `execNs*` family
       (`execNsCommand`, `createNsCliExecAdapter`, `execNsGit`,
       `readNsGitPorcelainStatus`, `ExecNsCommandOptions`,
       `NsGitPorcelainStatusResult`) out of the `capability-kit` `git` barrel
@@ -34,8 +35,12 @@
     or dropped symbol first; steer if a "dead" re-export turns out to have a
     live consumer.
   - Evidence: targeted flow + capability-kit Vitest, `just ts-check`, and
-    stale-reference grep verification.
-- [ ] **C — Pick-narrowing exemplars**: convert 1–2-method `GitGateway`
+    stale-reference grep verification. Landed on
+    `gateway-hygiene/kit-demotion`: grep gate clean (zero imports of any
+    demoted symbol from the barrel), capability-kit 296 + flow 448 tests
+    passed, full `just` green. One stale style-guard test fixture repointed to
+    a kept barrel symbol.
+- [x] **C — Pick-narrowing exemplars**: convert 1–2-method `GitGateway`
       consumers to `Pick`-narrowed Consumer Gateways —
       hosts/pi worktree-status (`headCommit`), pr-feedback (`currentBranch`,
       `isInsideWorkTree`), retros (`optionalRepoRoot`, `currentBranch`), and
@@ -44,7 +49,12 @@
       to keep typing against the full interface).
   - Policy: direct execution; one consumer per checkpoint is fine.
   - Evidence: targeted Vitest per converted package plus `just ts-check`.
-- [ ] **D1 — Kit contract verbs**: add `hasStagedChanges`,
+    Landed on `gateway-hygiene/pick-narrowing`: `WorktreeStatusGitGateway`,
+    `PrAddressGitGateway`, `RetrosGitGateway`, `AregGitGateway`; pr-feedback
+    110 + retros 79 + areg 197 + pi 275 tests passed, full `just` green. One
+    audit correction: pi worktree-status also threads `originUrl` into the kit
+    github identity helper — narrowed in row D1's slice.
+- [x] **D1 — Kit contract verbs**: add `hasStagedChanges`,
       `checkStagedWhitespace`, `unstageAll`, and `checkout` to `GitGateway`,
       `RealGitGateway`, and `InMemoryGitGateway` with tests; add
       `KnownGitErrorCodes` `git_staged_probe_failed`,
@@ -53,7 +63,12 @@
   - Policy: direct execution for an additive extension; steer first if any verb
     proves non-additive against an existing consumer.
   - Evidence: `pnpm --dir ts --filter @nseng-ai/capability-kit test` with
-    real/fake parity, `just ts-check`.
+    real/fake parity, `just ts-check`. Landed on
+    `gateway-hygiene/kit-git-verbs`: capability-kit 304 + pi 275 tests passed,
+    full `just` green. `checkout` reuses `GitBranchParams`; fake knobs
+    `stagedChanges` / per-verb `*Failure` / `*Calls` getters; also narrowed
+    `resolveGithubRepositoryIdentityFromOrigin` to
+    `Pick<GitGateway, "originUrl">` (spillover from row C).
 - [ ] **D2 — Objectives runner gate**: route the index-clean and
       staged-whitespace checks in
       `ts/packages/capabilities/objectives/src/runner/gate.ts` through
