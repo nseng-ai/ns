@@ -22,7 +22,7 @@ ns first-party adaptations live under `skills/<name>/`. Their `.agents/skills/<n
 - `improve-codebase-architecture`: architecture survey using `codebase-design`, `domain-modeling`, and `grilling`.
 - `pocock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts.
 - `writing-great-skills`: upstream skill-authoring reference; ns audit behavior is folded into first-party `skill-audit`.
-- `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/in-progress/`, vendored from a post-1.0.1 upstream state). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Expects a "Wayfinding operations" section in `docs/agents/issue-tracker.md` and falls back to a local-markdown tracker when that doc is absent; references upstream `/prototype`, which is not imported.
+- `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/in-progress/`, vendored from a post-1.0.1 upstream state). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Expects a "Wayfinding operations" section in `docs/agents/issue-tracker.md` and falls back to a local-markdown tracker when that doc is absent; references upstream `/prototype`, which is not imported. The Objective system's ideation pattern is an ns-native adaptation of this skill's model; the concept mapping, deliberate drops, and LM-driven sync process live in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md).
 
 ## ns-owned overlays
 
@@ -83,11 +83,12 @@ When the upstream skill-authoring vocabulary changes, update the ns reference wi
 1. Read upstream `CHANGELOG.md`.
 2. Compare upstream files for imported skills.
 3. Classify changes as exact vendor refresh, ns overlay update, fork required, or reject/defer.
-4. Check invocation semantics, especially `disable-model-invocation` and Pi/Claude/Codex behavior.
-5. Update Pi backend and fallback prompts if the grill/domain-modeling contract changes.
-6. Update `skill-audit` adaptation reference if skill-authoring concepts change.
-7. Run skill inventory plus formatting and targeted test checks.
-8. Inspect `skills-lock.json` for unrelated churn before accepting it.
+4. For `wayfinder`, additionally run the LM-driven sync in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md): classify each conceptual change as adopt/adapt/reject against the Objective ideation pattern and update that document's mapping.
+5. Check invocation semantics, especially `disable-model-invocation` and Pi/Claude/Codex behavior.
+6. Update Pi backend and fallback prompts if the grill/domain-modeling contract changes.
+7. Update `skill-audit` adaptation reference if skill-authoring concepts change.
+8. Run skill inventory plus formatting and targeted test checks.
+9. Inspect `skills-lock.json` for unrelated churn before accepting it.
 
 ## Rejected / not-yet-imported upstream skills
 

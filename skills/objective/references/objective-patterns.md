@@ -71,7 +71,9 @@ An Objective deliberately held in the formation phase: the **Destination** (thes
 completion criteria) is settled first, but the way there is not yet known, so the
 roadmap is a **Frontier** of open questions rather than executable slices. The
 vocabulary below (Destination, Question Row, Frontier, Fog, Crystallization) is
-canonical in the root `CONTEXT.md`.
+canonical in the root `CONTEXT.md`. The pattern is an ns-native adaptation of the
+vendored `wayfinder` skill; lineage, deliberate drops, and the upstream-sync process
+live in `docs/agents/wayfinder-objective-adaptation.md`.
 
 - Roadmap rows are typed **Question Rows** — grilling / research / prototype / task —
   with explicit blocked-by references to other rows; beyond blocking, they are
