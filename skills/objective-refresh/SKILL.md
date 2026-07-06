@@ -1,7 +1,7 @@
 ---
 name: objective-refresh
 disable-model-invocation: true
-description: "Verified rebaseline of active Objective records — refreshes what the current branch or trunk evidences; may close an Objective whose completion is verified; never commits."
+description: "Verified rebaseline of active Objective records — refreshes what the current branch or trunk evidences; closes an Objective whose completion criteria are met unless it explicitly requires a final evidence-gathering step; never commits."
 ---
 
 # objective-refresh
@@ -12,7 +12,7 @@ One absolute governs every run:
 
 - **Never commit.** No `git commit`, no staging. Edits stay uncommitted in the worktree and the report says what changed; the user decides how to land it.
 
-Closure is allowed but evidence-gated: when the verified contract shows the Closure Gate is clearly ready — every completion criterion met with probe-backed evidence and no material open work — the refresh closes the Objective inline per `objective-close` semantics (`## Closure` in `objective.md` plus the minimal `closed.md` marker). When completion is plausible but not fully verified, or the outcome/rationale needs a user decision, report `closure-ready` instead of closing.
+Closure is the default when done: when the verified contract shows the completion criteria met and no material open work, the refresh closes the Objective inline per `objective-close` semantics (`## Closure` in `objective.md` plus the minimal `closed.md` marker). Hold back and report `closure-ready` instead of closing only when the Objective itself explicitly requires a final evidence-gathering step that this refresh did not perform.
 
 ## Select targets
 
@@ -65,7 +65,7 @@ Per slug:
 7. **Rewrite `roadmap.md` from scratch** when active work shape changes: ordered guidance, checkbox state (`[ ]`, `[~]`, `[x]` only), row notes, completion evidence, parked work.
 8. **Contract-diff.** Compare the rewrite against the extracted contract line by line: every verified purpose, boundary, progress fact, roadmap item, assumption, open question, and parked item is present or intentionally omitted with a stated reason, and the umbrella's required headings survive. Dropped or softened meaning is a bug — fix it before moving on.
 9. **Re-derive `orientation.md`** when one exists, per the umbrella's re-derivation rule; add one when the verified contract shows the Objective became orienting (its direction now binds unrelated agents). Never drop one.
-10. **Close when verifiably finished.** If the verified contract shows every completion criterion met with probe-backed evidence and no material open work, close inline per `objective-close` semantics: record `## Closure` in `objective.md` (outcome, rationale, closure-relevant PR evidence) and write the minimal `closed.md` marker. The closure evidence goes in the Semantic Update below. If completion is plausible but unverified, or the outcome/rationale needs a user call, report `closure-ready` without closing.
+10. **Close when finished.** If the verified contract shows the completion criteria met and no material open work, close inline per `objective-close` semantics: record `## Closure` in `objective.md` (outcome, rationale, closure-relevant PR evidence) and write the minimal `closed.md` marker. The closure evidence goes in the Semantic Update below. Report `closure-ready` without closing only when the Objective explicitly requires a final evidence-gathering step this refresh has not run.
 11. **Append at most one timestamped Semantic Update** when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, closure, or rebaseline — carrying the decisive evidence and the provenance breadcrumb:
 
     ```text
@@ -95,6 +95,6 @@ A claim that cannot be verified cheaply never stays as fact: convert it to an ex
 
 ## Report
 
-Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any closure was backed by verified completion evidence.
+Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
 
 Done when an immediate rerun would modify nothing — every refreshed record already matches its verified contract.
