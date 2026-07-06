@@ -6,7 +6,6 @@ import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import type { LandStackCommandStream } from "./command-stream.ts";
 import {
 	formatGraphiteOperation,
-	parseGitCheckedOutElsewhere,
 	restackOperation,
 	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
@@ -56,11 +55,12 @@ interface MaintenanceTargetPlan {
 	readonly mode: MaintenanceMode;
 	readonly severity: MaintenanceSeverity;
 	readonly branches: readonly string[];
-	readonly refreshCheckedOutConflictHandling: "defer" | "fail";
+	readonly prepare: (
+		options: MaintenanceBranchOperationContext,
+	) => Promise<GraphiteMaintenanceStop | undefined>;
 	readonly deleteCheckedOutConflictHandling: "retain" | "fail";
 	readonly skippedScopeText: (branch: string) => string;
 	readonly isOptionalDescendant: boolean;
-	readonly shouldHaltOnRefreshFailure: boolean;
 }
 
 interface BranchMaintenanceWarning {
@@ -95,34 +95,25 @@ function failOrWarn(
 	return { kind: "skip", warning: pair.warning };
 }
 
-interface GraphiteRefreshFailureOptions {
+interface TrunkAdvanceFailureOptions {
 	prNumber: number;
+	trunk: string;
 	maintenanceBranch: string;
-	getCommandDisplay: string;
-	got: ExecResult;
+	commandDisplay: string;
+	result: ExecResult;
 }
 
-function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): LandStackFailure {
-	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
-	const checkoutConflict = parseGitCheckedOutElsewhere(got);
-	if (checkoutConflict) {
-		return landStackFailure(
-			`PR #${prNumber} merged, but Graphite could not refresh next landing branch ${maintenanceBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
-			{
-				commandDisplay: getCommandDisplay,
-				result: got,
-				failedBranch: maintenanceBranch,
-				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
-			},
-		);
-	}
-
-	return landStackFailure(`PR #${prNumber} merged, but targeted Graphite refresh failed.`, {
-		commandDisplay: getCommandDisplay,
-		result: got,
-		failedBranch: maintenanceBranch,
-		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
-	});
+function trunkAdvanceFailure(failureOptions: TrunkAdvanceFailureOptions): LandStackFailure {
+	const { prNumber, trunk, maintenanceBranch, commandDisplay, result } = failureOptions;
+	return landStackFailure(
+		`PR #${prNumber} merged, but local trunk ${trunk} could not be advanced from origin before maintaining next landing branch ${maintenanceBranch}.`,
+		{
+			commandDisplay,
+			result,
+			failedBranch: maintenanceBranch,
+			suggestedAction: `Reconcile local trunk ${trunk} with origin, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+		},
+	);
 }
 
 interface PerformGraphiteMaintenanceOptions {
@@ -358,7 +349,7 @@ export async function performGraphiteMaintenance(
 		if (guardControl !== "proceed") return guardControl;
 
 		const refreshControl = refreshFailureRecorder.apply(
-			await refreshMaintenanceBranch(branchOperationContext),
+			await maintenance.prepare(branchOperationContext),
 			maintenanceBranch,
 		);
 		if (refreshControl === "continue") continue;
@@ -439,8 +430,8 @@ async function guardMaintenanceBranch(
 ): Promise<GraphiteMaintenanceStop | undefined> {
 	const { runtime, repoRoot, prNumber, maintenanceBranch, maintenance, state, landedBranch } =
 		options;
-	// Guard every forced refresh: gt get --force resets the local branch to remote
-	// state, so refuse if the branch moved since this run snapshotted it.
+	// Guard post-merge maintenance: direct trunk advancement plus restack/delete can
+	// rewrite local state, and optional descendant refreshes still run gt get --force.
 	const guardSha = await loadLocalSha(runtime.commands, repoRoot, maintenanceBranch);
 	if (guardSha.type === "failure") {
 		return failOrWarn(maintenance.severity, {
@@ -461,7 +452,7 @@ async function guardMaintenanceBranch(
 	if (expectedSha === guardSha.value) return undefined;
 
 	const expectedDisplay = expectedSha === undefined ? "(unrecorded)" : shortSha(expectedSha);
-	const movedMessage = `local branch ${maintenanceBranch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing gt get --force to avoid clobbering local commits`;
+	const movedMessage = `local branch ${maintenanceBranch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing post-merge maintenance to avoid clobbering local commits`;
 	return failOrWarn(maintenance.severity, {
 		failure: landStackFailure(`PR #${prNumber} merged, but ${movedMessage}.`, {
 			failedBranch: maintenanceBranch,
@@ -474,39 +465,49 @@ async function guardMaintenanceBranch(
 	});
 }
 
-async function refreshMaintenanceBranch(
+async function advanceTrunkBeforeMaintenance(
 	options: MaintenanceBranchOperationContext,
 ): Promise<GraphiteMaintenanceStop | undefined> {
-	const {
-		landContext,
-		repoRoot,
-		prNumber,
-		maintenanceBranch,
-		landedBranch,
-		commandOptions,
-		ctx,
-		maintenance,
-	} = options;
+	const { landContext, repoRoot, plan, prNumber, maintenanceBranch, commandOptions, ctx } = options;
+	const trunk = plan.stack.trunk;
+	commandOptions.commandStream?.note(
+		`Advancing local trunk ${trunk} before maintaining ${maintenanceBranch}...`,
+	);
+	setStatus(ctx, `advancing local trunk ${trunk}...`);
+	const advanced = await landContext.git.advanceBranchFromRemote({ repoRoot, branch: trunk });
+	if (advanced.type === "advanced") return undefined;
+	return {
+		kind: "halt",
+		failure: trunkAdvanceFailure({
+			prNumber,
+			trunk,
+			maintenanceBranch,
+			commandDisplay: advanced.commandDisplay,
+			result: advanced.result,
+		}),
+	};
+}
+
+function refreshMaintenanceBranchWith(
+	checkedOutConflictHandling: "defer" | "fail",
+): (options: MaintenanceBranchOperationContext) => Promise<GraphiteMaintenanceStop | undefined> {
+	return (options) => refreshMaintenanceBranch(options, checkedOutConflictHandling);
+}
+
+async function refreshMaintenanceBranch(
+	options: MaintenanceBranchOperationContext,
+	checkedOutConflictHandling: "defer" | "fail",
+): Promise<GraphiteMaintenanceStop | undefined> {
+	const { landContext, repoRoot, maintenanceBranch, landedBranch, commandOptions, ctx } = options;
+
 	commandOptions.commandStream?.note(`Refreshing stack through ${maintenanceBranch}...`);
 	setStatus(ctx, `refreshing stack through ${maintenanceBranch}...`);
 	const refresh = await landContext.graphite.refreshBranchFromRemote({
 		repoRoot,
 		branch: maintenanceBranch,
-		checkedOutConflictHandling: maintenance.refreshCheckedOutConflictHandling,
+		checkedOutConflictHandling,
 	});
 	if (refresh.type === "success") return undefined;
-
-	if (maintenance.shouldHaltOnRefreshFailure) {
-		return {
-			kind: "halt",
-			failure: graphiteRefreshFailure({
-				prNumber,
-				maintenanceBranch,
-				getCommandDisplay: refresh.commandDisplay,
-				got: refresh.result,
-			}),
-		};
-	}
 
 	if (refresh.type === "checkout-conflict") {
 		commandOptions.commandStream?.note(
@@ -764,44 +765,40 @@ function buildMaintenanceTargetPlan(
 				mode,
 				severity: "fail",
 				branches,
-				refreshCheckedOutConflictHandling: "fail",
+				prepare: advanceTrunkBeforeMaintenance,
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupOnlyScopeText,
 				isOptionalDescendant: false,
-				shouldHaltOnRefreshFailure: true,
 			};
 		case "optional-descendants":
 			return {
 				mode,
 				severity: "warn",
 				branches,
-				refreshCheckedOutConflictHandling: "defer",
+				prepare: refreshMaintenanceBranchWith("defer"),
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupAndDescendantScopeText,
 				isOptionalDescendant: true,
-				shouldHaltOnRefreshFailure: false,
 			};
 		case "none":
 			return {
 				mode,
 				severity: "warn",
 				branches,
-				refreshCheckedOutConflictHandling: "fail",
+				prepare: refreshMaintenanceBranchWith("fail"),
 				deleteCheckedOutConflictHandling: "retain",
 				skippedScopeText: localCleanupOnlyScopeText,
 				isOptionalDescendant: false,
-				shouldHaltOnRefreshFailure: false,
 			};
 		case "skip-descendant":
 			return {
 				mode,
 				severity: "warn",
 				branches,
-				refreshCheckedOutConflictHandling: "fail",
+				prepare: refreshMaintenanceBranchWith("fail"),
 				deleteCheckedOutConflictHandling: "fail",
 				skippedScopeText: localCleanupAndDescendantScopeText,
 				isOptionalDescendant: true,
-				shouldHaltOnRefreshFailure: false,
 			};
 		default:
 			assertNever(mode);

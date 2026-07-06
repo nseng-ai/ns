@@ -163,6 +163,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 					listLocalBranches: async () => landSuccess([]),
 					branchContainsParent: async ({ branch }) => landSuccess(branch === "feature/a"),
 					snapshotBackupRefs: async () => landSuccess(new Map()),
+					advanceBranchFromRemote: async () => ({ type: "advanced" }),
 				},
 				graphite: {
 					trunk: async () => landSuccess("main"),
