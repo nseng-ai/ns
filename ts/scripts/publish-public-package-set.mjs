@@ -33,16 +33,35 @@ if (args.mode === "dry-run") {
 	for (const item of plan) {
 		run("npm", ["publish", item.publishRoot, "--access", "public"], { cwd: repoRoot });
 	}
-	run("pnpm", ["--dir", "ts", "run", "release:verify-public", "--", "--version", args.version, "--strict"], { cwd: repoRoot });
+	await verifyPublishedPackagesWithRetry(args.version, args.verifyDelaysMs);
 	console.log(`Published and strictly verified ${plan.length} public package(s) at ${args.version}.`);
 }
 
 function parseArgs(rawArgs) {
 	const args = rawArgs.filter((arg) => arg !== "--");
-	if (args.length !== 2 || !["dry-run", "publish"].includes(args[0])) {
-		throw new Error("Usage: pnpm --dir ts run release:publish-public -- <dry-run|publish> <version>");
+	if (args.length < 2 || !["dry-run", "publish"].includes(args[0])) {
+		throw new Error("Usage: pnpm --dir ts run release:publish-public -- <dry-run|publish> <version> [--verify-delay-ms <ms> ...]");
 	}
-	return { mode: args[0], version: args[1] };
+	const customVerifyDelaysMs = [];
+	for (let index = 2; index < args.length; index += 1) {
+		const arg = args[index];
+		if (arg === "--verify-delay-ms") {
+			const value = args[index + 1];
+			if (value === undefined || value.startsWith("-")) throw new Error("--verify-delay-ms requires a non-negative millisecond value");
+			customVerifyDelaysMs.push(parseNonNegativeInteger(value, "--verify-delay-ms"));
+			index += 1;
+			continue;
+		}
+		if (arg === "--verify-delay-seconds") {
+			const value = args[index + 1];
+			if (value === undefined || value.startsWith("-")) throw new Error("--verify-delay-seconds requires a non-negative second value");
+			customVerifyDelaysMs.push(parseNonNegativeInteger(value, "--verify-delay-seconds") * 1000);
+			index += 1;
+			continue;
+		}
+		throw new Error(`Unknown argument: ${arg}`);
+	}
+	return { mode: args[0], version: args[1], verifyDelaysMs: customVerifyDelaysMs.length === 0 ? defaultVerifyDelaysMs() : customVerifyDelaysMs };
 }
 
 function runQualification(version) {
@@ -97,6 +116,53 @@ async function confirmPublish(version) {
 	} finally {
 		readline.close();
 	}
+}
+
+async function verifyPublishedPackagesWithRetry(version, delaysMs) {
+	const verifyArgs = ["--dir", "ts", "run", "release:verify-public", "--", "--version", version, "--strict"];
+	const attempts = delaysMs.length + 1;
+	let lastResult;
+	for (let attempt = 1; attempt <= attempts; attempt += 1) {
+		console.log(`Registry verification attempt ${attempt}/${attempts} for ${version}`);
+		lastResult = spawnSync("pnpm", verifyArgs, { cwd: repoRoot, encoding: "utf8" });
+		printCapturedCommandOutput(lastResult);
+		if (lastResult.status === 0) return;
+		const nextDelayMs = delaysMs[attempt - 1];
+		if (nextDelayMs === undefined) break;
+		console.log(
+			`Registry verification did not pass yet; waiting ${formatDelay(nextDelayMs)} for npm registry propagation before retrying.`,
+		);
+		await sleep(nextDelayMs);
+	}
+	const status = lastResult?.status ?? "unknown";
+	throw new Error(
+		`Published packages, but strict registry verification did not pass after ${attempts} attempt(s). `
+			+ `This can still be npm propagation delay; rerun: pnpm --dir ts run release:verify-public -- --version ${version} --strict. `
+			+ `Last verifier exit: ${status}`,
+	);
+}
+
+function printCapturedCommandOutput(result) {
+	if (result.stdout.length > 0) process.stdout.write(result.stdout);
+	if (result.stderr.length > 0) process.stderr.write(result.stderr);
+}
+
+function defaultVerifyDelaysMs() {
+	return [10_000, 20_000, 30_000, 60_000, 120_000, 120_000, 120_000, 120_000, 120_000];
+}
+
+function parseNonNegativeInteger(value, label) {
+	if (!/^\d+$/.test(value)) throw new Error(`${label} must be a non-negative integer, got: ${value}`);
+	return Number(value);
+}
+
+function sleep(delayMs) {
+	return new Promise((resolveSleep) => setTimeout(resolveSleep, delayMs));
+}
+
+function formatDelay(delayMs) {
+	if (delayMs % 1000 !== 0) return `${delayMs}ms`;
+	return `${delayMs / 1000}s`;
 }
 
 function snippet(value) {
