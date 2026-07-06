@@ -5,7 +5,7 @@ import {
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
 import {
-	formatSlugModelFailure,
+	formatRawTextModelFailure,
 	generateRawTextWithModel,
 } from "@nseng-ai/capability-kit/model-slug";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
@@ -79,7 +79,7 @@ async function generateRawText(
 		exec: (command, args, options) => pi.exec(command, args, options),
 	});
 	if (!result.ok) {
-		return { ok: false, message: formatSlugModelFailure(result.failure) };
+		return { ok: false, message: formatRawTextModelFailure(result.failure) };
 	}
 	return { ok: true, text: result.evidence.rawOutput.trim() };
 }

@@ -13,13 +13,13 @@ export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 const MAX_ERROR_CHARS = 4_000;
 const RAW_TEXT_MODEL_MAX_ATTEMPTS = 2;
 
-export interface SlugModelExecOptions {
+export interface RawTextModelExecOptions {
 	cwd?: string;
 	timeout?: number;
 	signal?: AbortSignal;
 }
 
-export interface SlugModelCommandResult {
+export interface RawTextModelCommandResult {
 	stdout?: string;
 	stderr?: string;
 	code: number;
@@ -36,17 +36,17 @@ export interface SlugModelEvidence extends RawTextModelEvidence {
 	slug: string;
 }
 
-export interface SlugModelFailure {
+export interface RawTextModelFailure {
 	lines: string[];
 }
 
 export type RawTextModelGenerationResult =
 	| { ok: true; evidence: RawTextModelEvidence }
-	| { ok: false; failure: SlugModelFailure };
+	| { ok: false; failure: RawTextModelFailure };
 
 export type SlugModelDerivationResult =
 	| { ok: true; evidence: SlugModelEvidence }
-	| { ok: false; failure: SlugModelFailure };
+	| { ok: false; failure: RawTextModelFailure };
 
 type RawTextModelAttemptOutcome =
 	| { type: "terminal"; result: RawTextModelGenerationResult }
@@ -59,8 +59,8 @@ export interface GenerateRawTextWithModelInput {
 	exec(
 		command: string,
 		args: string[],
-		options: SlugModelExecOptions,
-	): Promise<SlugModelCommandResult>;
+		options: RawTextModelExecOptions,
+	): Promise<RawTextModelCommandResult>;
 	signal?: AbortSignal;
 }
 
@@ -144,7 +144,7 @@ interface RunRawTextModelAttemptInput {
 async function runRawTextModelAttempt(
 	options: RunRawTextModelAttemptInput,
 ): Promise<RawTextModelAttemptOutcome> {
-	let result: SlugModelCommandResult;
+	let result: RawTextModelCommandResult;
 	try {
 		result = await options.input.exec(
 			"pi",
@@ -245,12 +245,12 @@ export function buildRawTextModelArgs(
 	];
 }
 
-export function formatSlugModelFailure(failure: SlugModelFailure): string {
+export function formatRawTextModelFailure(failure: RawTextModelFailure): string {
 	return failure.lines.join("\n");
 }
 
-function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExecOptions {
-	const options: SlugModelExecOptions = { cwd, timeout: RAW_TEXT_MODEL_TIMEOUT_MS };
+function execOptions(cwd: string, signal: AbortSignal | undefined): RawTextModelExecOptions {
+	const options: RawTextModelExecOptions = { cwd, timeout: RAW_TEXT_MODEL_TIMEOUT_MS };
 	if (signal !== undefined) {
 		options.signal = signal;
 	}
@@ -260,7 +260,7 @@ function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExe
 // This is a bounded immediate retry for killed subprocess results; no TimerScheduler is needed
 // because there is no delay or backoff between attempts.
 function shouldRetryKilledRawTextModelResult(
-	result: SlugModelCommandResult,
+	result: RawTextModelCommandResult,
 	signal: AbortSignal | undefined,
 	attempt: number,
 ): boolean {

@@ -7,7 +7,7 @@ import {
 	type GithubPrReviewThread,
 } from "@nseng-ai/capability-kit/github/pr-feedback";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
-import { type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../core/failures.ts";
 import type {
@@ -169,22 +169,20 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 
 	constructor(options: FakeRoasterGitHubGatewayOptions = {}) {
 		this.feedback = new FakeGithubPrFeedbackGateway({
-			...(options.changedFilesByPr === undefined
-				? {}
-				: { changedFilesByPr: options.changedFilesByPr }),
-			...(options.reviewCommentsByPr === undefined
-				? {}
-				: { reviewCommentsByPr: toFeedbackReviewCommentsByPr(options.reviewCommentsByPr) }),
-			...(options.reviewThreadsByPr === undefined
-				? {}
-				: { reviewThreadsByPr: options.reviewThreadsByPr }),
-			...(options.discussionCommentsByPr === undefined
-				? {}
-				: {
-						discussionCommentsByPr: toFeedbackDiscussionCommentsByPr(
-							options.discussionCommentsByPr,
-						),
-					}),
+			...optionalEntry("changedFilesByPr", options.changedFilesByPr),
+			...optionalEntry(
+				"reviewCommentsByPr",
+				options.reviewCommentsByPr === undefined
+					? undefined
+					: toFeedbackReviewCommentsByPr(options.reviewCommentsByPr),
+			),
+			...optionalEntry("reviewThreadsByPr", options.reviewThreadsByPr),
+			...optionalEntry(
+				"discussionCommentsByPr",
+				options.discussionCommentsByPr === undefined
+					? undefined
+					: toFeedbackDiscussionCommentsByPr(options.discussionCommentsByPr),
+			),
 		});
 	}
 

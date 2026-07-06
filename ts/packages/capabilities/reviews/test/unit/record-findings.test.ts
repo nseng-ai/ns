@@ -72,7 +72,7 @@ describe("runRecordFindings", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("invalid-json");
+		expect(exit.errorType).toBe("review-execution-invalid-json");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
@@ -89,7 +89,7 @@ describe("runRecordFindings", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("invalid-request");
+		expect(exit.errorType).toBe("review-execution-invalid-findings");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 

@@ -92,7 +92,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 	const handoffContext = createPiHandoffContext(pi);
 
 	if (pi.registerTool !== undefined) {
-		const selfWorkflow = createHandoffSelfWorkflow(pi, { handoffContext });
+		const selfWorkflow = createHandoffSelfWorkflow(pi, { git: handoffContext.git });
 		pi.registerTool(buildDeriveHandoffSlugTool(pi));
 		pi.registerTool(buildHandoffTabLaunchTool(pi));
 		pi.registerTool(selfWorkflow.buildTool());
@@ -102,7 +102,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 			commandDefinition: {
 				description: "Create a handoff and open a focused cmux tab to pick it up.",
 				handler: async (args, ctx) =>
-					handleHandoffTabCommand({ pi, rawArgs: args, ctx, handoffContext }),
+					handleHandoffTabCommand({ pi, rawArgs: args, ctx, git: handoffContext.git }),
 			},
 		});
 		registerCommandWithImmediateAck({

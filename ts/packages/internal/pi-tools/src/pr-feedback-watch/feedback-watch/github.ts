@@ -1,8 +1,7 @@
+import { execApiToCommandRunner } from "@nseng-ai/foundation/exec";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { githubPrIdentityFromUrl } from "@nseng-ai/capability-kit/github/identity";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
-import type { CommandRunner } from "@nseng-ai/foundation/exec";
-
 import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
 import { loadGhCommand } from "@nseng-ai/pi/shared/gh-command";
 
@@ -123,7 +122,7 @@ export async function loadRestFingerprint(
 	{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }
 > {
 	const { pi, cwd, identity, sinceIso, signal } = options;
-	const gateway = new RealGithubPrFeedbackGateway(execGatewayToCommandRunner(pi));
+	const gateway = new RealGithubPrFeedbackGateway(execApiToCommandRunner(pi));
 	const result = await gateway.getPrRestFeedbackFingerprintParts({
 		cwd,
 		prNumber: identity.number,
@@ -134,36 +133,9 @@ export async function loadRestFingerprint(
 	return {
 		type: "loaded",
 		fingerprint: buildFeedbackFingerprint([
-			...parseDiscussionCommentFingerprint(
-				result.value.discussionComments.map((comment) => ({
-					id: comment.id,
-					created_at: comment.createdAt,
-					updated_at: comment.updatedAt,
-					author: comment.author,
-				})),
-			),
-			...parseReviewFingerprint(
-				result.value.reviews.map((review) => ({
-					id: review.id,
-					node_id: review.nodeId,
-					state: review.state,
-					submitted_at: review.submittedAt,
-					commit_id: review.commitId,
-					author: review.author,
-				})),
-			),
-			...parseReviewCommentFingerprint(
-				result.value.reviewComments.map((comment) => ({
-					id: comment.id,
-					pull_request_review_id: comment.reviewId,
-					created_at: comment.createdAt,
-					updated_at: comment.updatedAt,
-					path: comment.path,
-					line: comment.line,
-					in_reply_to_id: comment.inReplyToId,
-					author: comment.author,
-				})),
-			),
+			...parseDiscussionCommentFingerprint(result.value.discussionComments),
+			...parseReviewFingerprint(result.value.reviews),
+			...parseReviewCommentFingerprint(result.value.reviewComments),
 		]),
 	};
 }
@@ -186,18 +158,6 @@ async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonComma
 	} catch {
 		return { type: "failed", message: `${label} returned malformed JSON.` };
 	}
-}
-
-function execGatewayToCommandRunner(pi: ExecGateway): CommandRunner {
-	return async (command, args, options = {}) => {
-		const result = await pi.exec(command, [...args], options);
-		return {
-			stdout: result.stdout,
-			stderr: result.stderr,
-			code: result.code,
-			killed: result.killed ?? false,
-		};
-	};
 }
 
 function feedbackFailureMessage(message: string): string {

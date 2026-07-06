@@ -24,8 +24,8 @@ import {
 	PICKUP_HANDOFF_COMMAND_NAME,
 } from "./command-constants.ts";
 import { setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type { HandoffCommandInvocation } from "./api-context.ts";
-import type { ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandContext, ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
 export type { HandoffTabLaunchResult };
 
@@ -54,10 +54,15 @@ export function buildHandoffTabPrompt(
 	return buildHandoffLaunchPrompt(HANDOFF_TAB_PROMPT_COPY, options);
 }
 
-export async function handleHandoffTabCommand(options: HandoffCommandInvocation): Promise<void> {
-	const { pi, rawArgs, ctx, handoffContext } = options;
+export async function handleHandoffTabCommand(options: {
+	pi: ExtensionAPI;
+	rawArgs: string;
+	ctx: CommandContext;
+	git: GitGateway;
+}): Promise<void> {
+	const { pi, rawArgs, ctx, git } = options;
 	await runHandoffCreateCommand(pi, rawArgs, ctx, {
-		handoffContext,
+		git,
 		statusKey: HANDOFF_TAB_STATUS_KEY,
 		promptCopy: HANDOFF_TAB_PROMPT_COPY,
 		startMessages: HANDOFF_TAB_START_MESSAGES,

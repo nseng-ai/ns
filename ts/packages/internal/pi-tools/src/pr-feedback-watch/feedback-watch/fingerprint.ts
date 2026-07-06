@@ -39,7 +39,9 @@ export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFinge
 		if (!isRecord(item)) continue;
 		const id = idField(item, "id");
 		if (id === undefined) continue;
-		const updatedAt = stringField(item, "updated_at") ?? stringField(item, "created_at");
+		const updatedAt =
+			dualKeyField(item, "updatedAt", "updated_at") ??
+			dualKeyField(item, "createdAt", "created_at");
 		const author = authorFromValue(item);
 		items.push({
 			kind: "discussion_comment",
@@ -55,12 +57,12 @@ export function parseReviewFingerprint(value: unknown): FeedbackFingerprintItem[
 	const items: FeedbackFingerprintItem[] = [];
 	for (const item of value) {
 		if (!isRecord(item)) continue;
-		const id = idField(item, "id") ?? stringField(item, "node_id");
+		const id = idField(item, "id") ?? dualKeyField(item, "nodeId", "node_id");
 		if (id === undefined) continue;
-		const updatedAt = stringField(item, "submitted_at");
+		const updatedAt = dualKeyField(item, "submittedAt", "submitted_at");
 		const author = authorFromValue(item);
 		const state = stringField(item, "state");
-		const commitId = stringField(item, "commit_id");
+		const commitId = dualKeyField(item, "commitId", "commit_id");
 		items.push({
 			kind: "review",
 			id,
@@ -77,12 +79,14 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 		if (!isRecord(item)) continue;
 		const id = idField(item, "id");
 		if (id === undefined) continue;
-		const updatedAt = stringField(item, "updated_at") ?? stringField(item, "created_at");
+		const updatedAt =
+			dualKeyField(item, "updatedAt", "updated_at") ??
+			dualKeyField(item, "createdAt", "created_at");
 		const author = authorFromValue(item);
 		const path = stringField(item, "path");
 		const line = finiteNumberField(item, "line");
-		const reviewId = idField(item, "pull_request_review_id");
-		const inReplyToId = idField(item, "in_reply_to_id");
+		const reviewId = dualKeyField(item, "reviewId", "pull_request_review_id", idField);
+		const inReplyToId = dualKeyField(item, "inReplyToId", "in_reply_to_id", idField);
 		items.push({
 			kind: "review_comment",
 			id,
@@ -186,6 +190,15 @@ function authorFromValue(value: Record<string, unknown>): string | undefined {
 	if (author !== undefined) return author;
 	if (!isRecord(value.user)) return undefined;
 	return stringField(value.user, "login");
+}
+
+function dualKeyField(
+	value: Record<string, unknown>,
+	camelKey: string,
+	snakeKey: string,
+	readField: (record: Record<string, unknown>, key: string) => string | undefined = stringField,
+): string | undefined {
+	return readField(value, camelKey) ?? readField(value, snakeKey);
 }
 
 function idField(value: Record<string, unknown>, key: string): string | undefined {

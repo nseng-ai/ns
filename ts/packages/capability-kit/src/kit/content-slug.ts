@@ -2,9 +2,9 @@ import { formatOutputSection } from "@nseng-ai/foundation/command";
 import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
 import {
 	deriveSlugWithModel,
-	type SlugModelCommandResult,
+	type RawTextModelCommandResult,
+	type RawTextModelExecOptions,
 	type SlugModelEvidence,
-	type SlugModelExecOptions,
 } from "./model-slug.ts";
 
 const MAX_ERROR_CHARS = 4_000;
@@ -15,8 +15,8 @@ export interface ContentSlugExecApi {
 	exec(
 		command: string,
 		args: string[],
-		options: SlugModelExecOptions,
-	): Promise<SlugModelCommandResult>;
+		options: RawTextModelExecOptions,
+	): Promise<RawTextModelCommandResult>;
 }
 
 export interface ContentSlugDerivationVariant {
