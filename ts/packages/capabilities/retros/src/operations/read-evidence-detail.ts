@@ -113,7 +113,7 @@ function validatePayloadData(envelope: JsonValue, payloadPath: string): void {
 	if (typeof data !== "object" || data === null || Array.isArray(data)) {
 		throw new PayloadError(
 			"payload-lookup-failed",
-			`Raw payload artifact data must be a retros detail object: ${payloadPath}`,
+			`Raw payload artifact data must be a retro detail object: ${payloadPath}`,
 		);
 	}
 	const schemaVersion = (data as Record<string, unknown>).schemaVersion;

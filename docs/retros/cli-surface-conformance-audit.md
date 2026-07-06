@@ -28,7 +28,7 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > ADR 0015, serialized ji machine values were migrated to kebab-case with
 > camelCase JSON property names, Branch Context / Plans generic error wrappers
 > were replaced by modeled failure types with structured recovery data, and the
-> Retros/Vibechk output-bound rows were remediated while `roaster review log` was
+> Retro/Vibechk output-bound rows were remediated while `roaster review log` was
 > parked below the ADR 0012 evidence threshold. Historical file:line anchors and
 > per-row classifications below remain point-in-time audit evidence.
 
@@ -77,7 +77,7 @@ framework does not enforce:
 | Package        | Leaf commands audited                                                                                                                                                         | Notes                                                                       |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | areg           | `init`, `check`, `update-skills`, `skill list/show/apply`, `exec skillx parse/list/fetch/cleanup`                                                                             | own readline prompt gateway                                                 |
-| retros         | `exec collect-evidence`, `exec read-evidence-detail`                                                                                                                          | all hidden `exec`                                                           |
+| retro          | `exec collect-evidence`, `exec read-evidence-detail`                                                                                                                          | all hidden `exec`                                                           |
 | branch-context | `exec from-plan/load/attach/list/check/delete`                                                                                                                                | all hidden `exec`; generic error wrapper                                    |
 | brmem          | `put/get/delete/list/check/copy/export/setup-git`, `exec resolve-prompt`                                                                                                      | reference `--force` (put)                                                   |
 | ccc            | `exec cmux-workspace-summary`, `exec autobranch`                                                                                                                              | `land`/`land-stack`/`cmux/*` are a Pi slash-command surface, not Clinkr CLI |
@@ -107,7 +107,7 @@ are `shell show`/`shell install`. All other `ns ...` commands are either the
 | 4  | a    | Wrong confirm verb: `--skip-confirmation` instead of `--yes`/`-y` (Tier 2/3 publish)                                                   | `packagechk claim-pypi/claim-npm`                                                                                                                                | land-now-fix                                          |
 | 5  | a    | Single-PR land fast path merges to trunk with no confirmation while stack paths confirm                                                | `ccc land` (Pi surface)                                                                                                                                          | conformant (ADR 0015 #3: intentional)                 |
 | 6  | a    | Hidden `exec` destructive/external write with no confirm flag; agent/script-only required args are sufficient intent                   | `ns branch-context exec delete`, `ns address exec reply-review-thread`, `ns address exec resolve-review-thread`                                                  | conformant (ADR 0015 #2: args suffice)                |
-| 7  | d    | Operational/IO mutation failures returned as `negative` (exit 1) where `failure` (exit 2) is correct                                   | `areg init`, `areg skill apply`, `ns retros exec collect-evidence`, `ccc exec cmux-workspace-summary`                                                            | land-now-fix                                          |
+| 7  | d    | Operational/IO mutation failures returned as `negative` (exit 1) where `failure` (exit 2) is correct                                   | `areg init`, `areg skill apply`, `ns retro exec collect-evidence`, `ccc exec cmux-workspace-summary`                                                             | land-now-fix                                          |
 | 8  | d    | Real not-found / no-match returned as `failure` (exit 2) where `negative` (exit 1) is correct                                          | `brmem get/delete/copy`, `plans exec resolve`                                                                                                                    | land-now-fix                                          |
 | 9  | d    | Missing required input returned as `negative`/`failure` where `usageError` is correct                                                  | `ns objective exec runner-subagent-usage`, `ccc exec cmux-workspace-summary`                                                                                     | land-now-fix                                          |
 | 10 | d    | Query-miss (`ok(found:false)`) vs action-miss (`negative`) inconsistency across commands                                               | `pr-address` (pr-details/branch-pr/pr-checks vs download-feedback/map-branch-prs)                                                                                | conformant (ADR 0015 #4: predicate vs action)         |
@@ -115,7 +115,7 @@ are `shell show`/`shell install`. All other `ns ...` commands are either the
 | 12 | c    | All errors collapse to one generic `errorType` (`branch_context_error`/`plans_error`) via wrapper; modeled detail lost, no `data`      | `branch-context` (all), `plans` (all)                                                                                                                            | land-now-fix                                          |
 | 13 | c    | `failure(...)` carries message only, no structured `data` (near-universal)                                                             | most packages                                                                                                                                                    | land-now-fix                                          |
 | 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `jicc cmux report`, `vibechk run`, `ccc exec autobranch`                                                                                     | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
-| 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `retros` (both), `vibechk runs/show/diff`, `roaster review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)   | mixed (land-now-fix / parked)                         |
+| 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `retro` (both), `vibechk runs/show/diff`, `roaster review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)    | mixed (land-now-fix / parked)                         |
 
 ## Cross-cutting themes
 
@@ -168,7 +168,7 @@ are `shell show`/`shell install`. All other `ns ...` commands are either the
 
 6. **Output bounding is mostly a non-problem today (ADR 0012 threshold).** Most
    "unbounded" lists are naturally domain-small (branch-scoped refs, per-repo
-   plans, handoff inventories) and are parked. The genuine candidates are `retros`
+   plans, handoff inventories) and are parked. The genuine candidates are `retro`
    (dereferences arbitrary `value: unknown` subtrees), `vibechk` (full
    transcripts/diffs), and `roaster review log` (accumulates per branch).
 
@@ -212,20 +212,20 @@ silently decline non-interactively. Both also route operational/precondition mut
 failures through `negative` where ADR 0014 calls for `failure`. Two concrete kebab-case
 `errorType` violations (`missing-tool`). Read-only commands are conformant.
 
-### retros
+### retro
 
-| Command                               | Mutating?           | Area | Finding                                                                                                                                                                                       | Classification   | Evidence (file:line)                                                  |
-| ------------------------------------- | ------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
-| `ns retros exec collect-evidence`     | Yes (payload write) | a    | Tier 1 create-only payload artifact; no prompts                                                                                                                                               | conformant       | `operations/collect-evidence.ts:89`                                   |
-| `ns retros exec collect-evidence`     | Yes                 | b    | `sessions` bounded by `maxSessions` (default 20) echoed as `query.max_sessions`, but schema exposes no completion/truncation/"more available" state                                           | land-now-fix     | `operations/collect-evidence.ts:41,202`; `contracts.ts:122-135`       |
-| `ns retros exec collect-evidence`     | Yes                 | c    | No `failure(...)`; all error paths route through `negative(...)` (error codes in `data.error.code` are snake_case)                                                                            | conformant (N/A) | `operations/collect-evidence.ts:237`                                  |
-| `ns retros exec collect-evidence`     | Yes                 | d    | Operational/IO errors (`payload_write_failed`) and precondition errors (`not_a_git_repo`, `detached_head`) all `negative` instead of `failure`/`usageError`; empty-no-sessions correctly `ok` | land-now-fix     | `operations/collect-evidence.ts:70,100,166,173,184,237`; ok at `:128` |
-| `ns retros exec read-evidence-detail` | No                  | a    | Tier 0 read-only pointer deref; no prompts                                                                                                                                                    | conformant       | `operations/read-evidence-detail.ts:23-53`                            |
-| `ns retros exec read-evidence-detail` | No                  | b    | `value: z.unknown()` can deref an arbitrarily large subtree; no size/completion bound in schema                                                                                               | land-now-fix     | `operations/read-evidence-detail.ts:15-19,48-52`                      |
-| `ns retros exec read-evidence-detail` | No                  | c    | `failure(...)` uses stable snake_case errorTypes but passes no structured `data`                                                                                                              | land-now-fix     | `operations/read-evidence-detail.ts:29,126-132`                       |
-| `ns retros exec read-evidence-detail` | No                  | d    | Pointer/path not-found surfaces as `failure(payload_lookup_failed)` — defensible as input/precondition error                                                                                  | conformant       | `operations/read-evidence-detail.ts:29,128`                           |
+| Command                              | Mutating?           | Area | Finding                                                                                                                                                                                       | Classification   | Evidence (file:line)                                                  |
+| ------------------------------------ | ------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
+| `ns retro exec collect-evidence`     | Yes (payload write) | a    | Tier 1 create-only payload artifact; no prompts                                                                                                                                               | conformant       | `operations/collect-evidence.ts:89`                                   |
+| `ns retro exec collect-evidence`     | Yes                 | b    | `sessions` bounded by `maxSessions` (default 20) echoed as `query.max_sessions`, but schema exposes no completion/truncation/"more available" state                                           | land-now-fix     | `operations/collect-evidence.ts:41,202`; `contracts.ts:122-135`       |
+| `ns retro exec collect-evidence`     | Yes                 | c    | No `failure(...)`; all error paths route through `negative(...)` (error codes in `data.error.code` are snake_case)                                                                            | conformant (N/A) | `operations/collect-evidence.ts:237`                                  |
+| `ns retro exec collect-evidence`     | Yes                 | d    | Operational/IO errors (`payload_write_failed`) and precondition errors (`not_a_git_repo`, `detached_head`) all `negative` instead of `failure`/`usageError`; empty-no-sessions correctly `ok` | land-now-fix     | `operations/collect-evidence.ts:70,100,166,173,184,237`; ok at `:128` |
+| `ns retro exec read-evidence-detail` | No                  | a    | Tier 0 read-only pointer deref; no prompts                                                                                                                                                    | conformant       | `operations/read-evidence-detail.ts:23-53`                            |
+| `ns retro exec read-evidence-detail` | No                  | b    | `value: z.unknown()` can deref an arbitrarily large subtree; no size/completion bound in schema                                                                                               | land-now-fix     | `operations/read-evidence-detail.ts:15-19,48-52`                      |
+| `ns retro exec read-evidence-detail` | No                  | c    | `failure(...)` uses stable snake_case errorTypes but passes no structured `data`                                                                                                              | land-now-fix     | `operations/read-evidence-detail.ts:29,126-132`                       |
+| `ns retro exec read-evidence-detail` | No                  | d    | Pointer/path not-found surfaces as `failure(payload_lookup_failed)` — defensible as input/precondition error                                                                                  | conformant       | `operations/read-evidence-detail.ts:29,128`                           |
 
-**retros notes:** Biggest gap is `collect-evidence`'s blanket `negative(...)` for genuine
+**retro notes:** Biggest gap is `collect-evidence`'s blanket `negative(...)` for genuine
 operational failures (payload-store IO, underlying git errors) which should be `failure`
 (exit 2); the not-a-git-repo / detached-HEAD precondition cases are more debatable
 (could be `usageError`). Both commands can return large structures without schema-level
@@ -621,14 +621,14 @@ Semantic Updates record the current-source remediations and parking decisions.
    solely to hidden `exec` destructive/external writes; ADR 0015 #2 classifies their
    required operation arguments as sufficient intent.
 2. **Area (d), land-now:** apply a not-found→`negative` / bad-or-missing-arg→`usageError`
-   / operational-error→`failure` decision table to `areg`, `retros collect-evidence`,
+   / operational-error→`failure` decision table to `areg`, `retro collect-evidence`,
    `brmem get/delete/copy`, `plans exec resolve`, `objective runner-subagent-usage`,
    `ccc cmux-workspace-summary`, `vibechk show/diff`, `jicc cmux report`.
 3. **Area (c), land-now:** fix kebab-case `errorType` (`objective` storage codes, `areg
    skillx`, `brmem resolve-prompt`); replace the generic error-collapse wrappers in
    `branch-context`/`plans` with modeled errorTypes; add structured `data` where it aids
    recovery (lower priority, ADR 0010 "consider").
-4. **Area (b), land-now where it matters / else parked:** `retros`, `vibechk`, `roaster
+4. **Area (b), land-now where it matters / else parked:** `retro`, `vibechk`, `roaster
    review log`. Leave domain-small lists parked under the ADR 0012 threshold.
 
 ## ADR-needed questions — resolved by ADR 0015

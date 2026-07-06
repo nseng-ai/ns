@@ -29,7 +29,7 @@ command syntax rather than behavior.
   a thin SDL extension API of host primitives (`exec`, `env`, `textGenerator`,
   `confirm`, IO streams).
 - **Above the SDK — capability extensions:** flow, handoff, objective,
-  branch-context, plans, pr-address, slot, roaster, retros.
+  branch-context, plans, pr-address, slot, roaster, retro.
 
 `packagechk`, `vibechk`, and `areg` are standalone tools off this axis. In
 particular, `packagechk` is scoped to public package-registry state and package-name

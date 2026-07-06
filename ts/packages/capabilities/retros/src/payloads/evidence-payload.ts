@@ -1,5 +1,5 @@
 /**
- * Sanitized payload detail document construction for retros evidence.
+ * Sanitized payload detail document construction for retro evidence.
  */
 
 import { z } from "zod";

@@ -89,7 +89,7 @@ export async function runCollectEvidence(
 		let payloadReference: PayloadReference;
 		try {
 			payloadReference = payloadStore.writeJsonArtifact({
-				descriptor: "retros-collect-evidence",
+				descriptor: "retro-collect-evidence",
 				role: "raw",
 				payload: { status: "ok", exitCode: 0, data: payloadData },
 			});
@@ -225,7 +225,7 @@ function withPayloadDetailBounds(outputBounds: OutputBoundsDto): OutputBoundsDto
 		detail: {
 			mode: "payload",
 			guidance:
-				"Use ns retros exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+				"Use ns retro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
 			locatorHints: [...DETAIL_LOCATOR_HINTS],
 		},
 	};

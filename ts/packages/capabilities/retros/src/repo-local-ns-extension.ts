@@ -7,7 +7,7 @@ import { retrosExecCollectEvidenceNsCommand } from "./ns/commands/exec-collect-e
 import { retrosExecReadEvidenceDetailNsCommand } from "./ns/commands/exec-read-evidence-detail.ts";
 
 export const retrosRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
-	group: "retros",
+	group: "retro",
 	description: "Collect branch retrospective evidence for agents.",
 	commands: [retrosExecCollectEvidenceNsCommand, retrosExecReadEvidenceDetailNsCommand].map(
 		(command) =>

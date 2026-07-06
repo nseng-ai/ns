@@ -7,7 +7,7 @@ import type { SessionSource } from "./sessions/source.ts";
 import { PiJsonlSessionSource } from "./sessions/pi-jsonl-source.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-// The git methods retros consumes: resolve the repo root and the current branch
+// The git methods retro consumes: resolve the repo root and the current branch
 // when collecting retro evidence. A full `GitGateway` is assignable to this.
 export type RetrosGitGateway = Pick<GitGateway, "optionalRepoRoot" | "currentBranch">;
 

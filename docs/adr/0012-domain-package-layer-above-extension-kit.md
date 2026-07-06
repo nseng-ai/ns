@@ -43,7 +43,7 @@ CCC (highest-fan-out consumer)             @sdl/pi  (runtime host, off-axis)
           v                                      v
 Capabilities  (first-party Extensions, above the Capability Kit)   <- most domain logic
     flow, objective, handoff, slot, branch-context,
-    plans, pr-address, roaster, retros, CCC
+    plans, pr-address, roaster, retro, CCC
     each = kernel-loaded commands over gateway-injected domain logic,
            plus a Capability API where a consumer depends on it in-process
         |  built on

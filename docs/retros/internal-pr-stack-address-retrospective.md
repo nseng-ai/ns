@@ -68,7 +68,7 @@ Final verification counts from payload-mode `get-feedback`:
 
 ### Deterministic branch retrospective evidence
 
-`retros exec collect-evidence` was run against branch `runner-subagent/address-stack-feedback` in payload mode.
+`retro exec collect-evidence` was run against branch `runner-subagent/address-stack-feedback` in payload mode.
 
 Compact evidence:
 
@@ -266,7 +266,7 @@ The session had multiple large outputs:
 - `stack-feedback-prep` output was large enough to hit the transcript cap in earlier commands.
 - `get-feedback` printed large manifests for both PRs.
 - The failed resolution-builder call produced a very large validation error.
-- `retros` evidence confirmed large bash/read outputs across the branch work.
+- `retro` evidence confirmed large bash/read outputs across the branch work.
 
 Large outputs have two costs:
 

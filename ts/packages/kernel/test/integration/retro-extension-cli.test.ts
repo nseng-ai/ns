@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { installCheckedInRetrosExtension } from "../helpers/retros-extension.ts";
+import { installCheckedInRetroExtension } from "../helpers/retro-extension.ts";
 import {
 	parseJsonOutput,
 	runCliWithFakes,
@@ -19,51 +19,51 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in Retros ns extension loading", () => {
-	test("exposes hidden Retros exec command help through the ns command face", async () => {
-		const cwd = await createRetrosProject();
+describe("checked-in Retro ns extension loading", () => {
+	test("exposes hidden Retro exec command help through the ns command face", async () => {
+		const cwd = await createRetroProject();
 
-		const rootHelp = runWithRealRetrosExtension({ args: ["retros", "--help"], cwd });
+		const rootHelp = runWithRealRetroExtension({ args: ["retro", "--help"], cwd });
 		expect(await rootHelp.exit).toBe(0);
 		const rootOutput = rootHelp.stdout.join("");
-		expect(rootOutput).toContain("Usage: ns retros");
+		expect(rootOutput).toContain("Usage: ns retro");
 		expect(rootOutput).not.toContain("collect-evidence");
 		expect(rootOutput).not.toContain("read-evidence-detail");
 
-		const collectHelp = runWithRealRetrosExtension({
-			args: ["retros", "exec", "collect-evidence", "--help"],
+		const collectHelp = runWithRealRetroExtension({
+			args: ["retro", "exec", "collect-evidence", "--help"],
 			cwd,
 		});
 		expect(await collectHelp.exit).toBe(0);
 		const collectOutput = collectHelp.stdout.join("");
-		expect(collectOutput).toContain("Usage: ns retros exec collect-evidence");
+		expect(collectOutput).toContain("Usage: ns retro exec collect-evidence");
 		expect(collectOutput).toContain("--repo");
 		expect(collectOutput).toContain("--branch");
 		expect(collectOutput).toContain("--session-root");
 
-		const detailHelp = runWithRealRetrosExtension({
-			args: ["retros", "exec", "read-evidence-detail", "--help"],
+		const detailHelp = runWithRealRetroExtension({
+			args: ["retro", "exec", "read-evidence-detail", "--help"],
 			cwd,
 		});
 		expect(await detailHelp.exit).toBe(0);
-		expect(detailHelp.stdout.join("")).toContain("Usage: ns retros exec read-evidence-detail");
+		expect(detailHelp.stdout.join("")).toContain("Usage: ns retro exec read-evidence-detail");
 	});
 
 	test("publishes schema and runs collect-evidence through the ns command face", async () => {
-		const cwd = await createRetrosProject();
+		const cwd = await createRetroProject();
 		const sessionRoot = join(cwd, "sessions");
 		await mkdir(sessionRoot, { recursive: true });
 
-		const schema = runWithRealRetrosExtension({
-			args: ["retros", "exec", "collect-evidence", "--json-schema"],
+		const schema = runWithRealRetroExtension({
+			args: ["retro", "exec", "collect-evidence", "--json-schema"],
 			cwd,
 		});
 		expect(await schema.exit).toBe(0);
 		expect(schema.stdout.join("")).toContain("aggregateMetrics");
 
-		const collect = runWithRealRetrosExtension({
+		const collect = runWithRealRetroExtension({
 			args: [
-				"retros",
+				"retro",
 				"exec",
 				"collect-evidence",
 				"--repo",
@@ -89,20 +89,20 @@ describe("checked-in Retros ns extension loading", () => {
 	});
 });
 
-async function createRetrosProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-retros-extension-project-"));
+async function createRetroProject(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "ns-retro-extension-project-"));
 	tempDirs.push(directory);
-	installCheckedInRetrosExtension(directory);
+	installCheckedInRetroExtension(directory);
 	return directory;
 }
 
-function runWithRealRetrosExtension(options: { args: readonly string[]; cwd: string }) {
+function runWithRealRetroExtension(options: { args: readonly string[]; cwd: string }) {
 	return runCliWithFakes(options, {
-		execResponses: () => retrosGitResponses(options.cwd),
+		execResponses: () => retroGitResponses(options.cwd),
 		textGenerationResults: () => [],
 	});
 }
 
-function retrosGitResponses(cwd: string): ScriptedExecResponse[] {
+function retroGitResponses(cwd: string): ScriptedExecResponse[] {
 	return [{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } }];
 }

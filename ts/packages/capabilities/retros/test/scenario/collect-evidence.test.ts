@@ -10,7 +10,7 @@ import { FakeSessionSource } from "../../src/sessions/source-fake.ts";
 import type { ParsedSession } from "../../src/sessions/types.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 
-describe("retros exec collect-evidence", () => {
+describe("retro exec collect-evidence", () => {
 	it("returns JSON envelope with expected top-level fields", async () => {
 		const git = new InMemoryGitGateway({
 			repoRoot: "/test/repo",
@@ -335,7 +335,7 @@ describe("retros exec collect-evidence", () => {
 	});
 
 	it("writes sanitized payload detail and reads a targeted pointer", async () => {
-		const payloadRoot = mkdtempSync(join(tmpdir(), "retros-payload-test-"));
+		const payloadRoot = mkdtempSync(join(tmpdir(), "retro-payload-test-"));
 		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
 		const sessionSource = new FakeSessionSource({ sessions: [evidenceSession("/repo")] });
 		const context: RetrosCliContext = {
@@ -370,7 +370,7 @@ describe("retros exec collect-evidence", () => {
 			},
 		});
 		const payloadReference = result.data.payloadReference as Record<string, unknown>;
-		expect(payloadReference.descriptor).toBe("retros-collect-evidence");
+		expect(payloadReference.descriptor).toBe("retro-collect-evidence");
 		expect(payloadReference.role).toBe("raw");
 		const payloadPath = payloadReference.payloadPath;
 		if (typeof payloadPath !== "string") throw new Error("payloadPath should be string");

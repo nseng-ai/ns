@@ -10,8 +10,8 @@ import {
 
 export const retrosExecReadEvidenceDetailNsCommand = retrosNsCommand({
 	name: "exec-read-evidence-detail",
-	summary: "Read Retros evidence detail from a payload pointer.",
-	description: "Read Retros evidence detail from a payload pointer.",
+	summary: "Read Retro evidence detail from a payload pointer.",
+	description: "Read Retro evidence detail from a payload pointer.",
 	schema: readEvidenceDetailRequestSchema,
 	resultSchema: readEvidenceDetailResultSchema,
 	handler: runReadEvidenceDetail,

@@ -35,9 +35,9 @@ review engine and `roaster` stays the CLI subcommand even though its package is 
 now `@nseng-ai/handoffs`. Product vocabulary and npm package identity are independent
 axes.
 
-Amendment (2026-07-06): Retros is the exception to that initial command-vocabulary
+Amendment (2026-07-06): Retro is the exception to that initial command-vocabulary
 rule. Its command face, repo-local extension group, tests, docs, and agent-facing skill
-references now use `ns retros exec ...` and Retros naming throughout.
+references now use `ns retro exec ...` and Retro naming throughout.
 
 Consequences:
 
