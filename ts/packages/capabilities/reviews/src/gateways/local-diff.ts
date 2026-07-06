@@ -131,7 +131,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 
 		const config = parseRoasterProjectConfigToml(source, path);
 		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
-		return { ok: true, value: config.config.diff.exclude };
+		return { ok: true, value: config.value.diff.exclude };
 	}
 }
 

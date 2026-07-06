@@ -135,7 +135,7 @@ type ParseResult = ReturnType<typeof parseRoasterProjectConfigToml>;
 
 function expectOk(result: ParseResult) {
 	if (!result.ok) throw new Error(result.error.message);
-	return result.config;
+	return result.value;
 }
 
 function expectError(result: ParseResult): {

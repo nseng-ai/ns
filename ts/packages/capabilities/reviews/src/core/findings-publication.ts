@@ -66,13 +66,11 @@ const reviewRunFailureEnvelopeSchema = buildFailureMachineEnvelopeSchema({
 });
 
 export interface FindingsPayloadParseError {
-	readonly type: "findings_payload_parse_error";
+	readonly code: "findings_payload_parse_error";
 	readonly message: string;
 }
 
-export type FindingsPayloadParseResult =
-	| { readonly ok: true; readonly payload: FindingsPayload }
-	| { readonly ok: false; readonly error: FindingsPayloadParseError };
+export type FindingsPayloadParseResult = Result<FindingsPayload, FindingsPayloadParseError>;
 
 export function parseFindingsPayloadResult(
 	raw: string,
@@ -156,11 +154,11 @@ export async function publishFindings(
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
 	if (!parsed.ok) return publicationError("payload-parse", "invalid-payload", parsed.error.message);
 
-	const inlineStatus = await postInlineFindings(ctx, parsed.payload, {
+	const inlineStatus = await postInlineFindings(ctx, parsed.value, {
 		prNumber: options.prNumber,
 		runScope: ctx.runScope,
 	});
-	const marker = summaryMarkerForReview(parsed.payload.reviewName);
+	const marker = summaryMarkerForReview(parsed.value.reviewName);
 	const existing = await ctx.github.findPrDiscussionCommentByMarker({
 		...environmentOptions(ctx.runScope),
 		prNumber: options.prNumber,
@@ -173,17 +171,17 @@ export async function publishFindings(
 	const existingBody = existing.value?.body ?? "";
 	const machineState = buildFindingsCommentMachineState({
 		existingBody,
-		payload: parsed.payload,
+		payload: parsed.value,
 		lastReviewedHead: options.lastReviewedHead ?? null,
 	});
-	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus, machineState });
+	const renderedBody = renderFindingsComment(parsed.value, { inlineStatus, machineState });
 	const parsedBody = parseFindingsCommentBody(renderedBody);
 	if (!parsedBody.ok)
 		return publicationError("comment-body-parse", "invalid-comment-body", parsedBody.error.message);
 
 	const nextBody = preserveActivityLog(
 		existingBody,
-		parsedBody.parsed.body,
+		parsedBody.value.body,
 		activityLogEntry(options.runUrl),
 	);
 	const githubOptions = environmentOptions(ctx.runScope);
@@ -208,7 +206,7 @@ export async function publishFindings(
 			inlineStatus,
 			summaryStatus: {
 				type: existing.value === null ? "posted" : "updated",
-				marker: parsedBody.parsed.marker,
+				marker: parsedBody.value.marker,
 			},
 		},
 	};
@@ -219,7 +217,7 @@ function payloadFromReviewRunResult(
 ): FindingsPayloadParseResult {
 	return {
 		ok: true,
-		payload: {
+		value: {
 			reviewName: result.reviewName,
 			baseRef: result.baseRef,
 			modelProfile: result.modelProfile,
@@ -240,7 +238,7 @@ function payloadFromEnvelopeFailure(
 	if (!identity.ok) return payloadError(identity.error.message);
 	return {
 		ok: true,
-		payload: {
+		value: {
 			reviewName: identity.value.reviewName,
 			baseRef: identity.value.baseRef,
 			modelProfile: null,
@@ -320,5 +318,5 @@ function parseJson(raw: string): JsonResult {
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {
-	return { ok: false, error: { type: "findings_payload_parse_error", message } };
+	return { ok: false, error: { code: "findings_payload_parse_error", message } };
 }

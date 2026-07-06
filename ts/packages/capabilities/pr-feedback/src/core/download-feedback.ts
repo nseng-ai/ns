@@ -2,7 +2,7 @@ import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type {
 	GithubPrDiscussionComment,
-	GithubPrFeedbackGateway,
+	PrFeedbackGithubGateway,
 	GithubPrReview,
 	GithubPrReviewThread,
 	GithubPrSummary,
@@ -60,7 +60,7 @@ export type DownloadFeedbackResult =
 
 export interface CollectDownloadFeedbackOptions {
 	git: GitGateway;
-	prFeedback: GithubPrFeedbackGateway;
+	prFeedback: PrFeedbackGithubGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber?: number;
 	includeResolved: boolean;

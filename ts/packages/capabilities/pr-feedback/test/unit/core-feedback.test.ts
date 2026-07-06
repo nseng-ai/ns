@@ -4,7 +4,7 @@ import type {
 	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
-	GithubPrFeedbackGateway,
+	PrFeedbackGithubGateway,
 	GithubPrLookupOutcome,
 	GithubPrReview,
 	GithubPrReviewThread,
@@ -35,7 +35,7 @@ type DiscussionCommentsResult = Result<
 	GithubPrFeedbackFailure
 >;
 
-class ControlledFeedbackGateway implements GithubPrFeedbackGateway {
+class ControlledFeedbackGateway implements PrFeedbackGithubGateway {
 	private readonly startedInternal: FeedbackReadName[] = [];
 	private readonly reviews = createDeferred<ReviewsResult>();
 	private readonly reviewThreads = createDeferred<ReviewThreadsResult>();

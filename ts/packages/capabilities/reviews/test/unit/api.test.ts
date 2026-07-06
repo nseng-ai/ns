@@ -128,7 +128,7 @@ describe("@nseng-ai/reviews/api", () => {
 	test("exports a client facade and stable domain types", async () => {
 		const client = createRoasterClient({ cwd: "/repo", runtime: runtimeWithFakes() });
 		const result = await client.listReviews();
-		const typedResult: ReviewListResult | null = result.ok ? result.result : null;
+		const typedResult: ReviewListResult | null = result.ok ? result.value : null;
 
 		expect(ROASTER_REVIEW_LOG_NAMESPACE).toBe("roaster");
 		expect(typedResult?.keys).toEqual([REVIEW_KEY]);
@@ -149,10 +149,10 @@ describe("@nseng-ai/reviews/api", () => {
 		const result = await client.listReviews({ ci: true });
 
 		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) throw new Error(result.failure.message);
-		expect(result.result.keys).toEqual([REVIEW_KEY]);
-		expect(result.result.count).toBe(1);
-		expect(result.result.reviews[0]?.localOnly).toBe(false);
+		if (!result.ok) throw new Error(result.error.message);
+		expect(result.value.keys).toEqual([REVIEW_KEY]);
+		expect(result.value.count).toBe(1);
+		expect(result.value.reviews[0]?.localOnly).toBe(false);
 	});
 
 	test("listReviewLogs preserves review log namespace and entries", async () => {
@@ -173,10 +173,10 @@ describe("@nseng-ai/reviews/api", () => {
 		const result = await client.listReviewLogs({ key: REVIEW_KEY });
 
 		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) throw new Error(result.failure.message);
-		expect(result.result.namespace).toBe("roaster");
-		expect(result.result.entries).toHaveLength(1);
-		expect(result.result.entries[0]?.reviewKey).toBe(REVIEW_KEY);
+		if (!result.ok) throw new Error(result.error.message);
+		expect(result.value.namespace).toBe("roaster");
+		expect(result.value.entries).toHaveLength(1);
+		expect(result.value.entries[0]?.reviewKey).toBe(REVIEW_KEY);
 	});
 
 	test("runReview returns a domain outcome and writes through the fake review log", async () => {
@@ -299,7 +299,7 @@ describe("@nseng-ai/reviews/api", () => {
 
 		expect(result).toEqual({
 			ok: false,
-			failure: {
+			error: {
 				code: "reviews-dir-missing",
 				message: "No reviews directory at /repo/.ns/reviews.",
 			},

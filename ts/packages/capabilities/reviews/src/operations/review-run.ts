@@ -315,5 +315,5 @@ export async function loadProjectConfigFromContext(
 			error: { code: "project-config-invalid", message: parsed.error.message },
 		};
 	}
-	return { ok: true, value: parsed.config };
+	return { ok: true, value: parsed.value };
 }

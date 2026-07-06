@@ -28,17 +28,17 @@ function nonBlankString(value: string | null | undefined): string | undefined {
 	return value.trim() === "" ? undefined : value;
 }
 
-export type Result<T, E extends ErrorInfo<object> = ErrorInfo> =
-	| { ok: true; value: T }
-	| { ok: false; error: E };
+export type ResultOk<T> = { ok: true; value: T };
 
-export function resultOk<T, E extends ErrorInfo<object> = ErrorInfo>(value: T): Result<T, E> {
+export type ResultErr<E extends ErrorInfo<object> = ErrorInfo> = { ok: false; error: E };
+
+export type Result<T, E extends ErrorInfo<object> = ErrorInfo> = ResultOk<T> | ResultErr<E>;
+
+export function resultOk<T>(value: T): ResultOk<T> {
 	return { ok: true, value };
 }
 
-export function resultErr<T = never, E extends ErrorInfo<object> = ErrorInfo>(
-	error: E,
-): Result<T, E> {
+export function resultErr<E extends ErrorInfo<object> = ErrorInfo>(error: E): ResultErr<E> {
 	return { ok: false, error };
 }
 

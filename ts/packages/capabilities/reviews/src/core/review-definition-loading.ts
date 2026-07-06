@@ -38,7 +38,7 @@ export async function loadParsedReviewDefinition(
 		ok: true,
 		value: {
 			source: source.value,
-			definition: parsed.definition,
+			definition: parsed.value,
 		},
 	};
 }

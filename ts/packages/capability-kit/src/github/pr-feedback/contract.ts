@@ -49,7 +49,7 @@ export interface GithubPrFeedbackGateway {
 	resolveReviewThread(
 		params: GithubPrFeedbackOptions & { readonly threadId: string },
 	): Promise<Result<GithubReviewThreadState, GithubPrFeedbackFailure>>;
-	resolveReviewThreads?(
+	resolveReviewThreads(
 		params: GithubPrFeedbackOptions & { readonly threadIds: readonly string[] },
 	): Promise<Result<readonly GithubReviewThreadState[], GithubPrFeedbackFailure>>;
 	getPrChangedFiles(

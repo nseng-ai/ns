@@ -1,6 +1,6 @@
 import type {
 	GithubPrFeedbackFailure,
-	GithubPrFeedbackGateway,
+	PrFeedbackGithubGateway,
 	GithubReviewThreadState,
 } from "../api.ts";
 import { reviewCommentPayload, type ReviewCommentPayload } from "../review-comment-payload.ts";
@@ -51,7 +51,7 @@ export interface CloseReviewThreadsResult {
 }
 
 export interface ReviewThreadMutationContext {
-	prFeedback: GithubPrFeedbackGateway;
+	prFeedback: PrFeedbackGithubGateway;
 	gatewayOptions: GatewayOptions;
 }
 

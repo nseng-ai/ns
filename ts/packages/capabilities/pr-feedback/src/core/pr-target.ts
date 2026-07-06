@@ -1,6 +1,6 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
-import type { GithubPrFeedbackFailure, GithubPrFeedbackGateway, GithubPrSummary } from "../api.ts";
+import type { GithubPrFeedbackFailure, PrFeedbackGithubGateway, GithubPrSummary } from "../api.ts";
 
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 
@@ -16,7 +16,7 @@ export type PrTargetResolution =
 
 export interface ResolvePrTargetOptions {
 	git: GitGateway;
-	prFeedback: GithubPrFeedbackGateway;
+	prFeedback: PrFeedbackGithubGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber?: number;
 	detachedHeadMessage: string;

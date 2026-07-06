@@ -9,7 +9,7 @@ import {
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 
-import type { ReviewResult } from "../core/failures.ts";
+import type { ReviewFailure, ReviewResult } from "../core/failures.ts";
 import {
 	createFindingsReview,
 	reviewRunnerRequestSchema,
@@ -210,8 +210,6 @@ function copyRunReviewOptions(options: RunReviewOptions): RunReviewOptions {
 	};
 }
 
-function runnerError(
-	error: Extract<ReviewResult<never>, { readonly ok: false }>["error"],
-): ReviewResult<never> {
+function runnerError(error: ReviewFailure): ReviewResult<never> {
 	return { ok: false, error };
 }
