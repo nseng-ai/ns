@@ -198,6 +198,12 @@ describe("project-local submit extension", () => {
 		const settled = lastStderrOutput(run.liveOutput);
 		expect(settled).toContain("ns flow submit");
 		expect(settled).toContain("checkpoint complete");
+		expect(settled).toContain("✓ Inspect");
+		expect(settled).toContain("worktree inspected");
+		expect(settled).toContain("– Generate");
+		expect(settled).toContain("checkpoint message ready");
+		expect(settled).toContain("– Commit");
+		expect(settled).toContain("checkpoint committed");
 		expect(settled).toContain("ready to submit");
 		expect(settled).toContain("metadata prepared");
 		expect(settled).toContain("stack submitted");
@@ -604,6 +610,13 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("abc123 [cp] Submit checkpoint");
+		const settled = lastStderrOutput(run.liveOutput);
+		expect(settled).toContain("✓ Inspect");
+		expect(settled).toContain("worktree inspected");
+		expect(settled).toContain("✓ Generate");
+		expect(settled).toContain("checkpoint message ready");
+		expect(settled).toContain("✓ Commit");
+		expect(settled).toContain("checkpoint committed");
 		expect(formattedExecCalls(run.context)).toEqual(
 			expect.arrayContaining([
 				"git add -A",

@@ -5,7 +5,6 @@ import process from "node:process";
 import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
-	checkpointEventLabel,
 	flowStreamDeps,
 	resolveFlowStreamCaps,
 	runSettledPhaseStream,
@@ -78,20 +77,15 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 			forward: ctx.progress,
 			title: "ns flow submit",
 			body: async (stream) => {
-				// The checkpoint workflow emits keyed inspect/generate/commit events; fold them into the single
-				// "Checkpoint" submit phase via their presentational labels.
+				// Keep the parent checkpoint phase active for the clean-worktree path, while routing the
+				// workflow's keyed inspect/generate/commit events to the declared substeps.
 				stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
 				const checkpoint = await runCheckpointIfPending({
 					cwd: ctx.cwd,
 					env: ctx.env,
 					gateway: new RealCheckpointGateway(runtime.commandRunner),
 					textGenerator: ctx.textGenerator,
-					onPhase: (event) => {
-						const label = checkpointEventLabel(event);
-						if (label !== undefined) {
-							stream.emit({ type: "phase-progress", phaseKey: "checkpoint", label });
-						}
-					},
+					onPhase: stream.emit,
 				});
 				if (checkpoint.kind === "failed") {
 					const checkpointFailure = await maybeFormatSubmitFailureWithModel(

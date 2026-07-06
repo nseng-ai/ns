@@ -31,6 +31,25 @@ const SPECS: readonly PhaseSpec[] = [
 	{ key: "c", item: { name: "Gamma", detail: "gamma done", label: "gamma working…" } },
 ];
 
+const SUBSTEP_SPECS: readonly PhaseSpec[] = [
+	{
+		key: "checkpoint",
+		item: { name: "Checkpoint", detail: "checkpoint complete", label: "checkpointing…" },
+		substeps: [
+			{
+				key: "inspect",
+				item: { name: "Inspect", detail: "worktree inspected", label: "inspecting…" },
+			},
+			{
+				key: "generate",
+				item: { name: "Generate", detail: "message ready", label: "generating…" },
+			},
+			{ key: "commit", item: { name: "Commit", detail: "commit created", label: "committing…" } },
+		],
+	},
+	{ key: "preflight", item: { name: "Preflight", detail: "ready", label: "checking…" } },
+];
+
 function caps(
 	parts: { isTty?: boolean; colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {},
 ): Caps {
@@ -129,6 +148,24 @@ function expectNoCursorEscapes(text: string): void {
 	expect(text).not.toContain(CURSOR_SHOW);
 	expect(text).not.toMatch(/\x1b\[\d*[ABCD]/);
 	expect(text).not.toMatch(/\x1b\[\d*[JK]/);
+}
+
+function plain(text: string): string {
+	return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function expectContainsInOrder(text: string, expected: readonly string[]): void {
+	const normalized = plain(text);
+	let offset = 0;
+	for (const entry of expected) {
+		const index = normalized.indexOf(entry, offset);
+		expect(index, `missing ${entry} after ${offset} in:\n${normalized}`).toBeGreaterThanOrEqual(0);
+		offset = index + entry.length;
+	}
+}
+
+function occurrences(text: string, needle: string): number {
+	return plain(text).split(needle).length - 1;
 }
 
 // Let queued microtasks (the spinner pump's resumed iterations) run.
@@ -307,6 +344,29 @@ describe("non-tty settle path", () => {
 		expect(settled).not.toContain("gamma done");
 	});
 
+	test("non-tty settled frame includes progress history while transient output stays unchanged", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, outputs, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 1" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 2" });
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+		await stream.finish();
+
+		expect(redraws).toHaveLength(0);
+		expect(outputs).toEqual(["alpha working…", "alpha step 1", "alpha step 2"]);
+		const settled = writes[0] ?? "";
+		expectContainsInOrder(settled, [
+			"alpha done",
+			"      alpha working…",
+			"      alpha step 1",
+			"      alpha step 2",
+		]);
+	});
+
 	test("non-tty settled frame uses the latest title", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes } = harness();
@@ -336,6 +396,130 @@ describe("inferred completion", () => {
 		expect(settled).toContain("alpha done");
 		expect(settled).toContain("beta done"); // inferred, never explicitly started
 		expect(settled).toContain("gamma done");
+	});
+});
+
+describe("declared substeps", () => {
+	test("begin renders declared substeps as pending rows", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"ns flow submit",
+			"• Checkpoint    pending",
+			"    • Inspect       pending",
+			"    • Generate      pending",
+			"    • Commit        pending",
+			"• Preflight     pending",
+		]);
+	});
+
+	test("substep lifecycle activates the parent and infers earlier sibling completion", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "inspect" });
+		stream.emit({ type: "phase-done", phaseKey: "inspect" });
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"Checkpoint    checkpointing…",
+			"✓ Inspect       worktree inspected",
+			"Generate      generating…",
+			"• Commit        pending",
+		]);
+	});
+
+	test("next top-level phase settles active and never-started substeps", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "inspect" });
+		stream.emit({ type: "phase-started", phaseKey: "preflight" });
+		await stream.finish();
+
+		const settled = writes[0] ?? "";
+		expectContainsInOrder(settled, [
+			"✓ Checkpoint    checkpoint complete",
+			"✓ Inspect       worktree inspected",
+			"– Generate      message ready",
+			"– Commit        commit created",
+			"✓ Preflight     ready",
+		]);
+	});
+
+	test("substep failure and failActive mark the substep and parent failed", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		stream.emit({ type: "phase-failed", phaseKey: "generate", detail: "generation failed" });
+		stream.fail();
+		await stream.finish();
+
+		const settled = redraws[redraws.length - 1] ?? "";
+		expectContainsInOrder(settled, [
+			"✗ Checkpoint    checkpointing…",
+			"✓ Inspect       worktree inspected",
+			"✗ Generate      generation failed",
+			"• Commit        pending",
+		]);
+	});
+
+	test("substep label history renders below the substep", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "drafting" });
+		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "repairing" });
+		stream.emit({ type: "phase-done", phaseKey: "generate" });
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"✓ Generate      message ready",
+			"          generating…",
+			"          drafting",
+			"          repairing",
+		]);
+	});
+
+	test("non-tty substep transitions surface transient lines and settle with substep rows", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, outputs } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "inspect" });
+		stream.emit({ type: "phase-done", phaseKey: "inspect" });
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "drafting" });
+		await stream.finish();
+
+		expect(outputs).toEqual(["inspecting…", "generating…", "drafting"]);
+		const settled = writes[0] ?? "";
+		expectContainsInOrder(settled, [
+			"✓ Checkpoint    checkpoint complete",
+			"✓ Inspect       worktree inspected",
+			"✓ Generate      message ready",
+			"– Commit        commit created",
+		]);
 	});
 });
 
@@ -440,6 +624,69 @@ describe("tty live region", () => {
 
 		expect(redraws[redraws.length - 1]).toContain("updated title");
 		await stream.finish();
+	});
+
+	test("phase progress labels persist as chronological sub-rows when a phase settles", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 1" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "alpha step 2" });
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+		stream.emit({ type: "phase-started", phaseKey: "b" });
+
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"title",
+			"✓ Alpha         alpha done",
+			"      alpha working…",
+			"      alpha step 1",
+			"      alpha step 2",
+			"Beta          beta working…",
+		]);
+	});
+
+	test("consecutive duplicate phase labels do not create duplicate sub-rows", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "same label" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "same label" });
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expect(occurrences(frame, "      alpha working…")).toBe(1);
+		expect(occurrences(frame, "      same label")).toBe(1);
+	});
+
+	test("failed phase keeps its prior progress trail and renders failure detail on the row", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "almost there" });
+		stream.emit({ type: "phase-failed", phaseKey: "a", detail: "boom" });
+
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"✗ Alpha         boom",
+			"      alpha working…",
+			"      almost there",
+		]);
 	});
 
 	test("pump advances the spinner, events repaint at once, and the cursor is hidden then restored", async () => {
