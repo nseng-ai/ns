@@ -63,8 +63,8 @@ describe("RealReviewLogGateway", () => {
 			content: "# Review\n",
 		});
 
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") throw new Error("unexpected write failure");
+		expect(result.ok).toBe(true);
+		if (!result.ok) throw new Error("unexpected write failure");
 		expect(result.value.key).toBe("reviews/typescript-style/2026-06-20T18-42-11-123Z.md");
 		const call = execApi.calls()[0];
 		expect(call?.command).toBe("brmem");
@@ -111,8 +111,8 @@ describe("RealReviewLogGateway", () => {
 
 		const result = await gateway.listReviewLogs({ ...scope, reviewKey: "typescript-style" });
 
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") throw new Error("unexpected list failure");
+		expect(result.ok).toBe(true);
+		if (!result.ok) throw new Error("unexpected list failure");
 		expect(result.value.map((entry) => entry.key)).toEqual([
 			"reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 		]);
@@ -135,9 +135,9 @@ describe("RealReviewLogGateway", () => {
 			ranAt: "2026-06-20T18:42:11.123Z",
 			content: "# Review\n",
 		});
-		expect(failedWrite.type).toBe("error");
-		if (failedWrite.type !== "error") throw new Error("unexpected success");
-		expect(failedWrite.error.type).toBe("review-log-write-failed");
+		expect(failedWrite.ok).toBe(false);
+		if (failedWrite.ok) throw new Error("unexpected success");
+		expect(failedWrite.error.code).toBe("review-log-write-failed");
 
 		const envelopeFailure = new RealReviewLogGateway({
 			execApi: new ScriptedCommandExecApi([
@@ -156,16 +156,16 @@ describe("RealReviewLogGateway", () => {
 			ranAt: "2026-06-20T18:42:11.123Z",
 			content: "# Review\n",
 		});
-		expect(failedEnvelopeWrite.type).toBe("error");
-		if (failedEnvelopeWrite.type !== "error") throw new Error("unexpected success");
+		expect(failedEnvelopeWrite.ok).toBe(false);
+		if (failedEnvelopeWrite.ok) throw new Error("unexpected success");
 		expect(failedEnvelopeWrite.error.message).toContain("Source file is 2 MiB");
 
 		const invalidJson = new RealReviewLogGateway({
 			execApi: new ScriptedCommandExecApi([{ stdout: "not json" }]),
 		});
 		const failedList = await invalidJson.listReviewLogs(scope);
-		expect(failedList.type).toBe("error");
-		if (failedList.type !== "error") throw new Error("unexpected success");
-		expect(failedList.error.type).toBe("review-log-response-invalid");
+		expect(failedList.ok).toBe(false);
+		if (failedList.ok) throw new Error("unexpected success");
+		expect(failedList.error.code).toBe("review-log-response-invalid");
 	});
 });

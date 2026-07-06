@@ -16,7 +16,7 @@ import {
 	environmentOptions,
 	type ReviewsGithubPrFeedbackGateway,
 } from "../../src/core/context.ts";
-import type { RoasterResult } from "../../src/core/failures.ts";
+import type { ReviewResult } from "../../src/core/failures.ts";
 import type { ReviewRunnerGateway, RunReviewOptions } from "../../src/gateways/review-runner.ts";
 import type { LoadDiffOptions, LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import type { ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
@@ -44,9 +44,9 @@ const sampleDiff = createLocalDiff({ baseRef: "main", diffText: "", files: [] })
 class RecordingLocalDiffGateway implements LocalDiffGateway {
 	readonly calls: LoadDiffOptions[] = [];
 
-	async loadDiff(options: LoadDiffOptions): Promise<RoasterResult<LocalDiff>> {
+	async loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>> {
 		this.calls.push(options);
-		return { type: "ok", value: sampleDiff };
+		return { ok: true, value: sampleDiff };
 	}
 }
 
@@ -58,7 +58,7 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 		options: Parameters<ReviewCatalogGateway["listReviewKeys"]>[0],
 	): ReturnType<ReviewCatalogGateway["listReviewKeys"]> {
 		this.listCalls.push(options);
-		return { type: "ok", value: { reviewsDir: "/repo/.ns/reviews", keys: ["typescript-style"] } };
+		return { ok: true, value: { reviewsDir: "/repo/.ns/reviews", keys: ["typescript-style"] } };
 	}
 
 	async loadReviewSource(
@@ -66,7 +66,7 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 	): ReturnType<ReviewCatalogGateway["loadReviewSource"]> {
 		this.sourceCalls.push(options);
 		return {
-			type: "ok",
+			ok: true,
 			value: { key: options.key, path: "/repo/.ns/reviews/type/review.md", source: "" },
 		};
 	}
@@ -79,10 +79,10 @@ class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
 	async runReview(
 		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
-	): Promise<RoasterResult<ReviewExecutionResponse>> {
+	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		this.calls.push({ request, options });
 		return {
-			type: "ok",
+			ok: true,
 			value: { payload: createFindingsReview([]), usage: null, inputCoverage: null },
 		};
 	}

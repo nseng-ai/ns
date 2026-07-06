@@ -14,7 +14,6 @@ import {
 	type ReviewsGithubPrFeedbackGateway,
 	type RoasterRunScope,
 } from "./context.ts";
-import { callGithub } from "./github-feedback-failures.ts";
 import {
 	buildFindingsCommentMachineState,
 	parseFindingsCommentBody,
@@ -71,8 +70,8 @@ export interface FindingsPayloadParseError {
 }
 
 export type FindingsPayloadParseResult =
-	| { readonly type: "ok"; readonly payload: FindingsPayload }
-	| { readonly type: "error"; readonly error: FindingsPayloadParseError };
+	| { readonly ok: true; readonly payload: FindingsPayload }
+	| { readonly ok: false; readonly error: FindingsPayloadParseError };
 
 export function parseFindingsPayloadResult(
 	raw: string,
@@ -146,32 +145,28 @@ export interface PublicationError {
 }
 
 export type PublishFindingsResult =
-	| { readonly type: "ok"; readonly value: PublishFindingsSuccess }
-	| { readonly type: "error"; readonly error: PublicationError };
+	| { readonly ok: true; readonly value: PublishFindingsSuccess }
+	| { readonly ok: false; readonly error: PublicationError };
 
 export async function publishFindings(
 	ctx: { readonly github: ReviewsGithubPrFeedbackGateway; readonly runScope: RoasterRunScope },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
-	if (parsed.type === "error")
-		return publicationError("payload-parse", "invalid-payload", parsed.error.message);
+	if (!parsed.ok) return publicationError("payload-parse", "invalid-payload", parsed.error.message);
 
 	const inlineStatus = await postInlineFindings(ctx, parsed.payload, {
 		prNumber: options.prNumber,
 		runScope: ctx.runScope,
 	});
 	const marker = summaryMarkerForReview(parsed.payload.reviewName);
-	const existing = await callGithub(
-		{
-			...environmentOptions(ctx.runScope),
-			prNumber: options.prNumber,
-			marker,
-			authorLogin: ROASTER_BOT_LOGIN,
-		},
-		(params) => ctx.github.findPrDiscussionCommentByMarker(params),
-	);
-	if (existing.type === "error")
+	const existing = await ctx.github.findPrDiscussionCommentByMarker({
+		...environmentOptions(ctx.runScope),
+		prNumber: options.prNumber,
+		marker,
+		authorLogin: ROASTER_BOT_LOGIN,
+	});
+	if (!existing.ok)
 		return publicationError("summary-lookup", "github-lookup-failed", existing.error.message);
 
 	const existingBody = existing.value?.body ?? "";
@@ -182,7 +177,7 @@ export async function publishFindings(
 	});
 	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus, machineState });
 	const parsedBody = parseFindingsCommentBody(renderedBody);
-	if (parsedBody.type === "error")
+	if (!parsedBody.ok)
 		return publicationError("comment-body-parse", "invalid-comment-body", parsedBody.error.message);
 
 	const nextBody = preserveActivityLog(
@@ -193,19 +188,21 @@ export async function publishFindings(
 	const githubOptions = environmentOptions(ctx.runScope);
 	const written =
 		existing.value === null
-			? await callGithub(
-					{ ...githubOptions, prNumber: options.prNumber, body: nextBody },
-					(params) => ctx.github.addPrDiscussionComment(params),
-				)
-			: await callGithub(
-					{ ...githubOptions, commentId: existing.value.id, body: nextBody },
-					(params) => ctx.github.updatePrDiscussionComment(params),
-				);
-	if (written.type === "error")
+			? await ctx.github.addPrDiscussionComment({
+					...githubOptions,
+					prNumber: options.prNumber,
+					body: nextBody,
+				})
+			: await ctx.github.updatePrDiscussionComment({
+					...githubOptions,
+					commentId: existing.value.id,
+					body: nextBody,
+				});
+	if (!written.ok)
 		return publicationError("summary-write", "github-write-failed", written.error.message);
 
 	return {
-		type: "ok",
+		ok: true,
 		value: {
 			inlineStatus,
 			summaryStatus: {
@@ -220,7 +217,7 @@ function payloadFromReviewRunResult(
 	result: z.infer<typeof reviewRunResultSchema>,
 ): FindingsPayloadParseResult {
 	return {
-		type: "ok",
+		ok: true,
 		payload: {
 			reviewName: result.reviewName,
 			baseRef: result.baseRef,
@@ -239,9 +236,9 @@ function payloadFromEnvelopeFailure(
 	failure: { readonly errorType: string; readonly message: string },
 ): FindingsPayloadParseResult {
 	const identity = fallbackFailureIdentity(options);
-	if (identity.type === "error") return payloadError(identity.error.message);
+	if (!identity.ok) return payloadError(identity.error.message);
 	return {
-		type: "ok",
+		ok: true,
 		payload: {
 			reviewName: identity.value.reviewName,
 			baseRef: identity.value.baseRef,
@@ -271,10 +268,10 @@ function fallbackPayloadOptions(
 
 type FallbackFailureIdentityResult =
 	| {
-			readonly type: "ok";
+			readonly ok: true;
 			readonly value: { readonly reviewName: string; readonly baseRef: string };
 	  }
-	| { readonly type: "error"; readonly error: { readonly message: string } };
+	| { readonly ok: false; readonly error: { readonly message: string } };
 
 function fallbackFailureIdentity(options: {
 	readonly fallbackReviewName?: string;
@@ -287,13 +284,13 @@ function fallbackFailureIdentity(options: {
 			...(fallbackBaseRef === undefined ? ["--base-ref"] : []),
 		];
 		return {
-			type: "error",
+			ok: false,
 			error: {
 				message: `failed review envelopes require fallback identity: ${missing.join(" and ")}`,
 			},
 		};
 	}
-	return { type: "ok", value: { reviewName: fallbackReviewName, baseRef: fallbackBaseRef } };
+	return { ok: true, value: { reviewName: fallbackReviewName, baseRef: fallbackBaseRef } };
 }
 
 function activityLogEntry(runUrl: string | undefined): string {
@@ -306,7 +303,7 @@ function publicationError(
 	reason: PublicationFailureReason,
 	message: string,
 ): PublishFindingsResult {
-	return { type: "error", error: { fatalFailurePhase, reason, message } };
+	return { ok: false, error: { fatalFailurePhase, reason, message } };
 }
 
 type JsonResult =
@@ -324,5 +321,5 @@ function parseJson(raw: string): JsonResult {
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {
-	return { type: "error", error: { type: "findings_payload_parse_error", message } };
+	return { ok: false, error: { type: "findings_payload_parse_error", message } };
 }

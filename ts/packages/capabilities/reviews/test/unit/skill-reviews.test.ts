@@ -28,8 +28,8 @@ describe("Roaster skill review catalog", () => {
 
 		const loaded = await loadRoastSkillEntries({ cwd: "/repo", reviewCatalog });
 
-		expect(loaded.type).toBe("ok");
-		if (loaded.type === "error") return;
+		expect(loaded.ok).toBe(true);
+		if (!loaded.ok) return;
 		expect(loaded.value.map((entry) => entry.reviewKey)).toEqual(["zeta-review", "alpha-review"]);
 		expect(loaded.value.map((entry) => entry.description)).toEqual([
 			"Zeta description.",
@@ -55,8 +55,8 @@ describe("Roaster skill review catalog", () => {
 			key: "alpha-review",
 		});
 
-		expect(loaded.type).toBe("ok");
-		if (loaded.type === "error") return;
+		expect(loaded.ok).toBe(true);
+		if (!loaded.ok) return;
 		expect(loaded.entry.surface).toBe("skill:roast-alpha-review");
 		expect(loaded.source.source).toBe(REVIEW_SOURCE);
 		expect(loaded.definition.description).toBe("Fixture review description.");
@@ -71,9 +71,9 @@ describe("Roaster skill review catalog", () => {
 		const loaded = await loadRoastSkillEntries({ cwd: "/repo", reviewCatalog });
 
 		expect(loaded).toMatchObject({
-			type: "error",
+			ok: false,
 			error: {
-				type: "review-definition-invalid",
+				code: "review-definition-invalid",
 			},
 		});
 	});
@@ -91,8 +91,8 @@ describe("Roaster skill review catalog", () => {
 			key: "dry-but-not-too-dry",
 		});
 
-		expect(loaded.type).toBe("ok");
-		if (loaded.type === "error") return;
+		expect(loaded.ok).toBe(true);
+		if (!loaded.ok) return;
 		expect(loaded.entry).toMatchObject({
 			surface: "skill:roast-dry-but-not-too-dry",
 			reviewKey: "dry-but-not-too-dry",

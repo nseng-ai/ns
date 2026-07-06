@@ -134,7 +134,7 @@ describe("git diff pathspec helpers", () => {
 type ParseResult = ReturnType<typeof parseRoasterProjectConfigToml>;
 
 function expectOk(result: ParseResult) {
-	if (result.type === "error") throw new Error(result.error.message);
+	if (!result.ok) throw new Error(result.error.message);
 	return result.config;
 }
 
@@ -142,6 +142,6 @@ function expectError(result: ParseResult): {
 	readonly code: ProjectConfigErrorCode;
 	readonly message: string;
 } {
-	if (result.type === "ok") throw new Error("Expected project config parse to fail.");
+	if (result.ok) throw new Error("Expected project config parse to fail.");
 	return result.error;
 }

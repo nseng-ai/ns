@@ -1,6 +1,8 @@
-export type ReviewDefinitionFailureType = "review-definition-invalid";
+import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 
-export type ReviewCatalogFailureType =
+export type ReviewDefinitionFailureCode = "review-definition-invalid";
+
+export type ReviewCatalogFailureCode =
 	| "reviews-dir-missing"
 	| "reviews-dir-not-directory"
 	| "review-key-invalid"
@@ -8,14 +10,14 @@ export type ReviewCatalogFailureType =
 	| "review-definition-not-file"
 	| "review-definition-read-failed";
 
-export type LocalDiffFailureType =
+export type LocalDiffFailureCode =
 	| "base-ref-unavailable"
 	| "repo-root-unavailable"
 	| "git-invocation-failed"
 	| "git-diff-failed"
 	| "project-config-invalid";
 
-export type ReviewRunnerFailureType =
+export type ReviewRunnerFailureCode =
 	| "model-not-provided"
 	| "harness-binary-missing"
 	| "harness-invocation-failed"
@@ -29,46 +31,36 @@ export type ReviewRunnerFailureType =
 	| "review-execution-cancelled"
 	| "review-execution-failed";
 
-export type GitHubGatewayFailureType =
-	| "github-cli-failed"
-	| "github-json-invalid"
-	| "github-response-invalid";
-
-export type ReviewLogFailureType =
+export type ReviewLogFailureCode =
 	| "review-log-write-failed"
 	| "review-log-list-failed"
 	| "review-log-response-invalid";
 
-export type RoasterFailureType =
-	| ReviewDefinitionFailureType
-	| ReviewCatalogFailureType
-	| LocalDiffFailureType
-	| ReviewRunnerFailureType
-	| GitHubGatewayFailureType
-	| ReviewLogFailureType;
+export type ReviewFailureCode =
+	| ReviewDefinitionFailureCode
+	| ReviewCatalogFailureCode
+	| LocalDiffFailureCode
+	| ReviewRunnerFailureCode
+	| ReviewLogFailureCode;
 
-export interface RoasterFailure {
-	readonly type: RoasterFailureType;
-	readonly message: string;
+export interface ReviewFailure<
+	Code extends ReviewFailureCode = ReviewFailureCode,
+> extends ErrorInfo {
+	readonly code: Code;
 }
 
-export type RoasterResult<T> =
-	| { readonly type: "ok"; readonly value: T }
-	| { readonly type: "error"; readonly error: RoasterFailure };
+export type ReviewResult<T, E extends ErrorInfo<object> = ReviewFailure> = Result<T, E>;
 
-export type ReviewDefinitionFailure = RoasterFailure & {
-	readonly type: ReviewDefinitionFailureType;
-};
-export type ReviewCatalogFailure = RoasterFailure & { readonly type: ReviewCatalogFailureType };
-export type LocalDiffFailure = RoasterFailure & { readonly type: LocalDiffFailureType };
-export type ReviewRunnerFailure = RoasterFailure & { readonly type: ReviewRunnerFailureType };
-export type GitHubGatewayFailure = RoasterFailure & { readonly type: GitHubGatewayFailureType };
-export type ReviewLogFailure = RoasterFailure & { readonly type: ReviewLogFailureType };
+export type ReviewDefinitionFailure = ReviewFailure<ReviewDefinitionFailureCode>;
+export type ReviewCatalogFailure = ReviewFailure<ReviewCatalogFailureCode>;
+export type LocalDiffFailure = ReviewFailure<LocalDiffFailureCode>;
+export type ReviewRunnerFailure = ReviewFailure<ReviewRunnerFailureCode>;
+export type ReviewLogFailure = ReviewFailure<ReviewLogFailureCode>;
 
-export function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
+export function isReviewLogFailure(error: ReviewFailure): error is ReviewLogFailure {
 	return (
-		error.type === "review-log-write-failed" ||
-		error.type === "review-log-list-failed" ||
-		error.type === "review-log-response-invalid"
+		error.code === "review-log-write-failed" ||
+		error.code === "review-log-list-failed" ||
+		error.code === "review-log-response-invalid"
 	);
 }

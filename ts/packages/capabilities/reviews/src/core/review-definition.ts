@@ -17,8 +17,8 @@ const ALLOWED_FRONTMATTER_KEYS = [
 const ALLOWED_APPLIES_TO_KEYS = ["exclude", "include"] as const;
 
 export type ReviewDefinitionParseResult =
-	| { readonly type: "ok"; readonly definition: ReviewDefinition }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly definition: ReviewDefinition }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 export interface ReviewDefinitionParseError {
 	readonly code: ReviewDefinitionParseErrorCode;
@@ -53,7 +53,7 @@ export function parseReviewDefinition(
 	}
 
 	const split = splitFrontmatter(source);
-	if (split.type === "error") return split;
+	if (!split.ok) return split;
 
 	let parsedFrontmatter: unknown;
 	try {
@@ -83,16 +83,16 @@ export function parseReviewDefinition(
 	}
 
 	const description = requireStringField(parsedFrontmatter, "description");
-	if (description.type === "error") return description;
+	if (!description.ok) return description;
 
 	const modelProfile = parseModelProfile(parsedFrontmatter);
-	if (modelProfile.type === "error") return modelProfile;
+	if (!modelProfile.ok) return modelProfile;
 
 	const applicability = parseApplicability(parsedFrontmatter);
-	if (applicability.type === "error") return applicability;
+	if (!applicability.ok) return applicability;
 
 	const localOnly = parseLocalOnly(parsedFrontmatter);
-	if (localOnly.type === "error") return localOnly;
+	if (!localOnly.ok) return localOnly;
 
 	const instructions = split.body.trim();
 	if (instructions === "") {
@@ -116,12 +116,12 @@ export function parseReviewDefinition(
 			`Review definition parser produced a value that does not match reviewDefinitionSchema: ${formatZodError(parsedDefinition.error)}`,
 		);
 	}
-	return { type: "ok", definition: parsedDefinition.data };
+	return { ok: true, definition: parsedDefinition.data };
 }
 
 type FrontmatterSplitResult =
-	| { readonly type: "ok"; readonly frontmatterText: string; readonly body: string }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly frontmatterText: string; readonly body: string }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 function splitFrontmatter(source: string): FrontmatterSplitResult {
 	if (source.trim() === "") return failure("empty-source", "Review definition is empty.");
@@ -137,15 +137,15 @@ function splitFrontmatter(source: string): FrontmatterSplitResult {
 			"Review definition frontmatter is missing a closing `---` fence.",
 		);
 	return {
-		type: "ok",
+		ok: true,
 		frontmatterText: split.block.frontmatterText.replace(/\r\n?/gu, "\n"),
 		body: split.block.body.replace(/\r\n?/gu, "\n"),
 	};
 }
 
 type StringFieldResult =
-	| { readonly type: "ok"; readonly value: string }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly value: string }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 function requireStringField(
 	frontmatter: Readonly<Record<string, unknown>>,
@@ -164,15 +164,15 @@ function requireStringField(
 			`Review definition field \`${field}\` must be a non-empty string.`,
 		);
 	}
-	return { type: "ok", value: value.trim() };
+	return { ok: true, value: value.trim() };
 }
 
 type ModelProfileResult =
-	| { readonly type: "ok"; readonly value: string }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly value: string }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): ModelProfileResult {
-	if (!("model_profile" in frontmatter)) return { type: "ok", value: "quick" };
+	if (!("model_profile" in frontmatter)) return { ok: true, value: "quick" };
 	const value = frontmatter.model_profile;
 	if (typeof value !== "string" || value.trim() === "") {
 		return failure(
@@ -180,28 +180,28 @@ function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): Mode
 			"Review definition field `model_profile` must be a non-empty string.",
 		);
 	}
-	return { type: "ok", value: value.trim() };
+	return { ok: true, value: value.trim() };
 }
 
 type LocalOnlyResult =
-	| { readonly type: "ok"; readonly value: boolean }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly value: boolean }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 function parseLocalOnly(frontmatter: Readonly<Record<string, unknown>>): LocalOnlyResult {
-	if (!("local_only" in frontmatter)) return { type: "ok", value: false };
+	if (!("local_only" in frontmatter)) return { ok: true, value: false };
 	const value = frontmatter.local_only;
 	if (typeof value !== "boolean") {
 		return failure("invalid-local-only", "Review definition field `local_only` must be a boolean.");
 	}
-	return { type: "ok", value };
+	return { ok: true, value };
 }
 
 type ApplicabilityResult =
-	| { readonly type: "ok"; readonly value: ReviewApplicability }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly value: ReviewApplicability }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 function parseApplicability(frontmatter: Readonly<Record<string, unknown>>): ApplicabilityResult {
-	if (!("applies_to" in frontmatter)) return { type: "ok", value: { include: [], exclude: [] } };
+	if (!("applies_to" in frontmatter)) return { ok: true, value: { include: [], exclude: [] } };
 	const value = frontmatter.applies_to;
 	if (!isRecord(value)) {
 		return failure(
@@ -220,13 +220,13 @@ function parseApplicability(frontmatter: Readonly<Record<string, unknown>>): App
 	}
 
 	const include = requirePatternList(value, { field: "include", shouldAllowEmpty: false });
-	if (include.type === "error") return include;
+	if (!include.ok) return include;
 	const exclude =
 		"exclude" in value
 			? requirePatternList(value, { field: "exclude", shouldAllowEmpty: true })
-			: { type: "ok" as const, value: [] };
-	if (exclude.type === "error") return exclude;
-	return { type: "ok", value: { include: include.value, exclude: exclude.value } };
+			: { ok: true as const, value: [] };
+	if (!exclude.ok) return exclude;
+	return { ok: true, value: { include: include.value, exclude: exclude.value } };
 }
 
 interface RequirePatternListOptions {
@@ -235,8 +235,8 @@ interface RequirePatternListOptions {
 }
 
 type PatternListResult =
-	| { readonly type: "ok"; readonly value: string[] }
-	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+	| { readonly ok: true; readonly value: string[] }
+	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
 
 function requirePatternList(
 	appliesTo: Readonly<Record<string, unknown>>,
@@ -266,10 +266,10 @@ function requirePatternList(
 	const patterns: string[] = [];
 	for (const pattern of value) {
 		const result = validateApplicabilityPattern(pattern, options.field);
-		if (result.type === "error") return result;
+		if (!result.ok) return result;
 		patterns.push(result.value);
 	}
-	return { type: "ok", value: patterns };
+	return { ok: true, value: patterns };
 }
 
 function validateApplicabilityPattern(
@@ -302,14 +302,14 @@ function validateApplicabilityPattern(
 			"Review definition applicability patterns must not contain `..` segments.",
 		);
 	}
-	return { type: "ok", value: normalized };
+	return { ok: true, value: normalized };
 }
 
 function failure(
 	code: ReviewDefinitionParseErrorCode,
 	message: string,
-): { readonly type: "error"; readonly error: ReviewDefinitionParseError } {
-	return { type: "error", error: { code, message } };
+): { readonly ok: false; readonly error: ReviewDefinitionParseError } {
+	return { ok: false, error: { code, message } };
 }
 
 function sortedUnknownKeys(

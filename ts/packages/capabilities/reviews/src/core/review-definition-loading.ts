@@ -1,4 +1,4 @@
-import type { RoasterFailure, RoasterResult } from "./failures.ts";
+import type { ReviewFailure, ReviewResult } from "./failures.ts";
 import type { ReviewCatalogGateway, ReviewSource } from "../gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
 import { parseReviewDefinition } from "./review-definition.ts";
@@ -18,24 +18,24 @@ export interface ParsedReviewDefinition {
 
 export async function loadParsedReviewDefinition(
 	options: LoadParsedReviewDefinitionOptions,
-): Promise<RoasterResult<ParsedReviewDefinition>> {
+): Promise<ReviewResult<ParsedReviewDefinition>> {
 	const source = await options.reviewCatalog.loadReviewSource({
 		cwd: options.cwd,
 		key: options.key,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
-	if (source.type === "error") return source;
+	if (!source.ok) return source;
 
 	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
-	if (parsed.type === "error") {
+	if (!parsed.ok) {
 		return {
-			type: "error",
+			ok: false,
 			error: reviewDefinitionInvalidFailure(source.value, parsed.error.message),
 		};
 	}
 
 	return {
-		type: "ok",
+		ok: true,
 		value: {
 			source: source.value,
 			definition: parsed.definition,
@@ -46,9 +46,9 @@ export async function loadParsedReviewDefinition(
 export function reviewDefinitionInvalidFailure(
 	source: ReviewSource,
 	message: string,
-): RoasterFailure {
+): ReviewFailure {
 	return {
-		type: "review-definition-invalid",
+		code: "review-definition-invalid",
 		message: `Review definition ${source.key} at ${source.path} is invalid: ${message}`,
 	};
 }

@@ -16,8 +16,8 @@ export interface RoasterProjectConfig {
 }
 
 export type ProjectConfigParseResult =
-	| { readonly type: "ok"; readonly config: RoasterProjectConfig }
-	| { readonly type: "error"; readonly error: ProjectConfigError };
+	| { readonly ok: true; readonly config: RoasterProjectConfig }
+	| { readonly ok: false; readonly error: ProjectConfigError };
 
 export interface ProjectConfigError {
 	readonly code: ProjectConfigErrorCode;
@@ -61,20 +61,20 @@ export function parseRoasterProjectConfigToml(
 		);
 	}
 
-	if (!isRecord(data)) return { type: "ok", config: EMPTY_CONFIG };
+	if (!isRecord(data)) return { ok: true, config: EMPTY_CONFIG };
 	const roaster = data.roaster;
-	if (roaster === undefined) return { type: "ok", config: EMPTY_CONFIG };
+	if (roaster === undefined) return { ok: true, config: EMPTY_CONFIG };
 	if (!isRecord(roaster))
 		return failure("invalid-table", formatMessage("[roaster] must be a TOML table.", pathLabel));
 
 	const parsedDiff = parseDiffConfig(roaster.diff, pathLabel);
-	if (parsedDiff.type === "error") return parsedDiff;
+	if (!parsedDiff.ok) return parsedDiff;
 
 	const parsedModelProfiles = parseModelProfiles(roaster.model_profiles, pathLabel);
-	if (parsedModelProfiles.type === "error") return parsedModelProfiles;
+	if (!parsedModelProfiles.ok) return parsedModelProfiles;
 
 	return {
-		type: "ok",
+		ok: true,
 		config: { diff: parsedDiff.value, modelProfiles: parsedModelProfiles.value },
 	};
 }
@@ -104,23 +104,23 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 }
 
 type DiffConfigParseResult =
-	| { readonly type: "ok"; readonly value: RoasterDiffProjectConfig }
-	| { readonly type: "error"; readonly error: ProjectConfigError };
+	| { readonly ok: true; readonly value: RoasterDiffProjectConfig }
+	| { readonly ok: false; readonly error: ProjectConfigError };
 
 type ExcludeParseResult =
-	| { readonly type: "ok"; readonly value: readonly string[] }
-	| { readonly type: "error"; readonly error: ProjectConfigError };
+	| { readonly ok: true; readonly value: readonly string[] }
+	| { readonly ok: false; readonly error: ProjectConfigError };
 
 type ModelProfilesParseResult =
-	| { readonly type: "ok"; readonly value: RoasterModelProfilesProjectConfig }
-	| { readonly type: "error"; readonly error: ProjectConfigError };
+	| { readonly ok: true; readonly value: RoasterModelProfilesProjectConfig }
+	| { readonly ok: false; readonly error: ProjectConfigError };
 
 export function isRoasterModelProfileKey(value: string): value is RoasterModelProfileKey {
 	return MODEL_PROFILE_KEYS.includes(value as RoasterModelProfileKey);
 }
 
 function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffConfigParseResult {
-	if (value === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
+	if (value === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
 	if (!isRecord(value)) {
 		return failure(
 			"invalid-table",
@@ -129,17 +129,17 @@ function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffCon
 	}
 
 	const exclude = value.exclude;
-	if (exclude === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
+	if (exclude === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
 	const parsedExclude = parseExcludeGlobs(exclude, pathLabel);
-	if (parsedExclude.type === "error") return parsedExclude;
-	return { type: "ok", value: { exclude: parsedExclude.value } };
+	if (!parsedExclude.ok) return parsedExclude;
+	return { ok: true, value: { exclude: parsedExclude.value } };
 }
 
 function parseModelProfiles(
 	value: unknown,
 	pathLabel: string | undefined,
 ): ModelProfilesParseResult {
-	if (value === undefined) return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
+	if (value === undefined) return { ok: true, value: DEFAULT_ROASTER_MODEL_PROFILES };
 	if (!isRecord(value)) {
 		return failure(
 			"invalid-table",
@@ -172,7 +172,7 @@ function parseModelProfiles(
 		}
 		profiles[key] = profileValue.trim();
 	}
-	return { type: "ok", value: profiles };
+	return { ok: true, value: profiles };
 }
 
 function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): ExcludeParseResult {
@@ -192,16 +192,16 @@ function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): Exclu
 			);
 		}
 		const validation = validateRoasterExcludePattern(item, pathLabel);
-		if (validation.type === "error") return validation;
+		if (!validation.ok) return validation;
 		patterns.push(item);
 	}
-	return { type: "ok", value: patterns };
+	return { ok: true, value: patterns };
 }
 
 function validateRoasterExcludePattern(
 	pattern: string,
 	pathLabel: string | undefined,
-): { readonly type: "ok" } | { readonly type: "error"; readonly error: ProjectConfigError } {
+): { readonly ok: true } | { readonly ok: false; readonly error: ProjectConfigError } {
 	if (pattern.startsWith(":(")) {
 		return failure(
 			"invalid-exclude",
@@ -226,14 +226,14 @@ function validateRoasterExcludePattern(
 			),
 		);
 	}
-	return { type: "ok" };
+	return { ok: true };
 }
 
 function failure(
 	code: ProjectConfigErrorCode,
 	message: string,
-): { readonly type: "error"; readonly error: ProjectConfigError } {
-	return { type: "error", error: { code, message } };
+): { readonly ok: false; readonly error: ProjectConfigError } {
+	return { ok: false, error: { code, message } };
 }
 
 function formatMessage(message: string, pathLabel: string | undefined): string {

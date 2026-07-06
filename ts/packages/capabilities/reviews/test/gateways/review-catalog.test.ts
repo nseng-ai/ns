@@ -20,11 +20,11 @@ describe("FakeReviewCatalogGateway", () => {
 		const source = await gateway.loadReviewSource({ cwd: "/repo", key: "python" });
 
 		expect(catalog).toEqual({
-			type: "ok",
+			ok: true,
 			value: { reviewsDir: "/repo/.ns/reviews", keys: ["python"] },
 		});
-		expect(source.type).toBe("ok");
-		if (source.type === "ok") expect(source.value.source).toContain("Python");
+		expect(source.ok).toBe(true);
+		if (source.ok) expect(source.value.source).toContain("Python");
 		expect(gateway.requestedReviewKeys()).toEqual(["python"]);
 	});
 
@@ -33,8 +33,8 @@ describe("FakeReviewCatalogGateway", () => {
 
 		const result = await gateway.loadReviewSource({ cwd: "/repo", key: "missing" });
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") expect(result.error.type).toBe("review-definition-not-found");
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe("review-definition-not-found");
 	});
 });
 
@@ -65,7 +65,7 @@ describe("RealReviewCatalogGateway", () => {
 		const result = await gateway.listReviewKeys({ cwd: repoRoot });
 
 		expect(result).toEqual({
-			type: "ok",
+			ok: true,
 			value: {
 				reviewsDir: join(repoRoot, ".ns", "reviews"),
 				keys: ["python", "typescript-style"],
@@ -87,8 +87,8 @@ describe("RealReviewCatalogGateway", () => {
 
 		const result = await gateway.loadReviewSource({ cwd: repoRoot, key: " typescript-style " });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
+		expect(result.ok).toBe(true);
+		if (result.ok) {
 			expect(result.value.key).toBe("typescript-style");
 			expect(result.value.source).toBe("review source");
 		}
@@ -103,8 +103,8 @@ describe("RealReviewCatalogGateway", () => {
 
 			const result = await gateway.loadReviewSource({ cwd: "/repo", key });
 
-			expect(result.type).toBe("error");
-			if (result.type === "error") expect(result.error.type).toBe("review-key-invalid");
+			expect(result.ok).toBe(false);
+			if (!result.ok) expect(result.error.code).toBe("review-key-invalid");
 		},
 	);
 
@@ -115,12 +115,12 @@ describe("RealReviewCatalogGateway", () => {
 		});
 
 		const catalog = await gateway.listReviewKeys({ cwd: repoRoot });
-		expect(catalog.type).toBe("error");
-		if (catalog.type === "error") expect(catalog.error.type).toBe("reviews-dir-missing");
+		expect(catalog.ok).toBe(false);
+		if (!catalog.ok) expect(catalog.error.code).toBe("reviews-dir-missing");
 
 		await mkdir(join(repoRoot, ".ns", "reviews"), { recursive: true });
 		const source = await gateway.loadReviewSource({ cwd: repoRoot, key: "missing" });
-		expect(source.type).toBe("error");
-		if (source.type === "error") expect(source.error.type).toBe("review-definition-not-found");
+		expect(source.ok).toBe(false);
+		if (!source.ok) expect(source.error.code).toBe("review-definition-not-found");
 	});
 });

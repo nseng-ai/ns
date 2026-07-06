@@ -42,7 +42,21 @@ export {
 	type RunRoasterReviewProgress,
 	type RunRoasterReviewRequest,
 } from "../operations/review-run.ts";
-export type { RoasterResult } from "./failures.ts";
+export type {
+	LocalDiffFailure,
+	LocalDiffFailureCode,
+	ReviewCatalogFailure,
+	ReviewCatalogFailureCode,
+	ReviewDefinitionFailure,
+	ReviewDefinitionFailureCode,
+	ReviewFailure,
+	ReviewFailureCode,
+	ReviewLogFailure,
+	ReviewLogFailureCode,
+	ReviewResult,
+	ReviewRunnerFailure,
+	ReviewRunnerFailureCode,
+} from "./failures.ts";
 export {
 	loadRoastReviewDefinition,
 	loadRoastSkillEntries,

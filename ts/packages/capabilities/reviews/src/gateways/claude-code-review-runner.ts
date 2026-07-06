@@ -1,7 +1,7 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { RoasterResult } from "../core/failures.ts";
+import type { ReviewResult } from "../core/failures.ts";
 import {
 	createFindingsReview,
 	reviewExecutionResponseSchema,
@@ -47,19 +47,19 @@ export function buildClaudeCodeArgs(options: {
 export function parseClaudeCodeReviewOutput(options: {
 	readonly stdout: string;
 	readonly inputCoverage: ReviewInputCoverage | null;
-}): RoasterResult<ReviewExecutionResponse> {
+}): ReviewResult<ReviewExecutionResponse> {
 	if (options.stdout.trim() === "") {
 		return harnessOutputError({
-			type: "review-execution-empty-output",
+			code: "review-execution-empty-output",
 			message: "Claude Code produced no JSON output.",
 		});
 	}
 
 	const parsed = parseClaudeCodeOutputJson(options.stdout);
-	if (parsed.type === "error") return parsed;
+	if (!parsed.ok) return parsed;
 
 	const resultEvent = resultEventFromParsedOutput(parsed.value);
-	if (resultEvent.type === "error") return resultEvent;
+	if (!resultEvent.ok) return resultEvent;
 
 	if (Object.hasOwn(resultEvent.value, "structured_output")) {
 		const findingsResult = reviewFindingsPayloadSchema.safeParse(
@@ -67,7 +67,7 @@ export function parseClaudeCodeReviewOutput(options: {
 		);
 		if (!findingsResult.success) {
 			return harnessOutputError({
-				type: "review-execution-invalid-findings",
+				code: "review-execution-invalid-findings",
 				message: `Claude Code structured output did not match the findings schema: ${findingsResult.error.message}`,
 			});
 		}
@@ -81,23 +81,23 @@ export function parseClaudeCodeReviewOutput(options: {
 	if (typeof resultEvent.value.result === "string") {
 		const prose = truncateModelResponse(resultEvent.value.result);
 		return harnessOutputError({
-			type: "review-execution-invalid-response",
+			code: "review-execution-invalid-response",
 			message: `Claude Code returned prose instead of structured_output: ${prose}\nConfirm --json-schema is honored by the installed Claude Code binary.`,
 		});
 	}
 
 	return harnessOutputError({
-		type: "review-execution-invalid-response",
+		code: "review-execution-invalid-response",
 		message: "Claude Code result event did not include structured_output.",
 	});
 }
 
-function resultEventFromParsedOutput(parsed: unknown): RoasterResult<Record<string, unknown>> {
+function resultEventFromParsedOutput(parsed: unknown): ReviewResult<Record<string, unknown>> {
 	if (Array.isArray(parsed)) {
 		for (const item of parsed) {
 			if (!isRecord(item)) {
 				return harnessOutputError({
-					type: "review-execution-invalid-response",
+					code: "review-execution-invalid-response",
 					message: "Claude Code event stream contained a non-object event.",
 				});
 			}
@@ -107,47 +107,47 @@ function resultEventFromParsedOutput(parsed: unknown): RoasterResult<Record<stri
 		);
 		if (resultEvent === undefined) {
 			return harnessOutputError({
-				type: "review-execution-invalid-response",
+				code: "review-execution-invalid-response",
 				message: "Claude Code event stream did not include a terminal result event.",
 			});
 		}
-		return { type: "ok", value: resultEvent };
+		return { ok: true, value: resultEvent };
 	}
 	if (!isRecord(parsed)) {
 		return harnessOutputError({
-			type: "review-execution-invalid-response",
+			code: "review-execution-invalid-response",
 			message: "Claude Code output JSON must be an object or event array.",
 		});
 	}
-	return { type: "ok", value: parsed };
+	return { ok: true, value: parsed };
 }
 
 function reviewResponseFromClaudePayload(
 	payload: ReviewFindingsPayload,
 	resultEvent: Record<string, unknown>,
 	inputCoverage: ReviewInputCoverage | null,
-): RoasterResult<ReviewExecutionResponse> {
+): ReviewResult<ReviewExecutionResponse> {
 	try {
 		const response = reviewExecutionResponseSchema.parse({
 			payload: createFindingsReview(payload.findings),
 			usage: usageFromResultEvent(resultEvent),
 			inputCoverage,
 		});
-		return { type: "ok", value: response };
+		return { ok: true, value: response };
 	} catch (error) {
 		return harnessOutputError({
-			type: "review-execution-invalid-findings",
+			code: "review-execution-invalid-findings",
 			message: `Claude Code structured output did not match the findings schema: ${formatErrorMessage(error)}`,
 		});
 	}
 }
 
-function parseClaudeCodeOutputJson(stdout: string): RoasterResult<unknown> {
+function parseClaudeCodeOutputJson(stdout: string): ReviewResult<unknown> {
 	try {
-		return { type: "ok", value: JSON.parse(stdout) as unknown };
+		return { ok: true, value: JSON.parse(stdout) as unknown };
 	} catch (error) {
 		return harnessOutputError({
-			type: "review-execution-invalid-json",
+			code: "review-execution-invalid-json",
 			message: `Claude Code output was not valid JSON: ${formatErrorMessage(error)}`,
 		});
 	}
@@ -188,7 +188,7 @@ function truncateModelResponse(response: string): string {
 }
 
 function harnessOutputError(
-	error: Extract<RoasterResult<never>, { readonly type: "error" }>["error"],
-): RoasterResult<never> {
-	return { type: "error", error };
+	error: Extract<ReviewResult<never>, { readonly ok: false }>["error"],
+): ReviewResult<never> {
+	return { ok: false, error };
 }

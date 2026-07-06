@@ -7,7 +7,7 @@ import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 
 import type { RoasterEnvironmentOptions } from "../core/context.ts";
-import type { ReviewLogFailure, ReviewLogFailureType, RoasterResult } from "../core/failures.ts";
+import type { ReviewLogFailure, ReviewLogFailureCode, ReviewResult } from "../core/failures.ts";
 import type { ReviewInputCoverage, ReviewRunResult, ReviewUsage } from "../core/models.ts";
 import { roasterReviewDisplayRole } from "../core/review-display.ts";
 
@@ -44,8 +44,8 @@ export interface ReviewLogEntry {
 }
 
 export interface ReviewLogGateway {
-	writeReviewLog(request: ReviewLogWriteRequest): Promise<RoasterResult<ReviewLogWriteResult>>;
-	listReviewLogs(request: ReviewLogListRequest): Promise<RoasterResult<readonly ReviewLogEntry[]>>;
+	writeReviewLog(request: ReviewLogWriteRequest): Promise<ReviewResult<ReviewLogWriteResult>>;
+	listReviewLogs(request: ReviewLogListRequest): Promise<ReviewResult<readonly ReviewLogEntry[]>>;
 }
 
 export interface RealReviewLogGatewayOptions {
@@ -61,7 +61,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 
 	async writeReviewLog(
 		request: ReviewLogWriteRequest,
-	): Promise<RoasterResult<ReviewLogWriteResult>> {
+	): Promise<ReviewResult<ReviewLogWriteResult>> {
 		const entryKey = reviewLogEntryKey({ reviewKey: request.reviewKey, ranAt: request.ranAt });
 		return await withTemporaryFile(
 			{
@@ -83,7 +83,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 				if (!result.ok) return reviewLogCommandError("review-log-write-failed", result.error);
 				const data = result.value;
 				return {
-					type: "ok",
+					ok: true,
 					value: {
 						namespace: data.namespace,
 						key: data.key,
@@ -99,7 +99,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 
 	async listReviewLogs(
 		request: ReviewLogListRequest,
-	): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
+	): Promise<ReviewResult<readonly ReviewLogEntry[]>> {
 		const result = await listBrmemEntries({
 			gateway: this.execApi,
 			cwd: request.cwd,
@@ -123,7 +123,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 				},
 			];
 		});
-		return { type: "ok", value: sortReviewLogEntries(entries) };
+		return { ok: true, value: sortReviewLogEntries(entries) };
 	}
 }
 
@@ -162,7 +162,7 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 
 	async writeReviewLog(
 		request: ReviewLogWriteRequest,
-	): Promise<RoasterResult<ReviewLogWriteResult>> {
+	): Promise<ReviewResult<ReviewLogWriteResult>> {
 		if (this.writeFailure !== undefined) return error(this.writeFailure);
 		const key = reviewLogEntryKey({ reviewKey: request.reviewKey, ranAt: request.ranAt });
 		const branch = request.branch ?? this.branch;
@@ -176,18 +176,18 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 			content: request.content,
 		};
 		this.entriesInternal.push(entry);
-		return { type: "ok", value: publicWriteResult(entry) };
+		return { ok: true, value: publicWriteResult(entry) };
 	}
 
 	async listReviewLogs(
 		request: ReviewLogListRequest,
-	): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
+	): Promise<ReviewResult<readonly ReviewLogEntry[]>> {
 		if (this.listFailure !== undefined) return error(this.listFailure);
 		const prefix = request.reviewKey === undefined ? null : reviewLogKeyPrefix(request.reviewKey);
 		const entries = this.entriesInternal
 			.filter((entry) => prefix === null || entry.key.startsWith(prefix))
 			.map(publicListEntry);
-		return { type: "ok", value: sortReviewLogEntries(entries) };
+		return { ok: true, value: sortReviewLogEntries(entries) };
 	}
 
 	writtenEntries(): readonly WrittenReviewLogEntry[] {
@@ -409,19 +409,19 @@ function publicListEntry(entry: WrittenReviewLogEntry): ReviewLogEntry {
 }
 
 function reviewLogCommandError(
-	failureType: ReviewLogFailureType,
+	failureType: ReviewLogFailureCode,
 	failure: BrmemCommandErrorInfo,
-): RoasterResult<never> {
+): ReviewResult<never> {
 	if (failure.code.includes("malformed") || failure.code.includes("unexpected")) {
 		return invalidResponse(failure.message);
 	}
-	return error({ type: failureType, message: failure.message });
+	return error({ code: failureType, message: failure.message });
 }
 
-function invalidResponse(message: string): RoasterResult<never> {
-	return error({ type: "review-log-response-invalid", message });
+function invalidResponse(message: string): ReviewResult<never> {
+	return error({ code: "review-log-response-invalid", message });
 }
 
-function error(errorValue: ReviewLogFailure): RoasterResult<never> {
-	return { type: "error", error: errorValue };
+function error(errorValue: ReviewLogFailure): ReviewResult<never> {
+	return { ok: false, error: errorValue };
 }

@@ -71,7 +71,7 @@ describe("FakeReviewRunnerGateway", () => {
 		const result = await gateway.runReview(reviewRequest, { cwd: "/repo", env: { A: "1" } });
 		reviewRequest.target.localDiff.changedPaths.push("mutated.ts");
 
-		expect(result).toEqual({ type: "ok", value: successResponse() });
+		expect(result).toEqual({ ok: true, value: successResponse() });
 		expect(gateway.calls()[0]?.request.target.localDiff.changedPaths).toEqual(["src/app.ts"]);
 		expect(gateway.calls()[0]?.options.env).toEqual({ A: "1" });
 	});
@@ -85,11 +85,11 @@ describe("FakeReviewRunnerGateway", () => {
 			inputCoverage: null,
 		};
 		const gateway = new FakeReviewRunnerGateway({
-			resultsByReviewName: { custom: { type: "ok", value: configured } },
+			resultsByReviewName: { custom: { ok: true, value: configured } },
 		});
 
 		const first = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
-		if (first.type === "ok")
+		if (first.ok)
 			first.value.payload.findings.push({
 				path: "other.ts",
 				line: null,
@@ -99,8 +99,8 @@ describe("FakeReviewRunnerGateway", () => {
 			});
 		const second = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
 
-		expect(second.type).toBe("ok");
-		if (second.type === "ok") {
+		expect(second.ok).toBe(true);
+		if (second.ok) {
 			expect(second.value.payload.findings).toHaveLength(1);
 		}
 	});
@@ -114,13 +114,13 @@ describe("FakeReviewRunnerGateway", () => {
 			inputCoverage: null,
 		};
 		const gateway = new FakeReviewRunnerGateway({
-			resultsByReviewName: new Map([["custom", { type: "ok", value: configured }]]),
+			resultsByReviewName: new Map([["custom", { ok: true, value: configured }]]),
 		});
 
 		const result = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") expect(result.value.payload.findings).toHaveLength(1);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value.payload.findings).toHaveLength(1);
 	});
 });
 
@@ -140,7 +140,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 		const result = await gateway.runReview(reviewRequest, { cwd: "/repo" });
 
-		expect(result.type).toBe("ok");
+		expect(result.ok).toBe(true);
 		expect(resolved).toEqual(["claude"]);
 		const call = execApi.calls()[0];
 		expect(call?.command).toBe("claude");
@@ -178,8 +178,8 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") expect(result.error.type).toBe("harness-binary-missing");
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe("harness-binary-missing");
 		expect(execApi.calls()).toEqual([]);
 	});
 
@@ -192,8 +192,8 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 		const result = await gateway.runReview(request({ model: "gpt-4" }), { cwd: "/repo" });
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") expect(result.error.type).toBe("model-not-supported-by-harness");
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe("model-not-supported-by-harness");
 		expect(execApi.calls()).toEqual([]);
 	});
 
@@ -208,9 +208,9 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
-			expect(result.error.type).toBe("harness-execution-failed");
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe("harness-execution-failed");
 			expect(result.error.message).toBe("stderr wins");
 		}
 	});
@@ -224,8 +224,8 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
+		expect(result.ok).toBe(true);
+		if (result.ok) {
 			expect(result.value.inputCoverage).toMatchObject({
 				changedPathCount: 1,
 				includedFileCount: 1,

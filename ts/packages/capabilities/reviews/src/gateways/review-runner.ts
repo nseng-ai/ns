@@ -9,7 +9,7 @@ import {
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 
-import type { RoasterResult } from "../core/failures.ts";
+import type { ReviewResult } from "../core/failures.ts";
 import {
 	createFindingsReview,
 	reviewRunnerRequestSchema,
@@ -32,7 +32,7 @@ export interface ReviewRunnerGateway {
 	runReview(
 		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
-	): Promise<RoasterResult<ReviewExecutionResponse>>;
+	): Promise<ReviewResult<ReviewExecutionResponse>>;
 }
 
 export interface ClaudeCodeProcessReviewRunnerOptions {
@@ -42,25 +42,25 @@ export interface ClaudeCodeProcessReviewRunnerOptions {
 
 export interface FakeReviewRunnerGatewayOptions {
 	readonly resultsByReviewName?:
-		| ReadonlyMap<string, RoasterResult<ReviewExecutionResponse>>
-		| Record<string, RoasterResult<ReviewExecutionResponse>>;
-	readonly defaultResult?: RoasterResult<ReviewExecutionResponse>;
+		| ReadonlyMap<string, ReviewResult<ReviewExecutionResponse>>
+		| Record<string, ReviewResult<ReviewExecutionResponse>>;
+	readonly defaultResult?: ReviewResult<ReviewExecutionResponse>;
 }
 
 export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
-	private readonly resultsByReviewName: Map<string, RoasterResult<ReviewExecutionResponse>>;
-	private readonly defaultResult: RoasterResult<ReviewExecutionResponse>;
+	private readonly resultsByReviewName: Map<string, ReviewResult<ReviewExecutionResponse>>;
+	private readonly defaultResult: ReviewResult<ReviewExecutionResponse>;
 	private readonly callsInternal: { request: ReviewRunnerRequest; options: RunReviewOptions }[] =
 		[];
 
 	constructor(options: FakeReviewRunnerGatewayOptions = {}) {
-		this.resultsByReviewName = new Map<string, RoasterResult<ReviewExecutionResponse>>();
+		this.resultsByReviewName = new Map<string, ReviewResult<ReviewExecutionResponse>>();
 		for (const [key, value] of mapFromRecordOrMap(options.resultsByReviewName)) {
 			this.resultsByReviewName.set(key, copyResult(value));
 		}
 		this.defaultResult = copyResult(
 			options.defaultResult ?? {
-				type: "ok",
+				ok: true,
 				value: { payload: createFindingsReview([]), usage: null, inputCoverage: null },
 			},
 		);
@@ -69,7 +69,7 @@ export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 	async runReview(
 		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
-	): Promise<RoasterResult<ReviewExecutionResponse>> {
+	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const copiedRequest = copyRequest(request);
 		this.callsInternal.push({ request: copiedRequest, options: copyRunReviewOptions(options) });
 		return copyResult(
@@ -100,16 +100,16 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 	async runReview(
 		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
-	): Promise<RoasterResult<ReviewExecutionResponse>> {
+	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		if (request.model.trim() === "") {
 			return runnerError({
-				type: "model-not-provided",
+				code: "model-not-provided",
 				message: "A Claude Code model must be provided.",
 			});
 		}
 		if (!isClaudeCodeSupportedModelPattern(request.model)) {
 			return runnerError({
-				type: "model-not-supported-by-harness",
+				code: "model-not-supported-by-harness",
 				message: `Model is not supported by the Claude Code harness: ${request.model}`,
 			});
 		}
@@ -119,13 +119,13 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
 		} catch (error) {
 			return runnerError({
-				type: "harness-invocation-failed",
+				code: "harness-invocation-failed",
 				message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}`,
 			});
 		}
 		if (resolvedBinary === undefined) {
 			return runnerError({
-				type: "harness-binary-missing",
+				code: "harness-binary-missing",
 				message: "Claude Code binary 'claude' was not found on PATH.",
 			});
 		}
@@ -151,17 +151,17 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
 		} catch (error) {
 			return runnerError({
-				type: "harness-invocation-failed",
+				code: "harness-invocation-failed",
 				message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}`,
 			});
 		}
 
 		if (result.startupError !== undefined) {
-			return runnerError({ type: "harness-invocation-failed", message: result.startupError });
+			return runnerError({ code: "harness-invocation-failed", message: result.startupError });
 		}
 		if (result.code !== 0 || result.killed) {
 			return runnerError({
-				type: "harness-execution-failed",
+				code: "harness-execution-failed",
 				message: runnerExecutionMessage(result),
 			});
 		}
@@ -191,11 +191,11 @@ function copyRequest(request: ReviewRunnerRequest): ReviewRunnerRequest {
 }
 
 function copyResult(
-	result: RoasterResult<ReviewExecutionResponse>,
-): RoasterResult<ReviewExecutionResponse> {
-	if (result.type === "ok") {
+	result: ReviewResult<ReviewExecutionResponse>,
+): ReviewResult<ReviewExecutionResponse> {
+	if (result.ok) {
 		return {
-			type: "ok",
+			ok: true,
 			value: reviewExecutionResponseSchema.parse(structuredClone(result.value)),
 		};
 	}
@@ -211,7 +211,7 @@ function copyRunReviewOptions(options: RunReviewOptions): RunReviewOptions {
 }
 
 function runnerError(
-	error: Extract<RoasterResult<never>, { readonly type: "error" }>["error"],
-): RoasterResult<never> {
-	return { type: "error", error };
+	error: Extract<ReviewResult<never>, { readonly ok: false }>["error"],
+): ReviewResult<never> {
+	return { ok: false, error };
 }

@@ -7,8 +7,8 @@ import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core
 import {
 	isReviewLogFailure,
 	type ReviewLogFailure,
-	type RoasterFailure,
-	type RoasterResult,
+	type ReviewFailure,
+	type ReviewResult,
 } from "../core/failures.ts";
 import { isMissingFileError } from "../gateways/filesystem-errors.ts";
 import type { ReviewSource } from "../gateways/review-catalog.ts";
@@ -53,7 +53,7 @@ export type RunRoasterReviewOutcome =
 			readonly error: ReviewLogFailure;
 			readonly progress: RunRoasterReviewProgress;
 	  }
-	| { readonly type: "failed"; readonly error: RoasterFailure };
+	| { readonly type: "failed"; readonly error: ReviewFailure };
 
 export interface RunRoasterReviewProgress {
 	readonly reviewKey: string;
@@ -70,8 +70,8 @@ interface ResolvedReviewModel {
 }
 
 type ResolveReviewModelResult =
-	| { readonly type: "ok"; readonly value: ResolvedReviewModel }
-	| { readonly type: "error"; readonly error: RoasterFailure };
+	| { readonly ok: true; readonly value: ResolvedReviewModel }
+	| { readonly ok: false; readonly error: ReviewFailure };
 
 interface ReviewLogMetadata {
 	readonly branch: string;
@@ -98,12 +98,12 @@ export async function runRoasterReview(
 		reviewKey: request.key,
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
 	});
-	if (loaded.type === "error") return { type: "failed", error: loaded.error };
+	if (!loaded.ok) return { type: "failed", error: loaded.error };
 	const { source, definition, config, diff } = loaded.value;
 	const reviewDiff = filterLocalDiffForReviewApplicability(diff, definition.applicability);
 
 	const resolved = resolveReviewModel(request, definition, config);
-	if (resolved.type === "error") return { type: "failed", error: resolved.error };
+	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
 
 	const progress: RunRoasterReviewProgress = {
@@ -125,7 +125,7 @@ export async function runRoasterReview(
 		},
 		environmentOptions(ctx.runScope),
 	);
-	if (response.type === "error") return { type: "failed", error: response.error };
+	if (!response.ok) return { type: "failed", error: response.error };
 
 	const result = reviewRunResult(
 		source.key,
@@ -140,7 +140,7 @@ export async function runRoasterReview(
 		result,
 		...(request.logBranch === undefined ? {} : { logBranch: request.logBranch }),
 	});
-	if (logResult.type === "error") {
+	if (!logResult.ok) {
 		if (!isReviewLogFailure(logResult.error)) {
 			return { type: "failed", error: logResult.error };
 		}
@@ -153,26 +153,26 @@ export async function runRoasterReview(
 export async function loadReviewExecutionContext(
 	ctx: RoasterRuntime,
 	request: LoadReviewExecutionContextRequest,
-): Promise<RoasterResult<ReviewExecutionContext>> {
+): Promise<ReviewResult<ReviewExecutionContext>> {
 	const loaded = await loadParsedReviewDefinition({
 		...catalogOptions(ctx.runScope),
 		reviewCatalog: ctx.reviewCatalog,
 		key: request.reviewKey,
 	});
-	if (loaded.type === "error") return loaded;
+	if (!loaded.ok) return loaded;
 
 	const config = await loadProjectConfigFromContext(ctx);
-	if (config.type === "error") return config;
+	if (!config.ok) return config;
 
 	const diff = await ctx.localDiff.loadDiff({
 		...environmentOptions(ctx.runScope),
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
 		excludeGlobs: config.value.diff.exclude,
 	});
-	if (diff.type === "error") return diff;
+	if (!diff.ok) return diff;
 
 	return {
-		type: "ok",
+		ok: true,
 		value: {
 			source: loaded.value.source,
 			definition: loaded.value.definition,
@@ -190,7 +190,7 @@ export async function writeReviewRunLog(
 		readonly ranAt?: string;
 		readonly logBranch?: string;
 	},
-): Promise<RoasterResult<ReviewLogWriteResult>> {
+): Promise<ReviewResult<ReviewLogWriteResult>> {
 	const ranAt = options.ranAt ?? new Date().toISOString();
 	const metadata = await reviewLogMetadata(ctx, options.logBranch);
 	return await ctx.reviewLog.writeReviewLog({
@@ -232,9 +232,9 @@ function resolveReviewModel(
 	const profile = (request.modelProfile ?? definition.modelProfile).trim();
 	if (!isRoasterModelProfileKey(profile)) {
 		return {
-			type: "error",
+			ok: false,
 			error: {
-				type: "review-definition-invalid",
+				code: "review-definition-invalid",
 				message: `Unknown Roaster model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
 			},
 		};
@@ -242,8 +242,8 @@ function resolveReviewModel(
 
 	const requestModel = request.model?.trim() ?? "";
 	if (requestModel !== "")
-		return { type: "ok", value: { modelProfile: profile, model: requestModel } };
-	return { type: "ok", value: { modelProfile: profile, model: config.modelProfiles[profile] } };
+		return { ok: true, value: { modelProfile: profile, model: requestModel } };
+	return { ok: true, value: { modelProfile: profile, model: config.modelProfiles[profile] } };
 }
 
 async function reviewLogMetadata(
@@ -283,12 +283,12 @@ function unavailableMetadataValue(message: string): string {
 
 export async function loadProjectConfigFromContext(
 	ctx: RoasterRuntime,
-): Promise<RoasterResult<RoasterProjectConfig>> {
+): Promise<ReviewResult<RoasterProjectConfig>> {
 	const repoRoot = await ctx.gitGateway.repoRoot(catalogOptions(ctx.runScope));
 	if (!repoRoot.ok) {
 		return {
-			type: "error",
-			error: { type: "repo-root-unavailable", message: repoRoot.error.message },
+			ok: false,
+			error: { code: "repo-root-unavailable", message: repoRoot.error.message },
 		};
 	}
 
@@ -299,25 +299,25 @@ export async function loadProjectConfigFromContext(
 	} catch (caught) {
 		if (isMissingFileError(caught)) {
 			return {
-				type: "ok",
+				ok: true,
 				value: { diff: { exclude: [] }, modelProfiles: DEFAULT_ROASTER_MODEL_PROFILES },
 			};
 		}
 		return {
-			type: "error",
+			ok: false,
 			error: {
-				type: "project-config-invalid",
+				code: "project-config-invalid",
 				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
 			},
 		};
 	}
 
 	const parsed = parseRoasterProjectConfigToml(source, path);
-	if (parsed.type === "error") {
+	if (!parsed.ok) {
 		return {
-			type: "error",
-			error: { type: "project-config-invalid", message: parsed.error.message },
+			ok: false,
+			error: { code: "project-config-invalid", message: parsed.error.message },
 		};
 	}
-	return { type: "ok", value: parsed.config };
+	return { ok: true, value: parsed.config };
 }
