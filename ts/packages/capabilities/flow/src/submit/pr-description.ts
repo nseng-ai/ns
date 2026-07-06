@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
 import process from "node:process";
 
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
@@ -26,6 +26,7 @@ import {
 	computePointCatalog,
 	loadPointCatalog,
 	nodeProjectConfigGateway,
+	resolvePromptPointPath,
 	resolvePromptPointSource,
 	type PointCatalog,
 	type PromptPointSource,
@@ -53,10 +54,7 @@ const LOCKFILE_BASENAMES = new Set([
 ]);
 
 export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = readFileSync(
-	new URL(
-		"../../../../../../.ns/extensions/flow/prompts/pr-description-default.md",
-		import.meta.url,
-	),
+	new URL("./prompts/pr-description-default.md", import.meta.url),
 	"utf8",
 ).trimEnd();
 
@@ -316,22 +314,26 @@ async function readPrDescriptionPointSource(request: {
 			}
 		}
 		case "ns.toml":
-		case "conventional": {
-			if (request.repoRoot === undefined) return undefined;
-			const repoPath = join(request.repoRoot, request.pointSource.path);
-			if (!(await isReadableFile(repoPath))) return undefined;
-			return {
-				ok: true,
-				text: await readFile(repoPath, "utf8"),
-				source: { type: "repo", path: repoPath },
-			};
-		}
+		case "conventional":
 		case "default": {
-			const defaultPath = join(dirname(request.pointSource.manifestPath), request.pointSource.path);
+			if (request.repoRoot === undefined && request.pointSource.type !== "default")
+				return undefined;
+			const resolved = resolvePromptPointPath(
+				request.repoRoot ?? process.cwd(),
+				request.pointSource,
+			);
+			if (resolved === undefined) return undefined;
+			if (request.pointSource.type !== "default" && !(await isReadableFile(resolved.path))) {
+				return undefined;
+			}
+			const text = await readFile(resolved.path, "utf8");
 			return {
 				ok: true,
-				text: (await readFile(defaultPath, "utf8")).trimEnd(),
-				source: { type: "builtin" },
+				text: request.pointSource.type === "default" ? text.trimEnd() : text,
+				source:
+					request.pointSource.type === "default"
+						? { type: "builtin" }
+						: { type: "repo", path: resolved.path },
 			};
 		}
 		case "missing":

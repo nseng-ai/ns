@@ -19,7 +19,7 @@ import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
 export type SubmitMatrixColumnKey = "metadata" | "submit" | "verify" | "description";
-export type SubmitMatrixGlobalKey = "inventory" | "checkpoint" | "preflight" | "restack";
+export type SubmitMatrixGlobalKey = "inventory" | "hooks" | "checkpoint" | "preflight" | "restack";
 export type SubmitMatrixCellUpdate = MatrixCellUpdate;
 
 export type SubmitMatrixColumnSpec = MatrixColumnSpec<SubmitMatrixColumnKey>;
@@ -93,6 +93,12 @@ export const SUBMIT_MATRIX_GLOBAL_ROWS: readonly SubmitMatrixGlobalRowSpec[] = [
 		label: "Inventory",
 		detail: "stack inventoried",
 		activeLabel: "reading submit stack topology…",
+	},
+	{
+		key: "hooks",
+		label: "Hooks",
+		detail: "hooks complete",
+		activeLabel: "running pre-submit hooks…",
 	},
 	{
 		key: "checkpoint",

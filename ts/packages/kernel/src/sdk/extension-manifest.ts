@@ -1,5 +1,8 @@
 import { z } from "./schema.ts";
 
+export const nsExtensionPointAcceptsValues = ["hook", "prompt"] as const;
+export const nsExtensionPointSemanticsValues = ["additive", "override"] as const;
+
 export const nsExtensionManifestCommandSchema = z.looseObject({
 	name: z.string().optional(),
 	path: z.array(z.string()).optional(),
@@ -11,8 +14,8 @@ export const nsExtensionManifestCommandSchema = z.looseObject({
 
 export const nsExtensionManifestPointSchema = z.looseObject({
 	path: z.array(z.string()).optional(),
-	accepts: z.enum(["hook", "prompt"]).optional(),
-	semantics: z.enum(["additive", "override"]).optional(),
+	accepts: z.enum(nsExtensionPointAcceptsValues).optional(),
+	semantics: z.enum(nsExtensionPointSemanticsValues).optional(),
 	default: z.string().optional(),
 	description: z.string().optional(),
 });

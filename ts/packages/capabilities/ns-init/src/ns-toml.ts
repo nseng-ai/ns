@@ -1,6 +1,8 @@
 import {
+	getProjectConfigSetting,
 	parseProjectConfigToml,
 	type ProjectConfigDiagnostic,
+	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
 import { z } from "zod";
 
@@ -30,7 +32,9 @@ export type NsTomlErrorCode =
 const nsInitHarnessesSettingsSchema = {
 	path: ["harnesses"] as const,
 	schema: z.array(z.string()).nonempty(),
-};
+	invalidMessage: ({ pathLabel }) =>
+		`${pathLabel} top-level harnesses must be a non-empty string array.`,
+} satisfies SettingsSchema<readonly string[]>;
 
 export function parseNsTomlHarnesses(
 	content: string,
@@ -41,7 +45,7 @@ export function parseNsTomlHarnesses(
 		settingsSchemas: [nsInitHarnessesSettingsSchema],
 	});
 	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
-	const harnesses = result.config.settings.get("harnesses");
+	const harnesses = getProjectConfigSetting(result.config, nsInitHarnessesSettingsSchema);
 	if (harnesses === undefined) return { type: "missing" };
 	return parseHarnessesValue(harnesses, `${pathLabel} top-level harnesses`);
 }
@@ -120,7 +124,7 @@ function nsTomlErrorFromDiagnostics(
 			type: "error",
 			error: {
 				code: "invalid-harnesses",
-				message: `${pathLabel} top-level harnesses must be a non-empty string array.`,
+				message: diagnostic.message,
 			},
 		};
 	}
@@ -133,24 +137,8 @@ function nsTomlErrorFromDiagnostics(
 	};
 }
 
-function parseHarnessesValue(value: unknown, label: string): NsTomlHarnessesParseResult {
-	if (!Array.isArray(value) || value.length === 0) {
-		return {
-			type: "error",
-			error: { code: "invalid-harnesses", message: `${label} must be a non-empty string array.` },
-		};
-	}
-	const values: string[] = [];
-	for (const item of value) {
-		if (typeof item !== "string") {
-			return {
-				type: "error",
-				error: { code: "invalid-harnesses", message: `${label} must be a non-empty string array.` },
-			};
-		}
-		values.push(item);
-	}
-	return normalizeHarnessSelection(values);
+function parseHarnessesValue(value: readonly string[], _label: string): NsTomlHarnessesParseResult {
+	return normalizeHarnessSelection(value);
 }
 
 function replaceTopLevelHarnessesAssignment(
