@@ -1,12 +1,9 @@
 import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
 import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
-import {
-	execNsGit,
-	readNsGitPorcelainStatus,
-	type GitErrorInfo,
-	type GitGateway,
-} from "@nseng-ai/capability-kit/git";
+import { type GitErrorInfo, type GitGateway } from "@nseng-ai/capability-kit/git";
+
+import { execNsGit, readNsGitPorcelainStatus } from "../exec.ts";
 
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";

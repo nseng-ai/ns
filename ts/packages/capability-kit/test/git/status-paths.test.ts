@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { parseGitStatusPaths } from "@nseng-ai/capability-kit/git";
+import { parseGitStatusPaths } from "../../src/git/status-paths.ts";
 
 describe("parseGitStatusPaths", () => {
 	test("returns empty facts for clean NUL-delimited status output", () => {
