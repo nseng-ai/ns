@@ -158,16 +158,25 @@ export async function runLatestCommitAutobranchTransaction(
 	}
 
 	const verified = await input.git.headSha();
-	const actualHead = verified.ok ? verified.value : "";
-	const actualHeadFailure = verified.ok ? undefined : verified.details;
-	if (!verified.ok || actualHead !== input.plan.originalHeadSha) {
+	if (!verified.ok) {
 		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
 			ok: false,
 			kind: "head_verify_failed",
 			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
-			actualHead: actualHead.length > 0 ? actualHead : (actualHeadFailure ?? ""),
+			actualHead: verified.details,
+			...recovery,
+		};
+	}
+	if (verified.value !== input.plan.originalHeadSha) {
+		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
+		return {
+			ok: false,
+			kind: "head_verify_failed",
+			backupBranch: backupBranch.name,
+			branchName: input.plan.branchName,
+			actualHead: verified.value,
 			...recovery,
 		};
 	}

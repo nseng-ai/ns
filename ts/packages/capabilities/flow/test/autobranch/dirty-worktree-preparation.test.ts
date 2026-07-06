@@ -50,32 +50,47 @@ function createHarness(options: HarnessOptions = {}) {
 		ok: true,
 		message: "[cp] Update app\n\n- Add coverage",
 	};
+	const exec = async (command: string, args: string[]): Promise<CommandResult> => {
+		calls.push({ command, args });
+		events.push(`exec:${command} ${args.join(" ")}`);
+		if (command === "git" && args[0] === "ls-files") {
+			return options.shouldUntrackedListFail
+				? fail("ls-files failed")
+				: ok(Object.keys(untrackedFiles).join("\0"));
+		}
+		if (command === "pi") {
+			return options.piResult ?? ok("model generated branch\n");
+		}
+		if (command === "git" && args[0] === "check-ref-format") {
+			const branch = args.at(-1) ?? "";
+			return invalidBranches.has(branch) ? fail("invalid ref") : ok();
+		}
+		if (command === "git" && args[0] === "show-ref") {
+			const ref = args.at(-1) ?? "";
+			const branch = ref.replace(/^refs\/heads\//, "");
+			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+		}
+		return ok();
+	};
 
 	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
-		exec: async (command, args) => {
-			calls.push({ command, args });
-			events.push(`exec:${command} ${args.join(" ")}`);
-			if (command === "git" && args[0] === "ls-files") {
-				return options.shouldUntrackedListFail
-					? fail("ls-files failed")
-					: ok(Object.keys(untrackedFiles).join("\0"));
-			}
-			if (command === "pi") {
-				return options.piResult ?? ok("model generated branch\n");
-			}
-			if (command === "git" && args[0] === "check-ref-format") {
-				const branch = args.at(-1) ?? "";
-				return invalidBranches.has(branch) ? fail("invalid ref") : ok();
-			}
-			if (command === "git" && args[0] === "show-ref") {
-				const ref = args.at(-1) ?? "";
-				const branch = ref.replace(/^refs\/heads\//, "");
-				return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
-			}
-			return ok();
+		exec,
+		git: {
+			async isBranchNameAvailable(branchName: string): Promise<boolean> {
+				const valid = await exec("git", ["check-ref-format", "--branch", branchName]);
+				if (valid.code !== 0) return false;
+
+				const exists = await exec("git", [
+					"show-ref",
+					"--verify",
+					"--quiet",
+					`refs/heads/${branchName}`,
+				]);
+				return exists.code === 1;
+			},
 		},
 		prepareCheckpointMessage: async (preparedSnapshot) => {
 			events.push("prepare");

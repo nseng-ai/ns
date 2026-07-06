@@ -451,8 +451,7 @@ export class RealGitGateway implements GitGateway {
 
 	async hasStagedChanges(params: GitCwdParams): Promise<GitResult<boolean>> {
 		const run = await this.runGit(params, ["diff", "--cached", "--quiet", "--exit-code"]);
-		if (!run.ok)
-			return error("git_staged_probe_failed", run.error.message, run.error.displayCommand);
+		if (!run.ok) return run;
 		if (run.value.result.killed) {
 			return error(
 				"git_staged_probe_failed",

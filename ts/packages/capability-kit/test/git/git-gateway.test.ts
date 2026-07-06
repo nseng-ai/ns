@@ -701,7 +701,7 @@ describe("real git gateway", () => {
 		]);
 	});
 
-	test("maps unexpected staged-changes probe outcomes to git_staged_probe_failed", async () => {
+	test("maps completed staged-changes probe failures and propagates startup failures", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { code: 128, stderr: "boom" }),
 			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { killed: true }),
@@ -719,7 +719,7 @@ describe("real git gateway", () => {
 		});
 		expect(await git.hasStagedChanges({ cwd: ROOT })).toMatchObject({
 			ok: false,
-			error: { code: "git_staged_probe_failed" },
+			error: { code: "git_startup_failed" },
 		});
 		commands.assertDone();
 	});

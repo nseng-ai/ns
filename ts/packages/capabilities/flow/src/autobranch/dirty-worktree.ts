@@ -53,6 +53,7 @@ export interface AutobranchPreparationInput {
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
+	git: Pick<AutobranchGitGateway, "isBranchNameAvailable">;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -280,6 +281,7 @@ export async function runDirtyAutobranchFlow(
 		args: input.args,
 		snapshot: input.snapshot,
 		exec: input.exec,
+		git: input.git,
 		prepareCheckpointMessage: input.prepareCheckpointMessage,
 		...(input.onPhase ? { onPhase: input.onPhase } : {}),
 		...(input.readFile ? { readFile: input.readFile } : {}),

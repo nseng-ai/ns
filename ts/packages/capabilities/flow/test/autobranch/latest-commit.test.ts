@@ -89,7 +89,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
-		git: createAutobranchGitGateway(exec),
+		git: createAutobranchGitGateway({ cwd: "/repo", exec }),
 	};
 	return { input, calls };
 }
@@ -215,7 +215,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		plan: basePlan({ sourceBranch }),
 		now: () => 123,
 		exec,
-		git: createAutobranchGitGateway(exec),
+		git: createAutobranchGitGateway({ cwd: "/repo", exec }),
 	};
 	return { input, events };
 }

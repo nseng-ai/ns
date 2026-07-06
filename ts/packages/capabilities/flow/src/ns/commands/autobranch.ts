@@ -149,13 +149,19 @@ async function createAutobranchCheckpointFlow(
 	}
 
 	const exec = (command: string, commandArgs: string[], timeout: number) =>
-		execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout });
+		execExtensionCommand({
+			ctx,
+			command,
+			args: commandArgs,
+			cwd: snapshot.root,
+			timeoutMs: timeout,
+		});
 	const flow = await runDirtyAutobranchFlow({
 		cwd: snapshot.root,
 		args,
 		snapshot,
 		exec,
-		git: createAutobranchGitGateway(exec),
+		git: createAutobranchGitGateway({ cwd: snapshot.root, exec }),
 		prepareCheckpointMessage: (pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) =>
 			prepareFlowCheckpointMessage(ctx, pendingSnapshot),
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),

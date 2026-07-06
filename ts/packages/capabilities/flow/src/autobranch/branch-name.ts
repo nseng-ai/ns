@@ -1,11 +1,9 @@
-import type { AutobranchExec } from "./shared.ts";
 import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@nseng-ai/foundation/branch-slug";
 
-const GIT_TIMEOUT_MS = 30_000;
+import type { AutobranchGitGateway } from "./git-gateway.ts";
 
 export interface BranchNameAvailabilityInput {
-	cwd: string;
-	exec: AutobranchExec;
+	git: Pick<AutobranchGitGateway, "isBranchNameAvailable">;
 }
 
 export interface AvailableBranchName {
@@ -44,42 +42,7 @@ async function isBranchNameAvailable(
 	input: BranchNameAvailabilityInput,
 	branchName: string,
 ): Promise<boolean> {
-	const valid = await input.exec(
-		"git",
-		["check-ref-format", "--branch", branchName],
-		GIT_TIMEOUT_MS,
-	);
-	if (valid.code !== 0) return false;
-
-	const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
-	for (const ref of refsToCheck) {
-		const exists = await input.exec(
-			"git",
-			["show-ref", "--verify", "--quiet", ref],
-			GIT_TIMEOUT_MS,
-		);
-		if (exists.code !== 1) return false;
-	}
-
-	const childRefs = await input.exec(
-		"git",
-		["for-each-ref", "--format=%(refname)", `${branchHeadRef(branchName)}/`],
-		GIT_TIMEOUT_MS,
-	);
-	return childRefs.code === 0 && childRefs.stdout.trim().length === 0;
-}
-
-function branchHeadRef(branchName: string): string {
-	return `refs/heads/${branchName}`;
-}
-
-function branchParentHeadRefs(branchName: string): string[] {
-	const segments = branchName.split("/");
-	const refs: string[] = [];
-	for (let index = 1; index < segments.length; index += 1) {
-		refs.push(branchHeadRef(segments.slice(0, index).join("/")));
-	}
-	return refs;
+	return input.git.isBranchNameAvailable(branchName);
 }
 
 export function* branchNameCandidates<TName extends string>(
