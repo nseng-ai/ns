@@ -9,7 +9,10 @@ import type {
 	EnsureObjectivesDirectoryResult,
 	InstructionFileParams,
 	InstructionFileReadResult,
+	ProjectConfigFileParams,
+	TextFileReadResult,
 	WriteInstructionFileParams,
+	WriteProjectConfigFileParams,
 } from "./activation-files.ts";
 import { OBJECTIVES_DIRECTORY_RELATIVE_PATH } from "./activation-files.ts";
 
@@ -37,6 +40,33 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 			return {
 				ok: false,
 				error: { code: "instruction-file-write-failed", message: formatErrorMessage(error) },
+			};
+		}
+	}
+
+	async readProjectConfigFile(params: ProjectConfigFileParams): Promise<TextFileReadResult> {
+		try {
+			const content = await readFile(path.join(params.repoRoot, "ns.toml"), "utf8");
+			return { type: "found", content };
+		} catch (error) {
+			if (errnoCode(error) === "ENOENT") return { type: "missing" };
+			return {
+				type: "error",
+				error: { code: "ns-toml-read-failed", message: formatErrorMessage(error) },
+			};
+		}
+	}
+
+	async writeProjectConfigFile(
+		params: WriteProjectConfigFileParams,
+	): Promise<ActivationFilesOperationResult> {
+		try {
+			await writeFile(path.join(params.repoRoot, "ns.toml"), params.content, "utf8");
+			return { ok: true };
+		} catch (error) {
+			return {
+				ok: false,
+				error: { code: "ns-toml-write-failed", message: formatErrorMessage(error) },
 			};
 		}
 	}

@@ -5,7 +5,10 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { activateObjectives } from "../../src/activate-objectives.ts";
 import type { ObjectiveActivationContext } from "../../src/activation-context.ts";
 import { pendingBundleSkillMaterializer } from "../../src/pending-bundle-skill-materializer.ts";
-import { InMemoryActivationFilesGateway, InMemorySkillMaterializer } from "../../src/testing.ts";
+import {
+	InMemoryActivationFilesGateway,
+	InMemorySkillMaterializer,
+} from "../../src/testing/index.ts";
 
 function activationContext(overrides: Partial<ObjectiveActivationContext> = {}): {
 	context: ObjectiveActivationContext;
