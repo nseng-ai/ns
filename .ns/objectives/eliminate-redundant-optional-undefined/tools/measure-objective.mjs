@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import { readdir, readFile, stat } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
 
@@ -8,14 +9,16 @@ const require = createRequire(import.meta.url);
 const ts = require(path.resolve("ts/node_modules/typescript"));
 
 const DEFAULT_SCOPES = ["ts"];
-// Keep this Objective-owned script self-contained while it remains under .sdl.
+// Keep this Objective-owned script self-contained while it remains under .ns.
 // Shared test-support discovery helpers are TypeScript modules with nearby guard-specific
 // conventions; consolidate there only if this scorecard graduates to shared infrastructure.
 const TS_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts"]);
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", "coverage", ".turbo"]);
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const CLASSIFIED_PRESERVES_FILE = path.join(SCRIPT_DIR, "classified-preserves.json");
 
 function usage() {
-  return `Usage: node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [options] [scope ...]
+  return `Usage: node .ns/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [options] [scope ...]
 
 Measure the eliminate-redundant-optional-undefined Objective scorecard.
 
@@ -32,16 +35,21 @@ Options:
 Metrics:
   1. raw optional-undefined property count: AST PropertySignature and
      PropertyDeclaration nodes with a ? token and explicit undefined union,
-     e.g. foo?: string | undefined
-  2. typed explicit-undefined contract count: optional properties typed with
+     e.g. foo?: string | undefined. This raw count is preserved for historical
+     comparability.
+  2. classified preserve count: raw optional-undefined matches covered by
+     explicit Objective metadata in tools/classified-preserves.json.
+  3. actionable raw optional-undefined debt: raw optional-undefined matches
+     minus metadata-matched classified preserves.
+  4. typed explicit-undefined contract count: optional properties typed with
      ExplicitUndefined<Reason, T>.
-  3. legacy preserve marker count: stale optional-undefined-objective preserve
+  5. legacy preserve marker count: stale optional-undefined-objective preserve
      comments that should be migrated to typed contracts.
-  4. undefined-normalization/check count: AST binary expressions that compare
+  6. undefined-normalization/check count: AST binary expressions that compare
      a value with undefined using === or !==.
 
 Known caveat: this is Objective-owned temporary tooling. It intentionally reports
-raw, review-aiding counts; semantic classification still belongs in PR notes.
+raw, review-aiding counts with additive metadata-backed classification.
 `;
 }
 
@@ -142,6 +150,15 @@ async function safeStat(filePath) {
   }
 }
 
+async function loadClassifiedPreserveMetadata() {
+  const text = await readFile(CLASSIFIED_PRESERVES_FILE, "utf8");
+  const metadata = JSON.parse(text);
+  if (!metadata || typeof metadata !== "object" || !Array.isArray(metadata.preserves)) {
+    throw new Error(`Invalid classified preserve metadata: ${path.relative(process.cwd(), CLASSIFIED_PRESERVES_FILE)}`);
+  }
+  return metadata;
+}
+
 function parseSourceFile(fileName, text) {
   return ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
 }
@@ -160,7 +177,7 @@ function countOptionalUndefinedProperties(sourceFile) {
       if (isExplicitUndefinedType(node.type)) {
         typedExplicitUndefinedMatches.push(lineNumber(sourceFile, node));
       } else if (includesUndefinedType(node.type)) {
-        matches.push(lineNumber(sourceFile, node));
+        matches.push(optionalUndefinedMatch(sourceFile, node));
       }
     }
     ts.forEachChild(node, visit);
@@ -168,6 +185,24 @@ function countOptionalUndefinedProperties(sourceFile) {
 
   visit(sourceFile);
   return { matches, typedExplicitUndefinedMatches };
+}
+
+function optionalUndefinedMatch(sourceFile, node) {
+  return {
+    property: propertyName(node.name),
+    line: lineNumber(sourceFile, node),
+    declaration: node.getText(sourceFile),
+  };
+}
+
+function propertyName(name) {
+  if (name === undefined) {
+    return "<unknown>";
+  }
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  return name.getText();
 }
 
 function countLegacyPreserveMarkers(sourceFile) {
@@ -246,10 +281,58 @@ function lineNumber(sourceFile, node) {
   return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
+function classifyOptionalUndefinedMatches(rawMatches, metadata) {
+  const usedRawIndexes = new Set();
+  const classifiedPreserves = [];
+  const stalePreserves = [];
+
+  for (const preserve of metadata.preserves) {
+    const rawIndex = rawMatches.findIndex((match, index) => {
+      return !usedRawIndexes.has(index)
+        && match.path === preserve.path
+        && match.property === preserve.property
+        && match.declaration.includes(preserve.declarationContains);
+    });
+
+    if (rawIndex === -1) {
+      stalePreserves.push({
+        path: preserve.path,
+        property: preserve.property,
+        kind: preserve.kind,
+        declarationContains: preserve.declarationContains,
+        rationale: preserve.rationale,
+      });
+      continue;
+    }
+
+    usedRawIndexes.add(rawIndex);
+    const rawMatch = rawMatches[rawIndex];
+    classifiedPreserves.push({
+      path: rawMatch.path,
+      property: rawMatch.property,
+      kind: preserve.kind,
+      line: rawMatch.line,
+      declarationContains: preserve.declarationContains,
+      rationale: preserve.rationale,
+    });
+  }
+
+  const actionableMatches = rawMatches.filter((_, index) => !usedRawIndexes.has(index)).map(({ path, property, line, declaration }) => ({
+    path,
+    property,
+    line,
+    declaration,
+  }));
+
+  return { classifiedPreserves, stalePreserves, actionableMatches };
+}
+
 async function measure(scopes, includeMarked = false) {
+  const metadata = await loadClassifiedPreserveMetadata();
   const filesByScope = await Promise.all(scopes.map((scope) => listFiles(scope)));
   const files = [...new Set(filesByScope.flat())].sort();
   const perFile = [];
+  const rawOptionalMatches = [];
   let optionalUndefinedProperties = 0;
   let typedExplicitUndefined = 0;
   let legacyPreserveMarkers = 0;
@@ -258,12 +341,17 @@ async function measure(scopes, includeMarked = false) {
   for (const file of files) {
     const text = await readFile(file, "utf8");
     const sourceFile = parseSourceFile(file, text);
-    const { matches: optionalLines, typedExplicitUndefinedMatches: typedLines } = countOptionalUndefinedProperties(sourceFile);
+    const { matches: optionalMatches, typedExplicitUndefinedMatches: typedLines } = countOptionalUndefinedProperties(sourceFile);
+    const optionalLines = optionalMatches.map((match) => match.line);
+    const relativePath = path.relative(process.cwd(), file);
     const legacyMarkerLines = countLegacyPreserveMarkers(sourceFile);
     const checkLines = countUndefinedChecks(sourceFile);
+    for (const match of optionalMatches) {
+      rawOptionalMatches.push({ path: relativePath, ...match });
+    }
     if (optionalLines.length > 0 || typedLines.length > 0 || legacyMarkerLines.length > 0 || checkLines.length > 0) {
       perFile.push({
-        path: path.relative(process.cwd(), file),
+        path: relativePath,
         optionalUndefinedProperties: optionalLines.length,
         optionalUndefinedPropertyLines: optionalLines,
         typedExplicitUndefined: typedLines.length,
@@ -280,19 +368,57 @@ async function measure(scopes, includeMarked = false) {
     undefinedChecks += checkLines.length;
   }
 
+  const classification = classifyOptionalUndefinedMatches(rawOptionalMatches, metadata);
+  const perFileByPath = new Map(perFile.map((file) => [file.path, file]));
+  for (const file of perFile) {
+    file.classifiedPreserves = classification.classifiedPreserves.filter((preserve) => preserve.path === file.path).length;
+    file.actionableOptionalUndefinedProperties = classification.actionableMatches.filter((match) => match.path === file.path).length;
+  }
+  for (const match of classification.actionableMatches) {
+    if (!perFileByPath.has(match.path)) {
+      perFile.push({
+        path: match.path,
+        optionalUndefinedProperties: 0,
+        optionalUndefinedPropertyLines: [],
+        typedExplicitUndefined: 0,
+        typedExplicitUndefinedLines: [],
+        legacyPreserveMarkers: 0,
+        legacyPreserveMarkerLines: [],
+        undefinedChecks: 0,
+        undefinedCheckLines: [],
+        classifiedPreserves: 0,
+        actionableOptionalUndefinedProperties: 1,
+      });
+    }
+  }
+
   return {
     objective: "eliminate-redundant-optional-undefined",
     scopes,
     includeMarked,
     filesScanned: files.length,
-    metrics: { optionalUndefinedProperties, typedExplicitUndefined, legacyPreserveMarkers, undefinedChecks },
+    preserveMetadataPath: path.relative(process.cwd(), CLASSIFIED_PRESERVES_FILE),
+    metrics: {
+      optionalUndefinedProperties,
+      classifiedPreserves: classification.classifiedPreserves.length,
+      actionableOptionalUndefinedProperties: optionalUndefinedProperties - classification.classifiedPreserves.length,
+      typedExplicitUndefined,
+      legacyPreserveMarkers,
+      undefinedChecks,
+    },
+    classifiedPreserves: classification.classifiedPreserves,
+    stalePreserves: classification.stalePreserves,
+    actionableOptionalUndefinedMatches: classification.actionableMatches,
     perFile,
     caveats: [
-      "Counts are raw Objective scorecard inputs, not semantic classification.",
-      "Raw optional-undefined detection uses TypeScript AST property signatures/declarations with explicit undefined unions.",
+      "Counts are raw Objective scorecard inputs with additive metadata-backed classification.",
+      "Raw optional-undefined detection uses TypeScript AST property signatures/declarations with explicit undefined unions; the raw count remains unchanged for historical comparability.",
+      "Classified preserves come from explicit Objective metadata and are matched by path, property, and declaration text.",
+      "Actionable raw optional-undefined debt is the raw AST match count minus metadata-matched classified preserves.",
       "Typed explicit-undefined contracts use ExplicitUndefined<Reason, T> and are excluded from the net redundant optional-undefined count.",
       "Legacy optional-undefined-objective preserve comments are reported as migration leftovers and should be replaced by typed contracts.",
       "Undefined-check detection uses TypeScript AST === undefined / !== undefined binary expressions, including temporary normalization code.",
+      ...(classification.stalePreserves.length > 0 ? ["One or more classified preserve metadata entries did not match a raw candidate and should be reclassified."] : []),
       ...(includeMarked ? ["--include-marked is deprecated and no longer changes the headline optional-undefined count."] : []),
     ],
   };
@@ -304,10 +430,13 @@ function renderMarkdown(result) {
     "",
     `Scope: ${result.scopes.join(", ")}`,
     `Files scanned: ${result.filesScanned}`,
+    `Preserve metadata: ${result.preserveMetadataPath}`,
     "",
     "| Metric | Count |",
     "| --- | ---: |",
     `| Raw optional-undefined properties (net debt) | ${result.metrics.optionalUndefinedProperties} |`,
+    `| Classified preserves | ${result.metrics.classifiedPreserves} |`,
+    `| Actionable raw optional-undefined debt | ${result.metrics.actionableOptionalUndefinedProperties} |`,
     `| Typed explicit-undefined contracts | ${result.metrics.typedExplicitUndefined} |`,
     `| Legacy preserve markers (stale) | ${result.metrics.legacyPreserveMarkers} |`,
     `| Undefined-normalization/check lines | ${result.metrics.undefinedChecks} |`,
@@ -315,9 +444,42 @@ function renderMarkdown(result) {
   ];
 
   if (result.perFile.length > 0) {
-    lines.push("## Files with matches", "", "| File | Raw optional props | Typed contracts | Legacy markers | Undefined checks |", "| --- | ---: | ---: | ---: | ---: |");
+    lines.push(
+      "## Files with matches",
+      "",
+      "| File | Raw optional props | Classified preserves | Actionable raw | Typed contracts | Legacy markers | Undefined checks |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    );
     for (const file of result.perFile) {
-      lines.push(`| ${file.path} | ${file.optionalUndefinedProperties} | ${file.typedExplicitUndefined} | ${file.legacyPreserveMarkers} | ${file.undefinedChecks} |`);
+      lines.push(
+        `| ${file.path} | ${file.optionalUndefinedProperties} | ${file.classifiedPreserves ?? 0} | ${file.actionableOptionalUndefinedProperties ?? 0} | ${file.typedExplicitUndefined} | ${file.legacyPreserveMarkers} | ${file.undefinedChecks} |`,
+      );
+    }
+    lines.push("");
+  }
+
+  if (result.classifiedPreserves.length > 0) {
+    lines.push("## Classified preserves", "", "| File | Property | Kind | Line | Rationale |", "| --- | --- | --- | ---: | --- |");
+    for (const preserve of result.classifiedPreserves) {
+      lines.push(`| ${preserve.path} | ${preserve.property} | ${preserve.kind} | ${preserve.line} | ${preserve.rationale} |`);
+    }
+    lines.push("");
+  }
+
+  if (result.actionableOptionalUndefinedMatches.length > 0) {
+    lines.push("## Actionable raw optional-undefined matches", "", "| File | Property | Line | Declaration |", "| --- | --- | ---: | --- |");
+    for (const match of result.actionableOptionalUndefinedMatches) {
+      lines.push(`| ${match.path} | ${match.property} | ${match.line} | ${markdownInlineCode(match.declaration)} |`);
+    }
+    lines.push("");
+  }
+
+  if (result.stalePreserves.length > 0) {
+    lines.push("## Stale preserve metadata", "", "| File | Property | Kind | Declaration contains | Rationale |", "| --- | --- | --- | --- | --- |");
+    for (const preserve of result.stalePreserves) {
+      lines.push(
+        `| ${preserve.path} | ${preserve.property} | ${preserve.kind} | ${markdownInlineCode(preserve.declarationContains)} | ${preserve.rationale} |`,
+      );
     }
     lines.push("");
   }
@@ -328,6 +490,10 @@ function renderMarkdown(result) {
   }
   lines.push("");
   return lines.join("\n");
+}
+
+function markdownInlineCode(text) {
+  return `\`${String(text).replaceAll("`", "\\`")}\``;
 }
 
 function runSelfTest() {
@@ -372,6 +538,36 @@ interface Typed {
   if (typedResult.matches.length !== 2 || typedResult.typedExplicitUndefinedMatches.length !== 2 || typedLegacy !== 1) {
     throw new Error(
       `self-test failed: expected raw=2 typed=2 legacy=1, got raw=${typedResult.matches.length} typed=${typedResult.typedExplicitUndefinedMatches.length} legacy=${typedLegacy}`,
+    );
+  }
+
+  const classification = classifyOptionalUndefinedMatches(
+    [
+      { path: "fixture.ts", property: "preserved", line: 2, declaration: "preserved?: undefined" },
+      { path: "fixture.ts", property: "actionable", line: 3, declaration: "actionable?: string | undefined" },
+    ],
+    {
+      preserves: [
+        {
+          path: "fixture.ts",
+          property: "preserved",
+          kind: "test-preserve",
+          declarationContains: "preserved?: undefined",
+          rationale: "fixture preserve",
+        },
+        {
+          path: "fixture.ts",
+          property: "stale",
+          kind: "test-stale",
+          declarationContains: "stale?: undefined",
+          rationale: "fixture stale",
+        },
+      ],
+    },
+  );
+  if (classification.classifiedPreserves.length !== 1 || classification.actionableMatches.length !== 1 || classification.stalePreserves.length !== 1) {
+    throw new Error(
+      `self-test failed: expected classified=1 actionable=1 stale=1, got classified=${classification.classifiedPreserves.length} actionable=${classification.actionableMatches.length} stale=${classification.stalePreserves.length}`,
     );
   }
 }

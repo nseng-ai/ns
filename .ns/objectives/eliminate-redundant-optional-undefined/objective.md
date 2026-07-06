@@ -121,3 +121,13 @@ Risks:
 - Whether any future objective should separately pursue a hard guard/allowlist policy. That is explicitly outside this Objective unless approved as a new scope decision.
 - Whether repeated autonomous slices reveal a small number of recurring preserved categories that should be documented in repo TypeScript guidance.
 - Whether the reason vocabulary of `ExplicitUndefined` should stay in `ts/packages/infra/foundation` or graduate into shared TypeScript guidance as it stabilizes.
+
+## Closure
+
+Closed at explicit human direction after the post-zero follow-up loop reached a healthy no-actionable-debt state.
+
+Final known candidate landscape: `node .ns/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs --json ts` reports 3 raw optional-undefined declarations, all 3 matched by Objective-owned classified-preserve metadata, 0 actionable raw optional-undefined debt, 96 typed `ExplicitUndefined` contracts, 0 legacy preserve markers, and 0 stale preserve metadata. The remaining raw declarations are intentional discriminated-union `?: undefined` arms: `next` and `stackEnd` in the no-next-branch arm of `MergeNumberedBranchOptions`, and `load` in `PreinstalledNsCommandPackageCatalogEntry`.
+
+Delivered cleanup evidence includes the 2026-07-01 raw-zero milestone, the post-zero cleanup that removed the reintroduced omission-only brmem, GitHub PR feedback normalizer, and areg-test helper candidates, and the classified-preserve reporting slice that made the remaining preserve set auditable as metadata-backed non-debt. Recent validation evidence recorded for the final kept slices includes `pnpm --dir ts run check`, the relevant Vitest subset for areg/capability-kit/brmem, and the measurement tool `--self-test` and `--json ts` checks.
+
+The standing autonomous watch loop is intentionally stopped rather than continued as a no-natural-finish-line Objective. Future reintroductions can be handled by a new Objective or routine TypeScript cleanup if they recur. A hard guard or repo-wide allowlist remains unimplemented and was not authorized as part of this closure.
