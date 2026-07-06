@@ -1,0 +1,27 @@
+{
+  "objective": "eliminate-redundant-optional-undefined",
+  "description": "Current classified preserves for raw optional-undefined matches that are intentional discriminants, not actionable debt.",
+  "preserves": [
+    {
+      "path": "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts",
+      "property": "next",
+      "kind": "discriminated-union-undefined-arm",
+      "declarationContains": "next?: undefined",
+      "rationale": "No-next-branch arm of MergeNumberedBranchOptions; present-key undefined distinguishes the union arm from the numbered-next arm."
+    },
+    {
+      "path": "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts",
+      "property": "stackEnd",
+      "kind": "discriminated-union-undefined-arm",
+      "declarationContains": "stackEnd?: undefined",
+      "rationale": "No-next-branch arm of MergeNumberedBranchOptions; present-key undefined distinguishes the union arm from the numbered-next arm."
+    },
+    {
+      "path": "ts/packages/kernel/src/extensions/registry.ts",
+      "property": "load",
+      "kind": "discriminated-union-undefined-arm",
+      "declarationContains": "load?: undefined",
+      "rationale": "Package catalog entry arm omits a load function and is distinguished from PreinstalledNsCommandLoadedCatalogEntry, where load is required."
+    }
+  ]
+}
