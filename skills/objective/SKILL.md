@@ -41,7 +41,7 @@ Use these step skills for explicit workflow requests:
 - `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
 - `objective-runner-step`: parent playbook for exactly one verified runner step via `ns objective exec runner-begin`, a harness subagent, and `ns objective exec runner-finish`, including `--recover` decisions and Runner Checkpoint interpretation. It runs one step only and never updates tracking.
 - `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations with a judgment checkpoint between steps. Each committed step stacks on the last, so it is also the path for implementing one Objective as a small Graphite stack (it absorbed the retired `objective-stack-impl`). It delegates each step to the runner, routes tracking through `objective-update`, and never submits or pushes.
-- `objective-review-briefing`: read-only producer for post-merge delivered-scope review briefings. It reconstructs an Objective's delivering PR/commit/file basis and stores a review-agnostic briefing in the objective-owned `objective-review` Branch Memory namespace; it does not mutate Objective records or run a review lens.
+- `objective-retro`: read-only retrospective over one Objective's delivered unit of work (formerly `objective-review-briefing`). It reconstructs the delivering PR/commit/file basis into the objective-owned `objective-retro` Branch Memory namespace, then writes a source-backed retro with findings and recommendations; it never mutates Objective records.
 
 ## Conditional references
 

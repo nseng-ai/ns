@@ -274,8 +274,8 @@
       "sourceType": "local",
       "computedHash": "8f787ae6e70b22f1298b9281e8d7293f3825e67f116f09c8863cdf2ec549ebce"
     },
-    "objective-review-briefing": {
-      "source": "skills/objective-review-briefing",
+    "objective-retro": {
+      "source": "skills/objective-retro",
       "sourceType": "local",
       "computedHash": "dc21206e36df8c70c91f3fb2ec338c43bf50dce91a2259e7cab85ef8c06f118c"
     },

@@ -1,14 +1,17 @@
 ---
-name: objective-review-briefing
+name: objective-retro
 disable-model-invocation: true
-description: "Use when asked to create, produce, reconstruct, or write a review briefing/basis for an ns Objective, especially post-merge Objective review, closed Objective review, delivered-scope review, Objective archaeology, or materializing an Objective's delivered PR/commit set for arbitrary downstream review. Produces an objective-owned Branch Memory briefing and is read-only on Objective records."
+description: "Use when asked for an Objective retro/retrospective, post-merge or closed-Objective review of delivered scope, Objective archaeology, or reconstructing an Objective's delivered PR/commit set for downstream review (formerly objective-review-briefing). Two phases: reconstruct the delivered unit of work into a review-agnostic Branch Memory basis, then write a source-backed retrospective with findings and recommendations. Read-only on Objective records. For a branch/session retro use branch-retro."
 metadata:
   internal: true
 ---
 
-# objective-review-briefing
+# objective-retro
 
-Produce a durable, review-agnostic briefing for one ns Objective's delivered unit of work. The briefing is a basis for arbitrary downstream review prompts or skills; this skill does **not** run a review lens itself.
+Run a retrospective over one ns Objective's delivered unit of work, in two phases:
+
+1. **Evidence** — reconstruct the delivered PR/commit set and store a durable, review-agnostic basis in Branch Memory. The basis stands alone: any downstream review prompt or skill can consume it, and a user may ask for the basis only.
+2. **Judgment** — write a source-backed retrospective over that basis: findings, lessons, and actionable recommendations, aligned with `branch-retro`'s findings/recommendations shape.
 
 This is part of the Objective skill family. Use the `objective` umbrella for shared Objective vocabulary and selection rules when needed.
 
@@ -17,20 +20,23 @@ This is part of the Objective skill family. Use the `objective` umbrella for sha
 - **Read-only on Objective records.** Read `.ns/objectives/<slug>/` and `.ns/objective-archive/<slug>/`; never edit, create, move, archive, close, or update Objective files.
 - **No formal tooling changes.** Do not add `ns objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
 - **No roaster/handoff coupling.** Do not store in roaster or handoff namespaces and do not depend on their retention, runner, diff cap, review log, or artifact formats.
-- **Producer only.** Store a briefing that another review prompt can consume later. Do not turn the briefing into a finding set, approval gate, or merge gate.
+- **Basis stays review-agnostic.** The evidence-phase basis carries no quality claims, risk ratings, or recommendations; judgment lives only in the separate retro artifact. Neither artifact is an approval gate or merge gate.
 - **Advisory archaeology.** Post-merge git rarely preserves an Objective boundary. Report confidence and gaps instead of fabricating completeness.
 
-Stop if the user asks this workflow to mutate Objective records, become a handoff artifact, depend on roaster, or add first-class CLI/tooling. If the delivered PR/commit set cannot be reconstructed with reasonable confidence, still produce a low-confidence briefing with explicit gaps unless the user asked for an exact-only result.
+Stop if the user asks this workflow to mutate Objective records, become a handoff artifact, depend on roaster, or add first-class CLI/tooling. If the delivered PR/commit set cannot be reconstructed with reasonable confidence, still produce a low-confidence basis with explicit gaps unless the user asked for an exact-only result.
 
 ## Storage contract
 
 Use Branch Memory in the objective-owned namespace:
 
 ```text
-namespace: objective-review
+namespace: objective-retro
 basis key:  basis/<slug>/<YYYYMMDD-HHMMSSZ>.md
 digest key: digest/<slug>/<YYYYMMDD-HHMMSSZ>.md  # only when a digest is produced
+retro key:  retro/<slug>/<YYYYMMDD-HHMMSSZ>.md   # the judgment artifact
 ```
+
+(The retired `objective-review` namespace holds historical bases written before this skill's rename from `objective-review-briefing`; read it when looking for old artifacts, never write to it.)
 
 Branch Memory is branch-scoped; record the branch in the report and artifact. Default to the current branch unless the user explicitly names a storage branch. Use `brmem check` before `brmem put`; never overwrite an existing key unless the user explicitly requests replacement. Nested keys are valid for brmem.
 
@@ -146,7 +152,7 @@ Below the cutoff, the basis can point reviewers directly at the per-PR materiali
 Create a Markdown briefing with this shape:
 
 ````markdown
-# Objective Review Briefing: <slug>
+# Objective Retro Basis: <slug>
 
 ## Objective
 
@@ -193,9 +199,9 @@ Alternates and caveats:
 - <none; below cutoff>
 - or: `objective-review:digest/<slug>/<timestamp>.md`
 
-## How to Review From This Briefing
+## How to Review From This Basis
 
-Materialize the per-PR diffs above, then apply any review lens. Treat this briefing as the delivered-scope basis, not as findings or approval.
+Materialize the per-PR diffs above, then apply any review lens. Treat this basis as the delivered-scope evidence, not as findings or approval.
 ````
 
 Write with explicit branch and namespace:
@@ -207,14 +213,48 @@ brmem put "basis/<slug>/<timestamp>.md" --namespace objective-review --branch <b
 
 If a digest exists, check and put the digest key the same way.
 
-### 7. Report completion
+### 7. Write the retrospective
+
+Skip this phase only when the user explicitly asked for the basis alone.
+
+Materialize the per-PR diffs from the basis and read them alongside the Objective record (thesis, scope, completion criteria, roadmap, Semantic Updates). Then write the retro artifact — source-backed judgment over the delivered unit:
+
+```markdown
+# Objective Retro: <slug>
+
+## Basis
+
+- `objective-retro:basis/<slug>/<timestamp>.md` — confidence: <high|medium|low>
+
+## Findings
+
+- <finding> — Evidence: <PR/commit/file/update citation>
+
+## Scope vs thesis
+
+- Delivered scope vs the Objective's thesis and completion criteria: what shipped, what drifted, what was dropped — with citations.
+- Roadmap-vs-delivered gaps: rows claimed done without evidence, or delivered work no row covers.
+
+## What went well / what dragged
+
+- <observation tied to evidence: PR shape, slice sizing, rework, review friction, tracking hygiene>
+
+## Recommendations
+
+- <actionable recommendation, smallest useful change first>
+```
+
+Every finding and recommendation cites something read in the diffs, the Objective record, or PR evidence — a claim that could have been written without reading the basis does not count. No approval verdicts, no merge gates. Store it at the `retro/<slug>/<timestamp>.md` key with the same `brmem check` / `brmem put` discipline.
+
+### 8. Report completion
 
 Summarize:
 
 - Objective slug/title/closure state.
-- Branch Memory locator(s): namespace, key, branch, and Entry Locator/commit from `brmem put`.
+- Branch Memory locator(s): namespace, keys (basis, digest if any, retro if written), branch, and Entry Locator/commit from `brmem put`.
 - Reconstructed PR set and commit set.
 - Materialization strategy and whether a digest was stored.
+- Top findings and recommendations, or that the run was basis-only.
 - Overall confidence and explicit gaps.
 - Confirmation that Objective records were read-only.
 
