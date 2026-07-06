@@ -38,6 +38,50 @@ export interface GithubPrReviewComment {
 	readonly url?: string;
 }
 
+export interface GithubPrChangedFile {
+	readonly path: string;
+	readonly status: string;
+	readonly patch: string | null;
+}
+
+export interface GithubPrInlineCommentInput {
+	readonly path: string;
+	readonly line: number;
+	readonly body: string;
+}
+
+export interface GithubPrReviewCommentSummary {
+	readonly body: string;
+	readonly author: string;
+}
+
+export interface GithubPrRestReviewComment {
+	readonly id: number;
+	readonly reviewId: number | null;
+	readonly body: string;
+	readonly author: string;
+	readonly path: string;
+	readonly line: number | null;
+	readonly createdAt: string;
+	readonly updatedAt: string | null;
+	readonly inReplyToId: number | null;
+}
+
+export interface GithubPrRestReview {
+	readonly id: number;
+	readonly nodeId: string;
+	readonly state: string;
+	readonly submittedAt: string | null;
+	readonly commitId: string | null;
+	readonly author: string;
+}
+
+export interface GithubPrFeedbackRestFingerprintParts {
+	readonly discussionComments: readonly GithubPrDiscussionComment[];
+	readonly reviews: readonly GithubPrRestReview[];
+	readonly reviewComments: readonly GithubPrRestReviewComment[];
+}
+
 export interface GithubPrReviewThread {
 	readonly id: string;
 	readonly path: string;
@@ -53,6 +97,13 @@ export interface GithubPrDiscussionComment {
 	readonly body: string;
 	readonly author: string;
 	readonly url: string;
+	readonly createdAt?: string;
+	readonly updatedAt?: string;
+}
+
+export interface GithubPrDiscussionCommentUpsert {
+	readonly type: "created" | "updated";
+	readonly comment: GithubPrDiscussionComment;
 }
 
 export interface GithubReviewThreadReply {
@@ -96,7 +147,16 @@ export const githubPrFeedbackOperations = [
 	"listOpenPrs",
 	"getPrReviews",
 	"getPrReviewThreads",
+	"getPrChangedFiles",
+	"getPrReviewComments",
+	"createPrReview",
 	"getPrDiscussionComments",
+	"getPrIssueComments",
+	"findPrDiscussionCommentByMarker",
+	"addPrDiscussionComment",
+	"updatePrDiscussionComment",
+	"upsertPrDiscussionCommentByMarker",
+	"getPrRestFeedbackFingerprintParts",
 	"getPrChecks",
 	"getBranchPrChecks",
 	"replyToReviewThread",

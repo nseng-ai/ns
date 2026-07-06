@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
+import { withTemporaryJsonFile } from "../../kit/temp-files.ts";
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
 import {
@@ -11,14 +12,23 @@ import {
 import type { Result } from "@nseng-ai/foundation/result";
 
 import {
+	addPrDiscussionCommentRestArgs,
 	branchPrChecksArgs,
+	createPrReviewRestArgs,
 	discussionCommentPageArgs,
+	prChangedFilesRestArgs,
 	prChecksArgs,
+	prIssueCommentsFingerprintRestArgs,
+	prIssueCommentsRestArgs,
+	prReviewCommentsFingerprintRestArgs,
+	prReviewCommentsRestArgs,
+	prReviewsFingerprintRestArgs,
 	replyToReviewThreadArgs,
 	resolveReviewThreadArgs,
 	resolveReviewThreadsArgs,
 	reviewThreadCommentPageArgs,
 	reviewThreadPageArgs,
+	updatePrDiscussionCommentRestArgs,
 } from "./args.ts";
 import {
 	failureContextFields,
@@ -29,10 +39,14 @@ import {
 	feedbackOk,
 } from "./failures.ts";
 import {
+	normalizeChangedFile,
 	normalizeDiscussionComment,
 	normalizePrSummary,
+	normalizeRestReview,
+	normalizeRestReviewComment,
 	normalizeReview,
 	normalizeReviewComment,
+	normalizeReviewCommentSummary,
 	normalizeReviewThread,
 } from "./normalizers.ts";
 import {
@@ -43,13 +57,19 @@ import {
 } from "./parsing.ts";
 import {
 	ghBranchPrChecksResponseSchema,
+	ghChangedFilesResponseSchema,
 	ghDiscussionCommentsResponseSchema,
+	ghIssueCommentRestSchema,
+	ghIssueCommentsRestResponseSchema,
 	ghPrChecksResponseSchema,
 	type GhBranchPrChecksNode,
 	type GhBranchPrChecksResponse,
 	ghReplyReviewThreadResponseSchema,
 	ghResolveReviewThreadResponseSchema,
 	ghResolveReviewThreadsResponseSchema,
+	ghRestReviewsResponseSchema,
+	ghReviewCommentSummariesRestResponseSchema,
+	ghReviewCommentsRestResponseSchema,
 	ghReviewThreadCommentsResponseSchema,
 	type GhResolveReviewThreadsResponse,
 	ghReviewThreadsResponseSchema,
@@ -60,13 +80,18 @@ import {
 } from "./schemas.ts";
 import type {
 	GithubBranchPrChecksOutcome,
+	GithubPrChangedFile,
 	GithubPrDiscussionComment,
+	GithubPrDiscussionCommentUpsert,
 	GithubPrFeedbackCursorContextFields,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
+	GithubPrFeedbackRestFingerprintParts,
+	GithubPrInlineCommentInput,
 	GithubPrLookupOutcome,
 	GithubPrReview,
+	GithubPrReviewCommentSummary,
 	GithubPrReviewThread,
 	GithubPrSummary,
 	GithubReviewThreadReply,
@@ -200,6 +225,83 @@ export class RealGithubPrFeedbackGateway {
 		});
 	}
 
+	async getPrChangedFiles(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrChangedFile[], GithubPrFeedbackFailure>> {
+		const result = await this.runGhJson({
+			operation: "getPrChangedFiles",
+			args: prChangedFilesRestArgs(params.prNumber),
+			params,
+			schema: ghChangedFilesResponseSchema,
+			prNumber: params.prNumber,
+		});
+		if (!result.ok) return result;
+		return feedbackOk(result.value.map(normalizeChangedFile).filter((file) => file.path !== ""));
+	}
+
+	async getPrReviewComments(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrReviewCommentSummary[], GithubPrFeedbackFailure>> {
+		const result = await this.runGhJson({
+			operation: "getPrReviewComments",
+			args: prReviewCommentsRestArgs(params.prNumber),
+			params,
+			schema: ghReviewCommentSummariesRestResponseSchema,
+			prNumber: params.prNumber,
+		});
+		if (!result.ok) return result;
+		return feedbackOk(result.value.map(normalizeReviewCommentSummary));
+	}
+
+	async createPrReview(
+		params: GithubPrFeedbackOptions & {
+			readonly prNumber: number;
+			readonly comments: readonly GithubPrInlineCommentInput[];
+		},
+	): Promise<Result<void, GithubPrFeedbackFailure>> {
+		return await withTemporaryJsonFile(
+			{
+				prefix: "github-pr-feedback-review-",
+				value: {
+					event: "COMMENT",
+					comments: params.comments.map((comment) => ({
+						path: comment.path,
+						line: comment.line,
+						body: comment.body,
+					})),
+				},
+			},
+			async (inputPath) => {
+				const run = await this.runGh({
+					operation: "createPrReview",
+					args: createPrReviewRestArgs(params.prNumber, inputPath),
+					params,
+				});
+				if (run.type === "startup_error")
+					return feedbackErr(failureFromStartup(run, "createPrReview"));
+				if (run.result.code !== 0 || run.result.killed)
+					return feedbackErr(
+						failureFromCompleted(run, "createPrReview", { prNumber: params.prNumber }),
+					);
+				return feedbackOk(undefined);
+			},
+		);
+	}
+
+	async getPrIssueComments(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number; readonly sinceIso?: string },
+	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>> {
+		const result = await this.runGhJson({
+			operation: "getPrIssueComments",
+			args: prIssueCommentsRestArgs(params.prNumber, params.sinceIso),
+			params,
+			schema: ghIssueCommentsRestResponseSchema,
+			prNumber: params.prNumber,
+		});
+		if (!result.ok) return result;
+		return feedbackOk(result.value.map(normalizeDiscussionComment));
+	}
+
 	async getPrDiscussionComments(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>> {
@@ -217,6 +319,102 @@ export class RealGithubPrFeedbackGateway {
 			connectionFromResponse: (response) =>
 				feedbackOk(response.data.repository.pullRequest.comments),
 			mapNode: (comment) => feedbackOk(normalizeDiscussionComment(comment)),
+		});
+	}
+
+	async findPrDiscussionCommentByMarker(
+		params: GithubPrFeedbackOptions & {
+			readonly prNumber: number;
+			readonly marker: string;
+			readonly authorLogin: string;
+		},
+	): Promise<Result<GithubPrDiscussionComment | null, GithubPrFeedbackFailure>> {
+		const comments = await this.getPrIssueComments(params);
+		if (!comments.ok) return comments;
+		return feedbackOk(
+			comments.value.find(
+				(comment) => comment.author === params.authorLogin && comment.body.includes(params.marker),
+			) ?? null,
+		);
+	}
+
+	async addPrDiscussionComment(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number; readonly body: string },
+	): Promise<Result<GithubPrDiscussionComment, GithubPrFeedbackFailure>> {
+		return await this.runDiscussionMutation({
+			operation: "addPrDiscussionComment",
+			args: addPrDiscussionCommentRestArgs(params.prNumber, params.body),
+			params,
+			prNumber: params.prNumber,
+		});
+	}
+
+	async updatePrDiscussionComment(
+		params: GithubPrFeedbackOptions & { readonly commentId: number; readonly body: string },
+	): Promise<Result<GithubPrDiscussionComment, GithubPrFeedbackFailure>> {
+		return await this.runDiscussionMutation({
+			operation: "updatePrDiscussionComment",
+			args: updatePrDiscussionCommentRestArgs(params.commentId, params.body),
+			params,
+		});
+	}
+
+	async upsertPrDiscussionCommentByMarker(
+		params: GithubPrFeedbackOptions & {
+			readonly prNumber: number;
+			readonly marker: string;
+			readonly authorLogin: string;
+			readonly body: string;
+		},
+	): Promise<Result<GithubPrDiscussionCommentUpsert, GithubPrFeedbackFailure>> {
+		const existing = await this.findPrDiscussionCommentByMarker(params);
+		if (!existing.ok) return existing;
+		if (existing.value === null) {
+			const created = await this.addPrDiscussionComment(params);
+			if (!created.ok) return created;
+			return feedbackOk({ type: "created", comment: created.value });
+		}
+		const updated = await this.updatePrDiscussionComment({
+			...params,
+			commentId: existing.value.id,
+		});
+		if (!updated.ok) return updated;
+		return feedbackOk({ type: "updated", comment: updated.value });
+	}
+
+	async getPrRestFeedbackFingerprintParts(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number; readonly sinceIso?: string },
+	): Promise<Result<GithubPrFeedbackRestFingerprintParts, GithubPrFeedbackFailure>> {
+		const [discussionComments, reviews, reviewComments] = await Promise.all([
+			this.runGhJson({
+				operation: "getPrRestFeedbackFingerprintParts",
+				args: prIssueCommentsFingerprintRestArgs(params.prNumber, params.sinceIso),
+				params,
+				schema: ghIssueCommentsRestResponseSchema,
+				prNumber: params.prNumber,
+			}),
+			this.runGhJson({
+				operation: "getPrRestFeedbackFingerprintParts",
+				args: prReviewsFingerprintRestArgs(params.prNumber),
+				params,
+				schema: ghRestReviewsResponseSchema,
+				prNumber: params.prNumber,
+			}),
+			this.runGhJson({
+				operation: "getPrRestFeedbackFingerprintParts",
+				args: prReviewCommentsFingerprintRestArgs(params.prNumber, params.sinceIso),
+				params,
+				schema: ghReviewCommentsRestResponseSchema,
+				prNumber: params.prNumber,
+			}),
+		]);
+		if (!discussionComments.ok) return discussionComments;
+		if (!reviews.ok) return reviews;
+		if (!reviewComments.ok) return reviewComments;
+		return feedbackOk({
+			discussionComments: discussionComments.value.map(normalizeDiscussionComment),
+			reviews: reviews.value.map(normalizeRestReview),
+			reviewComments: reviewComments.value.map(normalizeRestReviewComment),
 		});
 	}
 
@@ -524,6 +722,23 @@ export class RealGithubPrFeedbackGateway {
 			isFirstFetch = false;
 		}
 		return feedbackOk(items);
+	}
+
+	private async runDiscussionMutation(options: {
+		readonly operation: "addPrDiscussionComment" | "updatePrDiscussionComment";
+		readonly args: readonly string[];
+		readonly params: GithubPrFeedbackOptions;
+		readonly prNumber?: number;
+	}): Promise<Result<GithubPrDiscussionComment, GithubPrFeedbackFailure>> {
+		const result = await this.runGhJson({
+			operation: options.operation,
+			args: options.args,
+			params: options.params,
+			schema: ghIssueCommentRestSchema,
+			...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
+		});
+		if (!result.ok) return result;
+		return feedbackOk(normalizeDiscussionComment(result.value));
 	}
 
 	private async runGhJson<T>(

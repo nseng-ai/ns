@@ -111,9 +111,83 @@ export const ghDiscussionCommentSchema = z
 		user: ghAuthorSchema.optional(),
 		url: z.string(),
 		html_url: z.string().optional(),
+		created_at: z.string().optional(),
+		updated_at: z.string().optional(),
 	})
 	.loose()
 	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
+
+export const ghIssueCommentRestSchema = z
+	.object({
+		databaseId: z.number().int().positive().optional(),
+		id: z.union([z.number().int().positive(), z.string()]).optional(),
+		body: z.string().default(""),
+		author: ghAuthorSchema.optional(),
+		user: ghAuthorSchema.optional(),
+		url: z.string().optional(),
+		html_url: z.string().optional(),
+		created_at: z.string().optional(),
+		updated_at: z.string().optional(),
+	})
+	.loose()
+	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
+
+export const ghChangedFileSchema = z
+	.object({
+		filename: z.string().optional(),
+		path: z.string().optional(),
+		status: z.string().default("modified"),
+		patch: z.string().nullable().optional(),
+	})
+	.loose();
+
+export const ghReviewCommentSummaryRestSchema = z
+	.object({
+		body: z.string().default(""),
+		author: ghAuthorSchema.optional(),
+		user: ghAuthorSchema.optional(),
+	})
+	.loose();
+
+export const ghReviewCommentRestSchema = z
+	.object({
+		id: z.union([z.number().int().positive(), z.string()]).optional(),
+		databaseId: z.number().int().positive().optional(),
+		pull_request_review_id: z
+			.union([z.number().int().positive(), z.string()])
+			.nullable()
+			.optional(),
+		body: z.string().default(""),
+		author: ghAuthorSchema.optional(),
+		user: ghAuthorSchema.optional(),
+		path: z.string().default(""),
+		line: z.number().int().nullable().optional(),
+		created_at: z.string().optional(),
+		updated_at: z.string().nullable().optional(),
+		in_reply_to_id: z.union([z.number().int().positive(), z.string()]).nullable().optional(),
+	})
+	.loose()
+	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Review comment"));
+
+export const ghRestReviewSchema = z
+	.object({
+		id: z.union([z.number().int().positive(), z.string()]).optional(),
+		databaseId: z.number().int().positive().optional(),
+		node_id: z.string().default(""),
+		state: z.string().default(""),
+		submitted_at: z.string().nullable().optional(),
+		commit_id: z.string().nullable().optional(),
+		author: ghAuthorSchema.optional(),
+		user: ghAuthorSchema.optional(),
+	})
+	.loose()
+	.transform((review, ctx) => withNumericGithubIdentity(review, ctx, "Review"));
+
+export const ghChangedFilesResponseSchema = z.array(ghChangedFileSchema);
+export const ghReviewCommentSummariesRestResponseSchema = z.array(ghReviewCommentSummaryRestSchema);
+export const ghReviewCommentsRestResponseSchema = z.array(ghReviewCommentRestSchema);
+export const ghIssueCommentsRestResponseSchema = z.array(ghIssueCommentRestSchema);
+export const ghRestReviewsResponseSchema = z.array(ghRestReviewSchema);
 
 export const ghDiscussionCommentConnectionSchema = z
 	.object({

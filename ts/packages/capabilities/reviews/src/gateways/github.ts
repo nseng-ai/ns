@@ -1,21 +1,10 @@
+import { type CommandExecApi, execApiToCommandRunner } from "@nseng-ai/foundation/command";
 import {
-	type CommandExecApi,
-	commandFailureReason,
-	execApiToCommandRunner,
-} from "@nseng-ai/foundation/command";
-import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
-import {
-	ghAuthorSchema,
-	normalizeAuthor,
-	parseGithubJson,
 	RealGithubPrFeedbackGateway,
-	withNumericGithubIdentity,
 	type GithubPrFeedbackFailure,
 	type GithubPrReviewThread,
 } from "@nseng-ai/capability-kit/github/pr-feedback";
-import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { withTemporaryJsonFile } from "@nseng-ai/capability-kit/temp-files";
-import { z } from "zod";
+import { type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../core/failures.ts";
 import type {
@@ -25,32 +14,6 @@ import type {
 	PRReviewComment,
 } from "../core/models.ts";
 import { ROASTER_BOT_LOGIN } from "../core/roaster-bot.ts";
-
-const ghChangedFileSchema = z
-	.object({
-		filename: z.string().optional(),
-		path: z.string().optional(),
-		status: z.string().default("modified"),
-		patch: z.string().nullable().optional(),
-	})
-	.loose();
-const ghReviewCommentSchema = z
-	.object({
-		body: z.string().default(""),
-		author: ghAuthorSchema.optional(),
-		user: ghAuthorSchema.optional(),
-	})
-	.loose();
-const ghDiscussionCommentSchema = z
-	.object({
-		id: z.union([z.number().int(), z.string()]).optional(),
-		databaseId: z.number().int().optional(),
-		body: z.string().default(""),
-		author: ghAuthorSchema.optional(),
-		user: ghAuthorSchema.optional(),
-	})
-	.loose()
-	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
 
 export interface GitHubGatewayOptions {
 	readonly cwd: string;
@@ -98,11 +61,9 @@ export interface RoasterGitHubGateway {
 }
 
 export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
-	private readonly execApi: CommandExecApi;
 	private readonly feedback: RealGithubPrFeedbackGateway;
 
 	constructor(execApi: CommandExecApi) {
-		this.execApi = execApi;
 		this.feedback = new RealGithubPrFeedbackGateway(execApiToCommandRunner(execApi));
 	}
 
@@ -110,46 +71,20 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		prNumber: number,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRChangedFile[]>> {
-		const args = ["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/files`];
-		const result = await this.runGh(args, options);
-		if (result.type === "error") return result;
-		const parsed = parseJson(
-			result.value.stdout,
-			z.array(ghChangedFileSchema),
-			"list PR changed files",
-		);
-		if (parsed.type === "error") return parsed;
-		return {
-			type: "ok",
-			value: parsed.value
-				.map((file) => ({
-					path: file.filename ?? file.path ?? "",
-					status: file.status,
-					patch: file.patch ?? null,
-				}))
-				.filter((file) => file.path !== ""),
-		};
+		const result = await this.feedback.getPrChangedFiles({ ...options, prNumber });
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
+		return { type: "ok", value: result.value.map(copyChangedFile) };
 	}
 
 	async getPrReviewComments(
 		prNumber: number,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRReviewComment[]>> {
-		const args = ["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/comments`];
-		const result = await this.runGh(args, options);
-		if (result.type === "error") return result;
-		const parsed = parseJson(
-			result.value.stdout,
-			z.array(ghReviewCommentSchema),
-			"list PR review comments",
-		);
-		if (parsed.type === "error") return parsed;
+		const result = await this.feedback.getPrReviewComments({ ...options, prNumber });
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
 		return {
 			type: "ok",
-			value: parsed.value.map((comment) => ({
-				author: normalizeAuthor(comment.user ?? comment.author ?? null),
-				body: comment.body,
-			})),
+			value: result.value.map((comment) => ({ author: comment.author, body: comment.body })),
 		};
 	}
 
@@ -161,7 +96,7 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 			...options,
 			prNumber,
 		});
-		if (!result.ok) return error(convertFeedbackFailure(result.error));
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
 		return { type: "ok", value: result.value };
 	}
 
@@ -170,43 +105,20 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		comments: readonly PRInlineCommentInput[],
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<void>> {
-		return await withTemporaryJsonFile(
-			{
-				prefix: "roaster-gh-",
-				value: {
-					event: "COMMENT",
-					comments: comments.map((comment) => ({
-						path: comment.path,
-						line: comment.line,
-						body: comment.body,
-					})),
-				},
-			},
-			async (inputPath) => {
-				const args = [
-					"api",
-					"--method",
-					"POST",
-					`repos/{owner}/{repo}/pulls/${prNumber}/reviews`,
-					"--input",
-					inputPath,
-				];
-				const result = await this.runGh(args, options);
-				if (result.type === "error") return result;
-				return { type: "ok", value: undefined };
-			},
-		);
+		const result = await this.feedback.createPrReview({ ...options, prNumber, comments });
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
+		return { type: "ok", value: undefined };
 	}
 
 	async findPrDiscussionCommentByMarker(
 		options: FindPrDiscussionCommentByMarkerOptions,
 	): Promise<RoasterResult<PRDiscussionComment | null>> {
-		const comments = await this.getIssueComments(options.prNumber, options);
-		if (comments.type === "error") return comments;
-		const comment = comments.value.find(
-			(item) => item.author === options.authorLogin && item.body.includes(options.marker),
-		);
-		return { type: "ok", value: comment === undefined ? null : publicDiscussionComment(comment) };
+		const result = await this.feedback.findPrDiscussionCommentByMarker(options);
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
+		return {
+			type: "ok",
+			value: result.value === null ? null : publicDiscussionComment(result.value),
+		};
 	}
 
 	async addPrDiscussionComment(
@@ -214,15 +126,9 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		body: string,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const args = [
-			"api",
-			"--method",
-			"POST",
-			`repos/{owner}/{repo}/issues/${prNumber}/comments`,
-			"-f",
-			`body=${body}`,
-		];
-		return await this.runDiscussionMutation(args, options);
+		const result = await this.feedback.addPrDiscussionComment({ ...options, prNumber, body });
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
+		return { type: "ok", value: publicDiscussionComment(result.value) };
 	}
 
 	async updatePrDiscussionComment(
@@ -230,76 +136,9 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		body: string,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const args = [
-			"api",
-			"--method",
-			"PATCH",
-			`repos/{owner}/{repo}/issues/comments/${commentId}`,
-			"-f",
-			`body=${body}`,
-		];
-		return await this.runDiscussionMutation(args, options);
-	}
-
-	private async getIssueComments(
-		prNumber: number,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<readonly AuthoredDiscussionComment[]>> {
-		const args = ["api", "--paginate", `repos/{owner}/{repo}/issues/${prNumber}/comments`];
-		const result = await this.runGh(args, options);
-		if (result.type === "error") return result;
-		const parsed = parseJson(
-			result.value.stdout,
-			z.array(ghDiscussionCommentSchema),
-			"list PR discussion comments",
-		);
-		if (parsed.type === "error") return parsed;
-		return {
-			type: "ok",
-			value: parsed.value.map(normalizeDiscussionComment),
-		};
-	}
-
-	private async runDiscussionMutation(
-		args: readonly string[],
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<PRDiscussionComment>> {
-		const result = await this.runGh(args, options);
-		if (result.type === "error") return result;
-		const parsed = parseJson(
-			result.value.stdout,
-			ghDiscussionCommentSchema,
-			"mutate PR discussion comment",
-		);
-		if (parsed.type === "error") return parsed;
-		return { type: "ok", value: publicDiscussionComment(normalizeDiscussionComment(parsed.value)) };
-	}
-
-	private async runGh(
-		args: readonly string[],
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<{ readonly stdout: string }>> {
-		const run = await runGitHubCli({
-			runner: execApiToCommandRunner(this.execApi),
-			args,
-			cwd: options.cwd,
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.signal === undefined ? {} : { signal: options.signal }),
-		});
-		if (run.type === "startup_error") {
-			return error({
-				type: "github-cli-failed",
-				message: `${run.displayCommand} failed to start in ${options.cwd}: ${run.message}`,
-			});
-		}
-		const result = run.result;
-		if (result.code !== 0 || result.killed) {
-			return error({
-				type: "github-cli-failed",
-				message: `${run.displayCommand} failed in ${options.cwd}: ${commandFailureReason(result)}`,
-			});
-		}
-		return { type: "ok", value: { stdout: result.stdout } };
+		const result = await this.feedback.updatePrDiscussionComment({ ...options, commentId, body });
+		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
+		return { type: "ok", value: publicDiscussionComment(result.value) };
 	}
 }
 
@@ -446,40 +285,45 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 	}
 }
 
-function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): RoasterResult<T> {
-	const result = parseGithubJson(text, schema);
-	if (result.type === "parse-error")
-		return error({
-			type: "github-json-invalid",
-			message: `GitHub response for ${operation} is not valid JSON: ${formatErrorMessage(result.error)}`,
-		});
-	if (result.type === "schema-error")
-		return error({
-			type: "github-response-invalid",
-			message: `GitHub response for ${operation} did not match the expected shape: ${z.prettifyError(result.error)}`,
-		});
-	return { type: "ok", value: result.value };
-}
-
 type AuthoredDiscussionComment = PRDiscussionComment & { readonly author: string };
 
-function normalizeDiscussionComment(
-	comment: z.infer<typeof ghDiscussionCommentSchema>,
-): AuthoredDiscussionComment {
-	return {
-		id: comment.numericId,
-		body: comment.body,
-		author: normalizeAuthor(comment.user ?? comment.author ?? null),
-	};
-}
-
-function convertFeedbackFailure(failure: GithubPrFeedbackFailure): GitHubGatewayFailure {
+function convertFeedbackFailure(
+	failure: GithubPrFeedbackFailure,
+	cwd: string | undefined,
+): GitHubGatewayFailure {
 	const displayCommand = failure.displayCommand ?? failure.details?.displayCommand;
+	const location = cwd === undefined ? "" : ` in ${cwd}`;
+	const operation = roasterOperationLabel(failure);
+	const message =
+		failure.code === "github_pr_feedback_response_invalid"
+			? `did not match the expected shape: ${failure.message}`
+			: failure.message;
 	return {
 		type: githubFailureTypeForFeedbackFailure(failure),
 		message:
-			displayCommand === undefined ? failure.message : `${failure.message} (${displayCommand})`,
+			displayCommand === undefined
+				? `GitHub response for ${operation}: ${message}${location}`
+				: `GitHub response for ${operation}: ${message} (${displayCommand})${location}`,
 	};
+}
+
+function roasterOperationLabel(failure: GithubPrFeedbackFailure): string {
+	switch (failure.details?.operation) {
+		case "getPrChangedFiles":
+			return "list PR changed files";
+		case "getPrReviewComments":
+			return "list PR review comments";
+		case "getPrIssueComments":
+		case "findPrDiscussionCommentByMarker":
+			return "list PR discussion comments";
+		case "addPrDiscussionComment":
+		case "updatePrDiscussionComment":
+			return "mutate PR discussion comment";
+		case "createPrReview":
+			return "create PR review";
+		default:
+			return failure.details?.operation ?? "GitHub PR feedback";
+	}
 }
 
 function githubFailureTypeForFeedbackFailure(

@@ -1,5 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { githubPrIdentityFromUrl } from "@nseng-ai/capability-kit/github/identity";
+import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
+import type { CommandRunner } from "@nseng-ai/foundation/exec";
 
 import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
 import { loadGhCommand } from "@nseng-ai/pi/shared/gh-command";
@@ -33,14 +35,6 @@ interface LoadPrCheckSummaryOptions {
 	signal?: AbortSignal;
 }
 
-interface GhApiJsonOptions {
-	pi: ExecGateway;
-	cwd: string;
-	endpoint: string;
-	jq: string;
-	signal?: AbortSignal;
-}
-
 interface GhJsonCommandOptions {
 	pi: ExecGateway;
 	cwd: string;
@@ -51,7 +45,6 @@ interface GhJsonCommandOptions {
 }
 
 type GhJsonCommandResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
-type GhApiJsonResult = GhJsonCommandResult;
 
 export function parseGitHubPullRequestUrl(
 	url: string | undefined,
@@ -130,68 +123,49 @@ export async function loadRestFingerprint(
 	{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }
 > {
 	const { pi, cwd, identity, sinceIso, signal } = options;
-	const discussionEndpoint = discussionCommentsEndpoint(identity, sinceIso);
-	const reviewsEndpointValue = reviewsEndpoint(identity);
-	const reviewCommentsEndpointValue = reviewCommentsEndpoint(identity, sinceIso);
-	const [discussionResult, reviewsResult, reviewCommentsResult] = await Promise.allSettled([
-		ghApiJson({
-			pi,
-			cwd,
-			endpoint: discussionEndpoint,
-			jq: "[.[] | {id, created_at, updated_at, author: .user.login}]",
-			...optionalEntry("signal", signal),
-		}),
-		ghApiJson({
-			pi,
-			cwd,
-			endpoint: reviewsEndpointValue,
-			jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]",
-			...optionalEntry("signal", signal),
-		}),
-		ghApiJson({
-			pi,
-			cwd,
-			endpoint: reviewCommentsEndpointValue,
-			jq: "[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
-			...optionalEntry("signal", signal),
-		}),
-	]);
-	const discussion = settledGhApiJsonResult(discussionResult, discussionEndpoint);
-	const reviews = settledGhApiJsonResult(reviewsResult, reviewsEndpointValue);
-	const reviewComments = settledGhApiJsonResult(reviewCommentsResult, reviewCommentsEndpointValue);
-	if (discussion.type === "failed") return discussion;
-	if (reviews.type === "failed") return reviews;
-	if (reviewComments.type === "failed") return reviewComments;
+	const gateway = new RealGithubPrFeedbackGateway(execGatewayToCommandRunner(pi));
+	const result = await gateway.getPrRestFeedbackFingerprintParts({
+		cwd,
+		prNumber: identity.number,
+		...optionalEntry("sinceIso", sinceIso),
+		...optionalEntry("signal", signal),
+	});
+	if (!result.ok) return { type: "failed", message: feedbackFailureMessage(result.error.message) };
 	return {
 		type: "loaded",
 		fingerprint: buildFeedbackFingerprint([
-			...parseDiscussionCommentFingerprint(discussion.value),
-			...parseReviewFingerprint(reviews.value),
-			...parseReviewCommentFingerprint(reviewComments.value),
+			...parseDiscussionCommentFingerprint(
+				result.value.discussionComments.map((comment) => ({
+					id: comment.id,
+					created_at: comment.createdAt,
+					updated_at: comment.updatedAt,
+					author: comment.author,
+				})),
+			),
+			...parseReviewFingerprint(
+				result.value.reviews.map((review) => ({
+					id: review.id,
+					node_id: review.nodeId,
+					state: review.state,
+					submitted_at: review.submittedAt,
+					commit_id: review.commitId,
+					author: review.author,
+				})),
+			),
+			...parseReviewCommentFingerprint(
+				result.value.reviewComments.map((comment) => ({
+					id: comment.id,
+					pull_request_review_id: comment.reviewId,
+					created_at: comment.createdAt,
+					updated_at: comment.updatedAt,
+					path: comment.path,
+					line: comment.line,
+					in_reply_to_id: comment.inReplyToId,
+					author: comment.author,
+				})),
+			),
 		]),
 	};
-}
-
-function settledGhApiJsonResult(
-	result: PromiseSettledResult<GhApiJsonResult>,
-	endpoint: string,
-): GhApiJsonResult {
-	if (result.status === "fulfilled") return result.value;
-	return {
-		type: "failed",
-		message: `gh api failed for ${endpoint}: ${formatUnknownError(result.reason)}`,
-	};
-}
-
-async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
-	const { pi, cwd, endpoint, jq, signal } = options;
-	return ghJsonCommand({
-		pi,
-		cwd,
-		args: ["api", "--method", "GET", endpoint, "--jq", jq],
-		label: `gh api for ${endpoint}`,
-		...optionalEntry("signal", signal),
-	});
 }
 
 async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonCommandResult> {
@@ -214,46 +188,20 @@ async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonComma
 	}
 }
 
-function formatUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
+function execGatewayToCommandRunner(pi: ExecGateway): CommandRunner {
+	return async (command, args, options = {}) => {
+		const result = await pi.exec(command, [...args], options);
+		return {
+			stdout: result.stdout,
+			stderr: result.stderr,
+			code: result.code,
+			killed: result.killed ?? false,
+		};
+	};
 }
 
-function discussionCommentsEndpoint(
-	identity: PrFeedbackWatchGithubPrIdentity,
-	sinceIso: string | undefined,
-): string {
-	return buildGitHubRestEndpoint(
-		`repos/${identity.owner}/${identity.repo}/issues/${identity.number}/comments`,
-		{ per_page: 100, since: sinceIso },
-	);
-}
-
-function reviewsEndpoint(identity: PrFeedbackWatchGithubPrIdentity): string {
-	return buildGitHubRestEndpoint(
-		`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/reviews`,
-		{ per_page: 100 },
-	);
-}
-
-function reviewCommentsEndpoint(
-	identity: PrFeedbackWatchGithubPrIdentity,
-	sinceIso: string | undefined,
-): string {
-	return buildGitHubRestEndpoint(
-		`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/comments`,
-		{ per_page: 100, sort: "updated", direction: "desc", since: sinceIso },
-	);
-}
-
-function buildGitHubRestEndpoint(
-	path: string,
-	params: Record<string, string | number | undefined>,
-): string {
-	const search = new URLSearchParams();
-	for (const [key, value] of Object.entries(params)) {
-		if (value !== undefined) search.set(key, String(value));
-	}
-	return search.size === 0 ? path : `${path}?${search.toString()}`;
+function feedbackFailureMessage(message: string): string {
+	return `gh api failed: ${message}`;
 }
 
 export function skewIso(iso: string): string {
