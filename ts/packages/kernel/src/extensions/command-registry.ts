@@ -9,6 +9,7 @@ import {
 	type NsResult,
 } from "../sdk/index.ts";
 
+import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "global" | "project";
@@ -45,7 +46,7 @@ export interface BuiltInNsCommandCandidate extends NsCommandCandidate {
 	command: NsCommand;
 }
 
-export interface BuiltInCommandDefinition {
+export interface BuiltInCommandDefinition extends Partial<NsCommandPath> {
 	command: NsCommand;
 	summary: string;
 	description: string;
@@ -54,7 +55,24 @@ export interface BuiltInCommandDefinition {
 export const NS_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 export const NS_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
 
-export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {};
+export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {
+	"extension/point": {
+		name: "point",
+		segments: ["extension", "point"],
+		groupDescription: "Inspect ns extension metadata.",
+		command: extensionPointCommand,
+		summary: extensionPointCommand.summary,
+		description: extensionPointCommand.description,
+	},
+	"extension/points": {
+		name: "points",
+		segments: ["extension", "points"],
+		groupDescription: "Inspect ns extension metadata.",
+		command: extensionPointsCommand,
+		summary: extensionPointsCommand.summary,
+		description: extensionPointsCommand.description,
+	},
+};
 
 const nsCommandSchema = z.object({
 	name: z.string(),
@@ -109,7 +127,12 @@ export function commandPathMatches(left: NsCommandPath, right: NsCommandPath): b
 export function listBuiltInNsCommandCandidates(): BuiltInNsCommandCandidate[] {
 	return Object.entries(builtInCommandDefinitions)
 		.map(([name, definition]) => ({
-			name,
+			name: definition.name ?? name,
+			...(definition.group === undefined ? {} : { group: definition.group }),
+			...(definition.segments === undefined ? {} : { segments: definition.segments }),
+			...(definition.groupDescription === undefined
+				? {}
+				: { groupDescription: definition.groupDescription }),
 			description: definition.summary,
 			fullDescription: definition.description,
 			source: { level: "built-in" as const, label: `built-in command ${name}` },

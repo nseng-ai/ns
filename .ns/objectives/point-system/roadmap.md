@@ -46,9 +46,12 @@
     migrates ns-init harness settings onto the kernel loader, removes ns-init's direct
     `smol-toml` dependency, and a targeted predecessor scan finds no remaining direct
     `smol-toml` imports/dependencies in the four retired config surfaces.
-- [ ] CLI: `ns extension points` (catalog) and `ns extension point <id>` (detail) under
+- [x] CLI: `ns extension points` (catalog) and `ns extension point <id>` (detail) under
       the `ns extension` group, per `skills/ns-cli-design` conventions.
-  - Evidence: CLI scenario tests including `--format` machine output.
+  - Evidence: local branch `point-system/extension-points-cli` commit `7fd234cec`
+    adds read-only built-in Clinkr commands with typed result schemas, human/JSON output,
+    detail lookup, diagnostics/source reporting, help/runtime/version/json-schema scenario
+    coverage, and a successful smoke run against this repo's configuration.
 - [ ] Graduate `brief.md`: author the ADR, add CONTEXT.md vocabulary (point, hook, prompt,
       install, define, point catalog), re-derive or retire this objective's `orientation.md`.
   - Policy: steer first — ADR/CONTEXT edits are decision-bearing; confirm wording with the user.
