@@ -20,6 +20,8 @@ export type {
 } from "./skill-materializer.ts";
 export { ALL_HARNESS_IDS } from "./skill-materializer.ts";
 export { pendingBundleSkillMaterializer } from "./pending-bundle-skill-materializer.ts";
+export type { RealSkillMaterializerOptions } from "./real-skill-materializer.ts";
+export { RealSkillMaterializer } from "./real-skill-materializer.ts";
 export type {
 	ApplyObjectiveInstructionBlockResult,
 	EnsureClaudeAgentsImportResult,

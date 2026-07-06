@@ -329,6 +329,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/harness-artifacts':
+        specifier: workspace:*
+        version: link:../harness-artifacts
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
