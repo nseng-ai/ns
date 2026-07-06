@@ -34,6 +34,9 @@ stack is a desirable bonus, not a requirement.
   path (no new durable findings artifact or retrieval command for this slice).
 - Live inline progress rendering for the fan-out (per-task status rows, tool activity,
   done/running counts).
+- Extraction/shipping of the dogfooded capability as a properly formed Pi extension
+  package named `ns-pi-subagents`, rather than leaving it only as this repo's
+  `.pi/extensions/` shim over internal code.
 - Non-blocking follow-on slices: fleet widget + transcript viewer, an in-process
   (`createAgentSession`) runtime adapter for context-forking use cases, and
   consolidation of the existing runner-subagent stack onto the chosen substrate.
@@ -59,6 +62,9 @@ stack is a desirable bonus, not a requirement.
   32k total) plus child Pi session-file pointers for overflow/debug inspection.
 - The fan-out renders live inline progress: per-task status icons, recent tool activity,
   and a done/running counter.
+- The dogfooded implementation is packaged as `ns-pi-subagents`, a properly formed Pi
+  extension package with a clean install/registration surface and no reliance on a
+  repo-local shim for normal use.
 - The adopt-vs-build decision is recorded as an update with per-candidate rationale
   against the priorities (maintenance burden, prompt/UX control, subsumption potential).
 
@@ -132,3 +138,5 @@ Risks:
   adapters).
 - Whether `/investigate` (in-process today, with a recorded parity gap vs Claude Code's
   out-of-process investigator) should migrate onto the explore substrate.
+- The exact package boundary for `ns-pi-subagents`: whether it remains an ns-internal
+  workspace package first or is prepared for external distribution immediately.

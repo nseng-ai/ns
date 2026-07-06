@@ -71,12 +71,20 @@
       carries the workstation-specific home-root rule. This is not a capability
       sandbox or extension-equivalent guard. Evidence:
       `updates/2026-07-05-explorer-local-policy-decision.md`.
-- [ ] Dogfood in real ns work and tune the tool description and scout contract from
+- [~] Dogfood in real ns work and tune the tool description and scout contract from
       observed transcripts. Unblocked by the local-policy decision above; use the
       root `AGENTS.local.md` convention during dogfood and record whether
       prompt-level scope guidance is sufficient.
       Evidence: at least one real task completed using explore fan-out, with prompt
-      adjustments captured as an update.
+      adjustments captured as an update. Human dogfooding feedback on 2026-07-05:
+      the current explore behavior is useful enough to proceed toward packaging.
+- [ ] Create `ns-pi-subagents` as a properly formed Pi extension package for the
+      dogfooded explore/subagent capability. Preserve the engineered implementation's
+      tested core while replacing repo-local extension-shim assumptions with a clean
+      package boundary, install/registration surface, and package-level docs.
+      Evidence: package exists in the workspace with tests and clear Pi extension
+      entrypoint/docs; normal use no longer depends on copying this checkout's
+      `.pi/extensions/explore.ts` shim.
 - [ ] Fleet widget and transcript viewer (monitoring layers 2–3): persistent live list
       of background/running explorers plus drill-in transcript view backed by on-disk
       session JSONL. Non-blocking for completion.
