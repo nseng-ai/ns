@@ -1,11 +1,17 @@
+import { parseProjectConfigToml } from "@nseng-ai/kernel/project-config/points";
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { err, type Result } from "@nseng-ai/foundation/result";
-import { parse } from "smol-toml";
+import { z } from "zod";
 
 import type { AregTextFileState } from "../gateways.ts";
 import { rejectTextState } from "./file-state.ts";
 
 export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
+
+const aregSettingsSchema = {
+	path: ["areg"] as const,
+	schema: z.object({ agents: z.array(z.string().min(1)).optional() }),
+};
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
@@ -23,35 +29,24 @@ export function resolveProjectAgents(input: {
 }
 
 export function parseNsAregAgents(text: string, pathLabel = "ns.toml"): Result<string[]> {
-	let data: unknown;
-	try {
-		data = parse(text);
-	} catch (error) {
+	const result = parseProjectConfigToml(text, {
+		pathLabel,
+		settingsSchemas: [aregSettingsSchema],
+	});
+	if (!result.ok) {
+		const diagnostic = result.diagnostics.find((candidate) => candidate.severity === "error");
 		return err({
 			code: "ns_toml_invalid",
-			message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
+			message:
+				diagnostic?.code === "settings_table_invalid" && diagnostic.path === "areg"
+					? `${pathLabel} [areg].agents must be a non-empty string list.`
+					: (diagnostic?.message ?? `${pathLabel}: invalid ns.toml`),
 		});
 	}
-	if (!isRecord(data)) return { ok: true, value: [] };
-	const areg = data.areg;
-	if (areg === undefined) return { ok: true, value: [] };
-	if (!isRecord(areg))
-		return err({
-			code: "ns_toml_invalid",
-			message: `[areg] in ${pathLabel} must be a TOML table.`,
-		});
-	const agents = areg.agents;
-	if (agents === undefined) return { ok: true, value: [] };
-	if (!Array.isArray(agents))
-		return err({
-			code: "ns_toml_invalid",
-			message: `${pathLabel} [areg].agents must be a string array.`,
-		});
-	if (agents.length === 0) return { ok: true, value: [] };
-	return validateNonEmptyStringList(agents, {
-		code: "ns_toml_invalid",
-		message: `${pathLabel} [areg].agents must be a non-empty string list.`,
-	});
+	const settings = result.config.settings.get("areg");
+	if (settings === undefined) return { ok: true, value: [] };
+	const areg = aregSettingsSchema.schema.parse(settings);
+	return { ok: true, value: areg.agents ?? [] };
 }
 
 export function parseLegacyAregJsonAgents(text: string): Result<string[]> {

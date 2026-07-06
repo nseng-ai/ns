@@ -137,6 +137,27 @@ include_binary = false
 		});
 	});
 
+	test("can parse declared settings without point definitions", () => {
+		const result = parseProjectConfigToml(
+			`[points]
+"flow.submit.pre" = ["just"]
+
+[areg]
+agents = ["codex"]
+`,
+			{
+				settingsSchemas: [
+					{ path: ["areg"], schema: z.object({ agents: z.array(z.string().min(1)) }) },
+				],
+			},
+		);
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.config.points).toEqual([]);
+		expect(result.config.settings.get("areg")).toEqual({ agents: ["codex"] });
+	});
+
 	test("reports declared settings schema failures", () => {
 		const result = parseProjectConfigToml(
 			`[roaster.diff]

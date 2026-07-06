@@ -17,6 +17,9 @@ describe("init config helpers", () => {
 			ok: true,
 			value: ["codex", "cursor"],
 		});
+		expect(
+			parseNsAregAgents('[points]\n"flow.submit.pre" = ["just"]\n\n[areg]\nagents = ["codex"]\n'),
+		).toEqual({ ok: true, value: ["codex"] });
 		expect(parseNsAregAgents("[areg]\nagents = []\n")).toEqual({ ok: true, value: [] });
 		expect(parseNsAregAgents("[areg\n")).toMatchObject({
 			ok: false,
