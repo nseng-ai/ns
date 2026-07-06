@@ -2,6 +2,14 @@ export const EXPLORER_AGENT_NAME = "explorer";
 export const EXPLORER_AGENT_REPO_RELATIVE_PATH = ".ns/pi/agents/explorer.md";
 export const EXPLORE_TOOL_NAME = "explore";
 export const EXPLORE_FLEET_COMMAND_NAME = "ns:explore:fleet";
+/**
+ * All chords open the fleet navigator; terminals differ in which they deliver
+ * (F-keys need Fn/standard-function-keys on macOS, alt needs option-as-meta,
+ * shift+ctrl needs the Kitty keyboard protocol). Registering all three means
+ * at least one works everywhere Pi's own defaults work.
+ */
+export const EXPLORE_FLEET_SHORTCUTS = ["f2", "alt+e", "shift+ctrl+e"] as const;
+export const EXPLORE_FLEET_SHORTCUT_LABEL = "F2/alt+e";
 
 export const EXPLORE_BREADTH_VALUES = ["quick", "medium", "very-thorough"] as const;
 export type ExploreBreadth = (typeof EXPLORE_BREADTH_VALUES)[number];

@@ -10,7 +10,6 @@ import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runti
 import {
 	RunnerSubagentFleetRegistry,
 	mapWithConcurrency,
-	setRunnerSubagentWidget,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentUpdate,
@@ -19,7 +18,6 @@ import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
 	EXPLORE_BREADTH_VALUES,
-	EXPLORE_FLEET_COMMAND_NAME,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
@@ -31,9 +29,13 @@ import {
 	exploreInputSchema,
 	type ExploreInput,
 } from "./input.ts";
-import { syncExploreFleetDisplay } from "./fleet.ts";
-import { registerExploreFleetCommand } from "./fleet-navigator.ts";
-import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
+import { EXPLORE_FLEET_ENTRY_HINT, syncExploreFleetDisplay } from "./fleet.ts";
+import {
+	registerExploreFleetCommand,
+	registerExploreFleetShortcut,
+	type RegisterShortcutFunction,
+} from "./fleet-navigator.ts";
+import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
 import {
 	registerExploreTranscriptCommand,
@@ -59,6 +61,7 @@ export type {
 export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
 	registerCommand?: CommandRegistrar;
+	registerShortcut?: RegisterShortcutFunction;
 };
 
 export interface ExploreExtensionOptions {
@@ -149,6 +152,10 @@ export default function exploreExtension(
 		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
 	});
 	registerExploreFleetCommand({
+		pi,
+		registry: fleetRegistry,
+	});
+	registerExploreFleetShortcut({
 		pi,
 		registry: fleetRegistry,
 	});
@@ -294,14 +301,18 @@ async function runExploreTasks(request: {
 		...(request.ctx.model === undefined ? {} : { model: request.ctx.model }),
 		signal: request.signal,
 	};
-	const fleetRun = request.fleetRegistry.startRun(request.exploreInput.tasks);
+	const parentSessionFile = request.ctx.sessionManager?.getSessionFile?.();
+	const fleetRun = request.fleetRegistry.startRun(
+		request.exploreInput.tasks,
+		parentSessionFile === undefined ? {} : { parentSessionFile },
+	);
 	const unsubscribeFleet = request.fleetRegistry.subscribe(() => {
 		syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 	});
 	syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 
 	function emitProgress(): void {
-		emitExploreProgress(request.ctx, states, request.onUpdate);
+		emitExploreProgress(states, request.onUpdate);
 	}
 
 	try {
@@ -350,7 +361,6 @@ async function runExploreTasks(request: {
 		return finalOutcomes;
 	} finally {
 		unsubscribeFleet();
-		setRunnerSubagentWidget(request.ctx, EXPLORE_PROGRESS_WIDGET_KEY, undefined);
 	}
 }
 
@@ -360,7 +370,7 @@ function notifyExploreAbnormalEnd(ctx: ToolContext, outcomes: readonly ExploreTa
 	if (unfinished === 0) return;
 	try {
 		ctx.ui.notify(
-			`explore: ${unfinished} of ${outcomes.length} tasks did not finish cleanly — /${EXPLORE_FLEET_COMMAND_NAME} to inspect`,
+			`explore: ${unfinished} of ${outcomes.length} tasks did not finish cleanly — ${EXPLORE_FLEET_ENTRY_HINT}`,
 			"warning",
 		);
 	} catch {

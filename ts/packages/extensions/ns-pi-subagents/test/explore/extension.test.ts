@@ -296,7 +296,7 @@ describe("explore extension", () => {
 		expect(maxInFlight).toBe(3);
 	});
 
-	test("renders live widget rows during fan-out and clears on completion", async () => {
+	test("renders one ambient fleet widget line and clears it on completion", async () => {
 		const deferreds = Array.from({ length: 4 }, () => createDeferred<ExplorerDispatchOutcome>());
 		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
 			const index = Number(intent.title.replace("Scout ", "")) - 1;
@@ -313,64 +313,28 @@ describe("explore extension", () => {
 		);
 		await settleMicrotasks();
 
-		const initialLines = latestWidgetContent(widgetCalls);
-		expect(initialLines[0]).toContain("explore: 0/4 done, 3 running");
-		expect(initialLines.findIndex((line) => line.includes("Scout 1"))).toBeLessThan(
-			initialLines.findIndex((line) => line.includes("Scout 4")),
-		);
-		expect(initialLines.join("\n")).toContain("▶ 1. Scout 1");
-		expect(initialLines.join("\n")).toContain("· 4. Scout 4");
-		expect(initialLines.join("\n")).toContain("queued");
+		expect(latestWidgetContent(widgetCalls)).toEqual([
+			"explore fleet: 3 running, 1 queued · F2/alt+e · /ns:explore:fleet",
+		]);
 
 		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await settleMicrotasks();
-		const progressedLines = latestWidgetContent(widgetCalls);
-		expect(progressedLines[0]).toContain("explore: 1/4 done, 3 running");
-		expect(progressedLines.join("\n")).toContain("✓ 2. Scout 2");
+		expect(latestWidgetContent(widgetCalls)).toEqual([
+			"explore fleet: 3 running · F2/alt+e · /ns:explore:fleet",
+		]);
 
 		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
 		deferredAt(deferreds, 2).resolve(finalOutcome("third", "/tmp/three.jsonl"));
 		deferredAt(deferreds, 3).resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
 		await running;
 
-		const finalCall = widgetCalls.at(-1);
-		expect(finalCall).toMatchObject({ key: "ns.explore.progress", content: undefined });
-		expect(widgetCalls.every((call) => call.options?.placement === "aboveEditor")).toBe(true);
-	});
-
-	test("renders recent child activity in widget rows", async () => {
-		const deferreds = Array.from({ length: 2 }, () => createDeferred<ExplorerDispatchOutcome>());
-		const progressUpdate: RunnerSubagentUpdate = {
-			progress: {
-				state: "running",
-				currentTool: "read",
-				toolCount: 1,
-				turnCount: 1,
-				elapsedMs: 10,
-			},
-			activity: { assistantPreview: "Reading file map." },
-		};
-		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
-			const index = Number(intent.title.replace("Scout ", "")) - 1;
-			intent.onProgress?.(progressUpdate);
-			return await deferredAt(deferreds, index).promise;
-		};
-		const widgetCalls: WidgetCall[] = [];
-		const tool = registerExploreTool({ dispatchExplorer });
-		const running = tool.execute(
-			"tool-1",
-			{ breadth: "quick", ...exploreParams(2) },
-			undefined,
-			undefined,
-			toolContext({ widgetCalls }),
-		);
-		await settleMicrotasks();
-
-		expect(latestWidgetContent(widgetCalls).join("\n")).toContain("Reading file map.");
-
-		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
-		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
-		await running;
+		expect(widgetCalls.at(-1)).toMatchObject({ key: "ns.explore.fleet", content: undefined });
+		expect(widgetCalls.every((call) => call.key === "ns.explore.fleet")).toBe(true);
+		expect(
+			widgetCalls
+				.filter((call) => call.content !== undefined)
+				.every((call) => call.options?.placement === "aboveEditor"),
+		).toBe(true);
 	});
 
 	test("advertises the fleet navigator in the footer status and notifies on abnormal completion", async () => {
@@ -392,11 +356,11 @@ describe("explore extension", () => {
 
 		expect(statusCalls.at(-1)).toEqual({
 			key: "ns.explore.fleet",
-			value: "explore fleet: 1 done, 1 failed · /ns:explore:fleet",
+			value: "explore fleet: 1 done, 1 failed · F2/alt+e",
 		});
 		expect(notifications).toEqual([
 			{
-				message: "explore: 1 of 2 tasks did not finish cleanly — /ns:explore:fleet to inspect",
+				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:explore:fleet",
 				level: "warning",
 			},
 		]);

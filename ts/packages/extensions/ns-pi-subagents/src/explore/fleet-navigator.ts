@@ -10,19 +10,35 @@ import type {
 } from "@nseng-ai/pi/runtime/extension-types";
 
 import {
+	overlayHostOptions,
+	overlayRenderLayout,
+	renderOverlayFrame,
+	sliceWrappedDetailLinesForViewport,
+} from "@internal/pi-tools/overlay-kit";
+import {
 	createRunnerSubagentJsonEventParser,
 	extractRunnerSubagentTimelineFromSessionJsonl,
+	formatElapsed,
+	readRunnerSubagentUsageFromSessionFile,
 	type RunnerSubagentFleetRegistry,
+	type RunnerSubagentFleetRunSnapshot,
 	type RunnerSubagentFleetTaskSnapshot,
 	type RunnerSubagentJsonEventParserSnapshot,
 	type RunnerSubagentTimeline,
 	type RunnerSubagentTimelineEntry,
+	type RunnerSubagentUsageMetadata,
 } from "@internal/pi-tools/runner-subagents";
-import { EXPLORE_FLEET_COMMAND_NAME } from "./contract.ts";
-import { formatExploreFleetWidgetLines, sortedFleetTasks, taskIcon } from "./fleet.ts";
+import { EXPLORE_FLEET_COMMAND_NAME, EXPLORE_FLEET_SHORTCUTS } from "./contract.ts";
+import { formatExploreFleetTaskLines, sortedFleetTasks, taskIcon } from "./fleet.ts";
 import type { CommandRegistrar } from "./transcript-viewer.ts";
 
-export { EXPLORE_FLEET_COMMAND_NAME } from "./contract.ts";
+export { EXPLORE_FLEET_COMMAND_NAME, EXPLORE_FLEET_SHORTCUTS } from "./contract.ts";
+
+export const EXPLORE_FLEET_PARENT_ENTRY_ID = "parent-session";
+const PARENT_ENTRY_TITLE = "Parent Pi session";
+
+const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
+const DETAIL_FOOTER = "j/k scroll · f follow · p prompt · r reload · b back · q/Esc close";
 
 export interface ExploreFleetNavigatorDependencies {
 	readTextFile?: (path: string) => Promise<string>;
@@ -34,14 +50,38 @@ export interface ExploreFleetTaskDetail {
 	modelText: string;
 	turnCount: number;
 	toolCount: number;
+	elapsedMs: number;
 	state: string;
 	status: string;
 	timeline: RunnerSubagentTimeline;
+	usage?: RunnerSubagentUsageMetadata;
 	message?: string;
 }
 
+/**
+ * The slice of the command/shortcut context the navigator needs. Structurally
+ * satisfied both by `CommandContext` and by the host's shortcut-handler context.
+ */
+export interface ExploreFleetNavigatorContext {
+	hasUI: boolean;
+	sessionManager?: { getSessionFile?(): string | undefined };
+	ui: Pick<CommandContext["ui"], "notify" | "custom">;
+}
+
+export type RegisterShortcutFunction = (
+	shortcut: string,
+	options: {
+		description?: string;
+		handler: (ctx: ExploreFleetNavigatorContext) => Promise<void> | void;
+	},
+) => void;
+
 interface CommandRegistrarHost {
 	registerCommand: CommandRegistrar;
+}
+
+interface ShortcutRegistrarHost {
+	registerShortcut: RegisterShortcutFunction;
 }
 
 export function registerExploreFleetCommand<TPi extends object>(input: {
@@ -55,7 +95,7 @@ export function registerExploreFleetCommand<TPi extends object>(input: {
 		host,
 		commandName: EXPLORE_FLEET_COMMAND_NAME,
 		commandDefinition: {
-			description: "Open a read-only navigator for active explore child sessions.",
+			description: "Open a read-only navigator for explore child sessions.",
 			async handler(_args: string, ctx: CommandContext) {
 				await openExploreFleetNavigator({
 					ctx,
@@ -67,19 +107,43 @@ export function registerExploreFleetCommand<TPi extends object>(input: {
 	});
 }
 
+export function registerExploreFleetShortcut<TPi extends object>(input: {
+	pi: TPi;
+	registry: RunnerSubagentFleetRegistry;
+	dependencies?: ExploreFleetNavigatorDependencies;
+}): void {
+	if (!hasRegisterShortcut(input.pi)) return;
+	for (const shortcut of EXPLORE_FLEET_SHORTCUTS) {
+		input.pi.registerShortcut(shortcut, {
+			description: "Open the explore fleet navigator.",
+			async handler(ctx: ExploreFleetNavigatorContext) {
+				await openExploreFleetNavigator({
+					ctx,
+					registry: input.registry,
+					...(input.dependencies === undefined ? {} : { dependencies: input.dependencies }),
+				});
+			},
+		});
+	}
+}
+
 export async function openExploreFleetNavigator(input: {
-	ctx: CommandContext;
+	ctx: ExploreFleetNavigatorContext;
 	registry: RunnerSubagentFleetRegistry;
 	dependencies?: ExploreFleetNavigatorDependencies;
 }): Promise<void> {
-	const runs = input.registry.snapshot();
-	const tasks = sortedFleetTasks(runs);
-	if (tasks.length === 0) {
-		input.ctx.ui.notify("No explore fleet tasks are known in this Pi session.", "info");
-		return;
-	}
+	const parentSessionFile = input.ctx.sessionManager?.getSessionFile?.();
 	if (!input.ctx.hasUI || input.ctx.ui.custom === undefined) {
-		input.ctx.ui.notify(formatExploreFleetWidgetLines(runs).join("\n"), "info");
+		const lines = formatExploreFleetTaskLines(input.registry.snapshot());
+		if (lines.length === 0 && parentSessionFile !== undefined) {
+			lines.push("explore fleet: no subagent runs yet", `◉ parent session — ${parentSessionFile}`);
+		}
+		input.ctx.ui.notify(
+			lines.length === 0
+				? "No explore fleet tasks are known in this Pi session."
+				: lines.join("\n"),
+			"info",
+		);
 		return;
 	}
 
@@ -92,8 +156,9 @@ export async function openExploreFleetNavigator(input: {
 				registry: input.registry,
 				readTextFile,
 				done,
+				...(parentSessionFile === undefined ? {} : { parentSessionFile }),
 			}),
-		{ overlay: true, overlayOptions: { title: "Explore fleet" } },
+		overlayHostOptions(),
 	);
 }
 
@@ -102,6 +167,8 @@ export interface ExploreFleetNavigatorOptions {
 	registry: RunnerSubagentFleetRegistry;
 	readTextFile: (path: string) => Promise<string>;
 	done(value: undefined): void;
+	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
+	parentSessionFile?: string;
 }
 
 export class ExploreFleetNavigator implements RenderComponent {
@@ -109,13 +176,16 @@ export class ExploreFleetNavigator implements RenderComponent {
 	private readonly registry: RunnerSubagentFleetRegistry;
 	private readonly readTextFile: (path: string) => Promise<string>;
 	private readonly done: (value: undefined) => void;
+	private readonly fallbackParentSessionFile: string | undefined;
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private tasks: RunnerSubagentFleetTaskSnapshot[];
 	private selectedTaskId: string | undefined;
 	private detail: ExploreFleetTaskDetail | undefined;
-	private detailScrollFromBottom = 0;
+	private detailScroll = 0;
+	private detailMaxScroll = 0;
 	private isFollowing = true;
+	private isPromptExpanded = false;
 	private isReadInFlight = false;
 	private hasQueuedRead = false;
 	private isDisposed = false;
@@ -125,8 +195,9 @@ export class ExploreFleetNavigator implements RenderComponent {
 		this.registry = options.registry;
 		this.readTextFile = options.readTextFile;
 		this.done = options.done;
+		this.fallbackParentSessionFile = options.parentSessionFile;
 		this.tasks = this.readTasks();
-		this.selectedTaskId = this.tasks[0]?.id;
+		this.selectedTaskId = defaultSelectionId(this.tasks);
 		this.unsubscribe = this.registry.subscribe(() => {
 			this.refreshTasks();
 			if (this.mode === "detail") this.scheduleDetailLoad();
@@ -135,7 +206,23 @@ export class ExploreFleetNavigator implements RenderComponent {
 	}
 
 	render(width: number): string[] {
-		return this.mode === "detail" ? this.renderDetail(width) : this.renderList(width);
+		const header = this.mode === "detail" ? this.detailHeader() : this.listHeader();
+		const { innerWidth, bodyRows } = overlayRenderLayout({
+			width,
+			terminalRows: readTerminalRows(this.tui),
+			headerLength: header.length,
+		});
+		const body =
+			this.mode === "detail"
+				? this.detailBody(innerWidth, bodyRows)
+				: this.listBody(innerWidth, bodyRows);
+		return renderOverlayFrame({
+			header: header.map((line) => truncatePlain(line, innerWidth)),
+			body: padRows(body, bodyRows),
+			footer: this.mode === "detail" ? DETAIL_FOOTER : LIST_FOOTER,
+			width,
+			colorizeBorder: (text) => text,
+		});
 	}
 
 	invalidate(): void {}
@@ -185,21 +272,25 @@ export class ExploreFleetNavigator implements RenderComponent {
 			this.scheduleDetailLoad();
 			return;
 		}
+		if (data === "p") {
+			this.isPromptExpanded = !this.isPromptExpanded;
+			this.tui.requestRender();
+			return;
+		}
 		if (data === "f") {
-			this.detailScrollFromBottom = 0;
 			this.isFollowing = true;
 			this.tui.requestRender();
 			return;
 		}
 		if (isUpKey(data)) {
-			this.detailScrollFromBottom += 1;
+			this.detailScroll = Math.max(0, Math.min(this.detailScroll, this.detailMaxScroll) - 1);
 			this.isFollowing = false;
 			this.tui.requestRender();
 			return;
 		}
 		if (isDownKey(data)) {
-			this.detailScrollFromBottom = Math.max(0, this.detailScrollFromBottom - 1);
-			if (this.detailScrollFromBottom === 0) this.isFollowing = true;
+			this.detailScroll = Math.min(this.detailMaxScroll, this.detailScroll + 1);
+			if (this.detailScroll >= this.detailMaxScroll) this.isFollowing = true;
 			this.tui.requestRender();
 		}
 	}
@@ -219,8 +310,10 @@ export class ExploreFleetNavigator implements RenderComponent {
 		if (this.selectedTask() === undefined) return;
 		this.mode = "detail";
 		this.detail = undefined;
-		this.detailScrollFromBottom = 0;
+		this.detailScroll = 0;
+		this.detailMaxScroll = 0;
 		this.isFollowing = true;
+		this.isPromptExpanded = false;
 		this.scheduleDetailLoad();
 		this.tui.requestRender();
 	}
@@ -244,7 +337,6 @@ export class ExploreFleetNavigator implements RenderComponent {
 		this.isReadInFlight = false;
 		if (!this.isDisposed && this.mode === "detail" && this.selectedTaskId === task.id) {
 			this.detail = detail;
-			if (this.isFollowing) this.detailScrollFromBottom = 0;
 			this.tui.requestRender();
 		}
 		if (!this.isDisposed && this.hasQueuedRead) {
@@ -261,72 +353,113 @@ export class ExploreFleetNavigator implements RenderComponent {
 		) {
 			return;
 		}
-		this.selectedTaskId = this.tasks[0]?.id;
+		this.selectedTaskId = defaultSelectionId(this.tasks);
 	}
 
 	private readTasks(): RunnerSubagentFleetTaskSnapshot[] {
-		return sortedFleetTasks(this.registry.snapshot());
+		const runs = this.registry.snapshot();
+		const parent = parentSessionEntry(runs, this.fallbackParentSessionFile);
+		const tasks = sortedFleetTasks(runs);
+		return parent === undefined ? tasks : [parent, ...tasks];
 	}
 
 	private selectedTask(): RunnerSubagentFleetTaskSnapshot | undefined {
 		return this.tasks.find((task) => task.id === this.selectedTaskId);
 	}
 
-	private renderList(width: number): string[] {
+	private listHeader(): string[] {
 		const counts = fleetCounts(this.tasks);
-		const lines = [
+		return [
 			`explore fleet: ${counts.running} running · ${counts.queued} queued · ${counts.done} done`,
 		];
+	}
+
+	private listBody(innerWidth: number, bodyRows: number): string[] {
+		if (this.tasks.length === 0) {
+			return ["No explore subagents have run in this Pi session yet."];
+		}
 		const selectedIndex = Math.max(
 			0,
 			this.tasks.findIndex((task) => task.id === this.selectedTaskId),
 		);
-		const window = windowRange(this.tasks.length, selectedIndex, 20);
-		if (window.start > 0) lines.push(`… ${window.start} more`);
-		for (const task of this.tasks.slice(window.start, window.end)) {
-			const marker = task.id === this.selectedTaskId ? "▸" : " ";
-			lines.push(
-				truncatePlain(
-					`${marker} ${taskIcon(task)} ${task.title} — ${task.finalStatus ?? task.state}`,
-					width,
-				),
-			);
+		const window = windowRange(this.tasks.length, selectedIndex, bodyRows);
+		const lines = this.tasks
+			.slice(window.start, window.end)
+			.map((task) => this.listTaskLine(task, innerWidth));
+		if (window.start > 0) lines[0] = `… ${window.start} earlier`;
+		if (window.end < this.tasks.length) {
+			lines[lines.length - 1] = `… ${this.tasks.length - window.end} more`;
 		}
-		if (window.end < this.tasks.length) lines.push(`… ${this.tasks.length - window.end} more`);
-		lines.push("", "↑/k ↓/j move · Enter/o open · q/Esc close");
 		return lines;
 	}
 
-	private renderDetail(width: number): string[] {
-		const task = this.selectedTask();
-		if (task === undefined) return ["No selected explore task.", "", "b back · q/Esc close"];
-		const detail = this.detail;
-		const lines = [
-			truncatePlain(task.title, width),
-			detail === undefined
-				? "loading…"
-				: `${detail.state} — ${detail.status} — ${detail.modelText} — ${detail.turnCount} turns/${detail.toolCount} tools`,
-			`session: ${task.sessionFile ?? "no session file yet"}`,
-			"",
-		];
-		if (detail === undefined) {
-			lines.push("Reading child session…");
-		} else if (detail.message !== undefined) {
-			lines.push(detail.message);
-		} else {
-			const entries = detail.timeline.entries;
-			const visibleCount = 15;
-			const end = Math.max(0, entries.length - this.detailScrollFromBottom);
-			const start = Math.max(0, end - visibleCount);
-			const earlier = detail.timeline.droppedEntryCount + start;
-			if (earlier > 0) lines.push(`… ${earlier} earlier events`);
-			for (const entry of entries.slice(start, end)) {
-				lines.push(truncatePlain(renderTimelineEntry(entry), width));
-			}
-			if (this.detailScrollFromBottom > 0)
-				lines.push(`… ${this.detailScrollFromBottom} later events`);
+	private listTaskLine(task: RunnerSubagentFleetTaskSnapshot, innerWidth: number): string {
+		const marker = task.id === this.selectedTaskId ? "▸" : " ";
+		if (task.id === EXPLORE_FLEET_PARENT_ENTRY_ID) {
+			return truncatePlain(`${marker} ◉ ${task.title}`, innerWidth);
 		}
-		lines.push("", "j/k scroll · f follow · r reload · b back · q/Esc close");
+		const status = task.finalStatus ?? task.state;
+		const activity = task.state === "running" ? task.latestActivity : undefined;
+		const suffix = activity === undefined ? "" : ` — ${activity}`;
+		return truncatePlain(
+			`${marker} ${taskIcon(task)} ${task.title} — ${status}${suffix}`,
+			innerWidth,
+		);
+	}
+
+	private detailHeader(): string[] {
+		const task = this.selectedTask();
+		if (task === undefined) return ["No selected explore task."];
+		const detail = this.detail;
+		if (detail === undefined) {
+			return [task.title, "loading child session…", "", `session: ${task.sessionFile ?? "—"}`];
+		}
+		return [
+			task.title,
+			`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatElapsed(detail.elapsedMs)}`,
+			usageLine(detail),
+			`session: ${detail.sessionFile ?? "no session file yet"}`,
+		];
+	}
+
+	private detailBody(innerWidth: number, bodyRows: number): string[] {
+		const detail = this.detail;
+		if (detail === undefined) return ["Reading child session…"];
+		const lines = this.detailContentLines(detail);
+		const viewport = sliceWrappedDetailLinesForViewport({
+			lines,
+			width: innerWidth,
+			rows: bodyRows,
+			scroll: this.isFollowing ? Number.MAX_SAFE_INTEGER : this.detailScroll,
+		});
+		this.detailScroll = viewport.scroll;
+		this.detailMaxScroll = viewport.maxScroll;
+		return viewport.lines;
+	}
+
+	private detailContentLines(detail: ExploreFleetTaskDetail): string[] {
+		const lines: string[] = [];
+		const prompt = detail.task.prompt;
+		if (prompt !== undefined) {
+			if (this.isPromptExpanded) {
+				lines.push("prompt:", ...prompt.split("\n"), "");
+			} else {
+				lines.push(truncatePlain(`prompt: ${promptPreview(prompt)} (p to expand)`, 200), "");
+			}
+		}
+		if (detail.message !== undefined) {
+			lines.push(detail.message);
+			return lines;
+		}
+		if (detail.timeline.droppedEntryCount > 0) {
+			lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
+		}
+		for (const entry of detail.timeline.entries) {
+			lines.push(renderTimelineEntry(entry));
+		}
+		if (detail.timeline.entries.length === 0) {
+			lines.push("No timeline events yet.");
+		}
 		return lines;
 	}
 
@@ -340,11 +473,11 @@ export async function loadFleetTaskDetail(input: {
 	task: RunnerSubagentFleetTaskSnapshot;
 	readTextFile: (path: string) => Promise<string>;
 }): Promise<ExploreFleetTaskDetail> {
-	if (input.task.sessionFile === undefined)
-		return placeholderDetail(input.task, "no session file yet");
+	const sessionFile = input.task.sessionFile;
+	if (sessionFile === undefined) return placeholderDetail(input.task, "no session file yet");
 	let jsonl: string;
 	try {
-		jsonl = await input.readTextFile(input.task.sessionFile);
+		jsonl = await input.readTextFile(sessionFile);
 	} catch (error) {
 		return placeholderDetail(
 			input.task,
@@ -353,30 +486,34 @@ export async function loadFleetTaskDetail(input: {
 	}
 	const parser = createRunnerSubagentJsonEventParser({
 		title: input.task.title,
-		sessionFile: input.task.sessionFile,
+		sessionFile,
 	});
 	parser.pushChunk(jsonl);
 	parser.finish();
 	const snapshot = parser.getSnapshot();
 	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
-	return detailFromSnapshot(input.task, input.task.sessionFile, snapshot, timeline);
+	const usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, () => jsonl);
+	return detailFromSnapshot({ task: input.task, sessionFile, snapshot, timeline, usage });
 }
 
-function detailFromSnapshot(
-	task: RunnerSubagentFleetTaskSnapshot,
-	sessionFile: string,
-	snapshot: RunnerSubagentJsonEventParserSnapshot,
-	timeline: RunnerSubagentTimeline,
-): ExploreFleetTaskDetail {
+function detailFromSnapshot(input: {
+	task: RunnerSubagentFleetTaskSnapshot;
+	sessionFile: string;
+	snapshot: RunnerSubagentJsonEventParserSnapshot;
+	timeline: RunnerSubagentTimeline;
+	usage: RunnerSubagentUsageMetadata;
+}): ExploreFleetTaskDetail {
 	return {
-		task,
-		sessionFile,
-		modelText: modelText(snapshot),
-		turnCount: snapshot.progress.turnCount,
-		toolCount: snapshot.progress.toolCount,
-		state: snapshot.progress.state,
-		status: task.finalStatus ?? snapshot.stopReason ?? task.state,
-		timeline,
+		task: input.task,
+		sessionFile: input.sessionFile,
+		modelText: modelText(input.snapshot),
+		turnCount: input.snapshot.progress.turnCount,
+		toolCount: input.snapshot.progress.toolCount,
+		elapsedMs: input.snapshot.progress.elapsedMs,
+		state: input.snapshot.progress.state,
+		status: input.task.finalStatus ?? input.snapshot.stopReason ?? input.task.state,
+		timeline: input.timeline,
+		usage: input.usage,
 	};
 }
 
@@ -390,6 +527,7 @@ function placeholderDetail(
 		modelText: "model unknown",
 		turnCount: 0,
 		toolCount: 0,
+		elapsedMs: 0,
 		state: task.state,
 		status: task.finalStatus ?? task.state,
 		timeline: { entries: [], droppedEntryCount: 0 },
@@ -397,16 +535,64 @@ function placeholderDetail(
 	};
 }
 
+function usageLine(detail: ExploreFleetTaskDetail): string {
+	const usage = detail.usage;
+	if (usage === undefined) return "tokens: unavailable";
+	if (usage.status === "unavailable") return `tokens: unavailable (${usage.reason})`;
+	const totals = usage.totals;
+	const cached = totals.cacheRead + totals.cacheWrite;
+	return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+}
+
+function formatTokenCount(count: number): string {
+	if (count < 1000) return String(count);
+	return `${(count / 1000).toFixed(1)}k`;
+}
+
+function promptPreview(prompt: string): string {
+	const firstLine = prompt.split("\n", 1)[0] ?? "";
+	return firstLine;
+}
+
 function fleetCounts(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): {
 	running: number;
 	queued: number;
 	done: number;
 } {
+	const children = tasks.filter((task) => task.id !== EXPLORE_FLEET_PARENT_ENTRY_ID);
 	return {
-		running: tasks.filter((task) => task.state === "running").length,
-		queued: tasks.filter((task) => task.state === "queued").length,
-		done: tasks.filter((task) => task.state === "done").length,
+		running: children.filter((task) => task.state === "running").length,
+		queued: children.filter((task) => task.state === "queued").length,
+		done: children.filter((task) => task.state === "done").length,
 	};
+}
+
+/**
+ * The parent Pi session rendered as a pinned navigator entry: opening it reuses
+ * the same session-file detail view the child explorers get.
+ */
+function parentSessionEntry(
+	runs: readonly RunnerSubagentFleetRunSnapshot[],
+	fallbackSessionFile?: string,
+): RunnerSubagentFleetTaskSnapshot | undefined {
+	const sessionFile =
+		runs
+			.map((run) => run.parentSessionFile)
+			.filter((file) => file !== undefined)
+			.at(-1) ?? fallbackSessionFile;
+	if (sessionFile === undefined) return undefined;
+	return {
+		id: EXPLORE_FLEET_PARENT_ENTRY_ID,
+		runId: EXPLORE_FLEET_PARENT_ENTRY_ID,
+		index: -1,
+		title: PARENT_ENTRY_TITLE,
+		state: "running",
+		sessionFile,
+	};
+}
+
+function defaultSelectionId(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): string | undefined {
+	return (tasks.find((task) => task.id !== EXPLORE_FLEET_PARENT_ENTRY_ID) ?? tasks[0])?.id;
 }
 
 function windowRange(
@@ -432,6 +618,20 @@ function modelText(snapshot: RunnerSubagentJsonEventParserSnapshot): string {
 	return model === undefined ? "model unknown" : `${model.provider}/${model.id}`;
 }
 
+function padRows(lines: readonly string[], rows: number): string[] {
+	const padded = lines.slice(0, rows);
+	while (padded.length < rows) padded.push("");
+	return padded;
+}
+
+function readTerminalRows(tui: object): number | undefined {
+	if (!("terminal" in tui)) return undefined;
+	const terminal = tui.terminal;
+	if (typeof terminal !== "object" || terminal === null || !("rows" in terminal)) return undefined;
+	const rows = terminal.rows;
+	return typeof rows === "number" ? rows : undefined;
+}
+
 function isUpKey(data: string): boolean {
 	return data === "k" || data === "\u001b[A";
 }
@@ -446,4 +646,8 @@ function isCloseKey(data: string): boolean {
 
 function hasRegisterCommand(value: object): value is CommandRegistrarHost {
 	return "registerCommand" in value && typeof value.registerCommand === "function";
+}
+
+function hasRegisterShortcut(value: object): value is ShortcutRegistrarHost {
+	return "registerShortcut" in value && typeof value.registerShortcut === "function";
 }
