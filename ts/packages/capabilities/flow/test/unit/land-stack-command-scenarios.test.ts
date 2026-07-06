@@ -1068,6 +1068,62 @@ describe("land-stack command scenarios", () => {
 		}
 	});
 
+	// Executable evidence for the per-landed-PR projection behind the trunk-fetch /
+	// lease-push-retarget / GraphQL-merge stack: each non-terminal required-path PR now costs
+	// 2 Graphite invocations (`gt delete` + `gt restack --only`), 3 GitHub GraphQL requests
+	// (`gh pr view` gate + merge mutation + base-retarget mutation), and +2 git operations
+	// (fast-forward trunk fetch + `--force-with-lease` push) that replaced `gt get`/`gt submit`.
+	test("linear required-path landing matches the per-landed-PR command-shape projection", async () => {
+		const size = 3;
+		const nonTerminal = size - 1;
+		const { pi, notifications } = await runLandStack("--yes", linearStackLandingScript(size));
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+
+		const gtByVerb = (verb: string) =>
+			pi.execCalls.filter((call) => call.command === "gt" && call.args[0] === verb);
+		// Required next-landing Graphite maintenance is exactly `gt delete` (one per landed PR,
+		// including the terminal) plus branch-only `gt restack` (non-terminal PRs only); the old
+		// `gt get`/`gt submit` maintenance is gone from the linear required path.
+		expect(gtByVerb("delete")).toHaveLength(size);
+		expect(gtByVerb("restack")).toHaveLength(nonTerminal);
+		expect(
+			gtByVerb("restack").every(
+				(call) => call.args.includes("--only") && !call.args.includes("--upstack"),
+			),
+		).toBe(true);
+		expect(gtByVerb("get")).toHaveLength(0);
+		expect(gtByVerb("submit")).toHaveLength(0);
+
+		// Three GraphQL requests per landed PR: the pre-merge `gh pr view` gate, the merge mutation,
+		// and the base-retarget mutation (retarget fires only for a non-terminal PR). Batched
+		// preflight PR facts mean every `gh pr view` here comes from the merge loop.
+		expect(
+			pi.execCalls.filter(
+				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "view",
+			),
+		).toHaveLength(size);
+		expect(pi.execCalls.filter((call) => isSquashMergeCall(call))).toHaveLength(size);
+		expect(pi.execCalls.filter((call) => isRetargetBaseCall(call))).toHaveLength(nonTerminal);
+
+		// The two git operations that replaced `gt get`/`gt submit`: a fast-forward trunk fetch and a
+		// `--force-with-lease` push, one each per non-terminal landed PR.
+		expect(
+			pi.execCalls.filter(
+				(call) => call.command === "git" && sameArgs(call.args, trunkFetchStep().args),
+			),
+		).toHaveLength(nonTerminal);
+		expect(
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "git" &&
+					call.args[0] === "push" &&
+					call.args.some((arg) => arg.startsWith("--force-with-lease=")),
+			),
+		).toHaveLength(nonTerminal);
+	});
+
 	test("interactive large-stack landing asks one stack-path confirmation", async () => {
 		const { pi, notifications, confirmations, messages } = await runLandStack(
 			"",
