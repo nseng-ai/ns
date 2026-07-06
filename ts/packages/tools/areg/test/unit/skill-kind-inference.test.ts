@@ -5,20 +5,21 @@ import {
 	inspectSkillFrontmatter,
 } from "../../src/operations/skill-kind-inference.ts";
 
-function record(
-	skillMd: string,
-	options: {
-		hasCodexSidecar?: boolean;
-		isPiExcluded?: boolean;
-		hasAgentsMirror?: boolean;
-		hasClaudeMirror?: boolean;
-		replacementVerified?: boolean;
-		replacementSurface?: string | undefined;
-	} = {},
-) {
+type RecordOptions = {
+	hasCodexSidecar?: boolean;
+	isPiExcluded?: boolean;
+	hasAgentsMirror?: boolean;
+	hasClaudeMirror?: boolean;
+	replacementVerified?: boolean;
+} & ({ replacementSurface?: string } | { replacementSurfaceAbsent: true });
+
+function record(skillMd: string, options: RecordOptions = {}) {
 	const frontmatter = inspectSkillFrontmatter(skillMd, "SKILL.md");
 	if (!frontmatter.ok) throw new Error(frontmatter.error.message);
-	const surface = "replacementSurface" in options ? options.replacementSurface : "demo:skill";
+	const surface =
+		"replacementSurfaceAbsent" in options
+			? undefined
+			: (options.replacementSurface ?? "demo:skill");
 	return inferSkillKindRecord({
 		skillName: "demo-skill",
 		frontmatter: frontmatter.value,
@@ -57,7 +58,7 @@ describe("skill kind inference", () => {
 			record(UNLISTED_SKILL, {
 				hasCodexSidecar: true,
 				isPiExcluded: true,
-				replacementSurface: undefined,
+				replacementSurfaceAbsent: true,
 			}).kind,
 		).toBe("unlisted");
 	});
@@ -66,7 +67,7 @@ describe("skill kind inference", () => {
 		const unlisted = record(UNLISTED_SKILL, {
 			hasCodexSidecar: true,
 			isPiExcluded: true,
-			replacementSurface: undefined,
+			replacementSurfaceAbsent: true,
 		});
 		expect(unlisted.kind).toBe("unlisted");
 		expect(unlisted.modelInvocation).toBe("disabled");
@@ -88,7 +89,7 @@ describe("skill kind inference", () => {
 				hasCodexSidecar: true,
 				isPiExcluded: true,
 				hasAgentsMirror: true,
-				replacementSurface: undefined,
+				replacementSurfaceAbsent: true,
 			}).kind,
 		).toBe("inconsistent");
 		expect(
@@ -96,15 +97,15 @@ describe("skill kind inference", () => {
 				hasCodexSidecar: true,
 				isPiExcluded: true,
 				hasClaudeMirror: true,
-				replacementSurface: undefined,
+				replacementSurfaceAbsent: true,
 			}).kind,
 		).toBe("inconsistent");
 		// Missing sidecar or missing exclusion => other degraded/desired states.
-		expect(record(UNLISTED_SKILL, { isPiExcluded: true, replacementSurface: undefined }).kind).toBe(
-			"inconsistent",
-		);
 		expect(
-			record(UNLISTED_SKILL, { hasCodexSidecar: true, replacementSurface: undefined }).kind,
+			record(UNLISTED_SKILL, { isPiExcluded: true, replacementSurfaceAbsent: true }).kind,
+		).toBe("inconsistent");
+		expect(
+			record(UNLISTED_SKILL, { hasCodexSidecar: true, replacementSurfaceAbsent: true }).kind,
 		).toBe("invoke-only");
 	});
 

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import type {
 	GithubPrChangedFile,
@@ -147,11 +148,13 @@ export function normalizeDiscussionComment(
 	};
 }
 
-function normalizeAuthorField(entity: {
-	readonly user?: z.infer<typeof ghAuthorSchema> | undefined;
-	readonly author?: z.infer<typeof ghAuthorSchema> | undefined;
-}): string {
-	return normalizeAuthor(entity.user ?? entity.author ?? null);
+type AuthorFieldSource = {
+	readonly user?: ExplicitUndefined<"external-mirror", z.infer<typeof ghAuthorSchema>>;
+	readonly author?: ExplicitUndefined<"external-mirror", z.infer<typeof ghAuthorSchema>>;
+};
+
+function normalizeAuthorField(source: AuthorFieldSource): string {
+	return normalizeAuthor(source.user ?? source.author ?? null);
 }
 
 function numericOptional(value: string | number | null | undefined): number | null {

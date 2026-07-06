@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import { FLAT_SEPARATOR } from "./ref-constants.ts";
 import { validateBranchName, validateEntryKey, validateNamespaceName } from "./validation.ts";
@@ -60,9 +62,19 @@ export function normalizeNamespaceOption(namespace: string | undefined | null): 
 	return namespace ?? BASE_NAMESPACE;
 }
 
+export function namespaceScopeRequest(request: { base: boolean; namespace?: string | undefined }): {
+	base: boolean;
+	namespace?: string;
+} {
+	return {
+		base: request.base,
+		...optionalEntry("namespace", request.namespace),
+	};
+}
+
 export function resolveOptionalNamespaceScope(request: {
 	base: boolean;
-	namespace?: string | undefined;
+	namespace?: string;
 }): NamespaceScopeResolution {
 	if (request.base && request.namespace !== undefined) return namespaceScopeConflict();
 	if (!request.base && request.namespace === undefined) {
@@ -84,7 +96,7 @@ export function namespaceScopeLabel(scope: NamespaceScope): string {
 
 export function resolveRequiredNamespaceScope(request: {
 	base: boolean;
-	namespace?: string | undefined;
+	namespace?: string;
 }):
 	| NamespaceScopeConflict
 	| { type: "resolved"; scope: ScopedNamespaceScope }
