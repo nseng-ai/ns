@@ -26,9 +26,9 @@ describe("createProgressPhaseStateStore", () => {
 	test("declares phases and tracks title updates", () => {
 		const store = createProgressPhaseStateStore();
 
-		expect(store.apply({ type: "phases-declared", title: "initial", phases: PHASES })).toEqual({
-			type: "updated",
-		});
+		expect(
+			store.apply({ type: "phases-declared", title: "initial", phases: PHASES }),
+		).toBeUndefined();
 		expect(store.title()).toBe("initial");
 		expect(store.views().map((view) => [view.key, view.state, view.label])).toEqual([
 			["a", "pending", "alpha working…"],
@@ -36,18 +36,14 @@ describe("createProgressPhaseStateStore", () => {
 			["c", "pending", "gamma working…"],
 		]);
 
-		expect(store.apply({ type: "title-changed", title: "updated" })).toEqual({
-			type: "updated",
-		});
+		expect(store.apply({ type: "title-changed", title: "updated" })).toBeUndefined();
 		expect(store.title()).toBe("updated");
 	});
 
 	test("ignores unknown phase keys by default", () => {
 		const store = createProgressPhaseStateStore({ phases: PHASES });
 
-		expect(store.apply({ type: "phase-started", phaseKey: "missing" })).toEqual({
-			type: "ignored",
-		});
+		expect(store.apply({ type: "phase-started", phaseKey: "missing" })).toBeUndefined();
 		expect(store.views().map((view) => view.key)).toEqual(["a", "b", "c"]);
 	});
 
@@ -55,10 +51,7 @@ describe("createProgressPhaseStateStore", () => {
 		const store = createProgressPhaseStateStore({ phases: PHASES, unknownKeyPolicy: "append" });
 
 		expect(store.apply({ type: "phase-started", phaseKey: "extra", label: "extra work" })).toEqual(
-			expect.objectContaining({
-				type: "updated",
-				view: expect.objectContaining({ key: "extra", label: "extra work" }),
-			}),
+			expect.objectContaining({ key: "extra", label: "extra work", state: "active" }),
 		);
 
 		expect(store.views().map((view) => [view.key, view.name, view.state, view.label])).toEqual([
@@ -67,6 +60,38 @@ describe("createProgressPhaseStateStore", () => {
 			["c", "Gamma", "done", "gamma working…"],
 			["extra", "extra", "active", "extra work"],
 		]);
+	});
+
+	test("returns the affected view for known phase events", () => {
+		const store = createProgressPhaseStateStore({ phases: SUBSTEP_PHASES });
+
+		expect(store.apply({ type: "phase-started", phaseKey: "generate" })).toMatchObject({
+			key: "generate",
+			state: "active",
+			label: "generating…",
+		});
+		expect(
+			store.apply({ type: "phase-progress", phaseKey: "generate", label: "writing" }),
+		).toMatchObject({
+			key: "generate",
+			state: "active",
+			label: "writing",
+		});
+		expect(
+			store.apply({ type: "phase-done", phaseKey: "generate", detail: "ready" }),
+		).toMatchObject({
+			key: "generate",
+			state: "done",
+			label: "ready",
+			detail: "ready",
+		});
+		expect(
+			store.apply({ type: "phase-failed", phaseKey: "inspect", detail: "boom" }),
+		).toMatchObject({
+			key: "inspect",
+			state: "failed",
+			label: "boom",
+		});
 	});
 
 	test("starting a later phase marks earlier open phases done", () => {
@@ -114,6 +139,18 @@ describe("createProgressPhaseStateStore", () => {
 		]);
 	});
 
+	test("runtime done detail does not overwrite declared phase detail", () => {
+		const phases = [{ key: "a", name: "Alpha", label: "alpha working…", detail: "alpha done" }];
+		const store = createProgressPhaseStateStore({ phases });
+
+		store.apply({ type: "phase-done", phaseKey: "a", detail: "explicit done" });
+		expect(store.views()[0]?.detail).toBe("explicit done");
+		expect(phases[0]?.detail).toBe("alpha done");
+
+		store.apply({ type: "phase-done", phaseKey: "a" });
+		expect(store.views()[0]?.detail).toBe("explicit done");
+	});
+
 	test("failActive marks the active phase failed and failures prevent open-phase settling", () => {
 		const store = createProgressPhaseStateStore({ phases: PHASES });
 
@@ -154,6 +191,38 @@ describe("createProgressPhaseStateStore", () => {
 		]);
 	});
 
+	test("phase-failed on a substep fails the parent", () => {
+		const store = createProgressPhaseStateStore({ phases: SUBSTEP_PHASES });
+
+		store.apply({ type: "phase-started", phaseKey: "inspect" });
+		store.apply({ type: "phase-failed", phaseKey: "inspect", detail: "boom" });
+
+		const [checkpoint] = store.views();
+		expect(checkpoint).toMatchObject({ key: "checkpoint", state: "failed" });
+		expect(checkpoint?.substeps[0]).toMatchObject({
+			key: "inspect",
+			state: "failed",
+			label: "boom",
+			history: ["inspecting…"],
+		});
+	});
+
+	test("failActive marks an active substep and its parent failed", () => {
+		const store = createProgressPhaseStateStore({ phases: SUBSTEP_PHASES });
+
+		store.apply({ type: "phase-started", phaseKey: "generate" });
+		store.failActive();
+		store.settleOpenPhases();
+
+		const [checkpoint, preflight] = store.views();
+		expect(checkpoint).toMatchObject({ key: "checkpoint", state: "failed" });
+		expect(checkpoint?.substeps.map((view) => [view.key, view.state])).toEqual([
+			["inspect", "done"],
+			["generate", "failed"],
+		]);
+		expect(preflight?.state).toBe("pending");
+	});
+
 	test("completing a parent marks active substeps done and pending substeps skipped", () => {
 		const store = createProgressPhaseStateStore({ phases: SUBSTEP_PHASES });
 
@@ -164,6 +233,24 @@ describe("createProgressPhaseStateStore", () => {
 		expect(checkpoint?.substeps.map((view) => [view.key, view.state])).toEqual([
 			["inspect", "done"],
 			["generate", "skipped"],
+		]);
+	});
+
+	test("phases-declared resets mid-flight state and appended unknown phases", () => {
+		const store = createProgressPhaseStateStore({ phases: PHASES, unknownKeyPolicy: "append" });
+
+		store.apply({ type: "phase-started", phaseKey: "b" });
+		store.apply({ type: "phase-started", phaseKey: "extra", label: "extra work" });
+		store.apply({
+			type: "phases-declared",
+			title: "new title",
+			phases: [{ key: "new", name: "New", label: "new work", detail: "new done" }],
+		});
+		store.failActive();
+
+		expect(store.title()).toBe("new title");
+		expect(store.views().map((view) => [view.key, view.state, view.label, view.detail])).toEqual([
+			["new", "pending", "new work", "new done"],
 		]);
 	});
 

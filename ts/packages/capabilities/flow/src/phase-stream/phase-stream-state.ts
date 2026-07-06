@@ -41,12 +41,12 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 			return { type: "ignored" };
 		}
 
-		const result = store.apply(event);
-		if (result.type === "ignored") return { type: "ignored" };
+		const affectedView = store.apply(event);
+		if (affectedView === undefined) return { type: "ignored" };
 
 		switch (event.type) {
 			case "phase-started":
-				return { type: "surface", line: result.view?.label };
+				return { type: "surface", line: affectedView.label };
 			case "phase-progress":
 				return { type: "surface", line: event.label };
 			case "phase-done":
@@ -64,7 +64,10 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 	}
 
 	function viewForProgressView(view: ProgressPhaseView): PhaseView {
-		const item = itemByKey.get(view.key) ?? itemForProgressView(view);
+		const item = itemByKey.get(view.key);
+		if (item === undefined) {
+			throw new Error(`progress phase view '${view.key}' has no matching flow status item`);
+		}
 		return {
 			item,
 			state: view.state,
@@ -104,12 +107,4 @@ function indexItems(specs: readonly PhaseSpec[]): ReadonlyMap<string, StatusLine
 		for (const substep of spec.substeps ?? []) itemByKey.set(substep.key, substep.item);
 	}
 	return itemByKey;
-}
-
-function itemForProgressView(view: ProgressPhaseView): StatusLineItem {
-	return {
-		name: view.name,
-		detail: view.detail ?? view.name,
-		...(view.label === undefined ? {} : { label: view.label }),
-	};
 }
