@@ -62,6 +62,19 @@ export const LAND_PHASES: readonly PhaseSpec[] = [
 	},
 ];
 
+/**
+ * Leading `flow submit` phase for consumer-configured pre-submit hooks. Included only when the
+ * repo's ns.toml configures hooks, so hook-free repos keep their existing settled frame.
+ */
+export const SUBMIT_HOOKS_PHASE: PhaseSpec = {
+	key: "hooks",
+	item: {
+		name: "Hooks",
+		detail: "pre-submit hooks passed",
+		label: "running pre-submit hooks…",
+	},
+};
+
 /** Ordered phase list for `flow submit`. Keys match what the submit driver and graphite emit. */
 export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 	{

@@ -9,6 +9,7 @@ import {
 	flowStreamDeps,
 	resolveFlowStreamCaps,
 	runSettledPhaseStream,
+	SUBMIT_HOOKS_PHASE,
 	SUBMIT_PHASES,
 } from "../../phase-stream/phase-stream.ts";
 import {
@@ -22,6 +23,12 @@ import {
 	submitMatrixRowsFromTopology,
 	type SubmitMatrixProgressController,
 } from "../../submit/submit-matrix-progress.ts";
+import {
+	flowSubmitHookFailureExitCode,
+	formatFlowSubmitHookFailure,
+	loadFlowSubmitHooks,
+	runFlowSubmitHooks,
+} from "../../submit/submit-hooks.ts";
 import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
 	defineExtension,
@@ -49,9 +56,17 @@ const submitSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Stream raw Graphite/subprocess output while submitting."),
+	hooks: z
+		.boolean()
+		.default(true)
+		.describe(
+			"Run pre-submit hooks from the repo-root ns.toml ([flow.hooks] pre_submit) before checkpointing. Use --no-hooks to skip.",
+		),
 });
 
-const SUBMIT_COMMAND_DESCRIPTION = `Checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
+const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit hooks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
+
+Pre-submit hooks are consumer config in the repo-root ns.toml ([flow.hooks] pre_submit, an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing hook aborts the submit. Skip them with --no-hooks.
 
 Environment:
   NS_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to NS_DEV_CHECKPOINT_MODEL.
@@ -77,17 +92,68 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 	},
 	async run(ctx: NsExtensionApi, request: SubmitRequest) {
 		const runtime = createNsSubmitRuntime(ctx);
+		const hooksLoad = request.hooks
+			? await loadFlowSubmitHooks({ cwd: ctx.cwd, runner: runtime.commandRunner })
+			: { kind: "none" as const };
+		if (hooksLoad.kind === "invalid") {
+			return failed(hooksLoad.error.message, 2);
+		}
 		const caps = resolveFlowStreamCaps(ctx);
 		if (caps.isTty) {
 			return await runSubmitWithMatrix({ ctx, request, runtime, caps });
 		}
 		return await runSettledPhaseStream({
 			caps,
-			specs: SUBMIT_PHASES,
+			specs: hooksLoad.kind === "hooks" ? [SUBMIT_HOOKS_PHASE, ...SUBMIT_PHASES] : SUBMIT_PHASES,
 			deps: flowStreamDeps(ctx, caps),
 			forward: ctx.progress,
 			title: "ns flow submit",
 			body: async (stream) => {
+				// The raw subprocess transcript (hooks and `gt submit`) streams on its own channel (live +
+				// --verbose), separate from the typed phase events that drive the live region. In a TTY it must
+				// ride INSIDE the live region as a tail line (via `stream.note`) so the sink's writer stays the
+				// sole owner of stdout; writing it straight to the context desynced log-update and
+				// duplicated/scrolled the region. Non-TTY (Pi / pipe) streams the transcript to the context.
+				const rawTranscript = createFlowLiveOutput(ctx);
+				const onOutput: FlowLiveOutput | undefined = caps.isTty
+					? (_stream, text) => stream.note(text)
+					: rawTranscript;
+
+				if (hooksLoad.kind === "hooks") {
+					stream.emit({ type: "phase-started", phaseKey: "hooks" });
+					const hooksOutcome = await runFlowSubmitHooks({
+						hooks: hooksLoad.hooks,
+						runner: runtime.commandRunner,
+						onHookStarted: ({ hook, index, total }) =>
+							stream.emit({
+								type: "phase-progress",
+								phaseKey: "hooks",
+								label:
+									total === 1
+										? `running ${hook.display}…`
+										: `running ${hook.display} (${index + 1}/${total})…`,
+							}),
+						...(onOutput === undefined
+							? {}
+							: { onOutput: (outputStream, text) => onOutput(outputStream, text) }),
+					});
+					if (hooksOutcome.kind === "failed") {
+						const hookFailure = await maybeFormatSubmitFailureWithModel(
+							{
+								stdout: "",
+								stderr: formatFlowSubmitHookFailure(hooksOutcome),
+								exitCode: flowSubmitHookFailureExitCode(hooksOutcome),
+								failurePresentation: "deterministic",
+							},
+							ctx,
+						);
+						return {
+							result: failed(resultFailureMessage(hookFailure), hookFailure.exitCode),
+							isFailed: true,
+						};
+					}
+				}
+
 				// Keep the parent checkpoint phase active for the clean-worktree path, while routing the
 				// workflow's keyed inspect/generate/commit events to the declared substeps.
 				stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
@@ -113,15 +179,6 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 					};
 				}
 
-				// The raw `gt submit` transcript streams on its own channel (live + --verbose), separate from
-				// the typed phase events that drive the live region. In a TTY it must ride INSIDE the live
-				// region as a tail line (via `stream.note`) so the sink's writer stays the sole owner of stdout;
-				// writing it straight to the context desynced log-update and duplicated/scrolled the region.
-				// Non-TTY (Pi / pipe) keeps streaming the transcript to the context as before.
-				const rawTranscript = createFlowLiveOutput(ctx);
-				const onOutput: FlowLiveOutput | undefined = caps.isTty
-					? (_stream, text) => stream.note(text)
-					: rawTranscript;
 				const result = await runSubmitCommand({
 					cwd: ctx.cwd,
 					gateway: runtime.submitGateway,
