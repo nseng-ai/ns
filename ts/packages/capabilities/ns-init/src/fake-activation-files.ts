@@ -24,7 +24,7 @@ export interface InMemoryActivationFilesState {
 export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 	private readonly instructionFiles: Map<InstructionFileName, string>;
 	private projectConfigFile: string | undefined;
-	private hasObjectivesDirectoryValue: boolean;
+	private objectivesDirectoryExists: boolean;
 	private readonly readFailure: NsInitErrorInfo | undefined;
 	private readonly writeFailure: NsInitErrorInfo | undefined;
 	private readonly ensureObjectivesDirectoryFailure: NsInitErrorInfo | undefined;
@@ -36,7 +36,7 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 			if (content !== undefined) this.instructionFiles.set(name, content);
 		}
 		this.projectConfigFile = state.projectConfigFile;
-		this.hasObjectivesDirectoryValue = state.hasObjectivesDirectory ?? false;
+		this.objectivesDirectoryExists = state.hasObjectivesDirectory ?? false;
 		this.readFailure = state.readFailure;
 		this.writeFailure = state.writeFailure;
 		this.ensureObjectivesDirectoryFailure = state.ensureObjectivesDirectoryFailure;
@@ -76,8 +76,8 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 		if (this.ensureObjectivesDirectoryFailure !== undefined) {
 			return { ok: false, error: this.ensureObjectivesDirectoryFailure };
 		}
-		if (this.hasObjectivesDirectoryValue) return { ok: true, value: { created: false } };
-		this.hasObjectivesDirectoryValue = true;
+		if (this.objectivesDirectoryExists) return { ok: true, value: { created: false } };
+		this.objectivesDirectoryExists = true;
 		return { ok: true, value: { created: true } };
 	}
 
@@ -90,6 +90,6 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 	}
 
 	hasObjectivesDirectory(): boolean {
-		return this.hasObjectivesDirectoryValue;
+		return this.objectivesDirectoryExists;
 	}
 }
