@@ -523,6 +523,9 @@ describe("real git gateway", () => {
 					"",
 				].join("\0"),
 			}),
+			step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
+				stdout: " M .ns/objectives/alpha/objective.md\0",
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -532,6 +535,10 @@ describe("real git gateway", () => {
 				changedPaths: ["staged.ts", "unstaged.ts", "renamed.ts", "fresh.ts"],
 			},
 		});
+		expect(await git.statusPaths({ cwd: ROOT, pathspecs: [".ns/objectives"] })).toEqual({
+			ok: true,
+			value: { changedPaths: [".ns/objectives/alpha/objective.md"] },
+		});
 		commands.assertDone();
 		expect(commands.execCalls).toEqual([
 			{
@@ -539,7 +546,41 @@ describe("real git gateway", () => {
 				args: ["status", "--porcelain=v1", "-z"],
 				options: { cwd: ROOT, timeout: 10_000 },
 			},
+			{
+				command: "git",
+				args: ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"],
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
 		]);
+	});
+
+	test("lists changed paths under a path including rename sources and destinations", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["diff", "--name-status", "-M", "main...HEAD", "--", ".ns/objectives"], {
+				stdout: [
+					"M\t.ns/objectives/alpha/objective.md",
+					"R100\t.ns/objectives/old/objective.md\t.ns/objectives/new/objective.md",
+					"",
+				].join("\n"),
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(
+			await git.changedPathsUnderWithRenames({
+				cwd: ROOT,
+				revisionRange: "main...HEAD",
+				relativePath: ".ns/objectives",
+			}),
+		).toEqual({
+			ok: true,
+			value: [
+				".ns/objectives/alpha/objective.md",
+				".ns/objectives/old/objective.md",
+				".ns/objectives/new/objective.md",
+			],
+		});
+		commands.assertDone();
 	});
 
 	test("maps status command and parse failures to distinct codes", async () => {

@@ -7,11 +7,10 @@ export {
 	chooseActiveObjectiveSlug,
 	formatObjectiveChoice,
 	objectiveChoiceMap,
+	objectiveChangedSlugsFromPaths,
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
 	objectiveSelectionContextFromCommandContext,
-	parseObjectiveDiffChangedSlugs,
-	parseObjectiveStatusChangedSlugs,
 } from "../api/index.ts";
 export type {
 	BuildObjectiveSkillPromptOptions,

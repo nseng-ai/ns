@@ -14,12 +14,39 @@ export function parseGitStatusPaths(rawStatus: string): GitResult<GitStatusPathF
 			const sourcePath = records[index];
 			if (sourcePath === undefined || sourcePath === "") return malformedRecord(record);
 		}
-		if (!changedSeen.has(parsed.path)) {
-			changedSeen.add(parsed.path);
-			changedPaths.push(parsed.path);
-		}
+		pushUnique(changedPaths, changedSeen, parsed.path);
 	}
 	return { ok: true, value: { changedPaths } };
+}
+
+export function parseGitNameStatusPaths(rawStatus: string): GitResult<GitStatusPathFacts> {
+	const changedPaths: string[] = [];
+	const changedSeen = new Set<string>();
+	for (const line of rawStatus.split(/\r?\n/)) {
+		const trimmedLine = line.trimEnd();
+		if (trimmedLine === "") continue;
+		const fields = trimmedLine.split("\t");
+		const status = fields[0] ?? "";
+		if (status === "") return malformedRecord(trimmedLine);
+		if (status.startsWith("R") || status.startsWith("C")) {
+			const paths = fields.slice(1).filter(Boolean);
+			if (paths.length < 2) return malformedRecord(trimmedLine);
+			for (const path of paths) {
+				pushUnique(changedPaths, changedSeen, path);
+			}
+			continue;
+		}
+		const path = fields[1];
+		if (path === undefined || path === "") return malformedRecord(trimmedLine);
+		pushUnique(changedPaths, changedSeen, path);
+	}
+	return { ok: true, value: { changedPaths } };
+}
+
+function pushUnique(paths: string[], seen: Set<string>, path: string): void {
+	if (seen.has(path)) return;
+	seen.add(path);
+	paths.push(path);
 }
 
 function parsePrimaryRecord(

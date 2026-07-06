@@ -16,6 +16,7 @@ import {
 	type GitRevisionRangePathParams,
 	type GitStagePathsParams,
 	type GitStatusPathFacts,
+	type GitStatusPathsParams,
 } from "./contract.ts";
 
 interface FailureState {
@@ -56,6 +57,10 @@ export interface InMemoryGitGatewayState {
 export interface GitCall {
 	cwd: string;
 	signal?: AbortSignal;
+}
+
+export interface GitStatusPathsCall extends GitCall {
+	pathspecs?: readonly string[];
 }
 
 export interface GitBranchCall extends GitCall {
@@ -123,7 +128,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly listLocalBranchTipsLog: GitCall[] = [];
 	private readonly treeOidsAtRefsLog: GitRefsPathCall[] = [];
 	private readonly changedPathsUnderLog: GitRevisionRangePathCall[] = [];
-	private readonly statusPathsLog: GitCall[] = [];
+	private readonly statusPathsLog: GitStatusPathsCall[] = [];
 	private readonly stagePathsLog: GitStagePathsCall[] = [];
 	private readonly commitLog: GitCommitCall[] = [];
 
@@ -228,8 +233,11 @@ export class InMemoryGitGateway implements GitGateway {
 		return copyRevisionRangePathCalls(this.changedPathsUnderLog);
 	}
 
-	get statusPathsCalls(): readonly GitCall[] {
-		return copyCalls(this.statusPathsLog);
+	get statusPathsCalls(): readonly GitStatusPathsCall[] {
+		return this.statusPathsLog.map((call) => ({
+			...call,
+			...(call.pathspecs === undefined ? {} : { pathspecs: [...call.pathspecs] }),
+		}));
 	}
 
 	get stagePathsCalls(): readonly GitStagePathsCall[] {
@@ -400,11 +408,17 @@ export class InMemoryGitGateway implements GitGateway {
 		return { ok: true, value: [...(value ?? [])] };
 	}
 
-	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
-		this.statusPathsLog.push(callFromParams(params));
+	async changedPathsUnderWithRenames(
+		params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
+		return this.changedPathsUnder(params);
+	}
+
+	async statusPaths(params: GitStatusPathsParams): Promise<GitResult<GitStatusPathFacts>> {
+		this.statusPathsLog.push(statusPathsCallFromParams(params));
 		return mapValueResult(
 			this.statusPathsState,
-			(state) => ({ changedPaths: [...state.changedPaths] }),
+			(state) => ({ changedPaths: filterStatusPaths(state.changedPaths, params.pathspecs) }),
 			"git_status_paths_failed",
 			"Could not read git status paths.",
 		);
@@ -489,6 +503,29 @@ function isDetachedState(value: unknown): value is { type: "detached" } {
 
 function callFromParams(params: GitCwdParams): GitCall {
 	return { cwd: params.cwd, ...(params.signal === undefined ? {} : { signal: params.signal }) };
+}
+
+function statusPathsCallFromParams(params: GitStatusPathsParams): GitStatusPathsCall {
+	return {
+		...callFromParams(params),
+		...(params.pathspecs === undefined ? {} : { pathspecs: [...params.pathspecs] }),
+	};
+}
+
+function filterStatusPaths(
+	paths: readonly string[],
+	pathspecs: readonly string[] | undefined,
+): string[] {
+	if (pathspecs === undefined || pathspecs.length === 0) return [...paths];
+	return paths.filter((path) => pathspecs.some((pathspec) => isUnderPathspec(path, pathspec)));
+}
+
+function isUnderPathspec(path: string, pathspec: string): boolean {
+	const normalizedPath = normalizeGitTestingRelativePath(path);
+	const normalizedPathspec = normalizeGitTestingRelativePath(pathspec);
+	return (
+		normalizedPath === normalizedPathspec || normalizedPath.startsWith(`${normalizedPathspec}/`)
+	);
 }
 
 function branchCallFromParams(params: GitBranchParams): GitBranchCall {

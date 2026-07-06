@@ -33,10 +33,9 @@ export {
 	changedActiveObjectiveSelection,
 	formatObjectiveChoice,
 	objectiveChoiceMap,
+	objectiveChangedSlugsFromPaths,
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
-	parseObjectiveDiffChangedSlugs,
-	parseObjectiveStatusChangedSlugs,
 } from "../core/objective-picker.ts";
 export type {
 	ChangedActiveObjectiveSelectionOptions,
