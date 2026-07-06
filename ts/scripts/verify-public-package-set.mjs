@@ -150,8 +150,9 @@ function compareBin({ packageName, localBin, registryBin, mismatches, evidence }
 	const localBinObject = normalizeBin(localBin);
 	const registryBinObject = normalizeBin(registryBin);
 	for (const [name, target] of Object.entries(localBinObject)) {
-		if (registryBinObject[name] !== target) {
-			mismatches.push(`bin.${name} ${formatValue(registryBinObject[name])} != ${target}`);
+		const registryTarget = registryBinObject[name];
+		if (registryTarget !== target) {
+			mismatches.push(`bin.${name} ${formatValue(registryTarget)} != ${target}`);
 			continue;
 		}
 		if (packageName === "@nseng-ai/ns" && name === "ns") evidence.push("bin.ns = bin/ns.js");
@@ -159,9 +160,15 @@ function compareBin({ packageName, localBin, registryBin, mismatches, evidence }
 }
 
 function normalizeBin(bin) {
-	if (typeof bin === "string") return { ns: bin };
-	if (bin !== null && typeof bin === "object" && !Array.isArray(bin)) return bin;
+	if (typeof bin === "string") return { ns: stripLeadingCurrentDirectory(bin) };
+	if (bin !== null && typeof bin === "object" && !Array.isArray(bin)) {
+		return Object.fromEntries(Object.entries(bin).map(([name, target]) => [name, stripLeadingCurrentDirectory(target)]));
+	}
 	return {};
+}
+
+function stripLeadingCurrentDirectory(value) {
+	return typeof value === "string" ? value.replace(/^\.\//, "") : value;
 }
 
 function compareExports({ packageName, localExports, registryExports, mismatches, evidence }) {

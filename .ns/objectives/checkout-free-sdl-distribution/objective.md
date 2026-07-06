@@ -31,15 +31,15 @@ checkout-free distribution is the biggest, riskiest chunk of that thread **and**
 every capability, not just objectives. `ship-objectives-to-customers` consumes this as a
 hard dependency.
 
-Progress at a glance (trunk, 2026-07-05): the runtime pieces have started landing. The
-kernel source-path capability alias loader was removed (`module-loader.ts` now only binds
-the `@nseng-ai/kernel/sdk` virtual module plus a jiti loader for user/repo-local
-extensions), and `ns objective …` routes now load through an injected preinstalled command
-catalog (`listObjectivePreinstalledNsCommandCatalogEntries` from `@nseng-ai/objectives/ns/ln-ln`,
-wired by the `@nseng-ai/ns` host) rather than checkout source aliases. An esbuild bundle,
-a local `@nseng-ai/ns` tarball, a checkout-free smoke, and a passing `npm publish --dry-run`
-all exist. What remains is the first real npm publish and generalizing bundled/preinstalled
-resolution beyond the Objective catalog.
+Progress at closure (2026-07-06): the runtime and registry pieces have landed. The kernel
+source-path capability alias loader was removed (`module-loader.ts` now only binds the
+`@nseng-ai/kernel/sdk` virtual module plus a jiti loader for user/repo-local extensions),
+and `ns objective …` routes load through an injected preinstalled command catalog
+(`listObjectivePreinstalledNsCommandCatalogEntries` from `@nseng-ai/objectives/ns/ln-ln`,
+wired by the `@nseng-ai/ns` host) rather than checkout source aliases. The prebuilt
+`@nseng-ai/ns` bundle, checkout-free smoke coverage, local release automation, and real npm
+publication are all evidenced; all 19 intended public `@nseng-ai/*` packages are
+registry-verified at `0.1.1`.
 
 Naming note: the ADR 0024 `sdl` → `ji` rename landed and has since been superseded by
 the `rename-ji-to-ns` cutover. The workspace package names now use the external
@@ -170,6 +170,37 @@ Risks:
 - ~~The exact first npm publish authorization and release mechanics~~ — resolved by the
   first manual registry publish of `@nseng-ai/ns@0.1.0` and a registry-backed `npx`
   smoke from a foreign repo. Follow-on release automation is local-command based, not CI.
-- Which packages are in the final intended-public registry set, and which versions/evidence
-  prove each one has been successfully published? The Objective now closes only after that
-  package set is published and verified, not after the first CLI package alone.
+- ~~Which packages are in the final intended-public registry set, and which versions/evidence
+  prove each one has been successfully published?~~ — resolved by the full public package
+  registry verification update (`updates/20260706T035113Z-full-public-package-registry-publish-verified.md`):
+  all 19 intended public packages are published and verified at `0.1.1`, including
+  `@nseng-ai/ns` bin/kernel-export metadata and registry-backed checkout-free `npx` smoke
+  evidence from a foreign repo.
+
+## Closure
+
+Closed 2026-07-06 after the checkout-free `ns` distribution path and complete intended
+public package set were published and verified on npm.
+
+Closure evidence:
+
+- The build/bundle path for `@nseng-ai/ns` produces a prebuilt `bin/ns.js` package boundary
+  without requiring checkout source shims, `ts/node_modules`, or a hard-coded `NODE_PATH`.
+- The hidden Objective `exec` surface and `ns objective …` routes run from the published
+  package through preinstalled command catalog loading rather than source-path package aliases.
+- Runtime/package triage recorded which workspace packages publish standalone, which package
+  surface is folded into `@nseng-ai/ns` (`@nseng-ai/kernel`), and which packages remain
+  private/internal/excluded.
+- The local release lane is checked in: coordinated version bumping, no-write full-set
+  qualification/dry-run, guarded interactive publication, and strict registry verification.
+- `pnpm --dir ts run release:verify-public -- --version 0.1.1 --strict` verified all 19
+  intended public packages on the npm registry with `0` missing, mismatched, or errored
+  packages.
+- `@nseng-ai/ns@0.1.1` registry metadata includes `bin.ns = bin/ns.js` plus the expected
+  `./kernel/*` subpath exports.
+- A registry-backed `npx -y @nseng-ai/ns@0.1.1 objective list --format md` smoke from a
+  throwaway foreign git repo executed successfully with no ns checkout.
+
+Future public package releases should use the checked-in local release lane as normal
+release work. Changes to the public package set, skill bundling model, or customer-facing
+Objective onboarding belong in follow-on Objectives rather than this closed record.
