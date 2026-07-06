@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { formatZodError, optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	formatZodError,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 
 import {
 	loadPiAgentDefinition,
@@ -27,6 +32,8 @@ import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
+import { RunnerSubagentFleetRegistry } from "./fleet.ts";
+import { syncSubagentFleetDisplay } from "../fleet/display.ts";
 export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
@@ -70,8 +77,13 @@ export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi & {
 
 export interface DispatchRunnerSubagentExtensionOptions {
 	cwd?: string;
+	fleetRegistry?: RunnerSubagentFleetRegistry;
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 }
+
+type DispatchRunnerConfigurationCheck =
+	| { ok: true; definition: PiAgentDefinition }
+	| { ok: false; diagnostic: string };
 
 export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	type: "object",
@@ -95,70 +107,129 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	additionalProperties: false,
 } as const;
 
+const FALLBACK_RUNNER_TOOL_METADATA = {
+	label: "Forked Pi subagent",
+	description: "dispatch_runner_subagent is unavailable: runner agent definition is misconfigured.",
+	promptSnippet: "dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed.",
+	promptGuidelines: ["dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed."],
+};
+
 export default function dispatchRunnerSubagentExtension(
 	pi: DispatchRunnerSubagentExtensionAPI,
 	options: DispatchRunnerSubagentExtensionOptions = {},
 ): void {
+	registerDispatchRunnerSubagentTool(pi, options);
+}
+
+export function registerDispatchRunnerSubagentTool(
+	pi: DispatchRunnerSubagentExtensionAPI,
+	options: DispatchRunnerSubagentExtensionOptions = {},
+): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
-	const runnerDefinition = loadAgentDefinition("runner", options.cwd ?? process.cwd());
-	if (runnerDefinition.toolName !== DISPATCH_RUNNER_SUBAGENT_TOOL_NAME) {
-		throw new Error(
-			`Runner agent definition ${runnerDefinition.filePath} declares toolName "${runnerDefinition.toolName}"; expected "${DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}".`,
-		);
-	}
+	const registrationCheck = checkRunnerConfiguration(loadAgentDefinition, options.cwd ?? process.cwd());
+	const metadata = registrationCheck.ok
+		? registrationCheck.definition
+		: FALLBACK_RUNNER_TOOL_METADATA;
 
 	pi.registerTool({
 		name: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
-		label: runnerDefinition.label,
-		description: runnerDefinition.description,
-		...(runnerDefinition.promptSnippet === undefined
-			? {}
-			: { promptSnippet: runnerDefinition.promptSnippet }),
-		promptGuidelines: runnerDefinition.promptGuidelines,
+		label: metadata.label,
+		description: metadata.description,
+		...(metadata.promptSnippet === undefined ? {} : { promptSnippet: metadata.promptSnippet }),
+		promptGuidelines: metadata.promptGuidelines,
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
-			const { result, curatedContext } = await runFinalTextSubagent({
-				pi,
-				ctx,
-				definition: runnerDefinition,
-				title: input.title,
-				prompt: input.prompt,
-				widgetKey: WIDGET_KEY,
-				...optionalEntries({ model: input.model, signal }),
-				onStart: (start) => {
-					onUpdate?.({
-						content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
-						details: {
-							status: "starting",
-							title: input.title,
-							progress: start.update.progress,
-							curatedContext: start.curatedContext.audit,
-						},
-					});
-				},
-				onProgress: (update) => {
-					const progressText = formatDispatchRunnerSubagentProgress(update.progress);
-					onUpdate?.({
-						content: [{ type: "text", text: progressText }],
-						details: {
-							status: "running",
-							title: input.title,
-							progress: update.progress,
-						},
-					});
-				},
-			});
+			if (!registrationCheck.ok) {
+				return {
+					content: [{ type: "text", text: registrationCheck.diagnostic }],
+					details: { status: "error", title: input.title, diagnostic: registrationCheck.diagnostic },
+				};
+			}
 
-			return {
-				content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-				details: dispatchRunnerSubagentDetails(result, {
-					...optionalEntry("requestedModel", input.model),
-					curatedContext: curatedContext.audit,
-				}),
-			};
+			const parentSessionFile = ctx.sessionManager?.getSessionFile?.();
+			const fleetRun = options.fleetRegistry?.startRun(
+				[{ title: input.title, prompt: input.prompt }],
+				parentSessionFile === undefined ? {} : { parentSessionFile },
+			);
+			const fleetTaskId = fleetRun?.tasks[0]?.id;
+			const unsubscribeFleet = options.fleetRegistry?.subscribe(() => {
+				syncSubagentFleetDisplay(ctx, options.fleetRegistry?.snapshot() ?? []);
+			});
+			if (options.fleetRegistry !== undefined) {
+				syncSubagentFleetDisplay(ctx, options.fleetRegistry.snapshot());
+			}
+
+			try {
+				const { result, curatedContext } = await runFinalTextSubagent({
+					pi,
+					ctx,
+					definition: registrationCheck.definition,
+					title: input.title,
+					prompt: input.prompt,
+					widgetKey: WIDGET_KEY,
+					...optionalEntries({ model: input.model, signal }),
+					onStart: (start) => {
+						options.fleetRegistry?.markRunning(fleetTaskId);
+						onUpdate?.({
+							content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
+							details: {
+								status: "starting",
+								title: input.title,
+								progress: start.update.progress,
+								curatedContext: start.curatedContext.audit,
+							},
+						});
+					},
+					onProgress: (update) => {
+						options.fleetRegistry?.markProgress(fleetTaskId, update);
+						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
+						onUpdate?.({
+							content: [{ type: "text", text: progressText }],
+							details: {
+								status: "running",
+								title: input.title,
+								progress: update.progress,
+							},
+						});
+					},
+				});
+				options.fleetRegistry?.markDone(fleetTaskId, result);
+
+				return {
+					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
+					details: dispatchRunnerSubagentDetails(result, {
+						...optionalEntry("requestedModel", input.model),
+						curatedContext: curatedContext.audit,
+					}),
+				};
+			} finally {
+				unsubscribeFleet?.();
+			}
 		},
 	});
+}
+
+function checkRunnerConfiguration(
+	loadAgentDefinition: (agentName: string, cwd: string) => PiAgentDefinition,
+	cwd: string,
+): DispatchRunnerConfigurationCheck {
+	let definition: PiAgentDefinition;
+	try {
+		definition = loadAgentDefinition("runner", cwd);
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostic: `.ns/pi/agents/runner.md is required for dispatch_runner_subagent but could not be loaded: ${formatErrorMessage(error)}`,
+		};
+	}
+	if (definition.toolName !== DISPATCH_RUNNER_SUBAGENT_TOOL_NAME) {
+		return {
+			ok: false,
+			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}".`,
+		};
+	}
+	return { ok: true, definition };
 }
 
 export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult): string {

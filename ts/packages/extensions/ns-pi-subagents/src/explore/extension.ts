@@ -13,7 +13,7 @@ import {
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
+} from "../runner-subagents/index.ts";
 import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
@@ -30,19 +30,14 @@ import {
 	exploreInputSchema,
 	type ExploreInput,
 } from "./input.ts";
-import { EXPLORE_FLEET_ENTRY_HINT, syncExploreFleetDisplay } from "./fleet.ts";
-import {
-	registerExploreFleetCommand,
-	registerExploreFleetShortcut,
-	type RegisterShortcutFunction,
-} from "./fleet-navigator.ts";
+import { SUBAGENT_FLEET_ENTRY_HINT, syncSubagentFleetDisplay } from "../fleet/display.ts";
+import type { RegisterShortcutFunction } from "../fleet/navigator.ts";
 import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
-import {
-	registerExploreTranscriptCommand,
-	type CommandRegistrar,
-	type TranscriptViewerDependencies,
-} from "./transcript-viewer.ts";
+import type {
+	CommandRegistrar,
+	TranscriptViewerDependencies,
+} from "../fleet/transcript-viewer.ts";
 import {
 	abortReasonDiagnostic,
 	cancelledResult,
@@ -69,6 +64,7 @@ export interface ExploreExtensionOptions {
 	cwd?: string;
 	dispatchExplorer?: ExploreDispatchFunction;
 	explorerRuntime?: ExplorerRuntime;
+	fleetRegistry?: RunnerSubagentFleetRegistry;
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 	timers?: TimerScheduler;
 	transcriptViewer?: TranscriptViewerDependencies;
@@ -137,6 +133,14 @@ export default function exploreExtension(
 	pi: ExploreExtensionAPI,
 	options: ExploreExtensionOptions = {},
 ): void {
+	const fleetRegistry = options.fleetRegistry ?? new RunnerSubagentFleetRegistry();
+	registerExploreTool(pi, { ...options, fleetRegistry });
+}
+
+export function registerExploreTool(
+	pi: ExploreExtensionAPI,
+	options: ExploreExtensionOptions & { fleetRegistry: RunnerSubagentFleetRegistry },
+): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const timers = options.timers ?? unrefTimerScheduler;
 	const registrationCheck = checkExplorerConfiguration(
@@ -146,22 +150,7 @@ export default function exploreExtension(
 	const metadata = registrationCheck.ok
 		? registrationCheck.definition
 		: FALLBACK_EXPLORER_TOOL_METADATA;
-	const fleetRegistry = new RunnerSubagentFleetRegistry();
-	registerExploreTranscriptCommand({
-		pi,
-		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
-	});
-	registerExploreFleetCommand({
-		pi,
-		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
-	});
-	registerExploreFleetShortcut({
-		pi,
-		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
-	});
+	const fleetRegistry = options.fleetRegistry;
 
 	pi.registerTool({
 		name: EXPLORE_TOOL_NAME,
@@ -310,9 +299,9 @@ async function runExploreTasks(request: {
 		parentSessionFile === undefined ? {} : { parentSessionFile },
 	);
 	const unsubscribeFleet = request.fleetRegistry.subscribe(() => {
-		syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
+		syncSubagentFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 	});
-	syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
+	syncSubagentFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 
 	function emitProgress(): void {
 		emitExploreProgress(states, request.onUpdate);
@@ -373,7 +362,7 @@ function notifyExploreAbnormalEnd(ctx: ToolContext, outcomes: readonly ExploreTa
 	if (unfinished === 0) return;
 	try {
 		ctx.ui.notify(
-			`explore: ${unfinished} of ${outcomes.length} tasks did not finish cleanly — ${EXPLORE_FLEET_ENTRY_HINT}`,
+			`explore: ${unfinished} of ${outcomes.length} tasks did not finish cleanly — ${SUBAGENT_FLEET_ENTRY_HINT}`,
 			"warning",
 		);
 	} catch {

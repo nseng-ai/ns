@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentFleetTaskSnapshot } from "@internal/pi-tools/runner-subagents";
+import type { RunnerSubagentFleetTaskSnapshot } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
 	parseExploreTranscript,
 	renderTranscriptMarkdown,
-} from "../../src/explore/transcript-viewer.ts";
+} from "../../src/fleet/transcript-viewer.ts";
 
 const task: RunnerSubagentFleetTaskSnapshot = {
 	id: "task-1",

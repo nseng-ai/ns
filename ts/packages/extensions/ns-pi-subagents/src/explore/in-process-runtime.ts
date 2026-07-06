@@ -4,7 +4,7 @@ import type {
 	RunnerSubagentActivity,
 	RunnerSubagentProgress,
 	RunnerSubagentResult,
-} from "@internal/pi-tools/runner-subagents";
+} from "../runner-subagents/index.ts";
 import type { ExplorerRuntime, ExplorerRuntimeDispatchInput } from "./runtime.ts";
 
 export type InProcessExplorerSessionEvent =

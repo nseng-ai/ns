@@ -32,10 +32,10 @@ import {
 	type RunnerSubagentContext,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
-import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@internal/pi-tools/runner-subagents";
+import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import {

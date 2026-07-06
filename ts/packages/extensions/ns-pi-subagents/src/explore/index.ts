@@ -5,7 +5,6 @@ export {
 	EXPLORE_BREADTH_VALUES,
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
 	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
-	EXPLORE_FLEET_SHORTCUT_LABEL,
 	EXPLORE_MIN_TASKS,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
@@ -17,6 +16,7 @@ export {
 	type ExploreBreadth,
 	type ExploreBreadthProfile,
 } from "./contract.ts";
+export { SUBAGENT_FLEET_SHORTCUT_LABEL } from "../fleet/contract.ts";
 export {
 	resolveExplorerLaunchPlan,
 	type ExplorerLaunchPlan,
@@ -40,28 +40,28 @@ export {
 	type ExploreToolStatus,
 } from "./extension.ts";
 export {
-	EXPLORE_FLEET_ENTRY_HINT,
-	EXPLORE_FLEET_STATUS_KEY,
-	EXPLORE_FLEET_WIDGET_KEY,
-	formatExploreFleetStatusText,
-	formatExploreFleetTaskLines,
-	formatExploreFleetWidgetLines,
-} from "./fleet.ts";
+	SUBAGENT_FLEET_ENTRY_HINT,
+	SUBAGENT_FLEET_STATUS_KEY,
+	SUBAGENT_FLEET_WIDGET_KEY,
+	formatSubagentFleetStatusText,
+	formatSubagentFleetTaskLines,
+	formatSubagentFleetWidgetLines,
+} from "../fleet/display.ts";
 export {
-	EXPLORE_FLEET_COMMAND_NAME,
-	EXPLORE_FLEET_PARENT_ENTRY_ID,
-	EXPLORE_FLEET_SHORTCUTS,
-	ExploreFleetNavigator,
+	SUBAGENT_FLEET_COMMAND_NAME,
+	SUBAGENT_FLEET_PARENT_ENTRY_ID,
+	SUBAGENT_FLEET_SHORTCUTS,
+	SubagentFleetNavigator,
 	loadFleetTaskDetail,
-	openExploreFleetNavigator,
-	registerExploreFleetCommand,
-	registerExploreFleetShortcut,
-	type ExploreFleetNavigatorContext,
-	type ExploreFleetNavigatorDependencies,
-	type ExploreFleetNavigatorOptions,
-	type ExploreFleetTaskDetail,
+	openSubagentFleetNavigator,
+	registerSubagentFleetCommand,
+	registerSubagentFleetShortcut,
+	type SubagentFleetNavigatorContext,
+	type SubagentFleetNavigatorDependencies,
+	type SubagentFleetNavigatorOptions,
+	type SubagentFleetTaskDetail,
 	type RegisterShortcutFunction,
-} from "./fleet-navigator.ts";
+} from "../fleet/navigator.ts";
 export {
 	createFunctionExplorerRuntime,
 	createSubprocessExplorerRuntime,
@@ -84,5 +84,5 @@ export {
 	type TranscriptEntry,
 	type TranscriptView,
 	type TranscriptViewerDependencies,
-} from "./transcript-viewer.ts";
+} from "../fleet/transcript-viewer.ts";
 export type { ExploreReadTextFileDependencies, ReadTextFile } from "./read-text-dependencies.ts";

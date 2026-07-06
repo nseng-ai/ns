@@ -591,7 +591,7 @@ describe("TypeScript style guard internal-space admission rules", () => {
 describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
 		"@internal/pi-tools/grill",
-		"@internal/pi-tools/runner-subagents",
+		"@nseng-ai/ns-pi-subagents/runner-subagents",
 		"@nseng-ai/areg",
 		"@nseng-ai/ccc",
 		"@nseng-ai/capability-kit",
@@ -604,7 +604,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
 		["@internal/pi-tools/grill", "internal-pi-tool"],
-		["@internal/pi-tools/runner-subagents", "internal-pi-tool"],
+		["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-pi-tool"],
 		["@nseng-ai/areg", "standalone-tool"],
 		["@nseng-ai/ccc", "capability"],
 		["@nseng-ai/capability-kit", "capability-kit"],
@@ -673,7 +673,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "internal pi tool to internal pi tool is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@internal/pi-tools/runner-subagents" }],
+			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/ns-pi-subagents/runner-subagents" }],
 			expectedViolation: false,
 		},
 		{

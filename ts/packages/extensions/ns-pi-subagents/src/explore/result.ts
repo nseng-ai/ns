@@ -1,7 +1,7 @@
 import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
-import { resultDiagnostic, type RunnerSubagentResult } from "@internal/pi-tools/runner-subagents";
+import { resultDiagnostic, type RunnerSubagentResult } from "../runner-subagents/index.ts";
 import {
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
 	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,

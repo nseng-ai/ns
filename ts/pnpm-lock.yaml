@@ -641,6 +641,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/ns-pi-subagents':
+        specifier: workspace:*
+        version: link:../../extensions/ns-pi-subagents
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi

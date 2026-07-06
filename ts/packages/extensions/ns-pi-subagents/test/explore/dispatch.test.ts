@@ -31,7 +31,7 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentStatus,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 
 const anthropicCtx: RunnerSubagentContext = {
 	cwd: "/repo",

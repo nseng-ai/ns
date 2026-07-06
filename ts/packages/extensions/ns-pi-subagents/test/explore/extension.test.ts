@@ -25,7 +25,7 @@ import {
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
 } from "../../src/explore/testing.ts";
-import type { RunnerSubagentUpdate } from "@internal/pi-tools/runner-subagents";
+import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 
 const ROOT = "/repo";
 const definition = makeExplorerAgentDefinition({
@@ -309,13 +309,13 @@ describe("explore extension", () => {
 		await settleMicrotasks();
 
 		expect(latestWidgetContent(widgetCalls)).toEqual([
-			"explore fleet: 3 running, 1 queued · F2/alt+e · /ns:explore:fleet",
+			"subagent fleet: 3 running, 1 queued · F2/alt+e · /ns:subagents:fleet",
 		]);
 
 		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await settleMicrotasks();
 		expect(latestWidgetContent(widgetCalls)).toEqual([
-			"explore fleet: 3 running · F2/alt+e · /ns:explore:fleet",
+			"subagent fleet: 3 running · F2/alt+e · /ns:subagents:fleet",
 		]);
 
 		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
@@ -323,8 +323,8 @@ describe("explore extension", () => {
 		deferredAt(deferreds, 3).resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
 		await running;
 
-		expect(widgetCalls.at(-1)).toMatchObject({ key: "ns.explore.fleet", content: undefined });
-		expect(widgetCalls.every((call) => call.key === "ns.explore.fleet")).toBe(true);
+		expect(widgetCalls.at(-1)).toMatchObject({ key: "ns.subagents.fleet", content: undefined });
+		expect(widgetCalls.every((call) => call.key === "ns.subagents.fleet")).toBe(true);
 		expect(
 			widgetCalls
 				.filter((call) => call.content !== undefined)
@@ -350,12 +350,12 @@ describe("explore extension", () => {
 		);
 
 		expect(statusCalls.at(-1)).toEqual({
-			key: "ns.explore.fleet",
-			value: "explore fleet: 1 done, 1 failed · F2/alt+e",
+			key: "ns.subagents.fleet",
+			value: "subagent fleet: 1 done, 1 failed · F2/alt+e",
 		});
 		expect(notifications).toEqual([
 			{
-				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:explore:fleet",
+				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:subagents:fleet",
 				level: "warning",
 			},
 		]);

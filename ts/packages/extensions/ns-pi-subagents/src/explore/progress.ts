@@ -5,7 +5,7 @@ import type { ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 import {
 	runnerSubagentPrimaryActivityPreview,
 	type RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
+} from "../runner-subagents/index.ts";
 import type { ExploreTaskState } from "./types.ts";
 
 interface ExploreProgressDetails {
@@ -22,7 +22,7 @@ interface ExploreTaskProgressView {
 
 /**
  * Live progress for the explore tool block itself. Ambient widget/status
- * rendering is owned by the fleet display (`syncExploreFleetDisplay`).
+ * rendering is owned by the fleet display (`syncSubagentFleetDisplay`).
  */
 export function emitExploreProgress(
 	states: readonly ExploreTaskState[],

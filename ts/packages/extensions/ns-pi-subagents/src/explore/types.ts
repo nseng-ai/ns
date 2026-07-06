@@ -4,7 +4,7 @@ import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 	RunnerSubagentUsageMetadata,
-} from "@internal/pi-tools/runner-subagents";
+} from "../runner-subagents/index.ts";
 import type { ExploreBreadth, ExploreBreadthProfile } from "./contract.ts";
 import type { DispatchExplorerSubagentOptions, ExplorerDispatchOutcome } from "./dispatch.ts";
 import type { ExploreInput, ExploreTaskInput } from "./input.ts";
