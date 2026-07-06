@@ -103,3 +103,21 @@ Risks:
 ## Open Questions
 
 None. The preview surface question was resolved as `ns skills install --dry-run`; see update `20260706T131908Z-ns-skills-cli-dry-run-surface-bound.md`.
+
+## Closure
+
+**Outcome: completed.** The thread is validated end-to-end and every Completion Criterion is independently re-verified against the real system (not the roadmap markers).
+
+Evidence:
+
+- `@nseng-ai/harness-artifacts` owns the shared catalog + provision-planning core; areg already consumes its `api` surface.
+- One real ns-owned skill (`objective`) flows through the real system: `ns skills list` shows it; `ns skills path` resolves real targets for `pi`/`claude-code`/`codex` at user and project scope (alias `claude` → `claude-code`); `ns skills install --dry-run` prints a deterministic per-file preview and writes nothing; `ns skills install` provisions it as a local copy with zero `npx skills` dependency.
+- The install manifest (v1) is written with per-file SHA-256 content hashes; refuse-to-clobber of locally edited files without `--force`, and `--force` override, are both exercised.
+- The `@nseng-ai/ns-init` `RealSkillMaterializer` seam consumes the shared provisioner (integration tests pass).
+- Full `just` green: main suite 4539/4539, `typescript-style-guard` 120/120, tsgo typecheck clean, objective edge sweep `sweep-ok`.
+
+Closure caveat and remediation: independent re-validation caught two validation breaks introduced by the post-slice feedback-remediation refactor (`3e7520006`) — an SDK virtual-mirror drift and a kernel `sdk -> extensions` subpackage-topology cycle — that had turned the Closure Gate red despite an earlier "green at every slice" claim. Both were remediated by relocating `repoLocalNsExtensionToPreinstalledCatalog` into the kernel `extensions` circle and surfacing it through `@nseng-ai/kernel/cli`, amended into the origin commit (`3e7520006` → `fe6e3151e`). Details in update `20260706T153030Z-closure-gate-caught-post-refactor-validation-breaks.md`.
+
+Closing on the branch `ns-skills-steelthread/feedback-remediation` per the closure-timing rule; the branch stack is not yet submitted, so no PR evidence is recorded — merge of the closing branch is the closure event on trunk. Deferred breadth (AREG re-platforming onto the shared core, record-format convergence, the vocabulary reconciliation sweep) remains coordinated by the `skill-management-subsystem` umbrella, not reopened here.
+
+Follow-up for the umbrella: flip its `[~]` child row and synthesize the cross-child lesson (SDK exports have two sync points — the `sdk` barrel and the jiti virtual mirror in `module-loader.ts`; a helper returning an `extensions` registry type must live in `extensions`, never `sdk`).
