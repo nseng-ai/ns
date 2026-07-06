@@ -12,7 +12,7 @@ edges:
 
 Prove the harness-artifact provisioning architecture end-to-end with the thinnest real slice: one real ns-owned skill flows from a static artifact catalog, through the harness path table and a deterministic provision plan, into the `pi`, `claude-code`, and `codex` harness roots via `ns skills list/path/install`, writing an install manifest entry with per-file content hashes — boring, static, testable, and with zero `npx skills` dependency.
 
-This is a **Steelthread Objective** (see the `objective` skill's patterns reference), the Subobjective carrying the thread of the `skill-management-subsystem` umbrella. The seams between layers are where the surprises live; this thread de-risks catalog → plan → materialization → manifest integration while the design is still cheap to change. Widening is explicitly out of scope: everything beyond the thread is deferred breadth coordinated by the umbrella.
+This is a **steelthread autoobjective** (see the `objective` skill's patterns reference — the patterns compose): the Subobjective carrying the thread of the `skill-management-subsystem` umbrella, with its roadmap and runner policy deliberately shaped for repeated Objective Runner steps with parent-LM checkpoints between committed slices. The seams between layers are where the surprises live; this thread de-risks catalog → plan → materialization → manifest integration while the design is still cheap to change. Widening is explicitly out of scope: everything beyond the thread is deferred breadth coordinated by the umbrella.
 
 **Naming (ADR 0026 `rename-ji-to-ns`, scope amended by ADR 0028):** the surface is ns-named — the `ns` CLI and a `ns skills`-shaped command family; any new package name is `@nseng-ai/*`-scoped. The cutover has executed on trunk: `ns` is the live binary, repo state lives under `.ns/`, the extension manifest key is `ns`, and workspace packages are `@nseng-ai/*`-scoped. Build no new sdl- or ji-named surface.
 
@@ -53,6 +53,37 @@ The thread validated end-to-end:
 - The `@nseng-ai/ns-init` `SkillMaterializer` seam (or an equivalent real consumer) consumes the thread.
 
 Deferred breadth does not hold this record open; it lives in the umbrella.
+
+## Definition of Progress
+
+Progress is keepable when:
+
+- It advances the thread — catalog model, harness path table, provision plan, materialization, install manifest, or the `ns skills list/path/install` surface — as a coherent slice with passing tests.
+- New behavior lives in `@nseng-ai/harness-artifacts` (or thin `ns` CLI wiring over it), stays consistent with the decided vocabulary (harness artifact / skills / provision / harness), and does not preclude the reconcile architecture.
+- Design decisions the slice forces (catalog shape, manifest record format, path-table entries, plan output shape) are recorded as Semantic Updates when they bind later slices.
+
+Do not keep changes that:
+
+- Widen scope into the umbrella's parked breadth (extension-carried provisioning, AREG re-platforming, update/uninstall surfaces, `agent`/`extension-bundle` provisioning, reconciliation sweep).
+- Stub a layer the thread exists to validate — fake manifest, fake path resolution, placeholder harness targets, or a mocked-out consumer seam presented as thread completion.
+- Add a dependency on the third-party `npx skills` CLI, or mutate vendored third-party skill directories outside explicit install commands.
+- Break `just` repo validation or existing `@nseng-ai/areg` / `@nseng-ai/ns-init` behavior.
+
+Useful evidence includes:
+
+- Passing Vitest coverage for path resolution, alias normalization, plan output, and manifest-driven refuse-to-clobber.
+- `ns skills` command output (list/path/install preview and apply) against a real ns-owned skill.
+- An install manifest written with per-file content hashes, verified in tests.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` and designed for repeated Objective Runner steps under the boundaries below.
+
+- Direct execution is allowed when: the slice advances an open roadmap row within thread scope, stays inside `ts/packages/capabilities/harness-artifacts`, `ns` CLI wiring for the `ns skills` family, the `@nseng-ai/ns-init` `SkillMaterializer` seam, and their tests/docs, and completes with passing validation.
+- Steer or ask first when: a decision would bind consumers beyond the thread (public API shape intended for AREG re-platforming or extension-carried catalogs), conflict with the reconcile orientation, change `@nseng-ai/ns-init`'s gateway contract rather than implement it, require renaming/moving pushed-down substrate modules other consumers import, or resolve the open `plan` subcommand vs `install --dry-run` question — record the question instead of guessing.
+- How work may change files and be left: local repository edits only, committed per slice on the working branch (never `main`/`master`); each runner step leaves a clean tree with tests passing; Objective tracking (roadmap statuses, Semantic Updates) is updated when a slice lands meaningful decisions or evidence.
+- Validation before keeping work: package tests for touched packages plus repo `just` validation; formatting failures fixed via `just dprint-fix` / TS autofixers, not by hand.
+- What will not happen unless explicitly requested: pushing, PR creation/submission, publishing, provisioning into real user-global harness directories outside tests or explicit user-invoked commands, edits to the umbrella record beyond mirrored-edge frontmatter, or any external write-capable action.
 
 ## Assumptions and Risks
 
