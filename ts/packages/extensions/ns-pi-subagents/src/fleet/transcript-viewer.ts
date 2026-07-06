@@ -10,8 +10,9 @@ import type {
 	RunnerSubagentFleetTaskSnapshot,
 } from "../runner-subagents/fleet.ts";
 import type { ExploreReadTextFileDependencies } from "../explore/read-text-dependencies.ts";
+import { AGENTS_COMMAND_NAMESPACE } from "./contract.ts";
 
-export const EXPLORE_TRANSCRIPT_COMMAND_NAME = "ns:agents:transcript";
+export const AGENTS_TRANSCRIPT_COMMAND_NAME = `${AGENTS_COMMAND_NAMESPACE}:transcript`;
 
 export interface TranscriptEntry {
 	type: "assistant" | "tool" | "summary";
@@ -32,7 +33,7 @@ export function registerExploreTranscriptCommand(input: {
 	dependencies?: TranscriptViewerDependencies;
 }): void {
 	if (input.pi.registerCommand === undefined) return;
-	input.pi.registerCommand(EXPLORE_TRANSCRIPT_COMMAND_NAME, {
+	input.pi.registerCommand(AGENTS_TRANSCRIPT_COMMAND_NAME, {
 		description: "Open a read-only transcript for a recent agents fleet child session.",
 		async handler(_args, ctx) {
 			await openExploreTranscriptViewer({

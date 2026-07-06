@@ -90,7 +90,6 @@ export {
 	dispatchRunnerSubagentDetails,
 	formatDispatchRunnerSubagentProgress,
 	formatDispatchRunnerSubagentResult,
-	formatElapsed,
 	truncateFinalTextForToolContent,
 } from "./extension.ts";
 export type {

@@ -10,7 +10,7 @@ import {
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUT_LABEL } from "./contract.ts";
 
 export const SUBAGENT_FLEET_WIDGET_KEY = "ns.agents.fleet";
-export const SUBAGENT_FLEET_STATUS_KEY = "ns.agents.fleet";
+export const SUBAGENT_FLEET_STATUS_KEY = SUBAGENT_FLEET_WIDGET_KEY;
 export const SUBAGENT_FLEET_ENTRY_HINT = `${SUBAGENT_FLEET_SHORTCUT_LABEL} · /${SUBAGENT_FLEET_COMMAND_NAME}`;
 
 export function syncSubagentFleetDisplay(

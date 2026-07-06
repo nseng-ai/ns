@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { RunnerSubagentFleetRegistry } from "./runner-subagents/fleet.ts";
 import {
 	registerDispatchRunnerSubagentTool,
@@ -22,21 +24,14 @@ export default function nsPiSubagentsExtension(
 	options: NsPiSubagentsExtensionOptions = {},
 ): void {
 	const fleetRegistry = new RunnerSubagentFleetRegistry();
-	registerExploreTranscriptCommand({
+	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
-	});
-	registerSubagentFleetCommand({
-		pi,
-		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
-	});
-	registerSubagentFleetShortcut({
-		pi,
-		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
-	});
+		...optionalEntry("dependencies", options.transcriptViewer),
+	};
+	registerExploreTranscriptCommand(fleetCommandInput);
+	registerSubagentFleetCommand(fleetCommandInput);
+	registerSubagentFleetShortcut(fleetCommandInput);
 	registerExploreTool(pi, { ...options, fleetRegistry });
 	registerDispatchRunnerSubagentTool(pi, { ...options, fleetRegistry });
 }

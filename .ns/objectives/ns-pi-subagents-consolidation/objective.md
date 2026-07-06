@@ -70,7 +70,7 @@ This Objective is an autoobjective (ADR 0022): its roadmap is shaped for repeate
 ## Assumptions and Risks
 
 - The package boundary created by `pi-parallel-subagents` is the right foundation; consolidation should deepen it rather than introduce another extension package.
-- The current stack branches are expected Objective evidence: `extension-registry-shim-loading-coverage-split` (open PR #3052), `subagent-fleet-dispatch-runner-subagent` (open PR #3069), and `stack-feedback/extension-workspace-helper` (open PR #3071). The stack is unlanded; runner steps stack on top of it, so a landing-time rebase or review revision of those PRs may require re-verifying slices built above them.
+- Closure is authored on the top-of-stack branch while the Objective PR stack is still open: PR #3052, PR #3069, PR #3071, and current PR #3108 together carry the completed consolidation state. Merging that stack is the trunk-landing event; any landing-time rebase or review revision should preserve the recorded `ns:agents:*` surface, package boundary, and test-lane decisions.
 - De-risked 2026-07-06 by repo audit: no live code references the retired `@internal/pi-tools/runner-subagents` path; the consolidated shim `.pi/extensions/subagents.ts` is a genuine 3-line thin delegate; `docs/pi/README.md` and `docs/pi/runner-subagent-helper.md` already describe the unified entrypoint. The materially stale surfaces are narrow: the `docs-site/lib/extensions-catalog.ts` entry pointing at the retired `.pi/extensions/dispatch-runner-subagent.ts` shim path, plus historical audit/retro docs.
 - De-risked 2026-07-06 by distribution-readiness audit: external packaging is still blocked. `@nseng-ai/ns-pi-subagents` remains private, ships raw `src/`, exposes raw `.ts` entrypoints, and has a runtime dependency on `@internal/pi-tools/overlay-kit` while `@internal/pi-tools` depends back on its runner-subagent subpaths. Promotion requires breaking that coupling and deciding a release artifact contract before any publish/version slice.
 - Test helper extraction can accidentally blur unit and integration lanes; keep real extension loading in integration tests and fake-backed behavior in default tests.
@@ -81,3 +81,16 @@ This Objective is an autoobjective (ADR 0022): its roadmap is shaped for repeate
 ## Open Questions
 
 - None currently. The former open questions are resolved or row-owned: command-surface naming is decided (`ns:agents:*`, no aliases; see Scope), helper-API export boundaries are owned by the exports/test-helper audit row, and distribution readiness is owned by the assess-and-record row.
+
+## Closure
+
+Outcome: completed. The consolidation Objective is closed on the top-of-stack branch that carries its final tracking state; merging the open stack is the trunk-landing event.
+
+Key evidence:
+
+- PR #3052: Move shim loading coverage into integration tests — preserves the default-vs-integration boundary for real shim loading.
+- PR #3069: Consolidate runner subagents into unified ns-pi-subagents extension — establishes `@nseng-ai/ns-pi-subagents` as the canonical package surface for explore, dispatch runner subagents, transcript viewing, and fleet navigation.
+- PR #3071: Extract shared extension registry test workspace helper — gives the kernel helper a clear test-fixture home.
+- Current PR #3108: Unify ns-pi-subagents fleet tracking and command naming — completes final follow-on remediation by centralizing fleet run tracking and keeping command naming under `ns:agents:*`.
+
+The remaining Objective work is not additional implementation: PR submission, push, merge, and landing are human-owned; external distribution remains intentionally blocked and documented with a promotion path. Parked higher-level orchestration across explore, dispatch runner subagents, and thermo-council remains a future follow-up only if a new caller proves the abstraction.
