@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
@@ -26,13 +26,12 @@ const intendedPublicPackages = [
 	"@nseng-ai/vibechk",
 	"@nseng-ai/capability-kit",
 	"@nseng-ai/flow",
+	"@nseng-ai/ccc",
 ];
 
 const firstBatchPackages = ["@nseng-ai/capability-kit", "@nseng-ai/flow"];
 
 const excludedPackages = new Set([
-	"@nseng-ai/kernel",
-	"@nseng-ai/ccc",
 	"@nseng-ai/pi",
 	"@nseng-ai/pi-command-surfaces",
 	"nscc",
@@ -65,6 +64,11 @@ for (const packageName of packagesToQualify) {
 		run("pnpm", ["--dir", "ts", "--filter", packageName, "run", "check"], { cwd: repoRoot });
 		run("pnpm", ["--dir", "ts", "--filter", packageName, "run", "test"], { cwd: repoRoot });
 	}
+	if (packageName === "@nseng-ai/ns") {
+		await qualifyNsPackage();
+		continue;
+	}
+	console.log(`Preparing publish root for ${packageName}`);
 	const publishRoot = await preparePublishRoot(entry, manifestByName);
 	if (!shouldSkipDryRun) run("npm", ["publish", "--dry-run", publishRoot], { cwd: repoRoot });
 }
@@ -106,10 +110,16 @@ async function preparePublishRoot(entry, manifestByName) {
 	for (const fileEntry of entry.manifest.files ?? []) {
 		await cp(resolve(entry.root, fileEntry), resolve(publishRoot, fileEntry), { recursive: true });
 	}
+	await rewritePublishedKernelImports(publishRoot);
 	const manifest = buildPublishManifest(entry.manifest, manifestByName);
 	assertPublishManifest(manifest);
 	await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
 	return publishRoot;
+}
+
+async function qualifyNsPackage() {
+	const script = shouldSkipDryRun ? "pack:local" : "publish:dry-run";
+	run("pnpm", ["--dir", "ts", "--filter", "@nseng-ai/ns", "run", script], { cwd: repoRoot });
 }
 
 function buildPublishManifest(sourceManifest, manifestByName) {
@@ -135,30 +145,56 @@ function buildPublishManifest(sourceManifest, manifestByName) {
 }
 
 function rewriteDependencyBlock(dependencies, manifestByName) {
-	return Object.fromEntries(
-		Object.entries(dependencies).map(([name, specifier]) => [name, rewriteDependencySpecifier(name, specifier, manifestByName)]),
-	);
+	const rewrittenDependencies = {};
+	for (const [name, specifier] of Object.entries(dependencies)) {
+		const rewritten = rewriteDependency(name, specifier, manifestByName);
+		rewrittenDependencies[rewritten.name] = rewritten.specifier;
+	}
+	return rewrittenDependencies;
 }
 
 function rewritePeerDependencyBlock(dependencies, manifestByName) {
-	return Object.fromEntries(
-		Object.entries(dependencies).map(([name, specifier]) => {
-			if (name === "@nseng-ai/pi") return [name, "*"];
-			return [name, rewriteDependencySpecifier(name, specifier, manifestByName)];
-		}),
-	);
+	const rewrittenDependencies = {};
+	for (const [name, specifier] of Object.entries(dependencies)) {
+		if (name === "@nseng-ai/pi") {
+			rewrittenDependencies[name] = "*";
+			continue;
+		}
+		const rewritten = rewriteDependency(name, specifier, manifestByName);
+		rewrittenDependencies[rewritten.name] = rewritten.specifier;
+	}
+	return rewrittenDependencies;
 }
 
-function rewriteDependencySpecifier(name, specifier, manifestByName) {
+function rewriteDependency(name, specifier, manifestByName) {
+	if (name === "@nseng-ai/kernel") {
+		const nsManifest = manifestByName.get("@nseng-ai/ns")?.manifest;
+		if (nsManifest === undefined) throw new Error("Missing workspace manifest for @nseng-ai/ns");
+		return { name: "@nseng-ai/ns", specifier: nsManifest.version };
+	}
 	if (excludedPackages.has(name)) throw new Error(`Publish manifest must not depend on excluded package ${name}`);
 	if (specifier === "workspace:*") {
 		const dependencyManifest = manifestByName.get(name)?.manifest;
 		if (dependencyManifest === undefined) throw new Error(`Missing workspace manifest for ${name}`);
 		if (!intendedPublicPackages.includes(name)) throw new Error(`${name} is not in the intended public package set`);
-		return dependencyManifest.version;
+		return { name, specifier: dependencyManifest.version };
 	}
-	if (specifier === "catalog:") return catalogVersion(workspaceYaml, name);
-	return specifier;
+	if (specifier === "catalog:") return { name, specifier: catalogVersion(workspaceYaml, name) };
+	return { name, specifier };
+}
+
+async function rewritePublishedKernelImports(root) {
+	for (const entry of await readdir(root, { withFileTypes: true })) {
+		const path = resolve(root, entry.name);
+		if (entry.isDirectory()) {
+			await rewritePublishedKernelImports(path);
+			continue;
+		}
+		if (![".js", ".mjs", ".ts", ".tsx"].includes(extname(entry.name))) continue;
+		const source = await readFile(path, "utf8");
+		const rewritten = source.replaceAll("@nseng-ai/kernel/", "@nseng-ai/ns/kernel/");
+		if (rewritten !== source) await writeFile(path, rewritten);
+	}
 }
 
 function assertPublishManifest(manifest) {

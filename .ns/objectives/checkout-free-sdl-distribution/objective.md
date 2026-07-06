@@ -65,18 +65,16 @@ it describes the pre-work state.
   and their parity test
   (`ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts`)
   reconciled and green.
-- **Resolve `private` / workspace-dep publishability.** `@nseng-ai/kernel` is
-  `private: true` permanently — decided: its runtime surface ships only folded inside the
-  published `@nseng-ai/ns` bundle (esbuild inlines kernel source at bundle time); no
-  standalone kernel publish path exists. 9 of 25 workspace packages are private
-  (`@nseng-ai/kernel`, `@nseng-ai/capability-kit`, `@nseng-ai/ccc`, `@nseng-ai/flow`,
-  `@nseng-ai/pi`, `@nseng-ai/pi-command-surfaces`, `nscc`, `@internal/pi-tools`,
-  `@internal/typescript-style-guard`); the runtime/loader-relevant private set is
-  `@nseng-ai/kernel`, `@nseng-ai/capability-kit`, `@nseng-ai/flow`, and `@nseng-ai/ccc`,
-  with the remaining privates excluded host/tooling packages. Decide per remaining runtime
-  package: un-private + publish, bundle-inline, or exclude. `@nseng-ai/objectives` and the
-  other capability packages are already non-private. The kernel also depends on external
-  published npm packages (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`).
+- **Resolve `private` / workspace-dep publishability.** The kernel is no longer a
+  standalone public package: its runtime surface ships folded inside the published
+  `@nseng-ai/ns` bundle and public imports target `@nseng-ai/ns/kernel/*`; no standalone
+  `@nseng-ai/kernel` publish path exists. `@nseng-ai/ccc` is now in the intended public
+  package set. Remaining excluded host/tooling packages are `@nseng-ai/pi`,
+  `@nseng-ai/pi-command-surfaces`, `nscc`, `@internal/pi-tools`, and
+  `@internal/typescript-style-guard`. Decide per remaining runtime dependency: publish,
+  bundle-inline/fold, or exclude. `@nseng-ai/objectives` and the other capability packages
+  are already non-private. The folded kernel code also depends on external published npm
+  packages (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`).
 - **Publish the intended public package set to npm** under the `@nseng-ai/*` scope (per
   the `rename-ji-to-ns` edge, superseding the ADR 0024 `@ji` scope). This includes
   `@nseng-ai/ns` with the `ns` bin working checkout-free and every other workspace
@@ -165,8 +163,8 @@ Risks:
   decision that many packages publish standalone, `@nseng-ai/capability-kit` and
   `@nseng-ai/flow` at minimum
   (`updates/20260705T123551Z-standalone-package-publishing-decision.md`).
-  `@nseng-ai/kernel` specifically remains `private: true` permanently, folded into the
-  published `@nseng-ai/ns` bundle rather than published standalone.
+  The kernel specifically remains folded into the published `@nseng-ai/ns` bundle rather
+  than published standalone; public consumers use `@nseng-ai/ns/kernel/*` subpaths.
 - ~~The exact first npm publish authorization and release mechanics~~ — resolved by the
   first manual registry publish of `@nseng-ai/ns@0.1.0` and a registry-backed `npx`
   smoke from a foreign repo. Release automation/CI remains parked.
