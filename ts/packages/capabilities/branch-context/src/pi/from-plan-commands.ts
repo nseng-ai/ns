@@ -5,6 +5,8 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
+import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
 	runBranchContextGtUpstackImplLaunch,
@@ -991,7 +993,7 @@ async function runGtUpstackImplLaunchTail(options: GtUpstackImplLaunchTailOption
 	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
 	const launchResult = await runBranchContextGtUpstackImplLaunch({
-		host: pi,
+		git: new RealGitGateway(piExecApiToCommandExecApi(pi), { timeoutMs: 30_000 }),
 		ctx,
 		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
 		target,
