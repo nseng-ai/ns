@@ -23,12 +23,12 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 	async writeInstructionFile(
 		params: WriteInstructionFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		return writeTextFile(
-			params.repoRoot,
-			params.file,
-			params.content,
-			"instruction-file-write-failed",
-		);
+		return writeTextFile({
+			repoRoot: params.repoRoot,
+			relativePath: params.file,
+			content: params.content,
+			errorCode: "instruction-file-write-failed",
+		});
 	}
 
 	async readProjectConfigFile(params: ProjectConfigFileParams): Promise<TextFileReadResult> {
@@ -38,7 +38,12 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 	async writeProjectConfigFile(
 		params: WriteProjectConfigFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		return writeTextFile(params.repoRoot, "ns.toml", params.content, "ns-toml-write-failed");
+		return writeTextFile({
+			repoRoot: params.repoRoot,
+			relativePath: "ns.toml",
+			content: params.content,
+			errorCode: "ns-toml-write-failed",
+		});
 	}
 
 	async ensureObjectivesDirectory(params: {
@@ -91,19 +96,23 @@ async function readTextFile(
 	}
 }
 
+interface WriteTextFileOptions {
+	repoRoot: string;
+	relativePath: string;
+	content: string;
+	errorCode: string;
+}
+
 async function writeTextFile(
-	repoRoot: string,
-	relativePath: string,
-	content: string,
-	errorCode: string,
+	options: WriteTextFileOptions,
 ): Promise<ActivationFilesOperationResult> {
 	try {
-		await writeFile(path.join(repoRoot, relativePath), content, "utf8");
+		await writeFile(path.join(options.repoRoot, options.relativePath), options.content, "utf8");
 		return { ok: true };
 	} catch (error) {
 		return {
 			ok: false,
-			error: { code: errorCode, message: formatErrorMessage(error) },
+			error: { code: options.errorCode, message: formatErrorMessage(error) },
 		};
 	}
 }

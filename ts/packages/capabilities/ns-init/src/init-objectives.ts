@@ -2,7 +2,7 @@ import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok, usageError } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-import { activateObjectives } from "./activate-objectives.ts";
+import { activateObjectives, resolveActivationRepository } from "./activate-objectives.ts";
 import type { ObjectiveActivationContext } from "./activation-context.ts";
 import {
 	normalizeHarnessSelection,
@@ -57,32 +57,9 @@ export async function initObjectives(
 	context: ObjectiveActivationContext,
 	request: InitObjectivesRequest & { cwd: string },
 ): Promise<ClinkrExit<InitObjectivesResult>> {
-	const repoRootResult = await context.git.optionalRepoRoot({ cwd: request.cwd });
-	if (repoRootResult.type === "error") {
-		return failure("ns-init-git-error", repoRootResult.error.message, repoRootResult.error);
-	}
-	if (repoRootResult.type === "missing") {
-		return failure(
-			"ns-init-not-a-git-repo",
-			`No git repository found at ${request.cwd}; run \`git init\` first.`,
-			{
-				cwd: request.cwd,
-			},
-		);
-	}
-	const repoRoot = repoRootResult.value;
-
-	const trunkResult = await context.git.trunkBranch({ cwd: repoRoot });
-	if (trunkResult.type === "error") {
-		return failure("ns-init-git-error", trunkResult.error.message, trunkResult.error);
-	}
-	if (trunkResult.type === "missing") {
-		return failure(
-			"ns-init-trunk-undetectable",
-			"Could not detect a trunk branch for this repository; objectives need one to anchor durable records.",
-			{ repoRoot },
-		);
-	}
+	const repositoryResult = await resolveActivationRepository(context, request.cwd);
+	if (repositoryResult.type !== "resolved") return activationFailure(repositoryResult);
+	const { repoRoot } = repositoryResult.repository;
 
 	const harnessResolution = await resolveHarnesses(context, {
 		repoRoot,
@@ -97,6 +74,7 @@ export async function initObjectives(
 	const activation = await activateObjectives(context, {
 		cwd: request.cwd,
 		harnesses: harnessResolution.harnesses,
+		resolvedRepository: repositoryResult.repository,
 	});
 	if (activation.type !== "activated") return activationFailure(activation);
 
@@ -210,9 +188,9 @@ function configFailure(errorType: string, error: { message: string }): HarnessRe
 function activationFailure(result: ActivationFailure): ClinkrExit<InitObjectivesResult> {
 	switch (result.type) {
 		case "not-a-git-repo":
-			return failure("ns-init-not-a-git-repo", result.message, {});
+			return failure("ns-init-not-a-git-repo", result.message, { cwd: result.cwd });
 		case "trunk-undetectable":
-			return failure("ns-init-trunk-undetectable", result.message, {});
+			return failure("ns-init-trunk-undetectable", result.message, { repoRoot: result.repoRoot });
 		case "agents-block-malformed":
 			return failure("ns-init-agents-block-malformed", result.reason, { reason: result.reason });
 		case "error":

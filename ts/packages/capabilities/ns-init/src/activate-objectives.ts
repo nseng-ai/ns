@@ -8,9 +8,21 @@ import type { NsInitErrorInfo } from "./error-info.ts";
 import { applyObjectiveInstructionBlock, ensureClaudeAgentsImport } from "./instruction-block.ts";
 import type { HarnessId, SkillMaterializeResult } from "./skill-materializer.ts";
 
+export interface ResolvedActivationRepository {
+	repoRoot: string;
+	trunkBranch: string;
+}
+
+export type ResolveActivationRepositoryResult =
+	| { type: "resolved"; repository: ResolvedActivationRepository }
+	| { type: "not-a-git-repo"; message: string; cwd: string }
+	| { type: "trunk-undetectable"; message: string; repoRoot: string }
+	| { type: "error"; error: NsInitErrorInfo };
+
 export interface ActivateObjectivesOptions {
 	cwd: string;
 	harnesses: readonly HarnessId[];
+	resolvedRepository?: ResolvedActivationRepository;
 }
 
 export interface ObjectiveActivationReport {
@@ -24,8 +36,8 @@ export interface ObjectiveActivationReport {
 
 export type ActivateObjectivesResult =
 	| { type: "activated"; report: ObjectiveActivationReport }
-	| { type: "not-a-git-repo"; message: string }
-	| { type: "trunk-undetectable"; message: string }
+	| { type: "not-a-git-repo"; message: string; cwd: string }
+	| { type: "trunk-undetectable"; message: string; repoRoot: string }
 	| { type: "agents-block-malformed"; reason: string }
 	| { type: "error"; error: NsInitErrorInfo };
 
@@ -47,25 +59,13 @@ export async function activateObjectives(
 		};
 	}
 
-	const repoRootResult = await context.git.optionalRepoRoot({ cwd: options.cwd });
-	if (repoRootResult.type === "error") return { type: "error", error: repoRootResult.error };
-	if (repoRootResult.type === "missing") {
-		return {
-			type: "not-a-git-repo",
-			message: `No git repository found at ${options.cwd}; run \`git init\` first.`,
-		};
+	let repository = options.resolvedRepository;
+	if (repository === undefined) {
+		const repositoryResult = await resolveActivationRepository(context, options.cwd);
+		if (repositoryResult.type !== "resolved") return repositoryResult;
+		repository = repositoryResult.repository;
 	}
-	const repoRoot = repoRootResult.value;
-
-	const trunkResult = await context.git.trunkBranch({ cwd: repoRoot });
-	if (trunkResult.type === "error") return { type: "error", error: trunkResult.error };
-	if (trunkResult.type === "missing") {
-		return {
-			type: "trunk-undetectable",
-			message:
-				"Could not detect a trunk branch for this repository; objectives need one to anchor durable records.",
-		};
-	}
+	const { repoRoot, trunkBranch } = repository;
 
 	const agentsApplied = await readTransformWriteInstructionFile({
 		files: context.files,
@@ -75,16 +75,19 @@ export async function activateObjectives(
 			applyObjectiveInstructionBlock({ text: read.type === "found" ? read.content : "" }),
 	});
 	if (agentsApplied.type === "error") return { type: "error", error: agentsApplied.error };
-	if ("type" in agentsApplied.result && agentsApplied.result.type === "malformed") {
-		return { type: "agents-block-malformed", reason: agentsApplied.result.reason };
+	const agentsAppliedResult = agentsApplied.result;
+	if (agentsAppliedResult.type === "malformed") {
+		return { type: "agents-block-malformed", reason: agentsAppliedResult.reason };
 	}
 
 	const claudeEnsured = await readTransformWriteInstructionFile({
 		files: context.files,
 		repoRoot,
 		file: "CLAUDE.md",
-		transform: (read) =>
-			ensureClaudeAgentsImport({ text: read.type === "found" ? read.content : "" }),
+		transform: (read) => ({
+			type: "applied",
+			...ensureClaudeAgentsImport({ text: read.type === "found" ? read.content : "" }),
+		}),
 	});
 	if (claudeEnsured.type === "error") return { type: "error", error: claudeEnsured.error };
 
@@ -100,12 +103,12 @@ export async function activateObjectives(
 		type: "activated",
 		report: {
 			repoRoot,
-			trunkBranch: trunkResult.value,
+			trunkBranch,
 			agentsInstructionFile: {
-				change: agentsApplied.existed ? agentsApplied.result.change : "created",
+				change: reportedChange({ existed: agentsApplied.existed, result: agentsAppliedResult }),
 			},
 			claudeInstructionFile: {
-				change: claudeEnsured.existed ? claudeEnsured.result.change : "created",
+				change: reportedChange(claudeEnsured),
 			},
 			objectivesDirectory: { created: directoryResult.value.created },
 			skills,
@@ -113,10 +116,11 @@ export async function activateObjectives(
 	};
 }
 
-type InstructionFileWritableTransformResult = {
+interface InstructionFileWritableTransformResult {
+	type: "applied";
 	content: string;
 	change: "appended" | "replaced" | "unchanged";
-};
+}
 
 type InstructionFileTransformResult =
 	| InstructionFileWritableTransformResult
@@ -141,7 +145,7 @@ async function readTransformWriteInstructionFile<
 	if (read.type === "error") return { type: "error", error: read.error };
 
 	const result = params.transform(read);
-	if ("change" in result && result.change !== "unchanged") {
+	if (result.type === "applied" && result.change !== "unchanged") {
 		const write = await params.files.writeInstructionFile({
 			repoRoot: params.repoRoot,
 			file: params.file,
@@ -151,4 +155,42 @@ async function readTransformWriteInstructionFile<
 	}
 
 	return { type: "ok", existed: read.type === "found", result };
+}
+
+export async function resolveActivationRepository(
+	context: ObjectiveActivationContext,
+	cwd: string,
+): Promise<ResolveActivationRepositoryResult> {
+	const repoRootResult = await context.git.optionalRepoRoot({ cwd });
+	if (repoRootResult.type === "error") return { type: "error", error: repoRootResult.error };
+	if (repoRootResult.type === "missing") {
+		return {
+			type: "not-a-git-repo",
+			message: `No git repository found at ${cwd}; run \`git init\` first.`,
+			cwd,
+		};
+	}
+
+	const trunkResult = await context.git.trunkBranch({ cwd: repoRootResult.value });
+	if (trunkResult.type === "error") return { type: "error", error: trunkResult.error };
+	if (trunkResult.type === "missing") {
+		return {
+			type: "trunk-undetectable",
+			message:
+				"Could not detect a trunk branch for this repository; objectives need one to anchor durable records.",
+			repoRoot: repoRootResult.value,
+		};
+	}
+
+	return {
+		type: "resolved",
+		repository: { repoRoot: repoRootResult.value, trunkBranch: trunkResult.value },
+	};
+}
+
+function reportedChange<Change extends string>(params: {
+	existed: boolean;
+	result: { type: "applied"; change: Change };
+}): Change | "created" {
+	return params.existed ? params.result.change : "created";
 }
