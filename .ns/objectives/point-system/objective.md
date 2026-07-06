@@ -99,10 +99,11 @@ Assumptions:
 
 Risks:
 
-- Kernel placement of the loader/catalog could violate ADR 0009's acyclic extension
-  dependency graph if capabilities need types the kernel defines (or vice versa); module
-  placement needs care in the first slice. Mitigation: decide placement (kernel vs
-  foundation) as explicit slice-1 work.
+- Kernel placement of the loader/catalog is de-risked for the initial slice: the shared
+  loader lives in `@nseng-ai/kernel` as a kernel-owned internal workspace surface, with
+  `ns.points` manifest schema/types exposed from the SDK manifest metadata. Future slices
+  should keep capability consumption through this kernel surface and avoid new packages or
+  capability-kit/foundation relocation unless a fresh layering problem appears.
 - Renaming `.ns/prompts/` files to id-based names touches content live workflows read
   (pr-description generation, plan saves); each rename must cut over reader and file in
   one slice.
@@ -114,8 +115,6 @@ Risks:
 
 ## Open Questions
 
-- Exact module placement of the shared loader and catalog (kernel vs foundation vs a new
-  kernel subpath) under ADR 0009 layering — slice 1 decides.
 - How capability runtime code consumes resolved installations: direct kernel API or a
   narrow gateway interface for testability (fake-driven testing conventions favor the
   latter).

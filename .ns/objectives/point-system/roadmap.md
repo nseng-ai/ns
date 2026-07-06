@@ -2,11 +2,18 @@
 
 ## Work
 
-- [ ] Kernel shared `ns.toml` loader: single parse, Zod-validated `[points]` table and
+- [~] Kernel shared `ns.toml` loader: single parse, Zod-validated `[points]` table and
       declared settings schemas, structured diagnostics.
-  - Policy: decide module placement (kernel vs foundation) here, per ADR 0009 layering,
-    before writing code; steer if placement forces new cross-package dependencies.
-  - Evidence: fake-driven unit tests for parse/validation/diagnostics; full `just`.
+  - Placement decided and initial API landed: `@nseng-ai/kernel` owns the internal
+    project-config/points loader surface; `ns.points` manifest schema/types live with SDK
+    manifest metadata.
+  - Remaining before `[x]`: migrate real consumers onto this loader and get full `just`
+    green once the unrelated existing Objective topology-circle style-guard failure is
+    cleared or excluded by evidence.
+  - Evidence: fake-driven kernel unit tests for parse/validation/diagnostics; targeted
+    kernel tests, `just ts-check`, `just ts-lint`, `just ts-format-check`, and
+    `git diff --check` passed on commit `6ac5f1b19`; full `just` reached an unrelated
+    existing `@nseng-ai/objectives` topology-circle style-guard failure.
 - [ ] `ns.points` manifest discovery and point catalog computation: definitions joined
       with installations — installed-but-undefined (error), override-in-effect,
       defined-but-uninstalled; conventional `.ns/prompts/<point-id>.md` folded in.
