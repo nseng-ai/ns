@@ -94,11 +94,17 @@
       package-quality refactor split explore result/progress/type plumbing into focused
       modules and made dispatch consume a validated explorer definition directly; PR
       #3005 records that review-remediation evidence.
-- [ ] Fleet widget and transcript viewer (monitoring layers 2–3): persistent live list
+- [x] Fleet widget and transcript viewer (monitoring layers 2–3): persistent live list
       of background/running explorers plus drill-in transcript view backed by on-disk
       session JSONL. Non-blocking for completion.
-- [ ] In-process runtime adapter behind a runtime seam for context-forking use cases
+      Outcome: intentionally parked as a future monitoring/UX layer; not required for
+      this Objective's completion criteria. Evidence:
+      `updates/2026-07-05-park-optional-follow-ons.md`.
+- [x] In-process runtime adapter behind a runtime seam for context-forking use cases
       (subprocess remains the default). Non-blocking for completion.
+      Outcome: intentionally parked as a future runtime-adapter exploration; subprocess
+      execution remains the completed/default substrate for this Objective. Evidence:
+      `updates/2026-07-05-park-optional-follow-ons.md`.
 - [x] Consolidation assessment: whether the chosen substrate can subsume
       `dispatchRunnerSubagent` and thermo-council's orchestration. Expected to park.
       Outcome: do not subsume `dispatchRunnerSubagent`, and park shared orchestration
@@ -121,6 +127,13 @@
 
 ## Parked
 
+- Fleet widget and transcript viewer are intentionally parked as a future monitoring/UX
+  layer. Reassess if operator visibility into running/background explorers becomes a
+  concrete product requirement beyond the completed inline progress widget and existing
+  session-file pointers.
+- In-process runtime adapter is intentionally parked as a future runtime exploration.
+  Reassess if a real context-forking use case needs `createAgentSession` coupling enough
+  to justify a Gateway-style runtime seam; subprocess execution remains the default.
 - Shared higher-level parallel subagent orchestration for explore + thermo-council is
   intentionally parked. Reassess only if a future third caller demonstrates a neutral
   scheduler/progress abstraction that preserves capability-specific result contracts,
