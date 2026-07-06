@@ -2,7 +2,7 @@ import { formatCommand } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
+import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import type { LandStackExtensionAPI, PullRequestSnapshot } from "./types.ts";
 
@@ -158,10 +158,11 @@ function batchedPullRequestFactsQuery(branchCount: number): string {
 		"$name: String!",
 		...Array.from({ length: branchCount }, (_, index) => `$head${index}: String!`),
 	].join(", ");
+	const prSelection = PR_FIELD_NAMES.join(" ");
 	const selections = Array.from(
 		{ length: branchCount },
 		(_, index) =>
-			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { number title body state isDraft headRefName baseRefName headRefOid mergeStateStatus url mergedAt } }`,
+			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { ${prSelection} } }`,
 	).join(" ");
 	return `query(${variableDeclarations}) { repository(owner: $owner, name: $name) { ${selections} } }`;
 }
@@ -209,6 +210,7 @@ function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefin
 
 	const body = value.body;
 	if (
+		typeof value.id !== "string" ||
 		typeof value.number !== "number" ||
 		!Number.isFinite(value.number) ||
 		typeof value.title !== "string" ||
@@ -223,6 +225,7 @@ function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefin
 	}
 
 	return {
+		id: value.id,
 		number: value.number,
 		title: value.title,
 		body,

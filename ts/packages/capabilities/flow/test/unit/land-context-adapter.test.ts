@@ -155,6 +155,7 @@ describe("land context adapter facts", () => {
 			context.github.squashMergePullRequest({
 				repoRoot: ROOT,
 				pullRequest: {
+					id: "PR_node_42",
 					number: 42,
 					title: "Merge subject",
 					body: "Merge body",
@@ -185,6 +186,7 @@ describe("land context adapter facts", () => {
 		const result = await context.github.squashMergePullRequest({
 			repoRoot: ROOT,
 			pullRequest: {
+				id: "PR_node_42",
 				number: 42,
 				title: "Merge subject",
 				body: secretBody,

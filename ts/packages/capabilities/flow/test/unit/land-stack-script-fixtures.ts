@@ -1,9 +1,7 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
-
-const PR_FIELDS =
-	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const TRUNK = "main";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -195,6 +193,7 @@ export function prSnapshot(overrides: {
 	mergedAt?: string | null;
 }): PullRequestSnapshot {
 	return {
+		id: `PR_node_${overrides.number}`,
 		number: overrides.number,
 		title: overrides.title ?? `PR ${overrides.number}`,
 		body: overrides.body === undefined ? `Body for PR ${overrides.number}` : overrides.body,

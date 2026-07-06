@@ -217,6 +217,7 @@ function isolatedShape(): LandingShape {
 
 function pullRequestFacts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
 	return {
+		id: overrides.id ?? `PR_node_${overrides.number ?? 101}`,
 		number: overrides.number ?? 101,
 		title: overrides.title ?? "PR 101",
 		body: overrides.body ?? "Body for PR 101",
@@ -235,6 +236,7 @@ function pullRequestFacts(overrides: Partial<PullRequestFacts> = {}): PullReques
 
 function copyPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
 	return {
+		id: pr.id,
 		number: pr.number,
 		title: pr.title,
 		body: pr.body,

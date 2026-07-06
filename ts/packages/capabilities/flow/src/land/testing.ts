@@ -767,6 +767,7 @@ export function pullRequestFacts(overrides: Partial<PullRequestFacts> = {}): Pul
 	const number = overrides.number ?? 1;
 	const branch = overrides.headRefName ?? "feature/current";
 	return {
+		id: overrides.id ?? `PR_node_${number}`,
 		number,
 		title: overrides.title ?? `PR ${number}`,
 		body: overrides.body ?? null,

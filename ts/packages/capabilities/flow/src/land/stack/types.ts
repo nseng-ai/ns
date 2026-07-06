@@ -1,5 +1,6 @@
 import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
+import type { PullRequestFacts } from "../types.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -132,19 +133,7 @@ export interface LandingShape {
 	stack: StackSnapshot;
 }
 
-export interface PullRequestSnapshot {
-	number: number;
-	title: string;
-	body: string | null;
-	state: string;
-	isDraft: boolean;
-	headRefName: string;
-	baseRefName: string;
-	headRefOid: string;
-	mergeStateStatus?: string;
-	url?: string;
-	mergedAt?: string | null;
-}
+export type PullRequestSnapshot = PullRequestFacts;
 
 export interface BranchPlan {
 	branch: string;

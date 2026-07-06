@@ -2,11 +2,9 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import { loadPr } from "../../src/land/stack/pr-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
-
-const PR_FIELDS =
-	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const ROOT = "/repo";
 
@@ -122,6 +120,7 @@ describe("loadPr boundary parsing", () => {
 		const pi = new FakePi([
 			prViewStep({
 				stdout: JSON.stringify({
+					id: "PR_node_101",
 					number: 101,
 					title: "Ship it",
 					body: null,
@@ -142,6 +141,7 @@ describe("loadPr boundary parsing", () => {
 
 		pi.assertDone();
 		expect(pr).toEqual({
+			id: "PR_node_101",
 			number: 101,
 			title: "Ship it",
 			body: null,
@@ -160,6 +160,7 @@ describe("loadPr boundary parsing", () => {
 		const pi = new FakePi([
 			prViewStep({
 				stdout: JSON.stringify({
+					id: "PR_node_101",
 					number: 101,
 					title: "Ship it",
 					body: "Body",
@@ -197,11 +198,33 @@ describe("loadPr boundary parsing", () => {
 		const pi = new FakePi([
 			prViewStep({
 				stdout: JSON.stringify({
+					id: "PR_node_101",
 					number: 101,
 					title: "Ship it",
 					body: "Body",
 					state: "OPEN",
 					isDraft: "false",
+					headRefName: "feature-a",
+					baseRefName: TRUNK,
+					headRefOid: SHA_A,
+				}),
+			}),
+		]);
+
+		expect(expectFailure(await loadPr(pi, ROOT, "feature-a")).message).toContain(
+			"did not return required PR fields",
+		);
+	});
+
+	test("rejects a snapshot missing the PR node id", async () => {
+		const pi = new FakePi([
+			prViewStep({
+				stdout: JSON.stringify({
+					number: 101,
+					title: "Ship it",
+					body: "Body",
+					state: "OPEN",
+					isDraft: false,
 					headRefName: "feature-a",
 					baseRefName: TRUNK,
 					headRefOid: SHA_A,

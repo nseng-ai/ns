@@ -66,6 +66,7 @@ const SANDBOX_PR_ROWS = [
 ] as const;
 
 interface SandboxPr {
+	id: string;
 	number: number;
 	title: string;
 	body: string | null;
@@ -549,6 +550,7 @@ function buildDefaultPrs(shas: Record<string, string>): Record<string, SandboxPr
 
 function pr(options: SandboxPrOptions): SandboxPr {
 	return {
+		id: `PR_node_${options.number}`,
 		number: options.number,
 		title: `PR ${options.number}`,
 		body: `Body for PR ${options.number}`,

@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: flow-land-incremental-perf-rollout
+    annotation: Subsumed by this successor at closure; it carries this Objective's remaining reconcile row, wall-time baseline question, and parked follow-ups forward as incremental dogfooded slices.
+---
+
 # Flow Land Large-Stack Performance
 
 ## Thesis
@@ -84,3 +90,9 @@ Risks:
 - ~~What exact XDG/state path and JSON schema should telemetry diagnostics use?~~ Resolved: per-run schema v1 JSON at `$XDG_STATE_HOME/sdl/flow/land/runs/<runId>.json` (fields: `schemaVersion`, `runId`, `command`, start/finish/duration ms, `exitCode`, `totals`, `externalCalls` with minimized per-call payload). Recorded as first-milestone row evidence; revisit only if baseline work demands more fields.
 - When, if ever, should a direct GraphQL `mergePullRequest` mutation replace `gh pr merge`? Parity is already confirmed from the `cli/cli` source (see Risks), and the current per-PR sequence triple-fetches overlapping PR facts (pre-merge `gh pr view` gate, `gh pr merge`'s internal PR-finder query, post-merge `gh pr view` verification); the remaining question is whether baseline evidence justifies the migration, not whether parity is achievable.
 - Which stack sizes and repository shapes should define the representative large-stack baseline? Partially resolved: fake-backed count/quota baselines use linear 11-PR (preserves the existing chunk-threshold scenario) and linear 25-PR stacks. The shape for the human-driven real wall-time run remains open.
+
+## Closure
+
+Closed 2026-07-06 by consolidation into `flow-land-incremental-perf-rollout`. Delivered to trunk with fake-backed before/after evidence: the shared external-call telemetry layer (event schema, per-run XDG/state JSON diagnostics, `--verbose` summaries), fake-backed large-stack call-count/quota baselines, and four conservative optimizations that took linear-11 from 205 to 145 total external calls and linear-25 from 457 to 313 (branch-only required restacks, batched preflight PR facts, batched backup snapshotting, reuse of the repo-discovery branch-tip inventory).
+
+The remaining tail moved to the successor rather than finishing here: the reconcile/documentation row, the human-driven real wall-time baseline (stack shape still open), the parked follow-up candidates (stale backup deletion, post-restack guard reads, optional descendant restack scope, merge-loop duplicate PR facts), and this record's steer-first merge/push-primitive open question. The prototyped answer to that question — the unmerged stack ending at `flow-land-perf-baselines` (PR node-ID plumbing, targeted trunk fetches, lease-based push with GraphQL base retarget, GraphQL `mergePullRequest` with post-merge verification removed, plus baselines) — was judged too risky to land wholesale; the successor re-derives it as small, individually dogfooded, git-revertible slices instead.
