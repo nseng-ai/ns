@@ -38,3 +38,27 @@ export {
 	type ExploreToolDetails,
 	type ExploreToolStatus,
 } from "./extension.ts";
+export { EXPLORE_FLEET_WIDGET_KEY, formatExploreFleetWidgetLines } from "./fleet.ts";
+export {
+	createFunctionExplorerRuntime,
+	createSubprocessExplorerRuntime,
+	type ExplorerRuntime,
+	type ExplorerRuntimeDispatchFunction,
+	type ExplorerRuntimeDispatchInput,
+} from "./runtime.ts";
+export {
+	createInProcessExplorerRuntime,
+	type InProcessExplorerRuntimeOptions,
+	type InProcessExplorerSession,
+	type InProcessExplorerSessionCreateInput,
+	type InProcessExplorerSessionEvent,
+	type InProcessExplorerSessionFactory,
+} from "./in-process-runtime.ts";
+export {
+	EXPLORE_TRANSCRIPT_COMMAND_NAME,
+	parseExploreTranscript,
+	renderTranscriptMarkdown,
+	type TranscriptEntry,
+	type TranscriptView,
+	type TranscriptViewerDependencies,
+} from "./transcript-viewer.ts";

@@ -3,6 +3,17 @@ export { mapWithConcurrency } from "./concurrency.ts";
 export type { MapWithConcurrencyInput } from "./concurrency.ts";
 export { READ_ONLY_SUBAGENT_TOOLS } from "./read-only-tools.ts";
 export { setRunnerSubagentWidget } from "./widget.ts";
+export {
+	RUNNER_SUBAGENT_FLEET_RECENT_TASK_CAP,
+	RunnerSubagentFleetRegistry,
+	compareFleetTasksForDisplay,
+} from "./fleet.ts";
+export type {
+	RunnerSubagentFleetRunSnapshot,
+	RunnerSubagentFleetTaskInput,
+	RunnerSubagentFleetTaskSnapshot,
+	RunnerSubagentFleetTaskState,
+} from "./fleet.ts";
 
 export {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
@@ -16,6 +27,7 @@ export type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,
 	RunnerSubagentCompletedResult,
+	RunnerSubagentActivity,
 	RunnerSubagentContext,
 	RunnerSubagentErrorResult,
 	RunnerSubagentFailureStatus,

@@ -7,9 +7,11 @@ import {
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
+import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
+	RunnerSubagentFleetRegistry,
 	mapWithConcurrency,
 	setRunnerSubagentWidget,
 	type RunnerSubagentContext,
@@ -26,7 +28,13 @@ import {
 	type ExploreBreadth,
 } from "./contract.ts";
 import { dispatchExplorerSubagent } from "./dispatch.ts";
+import { syncExploreFleetWidget } from "./fleet.ts";
 import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
+import type { ExplorerRuntime } from "./runtime.ts";
+import {
+	registerExploreTranscriptCommand,
+	type TranscriptViewerDependencies,
+} from "./transcript-viewer.ts";
 import {
 	abortReasonDiagnostic,
 	cancelledResult,
@@ -45,13 +53,22 @@ export type {
 
 export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
+	registerCommand?: (
+		name: string,
+		options: {
+			description?: string;
+			handler(args: string, ctx: CommandContext): Promise<void> | void;
+		},
+	) => void;
 };
 
 export interface ExploreExtensionOptions {
 	cwd?: string;
 	dispatchExplorer?: ExploreDispatchFunction;
+	explorerRuntime?: ExplorerRuntime;
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 	timers?: TimerScheduler;
+	transcriptViewer?: TranscriptViewerDependencies;
 }
 
 type ExploreConfigurationCheck =
@@ -156,6 +173,12 @@ export default function exploreExtension(
 	const metadata = registrationCheck.ok
 		? registrationCheck.definition
 		: FALLBACK_EXPLORER_TOOL_METADATA;
+	const fleetRegistry = new RunnerSubagentFleetRegistry();
+	registerExploreTranscriptCommand({
+		pi,
+		registry: fleetRegistry,
+		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
+	});
 
 	pi.registerTool({
 		name: EXPLORE_TOOL_NAME,
@@ -183,6 +206,8 @@ export default function exploreExtension(
 						ctx: childCtx,
 						intent,
 						definition,
+						dependencies:
+							options.explorerRuntime === undefined ? {} : { runtime: options.explorerRuntime },
 					}));
 			const abortScope = createExploreAbortScope(signal, profile.wallClockMs, timers);
 			try {
@@ -195,6 +220,7 @@ export default function exploreExtension(
 					signal: abortScope.signal,
 					dispatchExplorer,
 					onUpdate,
+					fleetRegistry,
 				});
 				return exploreToolResult(request, outcomes);
 			} finally {
@@ -284,6 +310,7 @@ async function runExploreTasks(request: {
 	signal: AbortSignal;
 	dispatchExplorer: ExploreDispatchFunction;
 	onUpdate: ((update: Partial<ToolResult>) => void) | undefined;
+	fleetRegistry: RunnerSubagentFleetRegistry;
 }): Promise<ExploreTaskOutcome[]> {
 	const states: ExploreTaskState[] = request.exploreInput.tasks.map((task) => ({
 		input: task,
@@ -294,6 +321,11 @@ async function runExploreTasks(request: {
 		...(request.ctx.model === undefined ? {} : { model: request.ctx.model }),
 		signal: request.signal,
 	};
+	const fleetRun = request.fleetRegistry.startRun(request.exploreInput.tasks);
+	const unsubscribeFleet = request.fleetRegistry.subscribe(() => {
+		syncExploreFleetWidget(request.ctx, request.fleetRegistry.snapshot());
+	});
+	syncExploreFleetWidget(request.ctx, request.fleetRegistry.snapshot());
 
 	function emitProgress(): void {
 		emitExploreProgress(request.ctx, states, request.onUpdate);
@@ -307,7 +339,9 @@ async function runExploreTasks(request: {
 			maxConcurrency: request.maxConcurrency,
 			signal: request.signal,
 			run: async (state, index) => {
+				const fleetTaskId = fleetRun.tasks[index]?.id;
 				state.state = "running";
+				if (fleetTaskId !== undefined) request.fleetRegistry.markRunning(fleetTaskId);
 				emitProgress();
 				const outcome = await runOneExploreTask({
 					pi: request.pi,
@@ -318,11 +352,13 @@ async function runExploreTasks(request: {
 					dispatchExplorer: request.dispatchExplorer,
 					onProgress: (update) => {
 						state.latestUpdate = update;
+						if (fleetTaskId !== undefined) request.fleetRegistry.markProgress(fleetTaskId, update);
 						emitProgress();
 					},
 				});
 				state.state = "done";
 				state.outcome = outcome;
+				if (fleetTaskId !== undefined) request.fleetRegistry.markDone(fleetTaskId, outcome.result);
 				emitProgress();
 				return outcome;
 			},
@@ -338,6 +374,7 @@ async function runExploreTasks(request: {
 			};
 		});
 	} finally {
+		unsubscribeFleet();
 		setRunnerSubagentWidget(request.ctx, EXPLORE_PROGRESS_WIDGET_KEY, undefined);
 	}
 }

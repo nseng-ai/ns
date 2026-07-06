@@ -5,7 +5,6 @@ import {
 import { isProviderAuthConfigured } from "@nseng-ai/pi/runtime/auth";
 
 import {
-	dispatchRunnerSubagent,
 	hasAbortedSignal,
 	READ_ONLY_SUBAGENT_TOOLS,
 	type RunnerSubagentContext,
@@ -19,6 +18,11 @@ import {
 	type ExplorerLaunchPlan,
 	type IsProviderAuthConfigured,
 } from "./model-policy.ts";
+import {
+	createFunctionExplorerRuntime,
+	createSubprocessExplorerRuntime,
+	type ExplorerRuntime,
+} from "./runtime.ts";
 
 export type DispatchSubagentFn = (
 	pi: RunnerSubagentPi,
@@ -36,6 +40,7 @@ export interface DispatchExplorerSubagentOptions {
 export interface ExplorerDispatcherDependencies {
 	isProviderAuthConfigured?: IsProviderAuthConfigured;
 	dispatchSubagent?: DispatchSubagentFn;
+	runtime?: ExplorerRuntime;
 }
 
 export interface ExplorerDispatchOutcome {
@@ -68,7 +73,13 @@ export async function dispatchExplorerSubagent(
 	const { pi, ctx, intent, definition } = input;
 	const dependencies = input.dependencies ?? {};
 	const authProbe = dependencies.isProviderAuthConfigured ?? isProviderAuthConfigured;
-	const dispatch = dependencies.dispatchSubagent ?? dispatchRunnerSubagent;
+	const runtime =
+		dependencies.runtime ??
+		(dependencies.dispatchSubagent === undefined
+			? createSubprocessExplorerRuntime()
+			: createFunctionExplorerRuntime((runtimeInput) =>
+					dependencies.dispatchSubagent!(runtimeInput.pi, runtimeInput.ctx, runtimeInput.options),
+				));
 	const launchPlan = resolveExplorerLaunchPlan({
 		...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
 		isProviderAuthConfigured: authProbe,
@@ -86,11 +97,12 @@ export async function dispatchExplorerSubagent(
 		...(intent.onProgress === undefined ? {} : { onProgress: intent.onProgress }),
 	};
 
-	const firstResult = await dispatch(
+	const firstResult = await runtime.dispatch({
 		pi,
 		ctx,
-		launchPlan.kind === "cheap" ? { ...baseOptions, model: launchPlan.model } : baseOptions,
-	);
+		options:
+			launchPlan.kind === "cheap" ? { ...baseOptions, model: launchPlan.model } : baseOptions,
+	});
 	const failoverInput: ShouldFailoverExplorerDispatchInput = {
 		launchPlan,
 		result: firstResult,
@@ -100,7 +112,7 @@ export async function dispatchExplorerSubagent(
 		return { result: firstResult, launchPlan };
 	}
 
-	const failoverResult = await dispatch(pi, ctx, baseOptions);
+	const failoverResult = await runtime.dispatch({ pi, ctx, options: baseOptions });
 	return {
 		result: failoverResult,
 		launchPlan,
