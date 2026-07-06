@@ -31,6 +31,19 @@ const skillArtifact = {
 	},
 } as const satisfies SkillHarnessArtifactEntry;
 
+const npmModuleSkillArtifact = {
+	kind: "skill",
+	id: "@acme/ext:demo-skill",
+	name: "demo-skill",
+	description: "Demo skill.",
+	skillName: "demo-skill",
+	source: {
+		type: "npm-module",
+		packageName: "@acme/ext",
+		relativePath: "skills/demo-skill",
+	},
+} as const satisfies SkillHarnessArtifactEntry;
+
 const agentArtifact = {
 	kind: "agent",
 	id: "runner-agent",
@@ -123,6 +136,27 @@ describe("provision plan", () => {
 				},
 			],
 		});
+	});
+
+	test("records npm-module source provenance with the supplied source version", () => {
+		const result = buildProvisionPlan({
+			artifact: npmModuleSkillArtifact,
+			harness: "pi",
+			scope: "project",
+			context,
+			sourceVersion: "1.2.3",
+			sourceFiles,
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.value.source).toEqual({
+			type: "npm-module",
+			packageName: "@acme/ext",
+			relativePath: "skills/demo-skill",
+			version: "1.2.3",
+		});
+		expect(buildInstallManifestEntry(result.value).source).toEqual(result.value.source);
 	});
 
 	test("sorts source files by relative path for stable output", () => {

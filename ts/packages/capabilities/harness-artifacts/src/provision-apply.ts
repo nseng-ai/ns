@@ -90,12 +90,23 @@ export type HarnessArtifactProvisionErrorInfo =
 			details: { manifestPath: string; conflictingFiles: readonly string[] };
 	  };
 
-const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.object({
-	type: z.literal("first-party"),
-	packageName: z.string(),
-	relativePath: z.string(),
-	version: z.string(),
-});
+const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.discriminatedUnion(
+	"type",
+	[
+		z.object({
+			type: z.literal("first-party"),
+			packageName: z.string(),
+			relativePath: z.string(),
+			version: z.string(),
+		}),
+		z.object({
+			type: z.literal("npm-module"),
+			packageName: z.string(),
+			relativePath: z.string(),
+			version: z.string(),
+		}),
+	],
+);
 
 const installManifestFileSchema: z.ZodType<InstallManifestFileData> = z.object({
 	sourcePath: z.string(),

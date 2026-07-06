@@ -15,6 +15,8 @@ export {
 	type HarnessArtifactEntry,
 	type HarnessArtifactEntryBase,
 	type HarnessArtifactKind,
+	type HarnessArtifactSource,
+	type NpmModuleHarnessArtifactSource,
 	type SkillHarnessArtifactEntry,
 } from "./artifact-catalog.ts";
 export {
@@ -46,6 +48,28 @@ export {
 	type HarnessSpec,
 	type ResolvedHarnessArtifactPath,
 } from "./harness-paths.ts";
+export {
+	discoverExtensionModuleHarnessArtifacts,
+	nodeHarnessArtifactModuleDiscoveryGateway,
+	type DiscoverExtensionModuleHarnessArtifactsRequest,
+	type DiscoverExtensionModuleHarnessArtifactsResult,
+	type HarnessArtifactModuleDiscoveryGateway,
+	type ModuleArtifactDiscoveryDiagnostic,
+	type ModuleArtifactDiscoveryDiagnosticCode,
+	type ModuleArtifactDiscoveryFileSystemErrorInfo,
+	type ModuleDiscoveryDirectoryEntry,
+	type ModuleDiscoveryDirectoryState,
+	type ModuleDiscoveryPathState,
+	type ModuleDiscoveryTextFileState,
+	type ResolvedNpmModuleHarnessArtifactCatalog,
+} from "./module-artifact-discovery.ts";
+export {
+	isValidModuleArtifactRelativePath,
+	parseModuleArtifactDeclaration,
+	type ModuleArtifactDeclarationDiagnostic,
+	type ModuleArtifactDeclarationDiagnosticCode,
+	type ParseModuleArtifactDeclarationResult,
+} from "./module-artifact-declaration.ts";
 export {
 	applyHarnessArtifactProvision,
 	INSTALL_MANIFEST_FILE_NAME,

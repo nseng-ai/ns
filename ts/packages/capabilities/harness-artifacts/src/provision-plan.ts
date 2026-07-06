@@ -6,7 +6,7 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import {
 	artifactProvisionName,
 	type HarnessArtifactEntry,
-	type FirstPartyHarnessArtifactSource,
+	type HarnessArtifactSource,
 } from "./artifact-catalog.ts";
 import {
 	resolveHarnessArtifactPath,
@@ -32,12 +32,19 @@ export interface BuildProvisionPlanInput {
 	sourceFiles: readonly ProvisionSourceFile[];
 }
 
-export interface ProvisionSourceProvenance {
-	type: "first-party";
-	packageName: string;
-	relativePath: string;
-	version: string;
-}
+export type ProvisionSourceProvenance =
+	| {
+			type: "first-party";
+			packageName: string;
+			relativePath: string;
+			version: string;
+	  }
+	| {
+			type: "npm-module";
+			packageName: string;
+			relativePath: string;
+			version: string;
+	  };
 
 export interface ProvisionPlanFile {
 	relativePath: string;
@@ -289,7 +296,7 @@ export function classifyProvisionDecisions(input: {
 }
 
 function sourceProvenance(
-	source: FirstPartyHarnessArtifactSource,
+	source: HarnessArtifactSource,
 	version: string,
 ): ProvisionSourceProvenance {
 	return {
