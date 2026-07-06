@@ -8,6 +8,7 @@ import {
 	BASE_NAMESPACE,
 	namespaceDisplayLabel,
 	namespaceScopeLabel,
+	namespaceScopeRequest,
 	resolveOptionalNamespaceScope,
 } from "../ref-layout.ts";
 import { firstFailure, validateNamespaceName, validationMessage } from "../validation.ts";
@@ -51,10 +52,7 @@ export type GcSnapshot = z.infer<typeof gcSnapshotSchema>;
 export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
-	const namespaceScope = resolveOptionalNamespaceScope({
-		base: request.base,
-		...(request.namespace === undefined ? {} : { namespace: request.namespace }),
-	});
+	const namespaceScope = resolveOptionalNamespaceScope(namespaceScopeRequest(request));
 	if (namespaceScope.type === "conflict")
 		return failure(namespaceScope.code, namespaceScope.message);
 	const scope = namespaceScope.scope;

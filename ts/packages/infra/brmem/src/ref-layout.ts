@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import { FLAT_SEPARATOR } from "./ref-constants.ts";
 import { validateBranchName, validateEntryKey, validateNamespaceName } from "./validation.ts";
@@ -58,6 +60,16 @@ export interface EntryLocatorParts {
 
 export function normalizeNamespaceOption(namespace: string | undefined | null): string {
 	return namespace ?? BASE_NAMESPACE;
+}
+
+export function namespaceScopeRequest(request: { base: boolean; namespace?: string | undefined }): {
+	base: boolean;
+	namespace?: string;
+} {
+	return {
+		base: request.base,
+		...optionalEntry("namespace", request.namespace),
+	};
 }
 
 export function resolveOptionalNamespaceScope(request: {

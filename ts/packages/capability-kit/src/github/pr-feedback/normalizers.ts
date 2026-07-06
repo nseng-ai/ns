@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import type {
 	GithubPrChangedFile,
@@ -100,7 +101,7 @@ export function normalizeReviewCommentSummary(
 ): GithubPrReviewCommentSummary {
 	return {
 		body: comment.body,
-		author: normalizeAuthorField(comment.user, comment.author),
+		author: normalizeAuthorField(comment),
 	};
 }
 
@@ -111,7 +112,7 @@ export function normalizeRestReviewComment(
 		id: comment.numericId,
 		reviewId: numericOptional(comment.pull_request_review_id),
 		body: comment.body,
-		author: normalizeAuthorField(comment.user, comment.author),
+		author: normalizeAuthorField(comment),
 		path: comment.path,
 		line: comment.line ?? null,
 		createdAt: comment.created_at ?? "",
@@ -129,7 +130,7 @@ export function normalizeRestReview(
 		state: review.state,
 		submittedAt: review.submitted_at ?? null,
 		commitId: review.commit_id ?? null,
-		author: normalizeAuthorField(review.user, review.author),
+		author: normalizeAuthorField(review),
 	};
 }
 
@@ -140,18 +141,20 @@ export function normalizeDiscussionComment(
 	return {
 		id: comment.numericId,
 		body: comment.body,
-		author: normalizeAuthorField(comment.user, comment.author),
+		author: normalizeAuthorField(comment),
 		url,
 		...(comment.created_at === undefined ? {} : { createdAt: comment.created_at }),
 		...(comment.updated_at === undefined ? {} : { updatedAt: comment.updated_at }),
 	};
 }
 
-function normalizeAuthorField(
-	user: z.infer<typeof ghAuthorSchema> | undefined,
-	author: z.infer<typeof ghAuthorSchema> | undefined,
-): string {
-	return normalizeAuthor(user ?? author ?? null);
+type AuthorFieldSource = {
+	readonly user?: ExplicitUndefined<"external-mirror", z.infer<typeof ghAuthorSchema>>;
+	readonly author?: ExplicitUndefined<"external-mirror", z.infer<typeof ghAuthorSchema>>;
+};
+
+function normalizeAuthorField(source: AuthorFieldSource): string {
+	return normalizeAuthor(source.user ?? source.author ?? null);
 }
 
 function numericOptional(value: string | number | null | undefined): number | null {
