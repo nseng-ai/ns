@@ -29,6 +29,16 @@ interface RunGitOptions {
 	stdin?: string;
 }
 
+interface CheckedCommandFailure {
+	code: string;
+	message: string;
+}
+
+interface CheckedCommandRun {
+	result: ExecResult;
+	checked: GatewayResult<ExecResult>;
+}
+
 interface GithubPrGatewayOptions {
 	viewPrRetryDelaysMs?: readonly number[];
 	timers?: TimerScheduler;
@@ -53,6 +63,20 @@ export interface StablePatchIdForPrResult {
 	diff: string;
 }
 
+export interface PrDiffLocator {
+	cwd: string;
+	number: number;
+	baseRefName?: string;
+	headRefName?: string;
+}
+
+interface LocalPrDiffLocator {
+	cwd: string;
+	number: number;
+	baseRefName: string;
+	headRefName: string;
+}
+
 export interface GithubPrGateway {
 	viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>>;
 	viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>>;
@@ -60,18 +84,8 @@ export interface GithubPrGateway {
 		cwd: string;
 		number: number;
 	}): Promise<GatewayResult<PrCommitMessage[]>>;
-	getPrDiff(params: {
-		cwd: string;
-		number: number;
-		baseRefName?: string;
-		headRefName?: string;
-	}): Promise<GatewayResult<string>>;
-	stablePatchIdForPr(params: {
-		cwd: string;
-		number: number;
-		baseRefName?: string;
-		headRefName?: string;
-	}): Promise<GatewayResult<StablePatchIdForPrResult>>;
+	getPrDiff(params: PrDiffLocator): Promise<GatewayResult<string>>;
+	stablePatchIdForPr(params: PrDiffLocator): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: {
 		cwd: string;
 		number: number;
@@ -108,17 +122,18 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		number: number;
 	}): Promise<GatewayResult<PrCommitMessage[]>> {
 		const args = ["pr", "view", String(params.number), "--json", "commits"];
-		const result = await this.runGh(args, params.cwd, VIEW_TIMEOUT_MS);
-		const failure = commandFailure({
-			command: "gh",
+		const result = await this.runCheckedGh({
 			args,
-			result,
-			code: "github_pr_commits_failed",
-			message: `Could not read commit messages for PR #${params.number}.`,
+			cwd: params.cwd,
+			timeoutMs: VIEW_TIMEOUT_MS,
+			failure: {
+				code: "github_pr_commits_failed",
+				message: `Could not read commit messages for PR #${params.number}.`,
+			},
 		});
-		if (failure !== undefined) return err(failure);
+		if (!result.ok) return result;
 
-		const parsed = parseJson(result.stdout);
+		const parsed = parseJson(result.value.stdout);
 		if (!isRecord(parsed) || !Array.isArray(parsed.commits)) {
 			return err({
 				code: "github_pr_commits_parse_failed",
@@ -138,27 +153,23 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return ok(messages);
 	}
 
-	async getPrDiff(params: {
-		cwd: string;
-		number: number;
-		baseRefName?: string;
-		headRefName?: string;
-	}): Promise<GatewayResult<string>> {
+	async getPrDiff(params: PrDiffLocator): Promise<GatewayResult<string>> {
 		const args = ["pr", "diff", String(params.number)];
-		const result = await this.runGh(args, params.cwd, DIFF_TIMEOUT_MS);
-		const failure = commandFailure({
-			command: "gh",
+		const run = await this.runCheckedGhWithResult({
 			args,
-			result,
-			code: "github_pr_diff_failed",
-			message: `Could not read diff for PR #${params.number}.`,
+			cwd: params.cwd,
+			timeoutMs: DIFF_TIMEOUT_MS,
+			failure: {
+				code: "github_pr_diff_failed",
+				message: `Could not read diff for PR #${params.number}.`,
+			},
 		});
-		if (failure === undefined) return ok(result.stdout);
+		if (run.checked.ok) return ok(run.checked.value.stdout);
 
 		if (
 			params.baseRefName !== undefined &&
 			params.headRefName !== undefined &&
-			isGithubDiffTooLarge(result)
+			isGithubDiffTooLarge(run.result)
 		) {
 			return await this.getLocalPrDiff({
 				cwd: params.cwd,
@@ -167,35 +178,29 @@ export class RealGithubPrGateway implements GithubPrGateway {
 				headRefName: params.headRefName,
 			});
 		}
-		return err(failure);
+		return run.checked;
 	}
 
-	async stablePatchIdForPr(params: {
-		cwd: string;
-		number: number;
-		baseRefName?: string;
-		headRefName?: string;
-	}): Promise<GatewayResult<StablePatchIdForPrResult>> {
+	async stablePatchIdForPr(
+		params: PrDiffLocator,
+	): Promise<GatewayResult<StablePatchIdForPrResult>> {
 		const diff = await this.getPrDiff(params);
 		if (!diff.ok) return diff;
 
 		const args = ["patch-id", "--stable"];
-		const result = await this.runGit({
+		const result = await this.runCheckedGit({
 			args,
 			cwd: params.cwd,
 			timeoutMs: PATCH_ID_TIMEOUT_MS,
 			stdin: diff.value,
+			failure: {
+				code: "git_patch_id_failed",
+				message: `Could not compute stable patch id for PR #${params.number}.`,
+			},
 		});
-		const failure = commandFailure({
-			command: "git",
-			args,
-			result,
-			code: "git_patch_id_failed",
-			message: `Could not compute stable patch id for PR #${params.number}.`,
-		});
-		if (failure !== undefined) return err(failure);
+		if (!result.ok) return result;
 
-		const patchId = result.stdout.trim().split(/\s+/, 1)[0] ?? "";
+		const patchId = result.value.stdout.trim().split(/\s+/, 1)[0] ?? "";
 		if (patchId === "") {
 			return err({
 				code: "git_patch_id_parse_failed",
@@ -223,15 +228,16 @@ export class RealGithubPrGateway implements GithubPrGateway {
 					"--body-file",
 					bodyPath,
 				];
-				const result = await this.runGh(args, params.cwd, EDIT_TIMEOUT_MS);
-				const failure = commandFailure({
-					command: "gh",
+				const result = await this.runCheckedGh({
 					args,
-					result,
-					code: "github_pr_edit_failed",
-					message: `Could not update PR #${params.number}.`,
+					cwd: params.cwd,
+					timeoutMs: EDIT_TIMEOUT_MS,
+					failure: {
+						code: "github_pr_edit_failed",
+						message: `Could not update PR #${params.number}.`,
+					},
 				});
-				if (failure !== undefined) return err(failure);
+				if (!result.ok) return result;
 				return ok(undefined);
 			},
 		);
@@ -248,20 +254,21 @@ export class RealGithubPrGateway implements GithubPrGateway {
 				await this.timers.delay(retryDelaysMs[attemptIndex - 1] ?? 0);
 			}
 
-			const result = await this.runGh(params.args, params.cwd, VIEW_TIMEOUT_MS);
-			const failure = commandFailure({
-				command: "gh",
+			const result = await this.runCheckedGh({
 				args: params.args,
-				result,
-				code: "github_pr_view_failed",
-				message: "Could not read GitHub PR details.",
+				cwd: params.cwd,
+				timeoutMs: VIEW_TIMEOUT_MS,
+				failure: {
+					code: "github_pr_view_failed",
+					message: "Could not read GitHub PR details.",
+				},
 			});
-			if (failure !== undefined) {
+			if (!result.ok) {
 				if (retryDelayMs !== undefined) continue;
-				return err(failure);
+				return result;
 			}
 
-			const parsed = parseGithubPrDetails(result.stdout);
+			const parsed = parseGithubPrDetails(result.value.stdout);
 			if (!parsed.ok) return err(parsed.error);
 			return ok(parsed.value);
 		}
@@ -272,40 +279,94 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		});
 	}
 
-	private async getLocalPrDiff(params: {
-		cwd: string;
-		number: number;
-		baseRefName: string;
-		headRefName: string;
-	}): Promise<GatewayResult<string>> {
+	private async getLocalPrDiff(params: LocalPrDiffLocator): Promise<GatewayResult<string>> {
 		const args = ["diff", `${params.baseRefName}...${params.headRefName}`];
-		const result = await this.runGit({ args, cwd: params.cwd, timeoutMs: DIFF_TIMEOUT_MS });
-		const failure = commandFailure({
-			command: "git",
+		const result = await this.runCheckedGit({
 			args,
-			result,
-			code: "github_pr_local_diff_failed",
-			message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${params.baseRefName}...${params.headRefName}.`,
+			cwd: params.cwd,
+			timeoutMs: DIFF_TIMEOUT_MS,
+			failure: {
+				code: "github_pr_local_diff_failed",
+				message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${params.baseRefName}...${params.headRefName}.`,
+			},
 		});
-		if (failure !== undefined) return err(failure);
-		return ok(result.stdout);
+		if (!result.ok) return result;
+		return ok(result.value.stdout);
 	}
 
-	private async runGh(
-		args: readonly string[],
-		cwd: string,
-		timeoutMs: number,
-	): Promise<ExecResult> {
-		return await runGitHubCliAsExecResult({ runner: this.runner, args, cwd, timeoutMs });
+	private async runCheckedGh(params: {
+		args: readonly string[];
+		cwd: string;
+		timeoutMs: number;
+		failure: CheckedCommandFailure;
+	}): Promise<GatewayResult<ExecResult>> {
+		const result = await this.runGh(params.args, params.cwd, params.timeoutMs);
+		return checkedCommandResult({
+			command: "gh",
+			args: params.args,
+			result,
+			failure: params.failure,
+		});
 	}
 
-	private async runGit(options: RunGitOptions): Promise<ExecResult> {
-		return await this.runner("git", options.args, {
+	private async runCheckedGhWithResult(params: {
+		args: readonly string[];
+		cwd: string;
+		timeoutMs: number;
+		failure: CheckedCommandFailure;
+	}): Promise<CheckedCommandRun> {
+		const result = await this.runGh(params.args, params.cwd, params.timeoutMs);
+		return {
+			result,
+			checked: checkedCommandResult({
+				command: "gh",
+				args: params.args,
+				result,
+				failure: params.failure,
+			}),
+		};
+	}
+
+	private async runCheckedGit(
+		options: RunGitOptions & { failure: CheckedCommandFailure },
+	): Promise<GatewayResult<ExecResult>> {
+		const result = await this.runGit(options);
+		return checkedCommandResult({
+			command: "git",
+			args: options.args,
+			result,
+			failure: options.failure,
+		});
+	}
+
+	private runGh(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
+		return runGitHubCliAsExecResult({ runner: this.runner, args, cwd, timeoutMs });
+	}
+
+	private runGit(options: RunGitOptions): Promise<ExecResult> {
+		return this.runner("git", options.args, {
 			cwd: options.cwd,
 			timeout: options.timeoutMs,
 			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		});
 	}
+}
+
+function checkedCommandResult(params: {
+	command: string;
+	args: readonly string[];
+	result: ExecResult;
+	failure: CheckedCommandFailure;
+}): GatewayResult<ExecResult> {
+	const failure = commandFailure({
+		command: params.command,
+		args: params.args,
+		result: params.result,
+		code: params.failure.code,
+		message: params.failure.message,
+	});
+	if (failure !== undefined) return err(failure);
+	return ok(params.result);
 }
 
 function isGithubDiffTooLarge(result: ExecResult): boolean {
