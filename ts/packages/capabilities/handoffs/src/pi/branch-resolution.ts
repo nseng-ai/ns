@@ -1,29 +1,19 @@
-import { type ExecResult, formatCommand } from "@nseng-ai/foundation/command";
-import { GIT_TIMEOUT_MS } from "./command-constants.ts";
-import { formatExecFailure, formatStartupFailure } from "./command-failure.ts";
-import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandContext } from "./runtime-types.ts";
 
 export async function currentBranch(
-	pi: ExtensionAPI,
+	git: Pick<GitGateway, "currentBranch">,
 	ctx: Pick<CommandContext, "cwd">,
 	action: "pick up" | "list" | "create",
 ): Promise<string> {
-	const commandArgs = ["branch", "--show-current"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("git", commandArgs, { cwd: ctx.cwd, timeout: GIT_TIMEOUT_MS });
-	} catch (error) {
-		throw new Error(formatStartupFailure(formatCommand("git", commandArgs), error));
+	const branch = await git.currentBranch({ cwd: ctx.cwd });
+	if (branch.type === "failure") {
+		throw new Error(branch.error.message);
 	}
-	if (result.code !== 0 || result.killed) {
-		throw new Error(formatExecFailure(formatCommand("git", commandArgs), result));
-	}
-
-	const branch = result.stdout.trim();
-	if (branch.length === 0) {
+	if (branch.type === "detached") {
 		const recovery =
 			action === "list" ? "pass --branch <branch> or --all" : "pass --branch <branch>";
 		throw new Error(`Cannot ${action} handoffs in detached HEAD; ${recovery}.`);
 	}
-	return branch;
+	return branch.branch;
 }

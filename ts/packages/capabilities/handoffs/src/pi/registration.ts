@@ -1,5 +1,6 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
+import { createPiHandoffContext } from "./api-context.ts";
 import {
 	buildDeriveHandoffSlugTool,
 	buildHandoffTabLaunchTool,
@@ -88,9 +89,10 @@ export const handoffParity = definePiSurfaceParity([
 
 export default function handoffExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
+	const handoffContext = createPiHandoffContext(pi);
 
 	if (pi.registerTool !== undefined) {
-		const selfWorkflow = createHandoffSelfWorkflow(pi);
+		const selfWorkflow = createHandoffSelfWorkflow(pi, { handoffContext });
 		pi.registerTool(buildDeriveHandoffSlugTool(pi));
 		pi.registerTool(buildHandoffTabLaunchTool(pi));
 		pi.registerTool(selfWorkflow.buildTool());
@@ -99,7 +101,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 			commandName: HANDOFF_TAB_COMMAND_NAME,
 			commandDefinition: {
 				description: "Create a handoff and open a focused cmux tab to pick it up.",
-				handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
+				handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx, handoffContext),
 			},
 		});
 		registerCommandWithImmediateAck({

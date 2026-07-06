@@ -15,6 +15,7 @@ import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./c
 import { checkHandoffExists } from "./handoff-existence.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@nseng-ai/pi/skills/expansion";
+import type { PiHandoffContext } from "./api-context.ts";
 import type {
 	CommandContext,
 	ExtensionAPI,
@@ -59,6 +60,7 @@ export interface HandoffLaunchCommandSpec {
 	statusKey: string;
 	promptCopy: HandoffLaunchPromptCopy;
 	startMessages: HandoffStartMessages;
+	handoffContext: PiHandoffContext;
 	skillLoader?: HandoffCreateSkillLoader;
 	preflight?(options: {
 		pi: ExtensionAPI;
@@ -170,9 +172,10 @@ export async function prepareHandoffCreateLaunch(
 	args: string,
 	ctx: CommandContext,
 	options: {
+		handoffContext: PiHandoffContext;
 		preflight?: HandoffLaunchCommandSpec["preflight"];
 		skillLoader?: HandoffCreateSkillLoader;
-	} = {},
+	},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
@@ -181,7 +184,7 @@ export async function prepareHandoffCreateLaunch(
 
 	let branch: string;
 	try {
-		branch = await currentBranch(pi, ctx, "create");
+		branch = await currentBranch(options.handoffContext.git, ctx, "create");
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;
@@ -217,6 +220,7 @@ export async function runHandoffCreateCommand(
 ): Promise<void> {
 	await ctx.waitForIdle();
 	const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, {
+		handoffContext: spec.handoffContext,
 		...optionalEntries({ preflight: spec.preflight, skillLoader: spec.skillLoader }),
 	});
 	if (prepared === undefined) {

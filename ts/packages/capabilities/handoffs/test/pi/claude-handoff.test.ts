@@ -162,7 +162,7 @@ describe("claude handoff command", () => {
 		{
 			name: "git failure",
 			branch: step("git", ["branch", "--show-current"], { code: 128, stderr: "fatal" }),
-			message: /command failed/,
+			message: /git branch --show-current failed/,
 		},
 		{
 			name: "detached HEAD",

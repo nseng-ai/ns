@@ -1,4 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { createPiHandoffContext, type PiHandoffContext } from "./api-context.ts";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,
@@ -59,6 +60,7 @@ export interface ClaudeHandoffCommandOptions {
 	pi: ExtensionAPI;
 	args: string;
 	ctx: CommandContext;
+	handoffContext: PiHandoffContext;
 	launchToolRegistered: boolean;
 }
 
@@ -164,7 +166,7 @@ Do not create a new handoff. Read and follow the existing handoff artifact from 
 export async function handleClaudeHandoffCommand(
 	options: ClaudeHandoffCommandOptions,
 ): Promise<void> {
-	const { pi, args, ctx, launchToolRegistered } = options;
+	const { pi, args, ctx, handoffContext, launchToolRegistered } = options;
 	if (!canUseInteractiveClaude(ctx)) {
 		ctx.ui.notify(
 			"/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.",
@@ -182,6 +184,7 @@ export async function handleClaudeHandoffCommand(
 	}
 
 	await runHandoffCreateCommand(pi, args, ctx, {
+		handoffContext,
 		statusKey: CLAUDE_HANDOFF_STATUS_KEY,
 		promptCopy: CLAUDE_HANDOFF_PROMPT_COPY,
 		startMessages: CLAUDE_HANDOFF_START_MESSAGES,
@@ -259,6 +262,7 @@ export function buildClaudeHandoffLaunchTool(
 }
 
 export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHandoffDeps): void {
+	const handoffContext = createPiHandoffContext(pi);
 	const launchToolRegistered = pi.registerTool !== undefined;
 	if (launchToolRegistered) {
 		pi.registerTool?.(buildClaudeHandoffLaunchTool(pi, deps));
@@ -269,7 +273,7 @@ export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHando
 		commandDefinition: {
 			description: "Create a handoff, then pick it up in an interactive Claude Code session.",
 			handler: async (args, ctx) =>
-				handleClaudeHandoffCommand({ pi, args, ctx, launchToolRegistered }),
+				handleClaudeHandoffCommand({ pi, args, ctx, handoffContext, launchToolRegistered }),
 		},
 	});
 }
