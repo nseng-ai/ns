@@ -36,6 +36,8 @@ export interface StatusLineOptions {
 	state: PhaseState;
 	/** Selects the spinner frame for the active state; ignored otherwise. */
 	tick?: number;
+	/** Show settled detail text for skipped rows and the pending literal for pending rows. */
+	showSettledText?: boolean;
 }
 
 /**
@@ -43,7 +45,7 @@ export interface StatusLineOptions {
  * (ignored otherwise) and defaults to the first frame. Pure: returns the composed line, writes nothing.
  */
 export function statusLine(options: StatusLineOptions): string {
-	const { caps, item, state, tick = 0 } = options;
+	const { caps, item, state, tick = 0, showSettledText = true } = options;
 	const name = padPlain(item.name, PHASE_NAME_WIDTH);
 	// In-flight/failure text falls back to the settled detail when no distinct label is supplied.
 	const label = item.label ?? item.detail;
@@ -53,10 +55,14 @@ export function statusLine(options: StatusLineOptions): string {
 		case "active":
 			return `  ${paint(caps, "accent", spinnerFrame(caps, tick))} ${bold(name)} ${label}`;
 		case "skipped":
-			return `  ${paint(caps, "muted", glyph(caps, "skip"))} ${dim(name)} ${dim(item.detail)}`;
+			return showSettledText
+				? `  ${paint(caps, "muted", glyph(caps, "skip"))} ${dim(name)} ${dim(item.detail)}`
+				: `  ${paint(caps, "muted", glyph(caps, "skip"))} ${dim(name)}`;
 		case "failed":
 			return `  ${paint(caps, "error", glyph(caps, "fail"))} ${name} ${paint(caps, "error", label)}`;
 		case "pending":
-			return `  ${dim(glyph(caps, "bullet"))} ${dim(name)} ${dim("pending")}`;
+			return showSettledText
+				? `  ${dim(glyph(caps, "bullet"))} ${dim(name)} ${dim("pending")}`
+				: `  ${dim(glyph(caps, "bullet"))} ${dim(name)}`;
 	}
 }

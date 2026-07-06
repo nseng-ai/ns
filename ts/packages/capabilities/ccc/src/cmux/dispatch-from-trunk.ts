@@ -6,11 +6,23 @@ import {
 	piExecApiToCommandExecApi,
 } from "@nseng-ai/foundation/command";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
+import { isAbsolute, resolve } from "node:path";
+
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
 } from "@nseng-ai/capability-kit/git";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import {
+	createGraphiteMetadataDbAccess,
+	GRAPHITE_BRANCH_METADATA_QUERY,
+	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
+	graphiteMetadataDbPath,
+	hasExpectedGraphiteBranchMetadataSchema,
+	parseGraphiteBranchMetadataRows,
+	resolveGraphiteTrunkBranchFromTopology,
+	type GraphiteMetadataDbAccess,
+} from "@nseng-ai/capability-kit/graphite/metadata";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME } from "./command-surfaces.ts";
@@ -30,12 +42,19 @@ const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 
+interface GraphiteTrunkResolutionContext {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	metadataDbAccess: GraphiteMetadataDbAccess;
+}
+
 export async function handleCccSlotDispatchFromTrunk(options: {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
 	payloadOptions: ReturnType<typeof resolveDispatchPromptPayloadOptions>;
 	args: string;
 	ctx: CommandContext;
 	slotClient?: SlotClient;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
 	notifyProgress: (message: string) => void;
 }): Promise<void> {
 	const { pi, payloadOptions, args, ctx } = options;
@@ -45,13 +64,13 @@ export async function handleCccSlotDispatchFromTrunk(options: {
 		return;
 	}
 
-	options.notifyProgress("Resolving Graphite trunk…");
 	await ctx.waitForIdle();
 	const branch = await createTrackedBranchFromTrunkForPrompt({
 		pi,
 		cwd: ctx.cwd,
 		prompt,
 		notify: options.notifyProgress,
+		...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 	});
 	if ("error" in branch) {
 		ctx.ui.notify(branch.error, "error");
@@ -75,26 +94,17 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 	cwd: string;
 	prompt: string;
 	notify?: (message: string) => void;
+	metadataDbAccess?: GraphiteMetadataDbAccess;
 }): Promise<BranchCreateResult | { error: string }> {
 	const { pi, cwd, prompt, notify } = options;
 	notify?.("Resolving Graphite trunk…");
-	const trunk = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+	const trunk = await resolveGraphiteTrunkBranch({
+		pi,
 		cwd,
-		args: ["trunk", "--no-interactive"],
+		metadataDbAccess: options.metadataDbAccess ?? createGraphiteMetadataDbAccess(),
 	});
-	if (!commandSucceeded(trunk)) {
-		return {
-			error: formatCommandFailure(
-				"Could not resolve Graphite trunk.",
-				"gt trunk --no-interactive",
-				trunk,
-			),
-		};
-	}
-	const trunkBranch = firstNonEmptyLine(trunk.stdout);
-	if (trunkBranch === undefined) {
-		return { error: "gt trunk --no-interactive returned no branch." };
-	}
+	if ("error" in trunk) return trunk;
+	const trunkBranch = trunk.branch;
 
 	notify?.("Refreshing Graphite trunk…");
 	const refresh = await refreshLocalTrunkBranch({ pi, cwd, trunkBranch });
@@ -122,6 +132,86 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 		startRef: trunkBranch,
 		createFailureContext: `from refreshed trunk ${trunkBranch}`,
 	});
+}
+
+async function resolveGraphiteTrunkBranch(
+	context: GraphiteTrunkResolutionContext,
+): Promise<{ branch: string } | { error: string }> {
+	const { pi, cwd } = context;
+	const trunk = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+		cwd,
+		args: ["trunk", "--no-interactive"],
+	});
+	if (commandSucceeded(trunk)) {
+		const trunkBranch = firstNonEmptyLine(trunk.stdout);
+		if (trunkBranch === undefined) {
+			return { error: "gt trunk --no-interactive returned no branch." };
+		}
+		return { branch: trunkBranch };
+	}
+	const trunkFailureMessage = formatCommandFailure(
+		"Could not resolve Graphite trunk.",
+		"gt trunk --no-interactive",
+		trunk,
+	);
+	if (!isDetachedHeadGraphiteTrunkFailure(trunk)) {
+		return { error: trunkFailureMessage };
+	}
+
+	const metadataTrunk = await resolveGraphiteTrunkBranchFromMetadata(context);
+	if ("branch" in metadataTrunk) return metadataTrunk;
+	return { error: [trunkFailureMessage, metadataTrunk.error].join("\n\n") };
+}
+
+function isDetachedHeadGraphiteTrunkFailure(result: { stdout: string; stderr: string }): boolean {
+	return `${result.stdout}\n${result.stderr}`.toLowerCase().includes("no current branch");
+}
+
+async function resolveGraphiteTrunkBranchFromMetadata(
+	context: GraphiteTrunkResolutionContext,
+): Promise<{ branch: string } | { error: string }> {
+	const commonDir = await runText(context.pi, context.cwd, "git", [
+		"rev-parse",
+		"--git-common-dir",
+	]);
+	if (!commonDir.ok) {
+		return { error: `Could not inspect Graphite metadata fallback: ${commonDir.message}` };
+	}
+	const commonGitDir = commonDir.text.trim();
+	const dbPath = graphiteMetadataDbPath(
+		isAbsolute(commonGitDir) ? commonGitDir : resolve(context.cwd, commonGitDir),
+	);
+	if (!context.metadataDbAccess.exists(dbPath)) {
+		return {
+			error: `Graphite metadata fallback unavailable: metadata store not found at ${dbPath}`,
+		};
+	}
+	const schemaRows = context.metadataDbAccess.queryJson(
+		dbPath,
+		GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
+	);
+	if (!schemaRows.ok) {
+		return { error: `Graphite metadata fallback failed: ${schemaRows.error.message}` };
+	}
+	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.value)) {
+		return { error: "Graphite metadata fallback failed: branch_metadata schema mismatch." };
+	}
+	const metadataRows = context.metadataDbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_QUERY);
+	if (!metadataRows.ok) {
+		return { error: `Graphite metadata fallback failed: ${metadataRows.error.message}` };
+	}
+	const parsed = parseGraphiteBranchMetadataRows(metadataRows.value);
+	if (parsed.type === "not_array") {
+		return { error: "Graphite metadata fallback failed: branch_metadata rows were not an array." };
+	}
+	const resolution = resolveGraphiteTrunkBranchFromTopology(parsed.topology);
+	if (resolution.type === "trunk") return { branch: resolution.branch };
+	if (resolution.type === "none") {
+		return { error: "Graphite metadata fallback found no trunk marker." };
+	}
+	return {
+		error: `Graphite metadata fallback found multiple trunk markers: ${resolution.branches.join(", ")}`,
+	};
 }
 
 async function refreshLocalTrunkBranch(options: {

@@ -446,22 +446,30 @@ function renderRunningCommands(caps: Caps, commands: readonly string[]): string 
 }
 
 function renderGlobalLine(caps: Caps, row: MatrixGlobalView<string>, tick: number): string {
+	return renderMatrixStatusLine(caps, row, tick);
+}
+
+function renderGlobalSubstepLine(caps: Caps, row: MatrixGlobalSubstepView, tick: number): string {
+	const rendered = renderMatrixStatusLine(
+		{ ...caps, columns: Math.max(0, caps.columns - 4) },
+		row,
+		tick,
+	);
+	return `    ${rendered}`;
+}
+
+function renderMatrixStatusLine(
+	caps: Caps,
+	row: MatrixGlobalView<string> | MatrixGlobalSubstepView,
+	tick: number,
+): string {
 	return statusLine({
 		caps,
 		item: { name: row.label, detail: row.text ?? row.detail, label: row.text ?? row.activeLabel },
 		state: row.state,
 		tick,
+		showSettledText: false,
 	});
-}
-
-function renderGlobalSubstepLine(caps: Caps, row: MatrixGlobalSubstepView, tick: number): string {
-	const rendered = statusLine({
-		caps: { ...caps, columns: Math.max(0, caps.columns - 4) },
-		item: { name: row.label, detail: row.text ?? row.detail, label: row.text ?? row.activeLabel },
-		state: row.state,
-		tick,
-	});
-	return `    ${rendered}`;
 }
 
 function renderHeader<ColumnKey extends string>(
