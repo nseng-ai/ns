@@ -26,31 +26,36 @@ export interface SlugModelCommandResult {
 	killed?: boolean;
 }
 
-export interface SlugModelEvidence {
-	slug: string;
+export interface RawTextModelEvidence {
 	rawOutput: string;
 	provider: string;
 	model: string;
+}
+
+export interface SlugModelEvidence extends RawTextModelEvidence {
+	slug: string;
 }
 
 export interface SlugModelFailure {
 	lines: string[];
 }
 
+export type RawTextModelGenerationResult =
+	| { ok: true; evidence: RawTextModelEvidence }
+	| { ok: false; failure: SlugModelFailure };
+
 export type SlugModelDerivationResult =
 	| { ok: true; evidence: SlugModelEvidence }
 	| { ok: false; failure: SlugModelFailure };
 
-type SlugModelAttemptOutcome =
-	| { type: "terminal"; result: SlugModelDerivationResult }
+type RawTextModelAttemptOutcome =
+	| { type: "terminal"; result: RawTextModelGenerationResult }
 	| { type: "retry" };
 
-export interface DeriveSlugWithModelInput {
+export interface GenerateRawTextWithModelInput {
 	cwd: string;
 	prompt: string;
-	slugKind: string;
 	env?: Record<string, string | undefined>;
-	normalizeOutput(output: string): string | undefined;
 	exec(
 		command: string,
 		args: string[],
@@ -59,9 +64,41 @@ export interface DeriveSlugWithModelInput {
 	signal?: AbortSignal;
 }
 
+export interface DeriveSlugWithModelInput extends GenerateRawTextWithModelInput {
+	slugKind: string;
+	normalizeOutput(output: string): string | undefined;
+}
+
 export async function deriveSlugWithModel(
 	input: DeriveSlugWithModelInput,
 ): Promise<SlugModelDerivationResult> {
+	const rawTextResult = await generateRawTextWithModel(input);
+	if (!rawTextResult.ok) {
+		return rawTextResult;
+	}
+
+	const slug = input.normalizeOutput(rawTextResult.evidence.rawOutput);
+	if (slug === undefined) {
+		return {
+			ok: false,
+			failure: {
+				lines: [
+					`Pi slug model output could not be normalized into a ${input.slugKind}.`,
+					formatOutputSection("stdout", rawTextResult.evidence.rawOutput, {
+						maxChars: MAX_ERROR_CHARS,
+						maxLines: 80,
+					}),
+				],
+			},
+		};
+	}
+
+	return { ok: true, evidence: { ...rawTextResult.evidence, slug } };
+}
+
+export async function generateRawTextWithModel(
+	input: GenerateRawTextWithModelInput,
+): Promise<RawTextModelGenerationResult> {
 	const resolution = resolveModelRef(
 		input.env ?? process.env,
 		SLUG_MODEL_ENV,
@@ -77,7 +114,7 @@ export async function deriveSlugWithModel(
 	let hasRetriedKilledResult = false;
 	let attempt = 1;
 	while (true) {
-		const outcome = await runSlugModelAttempt({
+		const outcome = await runRawTextModelAttempt({
 			input,
 			model,
 			args,
@@ -95,8 +132,8 @@ export async function deriveSlugWithModel(
 	}
 }
 
-interface RunSlugModelAttemptInput {
-	input: DeriveSlugWithModelInput;
+interface RunRawTextModelAttemptInput {
+	input: GenerateRawTextWithModelInput;
 	model: ParsedModelRef;
 	args: string[];
 	displayCommand: string;
@@ -104,9 +141,9 @@ interface RunSlugModelAttemptInput {
 	hasRetriedKilledResult: boolean;
 }
 
-async function runSlugModelAttempt(
-	options: RunSlugModelAttemptInput,
-): Promise<SlugModelAttemptOutcome> {
+async function runRawTextModelAttempt(
+	options: RunRawTextModelAttemptInput,
+): Promise<RawTextModelAttemptOutcome> {
 	let result: SlugModelCommandResult;
 	try {
 		result = await options.input.exec(
@@ -171,28 +208,11 @@ async function runSlugModelAttempt(
 		};
 	}
 
-	const slug = options.input.normalizeOutput(rawOutput);
-	if (slug === undefined) {
-		return {
-			type: "terminal",
-			result: {
-				ok: false,
-				failure: {
-					lines: [
-						`Pi slug model output could not be normalized into a ${options.input.slugKind}.`,
-						formatOutputSection("stdout", rawOutput, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-					],
-				},
-			},
-		};
-	}
-
 	return {
 		type: "terminal",
 		result: {
 			ok: true,
 			evidence: {
-				slug,
 				rawOutput,
 				provider: options.model.provider,
 				model: options.model.modelId,

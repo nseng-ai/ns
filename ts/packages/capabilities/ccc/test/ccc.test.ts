@@ -26,7 +26,7 @@ import registerCccExtension, {
 	registerCccSurfaceDispatchPlanCommand,
 } from "@nseng-ai/ccc/pi";
 import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
-import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
+import { buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { buildLaunchPrompt } from "../src/cmux/dispatch-prompt.ts";
 import {
 	BRANCH,
@@ -731,7 +731,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildGptNanoTextArgs(
+					buildSlugModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -839,7 +839,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildGptNanoTextArgs(
+					buildSlugModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -1006,7 +1006,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildGptNanoTextArgs(
+					buildSlugModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -1127,7 +1127,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildGptNanoTextArgs(
+					buildSlugModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -1178,7 +1178,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildGptNanoTextArgs(
+					buildSlugModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
