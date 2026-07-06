@@ -2,10 +2,11 @@
 
 ## Work
 
-- [ ] Derive and land slice: carry GitHub PR node IDs through land PR facts.
+- [~] Derive and land slice: carry GitHub PR node IDs through land PR facts.
   - Reference reading: `flow-land-pr-node-id`. Plumbing that later GraphQL slices need; low risk.
   - Policy: implementation is direct execution once the user approves starting this slice.
   - Evidence: targeted tests and `just` pass; user dogfood declaration recorded here before the first risky slice lands.
+  - Evidence (2026-07-06): implemented as uncommitted edits on `consolidate-flow-land-perf-objectives`; flow+ccc Vitest (573 tests) and full `just` pass; call counts unchanged (field-only addition). See `updates/20260706T040619Z-pr-node-id-slice-implemented.md`. Dogfood declaration outstanding.
 - [ ] Derive and land slice: targeted trunk fetches replacing mid-loop Graphite refreshes.
   - Reference reading: `flow-land-trunk-fetch`. Changes loop behavior but not primitives; medium risk.
   - Evidence: before/after fake-backed scenario counts on linear-11/linear-25; user dogfood declaration recorded here.

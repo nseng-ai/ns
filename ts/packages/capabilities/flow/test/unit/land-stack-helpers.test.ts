@@ -270,6 +270,7 @@ function prSnapshot(overrides: {
 	mergedAt?: string | null;
 }): PullRequestSnapshot {
 	return {
+		id: `PR_node_${overrides.number}`,
 		number: overrides.number,
 		title: overrides.title ?? `PR ${overrides.number}`,
 		body: overrides.body === undefined ? `Body for PR ${overrides.number}` : overrides.body,

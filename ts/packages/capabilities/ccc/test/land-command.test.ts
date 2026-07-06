@@ -21,7 +21,7 @@ const ROOT = "/repo";
 const CURRENT = "feature-branch";
 const TRUNK = "main";
 const PR_VIEW_FIELDS =
-	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", PR_VIEW_FIELDS];
 const PR_VERIFY_ARGS = ["pr", "view", "42", "--json", PR_VIEW_FIELDS];
 const PR_VIEW_TIMEOUT_MS = 30_000;
@@ -349,6 +349,7 @@ function prView(
 	} = {},
 ): string {
 	return JSON.stringify({
+		id: `PR_node_${overrides.number ?? 42}`,
 		number: overrides.number ?? 42,
 		headRefName: overrides.headRefName ?? "feature-branch",
 		baseRefName: overrides.baseRefName ?? TRUNK,
@@ -410,6 +411,7 @@ function stackPrView(
 	} = {},
 ): string {
 	return JSON.stringify({
+		id: `PR_node_${options.number ?? 42}`,
 		number: options.number ?? 42,
 		title: "Ship feature",
 		body: "Feature body",

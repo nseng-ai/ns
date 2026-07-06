@@ -51,6 +51,7 @@ function toFlowLandingPlan(plan: StackLandingPlan): FlowLandingPlan {
 			branch: branchPlan.branch,
 			localSha: branchPlan.localSha,
 			pr: {
+				id: branchPlan.pr.id,
 				number: branchPlan.pr.number,
 				title: branchPlan.pr.title,
 				body: branchPlan.pr.body,

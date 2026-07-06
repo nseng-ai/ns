@@ -168,6 +168,7 @@ export interface LandingPreflightReport {
 }
 
 export interface PullRequestFacts {
+	readonly id: string;
 	readonly number: number;
 	readonly title: string;
 	readonly body: string | null;

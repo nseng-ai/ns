@@ -161,7 +161,7 @@ function batchedPullRequestFactsQuery(branchCount: number): string {
 	const selections = Array.from(
 		{ length: branchCount },
 		(_, index) =>
-			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { number title body state isDraft headRefName baseRefName headRefOid mergeStateStatus url mergedAt } }`,
+			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { id number title body state isDraft headRefName baseRefName headRefOid mergeStateStatus url mergedAt } }`,
 	).join(" ");
 	return `query(${variableDeclarations}) { repository(owner: $owner, name: $name) { ${selections} } }`;
 }
@@ -209,6 +209,7 @@ function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefin
 
 	const body = value.body;
 	if (
+		typeof value.id !== "string" ||
 		typeof value.number !== "number" ||
 		!Number.isFinite(value.number) ||
 		typeof value.title !== "string" ||
@@ -223,6 +224,7 @@ function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefin
 	}
 
 	return {
+		id: value.id,
 		number: value.number,
 		title: value.title,
 		body,

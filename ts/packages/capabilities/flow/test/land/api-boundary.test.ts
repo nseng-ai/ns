@@ -73,6 +73,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 				branch: "feature/a",
 				localSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				pr: {
+					id: "PR_node_101",
 					number: 101,
 					title: "Feature A",
 					body: null,
@@ -187,6 +188,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 				github: {
 					pullRequestFacts: async () =>
 						landSuccess({
+							id: "PR_node_1",
 							number: 1,
 							title: "Feature",
 							body: null,

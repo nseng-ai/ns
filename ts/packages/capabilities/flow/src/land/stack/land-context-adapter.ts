@@ -71,6 +71,7 @@ type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" 
 
 function toApiPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
 	return {
+		id: pr.id,
 		number: pr.number,
 		title: pr.title,
 		body: pr.body,

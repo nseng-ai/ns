@@ -133,6 +133,7 @@ export interface LandingShape {
 }
 
 export interface PullRequestSnapshot {
+	id: string;
 	number: number;
 	title: string;
 	body: string | null;

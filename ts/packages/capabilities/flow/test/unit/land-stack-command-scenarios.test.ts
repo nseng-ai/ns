@@ -53,7 +53,7 @@ import {
 import { fakeGitStateFs } from "./git-state-fs-support.ts";
 
 const PR_FIELDS =
-	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const ROOT = "/repo";
 
