@@ -1,23 +1,21 @@
 export type {
-	ActivationFilesErrorInfo,
 	ActivationFilesGateway,
 	ActivationFilesOperationResult,
 	EnsureObjectivesDirectoryResult,
 	InstructionFileName,
 	InstructionFileParams,
-	InstructionFileReadResult,
 	ProjectConfigFileParams,
 	TextFileReadResult,
 	WriteInstructionFileParams,
 	WriteProjectConfigFileParams,
 } from "./activation-files.ts";
+export type { NsInitErrorInfo } from "./error-info.ts";
 export { INSTRUCTION_FILE_NAMES, OBJECTIVES_DIRECTORY_RELATIVE_PATH } from "./activation-files.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
 export type {
 	HarnessId,
 	SkillMaterializeParams,
 	SkillMaterializer,
-	SkillMaterializerErrorInfo,
 	SkillMaterializeResult,
 } from "./skill-materializer.ts";
 export { ALL_HARNESS_IDS } from "./skill-materializer.ts";
@@ -37,7 +35,6 @@ export type { ObjectiveActivationContext } from "./activation-context.ts";
 export type {
 	ActivateObjectivesOptions,
 	ActivateObjectivesResult,
-	ActivationErrorInfo,
 	ObjectiveActivationReport,
 } from "./activate-objectives.ts";
 export { activateObjectives } from "./activate-objectives.ts";

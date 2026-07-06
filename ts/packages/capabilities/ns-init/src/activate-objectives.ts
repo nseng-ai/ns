@@ -1,15 +1,16 @@
 import type { ObjectiveActivationContext } from "./activation-context.ts";
+import type {
+	ActivationFilesGateway,
+	InstructionFileName,
+	TextFileReadResult,
+} from "./activation-files.ts";
+import type { NsInitErrorInfo } from "./error-info.ts";
 import { applyObjectiveInstructionBlock, ensureClaudeAgentsImport } from "./instruction-block.ts";
 import type { HarnessId, SkillMaterializeResult } from "./skill-materializer.ts";
 
 export interface ActivateObjectivesOptions {
 	cwd: string;
 	harnesses: readonly HarnessId[];
-}
-
-export interface ActivationErrorInfo {
-	code: string;
-	message: string;
 }
 
 export interface ObjectiveActivationReport {
@@ -26,7 +27,7 @@ export type ActivateObjectivesResult =
 	| { type: "not-a-git-repo"; message: string }
 	| { type: "trunk-undetectable"; message: string }
 	| { type: "agents-block-malformed"; reason: string }
-	| { type: "error"; error: ActivationErrorInfo };
+	| { type: "error"; error: NsInitErrorInfo };
 
 /**
  * Activate Objectives in a repository: write the managed `ns:objectives:*` instruction
@@ -66,36 +67,26 @@ export async function activateObjectives(
 		};
 	}
 
-	const agentsRead = await context.files.readInstructionFile({ repoRoot, file: "AGENTS.md" });
-	if (agentsRead.type === "error") return { type: "error", error: agentsRead.error };
-	const agentsExisted = agentsRead.type === "found";
-	const agentsApplied = applyObjectiveInstructionBlock({
-		text: agentsExisted ? agentsRead.content : "",
+	const agentsApplied = await readTransformWriteInstructionFile({
+		files: context.files,
+		repoRoot,
+		file: "AGENTS.md",
+		transform: (read) =>
+			applyObjectiveInstructionBlock({ text: read.type === "found" ? read.content : "" }),
 	});
-	if (agentsApplied.type === "malformed") {
-		return { type: "agents-block-malformed", reason: agentsApplied.reason };
-	}
-	if (agentsApplied.change !== "unchanged") {
-		const write = await context.files.writeInstructionFile({
-			repoRoot,
-			file: "AGENTS.md",
-			content: agentsApplied.content,
-		});
-		if (!write.ok) return { type: "error", error: write.error };
+	if (agentsApplied.type === "error") return { type: "error", error: agentsApplied.error };
+	if ("type" in agentsApplied.result && agentsApplied.result.type === "malformed") {
+		return { type: "agents-block-malformed", reason: agentsApplied.result.reason };
 	}
 
-	const claudeRead = await context.files.readInstructionFile({ repoRoot, file: "CLAUDE.md" });
-	if (claudeRead.type === "error") return { type: "error", error: claudeRead.error };
-	const claudeExisted = claudeRead.type === "found";
-	const claudeEnsured = ensureClaudeAgentsImport({ text: claudeExisted ? claudeRead.content : "" });
-	if (claudeEnsured.change !== "unchanged") {
-		const write = await context.files.writeInstructionFile({
-			repoRoot,
-			file: "CLAUDE.md",
-			content: claudeEnsured.content,
-		});
-		if (!write.ok) return { type: "error", error: write.error };
-	}
+	const claudeEnsured = await readTransformWriteInstructionFile({
+		files: context.files,
+		repoRoot,
+		file: "CLAUDE.md",
+		transform: (read) =>
+			ensureClaudeAgentsImport({ text: read.type === "found" ? read.content : "" }),
+	});
+	if (claudeEnsured.type === "error") return { type: "error", error: claudeEnsured.error };
 
 	const directoryResult = await context.files.ensureObjectivesDirectory({ repoRoot });
 	if (!directoryResult.ok) return { type: "error", error: directoryResult.error };
@@ -110,10 +101,54 @@ export async function activateObjectives(
 		report: {
 			repoRoot,
 			trunkBranch: trunkResult.value,
-			agentsInstructionFile: { change: agentsExisted ? agentsApplied.change : "created" },
-			claudeInstructionFile: { change: claudeExisted ? claudeEnsured.change : "created" },
+			agentsInstructionFile: {
+				change: agentsApplied.existed ? agentsApplied.result.change : "created",
+			},
+			claudeInstructionFile: {
+				change: claudeEnsured.existed ? claudeEnsured.result.change : "created",
+			},
 			objectivesDirectory: { created: directoryResult.value.created },
 			skills,
 		},
 	};
+}
+
+type InstructionFileWritableTransformResult = {
+	content: string;
+	change: "appended" | "replaced" | "unchanged";
+};
+
+type InstructionFileTransformResult =
+	| InstructionFileWritableTransformResult
+	| { type: "malformed"; reason: string };
+
+type ReadTransformWriteInstructionFileResult<Result extends InstructionFileTransformResult> =
+	| { type: "ok"; existed: boolean; result: Result }
+	| { type: "error"; error: NsInitErrorInfo };
+
+async function readTransformWriteInstructionFile<
+	Result extends InstructionFileTransformResult,
+>(params: {
+	files: ActivationFilesGateway;
+	repoRoot: string;
+	file: InstructionFileName;
+	transform: (read: TextFileReadResult) => Result;
+}): Promise<ReadTransformWriteInstructionFileResult<Result>> {
+	const read = await params.files.readInstructionFile({
+		repoRoot: params.repoRoot,
+		file: params.file,
+	});
+	if (read.type === "error") return { type: "error", error: read.error };
+
+	const result = params.transform(read);
+	if ("change" in result && result.change !== "unchanged") {
+		const write = await params.files.writeInstructionFile({
+			repoRoot: params.repoRoot,
+			file: params.file,
+			content: result.content,
+		});
+		if (!write.ok) return { type: "error", error: write.error };
+	}
+
+	return { type: "ok", existed: read.type === "found", result };
 }

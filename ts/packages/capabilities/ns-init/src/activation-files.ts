@@ -1,3 +1,5 @@
+import type { NsInitErrorInfo } from "./error-info.ts";
+
 export type InstructionFileName = "AGENTS.md" | "CLAUDE.md";
 
 export const INSTRUCTION_FILE_NAMES = [
@@ -7,25 +9,16 @@ export const INSTRUCTION_FILE_NAMES = [
 
 export const OBJECTIVES_DIRECTORY_RELATIVE_PATH = ".ns/objectives";
 
-export interface ActivationFilesErrorInfo {
-	code: string;
-	message: string;
-}
-
 export type TextFileReadResult =
 	| { type: "found"; content: string }
 	| { type: "missing" }
-	| { type: "error"; error: ActivationFilesErrorInfo };
+	| { type: "error"; error: NsInitErrorInfo };
 
-export type InstructionFileReadResult = TextFileReadResult;
-
-export type ActivationFilesOperationResult =
-	| { ok: true }
-	| { ok: false; error: ActivationFilesErrorInfo };
+export type ActivationFilesOperationResult = { ok: true } | { ok: false; error: NsInitErrorInfo };
 
 export type EnsureObjectivesDirectoryResult =
 	| { ok: true; value: { created: boolean } }
-	| { ok: false; error: ActivationFilesErrorInfo };
+	| { ok: false; error: NsInitErrorInfo };
 
 export interface InstructionFileParams {
 	repoRoot: string;
@@ -45,7 +38,7 @@ export interface WriteProjectConfigFileParams extends ProjectConfigFileParams {
 }
 
 export interface ActivationFilesGateway {
-	readInstructionFile(params: InstructionFileParams): Promise<InstructionFileReadResult>;
+	readInstructionFile(params: InstructionFileParams): Promise<TextFileReadResult>;
 	writeInstructionFile(params: WriteInstructionFileParams): Promise<ActivationFilesOperationResult>;
 	readProjectConfigFile(params: ProjectConfigFileParams): Promise<TextFileReadResult>;
 	writeProjectConfigFile(

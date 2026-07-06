@@ -1,3 +1,5 @@
+import type { NsInitErrorInfo } from "./error-info.ts";
+
 export type HarnessId = "claude-code" | "codex" | "pi";
 
 export const ALL_HARNESS_IDS = [
@@ -5,11 +7,6 @@ export const ALL_HARNESS_IDS = [
 	"codex",
 	"pi",
 ] as const satisfies readonly HarnessId[];
-
-export interface SkillMaterializerErrorInfo {
-	code: string;
-	message: string;
-}
 
 export interface SkillMaterializeParams {
 	repoRoot: string;
@@ -19,7 +16,7 @@ export interface SkillMaterializeParams {
 export type SkillMaterializeResult =
 	| { type: "materialized"; installedSkillPaths: readonly string[] }
 	| { type: "unavailable"; reason: string }
-	| { type: "error"; error: SkillMaterializerErrorInfo };
+	| { type: "error"; error: NsInitErrorInfo };
 
 export interface SkillMaterializer {
 	materializeObjectiveSkills(params: SkillMaterializeParams): Promise<SkillMaterializeResult>;
