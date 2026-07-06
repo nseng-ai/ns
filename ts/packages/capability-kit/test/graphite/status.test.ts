@@ -11,7 +11,7 @@ import {
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "@nseng-ai/capability-kit/graphite/status";
-import type { LocalBranchRefReadResult } from "@nseng-ai/capability-kit/git";
+import type { LocalBranchRefReadResult } from "../../src/git/local-ref-reader.ts";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import type {
 	GraphiteMetadataDbAccess,

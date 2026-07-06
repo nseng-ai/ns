@@ -5,12 +5,12 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
-	detectGitOperationInProgress,
 	detectGitOperationInProgressAt,
 	resolveWorktreeGitDirs,
 	type GitOperationInProgress,
 	type GitWorktreeStateFs,
 } from "@nseng-ai/capability-kit/git";
+import { detectGitOperationInProgress } from "../../src/git/worktree-state.ts";
 
 const tempRoots: string[] = [];
 

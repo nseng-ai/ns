@@ -9,7 +9,6 @@ import {
 	NsCommandExecApi,
 	NsStdinCapableCommandExecApi,
 } from "@nseng-ai/capability-kit/command-runner";
-import { execNsGit, readNsGitPorcelainStatus } from "@nseng-ai/capability-kit/git";
 
 interface ExecCall {
 	command: string;
@@ -63,32 +62,6 @@ describe("ns command runner adapter", () => {
 			killed: false,
 		});
 		expect(calls).toEqual([]);
-	});
-
-	test("executes git and reads porcelain status", async () => {
-		const cleanResult = makeExecResult({ stdout: "\n" });
-		const dirtyResult = makeExecResult({ stdout: " M src/app.ts\n" });
-		const failedResult = makeExecResult({ code: 128, stderr: "fatal\n" });
-		const { api, calls } = createFakeApi([cleanResult, dirtyResult, failedResult]);
-
-		await expect(execNsGit(api, ["status"], 42)).resolves.toBe(cleanResult);
-		await expect(readNsGitPorcelainStatus(api)).resolves.toEqual({
-			ok: true,
-			isClean: false,
-			stdout: " M src/app.ts\n",
-			result: dirtyResult,
-		});
-		await expect(readNsGitPorcelainStatus(api, 100)).resolves.toEqual({
-			ok: false,
-			result: failedResult,
-		});
-		expect(
-			calls.map((call) => ({ command: call.command, args: call.args, options: call.options })),
-		).toEqual([
-			{ command: "git", args: ["status"], options: { timeoutMs: 42 } },
-			{ command: "git", args: ["status", "--porcelain"], options: undefined },
-			{ command: "git", args: ["status", "--porcelain"], options: { timeoutMs: 100 } },
-		]);
 	});
 });
 

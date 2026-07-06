@@ -8,7 +8,7 @@ import {
 	readLocalBranchRefs,
 	type LocalBranchRefDirent,
 	type LocalBranchRefReaderFs,
-} from "@nseng-ai/capability-kit/git";
+} from "../../src/git/local-ref-reader.ts";
 
 function sortedBranches(branches: ReadonlySet<string>): string[] {
 	return [...branches].sort();

@@ -154,7 +154,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createNsCliExecAdapter } from "@nseng-ai/capability-kit/git";',
+			code: 'import { createNsGitGateway } from "@nseng-ai/capability-kit/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
