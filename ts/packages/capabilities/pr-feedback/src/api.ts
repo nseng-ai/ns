@@ -4,7 +4,7 @@
 // command operation schemas, or PR Address internals.
 //
 // Export classification:
-// - Stable PR Address Capability API: `PrFeedbackGithubGateway`, PR lookup/review/
+// - Stable PR Address Capability API: `PrAddressGithubGateway`, PR lookup/review/
 //   discussion/review-thread DTOs, review-thread mutation DTOs, feedback failure
 //   types, and gateway options/operation names.
 // - Stable via the PR Address seam: check/status result DTOs returned by
@@ -77,7 +77,7 @@ export type {
 // `GithubPrFeedbackGateway` contract: the methods PR Address consumes, with the
 // bulk `resolveReviewThreads` optional so gateways without batch support fall
 // back to per-thread resolution.
-export type PrFeedbackGithubGateway = Pick<
+export type PrAddressGithubGateway = Pick<
 	GithubPrFeedbackGateway,
 	| "getPr"
 	| "getPrForBranch"

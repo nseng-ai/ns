@@ -7,7 +7,7 @@ import type {
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
 	GithubPrFeedbackFailureDetails,
-	PrFeedbackGithubGateway,
+	PrAddressGithubGateway,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
 	GithubPrLookupMiss,
@@ -33,7 +33,7 @@ import {
 } from "../support/in-memory-pr-address-gateways.ts";
 
 interface CapabilityApiConsumerFixture {
-	readonly gateway: PrFeedbackGithubGateway;
+	readonly gateway: PrAddressGithubGateway;
 	readonly options: GithubPrFeedbackOptions;
 	readonly operation: GithubPrFeedbackOperation;
 	readonly failureCode: GithubPrFeedbackFailureCode;

@@ -18,15 +18,15 @@ The `download-feedback` result includes Markdown intended for session/editor pre
 
 ## Capability API
 
-`@nseng-ai/pr-feedback/api` is the curated in-process Capability API for PR-feedback consumers. Consumers that handle PR lookup, review, discussion-comment, review-thread, review-thread mutation, or Address check payloads should import the gateway and DTO vocabulary from this subpath instead of `@nseng-ai/foundation/github-pr-feedback`, `@nseng-ai/foundation/github-pr-status`, Pi modules, command operation schemas, or private source paths.
+`@nseng-ai/pr-feedback/api` is the curated in-process Capability API for PR-feedback consumers. Consumers that handle PR lookup, review, discussion-comment, review-thread, review-thread mutation, or Address check payloads should import the gateway and DTO vocabulary from this subpath instead of the kit `@nseng-ai/capability-kit/github/pr-feedback` contract, Pi modules, command operation schemas, or private source paths.
 
 Current export classification:
 
-- **Stable Address Capability API:** `GithubPrFeedbackGateway`; PR lookup/review/discussion/review-thread DTOs; review-thread reply/resolve DTOs; feedback failure/options/operation types. These are owned by Address as PR-feedback seam vocabulary.
-- **Stable through the Address seam:** `GithubStatusChecks`, `GithubStatusCheckEntry`, `GithubCheckTally`, `GithubCheckBucket`, `GithubStatusCheckKind`. Import these from `@nseng-ai/pr-feedback/api` when consuming `getPrChecks`/`pr-checks` payloads. The generic status normalization mechanics remain neutral infra in `@nseng-ai/foundation/github-pr-status`.
-- **Not Capability API:** `RealGithubPrFeedbackGateway`, GraphQL args/queries/schemas/normalizers, command schemas, Clinkr/exec wrappers, Pi presentation/session helpers. These remain real-adapter, command-face, or Presentation Host implementation details.
+- **Stable Address Capability API:** `PrAddressGithubGateway`; PR lookup/review/discussion/review-thread DTOs; review-thread reply/resolve DTOs; feedback failure/options/operation types. These are owned by Address as the projected PR-feedback seam over the kit's canonical `GithubPrFeedbackGateway`.
+- **Stable through the Address seam:** `GithubStatusChecks`, `GithubStatusCheckEntry`, `GithubCheckTally`, `GithubCheckBucket`, `GithubStatusCheckKind`. Import these from `@nseng-ai/pr-feedback/api` when consuming `getPrChecks`/`pr-checks` payloads. The generic status normalization mechanics remain neutral infra in `@nseng-ai/capability-kit/github/pr-status`.
+- **Not Capability API:** `GithubPrFeedbackGateway`, `RealGithubPrFeedbackGateway`, GraphQL args/queries/schemas/normalizers, command schemas, Clinkr/exec wrappers, Pi presentation/session helpers. These remain kit contract, real-adapter, command-face, or Presentation Host implementation details.
 
-ADR 0016 keeps dependency direction as `@nseng-ai/pr-feedback` → `@nseng-ai/foundation`: lower type declarations and real GitHub mechanics may live in core, while seam consumers import only the Address Capability API.
+ADR 0016 keeps PR Address as the capability-facing seam: reusable GitHub backend mechanics may live in `@nseng-ai/capability-kit/github`, while seam consumers import only the Address Capability API.
 
 ## Distribution
 
