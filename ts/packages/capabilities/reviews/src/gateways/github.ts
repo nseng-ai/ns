@@ -1,13 +1,11 @@
 import { type CommandExecApi, execApiToCommandRunner } from "@nseng-ai/foundation/command";
 import {
 	RealGithubPrFeedbackGateway,
-	type GithubPrDiscussionComment,
 	type GithubPrFeedbackFailure,
-	type GithubPrRestReviewComment,
 	type GithubPrReviewThread,
 } from "@nseng-ai/capability-kit/github/pr-feedback";
-import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
-import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { Result } from "@nseng-ai/foundation/result";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../core/failures.ts";
 import type {
@@ -74,33 +72,33 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		prNumber: number,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRChangedFile[]>> {
-		const result = await this.feedback.getPrChangedFiles({ ...options, prNumber });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: result.value.map(copyChangedFile) };
+		return mapRoasterValue(
+			await unwrapFeedback(this.feedback.getPrChangedFiles({ ...options, prNumber }), options.cwd),
+			(files) => files.map(copyChangedFile),
+		);
 	}
 
 	async getPrReviewComments(
 		prNumber: number,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRReviewComment[]>> {
-		const result = await this.feedback.getPrReviewComments({ ...options, prNumber });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return {
-			type: "ok",
-			value: result.value.map((comment) => ({ author: comment.author, body: comment.body })),
-		};
+		return mapRoasterValue(
+			await unwrapFeedback(
+				this.feedback.getPrReviewComments({ ...options, prNumber }),
+				options.cwd,
+			),
+			(comments) => comments.map(copyReviewComment),
+		);
 	}
 
 	async getPrReviewThreads(
 		prNumber: number,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
-		const result = await this.feedback.getPrReviewThreads({
-			...options,
-			prNumber,
-		});
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: result.value };
+		return await unwrapFeedback(
+			this.feedback.getPrReviewThreads({ ...options, prNumber }),
+			options.cwd,
+		);
 	}
 
 	async createPrReview(
@@ -108,20 +106,19 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		comments: readonly PRInlineCommentInput[],
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<void>> {
-		const result = await this.feedback.createPrReview({ ...options, prNumber, comments });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: undefined };
+		return await unwrapFeedback(
+			this.feedback.createPrReview({ ...options, prNumber, comments }),
+			options.cwd,
+		);
 	}
 
 	async findPrDiscussionCommentByMarker(
 		options: FindPrDiscussionCommentByMarkerOptions,
 	): Promise<RoasterResult<PRDiscussionComment | null>> {
-		const result = await this.feedback.findPrDiscussionCommentByMarker(options);
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return {
-			type: "ok",
-			value: result.value === null ? null : publicDiscussionComment(result.value),
-		};
+		return mapRoasterValue(
+			await unwrapFeedback(this.feedback.findPrDiscussionCommentByMarker(options), options.cwd),
+			(comment) => (comment === null ? null : publicDiscussionComment(comment)),
+		);
 	}
 
 	async addPrDiscussionComment(
@@ -129,9 +126,13 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		body: string,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const result = await this.feedback.addPrDiscussionComment({ ...options, prNumber, body });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: publicDiscussionComment(result.value) };
+		return mapRoasterValue(
+			await unwrapFeedback(
+				this.feedback.addPrDiscussionComment({ ...options, prNumber, body }),
+				options.cwd,
+			),
+			publicDiscussionComment,
+		);
 	}
 
 	async updatePrDiscussionComment(
@@ -139,9 +140,13 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		body: string,
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const result = await this.feedback.updatePrDiscussionComment({ ...options, commentId, body });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: publicDiscussionComment(result.value) };
+		return mapRoasterValue(
+			await unwrapFeedback(
+				this.feedback.updatePrDiscussionComment({ ...options, commentId, body }),
+				options.cwd,
+			),
+			publicDiscussionComment,
+		);
 	}
 }
 
@@ -160,50 +165,48 @@ export interface FakeRoasterGitHubGatewayOptions {
 	>;
 }
 
+type FakeDiscussionComment = PRDiscussionComment & { readonly author: string };
+
 export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
-	private readonly feedback: FakeGithubPrFeedbackGateway;
+	private readonly changedFilesByPr: Map<number, PRChangedFile[]>;
+	private readonly reviewCommentsByPr: Map<number, PRReviewComment[]>;
+	private readonly reviewThreadsByPr: Map<number, GithubPrReviewThread[]>;
+	private readonly discussionCommentsByPr: Map<number, FakeDiscussionComment[]>;
+	private readonly createdReviewsInternal: CreatedReviewLogEntry[] = [];
 	private readonly markerCallsInternal: FindPrDiscussionCommentByMarkerOptions[] = [];
 	private readonly reviewThreadCallsInternal: Array<
 		GitHubGatewayOptions & { readonly prNumber: number }
 	> = [];
+	private nextDiscussionCommentId: number;
 
 	constructor(options: FakeRoasterGitHubGatewayOptions = {}) {
-		this.feedback = new FakeGithubPrFeedbackGateway({
-			...optionalEntry("changedFilesByPr", options.changedFilesByPr),
-			...optionalEntry(
-				"reviewCommentsByPr",
-				options.reviewCommentsByPr === undefined
-					? undefined
-					: toFeedbackReviewCommentsByPr(options.reviewCommentsByPr),
-			),
-			...optionalEntry("reviewThreadsByPr", options.reviewThreadsByPr),
-			...optionalEntry(
-				"discussionCommentsByPr",
-				options.discussionCommentsByPr === undefined
-					? undefined
-					: toFeedbackDiscussionCommentsByPr(options.discussionCommentsByPr),
-			),
-		});
+		this.changedFilesByPr = copyMapArray(options.changedFilesByPr, copyChangedFile);
+		this.reviewCommentsByPr = copyMapArray(options.reviewCommentsByPr, copyReviewComment);
+		this.reviewThreadsByPr = copyMapArray(options.reviewThreadsByPr, copyReviewThread);
+		this.discussionCommentsByPr = copyMapArray(
+			options.discussionCommentsByPr,
+			copyFakeDiscussionComment,
+		);
+		this.nextDiscussionCommentId = nextDiscussionCommentId(this.discussionCommentsByPr);
 	}
 
 	async getPrChangedFiles(
 		prNumber: number,
 		_options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRChangedFile[]>> {
-		const result = await this.feedback.getPrChangedFiles({ prNumber });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, _options.cwd));
-		return { type: "ok", value: result.value.map(copyChangedFile) };
+		return {
+			type: "ok",
+			value: (this.changedFilesByPr.get(prNumber) ?? []).map(copyChangedFile),
+		};
 	}
 
 	async getPrReviewComments(
 		prNumber: number,
 		_options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly PRReviewComment[]>> {
-		const result = await this.feedback.getPrReviewComments({ prNumber });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, _options.cwd));
 		return {
 			type: "ok",
-			value: result.value.map((comment) => ({ author: comment.author, body: comment.body })),
+			value: (this.reviewCommentsByPr.get(prNumber) ?? []).map(copyReviewComment),
 		};
 	}
 
@@ -212,18 +215,21 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
 		this.reviewThreadCallsInternal.push({ ...copyGitHubGatewayOptions(options), prNumber });
-		const result = await this.feedback.getPrReviewThreads({ prNumber });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: result.value.map(copyReviewThread) };
+		return {
+			type: "ok",
+			value: (this.reviewThreadsByPr.get(prNumber) ?? []).map(copyReviewThread),
+		};
 	}
 
 	async createPrReview(
 		prNumber: number,
 		comments: readonly PRInlineCommentInput[],
-		options: GitHubGatewayOptions,
+		_options: GitHubGatewayOptions,
 	): Promise<RoasterResult<void>> {
-		const result = await this.feedback.createPrReview({ prNumber, comments });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
+		this.createdReviewsInternal.push({
+			prNumber,
+			comments: comments.map(copyInlineCommentInput),
+		});
 		return { type: "ok", value: undefined };
 	}
 
@@ -231,40 +237,53 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 		options: FindPrDiscussionCommentByMarkerOptions,
 	): Promise<RoasterResult<PRDiscussionComment | null>> {
 		this.markerCallsInternal.push(copyFindPrDiscussionCommentByMarkerOptions(options));
-		const result = await this.feedback.findPrDiscussionCommentByMarker(options);
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return {
-			type: "ok",
-			value: result.value === null ? null : publicDiscussionComment(result.value),
-		};
+		const comment =
+			(this.discussionCommentsByPr.get(options.prNumber) ?? []).find(
+				(candidate) =>
+					candidate.author === options.authorLogin && candidate.body.includes(options.marker),
+			) ?? null;
+		return { type: "ok", value: comment === null ? null : publicDiscussionComment(comment) };
 	}
 
 	async addPrDiscussionComment(
 		prNumber: number,
 		body: string,
-		options: GitHubGatewayOptions,
+		_options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const result = await this.feedback.addPrDiscussionComment({
-			prNumber,
+		const comment: FakeDiscussionComment = {
+			id: this.nextDiscussionCommentId,
 			body,
-			authorLogin: ROASTER_BOT_LOGIN,
-		});
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: publicDiscussionComment(result.value) };
+			author: ROASTER_BOT_LOGIN,
+		};
+		this.nextDiscussionCommentId += 1;
+		const comments = this.discussionCommentsByPr.get(prNumber) ?? [];
+		comments.push(comment);
+		this.discussionCommentsByPr.set(prNumber, comments);
+		return { type: "ok", value: publicDiscussionComment(comment) };
 	}
 
 	async updatePrDiscussionComment(
 		commentId: number,
 		body: string,
-		options: GitHubGatewayOptions,
+		_options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const result = await this.feedback.updatePrDiscussionComment({ commentId, body });
-		if (!result.ok) return error(convertFeedbackFailure(result.error, options.cwd));
-		return { type: "ok", value: publicDiscussionComment(result.value) };
+		for (const [prNumber, comments] of this.discussionCommentsByPr.entries()) {
+			const index = comments.findIndex((comment) => comment.id === commentId);
+			const existing = comments[index];
+			if (index === -1 || existing === undefined) continue;
+			const updated = { ...existing, body };
+			comments[index] = updated;
+			this.discussionCommentsByPr.set(prNumber, comments);
+			return { type: "ok", value: publicDiscussionComment(updated) };
+		}
+		return error({
+			type: "github-response-invalid",
+			message: `No fake discussion comment with id ${commentId}.`,
+		});
 	}
 
 	createdReviews(): readonly CreatedReviewLogEntry[] {
-		return this.feedback.createdReviews().map((entry) => ({
+		return this.createdReviewsInternal.map((entry) => ({
 			prNumber: entry.prNumber,
 			comments: entry.comments.map(copyInlineCommentInput),
 		}));
@@ -280,6 +299,23 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 			prNumber: call.prNumber,
 		}));
 	}
+}
+
+async function unwrapFeedback<T>(
+	promise: Promise<Result<T, GithubPrFeedbackFailure>>,
+	cwd: string | undefined,
+): Promise<RoasterResult<T>> {
+	const result = await promise;
+	if (!result.ok) return error(convertFeedbackFailure(result.error, cwd));
+	return { type: "ok", value: result.value };
+}
+
+function mapRoasterValue<TValue, TMapped>(
+	result: RoasterResult<TValue>,
+	mapValue: (value: TValue) => TMapped,
+): RoasterResult<TMapped> {
+	if (result.type === "error") return result;
+	return { type: "ok", value: mapValue(result.value) };
 }
 
 function convertFeedbackFailure(
@@ -349,49 +385,32 @@ function copyChangedFile(file: PRChangedFile): PRChangedFile {
 	return { path: file.path, status: file.status, patch: file.patch };
 }
 
-function toFeedbackReviewCommentsByPr(
-	source: ReadonlyMap<number, readonly PRReviewComment[]>,
-): ReadonlyMap<number, readonly GithubPrRestReviewComment[]> {
-	return new Map(
-		[...source.entries()].map(([prNumber, comments]) => [
-			prNumber,
-			comments.map((comment, index) => toFeedbackReviewComment(comment, index)),
-		]),
-	);
+function copyReviewComment(comment: PRReviewComment): PRReviewComment {
+	return { author: comment.author, body: comment.body };
 }
 
-function toFeedbackDiscussionCommentsByPr(
-	source: ReadonlyMap<number, readonly (PRDiscussionComment & { readonly author: string })[]>,
-): ReadonlyMap<number, readonly GithubPrDiscussionComment[]> {
-	return new Map(
-		[...source.entries()].map(([prNumber, comments]) => [
-			prNumber,
-			comments.map(toFeedbackDiscussionComment),
-		]),
-	);
+function copyFakeDiscussionComment(comment: FakeDiscussionComment): FakeDiscussionComment {
+	return { id: comment.id, body: comment.body, author: comment.author };
 }
 
-function toFeedbackReviewComment(
-	comment: PRReviewComment,
-	index: number,
-): GithubPrRestReviewComment {
-	return {
-		id: index + 1,
-		reviewId: null,
-		body: comment.body,
-		author: comment.author,
-		path: "",
-		line: null,
-		createdAt: "",
-		updatedAt: null,
-		inReplyToId: null,
-	};
+function copyMapArray<TKey, TValue>(
+	source: ReadonlyMap<TKey, readonly TValue[]> | undefined,
+	copy: (value: TValue) => TValue,
+): Map<TKey, TValue[]> {
+	const copied = new Map<TKey, TValue[]>();
+	if (source === undefined) return copied;
+	for (const [key, values] of source.entries()) copied.set(key, values.map(copy));
+	return copied;
 }
 
-function toFeedbackDiscussionComment(
-	comment: PRDiscussionComment & { readonly author: string },
-): GithubPrDiscussionComment {
-	return { ...comment, url: "" };
+function nextDiscussionCommentId(
+	commentsByPr: ReadonlyMap<number, readonly FakeDiscussionComment[]>,
+): number {
+	let maxId = 0;
+	for (const comments of commentsByPr.values()) {
+		for (const comment of comments) maxId = Math.max(maxId, comment.id);
+	}
+	return maxId + 1;
 }
 
 function copyReviewThread(thread: GithubPrReviewThread): GithubPrReviewThread {

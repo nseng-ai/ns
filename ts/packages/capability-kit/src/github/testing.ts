@@ -1,14 +1,16 @@
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
-import type {
-	GithubPrChangedFile,
-	GithubPrDiscussionComment,
-	GithubPrDiscussionCommentUpsert,
-	GithubPrFeedbackFailure,
-	GithubPrInlineCommentInput,
-	GithubPrRestReviewComment,
-	GithubPrReviewThread,
+import {
+	findPrDiscussionCommentByMarkerInComments,
+	upsertPrDiscussionCommentByMarkerWithCallbacks,
+	type GithubPrChangedFile,
+	type GithubPrDiscussionComment,
+	type GithubPrDiscussionCommentUpsert,
+	type GithubPrFeedbackFailure,
+	type GithubPrInlineCommentInput,
+	type GithubPrRestReviewComment,
+	type GithubPrReviewThread,
 } from "./pr-feedback/index.ts";
 
 export interface GithubCheckRunFixture {
@@ -119,9 +121,11 @@ export class FakeGithubPrFeedbackGateway {
 		const comments = await this.getPrIssueComments(params);
 		if (!comments.ok) return comments;
 		return resultOk(
-			comments.value.find(
-				(comment) => comment.author === params.authorLogin && comment.body.includes(params.marker),
-			) ?? null,
+			findPrDiscussionCommentByMarkerInComments({
+				comments: comments.value,
+				marker: params.marker,
+				authorLogin: params.authorLogin,
+			}),
 		);
 	}
 
@@ -167,22 +171,19 @@ export class FakeGithubPrFeedbackGateway {
 		readonly authorLogin: string;
 		readonly body: string;
 	}): Promise<Result<GithubPrDiscussionCommentUpsert, GithubPrFeedbackFailure>> {
-		const existing = await this.findPrDiscussionCommentByMarker(params);
-		if (!existing.ok) return existing;
-		if (existing.value === null) {
-			const created = await this.addPrDiscussionComment({
-				...params,
-				authorLogin: params.authorLogin,
-			});
-			if (!created.ok) return created;
-			return resultOk({ type: "created", comment: created.value });
-		}
-		const updated = await this.updatePrDiscussionComment({
-			commentId: existing.value.id,
-			body: params.body,
+		return await upsertPrDiscussionCommentByMarkerWithCallbacks({
+			find: () => this.findPrDiscussionCommentByMarker(params),
+			add: () =>
+				this.addPrDiscussionComment({
+					...params,
+					authorLogin: params.authorLogin,
+				}),
+			update: (comment) =>
+				this.updatePrDiscussionComment({
+					commentId: comment.id,
+					body: params.body,
+				}),
 		});
-		if (!updated.ok) return updated;
-		return resultOk({ type: "updated", comment: updated.value });
 	}
 
 	createdReviews(): readonly CreatedGithubPrReviewLogEntry[] {

@@ -1,4 +1,8 @@
 export { RealGithubPrFeedbackGateway } from "./gateway.ts";
+export {
+	findPrDiscussionCommentByMarkerInComments,
+	upsertPrDiscussionCommentByMarkerWithCallbacks,
+} from "./discussion-comment-marker.ts";
 export { normalizeAuthor } from "./normalizers.ts";
 export { parseGithubJson } from "./parsing.ts";
 export {
