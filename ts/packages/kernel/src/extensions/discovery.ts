@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
 import {
@@ -22,6 +22,7 @@ import {
 	type NsCommandCandidate,
 } from "./command-registry.ts";
 import type { NsCommandModuleReference } from "./module-reference.ts";
+import { scanExtensionRoot } from "./root-discovery.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export interface DiscoveredExtensionCommand extends Pick<
@@ -97,57 +98,15 @@ type PackageManifestDiscoveryResolution =
 	| { outcome: "unavailable"; result: ExtensionDiscoveryResult };
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
-	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
-
-	let rootStat;
-	try {
-		rootStat = statSync(rootDir);
-	} catch (error) {
-		return {
-			commands: [],
-			diagnostics: [
-				diagnostic(
-					"extension_root_stat_failed",
-					`Could not inspect extension root ${rootDir}.\n${formatUnknownError(error)}`,
-					{ path: rootDir },
-				),
-			],
-		};
-	}
-	if (!rootStat.isDirectory()) {
-		return {
-			commands: [],
-			diagnostics: [
-				diagnostic(
-					"extension_root_not_directory",
-					`Extension root must be a directory: ${rootDir}.`,
-					{ path: rootDir },
-				),
-			],
-		};
-	}
-
-	let entries;
-	try {
-		entries = readdirSync(rootDir, { withFileTypes: true });
-	} catch (error) {
-		return {
-			commands: [],
-			diagnostics: [
-				diagnostic(
-					"extension_root_read_failed",
-					`Could not read extension root ${rootDir}.\n${formatUnknownError(error)}`,
-					{ path: rootDir },
-				),
-			],
-		};
+	const rootScan = scanExtensionRoot(rootDir);
+	if (rootScan.diagnostics.length > 0) {
+		return { commands: [], diagnostics: rootScan.diagnostics };
 	}
 
 	const commands: DiscoveredExtensionCommand[] = [];
 	const diagnostics: ExtensionDiscoveryDiagnostic[] = [];
-	for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-		const entryPath = join(rootDir, entry.name);
-		if (entry.isFile()) {
+	for (const entry of rootScan.entries) {
+		if (entry.type === "file") {
 			if (isLoadableExtensionFile(entry.name)) {
 				pushDirectEntryCommand(
 					commands,
@@ -155,31 +114,28 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 					commandForDirectEntry({
 						rootDir,
 						name: basename(entry.name, extname(entry.name)),
-						entryPath,
+						entryPath: entry.path,
 					}),
 				);
 			}
 			continue;
 		}
-		if (!entry.isDirectory()) continue;
 
-		const packageJsonPath = join(entryPath, "package.json");
-		if (existsSync(packageJsonPath)) {
-			const packageResult = discoverPackageCommands(rootDir, entryPath, packageJsonPath);
+		if (entry.packageJsonPath !== undefined) {
+			const packageResult = discoverPackageCommands(rootDir, entry.path, entry.packageJsonPath);
 			commands.push(...packageResult.commands);
 			diagnostics.push(...packageResult.diagnostics);
 			continue;
 		}
 
-		const indexPath = firstExistingDirectoryIndex(entryPath);
-		if (indexPath !== undefined) {
+		if (entry.indexPath !== undefined) {
 			pushDirectEntryCommand(
 				commands,
 				diagnostics,
 				commandForDirectEntry({
 					rootDir,
 					name: entry.name,
-					entryPath: indexPath,
+					entryPath: entry.indexPath,
 				}),
 			);
 			continue;
@@ -187,8 +143,8 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 		diagnostics.push(
 			diagnostic(
 				"extension_directory_missing_entry",
-				`Extension directory must contain package.json, index.ts, or index.js: ${entryPath}.`,
-				{ path: entryPath, commandName: entry.name },
+				`Extension directory must contain package.json, index.ts, or index.js: ${entry.path}.`,
+				{ path: entry.path, commandName: entry.name },
 			),
 		);
 	}
@@ -355,14 +311,6 @@ function commandsNotArrayDiagnostic(packageJsonPath: string): ExtensionDiscovery
 		`Extension manifest ns.commands must be an array: ${packageJsonPath}.`,
 		{ path: packageJsonPath },
 	);
-}
-
-function firstExistingDirectoryIndex(entryPath: string): string | undefined {
-	for (const indexFileName of ["index.ts", "index.js"] as const) {
-		const indexPath = join(entryPath, indexFileName);
-		if (existsSync(indexPath)) return indexPath;
-	}
-	return undefined;
 }
 
 function pushDirectEntryCommand(

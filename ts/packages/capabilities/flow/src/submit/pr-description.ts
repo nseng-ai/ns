@@ -290,8 +290,6 @@ function loadPrDescriptionPointCatalog(request: {
 			},
 		],
 		config: { points: [], settings: new Map() },
-		promptEnvOverrides,
-		env: request.env,
 	});
 }
 

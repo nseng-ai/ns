@@ -298,8 +298,7 @@ describe("PR description helpers", () => {
 			}),
 		).resolves.toMatchObject({
 			ok: true,
-			text: "env prompt",
-			source: { type: "env" },
+			source: { type: "builtin" },
 		});
 	});
 });

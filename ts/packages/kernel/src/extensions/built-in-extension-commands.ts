@@ -30,8 +30,8 @@ const pointDiagnosticSchema = z.object({
 
 const pointSourceSchema = z.union([
 	z.object({ source: z.literal("env"), envVar: z.string(), path: z.string() }),
-	z.object({ source: z.literal("repo"), path: z.string() }),
-	z.object({ source: z.literal("repo"), commands: z.array(z.string()) }),
+	z.object({ source: z.literal("repo-prompt"), path: z.string() }),
+	z.object({ source: z.literal("repo-hook"), commands: z.array(z.string()) }),
 	z.object({ source: z.literal("conventional"), path: z.string() }),
 	z.object({ source: z.literal("default"), path: z.string(), manifestPath: z.string() }),
 	z.object({ source: z.literal("missing") }),
@@ -168,7 +168,7 @@ function activeSourceForEntry(
 	if (entry.definition.accepts === "prompt") {
 		const source = resolvePromptPointSource(catalog, entry.definition.id);
 		if (source.type === "env") return { source: "env", envVar: source.envVar, path: source.path };
-		if (source.type === "ns.toml") return { source: "repo", path: source.path };
+		if (source.type === "ns.toml") return { source: "repo-prompt", path: source.path };
 		if (source.type === "conventional") return { source: "conventional", path: source.path };
 		if (source.type === "default") {
 			return { source: "default", path: source.path, manifestPath: source.manifestPath };
@@ -180,7 +180,7 @@ function activeSourceForEntry(
 		(candidate) => candidate.source === "ns.toml" && candidate.installation.accepts === "hook",
 	);
 	if (installation?.source === "ns.toml" && installation.installation.accepts === "hook") {
-		return { source: "repo", commands: [...installation.installation.commands] };
+		return { source: "repo-hook", commands: [...installation.installation.commands] };
 	}
 	return { source: "missing" };
 }
@@ -193,9 +193,9 @@ function toPointSource(installation: PointCatalogInstallation): z.infer<typeof p
 		return { source: "conventional", path: installation.path };
 	}
 	if (installation.installation.accepts === "hook") {
-		return { source: "repo", commands: [...installation.installation.commands] };
+		return { source: "repo-hook", commands: [...installation.installation.commands] };
 	}
-	return { source: "repo", path: installation.installation.path };
+	return { source: "repo-prompt", path: installation.installation.path };
 }
 
 function diagnosticsForPoint(
@@ -251,10 +251,8 @@ function appendDiagnosticsSection(
 
 function renderSource(source: z.infer<typeof pointSourceSchema>): string {
 	if (source.source === "env") return `env ${source.envVar} -> ${source.path}`;
-	if (source.source === "repo") {
-		if ("commands" in source) return `repo ns.toml commands: ${source.commands.join(", ")}`;
-		return `repo ns.toml -> ${source.path}`;
-	}
+	if (source.source === "repo-hook") return `repo ns.toml commands: ${source.commands.join(", ")}`;
+	if (source.source === "repo-prompt") return `repo ns.toml -> ${source.path}`;
 	if (source.source === "conventional") return `conventional ${source.path}`;
 	if (source.source === "default") return `default ${source.path}`;
 	return "missing";

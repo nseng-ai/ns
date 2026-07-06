@@ -88,8 +88,8 @@ describe("ns extension point introspection", () => {
 				point: { id: string; activeSource: unknown; installations: unknown[] };
 			};
 			expect(data.point.id).toBe("flow.submit.pre");
-			expect(data.point.activeSource).toEqual({ source: "repo", commands: ["just check"] });
-			expect(data.point.installations).toEqual([{ source: "repo", commands: ["just check"] }]);
+			expect(data.point.activeSource).toEqual({ source: "repo-hook", commands: ["just check"] });
+			expect(data.point.installations).toEqual([{ source: "repo-hook", commands: ["just check"] }]);
 			expect(run.stderr.join("")).toBe("");
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
