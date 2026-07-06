@@ -50,12 +50,24 @@ interface ToolContextOptions {
 	cwd?: string;
 	model?: ToolContext["model"];
 	widgetCalls?: WidgetCall[];
+	statusCalls?: StatusCall[];
+	notifications?: Notification[];
 }
 
 interface WidgetCall {
 	key: string;
 	content: string[] | undefined;
 	options: { placement?: WidgetPlacement } | undefined;
+}
+
+interface StatusCall {
+	key: string;
+	value: string | undefined;
+}
+
+interface Notification {
+	message: string;
+	level: string | undefined;
 }
 
 interface Deferred<T> {
@@ -82,14 +94,16 @@ function deferredAt<T>(deferreds: readonly Deferred<T>[], index: number): Deferr
 }
 
 function toolContext(options: ToolContextOptions = {}): ToolContext {
-	const widgetCalls = options.widgetCalls;
+	const { widgetCalls, statusCalls, notifications } = options;
 	return {
 		cwd: options.cwd ?? ROOT,
-		hasUI: widgetCalls !== undefined,
+		hasUI: widgetCalls !== undefined || statusCalls !== undefined || notifications !== undefined,
 		mode: "json",
 		...(options.model === undefined ? {} : { model: options.model }),
 		ui: {
-			notify: () => {},
+			notify: (message: string, level?: string) => {
+				notifications?.push({ message, level });
+			},
 			...(widgetCalls === undefined
 				? {}
 				: {
@@ -99,6 +113,13 @@ function toolContext(options: ToolContextOptions = {}): ToolContext {
 							options: { placement?: WidgetPlacement } | undefined,
 						) => {
 							widgetCalls.push({ key, content, options });
+						},
+					}),
+			...(statusCalls === undefined
+				? {}
+				: {
+						setStatus: (key: string, value: string | undefined) => {
+							statusCalls.push({ key, value });
 						},
 					}),
 		},
@@ -275,7 +296,7 @@ describe("explore extension", () => {
 		expect(maxInFlight).toBe(3);
 	});
 
-	test("renders live widget rows during fan-out and clears on completion", async () => {
+	test("renders one ambient fleet widget line and clears it on completion", async () => {
 		const deferreds = Array.from({ length: 4 }, () => createDeferred<ExplorerDispatchOutcome>());
 		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
 			const index = Number(intent.title.replace("Scout ", "")) - 1;
@@ -292,64 +313,73 @@ describe("explore extension", () => {
 		);
 		await settleMicrotasks();
 
-		const initialLines = latestWidgetContent(widgetCalls);
-		expect(initialLines[0]).toContain("explore: 0/4 done, 3 running");
-		expect(initialLines.findIndex((line) => line.includes("Scout 1"))).toBeLessThan(
-			initialLines.findIndex((line) => line.includes("Scout 4")),
-		);
-		expect(initialLines.join("\n")).toContain("▶ 1. Scout 1");
-		expect(initialLines.join("\n")).toContain("· 4. Scout 4");
-		expect(initialLines.join("\n")).toContain("queued");
+		expect(latestWidgetContent(widgetCalls)).toEqual([
+			"explore fleet: 3 running, 1 queued · F2/alt+e · /ns:explore:fleet",
+		]);
 
 		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await settleMicrotasks();
-		const progressedLines = latestWidgetContent(widgetCalls);
-		expect(progressedLines[0]).toContain("explore: 1/4 done, 3 running");
-		expect(progressedLines.join("\n")).toContain("✓ 2. Scout 2");
+		expect(latestWidgetContent(widgetCalls)).toEqual([
+			"explore fleet: 3 running · F2/alt+e · /ns:explore:fleet",
+		]);
 
 		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
 		deferredAt(deferreds, 2).resolve(finalOutcome("third", "/tmp/three.jsonl"));
 		deferredAt(deferreds, 3).resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
 		await running;
 
-		const finalCall = widgetCalls.at(-1);
-		expect(finalCall).toMatchObject({ key: "ns.explore.progress", content: undefined });
-		expect(widgetCalls.every((call) => call.options?.placement === "aboveEditor")).toBe(true);
+		expect(widgetCalls.at(-1)).toMatchObject({ key: "ns.explore.fleet", content: undefined });
+		expect(widgetCalls.every((call) => call.key === "ns.explore.fleet")).toBe(true);
+		expect(
+			widgetCalls
+				.filter((call) => call.content !== undefined)
+				.every((call) => call.options?.placement === "aboveEditor"),
+		).toBe(true);
 	});
 
-	test("renders recent child activity in widget rows", async () => {
-		const deferreds = Array.from({ length: 2 }, () => createDeferred<ExplorerDispatchOutcome>());
-		const progressUpdate: RunnerSubagentUpdate = {
-			progress: {
-				state: "running",
-				currentTool: "read",
-				toolCount: 1,
-				turnCount: 1,
-				elapsedMs: 10,
-			},
-			activity: { assistantPreview: "Reading file map." },
-		};
-		const dispatchExplorer: ExploreDispatchFunction = async (_pi, _ctx, intent) => {
-			const index = Number(intent.title.replace("Scout ", "")) - 1;
-			intent.onProgress?.(progressUpdate);
-			return await deferredAt(deferreds, index).promise;
-		};
-		const widgetCalls: WidgetCall[] = [];
-		const tool = registerExploreTool({ dispatchExplorer });
-		const running = tool.execute(
+	test("advertises the fleet navigator in the footer status and notifies on abnormal completion", async () => {
+		const statusCalls: StatusCall[] = [];
+		const notifications: Notification[] = [];
+		const tool = registerExploreTool({
+			dispatchExplorer: async (_pi, _ctx, intent) =>
+				intent.title === "Scout 1"
+					? finalOutcome("done", "/tmp/one.jsonl")
+					: errorOutcome("child failed", "/tmp/two.jsonl"),
+		});
+		await tool.execute(
 			"tool-1",
-			{ breadth: "quick", ...exploreParams(2) },
+			exploreParams(2),
 			undefined,
 			undefined,
-			toolContext({ widgetCalls }),
+			toolContext({ statusCalls, notifications }),
 		);
-		await settleMicrotasks();
 
-		expect(latestWidgetContent(widgetCalls).join("\n")).toContain("Reading file map.");
+		expect(statusCalls.at(-1)).toEqual({
+			key: "ns.explore.fleet",
+			value: "explore fleet: 1 done, 1 failed · F2/alt+e",
+		});
+		expect(notifications).toEqual([
+			{
+				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:explore:fleet",
+				level: "warning",
+			},
+		]);
+	});
 
-		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
-		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
-		await running;
+	test("does not notify when every explore task produces final text", async () => {
+		const notifications: Notification[] = [];
+		const tool = registerExploreTool({
+			dispatchExplorer: async (_pi, _ctx, intent) =>
+				finalOutcome("done", `/tmp/${intent.title}.jsonl`),
+		});
+		await tool.execute(
+			"tool-1",
+			exploreParams(2),
+			undefined,
+			undefined,
+			toolContext({ notifications }),
+		);
+		expect(notifications).toEqual([]);
 	});
 
 	test("passes child intent, cwd, combined signal, and progress callback", async () => {

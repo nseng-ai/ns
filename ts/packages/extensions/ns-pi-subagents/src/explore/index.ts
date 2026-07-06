@@ -5,6 +5,7 @@ export {
 	EXPLORE_BREADTH_VALUES,
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
 	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
+	EXPLORE_FLEET_SHORTCUT_LABEL,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
@@ -24,7 +25,6 @@ export {
 export {
 	dispatchExplorerSubagent,
 	type DispatchExplorerSubagentOptions,
-	type DispatchSubagentFn,
 	type ExplorerDispatchOutcome,
 } from "./dispatch.ts";
 export {
@@ -38,16 +38,28 @@ export {
 	type ExploreToolDetails,
 	type ExploreToolStatus,
 } from "./extension.ts";
-export { EXPLORE_FLEET_WIDGET_KEY, formatExploreFleetWidgetLines } from "./fleet.ts";
+export {
+	EXPLORE_FLEET_ENTRY_HINT,
+	EXPLORE_FLEET_STATUS_KEY,
+	EXPLORE_FLEET_WIDGET_KEY,
+	formatExploreFleetStatusText,
+	formatExploreFleetTaskLines,
+	formatExploreFleetWidgetLines,
+} from "./fleet.ts";
 export {
 	EXPLORE_FLEET_COMMAND_NAME,
+	EXPLORE_FLEET_PARENT_ENTRY_ID,
+	EXPLORE_FLEET_SHORTCUTS,
 	ExploreFleetNavigator,
 	loadFleetTaskDetail,
 	openExploreFleetNavigator,
 	registerExploreFleetCommand,
+	registerExploreFleetShortcut,
+	type ExploreFleetNavigatorContext,
 	type ExploreFleetNavigatorDependencies,
 	type ExploreFleetNavigatorOptions,
 	type ExploreFleetTaskDetail,
+	type RegisterShortcutFunction,
 } from "./fleet-navigator.ts";
 export {
 	createFunctionExplorerRuntime,

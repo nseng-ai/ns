@@ -11,6 +11,7 @@ import {
 	type DispatchExplorerSubagentOptions,
 	type ExplorerDispatcherDependencies,
 } from "../../src/explore/dispatch.ts";
+import { createFunctionExplorerRuntime } from "../../src/explore/runtime.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
 	createRecordingExplorerDispatch,
@@ -50,6 +51,12 @@ function explorerIntent(
 }
 
 type ExplorerDispatchTestDependencies = ExplorerDispatcherDependencies;
+
+type RecordingExplorerDispatch = ReturnType<typeof createRecordingExplorerDispatch>["dispatch"];
+
+function explorerRuntime(dispatch: RecordingExplorerDispatch) {
+	return createFunctionExplorerRuntime((input) => dispatch(input.pi, input.ctx, input.options));
+}
 
 function explorerDispatcher(dependencies: ExplorerDispatchTestDependencies = {}) {
 	return (
@@ -118,7 +125,7 @@ function makeResultWithStatus(status: RunnerSubagentStatus): RunnerSubagentResul
 describe("dispatchExplorerSubagent", () => {
 	test("dispatches a read-only final-text explorer on the cheap model", async () => {
 		const recording = createRecordingExplorerDispatch([makeFinalTextResult("## Start Here")]);
-		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const dispatch = explorerDispatcher({ runtime: explorerRuntime(recording.dispatch) });
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(1);
@@ -143,7 +150,7 @@ describe("dispatchExplorerSubagent", () => {
 			makeErrorResult("Failed to spawn forked Pi process: haiku unavailable"),
 			makeFinalTextResult("## Start Here"),
 		]);
-		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const dispatch = explorerDispatcher({ runtime: explorerRuntime(recording.dispatch) });
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(2);
@@ -162,7 +169,7 @@ describe("dispatchExplorerSubagent", () => {
 			makeProtocolErrorResult("Malformed child JSON event."),
 			makeFinalTextResult("## Start Here"),
 		]);
-		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const dispatch = explorerDispatcher({ runtime: explorerRuntime(recording.dispatch) });
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(2);
@@ -173,7 +180,7 @@ describe("dispatchExplorerSubagent", () => {
 		const recording = createRecordingExplorerDispatch([
 			makeStoppedWithoutUsefulTextResult("Forked Pi process stopped without useful final text."),
 		]);
-		const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+		const dispatch = explorerDispatcher({ runtime: explorerRuntime(recording.dispatch) });
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(1);
@@ -184,7 +191,7 @@ describe("dispatchExplorerSubagent", () => {
 	test("does not fail over when the launch plan already inherits the parent model", async () => {
 		const recording = createRecordingExplorerDispatch([makeErrorResult("spawn failed")]);
 		const dispatch = explorerDispatcher({
-			dispatchSubagent: recording.dispatch,
+			runtime: explorerRuntime(recording.dispatch),
 			isProviderAuthConfigured: () => false,
 		});
 		const outcome = await dispatch(
@@ -225,11 +232,11 @@ describe("dispatchExplorerSubagent", () => {
 		const controller = new AbortController();
 		const recording = createRecordingExplorerDispatch([makeErrorResult("aborted spawn")]);
 		const dispatch = explorerDispatcher({
-			dispatchSubagent: async (pi, ctx, options) => {
-				const result = await recording.dispatch(pi, ctx, options);
+			runtime: createFunctionExplorerRuntime(async (input) => {
+				const result = await recording.dispatch(input.pi, input.ctx, input.options);
 				controller.abort("user cancelled");
 				return result;
-			},
+			}),
 		});
 		const outcome = await dispatch(
 			{},
@@ -306,7 +313,7 @@ describe("dispatchExplorerSubagent", () => {
 				makeResultWithStatus(status),
 				makeFinalTextResult("## Start Here"),
 			]);
-			const dispatch = explorerDispatcher({ dispatchSubagent: recording.dispatch });
+			const dispatch = explorerDispatcher({ runtime: explorerRuntime(recording.dispatch) });
 			const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 			expect(recording.calls).toHaveLength(expected[status] ? 2 : 1);

@@ -10,6 +10,7 @@ export {
 } from "./fleet.ts";
 export type {
 	RunnerSubagentFleetRunSnapshot,
+	RunnerSubagentFleetStartRunOptions,
 	RunnerSubagentFleetTaskInput,
 	RunnerSubagentFleetTaskSnapshot,
 	RunnerSubagentFleetTaskState,
@@ -71,6 +72,8 @@ export type {
 	RunnerSubagentJsonSessionHeader,
 	RunnerSubagentJsonTerminalExecutionError,
 } from "./json-events.ts";
+export { readRunnerSubagentUsageFromSessionFile } from "./extension-usage.ts";
+export type { ReadRunnerSubagentSessionFile } from "./extension-usage.ts";
 export { extractRunnerSubagentTimelineFromSessionJsonl } from "./timeline.ts";
 export type {
 	ExtractRunnerSubagentTimelineOptions,

@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { formatErrorMessage, formatZodError } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import {
@@ -7,13 +5,11 @@ import {
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
-import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
 	RunnerSubagentFleetRegistry,
 	mapWithConcurrency,
-	setRunnerSubagentWidget,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentUpdate,
@@ -25,15 +21,25 @@ import {
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
-	type ExploreBreadth,
 } from "./contract.ts";
 import { dispatchExplorerSubagent } from "./dispatch.ts";
-import { syncExploreFleetWidget } from "./fleet.ts";
-import { registerExploreFleetCommand } from "./fleet-navigator.ts";
-import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
+import {
+	EXPLORE_PROMPT_MAX_CHARS,
+	EXPLORE_TITLE_MAX_CHARS,
+	exploreInputSchema,
+	type ExploreInput,
+} from "./input.ts";
+import { EXPLORE_FLEET_ENTRY_HINT, syncExploreFleetDisplay } from "./fleet.ts";
+import {
+	registerExploreFleetCommand,
+	registerExploreFleetShortcut,
+	type RegisterShortcutFunction,
+} from "./fleet-navigator.ts";
+import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
 import {
 	registerExploreTranscriptCommand,
+	type CommandRegistrar,
 	type TranscriptViewerDependencies,
 } from "./transcript-viewer.ts";
 import {
@@ -54,13 +60,8 @@ export type {
 
 export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
-	registerCommand?: (
-		name: string,
-		options: {
-			description?: string;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	) => void;
+	registerCommand?: CommandRegistrar;
+	registerShortcut?: RegisterShortcutFunction;
 };
 
 export interface ExploreExtensionOptions {
@@ -81,37 +82,7 @@ interface ExploreAbortScope {
 	dispose(): void;
 }
 
-const EXPLORE_DEFAULT_BREADTH: ExploreBreadth = "medium";
-const EXPLORE_TITLE_MAX_CHARS = 120;
-const EXPLORE_PROMPT_MAX_CHARS = 4_000;
-
-const exploreInputSchema = z
-	.object({
-		breadth: z.enum(EXPLORE_BREADTH_VALUES).default(EXPLORE_DEFAULT_BREADTH),
-		tasks: z
-			.array(
-				z.object({
-					title: z.string().trim().min(1).max(EXPLORE_TITLE_MAX_CHARS),
-					prompt: z.string().trim().min(1).max(EXPLORE_PROMPT_MAX_CHARS),
-				}),
-			)
-			.min(2)
-			.max(EXPLORE_ABSOLUTE_MAX_TASKS),
-	})
-	.strict()
-	.superRefine((input, ctx) => {
-		const profile = EXPLORE_BREADTH_PROFILES[input.breadth];
-		if (input.tasks.length > profile.maxTasks) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["tasks"],
-				message: `Too many explore tasks for breadth "${input.breadth}": got ${input.tasks.length}, max ${profile.maxTasks}. Choose a larger breadth or fewer tasks.`,
-			});
-		}
-	});
-
-export type ExploreInput = z.infer<typeof exploreInputSchema>;
-export type ExploreTaskInput = ExploreInput["tasks"][number];
+export type { ExploreInput, ExploreTaskInput } from "./input.ts";
 
 export const EXPLORE_PARAMETERS = {
 	type: "object",
@@ -183,7 +154,10 @@ export default function exploreExtension(
 	registerExploreFleetCommand({
 		pi,
 		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
+	});
+	registerExploreFleetShortcut({
+		pi,
+		registry: fleetRegistry,
 	});
 
 	pi.registerTool({
@@ -327,14 +301,18 @@ async function runExploreTasks(request: {
 		...(request.ctx.model === undefined ? {} : { model: request.ctx.model }),
 		signal: request.signal,
 	};
-	const fleetRun = request.fleetRegistry.startRun(request.exploreInput.tasks);
+	const parentSessionFile = request.ctx.sessionManager?.getSessionFile?.();
+	const fleetRun = request.fleetRegistry.startRun(
+		request.exploreInput.tasks,
+		parentSessionFile === undefined ? {} : { parentSessionFile },
+	);
 	const unsubscribeFleet = request.fleetRegistry.subscribe(() => {
-		syncExploreFleetWidget(request.ctx, request.fleetRegistry.snapshot());
+		syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 	});
-	syncExploreFleetWidget(request.ctx, request.fleetRegistry.snapshot());
+	syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 
 	function emitProgress(): void {
-		emitExploreProgress(request.ctx, states, request.onUpdate);
+		emitExploreProgress(states, request.onUpdate);
 	}
 
 	try {
@@ -347,7 +325,7 @@ async function runExploreTasks(request: {
 			run: async (state, index) => {
 				const fleetTaskId = fleetRun.tasks[index]?.id;
 				state.state = "running";
-				if (fleetTaskId !== undefined) request.fleetRegistry.markRunning(fleetTaskId);
+				request.fleetRegistry.markRunning(fleetTaskId);
 				emitProgress();
 				const outcome = await runOneExploreTask({
 					pi: request.pi,
@@ -358,19 +336,19 @@ async function runExploreTasks(request: {
 					dispatchExplorer: request.dispatchExplorer,
 					onProgress: (update) => {
 						state.latestUpdate = update;
-						if (fleetTaskId !== undefined) request.fleetRegistry.markProgress(fleetTaskId, update);
+						request.fleetRegistry.markProgress(fleetTaskId, update);
 						emitProgress();
 					},
 				});
 				state.state = "done";
 				state.outcome = outcome;
-				if (fleetTaskId !== undefined) request.fleetRegistry.markDone(fleetTaskId, outcome.result);
+				request.fleetRegistry.markDone(fleetTaskId, outcome.result);
 				emitProgress();
 				return outcome;
 			},
 		});
 
-		return outcomes.map((outcome, index) => {
+		const finalOutcomes = outcomes.map((outcome, index) => {
 			if (outcome !== undefined) return outcome;
 			const title = request.exploreInput.tasks[index]?.title ?? `Task ${index + 1}`;
 			return {
@@ -379,9 +357,24 @@ async function runExploreTasks(request: {
 				result: cancelledResult(title, request.signal, "Explore task was not started."),
 			};
 		});
+		notifyExploreAbnormalEnd(request.ctx, finalOutcomes);
+		return finalOutcomes;
 	} finally {
 		unsubscribeFleet();
-		setRunnerSubagentWidget(request.ctx, EXPLORE_PROGRESS_WIDGET_KEY, undefined);
+	}
+}
+
+function notifyExploreAbnormalEnd(ctx: ToolContext, outcomes: readonly ExploreTaskOutcome[]): void {
+	if (!ctx.hasUI) return;
+	const unfinished = outcomes.filter((outcome) => outcome.result.status !== "final-text").length;
+	if (unfinished === 0) return;
+	try {
+		ctx.ui.notify(
+			`explore: ${unfinished} of ${outcomes.length} tasks did not finish cleanly — ${EXPLORE_FLEET_ENTRY_HINT}`,
+			"warning",
+		);
+	} catch {
+		// Notifications are display-only and must not affect explore results.
 	}
 }
 

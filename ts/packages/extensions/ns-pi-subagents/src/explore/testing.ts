@@ -20,8 +20,6 @@ import {
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "./contract.ts";
-import type { DispatchSubagentFn } from "./dispatch.ts";
-
 export {
 	createFakeRunnerSubagentDispatcher,
 	FakeSpawnedChildProcess,
@@ -104,16 +102,22 @@ export interface RecordedExplorerDispatchCall {
 	options: RunnerSubagentOptions;
 }
 
+export type RecordedExplorerDispatchFn = (
+	pi: RunnerSubagentPi,
+	ctx: RunnerSubagentContext,
+	options: RunnerSubagentOptions,
+) => Promise<RunnerSubagentResult>;
+
 /**
  * Scripted dispatch fake: returns the queued results in order and records every call.
  * Throws if dispatched more times than results were scripted.
  */
 export function createRecordingExplorerDispatch(results: readonly RunnerSubagentResult[]): {
-	dispatch: DispatchSubagentFn;
+	dispatch: RecordedExplorerDispatchFn;
 	calls: RecordedExplorerDispatchCall[];
 } {
 	const calls: RecordedExplorerDispatchCall[] = [];
-	const dispatch: DispatchSubagentFn = (pi, ctx, options) => {
+	const dispatch: RecordedExplorerDispatchFn = (pi, ctx, options) => {
 		const result = results[calls.length];
 		if (result === undefined) {
 			throw new Error(`Unexpected explorer dispatch call #${calls.length + 1}.`);

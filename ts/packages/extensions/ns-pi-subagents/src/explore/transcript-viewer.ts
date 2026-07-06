@@ -45,7 +45,7 @@ export function registerExploreTranscriptCommand(input: {
 	});
 }
 
-type CommandRegistrar = (
+export type CommandRegistrar = (
 	name: string,
 	options: {
 		description?: string;

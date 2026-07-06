@@ -8,9 +8,12 @@ import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 
 import {
 	EXPLORE_FLEET_COMMAND_NAME,
+	EXPLORE_FLEET_SHORTCUTS,
 	ExploreFleetNavigator,
 	loadFleetTaskDetail,
 	registerExploreFleetCommand,
+	registerExploreFleetShortcut,
+	type ExploreFleetNavigatorContext,
 } from "../../src/explore/fleet-navigator.ts";
 
 function jsonl(events: readonly unknown[]): string {
@@ -76,7 +79,7 @@ async function settleMicrotasks(count = 5): Promise<void> {
 }
 
 describe("explore fleet navigator", () => {
-	test("loads detail from JSONL through the readTextFile seam", async () => {
+	test("loads detail with usage totals from JSONL through the readTextFile seam", async () => {
 		const detail = await loadFleetTaskDetail({
 			task: {
 				id: "task-1",
@@ -86,7 +89,23 @@ describe("explore fleet navigator", () => {
 				state: "running",
 				sessionFile: "/tmp/one.jsonl",
 			},
-			readTextFile: async () => sessionJsonl(),
+			readTextFile: async () =>
+				sessionJsonl([
+					{
+						type: "message",
+						message: {
+							role: "assistant",
+							usage: {
+								input: 1200,
+								output: 300,
+								cacheRead: 41_000,
+								cacheWrite: 0,
+								totalTokens: 42_500,
+								cost: { input: 0.01, output: 0.02, cacheRead: 0.005, cacheWrite: 0, total: 0.035 },
+							},
+						},
+					},
+				]),
 		});
 
 		expect(detail.modelText).toBe("openai-codex/gpt-5.4");
@@ -100,11 +119,18 @@ describe("explore fleet navigator", () => {
 			inputPreview: '{"path":"a.ts"}',
 			resultPreview: "contents",
 		});
+		if (detail.usage?.status !== "available") throw new Error("expected available usage");
+		expect(detail.usage.totals.input).toBe(1200);
+		expect(detail.usage.totals.output).toBe(300);
+		expect(detail.usage.totals.cost.total).toBeCloseTo(0.035);
 	});
 
-	test("drives list, detail, live reload, back, and close", async () => {
+	test("drives list, detail, prompt toggle, live reload, back, and close", async () => {
 		const registry = new RunnerSubagentFleetRegistry();
-		const run = registry.startRun([{ title: "Second" }, { title: "First" }]);
+		const run = registry.startRun([
+			{ title: "Second" },
+			{ title: "First", prompt: "Map the investigator command.\nList call sites." },
+		]);
 		const second = run.tasks[0]!;
 		const first = run.tasks[1]!;
 		registry.markRunning(first.id);
@@ -137,6 +163,11 @@ describe("explore fleet navigator", () => {
 		await settleMicrotasks();
 		expect(view.render(100).join("\n")).toContain("openai-codex/gpt-5.4");
 		expect(view.render(100).join("\n")).toContain("✓ read");
+		expect(view.render(100).join("\n")).toContain("prompt: Map the investigator command.");
+		expect(view.render(100).join("\n")).not.toContain("List call sites.");
+		view.handleInput("p");
+		expect(view.render(100).join("\n")).toContain("List call sites.");
+		view.handleInput("p");
 
 		content = sessionJsonl([
 			{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-2", args: "just test" },
@@ -182,5 +213,82 @@ describe("explore fleet navigator", () => {
 		await commands.get(EXPLORE_FLEET_COMMAND_NAME)!.handler("", noUiCommandContext(notifications));
 		expect(notifications.join("\n")).toContain("explore fleet:");
 		expect(notifications.join("\n")).toContain("Scout");
+	});
+
+	test("registers every fleet shortcut and opens the navigator through them", async () => {
+		const registry = new RunnerSubagentFleetRegistry();
+		const shortcuts = new Map<
+			string,
+			{
+				description?: string;
+				handler(ctx: ExploreFleetNavigatorContext): Promise<void> | void;
+			}
+		>();
+		const pi = {
+			registerShortcut(
+				shortcut: string,
+				options: {
+					description?: string;
+					handler(ctx: ExploreFleetNavigatorContext): Promise<void> | void;
+				},
+			) {
+				shortcuts.set(shortcut, options);
+			},
+		};
+		registerExploreFleetShortcut({ pi, registry });
+
+		expect([...shortcuts.keys()]).toEqual([...EXPLORE_FLEET_SHORTCUTS]);
+		const notifications: string[] = [];
+		await shortcuts.get("f2")!.handler(noUiCommandContext(notifications));
+		expect(notifications.join("\n")).toContain("No explore fleet tasks");
+	});
+
+	test("shows the parent Pi session even before any explore run", async () => {
+		const registry = new RunnerSubagentFleetRegistry();
+		const view = new ExploreFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			readTextFile: async () => sessionJsonl(),
+			done: () => {},
+			parentSessionFile: "/tmp/parent.jsonl",
+		});
+
+		const list = view.render(100).join("\n");
+		expect(list).not.toContain("No explore subagents have run");
+		expect(list).toContain("▸ ◉ Parent Pi session");
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(view.render(100).join("\n")).toContain("openai-codex/gpt-5.4");
+	});
+
+	test("pins the parent Pi session as a navigable entry", async () => {
+		const registry = new RunnerSubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Scout" }], {
+			parentSessionFile: "/tmp/parent.jsonl",
+		});
+		const child = run.tasks[0]?.id;
+		if (child === undefined) throw new Error("missing task id");
+		registry.markRunning(child);
+		registry.markProgress(child, updateWithSessionFile("/tmp/child.jsonl"));
+
+		const view = new ExploreFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			readTextFile: async () => sessionJsonl(),
+			done: () => {},
+		});
+
+		const list = view.render(100).join("\n");
+		expect(list).toContain("  ◉ Parent Pi session");
+		expect(list).toContain("▸ ▶ Scout");
+
+		view.handleInput("k");
+		expect(view.render(100).join("\n")).toContain("▸ ◉ Parent Pi session");
+		view.handleInput("\r");
+		await settleMicrotasks();
+		const detail = view.render(100).join("\n");
+		expect(detail).toContain("Parent Pi session");
+		expect(detail).toContain("openai-codex/gpt-5.4");
 	});
 });

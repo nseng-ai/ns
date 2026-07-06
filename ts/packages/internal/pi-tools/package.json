@@ -9,6 +9,7 @@
 		"./context-profiler/extension": "./src/context-profiler/extension.ts",
 		"./grill": "./src/grill/index.ts",
 		"./grill/extension": "./src/grill/extension.ts",
+		"./overlay-kit": "./src/overlay-kit/index.ts",
 		"./pr-feedback-watch": "./src/pr-feedback-watch/index.ts",
 		"./pr-feedback-watch/extension": "./src/pr-feedback-watch/extension.ts",
 		"./pr-previews": "./src/pr-previews/index.ts",

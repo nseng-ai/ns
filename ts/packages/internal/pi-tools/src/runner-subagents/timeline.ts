@@ -139,19 +139,20 @@ function pushTimelineEntry(
 	accumulator: TimelineAccumulator,
 	entry: RunnerSubagentTimelineEntry,
 ): void {
-	if (accumulator.entryCap === 0) {
-		accumulator.droppedEntryCount += 1;
+	const mutableTimeline = accumulator;
+	if (mutableTimeline.entryCap === 0) {
+		mutableTimeline.droppedEntryCount += 1;
 		return;
 	}
-	accumulator.entries.push(entry);
-	while (accumulator.entries.length > accumulator.entryCap) {
-		const dropped = accumulator.entries.shift();
+	mutableTimeline.entries.push(entry);
+	while (mutableTimeline.entries.length > mutableTimeline.entryCap) {
+		const dropped = mutableTimeline.entries.shift();
 		if (dropped?.kind === "tool") {
-			for (const [key, pending] of accumulator.pendingTools) {
-				if (pending === dropped) accumulator.pendingTools.delete(key);
+			for (const [key, pending] of mutableTimeline.pendingTools) {
+				if (pending === dropped) mutableTimeline.pendingTools.delete(key);
 			}
 		}
-		accumulator.droppedEntryCount += 1;
+		mutableTimeline.droppedEntryCount += 1;
 	}
 }
 

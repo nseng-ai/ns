@@ -1,15 +1,12 @@
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import type { ToolContext, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import type { ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
 	runnerSubagentPrimaryActivityPreview,
-	setRunnerSubagentWidget,
 	type RunnerSubagentUpdate,
 } from "@internal/pi-tools/runner-subagents";
-import { sessionFileFor } from "./result.ts";
 import type { ExploreTaskState } from "./types.ts";
-
-export const EXPLORE_PROGRESS_WIDGET_KEY = "ns.explore.progress";
 
 interface ExploreProgressDetails {
 	status: "running";
@@ -19,14 +16,15 @@ interface ExploreProgressDetails {
 }
 
 interface ExploreTaskProgressView {
-	icon: string;
 	status: string;
 	activityText?: string;
-	sessionFile?: string;
 }
 
+/**
+ * Live progress for the explore tool block itself. Ambient widget/status
+ * rendering is owned by the fleet display (`syncExploreFleetDisplay`).
+ */
 export function emitExploreProgress(
-	ctx: ToolContext,
 	states: readonly ExploreTaskState[],
 	onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
 ): void {
@@ -34,11 +32,6 @@ export function emitExploreProgress(
 		content: [{ type: "text", text: renderExploreProgress(states) }],
 		details: exploreProgressDetails(states),
 	});
-	setRunnerSubagentWidget(
-		ctx,
-		EXPLORE_PROGRESS_WIDGET_KEY,
-		formatExploreProgressWidgetLines(states),
-	);
 }
 
 function exploreProgressDetails(states: readonly ExploreTaskState[]): ExploreProgressDetails {
@@ -50,42 +43,18 @@ function exploreProgressDetails(states: readonly ExploreTaskState[]): ExplorePro
 	};
 }
 
-function formatExploreProgressWidgetLines(states: readonly ExploreTaskState[]): string[] {
-	const details = exploreProgressDetails(states);
-	return [
-		`explore: ${details.done}/${details.taskCount} done, ${details.running} running`,
-		...states.map((state, index) => formatExploreTaskWidgetLine(state, index)),
-	];
-}
-
-function formatExploreTaskWidgetLine(state: ExploreTaskState, index: number): string {
-	const description = exploreTaskProgressView(state);
-	const suffixText = description.sessionFile ?? description.activityText;
-	const suffix = suffixText === undefined ? "" : ` — ${suffixText}`;
-	return truncatePlain(
-		`${description.icon} ${index + 1}. ${state.input.title} — ${description.status}${suffix}`,
-		180,
-	);
-}
-
 function exploreTaskProgressView(state: ExploreTaskState): ExploreTaskProgressView {
 	if (state.outcome !== undefined) {
-		const sessionFile = sessionFileFor(state.outcome.result);
-		return {
-			icon: state.outcome.result.status === "final-text" ? "✓" : "✗",
-			status: state.outcome.result.status,
-			...(sessionFile === undefined ? {} : { sessionFile }),
-		};
+		return { status: state.outcome.result.status };
 	}
-	if (state.state === "queued") return { icon: "·", status: "queued" };
+	if (state.state === "queued") return { status: "queued" };
 
 	const update = state.latestUpdate;
-	if (update === undefined) return { icon: "▶", status: "running" };
+	if (update === undefined) return { status: "running" };
 	const activityText = activityDescription(update);
 	return {
-		icon: "▶",
 		status: update.progress.state,
-		...(activityText === undefined ? {} : { activityText }),
+		...optionalEntries({ activityText }),
 	};
 }
 
