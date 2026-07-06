@@ -142,6 +142,10 @@ Risks:
   path deliberate rather than the default authoring model.
 - Residual pre-ADR-0026 naming in old updates and reference material is historical; active
   publish decisions use `ns` / `@nseng-ai/ns`.
+- **Bare-core rework risk (2026-07-05).** The bare-core decision partially reverses the
+  preinstalled-loader-thunk work: objectives must load as an *installed* extension
+  package rather than a bundled preinstall, so the module-loader replacement row carries
+  rework and the core bundle must prove it runs with zero capabilities present.
 
 ## Open Questions
 

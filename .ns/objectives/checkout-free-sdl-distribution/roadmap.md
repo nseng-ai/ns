@@ -34,6 +34,10 @@
   - Current `ns` evidence: preinstalled Objective catalog entries now carry in-process loader
     thunks for bundled Objective command modules, while specifier-based loading and
     project/global extension override precedence remain covered by tests.
+  - Direction change (bare-core decision, 2026-07-05): objectives is no longer a bundled
+    preinstall of the core package. This row's remaining work is resolving *installed*
+    extension packages (npm-sourced `@nseng-ai/objectives` registered via `ns install`)
+    at runtime; the preinstalled-thunk path stops being the objectives delivery vehicle.
 - [x] Introduce the build/bundle step and produce a checkout-free artifact (no
       run-from-source dependency on `ts/node_modules`, no hard-coded checkout `NODE_PATH`).
   - Evidence: the artifact runs `ns objective list` on a machine with no repo checkout.
