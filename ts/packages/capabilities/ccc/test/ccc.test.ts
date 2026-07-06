@@ -25,7 +25,7 @@ import registerCccExtension, {
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
 } from "@nseng-ai/ccc/pi";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { buildLaunchPrompt } from "../src/cmux/dispatch-prompt.ts";
 import {
@@ -366,7 +366,7 @@ describe("CCC cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
 				headStep(),
@@ -416,7 +416,7 @@ describe("CCC cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
@@ -477,7 +477,7 @@ describe("CCC cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
 				headStep(),
@@ -521,7 +521,7 @@ describe("CCC cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
@@ -624,7 +624,7 @@ describe("CCC cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
@@ -731,7 +731,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildSlugModelArgs(
+					buildRawTextModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -839,7 +839,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildSlugModelArgs(
+					buildRawTextModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -1006,7 +1006,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildSlugModelArgs(
+					buildRawTextModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -1127,7 +1127,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildSlugModelArgs(
+					buildRawTextModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },
@@ -1178,7 +1178,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
-					buildSlugModelArgs(
+					buildRawTextModelArgs(
 						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
 					),
 					{ stdout: `${BRANCH}\n` },

@@ -1,5 +1,5 @@
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {
@@ -22,11 +22,7 @@ const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
 export type ObjectiveSelectionNotifyLevel = "info" | "warning" | "error";
 
 export interface ObjectiveSelectionHost {
-	exec(
-		command: string,
-		args: readonly string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<ExecResult>;
+	git: GitGateway;
 	loadObjectiveList?: (
 		ctx: ObjectiveSelectionContext,
 		spec: ObjectiveSelectionSpec,
@@ -37,6 +33,17 @@ export interface ObjectiveSelectionUi {
 	notify(message: string, level: ObjectiveSelectionNotifyLevel): void;
 	select?: (title: string, options: readonly string[]) => Promise<string | undefined>;
 	setStatus?: (key: string, value: string | undefined) => void;
+}
+
+export function objectiveSelectionHostFromExec(
+	execApi: CommandExecApi & Pick<Partial<ObjectiveSelectionHost>, "loadObjectiveList">,
+): ObjectiveSelectionHost {
+	return {
+		git: new RealGitGateway(execApi, { timeoutMs: OBJECTIVE_COMMAND_TIMEOUT_MS }),
+		...(execApi.loadObjectiveList === undefined
+			? {}
+			: { loadObjectiveList: execApi.loadObjectiveList.bind(execApi) }),
+	};
 }
 
 export interface ObjectiveSelectionContext {
@@ -215,7 +222,7 @@ async function objectiveDiffChangedSlugs(
 ): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
 	try {
-		const result = await objectiveSelectionGitGateway(host).changedPathsUnderWithRenames({
+		const result = await host.git.changedPathsUnderWithRenames({
 			cwd: ctx.cwd,
 			revisionRange: `${trunkBranch}...HEAD`,
 			relativePath: ".ns/objectives",
@@ -233,7 +240,7 @@ async function objectiveStatusChangedSlugs(
 ): Promise<string[]> {
 	const { host, ctx } = options;
 	try {
-		const result = await objectiveSelectionGitGateway(host).statusPaths({
+		const result = await host.git.statusPaths({
 			cwd: ctx.cwd,
 			pathspecs: [".ns/objectives"],
 		});
@@ -243,19 +250,6 @@ async function objectiveStatusChangedSlugs(
 		// Dirty-check evidence is advisory; command startup failures should fall back to committed evidence.
 		return [];
 	}
-}
-
-function objectiveSelectionGitGateway(host: ObjectiveSelectionHost): RealGitGateway {
-	return new RealGitGateway(
-		{
-			exec: (command, args, options = {}) =>
-				host.exec(command, args, {
-					...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-					timeout: options.timeout ?? OBJECTIVE_COMMAND_TIMEOUT_MS,
-				}),
-		},
-		{ timeoutMs: OBJECTIVE_COMMAND_TIMEOUT_MS },
-	);
 }
 
 function hasObjectivePicker(ctx: ObjectiveSelectionContext): ctx is ObjectivePickerContext {

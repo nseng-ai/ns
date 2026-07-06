@@ -1,22 +1,18 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import {
-	loadJsonInput,
-	parseJsonInputText,
-	parseJsonInputValue,
-} from "@nseng-ai/capability-kit/json-input";
+import { loadJsonInput, parseJsonInputText } from "@nseng-ai/capability-kit/json-input";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 
 describe("JSON input source helpers", () => {
 	test("loads stdin, inline JSON, and file JSON", async () => {
-		const schema = z.object({ value: z.string() });
+		const payloadSchema = z.object({ value: z.string() });
 		const stdinResult = await loadJsonInput({
 			optionValue: undefined,
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => '{"value":"stdin"}',
 		});
 		expect(stdinResult).toEqual({ type: "ok", value: { value: "stdin" } });
@@ -26,7 +22,7 @@ describe("JSON input source helpers", () => {
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => "",
 		});
 		expect(inlineResult).toEqual({ type: "ok", value: { value: "inline" } });
@@ -41,7 +37,7 @@ describe("JSON input source helpers", () => {
 					inputDescription: "payload",
 					optionName: "--payload-json",
 					fileOptionName: "--payload-file",
-					schema,
+					schema: payloadSchema,
 					stdin: async () => "",
 				});
 				expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
@@ -50,7 +46,7 @@ describe("JSON input source helpers", () => {
 	});
 
 	test("reports source conflicts, empty input, invalid JSON, missing files, and schema errors", async () => {
-		const schema = z.object({ value: z.string() });
+		const payloadSchema = z.object({ value: z.string() });
 		const conflict = await loadJsonInput({
 			optionValue: "{}",
 			filePath: "/tmp/payload.json",
@@ -58,7 +54,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => "",
 		});
 		expect(conflict).toEqual({
@@ -75,7 +71,7 @@ describe("JSON input source helpers", () => {
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => "unused",
 		});
 		expect(empty.type).toBe("error");
@@ -86,7 +82,7 @@ describe("JSON input source helpers", () => {
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => "",
 		});
 		expect(invalidJson.type).toBe("error");
@@ -99,7 +95,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => "",
 		});
 		expect(missingFile.type).toBe("error");
@@ -110,7 +106,7 @@ describe("JSON input source helpers", () => {
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
-			schema,
+			schema: payloadSchema,
 			stdin: async () => "",
 		});
 		expect(schemaError.type).toBe("error");
@@ -118,18 +114,18 @@ describe("JSON input source helpers", () => {
 	});
 
 	test("parses already-loaded JSON text with schema-backed errors", () => {
-		const schema = z.object({ value: z.string() });
+		const payloadSchema = z.object({ value: z.string() });
 		expect(
 			parseJsonInputText({
 				text: '{"value":"ok"}',
-				schema,
+				schema: payloadSchema,
 				jsonDescription: "demo payload",
 			}),
 		).toEqual({ type: "ok", value: { value: "ok" } });
 
 		const invalidJson = parseJsonInputText({
 			text: "{",
-			schema,
+			schema: payloadSchema,
 			jsonDescription: "demo payload",
 		});
 		expect(invalidJson.type).toBe("error");
@@ -137,7 +133,7 @@ describe("JSON input source helpers", () => {
 
 		const invalidSchema = parseJsonInputText({
 			text: '{"value":3}',
-			schema,
+			schema: payloadSchema,
 			jsonDescription: "demo payload",
 			schemaDescription: "demo schema",
 		});
@@ -146,14 +142,5 @@ describe("JSON input source helpers", () => {
 			expect(invalidSchema.error.errorType).toBe("invalid-request");
 			expect(invalidSchema.error.message).toContain("Invalid demo schema");
 		}
-	});
-
-	test("validates already-parsed JSON values", () => {
-		const result = parseJsonInputValue({
-			value: { value: "ok" },
-			schema: z.object({ value: z.string() }),
-			schemaDescription: "demo value",
-		});
-		expect(result).toEqual({ type: "ok", value: { value: "ok" } });
 	});
 });

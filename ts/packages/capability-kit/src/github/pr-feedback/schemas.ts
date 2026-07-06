@@ -102,32 +102,31 @@ export const ghReviewThreadSchema = z
 
 export type GhReviewThread = z.infer<typeof ghReviewThreadSchema>;
 
+const ghDiscussionCommentShape = {
+	databaseId: z.number().int().positive().optional(),
+	id: z.union([z.number().int().positive(), z.string()]).optional(),
+	body: z.string(),
+	user: ghAuthorSchema.optional(),
+	url: z.string(),
+	html_url: z.string().optional(),
+	created_at: z.string().optional(),
+	updated_at: z.string().optional(),
+};
+
 export const ghDiscussionCommentSchema = z
 	.object({
-		databaseId: z.number().int().positive().optional(),
-		id: z.union([z.number().int().positive(), z.string()]).optional(),
-		body: z.string(),
+		...ghDiscussionCommentShape,
 		author: ghAuthorSchema,
-		user: ghAuthorSchema.optional(),
-		url: z.string(),
-		html_url: z.string().optional(),
-		created_at: z.string().optional(),
-		updated_at: z.string().optional(),
 	})
 	.loose()
 	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
 
 export const ghIssueCommentRestSchema = z
 	.object({
-		databaseId: z.number().int().positive().optional(),
-		id: z.union([z.number().int().positive(), z.string()]).optional(),
+		...ghDiscussionCommentShape,
 		body: z.string().default(""),
-		author: ghAuthorSchema.optional(),
-		user: ghAuthorSchema.optional(),
 		url: z.string().optional(),
-		html_url: z.string().optional(),
-		created_at: z.string().optional(),
-		updated_at: z.string().optional(),
+		author: ghAuthorSchema.optional(),
 	})
 	.loose()
 	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));

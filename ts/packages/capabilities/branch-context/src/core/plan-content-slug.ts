@@ -4,8 +4,8 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	buildContentSlugPrompt,
 	deriveContentSlug,
-	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
+	type PlanContentSlugVariantSeed,
 } from "@nseng-ai/plans";
 
 export type PlanContentSlugEvidence = ContentSlugEvidence;
@@ -17,7 +17,7 @@ export interface DerivePlanContentSlugInput {
 	readTextFile?: (path: string) => Promise<string>;
 }
 
-const PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
+const PLAN_CONTENT_SLUG_VARIANT: PlanContentSlugVariantSeed = {
 	slugKind: "branch-context slug",
 	promptIntroLines: [
 		"Generate the branch-context slug for the Markdown implementation plan content below.",

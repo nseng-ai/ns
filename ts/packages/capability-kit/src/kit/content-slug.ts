@@ -1,4 +1,5 @@
 import { formatOutputSection } from "@nseng-ai/foundation/command";
+import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
 import {
 	deriveSlugWithModel,
 	type SlugModelCommandResult,
@@ -46,14 +47,6 @@ export interface DeriveContentSlugInput {
 
 export type KitContentSlugDerivationVariant = ContentSlugDerivationVariant;
 
-export async function deriveContentSlug(
-	execApi: ContentSlugExecApi,
-	input: DeriveContentSlugInput,
-	variant: ContentSlugDerivationVariant,
-): Promise<ContentSlugEvidence> {
-	return deriveKitContentSlug(execApi, input, variant);
-}
-
 export async function deriveKitContentSlug(
 	execApi: ContentSlugExecApi,
 	input: DeriveContentSlugInput,
@@ -86,13 +79,6 @@ export async function deriveKitContentSlug(
 	return result.evidence;
 }
 
-export function buildContentSlugPrompt(
-	content: string,
-	variant: ContentSlugDerivationVariant,
-): string {
-	return buildKitContentSlugPrompt(content, variant);
-}
-
 export function buildKitContentSlugPrompt(
 	content: string,
 	variant: ContentSlugDerivationVariant,
@@ -117,13 +103,7 @@ export function normalizeContentSlugOutput(
 		return undefined;
 	}
 
-	const slug = firstLine
-		.toLowerCase()
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "");
+	const slug = normalizeBranchSlugText(firstLine);
 	const withoutSuffix = removeSuffixes(slug, options.stripSuffixes ?? []);
 	if (withoutSuffix.length === 0) {
 		return undefined;
@@ -158,15 +138,15 @@ function displayContentForSlug(content: string, variant: ContentSlugDerivationVa
 
 function removeSuffixes(slug: string, suffixes: readonly string[]): string {
 	let current = slug;
-	let removed = true;
-	while (removed) {
-		removed = false;
+	let hasRemovedSuffix = true;
+	while (hasRemovedSuffix) {
+		hasRemovedSuffix = false;
 		for (const suffix of suffixes) {
 			if (current.endsWith(suffix)) {
 				const candidate = current.slice(0, -suffix.length).replace(/^-|-$/g, "");
 				if (candidate.length > 0) {
 					current = candidate;
-					removed = true;
+					hasRemovedSuffix = true;
 				}
 			}
 		}

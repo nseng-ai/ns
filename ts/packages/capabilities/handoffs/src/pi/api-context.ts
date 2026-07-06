@@ -3,11 +3,18 @@ import { piExecApiToCommandExecApi, type CommandExecApi } from "@nseng-ai/founda
 import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
 import type { HandoffReadStorageDeps } from "../api/index.ts";
 
-import type { ExtensionAPI } from "./runtime-types.ts";
+import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
 export interface PiHandoffContext {
 	commands: CommandExecApi;
 	git: GitGateway;
+}
+
+export interface HandoffCommandInvocation {
+	pi: ExtensionAPI;
+	rawArgs: string;
+	ctx: CommandContext;
+	handoffContext: PiHandoffContext;
 }
 
 export function createPiHandoffContext(pi: ExtensionAPI): PiHandoffContext {

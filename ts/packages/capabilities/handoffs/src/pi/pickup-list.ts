@@ -11,7 +11,11 @@ import {
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import { setStatus } from "./ui-status.ts";
-import { createPiHandoffStorageDepsFromContext, type PiHandoffContext } from "./api-context.ts";
+import {
+	createPiHandoffStorageDepsFromContext,
+	type HandoffCommandInvocation,
+	type PiHandoffContext,
+} from "./api-context.ts";
 import { HANDOFF_LIST_MESSAGE_TYPE, formatHandoffListPlain } from "./list-rendering.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 import type {
@@ -270,12 +274,7 @@ function handoffKeyTokens(key: string): string[] {
 	return splitSelectorTerms([handoffKeyToSlug(key)]);
 }
 
-export async function handlePickupHandoffCommand(options: {
-	pi: ExtensionAPI;
-	rawArgs: string;
-	ctx: CommandContext;
-	handoffContext: PiHandoffContext;
-}): Promise<void> {
+export async function handlePickupHandoffCommand(options: HandoffCommandInvocation): Promise<void> {
 	const { pi, rawArgs, ctx, handoffContext } = options;
 	await ctx.waitForIdle();
 
@@ -362,12 +361,7 @@ export async function handlePickupHandoffCommand(options: {
 	pi.sendUserMessage(buildPickupHandoffPrompt(branch, selectedKey, artifact));
 }
 
-export async function handleListHandoffCommand(options: {
-	pi: ExtensionAPI;
-	rawArgs: string;
-	ctx: CommandContext;
-	handoffContext: PiHandoffContext;
-}): Promise<void> {
+export async function handleListHandoffCommand(options: HandoffCommandInvocation): Promise<void> {
 	const { pi, rawArgs, ctx, handoffContext } = options;
 	await ctx.waitForIdle();
 

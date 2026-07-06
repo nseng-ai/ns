@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
-	type GitWorktreeStateFs,
-} from "@nseng-ai/capability-kit/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { stripAnsi } from "../../src/land/stack/graphite-command-channel.ts";
@@ -53,6 +50,7 @@ import {
 	TOPOLOGY_COMMAND,
 	topologyArgs,
 } from "./land-test-helpers.ts";
+import { fakeGitStateFs } from "./git-state-fs-support.ts";
 
 const PR_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
@@ -413,23 +411,6 @@ function submitRestackRecheckStep(
 
 function cleanRepoChecks(): ScriptedExec[] {
 	return [step("git", ["status", "--porcelain=v1"])];
-}
-
-function fakeGitStateFs(paths: readonly string[]): GitWorktreeStateFs {
-	const existing = new Set(paths);
-	return {
-		pathKind(path) {
-			return existing.has(path)
-				? path.includes(".") && !path.endsWith(".git")
-					? "file"
-					: "directory"
-				: "missing";
-		},
-		readTextFile(path) {
-			if (path.endsWith("/.git/HEAD")) return "ref: refs/heads/main\n";
-			return "";
-		},
-	};
 }
 
 function numberedDb(

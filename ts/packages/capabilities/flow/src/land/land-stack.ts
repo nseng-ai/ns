@@ -80,7 +80,7 @@ export async function executeStackLanding(
 	const createdRuntime = createLandRuntime(
 		pi,
 		commandStream,
-		options.gitStateFs === undefined ? {} : { gitStateFs: options.gitStateFs },
+		optionalEntry("gitStateFs", options.gitStateFs),
 	);
 	const runtime: LandRuntime =
 		options.graphite === undefined

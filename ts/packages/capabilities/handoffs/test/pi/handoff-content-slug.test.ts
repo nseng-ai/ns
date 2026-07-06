@@ -1,5 +1,5 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { describe, expect, test } from "vitest";
 import {
 	buildHandoffContentSlugPrompt,
@@ -82,7 +82,7 @@ describe("deriveHandoffContentSlug", () => {
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
 		expect(pi.calls[0]?.args).toEqual(
-			buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)),
+			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)),
 		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});

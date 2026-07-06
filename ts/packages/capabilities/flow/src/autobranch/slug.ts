@@ -2,7 +2,7 @@ import type { CommandResult } from "./shared.ts";
 import {
 	deriveSlugWithModel,
 	formatSlugModelFailure,
-	SLUG_MODEL_TIMEOUT_MS,
+	RAW_TEXT_MODEL_TIMEOUT_MS,
 	type SlugModelFailure,
 } from "@nseng-ai/capability-kit/model-slug";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
@@ -84,7 +84,7 @@ export async function deriveBranchSlug(
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>
-			input.exec(command, args, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
+			input.exec(command, args, options.timeout ?? RAW_TEXT_MODEL_TIMEOUT_MS),
 	});
 	if (result.ok) {
 		return { ok: true, baseSlug: result.evidence.slug, source: "model" };

@@ -1,5 +1,5 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
-import { buildSlugModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -354,7 +354,7 @@ export function step(
 }
 
 export function planSlugArgs(content: string): string[] {
-	return buildSlugModelArgs(buildPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content));
 }
 
 export function planSlugStep(
@@ -370,7 +370,7 @@ export function planSlugExecCall(content: string): { command: string; args: stri
 }
 
 export function savedPlanSlugArgs(content: string): string[] {
-	return buildSlugModelArgs(buildSavedPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content));
 }
 
 export interface SavedPlanSlugStepOptions {

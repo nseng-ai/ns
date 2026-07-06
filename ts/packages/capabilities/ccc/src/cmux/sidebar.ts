@@ -2,6 +2,7 @@ import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@nseng-ai/foundation/mo
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
+	objectiveSelectionHostFromExec,
 	type ObjectiveSelectionSpec,
 } from "@nseng-ai/objectives/api";
 
@@ -227,7 +228,7 @@ async function resolveObjectiveSidebarSlug(
 	}
 
 	return chooseActiveObjectiveSlug(
-		pi,
+		objectiveSelectionHostFromExec(pi),
 		objectiveSelectionContextFromCommandContext(ctx),
 		OBJECTIVE_SIDEBAR_SELECTION_SPEC,
 	);

@@ -1,6 +1,6 @@
 import {
-	buildContentSlugPrompt,
-	deriveContentSlug,
+	buildKitContentSlugPrompt,
+	deriveKitContentSlug,
 	normalizeContentSlugOutput,
 	truncateContentForSlug,
 	type ContentSlugDerivationVariant,
@@ -56,7 +56,7 @@ export async function deriveHandoffContentSlug(
 	host: Pick<ExtensionAPI, "exec">,
 	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<HandoffContentSlugEvidence> {
-	return deriveContentSlug(
+	return deriveKitContentSlug(
 		{ exec: (command, args, options) => host.exec(command, args, options) },
 		input,
 		HANDOFF_CONTENT_SLUG_VARIANT,
@@ -64,7 +64,7 @@ export async function deriveHandoffContentSlug(
 }
 
 export function buildHandoffContentSlugPrompt(content: string): string {
-	return buildContentSlugPrompt(content, HANDOFF_CONTENT_SLUG_VARIANT);
+	return buildKitContentSlugPrompt(content, HANDOFF_CONTENT_SLUG_VARIANT);
 }
 
 export function normalizeHandoffContentSlugOutput(value: string): string | undefined {

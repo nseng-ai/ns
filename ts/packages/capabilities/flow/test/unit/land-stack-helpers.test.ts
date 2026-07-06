@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
@@ -54,6 +53,7 @@ import {
 	slotNameFromPath,
 } from "../../src/land/stack/worktrees.ts";
 import { TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
+import { fakeGitStateFs } from "./git-state-fs-support.ts";
 
 const ROOT = "/repo";
 
@@ -110,23 +110,6 @@ interface WidgetUpdate {
 	key: string;
 	value: string[] | undefined;
 	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
-}
-
-function fakeGitStateFs(paths: readonly string[]): GitWorktreeStateFs {
-	const existing = new Set(paths);
-	return {
-		pathKind(path) {
-			return existing.has(path)
-				? path.includes(".") && !path.endsWith(".git")
-					? "file"
-					: "directory"
-				: "missing";
-		},
-		readTextFile(path) {
-			if (path.endsWith("/.git/HEAD")) return "ref: refs/heads/main\n";
-			return "";
-		},
-	};
 }
 
 class FakePi implements LandStackExtensionAPI {

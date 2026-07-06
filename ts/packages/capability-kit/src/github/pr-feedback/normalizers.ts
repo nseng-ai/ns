@@ -14,7 +14,6 @@ import type {
 import type {
 	ghAuthorSchema,
 	ghChangedFileSchema,
-	ghDiscussionCommentSchema,
 	ghIssueCommentRestSchema,
 	ghRestReviewSchema,
 	ghReviewCommentRestSchema,
@@ -135,7 +134,7 @@ export function normalizeRestReview(
 }
 
 export function normalizeDiscussionComment(
-	comment: z.infer<typeof ghDiscussionCommentSchema> | z.infer<typeof ghIssueCommentRestSchema>,
+	comment: z.infer<typeof ghIssueCommentRestSchema>,
 ): GithubPrDiscussionComment {
 	const url = comment.html_url ?? comment.url ?? "";
 	return {

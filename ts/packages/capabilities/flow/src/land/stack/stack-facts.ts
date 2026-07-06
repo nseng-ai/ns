@@ -1,4 +1,5 @@
 import { formatCommand, piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
 	detectGitOperationInProgressAt,
@@ -6,6 +7,7 @@ import {
 	type GitLocalBranchTip,
 	type GitOperationInProgress,
 	type GitWorktreeStateFs,
+	type GitWorktreeStateOptions,
 } from "@nseng-ai/capability-kit/git";
 import { reconcileTopologyToLiveBranches } from "@nseng-ai/capability-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
@@ -306,10 +308,7 @@ export async function assertCleanRepo(
 		return failure(landStackFailure("Working tree is dirty; refusing to start stack landing."));
 	}
 
-	const operation = detectInProgressOperation(
-		repoRoot,
-		options.gitStateFs === undefined ? {} : { fs: options.gitStateFs },
-	);
+	const operation = detectInProgressOperation(repoRoot, optionalEntry("fs", options.gitStateFs));
 	if (operation) {
 		return failure(
 			landStackFailure(
@@ -320,13 +319,9 @@ export async function assertCleanRepo(
 	return completed();
 }
 
-export interface GitOperationDetectionOptions {
-	fs?: GitWorktreeStateFs;
-}
-
 export function detectInProgressOperation(
 	repoRoot: string,
-	options: GitOperationDetectionOptions = {},
+	options: GitWorktreeStateOptions = {},
 ): InProgressGitOperation | undefined {
 	// REBASE_HEAD can be left behind as a stale pseudo-ref after Git reports a clean, normal worktree.
 	// The kit detector treats only Git's active rebase state directories as authoritative for rebase.

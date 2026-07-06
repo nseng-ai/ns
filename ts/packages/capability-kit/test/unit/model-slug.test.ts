@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import {
-	buildSlugModelArgs,
+	buildRawTextModelArgs,
 	deriveSlugWithModel,
 	generateRawTextWithModel,
 	type SlugModelCommandResult,
@@ -53,7 +53,7 @@ describe("generateRawTextWithModel", () => {
 				model: DEFAULT_FAST_MODEL.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildSlugModelArgs("summary prompt"));
+		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("summary prompt"));
 	});
 
 	test("resolves an NS_SLUG_MODEL override and reports it in evidence", async () => {
@@ -70,7 +70,7 @@ describe("generateRawTextWithModel", () => {
 			evidence: { rawOutput: "raw output\n", provider: "acme", model: "fast-1" },
 		});
 		expect(calls[0]?.args).toEqual(
-			buildSlugModelArgs("summary prompt", { provider: "acme", modelId: "fast-1" }),
+			buildRawTextModelArgs("summary prompt", { provider: "acme", modelId: "fast-1" }),
 		);
 	});
 
@@ -121,7 +121,7 @@ describe("deriveSlugWithModel", () => {
 				model: DEFAULT_FAST_MODEL.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildSlugModelArgs("slug prompt"));
+		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt"));
 	});
 
 	test("resolves an NS_SLUG_MODEL override and reports it in evidence", async () => {
@@ -139,7 +139,7 @@ describe("deriveSlugWithModel", () => {
 			evidence: { slug: "my-slug", rawOutput: "my-slug\n", provider: "acme", model: "fast-1" },
 		});
 		expect(calls[0]?.args).toEqual(
-			buildSlugModelArgs("slug prompt", { provider: "acme", modelId: "fast-1" }),
+			buildRawTextModelArgs("slug prompt", { provider: "acme", modelId: "fast-1" }),
 		);
 	});
 
@@ -191,7 +191,7 @@ describe("deriveSlugWithModel", () => {
 		expect(calls[0]).toEqual(calls[1]);
 		expect(calls[0]).toEqual({
 			command: "pi",
-			args: buildSlugModelArgs("slug prompt"),
+			args: buildRawTextModelArgs("slug prompt"),
 			options: { cwd: "/repo", timeout: 60_000, signal: controller.signal },
 		});
 	});

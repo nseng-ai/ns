@@ -7,11 +7,11 @@ import {
 	type ParsedModelRef,
 } from "@nseng-ai/foundation/model-slug";
 
-export const SLUG_MODEL_THINKING = "minimal";
-export const SLUG_MODEL_TIMEOUT_MS = 60_000;
+export const RAW_TEXT_MODEL_THINKING = "minimal";
+export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 
 const MAX_ERROR_CHARS = 4_000;
-const SLUG_MODEL_MAX_ATTEMPTS = 2;
+const RAW_TEXT_MODEL_MAX_ATTEMPTS = 2;
 
 export interface SlugModelExecOptions {
 	cwd?: string;
@@ -108,8 +108,8 @@ export async function generateRawTextWithModel(
 		return { ok: false, failure: { lines: [resolution.error] } };
 	}
 	const model = resolution.value;
-	const args = buildSlugModelArgs(input.prompt, model);
-	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<slug-prompt>"]);
+	const args = buildRawTextModelArgs(input.prompt, model);
+	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<model-prompt>"]);
 
 	let hasRetriedKilledResult = false;
 	let attempt = 1;
@@ -158,7 +158,7 @@ async function runRawTextModelAttempt(
 				ok: false,
 				failure: {
 					lines: [
-						"Pi slug model command failed before completion.",
+						"Pi model command failed before completion.",
 						`Command: ${options.displayCommand}`,
 						`Error: ${error instanceof Error ? error.message : String(error)}`,
 					],
@@ -167,7 +167,7 @@ async function runRawTextModelAttempt(
 		};
 	}
 
-	if (shouldRetryKilledSlugModelResult(result, options.input.signal, options.attempt)) {
+	if (shouldRetryKilledRawTextModelResult(result, options.input.signal, options.attempt)) {
 		return { type: "retry" };
 	}
 
@@ -181,7 +181,7 @@ async function runRawTextModelAttempt(
 				ok: false,
 				failure: {
 					lines: [
-						`Pi slug model command failed (${status}).`,
+						`Pi model command failed (${status}).`,
 						...(options.hasRetriedKilledResult
 							? ["Retried once after a killed/timeout result."]
 							: []),
@@ -204,7 +204,7 @@ async function runRawTextModelAttempt(
 	if (rawOutput.trim().length === 0) {
 		return {
 			type: "terminal",
-			result: { ok: false, failure: { lines: ["Pi slug model returned empty output."] } },
+			result: { ok: false, failure: { lines: ["Pi model returned empty output."] } },
 		};
 	}
 
@@ -221,7 +221,7 @@ async function runRawTextModelAttempt(
 	};
 }
 
-export function buildSlugModelArgs(
+export function buildRawTextModelArgs(
 	prompt: string,
 	model: ParsedModelRef = DEFAULT_FAST_MODEL,
 ): string[] {
@@ -231,7 +231,7 @@ export function buildSlugModelArgs(
 		"--model",
 		model.modelId,
 		"--thinking",
-		SLUG_MODEL_THINKING,
+		RAW_TEXT_MODEL_THINKING,
 		"--no-session",
 		"--no-extensions",
 		"--no-skills",
@@ -250,7 +250,7 @@ export function formatSlugModelFailure(failure: SlugModelFailure): string {
 }
 
 function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExecOptions {
-	const options: SlugModelExecOptions = { cwd, timeout: SLUG_MODEL_TIMEOUT_MS };
+	const options: SlugModelExecOptions = { cwd, timeout: RAW_TEXT_MODEL_TIMEOUT_MS };
 	if (signal !== undefined) {
 		options.signal = signal;
 	}
@@ -259,10 +259,12 @@ function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExe
 
 // This is a bounded immediate retry for killed subprocess results; no TimerScheduler is needed
 // because there is no delay or backoff between attempts.
-function shouldRetryKilledSlugModelResult(
+function shouldRetryKilledRawTextModelResult(
 	result: SlugModelCommandResult,
 	signal: AbortSignal | undefined,
 	attempt: number,
 ): boolean {
-	return result.killed === true && signal?.aborted !== true && attempt < SLUG_MODEL_MAX_ATTEMPTS;
+	return (
+		result.killed === true && signal?.aborted !== true && attempt < RAW_TEXT_MODEL_MAX_ATTEMPTS
+	);
 }
