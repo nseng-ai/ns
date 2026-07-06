@@ -47,6 +47,7 @@ import {
 	type LandGraphiteOperation,
 } from "./graphite-command-channel.ts";
 import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
+import { copyPullRequestSnapshot } from "./pull-request-snapshot.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -57,7 +58,7 @@ import {
 	loadStackSnapshot,
 	loadTrunk,
 } from "./stack-facts.ts";
-import type { LandStackExtensionAPI } from "./types.ts";
+import type { LandStackExtensionAPI, PullRequestSnapshot } from "./types.ts";
 import {
 	isManagedSlotPath,
 	loadWorktrees,
@@ -69,21 +70,8 @@ import type { LandStackFailure } from "./errors.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
 
-function toApiPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
-	return {
-		id: pr.id,
-		number: pr.number,
-		title: pr.title,
-		body: pr.body,
-		state: pr.state,
-		isDraft: pr.isDraft,
-		headRefName: pr.headRefName,
-		baseRefName: pr.baseRefName,
-		headRefOid: pr.headRefOid,
-		...(pr.mergeStateStatus === undefined ? {} : { mergeStateStatus: pr.mergeStateStatus }),
-		...(pr.url === undefined ? {} : { url: pr.url }),
-		...(pr.mergedAt === undefined ? {} : { mergedAt: pr.mergedAt }),
-	};
+function toApiPullRequestFacts(pr: PullRequestSnapshot): PullRequestFacts {
+	return copyPullRequestSnapshot(pr);
 }
 
 export function createLandContext(

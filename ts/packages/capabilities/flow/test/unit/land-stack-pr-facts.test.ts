@@ -2,11 +2,9 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import { loadPr } from "../../src/land/stack/pr-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
-
-const PR_FIELDS =
-	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const ROOT = "/repo";
 

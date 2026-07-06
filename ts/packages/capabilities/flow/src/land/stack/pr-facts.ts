@@ -2,7 +2,7 @@ import { formatCommand } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
+import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import type { LandStackExtensionAPI, PullRequestSnapshot } from "./types.ts";
 
@@ -158,10 +158,11 @@ function batchedPullRequestFactsQuery(branchCount: number): string {
 		"$name: String!",
 		...Array.from({ length: branchCount }, (_, index) => `$head${index}: String!`),
 	].join(", ");
+	const prSelection = PR_FIELD_NAMES.join(" ");
 	const selections = Array.from(
 		{ length: branchCount },
 		(_, index) =>
-			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { id number title body state isDraft headRefName baseRefName headRefOid mergeStateStatus url mergedAt } }`,
+			`b${index}: pullRequests(headRefName: $head${index}, states: OPEN, first: 1) { nodes { ${prSelection} } }`,
 	).join(" ");
 	return `query(${variableDeclarations}) { repository(owner: $owner, name: $name) { ${selections} } }`;
 }

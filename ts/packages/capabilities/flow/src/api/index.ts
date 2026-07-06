@@ -25,6 +25,7 @@ export type {
 	ValidPullRequestView,
 } from "../land/land.ts";
 export { parsePullRequestView, registerLandCommand, runLandCli } from "../land/land.ts";
+export { PR_FIELDS as FLOW_LAND_PR_FIELDS } from "../land/stack/constants.ts";
 
 export type { TrunkPullOutcome, TrunkPullResult } from "../trunk-pull/trunk-pull.ts";
 export { runTrunkPullDetailed } from "../trunk-pull/trunk-pull.ts";

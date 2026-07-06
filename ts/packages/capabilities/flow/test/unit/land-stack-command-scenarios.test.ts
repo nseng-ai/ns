@@ -3,7 +3,7 @@ import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-ki
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { stripAnsi } from "../../src/land/stack/graphite-command-channel.ts";
-import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
+import { BACKUP_REF_NAMESPACE, PR_FIELDS } from "../../src/land/stack/constants.ts";
 import {
 	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
 	batchedPullRequestFactsGraphqlArgs,
@@ -51,9 +51,6 @@ import {
 	topologyArgs,
 } from "./land-test-helpers.ts";
 import { fakeGitStateFs } from "./git-state-fs-support.ts";
-
-const PR_FIELDS =
-	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const ROOT = "/repo";
 

@@ -7,6 +7,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import {
+	FLOW_LAND_PR_FIELDS,
 	parsePullRequestView,
 	registerLandCommand,
 	runLandCli,
@@ -20,13 +21,11 @@ import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-help
 const ROOT = "/repo";
 const CURRENT = "feature-branch";
 const TRUNK = "main";
-const PR_VIEW_FIELDS =
-	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
-const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", PR_VIEW_FIELDS];
-const PR_VERIFY_ARGS = ["pr", "view", "42", "--json", PR_VIEW_FIELDS];
+const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", FLOW_LAND_PR_FIELDS];
+const PR_VERIFY_ARGS = ["pr", "view", "42", "--json", FLOW_LAND_PR_FIELDS];
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
-const STACK_PR_VIEW_FIELDS = PR_VIEW_FIELDS;
+const STACK_PR_VIEW_FIELDS = FLOW_LAND_PR_FIELDS;
 const GIT_TIMEOUT_MS = 30_000;
 const CORE_GIT_TIMEOUT_MS = 10_000;
 const GT_TIMEOUT_MS = 120_000;

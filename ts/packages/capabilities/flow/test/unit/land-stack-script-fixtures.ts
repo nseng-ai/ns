@@ -1,9 +1,7 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
-
-const PR_FIELDS =
-	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 const TRUNK = "main";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

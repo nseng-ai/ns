@@ -8,6 +8,7 @@ import {
 	type LandStackResult,
 } from "./errors.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
+import { copyPullRequestSnapshot } from "./pull-request-snapshot.ts";
 import type { FlowLandingPlan, PrSubmitRequirement } from "./types.ts";
 
 export async function buildLandingPlan(
@@ -50,22 +51,7 @@ function toFlowLandingPlan(plan: StackLandingPlan): FlowLandingPlan {
 		branchPlans: plan.branchPlans.map((branchPlan) => ({
 			branch: branchPlan.branch,
 			localSha: branchPlan.localSha,
-			pr: {
-				id: branchPlan.pr.id,
-				number: branchPlan.pr.number,
-				title: branchPlan.pr.title,
-				body: branchPlan.pr.body,
-				state: branchPlan.pr.state,
-				isDraft: branchPlan.pr.isDraft,
-				headRefName: branchPlan.pr.headRefName,
-				baseRefName: branchPlan.pr.baseRefName,
-				headRefOid: branchPlan.pr.headRefOid,
-				...(branchPlan.pr.mergeStateStatus === undefined
-					? {}
-					: { mergeStateStatus: branchPlan.pr.mergeStateStatus }),
-				...(branchPlan.pr.url === undefined ? {} : { url: branchPlan.pr.url }),
-				...(branchPlan.pr.mergedAt === undefined ? {} : { mergedAt: branchPlan.pr.mergedAt }),
-			},
+			pr: copyPullRequestSnapshot(branchPlan.pr),
 		})),
 		prSubmitRequirements: plan.prSubmitRequirements.map((requirement) => ({
 			branch: requirement.branch,
