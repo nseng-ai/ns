@@ -47,7 +47,10 @@ export type ListRequest = z.infer<typeof listRequestSchema>;
 export type ListResult = z.infer<typeof listResultSchema>;
 
 export async function runList(ctx: BrmemCliContext, request: ListRequest) {
-	const namespaceScope = resolveOptionalNamespaceScope(request);
+	const namespaceScope = resolveOptionalNamespaceScope({
+		base: request.base,
+		...(request.namespace === undefined ? {} : { namespace: request.namespace }),
+	});
 	if (namespaceScope.type === "conflict")
 		return failure(namespaceScope.code, namespaceScope.message);
 	if (request.branch !== undefined && request.allBranches) {

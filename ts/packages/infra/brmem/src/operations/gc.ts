@@ -51,7 +51,10 @@ export type GcSnapshot = z.infer<typeof gcSnapshotSchema>;
 export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
-	const namespaceScope = resolveOptionalNamespaceScope(request);
+	const namespaceScope = resolveOptionalNamespaceScope({
+		base: request.base,
+		...(request.namespace === undefined ? {} : { namespace: request.namespace }),
+	});
 	if (namespaceScope.type === "conflict")
 		return failure(namespaceScope.code, namespaceScope.message);
 	const scope = namespaceScope.scope;

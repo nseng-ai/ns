@@ -62,7 +62,7 @@ export function normalizeNamespaceOption(namespace: string | undefined | null): 
 
 export function resolveOptionalNamespaceScope(request: {
 	base: boolean;
-	namespace?: string | undefined;
+	namespace?: string;
 }): NamespaceScopeResolution {
 	if (request.base && request.namespace !== undefined) return namespaceScopeConflict();
 	if (!request.base && request.namespace === undefined) {
@@ -84,7 +84,7 @@ export function namespaceScopeLabel(scope: NamespaceScope): string {
 
 export function resolveRequiredNamespaceScope(request: {
 	base: boolean;
-	namespace?: string | undefined;
+	namespace?: string;
 }):
 	| NamespaceScopeConflict
 	| { type: "resolved"; scope: ScopedNamespaceScope }

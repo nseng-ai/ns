@@ -55,7 +55,10 @@ export type CopyPlanItem = z.infer<typeof copyPlanItemSchema>;
 export type CopyResult = z.infer<typeof copyResultSchema>;
 
 export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
-	const namespaceScope = resolveRequiredNamespaceScope(request);
+	const namespaceScope = resolveRequiredNamespaceScope({
+		base: request.base,
+		...(request.namespace === undefined ? {} : { namespace: request.namespace }),
+	});
 	if (namespaceScope.type === "conflict")
 		return failure(namespaceScope.code, namespaceScope.message);
 	if (namespaceScope.type === "missing") {
