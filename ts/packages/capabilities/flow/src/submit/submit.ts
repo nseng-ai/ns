@@ -201,7 +201,9 @@ export async function runSubmitCommand(
 	const commandParams = submitCommandParams(options);
 	emitPhase(options, { type: "phase-started", phaseKey: "preflight" });
 	options.submitMatrix?.setGlobal("preflight", "active");
+	options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
+	options.submitMatrix?.setRunningCommands([]);
 	if (readiness.kind === "failed") {
 		options.submitMatrix?.setGlobal("preflight", "failed", "submit readiness failed");
 		const preflightFailure = preflightFailureFor({
@@ -257,13 +259,17 @@ export async function runSubmitCommand(
 		}
 
 		options.submitMatrix?.setGlobal("restack", "active");
+		options.submitMatrix?.setRunningCommands([RESTACK_COMMAND_DISPLAY]);
 		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
+		options.submitMatrix?.setRunningCommands([]);
 		if (restackFailure !== undefined) {
 			options.submitMatrix?.setGlobal("restack", "failed", "restack failed");
 			return restackFailure;
 		}
 
+		options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
+		options.submitMatrix?.setRunningCommands([]);
 		const recheckPreflightFailure = preflightFailureFor({
 			result: rechecked,
 			phase: "readiness recheck",
@@ -286,6 +292,14 @@ export async function runSubmitCommand(
 	}
 
 	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
+	options.submitMatrix?.setRunningCommands([
+		"gt log --stack --reverse --no-interactive",
+		"gt trunk --no-interactive",
+		"gt branch info --no-interactive --branch <stack-branch>",
+		"git log --format=%B%x00 <parent>..<branch>",
+		"git diff <parent>..<branch>",
+		"gt modify --no-interactive",
+	]);
 	const prewrite = await prepareSubmitPrMetadata({
 		cwd: options.cwd,
 		env: options.prDescription.env,
@@ -297,6 +311,7 @@ export async function runSubmitCommand(
 		onBranchProgress: (event) =>
 			options.submitMatrix?.setCell(event.branch, "metadata", event.state, event.message),
 	});
+	options.submitMatrix?.setRunningCommands([]);
 	if (prewrite.kind === "failed") {
 		const stderr = formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches);
 		return failure(prewrite.exitCode ?? 1, stderr, {
@@ -311,7 +326,9 @@ export async function runSubmitCommand(
 		label: submitCommandDisplay,
 	});
 	options.submitMatrix?.setAllCells("submit", "active", submitCommandDisplay);
+	options.submitMatrix?.setRunningCommands([submitCommandDisplay]);
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
+	options.submitMatrix?.setRunningCommands([]);
 	if (submitted.kind === "failed") {
 		options.submitMatrix?.setAllCells("submit", "failed", "submit failed");
 		const submitPreflightFailure = knownSubmitFailureFor({
@@ -339,7 +356,9 @@ export async function runSubmitCommand(
 	options.submitMatrix?.setAllCells("submit", "done", "stack submitted");
 	emitPhase(options, { type: "phase-started", phaseKey: "verification" });
 	options.submitMatrix?.setAllCells("verify", "active", "checking current PR");
+	options.submitMatrix?.setRunningCommands([CURRENT_PR_COMMAND_DISPLAY]);
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
+	options.submitMatrix?.setRunningCommands([]);
 	if (
 		submitted.semanticFailureCause !== undefined ||
 		shouldFailPostSubmitVerification(submitted, currentPr)
@@ -391,6 +410,9 @@ export async function runSubmitCommand(
 		label: formatDescriptionPhaseStart(prLinks.length),
 	});
 	options.submitMatrix?.setAllCells("description", prLinks.length === 0 ? "skipped" : "active");
+	options.submitMatrix?.setRunningCommands(
+		prLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
+	);
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
@@ -399,6 +421,7 @@ export async function runSubmitCommand(
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
 	});
+	options.submitMatrix?.setRunningCommands([]);
 	if (!descriptionResult.ok) {
 		options.submitMatrix?.setAllCells("description", "failed", "description failed");
 		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);

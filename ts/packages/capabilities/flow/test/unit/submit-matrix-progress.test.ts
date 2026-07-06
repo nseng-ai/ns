@@ -35,6 +35,7 @@ describe("submit matrix progress", () => {
 		const lines = renderSubmitMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow submit",
+			runningCommands: ["gt submit --no-edit"],
 			globals: [
 				{
 					key: "inventory",
@@ -77,6 +78,7 @@ describe("submit matrix progress", () => {
 
 		const output = stripAnsi(lines.join("\n"));
 		expect(output).toContain("ns flow submit");
+		expect(output).toContain("Running: gt submit --no-edit");
 		expect(output).toContain("Inventory");
 		expect(output).toContain("Checkpoint");
 		expect(output).toContain("Inspect");

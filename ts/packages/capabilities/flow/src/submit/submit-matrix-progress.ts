@@ -64,6 +64,7 @@ export interface SubmitStackTopologyBranch {
 
 export interface SubmitMatrixProgressSink {
 	setRows(rows: readonly SubmitMatrixRowSpec[]): void;
+	setRunningCommands(commands: readonly string[]): void;
 	setGlobal(key: SubmitMatrixGlobalKey, state: SubmitMatrixCellState, text?: string): void;
 	setGlobalSubstep(
 		globalKey: SubmitMatrixGlobalKey,
@@ -193,6 +194,7 @@ export function createSubmitMatrixProgressController(options: {
 		caps: options.caps,
 		sink,
 		title: options.title,
+		runningCommands: () => state.runningCommands,
 		globals: () => state.globals,
 		rows: () => state.rows,
 		tailLine: tail.line,
@@ -218,6 +220,11 @@ export function createSubmitMatrixProgressController(options: {
 
 	function setRows(rows: readonly SubmitMatrixRowSpec[]): void {
 		state.rows = createSubmitMatrixRowViews(rows);
+		render();
+	}
+
+	function setRunningCommands(commands: readonly string[]): void {
+		state.runningCommands = [...commands];
 		render();
 	}
 
@@ -331,6 +338,7 @@ export function createSubmitMatrixProgressController(options: {
 	return {
 		begin,
 		setRows,
+		setRunningCommands,
 		setGlobal,
 		setGlobalSubstep,
 		setCell,
@@ -368,13 +376,14 @@ export function applyPrLinksToRows(rows: MatrixRowView[], prLinks: readonly Subm
 export function renderSubmitMatrixProgressFrame(input: {
 	caps: Caps;
 	title: string;
+	runningCommands?: readonly string[];
 	globals: readonly MatrixGlobalView[];
 	rows: readonly MatrixRowView[];
 	tailLine?: string;
 	tick?: number;
 }): readonly string[] {
 	const tick = input.tick ?? 0;
-	const lines = [bold(input.title)];
+	const lines = [bold(input.title), renderRunningCommands(input.caps, input.runningCommands ?? [])];
 	for (const global of input.globals) {
 		lines.push(renderGlobalLine(input.caps, global, tick));
 		for (const substep of global.substeps) {
@@ -395,10 +404,12 @@ export function renderSubmitMatrixProgressFrame(input: {
 }
 
 function createSubmitMatrixState(rows: readonly SubmitMatrixRowSpec[]): {
+	runningCommands: string[];
 	globals: MatrixGlobalView[];
 	rows: MatrixRowView[];
 } {
 	return {
+		runningCommands: [],
 		globals: SUBMIT_MATRIX_GLOBAL_ROWS.map((row) => ({
 			key: row.key,
 			label: row.label,
@@ -430,6 +441,7 @@ function createSubmitMatrixRenderer(options: {
 	caps: Caps;
 	sink: StreamSink;
 	title: string;
+	runningCommands: () => readonly string[];
 	globals: () => readonly MatrixGlobalView[];
 	rows: () => readonly MatrixRowView[];
 	tailLine: () => string | undefined;
@@ -439,6 +451,7 @@ function createSubmitMatrixRenderer(options: {
 		return renderSubmitMatrixProgressFrame({
 			caps: options.caps,
 			title: options.title,
+			runningCommands: options.runningCommands(),
 			globals: options.globals(),
 			rows: options.rows(),
 			...(tailLine === undefined ? {} : { tailLine }),
@@ -448,6 +461,11 @@ function createSubmitMatrixRenderer(options: {
 	return {
 		render: () => options.sink.render(frame),
 	};
+}
+
+function renderRunningCommands(caps: Caps, commands: readonly string[]): string {
+	const text = commands.length === 0 ? "Running: —" : `Running: ${commands.join("; ")}`;
+	return dim(truncatePlain(text, caps.columns, ellipsisFor(caps)));
 }
 
 function renderGlobalLine(caps: Caps, row: MatrixGlobalView, tick: number): string {

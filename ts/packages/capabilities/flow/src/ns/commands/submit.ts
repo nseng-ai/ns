@@ -179,7 +179,13 @@ async function runSubmitWithMatrix(input: {
 	matrix.begin();
 
 	try {
+		matrix.setRunningCommands([
+			"gt log --stack --reverse --no-interactive",
+			"gt trunk --no-interactive",
+			"gt branch info --no-interactive --branch <stack-branch>",
+		]);
 		const topology = await runtime.metadataGateway.inspectSubmitStackTopology({ cwd: ctx.cwd });
+		matrix.setRunningCommands([]);
 		if (!topology.ok) {
 			matrix.setGlobal("inventory", "failed", "inventory failed");
 			await matrix.finish({ isFailed: true });
@@ -204,6 +210,7 @@ async function runSubmitWithMatrix(input: {
 			textGenerator: ctx.textGenerator,
 			onPhase: checkpointPhase,
 		});
+		matrix.setRunningCommands([]);
 		if (checkpoint.kind === "failed") {
 			matrix.setGlobal("checkpoint", "failed", "checkpoint failed");
 			const checkpointFailure = await maybeFormatSubmitFailureWithModel(
@@ -267,18 +274,34 @@ function createMatrixPhaseForwarder(
 			return;
 		}
 		if (event.type === "phase-started") {
+			matrix.setRunningCommands(checkpointCommandsForPhase(event.phaseKey));
 			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "active", event.label);
 		}
 		if (event.type === "phase-progress") {
 			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "active", event.label);
 		}
 		if (event.type === "phase-done") {
+			matrix.setRunningCommands([]);
 			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "done", event.detail);
 		}
 		if (event.type === "phase-failed") {
+			matrix.setRunningCommands([]);
 			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "failed", event.detail);
 		}
 	};
+}
+
+function checkpointCommandsForPhase(phaseKey: string): readonly string[] {
+	switch (phaseKey) {
+		case "inspect":
+			return ["git status --porcelain", "git diff --stat", "git diff"];
+		case "generate":
+			return ["checkpoint message text generation"];
+		case "commit":
+			return ["git add", "git commit"];
+		default:
+			return [];
+	}
 }
 
 function createForwardOnlyPhaseListener(
