@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import type { GithubPrFeedbackGateway } from "./contract.ts";
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
 import { withTemporaryJsonFile } from "../../kit/temp-files.ts";
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/exec";
@@ -150,7 +151,7 @@ interface CollectGraphqlPagesOptions<TResponse, TNode, TOutput> {
 	readonly mapNode: (node: TNode) => MaybePromise<Result<TOutput, GithubPrFeedbackFailure>>;
 }
 
-export class RealGithubPrFeedbackGateway {
+export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 	private readonly runner: CommandRunner;
 
 	constructor(runner: CommandRunner) {

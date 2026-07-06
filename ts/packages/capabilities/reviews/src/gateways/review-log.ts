@@ -4,6 +4,7 @@ import {
 	type BrmemCommandErrorInfo,
 } from "@nseng-ai/capability-kit/brmem-cli";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { resultErr } from "@nseng-ai/foundation/result";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 
 import type { RoasterEnvironmentOptions } from "../core/context.ts";
@@ -423,5 +424,5 @@ function invalidResponse(message: string): ReviewResult<never> {
 }
 
 function error(errorValue: ReviewLogFailure): ReviewResult<never> {
-	return { ok: false, error: errorValue };
+	return resultErr(errorValue);
 }

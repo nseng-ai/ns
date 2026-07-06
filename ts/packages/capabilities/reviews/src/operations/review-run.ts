@@ -69,10 +69,6 @@ interface ResolvedReviewModel {
 	readonly model: string;
 }
 
-type ResolveReviewModelResult =
-	| { readonly ok: true; readonly value: ResolvedReviewModel }
-	| { readonly ok: false; readonly error: ReviewFailure };
-
 interface ReviewLogMetadata {
 	readonly branch: string;
 	readonly headCommit: string;
@@ -228,7 +224,7 @@ function resolveReviewModel(
 	request: RunRoasterReviewRequest,
 	definition: ReviewDefinition,
 	config: RoasterProjectConfig,
-): ResolveReviewModelResult {
+): ReviewResult<ResolvedReviewModel> {
 	const profile = (request.modelProfile ?? definition.modelProfile).trim();
 	if (!isRoasterModelProfileKey(profile)) {
 		return {

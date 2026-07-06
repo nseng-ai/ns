@@ -1,4 +1,5 @@
 export { RealGithubPrFeedbackGateway } from "./gateway.ts";
+export type { GithubPrFeedbackGateway } from "./contract.ts";
 export {
 	findPrDiscussionCommentByMarkerInComments,
 	upsertPrDiscussionCommentByMarkerWithCallbacks,

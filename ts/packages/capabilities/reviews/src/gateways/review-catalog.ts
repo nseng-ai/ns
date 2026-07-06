@@ -5,6 +5,7 @@ import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import { mapFromRecordOrMap, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { resultErr } from "@nseng-ai/foundation/result";
 
 import type { ReviewCatalogFailure, ReviewResult } from "../core/failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
@@ -269,5 +270,5 @@ async function directoryStatus(path: string): Promise<PathStatus> {
 }
 
 function error(errorValue: ReviewCatalogFailure): ReviewResult<never> {
-	return { ok: false, error: errorValue };
+	return resultErr(errorValue);
 }
