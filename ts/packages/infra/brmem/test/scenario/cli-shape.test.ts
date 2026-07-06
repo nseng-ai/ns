@@ -6,7 +6,7 @@ describe("brmem CLI shape", () => {
 	it("prints version and TypeScript runtime diagnostics", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(version.stdout.join("")).toContain("0.1.0");
+		expect(version.stdout.join("")).toContain("0.1.1");
 
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);

@@ -1,6 +1,6 @@
 {
 	"name": "@nseng-ai/retros",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"exports": {
 		"./ns/commands/exec-collect-evidence": "./src/ns/commands/exec-collect-evidence.ts",

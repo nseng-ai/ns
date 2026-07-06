@@ -103,7 +103,7 @@ describe("branch-context CLI help, version, and dispatch pins", () => {
 		const run = runWithFakes(args, { cwd: repoRoot });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("0.1.0\n");
+		expect(run.stdout.join("")).toBe("0.1.1\n");
 		expect(run.stderr.join("")).toBe("");
 		expectNoGitOrBrmemCalls(run);
 	});

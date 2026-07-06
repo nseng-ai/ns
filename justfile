@@ -116,6 +116,15 @@ docs-check: docs-install
 
 js-test: ts-test
 
+bump-version VERSION: _ts-workspace-ready
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:bump-version -- {{VERSION}}
+
+publish-dry-run VERSION: _ts-workspace-ready
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:publish-dry-run -- {{VERSION}}
+
+publish VERSION: _ts-workspace-ready
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:publish -- {{VERSION}}
+
 # Install the ns shim to ~/.local/bin so `ns` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
