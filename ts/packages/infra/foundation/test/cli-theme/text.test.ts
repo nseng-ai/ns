@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { paint } from "../../src/cli-theme/palette.ts";
 import {
+	centerCell,
 	padCell,
 	padPlain,
 	truncatePlain,
@@ -66,6 +67,25 @@ describe("padCell", () => {
 	test("no padding when plain width already meets width", () => {
 		const colored = paint(caps(), "success", "okay");
 		expect(padCell(colored, "okay", 4)).toBe(colored);
+	});
+});
+
+describe("centerCell", () => {
+	test("centers a styled cell using its visible width", () => {
+		const plain = "ok";
+		const colored = paint(caps(), "success", plain);
+		const padded = centerCell(colored, 6);
+		expect(padded).toBe(`  ${colored}  `);
+		expect(visibleWidth(padded)).toBe(6);
+	});
+
+	test("places odd padding on the right", () => {
+		expect(centerCell("x", 4)).toBe(" x  ");
+	});
+
+	test("no padding when visible width already meets width", () => {
+		const colored = paint(caps(), "success", "okay");
+		expect(centerCell(colored, 4)).toBe(colored);
 	});
 });
 

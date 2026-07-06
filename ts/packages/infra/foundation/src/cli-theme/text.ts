@@ -29,6 +29,16 @@ export function padCell(colored: string, plain: string, width: number): string {
 	return gap > 0 ? colored + " ".repeat(gap) : colored;
 }
 
+/** Center a styled cell within `width` using its visible width so SGR escapes do not skew layout. */
+export function centerCell(rendered: string, width: number): string {
+	const renderedWidth = visibleWidth(rendered);
+	if (renderedWidth >= width) return rendered;
+	const totalPadding = width - renderedWidth;
+	const leftPadding = Math.floor(totalPadding / 2);
+	const rightPadding = totalPadding - leftPadding;
+	return `${" ".repeat(leftPadding)}${rendered}${" ".repeat(rightPadding)}`;
+}
+
 /**
  * Greedy word-wrap of plain (unstyled) text to `width` columns, one array entry per line. Wrap
  * BEFORE styling: escapes are not stripped here, so styled input would mis-measure. Interior
