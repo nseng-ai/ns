@@ -69,14 +69,19 @@
     `stagedChanges` / per-verb `*Failure` / `*Calls` getters; also narrowed
     `resolveGithubRepositoryIdentityFromOrigin` to
     `Pick<GitGateway, "originUrl">` (spillover from row C).
-- [ ] **D2 — Objectives runner gate**: route the index-clean and
+- [x] **D2 — Objectives runner gate**: route the index-clean and
       staged-whitespace checks in
       `ts/packages/capabilities/objectives/src/runner/gate.ts` through
       `ctx.git`, dropping the ad-hoc `exec` git calls.
   - Policy: direct execution; steer first if the Pi exec-seam gateway wiring
     needs a new adapter.
-  - Evidence: targeted objectives Vitest, `just ts-check`.
-- [ ] **D3 — Flow autobranch Consumer Gateway**: introduce an
+  - Evidence: targeted objectives Vitest, `just ts-check`. Landed on
+    `gateway-hygiene/objectives-gate-seam`: objectives 295 tests passed
+    (integration `runner-finish-git.test.ts` untouched); unit and scenario
+    gate tests moved from scripted-exec argv assertions to InMemory gateway
+    knobs and call logs; best-effort `unstageAll` failure note preserved; full
+    `just` green.
+- [x] **D3 — Flow autobranch Consumer Gateway**: introduce an
       `AutobranchGitGateway` over the existing 3-arg exec closure; route the
       plain-git ops in `upstream.ts`, `latest-commit-preparation.ts`,
       `latest-commit-transaction.ts`, and `dirty-transaction.ts` through it.
@@ -85,13 +90,25 @@
   - Policy: direct execution; steer first if seaming changes any failure-catalog
     message.
   - Evidence: targeted flow autobranch Vitest with message assertions, and
-    grep/diff verification that failure-catalog text is unchanged.
-- [ ] **D4 — branch-context checkout**: change
+    grep/diff verification that failure-catalog text is unchanged. Landed on
+    `gateway-hygiene/autobranch-gateway`: flow 448 tests passed; no expected
+    failure-message string literal changed; `AutobranchExec` alias fixed to
+    the real 3-arg shape; `createGitWorldExec` untouched with a new
+    `createGitWorldHarness` wrapper keeping argv-level event assertions
+    verbatim; public `FlowAutobranchCheckpointInput` unchanged; full `just`
+    green.
+- [x] **D4 — branch-context checkout**: change
       `ts/packages/capabilities/branch-context/src/pi/gt/upstack-impl-launch.ts`
       to take `git: Pick<GitGateway, "checkout">` instead of raw host exec; the
       caller constructs a `RealGitGateway` with a 30s timeout.
   - Policy: direct execution.
-  - Evidence: targeted branch-context Vitest, `just ts-check`.
+  - Evidence: targeted branch-context Vitest, `just ts-check`. Landed on
+    `gateway-hygiene/branch-context-checkout`: branch-context tests passed;
+    the `{cwd, timeout: 30_000}` argv-level checkout assertion survived
+    verbatim; two failure-message expectations moved to the gateway's
+    `formatCommandFailure` / `git_startup_failed` shapes;
+    `formatCheckoutFailureOutput` and the local timeout const deleted; full
+    `just` green.
 
 ## Parked
 
