@@ -11,9 +11,8 @@ import {
 	type PrPreviewFeedbackThread,
 	type PrPreviewFeedbackViewModel,
 } from "./preview-feedback-model.ts";
-import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
-import { overlayRenderLayout, renderOverlayFrame } from "../overlay-kit/frame.ts";
-import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
+import { clamp, fitToWidth } from "@nseng-ai/pi/terminal/layout";
+import { PreviewModalChrome } from "./preview-modal-chrome.ts";
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
 
@@ -33,22 +32,14 @@ export interface PrPreviewFeedbackViewOptions {
 }
 
 export class PrPreviewFeedbackView implements Component {
-	private readonly tui: TUI;
-	private readonly theme: Theme;
 	private readonly model: PrPreviewFeedbackViewModel;
 	private readonly onClose: () => void;
-	private selectedIndex: number;
-	private listScroll: number;
-	private detailScroll: number;
+	private readonly chrome: PreviewModalChrome<PreviewThemeColor>;
 
 	constructor(options: PrPreviewFeedbackViewOptions) {
-		this.tui = options.tui;
-		this.theme = options.theme;
 		this.model = options.model;
 		this.onClose = options.onClose;
-		this.selectedIndex = 0;
-		this.listScroll = 0;
-		this.detailScroll = 0;
+		this.chrome = new PreviewModalChrome({ tui: options.tui, theme: options.theme });
 	}
 
 	render(width: number): string[] {
@@ -57,18 +48,11 @@ export class PrPreviewFeedbackView implements Component {
 			"dim",
 			"↑↓/jk select · PgUp/PgDn scroll · q/esc close · preview only",
 		);
-		const { innerWidth, bodyRows } = overlayRenderLayout({
+		return this.chrome.renderFrame({
 			width,
-			terminalRows: this.tui.terminal.rows,
-			headerLength: header.length,
-		});
-		const body = this.renderBody(innerWidth, bodyRows);
-		return renderOverlayFrame({
 			header,
-			body,
 			footer,
-			width,
-			colorizeBorder: (text) => this.color("border", text),
+			renderBody: (innerWidth, bodyRows) => this.renderBody(innerWidth, bodyRows),
 		});
 	}
 
@@ -98,52 +82,20 @@ export class PrPreviewFeedbackView implements Component {
 	invalidate(): void {}
 
 	private renderBody(width: number, rows: number): string[] {
-		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
-		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
-		const listRows = feedbackListRows({
-			bodyRows: rows,
-			threadCount: this.model.threads.length,
-		});
-		const detailRows = Math.max(1, rows - listRows - 1);
-		this.listScroll = reconcileScroll({
-			scroll: this.listScroll,
-			anchor: this.selectedIndex,
-			areaHeight: listRows,
-			totalLines: this.model.threads.length,
-		});
-		return [
-			...this.renderThreadListLines(width, listRows),
-			this.color("dim", "─".repeat(Math.max(1, width))),
-			...this.renderSelectedThreadDetailLines(width, detailRows),
-		];
-	}
-
-	private renderThreadListLines(width: number, rows: number): string[] {
-		const visibleThreads = this.model.threads.slice(this.listScroll, this.listScroll + rows);
-		return Array.from({ length: rows }, (_unused, row) => {
-			const thread = visibleThreads[row];
-			if (thread === undefined) return "";
-			return this.renderThreadRow(thread, this.listScroll + row, width);
-		});
-	}
-
-	private renderSelectedThreadDetailLines(width: number, rows: number): string[] {
-		const detailLines = this.renderDetailLines(this.model.threads[this.selectedIndex]);
-		const viewport = sliceWrappedDetailLinesForViewport({
-			lines: detailLines,
+		if (this.model.threads.length === 0)
+			return this.chrome.renderEmptyBody(buildEmptyStateLines(this.model), width, rows);
+		return this.chrome.renderListDetailBody({
+			items: this.model.threads,
 			width,
 			rows,
-			scroll: this.detailScroll,
+			listRows: feedbackListRows({
+				bodyRows: rows,
+				threadCount: this.model.threads.length,
+			}),
+			renderRow: (thread, actualIndex, rowWidth) =>
+				this.renderThreadRow(thread, actualIndex, rowWidth),
+			renderDetailLines: (thread) => this.renderDetailLines(thread),
 		});
-		this.detailScroll = viewport.scroll;
-		return Array.from({ length: rows }, (_unused, row) =>
-			fitToWidth(viewport.lines[row] ?? "", width),
-		);
-	}
-
-	private renderEmptyBody(width: number, rows: number): string[] {
-		const lines = wrapDetailLines(buildEmptyStateLines(this.model), width);
-		return Array.from({ length: rows }, (_unused, index) => fitToWidth(lines[index] ?? "", width));
 	}
 
 	private renderDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
@@ -184,13 +136,13 @@ export class PrPreviewFeedbackView implements Component {
 		actualIndex: number,
 		width: number,
 	): string {
-		const prefix = actualIndex === this.selectedIndex ? "> " : "  ";
+		const prefix = actualIndex === this.chrome.selected() ? "> " : "  ";
 		const level = threadSeverityLevel(thread);
 		const icon = severityIcon(level);
 		const label = buildThreadRowLabel(thread);
-		if (actualIndex === this.selectedIndex) {
+		if (actualIndex === this.chrome.selected()) {
 			const row = fitToWidth(`${prefix}${icon} ${label}`, width);
-			return this.theme.bg("selectedBg", this.color("accent", row));
+			return this.chrome.background("selectedBg", this.color("accent", row));
 		}
 		const severityColor = severityThemeColor(level);
 		const coloredRow = `${this.color("text", prefix)}${this.color(severityColor, icon)} ${this.colorizeRowLabel(label, level, severityColor)}`;
@@ -212,21 +164,15 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	private moveSelection(delta: number): void {
-		if (this.model.threads.length === 0) return;
-		const next = clamp(this.selectedIndex + delta, 0, this.model.threads.length - 1);
-		if (next === this.selectedIndex) return;
-		this.selectedIndex = next;
-		this.detailScroll = 0;
-		this.tui.requestRender();
+		this.chrome.moveSelection(this.model.threads.length, delta);
 	}
 
 	private scrollDetails(delta: number): void {
-		this.detailScroll = Math.max(0, this.detailScroll + delta);
-		this.tui.requestRender();
+		this.chrome.scrollDetails(delta);
 	}
 
 	private color(color: PreviewThemeColor, value: string): string {
-		return this.theme.fg(color, value);
+		return this.chrome.color(color, value);
 	}
 }
 
