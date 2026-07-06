@@ -267,9 +267,6 @@ importers:
       '@nseng-ai/slots':
         specifier: workspace:*
         version: link:../slots
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3

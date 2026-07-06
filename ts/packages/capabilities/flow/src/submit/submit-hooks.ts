@@ -1,23 +1,24 @@
 // Pre-submit hooks for `ns flow submit`.
 //
-// The hook MECHANISM is platform code (this module); each configured hook is consumer config in the
-// repo-root `ns.toml`:
+// The hook MECHANISM is platform code (this module); each configured hook is consumer config installed
+// at the `flow.submit.pre` point in the repo-root `ns.toml`:
 //
-//   [flow.hooks]
-//   pre_submit = ["just"]
+//   [points]
+//   "flow.submit.pre" = ["just"]
 //
 // Hooks run in order before the checkpoint step, so files a hook rewrites (formatters) land in the
 // checkpoint commit. Each entry is whitespace-split into an argv and executed directly — no shell
 // interpretation; point an entry at a script for anything richer. The first failing hook aborts the
 // submit before any state changes.
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import type { CommandRunner, ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
-import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
-import { parse } from "smol-toml";
+import {
+	loadPointCatalog,
+	nodeProjectConfigGateway,
+	type PointCatalog,
+	type ProjectConfigDiagnostic,
+} from "@nseng-ai/kernel/project-config/points";
+import { z } from "zod";
 
 /** Hooks run consumer validation suites (for example `just`), so allow far longer than a git call. */
 const PRE_SUBMIT_HOOK_TIMEOUT_MS = 1_800_000;
@@ -31,68 +32,42 @@ export interface FlowSubmitHook {
 	args: readonly string[];
 }
 
+const FLOW_SUBMIT_PRE_POINT_ID = "flow.submit.pre";
+const LEGACY_FLOW_HOOKS_SETTING_SCHEMA = {
+	path: ["flow", "hooks"] as const,
+	schema: z.never(),
+};
+
 export interface FlowHooksConfigError {
-	code: "unreadable" | "invalid-toml" | "invalid-table" | "invalid-pre-submit";
+	code: "invalid-config" | "invalid-pre-submit";
 	message: string;
 }
 
-export type FlowHooksParseResult = Result<readonly FlowSubmitHook[], FlowHooksConfigError>;
-
-export function parseFlowPreSubmitHooksToml(
-	source: string,
-	pathLabel?: string,
-): FlowHooksParseResult {
-	let data: unknown;
-	try {
-		data = parse(source);
-	} catch (error) {
-		return resultErrOf(
-			"invalid-toml",
-			formatMessage(`Invalid TOML: ${formatErrorMessage(error)}`, pathLabel),
-		);
-	}
-
-	if (!isRecord(data)) return { ok: true, value: [] };
-	const flow = data.flow;
-	if (flow === undefined) return { ok: true, value: [] };
-	if (!isRecord(flow)) {
-		return resultErrOf("invalid-table", formatMessage("[flow] must be a TOML table.", pathLabel));
-	}
-	const hooks = flow.hooks;
-	if (hooks === undefined) return { ok: true, value: [] };
-	if (!isRecord(hooks)) {
-		return resultErrOf(
-			"invalid-table",
-			formatMessage("[flow.hooks] must be a TOML table.", pathLabel),
-		);
-	}
-	const preSubmit = hooks.pre_submit;
-	if (preSubmit === undefined) return { ok: true, value: [] };
-	if (!Array.isArray(preSubmit)) {
-		return resultErrOf(
-			"invalid-pre-submit",
-			formatMessage(
-				"[flow.hooks].pre_submit must be a TOML array of non-empty strings.",
-				pathLabel,
-			),
-		);
-	}
-
+export function parseFlowSubmitHookCommands(
+	commands: readonly string[],
+	pathLabel = `ns.toml: [points].${JSON.stringify(FLOW_SUBMIT_PRE_POINT_ID)}`,
+): { ok: true; value: readonly FlowSubmitHook[] } | { ok: false; error: FlowHooksConfigError } {
 	const parsed: FlowSubmitHook[] = [];
-	for (const entry of preSubmit) {
-		if (typeof entry !== "string" || entry.trim() === "") {
-			return resultErrOf(
-				"invalid-pre-submit",
-				formatMessage("[flow.hooks].pre_submit must contain only non-empty strings.", pathLabel),
-			);
+	for (const entry of commands) {
+		if (entry.trim() === "") {
+			return {
+				ok: false,
+				error: {
+					code: "invalid-pre-submit",
+					message: `${pathLabel} must contain only non-empty strings.`,
+				},
+			};
 		}
 		const display = entry.trim();
 		const [executable, ...args] = display.split(/\s+/);
 		if (executable === undefined || executable === "") {
-			return resultErrOf(
-				"invalid-pre-submit",
-				formatMessage("[flow.hooks].pre_submit must contain only non-empty strings.", pathLabel),
-			);
+			return {
+				ok: false,
+				error: {
+					code: "invalid-pre-submit",
+					message: `${pathLabel} must contain only non-empty strings.`,
+				},
+			};
 		}
 		parsed.push({ display, executable, args });
 	}
@@ -124,24 +99,28 @@ export async function loadFlowSubmitHooks(
 	const repoRoot = revParse.stdout.trim();
 	if (repoRoot === "") return { kind: "none" };
 
-	const path = join(repoRoot, "ns.toml");
-	let source: string;
-	try {
-		source = await readFile(path, "utf8");
-	} catch (error) {
-		if (isMissingFileError(error)) return { kind: "none" };
+	const catalog = loadPointCatalog({
+		repoRoot,
+		gateway: nodeProjectConfigGateway,
+		settingsSchemas: [LEGACY_FLOW_HOOKS_SETTING_SCHEMA],
+	});
+	const blockingDiagnostics = catalog.diagnostics.filter(
+		(diagnostic) => diagnostic.severity === "error",
+	);
+	if (blockingDiagnostics.length > 0) {
 		return {
 			kind: "invalid",
 			error: {
-				code: "unreadable",
-				message: `Failed to read ${path}: ${formatErrorMessage(error)}`,
+				code: "invalid-config",
+				message: formatCatalogDiagnostics(blockingDiagnostics),
 			},
 		};
 	}
 
-	const parsed = parseFlowPreSubmitHooksToml(source, path);
+	const commands = flowSubmitPreHookCommands(catalog);
+	if (commands.length === 0) return { kind: "none" };
+	const parsed = parseFlowSubmitHookCommands(commands);
 	if (!parsed.ok) return { kind: "invalid", error: parsed.error };
-	if (parsed.value.length === 0) return { kind: "none" };
 	return { kind: "hooks", hooks: parsed.value };
 }
 
@@ -216,11 +195,24 @@ function boundHookOutputTail(result: ExecResult): string {
 	return `… ${omittedChars} leading character(s) omitted\n${combined.slice(-HOOK_FAILURE_OUTPUT_MAX_CHARS)}`;
 }
 
-function isMissingFileError(error: unknown): boolean {
-	return isRecord(error) && error.code === "ENOENT";
+function flowSubmitPreHookCommands(catalog: PointCatalog): readonly string[] {
+	const entry = catalog.entries.find(
+		(catalogEntry) => catalogEntry.definition.id === FLOW_SUBMIT_PRE_POINT_ID,
+	);
+	const installation = entry?.installations.find(
+		(candidate) => candidate.source === "ns.toml" && candidate.installation.accepts === "hook",
+	);
+	if (installation?.source !== "ns.toml" || installation.installation.accepts !== "hook") return [];
+	return installation.installation.commands;
 }
 
-function formatMessage(message: string, pathLabel: string | undefined): string {
-	if (pathLabel === undefined) return message;
-	return `${pathLabel}: ${message}`;
+function formatCatalogDiagnostics(diagnostics: readonly ProjectConfigDiagnostic[]): string {
+	return diagnostics.map(formatCatalogDiagnostic).join("\n");
+}
+
+function formatCatalogDiagnostic(diagnostic: ProjectConfigDiagnostic): string {
+	if (diagnostic.code === "settings_table_invalid" && diagnostic.path === "flow.hooks") {
+		return 'ns.toml: [flow.hooks] is no longer supported; install pre-submit hooks at [points]."flow.submit.pre".';
+	}
+	return diagnostic.message;
 }

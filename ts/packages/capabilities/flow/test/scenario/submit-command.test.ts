@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -152,9 +152,27 @@ function defaultPrDescriptionText(): string {
 async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<string> {
 	const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-test-"));
 	tempDirs.push(repoRoot);
+	await mkdir(join(repoRoot, ".ns/extensions/flow"), { recursive: true });
+	await writeFile(
+		join(repoRoot, ".ns/extensions/flow/package.json"),
+		JSON.stringify({
+			ns: {
+				group: "flow",
+				points: [
+					{
+						path: ["submit", "pre"],
+						accepts: "hook",
+						semantics: "additive",
+						description: "Runs before submit.",
+					},
+				],
+			},
+		}),
+		"utf8",
+	);
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`[flow.hooks]\npre_submit = ${JSON.stringify(preSubmit)}\n`,
+		`[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;
