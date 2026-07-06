@@ -5,6 +5,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./ns/commands/init": "./src/ns/commands/init.ts",
+		"./ns/preinstalled-catalog": "./src/ns/preinstalled-catalog.ts",
 		"./testing": "./src/testing.ts"
 	},
 	"files": [
@@ -16,9 +18,18 @@
 	},
 	"dependencies": {
 		"@nseng-ai/capability-kit": "workspace:*",
-		"@nseng-ai/foundation": "workspace:*"
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"smol-toml": "catalog:",
+		"zod": "catalog:"
 	},
 	"ns": {
-		"tier": "capability"
+		"tier": "capability",
+		"subpackages": [
+			"ns",
+			"testing"
+		],
+		"remainder": true
 	}
 }

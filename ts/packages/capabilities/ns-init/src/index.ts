@@ -6,7 +6,10 @@ export type {
 	InstructionFileName,
 	InstructionFileParams,
 	InstructionFileReadResult,
+	ProjectConfigFileParams,
+	TextFileReadResult,
 	WriteInstructionFileParams,
+	WriteProjectConfigFileParams,
 } from "./activation-files.ts";
 export { INSTRUCTION_FILE_NAMES, OBJECTIVES_DIRECTORY_RELATIVE_PATH } from "./activation-files.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
@@ -38,3 +41,17 @@ export type {
 	ObjectiveActivationReport,
 } from "./activate-objectives.ts";
 export { activateObjectives } from "./activate-objectives.ts";
+export type { InitObjectivesRequest, InitObjectivesResult } from "./init-objectives.ts";
+export {
+	initObjectives,
+	initObjectivesRequestSchema,
+	initObjectivesResultSchema,
+	renderInitObjectivesHuman,
+} from "./init-objectives.ts";
+export type { NsTomlChange, NsTomlErrorCode, NsTomlErrorInfo } from "./ns-toml.ts";
+export {
+	normalizeHarnessSelection,
+	parseNsTomlHarnesses,
+	planNsTomlHarnessesWrite,
+	renderNsTomlHarnesses,
+} from "./ns-toml.ts";

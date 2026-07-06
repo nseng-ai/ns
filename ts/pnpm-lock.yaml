@@ -302,9 +302,21 @@ importers:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      smol-toml:
+        specifier: 'catalog:'
+        version: 1.6.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/capabilities/objectives:
     dependencies:
@@ -483,6 +495,9 @@ importers:
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
+      '@nseng-ai/ns-init':
+        specifier: workspace:*
+        version: link:../../capabilities/ns-init
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../../capabilities/objectives

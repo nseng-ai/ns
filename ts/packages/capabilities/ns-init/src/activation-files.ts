@@ -12,10 +12,12 @@ export interface ActivationFilesErrorInfo {
 	message: string;
 }
 
-export type InstructionFileReadResult =
+export type TextFileReadResult =
 	| { type: "found"; content: string }
 	| { type: "missing" }
 	| { type: "error"; error: ActivationFilesErrorInfo };
+
+export type InstructionFileReadResult = TextFileReadResult;
 
 export type ActivationFilesOperationResult =
 	| { ok: true }
@@ -34,8 +36,20 @@ export interface WriteInstructionFileParams extends InstructionFileParams {
 	content: string;
 }
 
+export interface ProjectConfigFileParams {
+	repoRoot: string;
+}
+
+export interface WriteProjectConfigFileParams extends ProjectConfigFileParams {
+	content: string;
+}
+
 export interface ActivationFilesGateway {
 	readInstructionFile(params: InstructionFileParams): Promise<InstructionFileReadResult>;
 	writeInstructionFile(params: WriteInstructionFileParams): Promise<ActivationFilesOperationResult>;
+	readProjectConfigFile(params: ProjectConfigFileParams): Promise<TextFileReadResult>;
+	writeProjectConfigFile(
+		params: WriteProjectConfigFileParams,
+	): Promise<ActivationFilesOperationResult>;
 	ensureObjectivesDirectory(params: { repoRoot: string }): Promise<EnsureObjectivesDirectoryResult>;
 }
