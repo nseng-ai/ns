@@ -708,7 +708,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		}
 	});
 
-	test("allows package dependency on a host that exposes an allowed public subpackage tier", () => {
+	test("rejects whole-package dependency on a host that exposes an allowed public subpackage tier", () => {
 		const metadataByName = buildSyntheticPackageMetadata(
 			new Set(["@nseng-ai/flow", "@nseng-ai/ns"]),
 			[{ from: "@nseng-ai/flow", to: "@nseng-ai/ns" }],
@@ -727,7 +727,65 @@ describe("TypeScript style guard package tier layering rules", () => {
 
 		const violations = collectPackageTierLayeringViolations(metadataByName);
 
-		expect(formatViolations(violations)).toBe("");
+		expect(formatViolations(violations)).toContain(
+			"@nseng-ai/flow (capability) -> @nseng-ai/ns (host)",
+		);
+	});
+
+	test("rejects ns.subpackageTiers keys that are not declared subpackages", () => {
+		const metadataByName = buildSyntheticPackageMetadata(
+			new Set(["@nseng-ai/ns"]),
+			[],
+			new Map([["@nseng-ai/ns", "host"]]),
+		);
+		const nsMetadata = metadataByName.get("@nseng-ai/ns");
+		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
+		metadataByName.set("@nseng-ai/ns", {
+			...nsMetadata,
+			manifest: {
+				...nsMetadata.manifest,
+				ns: { tier: "host", subpackages: ["cli"], subpackageTiers: { kernel: "sdk" } },
+			},
+			manifestContent: JSON.stringify({
+				name: "@nseng-ai/ns",
+				ns: { tier: "host", subpackages: ["cli"], subpackageTiers: { kernel: "sdk" } },
+			}),
+			nsSubpackages: ["cli"],
+			nsSubpackageTiers: new Map([["kernel", "sdk"]]),
+		});
+
+		const violations = collectPackageTierLayeringViolations(metadataByName);
+
+		expect(formatViolations(violations)).toContain(
+			"ns.subpackageTiers.kernel does not match a declared ns.subpackages entry",
+		);
+	});
+
+	test("rejects ns.subpackageTiers values that are not package tiers", () => {
+		const metadataByName = buildSyntheticPackageMetadata(
+			new Set(["@nseng-ai/ns"]),
+			[],
+			new Map([["@nseng-ai/ns", "host"]]),
+		);
+		const nsMetadata = metadataByName.get("@nseng-ai/ns");
+		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
+		metadataByName.set("@nseng-ai/ns", {
+			...nsMetadata,
+			manifest: {
+				...nsMetadata.manifest,
+				ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdkk" } },
+			},
+			manifestContent: JSON.stringify({
+				name: "@nseng-ai/ns",
+				ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdkk" } },
+			}),
+			nsSubpackages: ["kernel"],
+			nsSubpackageTiers: new Map(),
+		});
+
+		const violations = collectPackageTierLayeringViolations(metadataByName);
+
+		expect(formatViolations(violations)).toContain("ns.subpackageTiers.kernel has unknown tier");
 	});
 
 	test("real repo package manifests satisfy declared tier policy through explicit debt allowlists", () => {
@@ -817,7 +875,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 					path: "synthetic/ns/src",
 				},
 				{
-					id: "@nseng-ai/ns/kernel",
+					id: "@nseng-ai/kernel",
 					packageName: "@nseng-ai/ns",
 					component: "kernel",
 					tier: "sdk",
@@ -827,7 +885,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			files: [
 				{
 					path: "synthetic/flow/src/index.ts",
-					content: 'import { NsCommandIo } from "@nseng-ai/ns/kernel/sdk";',
+					content: 'import { NsCommandIo } from "@nseng-ai/kernel/sdk";',
 				},
 			],
 		});

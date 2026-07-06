@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
-import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { dirname, extname, resolve } from "node:path";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { kernelPublicExports, kernelPublicSubpaths } from "./kernel-public-subpaths.mjs";
+import { catalogVersion, normalizeManifestBinPaths } from "./public-package-helpers.mjs";
 
 export const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const repoRoot = resolve(workspaceRoot, "..");
@@ -9,6 +12,7 @@ export const repoRoot = resolve(workspaceRoot, "..");
 export const intendedPublicPackages = [
 	"@nseng-ai/branch-context",
 	"@nseng-ai/handoffs",
+	"@nseng-ai/kernel",
 	"@nseng-ai/objectives",
 	"@nseng-ai/plans",
 	"@nseng-ai/pr-feedback",
@@ -39,9 +43,9 @@ export const excludedPackages = new Set([
 ]);
 
 export const publicPublishOrder = [
-	"@nseng-ai/ns",
 	"@nseng-ai/clinkr",
 	"@nseng-ai/foundation",
+	"@nseng-ai/kernel",
 	"@nseng-ai/capability-kit",
 	"@nseng-ai/brmem",
 	"@nseng-ai/plans",
@@ -52,6 +56,7 @@ export const publicPublishOrder = [
 	"@nseng-ai/retros",
 	"@nseng-ai/reviews",
 	"@nseng-ai/slots",
+	"@nseng-ai/ns",
 	"@nseng-ai/packagechk",
 	"@nseng-ai/vibechk",
 	"@nseng-ai/flow",
@@ -66,7 +71,7 @@ export async function loadPublicPackageContext() {
 	const packageManifests = await readWorkspacePackageManifests();
 	const manifestByName = new Map(packageManifests.map((entry) => [entry.manifest.name, entry]));
 	assertIntendedSet(manifestByName);
-	assertNsKernelExports(manifestByName);
+	assertKernelExports(manifestByName);
 	return { workspaceManifest, workspaceYaml, packageManifests, manifestByName };
 }
 
@@ -131,12 +136,7 @@ export function buildPublishPlan(context, version) {
 	return publicPublishOrder.map((packageName) => {
 		const entry = context.manifestByName.get(packageName);
 		if (entry === undefined) throw new Error(`Unknown workspace package ${packageName}`);
-		return {
-			packageName,
-			version,
-			publishRoot: publishRootForEntry(entry),
-			command: `npm publish ${publishRootForEntry(entry)} --access public`,
-		};
+		return { packageName, version, publishRoot: publishRootForEntry(entry) };
 	});
 }
 
@@ -145,7 +145,7 @@ export function printPublishPlan(plan) {
 	for (const [index, item] of plan.entries()) {
 		console.log(`${index + 1}. ${item.packageName}@${item.version}`);
 		console.log(`   root: ${item.publishRoot}`);
-		console.log(`   command: npm publish <root> --access public`);
+		console.log("   command: npm publish <root> --access public");
 	}
 }
 
@@ -157,7 +157,6 @@ export async function preparePublishRoot(entry, context) {
 	for (const fileEntry of entry.manifest.files ?? []) {
 		await cp(resolve(entry.root, fileEntry), resolve(publishRoot, fileEntry), { recursive: true });
 	}
-	await rewritePublishedKernelImports(publishRoot);
 	const manifest = buildPublishManifest(entry.manifest, context);
 	assertPublishManifest(manifest);
 	await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
@@ -176,7 +175,7 @@ export function buildPublishManifest(sourceManifest, context) {
 		files: sourceManifest.files,
 		engines: context.workspaceManifest.engines,
 		publishConfig: { access: "public" },
-		...(sourceManifest.bin === undefined ? {} : { bin: normalizeBinPaths(sourceManifest.bin) }),
+		...(sourceManifest.bin === undefined ? {} : { bin: normalizeManifestBinPaths(sourceManifest.bin) }),
 		...(sourceManifest.exports === undefined ? {} : { exports: sourceManifest.exports }),
 		dependencies: rewriteDependencyBlock(sourceManifest.dependencies ?? {}, context),
 	};
@@ -204,19 +203,6 @@ function assertPublishOrder() {
 	if (missing.length > 0 || extra.length > 0) {
 		throw new Error(`Explicit publish order does not match intended public set. Missing: ${missing.join(", ")}; extra: ${extra.join(", ")}`);
 	}
-	if (publicPublishOrder[0] !== "@nseng-ai/ns") throw new Error("@nseng-ai/ns must publish first for @nseng-ai/ns/kernel/* dependents");
-}
-
-function normalizeBinPaths(bin) {
-	if (typeof bin === "string") return stripLeadingCurrentDirectory(bin);
-	if (bin !== null && typeof bin === "object" && !Array.isArray(bin)) {
-		return Object.fromEntries(Object.entries(bin).map(([name, target]) => [name, stripLeadingCurrentDirectory(target)]));
-	}
-	return bin;
-}
-
-function stripLeadingCurrentDirectory(value) {
-	return typeof value === "string" ? value.replace(/^\.\//, "") : value;
 }
 
 function rewriteDependencyBlock(dependencies, context) {
@@ -242,11 +228,6 @@ function rewritePeerDependencyBlock(dependencies, context) {
 }
 
 function rewriteDependency(name, specifier, context) {
-	if (name === "@nseng-ai/kernel") {
-		const nsManifest = context.manifestByName.get("@nseng-ai/ns")?.manifest;
-		if (nsManifest === undefined) throw new Error("Missing workspace manifest for @nseng-ai/ns");
-		return { name: "@nseng-ai/ns", specifier: nsManifest.version };
-	}
 	if (excludedPackages.has(name)) throw new Error(`Publish manifest must not depend on excluded package ${name}`);
 	if (specifier === "workspace:*") {
 		const dependencyManifest = context.manifestByName.get(name)?.manifest;
@@ -256,20 +237,6 @@ function rewriteDependency(name, specifier, context) {
 	}
 	if (specifier === "catalog:") return { name, specifier: catalogVersion(context.workspaceYaml, name) };
 	return { name, specifier };
-}
-
-async function rewritePublishedKernelImports(root) {
-	for (const entry of await readdir(root, { withFileTypes: true })) {
-		const path = resolve(root, entry.name);
-		if (entry.isDirectory()) {
-			await rewritePublishedKernelImports(path);
-			continue;
-		}
-		if (![".js", ".mjs", ".ts", ".tsx"].includes(extname(entry.name))) continue;
-		const source = await readFile(path, "utf8");
-		const rewritten = source.replaceAll("@nseng-ai/kernel/", "@nseng-ai/ns/kernel/");
-		if (rewritten !== source) await writeFile(path, rewritten);
-	}
 }
 
 function assertPublishManifest(manifest) {
@@ -294,18 +261,13 @@ function assertIntendedSet(manifestByName) {
 	}
 }
 
-function assertNsKernelExports(manifestByName) {
-	const nsManifest = manifestByName.get("@nseng-ai/ns")?.manifest;
-	const exports = nsManifest?.exports ?? {};
-	for (const subpath of ["./kernel/cli", "./kernel/command-io", "./kernel/context", "./kernel/pi-text-generation", "./kernel/sdk"]) {
-		if (exports[subpath] === undefined) throw new Error(`@nseng-ai/ns source manifest is missing ${subpath}`);
+function assertKernelExports(manifestByName) {
+	const kernelManifest = manifestByName.get("@nseng-ai/kernel")?.manifest;
+	const exports = kernelManifest?.exports ?? {};
+	const expectedExports = kernelPublicExports();
+	for (const subpath of kernelPublicSubpaths.map((subpath) => `./${subpath}`)) {
+		if (exports[subpath] !== expectedExports[subpath]) throw new Error(`@nseng-ai/kernel source manifest is missing ${subpath}`);
 	}
-}
-
-function catalogVersion(source, packageName) {
-	const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const pattern = new RegExp(`^\\s*['"]?${escaped}['"]?:\\s*([^\\s#]+)`, "m");
-	const match = pattern.exec(source);
-	if (match?.[1] === undefined) throw new Error(`Missing catalog version for ${packageName}`);
-	return match[1].replace(/^['"]|['"]$/g, "");
+	const nsManifest = manifestByName.get("@nseng-ai/ns")?.manifest;
+	if (nsManifest?.exports !== undefined) throw new Error("@nseng-ai/ns must not export kernel subpaths");
 }

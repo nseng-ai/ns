@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { kernelPublicSubpaths } from "./kernel-public-subpaths.mjs";
 import { intendedPublicPackages, readWorkspacePackageManifests, repoRoot } from "./public-package-set.mjs";
+import { isMissingPackageResult, normalizeBinPaths, snippet } from "./public-package-helpers.mjs";
 
-const criticalNsExports = [
-	"./kernel/cli",
-	"./kernel/command-io",
-	"./kernel/context",
-	"./kernel/pi-text-generation",
-	"./kernel/sdk",
-];
+const criticalKernelExports = kernelPublicSubpaths.map((subpath) => `./${subpath}`);
 
 const args = parseArgs(process.argv.slice(2));
 if (args.shouldShowHelp) {
@@ -50,9 +46,7 @@ function parseArgs(rawArgs) {
 	const parsed = { isStrict: false, versionOverride: undefined, shouldShowHelp: false };
 	for (let index = 0; index < rawArgs.length; index += 1) {
 		const arg = rawArgs[index];
-		if (arg === "--") {
-			continue;
-		}
+		if (arg === "--") continue;
 		if (arg === "--strict") {
 			parsed.isStrict = true;
 			continue;
@@ -105,9 +99,7 @@ function verifyPackage({ packageName, expectedVersion, manifest }) {
 		};
 	}
 	const registry = parseNpmViewJson(npmView.stdout, packageName, expectedVersion);
-	if (registry.type === "error") {
-		return { packageName, expectedVersion, status: "error", details: [registry.message], evidence: [] };
-	}
+	if (registry.type === "error") return { packageName, expectedVersion, status: "error", details: [registry.message], evidence: [] };
 	const comparison = compareRegistryMetadata({ packageName, expectedVersion, manifest, registry: registry.value });
 	return {
 		packageName,
@@ -116,11 +108,6 @@ function verifyPackage({ packageName, expectedVersion, manifest }) {
 		details: comparison.mismatches,
 		evidence: comparison.evidence,
 	};
-}
-
-function isMissingPackageResult(stderr, stdout) {
-	const text = `${stderr}\n${stdout}`;
-	return text.includes("E404") || text.includes("404 Not Found") || text.includes("is not in this registry");
 }
 
 function parseNpmViewJson(stdout, packageName, expectedVersion) {
@@ -136,9 +123,7 @@ function compareRegistryMetadata({ packageName, expectedVersion, manifest, regis
 	const evidence = [];
 	if (registry.name !== packageName) mismatches.push(`name ${formatValue(registry.name)} != ${packageName}`);
 	if (registry.version !== expectedVersion) mismatches.push(`version ${formatValue(registry.version)} != ${expectedVersion}`);
-	if (!hasPresentString(registry?.dist?.tarball) && !hasPresentString(registry?.["dist.tarball"])) {
-		mismatches.push("missing dist.tarball");
-	}
+	if (!hasPresentString(registry?.dist?.tarball) && !hasPresentString(registry?.["dist.tarball"])) mismatches.push("missing dist.tarball");
 	if (!hasTimeForVersion(registry.time, expectedVersion)) mismatches.push(`missing publish time for ${expectedVersion}`);
 	compareBin({ packageName, localBin: manifest.bin, registryBin: registry.bin, mismatches, evidence });
 	compareExports({ packageName, localExports: manifest.exports, registryExports: registry.exports, mismatches, evidence });
@@ -147,8 +132,8 @@ function compareRegistryMetadata({ packageName, expectedVersion, manifest, regis
 
 function compareBin({ packageName, localBin, registryBin, mismatches, evidence }) {
 	if (localBin === undefined) return;
-	const localBinObject = normalizeBin(localBin);
-	const registryBinObject = normalizeBin(registryBin);
+	const localBinObject = normalizeBinPaths(localBin);
+	const registryBinObject = normalizeBinPaths(registryBin);
 	for (const [name, target] of Object.entries(localBinObject)) {
 		const registryTarget = registryBinObject[name];
 		if (registryTarget !== target) {
@@ -157,18 +142,6 @@ function compareBin({ packageName, localBin, registryBin, mismatches, evidence }
 		}
 		if (packageName === "@nseng-ai/ns" && name === "ns") evidence.push("bin.ns = bin/ns.js");
 	}
-}
-
-function normalizeBin(bin) {
-	if (typeof bin === "string") return { ns: stripLeadingCurrentDirectory(bin) };
-	if (bin !== null && typeof bin === "object" && !Array.isArray(bin)) {
-		return Object.fromEntries(Object.entries(bin).map(([name, target]) => [name, stripLeadingCurrentDirectory(target)]));
-	}
-	return {};
-}
-
-function stripLeadingCurrentDirectory(value) {
-	return typeof value === "string" ? value.replace(/^\.\//, "") : value;
 }
 
 function compareExports({ packageName, localExports, registryExports, mismatches, evidence }) {
@@ -180,7 +153,7 @@ function compareExports({ packageName, localExports, registryExports, mismatches
 			mismatches.push(`missing export ${exportKey}`);
 			continue;
 		}
-		if (packageName === "@nseng-ai/ns" && criticalNsExports.includes(exportKey)) evidence.push(`export ${exportKey}`);
+		if (packageName === "@nseng-ai/kernel" && criticalKernelExports.includes(exportKey)) evidence.push(`export ${exportKey}`);
 	}
 }
 
@@ -224,16 +197,9 @@ function printSummary(results) {
 		if (result.status === "mismatched") counts.mismatched += 1;
 		if (result.status === "error") counts.errors += 1;
 	}
-	console.log(
-		`Summary: ${counts.published} published, ${counts.missing} missing, ${counts.mismatched} mismatched, ${counts.errors} errors`,
-	);
+	console.log(`Summary: ${counts.published} published, ${counts.missing} missing, ${counts.mismatched} mismatched, ${counts.errors} errors`);
 }
 
 function formatValue(value) {
 	return value === undefined ? "<missing>" : JSON.stringify(value);
-}
-
-function snippet(value) {
-	const oneLine = value.replaceAll("\n", " ").trim();
-	return oneLine.length > 240 ? `${oneLine.slice(0, 237)}...` : oneLine;
 }

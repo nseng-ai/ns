@@ -32,6 +32,7 @@ export function collectPackageTierLayeringViolations(
 				),
 			);
 		}
+		violations.push(...collectSubpackageTierMetadataViolations(metadata));
 	}
 
 	const packageNames = new Set(metadataByName.keys());
@@ -82,21 +83,60 @@ function isAllowedPiSubpackagePeerEdge(
 }
 
 function isAllowedPublicSubpackageTierDependency(
-	edge: { readonly from: string; readonly to: string },
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
+	_edge: { readonly from: string; readonly to: string },
+	_metadataByName: ReadonlyMap<string, PackageMetadata>,
 ): boolean {
-	const fromTier = metadataByName.get(edge.from)?.nsTier;
-	const toMetadata = metadataByName.get(edge.to);
-	if (fromTier === undefined || toMetadata === undefined) return false;
-	return [...toMetadata.nsSubpackageTiers.values()].some((subpackageTier) =>
-		packageTierAllowedTargets[fromTier].has(subpackageTier),
-	);
+	// Manifest dependencies name only the target package, not the imported subpath. Do not let a
+	// lower-tier public subpackage legalize arbitrary whole-package manifest edges.
+	return false;
 }
 
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {
 	if (!isRecord(peerDependenciesMeta)) return false;
 	const entry = peerDependenciesMeta[packageName];
 	return isRecord(entry) && entry.optional === true;
+}
+
+function collectSubpackageTierMetadataViolations(metadata: PackageMetadata): SourceRuleViolation[] {
+	const nsField = metadata.manifest.ns;
+	if (!isRecord(nsField) || !isRecord(nsField.subpackageTiers)) return [];
+	const violations: SourceRuleViolation[] = [];
+	for (const [subpackage, rawTier] of Object.entries(nsField.subpackageTiers)) {
+		if (!metadata.nsSubpackages.includes(subpackage)) {
+			violations.push(
+				buildSubpackageTierMetadataViolation(
+					metadata,
+					subpackage,
+					`ns.subpackageTiers.${subpackage} does not match a declared ns.subpackages entry`,
+				),
+			);
+		}
+		if (typeof rawTier !== "string" || !packageTierValues.includes(rawTier as PackageTier)) {
+			violations.push(
+				buildSubpackageTierMetadataViolation(
+					metadata,
+					subpackage,
+					`ns.subpackageTiers.${subpackage} has unknown tier ${JSON.stringify(rawTier)}; declare one of: ${packageTierValues.join(", ")}`,
+				),
+			);
+		}
+	}
+	return violations;
+}
+
+function buildSubpackageTierMetadataViolation(
+	metadata: PackageMetadata,
+	subpackage: string,
+	reason: string,
+): SourceRuleViolation {
+	const position = findSubpackageTierPosition(metadata, subpackage);
+	return {
+		rule: BAN_PACKAGE_TIER_LAYERING,
+		path: metadata.packageJsonPath,
+		line: position.line,
+		column: position.column,
+		text: `${metadata.name} ${reason}.`,
+	};
 }
 
 function buildTierMetadataViolation(
@@ -122,4 +162,16 @@ function findNsTierPosition(metadata: PackageMetadata): TextPosition {
 	}
 	const nameOffset = metadata.manifestContent.indexOf(`"${metadata.name}"`);
 	return lineAndColumnForOffset(metadata.manifestContent, Math.max(0, nameOffset));
+}
+
+function findSubpackageTierPosition(metadata: PackageMetadata, subpackage: string): TextPosition {
+	const nsOffset = metadata.manifestContent.indexOf('"ns"');
+	const subpackageTiersOffset =
+		nsOffset >= 0 ? metadata.manifestContent.indexOf('"subpackageTiers"', nsOffset) : -1;
+	if (subpackageTiersOffset >= 0) {
+		const keyOffset = metadata.manifestContent.indexOf(`"${subpackage}"`, subpackageTiersOffset);
+		if (keyOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, keyOffset);
+		return lineAndColumnForOffset(metadata.manifestContent, subpackageTiersOffset);
+	}
+	return findNsTierPosition(metadata);
 }
