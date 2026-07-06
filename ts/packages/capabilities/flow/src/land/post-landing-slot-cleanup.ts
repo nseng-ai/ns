@@ -5,13 +5,12 @@ import {
 } from "./stack/graphite-command-channel.ts";
 import {
 	completed,
-	failure,
 	landStackFailure,
 	success,
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./stack/errors.ts";
-import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
+import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./stack/presentation.ts";
 import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
 import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import {
@@ -125,8 +124,7 @@ export async function resolvePostLandingSlotCleanupDecision({
 	if (confirmationOutcome.failure.refusalReason === "declined")
 		return success({ type: "declined" });
 
-	presentFailureOutcome(ctx, confirmationOutcome.failure);
-	return failure(confirmationOutcome.failure);
+	return presentFailureAndReturn(ctx, confirmationOutcome.failure);
 }
 
 export async function runPostLandingSlotCleanup({
@@ -150,7 +148,7 @@ export async function runPostLandingSlotCleanup({
 				suggestedAction: target.suggestedAction,
 			},
 		);
-		return presentFailureOutcome(ctx, landFailure);
+		return presentFailureAndReturn(ctx, landFailure);
 	}
 
 	try {
@@ -177,7 +175,7 @@ export async function runPostLandingSlotCleanup({
 					suggestedAction: target.suggestedAction,
 				},
 			);
-			return presentFailureOutcome(ctx, landFailure);
+			return presentFailureAndReturn(ctx, landFailure);
 		}
 
 		if (target.localBranchDisposition.type === "delete") {
@@ -204,7 +202,7 @@ export async function runPostLandingSlotCleanup({
 						suggestedAction: `Delete local branch ${branch} manually when safe.`,
 					},
 				);
-				return presentFailureOutcome(ctx, landFailure);
+				return presentFailureAndReturn(ctx, landFailure);
 			}
 		}
 	} finally {
