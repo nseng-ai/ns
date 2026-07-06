@@ -14,7 +14,7 @@ import type {
 	PrintAwareLandStackCommandContext,
 	StackSnapshot,
 } from "./stack/types.ts";
-import type { LandGithubPrGateway, LandingFailure, PullRequestFacts } from "./types.ts";
+import type { LandGithubPrGateway, LandingFailure, SquashMergeVerification } from "./types.ts";
 
 export interface ValidPullRequestView {
 	number: number;
@@ -106,18 +106,11 @@ export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
 		);
 	}
 
-	const verified = await options.github.pullRequestFacts({
-		repoRoot: options.target.repoRoot,
-		branchOrNumber: String(pr.number),
-	});
-	if (verified.type === "failure") {
-		const message = `gh pr merge exited 0, but verification could not load PR #${pr.number}; post-landing cleanup skipped.\n${verified.failure.message}`;
-		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "failure" });
-		return isolatedFastPathResult(failure(landStackFailure(message)), beforeMergeValue);
-	}
-
+	// The squash merge already carries post-merge verification (from the mergePullRequest mutation
+	// response, or a single fallback pullRequestFacts load inside the gateway), so no extra
+	// `gh pr view` is needed here.
 	const verificationFailure = mergedVerificationFailure({
-		verified: verified.value,
+		verified: result.value.verification,
 		trunk: options.target.trunk,
 		branch: options.target.stack.actualCurrentBranch,
 	});
@@ -131,11 +124,9 @@ export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
 		return isolatedFastPathResult(failure(landStackFailure(verificationFailure)), beforeMergeValue);
 	}
 
-	const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
-	const output = successfulCommandOutput(result.value);
 	notifyPrintAware({
 		ctx: options.ctx,
-		message: output ? `${output}\n${message}` : message,
+		message: `Merged PR #${pr.number}; squash commit used PR title/body.`,
 		level: "info",
 		kind: "success",
 	});
@@ -162,10 +153,6 @@ function progress(
 	notifyPrintAware({ ctx, message, level: "info" });
 }
 
-function successfulCommandOutput(result: { stdout: string; stderr: string }): string {
-	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
-}
-
 function presentLandingFailure(
 	ctx: PrintAwareLandStackCommandContext,
 	landingFailure: LandingFailure,
@@ -174,7 +161,7 @@ function presentLandingFailure(
 }
 
 function mergedVerificationFailure(options: {
-	readonly verified: PullRequestFacts;
+	readonly verified: SquashMergeVerification;
 	readonly trunk: string;
 	readonly branch: string;
 }): string | undefined {
@@ -186,7 +173,7 @@ function mergedVerificationFailure(options: {
 	) {
 		return undefined;
 	}
-	return "gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.";
+	return "squash merge succeeded but PR did not verify as MERGED; post-landing cleanup skipped.";
 }
 
 export function parsePullRequestView(value: unknown): ValidPullRequestView | { error: string } {

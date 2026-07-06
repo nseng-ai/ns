@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
+import { mergePullRequestArgs } from "@nseng-ai/capability-kit/github/pr-mutations";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
@@ -807,21 +808,13 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("emits Graphite telemetry and redacts gh merge bodies in telemetry display", async () => {
-		const pi = new FakePi([
-			step("gt", ["restack", "--upstack"]),
-			step("gh", [
-				"pr",
-				"merge",
-				"101",
-				"--squash",
-				"--match-head-commit",
-				SHA_A,
-				"--subject",
-				"PR title",
-				"--body",
-				"sensitive PR body",
-			]),
-		]);
+		const mergeArgs = mergePullRequestArgs({
+			pullRequestId: "PR_node_101",
+			expectedHeadOid: SHA_A,
+			commitHeadline: "PR title",
+			commitBody: "sensitive PR body",
+		});
+		const pi = new FakePi([step("gt", ["restack", "--upstack"]), step("gh", mergeArgs)]);
 		const telemetry: FlowLandExternalCallTelemetryEvent[] = [];
 		const context = createContext();
 		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx), {
@@ -830,22 +823,7 @@ describe("land-stack pure helpers", () => {
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		await streamed.exec("gt", ["restack", "--upstack"], { cwd: ROOT });
-		await streamed.exec(
-			"gh",
-			[
-				"pr",
-				"merge",
-				"101",
-				"--squash",
-				"--match-head-commit",
-				SHA_A,
-				"--subject",
-				"PR title",
-				"--body",
-				"sensitive PR body",
-			],
-			{ cwd: ROOT },
-		);
+		await streamed.exec("gh", mergeArgs, { cwd: ROOT });
 
 		pi.assertDone();
 		expect(telemetry[0]).toMatchObject({
@@ -855,18 +833,18 @@ describe("land-stack pure helpers", () => {
 		});
 		expect(telemetry[1]).toMatchObject({
 			category: "github-cli",
-			operation: "gh pr merge",
-			display:
-				"gh pr merge 101 --squash --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --subject 'PR title' --body '<PR body>'",
+			operation: "gh api graphql mergePullRequest",
 			quota: {
 				kind: "static",
 				provider: "github",
-				graphqlRequests: 2,
+				graphqlRequests: 1,
 				restRequests: 0,
-				rateLimitCost: 2,
-				description: "gh pr merge uses one PR finder query plus one mergePullRequest mutation",
+				rateLimitCost: 1,
+				description: "gh api graphql mergePullRequest uses one GraphQL squash-merge mutation",
 			},
 		});
+		// The PR body is carried as `-f commitBody=...`; it must be redacted from telemetry display.
+		expect(telemetry[1]?.display).toContain("'commitBody=<PR body>'");
 		expect(telemetry[1]?.display).not.toContain("sensitive PR body");
 	});
 

@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import { mergePullRequestArgs } from "@nseng-ai/capability-kit/github/pr-mutations";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
@@ -22,7 +23,6 @@ const ROOT = "/repo";
 const CURRENT = "feature-branch";
 const TRUNK = "main";
 const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", FLOW_LAND_PR_FIELDS];
-const PR_VERIFY_ARGS = ["pr", "view", "42", "--json", FLOW_LAND_PR_FIELDS];
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 const STACK_PR_VIEW_FIELDS = FLOW_LAND_PR_FIELDS;
@@ -361,42 +361,48 @@ function prView(
 	});
 }
 
-function mergedPrView(): string {
-	return prView({ state: "MERGED", mergedAt: "2026-07-02T00:00:00Z" });
-}
-
 function expectedMergeArgs(
 	options: { number?: number; sha?: string; title?: string; body?: string } = {},
 ): string[] {
-	return [
-		"pr",
-		"merge",
-		String(options.number ?? 42),
-		"--squash",
-		"--match-head-commit",
-		options.sha ?? SHA_CURRENT,
-		"--subject",
-		options.title ?? "Ship feature",
-		"--body",
-		options.body ?? "Feature body",
-	];
+	return mergePullRequestArgs({
+		pullRequestId: `PR_node_${options.number ?? 42}`,
+		expectedHeadOid: options.sha ?? SHA_CURRENT,
+		commitHeadline: options.title ?? "Ship feature",
+		commitBody: options.body ?? "Feature body",
+	});
 }
 
 function expectedStackMergeArgs(
 	options: { number?: number; sha?: string; title?: string; body?: string } = {},
 ): string[] {
-	return [
-		"pr",
-		"merge",
-		String(options.number ?? 42),
-		"--squash",
-		"--match-head-commit",
-		options.sha ?? SHA_CURRENT,
-		"--subject",
-		options.title ?? "Ship feature",
-		"--body",
-		options.body ?? "Feature body",
-	];
+	return expectedMergeArgs(options);
+}
+
+// The `mergePullRequest` mutation response carries post-merge verification (number/state/mergedAt/
+// base/head/url), replacing the follow-up `gh pr view`.
+function mergedMutationResponse(
+	options: {
+		number?: number;
+		branch?: string;
+		base?: string;
+		state?: string;
+		mergedAt?: string | null;
+	} = {},
+): string {
+	return JSON.stringify({
+		data: {
+			mergePullRequest: {
+				pullRequest: {
+					number: options.number ?? 42,
+					state: options.state ?? "MERGED",
+					mergedAt: options.mergedAt === undefined ? "2026-07-02T00:00:00Z" : options.mergedAt,
+					baseRefName: options.base ?? TRUNK,
+					headRefName: options.branch ?? CURRENT,
+					url: `https://github.example/pull/${options.number ?? 42}`,
+				},
+			},
+		},
+	});
 }
 
 function stackPrView(
@@ -488,9 +494,8 @@ function successfulStackLandingSteps(root = ROOT): ScriptedExec[] {
 		step("gh", ["pr", "view", CURRENT, "--json", STACK_PR_VIEW_FIELDS], {
 			stdout: stackPrView(),
 		}),
-		step("gh", expectedStackMergeArgs(), { stdout: "Merged pull request #42" }),
-		step("gh", ["pr", "view", "42", "--json", STACK_PR_VIEW_FIELDS], {
-			stdout: stackPrView({ state: "MERGED", mergedAt: "2026-05-22T00:00:00Z" }),
+		step("gh", expectedStackMergeArgs(), {
+			stdout: mergedMutationResponse({ base: TRUNK, mergedAt: "2026-05-22T00:00:00Z" }),
 		}),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
 			stdout: `${SHA_CHILD}\n`,
@@ -720,8 +725,7 @@ describe("code land command", () => {
 		const pi = new FakePiWithMessages([
 			...graphiteShapeSteps(DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
-			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
-			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
+			step("gh", expectedMergeArgs(), { stdout: mergedMutationResponse() }),
 		]);
 		registerLandCommand(pi);
 		const command = pi.commands.get("ns:flow:land");
@@ -754,11 +758,11 @@ describe("code land command", () => {
 	test("squash-merges the current PR with the PR title and body", async () => {
 		const { pi, notifications, waitForIdleCalls } = await runLand([
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
-			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
-			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
+			step("gh", expectedMergeArgs(), { stdout: mergedMutationResponse() }),
 		]);
 
 		expect(waitForIdleCalls()).toBe(1);
+		// The post-merge `gh pr view` is gone: verification comes from the mergePullRequest response.
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
 			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
@@ -767,7 +771,6 @@ describe("code land command", () => {
 				args: expectedMergeArgs(),
 				options: { cwd: ROOT, timeout: PR_MERGE_TIMEOUT_MS },
 			},
-			{ command: "gh", args: PR_VERIFY_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
 		]);
 		expect(notifications).toEqual([
 			{
@@ -775,7 +778,7 @@ describe("code land command", () => {
 				level: "info",
 			},
 			{
-				message: "Merged pull request #42\nMerged PR #42; squash commit used PR title/body.",
+				message: "Merged PR #42; squash commit used PR title/body.",
 				level: "info",
 			},
 		]);
@@ -787,8 +790,7 @@ describe("code land command", () => {
 		const pi = new FakePi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
-			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
-			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
+			step("gh", expectedMergeArgs(), { stdout: mergedMutationResponse() }),
 			step("ns", ["slot", "free", "--wt", "slot-01"]),
 			step("gt", ["delete", CURRENT, "-f", "-q"]),
 		]);
@@ -823,8 +825,7 @@ describe("code land command", () => {
 		const { pi, events } = createRecordingPi([
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
-			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
-			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
+			step("gh", expectedMergeArgs(), { stdout: mergedMutationResponse() }),
 		]);
 		registerLandCommand(pi);
 		const command = pi.commands.get("ns:flow:land");
@@ -866,15 +867,14 @@ describe("code land command", () => {
 		const { pi, notifications, printed } = await runLand(
 			[
 				step("gh", PR_VIEW_ARGS, { stdout: prView() }),
-				step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
-				step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
+				step("gh", expectedMergeArgs(), { stdout: mergedMutationResponse() }),
 			],
 			{ mode: "print" },
 		);
 
 		expect(printed).toEqual([
 			"Running gh pr merge --squash with PR title/body as commit message…\n",
-			"Merged pull request #42\nMerged PR #42; squash commit used PR title/body.\n",
+			"Merged PR #42; squash commit used PR title/body.\n",
 		]);
 		expect(notifications).toEqual([
 			{
@@ -882,7 +882,7 @@ describe("code land command", () => {
 				level: "info",
 			},
 			{
-				message: "Merged pull request #42\nMerged PR #42; squash commit used PR title/body.",
+				message: "Merged PR #42; squash commit used PR title/body.",
 				level: "info",
 			},
 		]);
@@ -904,11 +904,11 @@ describe("code land command", () => {
 	test("passes an empty body when the PR body is null", async () => {
 		const { pi } = await runLand([
 			step("gh", PR_VIEW_ARGS, { stdout: prView({ body: null }) }),
-			step("gh", expectedMergeArgs({ body: "" })),
-			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
+			step("gh", expectedMergeArgs({ body: "" }), { stdout: mergedMutationResponse() }),
 		]);
 
-		expect(pi.execCalls.at(-2)?.args).toEqual(expectedMergeArgs({ body: "" }));
+		expect(pi.execCalls.at(-1)?.args).toEqual(expectedMergeArgs({ body: "" }));
+		expect(pi.execCalls.at(-1)?.args).toContain("commitBody=");
 		pi.assertDone();
 	});
 
@@ -995,7 +995,8 @@ describe("code land command", () => {
 				level: "info",
 			},
 			{
-				message: "land stopped: gh pr merge --squash with PR title/body failed for PR #42.",
+				message:
+					"land stopped: GraphQL squash merge (gh api graphql mergePullRequest) failed for PR #42.",
 				level: "error",
 			},
 		]);

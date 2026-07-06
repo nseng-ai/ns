@@ -1,5 +1,8 @@
 import { GRAPHITE_COMMAND_NAME } from "@nseng-ai/capability-kit/graphite/branch";
-import { RETARGET_PULL_REQUEST_BASE_MUTATION_NAME } from "@nseng-ai/capability-kit/github/pr-mutations";
+import {
+	MERGE_PULL_REQUEST_MUTATION_NAME,
+	RETARGET_PULL_REQUEST_BASE_MUTATION_NAME,
+} from "@nseng-ai/capability-kit/github/pr-mutations";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isReadGraphiteBranchMetadataArgs } from "./graphite-command-channel.ts";
@@ -142,6 +145,24 @@ function classifyGithubCliInvocation(args: readonly string[]): CommandInvocation
 				restRequests: 0,
 				rateLimitCost: 1,
 				description: "gh repo view --json uses one GraphQL query",
+			},
+		};
+	}
+	if (
+		args[0] === "api" &&
+		args[1] === "graphql" &&
+		hasGraphqlMutation(args, MERGE_PULL_REQUEST_MUTATION_NAME)
+	) {
+		return {
+			category: "github-cli",
+			operation: "gh api graphql mergePullRequest",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 1,
+				restRequests: 0,
+				rateLimitCost: 1,
+				description: "gh api graphql mergePullRequest uses one GraphQL squash-merge mutation",
 			},
 		};
 	}

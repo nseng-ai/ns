@@ -163,6 +163,22 @@ class FakePi implements LandStackExtensionAPI {
 	}
 }
 
+// The squash merge is now the GraphQL `mergePullRequest` mutation via `gh api graphql`.
+function isSquashMergeCall(call: { command: string; args: string[] }): boolean {
+	return (
+		call.command === "gh" &&
+		call.args[0] === "api" &&
+		call.args[1] === "graphql" &&
+		call.args.some((arg) => arg.startsWith("query=") && arg.includes("mergePullRequest"))
+	);
+}
+
+function squashMergePrNumber(call: { command: string; args: string[] }): string {
+	const idArg = call.args.find((arg) => arg.startsWith("pullRequestId="));
+	const id = idArg?.slice("pullRequestId=".length) ?? "";
+	return id.startsWith("PR_node_") ? id.slice("PR_node_".length) : id;
+}
+
 function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -584,10 +600,8 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101"]);
 	});
 
@@ -617,10 +631,8 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101"]);
 	});
 

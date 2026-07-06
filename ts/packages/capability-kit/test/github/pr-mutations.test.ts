@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	MERGE_PULL_REQUEST_MUTATION,
+	MERGE_PULL_REQUEST_MUTATION_NAME,
+	mergePullRequestArgs,
+	parseMergePullRequestResult,
 	parseRetargetPullRequestBaseResult,
 	RETARGET_PULL_REQUEST_BASE_MUTATION,
 	RETARGET_PULL_REQUEST_BASE_MUTATION_NAME,
@@ -62,5 +66,138 @@ describe("parseRetargetPullRequestBaseResult", () => {
 		expect(parseRetargetPullRequestBaseResult("<html>nope</html>")).toEqual({
 			type: "invalid-json",
 		});
+	});
+});
+
+describe("mergePullRequestArgs", () => {
+	test("maps 1:1 onto the old gh pr merge semantics via raw-string variables", () => {
+		expect(
+			mergePullRequestArgs({
+				pullRequestId: "PR_node_101",
+				expectedHeadOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				commitHeadline: "Ship feature",
+				commitBody: "Feature body",
+			}),
+		).toEqual([
+			"api",
+			"graphql",
+			"-f",
+			"pullRequestId=PR_node_101",
+			// expectedHeadOid == old `--match-head-commit <headRefOid>`
+			"-f",
+			"expectedHeadOid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			// commitHeadline == old `--subject <title>`
+			"-f",
+			"commitHeadline=Ship feature",
+			// commitBody == old `--body <body ?? "">`
+			"-f",
+			"commitBody=Feature body",
+			"-f",
+			`query=${MERGE_PULL_REQUEST_MUTATION}`,
+		]);
+	});
+
+	test("passes an empty commit body through unchanged", () => {
+		expect(
+			mergePullRequestArgs({
+				pullRequestId: "PR_node_101",
+				expectedHeadOid: "a".repeat(40),
+				commitHeadline: "Ship feature",
+				commitBody: "",
+			}),
+		).toContain("commitBody=");
+	});
+
+	test("carries the mutation name so telemetry can classify the call", () => {
+		expect(MERGE_PULL_REQUEST_MUTATION).toContain(MERGE_PULL_REQUEST_MUTATION_NAME);
+		expect(MERGE_PULL_REQUEST_MUTATION_NAME).toBe("mergePullRequest");
+		expect(MERGE_PULL_REQUEST_MUTATION).toContain("mergeMethod:SQUASH");
+	});
+});
+
+describe("parseMergePullRequestResult", () => {
+	test("accepts the happy merged response", () => {
+		const stdout = JSON.stringify({
+			data: {
+				mergePullRequest: {
+					pullRequest: {
+						number: 101,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+						baseRefName: "main",
+						headRefName: "feature-a",
+						url: "https://github.example/pull/101",
+					},
+				},
+			},
+		});
+		expect(parseMergePullRequestResult(stdout)).toEqual({
+			type: "ok",
+			pullRequest: {
+				number: 101,
+				state: "MERGED",
+				mergedAt: "2026-05-22T00:00:00Z",
+				baseRefName: "main",
+				headRefName: "feature-a",
+				url: "https://github.example/pull/101",
+			},
+		});
+	});
+
+	test("accepts a null mergedAt (state not yet MERGED) without an url", () => {
+		const stdout = JSON.stringify({
+			data: {
+				mergePullRequest: {
+					pullRequest: {
+						number: 101,
+						state: "OPEN",
+						mergedAt: null,
+						baseRefName: "main",
+						headRefName: "feature-a",
+					},
+				},
+			},
+		});
+		expect(parseMergePullRequestResult(stdout)).toEqual({
+			type: "ok",
+			pullRequest: {
+				number: 101,
+				state: "OPEN",
+				mergedAt: null,
+				baseRefName: "main",
+				headRefName: "feature-a",
+			},
+		});
+	});
+
+	test("surfaces a head-branch-modified GraphQL error", () => {
+		const stdout = JSON.stringify({
+			data: { mergePullRequest: null },
+			errors: [{ message: "Head branch was modified. Review and try the merge again." }],
+		});
+		expect(parseMergePullRequestResult(stdout)).toEqual({
+			type: "graphql-errors",
+			messages: ["Head branch was modified. Review and try the merge again."],
+		});
+	});
+
+	test("surfaces a not-mergeable GraphQL error", () => {
+		const stdout = JSON.stringify({
+			data: { mergePullRequest: null },
+			errors: [{ message: "Pull request is not mergeable" }],
+		});
+		expect(parseMergePullRequestResult(stdout)).toEqual({
+			type: "graphql-errors",
+			messages: ["Pull request is not mergeable"],
+		});
+	});
+
+	test("flags a schema mismatch when the payload shape is wrong", () => {
+		const stdout = JSON.stringify({ data: { mergePullRequest: { pullRequest: {} } } });
+		expect(parseMergePullRequestResult(stdout)).toEqual({ type: "schema-mismatch" });
+	});
+
+	test("flags invalid JSON", () => {
+		expect(parseMergePullRequestResult("<html>nope</html>")).toEqual({ type: "invalid-json" });
 	});
 });

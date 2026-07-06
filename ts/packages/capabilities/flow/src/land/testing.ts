@@ -693,10 +693,9 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 			pullRequest: cloneData(request.pullRequest),
 		});
 		return valueResult({
-			state: this.squashMergeResults.get(String(request.pullRequest.number)) ?? {
-				stdout: "",
-				stderr: "",
-			},
+			state:
+				this.squashMergeResults.get(String(request.pullRequest.number)) ??
+				defaultSquashMergeResult(request.pullRequest),
 			source: "github",
 			phase: "merge",
 			code: "squash_merge_failed",
@@ -721,6 +720,21 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		this.retargetedBaseByNumber.set(request.pullRequest.number, request.baseRefName);
 		return { type: "retargeted" };
 	}
+}
+
+function defaultSquashMergeResult(pr: PullRequestFacts): SquashMergePullRequestResult {
+	return {
+		stdout: "",
+		stderr: "",
+		verification: {
+			number: pr.number,
+			state: "MERGED",
+			mergedAt: "2026-01-01T00:00:00.000Z",
+			baseRefName: pr.baseRefName,
+			headRefName: pr.headRefName,
+			...(pr.url === undefined ? {} : { url: pr.url }),
+		},
+	};
 }
 
 export interface InMemoryLandWorktreeSlotFactsGatewayState {

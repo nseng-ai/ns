@@ -200,7 +200,18 @@ describe("@nseng-ai/flow/land API boundary", () => {
 							baseRefName: "main",
 							headRefOid: "aaaaaaaa",
 						}),
-					squashMergePullRequest: async () => landSuccess({ stdout: "", stderr: "" }),
+					squashMergePullRequest: async () =>
+						landSuccess({
+							stdout: "",
+							stderr: "",
+							verification: {
+								number: 1,
+								state: "MERGED",
+								mergedAt: "2026-01-01T00:00:00.000Z",
+								baseRefName: "main",
+								headRefName: "feature/a",
+							},
+						}),
 					retargetPullRequestBase: async () => ({ type: "retargeted" }),
 				},
 				worktrees: {

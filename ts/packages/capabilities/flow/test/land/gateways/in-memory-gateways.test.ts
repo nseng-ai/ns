@@ -86,7 +86,20 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 					headRefOid: FEATURE_SHA,
 				}),
 			}),
-		).toEqual({ type: "success", value: { stdout: "", stderr: "" } });
+		).toEqual({
+			type: "success",
+			value: {
+				stdout: "",
+				stderr: "",
+				verification: {
+					number: 42,
+					state: "MERGED",
+					mergedAt: "2026-01-01T00:00:00.000Z",
+					baseRefName: "main",
+					headRefName: "feature/land-core",
+				},
+			},
+		});
 		expect(
 			await context.git.snapshotBackupRefs({
 				repoRoot: REPO_ROOT,

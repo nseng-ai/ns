@@ -271,16 +271,13 @@ export function formatCommandForDisplay(command: string, args: readonly string[]
 }
 
 function displayArgsForCommand(command: string, args: readonly string[]): string[] {
-	if (command !== "gh" || args[0] !== "pr" || args[1] !== "merge") {
+	// The GraphQL squash merge (gh api graphql mergePullRequest) carries the PR body as a
+	// `-f commitBody=<body>` argument; redact its value so the body never appears in display output.
+	if (command !== "gh" || args[0] !== "api" || args[1] !== "graphql") {
 		return [...args];
 	}
 
-	const displayArgs = [...args];
-	const bodyIndex = displayArgs.indexOf("--body");
-	if (bodyIndex >= 0 && bodyIndex + 1 < displayArgs.length) {
-		displayArgs[bodyIndex + 1] = "<PR body>";
-	}
-	return displayArgs;
+	return args.map((arg) => (arg.startsWith("commitBody=") ? "commitBody=<PR body>" : arg));
 }
 
 export function renderCommandStreamMessage(

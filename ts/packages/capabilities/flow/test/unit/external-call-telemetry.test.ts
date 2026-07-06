@@ -101,6 +101,32 @@ describe("flow land external-call telemetry classification", () => {
 		});
 	});
 
+	test("classifies the mergePullRequest squash-merge mutation with a single-request quota", () => {
+		expect(
+			classifyCommandInvocation({
+				command: "gh",
+				args: [
+					"api",
+					"graphql",
+					"-f",
+					"pullRequestId=PR_node_101",
+					"-f",
+					"expectedHeadOid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					"-f",
+					"commitHeadline=Ship feature",
+					"-f",
+					"commitBody=Feature body",
+					"-f",
+					"query=mutation($pullRequestId:ID!,$expectedHeadOid:GitObjectID!,$commitHeadline:String!,$commitBody:String!){mergePullRequest(input:{pullRequestId:$pullRequestId,mergeMethod:SQUASH,expectedHeadOid:$expectedHeadOid,commitHeadline:$commitHeadline,commitBody:$commitBody}){pullRequest{number state mergedAt baseRefName headRefName url}}}",
+				],
+			}),
+		).toMatchObject({
+			category: "github-cli",
+			operation: "gh api graphql mergePullRequest",
+			quota: { graphqlRequests: 1, restRequests: 0, rateLimitCost: 1 },
+		});
+	});
+
 	test("does not infer batched GraphQL branch count from query-only aliases", () => {
 		expect(
 			classifyCommandInvocation({

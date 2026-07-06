@@ -148,31 +148,22 @@ describe("land stack sandbox integration", () => {
 
 				expect(result.outcome.type).toBe("success");
 				const log = await readCommandLog(sandbox);
-				expect(commandArgs(log, "gh", "pr", "merge")).toEqual([
-					[
-						"pr",
-						"merge",
-						"101",
-						"--squash",
-						"--match-head-commit",
-						sandbox.shas[FEATURE_A],
-						"--subject",
-						"PR 101",
-						"--body",
-						"Body for PR 101",
-					],
-					[
-						"pr",
-						"merge",
-						"102",
-						"--squash",
-						"--match-head-commit",
-						sandbox.shas[FEATURE_B],
-						"--subject",
-						"PR 102",
-						"--body",
-						"Body for PR 102",
-					],
+				// The squash merges are now GraphQL mergePullRequest mutations carrying the same
+				// semantics as the old `gh pr merge` (expectedHeadOid == --match-head-commit,
+				// commitHeadline == --subject, commitBody == --body).
+				const mergeMutations = log.filter(isMergeMutationEntry);
+				expect(mergeMutations.map(mergeMutationPrId)).toEqual(["PR_node_101", "PR_node_102"]);
+				expect(mergeMutations.map((entry) => mergeMutationArg(entry, "expectedHeadOid"))).toEqual([
+					sandbox.shas[FEATURE_A],
+					sandbox.shas[FEATURE_B],
+				]);
+				expect(mergeMutations.map((entry) => mergeMutationArg(entry, "commitHeadline"))).toEqual([
+					"PR 101",
+					"PR 102",
+				]);
+				expect(mergeMutations.map((entry) => mergeMutationArg(entry, "commitBody"))).toEqual([
+					"Body for PR 101",
+					"Body for PR 102",
 				]);
 				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toEqual([
 					FEATURE_A,
@@ -183,22 +174,27 @@ describe("land stack sandbox integration", () => {
 				// The required next-landing refresh now advances trunk with a plain `git fetch`
 				// (unshimmed, so not in the command log) instead of `gt get FEATURE_B`.
 				expect(commandArgs(log, "gt", "get").map((args) => args[1])).not.toContain(FEATURE_B);
-				expect(commandIndex(log, "gh", ["pr", "merge", "101"])).toBeLessThan(
-					commandIndex(log, "gt", ["delete", FEATURE_A]),
+				const merge101Index = indexWhere(
+					log,
+					(entry) => isMergeMutationEntry(entry) && mergeMutationPrId(entry) === "PR_node_101",
 				);
+				const merge102Index = indexWhere(
+					log,
+					(entry) => isMergeMutationEntry(entry) && mergeMutationPrId(entry) === "PR_node_102",
+				);
+				expect(merge101Index).toBeLessThan(commandIndex(log, "gt", ["delete", FEATURE_A]));
 				expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
 					commandIndex(log, "gt", ["restack", "--branch", FEATURE_B]),
 				);
 				// The required next-landing path retargets feature-b's base via a GraphQL mutation
 				// (after restacking + a --force-with-lease push) instead of `gt submit --update-only`.
 				expect(commandArgs(log, "gt", "submit").map((args) => args[2])).not.toContain(FEATURE_B);
-				expect(commandIndex(log, "gh", ["api", "graphql"])).toBeGreaterThanOrEqual(0);
+				const retargetIndex = indexWhere(log, isRetargetMutationEntry);
+				expect(retargetIndex).toBeGreaterThanOrEqual(0);
 				expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
-					commandIndex(log, "gh", ["api", "graphql"]),
+					retargetIndex,
 				);
-				expect(commandIndex(log, "gh", ["pr", "merge", "102"])).toBeLessThan(
-					commandIndex(log, "gt", ["get", FEATURE_C]),
-				);
+				expect(merge102Index).toBeLessThan(commandIndex(log, "gt", ["get", FEATURE_C]));
 
 				const branches = await localBranches(sandbox);
 				expect(branches).not.toContain(FEATURE_A);
@@ -313,7 +309,7 @@ describe("land stack sandbox integration", () => {
 						"Refusing to land: the stack forks at feature-a.",
 					);
 					const log = await readCommandLog(sandbox);
-					expect(commandArgs(log, "gh", "pr", "merge")).toEqual([]);
+					expect(log.filter(isMergeMutationEntry)).toEqual([]);
 					expect(commandArgs(log, "gt", "get")).toEqual([]);
 					expect(commandArgs(log, "gt", "delete")).toEqual([]);
 					expect(commandArgs(log, "gt", "restack")).toEqual([]);
@@ -631,6 +627,45 @@ function matchesCommand(
 	return entry.command === command && prefix.every((part, index) => entry.args[index] === part);
 }
 
+// The squash merge is now the GraphQL `mergePullRequest` mutation via `gh api graphql`, not
+// `gh pr merge`. Both merge and base-retarget go through `gh api graphql`; distinguish by the
+// mutation carried in the `query=` arg.
+function isMergeMutationEntry(entry: SandboxCommandLogEntry): boolean {
+	return (
+		entry.command === "gh" &&
+		entry.args[0] === "api" &&
+		entry.args[1] === "graphql" &&
+		entry.args.some((arg) => arg.startsWith("query=") && arg.includes("mergePullRequest"))
+	);
+}
+
+function isRetargetMutationEntry(entry: SandboxCommandLogEntry): boolean {
+	return (
+		entry.command === "gh" &&
+		entry.args[0] === "api" &&
+		entry.args[1] === "graphql" &&
+		entry.args.some((arg) => arg.startsWith("query=") && arg.includes("updatePullRequest"))
+	);
+}
+
+function mergeMutationPrId(entry: SandboxCommandLogEntry): string {
+	const idArg = entry.args.find((arg) => arg.startsWith("pullRequestId="));
+	return idArg ? idArg.slice("pullRequestId=".length) : "";
+}
+
+function mergeMutationArg(entry: SandboxCommandLogEntry, key: string): string {
+	const prefix = `${key}=`;
+	const found = entry.args.find((arg) => arg.startsWith(prefix));
+	return found ? found.slice(prefix.length) : "";
+}
+
+function indexWhere(
+	log: readonly SandboxCommandLogEntry[],
+	predicate: (entry: SandboxCommandLogEntry) => boolean,
+): number {
+	return log.findIndex(predicate);
+}
+
 async function readCommandLog(sandbox: Sandbox): Promise<SandboxCommandLogEntry[]> {
 	return (await readState(sandbox.statePath)).commandLog;
 }
@@ -720,12 +755,39 @@ if (command === "gh") {
     finish(0, "");
   }
   if (args[0] === "api" && args[1] === "graphql") {
+    const queryArg = args.find((arg) => arg.startsWith("query=")) || "";
     const idArg = args.find((arg) => arg.startsWith("pullRequestId="));
-    const baseArg = args.find((arg) => arg.startsWith("baseRefName="));
     const pullRequestId = idArg ? idArg.slice("pullRequestId=".length) : "";
-    const baseRefName = baseArg ? baseArg.slice("baseRefName=".length) : "main";
     const pr = Object.values(state.prs || {}).find((candidate) => candidate.id === pullRequestId);
     if (!pr) finish(1, "", "no such PR id: " + pullRequestId + "\\n");
+    if (queryArg.indexOf("mergePullRequest") >= 0) {
+      const headArg = args.find((arg) => arg.startsWith("expectedHeadOid="));
+      const expectedHeadOid = headArg ? headArg.slice("expectedHeadOid=".length) : "";
+      if (expectedHeadOid && expectedHeadOid !== pr.headRefOid) {
+        finish(1, "", "head commit mismatch\\n");
+      }
+      pr.state = "MERGED";
+      pr.mergedAt = "2026-07-02T00:00:00Z";
+      finish(
+        0,
+        JSON.stringify({
+          data: {
+            mergePullRequest: {
+              pullRequest: {
+                number: pr.number,
+                state: pr.state,
+                mergedAt: pr.mergedAt,
+                baseRefName: pr.baseRefName,
+                headRefName: pr.headRefName,
+                url: pr.url,
+              },
+            },
+          },
+        }) + "\\n",
+      );
+    }
+    const baseArg = args.find((arg) => arg.startsWith("baseRefName="));
+    const baseRefName = baseArg ? baseArg.slice("baseRefName=".length) : "main";
     pr.baseRefName = baseRefName;
     finish(
       0,

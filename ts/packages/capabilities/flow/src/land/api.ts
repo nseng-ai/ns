@@ -102,6 +102,7 @@ export type {
 	RestackRequirement,
 	RetainedLocalBranchCleanup,
 	SquashMergePullRequestResult,
+	SquashMergeVerification,
 	StackLandingTarget,
 	StackSnapshot,
 	WorkingTreeStatus,

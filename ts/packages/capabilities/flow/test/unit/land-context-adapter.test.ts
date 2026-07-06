@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
-import { retargetPullRequestBaseArgs } from "@nseng-ai/capability-kit/github/pr-mutations";
+import {
+	mergePullRequestArgs,
+	retargetPullRequestBaseArgs,
+} from "@nseng-ai/capability-kit/github/pr-mutations";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
@@ -18,18 +21,81 @@ const ROOT = "/repo";
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 const FOR_EACH_REF_ARGS = [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS];
-const SQUASH_MERGE_ARGS = [
-	"pr",
-	"merge",
-	"42",
-	"--squash",
-	"--match-head-commit",
-	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	"--subject",
-	"Merge subject",
-	"--body",
-	"Merge body",
-];
+const MERGE_HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const SQUASH_MERGE_ARGS = mergePullRequestArgs({
+	pullRequestId: "PR_node_42",
+	expectedHeadOid: MERGE_HEAD_SHA,
+	commitHeadline: "Merge subject",
+	commitBody: "Merge body",
+});
+
+function mergeMutationStdout(
+	overrides: {
+		number?: number;
+		state?: string;
+		mergedAt?: string | null;
+		baseRefName?: string;
+		headRefName?: string;
+		url?: string;
+	} = {},
+): string {
+	return `${JSON.stringify({
+		data: {
+			mergePullRequest: {
+				pullRequest: {
+					number: overrides.number ?? 42,
+					state: overrides.state ?? "MERGED",
+					mergedAt: overrides.mergedAt === undefined ? "2026-05-22T00:00:00Z" : overrides.mergedAt,
+					baseRefName: overrides.baseRefName ?? "main",
+					headRefName: overrides.headRefName ?? "feature",
+					url: overrides.url ?? "https://github.example/pull/42",
+				},
+			},
+		},
+	})}\n`;
+}
+
+const PR_VIEW_FIELDS =
+	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+
+function prViewStdout(overrides: { state?: string; mergedAt?: string | null } = {}): string {
+	return `${JSON.stringify({
+		id: "PR_node_42",
+		number: 42,
+		title: "Merge subject",
+		body: "Merge body",
+		state: overrides.state ?? "MERGED",
+		isDraft: false,
+		headRefName: "feature",
+		baseRefName: "main",
+		headRefOid: MERGE_HEAD_SHA,
+		mergeStateStatus: "CLEAN",
+		url: "https://github.example/pull/42",
+		mergedAt: overrides.mergedAt === undefined ? "2026-05-22T00:00:00Z" : overrides.mergedAt,
+	})}\n`;
+}
+
+const MERGE_PULL_REQUEST: {
+	id: string;
+	number: number;
+	title: string;
+	body: string;
+	state: string;
+	isDraft: boolean;
+	headRefName: string;
+	baseRefName: string;
+	headRefOid: string;
+} = {
+	id: "PR_node_42",
+	number: 42,
+	title: "Merge subject",
+	body: "Merge body",
+	state: "OPEN",
+	isDraft: false,
+	headRefName: "feature",
+	baseRefName: "main",
+	headRefOid: MERGE_HEAD_SHA,
+};
 const BACKUP_ROTATION_ARGS = [
 	"fetch",
 	"--quiet",
@@ -154,28 +220,29 @@ describe("land context adapter facts", () => {
 		pi.assertDone();
 	});
 
-	test("squash merges pull requests with the existing gh argv", async () => {
+	test("squash merges via the GraphQL mergePullRequest argv and returns verification", async () => {
 		const pi = new FakePi([
-			step("gh", SQUASH_MERGE_ARGS, { stdout: "merged\n", stderr: "notice\n" }),
+			step("gh", SQUASH_MERGE_ARGS, { stdout: mergeMutationStdout(), stderr: "notice\n" }),
 		]);
 		const context = createTestLandContext(pi);
 
 		await expect(
-			context.github.squashMergePullRequest({
-				repoRoot: ROOT,
-				pullRequest: {
-					id: "PR_node_42",
+			context.github.squashMergePullRequest({ repoRoot: ROOT, pullRequest: MERGE_PULL_REQUEST }),
+		).resolves.toEqual({
+			type: "success",
+			value: {
+				stdout: mergeMutationStdout(),
+				stderr: "notice\n",
+				verification: {
 					number: 42,
-					title: "Merge subject",
-					body: "Merge body",
-					state: "OPEN",
-					isDraft: false,
-					headRefName: "feature",
+					state: "MERGED",
+					mergedAt: "2026-05-22T00:00:00Z",
 					baseRefName: "main",
-					headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					headRefName: "feature",
+					url: "https://github.example/pull/42",
 				},
-			}),
-		).resolves.toEqual({ type: "success", value: { stdout: "merged\n", stderr: "notice\n" } });
+			},
+		});
 		expect(pi.execCalls).toEqual([
 			{ command: "gh", args: SQUASH_MERGE_ARGS, options: { cwd: ROOT, timeout: 120000 } },
 		]);
@@ -184,38 +251,109 @@ describe("land context adapter facts", () => {
 
 	test("redacts squash merge body from failure diagnostics", async () => {
 		const secretBody = "secret PR body";
+		const secretArgs = mergePullRequestArgs({
+			pullRequestId: "PR_node_42",
+			expectedHeadOid: MERGE_HEAD_SHA,
+			commitHeadline: "Merge subject",
+			commitBody: secretBody,
+		});
 		const pi = new FakePi([
-			step("gh", [...SQUASH_MERGE_ARGS.slice(0, -1), secretBody], {
-				code: 1,
-				stderr: `rejected body: ${secretBody}\n`,
-			}),
+			step("gh", secretArgs, { code: 1, stderr: `rejected body: ${secretBody}\n` }),
 		]);
 		const context = createTestLandContext(pi);
 
 		const result = await context.github.squashMergePullRequest({
 			repoRoot: ROOT,
-			pullRequest: {
-				id: "PR_node_42",
-				number: 42,
-				title: "Merge subject",
-				body: secretBody,
-				state: "OPEN",
-				isDraft: false,
-				headRefName: "feature",
-				baseRefName: "main",
-				headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			},
+			pullRequest: { ...MERGE_PULL_REQUEST, body: secretBody },
 		});
 
 		expect(result.type).toBe("failure");
 		if (result.type === "failure") {
 			expect(result.failure.type).toBe("boundary");
 			if (result.failure.type === "boundary") {
+				// Property: the body never appears in failure output; the commitBody arg is redacted.
 				expect(result.failure.message).not.toContain(secretBody);
-				expect(result.failure.message).toContain("--body '<PR body>'");
-				expect(result.failure.displayCommand).toContain("--body '<PR body>'");
+				expect(result.failure.message).toContain("'commitBody=<PR body>'");
+				expect(result.failure.displayCommand).toContain("'commitBody=<PR body>'");
 				expect(result.failure.execResult?.stderr).toBe("rejected body: <PR body>\n");
 			}
+		}
+		pi.assertDone();
+	});
+
+	test("falls back to a single gh pr view when the merge response is unparseable", async () => {
+		const pi = new FakePi([
+			step("gh", SQUASH_MERGE_ARGS, { stdout: "not json\n" }),
+			step("gh", ["pr", "view", "42", "--json", PR_VIEW_FIELDS], { stdout: prViewStdout() }),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.github.squashMergePullRequest({
+			repoRoot: ROOT,
+			pullRequest: MERGE_PULL_REQUEST,
+		});
+
+		expect(result).toEqual({
+			type: "success",
+			value: {
+				stdout: "not json\n",
+				stderr: "",
+				verification: {
+					number: 42,
+					state: "MERGED",
+					mergedAt: "2026-05-22T00:00:00Z",
+					baseRefName: "main",
+					headRefName: "feature",
+					url: "https://github.example/pull/42",
+				},
+			},
+		});
+		pi.assertDone();
+	});
+
+	test("preserves verification-could-not-load semantics when the fallback pr view also fails", async () => {
+		const pi = new FakePi([
+			step("gh", SQUASH_MERGE_ARGS, { stdout: "not json\n" }),
+			step("gh", ["pr", "view", "42", "--json", PR_VIEW_FIELDS], {
+				code: 1,
+				stderr: "no pull requests found\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.github.squashMergePullRequest({
+			repoRoot: ROOT,
+			pullRequest: MERGE_PULL_REQUEST,
+		});
+
+		expect(result.type).toBe("failure");
+		if (result.type === "failure" && result.failure.type === "boundary") {
+			expect(result.failure.code).toBe("squash_merge_verify_unavailable");
+			expect(result.failure.message).toContain("exited 0, but verification could not load PR #42");
+		}
+		pi.assertDone();
+	});
+
+	test("maps a graphql-error merge response to a failure carrying the graphql messages", async () => {
+		const pi = new FakePi([
+			step("gh", SQUASH_MERGE_ARGS, {
+				stdout: `${JSON.stringify({
+					data: { mergePullRequest: null },
+					errors: [{ message: "Head branch was modified. Review and try the merge again." }],
+				})}\n`,
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.github.squashMergePullRequest({
+			repoRoot: ROOT,
+			pullRequest: MERGE_PULL_REQUEST,
+		});
+
+		expect(result.type).toBe("failure");
+		if (result.type === "failure" && result.failure.type === "boundary") {
+			expect(result.failure.code).toBe("squash_merge_failed");
+			expect(result.failure.message).toContain("Head branch was modified");
 		}
 		pi.assertDone();
 	});

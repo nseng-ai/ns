@@ -1,4 +1,7 @@
-import { retargetPullRequestBaseArgs } from "@nseng-ai/capability-kit/github/pr-mutations";
+import {
+	mergePullRequestArgs,
+	retargetPullRequestBaseArgs,
+} from "@nseng-ai/capability-kit/github/pr-mutations";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
@@ -58,29 +61,22 @@ function mergeFeatureA(
 				...(options.title === undefined ? {} : { title: options.title }),
 				...(options.body === undefined ? {} : { body: options.body }),
 			}),
-			{
-				code: options.mergeCode ?? 0,
-				stderr: options.mergeCode ? "merge blocked" : "",
-			},
+			options.mergeCode
+				? { code: options.mergeCode, stderr: "merge blocked" }
+				: {
+						stdout: mergeMutationStdout({
+							number: 101,
+							branch: "feature-a",
+							base: TRUNK,
+							state: options.verifyState ?? "MERGED",
+							mergedAt: options.verifyState === "OPEN" ? null : "2026-05-22T00:00:00Z",
+						}),
+					},
 		),
 	];
 	if (options.mergeCode) {
 		return steps;
 	}
-	steps.push(
-		step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 101,
-					branch: "feature-a",
-					base: TRUNK,
-					sha: SHA_A,
-					state: options.verifyState ?? "MERGED",
-					mergedAt: options.verifyState === "OPEN" ? null : "2026-05-22T00:00:00Z",
-				}),
-			),
-		}),
-	);
 	if (includeCleanup) {
 		const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 		if (refreshTarget) {
@@ -267,16 +263,35 @@ export function expectedSquashMergeArgs(options: {
 }): string[] {
 	const title = options.title ?? `PR ${options.number}`;
 	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
-	return [
-		"pr",
-		"merge",
-		String(options.number),
-		"--squash",
-		"--match-head-commit",
-		options.sha,
-		"--subject",
-		title,
-		"--body",
-		body,
-	];
+	return mergePullRequestArgs({
+		pullRequestId: `PR_node_${options.number}`,
+		expectedHeadOid: options.sha,
+		commitHeadline: title,
+		commitBody: body,
+	});
+}
+
+// The `mergePullRequest` mutation response now carries post-merge verification, so the merge step
+// returns it directly instead of a follow-up `gh pr view`.
+export function mergeMutationStdout(options: {
+	number: number;
+	branch: string;
+	base?: string;
+	state?: string;
+	mergedAt?: string | null;
+}): string {
+	return `${JSON.stringify({
+		data: {
+			mergePullRequest: {
+				pullRequest: {
+					number: options.number,
+					state: options.state ?? "MERGED",
+					mergedAt: options.mergedAt === undefined ? "2026-05-22T00:00:00Z" : options.mergedAt,
+					baseRefName: options.base ?? TRUNK,
+					headRefName: options.branch,
+					url: `https://github.example/pull/${options.number}`,
+				},
+			},
+		},
+	})}\n`;
 }

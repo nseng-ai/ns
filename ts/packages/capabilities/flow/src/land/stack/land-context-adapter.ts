@@ -5,6 +5,8 @@ import {
 	type GitWorktreeStateFs,
 } from "@nseng-ai/capability-kit/git";
 import {
+	mergePullRequestArgs,
+	parseMergePullRequestResult,
 	parseRetargetPullRequestBaseResult,
 	retargetPullRequestBaseArgs,
 } from "@nseng-ai/capability-kit/github/pr-mutations";
@@ -30,6 +32,7 @@ import type {
 	LandRetargetPullRequestBaseResult,
 	ManagedSlotWorktree,
 	PullRequestFacts,
+	SquashMergePullRequestResult,
 	WorkingTreeStatus,
 	WorktreeClassification,
 } from "../api.ts";
@@ -168,32 +171,8 @@ export function createLandContext(
 					new Map([...prs.value].map(([branch, pr]) => [branch, toApiPullRequestFacts(pr)])),
 				);
 			},
-			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
-				const mergeArgs = squashMergeArgs(pullRequest);
-				const commandDisplay = formatCommandForDisplay("gh", mergeArgs);
-				const result = await exec({
-					pi,
-					command: "gh",
-					args: mergeArgs,
-					cwd: repoRoot,
-					timeoutMs: GH_MERGE_TIMEOUT_MS,
-				});
-				if (result.code === 0) {
-					return landSuccess({ stdout: result.stdout, stderr: result.stderr });
-				}
-
-				const diagnosticResult = redactPullRequestBodyFromResult(result, pullRequest.body);
-				const message = `gh pr merge --squash with PR title/body failed for PR #${pullRequest.number}.\n${formatCommandDetails(diagnosticResult, commandDisplay)}`;
-				return landFailure({
-					type: "boundary",
-					phase: "merge",
-					source: "github",
-					code: "squash_merge_failed",
-					message,
-					displayCommand: commandDisplay,
-					execResult: diagnosticResult,
-				});
-			},
+			squashMergePullRequest: async ({ repoRoot, pullRequest }) =>
+				squashMergePullRequest({ pi, repoRoot, pullRequest }),
 			retargetPullRequestBase: async ({ repoRoot, pullRequest, baseRefName }) =>
 				retargetPullRequestBase({ pi, repoRoot, pullRequest, baseRefName }),
 		},
@@ -855,19 +834,98 @@ function redactPullRequestBodyFromResult(
 	};
 }
 
-function squashMergeArgs(pr: PullRequestFacts): string[] {
-	return [
-		"pr",
-		"merge",
-		String(pr.number),
-		"--squash",
-		"--match-head-commit",
-		pr.headRefOid,
-		"--subject",
-		pr.title,
-		"--body",
-		pr.body ?? "",
-	];
+async function squashMergePullRequest(options: {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly pullRequest: PullRequestFacts;
+}): Promise<LandResult<SquashMergePullRequestResult>> {
+	const { pi, repoRoot, pullRequest } = options;
+	// expectedHeadOid == old `--match-head-commit`, commitHeadline == old `--subject`,
+	// commitBody == old `--body <body ?? "">`.
+	const args = mergePullRequestArgs({
+		pullRequestId: pullRequest.id,
+		expectedHeadOid: pullRequest.headRefOid,
+		commitHeadline: pullRequest.title,
+		commitBody: pullRequest.body ?? "",
+	});
+	const commandDisplay = formatCommandForDisplay("gh", args);
+	const result = await exec({
+		pi,
+		command: "gh",
+		args,
+		cwd: repoRoot,
+		timeoutMs: GH_MERGE_TIMEOUT_MS,
+	});
+	// The argv now carries the PR body via `-f commitBody=...`; redact it from any diagnostics.
+	const diagnosticResult = redactPullRequestBodyFromResult(result, pullRequest.body);
+
+	if (result.code !== 0) {
+		return landFailure({
+			type: "boundary",
+			phase: "merge",
+			source: "github",
+			code: "squash_merge_failed",
+			message: `GraphQL squash merge (gh api graphql mergePullRequest) failed for PR #${pullRequest.number}.\n${formatCommandDetails(diagnosticResult, commandDisplay)}`,
+			displayCommand: commandDisplay,
+			execResult: diagnosticResult,
+		});
+	}
+
+	const parsed = parseMergePullRequestResult(result.stdout);
+	if (parsed.type === "ok") {
+		return landSuccess({
+			stdout: result.stdout,
+			stderr: result.stderr,
+			verification: {
+				number: parsed.pullRequest.number,
+				state: parsed.pullRequest.state,
+				mergedAt: parsed.pullRequest.mergedAt,
+				baseRefName: parsed.pullRequest.baseRefName,
+				headRefName: parsed.pullRequest.headRefName,
+				...(parsed.pullRequest.url === undefined ? {} : { url: parsed.pullRequest.url }),
+			},
+		});
+	}
+
+	if (parsed.type === "graphql-errors") {
+		return landFailure({
+			type: "boundary",
+			phase: "merge",
+			source: "github",
+			code: "squash_merge_failed",
+			message: `GraphQL squash merge (gh api graphql mergePullRequest) reported errors for PR #${pullRequest.number}: ${parsed.messages.join("; ")}.\n${formatCommandDetails(diagnosticResult, commandDisplay)}`,
+			displayCommand: commandDisplay,
+			execResult: diagnosticResult,
+		});
+	}
+
+	// Exit 0 but the mutation response was unparseable: fall back to a single pullRequestFacts load
+	// to build verification. If that also fails, preserve the "merge exited 0 but verification could
+	// not load PR" semantics (halt conservatively, do not delete/restack local branches).
+	const fallback = await loadPr(pi, repoRoot, String(pullRequest.number));
+	if (fallback.type === "failure") {
+		return landFailure({
+			type: "boundary",
+			phase: "merge",
+			source: "github",
+			code: "squash_merge_verify_unavailable",
+			message: `Squash merge for PR #${pullRequest.number} exited 0, but verification could not load PR #${pullRequest.number}.\n${fallback.failure.message}`,
+			displayCommand: commandDisplay,
+		});
+	}
+	const facts = fallback.value;
+	return landSuccess({
+		stdout: result.stdout,
+		stderr: result.stderr,
+		verification: {
+			number: facts.number,
+			state: facts.state,
+			mergedAt: facts.mergedAt ?? null,
+			baseRefName: facts.baseRefName,
+			headRefName: facts.headRefName,
+			...(facts.url === undefined ? {} : { url: facts.url }),
+		},
+	});
 }
 
 function localBranchRef(branch: string): string {

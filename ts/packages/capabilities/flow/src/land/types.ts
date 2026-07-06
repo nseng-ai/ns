@@ -419,9 +419,22 @@ export type LandGraphiteDeleteLocalBranchResult =
 	| { readonly type: "retained"; readonly branch: string; readonly path: string }
 	| ({ readonly type: "failed" } & LandGraphiteRanCommand);
 
+export interface SquashMergeVerification {
+	readonly number: number;
+	readonly state: string;
+	readonly mergedAt: string | null;
+	readonly baseRefName: string;
+	readonly headRefName: string;
+	readonly url?: string;
+}
+
 export interface SquashMergePullRequestResult {
 	readonly stdout: string;
 	readonly stderr: string;
+	// Post-merge verification read straight from the `mergePullRequest` mutation response (or a
+	// single fallback `pullRequestFacts` load when the mutation response is unparseable), so callers
+	// do not need a follow-up `gh pr view`.
+	readonly verification: SquashMergeVerification;
 }
 
 export interface LandGithubPrGateway {

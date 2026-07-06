@@ -158,6 +158,13 @@ function preMergeSlotFailure(landFailureValue: LandingFailure): LandStackFailure
 	});
 }
 
+function isVerifyUnavailableFailure(landFailureValue: LandingFailure): boolean {
+	return (
+		landFailureValue.type === "boundary" &&
+		landFailureValue.code === "squash_merge_verify_unavailable"
+	);
+}
+
 function stackMergeRejectedFailure(
 	landFailureValue: LandingFailure,
 	pr: PullRequestSnapshot,
@@ -287,9 +294,21 @@ export async function runMergeLoop(
 					repoRoot,
 					pullRequest: currentPr,
 				});
-				return merge.type === "failure"
-					? failure(stackMergeRejectedFailure(merge.failure, currentPr, branch))
-					: success(undefined);
+				if (merge.type === "failure") {
+					// The merge command exited 0 but verification could not load the PR: the merge may have
+					// landed, so halt conservatively and warn against deleting/restacking local branches.
+					if (isVerifyUnavailableFailure(merge.failure)) {
+						return failure(
+							landStackFailure(`${merge.failure.message}\nLocal Graphite cleanup skipped.`, {
+								failedBranch: branch,
+								failedPr: currentPr.number,
+								suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
+							}),
+						);
+					}
+					return failure(stackMergeRejectedFailure(merge.failure, currentPr, branch));
+				}
+				return success(merge.value.verification);
 			},
 		});
 		if (merged.type === "failure") return merged;
@@ -299,31 +318,16 @@ export async function runMergeLoop(
 			column: "verify",
 			op: async () => {
 				setStatus(ctx, `verifying #${currentPr.number}...`);
-				const facts = await options.landContext.github.pullRequestFacts({
-					repoRoot,
-					branchOrNumber: String(currentPr.number),
-				});
-				if (facts.type === "failure") {
-					return failure(
-						landStackFailure(
-							`gh pr merge exited 0, but verification could not load PR #${currentPr.number}; local Graphite cleanup skipped.\n${facts.failure.message}`,
-							{
-								failedBranch: branch,
-								failedPr: currentPr.number,
-								suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
-							},
-						),
-					);
-				}
+				const verification = merged.value;
 				if (
-					facts.value.state !== "MERGED" ||
-					!facts.value.mergedAt ||
-					facts.value.baseRefName !== stack.trunk ||
-					facts.value.headRefName !== branch
+					verification.state !== "MERGED" ||
+					!verification.mergedAt ||
+					verification.baseRefName !== stack.trunk ||
+					verification.headRefName !== branch
 				) {
 					return failure(
 						landStackFailure(
-							"gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.",
+							"squash merge succeeded but PR did not verify as MERGED; local Graphite cleanup skipped.",
 							{
 								failedBranch: branch,
 								failedPr: currentPr.number,
@@ -332,7 +336,7 @@ export async function runMergeLoop(
 						),
 					);
 				}
-				return success(facts.value);
+				return success(verification);
 			},
 		});
 		if (verified.type === "failure") return verified;

@@ -40,6 +40,7 @@ import {
 	expectedSquashMergeArgs,
 	guardShaStep,
 	leasePushStep,
+	mergeMutationStdout,
 	postRestackSubmitCheckSteps,
 	prSnapshot,
 	prStdout,
@@ -223,6 +224,36 @@ class FakePi implements LandStackExtensionAPI {
 	assertDone(): void {
 		this.script.assertDone();
 	}
+}
+
+// The squash merge is now the GraphQL `mergePullRequest` mutation via `gh api graphql`, not
+// `gh pr merge`. Identify it by the mutation carried in the `query=` arg.
+function isSquashMergeCall(call: { command: string; args: string[] }): boolean {
+	return (
+		call.command === "gh" &&
+		call.args[0] === "api" &&
+		call.args[1] === "graphql" &&
+		call.args.some((arg) => arg.startsWith("query=") && arg.includes("mergePullRequest"))
+	);
+}
+
+// The base-retarget is the GraphQL `updatePullRequest` mutation; distinguish it from the merge
+// mutation (both go through `gh api graphql` and carry a `pullRequestId=`).
+function isRetargetBaseCall(call: { command: string; args: string[] }): boolean {
+	return (
+		call.command === "gh" &&
+		call.args[0] === "api" &&
+		call.args[1] === "graphql" &&
+		call.args.some((arg) => arg.startsWith("query=") && arg.includes("updatePullRequest"))
+	);
+}
+
+// The merge argv carries the PR node id (not the number); map it back to the numeric PR for
+// assertions that used to read `gh pr merge <number>`.
+function squashMergePrNumber(call: { command: string; args: string[] }): string {
+	const idArg = call.args.find((arg) => arg.startsWith("pullRequestId="));
+	const id = idArg?.slice("pullRequestId=".length) ?? "";
+	return id.startsWith("PR_node_") ? id.slice("PR_node_".length) : id;
 }
 
 function sameArgs(left: string[], right: string[]): boolean {
@@ -545,26 +576,16 @@ function mergeNumberedBranch(
 				prSnapshot({ number: prNumber, branch, base: TRUNK, sha, title: `PR ${prNumber}` }),
 			),
 		}),
-		step("gh", expectedSquashMergeArgs({ number: prNumber, sha, title: `PR ${prNumber}` }), {
-			code: options.mergeCode ?? 0,
-			stderr: options.mergeCode ? "merge blocked" : "",
-		}),
-		step("gh", ["pr", "view", String(prNumber), "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: prNumber,
-					branch,
-					base: TRUNK,
-					sha,
-					state: "MERGED",
-					mergedAt: "2026-05-22T00:00:00Z",
-					title: `PR ${prNumber}`,
-				}),
-			),
-		}),
+		step(
+			"gh",
+			expectedSquashMergeArgs({ number: prNumber, sha, title: `PR ${prNumber}` }),
+			options.mergeCode
+				? { code: options.mergeCode, stderr: "merge blocked" }
+				: { stdout: mergeMutationStdout({ number: prNumber, branch, base: TRUNK }) },
+		),
 	];
 	if (options.mergeCode) {
-		return steps.slice(0, 3);
+		return steps;
 	}
 	if (options.next !== undefined) {
 		const nextBranch = numberedBranch(options.next);
@@ -641,18 +662,8 @@ function mergeFeatureBThroughVerification(): ScriptedExec[] {
 		step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 			stdout: prStdout(prSnapshot({ number: 102, branch: "feature-b", base: TRUNK, sha: SHA_B })),
 		}),
-		step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
-		step("gh", ["pr", "view", "102", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 102,
-					branch: "feature-b",
-					base: TRUNK,
-					sha: SHA_B,
-					state: "MERGED",
-					mergedAt: "2026-05-22T00:00:00Z",
-				}),
-			),
+		step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B }), {
+			stdout: mergeMutationStdout({ number: 102, branch: "feature-b", base: TRUNK }),
 		}),
 	];
 }
@@ -825,19 +836,8 @@ function mergeFeatureAThroughDelete(
 				...(options.title === undefined ? {} : { title: options.title }),
 				...(options.body === undefined ? {} : { body: options.body }),
 			}),
+			{ stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }) },
 		),
-		step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: 101,
-					branch: "feature-a",
-					base: TRUNK,
-					sha: SHA_A,
-					state: "MERGED",
-					mergedAt: "2026-05-22T00:00:00Z",
-				}),
-			),
-		}),
 	];
 	const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 	if (refreshTarget) {
@@ -920,9 +920,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications).toHaveLength(1);
 		expect(notifications[0]?.level).toBe("info");
 		expect(notifications[0]?.message).toContain("Dry run only; no PRs or local refs were changed.");
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
 			false,
 		);
@@ -961,11 +959,7 @@ describe("land-stack command scenarios", () => {
 		expect(message).not.toContain("Chunks:");
 		expect(message).not.toContain("Chunk size");
 		expect(message).not.toContain("Land 11 PRs in 2 chunks");
-		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-			),
-		).toBe(false);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 		expect(
 			pi.execCalls.some((call) => call.command === "git" && call.args[0] === "update-ref"),
 		).toBe(false);
@@ -1021,32 +1015,32 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 130,
+					calls: 119,
 					failures: 0,
 					categories: {
 						graphite: 34,
-						"github-cli": 45,
+						"github-cli": 34,
 						"github-api": 0,
 						git: 51,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 66 },
+					githubQuota: { graphqlRequests: 34, restRequests: 0, rateLimitCost: 44 },
 				},
 			},
 			{
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 284,
+					calls: 259,
 					failures: 0,
 					categories: {
 						graphite: 76,
-						"github-cli": 101,
+						"github-cli": 76,
 						"github-api": 0,
 						git: 107,
 						"other-command": 0,
 					},
-					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 150 },
+					githubQuota: { graphqlRequests: 76, restRequests: 0, rateLimitCost: 100 },
 				},
 			},
 		] as const;
@@ -1143,9 +1137,7 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(notifications[0]?.message).toContain("slot-07 feature-c");
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("non-interactive mode without --yes refuses before mutation", async () => {
@@ -1154,9 +1146,7 @@ describe("land-stack command scenarios", () => {
 		);
 
 		pi.assertDone();
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
 			false,
 		);
@@ -1238,9 +1228,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications[0]?.message).toContain("non-slot worktree");
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("happy path merges bottom-to-current and restacks but does not merge descendants", async () => {
@@ -1263,10 +1251,8 @@ describe("land-stack command scenarios", () => {
 		).toBe(true);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101", "102"]);
 		expect(
 			pi.execCalls
@@ -1300,11 +1286,7 @@ describe("land-stack command scenarios", () => {
 				sameArgs(call.args, ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 		);
 		const retargetFeatureBIndex = pi.execCalls.findIndex(
-			(call) =>
-				call.command === "gh" &&
-				call.args[0] === "api" &&
-				call.args[1] === "graphql" &&
-				call.args.includes("pullRequestId=PR_node_102"),
+			(call) => isRetargetBaseCall(call) && call.args.includes("pullRequestId=PR_node_102"),
 		);
 		const merge102Index = pi.execCalls.findIndex(
 			(call) =>
@@ -1490,11 +1472,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		expect(commandMessagesText(messages)).toContain("no PRs were landed");
-		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-			),
-		).toBe(false);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("backup ref stale-listing failure stops before landing any PRs", async () => {
@@ -1511,11 +1489,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		expect(commandMessagesText(messages)).toContain("no PRs were landed");
-		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-			),
-		).toBe(false);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("backup ref batched snapshot failure stops before landing any PRs", async () => {
@@ -1536,11 +1510,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		expect(commandMessagesText(messages)).toContain("no PRs were landed");
-		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-			),
-		).toBe(false);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
@@ -1563,10 +1533,8 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101", "102"]);
 		expect(
 			pi.execCalls.some(
@@ -1623,10 +1591,8 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101", "102"]);
 		expect(
 			pi.execCalls.some(
@@ -1713,10 +1679,8 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101", "102"]);
 	});
 
@@ -1824,10 +1788,8 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain(formatCommand("gt", getArgs));
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101"]);
 	});
 
@@ -1875,10 +1837,8 @@ describe("land-stack command scenarios", () => {
 		).toEqual(["feature-b"]);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101", "102"]);
 	});
 
@@ -1915,10 +1875,8 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101"]);
 	});
 
@@ -1954,11 +1912,7 @@ describe("land-stack command scenarios", () => {
 		// Exactly one base-retarget mutation for PR 102.
 		expect(
 			pi.execCalls.filter(
-				(call) =>
-					call.command === "gh" &&
-					call.args[0] === "api" &&
-					call.args[1] === "graphql" &&
-					call.args.includes("pullRequestId=PR_node_102"),
+				(call) => isRetargetBaseCall(call) && call.args.includes("pullRequestId=PR_node_102"),
 			),
 		).toHaveLength(1);
 		// The maintenance pre-submit `gh pr view feature-b` read is gone: only the preflight read and
@@ -1998,20 +1952,14 @@ describe("land-stack command scenarios", () => {
 			"remote branch feature-b moved since landing started; refusing forced push",
 		);
 		// No base retarget or gt submit after the lease was rejected.
-		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gh" && call.args[0] === "api" && call.args[1] === "graphql",
-			),
-		).toBe(false);
+		expect(pi.execCalls.some((call) => isRetargetBaseCall(call))).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit")).toBe(
 			false,
 		);
 		expect(
 			pi.execCalls
-				.filter(
-					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-				)
-				.map((call) => call.args[2]),
+				.filter((call) => isSquashMergeCall(call))
+				.map((call) => squashMergePrNumber(call)),
 		).toEqual(["101"]);
 	});
 
@@ -2136,9 +2084,10 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("→ Preparing to land 1 PR through feature-a...");
 		expect(streamText).toContain("✓ $ git rev-parse --show-toplevel");
 		expect(streamText).toContain("→ Merging PR #101 feature-a...");
-		expect(streamText).toContain(
-			`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>'`,
-		);
+		expect(streamText).toContain("✓ $ gh api graphql");
+		expect(streamText).toContain(`expectedHeadOid=${SHA_A}`);
+		expect(streamText).toContain("'commitHeadline=PR 101'");
+		expect(streamText).toContain("'commitBody=<PR body>'");
 		expect(streamText).toContain("→ Merged and verified PR #101 feature-a.");
 		expect(streamText).toContain("→ Cleaning up local branch feature-a...");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
@@ -2157,18 +2106,16 @@ describe("land-stack command scenarios", () => {
 		const { pi, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		const mergeCall = pi.execCalls.find(
-			(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-		);
+		const mergeCall = pi.execCalls.find((call) => isSquashMergeCall(call));
 		expect(mergeCall?.args).toEqual(
 			expectedSquashMergeArgs({ number: 101, sha: SHA_A, title: "Custom squash subject", body }),
 		);
-		expect(mergeCall?.args.at(-1)).toBe(body);
+		expect(mergeCall?.args).toContain(`commitBody=${body}`);
 
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain(
-			`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'Custom squash subject' --body '<PR body>'`,
-		);
+		expect(streamText).toContain("✓ $ gh api graphql");
+		expect(streamText).toContain("'commitHeadline=Custom squash subject'");
+		expect(streamText).toContain("'commitBody=<PR body>'");
 		expect(streamText).not.toContain("Line 1");
 		expect(streamText).not.toContain("Line 2");
 	});
@@ -2182,13 +2129,11 @@ describe("land-stack command scenarios", () => {
 		const { pi } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		const mergeCall = pi.execCalls.find(
-			(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
-		);
+		const mergeCall = pi.execCalls.find((call) => isSquashMergeCall(call));
 		expect(mergeCall?.args).toEqual(
 			expectedSquashMergeArgs({ number: 101, sha: SHA_A, body: null }),
 		);
-		expect(mergeCall?.args.at(-1)).toBe("");
+		expect(mergeCall?.args).toContain("commitBody=");
 	});
 
 	test("renders final landed PR numbers as terminal hyperlinks", async () => {
@@ -2374,18 +2319,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
-			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_A,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A }), {
+				stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }),
 			}),
 			guardShaStep("feature-b", SHA_B),
 			trunkFetchStep(),
@@ -2400,18 +2335,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 102, branch: "feature-b", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
-			step("gh", ["pr", "view", "102", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 102,
-						branch: "feature-b",
-						base: TRUNK,
-						sha: SHA_B,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B }), {
+				stdout: mergeMutationStdout({ number: 102, branch: "feature-b", base: TRUNK }),
 			}),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
@@ -2461,18 +2386,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
-			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_B,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B }), {
+				stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }),
 			}),
 			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
@@ -2488,9 +2403,7 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations[0]?.message).toContain("head aaaaaaa != local bbbbbbb");
 		expect(
 			pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs)),
-		).toBeLessThan(
-			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
-		);
+		).toBeLessThan(pi.execCalls.findIndex((call) => isSquashMergeCall(call)));
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
@@ -2517,18 +2430,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
-			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_B,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B }), {
+				stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }),
 			}),
 			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
@@ -2570,18 +2473,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
-			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_B,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B }), {
+				stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }),
 			}),
 			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
@@ -2599,9 +2492,7 @@ describe("land-stack command scenarios", () => {
 			call.command === TOPOLOGY_COMMAND && sameArgs(call.args, TOPOLOGY_ARGS) ? [index] : [],
 		);
 		const recheckStackIndex = stackReadIndices.find((index) => index > submitIndex) ?? -1;
-		const mergeIndex = pi.execCalls.findIndex(
-			(call) => call.command === "gh" && call.args[1] === "merge",
-		);
+		const mergeIndex = pi.execCalls.findIndex((call) => isSquashMergeCall(call));
 		expect(submitIndex).toBeGreaterThanOrEqual(0);
 		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
 		expect(recheckStackIndex).toBeLessThan(mergeIndex);
@@ -2635,18 +2526,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_C })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_C })),
-			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_C,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_C }), {
+				stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }),
 			}),
 			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
@@ -2670,9 +2551,7 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(
 			pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs)),
-		).toBeLessThan(
-			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
-		);
+		).toBeLessThan(pi.execCalls.findIndex((call) => isSquashMergeCall(call)));
 		expect(commandMessagesText(messages)).toContain(`✓ $ ${formatCommand("gt", restackArgs)}`);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
@@ -2714,18 +2593,8 @@ describe("land-stack command scenarios", () => {
 			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
 			}),
-			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
-			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
-				stdout: prStdout(
-					prSnapshot({
-						number: 101,
-						branch: "feature-a",
-						base: TRUNK,
-						sha: SHA_B,
-						state: "MERGED",
-						mergedAt: "2026-05-22T00:00:00Z",
-					}),
-				),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B }), {
+				stdout: mergeMutationStdout({ number: 101, branch: "feature-a", base: TRUNK }),
 			}),
 			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
@@ -2748,9 +2617,7 @@ describe("land-stack command scenarios", () => {
 		const submitIndex = pi.execCalls.findIndex(
 			(call) => call.command === "gt" && sameArgs(call.args, submitArgs),
 		);
-		const mergeIndex = pi.execCalls.findIndex(
-			(call) => call.command === "gh" && call.args[1] === "merge",
-		);
+		const mergeIndex = pi.execCalls.findIndex((call) => isSquashMergeCall(call));
 		expect(slotIndex).toBeLessThan(restackIndex);
 		expect(restackIndex).toBeLessThan(submitIndex);
 		expect(submitIndex).toBeLessThan(mergeIndex);
@@ -2788,9 +2655,7 @@ describe("land-stack command scenarios", () => {
 		expect(
 			pi.execCalls.some((call) => call.command === "gt" && sameArgs(call.args, submitArgs)),
 		).toBe(false);
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("stops when managed slot conflicts reappear after submit/update", async () => {
@@ -2836,9 +2701,7 @@ describe("land-stack command scenarios", () => {
 			"Landing branches are checked out in managed slots after submit/update",
 		);
 		expect(commandMessagesText(messages)).toContain("slot-01 feature-a");
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("merge failure stops immediately with no local cleanup", async () => {
@@ -2857,9 +2720,10 @@ describe("land-stack command scenarios", () => {
 		expect(notifications[0]?.message).not.toContain("Line 1");
 		expect(notifications[0]?.message).not.toContain("Line 2");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain(
-			`✗ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>' — exit 1`,
-		);
+		expect(streamText).toContain("✗ $ gh api graphql");
+		expect(streamText).toContain("'commitHeadline=PR 101'");
+		expect(streamText).toContain("'commitBody=<PR body>'");
+		expect(streamText).toContain("— exit 1");
 		expect(streamText).not.toContain("Line 1");
 		expect(streamText).not.toContain("Line 2");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(
@@ -2919,9 +2783,7 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations[0]?.message).toContain("Command: ns slot free --wt slot-01");
 		expect(
 			pi.execCalls.findIndex((call) => call.command === "ns" && call.args[0] === "slot"),
-		).toBeLessThan(
-			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
-		);
+		).toBeLessThan(pi.execCalls.findIndex((call) => isSquashMergeCall(call)));
 		expect(
 			pi.execCalls.some(
 				(call) => call.command === "slot" && sameArgs(call.args, ["gt", "free-stack"]),
@@ -2946,9 +2808,7 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 
 	test("restack failure after a successful merge reports already-landed PRs", async () => {
@@ -3010,8 +2870,6 @@ describe("land-stack command scenarios", () => {
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "worktree")).toBe(
 			false,
 		);
-		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(
-			false,
-		);
+		expect(pi.execCalls.some((call) => isSquashMergeCall(call))).toBe(false);
 	});
 });

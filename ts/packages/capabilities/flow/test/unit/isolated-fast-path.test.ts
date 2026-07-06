@@ -6,6 +6,7 @@ import type {
 	LandResult,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
+	SquashMergeVerification,
 } from "../../src/land/types.ts";
 import type {
 	LandingShape,
@@ -28,18 +29,25 @@ class RecordingGithubGateway implements LandGithubPrGateway {
 	readonly squashMergePullRequestCalls: Array<{ repoRoot: string; pullRequest: PullRequestFacts }> =
 		[];
 	private readonly initialPullRequest: PullRequestFacts;
-	private readonly verifiedPullRequest: PullRequestFacts;
 	private readonly mergeResult: LandResult<SquashMergePullRequestResult>;
 
 	constructor(options: {
 		readonly initialPullRequest: PullRequestFacts;
+		// The gateway squash merge now carries verification, so the fast path no longer re-reads the
+		// PR via pullRequestFacts. `verifiedPullRequest` seeds that returned verification.
 		readonly verifiedPullRequest: PullRequestFacts;
 		readonly mergeResult?: LandResult<SquashMergePullRequestResult>;
 	}) {
 		this.initialPullRequest = copyPullRequestFacts(options.initialPullRequest);
-		this.verifiedPullRequest = copyPullRequestFacts(options.verifiedPullRequest);
 		this.mergeResult = copyMergeResult(
-			options.mergeResult ?? { type: "success", value: { stdout: "", stderr: "" } },
+			options.mergeResult ?? {
+				type: "success",
+				value: {
+					stdout: "",
+					stderr: "",
+					verification: verificationFromFacts(options.verifiedPullRequest),
+				},
+			},
 		);
 	}
 
@@ -51,9 +59,6 @@ class RecordingGithubGateway implements LandGithubPrGateway {
 			repoRoot: request.repoRoot,
 			branchOrNumber: request.branchOrNumber,
 		});
-		if (request.branchOrNumber === String(this.initialPullRequest.number)) {
-			return { type: "success", value: copyPullRequestFacts(this.verifiedPullRequest) };
-		}
 		return { type: "success", value: copyPullRequestFacts(this.initialPullRequest) };
 	}
 
@@ -89,10 +94,7 @@ describe("isolated fast-path landing", () => {
 		});
 
 		expect(result.outcome).toEqual({ type: "success", value: undefined });
-		expect(github.pullRequestFactsCalls).toEqual([
-			{ repoRoot: ROOT, branchOrNumber: FEATURE },
-			{ repoRoot: ROOT, branchOrNumber: "101" },
-		]);
+		expect(github.pullRequestFactsCalls).toEqual([{ repoRoot: ROOT, branchOrNumber: FEATURE }]);
 		expect(github.squashMergePullRequestCalls).toMatchObject([
 			{ repoRoot: ROOT, pullRequest: { number: 101, headRefName: FEATURE } },
 		]);
@@ -170,14 +172,11 @@ describe("isolated fast-path landing", () => {
 
 		expect(result.outcome.type).toBe("failure");
 		expect(github.squashMergePullRequestCalls).toHaveLength(1);
-		expect(github.pullRequestFactsCalls).toEqual([
-			{ repoRoot: ROOT, branchOrNumber: FEATURE },
-			{ repoRoot: ROOT, branchOrNumber: "101" },
-		]);
+		expect(github.pullRequestFactsCalls).toEqual([{ repoRoot: ROOT, branchOrNumber: FEATURE }]);
 		expect(notifications.at(-1)).toMatchObject({
 			level: "error",
 			message:
-				"gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.",
+				"squash merge succeeded but PR did not verify as MERGED; post-landing cleanup skipped.",
 		});
 	});
 });
@@ -259,5 +258,23 @@ function copyMergeResult(
 	result: LandResult<SquashMergePullRequestResult>,
 ): LandResult<SquashMergePullRequestResult> {
 	if (result.type === "failure") return { type: "failure", failure: result.failure };
-	return { type: "success", value: { stdout: result.value.stdout, stderr: result.value.stderr } };
+	return {
+		type: "success",
+		value: {
+			stdout: result.value.stdout,
+			stderr: result.value.stderr,
+			verification: { ...result.value.verification },
+		},
+	};
+}
+
+function verificationFromFacts(pr: PullRequestFacts): SquashMergeVerification {
+	return {
+		number: pr.number,
+		state: pr.state,
+		mergedAt: pr.mergedAt ?? null,
+		baseRefName: pr.baseRefName,
+		headRefName: pr.headRefName,
+		...(pr.url === undefined ? {} : { url: pr.url }),
+	};
 }
