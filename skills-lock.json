@@ -204,11 +204,6 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "8bf292143ca93b00276a0de0fc5f84f2381f4690c5b0d32e99fa283a072f392f"
     },
-    "investigate": {
-      "source": "skills/investigate",
-      "sourceType": "local",
-      "computedHash": "74d0b8301bb601a6bbf02874193b05c7a5cea205f044b0705a24ab39151c03c7"
-    },
     "ns-flow-autobranch": {
       "source": "skills/ns-flow-autobranch",
       "sourceType": "local",
