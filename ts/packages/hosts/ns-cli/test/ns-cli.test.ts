@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,31 @@ async function pathExists(path: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+async function writeModuleExtension(projectRoot: string): Promise<void> {
+	const moduleRoot = join(projectRoot, ".ns", "extensions", "acme-module");
+	await mkdir(join(moduleRoot, "skills", "module-skill"), { recursive: true });
+	await writeFile(
+		join(moduleRoot, "package.json"),
+		`${JSON.stringify(
+			{
+				name: "@acme/module",
+				version: "1.0.0",
+				ns: {
+					harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],
+				},
+			},
+			null,
+			2,
+		)}\n`,
+		"utf8",
+	);
+	await writeFile(
+		join(moduleRoot, "skills", "module-skill", "SKILL.md"),
+		"# module skill\n",
+		"utf8",
+	);
 }
 
 async function runNsCliJson(args: readonly string[], cwd: string) {
@@ -312,5 +337,91 @@ describe("ns CLI host", () => {
 		expect(envelope).toMatchObject({ status: "negative", exitCode: 1 });
 		expect(dataFromEnvelope(envelope)).toMatchObject({ conflictingFiles: [targetPath] });
 		expect(await readFile(targetPath, "utf8")).toBe("local edit\n");
+	});
+
+	test("injects ns update preinstalled command metadata", async () => {
+		const cwd = await createEmptyProject();
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+
+		const exit = await runNsCli(["update", "--help"], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+
+		expect(exit).toBe(0);
+		expect(stdout.join("")).toContain("Usage: ns update");
+		expect(stdout.join("")).toContain("Preview or apply updates");
+		expect(stdout.join("")).toContain("-n");
+		expect(stdout.join("")).toContain("-f");
+		expect(stderr.join("")).toBe("");
+	});
+
+	test("updates module and first-party artifacts from a git-root subdirectory", async () => {
+		const projectRoot = await createEmptyProject();
+		await mkdir(join(projectRoot, ".git"));
+		await mkdir(join(projectRoot, "nested"), { recursive: true });
+		await writeFile(join(projectRoot, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeModuleExtension(projectRoot);
+		const cwd = join(projectRoot, "nested");
+
+		const installed = await runNsCliJson(["update"], cwd);
+		const installedData = dataFromEnvelope(parseJsonOutput(installed));
+		const moduleTarget = join(projectRoot, ".pi", "skills", "module-skill", "SKILL.md");
+		const objectiveTarget = join(projectRoot, ".pi", "skills", "objective", "SKILL.md");
+		const manifestPath = join(projectRoot, ".pi", "skills", ".ns-harness-artifacts-manifest.json");
+		const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
+
+		expect(installed.exit).toBe(0);
+		expect(installedData).toMatchObject({ mode: "applied", needsForce: false });
+		expect(installedData.artifacts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ skillName: "module-skill", action: "installed" }),
+				expect.objectContaining({ skillName: "objective", action: "installed" }),
+			]),
+		);
+		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
+		expect(await readFile(objectiveTarget, "utf8")).toContain("# objective");
+		expect(manifest).toMatchObject({
+			version: 1,
+			artifacts: {
+				"pi:project:skill:@acme/module:module-skill": {
+					artifactId: "@acme/module:module-skill",
+					provisionName: "module-skill",
+				},
+				"pi:project:skill:objective-skill": {
+					artifactId: "objective-skill",
+					provisionName: "objective",
+				},
+			},
+		});
+
+		const rerun = await runNsCliJson(["update"], cwd);
+		const rerunData = dataFromEnvelope(parseJsonOutput(rerun));
+		expect(rerun.exit).toBe(0);
+		expect(rerunData.artifacts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ skillName: "module-skill", action: "unchanged" }),
+				expect.objectContaining({ skillName: "objective", action: "unchanged" }),
+			]),
+		);
+
+		await writeFile(moduleTarget, "local edit\n", "utf8");
+		const refused = await runNsCliJson(["update"], cwd);
+		const refusedEnvelope = parseJsonOutput(refused);
+		expect(refused.exit).toBe(1);
+		expect(refusedEnvelope).toMatchObject({ status: "negative", exitCode: 1 });
+		expect(dataFromEnvelope(refusedEnvelope).artifacts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ skillName: "module-skill", action: "conflicted" }),
+			]),
+		);
+
+		const forced = await runNsCliJson(["update", "--force"], cwd);
+		expect(forced.exit).toBe(0);
+		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
 	});
 });

@@ -12,13 +12,13 @@ export type {
 export type { NsInitErrorInfo } from "./error-info.ts";
 export { INSTRUCTION_FILE_NAMES, OBJECTIVES_DIRECTORY_RELATIVE_PATH } from "./activation-files.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
+export type { HarnessId } from "@nseng-ai/harness-artifacts/api";
+export { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
 export type {
-	HarnessId,
 	SkillMaterializeParams,
 	SkillMaterializer,
 	SkillMaterializeResult,
 } from "./skill-materializer.ts";
-export { ALL_HARNESS_IDS } from "./skill-materializer.ts";
 export { pendingBundleSkillMaterializer } from "./pending-bundle-skill-materializer.ts";
 export type { RealSkillMaterializerOptions } from "./real-skill-materializer.ts";
 export { RealSkillMaterializer } from "./real-skill-materializer.ts";
@@ -47,10 +47,14 @@ export {
 	initObjectivesResultSchema,
 	renderInitObjectivesHuman,
 } from "./init-objectives.ts";
-export type { NsTomlChange, NsTomlErrorCode, NsTomlErrorInfo } from "./ns-toml.ts";
+export type {
+	NsTomlChange,
+	NsTomlErrorCode,
+	NsTomlErrorInfo,
+} from "@nseng-ai/harness-artifacts/api";
 export {
 	normalizeHarnessSelection,
 	parseNsTomlHarnesses,
 	planNsTomlHarnessesWrite,
 	renderNsTomlHarnesses,
-} from "./ns-toml.ts";
+} from "@nseng-ai/harness-artifacts/api";

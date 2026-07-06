@@ -221,6 +221,14 @@ export function installManifestPathForPlan(plan: ProvisionPlan): string {
 	return join(plan.targetRoot, INSTALL_MANIFEST_FILE_NAME);
 }
 
+export async function readInstallManifestAtRoot(options: {
+	targetRoot: string;
+	fs?: HarnessArtifactFileSystemGateway;
+}): Promise<Result<InstallManifestData, HarnessArtifactProvisionErrorInfo>> {
+	const fs = options.fs ?? nodeHarnessArtifactFileSystemGateway;
+	return readInstallManifest(fs, join(options.targetRoot, INSTALL_MANIFEST_FILE_NAME));
+}
+
 interface PreparedProvision {
 	plan: ProvisionPlan;
 	decisions: ProvisionDecisionSet;

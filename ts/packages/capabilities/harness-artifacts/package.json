@@ -1,6 +1,9 @@
 {
 	"name": "@nseng-ai/harness-artifacts",
 	"version": "0.1.0",
+	"files": [
+		"src"
+	],
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
@@ -8,12 +11,10 @@
 		"./ns/commands/install": "./src/ns/commands/install.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
 		"./ns/commands/path": "./src/ns/commands/path.ts",
+		"./ns/commands/update": "./src/ns/commands/update.ts",
 		"./ns/preinstalled-catalog": "./src/ns/preinstalled-catalog.ts",
 		"./repo-local-ns-extension": "./src/ns/repo-local-ns-extension.ts"
 	},
-	"files": [
-		"src"
-	],
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/harness-artifacts/test"
@@ -23,6 +24,7 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
+		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"ns": {
