@@ -78,6 +78,9 @@ async function settleMicrotasks(count = 5): Promise<void> {
 	for (let index = 0; index < count; index += 1) await Promise.resolve();
 }
 
+const CSI_UP = "\u001b[1;1A";
+const CSI_DOWN = "\u001b[1;1B";
+
 describe("explore fleet navigator", () => {
 	test("loads detail with usage totals from JSONL through the readTextFile seam", async () => {
 		const detail = await loadFleetTaskDetail({
@@ -123,6 +126,67 @@ describe("explore fleet navigator", () => {
 		expect(detail.usage.totals.input).toBe(1200);
 		expect(detail.usage.totals.output).toBe(300);
 		expect(detail.usage.totals.cost.total).toBeCloseTo(0.035);
+	});
+
+	test("moves the list selection with CSI arrows while preserving vim keys", () => {
+		const registry = new RunnerSubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Second" }, { title: "First" }]);
+		const second = run.tasks[0];
+		const first = run.tasks[1];
+		if (second === undefined || first === undefined) throw new Error("missing task fixtures");
+		registry.markRunning(first.id);
+		registry.markProgress(second.id, updateWithSessionFile("/tmp/two.jsonl"));
+		const view = new ExploreFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			readTextFile: async () => sessionJsonl(),
+			done: () => {},
+		});
+
+		expect(view.render(100).join("\n")).toContain("▸ ▶ First");
+		view.handleInput(CSI_DOWN);
+		expect(view.render(100).join("\n")).toContain("▸ · Second");
+		view.handleInput(CSI_UP);
+		expect(view.render(100).join("\n")).toContain("▸ ▶ First");
+		view.handleInput("j");
+		expect(view.render(100).join("\n")).toContain("▸ · Second");
+		view.handleInput("k");
+		expect(view.render(100).join("\n")).toContain("▸ ▶ First");
+	});
+
+	test("scrolls detail with CSI arrows while preserving vim keys", async () => {
+		const registry = new RunnerSubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Scrollable", prompt: "short prompt" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/scrollable.jsonl"));
+		const content = sessionJsonl(
+			Array.from({ length: 20 }, (_, index) => ({
+				type: "message_end",
+				message: assistantMessage(`detail line ${index}`),
+			})),
+		);
+		const view = new ExploreFleetNavigator({
+			tui: { requestRender: () => {}, terminal: { rows: 9 } },
+			registry,
+			readTextFile: async () => content,
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		const bottom = view.render(100).join("\n");
+		view.handleInput(CSI_UP);
+		const afterCsiUp = view.render(100).join("\n");
+		expect(afterCsiUp).not.toBe(bottom);
+		view.handleInput(CSI_DOWN);
+		expect(view.render(100).join("\n")).toBe(bottom);
+		view.handleInput("k");
+		const afterVimUp = view.render(100).join("\n");
+		expect(afterVimUp).not.toBe(bottom);
+		view.handleInput("j");
+		expect(view.render(100).join("\n")).toBe(bottom);
 	});
 
 	test("drives list, detail, prompt toggle, live reload, back, and close", async () => {

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
@@ -44,7 +45,7 @@ export const EXPLORE_FLEET_PARENT_ENTRY_ID = "parent-session";
 const PARENT_ENTRY_TITLE = "Parent Pi session";
 
 const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
-const DETAIL_FOOTER = "j/k scroll · f follow · p prompt · r reload · b back · q/Esc close";
+const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
 
 export type ExploreFleetNavigatorDependencies = ExploreReadTextFileDependencies;
 
@@ -181,7 +182,7 @@ export async function openExploreFleetNavigator(input: {
 }
 
 export interface ExploreFleetNavigatorOptions {
-	tui: Pick<TuiHandle, "requestRender">;
+	tui: Pick<TuiHandle, "requestRender"> & { readonly terminal?: { readonly rows?: number } };
 	registry: RunnerSubagentFleetRegistry;
 	readTextFile: ReadTextFile;
 	done(value: undefined): void;
@@ -272,7 +273,7 @@ export class ExploreFleetNavigator implements RenderComponent {
 			this.moveSelection(-1);
 			return;
 		}
-		if (data === "\r" || data === "o") this.openSelectedDetail();
+		if (isOpenKey(data)) this.openSelectedDetail();
 	}
 
 	private handleDetailInput(data: string): void {
@@ -674,16 +675,24 @@ function readTerminalRows(tui: object): number | undefined {
 	return typeof rows === "number" ? rows : undefined;
 }
 
+function isKey(data: string, key: KeyId, alias: string): boolean {
+	return matchesKey(data, key) || data === alias;
+}
+
 function isUpKey(data: string): boolean {
-	return data === "k" || data === "\u001b[A";
+	return isKey(data, Key.up, "k");
 }
 
 function isDownKey(data: string): boolean {
-	return data === "j" || data === "\u001b[B";
+	return isKey(data, Key.down, "j");
 }
 
 function isCloseKey(data: string): boolean {
-	return data === "q" || data === "\u001b";
+	return isKey(data, Key.escape, "q");
+}
+
+function isOpenKey(data: string): boolean {
+	return isKey(data, Key.enter, "o");
 }
 
 function hasRegisterCommand(value: object): value is CommandRegistrarHost {

@@ -18,6 +18,7 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/extensions/ns-pi-subagents/test"
 	},
 	"dependencies": {
+		"@earendil-works/pi-tui": "catalog:",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/pi": "workspace:*",
 		"zod": "catalog:"
