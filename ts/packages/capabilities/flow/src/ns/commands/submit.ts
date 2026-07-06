@@ -175,7 +175,7 @@ async function runSubmitWithMatrix(input: {
 		rows: [],
 		...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
 	});
-	matrix.setGlobal("inventory", "active");
+	matrix.setGlobal("inventory", { state: "active" });
 	matrix.begin();
 
 	try {
@@ -187,7 +187,7 @@ async function runSubmitWithMatrix(input: {
 		const topology = await runtime.metadataGateway.inspectSubmitStackTopology({ cwd: ctx.cwd });
 		matrix.setRunningCommands([]);
 		if (!topology.ok) {
-			matrix.setGlobal("inventory", "failed", "inventory failed");
+			matrix.setGlobal("inventory", { state: "failed", text: "inventory failed" });
 			await matrix.finish({ isFailed: true });
 			return failed(
 				`Could not inspect submit stack inventory before checkpoint. Submission was not attempted; pending work was not checkpointed.\n\n${topology.error.message}`,
@@ -195,14 +195,13 @@ async function runSubmitWithMatrix(input: {
 			);
 		}
 		matrix.setRows(submitMatrixRowsFromTopology(topology.value));
-		matrix.setGlobal(
-			"inventory",
-			"done",
-			`${topology.value.branches.length} ${topology.value.branches.length === 1 ? "branch" : "branches"} in submit stack`,
-		);
+		matrix.setGlobal("inventory", {
+			state: "done",
+			text: `${topology.value.branches.length} ${topology.value.branches.length === 1 ? "branch" : "branches"} in submit stack`,
+		});
 		const checkpointPhase = createMatrixPhaseForwarder(ctx, matrix);
 		checkpointPhase({ type: "phase-started", phaseKey: "checkpoint" });
-		matrix.setGlobal("checkpoint", "active");
+		matrix.setGlobal("checkpoint", { state: "active" });
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
@@ -212,7 +211,7 @@ async function runSubmitWithMatrix(input: {
 		});
 		matrix.setRunningCommands([]);
 		if (checkpoint.kind === "failed") {
-			matrix.setGlobal("checkpoint", "failed", "checkpoint failed");
+			matrix.setGlobal("checkpoint", { state: "failed", text: "checkpoint failed" });
 			const checkpointFailure = await maybeFormatSubmitFailureWithModel(
 				{
 					stdout: "",
@@ -224,7 +223,7 @@ async function runSubmitWithMatrix(input: {
 			await matrix.finish({ isFailed: true });
 			return failed(resultFailureMessage(checkpointFailure), checkpoint.output.exitCode);
 		}
-		matrix.setGlobal("checkpoint", "done", "checkpoint complete");
+		matrix.setGlobal("checkpoint", { state: "done", text: "checkpoint complete" });
 
 		const onPhase = createForwardOnlyPhaseListener(ctx);
 		const onOutput: FlowLiveOutput = (_stream, text) => matrix.note(text);
@@ -266,42 +265,8 @@ function createMatrixPhaseForwarder(
 	const forward = createForwardOnlyPhaseListener(ctx);
 	return (event) => {
 		forward(event);
-		if (!("phaseKey" in event)) return;
-		if (event.phaseKey === "checkpoint") {
-			if (event.type === "phase-started") matrix.setGlobal("checkpoint", "active", event.label);
-			if (event.type === "phase-done") matrix.setGlobal("checkpoint", "done", event.detail);
-			if (event.type === "phase-failed") matrix.setGlobal("checkpoint", "failed", event.detail);
-			return;
-		}
-		if (event.type === "phase-started") {
-			matrix.setRunningCommands(checkpointCommandsForPhase(event.phaseKey));
-			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "active", event.label);
-		}
-		if (event.type === "phase-progress") {
-			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "active", event.label);
-		}
-		if (event.type === "phase-done") {
-			matrix.setRunningCommands([]);
-			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "done", event.detail);
-		}
-		if (event.type === "phase-failed") {
-			matrix.setRunningCommands([]);
-			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "failed", event.detail);
-		}
+		matrix.applyGlobalPhaseEvent("checkpoint", event);
 	};
-}
-
-function checkpointCommandsForPhase(phaseKey: string): readonly string[] {
-	switch (phaseKey) {
-		case "inspect":
-			return ["git status --porcelain", "git diff --stat", "git diff"];
-		case "generate":
-			return ["checkpoint message text generation"];
-		case "commit":
-			return ["git add", "git commit"];
-		default:
-			return [];
-	}
 }
 
 function createForwardOnlyPhaseListener(

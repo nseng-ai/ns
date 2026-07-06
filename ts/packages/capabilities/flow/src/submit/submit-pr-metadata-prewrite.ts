@@ -15,7 +15,11 @@ import { preparePrDescription, resolvePrDescriptionGeneration } from "./index.ts
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
 import { formatItemCount } from "./submit-format.ts";
-import type { SubmitStackTopology, SubmitStackTopologyBranch } from "./submit-matrix-progress.ts";
+import type {
+	SubmitMatrixCellState,
+	SubmitStackTopology,
+	SubmitStackTopologyBranch,
+} from "./submit-matrix-progress.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;
@@ -28,7 +32,7 @@ const MODIFY_TIMEOUT_MS = 600_000;
 export type SubmitMetadataProgressListener = (message: string) => void;
 export type SubmitBranchMetadataProgressListener = (event: {
 	branch: string;
-	state: "active" | "done" | "skipped" | "failed";
+	state: Exclude<SubmitMatrixCellState, "pending">;
 	message?: string;
 }) => void;
 
