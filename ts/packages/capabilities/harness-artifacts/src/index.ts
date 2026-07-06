@@ -1,4 +1,32 @@
+export {
+	artifactProvisionName,
+	HARNESS_ARTIFACT_KINDS,
+	type AgentHarnessArtifactEntry,
+	type ExtensionBundleHarnessArtifactEntry,
+	type FirstPartyHarnessArtifactCatalog,
+	type FirstPartyHarnessArtifactSource,
+	type HarnessArtifactEntry,
+	type HarnessArtifactEntryBase,
+	type HarnessArtifactKind,
+	type SkillHarnessArtifactEntry,
+} from "./artifact-catalog.ts";
 export type { PathState, TextFileState } from "./fs-state.ts";
+export {
+	ALL_HARNESS_IDS,
+	HARNESS_SPECS,
+	normalizeHarnessId,
+	resolveHarnessArtifactPath,
+	resolveHarnessSpec,
+	type HarnessBasePathSpec,
+	type HarnessId,
+	type HarnessPathContext,
+	type HarnessPathEnvironment,
+	type HarnessPathErrorInfo,
+	type HarnessScope,
+	type HarnessScopedPathSpec,
+	type HarnessSpec,
+	type ResolvedHarnessArtifactPath,
+} from "./harness-paths.ts";
 export {
 	parseSkillFrontmatterBlock,
 	parseSkillFrontmatterTopLevelLine,
