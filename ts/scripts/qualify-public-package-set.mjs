@@ -1,43 +1,16 @@
 #!/usr/bin/env node
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { dirname, extname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { extname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-
-const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const repoRoot = resolve(workspaceRoot, "..");
-
-const intendedPublicPackages = [
-	"@nseng-ai/branch-context",
-	"@nseng-ai/handoffs",
-	"@nseng-ai/objectives",
-	"@nseng-ai/plans",
-	"@nseng-ai/pr-feedback",
-	"@nseng-ai/retros",
-	"@nseng-ai/reviews",
-	"@nseng-ai/slots",
-	"@nseng-ai/command-backed-skill-registry",
-	"@nseng-ai/ns",
-	"@nseng-ai/brmem",
-	"@nseng-ai/clinkr",
-	"@nseng-ai/foundation",
-	"@nseng-ai/areg",
-	"@nseng-ai/packagechk",
-	"@nseng-ai/vibechk",
-	"@nseng-ai/capability-kit",
-	"@nseng-ai/flow",
-	"@nseng-ai/ccc",
-];
-
-const firstBatchPackages = ["@nseng-ai/capability-kit", "@nseng-ai/flow"];
-
-const excludedPackages = new Set([
-	"@nseng-ai/pi",
-	"@nseng-ai/pi-command-surfaces",
-	"nscc",
-	"@internal/pi-tools",
-	"@internal/typescript-style-guard",
-]);
+import {
+	excludedPackages,
+	firstBatchPackages,
+	intendedPublicPackages,
+	readJson,
+	readWorkspacePackageManifests,
+	repoRoot,
+	workspaceRoot,
+} from "./public-package-set.mjs";
 
 const args = new Set(process.argv.slice(2));
 const shouldSkipChecks = args.has("--skip-checks");
@@ -74,34 +47,6 @@ for (const packageName of packagesToQualify) {
 }
 
 console.log("Public package qualification completed without registry writes.");
-
-async function readWorkspacePackageManifests() {
-	const result = spawnSync(
-		"find",
-		[
-			"packages",
-			"-maxdepth",
-			"4",
-			"-name",
-			"package.json",
-			"-not",
-			"-path",
-			"*/node_modules/*",
-			"-not",
-			"-path",
-			"*/dist/*",
-		],
-		{ cwd: workspaceRoot, encoding: "utf8" },
-	);
-	if (result.status !== 0) throw new Error(result.stderr || "failed to list workspace package manifests");
-	const paths = result.stdout.trim().split("\n").filter(Boolean).sort();
-	const entries = [];
-	for (const relativePath of paths) {
-		const path = resolve(workspaceRoot, relativePath);
-		entries.push({ path, root: dirname(path), manifest: await readJson(path) });
-	}
-	return entries;
-}
 
 async function preparePublishRoot(entry, manifestByName) {
 	const publishRoot = resolve(entry.root, "dist", "publish");
@@ -233,10 +178,6 @@ function catalogVersion(source, packageName) {
 	const match = pattern.exec(source);
 	if (match?.[1] === undefined) throw new Error(`Missing catalog version for ${packageName}`);
 	return match[1].replace(/^['"]|['"]$/g, "");
-}
-
-async function readJson(path) {
-	return JSON.parse(await readFile(path, "utf8"));
 }
 
 function run(command, args, options) {
