@@ -39,7 +39,7 @@
     source info with diagnostics while preserving behavior.
   - Policy: each rename cuts over reader and file in the same slice.
 - [~] Migrate declared settings: roaster (`diff`, `model_profiles`), areg (`agents`),
-      ns-init (`harnesses`) onto the shared loader; delete all four ad-hoc smol-toml parsers.
+  ns-init (`harnesses`) onto the shared loader; delete all four ad-hoc smol-toml parsers.
   - Landed: local branch `point-system-settings-loader-Pa0ixh` commit `a56987991`
     migrates `areg` `[areg].agents` onto the kernel loader with a declared settings schema
     and removes areg's direct `smol-toml` dependency.
