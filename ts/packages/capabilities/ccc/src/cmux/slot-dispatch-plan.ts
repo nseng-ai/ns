@@ -465,7 +465,7 @@ function formatLaunchPreview(options: {
 		options.launchCommand,
 	);
 	return [
-		"cmux new-surface --type terminal --workspace <caller-workspace> --pane <caller-pane> --focus true",
+		"cmux new-surface --type terminal --workspace <caller-workspace> --pane <caller-pane> --focus false",
 		`cmux rename-tab --title ${formatShellArg(options.branch)}`,
 		`cmux send -- ${formatShellArg(`${surfaceLaunchCommand}\n`)}`,
 	].join("\n");
@@ -517,6 +517,7 @@ async function openBranchInCmuxSurface(options: {
 		tabTitle,
 		command: surfaceLaunchCommand,
 		signal: undefined,
+		shouldFocus: false,
 		onStage: (stage) => setStatus(ctx, config, formatSurfaceStageStatus(stage)),
 	});
 	if (launched.type === "failed") {

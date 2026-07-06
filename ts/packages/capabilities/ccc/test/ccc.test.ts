@@ -530,6 +530,7 @@ describe("CCC cmux command suite", () => {
 		);
 		expect(content).toContain("ns slot checkout");
 		expect(content).toContain("cmux new-surface");
+		expect(content).toContain("--focus false");
 		expect(content).toContain("cmux rename-tab");
 		expect(content).toContain("cmux send -- 'cd");
 		expect(content).toContain("<slot-worktree-path>");
@@ -538,7 +539,7 @@ describe("CCC cmux command suite", () => {
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 	});
 
-	test("ns:ccc:surface:dispatch-plan full success opens a focused cmux surface", async () => {
+	test("ns:ccc:surface:dispatch-plan full success opens a background cmux surface", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, {
@@ -580,7 +581,7 @@ describe("CCC cmux command suite", () => {
 						"--pane",
 						"pane-1",
 						"--focus",
-						"true",
+						"false",
 						"--window",
 						"window-1",
 					],
