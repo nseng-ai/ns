@@ -29,6 +29,7 @@ import {
 } from "./contract.ts";
 import { dispatchExplorerSubagent } from "./dispatch.ts";
 import { syncExploreFleetWidget } from "./fleet.ts";
+import { registerExploreFleetCommand } from "./fleet-navigator.ts";
 import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
 import {
@@ -175,6 +176,11 @@ export default function exploreExtension(
 		: FALLBACK_EXPLORER_TOOL_METADATA;
 	const fleetRegistry = new RunnerSubagentFleetRegistry();
 	registerExploreTranscriptCommand({
+		pi,
+		registry: fleetRegistry,
+		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
+	});
+	registerExploreFleetCommand({
 		pi,
 		registry: fleetRegistry,
 		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),

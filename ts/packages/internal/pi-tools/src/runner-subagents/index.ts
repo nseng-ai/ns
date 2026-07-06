@@ -60,8 +60,10 @@ export {
 	createRunnerSubagentJsonEventParser,
 	extractRunnerSubagentToolCallPayloadsFromSessionJsonl,
 	isRecord,
+	visitRunnerSubagentSessionJsonlEvents,
 } from "./json-events.ts";
 export type {
+	JsonEvent,
 	JsonRecord,
 	RunnerSubagentJsonEventParserOptions,
 	RunnerSubagentJsonEventParserSnapshot,
@@ -69,6 +71,14 @@ export type {
 	RunnerSubagentJsonSessionHeader,
 	RunnerSubagentJsonTerminalExecutionError,
 } from "./json-events.ts";
+export { extractRunnerSubagentTimelineFromSessionJsonl } from "./timeline.ts";
+export type {
+	ExtractRunnerSubagentTimelineOptions,
+	RunnerSubagentTimeline,
+	RunnerSubagentTimelineAssistantEntry,
+	RunnerSubagentTimelineEntry,
+	RunnerSubagentTimelineToolEntry,
+} from "./timeline.ts";
 export {
 	DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,

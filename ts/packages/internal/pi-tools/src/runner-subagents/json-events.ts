@@ -72,7 +72,7 @@ type ParserState = RunnerSubagentProgress["state"];
 
 export type JsonRecord = Record<string, unknown>;
 
-interface JsonEvent {
+export interface JsonEvent {
 	type: string;
 	[key: string]: unknown;
 }
@@ -139,7 +139,9 @@ export class RunnerSubagentJsonEventParser {
 
 	hydrateLaunchMetadataFromSessionJsonl(jsonl: string): boolean {
 		const before = JSON.stringify(this.launch ?? null);
-		visitSessionJsonlEvents(jsonl, (event) => this.hydrateLaunchMetadataFromSessionEvent(event));
+		visitRunnerSubagentSessionJsonlEvents(jsonl, (event) =>
+			this.hydrateLaunchMetadataFromSessionEvent(event),
+		);
 		return JSON.stringify(this.launch ?? null) !== before;
 	}
 
@@ -480,7 +482,7 @@ export function extractRunnerSubagentToolCallPayloadsFromSessionJsonl(
 	toolName: string,
 ): unknown[] {
 	const payloads: unknown[] = [];
-	visitSessionJsonlEvents(jsonl, (event) => {
+	visitRunnerSubagentSessionJsonlEvents(jsonl, (event) => {
 		payloads.push(...collectRunnerSubagentToolCallPayloads(event, toolName));
 	});
 	return payloads;
@@ -528,7 +530,10 @@ function parseJsonEventLine(rawLine: string): ParsedJsonEventLine {
 	return { type: "event", event };
 }
 
-function visitSessionJsonlEvents(jsonl: string, visitor: (event: JsonEvent) => void): void {
+export function visitRunnerSubagentSessionJsonlEvents(
+	jsonl: string,
+	visitor: (event: JsonEvent) => void,
+): void {
 	for (const rawLine of jsonl.split("\n")) {
 		const parsed = parseJsonEventLine(rawLine);
 		if (parsed.type === "event") visitor(parsed.event);
