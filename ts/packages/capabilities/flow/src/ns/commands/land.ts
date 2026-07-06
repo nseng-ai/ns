@@ -124,6 +124,7 @@ function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress
 		caps,
 		specs: LAND_PHASES,
 		deps: flowStreamDeps(ctx, caps),
+		forward: ctx.progress,
 		title: BASE_LAND_TITLE,
 		begin: "lazy",
 	});

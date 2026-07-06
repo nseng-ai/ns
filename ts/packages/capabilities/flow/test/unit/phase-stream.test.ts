@@ -6,7 +6,7 @@ import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@nseng-ai/clinkr/stream";
 import { spinnerFrame } from "@nseng-ai/foundation/cli-theme";
 
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 import {
 	createPhaseStream,
@@ -40,6 +40,11 @@ function caps(
 		columns: 80,
 		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
+}
+
+function recordingProgress(isLive = true): { events: NsProgressPhaseEvent[]; sink: NsProgress } {
+	const events: NsProgressPhaseEvent[] = [];
+	return { events, sink: { isLive, phase: (event) => events.push(event) } };
 }
 
 function ctx(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
@@ -171,6 +176,85 @@ describe("resolveFlowStreamCaps", () => {
 			columns: DEFAULT_COLUMNS,
 			canRenderUnicode: expect.any(Boolean),
 		});
+	});
+});
+
+describe("forwarded progress", () => {
+	test("live forward receives declarations, title updates, and phase events", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps } = harness();
+		const progress = recordingProgress();
+		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+		const phaseEvent = { type: "phase-started", phaseKey: "a" } satisfies NsProgressPhaseEvent;
+
+		stream.begin("title");
+		stream.setTitle("updated title");
+		stream.emit(phaseEvent);
+		await stream.finish();
+
+		expect(progress.events).toEqual([
+			{
+				type: "phases-declared",
+				title: "title",
+				phases: [
+					{ key: "a", name: "Alpha", label: "alpha working…", detail: "alpha done" },
+					{ key: "b", name: "Beta", label: "beta working…", detail: "beta done" },
+					{ key: "c", name: "Gamma", label: "gamma working…", detail: "gamma done" },
+				],
+			},
+			{ type: "title-changed", title: "updated title" },
+			phaseEvent,
+		]);
+	});
+
+	test("live forward suppresses non-tty transient surfaces but leaves settled output unchanged", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, redraws, outputs } = harness();
+		const progress = recordingProgress();
+		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "a progress" });
+		stream.emit({ type: "phase-started", phaseKey: "b" });
+		await stream.finish();
+
+		expect(outputs).toEqual([]);
+		expect(redraws).toHaveLength(0);
+		expect(writes).toHaveLength(1);
+		const settled = writes[0] ?? "";
+		expectNoCursorEscapes(settled);
+		expect(settled).toContain("alpha done");
+		expect(settled).toContain("beta done");
+		expect(settled).toContain("gamma done");
+	});
+
+	test("live forward preserves tty surface rendering", async () => {
+		const c = caps();
+		const { deps, redraws } = harness();
+		const progress = recordingProgress();
+		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+
+		expect(redraws[redraws.length - 1]).toContain("alpha working…");
+		await stream.finish();
+	});
+
+	test("inactive forward keeps non-tty transient output unchanged", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, outputs } = harness();
+		const progress = recordingProgress(false);
+		const stream = createPhaseStream(c, SPECS, deps, progress.sink);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.emit({ type: "phase-progress", phaseKey: "a", label: "a progress" });
+
+		expect(progress.events).toEqual([]);
+		expect(outputs).toEqual(["alpha working…", "a progress"]);
+		await stream.finish();
 	});
 });
 

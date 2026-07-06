@@ -1,3 +1,4 @@
+import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
@@ -41,6 +42,17 @@ interface LiveOutputLine {
 	text: string;
 }
 
+type WidgetPhaseState = "pending" | "active" | "done" | "failed";
+
+interface WidgetPhase {
+	key: string;
+	name: string;
+	defaultLabel: string | undefined;
+	doneDetail: string | undefined;
+	text: string | undefined;
+	state: WidgetPhaseState;
+}
+
 export class LiveCommandProgress {
 	private readonly ctx: LiveCommandProgressContext;
 	private readonly options: LiveCommandProgressOptions;
@@ -52,6 +64,9 @@ export class LiveCommandProgress {
 	private stdoutPending = "";
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
+	private structuredTitle: string | undefined;
+	private structuredPhases: WidgetPhase[] = [];
+	private hasPhaseEvents = false;
 	private lastStatusValue: string | undefined;
 	private timer: ScheduledTimer | undefined;
 	private isClosed = false;
@@ -99,6 +114,67 @@ export class LiveCommandProgress {
 			stream,
 			target: this.target,
 		});
+		this.render();
+	}
+
+	applyPhaseEvent(event: NsProgressPhaseEvent): void {
+		this.hasPhaseEvents = true;
+		switch (event.type) {
+			case "phases-declared":
+				this.structuredTitle = event.title;
+				this.structuredPhases = event.phases.map((phase) => ({
+					key: phase.key,
+					name: phase.name,
+					defaultLabel: phase.label,
+					doneDetail: phase.detail,
+					text: undefined,
+					state: "pending",
+				}));
+				break;
+			case "title-changed":
+				this.structuredTitle = event.title;
+				break;
+			case "phase-started": {
+				const index = this.ensureStructuredPhase(event.phaseKey);
+				this.markEarlierStructuredPhasesDone(index);
+				const phase = this.structuredPhases[index];
+				if (phase !== undefined) {
+					phase.state = "active";
+					phase.text = event.label ?? phase.defaultLabel;
+				}
+				break;
+			}
+			case "phase-progress": {
+				const index = this.ensureStructuredPhase(event.phaseKey);
+				const phase = this.structuredPhases[index];
+				if (phase !== undefined) {
+					if (phase.state === "pending") {
+						this.markEarlierStructuredPhasesDone(index);
+						phase.state = "active";
+					}
+					phase.text = event.label;
+				}
+				break;
+			}
+			case "phase-done": {
+				const index = this.ensureStructuredPhase(event.phaseKey);
+				const phase = this.structuredPhases[index];
+				if (phase !== undefined) {
+					phase.state = "done";
+					phase.text = event.detail ?? phase.doneDetail ?? phase.text;
+				}
+				break;
+			}
+			case "phase-failed": {
+				const index = this.ensureStructuredPhase(event.phaseKey);
+				const phase = this.structuredPhases[index];
+				if (phase !== undefined) {
+					phase.state = "failed";
+					phase.text = event.detail;
+				}
+				break;
+			}
+		}
 		this.render();
 	}
 
@@ -169,6 +245,10 @@ export class LiveCommandProgress {
 	}
 
 	private widgetLines(elapsed: string): string[] {
+		if (this.hasPhaseEvents) {
+			return this.structuredWidgetLines(elapsed);
+		}
+
 		const lines = [
 			`/${this.options.piCommandName} ${this.phase} (${elapsed} elapsed)`,
 			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)} · stdout ${this.stdoutChars}, stderr ${this.stderrChars}`,
@@ -190,6 +270,53 @@ export class LiveCommandProgress {
 			lines.push(formatLiveOutputLine(line));
 		}
 		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
+	}
+
+	private structuredWidgetLines(elapsed: string): string[] {
+		const lines = [this.structuredHeaderLine(elapsed)];
+		const nameWidth = Math.max(0, ...this.structuredPhases.map((phase) => phase.name.length));
+		for (const phase of this.structuredPhases) {
+			const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(nameWidth)}`;
+			lines.push(phase.text === undefined ? prefix : `${prefix}  ${phase.text}`);
+		}
+		const latestOutput = this.recentOutputLines().at(-1);
+		if (latestOutput !== undefined) {
+			lines.push(`  ${formatLiveOutputLine(latestOutput)}`);
+		}
+		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
+	}
+
+	private structuredHeaderLine(elapsed: string): string {
+		const invocationTitle = `${this.options.cliName} ${this.options.argv.join(" ")}`;
+		const titleSuffix =
+			this.structuredTitle !== undefined && this.structuredTitle !== invocationTitle
+				? ` — ${this.structuredTitle}`
+				: "";
+		return `/${this.options.piCommandName}${titleSuffix} (${elapsed} elapsed)`;
+	}
+
+	private ensureStructuredPhase(phaseKey: string): number {
+		const existingIndex = this.structuredPhases.findIndex((phase) => phase.key === phaseKey);
+		if (existingIndex >= 0) return existingIndex;
+		this.structuredPhases.push({
+			key: phaseKey,
+			name: phaseKey,
+			defaultLabel: undefined,
+			doneDetail: undefined,
+			text: undefined,
+			state: "pending",
+		});
+		return this.structuredPhases.length - 1;
+	}
+
+	private markEarlierStructuredPhasesDone(index: number): void {
+		for (let phaseIndex = 0; phaseIndex < index; phaseIndex += 1) {
+			const phase = this.structuredPhases[phaseIndex];
+			if (phase === undefined) continue;
+			if (phase.state !== "pending" && phase.state !== "active") continue;
+			phase.state = "done";
+			phase.text = phase.doneDetail ?? phase.text;
+		}
 	}
 
 	private recordOutput(stream: OutputStreamName, text: string): void {
@@ -244,4 +371,17 @@ function formatDisplayArg(arg: string): string {
 
 function formatLiveOutputLine(line: LiveOutputLine): string {
 	return truncateDisplayLine(`${line.stream}: ${line.text}`, LIVE_PROGRESS_MAX_LINE_CHARS);
+}
+
+function phaseGlyph(state: WidgetPhaseState): string {
+	switch (state) {
+		case "done":
+			return "✓";
+		case "active":
+			return "▸";
+		case "pending":
+			return "·";
+		case "failed":
+			return "✗";
+	}
 }

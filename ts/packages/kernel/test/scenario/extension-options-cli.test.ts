@@ -8,7 +8,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
-import type { NsCommand } from "@nseng-ai/kernel/sdk";
+import type { NsCommand, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),
@@ -22,6 +22,9 @@ const optionProbeResultSchema = z.object({
 	}),
 	outputFormat: z.enum(["human", "json", "markdown"]),
 });
+
+const progressProbeSchema = z.object({});
+const progressProbeResultSchema = z.object({ isLive: z.boolean() });
 
 const optionProbeCommand = {
 	name: "option-probe",
@@ -38,7 +41,35 @@ const optionProbeCommand = {
 	},
 } satisfies NsCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
 
+const progressProbeCommand = {
+	name: "progress-probe",
+	summary: "Probe progress deps.",
+	description: "Probe progress deps.",
+	schema: progressProbeSchema,
+	resultSchema: progressProbeResultSchema,
+	async run(ctx) {
+		ctx.progress.phase({ type: "phase-started", phaseKey: "x" });
+		return { type: "ok", data: { isLive: ctx.progress.isLive } };
+	},
+} satisfies NsCommand<typeof progressProbeSchema, z.infer<typeof progressProbeResultSchema>>;
+
 describe("extension command option specs", () => {
+	test("runCli provides a live progress sink when onProgress is injected", async () => {
+		const events: NsProgressPhaseEvent[] = [];
+		const run = runProgressProbeCli({ onProgress: (event) => events.push(event) });
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({ status: "ok", data: { isLive: true } });
+		expect(events).toEqual([{ type: "phase-started", phaseKey: "x" }]);
+	});
+
+	test("runCli defaults progress to a safe noop sink", async () => {
+		const run = runProgressProbeCli();
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({ status: "ok", data: { isLive: false } });
+	});
+
 	test("extension option specs render in help", async () => {
 		const run = runOptionProbeCli(["option-probe", "--help"]);
 
@@ -65,25 +96,36 @@ describe("extension command option specs", () => {
 
 function runOptionProbeCli(args: readonly string[]) {
 	return runCliWithFakes(
-		{ args, extensionRegistry: optionProbeRegistry() },
+		{ args, extensionRegistry: commandRegistry(optionProbeCommand) },
 		{ execResponses: () => [], textGenerationResults: () => [] },
 	);
 }
 
-function optionProbeRegistry(): NonNullable<NsCliDeps["extensionRegistry"]> {
+function runProgressProbeCli(options: { onProgress?: NsCliDeps["onProgress"] } = {}) {
+	return runCliWithFakes(
+		{
+			args: ["progress-probe", "--format", "json"],
+			extensionRegistry: commandRegistry(progressProbeCommand),
+			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+		},
+		{ execResponses: () => [], textGenerationResults: () => [] },
+	);
+}
+
+function commandRegistry(command: NsCommand): NonNullable<NsCliDeps["extensionRegistry"]> {
 	const candidate: ExtensionCommandCandidate = {
-		name: "option-probe",
-		description: "Probe extension option specs.",
-		fullDescription: "Probe extension option specs.",
-		source: { level: "project", label: "fake option probe extension" },
-		moduleReference: { type: "file", path: "fake://option-probe.ts" },
-		entryPath: "fake://option-probe.ts",
+		name: command.name,
+		description: command.summary,
+		fullDescription: command.description,
+		source: { level: "project", label: `fake ${command.name} extension` },
+		moduleReference: { type: "file", path: `fake://${command.name}.ts` },
+		entryPath: `fake://${command.name}.ts`,
 		hasStaticCommandInfo: true,
 	};
 	return {
 		async loadCommandCatalog() {
 			return {
-				candidates: new Map([["option-probe", candidate]]),
+				candidates: new Map([[command.name, candidate]]),
 				commandInfos: [
 					{
 						name: candidate.name,
@@ -97,7 +139,7 @@ function optionProbeRegistry(): NonNullable<NsCliDeps["extensionRegistry"]> {
 		async loadSelectedCommand(_candidate): Promise<SelectedNsCommandLoadResult> {
 			return {
 				ok: true,
-				command: optionProbeCommand,
+				command,
 				source: candidate.source,
 				path: candidate,
 			};

@@ -97,7 +97,7 @@ const commandIo: NsCommandIo = {
 };
 const progressEvent: NsProgressPhaseEvent = { type: "phase-started", phaseKey: "test" };
 const progressListener: NsProgressPhaseListener = (_event) => {};
-const progress: NsProgress = { phase: progressListener };
+const progress: NsProgress = { isLive: true, phase: progressListener };
 
 function acceptsExtensionApi(api: NsExtensionApi): string {
 	api.commandIo.notify("checked");

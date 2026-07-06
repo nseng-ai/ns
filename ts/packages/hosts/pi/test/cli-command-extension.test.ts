@@ -1271,6 +1271,203 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "final stdout\n");
 	});
 
+	test("renders structured CLI phase progress as a checklist widget", async () => {
+		let markPhasesObserved: (() => void) | undefined;
+		const phasesObserved = new Promise<void>((resolve) => {
+			markPhasesObserved = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerCliCommandExtension(pi, {
+			cliName: "ns",
+			piNamespace: "ns:flow",
+			commands: [
+				{
+					name: "submit",
+					description: "Submit a stack.",
+					argvPrefix: ["flow", "submit"],
+					displayName: "flow submit",
+				},
+			],
+			runCli: async (_args, deps) => {
+				deps.onProgress?.({
+					type: "phases-declared",
+					title: "ns flow submit",
+					phases: [
+						{ key: "checkpoint", name: "Checkpoint" },
+						{ key: "submit", name: "Submit" },
+						{ key: "verify", name: "Verification" },
+					],
+				});
+				deps.onProgress?.({ type: "phase-started", phaseKey: "checkpoint" });
+				deps.onProgress?.({
+					type: "phase-done",
+					phaseKey: "checkpoint",
+					detail: "checkpoint complete",
+				});
+				deps.onProgress?.({
+					type: "phase-started",
+					phaseKey: "submit",
+					label: "running gt submit --no-edit…",
+				});
+				markPhasesObserved?.();
+				await runFinished;
+				return 0;
+			},
+		});
+		const { ctx, widgets } = createContext();
+
+		const commandPromise = commandFor(pi, "ns:flow:submit").handler("", ctx);
+		await phasesObserved;
+
+		expect(widgets.at(-1)?.lines).toEqual([
+			"/ns:flow:submit (0s elapsed)",
+			"✓ Checkpoint    checkpoint complete",
+			"▸ Submit        running gt submit --no-edit…",
+			"· Verification",
+		]);
+
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+	});
+
+	test("keeps the raw live widget layout when no structured progress events arrive", async () => {
+		let markLiveOutputObserved: (() => void) | undefined;
+		const liveOutputObserved = new Promise<void>((resolve) => {
+			markLiveOutputObserved = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.onOutput?.("stderr", "live stderr");
+				markLiveOutputObserved?.();
+				await runFinished;
+				return 0;
+			},
+		});
+		const { ctx, widgets } = createContext();
+
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+		await liveOutputObserved;
+
+		expect(widgets.at(-1)?.lines).toEqual([
+			"/dev:preview-status running CLI command (0s elapsed)",
+			"$ fake-cli preview-status · stdout 0, stderr 11",
+			"stderr: live stderr",
+		]);
+
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+	});
+
+	test("appends unknown structured phase keys in arrival order", async () => {
+		let markPhasesObserved: (() => void) | undefined;
+		const phasesObserved = new Promise<void>((resolve) => {
+			markPhasesObserved = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.onProgress?.({ type: "phase-progress", phaseKey: "discover", label: "finding work" });
+				deps.onProgress?.({ type: "phase-started", phaseKey: "submit", label: "submitting" });
+				markPhasesObserved?.();
+				await runFinished;
+				return 0;
+			},
+		});
+		const { ctx, widgets } = createContext();
+
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+		await phasesObserved;
+
+		expect(widgets.at(-1)?.lines).toEqual([
+			"/dev:preview-status (0s elapsed)",
+			"✓ discover  finding work",
+			"▸ submit    submitting",
+		]);
+
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+	});
+
+	test("shows the latest raw output line at the end of the structured phase widget", async () => {
+		let markTailObserved: (() => void) | undefined;
+		const tailObserved = new Promise<void>((resolve) => {
+			markTailObserved = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.onProgress?.({
+					type: "phases-declared",
+					title: "fake-cli preview-status",
+					phases: [{ key: "submit", name: "Submit" }],
+				});
+				deps.onProgress?.({ type: "phase-started", phaseKey: "submit", label: "running" });
+				deps.onOutput?.("stderr", "Pushing branches to remote…");
+				markTailObserved?.();
+				await runFinished;
+				return 0;
+			},
+		});
+		const { ctx, widgets } = createContext();
+
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+		await tailObserved;
+
+		expect(widgets.at(-1)?.lines).toEqual([
+			"/dev:preview-status (0s elapsed)",
+			"▸ Submit  running",
+			"  stderr: Pushing branches to remote…",
+		]);
+
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+	});
+
+	test("clears the structured live widget when the CLI command finishes", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.onProgress?.({
+					type: "phases-declared",
+					title: "fake-cli preview-status",
+					phases: [{ key: "submit", name: "Submit" }],
+				});
+				deps.onProgress?.({ type: "phase-done", phaseKey: "submit", detail: "done" });
+				return 0;
+			},
+		});
+		const { ctx, widgets } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expect(widgets.at(-1)).toEqual({
+			key: "ns-cli-command-output",
+			lines: undefined,
+			placement: undefined,
+		});
+	});
+
 	test("parses shell-like whitespace quotes and escapes", () => {
 		expect(parseCliCommandArgs("--branch feature/x --json")).toEqual({
 			ok: true,
