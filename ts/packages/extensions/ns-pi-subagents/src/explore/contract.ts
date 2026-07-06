@@ -26,6 +26,7 @@ export const EXPLORE_BREADTH_PROFILES: Record<ExploreBreadth, ExploreBreadthProf
 	"very-thorough": { maxTasks: 8, maxConcurrency: 4, wallClockMs: 300_000 },
 };
 
+export const EXPLORE_MIN_TASKS = 1;
 export const EXPLORE_ABSOLUTE_MAX_TASKS = 8;
 export const EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS = 32_000;
 export const EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS = 8_000;

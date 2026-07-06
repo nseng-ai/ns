@@ -6,6 +6,7 @@ export {
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
 	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
 	EXPLORE_FLEET_SHORTCUT_LABEL,
+	EXPLORE_MIN_TASKS,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
@@ -84,3 +85,4 @@ export {
 	type TranscriptView,
 	type TranscriptViewerDependencies,
 } from "./transcript-viewer.ts";
+export type { ExploreReadTextFileDependencies, ReadTextFile } from "./read-text-dependencies.ts";

@@ -53,10 +53,7 @@ export function formatExploreFleetTaskLines(
 ): string[] {
 	const tasks = sortedFleetTasks(runs);
 	if (tasks.length === 0) return [];
-	const parentSessionFile = runs
-		.map((run) => run.parentSessionFile)
-		.filter((file) => file !== undefined)
-		.at(-1);
+	const parentSessionFile = latestParentSessionFile(runs);
 	return [
 		`explore fleet: ${describeFleetCounts(tasks)}`,
 		...(parentSessionFile === undefined
@@ -98,6 +95,15 @@ function formatExploreFleetTaskLine(task: RunnerSubagentFleetTaskSnapshot): stri
 		`${icon} ${task.title} — ${status}${suffix === undefined ? "" : ` — ${suffix}`}`,
 		180,
 	);
+}
+
+export function latestParentSessionFile(
+	runs: readonly RunnerSubagentFleetRunSnapshot[],
+): string | undefined {
+	return runs
+		.map((run) => run.parentSessionFile)
+		.filter((file) => file !== undefined)
+		.at(-1);
 }
 
 export function sortedFleetTasks(

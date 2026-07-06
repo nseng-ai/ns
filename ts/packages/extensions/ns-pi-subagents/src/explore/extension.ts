@@ -18,6 +18,7 @@ import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
 	EXPLORE_BREADTH_VALUES,
+	EXPLORE_MIN_TASKS,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
@@ -95,7 +96,7 @@ export const EXPLORE_PARAMETERS = {
 		},
 		tasks: {
 			type: "array",
-			minItems: 1,
+			minItems: EXPLORE_MIN_TASKS,
 			maxItems: EXPLORE_ABSOLUTE_MAX_TASKS,
 			description:
 				"One or more focused read-only scout tasks. Each task should ask one concrete reconnaissance question with scope hints. A single task is appropriate for one deep standalone investigation question.",
@@ -154,10 +155,12 @@ export default function exploreExtension(
 	registerExploreFleetCommand({
 		pi,
 		registry: fleetRegistry,
+		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
 	});
 	registerExploreFleetShortcut({
 		pi,
 		registry: fleetRegistry,
+		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
 	});
 
 	pi.registerTool({
