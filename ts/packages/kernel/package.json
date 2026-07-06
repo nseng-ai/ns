@@ -1,7 +1,6 @@
 {
 	"name": "@nseng-ai/kernel",
-	"version": "0.1.0",
-	"private": true,
+	"version": "0.1.1",
 	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
 	"type": "module",
 	"exports": {
@@ -43,5 +42,12 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"jiti": "catalog:",
 		"zod": "catalog:"
-	}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [
+		"src",
+		"README.md"
+	]
 }

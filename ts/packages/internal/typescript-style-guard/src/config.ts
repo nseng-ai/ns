@@ -99,8 +99,10 @@ export const manifestDependencyFields = [
 
 export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
-	"@nseng-ai/pi",
+	"@nseng-ai/capability-kit",
 	"@nseng-ai/kernel",
+	"@nseng-ai/ns",
+	"@nseng-ai/pi",
 	"nscc",
 ]);
 

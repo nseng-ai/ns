@@ -35,6 +35,10 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 - Host-surface subpaths are imported only by their host packages.
 - A feature-level `api`/`testing` module (for example `@nseng-ai/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 
+## Lower-tier public subpaths
+
+A container may declare `ns.subpackageTiers` only for public subpaths whose effective tier is lower than the container package's tier (for example a host package exposing an SDK-like public subpath during a transition). Keys must exactly match entries in `ns.subpackages`, and values must be known package tiers. This is not a general dependency escape hatch: it documents the rank of the named public subpackage, and guard tooling must validate actual subpath imports rather than legalizing arbitrary whole-package edges.
+
 ## Adding or consolidating
 
 When adding a subpackage: state its kind, confirm it passes the rank test, root it at `src/<name>/`, declare it in `ns.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage); the TypeScript style guard enforces this via `NS_TS_EXPORTS_SUBPACKAGE_CONFORMANCE`. A container package mid-conversion may declare `ns.remainder: true` per ADR 0022; a properly formed container has no remainder.

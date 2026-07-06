@@ -32,6 +32,7 @@ export function collectPackageTierLayeringViolations(
 				),
 			);
 		}
+		violations.push(...collectSubpackageTierMetadataViolations(metadata));
 	}
 
 	const packageNames = new Set(metadataByName.keys());
@@ -43,7 +44,6 @@ export function collectPackageTierLayeringViolations(
 		const violation = tierEdgeViolation(fromTier, toTier);
 		if (violation === undefined) continue;
 		if (isAllowedPiSubpackagePeerEdge(edge, metadataByName)) continue;
-		if (isAllowedPublicSubpackageTierDependency(edge, metadataByName)) continue;
 		if (allowedDebtEdges.has(packageEdgeKey(edge.from, edge.to))) continue;
 		violations.push({
 			rule: BAN_PACKAGE_TIER_LAYERING,
@@ -81,44 +81,90 @@ function isAllowedPiSubpackagePeerEdge(
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
 }
 
-function isAllowedPublicSubpackageTierDependency(
-	edge: { readonly from: string; readonly to: string },
-	metadataByName: ReadonlyMap<string, PackageMetadata>,
-): boolean {
-	const fromTier = metadataByName.get(edge.from)?.nsTier;
-	const toMetadata = metadataByName.get(edge.to);
-	if (fromTier === undefined || toMetadata === undefined) return false;
-	return [...toMetadata.nsSubpackageTiers.values()].some((subpackageTier) =>
-		packageTierAllowedTargets[fromTier].has(subpackageTier),
-	);
-}
-
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {
 	if (!isRecord(peerDependenciesMeta)) return false;
 	const entry = peerDependenciesMeta[packageName];
 	return isRecord(entry) && entry.optional === true;
 }
 
+function collectSubpackageTierMetadataViolations(metadata: PackageMetadata): SourceRuleViolation[] {
+	const nsField = metadata.manifest.ns;
+	if (!isRecord(nsField) || !isRecord(nsField.subpackageTiers)) return [];
+	const violations: SourceRuleViolation[] = [];
+	for (const [subpackage, rawTier] of Object.entries(nsField.subpackageTiers)) {
+		if (!metadata.nsSubpackages.includes(subpackage)) {
+			violations.push(
+				buildSubpackageTierMetadataViolation(
+					metadata,
+					subpackage,
+					`ns.subpackageTiers.${subpackage} does not match a declared ns.subpackages entry`,
+				),
+			);
+		}
+		if (typeof rawTier !== "string" || !packageTierValues.includes(rawTier as PackageTier)) {
+			violations.push(
+				buildSubpackageTierMetadataViolation(
+					metadata,
+					subpackage,
+					`ns.subpackageTiers.${subpackage} has unknown tier ${JSON.stringify(rawTier)}; declare one of: ${packageTierValues.join(", ")}`,
+				),
+			);
+		}
+	}
+	return violations;
+}
+
+function buildSubpackageTierMetadataViolation(
+	metadata: PackageMetadata,
+	subpackage: string,
+	reason: string,
+): SourceRuleViolation {
+	return buildManifestPositionViolation(
+		metadata,
+		findManifestKeyPosition(metadata, "ns", "subpackageTiers", subpackage),
+		`${reason}.`,
+	);
+}
+
 function buildTierMetadataViolation(
 	metadata: PackageMetadata,
 	reason: string,
 ): SourceRuleViolation {
-	const position = findNsTierPosition(metadata);
+	return buildManifestPositionViolation(
+		metadata,
+		findManifestKeyPosition(metadata, "ns", "tier"),
+		`${reason}; declare one of: ${packageTierValues.join(", ")}.`,
+	);
+}
+
+function buildManifestPositionViolation(
+	metadata: PackageMetadata,
+	position: TextPosition,
+	reason: string,
+): SourceRuleViolation {
 	return {
 		rule: BAN_PACKAGE_TIER_LAYERING,
 		path: metadata.packageJsonPath,
 		line: position.line,
 		column: position.column,
-		text: `${metadata.name} ${reason}; declare one of: ${packageTierValues.join(", ")}.`,
+		text: `${metadata.name} ${reason}`,
 	};
 }
 
-function findNsTierPosition(metadata: PackageMetadata): TextPosition {
-	const nsOffset = metadata.manifestContent.indexOf('"ns"');
-	if (nsOffset >= 0) {
-		const tierOffset = metadata.manifestContent.indexOf('"tier"', nsOffset);
-		if (tierOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, tierOffset);
-		return lineAndColumnForOffset(metadata.manifestContent, nsOffset);
+function findManifestKeyPosition(
+	metadata: PackageMetadata,
+	...keys: readonly string[]
+): TextPosition {
+	let matchedOffset: number | undefined;
+	let searchOffset = 0;
+	for (const key of keys) {
+		const keyOffset = metadata.manifestContent.indexOf(JSON.stringify(key), searchOffset);
+		if (keyOffset < 0) break;
+		matchedOffset = keyOffset;
+		searchOffset = keyOffset;
+	}
+	if (matchedOffset !== undefined) {
+		return lineAndColumnForOffset(metadata.manifestContent, matchedOffset);
 	}
 	const nameOffset = metadata.manifestContent.indexOf(`"${metadata.name}"`);
 	return lineAndColumnForOffset(metadata.manifestContent, Math.max(0, nameOffset));

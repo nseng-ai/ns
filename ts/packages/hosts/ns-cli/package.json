@@ -6,16 +6,8 @@
 	"bin": {
 		"ns": "bin/ns.js"
 	},
-	"exports": {
-		"./kernel/cli": "./src/kernel/cli.ts",
-		"./kernel/command-io": "./src/kernel/command-io.ts",
-		"./kernel/context": "./src/kernel/context.ts",
-		"./kernel/pi-text-generation": "./src/kernel/pi-text-generation.ts",
-		"./kernel/sdk": "./src/kernel/sdk.ts"
-	},
 	"files": [
 		"bin",
-		"kernel",
 		"README.md"
 	],
 	"publishConfig": {
@@ -30,7 +22,8 @@
 		"pack:local": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm pack ./dist/publish --pack-destination dist",
 		"publish:dry-run": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm publish --dry-run ./dist/publish",
 		"smoke:checkout-free": "node scripts/smoke-checkout-free.mjs",
-		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/ns-cli/test"
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/ns-cli/test",
+		"prepublishOnly": "node -e \"throw new Error('Use pnpm --dir ts run release:publish / release:publish-dry-run; @nseng-ai/ns is published from dist/publish only.')\""
 	},
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",
@@ -47,12 +40,6 @@
 	},
 	"ns": {
 		"tier": "host",
-		"subpackages": [
-			"kernel"
-		],
-		"subpackageTiers": {
-			"kernel": "sdk"
-		},
 		"remainder": true
 	}
 }

@@ -10,6 +10,7 @@ import {
 	repoRoot,
 	run,
 } from "./public-package-set.mjs";
+import { isMissingPackageResult, snippet } from "./public-package-helpers.mjs";
 
 const args = parseArgs(process.argv.slice(2));
 assertPlausibleNpmVersion(args.version);
@@ -25,7 +26,7 @@ if (args.mode === "dry-run") {
 } else {
 	assertCleanWorktree();
 	runQualification(args.version);
-	await assertUnpublished(args.version);
+	await assertUnpublished(plan, args.version);
 	printPublishPlan(plan);
 	console.log("");
 	console.log("If publishing fails after some packages are published, rerunning this command at the same version will fail the already-published precheck. Choose a new version or build an explicit future resume mode.");
@@ -40,7 +41,7 @@ if (args.mode === "dry-run") {
 function parseArgs(rawArgs) {
 	const args = rawArgs.filter((arg) => arg !== "--");
 	if (args.length < 2 || !["dry-run", "publish"].includes(args[0])) {
-		throw new Error("Usage: pnpm --dir ts run release:publish-public -- <dry-run|publish> <version> [--verify-delay-ms <ms> ...]");
+		throw new Error("Usage: pnpm --dir ts run release:publish / release:publish-dry-run -- <dry-run|publish> <version> [--verify-delay-ms <ms> ...]");
 	}
 	const customVerifyDelaysMs = [];
 	for (let index = 2; index < args.length; index += 1) {
@@ -76,10 +77,10 @@ function assertCleanWorktree() {
 	}
 }
 
-async function assertUnpublished(version) {
+async function assertUnpublished(plan, version) {
 	const published = [];
 	const errors = [];
-	for (const item of buildPublishPlan(context, version)) {
+	for (const item of plan) {
 		const npmView = spawnSync("npm", ["view", `${item.packageName}@${version}`, "version", "--json"], {
 			cwd: repoRoot,
 			encoding: "utf8",
@@ -88,9 +89,8 @@ async function assertUnpublished(version) {
 			published.push(item.packageName);
 			continue;
 		}
-		const text = `${npmView.stderr}\n${npmView.stdout}`;
-		if (isMissingPackageResult(text)) continue;
-		errors.push(`${item.packageName}: ${snippet(text)}`);
+		if (isMissingPackageResult(npmView.stderr, npmView.stdout)) continue;
+		errors.push(`${item.packageName}: ${snippet(`${npmView.stderr}\n${npmView.stdout}`)}`);
 	}
 	if (published.length > 0) {
 		throw new Error(`Refusing to publish because these package versions already exist at ${version}:\n- ${published.join("\n- ")}`);
@@ -99,10 +99,6 @@ async function assertUnpublished(version) {
 		throw new Error(`Registry precheck failed for ${version}:\n- ${errors.join("\n- ")}`);
 	}
 	console.log(`Registry precheck: no intended public package is already published at ${version}.`);
-}
-
-function isMissingPackageResult(text) {
-	return text.includes("E404") || text.includes("404 Not Found") || text.includes("is not in this registry");
 }
 
 async function confirmPublish(version) {
@@ -165,7 +161,3 @@ function formatDelay(delayMs) {
 	return `${delayMs / 1000}s`;
 }
 
-function snippet(value) {
-	const oneLine = value.replaceAll("\n", " ").trim();
-	return oneLine.length > 240 ? `${oneLine.slice(0, 237)}...` : oneLine;
-}
