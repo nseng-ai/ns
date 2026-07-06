@@ -136,6 +136,30 @@ Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
     `pnpm --dir ts run check`, `pnpm --dir ts run lint`,
     `pnpm --dir ts run fmt:check`, `just ts-test-typescript-style-guard`, and
     `just` on local branch `github-pr-feedback-comment-kit`.
+- [x] Promote the JSON-input loader as a new kit leaf: move
+      `pr-feedback/src/json-input.ts` (one-of inline option/file/stdin,
+      non-empty validation, JSON parse, Zod validation, prettified errors) to
+      `@nseng-ai/capability-kit/json-input`; migrate the existing
+      pr-feedback consumers; migrate reviews JSON parsing sites that cleanly
+      fit the new helper, including `record-findings` and parse-only sites
+      where this preserves domain semantics. Reviews sites may adopt
+      kit-standard `invalid-json` / `invalid-request` errors; leave
+      domain-specific or lenient parsing local with rationale.
+  - Policy: direct execution; steer first if the helper wants to become a
+    generic JSON utility or a migrated reviews boundary loses useful
+    domain-specific behavior.
+  - Evidence: added `@nseng-ai/capability-kit/json-input`, migrated
+    pr-feedback imports, deleted `pr-feedback/src/json-input.ts`, migrated
+    reviews `record-findings` and findings-publication parse mechanics, and
+    deliberately left findings-comment lenient machine-state parsing plus the
+    Claude Code stdout boundary local. Passed
+    `pnpm --dir ts --filter @nseng-ai/capability-kit test`,
+    `pnpm --dir ts --filter @nseng-ai/pr-feedback test`,
+    `pnpm --dir ts --filter @nseng-ai/reviews test`,
+    `pnpm --dir ts run check`, `pnpm --dir ts run lint`,
+    `pnpm --dir ts run fmt:check`, `just ts-test-typescript-style-guard`,
+    `just`, and stale-reference grep verification on local branch
+    `json-input-capability-kit-promotion`.
 
 ## Parked
 
@@ -150,10 +174,6 @@ Work deliberately, one row at a time):
 - [ ] Promote PR-link/Graphite URL parsing (`flow/src/submit/gt-output.ts`;
       duplicated in `pr-feedback/src/core/feedback-summary.ts`) to a kit
       `graphite` subpath.
-- [ ] Promote the JSON-input loader (`pr-feedback/src/json-input.ts`:
-      one-of `--option`/`--file`/stdin + zod + prettified errors) as a new kit
-      leaf; migrate reviews' two hand-rolled equivalents in
-      `cli-operations.ts`.
 - [ ] Introduce a result-typed fs gateway (real + fake) unifying
       `objectives/src/core/real-storage.ts`, `plans/src/plan-store-gateway.ts`,
       and reviews' ad-hoc readdir/stat.

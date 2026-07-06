@@ -31,7 +31,7 @@ import {
 	resolveReviewThread,
 } from "./core/review-thread-mutations.ts";
 import { nonEmptyStringCollectionValidationMessage } from "./string-collection-validation.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { loadJsonInput } from "@nseng-ai/capability-kit/json-input";
 import {
 	discussionCommentsResult,
 	lookupResult,

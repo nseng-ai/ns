@@ -1,17 +1,12 @@
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { loadJsonInput } from "../../src/json-input.ts";
-import { useTempDirs } from "../support/temp.ts";
-
-const makeScopedTempDir = useTempDirs();
-
-async function makeTempDir(): Promise<string> {
-	return makeScopedTempDir("pr-address-json-input-");
-}
+import {
+	loadJsonInput,
+	parseJsonInputText,
+	parseJsonInputValue,
+} from "@nseng-ai/capability-kit/json-input";
+import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 
 describe("JSON input source helpers", () => {
 	test("loads stdin, inline JSON, and file JSON", async () => {
@@ -36,20 +31,22 @@ describe("JSON input source helpers", () => {
 		});
 		expect(inlineResult).toEqual({ type: "ok", value: { value: "inline" } });
 
-		const tempDir = await makeTempDir();
-		const payloadPath = join(tempDir, "payload.json");
-		await writeFile(payloadPath, '{"value":"file"}', "utf8");
-		const fileResult = await loadJsonInput({
-			optionValue: undefined,
-			filePath: payloadPath,
-			commandName: "demo",
-			inputDescription: "payload",
-			optionName: "--payload-json",
-			fileOptionName: "--payload-file",
-			schema,
-			stdin: async () => "",
-		});
-		expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
+		await withTemporaryFile(
+			{ prefix: "json-input-test-", filename: "payload.json", contents: '{"value":"file"}' },
+			async (payloadPath) => {
+				const fileResult = await loadJsonInput({
+					optionValue: undefined,
+					filePath: payloadPath,
+					commandName: "demo",
+					inputDescription: "payload",
+					optionName: "--payload-json",
+					fileOptionName: "--payload-file",
+					schema,
+					stdin: async () => "",
+				});
+				expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
+			},
+		);
 	});
 
 	test("reports source conflicts, empty input, invalid JSON, missing files, and schema errors", async () => {
@@ -97,7 +94,7 @@ describe("JSON input source helpers", () => {
 
 		const missingFile = await loadJsonInput({
 			optionValue: undefined,
-			filePath: "/tmp/definitely-missing-pr-address-payload.json",
+			filePath: "/tmp/definitely-missing-json-input-payload.json",
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
@@ -118,5 +115,45 @@ describe("JSON input source helpers", () => {
 		});
 		expect(schemaError.type).toBe("error");
 		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid-request");
+	});
+
+	test("parses already-loaded JSON text with schema-backed errors", () => {
+		const schema = z.object({ value: z.string() });
+		expect(
+			parseJsonInputText({
+				text: '{"value":"ok"}',
+				schema,
+				jsonDescription: "demo payload",
+			}),
+		).toEqual({ type: "ok", value: { value: "ok" } });
+
+		const invalidJson = parseJsonInputText({
+			text: "{",
+			schema,
+			jsonDescription: "demo payload",
+		});
+		expect(invalidJson.type).toBe("error");
+		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid-json");
+
+		const invalidSchema = parseJsonInputText({
+			text: '{"value":3}',
+			schema,
+			jsonDescription: "demo payload",
+			schemaDescription: "demo schema",
+		});
+		expect(invalidSchema.type).toBe("error");
+		if (invalidSchema.type === "error") {
+			expect(invalidSchema.error.errorType).toBe("invalid-request");
+			expect(invalidSchema.error.message).toContain("Invalid demo schema");
+		}
+	});
+
+	test("validates already-parsed JSON values", () => {
+		const result = parseJsonInputValue({
+			value: { value: "ok" },
+			schema: z.object({ value: z.string() }),
+			schemaDescription: "demo value",
+		});
+		expect(result).toEqual({ type: "ok", value: { value: "ok" } });
 	});
 });

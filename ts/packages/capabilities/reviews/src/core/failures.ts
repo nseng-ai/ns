@@ -16,6 +16,8 @@ export type LocalDiffFailureType =
 	| "project-config-invalid";
 
 export type ReviewRunnerFailureType =
+	| "invalid-json"
+	| "invalid-request"
 	| "model-not-provided"
 	| "harness-binary-missing"
 	| "harness-invocation-failed"
