@@ -8,7 +8,7 @@ import {
 	parseGitWorktreePorcelain,
 	RealGitGateway,
 	type GitGateway,
-	type GitOperationInProgress,
+	type GitOperationInProgressFacts,
 } from "@nseng-ai/capability-kit/git";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
@@ -140,7 +140,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 			return {
 				path: worktree.path,
 				branch: worktree.branch ?? operation.branch,
-				operation: operation.name,
+				operation: operation.operation,
 			};
 		});
 		return occupancies.filter((occupancy) => occupancy !== null);
@@ -249,10 +249,8 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		});
 	}
 
-	private worktreeOperation(worktreePath: string): WorktreeOperation | null {
-		const operation = detectGitOperationInProgressAt(worktreePath);
-		if (operation === undefined) return null;
-		return { name: operation.operation, branch: operation.branch };
+	private worktreeOperation(worktreePath: string): GitOperationInProgressFacts | null {
+		return detectGitOperationInProgressAt(worktreePath) ?? null;
 	}
 
 	private async git(
@@ -286,11 +284,6 @@ interface CommandResult {
 	stderr: string;
 	code: number | null;
 	killed: boolean;
-}
-
-interface WorktreeOperation {
-	name: GitOperationInProgress;
-	branch: string | null;
 }
 
 function failureFromResult(result: CommandResult): GitCommandFailure {

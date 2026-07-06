@@ -40,8 +40,8 @@ export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFinge
 		const id = idField(item, "id");
 		if (id === undefined) continue;
 		const updatedAt =
-			dualKeyField(item, "updatedAt", "updated_at") ??
-			dualKeyField(item, "createdAt", "created_at");
+			dualKeyField({ value: item, camelKey: "updatedAt", snakeKey: "updated_at" }) ??
+			dualKeyField({ value: item, camelKey: "createdAt", snakeKey: "created_at" });
 		const author = authorFromValue(item);
 		items.push({
 			kind: "discussion_comment",
@@ -57,12 +57,17 @@ export function parseReviewFingerprint(value: unknown): FeedbackFingerprintItem[
 	const items: FeedbackFingerprintItem[] = [];
 	for (const item of value) {
 		if (!isRecord(item)) continue;
-		const id = idField(item, "id") ?? dualKeyField(item, "nodeId", "node_id");
+		const id =
+			idField(item, "id") ?? dualKeyField({ value: item, camelKey: "nodeId", snakeKey: "node_id" });
 		if (id === undefined) continue;
-		const updatedAt = dualKeyField(item, "submittedAt", "submitted_at");
+		const updatedAt = dualKeyField({
+			value: item,
+			camelKey: "submittedAt",
+			snakeKey: "submitted_at",
+		});
 		const author = authorFromValue(item);
 		const state = stringField(item, "state");
-		const commitId = dualKeyField(item, "commitId", "commit_id");
+		const commitId = dualKeyField({ value: item, camelKey: "commitId", snakeKey: "commit_id" });
 		items.push({
 			kind: "review",
 			id,
@@ -80,13 +85,23 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 		const id = idField(item, "id");
 		if (id === undefined) continue;
 		const updatedAt =
-			dualKeyField(item, "updatedAt", "updated_at") ??
-			dualKeyField(item, "createdAt", "created_at");
+			dualKeyField({ value: item, camelKey: "updatedAt", snakeKey: "updated_at" }) ??
+			dualKeyField({ value: item, camelKey: "createdAt", snakeKey: "created_at" });
 		const author = authorFromValue(item);
 		const path = stringField(item, "path");
 		const line = finiteNumberField(item, "line");
-		const reviewId = dualKeyField(item, "reviewId", "pull_request_review_id", idField);
-		const inReplyToId = dualKeyField(item, "inReplyToId", "in_reply_to_id", idField);
+		const reviewId = dualKeyField({
+			value: item,
+			camelKey: "reviewId",
+			snakeKey: "pull_request_review_id",
+			readField: idField,
+		});
+		const inReplyToId = dualKeyField({
+			value: item,
+			camelKey: "inReplyToId",
+			snakeKey: "in_reply_to_id",
+			readField: idField,
+		});
 		items.push({
 			kind: "review_comment",
 			id,
@@ -192,13 +207,14 @@ function authorFromValue(value: Record<string, unknown>): string | undefined {
 	return stringField(value.user, "login");
 }
 
-function dualKeyField(
-	value: Record<string, unknown>,
-	camelKey: string,
-	snakeKey: string,
-	readField: (record: Record<string, unknown>, key: string) => string | undefined = stringField,
-): string | undefined {
-	return readField(value, camelKey) ?? readField(value, snakeKey);
+function dualKeyField(options: {
+	value: Record<string, unknown>;
+	camelKey: string;
+	snakeKey: string;
+	readField?: (record: Record<string, unknown>, key: string) => string | undefined;
+}): string | undefined {
+	const readField = options.readField ?? stringField;
+	return readField(options.value, options.camelKey) ?? readField(options.value, options.snakeKey);
 }
 
 function idField(value: Record<string, unknown>, key: string): string | undefined {

@@ -31,6 +31,10 @@ import {
 	updatePrDiscussionCommentRestArgs,
 } from "./args.ts";
 import {
+	findPrDiscussionCommentByMarkerInComments,
+	upsertPrDiscussionCommentByMarkerWithCallbacks,
+} from "./discussion-comment-marker.ts";
+import {
 	failureContextFields,
 	failureFromCompleted,
 	failureFromMessage,
@@ -332,9 +336,11 @@ export class RealGithubPrFeedbackGateway {
 		const comments = await this.getPrIssueComments(params);
 		if (!comments.ok) return comments;
 		return feedbackOk(
-			comments.value.find(
-				(comment) => comment.author === params.authorLogin && comment.body.includes(params.marker),
-			) ?? null,
+			findPrDiscussionCommentByMarkerInComments({
+				comments: comments.value,
+				marker: params.marker,
+				authorLogin: params.authorLogin,
+			}),
 		);
 	}
 
@@ -367,19 +373,15 @@ export class RealGithubPrFeedbackGateway {
 			readonly body: string;
 		},
 	): Promise<Result<GithubPrDiscussionCommentUpsert, GithubPrFeedbackFailure>> {
-		const existing = await this.findPrDiscussionCommentByMarker(params);
-		if (!existing.ok) return existing;
-		if (existing.value === null) {
-			const created = await this.addPrDiscussionComment(params);
-			if (!created.ok) return created;
-			return feedbackOk({ type: "created", comment: created.value });
-		}
-		const updated = await this.updatePrDiscussionComment({
-			...params,
-			commentId: existing.value.id,
+		return await upsertPrDiscussionCommentByMarkerWithCallbacks({
+			find: () => this.findPrDiscussionCommentByMarker(params),
+			add: () => this.addPrDiscussionComment(params),
+			update: (comment) =>
+				this.updatePrDiscussionComment({
+					...params,
+					commentId: comment.id,
+				}),
 		});
-		if (!updated.ok) return updated;
-		return feedbackOk({ type: "updated", comment: updated.value });
 	}
 
 	async getPrRestFeedbackFingerprintParts(
