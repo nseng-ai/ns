@@ -67,7 +67,7 @@
     exists on the npm registry under `@nseng-ai/*` with expected version/bin/exports where
     applicable, install or `npm view` evidence is recorded, and private/internal/excluded
     packages are deliberately not treated as missing work.
-- [~] Add local release automation for the intended public package set.
+- [x] Add local release automation for the intended public package set.
   - Evidence: checked-in local commands can bump coordinated versions, build/package and
     dry-run the public package set before publication, guard the write-capable publish
     path, document the release lane, and cover the multi-package public set rather than
@@ -76,5 +76,10 @@
     `just publish VERSION` wrap no-write qualification, guarded interactive npm publish,
     and strict post-publish registry verification; lower-level `release:qualify-public`
     and `release:verify-public` remain available for evidence gathering.
+  - Full-set evidence recorded in
+    `updates/20260706T025826Z-full-public-package-release-qualification.md`: `just
+    publish-dry-run 0.1.1` exercised all 19 intended public packages in publish order,
+    ran package checks/tests and `npm publish --dry-run`, and confirmed generated publish
+    manifests avoid `workspace:`/`catalog:` specs and excluded dependency leakage.
 
 ## Parked
