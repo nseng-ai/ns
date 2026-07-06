@@ -70,5 +70,4 @@ test("repo-local extensions can import package subpaths without source aliases",
 		objectiveListNsCommand: { name: string };
 	}>("@nseng-ai/objectives/ns/commands/list");
 	expect(objectiveListModule.objectiveListNsCommand.name).toBe("list");
-
 }, 30_000);
