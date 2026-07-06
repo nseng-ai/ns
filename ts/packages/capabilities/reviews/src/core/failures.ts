@@ -36,12 +36,15 @@ export type ReviewLogFailureCode =
 	| "review-log-list-failed"
 	| "review-log-response-invalid";
 
+export type GitHubGatewayFailureCode = "github-read-failed";
+
 export type ReviewFailureCode =
 	| ReviewDefinitionFailureCode
 	| ReviewCatalogFailureCode
 	| LocalDiffFailureCode
 	| ReviewRunnerFailureCode
-	| ReviewLogFailureCode;
+	| ReviewLogFailureCode
+	| GitHubGatewayFailureCode;
 
 export interface ReviewFailure<
 	Code extends ReviewFailureCode = ReviewFailureCode,
@@ -56,6 +59,7 @@ export type ReviewCatalogFailure = ReviewFailure<ReviewCatalogFailureCode>;
 export type LocalDiffFailure = ReviewFailure<LocalDiffFailureCode>;
 export type ReviewRunnerFailure = ReviewFailure<ReviewRunnerFailureCode>;
 export type ReviewLogFailure = ReviewFailure<ReviewLogFailureCode>;
+export type GitHubGatewayFailure = ReviewFailure<GitHubGatewayFailureCode>;
 
 export function isReviewLogFailure(error: ReviewFailure): error is ReviewLogFailure {
 	return (

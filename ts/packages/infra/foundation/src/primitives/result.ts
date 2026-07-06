@@ -42,4 +42,11 @@ export function resultErr<E extends ErrorInfo<object> = ErrorInfo>(error: E): Re
 	return { ok: false, error };
 }
 
+export function resultErrOf<Code extends string>(
+	code: Code,
+	message: string,
+): ResultErr<{ code: Code; message: string }> {
+	return resultErr({ code, message });
+}
+
 export { resultErr as err, resultOk as ok };

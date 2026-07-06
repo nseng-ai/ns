@@ -33,15 +33,16 @@ export async function postInlineFindings(
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
 	const githubOptions = environmentOptions(options.runScope);
+	const prParams = { ...githubOptions, prNumber: options.prNumber };
 	const changedFilesResult = await readGithubOrEmptyResult(() =>
-		ctx.github.getPrChangedFiles({ ...githubOptions, prNumber: options.prNumber }),
+		ctx.github.getPrChangedFiles(prParams),
 	);
-	if (changedFilesResult.type === "empty") return changedFilesResult.result;
+	if (!changedFilesResult.ok) return changedFilesResult.result;
 
 	const reviewCommentsResult = await readGithubOrEmptyResult(() =>
-		ctx.github.getPrReviewComments({ ...githubOptions, prNumber: options.prNumber }),
+		ctx.github.getPrReviewComments(prParams),
 	);
-	if (reviewCommentsResult.type === "empty") return reviewCommentsResult.result;
+	if (!reviewCommentsResult.ok) return reviewCommentsResult.result;
 
 	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
 	const existingMarkers = new Set(
@@ -94,8 +95,8 @@ export async function postInlineFindings(
 }
 
 type GithubReadOrEmptyResult<T> =
-	| { readonly type: "value"; readonly value: T }
-	| { readonly type: "empty"; readonly result: PostInlineFindingsResult };
+	| { readonly ok: true; readonly value: T }
+	| { readonly ok: false; readonly result: PostInlineFindingsResult };
 
 async function readGithubOrEmptyResult<T>(
 	call: () => Promise<Result<T, GithubPrFeedbackFailure>>,
@@ -103,12 +104,12 @@ async function readGithubOrEmptyResult<T>(
 	try {
 		const result = await call();
 		if (!result.ok) {
-			return { type: "empty", result: { ...emptyInlineResult(), apiError: result.error.message } };
+			return { ok: false, result: { ...emptyInlineResult(), apiError: result.error.message } };
 		}
-		return { type: "value", value: result.value };
+		return { ok: true, value: result.value };
 	} catch (caught) {
 		return {
-			type: "empty",
+			ok: false,
 			result: { ...emptyInlineResult(), apiError: formatErrorMessage(caught) },
 		};
 	}

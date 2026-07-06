@@ -1,5 +1,5 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErr, type Result, type ResultErr } from "@nseng-ai/foundation/result";
+import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import { parse } from "smol-toml";
 
 export interface RoasterDiffProjectConfig {
@@ -54,7 +54,7 @@ export function parseRoasterProjectConfigToml(
 	try {
 		data = parse(source);
 	} catch (error) {
-		return failure(
+		return resultErrOf(
 			"invalid-toml",
 			formatMessage(`Invalid TOML: ${formatErrorMessage(error)}`, pathLabel),
 		);
@@ -64,7 +64,10 @@ export function parseRoasterProjectConfigToml(
 	const roaster = data.roaster;
 	if (roaster === undefined) return { ok: true, value: EMPTY_CONFIG };
 	if (!isRecord(roaster))
-		return failure("invalid-table", formatMessage("[roaster] must be a TOML table.", pathLabel));
+		return resultErrOf(
+			"invalid-table",
+			formatMessage("[roaster] must be a TOML table.", pathLabel),
+		);
 
 	const parsedDiff = parseDiffConfig(roaster.diff, pathLabel);
 	if (!parsedDiff.ok) return parsedDiff;
@@ -115,7 +118,7 @@ export function isRoasterModelProfileKey(value: string): value is RoasterModelPr
 function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffConfigParseResult {
 	if (value === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
 	if (!isRecord(value)) {
-		return failure(
+		return resultErrOf(
 			"invalid-table",
 			formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
 		);
@@ -134,7 +137,7 @@ function parseModelProfiles(
 ): ModelProfilesParseResult {
 	if (value === undefined) return { ok: true, value: DEFAULT_ROASTER_MODEL_PROFILES };
 	if (!isRecord(value)) {
-		return failure(
+		return resultErrOf(
 			"invalid-table",
 			formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
 		);
@@ -144,7 +147,7 @@ function parseModelProfiles(
 		.filter((key) => !isRoasterModelProfileKey(key))
 		.sort();
 	if (unknownKeys.length > 0) {
-		return failure(
+		return resultErrOf(
 			"invalid-model-profiles",
 			formatMessage(
 				`[roaster.model_profiles] contains unknown profile key(s): ${unknownKeys.join(", ")}. Allowed keys: ${MODEL_PROFILE_KEYS.join(", ")}.`,
@@ -158,7 +161,7 @@ function parseModelProfiles(
 		if (!(key in value)) continue;
 		const profileValue = value[key];
 		if (typeof profileValue !== "string" || profileValue.trim() === "") {
-			return failure(
+			return resultErrOf(
 				"invalid-model-profiles",
 				formatMessage(`[roaster.model_profiles].${key} must be a non-empty string.`, pathLabel),
 			);
@@ -170,7 +173,7 @@ function parseModelProfiles(
 
 function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): ExcludeParseResult {
 	if (!Array.isArray(value)) {
-		return failure(
+		return resultErrOf(
 			"invalid-exclude",
 			formatMessage("[roaster.diff].exclude must be a TOML array of non-empty strings.", pathLabel),
 		);
@@ -179,7 +182,7 @@ function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): Exclu
 	const patterns: string[] = [];
 	for (const item of value) {
 		if (typeof item !== "string" || item.trim() === "") {
-			return failure(
+			return resultErrOf(
 				"invalid-exclude",
 				formatMessage("[roaster.diff].exclude must contain only non-empty strings.", pathLabel),
 			);
@@ -196,7 +199,7 @@ function validateRoasterExcludePattern(
 	pathLabel: string | undefined,
 ): Result<void, ProjectConfigError> {
 	if (pattern.startsWith(":(")) {
-		return failure(
+		return resultErrOf(
 			"invalid-exclude",
 			formatMessage(
 				"[roaster.diff].exclude entries must be plain glob patterns, not raw Git pathspecs.",
@@ -205,13 +208,13 @@ function validateRoasterExcludePattern(
 		);
 	}
 	if (pattern.startsWith("/")) {
-		return failure(
+		return resultErrOf(
 			"invalid-exclude",
 			formatMessage("[roaster.diff].exclude entries must be repo-relative patterns.", pathLabel),
 		);
 	}
 	if (pattern.split("/").includes("..")) {
-		return failure(
+		return resultErrOf(
 			"invalid-exclude",
 			formatMessage(
 				"[roaster.diff].exclude entries must not contain '..' path segments.",
@@ -220,10 +223,6 @@ function validateRoasterExcludePattern(
 		);
 	}
 	return { ok: true, value: undefined };
-}
-
-function failure(code: ProjectConfigErrorCode, message: string): ResultErr<ProjectConfigError> {
-	return resultErr({ code, message });
 }
 
 function formatMessage(message: string, pathLabel: string | undefined): string {
