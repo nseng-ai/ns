@@ -19,8 +19,12 @@ most non-private packages declare `files: ["src"]`, a source-shipping posture (t
 `@nseng-ai/ns` host is the deliberate exception — it now ships a prebuilt `bin/`).
 
 This Objective makes `ns` installable and runnable **without a checkout** — a versioned
-npm package a customer installs (global or `npx`) that runs `ns objective …` (and every
+npm package set a customer installs (global or `npx`) that runs `ns objective …` (and every
 other bundled capability) against their own repo, with no `ts/node_modules` precondition.
+Its end state is not only the first CLI publish: it is the successful publishing and
+registry-backed verification of every workspace package intended to be public, while
+explicitly private/internal/excluded packages remain unpublished or folded into published
+artifacts by decision.
 
 It was split out of `ship-objectives-to-customers` (decided 2026-07-01) because
 checkout-free distribution is the biggest, riskiest chunk of that thread **and** benefits
@@ -73,23 +77,27 @@ it describes the pre-work state.
   package: un-private + publish, bundle-inline, or exclude. `@nseng-ai/objectives` and the
   other capability packages are already non-private. The kernel also depends on external
   published npm packages (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`).
-- **Publish a versioned package to npm** as `@nseng-ai/ns` (per the `rename-ji-to-ns`
-  edge, superseding the ADR 0024 `@ji` scope), with the `ns` bin working checkout-free.
-  Standalone-published first-party runtime packages use the same external `@nseng-ai/*`
-  workspace/package naming line rather than a pack-time `@ns/*` rewrite scheme.
+- **Publish the intended public package set to npm** under the `@nseng-ai/*` scope (per
+  the `rename-ji-to-ns` edge, superseding the ADR 0024 `@ji` scope). This includes
+  `@nseng-ai/ns` with the `ns` bin working checkout-free and every other workspace
+  package designated for public standalone publication. Standalone-published first-party
+  runtime packages use the same external `@nseng-ai/*` workspace/package naming line
+  rather than a pack-time `@ns/*` rewrite scheme.
 - **Replace the checkout-dependent shims.** The pnpm `.bin/ns` shim hard-codes this
   checkout's `NODE_PATH`; the installer shim template
   (`ts/scripts/source-cli-shim-template`) `run_checkout` refuses to run without
   `ts/node_modules`. The published-package boundary must not depend on either — it points
   at prebuilt `bin/ns.js`; those source shims remain dev-only.
+- **Add release automation / CI for public packages.** The Objective now includes the
+  repeatable release lane for the intended public package set: CI or equivalent checked-in
+  automation should build/package/dry-run or otherwise qualify public packages before
+  publication, so follow-on package releases are not purely manual one-offs.
 
 ## Non-Goals
 
 - Not a standalone `objective` binary; the surface stays the `ns` CLI.
 - No contributor/dev-environment onboarding (`just`, pnpm, direnv, `slot`, source shims);
   those keep the run-from-source model.
-- No release automation / CI for the published package in v1 (parked); a first manual
-  publish is enough to unblock consumers.
 - Not re-homing or renaming capability packages beyond what publishability requires
   (distribution-motivated package consolidation into `@nseng-ai/*` subpaths is in scope
   only as triage outcomes, not as a general re-homing program).
@@ -99,12 +107,17 @@ it describes the pre-work state.
 
 - A global or `npx` install of `@nseng-ai/ns` on a machine with **no repo checkout** runs
   `ns objective list` (and `ns objective …`) against a foreign repo.
-- The published package includes `@nseng-ai/objectives` and its hidden `exec` surface,
-  loaded without a source-path checkout assumption.
+- The published CLI package includes or depends on `@nseng-ai/objectives` and its hidden
+  `exec` surface, loaded without a source-path checkout assumption.
 - No runtime dependency on `ts/node_modules` or a hard-coded checkout `NODE_PATH`.
-- A recorded per-package decision for every private runtime dependency (publish vs
-  bundle-inline vs exclude).
-- The build/bundle step is reproducible from a clean clone and documented.
+- A recorded per-package decision for every private/runtime workspace dependency (publish
+  vs bundle-inline/folded vs exclude), and successful npm registry publication for every
+  workspace package designated as public/standalone.
+- Registry-backed install or `npm view` evidence exists for the intended public package
+  set, with internal/private/excluded packages deliberately absent from that set.
+- Release automation / CI for the intended public package set is checked in and documented
+  enough to qualify future package releases without relying only on ad hoc local commands.
+- The build/bundle/package step is reproducible from a clean clone and documented.
 
 ## Assumptions and Risks
 
@@ -115,9 +128,11 @@ Assumptions:
 
 Risks:
 
-- **First-publish follow-through.** The first registry package is now published and
-  smoke-verified, but follow-on release automation remains explicitly parked; future
-  versions still need deliberate release discipline outside this v1 Objective.
+- **Public package set follow-through.** The first registry package is now published and
+  smoke-verified, but the Objective now stays open until every package intended to be
+  public is published and verified. Release automation / CI is now active Objective scope;
+  future versions still need deliberate release discipline, but the repeatable lane should
+  be established here rather than left as a parked follow-up.
 - Removing the jiti source-path aliases risks breaking first-party extension discovery and
   the `.ns/extensions/*` re-export parity test
   (`ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts`);
@@ -155,3 +170,6 @@ Risks:
 - ~~The exact first npm publish authorization and release mechanics~~ — resolved by the
   first manual registry publish of `@nseng-ai/ns@0.1.0` and a registry-backed `npx`
   smoke from a foreign repo. Release automation/CI remains parked.
+- Which packages are in the final intended-public registry set, and which versions/evidence
+  prove each one has been successfully published? The Objective now closes only after that
+  package set is published and verified, not after the first CLI package alone.
