@@ -1788,7 +1788,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 
-	test("required next-landing trunk fetch checkout conflict stops before merging the next target PR", async () => {
+	test("required next-landing Graphite fallback checkout conflict stops before merging the next target PR", async () => {
 		const fetchStep = trunkFetchStep({
 			trunk: TRUNK,
 			result: {
@@ -1797,12 +1797,25 @@ describe("land-stack command scenarios", () => {
 					"fatal: refusing to fetch into branch 'refs/heads/main' checked out at '/repo-main'\n",
 			},
 		});
+		const getArgs = [
+			"get",
+			"feature-b",
+			"--downstack",
+			"--no-restack",
+			"--no-checkout",
+			"--force",
+			"--no-interactive",
+		];
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureA({ includeCleanup: false }),
 			guardShaStep("feature-b", SHA_B),
 			fetchStep,
+			step("gt", getArgs, {
+				code: 1,
+				stderr: "fatal: 'main' is already checked out at '/repo-main'\n",
+			}),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -1813,15 +1826,106 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
 		expect(streamText).toContain(
-			"local trunk main could not be advanced from origin before maintaining next landing branch feature-b",
+			"Graphite could not refresh next landing branch feature-b: main is checked out at /repo-main.",
 		);
-		expect(streamText).toContain("Suggested next action: Reconcile local trunk main with origin");
-		expect(streamText).toContain(formatCommand(fetchStep.command, fetchStep.args));
+		expect(streamText).toContain("Suggested next action: Switch/detach /repo-main from main");
+		expect(streamText).toContain(formatCommand("gt", getArgs));
 		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gt" && call.args[0] === "get" && call.args[1] === "feature-b",
-			),
-		).toBe(false);
+			pi.execCalls
+				.filter(
+					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
+				)
+				.map((call) => call.args[2]),
+		).toEqual(["101"]);
+	});
+
+	test("required next-landing trunk checkout conflict falls back to gt get and completes", async () => {
+		const getArgs = [
+			"get",
+			"feature-b",
+			"--downstack",
+			"--no-restack",
+			"--no-checkout",
+			"--force",
+			"--no-interactive",
+		];
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureA({ includeCleanup: false }),
+			guardShaStep("feature-b", SHA_B),
+			trunkFetchStep({
+				trunk: TRUNK,
+				result: {
+					code: 1,
+					stderr:
+						"fatal: refusing to fetch into branch 'refs/heads/main' checked out at '/repo-main'\n",
+				},
+			}),
+			step("gt", getArgs),
+			childrenRecheckStep("feature-a", ["feature-b"]),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: "feature-a",
+			}),
+			submitUpdateStep("feature-b"),
+			...mergeFeatureBThroughVerification(),
+			childrenRecheckStep("feature-b", []),
+			step("gt", ["delete", "feature-b", "-f", "-q"]),
+		];
+		const { pi, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gt" && call.args[0] === "get")
+				.map((call) => call.args[1]),
+		).toEqual(["feature-b"]);
+		expect(
+			pi.execCalls
+				.filter(
+					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
+				)
+				.map((call) => call.args[2]),
+		).toEqual(["101", "102"]);
+	});
+
+	test("required next-landing trunk fetch failure halts with no local cleanup", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureA({ includeCleanup: false }),
+			guardShaStep("feature-b", SHA_B),
+			trunkFetchStep({
+				trunk: TRUNK,
+				result: {
+					code: 1,
+					stderr: "fatal: Not possible to fast-forward, aborting.\n",
+				},
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain("advancing local trunk main");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(
+			false,
+		);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
+			false,
+		);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack")).toBe(
+			false,
+		);
 		expect(
 			pi.execCalls
 				.filter(
@@ -2294,11 +2398,22 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(
+			false,
+		);
 		expect(
-			pi.execCalls.some(
-				(call) => call.command === "gt" && call.args[0] === "get" && call.args[1] === "feature-b",
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "git" &&
+					sameArgs(call.args, [
+						"fetch",
+						"--quiet",
+						"--no-tags",
+						"origin",
+						"refs/heads/main:refs/heads/main",
+					]),
 			),
-		).toBe(false);
+		).toHaveLength(1);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 

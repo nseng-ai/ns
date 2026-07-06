@@ -6,6 +6,7 @@ import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import type { LandStackCommandStream } from "./command-stream.ts";
 import {
 	formatGraphiteOperation,
+	parseGitCheckedOutElsewhere,
 	restackOperation,
 	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
@@ -95,23 +96,53 @@ function failOrWarn(
 	return { kind: "skip", warning: pair.warning };
 }
 
+interface GraphiteRefreshFailureOptions {
+	prNumber: number;
+	maintenanceBranch: string;
+	getCommandDisplay: string;
+	result: ExecResult;
+}
+
+function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): LandStackFailure {
+	const { prNumber, maintenanceBranch, getCommandDisplay, result } = failureOptions;
+	const checkoutConflict = parseGitCheckedOutElsewhere(result);
+	if (checkoutConflict) {
+		return landStackFailure(
+			`PR #${prNumber} merged, but Graphite could not refresh next landing branch ${maintenanceBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
+			{
+				commandDisplay: getCommandDisplay,
+				result,
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+			},
+		);
+	}
+
+	return landStackFailure(`PR #${prNumber} merged, but targeted Graphite refresh failed.`, {
+		commandDisplay: getCommandDisplay,
+		result,
+		failedBranch: maintenanceBranch,
+		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+	});
+}
+
 interface TrunkAdvanceFailureOptions {
 	prNumber: number;
-	trunk: string;
 	maintenanceBranch: string;
+	trunk: string;
 	commandDisplay: string;
 	result: ExecResult;
 }
 
 function trunkAdvanceFailure(failureOptions: TrunkAdvanceFailureOptions): LandStackFailure {
-	const { prNumber, trunk, maintenanceBranch, commandDisplay, result } = failureOptions;
+	const { prNumber, maintenanceBranch, trunk, commandDisplay, result } = failureOptions;
 	return landStackFailure(
-		`PR #${prNumber} merged, but local trunk ${trunk} could not be advanced from origin before maintaining next landing branch ${maintenanceBranch}.`,
+		`PR #${prNumber} merged, but advancing local trunk ${trunk} to include the merge before refreshing next landing branch ${maintenanceBranch} failed; local trunk may have diverged from origin.`,
 		{
 			commandDisplay,
 			result,
 			failedBranch: maintenanceBranch,
-			suggestedAction: `Reconcile local trunk ${trunk} with origin, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+			suggestedAction: `Reconcile local ${trunk} with origin (for example ${commandDisplay} or git fetch origin ${trunk}), inspect the stack, and rerun /ns:flow:land if appropriate.`,
 		},
 	);
 }
@@ -430,8 +461,9 @@ async function guardMaintenanceBranch(
 ): Promise<GraphiteMaintenanceStop | undefined> {
 	const { runtime, repoRoot, prNumber, maintenanceBranch, maintenance, state, landedBranch } =
 		options;
-	// Guard post-merge maintenance: direct trunk advancement plus restack/delete can
-	// rewrite local state, and optional descendant refreshes still run gt get --force.
+	// Guard post-merge maintenance: the required next-landing trunk fetch plus the forced
+	// restack/delete (and the optional-descendant `gt get --force`) can reset or rewrite the local
+	// branch, so refuse if it moved since this run snapshotted it.
 	const guardSha = await loadLocalSha(runtime.commands, repoRoot, maintenanceBranch);
 	if (guardSha.type === "failure") {
 		return failOrWarn(maintenance.severity, {
@@ -476,12 +508,15 @@ async function advanceTrunkBeforeMaintenance(
 	setStatus(ctx, `advancing local trunk ${trunk}...`);
 	const advanced = await landContext.git.advanceBranchFromRemote({ repoRoot, branch: trunk });
 	if (advanced.type === "advanced") return undefined;
+	// Trunk is checked out in another worktree, so it cannot be fetched into directly; fall back to
+	// the original forced Graphite refresh for this topology.
+	if (advanced.type === "checked-out") return refreshMaintenanceBranch(options, "fail");
 	return {
 		kind: "halt",
 		failure: trunkAdvanceFailure({
 			prNumber,
-			trunk,
 			maintenanceBranch,
+			trunk,
 			commandDisplay: advanced.commandDisplay,
 			result: advanced.result,
 		}),
@@ -498,7 +533,16 @@ async function refreshMaintenanceBranch(
 	options: MaintenanceBranchOperationContext,
 	checkedOutConflictHandling: "defer" | "fail",
 ): Promise<GraphiteMaintenanceStop | undefined> {
-	const { landContext, repoRoot, maintenanceBranch, landedBranch, commandOptions, ctx } = options;
+	const {
+		landContext,
+		repoRoot,
+		prNumber,
+		maintenanceBranch,
+		landedBranch,
+		commandOptions,
+		ctx,
+		maintenance,
+	} = options;
 
 	commandOptions.commandStream?.note(`Refreshing stack through ${maintenanceBranch}...`);
 	setStatus(ctx, `refreshing stack through ${maintenanceBranch}...`);
@@ -508,6 +552,18 @@ async function refreshMaintenanceBranch(
 		checkedOutConflictHandling,
 	});
 	if (refresh.type === "success") return undefined;
+
+	if (maintenance.severity === "fail") {
+		return {
+			kind: "halt",
+			failure: graphiteRefreshFailure({
+				prNumber,
+				maintenanceBranch,
+				getCommandDisplay: refresh.commandDisplay,
+				result: refresh.result,
+			}),
+		};
+	}
 
 	if (refresh.type === "checkout-conflict") {
 		commandOptions.commandStream?.note(

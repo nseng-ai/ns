@@ -280,6 +280,20 @@ export function parseGitCheckedOutElsewhere(result: ExecResult): CheckedOutElsew
 	return { branch, path };
 }
 
+export function parseGitFetchRefusedCheckedOut(
+	result: ExecResult,
+): CheckedOutElsewhere | undefined {
+	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
+	const match = output.match(
+		/refusing to fetch into branch ['"]([^'"]+)['"] checked out at ['"]([^'"]+)['"]/i,
+	);
+	if (!match) return undefined;
+	const branch = match[1];
+	const path = match[2];
+	if (!branch || !path) return undefined;
+	return { branch, path };
+}
+
 export function stripAnsi(text: string): string {
 	return stripTerminalEscapes(text);
 }

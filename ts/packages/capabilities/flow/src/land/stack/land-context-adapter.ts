@@ -43,6 +43,7 @@ import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,
 	getDownstackNoCheckoutOperation,
+	parseGitFetchRefusedCheckedOut,
 	restackOperation,
 	submitUpdateOperation,
 	type LandGraphiteCommandChannel,
@@ -244,6 +245,8 @@ async function advanceBranchFromRemote(options: {
 	readonly repoRoot: string;
 	readonly branch: string;
 }): Promise<LandAdvanceBranchResult> {
+	// Fast-forward only: a non-FF fetch failure means local trunk diverged from origin,
+	// which must surface as a failure rather than clobbering local history.
 	const args = advanceBranchFromRemoteArgs(options.branch);
 	const result = await exec({
 		pi: options.pi,
@@ -253,6 +256,10 @@ async function advanceBranchFromRemote(options: {
 		timeoutMs: GIT_REMOTE_TIMEOUT_MS,
 	});
 	if (result.code === 0) return { type: "advanced" };
+	const checkedOut = parseGitFetchRefusedCheckedOut(result);
+	if (checkedOut !== undefined) {
+		return { type: "checked-out", branch: checkedOut.branch, path: checkedOut.path };
+	}
 	return { type: "failure", commandDisplay: formatCommand("git", args), result };
 }
 

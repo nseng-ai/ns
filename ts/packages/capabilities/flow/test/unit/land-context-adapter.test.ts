@@ -394,6 +394,78 @@ describe("land context adapter facts", () => {
 		pi.assertDone();
 	});
 
+	test("advances trunk from origin with a fast-forward-only fetch argv", async () => {
+		const fetchArgs = [
+			"fetch",
+			"--quiet",
+			"--no-tags",
+			"origin",
+			"refs/heads/main:refs/heads/main",
+		];
+		const pi = new FakePi([step("git", fetchArgs)]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.git.advanceBranchFromRemote({ repoRoot: ROOT, branch: "main" }),
+		).resolves.toEqual({ type: "advanced" });
+		expect(pi.execCalls).toEqual([
+			{ command: "git", args: fetchArgs, options: { cwd: ROOT, timeout: 120_000 } },
+		]);
+		pi.assertDone();
+	});
+
+	test("maps a git fetch checked-out refusal to the checked-out result", async () => {
+		const fetchArgs = [
+			"fetch",
+			"--quiet",
+			"--no-tags",
+			"origin",
+			"refs/heads/main:refs/heads/main",
+		];
+		const pi = new FakePi([
+			step("git", fetchArgs, {
+				code: 1,
+				stderr:
+					"fatal: refusing to fetch into branch 'refs/heads/main' checked out at '/repo-main'\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.git.advanceBranchFromRemote({ repoRoot: ROOT, branch: "main" }),
+		).resolves.toEqual({
+			type: "checked-out",
+			branch: "refs/heads/main",
+			path: "/repo-main",
+		});
+		pi.assertDone();
+	});
+
+	test("maps a non-fast-forward git fetch failure to the failure result", async () => {
+		const fetchArgs = [
+			"fetch",
+			"--quiet",
+			"--no-tags",
+			"origin",
+			"refs/heads/main:refs/heads/main",
+		];
+		const pi = new FakePi([
+			step("git", fetchArgs, {
+				code: 1,
+				stderr: "fatal: Not possible to fast-forward, aborting.\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.git.advanceBranchFromRemote({ repoRoot: ROOT, branch: "main" });
+		expect(result.type).toBe("failure");
+		if (result.type === "failure") {
+			expect(result.commandDisplay).toBe(formatCommand("git", fetchArgs));
+			expect(result.result.stderr).toContain("Not possible to fast-forward");
+		}
+		pi.assertDone();
+	});
+
 	test("loads stack shape from supplied facts without recursively loading a landing shape", async () => {
 		const pi = new FakePi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {

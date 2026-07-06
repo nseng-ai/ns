@@ -180,7 +180,9 @@ describe("land stack sandbox integration", () => {
 				]);
 				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_C);
 				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_D);
-				expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBe(-1);
+				// The required next-landing refresh now advances trunk with a plain `git fetch`
+				// (unshimmed, so not in the command log) instead of `gt get FEATURE_B`.
+				expect(commandArgs(log, "gt", "get").map((args) => args[1])).not.toContain(FEATURE_B);
 				expect(commandIndex(log, "gh", ["pr", "merge", "101"])).toBeLessThan(
 					commandIndex(log, "gt", ["delete", FEATURE_A]),
 				);
@@ -468,6 +470,15 @@ async function initializeGitStack(
 		env: git.env,
 		command: "git",
 		args: ["checkout", currentBranch],
+	});
+	// The required next-landing refresh advances local trunk with a direct
+	// `git fetch origin refs/heads/main:refs/heads/main`; point origin at this repo so the
+	// fast-forward-only fetch is an up-to-date no-op instead of failing on a missing remote.
+	await runRequiredCommand({
+		cwd: git.repoRoot,
+		env: git.env,
+		command: "git",
+		args: ["remote", "add", "origin", git.repoRoot],
 	});
 	return {
 		[FEATURE_A]: await revParse(git, FEATURE_A),

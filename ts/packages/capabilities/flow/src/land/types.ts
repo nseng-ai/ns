@@ -296,6 +296,16 @@ export interface LandGitGateway {
 	}): Promise<LandAdvanceBranchResult>;
 }
 
+export interface LandGitRanCommand {
+	readonly commandDisplay: string;
+	readonly result: LandCommandResult;
+}
+
+export type LandAdvanceBranchResult =
+	| { readonly type: "advanced" }
+	| { readonly type: "checked-out"; readonly branch: string; readonly path: string }
+	| ({ readonly type: "failure" } & LandGitRanCommand);
+
 export interface WorkingTreeStatus {
 	readonly isClean: boolean;
 	readonly inProgressOperation?: "merge" | "cherry-pick" | "revert" | "rebase" | "bisect";
@@ -374,10 +384,6 @@ export interface LandRanCommand {
 	readonly commandDisplay: string;
 	readonly result: LandCommandResult;
 }
-
-export type LandAdvanceBranchResult =
-	| { readonly type: "advanced" }
-	| ({ readonly type: "failure" } & LandRanCommand);
 
 export type LandGraphiteRanCommand = LandRanCommand;
 
