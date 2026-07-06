@@ -8,7 +8,7 @@ import { contentHashForText, INSTALL_MANIFEST_FILE_NAME } from "@nseng-ai/harnes
 
 import { RealSkillMaterializer } from "../../src/real-skill-materializer.ts";
 
-type InstallManifest = {
+interface InstallManifest {
 	version: 1;
 	artifacts: Record<
 		string,
@@ -19,7 +19,7 @@ type InstallManifest = {
 			files: Record<string, { contentHash: string; targetPath: string }>;
 		}
 	>;
-};
+}
 
 const tempRoots: string[] = [];
 

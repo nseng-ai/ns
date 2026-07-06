@@ -25,6 +25,12 @@ export {
 } from "./first-party-catalog.ts";
 export type { PathState, TextFileState } from "./fs-state.ts";
 export {
+	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
+	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
+	firstPartySkillProvisionPathContext,
+	resolveFirstPartyCatalogSourceRoot,
+} from "./first-party-skill-provisioning.ts";
+export {
 	ALL_HARNESS_IDS,
 	HARNESS_SPECS,
 	normalizeHarnessId,

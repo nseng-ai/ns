@@ -6,7 +6,7 @@ import {
 	runSkillsPath,
 	skillsPathRequestSchema,
 	skillsPathResultSchema,
-} from "../skills-operations.ts";
+} from "../skills-path.ts";
 
 export const skillsPathNsCommand = harnessArtifactsNsCommand({
 	name: "path",

@@ -82,6 +82,10 @@ export const HARNESS_SPECS = [
 export type HarnessId = (typeof HARNESS_SPECS)[number]["id"];
 export type HarnessSpec = (typeof HARNESS_SPECS)[number];
 
+const HARNESS_SPEC_BY_ID: ReadonlyMap<HarnessId, HarnessSpec> = new Map(
+	HARNESS_SPECS.map((spec) => [spec.id, spec]),
+);
+
 export const ALL_HARNESS_IDS: readonly HarnessId[] = HARNESS_SPECS.map((spec) => spec.id);
 
 export function normalizeHarnessId(input: string): Result<HarnessId, HarnessPathErrorInfo> {
@@ -100,13 +104,7 @@ export function normalizeHarnessId(input: string): Result<HarnessId, HarnessPath
 export function resolveHarnessSpec(input: string): Result<HarnessSpec, HarnessPathErrorInfo> {
 	const harness = normalizeHarnessId(input);
 	if (!harness.ok) return harness;
-	const spec = HARNESS_SPECS.find((candidate) => candidate.id === harness.value);
-	if (spec !== undefined) return resultOk(spec);
-	return resultErr({
-		code: "unknown_harness",
-		message: `Unknown harness ${JSON.stringify(input)}. Supported harnesses: ${ALL_HARNESS_IDS.join(", ")}.`,
-		details: { input },
-	});
+	return resultOk(HARNESS_SPEC_BY_ID.get(harness.value)!);
 }
 
 export function resolveHarnessArtifactPath(input: {

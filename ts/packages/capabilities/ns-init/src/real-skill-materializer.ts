@@ -1,12 +1,11 @@
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import {
 	applyHarnessArtifactProvision,
+	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
+	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
 	findFirstPartySkillArtifact,
+	firstPartySkillProvisionPathContext,
+	resolveFirstPartyCatalogSourceRoot,
 	type HarnessArtifactProvisionErrorInfo,
-	type HarnessPathEnvironment,
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { NsInitErrorInfo } from "./error-info.ts";
@@ -32,7 +31,7 @@ export class RealSkillMaterializer implements SkillMaterializer {
 
 	constructor(options: RealSkillMaterializerOptions = {}) {
 		this.sourceRoot = options.sourceRoot ?? resolveFirstPartyCatalogSourceRoot();
-		this.sourceVersion = options.sourceVersion ?? "static-catalog-v1";
+		this.sourceVersion = options.sourceVersion ?? FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION;
 		this.homeDir = options.homeDir ?? options.env?.HOME ?? "";
 		this.env = { ...(options.env ?? {}) };
 	}
@@ -43,7 +42,7 @@ export class RealSkillMaterializer implements SkillMaterializer {
 		if (this.sourceRoot === undefined) {
 			return {
 				type: "unavailable",
-				reason: "Could not locate the first-party ns skill catalog source root for provisioning.",
+				reason: FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
 			};
 		}
 
@@ -64,11 +63,11 @@ export class RealSkillMaterializer implements SkillMaterializer {
 				artifact,
 				harness,
 				scope: "project",
-				context: {
+				context: firstPartySkillProvisionPathContext({
 					projectRoot: params.repoRoot,
 					homeDir: this.homeDir,
-					...harnessPathEnvironment(this.env),
-				},
+					env: this.env,
+				}),
 				sourceRoot: this.sourceRoot,
 				sourceVersion: this.sourceVersion,
 			});
@@ -82,13 +81,6 @@ export class RealSkillMaterializer implements SkillMaterializer {
 	}
 }
 
-function harnessPathEnvironment(env: Record<string, string | undefined>): {
-	env?: HarnessPathEnvironment;
-} {
-	const claudeConfigDir = env.CLAUDE_CONFIG_DIR;
-	return claudeConfigDir === undefined ? {} : { env: { CLAUDE_CONFIG_DIR: claudeConfigDir } };
-}
-
 function nsInitErrorFromProvisionError(
 	harness: HarnessId,
 	error: HarnessArtifactProvisionErrorInfo,
@@ -98,15 +90,4 @@ function nsInitErrorFromProvisionError(
 		message: `Failed to materialize objective skills for ${harness}: ${error.message}`,
 		details: { harness, ...error.details },
 	};
-}
-
-function resolveFirstPartyCatalogSourceRoot(): string | undefined {
-	let current = dirname(fileURLToPath(import.meta.url));
-	for (let index = 0; index < 12; index += 1) {
-		if (existsSync(join(current, "skills/objective/SKILL.md"))) return current;
-		const parent = dirname(current);
-		if (parent === current) break;
-		current = parent;
-	}
-	return undefined;
 }
