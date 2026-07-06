@@ -21,8 +21,12 @@ import {
 	systemStreamClock,
 	type StreamSinkDeps,
 } from "@nseng-ai/clinkr/stream";
-import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type {
+	NsExtensionApi,
+	NsProgress,
+	NsProgressPhaseEvent,
+	NsProgressPhaseInfo,
+} from "@nseng-ai/kernel/sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";
@@ -38,6 +42,15 @@ export {
 	SUBMIT_PHASES,
 } from "./phase-stream-specs.ts";
 export type { PhaseSpec } from "./phase-stream-specs.ts";
+
+function phaseInfos(specs: readonly PhaseSpec[]): readonly NsProgressPhaseInfo[] {
+	return specs.map((spec) => ({
+		key: spec.key,
+		name: spec.item.name,
+		...(spec.item.label === undefined ? {} : { label: spec.item.label }),
+		...(spec.item.detail === undefined ? {} : { detail: spec.item.detail }),
+	}));
+}
 
 /** The driver surface a command drives: title, feed events, finalize. */
 export interface PhaseStream {
@@ -65,7 +78,9 @@ export function createPhaseStream(
 	caps: Caps,
 	specs: readonly PhaseSpec[],
 	deps: StreamSinkDeps,
+	forward?: NsProgress,
 ): PhaseStream {
+	const isForwarding = forward?.isLive === true;
 	const sink = createStreamSink(caps, deps);
 	const phases = createPhaseStateStore(specs);
 	const tail = createTranscriptTail();
@@ -78,6 +93,13 @@ export function createPhaseStream(
 	});
 
 	function begin(title: string): void {
+		if (isForwarding) {
+			forward.phase({
+				type: "phases-declared",
+				title,
+				phases: phaseInfos(specs),
+			});
+		}
 		renderer.setTitle(title);
 		lifecycle.startLiveRegion();
 		renderer.render();
@@ -85,17 +107,19 @@ export function createPhaseStream(
 	}
 
 	function setTitle(title: string): void {
+		if (isForwarding) forward.phase({ type: "title-changed", title });
 		renderer.setTitle(title);
 		renderer.render();
 	}
 
 	function emit(event: NsProgressPhaseEvent): void {
+		if (isForwarding) forward.phase(event);
 		const transition = phases.apply(event);
 		switch (transition.type) {
 			case "ignored":
 				return;
 			case "surface":
-				renderer.surface(transition.line);
+				if (!isForwarding || caps.isTty) renderer.surface(transition.line);
 				return;
 			case "render":
 				if (transition.clearTranscript) tail.clear();
@@ -137,6 +161,7 @@ export interface RunPhaseStreamOptions<T> {
 	caps: Caps;
 	specs: readonly PhaseSpec[];
 	deps: StreamSinkDeps;
+	forward?: NsProgress;
 	title: string;
 	body: (stream: PhaseStream) => Promise<T>;
 }
@@ -145,6 +170,7 @@ export interface RunSettledPhaseStreamOptions<T> {
 	caps: Caps;
 	specs: readonly PhaseSpec[];
 	deps: StreamSinkDeps;
+	forward?: NsProgress;
 	title: string;
 	body: (stream: PhaseStream) => Promise<SettledPhaseStreamOutcome<T>>;
 }
@@ -168,12 +194,13 @@ export interface CreatePhaseStreamControllerOptions {
 	caps: Caps;
 	specs: readonly PhaseSpec[];
 	deps: StreamSinkDeps;
+	forward?: NsProgress;
 	title: string;
 	begin?: "immediate" | "lazy";
 }
 
 export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Promise<T> {
-	const stream = createPhaseStream(options.caps, options.specs, options.deps);
+	const stream = createPhaseStream(options.caps, options.specs, options.deps, options.forward);
 	stream.begin(options.title);
 	try {
 		return await options.body(stream);
@@ -189,6 +216,7 @@ export async function runSettledPhaseStream<T>(
 		caps: options.caps,
 		specs: options.specs,
 		deps: options.deps,
+		...(options.forward === undefined ? {} : { forward: options.forward }),
 		title: options.title,
 		body: async (stream) => {
 			const outcome = await options.body(stream);
@@ -208,7 +236,7 @@ export function createPhaseStreamController(
 
 	function ensureStream(): PhaseStream {
 		if (stream !== undefined) return stream;
-		stream = createPhaseStream(options.caps, options.specs, options.deps);
+		stream = createPhaseStream(options.caps, options.specs, options.deps, options.forward);
 		stream.begin(currentTitle);
 		return stream;
 	}

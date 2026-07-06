@@ -13,7 +13,7 @@ import {
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
-import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
+import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 
@@ -81,6 +81,12 @@ export interface CliCommandRunDeps {
 	 * stdout/stderr for output that should remain visible after the command ends.
 	 */
 	onOutput?: (stream: OutputStreamName, text: string) => void;
+	/**
+	 * Emits structured live-progress phase events for the Pi widget/status path only.
+	 * Events sent here are not included in the final rendered command result; use
+	 * stdout/stderr for output that should remain visible after the command ends.
+	 */
+	onProgress?: (event: NsProgressPhaseEvent) => void;
 	confirm?: CliCommandConfirmPrompt;
 }
 
@@ -425,6 +431,9 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			onOutput: (stream, text) => {
 				hasLiveOutput = true;
 				progress.appendOutput(stream, text);
+			},
+			onProgress: (event) => {
+				progress.applyPhaseEvent(event);
 			},
 		};
 		if (ctx.hasUI && ctx.ui.confirm !== undefined) {

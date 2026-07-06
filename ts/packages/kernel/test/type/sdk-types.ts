@@ -91,7 +91,7 @@ const commandIo: NsCommandIo = {
 	message: () => {},
 	clearPhase: () => {},
 };
-const progress: NsProgress = { phase: () => {} };
+const progress: NsProgress = { isLive: true, phase: () => {} };
 
 function acceptsExtensionApi(api: NsExtensionApi): string {
 	api.commandIo.phase("checking");

@@ -75,6 +75,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 			caps,
 			specs: SUBMIT_PHASES,
 			deps: flowStreamDeps(ctx, caps),
+			forward: ctx.progress,
 			title: "ns flow submit",
 			body: async (stream) => {
 				// The checkpoint workflow emits keyed inspect/generate/commit events; fold them into the single

@@ -61,6 +61,7 @@ export type {
 	NsNotifyLevel,
 	NsProgress,
 	NsProgressPhaseEvent,
+	NsProgressPhaseInfo,
 	NsProgressPhaseListener,
 } from "./services.ts";
 export { z } from "./schema.ts";

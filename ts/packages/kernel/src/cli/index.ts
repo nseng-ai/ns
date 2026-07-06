@@ -57,6 +57,7 @@ import type {
 	NsConfirmPrompt,
 	NsExtensionApi,
 	NsOutputStream,
+	NsProgressPhaseListener,
 } from "../sdk/index.ts";
 import {
 	commandDisplayName,
@@ -91,6 +92,7 @@ export interface NsCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdo
 	context?: NsExtensionApi;
 	homeDir?: string;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
+	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
 	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 	extensionRegistry?: NsCliExtensionRegistryDeps;
@@ -139,6 +141,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 					loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
 					injectedContext,
 					onOutput: deps.onOutput,
+					onProgress: deps.onProgress,
 					confirm: deps.confirm,
 					caps: io.caps,
 				}),
@@ -198,6 +201,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			...optionalEntries({
 				injectedContext,
 				onOutput: deps.onOutput,
+				onProgress: deps.onProgress,
 				confirm: deps.confirm,
 				caps: io.caps,
 			}),
@@ -308,6 +312,7 @@ async function handleCompletionResolverInvocation(options: {
 	stderr: (text: string) => void;
 	injectedContext?: NsExtensionApi;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
+	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
 	caps?: Caps;
 }): Promise<{ type: "handled"; exitCode: number }> {
@@ -334,6 +339,7 @@ async function handleCompletionResolverInvocation(options: {
 		...optionalEntries({
 			injectedContext: options.injectedContext,
 			onOutput: options.onOutput,
+			onProgress: options.onProgress,
 			confirm: options.confirm,
 			caps: options.caps,
 		}),
@@ -396,6 +402,7 @@ async function buildNsCliContext(options: {
 	stderr: (text: string) => void;
 	injectedContext?: NsExtensionApi;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
+	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
 	caps?: Caps;
 }): Promise<NsCliContext> {
@@ -416,7 +423,10 @@ async function buildNsCliContext(options: {
 		env: options.env,
 		textGenerator: baseContext.textGenerator,
 		commandIo,
-		progress: noopNsProgress,
+		progress:
+			options.onProgress === undefined
+				? noopNsProgress
+				: { isLive: true, phase: options.onProgress },
 		renderCapabilities,
 		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),

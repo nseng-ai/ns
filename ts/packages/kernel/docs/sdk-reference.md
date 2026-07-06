@@ -491,7 +491,7 @@ interface NsExtensionApi {
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.
-- `progress` — required structured phase-progress sink. Command authors can call `ctx.progress.phase(event)` with `NsProgressPhaseEvent` values when a host or capability wants typed phase lifecycle events.
+- `progress` — required structured phase-progress sink. It is always present; it may be a no-op in non-interactive hosts, so check `ctx.progress.isLive` before doing host-only progress work. Command authors can call `ctx.progress.phase(event)` with `NsProgressPhaseEvent` values when a host or capability wants typed phase lifecycle events.
 - `renderCapabilities` — required host terminal rendering capabilities for human output and previews. Use this explicit field for color/unicode decisions; do not transport terminal capabilities through `extensions`.
 - `outputFormat?` — host-selected command output format, useful only for commands that stream durable output before returning.
 - `stdout?` / `stderr?` — durable output hooks for commands that stream multiple chunks before returning. `stdout` is reserved for primary output.
@@ -543,7 +543,16 @@ interface NsCommandIo {
 Structured phase-progress sink. It is always present on `NsExtensionApi` and may be a no-op in non-interactive hosts.
 
 ```ts
+interface NsProgressPhaseInfo {
+  key: string;
+  name: string;
+  label?: string;
+  detail?: string;
+}
+
 type NsProgressPhaseEvent =
+  | { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
+  | { type: "title-changed"; title: string }
   | { type: "phase-started"; phaseKey: string; label?: string }
   | { type: "phase-progress"; phaseKey: string; label: string }
   | { type: "phase-done"; phaseKey: string; detail?: string }
@@ -552,9 +561,12 @@ type NsProgressPhaseEvent =
 type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 
 interface NsProgress {
+  readonly isLive: boolean;
   phase(event: NsProgressPhaseEvent): void;
 }
 ```
+
+`NsProgressPhaseInfo` is presentation metadata for a declared phase checklist.
 
 Low-level `stdout`, `stderr`, and `onOutput` hooks remain compatibility primitives for durable stream output and transient live-output bridges. `ctx.commandIo` and `ctx.progress` are the preferred SDK services for command-authored human output and typed progress.
 

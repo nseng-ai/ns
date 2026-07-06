@@ -63,6 +63,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = {
 			caps,
 			specs: CP_PHASES,
 			deps: flowStreamDeps(ctx, caps),
+			forward: ctx.progress,
 			title: "ns flow cp",
 			body: async (stream) => {
 				const result = await runCpCore({

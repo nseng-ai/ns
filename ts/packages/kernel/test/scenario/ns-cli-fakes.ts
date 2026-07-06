@@ -39,6 +39,7 @@ export interface RunWithFakesOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
+	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
 }
 
@@ -146,6 +147,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			onOutput: (stream, text) => {
 				liveOutput.push({ stream, text });
 			},
+			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
 			...(options.extensionRegistry === undefined
 				? {}

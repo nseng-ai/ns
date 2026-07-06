@@ -38,7 +38,17 @@ export const noopNsCommandIo: NsCommandIo = {
 	clearPhase: () => {},
 };
 
+/** Presentation metadata for a declared phase checklist. */
+export interface NsProgressPhaseInfo {
+	key: string;
+	name: string;
+	label?: string;
+	detail?: string;
+}
+
 export type NsProgressPhaseEvent =
+	| { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
+	| { type: "title-changed"; title: string }
 	| { type: "phase-started"; phaseKey: string; label?: string }
 	| { type: "phase-progress"; phaseKey: string; label: string }
 	| { type: "phase-done"; phaseKey: string; detail?: string }
@@ -47,9 +57,12 @@ export type NsProgressPhaseEvent =
 export type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 
 export interface NsProgress {
+	/** True when a host listener consumes phase events; false for the noop sink. */
+	readonly isLive: boolean;
 	phase(event: NsProgressPhaseEvent): void;
 }
 
 export const noopNsProgress: NsProgress = {
+	isLive: false,
 	phase: () => {},
 };

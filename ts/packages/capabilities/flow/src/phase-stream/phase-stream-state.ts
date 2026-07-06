@@ -49,6 +49,9 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 	}
 
 	function apply(event: NsProgressPhaseEvent): PhaseTransition {
+		if (event.type === "phases-declared" || event.type === "title-changed") {
+			return { type: "ignored" };
+		}
 		const index = indexByKey.get(event.phaseKey);
 		if (index === undefined) return { type: "ignored" };
 		const spec = specs[index];
