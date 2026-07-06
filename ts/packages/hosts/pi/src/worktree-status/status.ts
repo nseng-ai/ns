@@ -431,8 +431,10 @@ export async function loadWorktreeStatusIdentity(
 	return headOid === undefined ? identity : { ...identity, headOid };
 }
 
+type WorktreeStatusGitGateway = Pick<GitGateway, "headCommit">;
+
 async function loadHeadOid(
-	git: GitGateway,
+	git: WorktreeStatusGitGateway,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {

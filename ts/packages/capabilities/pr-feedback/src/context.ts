@@ -1,11 +1,10 @@
 import { NodeCommandExecApi, runCommand } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
-import type { PrAddressGithubGateway } from "./api.ts";
+import type { PrAddressGithubGateway, PrAddressGitGateway } from "./api.ts";
 
 export interface PrAddressContext {
-	git: GitGateway;
+	git: PrAddressGitGateway;
 	prFeedback: PrAddressGithubGateway;
 }
 

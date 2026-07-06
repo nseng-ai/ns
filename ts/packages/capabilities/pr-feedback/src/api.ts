@@ -43,6 +43,7 @@ import type {
 	GithubStatusCheckKind,
 	GithubStatusChecks,
 } from "@nseng-ai/capability-kit/github/pr-status";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 // Stable PR Address Capability API: PR feedback domain seam and payloads.
 export type {
@@ -77,6 +78,11 @@ export type {
 // `GithubPrFeedbackGateway` contract: the methods PR Address consumes, with the
 // bulk `resolveReviewThreads` optional so gateways without batch support fall
 // back to per-thread resolution.
+// The capability's git seam: the `GitGateway` methods PR Address consumes to
+// resolve the target PR (current branch) and guard that operations run inside a
+// work tree. A full `GitGateway` is assignable to this narrowed surface.
+export type PrAddressGitGateway = Pick<GitGateway, "currentBranch" | "isInsideWorkTree">;
+
 export type PrAddressGithubGateway = Pick<
 	GithubPrFeedbackGateway,
 	| "getPr"

@@ -8,6 +8,12 @@ import type {
 	SkillLookupSourceType,
 } from "@nseng-ai/foundation/skill-lookup";
 import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+
+// The git methods areg consumes: resolve the repo root and materialize
+// worktree-relative git paths (for example `info/exclude`). A full `GitGateway`
+// is assignable to this narrowed surface.
+export type AregGitGateway = Pick<GitGateway, "optionalRepoRoot" | "gitPath">;
 
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
 export type AregHostToolName = (typeof AREG_HOST_TOOL_NAMES)[number];
