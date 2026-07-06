@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { runCli } from "../../src/ns/cli.ts";
+import { VERSION, runCli } from "../../src/ns/cli.ts";
 import {
 	createGitWorldExec,
 	eventIndex,
@@ -110,7 +110,7 @@ describe("ccc CLI", () => {
 
 		const version = runWithFakes(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(output(version).stdout).toBe("0.1.1\n");
+		expect(output(version).stdout).toBe(`${VERSION}\n`);
 
 		const runtime = runWithFakes(["--runtime"]);
 		expect(await runtime.exit).toBe(0);

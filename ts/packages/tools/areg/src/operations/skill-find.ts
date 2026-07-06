@@ -7,7 +7,7 @@ import {
 	skillLookupFileRelativePath,
 	skillLookupRootRank,
 	type SkillLookupRoot,
-} from "../skill-lookup.ts";
+} from "@nseng-ai/foundation/skill-lookup";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

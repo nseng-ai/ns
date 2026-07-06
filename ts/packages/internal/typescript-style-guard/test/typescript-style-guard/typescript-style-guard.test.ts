@@ -36,7 +36,9 @@ import { findTypeScriptSourceFiles } from "@internal/typescript-style-guard/file
 import { collectInternalSpaceAdmissionViolations } from "@internal/typescript-style-guard/internal-space";
 import {
 	collectExportSubpaths,
+	declaredSubpackageNames,
 	loadPackageMetadata,
+	readNsSubpackages,
 	type PackageManifest,
 	type PackageMetadata,
 } from "@internal/typescript-style-guard/package-metadata";
@@ -721,8 +723,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,
-			nsSubpackages: ["kernel"],
-			nsSubpackageTiers: new Map([["kernel", "sdk"]]),
+			nsSubpackages: [{ name: "kernel", tier: "sdk" }],
 		});
 
 		const violations = collectPackageTierLayeringViolations(metadataByName);
@@ -740,18 +741,15 @@ describe("TypeScript style guard package tier layering rules", () => {
 		);
 		const nsMetadata = metadataByName.get("@nseng-ai/ns");
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
+		const manifest = {
+			...nsMetadata.manifest,
+			ns: { tier: "host", subpackages: ["cli"], subpackageTiers: { kernel: "sdk" } },
+		};
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,
-			manifest: {
-				...nsMetadata.manifest,
-				ns: { tier: "host", subpackages: ["cli"], subpackageTiers: { kernel: "sdk" } },
-			},
-			manifestContent: JSON.stringify({
-				name: "@nseng-ai/ns",
-				ns: { tier: "host", subpackages: ["cli"], subpackageTiers: { kernel: "sdk" } },
-			}),
-			nsSubpackages: ["cli"],
-			nsSubpackageTiers: new Map([["kernel", "sdk"]]),
+			manifest,
+			manifestContent: JSON.stringify(manifest),
+			nsSubpackages: readNsSubpackages(manifest.ns),
 		});
 
 		const violations = collectPackageTierLayeringViolations(metadataByName);
@@ -769,18 +767,15 @@ describe("TypeScript style guard package tier layering rules", () => {
 		);
 		const nsMetadata = metadataByName.get("@nseng-ai/ns");
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
+		const manifest = {
+			...nsMetadata.manifest,
+			ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdkk" } },
+		};
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,
-			manifest: {
-				...nsMetadata.manifest,
-				ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdkk" } },
-			},
-			manifestContent: JSON.stringify({
-				name: "@nseng-ai/ns",
-				ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdkk" } },
-			}),
-			nsSubpackages: ["kernel"],
-			nsSubpackageTiers: new Map(),
+			manifest,
+			manifestContent: JSON.stringify(manifest),
+			nsSubpackages: readNsSubpackages(manifest.ns),
 		});
 
 		const violations = collectPackageTierLayeringViolations(metadataByName);
@@ -923,7 +918,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
 		const retiredTimePackageName = "@nseng-ai/" + "time";
 
-		expect(coreMetadata.nsSubpackages).toContain("time");
+		expect(declaredSubpackageNames(coreMetadata.nsSubpackages)).toContain("time");
 		expect(circles.has("@nseng-ai/foundation/time")).toBe(true);
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
 	});
@@ -1545,9 +1540,8 @@ function buildSyntheticSubpackageMetadata(
 				manifestContent: JSON.stringify(manifest, null, 2),
 				nsTier: "neutral-infra",
 				rawNsTier: "neutral-infra",
-				nsSubpackages: options.subpackages,
+				nsSubpackages: readNsSubpackages(manifest.ns),
 				nsRemainder: options.remainder,
-				nsSubpackageTiers: options.subpackageTiers ?? new Map(),
 				exportSubpaths:
 					options.exports === undefined ? new Set(["."]) : collectExportSubpaths(options.exports),
 			},
@@ -1578,7 +1572,6 @@ function buildInternalSpaceSyntheticMetadata(
 					rawNsTier: "internal-pi-tool",
 					nsSubpackages: [],
 					nsRemainder: false,
-					nsSubpackageTiers: new Map(),
 					exportSubpaths: new Set(["."]),
 				},
 			];
@@ -1626,7 +1619,6 @@ function buildSyntheticPackageMetadata(
 			rawNsTier,
 			nsSubpackages: [],
 			nsRemainder: false,
-			nsSubpackageTiers: new Map(),
 			exportSubpaths: new Set(["."]),
 		});
 	}

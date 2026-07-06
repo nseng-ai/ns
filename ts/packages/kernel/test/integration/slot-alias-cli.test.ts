@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { runCli } from "@nseng-ai/kernel/cli";
+import { VERSION, runCli } from "@nseng-ai/kernel/cli";
 
 describe("ns slot extension CLI", () => {
 	it("keeps CLI metadata on the owning ns entrypoint", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(version.stdout.join("")).toBe("0.1.1\n");
+		expect(version.stdout.join("")).toBe(`${VERSION}\n`);
 
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);

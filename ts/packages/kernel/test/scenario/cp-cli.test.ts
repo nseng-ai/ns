@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { listNsCommands } from "@nseng-ai/kernel/cli";
+import { VERSION } from "../../src/cli/index.ts";
 
 import {
 	runCliWithFakes,
@@ -110,7 +111,7 @@ describe("empty ns kernel CLI help and parsing", () => {
 		const run = runWithFakes({ args: ["--version"] });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("0.1.1\n");
+		expect(run.stdout.join("")).toBe(`${VERSION}\n`);
 		expect(run.stderr.join("")).toBe("");
 	});
 
@@ -181,7 +182,7 @@ describe("ns extension discovery without dynamic imports", () => {
 		const run = runWithFakes({ args: ["--version"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("0.1.1\n");
+		expect(run.stdout.join("")).toBe(`${VERSION}\n`);
 		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("command entry name inferred");
 		expect(run.context.execCalls).toEqual([]);

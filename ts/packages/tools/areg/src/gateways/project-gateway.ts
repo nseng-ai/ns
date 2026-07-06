@@ -13,7 +13,7 @@ import {
 	skillLookupDescriptorForSourceType,
 	skillLookupFileRelativePath,
 	type SkillLookupSourceType,
-} from "../skill-lookup.ts";
+} from "@nseng-ai/foundation/skill-lookup";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
 import type {

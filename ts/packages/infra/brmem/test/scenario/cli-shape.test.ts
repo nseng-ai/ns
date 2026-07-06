@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { VERSION } from "../../src/cli.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 describe("brmem CLI shape", () => {
 	it("prints version and TypeScript runtime diagnostics", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(version.stdout.join("")).toContain("0.1.1");
+		expect(version.stdout.join("")).toContain(VERSION);
 
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);

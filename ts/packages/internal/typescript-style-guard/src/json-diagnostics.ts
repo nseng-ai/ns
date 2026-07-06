@@ -10,16 +10,22 @@ export function findManifestDependencyPosition(
 	field: string,
 	dependencyName: string,
 ): TextPosition {
-	const root = parseTree(content);
-	const dependencyValueNode =
-		root === undefined ? undefined : findNodeAtLocation(root, [field, dependencyName]);
-	const dependencyPropertyNode = dependencyValueNode?.parent;
-	const dependencyKeyNode =
-		dependencyPropertyNode?.type === "property" ? dependencyPropertyNode.children?.[0] : undefined;
-	if (dependencyKeyNode?.offset !== undefined)
-		return lineAndColumnForOffset(content, dependencyKeyNode.offset);
+	return findManifestKeyPosition(content, [field, dependencyName], dependencyName);
+}
 
-	const fallbackOffset = content.indexOf(`"${dependencyName}"`);
+export function findManifestKeyPosition(
+	content: string,
+	keys: readonly string[],
+	fallbackKey = keys.at(-1),
+): TextPosition {
+	const root = parseTree(content);
+	const valueNode = root === undefined ? undefined : findNodeAtLocation(root, [...keys]);
+	const propertyNode = valueNode?.parent;
+	const keyNode = propertyNode?.type === "property" ? propertyNode.children?.[0] : undefined;
+	if (keyNode?.offset !== undefined) return lineAndColumnForOffset(content, keyNode.offset);
+
+	const fallbackOffset =
+		fallbackKey === undefined ? -1 : content.indexOf(JSON.stringify(fallbackKey));
 	if (fallbackOffset < 0) return { line: 1, column: 1 };
 	return lineAndColumnForOffset(content, fallbackOffset);
 }

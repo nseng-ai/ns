@@ -13,6 +13,7 @@
 		"./primitives": "./src/primitives/primitives.ts",
 		"./result": "./src/primitives/result.ts",
 		"./runner-usage": "./src/terminal/runner-usage.ts",
+		"./skill-lookup": "./src/primitives/skill-lookup.ts",
 		"./terminal-escapes": "./src/primitives/terminal-escapes.ts",
 		"./terminal-presentation": "./src/terminal/terminal-presentation.ts",
 		"./text-normalization": "./src/terminal/text-normalization.ts",
