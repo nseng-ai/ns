@@ -1,6 +1,6 @@
 import { defineExtension } from "@nseng-ai/kernel/sdk";
 
-import { aretroNsCommand } from "../command.ts";
+import { retrosNsCommand } from "../command.ts";
 import {
 	collectEvidenceRequestSchema,
 	collectEvidenceResultSchema,
@@ -8,7 +8,7 @@ import {
 	runCollectEvidence,
 } from "../../operations/collect-evidence.ts";
 
-export const aretroExecCollectEvidenceNsCommand = aretroNsCommand({
+export const retrosExecCollectEvidenceNsCommand = retrosNsCommand({
 	name: "exec-collect-evidence",
 	summary: "Collect compact session evidence for a branch retrospective.",
 	description: "Collect compact session evidence for a branch retrospective.",
@@ -19,5 +19,5 @@ export const aretroExecCollectEvidenceNsCommand = aretroNsCommand({
 });
 
 export default defineExtension({
-	commands: [aretroExecCollectEvidenceNsCommand],
+	commands: [retrosExecCollectEvidenceNsCommand],
 });

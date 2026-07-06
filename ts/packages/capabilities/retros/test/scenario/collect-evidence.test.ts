@@ -5,18 +5,18 @@ import { join } from "node:path";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { describe, expect, it } from "vitest";
 
-import type { AretroCliContext } from "../../src/context.ts";
+import type { RetrosCliContext } from "../../src/context.ts";
 import { FakeSessionSource } from "../../src/sessions/source-fake.ts";
 import type { ParsedSession } from "../../src/sessions/types.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 
-describe("aretro exec collect-evidence", () => {
+describe("retros exec collect-evidence", () => {
 	it("returns JSON envelope with expected top-level fields", async () => {
 		const git = new InMemoryGitGateway({
 			repoRoot: "/test/repo",
 			currentBranch: "test-branch",
 		});
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -75,7 +75,7 @@ describe("aretro exec collect-evidence", () => {
 		const sessions = [sampleSession("/repo"), sampleSession("/repo"), sampleSession("/repo")];
 		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
 		const sessionSource = new FakeSessionSource({ sessions });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -107,7 +107,7 @@ describe("aretro exec collect-evidence", () => {
 	it("reports complete bounds when returned sessions fit the applied limit", async () => {
 		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
 		const sessionSource = new FakeSessionSource({ sessions: [sampleSession("/repo")] });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -138,7 +138,7 @@ describe("aretro exec collect-evidence", () => {
 			currentBranch: "feature/retro",
 		});
 		const sessionSource = new FakeSessionSource({ sessions: [session] });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -171,7 +171,7 @@ describe("aretro exec collect-evidence", () => {
 			currentBranch: "feature/retro",
 		});
 		const sessionSource = new FakeSessionSource({ sessions: [session] });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -203,7 +203,7 @@ describe("aretro exec collect-evidence", () => {
 			optionalRepoRoot: { type: "missing" },
 		});
 		const sessionSource = new FakeSessionSource();
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/not-a-repo",
 			env: {},
 			git,
@@ -234,7 +234,7 @@ describe("aretro exec collect-evidence", () => {
 			currentBranch: { type: "detached" },
 		});
 		const sessionSource = new FakeSessionSource();
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -254,7 +254,7 @@ describe("aretro exec collect-evidence", () => {
 	it("succeeds with explicit branch bypassing current branch lookup", async () => {
 		const git = new InMemoryGitGateway({ repoRoot: "/repo" });
 		const sessionSource = new FakeSessionSource({ sessions: [sampleSession("/repo")] });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -289,7 +289,7 @@ describe("aretro exec collect-evidence", () => {
 				},
 			],
 		});
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -312,7 +312,7 @@ describe("aretro exec collect-evidence", () => {
 	it("rejects payload mode without session id", async () => {
 		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "main" });
 		const sessionSource = new FakeSessionSource();
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -335,10 +335,10 @@ describe("aretro exec collect-evidence", () => {
 	});
 
 	it("writes sanitized payload detail and reads a targeted pointer", async () => {
-		const payloadRoot = mkdtempSync(join(tmpdir(), "aretro-payload-test-"));
+		const payloadRoot = mkdtempSync(join(tmpdir(), "retros-payload-test-"));
 		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
 		const sessionSource = new FakeSessionSource({ sessions: [evidenceSession("/repo")] });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: { NS_PAYLOAD_ROOT: payloadRoot },
 			git,
@@ -370,7 +370,7 @@ describe("aretro exec collect-evidence", () => {
 			},
 		});
 		const payloadReference = result.data.payloadReference as Record<string, unknown>;
-		expect(payloadReference.descriptor).toBe("aretro-collect-evidence");
+		expect(payloadReference.descriptor).toBe("retros-collect-evidence");
 		expect(payloadReference.role).toBe("raw");
 		const payloadPath = payloadReference.payloadPath;
 		if (typeof payloadPath !== "string") throw new Error("payloadPath should be string");
@@ -410,7 +410,7 @@ describe("aretro exec collect-evidence", () => {
 			currentBranch: "feature/retro",
 		});
 		const sessionSource = new FakeSessionSource({ sessions: [sampleSession("/repo")] });
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,
@@ -431,7 +431,7 @@ describe("aretro exec collect-evidence", () => {
 		const sessionSource = new FakeSessionSource({
 			sessions: [sampleSession("/repo"), sampleSession("/repo")],
 		});
-		const context: AretroCliContext = {
+		const context: RetrosCliContext = {
 			cwd: "/repo",
 			env: {},
 			git,

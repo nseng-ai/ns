@@ -41,5 +41,5 @@ Consequences:
   is no internal/external naming seam left to hide behind.
 - *(amended by ADR 0029: with workspace name now equal to published name, several
   generic/internal-sounding package names — `core`, `objective`, `slot`, `handoff`,
-  `address`, `aretro`, `roaster` — were themselves renamed to their public names before
+  `address`, `retros`, `roaster` — were themselves renamed to their public names before
   the publish surface widened; see ADR 0029 for the table.)*

@@ -1,7 +1,7 @@
 import { failure, negative, ok, usageError } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-import type { AretroCliContext } from "../context.ts";
+import type { RetrosCliContext } from "../context.ts";
 import type { BranchSource } from "../contracts.ts";
 import {
 	collectEvidenceResultSchema,
@@ -51,7 +51,7 @@ export { collectEvidenceResultSchema };
 export type { CollectEvidenceResult };
 
 export async function runCollectEvidence(
-	context: AretroCliContext,
+	context: RetrosCliContext,
 	request: CollectEvidenceRequest,
 ) {
 	if (request.payloadMode === "payload") {
@@ -89,7 +89,7 @@ export async function runCollectEvidence(
 		let payloadReference: PayloadReference;
 		try {
 			payloadReference = payloadStore.writeJsonArtifact({
-				descriptor: "aretro-collect-evidence",
+				descriptor: "retros-collect-evidence",
 				role: "raw",
 				payload: { status: "ok", exitCode: 0, data: payloadData },
 			});
@@ -225,13 +225,13 @@ function withPayloadDetailBounds(outputBounds: OutputBoundsDto): OutputBoundsDto
 		detail: {
 			mode: "payload",
 			guidance:
-				"Use ns aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+				"Use ns retros exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
 			locatorHints: [...DETAIL_LOCATOR_HINTS],
 		},
 	};
 }
 
-async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEvidenceRequest) {
+async function resolveRepoAndQuery(context: RetrosCliContext, request: CollectEvidenceRequest) {
 	const cwd = context.cwd;
 	const repoInput = request.repo ?? cwd;
 	function preResolutionFailure(error: CollectEvidenceError) {
@@ -312,7 +312,7 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 }
 
 function collectFailure(
-	context: AretroCliContext,
+	context: RetrosCliContext,
 	request: CollectEvidenceRequest,
 	options: {
 		repoRoot: string | null;
@@ -355,7 +355,7 @@ interface ResolvedBranch {
 }
 
 async function resolveBranch(
-	context: AretroCliContext,
+	context: RetrosCliContext,
 	repoRoot: string,
 	explicitBranch: string | undefined,
 ): Promise<ResolvedBranch> {

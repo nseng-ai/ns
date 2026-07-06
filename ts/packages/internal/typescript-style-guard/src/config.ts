@@ -65,7 +65,7 @@ export interface ConcreteCapabilityCommandSurface {
 
 export const concreteCapabilityCommandSurfaces = [
 	{ packageName: "@nseng-ai/pr-feedback", cliPrefixes: ["address"], slashPrefixes: ["address"] },
-	{ packageName: "@nseng-ai/retros", cliPrefixes: ["aretro"], slashPrefixes: ["aretro"] },
+	{ packageName: "@nseng-ai/retros", cliPrefixes: ["retros"], slashPrefixes: ["retros"] },
 	{
 		packageName: "@nseng-ai/branch-context",
 		cliPrefixes: ["branch-context"],

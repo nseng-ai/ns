@@ -1,5 +1,5 @@
 /**
- * Sanitized payload detail document construction for aretro evidence.
+ * Sanitized payload detail document construction for retros evidence.
  */
 
 import { z } from "zod";
@@ -131,7 +131,7 @@ export const evidenceDetailItemDtoSchema = z.object({
 
 export type EvidenceDetailItemDto = z.infer<typeof evidenceDetailItemDtoSchema>;
 
-export const aretroEvidencePayloadDataSchema = z.object({
+export const retrosEvidencePayloadDataSchema = z.object({
 	schemaVersion: z.literal(1),
 	repo: z.record(z.string(), z.unknown()),
 	query: z.record(z.string(), z.unknown()),
@@ -142,7 +142,7 @@ export const aretroEvidencePayloadDataSchema = z.object({
 	evidenceItems: z.array(evidenceDetailItemDtoSchema),
 });
 
-export type AretroEvidencePayloadData = z.infer<typeof aretroEvidencePayloadDataSchema>;
+export type RetrosEvidencePayloadData = z.infer<typeof retrosEvidencePayloadDataSchema>;
 
 export interface CompactResult {
 	repo: RepoContextDto;
@@ -157,7 +157,7 @@ export interface CompactResult {
 export function buildEvidencePayloadData(options: {
 	compactResult: CompactResult;
 	sessions: readonly ParsedSession[];
-}): AretroEvidencePayloadData {
+}): RetrosEvidencePayloadData {
 	const pointerIndex = new Map<string, string[]>();
 	const detailSessions = options.sessions.map((session, sessionIndex) =>
 		sessionDetail({

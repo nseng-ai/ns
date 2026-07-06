@@ -3,13 +3,13 @@ import {
 	repoLocalNsCommandDescriptor,
 } from "@nseng-ai/kernel/sdk";
 
-import { aretroExecCollectEvidenceNsCommand } from "./ns/commands/exec-collect-evidence.ts";
-import { aretroExecReadEvidenceDetailNsCommand } from "./ns/commands/exec-read-evidence-detail.ts";
+import { retrosExecCollectEvidenceNsCommand } from "./ns/commands/exec-collect-evidence.ts";
+import { retrosExecReadEvidenceDetailNsCommand } from "./ns/commands/exec-read-evidence-detail.ts";
 
-export const aretroRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
-	group: "aretro",
+export const retrosRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
+	group: "retros",
 	description: "Collect branch retrospective evidence for agents.",
-	commands: [aretroExecCollectEvidenceNsCommand, aretroExecReadEvidenceDetailNsCommand].map(
+	commands: [retrosExecCollectEvidenceNsCommand, retrosExecReadEvidenceDetailNsCommand].map(
 		(command) =>
 			repoLocalNsCommandDescriptor({
 				command,

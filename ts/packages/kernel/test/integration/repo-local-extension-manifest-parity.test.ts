@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { addressRepoLocalNsExtension } from "@nseng-ai/pr-feedback/repo-local-ns-extension";
-import { aretroRepoLocalNsExtension } from "@nseng-ai/retros/repo-local-ns-extension";
+import { retrosRepoLocalNsExtension } from "@nseng-ai/retros/repo-local-ns-extension";
 import { branchContextRepoLocalNsExtension } from "@nseng-ai/branch-context/repo-local-ns-extension";
 import { flowRepoLocalNsExtension } from "@nseng-ai/flow/repo-local-ns-extension";
 import { handoffRepoLocalNsExtension } from "@nseng-ai/handoffs/repo-local-ns-extension";
@@ -43,7 +43,7 @@ interface NormalizedCatalogCommand {
 const REPO_LOCAL_EXTENSION_ROOT = "../.ns/extensions";
 const REPO_LOCAL_EXTENSION_DESCRIPTORS = [
 	addressRepoLocalNsExtension,
-	aretroRepoLocalNsExtension,
+	retrosRepoLocalNsExtension,
 	branchContextRepoLocalNsExtension,
 	flowRepoLocalNsExtension,
 	handoffRepoLocalNsExtension,
