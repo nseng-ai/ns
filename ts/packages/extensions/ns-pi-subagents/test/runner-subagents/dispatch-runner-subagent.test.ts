@@ -14,14 +14,16 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 } from "@nseng-ai/ns-pi-subagents/runner-subagents";
-import dispatchRunnerSubagentExtension, {
+import {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 	formatDispatchRunnerSubagentResult,
+	registerDispatchRunnerSubagentTool,
 	type DispatchRunnerSubagentExtensionAPI,
 	type DispatchRunnerSubagentToolDefinition,
 	type ToolResult,
 } from "../../src/runner-subagents/extension.ts";
+import { SUBAGENT_FLEET_STATUS_KEY } from "../../src/fleet/display.ts";
 import type { ToolContext } from "../../src/runner-subagents/extension.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
@@ -109,7 +111,10 @@ interface RegisterToolOptions {
 function registerTool(options: RegisterToolOptions = {}): DispatchRunnerSubagentToolDefinition {
 	const pi = options.pi ?? new FakePi();
 	const definitionRoot = options.definitionRoot ?? createRunnerDefinitionRoot();
-	dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
+	registerDispatchRunnerSubagentTool(pi, {
+		cwd: definitionRoot,
+		fleetRegistry: new RunnerSubagentFleetRegistry(),
+	});
 	return getRegisteredDispatchRunnerSubagentTool(pi);
 }
 
@@ -166,6 +171,16 @@ interface WidgetRecord {
 	key: string;
 	value: string[] | undefined;
 	options?: { placement?: "aboveEditor" | "belowEditor" };
+}
+
+function dispatchUiRecordsOnly(
+	statuses: readonly UiRecord[],
+	widgets: readonly WidgetRecord[],
+): { nonFleetStatuses: UiRecord[]; dispatchWidgets: WidgetRecord[] } {
+	return {
+		nonFleetStatuses: statuses.filter((status) => status.key !== SUBAGENT_FLEET_STATUS_KEY),
+		dispatchWidgets: widgets.filter((widget) => widget.key === DISPATCH_RUNNER_SUBAGENT_TOOL_NAME),
+	};
 }
 
 function updateTexts(updates: readonly Partial<ToolResult>[]): string {
@@ -278,7 +293,10 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new FakePi();
 		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
 
-		dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
+		registerDispatchRunnerSubagentTool(pi, {
+			cwd: definitionRoot,
+			fleetRegistry: new RunnerSubagentFleetRegistry(),
+		});
 
 		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
 		const result = await tool.execute(
@@ -289,7 +307,49 @@ describe("dispatch_runner_subagent extension", () => {
 			toolContext(),
 		);
 		expect(result.content[0]?.text).toMatch(/declares toolName.*expected/);
-		expect(result.details).toMatchObject({ status: "error", title: "Bad runner" });
+		expect(result.details).toMatchObject({
+			status: "configuration-error",
+			title: "Bad runner",
+		});
+		expect(result.isError).toBe(true);
+	});
+
+	test("recovers when runner.md is fixed without restarting Pi", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
+		registerDispatchRunnerSubagentTool(pi, {
+			cwd: definitionRoot,
+			fleetRegistry: new RunnerSubagentFleetRegistry(),
+		});
+		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
+
+		const bad = await tool.execute(
+			"tool-1",
+			{ title: "Bad runner", prompt: "Do work." },
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		expect(bad.details).toMatchObject({ status: "configuration-error" });
+		expect(bad.isError).toBe(true);
+		expect(runner.calls).toEqual([]);
+
+		writeRunnerDefinition(definitionRoot);
+		const running = tool.execute(
+			"tool-2",
+			{ title: "Fixed runner", prompt: "Do work." },
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		const call = await waitForSpawn(runner.calls);
+		call.process.emitStdout(finalTextMessage("Recovered."));
+		call.process.close(0);
+
+		await expect(running).resolves.toEqual(
+			expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }),
+		);
 	});
 
 	test("registers dispatch runs in the subagent fleet", async () => {
@@ -300,7 +360,7 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new FakePi(runner.dependencies);
 		const fleetRegistry = new RunnerSubagentFleetRegistry();
 		const definitionRoot = createRunnerDefinitionRoot();
-		dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot, fleetRegistry });
+		registerDispatchRunnerSubagentTool(pi, { cwd: definitionRoot, fleetRegistry });
 		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
 
 		const running = tool.execute(
@@ -733,6 +793,7 @@ describe("dispatch_runner_subagent extension", () => {
 		const result = await running;
 		const partialText = updateTexts(updates);
 		const finalText = result.content[0]?.text ?? "";
+		const { nonFleetStatuses, dispatchWidgets } = dispatchUiRecordsOnly(statuses, widgets);
 
 		expect(partialText).toContain("Dispatching forked Pi process: Slice subagent");
 		expect(partialText).toContain("State: running");
@@ -750,7 +811,7 @@ describe("dispatch_runner_subagent extension", () => {
 			expect(details.usage).toBeUndefined();
 			expect(details.activity).toBeUndefined();
 		}
-		expect(statuses).toEqual([]);
+		expect(nonFleetStatuses).toEqual([]);
 		expect(widgets.some((widget) => widget.value?.includes("Model: default (not specified)"))).toBe(
 			true,
 		);
@@ -768,7 +829,7 @@ describe("dispatch_runner_subagent extension", () => {
 		).toBe(true);
 		expect(widgets.some((widget) => widget.value?.includes("Tool: read"))).toBe(true);
 		expect(widgets.some((widget) => widget.options?.placement === "aboveEditor")).toBe(true);
-		expect(widgets.at(-1)).toEqual({
+		expect(dispatchWidgets.at(-1)).toEqual({
 			key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 			value: undefined,
 			options: { placement: "aboveEditor" },
@@ -1020,9 +1081,10 @@ describe("dispatch_runner_subagent extension", () => {
 
 		const result = await running;
 		const details = result.details as Record<string, unknown>;
+		const { nonFleetStatuses, dispatchWidgets } = dispatchUiRecordsOnly(statuses, widgets);
 		expect(details.status).toBe("error");
-		expect(statuses).toEqual([]);
-		expect(widgets.at(-1)).toEqual({
+		expect(nonFleetStatuses).toEqual([]);
+		expect(dispatchWidgets.at(-1)).toEqual({
 			key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 			value: undefined,
 			options: { placement: "aboveEditor" },

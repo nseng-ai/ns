@@ -304,10 +304,10 @@ describe("subagent fleet navigator", () => {
 		expect([...shortcuts.keys()]).toEqual([...SUBAGENT_FLEET_SHORTCUTS]);
 		const notifications: string[] = [];
 		await shortcuts.get("f2")!.handler(noUiCommandContext(notifications));
-		expect(notifications.join("\n")).toContain("No subagent fleet tasks");
+		expect(notifications.join("\n")).toContain("No subagents have run in this Pi session yet.");
 	});
 
-	test("shows the parent Pi session even before any explore run", async () => {
+	test("shows the parent Pi session even before any subagent run", async () => {
 		const registry = new RunnerSubagentFleetRegistry();
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },

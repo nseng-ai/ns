@@ -86,7 +86,6 @@ export {
 	DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
-	default,
 	dispatchRunnerSubagentDetails,
 	formatDispatchRunnerSubagentProgress,
 	formatDispatchRunnerSubagentResult,

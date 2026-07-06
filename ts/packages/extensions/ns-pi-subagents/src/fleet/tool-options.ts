@@ -4,6 +4,7 @@ import type { RunnerSubagentFleetRegistry } from "../runner-subagents/fleet.ts";
 
 export interface SubagentToolOptions {
 	cwd?: string;
-	fleetRegistry?: RunnerSubagentFleetRegistry;
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 }
+
+export type WithFleetRegistry<T> = T & { fleetRegistry: RunnerSubagentFleetRegistry };

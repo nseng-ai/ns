@@ -1,5 +1,5 @@
 export type ReadTextFile = (path: string) => Promise<string>;
 
-export interface ExploreReadTextFileDependencies {
+export interface ReadTextFileDependencies {
 	readTextFile?: ReadTextFile;
 }

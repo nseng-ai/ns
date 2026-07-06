@@ -1,16 +1,8 @@
 import { z } from "zod";
 
-import {
-	formatErrorMessage,
-	formatZodError,
-	optionalEntries,
-	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+import { formatZodError, optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import {
-	loadPiAgentDefinition,
-	type PiAgentDefinition,
-} from "@nseng-ai/pi/runtime/agent-definition";
+import { loadPiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
 import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
 import {
 	resultDiagnostic,
@@ -32,7 +24,12 @@ import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
-import type { SubagentToolOptions } from "../fleet/tool-options.ts";
+import {
+	agentConfigurationErrorText,
+	checkAgentDefinitionConfiguration,
+	type AgentDefinitionConfigurationCheck,
+} from "../fleet/agent-configuration.ts";
+import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
 import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
@@ -51,13 +48,13 @@ const dispatchRunnerSubagentInputSchema = z.object({
 export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
 
 export interface DispatchRunnerSubagentDetails {
-	status: RunnerSubagentResult["status"];
+	status: RunnerSubagentResult["status"] | "configuration-error";
 	title?: string;
 	requestedModel?: string;
 	curatedContext?: CuratedRunnerSubagentContextAudit;
-	elapsedMs: number;
+	elapsedMs?: number;
 	sessionFile?: string;
-	progress: RunnerSubagentResult["progress"];
+	progress?: RunnerSubagentResult["progress"];
 	usage?: RunnerSubagentUsageMetadata;
 	finalTextChars?: number;
 	finalTextTruncated?: boolean;
@@ -76,10 +73,6 @@ export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi & {
 };
 
 export type DispatchRunnerSubagentExtensionOptions = SubagentToolOptions;
-
-type DispatchRunnerConfigurationCheck =
-	| { ok: true; definition: PiAgentDefinition }
-	| { ok: false; diagnostic: string };
 
 export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	type: "object",
@@ -112,16 +105,9 @@ const FALLBACK_RUNNER_TOOL_METADATA = {
 	],
 };
 
-export default function dispatchRunnerSubagentExtension(
-	pi: DispatchRunnerSubagentExtensionAPI,
-	options: DispatchRunnerSubagentExtensionOptions = {},
-): void {
-	registerDispatchRunnerSubagentTool(pi, options);
-}
-
 export function registerDispatchRunnerSubagentTool(
 	pi: DispatchRunnerSubagentExtensionAPI,
-	options: DispatchRunnerSubagentExtensionOptions = {},
+	options: WithFleetRegistry<DispatchRunnerSubagentExtensionOptions>,
 ): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const registrationCheck = checkRunnerConfiguration(
@@ -141,15 +127,9 @@ export function registerDispatchRunnerSubagentTool(
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
-			if (!registrationCheck.ok) {
-				return {
-					content: [{ type: "text", text: registrationCheck.diagnostic }],
-					details: {
-						status: "error",
-						title: input.title,
-						diagnostic: registrationCheck.diagnostic,
-					},
-				};
+			const configuration = checkRunnerConfiguration(loadAgentDefinition, options.cwd ?? ctx.cwd);
+			if (!configuration.ok) {
+				return configurationErrorResult(input.title, configuration.diagnostic);
 			}
 
 			const fleetTracking = trackSubagentFleetRun({
@@ -163,7 +143,7 @@ export function registerDispatchRunnerSubagentTool(
 				const { result, curatedContext } = await runFinalTextSubagent({
 					pi,
 					ctx,
-					definition: registrationCheck.definition,
+					definition: configuration.definition,
 					title: input.title,
 					prompt: input.prompt,
 					widgetKey: WIDGET_KEY,
@@ -209,26 +189,47 @@ export function registerDispatchRunnerSubagentTool(
 	});
 }
 
+function configurationErrorResult(
+	title: string,
+	diagnostic: string,
+): {
+	content: [{ type: "text"; text: string }];
+	details: DispatchRunnerSubagentDetails;
+	isError: true;
+} {
+	return {
+		content: [
+			{
+				type: "text",
+				text: agentConfigurationErrorText({
+					toolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+					agentKind: "runner",
+					requiredFilePath: ".ns/pi/agents/runner.md",
+					diagnostic,
+				}),
+			},
+		],
+		details: {
+			status: "configuration-error",
+			title,
+			diagnostic,
+		},
+		isError: true,
+	};
+}
+
 function checkRunnerConfiguration(
-	loadAgentDefinition: (agentName: string, cwd: string) => PiAgentDefinition,
+	loadAgentDefinition: NonNullable<DispatchRunnerSubagentExtensionOptions["loadAgentDefinition"]>,
 	cwd: string,
-): DispatchRunnerConfigurationCheck {
-	let definition: PiAgentDefinition;
-	try {
-		definition = loadAgentDefinition("runner", cwd);
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: `.ns/pi/agents/runner.md is required for dispatch_runner_subagent but could not be loaded: ${formatErrorMessage(error)}`,
-		};
-	}
-	if (definition.toolName !== DISPATCH_RUNNER_SUBAGENT_TOOL_NAME) {
-		return {
-			ok: false,
-			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}".`,
-		};
-	}
-	return { ok: true, definition };
+): AgentDefinitionConfigurationCheck {
+	return checkAgentDefinitionConfiguration({
+		agentName: "runner",
+		cwd,
+		expectedToolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+		loadAgentDefinition,
+		requiredFilePath: ".ns/pi/agents/runner.md",
+		unavailableToolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+	});
 }
 
 export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult): string {

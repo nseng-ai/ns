@@ -1,16 +1,13 @@
 import { formatErrorMessage, formatZodError } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
-import {
-	loadPiAgentDefinition,
-	type PiAgentDefinition,
-} from "@nseng-ai/pi/runtime/agent-definition";
+import { loadPiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
-	RunnerSubagentFleetRegistry,
 	mapWithConcurrency,
 	type RunnerSubagentContext,
+	type RunnerSubagentFleetRegistry,
 	type RunnerSubagentPi,
 	type RunnerSubagentUpdate,
 } from "../runner-subagents/index.ts";
@@ -32,11 +29,16 @@ import {
 } from "./input.ts";
 import { SUBAGENT_FLEET_ENTRY_HINT } from "../fleet/display.ts";
 import type { RegisterShortcutFunction } from "../fleet/navigator.ts";
-import type { SubagentToolOptions } from "../fleet/tool-options.ts";
+import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
 import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
-import type { CommandRegistrar, TranscriptViewerDependencies } from "../fleet/transcript-viewer.ts";
+import type { ReadTextFileDependencies } from "../fleet/read-text-dependencies.ts";
+import type { CommandRegistrar } from "../fleet/transcript-viewer.ts";
+import {
+	checkAgentDefinitionConfiguration,
+	type AgentDefinitionConfigurationCheck,
+} from "../fleet/agent-configuration.ts";
 import {
 	abortReasonDiagnostic,
 	cancelledResult,
@@ -63,12 +65,8 @@ export interface ExploreExtensionOptions extends SubagentToolOptions {
 	dispatchExplorer?: ExploreDispatchFunction;
 	explorerRuntime?: ExplorerRuntime;
 	timers?: TimerScheduler;
-	transcriptViewer?: TranscriptViewerDependencies;
+	transcriptViewer?: ReadTextFileDependencies;
 }
-
-type ExploreConfigurationCheck =
-	| { ok: true; definition: PiAgentDefinition }
-	| { ok: false; diagnostic: string };
 
 interface ExploreAbortScope {
 	signal: AbortSignal;
@@ -125,17 +123,9 @@ const FALLBACK_EXPLORER_TOOL_METADATA = {
 	promptGuidelines: ["explore is unavailable until .ns/pi/agents/explorer.md is fixed."],
 };
 
-export default function exploreExtension(
-	pi: ExploreExtensionAPI,
-	options: ExploreExtensionOptions = {},
-): void {
-	const fleetRegistry = options.fleetRegistry ?? new RunnerSubagentFleetRegistry();
-	registerExploreTool(pi, { ...options, fleetRegistry });
-}
-
 export function registerExploreTool(
 	pi: ExploreExtensionAPI,
-	options: ExploreExtensionOptions & { fleetRegistry: RunnerSubagentFleetRegistry },
+	options: WithFleetRegistry<ExploreExtensionOptions>,
 ): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const timers = options.timers ?? unrefTimerScheduler;
@@ -205,34 +195,24 @@ function validateExploreInput(params: unknown): ExploreInput {
 }
 
 function checkExplorerConfiguration(
-	loadAgentDefinition: (agentName: string, cwd: string) => PiAgentDefinition,
+	loadAgentDefinition: NonNullable<ExploreExtensionOptions["loadAgentDefinition"]>,
 	cwd: string,
-): ExploreConfigurationCheck {
-	let definition: PiAgentDefinition;
-	try {
-		definition = loadAgentDefinition(EXPLORER_AGENT_NAME, cwd);
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: `${EXPLORER_AGENT_REPO_RELATIVE_PATH} is required for explore but could not be loaded: ${formatErrorMessage(error)}`,
-		};
-	}
-	if (definition.toolName !== EXPLORE_TOOL_NAME) {
-		return {
-			ok: false,
-			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${EXPLORE_TOOL_NAME}".`,
-		};
-	}
-	const guidelineIndexesMissingExplore = definition.promptGuidelines
-		.map((guideline, index) => (/\bexplore\b/u.test(guideline) ? undefined : index + 1))
-		.filter((index) => index !== undefined);
-	if (guidelineIndexesMissingExplore.length > 0) {
-		return {
-			ok: false,
-			diagnostic: `${definition.filePath} promptGuidelines must mention "explore" in every guideline; missing guideline index(es): ${guidelineIndexesMissingExplore.join(", ")}.`,
-		};
-	}
-	return { ok: true, definition };
+): AgentDefinitionConfigurationCheck {
+	return checkAgentDefinitionConfiguration({
+		agentName: EXPLORER_AGENT_NAME,
+		cwd,
+		expectedToolName: EXPLORE_TOOL_NAME,
+		loadAgentDefinition,
+		requiredFilePath: EXPLORER_AGENT_REPO_RELATIVE_PATH,
+		unavailableToolName: EXPLORE_TOOL_NAME,
+		validateDefinition: (definition) => {
+			const guidelineIndexesMissingExplore = definition.promptGuidelines
+				.map((guideline, index) => (/\bexplore\b/u.test(guideline) ? undefined : index + 1))
+				.filter((index) => index !== undefined);
+			if (guidelineIndexesMissingExplore.length === 0) return undefined;
+			return `${definition.filePath} promptGuidelines must mention "explore" in every guideline; missing guideline index(es): ${guidelineIndexesMissingExplore.join(", ")}.`;
+		},
+	});
 }
 
 function createExploreAbortScope(

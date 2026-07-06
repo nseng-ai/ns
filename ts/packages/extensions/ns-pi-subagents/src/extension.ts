@@ -12,7 +12,7 @@ import {
 	type ExploreExtensionOptions,
 } from "./explore/extension.ts";
 import { registerSubagentFleetCommand, registerSubagentFleetShortcut } from "./fleet/navigator.ts";
-import { registerExploreTranscriptCommand } from "./fleet/transcript-viewer.ts";
+import { registerAgentsTranscriptCommand } from "./fleet/transcript-viewer.ts";
 
 export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI & DispatchRunnerSubagentExtensionAPI;
 
@@ -29,7 +29,7 @@ export default function nsPiSubagentsExtension(
 		registry: fleetRegistry,
 		...optionalEntry("dependencies", options.transcriptViewer),
 	};
-	registerExploreTranscriptCommand(fleetCommandInput);
+	registerAgentsTranscriptCommand(fleetCommandInput);
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
 	registerExploreTool(pi, { ...options, fleetRegistry });

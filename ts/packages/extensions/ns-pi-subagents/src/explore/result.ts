@@ -1,6 +1,7 @@
 import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
+import { agentConfigurationErrorText } from "../fleet/agent-configuration.ts";
 import { resultDiagnostic, type RunnerSubagentResult } from "../runner-subagents/index.ts";
 import {
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,
@@ -96,11 +97,12 @@ export function configurationErrorResult(
 		content: [
 			{
 				type: "text",
-				text: [
-					"explore is unavailable because its explorer agent definition is misconfigured.",
-					`Expected ${EXPLORER_AGENT_REPO_RELATIVE_PATH} to exist and declare toolName: ${EXPLORE_TOOL_NAME}.`,
-					`Diagnostic: ${diagnostic}`,
-				].join("\n"),
+				text: agentConfigurationErrorText({
+					toolName: EXPLORE_TOOL_NAME,
+					agentKind: "explorer",
+					requiredFilePath: EXPLORER_AGENT_REPO_RELATIVE_PATH,
+					diagnostic,
+				}),
 			},
 		],
 		details: {

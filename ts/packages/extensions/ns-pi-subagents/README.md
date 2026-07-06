@@ -37,6 +37,5 @@ The `/ns:agents:fleet` command (also available through F2/alt+e/shift+ctrl+e) op
 ## Public exports
 
 - `@nseng-ai/ns-pi-subagents/extension` — default Pi extension entrypoint, exported from `src/extension.ts`.
-- `@nseng-ai/ns-pi-subagents/explore` — explore constants, dispatcher, runtime seam, fleet/transcript helpers, extension helpers, and types.
 - `@nseng-ai/ns-pi-subagents/runner-subagents` — runner-subagent dispatch/runtime/fleet helpers and the `dispatch_runner_subagent` tool implementation.
 - `@nseng-ai/ns-pi-subagents/runner-subagents/testing` — runner-subagent test helpers for package tests and consumers.
