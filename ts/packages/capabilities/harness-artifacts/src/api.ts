@@ -63,7 +63,6 @@ export {
 } from "./ns-toml.ts";
 export {
 	planHarnessArtifactReconcile,
-	resolveGitProjectRoot,
 	runHarnessArtifactReconcile,
 	type DesiredHarnessArtifact,
 	type HarnessManifestSnapshot,

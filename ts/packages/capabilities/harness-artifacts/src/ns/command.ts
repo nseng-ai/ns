@@ -1,3 +1,4 @@
+import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
@@ -17,10 +18,14 @@ export function harnessArtifactsNsCommand<S extends NsCommandSchema, T>(
 ): NsCommand<S, T> {
 	return createNsDomainCommand({
 		...options,
-		createContext: (ctx) => ({
-			cwd: ctx.cwd,
-			...optionalEntry("homeDir", ctx.env.HOME),
-			env: ctx.env,
-		}),
+		createContext: async (ctx) => {
+			const repoRootResult = await createNsGitGateway(ctx).optionalRepoRoot({ cwd: ctx.cwd });
+			return {
+				cwd: ctx.cwd,
+				projectRoot: repoRootResult.type === "found" ? repoRootResult.value : ctx.cwd,
+				...optionalEntry("homeDir", ctx.env.HOME),
+				env: ctx.env,
+			};
+		},
 	});
 }

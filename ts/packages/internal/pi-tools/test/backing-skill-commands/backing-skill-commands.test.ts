@@ -78,7 +78,7 @@ describe("command-backed skill registry", () => {
 			"ns:typescript:style-tripwire",
 		);
 		expect(commandBackedSkillSurface("pytest")).toBe("python:pytest");
-		expect(commandBackedSkillSurface("skillx")).toBe("skill:x");
+		expect(commandBackedSkillSurface("skillx")).toBeUndefined();
 		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
 		expect(commandBackedSkillSurface("plain")).toBeUndefined();
 
@@ -116,7 +116,7 @@ describe("command-backed skill registry", () => {
 		expect(skillNames).toContain("objective-refresh");
 		expect(skillNames).toContain("objective-retro");
 		expect(skillNames).toContain("pytest");
-		expect(skillNames).toContain("skillx");
+		expect(skillNames).not.toContain("skillx");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");
@@ -170,7 +170,7 @@ describe("command-backed skill registry", () => {
 		expect(surfaces).toContain("pi:grill-with-docs");
 		expect(surfaces).toContain("dignified:python");
 		expect(surfaces).toContain("python:pytest");
-		expect(surfaces).toContain("skill:x");
+		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("foo:bar-baz");
 		expect(surfaces).not.toContain("pr:address");
 		expect(surfaces).not.toContain("cli:push-down");
@@ -189,7 +189,6 @@ describe("derivePiReplacementCommand", () => {
 		["branch-retro", "branch:retro"],
 		["code-workflows", "code:workflows"],
 		["pytest", "python:pytest"],
-		["skillx", "skill:x"],
 		["ns-cli-design", "ns:cli:design"],
 		["ns-typescript-style-tripwire", "ns:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
@@ -230,7 +229,7 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).toContain("ns:ccc:available-work");
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("python:pytest");
-		expect(surfaces).toContain("skill:x");
+		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
 		expect(surfaces).not.toContain("cli:push-down");
 		expect(surfaces).not.toContain("code:gh");

@@ -3,9 +3,8 @@ import { z } from "zod";
 
 import {
 	ALL_HARNESS_IDS,
-	nodeHarnessArtifactModuleDiscoveryGateway,
-	resolveGitProjectRoot,
 	runHarnessArtifactReconcile,
+	type ModuleArtifactDiscoveryDiagnostic,
 	type ReconcileErrorInfo,
 	type ReconcileReport,
 } from "../api.ts";
@@ -24,12 +23,42 @@ const harnessSelectionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("missing") }),
 ]);
 
-const diagnosticSchema = z
+const diagnosticCodeSchema = z.enum([
+	"module_artifact_package_json_invalid",
+	"module_artifact_package_name_invalid",
+	"module_artifact_declarations_not_array",
+	"module_artifact_declaration_invalid",
+	"module_artifact_kind_unsupported",
+	"module_artifact_name_invalid",
+	"module_artifact_path_invalid",
+	"module_artifact_duplicate_name",
+	"module_artifact_extension_root_unavailable",
+	"module_artifact_extension_root_not_directory",
+	"module_artifact_extension_root_unreadable",
+	"module_artifact_skill_path_escapes",
+	"module_artifact_skill_entry_missing",
+	"module_artifact_skill_entry_not_directory",
+	"module_artifact_duplicate_id",
+	"module_artifact_duplicate_target_name",
+]);
+
+const diagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> = z
 	.object({
-		code: z.string(),
+		code: diagnosticCodeSchema,
 		message: z.string(),
+		path: z.string().optional(),
+		packageName: z.string().optional(),
+		artifactId: z.string().optional(),
+		artifactName: z.string().optional(),
 	})
-	.passthrough();
+	.transform((diagnostic) => ({
+		code: diagnostic.code,
+		message: diagnostic.message,
+		...(diagnostic.path === undefined ? {} : { path: diagnostic.path }),
+		...(diagnostic.packageName === undefined ? {} : { packageName: diagnostic.packageName }),
+		...(diagnostic.artifactId === undefined ? {} : { artifactId: diagnostic.artifactId }),
+		...(diagnostic.artifactName === undefined ? {} : { artifactName: diagnostic.artifactName }),
+	}));
 
 const reconcileArtifactOutcomeSchema = z.object({
 	action: z.enum(["installed", "refreshed", "unchanged", "conflicted"]),
@@ -55,7 +84,7 @@ const orphanedManifestEntrySchema = z.object({
 	sourceType: z.enum(["first-party", "npm-module"]),
 });
 
-export const nsUpdateResultSchema = z.object({
+export const nsUpdateResultSchema: z.ZodType<ReconcileReport> = z.object({
 	mode: z.enum(["dry-run", "applied"]),
 	harnessSelection: harnessSelectionSchema,
 	artifacts: z.array(reconcileArtifactOutcomeSchema),
@@ -70,28 +99,21 @@ export async function runNsUpdate(
 	context: SkillsCommandContext,
 	request: NsUpdateRequest,
 ): Promise<ClinkrExit<NsUpdateResult>> {
-	const projectRoot = await resolveGitProjectRoot({
-		startDir: context.cwd,
-		pathState: nodeHarnessArtifactModuleDiscoveryGateway.pathState,
-	});
-	if (!projectRoot.ok) return reconcileFailureExit(projectRoot.error);
-
 	const result = await runHarnessArtifactReconcile({
-		projectRoot: projectRoot.value,
+		projectRoot: context.projectRoot,
 		homeDir: context.homeDir ?? context.env.HOME ?? "",
 		env: context.env,
 		dryRun: request.dryRun,
 		force: request.force,
 	});
 	if (!result.ok) return reconcileFailureExit(result.error);
-	const report = mutableReconcileReport(result.value);
-	if (request.dryRun) return ok(report);
-	if (report.needsForce) {
+	if (request.dryRun) return ok(result.value);
+	if (result.value.needsForce) {
 		return negative("Update refused: locally edited target files require --force.", {
-			data: report,
+			data: result.value,
 		});
 	}
-	return ok(report);
+	return ok(result.value);
 }
 
 export function renderNsUpdateHuman(result: NsUpdateResult): string {
@@ -139,24 +161,6 @@ function reconcileFailureExit<T>(error: ReconcileErrorInfo): ClinkrExit<T> {
 		});
 	}
 	return failure(error.code.replaceAll("_", "-"), error.message, error.details);
-}
-
-function mutableReconcileReport(report: ReconcileReport): NsUpdateResult {
-	return {
-		mode: report.mode,
-		harnessSelection:
-			report.harnessSelection.type === "ns-toml"
-				? { type: "ns-toml", harnesses: [...report.harnessSelection.harnesses] }
-				: { type: "missing" },
-		artifacts: report.artifacts.map((artifact) => ({
-			...artifact,
-			writtenFiles: [...artifact.writtenFiles],
-			conflictingFiles: [...artifact.conflictingFiles],
-		})),
-		orphans: report.orphans.map((orphan) => ({ ...orphan })),
-		diagnostics: report.diagnostics.map((diagnostic) => ({ ...diagnostic })),
-		needsForce: report.needsForce,
-	};
 }
 
 function countArtifacts(

@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
@@ -15,7 +15,6 @@ import {
 } from "./first-party-skill-provisioning.ts";
 import {
 	ALL_HARNESS_IDS,
-	resolveHarnessArtifactPath,
 	resolveHarnessSkillRoot,
 	type HarnessId,
 	type HarnessPathErrorInfo,
@@ -31,16 +30,20 @@ import {
 import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
 	applyHarnessArtifactProvision,
+	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
 	previewHarnessArtifactProvision,
 	readInstallManifestAtRoot,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
-	type HarnessArtifactProvisionApplyResult,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionPreview,
 } from "./provision-apply.ts";
-import { type InstallManifestData, type InstallManifestEntryData } from "./provision-plan.ts";
+import {
+	provisionIdentityKey,
+	type InstallManifestData,
+	type InstallManifestEntryData,
+} from "./provision-plan.ts";
 import { sortStrings } from "./sort.ts";
 
 export interface DesiredHarnessArtifact {
@@ -265,56 +268,57 @@ export async function runHarnessArtifactReconcile(
 			sourceVersion: pair.desired.sourceVersion,
 			fs,
 		};
-		const result = request.dryRun
-			? await previewHarnessArtifactProvision(provisionRequest)
-			: await applyHarnessArtifactProvision({ ...provisionRequest, shouldForce: request.force });
-		if (!result.ok) {
-			if (result.error.code !== "locally_edited_conflict") return result;
-			const targetPath = resolveHarnessArtifactPath({
-				harness: pair.harness,
-				scope: pair.scope,
-				kind: pair.desired.artifact.kind,
-				artifactName: pair.desired.artifact.skillName,
-				context,
-			});
-			if (!targetPath.ok) return targetPath;
-			artifacts.push({
-				action: "conflicted",
-				artifactId: pair.desired.artifact.id,
-				skillName: pair.desired.artifact.skillName,
-				harness: pair.harness,
-				scope: pair.scope,
-				origin: pair.origin,
-				sourceType: pair.desired.artifact.source.type,
-				packageName: pair.desired.artifact.source.packageName,
-				targetArtifactPath: targetPath.value.artifactPath,
-				manifestPath: result.error.details.manifestPath,
-				writtenFiles: [],
-				conflictingFiles: result.error.details.conflictingFiles,
-			});
+		const preview = await previewHarnessArtifactProvision(provisionRequest);
+		if (!preview.ok) return preview;
+		if (preview.value.decisions.shouldForce && !request.force) {
+			artifacts.push(
+				reconcileOutcomeFromProvision({
+					pair,
+					provision: preview.value,
+					action: "conflicted",
+					writtenFiles: [],
+					conflictingFiles: preview.value.decisions.files
+						.filter((decision) => decision.type === "locally-edited-conflict")
+						.map((decision) => decision.file.targetPath),
+				}),
+			);
 			continue;
 		}
-		artifacts.push({
-			action: classifyReconcileAction({
-				decisionsAreUnchanged: result.value.decisions.files.every(
-					(decision) => decision.type === "unchanged",
-				),
-				hasManifestEntry: pair.hasManifestEntry,
+
+		if (request.dryRun) {
+			artifacts.push(
+				reconcileOutcomeFromProvision({
+					pair,
+					provision: preview.value,
+					action: classifyReconcileAction({
+						decisionsAreUnchanged: preview.value.decisions.files.every(
+							(decision) => decision.type === "unchanged",
+						),
+						hasManifestEntry: pair.hasManifestEntry,
+					}),
+					writtenFiles: [],
+					conflictingFiles: [],
+				}),
+			);
+			continue;
+		}
+
+		const applied = await applyHarnessArtifactProvision({ ...provisionRequest, shouldForce: true });
+		if (!applied.ok) return applied;
+		artifacts.push(
+			reconcileOutcomeFromProvision({
+				pair,
+				provision: applied.value,
+				action: classifyReconcileAction({
+					decisionsAreUnchanged: applied.value.decisions.files.every(
+						(decision) => decision.type === "unchanged",
+					),
+					hasManifestEntry: pair.hasManifestEntry,
+				}),
+				writtenFiles: applied.value.writtenFiles,
+				conflictingFiles: [],
 			}),
-			artifactId: pair.desired.artifact.id,
-			skillName: pair.desired.artifact.skillName,
-			harness: pair.harness,
-			scope: pair.scope,
-			origin: pair.origin,
-			sourceType: pair.desired.artifact.source.type,
-			packageName: pair.desired.artifact.source.packageName,
-			targetArtifactPath: result.value.plan.targetArtifactPath,
-			manifestPath: result.value.manifestPath,
-			writtenFiles: harnessArtifactProvisionHasWrittenFiles(result.value)
-				? result.value.writtenFiles
-				: [],
-			conflictingFiles: [],
-		});
+		);
 	}
 
 	return resultOk({
@@ -325,22 +329,6 @@ export async function runHarnessArtifactReconcile(
 		diagnostics: moduleDiscovery.diagnostics,
 		needsForce: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
-}
-
-export async function resolveGitProjectRoot(options: {
-	startDir: string;
-	pathState: HarnessArtifactModuleDiscoveryGateway["pathState"];
-}): Promise<Result<string, ModuleArtifactDiscoveryFileSystemErrorInfo>> {
-	let current = options.startDir;
-	while (true) {
-		const gitState = await options.pathState(join(current, ".git"));
-		if (!gitState.ok) return gitState;
-		if (gitState.value.type === "directory" || gitState.value.type === "file")
-			return resultOk(current);
-		const parent = dirname(current);
-		if (parent === current) return resultOk(options.startDir);
-		current = parent;
-	}
 }
 
 function checkDesiredCollisions(
@@ -399,7 +387,7 @@ function reconcilePairKey(input: {
 	scope: HarnessScope;
 	artifactId: string;
 }): string {
-	return `${input.harness}:${input.scope}:skill:${input.artifactId}`;
+	return provisionIdentityKey({ ...input, kind: "skill" });
 }
 
 function manifestHasEntry(manifests: readonly HarnessManifestSnapshot[], key: string): boolean {
@@ -482,7 +470,7 @@ async function readProjectManifestSnapshots(input: {
 		snapshots.push({
 			harness,
 			targetRoot: root.value.rootPath,
-			manifestPath: join(root.value.rootPath, ".ns-harness-artifacts-manifest.json"),
+			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
 			manifest: manifest.value,
 		});
 	}
@@ -498,8 +486,25 @@ function classifyReconcileAction(input: {
 	return "installed";
 }
 
-function harnessArtifactProvisionHasWrittenFiles(
-	result: HarnessArtifactProvisionPreview | HarnessArtifactProvisionApplyResult,
-): result is HarnessArtifactProvisionApplyResult {
-	return "writtenFiles" in result;
+function reconcileOutcomeFromProvision(input: {
+	pair: ReconcilePair;
+	provision: HarnessArtifactProvisionPreview;
+	action: ReconcileArtifactOutcome["action"];
+	writtenFiles: readonly string[];
+	conflictingFiles: readonly string[];
+}): ReconcileArtifactOutcome {
+	return {
+		action: input.action,
+		artifactId: input.pair.desired.artifact.id,
+		skillName: input.pair.desired.artifact.skillName,
+		harness: input.pair.harness,
+		scope: input.pair.scope,
+		origin: input.pair.origin,
+		sourceType: input.pair.desired.artifact.source.type,
+		packageName: input.pair.desired.artifact.source.packageName,
+		targetArtifactPath: input.provision.plan.targetArtifactPath,
+		manifestPath: input.provision.manifestPath,
+		writtenFiles: input.writtenFiles,
+		conflictingFiles: input.conflictingFiles,
+	};
 }
