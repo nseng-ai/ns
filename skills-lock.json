@@ -204,6 +204,11 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "8bf292143ca93b00276a0de0fc5f84f2381f4690c5b0d32e99fa283a072f392f"
     },
+    "ns-cli-design": {
+      "source": "skills/ns-cli-design",
+      "sourceType": "local",
+      "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
+    },
     "ns-flow-autobranch": {
       "source": "skills/ns-flow-autobranch",
       "sourceType": "local",
@@ -223,6 +228,16 @@
       "source": "skills/ns-flow-submit",
       "sourceType": "local",
       "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
+    },
+    "ns-typescript": {
+      "source": "skills/ns-typescript",
+      "sourceType": "local",
+      "computedHash": "d13d9bcd6c8c57b6cf5ce767e2d700571f8039fcdeaf0ef896e2a24771ffbed9"
+    },
+    "ns-typescript-style-tripwire": {
+      "source": "skills/ns-typescript-style-tripwire",
+      "sourceType": "local",
+      "computedHash": "96a9ddfe19832575d7244b0478cc2cdee785250bd6225fc2ab4b863f49e11722"
     },
     "objective": {
       "source": "skills/objective",
@@ -351,21 +366,6 @@
       "sourceType": "local",
       "computedHash": "7e80abba397da7b48024bc6680466004e89424e3600167d095c1ad02d320dc62"
     },
-    "ns-cli-design": {
-      "source": "skills/ns-cli-design",
-      "sourceType": "local",
-      "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
-    },
-    "ns-typescript": {
-      "source": "skills/ns-typescript",
-      "sourceType": "local",
-      "computedHash": "d13d9bcd6c8c57b6cf5ce767e2d700571f8039fcdeaf0ef896e2a24771ffbed9"
-    },
-    "ns-typescript-style-tripwire": {
-      "source": "skills/ns-typescript-style-tripwire",
-      "sourceType": "local",
-      "computedHash": "96a9ddfe19832575d7244b0478cc2cdee785250bd6225fc2ab4b863f49e11722"
-    },
     "setup-dprint": {
       "source": "skills/setup-dprint",
       "sourceType": "local",
@@ -445,6 +445,12 @@
       "source": "skills/typescript-style",
       "sourceType": "local",
       "computedHash": "314c32ed33349af246789f3343e058b13ea762fe473d6e214c7398e71a443c2e"
+    },
+    "wayfinder": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/in-progress/wayfinder/SKILL.md",
+      "computedHash": "23ff2252da9ae676ba4ef4190fb768e06ce7cfe91a697f7f0a8eeb7866d23c40"
     },
     "writing-great-skills": {
       "source": "mattpocock/skills",

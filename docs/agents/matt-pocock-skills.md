@@ -22,6 +22,7 @@ ns first-party adaptations live under `skills/<name>/`. Their `.agents/skills/<n
 - `improve-codebase-architecture`: architecture survey using `codebase-design`, `domain-modeling`, and `grilling`.
 - `pocock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts.
 - `writing-great-skills`: upstream skill-authoring reference; ns audit behavior is folded into first-party `skill-audit`.
+- `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/in-progress/`, vendored from a post-1.0.1 upstream state). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Expects a "Wayfinding operations" section in `docs/agents/issue-tracker.md` and falls back to a local-markdown tracker when that doc is absent; references upstream `/prototype`, which is not imported.
 
 ## ns-owned overlays
 
