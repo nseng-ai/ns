@@ -2,7 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import type { StreamClock, StreamSinkDeps, StreamWriter } from "@nseng-ai/clinkr/stream";
 import {
+	createLandMatrixProgressController,
 	formatLandProgressTitle,
 	landMatrixRowsFromPlan,
 	renderLandMatrixProgressFrame,
@@ -17,6 +19,43 @@ function caps(parts: Partial<Caps> = {}): Caps {
 		columns: 96,
 		canRenderUnicode: true,
 		...parts,
+	};
+}
+
+interface RecordingClock extends StreamClock {
+	readonly sleeps: number[];
+}
+
+function fakeClock(): RecordingClock {
+	const sleeps: number[] = [];
+	return {
+		sleeps,
+		sleep(ms: number): Promise<void> {
+			sleeps.push(ms);
+			return new Promise(() => {});
+		},
+	};
+}
+
+function streamCapture(): { deps: StreamSinkDeps; writes: string[]; redraws: string[] } {
+	const writes: string[] = [];
+	const redraws: string[] = [];
+	const writer: StreamWriter = {
+		write: (text) => {
+			writes.push(text);
+		},
+		redraw: (frame) => {
+			redraws.push(frame);
+		},
+		done: () => {},
+	};
+	return {
+		deps: {
+			clock: fakeClock(),
+			writer,
+		},
+		writes,
+		redraws,
 	};
 }
 
@@ -36,7 +75,7 @@ describe("land matrix progress", () => {
 		]);
 	});
 
-	test("renders globals, running commands, and gate/merge/verify/restack columns", () => {
+	test("renders running commands and gate/merge/verify/restack columns without globals", () => {
 		const rows = landMatrixRowsFromPlan(plan());
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
@@ -74,9 +113,13 @@ describe("land matrix progress", () => {
 		const output = stripAnsi(lines.join("\n"));
 		expect(output).toContain("ns flow land — 1/2 target PRs merged");
 		expect(output).toContain("Running: gh pr merge 123 --squash");
-		expect(output).toContain("Preflight");
-		expect(output).toContain("Prepare");
-		expect(output).toContain("Slots");
+		expect(output).not.toContain("Preflight");
+		expect(output).not.toContain("Prepare");
+		expect(output).not.toContain("Slots");
+		expect(output).not.toContain("Update");
+		expect(output).not.toContain("Recheck");
+		expect(output).not.toContain("Descendants");
+		expect(output).not.toContain("Cleanup");
 		expect(output).toContain("Gate");
 		expect(output).toContain("Merge");
 		expect(output).toContain("Verify");
@@ -116,6 +159,55 @@ describe("land matrix progress", () => {
 		expect(output).not.toContain("not required");
 		expect(output).not.toContain("pending");
 	});
+
+	test("ignores global updates until setRows renders the full pending matrix", () => {
+		const capture = streamCapture();
+		const controller = createLandMatrixProgressController({
+			caps: caps(),
+			deps: capture.deps,
+		});
+
+		controller.setGlobal("preflight", { state: "active", text: "checking" });
+		expect(capture.writes).toHaveLength(0);
+		expect(capture.redraws).toHaveLength(0);
+
+		controller.setRows(landMatrixRowsFromPlan(plan()));
+
+		expect(capture.redraws.length).toBeGreaterThan(0);
+		const firstFrame = stripAnsi(capture.redraws[0] ?? "");
+		expect(firstFrame).not.toContain("Preflight");
+		expect(firstFrame).toContain("ns flow land — 0/2 target PRs merged");
+		expect(firstFrame).toContain("Running: —");
+		const rowLines = firstFrame
+			.split("\n")
+			.filter((line) => line.includes("feature/a (#123)") || line.includes("feature/b (#124)"));
+		expect(rowLines).toHaveLength(2);
+		for (const rowLine of rowLines) {
+			expect(rowLine.match(/·/g)).toHaveLength(4);
+		}
+	});
+
+	test("renders the first branch matrix frame with every cell pending", () => {
+		const rows = landMatrixRowsFromPlan(plan());
+		const lines = renderLandMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow land — 0/2 target PRs merged",
+			runningCommands: [],
+			globals: [],
+			rows: rows.map((row) => pendingLandRowView(row)),
+		});
+
+		const output = stripAnsi(lines.join("\n"));
+		const rowLines = output
+			.split("\n")
+			.filter((line) => line.includes("feature/a (#123)") || line.includes("feature/b (#124)"));
+
+		expect(rowLines).toHaveLength(2);
+		for (const rowLine of rowLines) {
+			expect(rowLine.match(/·/g)).toHaveLength(4);
+		}
+
+	});
 });
 
 function landRowView(row: LandMatrixRowSpec) {
@@ -125,6 +217,19 @@ function landRowView(row: LandMatrixRowSpec) {
 		cells: {
 			gate: { state: "done" as const },
 			merge: { state: "active" as const },
+			verify: { state: "pending" as const },
+			restack: { state: "pending" as const },
+		},
+	};
+}
+
+function pendingLandRowView(row: LandMatrixRowSpec) {
+	return {
+		...row,
+		rowKey: row.branch,
+		cells: {
+			gate: { state: "pending" as const },
+			merge: { state: "pending" as const },
 			verify: { state: "pending" as const },
 			restack: { state: "pending" as const },
 		},
