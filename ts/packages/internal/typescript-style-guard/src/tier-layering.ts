@@ -44,7 +44,6 @@ export function collectPackageTierLayeringViolations(
 		const violation = tierEdgeViolation(fromTier, toTier);
 		if (violation === undefined) continue;
 		if (isAllowedPiSubpackagePeerEdge(edge, metadataByName)) continue;
-		if (isAllowedPublicSubpackageTierDependency(edge, metadataByName)) continue;
 		if (allowedDebtEdges.has(packageEdgeKey(edge.from, edge.to))) continue;
 		violations.push({
 			rule: BAN_PACKAGE_TIER_LAYERING,
@@ -80,15 +79,6 @@ function isAllowedPiSubpackagePeerEdge(
 	if (metadata?.nsTier !== "capability") return false;
 	if (!metadata.nsSubpackages.includes("pi")) return false;
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
-}
-
-function isAllowedPublicSubpackageTierDependency(
-	_edge: { readonly from: string; readonly to: string },
-	_metadataByName: ReadonlyMap<string, PackageMetadata>,
-): boolean {
-	// Manifest dependencies name only the target package, not the imported subpath. Do not let a
-	// lower-tier public subpackage legalize arbitrary whole-package manifest edges.
-	return false;
 }
 
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {
@@ -129,49 +119,53 @@ function buildSubpackageTierMetadataViolation(
 	subpackage: string,
 	reason: string,
 ): SourceRuleViolation {
-	const position = findSubpackageTierPosition(metadata, subpackage);
-	return {
-		rule: BAN_PACKAGE_TIER_LAYERING,
-		path: metadata.packageJsonPath,
-		line: position.line,
-		column: position.column,
-		text: `${metadata.name} ${reason}.`,
-	};
+	return buildManifestPositionViolation(
+		metadata,
+		findManifestKeyPosition(metadata, "ns", "subpackageTiers", subpackage),
+		`${reason}.`,
+	);
 }
 
 function buildTierMetadataViolation(
 	metadata: PackageMetadata,
 	reason: string,
 ): SourceRuleViolation {
-	const position = findNsTierPosition(metadata);
+	return buildManifestPositionViolation(
+		metadata,
+		findManifestKeyPosition(metadata, "ns", "tier"),
+		`${reason}; declare one of: ${packageTierValues.join(", ")}.`,
+	);
+}
+
+function buildManifestPositionViolation(
+	metadata: PackageMetadata,
+	position: TextPosition,
+	reason: string,
+): SourceRuleViolation {
 	return {
 		rule: BAN_PACKAGE_TIER_LAYERING,
 		path: metadata.packageJsonPath,
 		line: position.line,
 		column: position.column,
-		text: `${metadata.name} ${reason}; declare one of: ${packageTierValues.join(", ")}.`,
+		text: `${metadata.name} ${reason}`,
 	};
 }
 
-function findNsTierPosition(metadata: PackageMetadata): TextPosition {
-	const nsOffset = metadata.manifestContent.indexOf('"ns"');
-	if (nsOffset >= 0) {
-		const tierOffset = metadata.manifestContent.indexOf('"tier"', nsOffset);
-		if (tierOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, tierOffset);
-		return lineAndColumnForOffset(metadata.manifestContent, nsOffset);
+function findManifestKeyPosition(
+	metadata: PackageMetadata,
+	...keys: readonly string[]
+): TextPosition {
+	let matchedOffset: number | undefined;
+	let searchOffset = 0;
+	for (const key of keys) {
+		const keyOffset = metadata.manifestContent.indexOf(JSON.stringify(key), searchOffset);
+		if (keyOffset < 0) break;
+		matchedOffset = keyOffset;
+		searchOffset = keyOffset;
+	}
+	if (matchedOffset !== undefined) {
+		return lineAndColumnForOffset(metadata.manifestContent, matchedOffset);
 	}
 	const nameOffset = metadata.manifestContent.indexOf(`"${metadata.name}"`);
 	return lineAndColumnForOffset(metadata.manifestContent, Math.max(0, nameOffset));
-}
-
-function findSubpackageTierPosition(metadata: PackageMetadata, subpackage: string): TextPosition {
-	const nsOffset = metadata.manifestContent.indexOf('"ns"');
-	const subpackageTiersOffset =
-		nsOffset >= 0 ? metadata.manifestContent.indexOf('"subpackageTiers"', nsOffset) : -1;
-	if (subpackageTiersOffset >= 0) {
-		const keyOffset = metadata.manifestContent.indexOf(`"${subpackage}"`, subpackageTiersOffset);
-		if (keyOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, keyOffset);
-		return lineAndColumnForOffset(metadata.manifestContent, subpackageTiersOffset);
-	}
-	return findNsTierPosition(metadata);
 }
