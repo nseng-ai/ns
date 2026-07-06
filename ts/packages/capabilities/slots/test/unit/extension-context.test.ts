@@ -1,22 +1,21 @@
-import { ok, type Caps, type RenderCapabilities } from "@nseng-ai/clinkr";
+import { type Caps, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 
-const createRealSlotContext = vi.fn(async (options: unknown) => ({ __contextOptions: options }));
+const createRealSlotContext = vi.fn(async (options: unknown) => ({
+	__contextOptions: options,
+	repo: { type: "repo", mainRepoRoot: "/repo", repoName: "repo" },
+	git: {
+		listBranchOccupancies: async () => [],
+		listWorktrees: async () => [],
+	},
+}));
 
 vi.mock("../../src/core/context.ts", () => ({
 	createRealSlotContext,
 }));
-
-vi.mock("../../src/lifecycle/operations/index.ts", async (importActual) => {
-	const actual = await importActual<typeof import("../../src/lifecycle/operations/index.ts")>();
-	return {
-		...actual,
-		runList: vi.fn(() => ok({ slots: [] })),
-	};
-});
 
 const slotExtension = (await import("../../src/ns/extension.ts")).default;
 
