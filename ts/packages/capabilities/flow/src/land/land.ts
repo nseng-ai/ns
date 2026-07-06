@@ -11,6 +11,7 @@ import {
 	type FlowLandObservabilityChannels,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
+import type { LandMatrixProgressSink } from "./land-matrix-progress.ts";
 import type {
 	FlowLandExternalCallTelemetryEvent,
 	FlowLandExternalCallTelemetrySink,
@@ -161,6 +162,8 @@ export interface LandCliInput {
 	progressIo?: NsCommandIo;
 	/** Optional Flow-owned structured live-progress sink for dynamic land titles. */
 	liveProgress?: LandLiveProgressSink;
+	/** Optional Flow-owned structured matrix sink. */
+	landMatrix?: LandMatrixProgressSink;
 	/** Optional Flow-owned structured external-call telemetry sink. */
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 	/**
@@ -191,6 +194,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	const observabilityChannels: FlowLandObservabilityChannels = {
 		progressIo,
 		...optionalEntry("liveProgress", input.liveProgress),
+		...optionalEntry("landMatrix", input.landMatrix),
 		...optionalEntry("externalCallTelemetry", input.externalCallTelemetry),
 	};
 	const outcome = await runWithNsCommandIo(

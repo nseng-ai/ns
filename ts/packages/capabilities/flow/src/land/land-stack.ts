@@ -27,6 +27,7 @@ import { presentLandStackFailure, type LandingSession } from "./stack/landing-co
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
 import { present, setStatus, usage } from "./stack/presentation.ts";
 import { executeLandingPlan } from "./stack/landing-plan-execution.ts";
+import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
@@ -93,13 +94,23 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
+		commandStream.matrix?.setGlobal("preflight", {
+			state: "active",
+			text: "checking stack and PRs…",
+		});
 		const plan = await buildLandingPlan(runtime, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 		});
 		if (plan.type === "failure") {
+			commandStream.matrix?.setGlobal("preflight", { state: "failed", text: "preflight failed" });
 			presentLandStackFailure({ session, failure: plan.failure });
 			return failure(plan.failure);
 		}
+		commandStream.matrix?.setRows(landMatrixRowsFromPlan(plan.value));
+		commandStream.matrix?.setGlobal("preflight", {
+			state: "done",
+			text: `${plan.value.stack.landingBranches.length} PR${plan.value.stack.landingBranches.length === 1 ? "" : "s"} ready to land into ${plan.value.stack.trunk}`,
+		});
 		return await executeLandingPlan({
 			runtime,
 			parsedArgs,

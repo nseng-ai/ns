@@ -23,6 +23,7 @@ import {
 	commandExternalCallTelemetryEvent,
 	type FlowLandExternalCallTelemetrySink,
 } from "./external-call-telemetry.ts";
+import type { LandMatrixProgressSink } from "../land-matrix-progress.ts";
 import type {
 	CommandInvocation,
 	CommandStreamMessageDetails,
@@ -44,6 +45,7 @@ export type LandLiveProgressSink = (event: LandLiveProgressEvent) => void;
 export interface FlowLandObservabilityChannels {
 	readonly progressIo?: NsCommandIo;
 	readonly liveProgress?: LandLiveProgressSink;
+	readonly landMatrix?: LandMatrixProgressSink;
 	readonly externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 }
 
@@ -56,15 +58,18 @@ interface LandStackCommandStreamOptions {
 	clock?: Clock;
 	/** Flow-owned structured live-progress side channel. */
 	liveProgress?: LandLiveProgressSink;
+	/** Flow-owned structured matrix progress sink. */
+	landMatrix?: LandMatrixProgressSink;
 	/** Flow-owned structured external-call telemetry side channel. */
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 }
 
 export function landCommandStreamObservabilityOptions(
 	channels: FlowLandObservabilityChannels,
-): Pick<LandStackCommandStreamOptions, "liveProgress" | "externalCallTelemetry"> {
+): Pick<LandStackCommandStreamOptions, "liveProgress" | "landMatrix" | "externalCallTelemetry"> {
 	return {
 		...optionalEntry("liveProgress", channels.liveProgress),
+		...optionalEntry("landMatrix", channels.landMatrix),
 		...optionalEntry("externalCallTelemetry", channels.externalCallTelemetry),
 	};
 }
@@ -104,8 +109,10 @@ export class LandStackCommandStream {
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 	private readonly clock: Clock;
 	private readonly liveProgress: LandLiveProgressSink | undefined;
+	private readonly landMatrix: LandMatrixProgressSink | undefined;
 	private readonly externalCallTelemetry: FlowLandExternalCallTelemetrySink | undefined;
 	private readonly commandStarts = new Map<string, CommandStart>();
+	private readonly runningCommands: string[] = [];
 
 	constructor(io: NsCommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
@@ -113,11 +120,17 @@ export class LandStackCommandStream {
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
 		this.clock = options.clock ?? systemClock;
 		this.liveProgress = options.liveProgress;
+		this.landMatrix = options.landMatrix;
 		this.externalCallTelemetry = options.externalCallTelemetry;
+	}
+
+	get matrix(): LandMatrixProgressSink | undefined {
+		return this.landMatrix;
 	}
 
 	emitLiveProgress(event: LandLiveProgressEvent): void {
 		this.liveProgress?.(event);
+		this.landMatrix?.recordMergedPr(event.prNumber);
 	}
 
 	start(invocation: CommandInvocation): void {
@@ -129,6 +142,8 @@ export class LandStackCommandStream {
 		// Keep active subprocess visibility transient: completed command results are
 		// emitted separately, so a long-running Graphite/GitHub command does not pin a
 		// rewritten widget above the editor while it is still pending.
+		this.runningCommands.push(invocation.display);
+		this.landMatrix?.setRunningCommands(this.runningCommands);
 		if (this.shouldShowRunningCommandStatus) {
 			this.io.phase(`land: running ${invocation.display}...`);
 		}
@@ -153,6 +168,8 @@ export class LandStackCommandStream {
 				}),
 			);
 		}
+		this.removeRunningCommand(invocation.display);
+		this.landMatrix?.setRunningCommands(this.runningCommands);
 		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
 		const lines = [`${icon} $ ${invocation.display}${suffix}`];
 		if (result.code !== 0) {
@@ -177,6 +194,11 @@ export class LandStackCommandStream {
 
 	note(message: string): void {
 		this.io.message(formatCommandStreamBlock("→", message), { level: "info" });
+	}
+
+	private removeRunningCommand(commandDisplay: string): void {
+		const index = this.runningCommands.indexOf(commandDisplay);
+		if (index >= 0) this.runningCommands.splice(index, 1);
 	}
 
 	private takeCommandStart(commandDisplay: string): CommandStart | undefined {

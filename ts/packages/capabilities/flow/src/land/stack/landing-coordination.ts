@@ -23,6 +23,7 @@ import {
 } from "./presentation.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
 import type { LandStackCommandContext, LandedPr, FlowLandingPlan } from "./types.ts";
+import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
 
 export interface LandingSession {
 	ctx: LandStackCommandContext;
@@ -62,7 +63,18 @@ async function preparePlanForMergeCore(
 		return landContext;
 	};
 
+	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
+		commandStream.matrix?.setGlobal("prepare", { state: "skipped", text: "not required" });
+		return success(plan);
+	}
+
+	commandStream.matrix?.setGlobal("prepare", {
+		state: "active",
+		text: "preparing stack for merge…",
+	});
+
 	if (plan.managedSlotConflicts.length > 0) {
+		commandStream.matrix?.setGlobalSubstep("prepare", "slots", { state: "active" });
 		const slotOutcome = await confirmAndFreeManagedSlots({
 			runtime,
 			ctx,
@@ -70,7 +82,17 @@ async function preparePlanForMergeCore(
 			landContext: getLandContext(),
 			confirmation: preMergeConfirmation,
 		});
-		if (slotOutcome.type === "failure") return slotOutcome;
+		if (slotOutcome.type === "failure") {
+			commandStream.matrix?.setGlobalSubstep("prepare", "slots", { state: "failed" });
+			commandStream.matrix?.setGlobal("prepare", { state: "failed", text: "slot cleanup failed" });
+			return slotOutcome;
+		}
+		commandStream.matrix?.setGlobalSubstep("prepare", "slots", { state: "done" });
+	} else {
+		commandStream.matrix?.setGlobalSubstep("prepare", "slots", {
+			state: "skipped",
+			text: "not required",
+		});
 	}
 
 	if (plan.prSubmitRequirements.length > 0) {
@@ -84,6 +106,15 @@ async function preparePlanForMergeCore(
 		});
 	}
 
+	commandStream.matrix?.setGlobalSubstep("prepare", "update", {
+		state: "skipped",
+		text: "not required",
+	});
+	commandStream.matrix?.setGlobalSubstep("prepare", "recheck", {
+		state: "skipped",
+		text: "not required",
+	});
+	commandStream.matrix?.setGlobal("prepare", { state: "done", text: "ready to merge" });
 	return success(plan);
 }
 
@@ -100,24 +131,44 @@ async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<FlowLandingPlan>> {
 	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
+	commandStream.matrix?.setGlobalSubstep("prepare", "update", { state: "active" });
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		ctx,
 		plan,
 		landContext,
 		confirmation: preMergeConfirmation,
 	});
-	if (submitOutcome.type === "failure") return submitOutcome;
+	if (submitOutcome.type === "failure") {
+		commandStream.matrix?.setGlobalSubstep("prepare", "update", { state: "failed" });
+		commandStream.matrix?.setGlobal("prepare", { state: "failed", text: "PR update failed" });
+		return submitOutcome;
+	}
+	commandStream.matrix?.setGlobalSubstep("prepare", "update", { state: "done" });
 
 	commandStream.note("Rechecking landing preflight...");
+	commandStream.matrix?.setGlobalSubstep("prepare", "recheck", { state: "active" });
 	setStatus(ctx, "rechecking preflight...");
 	const rechecked = await buildLandingPlan(runtime, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
 	});
-	if (rechecked.type === "failure") return rechecked;
+	if (rechecked.type === "failure") {
+		commandStream.matrix?.setGlobalSubstep("prepare", "recheck", { state: "failed" });
+		commandStream.matrix?.setGlobal("prepare", { state: "failed", text: "recheck failed" });
+		return rechecked;
+	}
 
+	commandStream.matrix?.setRows(landMatrixRowsFromPlan(rechecked.value));
+	commandStream.matrix?.setGlobalSubstep("prepare", "recheck", { state: "done" });
 	const residualFailure = residualPreMergeFailure(rechecked.value);
-	if (residualFailure) return failure(residualFailure);
+	if (residualFailure) {
+		commandStream.matrix?.setGlobal("prepare", {
+			state: "failed",
+			text: "pre-merge requirements remain",
+		});
+		return failure(residualFailure);
+	}
+	commandStream.matrix?.setGlobal("prepare", { state: "done", text: "ready to merge" });
 	return rechecked;
 }
 
