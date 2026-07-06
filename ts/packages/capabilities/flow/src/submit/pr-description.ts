@@ -3,6 +3,11 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type {
+	TextGenerationResult,
+	TextGenerationUsage,
+	TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
 import {
 	parseManagedRegion,
 	replaceMalformedManagedRegionFromBegin,
@@ -15,13 +20,9 @@ import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
-import {
-	selectPrDescriptionModelRef,
-	type TextGenerationResult,
-	type TextGenerationUsage,
-	type TextGenerator,
-} from "./text-generation.ts";
 
+export const DEFAULT_PR_DESCRIPTION_MODEL_REF = "openai-codex/gpt-5.4-mini";
+export const PR_DESCRIPTION_MODEL_ENV = "NS_DEV_PR_DESCRIPTION_MODEL";
 export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ns/prompts/pr-description.md";
 export const GENERATED_BODY_MARKER = "<!-- generated-by: ji-dev pr-description v1 -->";
@@ -181,6 +182,14 @@ export type PrDescriptionValidationResult =
 export type PreparedPrDescription =
 	| { ok: true; title: string; body: string; source: "model" | "repaired_model"; feedback?: string }
 	| { ok: false; error: string };
+
+export function selectPrDescriptionModelRef(env: Record<string, string | undefined>): string {
+	const modelRef = env[PR_DESCRIPTION_MODEL_ENV]?.trim();
+	if (modelRef !== undefined && modelRef !== "") {
+		return modelRef;
+	}
+	return DEFAULT_PR_DESCRIPTION_MODEL_REF;
+}
 
 export function hasGeneratedMarker(body: string): boolean {
 	return body.includes(GENERATED_BODY_MARKER) || body.includes(MANAGED_BODY_BEGIN_MARKER);

@@ -37,6 +37,8 @@ export {
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
 	MAX_DIFF_CHARS,
+	DEFAULT_PR_DESCRIPTION_MODEL_REF,
+	PR_DESCRIPTION_MODEL_ENV,
 	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
 	preparePrDescription,
@@ -46,6 +48,7 @@ export {
 	resolvePrDescriptionGeneration,
 	resolvePrDescriptionPrompt,
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
+	selectPrDescriptionModelRef,
 	truncateDiff,
 	type PrDescriptionFingerprintMetadata,
 	type PrDescriptionGenerationResolution,
@@ -62,15 +65,12 @@ export {
 	type GatewayResult,
 	type Result,
 } from "@nseng-ai/capability-kit/gateway-result";
-export {
-	DEFAULT_PR_DESCRIPTION_MODEL_REF,
-	PR_DESCRIPTION_MODEL_ENV,
-	selectPrDescriptionModelRef,
-	type TextGenerationRequest,
-	type TextGenerationResult,
-	type TextGenerationUsage,
-	type TextGenerator,
-} from "./text-generation.ts";
+export type {
+	TextGenerationRequest,
+	TextGenerationResult,
+	TextGenerationUsage,
+	TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
 export {
 	RealSubmitGateway,
 	runSubmitCommand,
