@@ -1,7 +1,7 @@
 ---
 edges:
-  - objective: ship-objectives-to-customers
-    annotation: Customer Objective shipping is the first external consumer of the `ns skills` provisioning surface, pulling objective skills into customer harness roots.
+  - objective: ns-skills-steelthread
+    annotation: Subobjective carrying the thread — one real ns-owned skill through `ns skills list/path/install` into the pi/claude-code/codex harness roots with a hashed install manifest; this umbrella coordinates the surrounding ambition and deferred breadth.
 ---
 
 # Reusable Skill Management Subsystem
@@ -10,26 +10,24 @@ edges:
 
 ns needs a Pup-inspired harness-artifact management subsystem that can list, locate, preview, and provision bundled harness artifacts — skills, agents, and extension bundles — for the first-party `ns` CLI first, while remaining reusable by other first-party CLIs and ns extensions.
 
-This record is deliberately shaped as a **Steelthread Objective** (see the `objective` skill's patterns reference): its scope is the thinnest end-to-end slice of that ambition, with widening explicitly deferred. The thread: one real ns-owned skill goes from a static artifact catalog, through the harness path table and a deterministic provision plan, into the `pi`, `claude-code`, and `codex` harness roots via `ns skills list/path/install`, writing an install manifest entry with per-file content hashes — boring, static, testable, and with zero `npx skills` dependency. Everything beyond the thread — extension-carried provisioning, AREG re-platforming, reconcile generality, update/uninstall surfaces — is deferred breadth, parked in the roadmap or split to follow-on Objectives.
+This record is an **Umbrella Objective** (see the `objective` skill's patterns reference): it holds the reusable-subsystem ambition, the decided vocabulary and architecture orientation, the Pup research reference, and the deferred breadth, while narrower **Subobjectives** own the execution slices. The first Subobjective is `ns-skills-steelthread` (split out 2026-07-06), which owns the thinnest end-to-end slice: one real ns-owned skill from a static artifact catalog, through the harness path table and a deterministic provision plan, into the `pi`, `claude-code`, and `codex` harness roots via `ns skills list/path/install`, writing an install manifest with per-file content hashes and zero `npx skills` dependency. This umbrella tracks the children, synthesizes cross-child lessons, and decides when parked breadth graduates into follow-on Subobjectives.
 
 **Naming (ADR 0026 `rename-ji-to-ns`, scope amended by ADR 0028):** the surface this Objective designs is ns-named — the `ns` CLI and a `ns skills`-shaped command family; any new package name is `@nseng-ai/*`-scoped. The cutover landing has executed on trunk: `ns` is the live binary (bin of `@nseng-ai/kernel`), repo state lives under `.ns/`, the extension manifest key is `ns`, and workspace packages are `@nseng-ai/*`-scoped (e.g. `@nseng-ai/areg`). ADR 0026 originally planned an `@ns/*` internal scope; ADR 0028 superseded that to bare `@nseng-ai/*`, and no `@ns/*` package names exist. Build no new sdl- or ji-named surface.
 
 ## Scope
 
-This Objective covers the design and implementation of the steelthread only. The reusable-subsystem ambition (Pup-inspired, consumable by other first-party CLIs and ns extensions) shapes the design but does not widen the scope:
+Coordination of the reusable harness-artifact subsystem ambition:
 
-- Vocabulary is decided: the domain term is **harness artifact** (kinds `skill`, `agent`, `extension-bundle`); the user-facing CLI surface says **skills**; **provision** is the verb for materializing artifacts into a harness; this domain says **harness**, not "platform". AREG is re-read as the **Artifact Registry**, the advanced surface over the same framework.
-- The thread's user-visible surface: the `ns` CLI can list ns-owned harness artifacts, show where they would provision for supported harnesses/scopes, and provision — or deterministically preview provisioning — at least one real ns-owned skill (`ns skills list/path/install`, analogous to Pup's `skills list`, `skills path`, and `skills install`).
-- Shared implementation in `@nseng-ai/harness-artifacts` owns only what the thread needs: artifact catalog types, harness specs with aliases and user-vs-project scope (including `CLAUDE_CONFIG_DIR` handling), scope/path resolution, provision-plan generation, materialization as a local copy, and an install manifest with per-file content hashes written on provision. Thread conflict policy is LBYL refuse-to-clobber of locally edited files without `--force`; stale-after-upgrade detection and rename/uninstall cleanup are manifest-enabled follow-ups, not thread work.
-- Entry-kind breadth is decided: the model represents all three kinds from day one; the thread provisions skills only.
-- First harness set is decided: `pi` + `claude-code` + `codex` (matching `@nseng-ai/ns-init`'s `HarnessId` union), with the table shape making further harnesses pure data additions. The first consumer seam — the thread's "one real task" — is `@nseng-ai/ns-init`'s `SkillMaterializer` gateway.
-- The subsystem has zero dependency on the third-party `npx skills` CLI: first-party content is provisioned as a local copy by our own planner.
-- Design orientation, not thread scope: reconcile (declared catalogs vs. install manifest → deterministic provision plan → apply) remains the decided architectural shape (see `updates/20260702T041140Z-reconcile-primitive-and-sdl-update-hook.md`). The thread implements install as plan-plus-apply over the first-party catalog and must not preclude reconcile generality, but does not implement it — extension-declared catalogs, the `ns update` hook, and ambient-drift fingerprint nudges are deferred breadth.
-- A detailed Pup research report is kept as a deliberate Objective reference at `references/pup-skill-management-report.md`; fresh-inspection deltas (no verification/hashing/versioning/manifest/uninstall in pup's skills path, `CLAUDE_CONFIG_DIR` handling, read-only carve-out) are recorded in `updates/`.
+- Own the durable decisions that bind every child slice. Decided so far: the domain term is **harness artifact** (kinds `skill`, `agent`, `extension-bundle`); the user-facing CLI surface says **skills**; **provision** is the verb for materializing artifacts into a harness; this domain says **harness**, not "platform"; AREG is re-read as the **Artifact Registry**, the advanced surface over the same framework (`updates/20260702T035321Z-harness-artifact-vocabulary-and-layering.md`).
+- Own the architecture orientation: reconcile (declared catalogs vs. install manifest → deterministic provision plan → apply) is the decided shape (`updates/20260702T041140Z-reconcile-primitive-and-sdl-update-hook.md`). Children implement slices of it (the steelthread implements install as plan-plus-apply over the first-party catalog) and must not preclude its generality.
+- Own the shared package boundary: `@nseng-ai/harness-artifacts` at `ts/packages/capabilities/harness-artifacts`, seeded by pushing down areg's lockfile/mirror/frontmatter convention code (`updates/20260706T100934Z-harness-artifacts-package-seeded-by-areg-pushdown.md`). Cross-consumer API-shape questions (shared core plus thin per-CLI bindings) resolve here as consumers multiply.
+- Track Subobjectives via Objective Edges and roadmap `[~]` rows; synthesize their closure evidence and cross-child lessons into this record.
+- Decide when parked breadth graduates: each `## Parked` row either widens a validated thread as a follow-on row or splits into its own Subobjective.
+- Keep the detailed Pup research report as a deliberate Objective reference at `references/pup-skill-management-report.md`; fresh-inspection deltas (no verification/hashing/versioning/manifest/uninstall in pup's skills path, `CLAUDE_CONFIG_DIR` handling, read-only carve-out) are recorded in `updates/`.
 
 ## Non-Goals
 
-Deferred breadth — parked in the roadmap, not abandoned; each item widens the validated thread later or splits into a follow-on Objective:
+Deferred breadth — parked in the roadmap, not abandoned; each item widens a validated thread later or splits into a follow-on Subobjective:
 
 - Extension-carried artifact provisioning (static manifest declaration via the `ns` field in `package.json`, provisioned on extension install/enable).
 - The `ns update` commanded hook and ambient-drift fingerprint nudges.
@@ -45,20 +43,16 @@ Hard non-goals:
 - No attempt to solve every harness-specific agent/subagent/package format before the core `ns` CLI steelthread works.
 - No dynamic or executed catalog contribution: extension-carried catalogs are static manifest data only.
 - No replacement of AREG's `npx skills add` acquisition channel for third-party GitHub skills in the first slice; that dependency is tolerated temporarily and shrinks later.
+- The umbrella does not duplicate its children's execution tracking: thread-level rows, evidence, and closure gates live in the Subobjective records.
 
 ## Completion Criteria
 
-This is a Steelthread Objective: it closes when the thread is validated end-to-end. Deferred breadth stays in `## Parked` or splits into follow-on Objectives — widening does not hold this record open.
+This Umbrella closes when its Subobjectives are closed or explicitly parked and their outcomes synthesized here:
 
-The Objective can close when:
-
-- A canonical package/module boundary exists for reusable harness-artifact catalog and provision-planning logic (seeded as `@nseng-ai/harness-artifacts`).
-- One real ns-owned skill completes the thread through the real system: `ns skills list` shows it, `ns skills path` shows where it would provision for `pi`/`claude-code`/`codex` at user and project scope, and `ns skills install` provisions it (with a deterministic preview) as a local copy with zero `npx skills` dependency.
-- Provisioning writes the install manifest with per-file content hashes, and refuse-to-clobber of locally edited files without `--force` is tested.
-- Artifact entries represent all three kinds (`skill`, `agent`, `extension-bundle`) in the model; only skills provision in the thread.
-- The supported harness path table is documented and tested: harness alias resolution, scope/path resolution, provision-plan output, and collision/error behavior against at least one first-party ns artifact catalog.
+- The `ns-skills-steelthread` Subobjective is closed with the thread validated end-to-end (its own Closure Gate).
+- Each parked-breadth row has an explicit disposition: implemented as a follow-on slice, split into its own Subobjective (tracked via an Objective Edge), or deliberately retired with rationale.
+- Cross-child lessons and closure evidence are synthesized into this record (Semantic Updates and `## Closure` prose), so the reusable-subsystem ambition has one durable narrative home.
 - The Pup research report remains checked in under this Objective and is referenced by implementation decisions.
-- Extension-carried provisioning, AREG re-platforming, and the reconciliation sweep are recorded as parked or split into follow-on Objectives, not implemented here.
 
 ## Assumptions and Risks
 
@@ -72,8 +66,8 @@ Assumptions:
 
 Risks:
 
-- Breadth creep is the Steelthread pattern's named failure mode and has already materialized once in this record: extension-carried provisioning was pulled forward from parked into main-line scope (2026-07-02) before the 2026-07-06 steelthread reshape moved it back. Defend by descoping, not absorbing; anything the thread does not strictly need goes to `## Parked`.
-- The cardboard-thread failure mode: stubbing the manifest, preview, or a harness target would make the thread validate nothing. The thread must write a real manifest, resolve real harness paths for all three harnesses, and provision a real ns-owned skill consumed by a real seam (`@nseng-ai/ns-init`'s `SkillMaterializer`).
+- The **fire-and-forget umbrella** is this pattern's named failure mode: a parent that only spawns children and stops tracking. Defend by keeping the `[~]` child rows current and synthesizing child outcomes back into this record.
+- Breadth creep materialized once in this record's own history: extension-carried provisioning was pulled forward from parked into main-line scope (2026-07-02) before the 2026-07-06 steelthread reshape moved it back; the thread then split into `ns-skills-steelthread` the same day. Defend by descoping into parked rows or new Subobjectives, not by absorbing breadth into an in-flight thread.
 - The package boundary may be awkward if the subsystem must be consumed by several first-party CLIs and extensions with different runtime/layering constraints; a shared core plus thin per-CLI bindings may be needed. Partially de-risked: `@nseng-ai/harness-artifacts` is seeded at `ts/packages/capabilities/harness-artifacts`, so the residual risk is API shape, not package placement.
 - Resolved: the "skills is too narrow vs resources is too abstract" naming risk is settled by the dual-language decision — user-facing `skills`, domain-term `harness artifact`.
 - Bare "artifact" is already used elsewhere in ns vocabulary (handoff artifacts in `@nseng-ai/handoffs`, consumer artifacts in `docs/conventions/platform-and-consumer.md`, and AREG's own "managed artifacts" for invocation-kind overlay files — a direct collision inside the tool being re-read as Artifact Registry; the term is still live in `@nseng-ai/areg`'s skill-kind operations). Mitigation: the canonical qualified term is "harness artifact" in docs/types where ambiguity exists, and reconciliation includes renaming AREG's overlay sense (e.g. "kind overlays").
@@ -84,5 +78,6 @@ Risks:
 
 ## Open Questions
 
-- Whether `ns skills` needs a plan subcommand or an `install --dry-run`, per local CLI conventions.
-- Moved to deferred breadth with their parked rows (no longer this record's thread questions): how `skills-lock.json` and the install manifest converge on one hash/record format, and where the `ns update` command surface lives.
+- How `skills-lock.json` and the install manifest converge on one hash/record format (resolves with the AREG re-platforming parked row).
+- Where the `ns update` command surface lives — kernel/extension-lifecycle vs. this subsystem (resolves with the extension-carried provisioning parked row).
+- Which parked rows become Subobjectives vs. follow-on rows once the steelthread validates.
