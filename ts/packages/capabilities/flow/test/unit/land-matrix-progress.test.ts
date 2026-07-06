@@ -81,32 +81,6 @@ describe("land matrix progress", () => {
 			caps: caps(),
 			title: "ns flow land — 1/2 target PRs merged",
 			runningCommands: ["gh pr merge 123 --squash"],
-			globals: [
-				{
-					key: "preflight",
-					label: "Preflight",
-					detail: "2 PRs ready to land into main",
-					activeLabel: "checking stack and PRs…",
-					state: "done",
-					substeps: [],
-				},
-				{
-					key: "prepare",
-					label: "Prepare",
-					detail: "ready to merge",
-					activeLabel: "preparing stack for merge…",
-					state: "active",
-					substeps: [
-						{
-							key: "slots",
-							label: "Slots",
-							detail: "managed slots free",
-							activeLabel: "freeing managed slots…",
-							state: "done",
-						},
-					],
-				},
-			],
 			rows: rows.map((row) => landRowView(row)),
 		});
 
@@ -127,47 +101,13 @@ describe("land matrix progress", () => {
 		expect(output).toContain("feature/a (#123)");
 	});
 
-	test("hides inactive global rows and their detail text", () => {
-		const output = stripAnsi(
-			renderLandMatrixProgressFrame({
-				caps: caps(),
-				title: "ns flow land",
-				globals: [
-					{
-						key: "prepare",
-						label: "Prepare",
-						detail: "not required",
-						activeLabel: "preparing stack for merge…",
-						state: "skipped",
-						substeps: [
-							{
-								key: "slots",
-								label: "Slots",
-								detail: "managed slots free",
-								activeLabel: "freeing managed slots…",
-								state: "pending",
-							},
-						],
-					},
-				],
-				rows: [],
-			}).join("\n"),
-		);
-
-		expect(output).not.toContain("Prepare");
-		expect(output).not.toContain("Slots");
-		expect(output).not.toContain("not required");
-		expect(output).not.toContain("pending");
-	});
-
-	test("ignores global updates until setRows renders the full pending matrix", () => {
+	test("does not render until setRows renders the full pending matrix", () => {
 		const capture = streamCapture();
 		const controller = createLandMatrixProgressController({
 			caps: caps(),
 			deps: capture.deps,
 		});
 
-		controller.setGlobal("preflight", { state: "active", text: "checking" });
 		expect(capture.writes).toHaveLength(0);
 		expect(capture.redraws).toHaveLength(0);
 
@@ -178,13 +118,7 @@ describe("land matrix progress", () => {
 		expect(firstFrame).not.toContain("Preflight");
 		expect(firstFrame).toContain("ns flow land — 0/2 target PRs merged");
 		expect(firstFrame).toContain("Running: —");
-		const rowLines = firstFrame
-			.split("\n")
-			.filter((line) => line.includes("feature/a (#123)") || line.includes("feature/b (#124)"));
-		expect(rowLines).toHaveLength(2);
-		for (const rowLine of rowLines) {
-			expect(rowLine.match(/·/g)).toHaveLength(4);
-		}
+		expectPendingMatrixRows(firstFrame);
 	});
 
 	test("renders the first branch matrix frame with every cell pending", () => {
@@ -193,21 +127,23 @@ describe("land matrix progress", () => {
 			caps: caps(),
 			title: "ns flow land — 0/2 target PRs merged",
 			runningCommands: [],
-			globals: [],
 			rows: rows.map((row) => pendingLandRowView(row)),
 		});
 
 		const output = stripAnsi(lines.join("\n"));
-		const rowLines = output
-			.split("\n")
-			.filter((line) => line.includes("feature/a (#123)") || line.includes("feature/b (#124)"));
-
-		expect(rowLines).toHaveLength(2);
-		for (const rowLine of rowLines) {
-			expect(rowLine.match(/·/g)).toHaveLength(4);
-		}
+		expectPendingMatrixRows(output);
 	});
 });
+
+function expectPendingMatrixRows(output: string): void {
+	const rowLines = output
+		.split("\n")
+		.filter((line) => line.includes("feature/a (#123)") || line.includes("feature/b (#124)"));
+	expect(rowLines).toHaveLength(2);
+	for (const rowLine of rowLines) {
+		expect(rowLine.match(/·/g)).toHaveLength(4);
+	}
+}
 
 function landRowView(row: LandMatrixRowSpec) {
 	return {

@@ -8,15 +8,12 @@ import {
 	rowsWithKey,
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
-	type MatrixGlobalRowSpec,
-	type MatrixGlobalView,
 	type MatrixRowView,
 } from "../phase-stream/matrix-progress-core.ts";
 import { LAND_PHASES } from "../phase-stream/phase-stream-specs.ts";
 import type { FlowLandingPlan } from "./stack/types.ts";
 
 export type LandMatrixColumnKey = "gate" | "merge" | "verify" | "restack";
-export type LandMatrixGlobalKey = "preflight" | "prepare" | "descendants" | "cleanup";
 
 export interface LandMatrixRowSpec {
 	branch: string;
@@ -27,12 +24,6 @@ export interface LandMatrixRowSpec {
 export interface LandMatrixProgressSink {
 	setRows(rows: readonly LandMatrixRowSpec[]): void;
 	setRunningCommands(commands: readonly string[]): void;
-	setGlobal(key: LandMatrixGlobalKey, update: MatrixCellUpdate): void;
-	setGlobalSubstep(
-		globalKey: LandMatrixGlobalKey,
-		substepKey: string,
-		update: MatrixCellUpdate,
-	): void;
 	setCell(branch: string, column: LandMatrixColumnKey, update: MatrixCellUpdate): void;
 	setAllCells(column: LandMatrixColumnKey, update: MatrixCellUpdate): void;
 	setAllOtherCells(column: LandMatrixColumnKey, branch: string, update: MatrixCellUpdate): void;
@@ -59,53 +50,6 @@ export const LAND_MATRIX_COLUMNS: readonly MatrixColumnSpec<LandMatrixColumnKey>
 	{ key: "merge", label: "Merge", width: 6 },
 	{ key: "verify", label: "Verify", width: 6 },
 	{ key: "restack", label: "Restack", width: 7 },
-];
-
-export const LAND_MATRIX_GLOBAL_ROWS: readonly MatrixGlobalRowSpec<LandMatrixGlobalKey>[] = [
-	{
-		key: "preflight",
-		label: "Preflight",
-		detail: "stack and PRs checked",
-		activeLabel: "checking stack and PRs…",
-	},
-	{
-		key: "prepare",
-		label: "Prepare",
-		detail: "not required",
-		activeLabel: "preparing stack for merge…",
-		substeps: [
-			{
-				key: "slots",
-				label: "Slots",
-				detail: "managed slots free",
-				activeLabel: "freeing managed slots…",
-			},
-			{
-				key: "update",
-				label: "Update",
-				detail: "PRs up to date",
-				activeLabel: "submitting required PR updates…",
-			},
-			{
-				key: "recheck",
-				label: "Recheck",
-				detail: "preflight rechecked",
-				activeLabel: "rechecking landing preflight…",
-			},
-		],
-	},
-	{
-		key: "descendants",
-		label: "Descendants",
-		detail: "not required",
-		activeLabel: "refreshing descendant branches…",
-	},
-	{
-		key: "cleanup",
-		label: "Cleanup",
-		detail: "not required",
-		activeLabel: "cleaning up local branches…",
-	},
 ];
 
 export function formatLandProgressTitle(state: LandLiveProgressState): string {
@@ -167,8 +111,6 @@ export function createLandMatrixProgressController(options: {
 		setTitle: controller.setTitle,
 		setRows,
 		setRunningCommands: controller.setRunningCommands,
-		setGlobal: controller.setGlobal,
-		setGlobalSubstep: controller.setGlobalSubstep,
 		setCell: controller.setCell,
 		setAllCells: controller.setAllCells,
 		setAllOtherCells: controller.setAllOtherCells,
@@ -183,7 +125,6 @@ export function renderLandMatrixProgressFrame(input: {
 	caps: Caps;
 	title: string;
 	runningCommands?: readonly string[];
-	globals: readonly MatrixGlobalView<LandMatrixGlobalKey>[];
 	rows: readonly (LandMatrixRowSpec & MatrixRowView<LandMatrixColumnKey>)[];
 	tailLine?: string;
 	tick?: number;

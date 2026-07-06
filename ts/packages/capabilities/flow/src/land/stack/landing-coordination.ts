@@ -24,10 +24,6 @@ import {
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
 import type { LandStackCommandContext, LandedPr, FlowLandingPlan } from "./types.ts";
 import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
-import {
-	runTrackedMatrixStep,
-	type MatrixCellUpdate,
-} from "../../phase-stream/matrix-progress-core.ts";
 
 export interface LandingSession {
 	ctx: LandStackCommandContext;
@@ -55,35 +51,6 @@ export async function preparePlanForMerge(
 	return result;
 }
 
-interface WithPrepareSubstepOptions<T> {
-	commandStream: LandStackCommandStream;
-	substep: string;
-	failureUpdate: MatrixCellUpdate;
-	op: () => Promise<LandStackResult<T>>;
-}
-
-async function withPrepareSubstep<T>(
-	options: WithPrepareSubstepOptions<T>,
-): Promise<LandStackResult<T>> {
-	return await runTrackedMatrixStep({
-		onActive: () => {
-			options.commandStream.matrix?.setGlobalSubstep("prepare", options.substep, {
-				state: "active",
-			});
-		},
-		onDone: () => {
-			options.commandStream.matrix?.setGlobalSubstep("prepare", options.substep, { state: "done" });
-		},
-		onFailed: () => {
-			options.commandStream.matrix?.setGlobalSubstep("prepare", options.substep, {
-				state: "failed",
-			});
-			options.commandStream.matrix?.setGlobal("prepare", options.failureUpdate);
-		},
-		op: options.op,
-	});
-}
-
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<FlowLandingPlan>> {
@@ -97,35 +64,18 @@ async function preparePlanForMergeCore(
 	};
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
-		commandStream.matrix?.setGlobal("prepare", { state: "skipped", text: "not required" });
 		return success(plan);
 	}
 
-	commandStream.matrix?.setGlobal("prepare", {
-		state: "active",
-		text: "preparing stack for merge…",
-	});
-
 	if (plan.managedSlotConflicts.length > 0) {
-		const slotOutcome = await withPrepareSubstep({
-			commandStream,
-			substep: "slots",
-			failureUpdate: { state: "failed", text: "slot cleanup failed" },
-			op: async () =>
-				await confirmAndFreeManagedSlots({
-					runtime,
-					ctx,
-					plan,
-					landContext: getLandContext(),
-					confirmation: preMergeConfirmation,
-				}),
+		const slotOutcome = await confirmAndFreeManagedSlots({
+			runtime,
+			ctx,
+			plan,
+			landContext: getLandContext(),
+			confirmation: preMergeConfirmation,
 		});
 		if (slotOutcome.type === "failure") return slotOutcome;
-	} else {
-		commandStream.matrix?.setGlobalSubstep("prepare", "slots", {
-			state: "skipped",
-			text: "not required",
-		});
 	}
 
 	if (plan.prSubmitRequirements.length > 0) {
@@ -139,15 +89,6 @@ async function preparePlanForMergeCore(
 		});
 	}
 
-	commandStream.matrix?.setGlobalSubstep("prepare", "update", {
-		state: "skipped",
-		text: "not required",
-	});
-	commandStream.matrix?.setGlobalSubstep("prepare", "recheck", {
-		state: "skipped",
-		text: "not required",
-	});
-	commandStream.matrix?.setGlobal("prepare", { state: "done", text: "ready to merge" });
 	return success(plan);
 }
 
@@ -164,44 +105,25 @@ async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<FlowLandingPlan>> {
 	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
-	const submitOutcome = await withPrepareSubstep({
-		commandStream,
-		substep: "update",
-		failureUpdate: { state: "failed", text: "PR update failed" },
-		op: async () =>
-			await confirmAndSubmitRequiredPrUpdates({
-				ctx,
-				plan,
-				landContext,
-				confirmation: preMergeConfirmation,
-			}),
+	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
+		ctx,
+		plan,
+		landContext,
+		confirmation: preMergeConfirmation,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
-	const rechecked = await withPrepareSubstep({
-		commandStream,
-		substep: "recheck",
-		failureUpdate: { state: "failed", text: "recheck failed" },
-		op: async () =>
-			await buildLandingPlan(runtime, ctx.cwd, {
-				shouldAllowSubmitRequiredState: true,
-				landingBranchLimit: plan.stack.landingBranches.length,
-			}),
+	const rechecked = await buildLandingPlan(runtime, ctx.cwd, {
+		shouldAllowSubmitRequiredState: true,
+		landingBranchLimit: plan.stack.landingBranches.length,
 	});
 	if (rechecked.type === "failure") return rechecked;
 
 	commandStream.matrix?.setRows(landMatrixRowsFromPlan(rechecked.value));
 	const residualFailure = residualPreMergeFailure(rechecked.value);
-	if (residualFailure) {
-		commandStream.matrix?.setGlobal("prepare", {
-			state: "failed",
-			text: "pre-merge requirements remain",
-		});
-		return failure(residualFailure);
-	}
-	commandStream.matrix?.setGlobal("prepare", { state: "done", text: "ready to merge" });
+	if (residualFailure) return failure(residualFailure);
 	return rechecked;
 }
 
