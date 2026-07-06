@@ -10,7 +10,7 @@ In terminal-capture mode, completion is a terminal capture, not a queued slash c
 
 ## Architecture
 
-The helper API lives in `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/`. The unified `@nseng-ai/ns-pi-subagents/extension` entrypoint registers `explore`, `dispatch_runner_subagent`, and the subagent fleet UI; the dispatch tool implementation is `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension.ts`.
+The helper API lives in `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/`. The unified `@nseng-ai/ns-pi-subagents/extension` entrypoint registers the `explore` and `dispatch_runner_subagent` model-visible tools plus the `/ns:agents:fleet` and `/ns:agents:transcript` commands for session-local fleet/transcript UI; the dispatch tool implementation is `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension.ts`.
 
 The process runner launches a subagent shaped like:
 
@@ -99,7 +99,7 @@ Do not use `pi.sendMessage(...)` for transient subagent progress: custom message
 
 ## Agent-facing dispatch tool
 
-The project-local shim `.pi/extensions/agents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `dispatch_runner_subagent` final-text tool plus `/ns:agents:fleet`.
+The project-local shim `.pi/extensions/agents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `dispatch_runner_subagent` final-text tool plus `/ns:agents:fleet` and `/ns:agents:transcript`.
 
 That tool always uses final-text mode. It requires:
 

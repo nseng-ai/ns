@@ -32,7 +32,7 @@ Behavioral guarantees and limits:
 
 The extension maintains session-local recent/current subagent fleet state for the current Pi process. It renders a persistent `ns.agents.fleet` widget with running tasks first and recent completed tasks after them. The widget is intentionally not a durable index: it resets when Pi restarts and does not write XDG or repo-local fleet state.
 
-The `/ns:agents:fleet` command (also available through F2/alt+e/shift+ctrl+e) opens the subagent fleet navigator for known explore and dispatch child sessions. The `ns:agents:transcript` command opens a read-only transcript view for child session JSONL files known to that session-local fleet. Child Pi JSONL files remain the source of truth; the commands do not mutate transcripts or create a secondary transcript store.
+The `/ns:agents:fleet` command (also available through F2/alt+e/shift+ctrl+e) opens the subagent fleet navigator for known explore and dispatch child sessions. The `/ns:agents:transcript` command opens a read-only transcript view for child session JSONL files known to that session-local fleet. Child Pi JSONL files remain the source of truth; the commands do not mutate transcripts or create a secondary transcript store.
 
 ## Public exports
 
