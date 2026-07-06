@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import packageExtension from "../src/extension.ts";
 import { EXPLORE_TOOL_NAME } from "../src/explore/contract.ts";
-import { makeExplorerAgentDefinition } from "../src/explore/testing.ts";
+import { makeExplorerAgentDefinition } from "./helpers/explore-testing.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
 import { EXPLORE_TRANSCRIPT_COMMAND_NAME } from "../src/fleet/transcript-viewer.ts";
 import type { NsPiSubagentsExtensionAPI } from "../src/extension.ts";

@@ -13,20 +13,20 @@ import type {
 	RunnerSubagentProtocolErrorResult,
 	RunnerSubagentResult,
 	RunnerSubagentStoppedWithoutUsefulTextResult,
-} from "../runner-subagents/index.ts";
+} from "../../src/runner-subagents/index.ts";
 import {
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	EXPLORER_SCOUT_SECTION_HEADERS,
-} from "./contract.ts";
+} from "../../src/explore/contract.ts";
 export {
 	createFakeRunnerSubagentDispatcher,
 	FakeSpawnedChildProcess,
 	jsonLine,
 	sessionMessageLine,
 	waitForSpawn,
-} from "../runner-subagents/testing.ts";
+} from "../../src/runner-subagents/testing.ts";
 
 export function makeExplorerAgentDefinition(
 	overrides: Partial<PiAgentDefinition> = {},

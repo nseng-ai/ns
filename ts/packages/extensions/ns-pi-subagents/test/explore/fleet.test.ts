@@ -11,7 +11,7 @@ import {
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
 } from "../../src/fleet/display.ts";
-import { makeErrorResult, makeFinalTextResult } from "../../src/explore/testing.ts";
+import { makeErrorResult, makeFinalTextResult } from "../helpers/explore-testing.ts";
 
 describe("runner subagent fleet display for explore", () => {
 	test("renders one active widget line and clears once the fleet is idle", () => {
