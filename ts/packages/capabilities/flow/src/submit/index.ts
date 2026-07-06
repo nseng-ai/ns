@@ -103,6 +103,7 @@ export {
 	parseParentBranch,
 	prepareSubmitPrMetadata,
 	type ParsedGtLogStack,
+	type SubmitBranchMetadataProgressListener,
 	type SubmitMetadataCommandParams,
 	type SubmitMetadataGateway,
 	type SubmitPrMetadataPrewriteResult,
@@ -112,3 +113,10 @@ export {
 	type SubmitStackNewBranch,
 } from "./submit-pr-metadata-prewrite.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
+export {
+	createSubmitMatrixProgressController,
+	submitMatrixRowsFromTopology,
+	type SubmitMatrixProgressSink,
+	type SubmitStackTopology,
+	type SubmitStackTopologyBranch,
+} from "./submit-matrix-progress.ts";

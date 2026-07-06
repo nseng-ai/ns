@@ -685,6 +685,7 @@ describe("runSubmitCommand", () => {
 });
 
 const unusedSubmitMetadataGateway: SubmitMetadataGateway = {
+	inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
 	inspectSubmitStack: async () => unexpectedCall("inspectSubmitStack"),
 	ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
 	amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
@@ -776,6 +777,43 @@ describe("RealSubmitMetadataGateway", () => {
 		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
 
 		expect(result).toMatchObject({ ok: false, error: { code: "submit_existing_pr_link_missing" } });
+		runner.assertDone();
+	});
+
+	test("inspectSubmitStackTopology reads only topology and existing PR facts", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+				stdout: "◯ master\n│\n◯ feature/base\n│\n◉ feature/demo (current)\n",
+			}),
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
+				stdout: "feature/demo\n\nParent: feature/base\n",
+			}),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
+				stdout:
+					"feature/base\n\nPR #456 (Open) Base PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
+			}),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		const result = await gateway.inspectSubmitStackTopology({ cwd: "/repo" });
+
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				currentBranch: "feature/demo",
+				branches: [
+					{
+						kind: "existing",
+						branch: "feature/base",
+						parentBranch: "master",
+						pr: { label: "#456", url: "https://github.com/acme/project/pull/456" },
+					},
+					{ kind: "new", branch: "feature/demo", parentBranch: "feature/base" },
+				],
+			},
+		});
+		expect(runner.calls.map((call) => call.command)).toEqual(["gt", "gt", "gt", "gt"]);
 		runner.assertDone();
 	});
 

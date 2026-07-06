@@ -2,6 +2,7 @@ import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
+import type { Caps } from "@nseng-ai/clinkr";
 import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
@@ -13,8 +14,14 @@ import {
 import {
 	createNsSubmitRuntime,
 	runSubmitCommand,
+	type NsSubmitRuntime,
 	type SubmitCommandResult,
 } from "../../submit/ns-runtime.ts";
+import {
+	createSubmitMatrixProgressController,
+	submitMatrixRowsFromTopology,
+	type SubmitMatrixProgressController,
+} from "../../submit/submit-matrix-progress.ts";
 import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
 	defineExtension,
@@ -23,6 +30,7 @@ import {
 	z,
 	type NsCommand,
 	type NsExtensionApi,
+	type NsProgressPhaseEvent,
 } from "@nseng-ai/kernel/sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
@@ -70,6 +78,9 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 	async run(ctx: NsExtensionApi, request: SubmitRequest) {
 		const runtime = createNsSubmitRuntime(ctx);
 		const caps = resolveFlowStreamCaps(ctx);
+		if (caps.isTty) {
+			return await runSubmitWithMatrix({ ctx, request, runtime, caps });
+		}
 		return await runSettledPhaseStream({
 			caps,
 			specs: SUBMIT_PHASES,
@@ -149,6 +160,134 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 export default defineExtension({
 	commands: [flowSubmitCommand],
 });
+
+async function runSubmitWithMatrix(input: {
+	ctx: NsExtensionApi;
+	request: SubmitRequest;
+	runtime: NsSubmitRuntime;
+	caps: Caps;
+}) {
+	const { ctx, request, runtime, caps } = input;
+	const matrix = createSubmitMatrixProgressController({
+		caps,
+		deps: flowStreamDeps(ctx, caps),
+		title: "ns flow submit",
+		rows: [],
+		...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
+	});
+	matrix.setGlobal("inventory", "active");
+	matrix.begin();
+
+	try {
+		const topology = await runtime.metadataGateway.inspectSubmitStackTopology({ cwd: ctx.cwd });
+		if (!topology.ok) {
+			matrix.setGlobal("inventory", "failed", "inventory failed");
+			await matrix.finish({ isFailed: true });
+			return failed(
+				`Could not inspect submit stack inventory before checkpoint. Submission was not attempted; pending work was not checkpointed.\n\n${topology.error.message}`,
+				1,
+			);
+		}
+		matrix.setRows(submitMatrixRowsFromTopology(topology.value));
+		matrix.setGlobal(
+			"inventory",
+			"done",
+			`${topology.value.branches.length} ${topology.value.branches.length === 1 ? "branch" : "branches"} in submit stack`,
+		);
+		const checkpointPhase = createMatrixPhaseForwarder(ctx, matrix);
+		checkpointPhase({ type: "phase-started", phaseKey: "checkpoint" });
+		matrix.setGlobal("checkpoint", "active");
+		const checkpoint = await runCheckpointIfPending({
+			cwd: ctx.cwd,
+			env: ctx.env,
+			gateway: new RealCheckpointGateway(runtime.commandRunner),
+			textGenerator: ctx.textGenerator,
+			onPhase: checkpointPhase,
+		});
+		if (checkpoint.kind === "failed") {
+			matrix.setGlobal("checkpoint", "failed", "checkpoint failed");
+			const checkpointFailure = await maybeFormatSubmitFailureWithModel(
+				{
+					stdout: "",
+					stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
+					exitCode: checkpoint.output.exitCode,
+				},
+				ctx,
+			);
+			await matrix.finish({ isFailed: true });
+			return failed(resultFailureMessage(checkpointFailure), checkpoint.output.exitCode);
+		}
+		matrix.setGlobal("checkpoint", "done", "checkpoint complete");
+
+		const onPhase = createForwardOnlyPhaseListener(ctx);
+		const onOutput: FlowLiveOutput = (_stream, text) => matrix.note(text);
+		const result = await runSubmitCommand({
+			cwd: ctx.cwd,
+			gateway: runtime.submitGateway,
+			metadataGateway: runtime.metadataGateway,
+			restack: request.restack,
+			force: request.force,
+			shouldForwardCommandOutput: request.verbose,
+			prDescription: runtime.prDescription,
+			onPhase,
+			onOutput,
+			submitMatrix: matrix,
+			submitMatrixCurrentBranch: topology.value.currentBranch,
+		});
+		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
+		const isFailed = interpretedResult.exitCode !== 0;
+		await matrix.finish({ isFailed });
+		if (checkpoint.kind === "checkpointed") {
+			writeCommandResultOutput(checkpoint.output, ctx);
+		}
+		writeCommandResultOutput(
+			isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
+			ctx,
+		);
+		return isFailed
+			? failed(resultFailureMessage(interpretedResult), interpretedResult.exitCode)
+			: ok("");
+	} finally {
+		await matrix.stop();
+	}
+}
+
+function createMatrixPhaseForwarder(
+	ctx: NsExtensionApi,
+	matrix: SubmitMatrixProgressController,
+): (event: NsProgressPhaseEvent) => void {
+	const forward = createForwardOnlyPhaseListener(ctx);
+	return (event) => {
+		forward(event);
+		if (!("phaseKey" in event)) return;
+		if (event.phaseKey === "checkpoint") {
+			if (event.type === "phase-started") matrix.setGlobal("checkpoint", "active", event.label);
+			if (event.type === "phase-done") matrix.setGlobal("checkpoint", "done", event.detail);
+			if (event.type === "phase-failed") matrix.setGlobal("checkpoint", "failed", event.detail);
+			return;
+		}
+		if (event.type === "phase-started") {
+			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "active", event.label);
+		}
+		if (event.type === "phase-progress") {
+			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "active", event.label);
+		}
+		if (event.type === "phase-done") {
+			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "done", event.detail);
+		}
+		if (event.type === "phase-failed") {
+			matrix.setGlobalSubstep("checkpoint", event.phaseKey, "failed", event.detail);
+		}
+	};
+}
+
+function createForwardOnlyPhaseListener(
+	ctx: NsExtensionApi,
+): (event: NsProgressPhaseEvent) => void {
+	return (event) => {
+		if (ctx.progress.isLive) ctx.progress.phase(event);
+	};
+}
 
 function resultFailureMessage(result: SubmitCommandResult): string {
 	const message = result.stderr.trimEnd();
