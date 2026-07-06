@@ -8,6 +8,7 @@ import {
 	type GithubPrDiscussionComment,
 	type GithubPrDiscussionCommentUpsert,
 	type GithubPrFeedbackFailure,
+	type GithubPrFeedbackOptions,
 	type GithubPrInlineCommentInput,
 	type GithubPrRestReviewComment,
 	type GithubPrReviewThread,
@@ -50,12 +51,24 @@ export interface CreatedGithubPrReviewLogEntry {
 	readonly comments: readonly GithubPrInlineCommentInput[];
 }
 
+export type FakeGithubPrReviewThreadCall = Partial<GithubPrFeedbackOptions> & {
+	readonly prNumber: number;
+};
+
+export type FakeGithubPrMarkerFindCall = Partial<GithubPrFeedbackOptions> & {
+	readonly prNumber: number;
+	readonly marker: string;
+	readonly authorLogin: string;
+};
+
 export class FakeGithubPrFeedbackGateway {
 	private readonly changedFilesByPr: Map<number, GithubPrChangedFile[]>;
 	private readonly reviewCommentsByPr: Map<number, GithubPrRestReviewComment[]>;
 	private readonly reviewThreadsByPr: Map<number, GithubPrReviewThread[]>;
 	private readonly discussionCommentsByPr: Map<number, GithubPrDiscussionComment[]>;
 	private readonly createdReviewsInternal: CreatedGithubPrReviewLogEntry[] = [];
+	private readonly reviewThreadCallsInternal: FakeGithubPrReviewThreadCall[] = [];
+	private readonly markerFindCallsInternal: FakeGithubPrMarkerFindCall[] = [];
 	private readonly failure: GithubPrFeedbackFailure | undefined;
 	private nextCommentId: number;
 
@@ -85,9 +98,10 @@ export class FakeGithubPrFeedbackGateway {
 		return resultOk((this.reviewCommentsByPr.get(params.prNumber) ?? []).map(copyReviewComment));
 	}
 
-	async getPrReviewThreads(params: {
-		readonly prNumber: number;
-	}): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>> {
+	async getPrReviewThreads(
+		params: FakeGithubPrReviewThreadCall,
+	): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>> {
+		this.reviewThreadCallsInternal.push({ ...params });
 		if (this.failure !== undefined) return resultErr(this.failure);
 		return resultOk((this.reviewThreadsByPr.get(params.prNumber) ?? []).map(copyReviewThread));
 	}
@@ -113,11 +127,10 @@ export class FakeGithubPrFeedbackGateway {
 		);
 	}
 
-	async findPrDiscussionCommentByMarker(params: {
-		readonly prNumber: number;
-		readonly marker: string;
-		readonly authorLogin: string;
-	}): Promise<Result<GithubPrDiscussionComment | null, GithubPrFeedbackFailure>> {
+	async findPrDiscussionCommentByMarker(
+		params: FakeGithubPrMarkerFindCall,
+	): Promise<Result<GithubPrDiscussionComment | null, GithubPrFeedbackFailure>> {
+		this.markerFindCallsInternal.push({ ...params });
 		const comments = await this.getPrIssueComments(params);
 		if (!comments.ok) return comments;
 		return resultOk(
@@ -191,6 +204,14 @@ export class FakeGithubPrFeedbackGateway {
 			prNumber: entry.prNumber,
 			comments: entry.comments.map(copyInlineCommentInput),
 		}));
+	}
+
+	reviewThreadCalls(): readonly FakeGithubPrReviewThreadCall[] {
+		return this.reviewThreadCallsInternal.map((call) => ({ ...call }));
+	}
+
+	markerFindCalls(): readonly FakeGithubPrMarkerFindCall[] {
+		return this.markerFindCallsInternal.map((call) => ({ ...call }));
 	}
 }
 

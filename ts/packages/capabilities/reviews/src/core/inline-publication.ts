@@ -1,16 +1,25 @@
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import type { Result } from "@nseng-ai/foundation/result";
+import type {
+	GithubPrFeedbackFailure,
+	GithubPrInlineCommentInput,
+} from "@nseng-ai/capability-kit/github/pr-feedback";
 
-import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
+import {
+	environmentOptions,
+	ROASTER_BOT_LOGIN,
+	type ReviewsGithubPrFeedbackGateway,
+	type RoasterRunScope,
+} from "./context.ts";
 import type { FindingsPayload } from "./findings-comment.ts";
 import {
 	extractInlineMarkers,
 	inlineMarkerForFinding,
 	renderInlineBody,
 } from "./findings-comment.ts";
-import type { RoasterGitHubGateway } from "../gateways/github.ts";
+import { callGithub } from "./github-feedback-failures.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
-import type { RoasterResult } from "./failures.ts";
-import { type PRInlineCommentInput, type PostInlineFindingsResult } from "./models.ts";
+import { type PostInlineFindingsResult } from "./models.ts";
 
 export interface PostInlineFindingsOptions {
 	readonly prNumber: number;
@@ -18,20 +27,22 @@ export interface PostInlineFindingsOptions {
 }
 
 export async function postInlineFindings(
-	ctx: { readonly github: RoasterGitHubGateway },
+	ctx: { readonly github: ReviewsGithubPrFeedbackGateway },
 	payload: FindingsPayload,
 	options: PostInlineFindingsOptions,
 ): Promise<PostInlineFindingsResult> {
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
 	const githubOptions = environmentOptions(options.runScope);
-	const changedFilesResult = await callGithubOrEmptyResult(() =>
-		ctx.github.getPrChangedFiles(options.prNumber, githubOptions),
+	const changedFilesResult = await callGithubOrEmptyResult(
+		{ ...githubOptions, prNumber: options.prNumber },
+		(params) => ctx.github.getPrChangedFiles(params),
 	);
 	if (changedFilesResult.type === "empty") return changedFilesResult.result;
 
-	const reviewCommentsResult = await callGithubOrEmptyResult(() =>
-		ctx.github.getPrReviewComments(options.prNumber, githubOptions),
+	const reviewCommentsResult = await callGithubOrEmptyResult(
+		{ ...githubOptions, prNumber: options.prNumber },
+		(params) => ctx.github.getPrReviewComments(params),
 	);
 	if (reviewCommentsResult.type === "empty") return reviewCommentsResult.result;
 
@@ -41,7 +52,7 @@ export async function postInlineFindings(
 			.filter((comment) => comment.author === ROASTER_BOT_LOGIN)
 			.flatMap((comment) => extractInlineMarkers(comment.body)),
 	);
-	const comments: PRInlineCommentInput[] = [];
+	const comments: GithubPrInlineCommentInput[] = [];
 	let skippedDuplicateCount = 0;
 
 	for (const item of classified.inlineable) {
@@ -64,7 +75,10 @@ export async function postInlineFindings(
 	let postedCount = 0;
 	if (comments.length > 0) {
 		try {
-			const posted = await ctx.github.createPrReview(options.prNumber, comments, githubOptions);
+			const posted = await callGithub(
+				{ ...githubOptions, prNumber: options.prNumber, comments },
+				(params) => ctx.github.createPrReview(params),
+			);
 			if (posted.type === "error") apiError = posted.error.message;
 			else postedCount = comments.length;
 		} catch (caught) {
@@ -85,11 +99,12 @@ type GithubReadOrEmptyResult<T> =
 	| { readonly type: "ok"; readonly value: T }
 	| { readonly type: "empty"; readonly result: PostInlineFindingsResult };
 
-async function callGithubOrEmptyResult<T>(
-	call: () => Promise<RoasterResult<T>>,
+async function callGithubOrEmptyResult<T, TOptions extends { readonly cwd: string | undefined }>(
+	options: TOptions,
+	call: (options: TOptions) => Promise<Result<T, GithubPrFeedbackFailure>>,
 ): Promise<GithubReadOrEmptyResult<T>> {
 	try {
-		const result = await call();
+		const result = await callGithub(options, call);
 		if (result.type === "error") {
 			return { type: "empty", result: { ...emptyInlineResult(), apiError: result.error.message } };
 		}

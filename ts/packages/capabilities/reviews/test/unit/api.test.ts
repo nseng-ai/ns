@@ -1,4 +1,5 @@
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterClient, ROASTER_REVIEW_LOG_NAMESPACE } from "@nseng-ai/reviews/api";
@@ -8,8 +9,10 @@ import type {
 	RoasterRuntime,
 	RunRoasterReviewOutcome,
 } from "@nseng-ai/reviews/api";
-import { createRoasterRuntime } from "../../src/core/context.ts";
-import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
+import {
+	createRoasterRuntime,
+	type ReviewsGithubPrFeedbackGateway,
+} from "../../src/core/context.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
@@ -76,7 +79,7 @@ function runtimeWithFakes(
 		readonly response?: ReviewExecutionResponse;
 		readonly reviewLog?: FakeReviewLogGateway;
 		readonly reviewCatalog?: FakeReviewCatalogGateway;
-		readonly github?: RoasterGitHubGateway;
+		readonly github?: ReviewsGithubPrFeedbackGateway;
 		readonly stdin?: string;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
 	} = {},
@@ -247,7 +250,7 @@ describe("@nseng-ai/reviews/api", () => {
 	});
 
 	test("publishFindings reads stdin and publishes through the GitHub gateway", async () => {
-		const github = new FakeRoasterGitHubGateway({
+		const github = new FakeGithubPrFeedbackGateway({
 			changedFilesByPr: new Map([
 				[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -4 +4 @@\n+new" }]],
 			]),

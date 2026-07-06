@@ -1,16 +1,23 @@
-import type { RoasterResult } from "../../src/core/failures.ts";
-import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
-import type { PRDiscussionComment } from "../../src/core/models.ts";
+import type {
+	GithubPrDiscussionComment,
+	GithubPrFeedbackFailure,
+} from "@nseng-ai/capability-kit/github/pr-feedback";
+import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
+import type { Result } from "@nseng-ai/foundation/result";
 
-export class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
-	override async addPrDiscussionComment(
-		_prNumber: number,
-		_body: string,
-		_options: GitHubGatewayOptions,
-	): Promise<RoasterResult<PRDiscussionComment>> {
+export class FailingDiscussionGateway extends FakeGithubPrFeedbackGateway {
+	override async addPrDiscussionComment(_params: {
+		readonly prNumber: number;
+		readonly body: string;
+		readonly authorLogin?: string;
+	}): Promise<Result<GithubPrDiscussionComment, GithubPrFeedbackFailure>> {
 		return {
-			type: "error",
-			error: { type: "github-cli-failed", message: "discussion write failed" },
+			ok: false,
+			error: {
+				code: "github_pr_feedback_gh_failed",
+				message: "discussion write failed",
+				details: { operation: "addPrDiscussionComment" },
+			},
 		};
 	}
 }

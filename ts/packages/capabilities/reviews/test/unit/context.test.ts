@@ -1,28 +1,29 @@
-import type { GithubPrReviewThread } from "@nseng-ai/capability-kit/github/pr-feedback";
+import type {
+	GithubPrChangedFile,
+	GithubPrDiscussionComment,
+	GithubPrFeedbackFailure,
+	GithubPrFeedbackOptions,
+	GithubPrInlineCommentInput,
+	GithubPrReviewCommentSummary,
+	GithubPrReviewThread,
+} from "@nseng-ai/capability-kit/github/pr-feedback";
+import type { Result } from "@nseng-ai/foundation/result";
 import { describe, expect, test } from "vitest";
 
 import {
 	catalogOptions,
 	createRoasterRuntime,
 	environmentOptions,
+	type ReviewsGithubPrFeedbackGateway,
 } from "../../src/core/context.ts";
 import type { RoasterResult } from "../../src/core/failures.ts";
 import type { ReviewRunnerGateway, RunReviewOptions } from "../../src/gateways/review-runner.ts";
-import type {
-	FindPrDiscussionCommentByMarkerOptions,
-	GitHubGatewayOptions,
-	RoasterGitHubGateway,
-} from "../../src/gateways/github.ts";
 import type { LoadDiffOptions, LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import type { ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
 	type LocalDiff,
-	type PRChangedFile,
-	type PRDiscussionComment,
-	type PRInlineCommentInput,
-	type PRReviewComment,
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
 	type ReviewRunnerRequest,
@@ -87,67 +88,71 @@ class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
 	}
 }
 
-class RecordingGitHubGateway implements RoasterGitHubGateway {
-	readonly optionsCalls: GitHubGatewayOptions[] = [];
-	readonly markerCalls: FindPrDiscussionCommentByMarkerOptions[] = [];
-	readonly reviewThreadCalls: Array<GitHubGatewayOptions & { readonly prNumber: number }> = [];
+class RecordingGitHubGateway implements ReviewsGithubPrFeedbackGateway {
+	readonly optionsCalls: GithubPrFeedbackOptions[] = [];
+	readonly markerCalls: Array<
+		GithubPrFeedbackOptions & {
+			readonly prNumber: number;
+			readonly marker: string;
+			readonly authorLogin: string;
+		}
+	> = [];
+	readonly reviewThreadCalls: Array<GithubPrFeedbackOptions & { readonly prNumber: number }> = [];
 
 	async getPrChangedFiles(
-		_prNumber: number,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<readonly PRChangedFile[]>> {
-		this.optionsCalls.push(options);
-		return { type: "ok", value: [] };
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrChangedFile[], GithubPrFeedbackFailure>> {
+		this.optionsCalls.push(params);
+		return { ok: true, value: [] };
 	}
 
 	async getPrReviewComments(
-		_prNumber: number,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<readonly PRReviewComment[]>> {
-		this.optionsCalls.push(options);
-		return { type: "ok", value: [] };
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrReviewCommentSummary[], GithubPrFeedbackFailure>> {
+		this.optionsCalls.push(params);
+		return { ok: true, value: [] };
 	}
 
 	async getPrReviewThreads(
-		prNumber: number,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
-		this.reviewThreadCalls.push({ ...options, prNumber });
-		return { type: "ok", value: [] };
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>> {
+		this.reviewThreadCalls.push(params);
+		return { ok: true, value: [] };
 	}
 
 	async createPrReview(
-		_prNumber: number,
-		_comments: readonly PRInlineCommentInput[],
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<void>> {
-		this.optionsCalls.push(options);
-		return { type: "ok", value: undefined };
+		params: GithubPrFeedbackOptions & {
+			readonly prNumber: number;
+			readonly comments: readonly GithubPrInlineCommentInput[];
+		},
+	): Promise<Result<void, GithubPrFeedbackFailure>> {
+		this.optionsCalls.push(params);
+		return { ok: true, value: undefined };
 	}
 
 	async findPrDiscussionCommentByMarker(
-		options: FindPrDiscussionCommentByMarkerOptions,
-	): Promise<RoasterResult<PRDiscussionComment | null>> {
-		this.markerCalls.push(options);
-		return { type: "ok", value: null };
+		params: GithubPrFeedbackOptions & {
+			readonly prNumber: number;
+			readonly marker: string;
+			readonly authorLogin: string;
+		},
+	): Promise<Result<GithubPrDiscussionComment | null, GithubPrFeedbackFailure>> {
+		this.markerCalls.push(params);
+		return { ok: true, value: null };
 	}
 
 	async addPrDiscussionComment(
-		_prNumber: number,
-		_body: string,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<PRDiscussionComment>> {
-		this.optionsCalls.push(options);
-		return { type: "ok", value: { id: 1, body: "created" } };
+		params: GithubPrFeedbackOptions & { readonly prNumber: number; readonly body: string },
+	): Promise<Result<GithubPrDiscussionComment, GithubPrFeedbackFailure>> {
+		this.optionsCalls.push(params);
+		return { ok: true, value: { id: 1, body: "created", author: "github-actions[bot]", url: "" } };
 	}
 
 	async updatePrDiscussionComment(
-		_commentId: number,
-		_body: string,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<PRDiscussionComment>> {
-		this.optionsCalls.push(options);
-		return { type: "ok", value: { id: 1, body: "updated" } };
+		params: GithubPrFeedbackOptions & { readonly commentId: number; readonly body: string },
+	): Promise<Result<GithubPrDiscussionComment, GithubPrFeedbackFailure>> {
+		this.optionsCalls.push(params);
+		return { ok: true, value: { id: 1, body: "updated", author: "github-actions[bot]", url: "" } };
 	}
 }
 
@@ -196,18 +201,18 @@ describe("createRoasterRuntime", () => {
 			},
 			runOptions,
 		);
-		await ctx.github.getPrChangedFiles(47, runOptions);
-		await ctx.github.getPrReviewComments(47, runOptions);
-		await ctx.github.getPrReviewThreads(47, runOptions);
-		await ctx.github.createPrReview(47, [], runOptions);
+		await ctx.github.getPrChangedFiles({ ...runOptions, prNumber: 47 });
+		await ctx.github.getPrReviewComments({ ...runOptions, prNumber: 47 });
+		await ctx.github.getPrReviewThreads({ ...runOptions, prNumber: 47 });
+		await ctx.github.createPrReview({ ...runOptions, prNumber: 47, comments: [] });
 		await ctx.github.findPrDiscussionCommentByMarker({
 			...runOptions,
 			prNumber: 47,
 			marker: "<!-- roaster:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
-		await ctx.github.addPrDiscussionComment(47, "body", runOptions);
-		await ctx.github.updatePrDiscussionComment(1, "body", runOptions);
+		await ctx.github.addPrDiscussionComment({ ...runOptions, prNumber: 47, body: "body" });
+		await ctx.github.updatePrDiscussionComment({ ...runOptions, commentId: 1, body: "body" });
 
 		ctx.stderr("diagnostic");
 		expect(await ctx.stdin()).toBe("envelope");

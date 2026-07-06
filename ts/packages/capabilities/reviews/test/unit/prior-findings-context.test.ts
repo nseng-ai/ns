@@ -1,7 +1,16 @@
-import type { GithubPrReviewThread } from "@nseng-ai/capability-kit/github/pr-feedback";
+import type {
+	GithubPrDiscussionComment,
+	GithubPrFeedbackFailure,
+	GithubPrReviewThread,
+} from "@nseng-ai/capability-kit/github/pr-feedback";
+import {
+	FakeGithubPrFeedbackGateway,
+	type FakeGithubPrFeedbackGatewayOptions,
+	type FakeGithubPrReviewThreadCall,
+} from "@nseng-ai/capability-kit/github/testing";
+import type { Result } from "@nseng-ai/foundation/result";
 import { describe, expect, test } from "vitest";
 
-import type { GitHubGatewayFailure, RoasterResult } from "../../src/core/failures.ts";
 import {
 	buildFindingsCommentMachineState,
 	inlineMarkerForFinding,
@@ -10,10 +19,10 @@ import {
 	type FindingsPayload,
 	type LastReviewedHeadState,
 } from "../../src/core/findings-comment.ts";
-import type { PRDiscussionComment, ReviewFinding } from "../../src/core/models.ts";
+import type { ReviewFinding } from "../../src/core/models.ts";
 import { gatherPriorFindingsContext } from "../../src/core/prior-findings-context.ts";
 import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
-import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
+import { githubDiscussionComment } from "../support/github-fixtures.ts";
 
 const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 	headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -48,7 +57,7 @@ const ERROR_FINDING: ReviewFinding = {
 describe("gatherPriorFindingsContext", () => {
 	test("reads stamped prior findings and hydrates review-thread resolution status", async () => {
 		const body = summaryBody([WARNING_FINDING, INFO_FINDING], { reviewName: "typescript-style" });
-		const gateway = new FakeRoasterGitHubGateway({
+		const gateway = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
 			reviewThreadsByPr: new Map([
 				[
@@ -101,7 +110,7 @@ describe("gatherPriorFindingsContext", () => {
 		const body = summaryBody([WARNING_FINDING, INFO_FINDING, ERROR_FINDING], {
 			reviewName: "typescript-style",
 		});
-		const gateway = new FakeRoasterGitHubGateway({
+		const gateway = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
 			reviewThreadsByPr: new Map([[123, []]]),
 		});
@@ -123,7 +132,7 @@ describe("gatherPriorFindingsContext", () => {
 	});
 
 	test("degrades to context-free review when the summary comment is missing", async () => {
-		const gateway = new FakeRoasterGitHubGateway({
+		const gateway = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body: "ordinary comment" })]]]),
 			reviewThreadsByPr: new Map([[123, []]]),
 		});
@@ -138,7 +147,7 @@ describe("gatherPriorFindingsContext", () => {
 
 	test("degrades to context-free review when state parsing fails", async () => {
 		const body = `${summaryMarkerForReview("typescript-style")}\n## roaster`;
-		const gateway = new FakeRoasterGitHubGateway({
+		const gateway = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
 			reviewThreadsByPr: new Map([[123, []]]),
 		});
@@ -155,7 +164,11 @@ describe("gatherPriorFindingsContext", () => {
 		const body = summaryBody([WARNING_FINDING], { reviewName: "typescript-style" });
 		const gateway = new FailingReviewThreadsGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
-			failure: { type: "github-cli-failed", message: "GraphQL failed" },
+			threadsFailure: {
+				code: "github_pr_feedback_graphql_failed",
+				message: "GraphQL failed",
+				details: { operation: "getPrReviewThreads" },
+			},
 		});
 
 		const result = await gatherPriorFindingsContext(gateway, request({ cap: 10 }));
@@ -163,12 +176,15 @@ describe("gatherPriorFindingsContext", () => {
 		expect(result).toMatchObject({
 			type: "without-context",
 			reason: "github-read-failed",
-			error: { message: "GraphQL failed" },
+			error: {
+				type: "github-cli-failed",
+				message: expect.stringContaining("GraphQL failed"),
+			},
 		});
 	});
 
 	test("rejects invalid caps without reading GitHub", async () => {
-		const gateway = new FakeRoasterGitHubGateway({
+		const gateway = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body: "unused" })]]]),
 			reviewThreadsByPr: new Map([[123, []]]),
 		});
@@ -179,7 +195,7 @@ describe("gatherPriorFindingsContext", () => {
 			type: "without-context",
 			reason: "invalid-cap",
 		});
-		expect(gateway.markerCalls()).toEqual([]);
+		expect(gateway.markerFindCalls()).toEqual([]);
 		expect(gateway.reviewThreadCalls()).toEqual([]);
 	});
 });
@@ -221,10 +237,8 @@ function request(options: { readonly cap: number }) {
 	};
 }
 
-function summaryComment(options: {
-	readonly body: string;
-}): PRDiscussionComment & { readonly author: string } {
-	return { id: 1, author: ROASTER_BOT_LOGIN, body: options.body };
+function summaryComment(options: { readonly body: string }): GithubPrDiscussionComment {
+	return githubDiscussionComment({ id: 1, author: ROASTER_BOT_LOGIN, body: options.body });
 }
 
 function reviewThread(options: {
@@ -254,23 +268,23 @@ function reviewThread(options: {
 	};
 }
 
-class FailingReviewThreadsGateway extends FakeRoasterGitHubGateway {
-	private readonly failure: GitHubGatewayFailure;
+class FailingReviewThreadsGateway extends FakeGithubPrFeedbackGateway {
+	private readonly threadsFailure: GithubPrFeedbackFailure;
 
 	constructor(
-		options: ConstructorParameters<typeof FakeRoasterGitHubGateway>[0] & {
-			readonly failure: GitHubGatewayFailure;
+		options: FakeGithubPrFeedbackGatewayOptions & {
+			readonly threadsFailure: GithubPrFeedbackFailure;
 		},
 	) {
-		super(options);
-		this.failure = options.failure;
+		const { threadsFailure, ...rest } = options;
+		super(rest);
+		this.threadsFailure = threadsFailure;
 	}
 
 	override async getPrReviewThreads(
-		prNumber: number,
-		options: GitHubGatewayOptions,
-	): Promise<RoasterResult<readonly GithubPrReviewThread[]>> {
-		await super.getPrReviewThreads(prNumber, options);
-		return { type: "error", error: this.failure };
+		params: FakeGithubPrReviewThreadCall,
+	): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>> {
+		await super.getPrReviewThreads(params);
+		return { ok: false, error: this.threadsFailure };
 	}
 }

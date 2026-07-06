@@ -1,10 +1,11 @@
+import type { GithubPrChangedFile } from "@nseng-ai/capability-kit/github/pr-feedback";
 import { describe, expect, test } from "vitest";
 
 import {
 	classifyInlineFindings,
 	commentableRightSideLines,
 } from "../../src/core/inline-commentability.ts";
-import type { PRChangedFile, ReviewFinding } from "../../src/core/models.ts";
+import type { ReviewFinding } from "../../src/core/models.ts";
 
 describe("commentableRightSideLines", () => {
 	test("includes added and context lines but excludes deleted lines", () => {
@@ -32,7 +33,7 @@ describe("commentableRightSideLines", () => {
 });
 
 describe("classifyInlineFindings", () => {
-	const changedFiles: readonly PRChangedFile[] = [
+	const changedFiles: readonly GithubPrChangedFile[] = [
 		{ path: "src/app.ts", status: "modified", patch: "@@ -1,2 +1,2 @@\n old\n+new\n" },
 		{ path: "image.png", status: "added", patch: null },
 	];

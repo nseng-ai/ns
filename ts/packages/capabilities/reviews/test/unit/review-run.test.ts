@@ -19,15 +19,16 @@ import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
-import { FakeRoasterGitHubGateway } from "../../src/gateways/github.ts";
+import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
+import type { GithubPrDiscussionComment } from "@nseng-ai/capability-kit/github/pr-feedback";
 import {
 	createFindingsReview,
 	createLocalDiff,
 	type DiffFile,
-	type PRDiscussionComment,
 	type ReviewFinding,
 } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { githubDiscussionComment } from "../support/github-fixtures.ts";
 
 const REVIEW_SOURCE = `---
 description: Review TypeScript diffs.
@@ -164,7 +165,7 @@ describe("runRoasterReview", () => {
 	});
 
 	test("keeps review runs PR-free unless prior-findings PR context is requested", async () => {
-		const github = new FakeRoasterGitHubGateway({
+		const github = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [priorFindingsSummaryComment()]]]),
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
@@ -181,13 +182,13 @@ describe("runRoasterReview", () => {
 		const exit = await runReviewByKey(ctx, { key: "typescript-style" });
 
 		expect(exit.type).toBe("ok");
-		expect(github.markerCalls()).toEqual([]);
+		expect(github.markerFindCalls()).toEqual([]);
 		expect(github.reviewThreadCalls()).toEqual([]);
 		expect(reviewRunner.calls()[0]?.request.priorFindingsContext).toBeUndefined();
 	});
 
 	test("gathers prior-findings context for opt-in PR review runs", async () => {
-		const github = new FakeRoasterGitHubGateway({
+		const github = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [priorFindingsSummaryComment()]]]),
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
@@ -210,7 +211,7 @@ describe("runRoasterReview", () => {
 		});
 
 		expect(exit.type).toBe("ok");
-		expect(github.markerCalls()).toEqual([
+		expect(github.markerFindCalls()).toEqual([
 			{
 				cwd: "/repo",
 				env: {},
@@ -315,7 +316,7 @@ function gitGateway(repoRoot: string): InMemoryGitGateway {
 	});
 }
 
-function priorFindingsSummaryComment(): PRDiscussionComment & { readonly author: string } {
+function priorFindingsSummaryComment(): GithubPrDiscussionComment {
 	const payload = {
 		reviewName: "typescript-style",
 		baseRef: "main",
@@ -326,7 +327,7 @@ function priorFindingsSummaryComment(): PRDiscussionComment & { readonly author:
 		errorType: null,
 		errorMessage: null,
 	};
-	return {
+	return githubDiscussionComment({
 		id: 1,
 		author: ROASTER_BOT_LOGIN,
 		body: renderFindingsComment(payload, {
@@ -335,5 +336,5 @@ function priorFindingsSummaryComment(): PRDiscussionComment & { readonly author:
 				lastReviewedHead: LAST_REVIEWED_HEAD,
 			}),
 		}),
-	};
+	});
 }
