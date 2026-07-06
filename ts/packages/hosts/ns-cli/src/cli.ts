@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { listSkillsPreinstalledNsCommandCatalogEntries } from "@nseng-ai/harness-artifacts/ns/preinstalled-catalog";
 import {
 	runCli,
 	type PreinstalledNsCommandCatalogEntry,
@@ -19,6 +20,7 @@ function listPreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsComma
 	return [
 		...listObjectivePreinstalledNsCommandCatalogEntries(),
 		...listNsInitPreinstalledNsCommandCatalogEntries(),
+		...listSkillsPreinstalledNsCommandCatalogEntries(),
 	];
 }
 

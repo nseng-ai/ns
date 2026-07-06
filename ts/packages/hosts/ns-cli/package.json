@@ -37,6 +37,7 @@
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/branch-context": "workspace:*",
+		"@nseng-ai/harness-artifacts": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@nseng-ai/ns-init": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",

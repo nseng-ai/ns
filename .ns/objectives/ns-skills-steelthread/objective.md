@@ -102,4 +102,4 @@ Risks:
 
 ## Open Questions
 
-- Whether `ns skills` needs a plan subcommand or an `install --dry-run`, per local CLI conventions.
+None. The preview surface question was resolved as `ns skills install --dry-run`; see update `20260706T131908Z-ns-skills-cli-dry-run-surface-bound.md`.
