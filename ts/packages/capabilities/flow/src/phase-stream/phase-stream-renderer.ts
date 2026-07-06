@@ -25,16 +25,16 @@ export function createPhaseStreamRenderer(
 	const frame: FrameRenderer = (tick) => {
 		const lines = [
 			bold(header),
-			...options.views().flatMap((view) => {
-				const item = view.label === undefined ? view.item : { ...view.item, label: view.label };
-				return [
-					statusLine({ caps: options.caps, item: item, state: view.state, tick: tick }),
-					...view.history.map(
-						(entry) =>
-							`      ${dim(truncatePlain(entry, Math.max(0, options.caps.columns - 6), ellipsisFor(options.caps)))}`,
-					),
-				];
-			}),
+			...options
+				.views()
+				.flatMap((view) => [
+					renderStatusLine(view, tick, 0),
+					...view.substeps.flatMap((substep) => [
+						renderStatusLine(substep, tick, 4),
+						...renderHistory(substep.history, 10),
+					]),
+					...renderHistory(view.history, 6),
+				]),
 		];
 		const tail = options.tailLine();
 		if (tail !== undefined) {
@@ -44,6 +44,21 @@ export function createPhaseStreamRenderer(
 		}
 		return lines;
 	};
+
+	function renderStatusLine(view: PhaseView, tick: number, indent: number): string {
+		const item = view.label === undefined ? view.item : { ...view.item, label: view.label };
+		const prefix = " ".repeat(indent);
+		const caps = { ...options.caps, columns: Math.max(0, options.caps.columns - indent) };
+		return `${prefix}${statusLine({ caps, item, state: view.state, tick })}`;
+	}
+
+	function renderHistory(history: readonly string[], indent: number): string[] {
+		const prefix = " ".repeat(indent);
+		return history.map(
+			(entry) =>
+				`${prefix}${dim(truncatePlain(entry, Math.max(0, options.caps.columns - indent), ellipsisFor(options.caps)))}`,
+		);
+	}
 
 	function setTitle(title: string): void {
 		header = title;

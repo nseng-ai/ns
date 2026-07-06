@@ -1,10 +1,13 @@
-import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
-/** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */
+/**
+ * One declared phase: a stable sequencing `key` plus its presentational status-line payload.
+ * `substeps` supports one declared child level; nesting substeps beyond that is not rendered.
+ */
 export interface PhaseSpec {
 	key: string;
 	item: StatusLineItem;
+	substeps?: readonly PhaseSpec[];
 }
 
 /** Checkpoint workflow phases, shared by `flow cp` and submit's folded checkpoint progress. */
@@ -63,6 +66,7 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 			detail: "checkpoint complete",
 			label: "checkpointing pending changes…",
 		},
+		substeps: CHECKPOINT_PHASES,
 	},
 	{
 		key: "preflight",
@@ -97,16 +101,3 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 		},
 	},
 ];
-
-/**
- * Translate a checkpoint-workflow event (keyed inspect/generate/commit) into a single presentational
- * label, so `flow submit` can fold the whole checkpoint into its one "Checkpoint" phase.
- */
-export function checkpointEventLabel(event: NsProgressPhaseEvent): string | undefined {
-	if (event.type === "phase-progress") return event.label;
-	if (event.type === "phase-started") {
-		if (event.label !== undefined) return event.label;
-		return CHECKPOINT_PHASES.find((spec) => spec.key === event.phaseKey)?.item.label;
-	}
-	return undefined;
-}

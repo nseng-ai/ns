@@ -31,6 +31,25 @@ const SPECS: readonly PhaseSpec[] = [
 	{ key: "c", item: { name: "Gamma", detail: "gamma done", label: "gamma working…" } },
 ];
 
+const SUBSTEP_SPECS: readonly PhaseSpec[] = [
+	{
+		key: "checkpoint",
+		item: { name: "Checkpoint", detail: "checkpoint complete", label: "checkpointing…" },
+		substeps: [
+			{
+				key: "inspect",
+				item: { name: "Inspect", detail: "worktree inspected", label: "inspecting…" },
+			},
+			{
+				key: "generate",
+				item: { name: "Generate", detail: "message ready", label: "generating…" },
+			},
+			{ key: "commit", item: { name: "Commit", detail: "commit created", label: "committing…" } },
+		],
+	},
+	{ key: "preflight", item: { name: "Preflight", detail: "ready", label: "checking…" } },
+];
+
 function caps(
 	parts: { isTty?: boolean; colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {},
 ): Caps {
@@ -377,6 +396,130 @@ describe("inferred completion", () => {
 		expect(settled).toContain("alpha done");
 		expect(settled).toContain("beta done"); // inferred, never explicitly started
 		expect(settled).toContain("gamma done");
+	});
+});
+
+describe("declared substeps", () => {
+	test("begin renders declared substeps as pending rows", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"ns flow submit",
+			"• Checkpoint    pending",
+			"    • Inspect       pending",
+			"    • Generate      pending",
+			"    • Commit        pending",
+			"• Preflight     pending",
+		]);
+	});
+
+	test("substep lifecycle activates the parent and infers earlier sibling completion", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "inspect" });
+		stream.emit({ type: "phase-done", phaseKey: "inspect" });
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"Checkpoint    checkpointing…",
+			"✓ Inspect       worktree inspected",
+			"Generate      generating…",
+			"• Commit        pending",
+		]);
+	});
+
+	test("next top-level phase settles active and never-started substeps", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "inspect" });
+		stream.emit({ type: "phase-started", phaseKey: "preflight" });
+		await stream.finish();
+
+		const settled = writes[0] ?? "";
+		expectContainsInOrder(settled, [
+			"✓ Checkpoint    checkpoint complete",
+			"✓ Inspect       worktree inspected",
+			"– Generate      message ready",
+			"– Commit        commit created",
+			"✓ Preflight     ready",
+		]);
+	});
+
+	test("substep failure and failActive mark the substep and parent failed", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		stream.emit({ type: "phase-failed", phaseKey: "generate", detail: "generation failed" });
+		stream.fail();
+		await stream.finish();
+
+		const settled = redraws[redraws.length - 1] ?? "";
+		expectContainsInOrder(settled, [
+			"✗ Checkpoint    checkpointing…",
+			"✓ Inspect       worktree inspected",
+			"✗ Generate      generation failed",
+			"• Commit        pending",
+		]);
+	});
+
+	test("substep label history renders below the substep", async () => {
+		const c = caps({ colorDepth: "none" });
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "drafting" });
+		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "repairing" });
+		stream.emit({ type: "phase-done", phaseKey: "generate" });
+		const frame = redraws[redraws.length - 1] ?? "";
+		await stream.finish();
+
+		expectContainsInOrder(frame, [
+			"✓ Generate      message ready",
+			"          generating…",
+			"          drafting",
+			"          repairing",
+		]);
+	});
+
+	test("non-tty substep transitions surface transient lines and settle with substep rows", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, outputs } = harness();
+		const stream = createPhaseStream(c, SUBSTEP_SPECS, deps);
+
+		stream.begin("ns flow submit");
+		stream.emit({ type: "phase-started", phaseKey: "inspect" });
+		stream.emit({ type: "phase-done", phaseKey: "inspect" });
+		stream.emit({ type: "phase-started", phaseKey: "generate" });
+		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "drafting" });
+		await stream.finish();
+
+		expect(outputs).toEqual(["inspecting…", "generating…", "drafting"]);
+		const settled = writes[0] ?? "";
+		expectContainsInOrder(settled, [
+			"✓ Checkpoint    checkpoint complete",
+			"✓ Inspect       worktree inspected",
+			"✓ Generate      message ready",
+			"– Commit        commit created",
+		]);
 	});
 });
 
