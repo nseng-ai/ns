@@ -345,6 +345,120 @@ async function submitMaintenanceBranch(
 	});
 }
 
+type RequiredMaintenanceControl = GraphiteMaintenanceHalt | { readonly kind: "proceed" };
+
+async function pushAndRetargetRequiredMaintenanceBranch(
+	options: MaintenanceBranchOperationContext,
+): Promise<RequiredMaintenanceControl> {
+	const push = await leasePushRequiredMaintenanceBranch(options);
+	if (push.kind === "halt") return push;
+	return await retargetRequiredMaintenanceBranch(options);
+}
+
+async function leasePushRequiredMaintenanceBranch(
+	options: MaintenanceBranchOperationContext,
+): Promise<RequiredMaintenanceControl> {
+	const { landContext, ctx, repoRoot, prNumber, maintenanceBranch, state } = options;
+	const expectedRemoteSha = state.expectedShas.get(maintenanceBranch);
+	if (expectedRemoteSha === undefined) {
+		return {
+			kind: "halt",
+			failure: landStackFailure(
+				`PR #${prNumber} merged, but no pre-restack snapshot SHA was recorded for next landing branch ${maintenanceBranch}; refusing forced push.`,
+				{
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
+		};
+	}
+
+	setStatus(ctx, `pushing ${maintenanceBranch}...`);
+	const push = await landContext.git.pushBranchToRemoteWithLease({
+		repoRoot,
+		branch: maintenanceBranch,
+		expectedRemoteSha,
+	});
+	if (push.type === "pushed") return { kind: "proceed" };
+	if (push.type === "lease-rejected") {
+		return {
+			kind: "halt",
+			failure: landStackFailure(
+				`PR #${prNumber} merged, but remote branch ${maintenanceBranch} moved since landing started; refusing forced push.`,
+				{
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Inspect remote branch ${maintenanceBranch}, reconcile it with your local branch, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
+		};
+	}
+	return {
+		kind: "halt",
+		failure: landStackFailure(
+			`PR #${prNumber} merged, but pushing next landing branch ${maintenanceBranch} to origin failed.`,
+			{
+				commandDisplay: push.commandDisplay,
+				result: push.result,
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Inspect local branch ${maintenanceBranch}, push it manually, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		),
+	};
+}
+
+async function retargetRequiredMaintenanceBranch(
+	options: MaintenanceBranchOperationContext,
+): Promise<RequiredMaintenanceControl> {
+	const { landContext, ctx, repoRoot, prNumber, maintenanceBranch, plan } = options;
+	const trunk = plan.stack.trunk;
+	// Preflight already loaded these facts (carrying the PR node id); do not re-fetch with gh pr view.
+	const pullRequest = preflightPullRequestForBranch(plan, maintenanceBranch);
+	if (pullRequest === undefined) {
+		return {
+			kind: "halt",
+			failure: landStackFailure(
+				`PR #${prNumber} merged and next landing branch ${maintenanceBranch} was pushed, but no preflight PR facts were held for ${maintenanceBranch}; cannot retarget its base to ${trunk}.`,
+				{
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Retarget the PR for ${maintenanceBranch} to ${trunk} manually, then rerun /ns:flow:land if appropriate.`,
+				},
+			),
+		};
+	}
+
+	setStatus(ctx, `retargeting ${maintenanceBranch} onto ${trunk}...`);
+	// Always retarget: an idempotent no-op if GitHub already auto-retargeted, and the next iteration's
+	// merge gate independently re-validates the base.
+	const retargeted = await landContext.github.retargetPullRequestBase({
+		repoRoot,
+		pullRequest,
+		baseRefName: trunk,
+	});
+	if (retargeted.type === "retargeted") return { kind: "proceed" };
+
+	const detail = retargeted.message === undefined ? "" : `\n${retargeted.message}`;
+	return {
+		kind: "halt",
+		failure: landStackFailure(
+			`PR #${pullRequest.number} for next landing branch ${maintenanceBranch} was pushed, but retargeting its base to ${trunk} failed.${detail}`,
+			{
+				commandDisplay: retargeted.commandDisplay,
+				result: retargeted.result,
+				failedBranch: maintenanceBranch,
+				failedPr: pullRequest.number,
+				suggestedAction: `The forced push succeeded; retarget the PR base manually with gh pr edit ${pullRequest.number} --base ${trunk}, then rerun /ns:flow:land if appropriate.`,
+			},
+		),
+	};
+}
+
+function preflightPullRequestForBranch(
+	plan: FlowLandingPlan,
+	branch: string,
+): PullRequestSnapshot | undefined {
+	return plan.branchPlans.find((branchPlan) => branchPlan.branch === branch)?.pr;
+}
+
 export async function performGraphiteMaintenance(
 	maintenanceOptions: PerformGraphiteMaintenanceOptions,
 ): Promise<GraphiteMaintenanceOutcome> {
@@ -415,6 +529,15 @@ export async function performGraphiteMaintenance(
 		);
 		if (restackControl === "continue") continue;
 		if (restackControl !== "proceed") return restackControl;
+
+		// Required next-landing path: push the restacked branch with an explicit --force-with-lease
+		// expectation taken from the pre-restack remote snapshot, then retarget the PR base to trunk
+		// via GraphQL. The optional-descendant path below keeps gt submit to resync Graphite metadata.
+		if (!maintenance.isOptionalDescendant) {
+			const pushRetarget = await pushAndRetargetRequiredMaintenanceBranch(branchOperationContext);
+			if (pushRetarget.kind === "halt") return pushRetarget;
+			continue;
+		}
 
 		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
 		const submitCheckControl = postDeleteRecorder.apply(submitCheck, maintenanceBranch);

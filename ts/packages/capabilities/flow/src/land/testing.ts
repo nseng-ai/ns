@@ -11,7 +11,9 @@ import type {
 	LandGraphiteRefreshBranchResult,
 	LandGraphiteRestackScope,
 	LandOutcome,
+	LandPushBranchWithLeaseResult,
 	LandResult,
+	LandRetargetPullRequestBaseResult,
 	LandWorktreeSlotFactsGateway,
 	LocalBranchTip,
 	ManagedSlotWorktree,
@@ -42,6 +44,7 @@ export interface InMemoryLandGitGatewayState {
 	readonly localBranchShaFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly snapshotBackupRefsFailure?: LandingBoundaryFailure;
 	readonly advanceBranchResults?: Readonly<Record<string, LandAdvanceBranchResult>>;
+	readonly pushBranchWithLeaseResults?: Readonly<Record<string, LandPushBranchWithLeaseResult>>;
 }
 
 export interface LandRepoRootCall {
@@ -64,6 +67,10 @@ export interface LandSnapshotBackupRefsCall extends LandRepoCall {
 	readonly branches: readonly string[];
 }
 
+export interface LandPushBranchWithLeaseCall extends LandBranchCall {
+	readonly expectedRemoteSha: string;
+}
+
 export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly repoRootState: ValueState<string>;
 	private readonly currentBranchState: ValueState<string>;
@@ -76,6 +83,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly localBranchShaFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly snapshotBackupRefsFailure: LandingBoundaryFailure | undefined;
 	private readonly advanceBranchResults: ReadonlyMap<string, LandAdvanceBranchResult>;
+	private readonly pushBranchWithLeaseResults: ReadonlyMap<string, LandPushBranchWithLeaseResult>;
 	private readonly resolveRepoRootLog: LandRepoRootCall[] = [];
 	private readonly currentBranchLog: LandRepoCall[] = [];
 	private readonly workingTreeStatusLog: LandRepoCall[] = [];
@@ -85,6 +93,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly branchContainsParentLog: LandBranchContainsParentCall[] = [];
 	private readonly snapshotBackupRefsLog: LandSnapshotBackupRefsCall[] = [];
 	private readonly advanceBranchFromRemoteLog: LandBranchCall[] = [];
+	private readonly pushBranchToRemoteWithLeaseLog: LandPushBranchWithLeaseCall[] = [];
 
 	constructor(state: InMemoryLandGitGatewayState = {}) {
 		this.repoRootState = state.repoRoot ?? "/repo";
@@ -109,6 +118,12 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		this.snapshotBackupRefsFailure = cloneOptionalData(state.snapshotBackupRefsFailure);
 		this.advanceBranchResults = new Map(
 			Object.entries(state.advanceBranchResults ?? {}).map(([branch, result]) => [
+				branch,
+				cloneData(result),
+			]),
+		);
+		this.pushBranchWithLeaseResults = new Map(
+			Object.entries(state.pushBranchWithLeaseResults ?? {}).map(([branch, result]) => [
 				branch,
 				cloneData(result),
 			]),
@@ -149,6 +164,10 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 
 	get advanceBranchFromRemoteCalls(): readonly LandBranchCall[] {
 		return cloneData(this.advanceBranchFromRemoteLog);
+	}
+
+	get pushBranchToRemoteWithLeaseCalls(): readonly LandPushBranchWithLeaseCall[] {
+		return cloneData(this.pushBranchToRemoteWithLeaseLog);
 	}
 
 	async resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>> {
@@ -299,6 +318,19 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	}): Promise<LandAdvanceBranchResult> {
 		this.advanceBranchFromRemoteLog.push({ repoRoot: request.repoRoot, branch: request.branch });
 		return cloneData(this.advanceBranchResults.get(request.branch) ?? { type: "advanced" });
+	}
+
+	async pushBranchToRemoteWithLease(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly expectedRemoteSha: string;
+	}): Promise<LandPushBranchWithLeaseResult> {
+		this.pushBranchToRemoteWithLeaseLog.push({
+			repoRoot: request.repoRoot,
+			branch: request.branch,
+			expectedRemoteSha: request.expectedRemoteSha,
+		});
+		return cloneData(this.pushBranchWithLeaseResults.get(request.branch) ?? { type: "pushed" });
 	}
 }
 
@@ -563,6 +595,7 @@ export interface InMemoryLandGithubPrGatewayState {
 	readonly pullRequests?: readonly PullRequestFacts[];
 	readonly failures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly squashMergeResults?: Readonly<Record<string, ValueState<SquashMergePullRequestResult>>>;
+	readonly retargetResults?: Readonly<Record<string, LandRetargetPullRequestBaseResult>>;
 }
 
 export interface LandPullRequestFactsCall extends LandRepoCall {
@@ -573,6 +606,11 @@ export interface LandSquashMergePullRequestCall extends LandRepoCall {
 	readonly pullRequest: PullRequestFacts;
 }
 
+export interface LandRetargetPullRequestBaseCall extends LandRepoCall {
+	readonly pullRequest: PullRequestFacts;
+	readonly baseRefName: string;
+}
+
 export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 	private readonly pullRequests: ReadonlyMap<string, PullRequestFacts>;
 	private readonly failures: ReadonlyMap<string, LandingBoundaryFailure>;
@@ -580,8 +618,11 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		string,
 		ValueState<SquashMergePullRequestResult>
 	>;
+	private readonly retargetResults: ReadonlyMap<string, LandRetargetPullRequestBaseResult>;
+	private readonly retargetedBaseByNumber = new Map<number, string>();
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
 	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
+	private readonly retargetPullRequestBaseLog: LandRetargetPullRequestBaseCall[] = [];
 
 	constructor(state: InMemoryLandGithubPrGatewayState = {}) {
 		const entries: [string, PullRequestFacts][] = [];
@@ -599,6 +640,9 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 				copyValueState(result, cloneData),
 			]),
 		);
+		this.retargetResults = new Map(
+			Object.entries(state.retargetResults ?? {}).map(([key, result]) => [key, cloneData(result)]),
+		);
 	}
 
 	get pullRequestFactsCalls(): readonly LandPullRequestFactsCall[] {
@@ -607,6 +651,10 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 
 	get squashMergePullRequestCalls(): readonly LandSquashMergePullRequestCall[] {
 		return cloneData(this.squashMergePullRequestLog);
+	}
+
+	get retargetPullRequestBaseCalls(): readonly LandRetargetPullRequestBaseCall[] {
+		return cloneData(this.retargetPullRequestBaseLog);
 	}
 
 	async pullRequestFacts(request: {
@@ -631,7 +679,9 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 				}),
 			};
 		}
-		return { type: "success", value: cloneData(pr) };
+		const retargetedBase = this.retargetedBaseByNumber.get(pr.number);
+		const resolved = retargetedBase === undefined ? pr : { ...pr, baseRefName: retargetedBase };
+		return { type: "success", value: cloneData(resolved) };
 	}
 
 	async squashMergePullRequest(request: {
@@ -653,6 +703,23 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 			message: "Squash merge failed.",
 			copyValue: cloneData,
 		});
+	}
+
+	async retargetPullRequestBase(request: {
+		readonly repoRoot: string;
+		readonly pullRequest: PullRequestFacts;
+		readonly baseRefName: string;
+	}): Promise<LandRetargetPullRequestBaseResult> {
+		this.retargetPullRequestBaseLog.push({
+			repoRoot: request.repoRoot,
+			pullRequest: cloneData(request.pullRequest),
+			baseRefName: request.baseRefName,
+		});
+		const injected = this.retargetResults.get(String(request.pullRequest.number));
+		if (injected !== undefined && injected.type === "failure") return cloneData(injected);
+		// Keep later pullRequestFacts reads honest about the retargeted base.
+		this.retargetedBaseByNumber.set(request.pullRequest.number, request.baseRefName);
+		return { type: "retargeted" };
 	}
 }
 

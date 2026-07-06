@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import { retargetPullRequestBaseArgs } from "@nseng-ai/capability-kit/github/pr-mutations";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
@@ -462,6 +463,165 @@ describe("land context adapter facts", () => {
 		if (result.type === "failure") {
 			expect(result.commandDisplay).toBe(formatCommand("git", fetchArgs));
 			expect(result.result.stderr).toContain("Not possible to fast-forward");
+		}
+		pi.assertDone();
+	});
+
+	test("pushes a branch with an explicit force-with-lease refspec and remote timeout", async () => {
+		const expectedRemoteSha = "b".repeat(40);
+		const pushArgs = [
+			"push",
+			"--quiet",
+			`--force-with-lease=refs/heads/feature-b:${expectedRemoteSha}`,
+			"origin",
+			"refs/heads/feature-b:refs/heads/feature-b",
+		];
+		const pi = new FakePi([step("git", pushArgs)]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.git.pushBranchToRemoteWithLease({
+				repoRoot: ROOT,
+				branch: "feature-b",
+				expectedRemoteSha,
+			}),
+		).resolves.toEqual({ type: "pushed" });
+		expect(pi.execCalls).toEqual([
+			{ command: "git", args: pushArgs, options: { cwd: ROOT, timeout: 120_000 } },
+		]);
+		pi.assertDone();
+	});
+
+	test("maps a stale-info push rejection to the lease-rejected result", async () => {
+		const expectedRemoteSha = "b".repeat(40);
+		const pushArgs = [
+			"push",
+			"--quiet",
+			`--force-with-lease=refs/heads/feature-b:${expectedRemoteSha}`,
+			"origin",
+			"refs/heads/feature-b:refs/heads/feature-b",
+		];
+		const pi = new FakePi([
+			step("git", pushArgs, {
+				code: 1,
+				stderr:
+					" ! [rejected]        feature-b -> feature-b (stale info)\nerror: failed to push some refs to 'origin'\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.git.pushBranchToRemoteWithLease({
+				repoRoot: ROOT,
+				branch: "feature-b",
+				expectedRemoteSha,
+			}),
+		).resolves.toEqual({ type: "lease-rejected" });
+		pi.assertDone();
+	});
+
+	test("maps a non-lease push failure to the failure result", async () => {
+		const expectedRemoteSha = "b".repeat(40);
+		const pushArgs = [
+			"push",
+			"--quiet",
+			`--force-with-lease=refs/heads/feature-b:${expectedRemoteSha}`,
+			"origin",
+			"refs/heads/feature-b:refs/heads/feature-b",
+		];
+		const pi = new FakePi([
+			step("git", pushArgs, { code: 1, stderr: "fatal: unable to access 'origin'\n" }),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.git.pushBranchToRemoteWithLease({
+			repoRoot: ROOT,
+			branch: "feature-b",
+			expectedRemoteSha,
+		});
+		expect(result.type).toBe("failure");
+		if (result.type === "failure") {
+			expect(result.commandDisplay).toBe(formatCommand("git", pushArgs));
+			expect(result.result.stderr).toContain("unable to access");
+		}
+		pi.assertDone();
+	});
+
+	test("retargets a pull request base with the gh api graphql mutation argv", async () => {
+		const retargetArgs = retargetPullRequestBaseArgs({
+			pullRequestId: "PR_node_42",
+			baseRefName: "main",
+		});
+		const pi = new FakePi([
+			step("gh", retargetArgs, {
+				stdout: `${JSON.stringify({
+					data: {
+						updatePullRequest: {
+							pullRequest: { id: "PR_node_42", number: 42, baseRefName: "main" },
+						},
+					},
+				})}\n`,
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.github.retargetPullRequestBase({
+				repoRoot: ROOT,
+				pullRequest: {
+					id: "PR_node_42",
+					number: 42,
+					title: "Feature",
+					body: null,
+					state: "OPEN",
+					isDraft: false,
+					headRefName: "feature",
+					baseRefName: "feature-a",
+					headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				baseRefName: "main",
+			}),
+		).resolves.toEqual({ type: "retargeted" });
+		expect(pi.execCalls).toEqual([
+			{ command: "gh", args: retargetArgs, options: { cwd: ROOT, timeout: 30_000 } },
+		]);
+		pi.assertDone();
+	});
+
+	test("maps a graphql-error retarget response to the failure result", async () => {
+		const retargetArgs = retargetPullRequestBaseArgs({
+			pullRequestId: "PR_node_42",
+			baseRefName: "main",
+		});
+		const pi = new FakePi([
+			step("gh", retargetArgs, {
+				stdout: `${JSON.stringify({
+					data: { updatePullRequest: null },
+					errors: [{ message: "Could not resolve to a node." }],
+				})}\n`,
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		const result = await context.github.retargetPullRequestBase({
+			repoRoot: ROOT,
+			pullRequest: {
+				id: "PR_node_42",
+				number: 42,
+				title: "Feature",
+				body: null,
+				state: "OPEN",
+				isDraft: false,
+				headRefName: "feature",
+				baseRefName: "feature-a",
+				headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			baseRefName: "main",
+		});
+		expect(result.type).toBe("failure");
+		if (result.type === "failure") {
+			expect(result.message).toContain("Could not resolve to a node.");
+			expect(result.commandDisplay).toBe(formatCommand("gh", retargetArgs));
 		}
 		pi.assertDone();
 	});

@@ -67,6 +67,10 @@ class RecordingGithubGateway implements LandGithubPrGateway {
 		});
 		return copyMergeResult(this.mergeResult);
 	}
+
+	async retargetPullRequestBase(): Promise<{ readonly type: "retargeted" }> {
+		return { type: "retargeted" };
+	}
 }
 
 describe("isolated fast-path landing", () => {

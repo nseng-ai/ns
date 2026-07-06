@@ -1,3 +1,4 @@
+import { retargetPullRequestBaseArgs } from "@nseng-ai/capability-kit/github/pr-mutations";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
@@ -89,14 +90,9 @@ function mergeFeatureA(
 			childrenRecheckStep(topologyArgs, "feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: "feature-a",
-			}),
+			leasePushStep("feature-b", SHA_B),
+			retargetBaseStep({ prNumber: 102 }),
 		);
-		steps.push(submitUpdateStep("feature-b"));
 	}
 	return steps;
 }
@@ -127,6 +123,54 @@ export function trunkFetchStep(options: TrunkFetchStepOptions = {}): LandStackSc
 		["fetch", "--quiet", "--no-tags", "origin", `refs/heads/${trunk}:refs/heads/${trunk}`],
 		result,
 	);
+}
+
+export function leasePushStep(
+	branch: string,
+	expectedSha: string,
+	result?: Partial<ExecResult>,
+): LandStackScriptedExec {
+	return step(
+		"git",
+		[
+			"push",
+			"--quiet",
+			`--force-with-lease=refs/heads/${branch}:${expectedSha}`,
+			"origin",
+			`refs/heads/${branch}:refs/heads/${branch}`,
+		],
+		result,
+	);
+}
+
+export function retargetBaseStep(options: {
+	prNumber: number;
+	base?: string;
+	pullRequestId?: string;
+	result?: Partial<ExecResult>;
+}): LandStackScriptedExec {
+	const base = options.base ?? TRUNK;
+	const pullRequestId = options.pullRequestId ?? `PR_node_${options.prNumber}`;
+	return step(
+		"gh",
+		retargetPullRequestBaseArgs({ pullRequestId, baseRefName: base }),
+		options.result ?? { stdout: retargetBaseStdout({ prNumber: options.prNumber, base }) },
+	);
+}
+
+export function retargetBaseStdout(options: { prNumber: number; base?: string }): string {
+	const base = options.base ?? TRUNK;
+	return `${JSON.stringify({
+		data: {
+			updatePullRequest: {
+				pullRequest: {
+					id: `PR_node_${options.prNumber}`,
+					number: options.prNumber,
+					baseRefName: base,
+				},
+			},
+		},
+	})}\n`;
 }
 
 export function submitUpdateStep(branch: string): LandStackScriptedExec {

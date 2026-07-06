@@ -1,4 +1,5 @@
 import { GRAPHITE_COMMAND_NAME } from "@nseng-ai/capability-kit/graphite/branch";
+import { RETARGET_PULL_REQUEST_BASE_MUTATION_NAME } from "@nseng-ai/capability-kit/github/pr-mutations";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isReadGraphiteBranchMetadataArgs } from "./graphite-command-channel.ts";
@@ -144,6 +145,24 @@ function classifyGithubCliInvocation(args: readonly string[]): CommandInvocation
 			},
 		};
 	}
+	if (
+		args[0] === "api" &&
+		args[1] === "graphql" &&
+		hasGraphqlMutation(args, RETARGET_PULL_REQUEST_BASE_MUTATION_NAME)
+	) {
+		return {
+			category: "github-cli",
+			operation: "gh api graphql updatePullRequest",
+			quota: {
+				kind: "static",
+				provider: "github",
+				graphqlRequests: 1,
+				restRequests: 0,
+				rateLimitCost: 1,
+				description: "gh api graphql updatePullRequest uses one GraphQL base-retarget mutation",
+			},
+		};
+	}
 	if (args[0] === "api" && args[1] === "graphql") {
 		const branchCount = countGraphqlHeadFieldArguments(args);
 		return {
@@ -188,4 +207,8 @@ function countGraphqlHeadFieldArguments(args: readonly string[]): number {
 
 function isGraphqlHeadVariable(value: string | undefined): boolean {
 	return value !== undefined && /^head\d+=/.test(value);
+}
+
+function hasGraphqlMutation(args: readonly string[], mutationName: string): boolean {
+	return args.some((arg) => arg.startsWith("query=") && arg.includes(mutationName));
 }

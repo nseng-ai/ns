@@ -164,6 +164,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 					branchContainsParent: async ({ branch }) => landSuccess(branch === "feature/a"),
 					snapshotBackupRefs: async () => landSuccess(new Map()),
 					advanceBranchFromRemote: async () => ({ type: "advanced" }),
+					pushBranchToRemoteWithLease: async () => ({ type: "pushed" }),
 				},
 				graphite: {
 					trunk: async () => landSuccess("main"),
@@ -200,6 +201,7 @@ describe("@nseng-ai/flow/land API boundary", () => {
 							headRefOid: "aaaaaaaa",
 						}),
 					squashMergePullRequest: async () => landSuccess({ stdout: "", stderr: "" }),
+					retargetPullRequestBase: async () => ({ type: "retargeted" }),
 				},
 				worktrees: {
 					worktrees: async () => landSuccess([]),

@@ -39,9 +39,11 @@ import {
 	createMergeFeatureASteps,
 	expectedSquashMergeArgs,
 	guardShaStep,
+	leasePushStep,
 	postRestackSubmitCheckSteps,
 	prSnapshot,
 	prStdout,
+	retargetBaseStep,
 	submitUpdateStep,
 	trunkFetchStep,
 } from "./land-stack-script-fixtures.ts";
@@ -572,14 +574,9 @@ function mergeNumberedBranch(
 			childrenRecheckStep(branch, [nextBranch]),
 			step("gt", ["delete", branch, "-f", "-q"]),
 			step("gt", ["restack", "--branch", nextBranch, "--only", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: nextBranch,
-				sha: numberedSha(options.next),
-				prNumber: 200 + options.next,
-				base: branch,
-			}),
+			leasePushStep(nextBranch, numberedSha(options.next)),
+			retargetBaseStep({ prNumber: 200 + options.next }),
 		);
-		steps.push(submitUpdateStep(nextBranch));
 		return steps;
 	}
 	steps.push(
@@ -1024,10 +1021,10 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 140,
+					calls: 130,
 					failures: 0,
 					categories: {
-						graphite: 44,
+						graphite: 34,
 						"github-cli": 45,
 						"github-api": 0,
 						git: 51,
@@ -1040,10 +1037,10 @@ describe("land-stack command scenarios", () => {
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 308,
+					calls: 284,
 					failures: 0,
 					categories: {
-						graphite: 100,
+						graphite: 76,
 						"github-cli": 101,
 						"github-api": 0,
 						git: 107,
@@ -1283,17 +1280,6 @@ describe("land-stack command scenarios", () => {
 			[
 				"submit",
 				"--branch",
-				"feature-b",
-				"--no-stack",
-				"--update-only",
-				"--no-edit",
-				"--no-ai",
-				"--no-interactive",
-				"--force",
-			],
-			[
-				"submit",
-				"--branch",
 				DESCENDANT,
 				"--no-stack",
 				"--update-only",
@@ -1313,15 +1299,21 @@ describe("land-stack command scenarios", () => {
 				call.command === "gt" &&
 				sameArgs(call.args, ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 		);
-		const submitFeatureBIndex = pi.execCalls.findIndex((call) => call === submitCalls[0]);
+		const retargetFeatureBIndex = pi.execCalls.findIndex(
+			(call) =>
+				call.command === "gh" &&
+				call.args[0] === "api" &&
+				call.args[1] === "graphql" &&
+				call.args.includes("pullRequestId=PR_node_102"),
+		);
 		const merge102Index = pi.execCalls.findIndex(
 			(call) =>
 				call.command === "gh" &&
 				sameArgs(call.args, expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
 		);
 		expect(merge101Index).toBeLessThan(restackFeatureBIndex);
-		expect(restackFeatureBIndex).toBeLessThan(submitFeatureBIndex);
-		expect(submitFeatureBIndex).toBeLessThan(merge102Index);
+		expect(restackFeatureBIndex).toBeLessThan(retargetFeatureBIndex);
+		expect(retargetFeatureBIndex).toBeLessThan(merge102Index);
 		const descendantRestackCallIndex = pi.execCalls.findIndex(
 			(call) =>
 				call.command === "gt" &&
@@ -1375,7 +1367,7 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls
 				.filter((call) => call.command === "gt" && call.args[0] === "submit")
 				.map((call) => call.args[2]),
-		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		).toEqual([DESCENDANT, "feature-d"]);
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
 	});
@@ -1866,13 +1858,8 @@ describe("land-stack command scenarios", () => {
 			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: "feature-a",
-			}),
-			submitUpdateStep("feature-b"),
+			leasePushStep("feature-b", SHA_B),
+			retargetBaseStep({ prNumber: 102 }),
 			...mergeFeatureBThroughVerification(),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
@@ -1935,47 +1922,69 @@ describe("land-stack command scenarios", () => {
 		).toEqual(["101"]);
 	});
 
-	test("skips post-restack submit when fresh PR metadata is already current", async () => {
+	test("required next-landing path pushes with lease and retargets base without gt submit", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: TRUNK,
-			}),
+			leasePushStep("feature-b", SHA_B),
+			retargetBaseStep({ prNumber: 102 }),
 			...mergeFeatureBThroughVerification(),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];
-		const { pi, notifications, messages } = await runLandStack("--yes", script);
+		const { pi, notifications } = await runLandStack("--yes", script);
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("success");
-		expect(
-			pi.execCalls.some(
-				(call) =>
-					call.command === "gt" && call.args[0] === "submit" && call.args[2] === "feature-b",
-			),
-		).toBe(false);
-		expect(commandMessagesText(messages)).toContain(
-			"→ Skipped gt submit for feature-b; PR metadata already current.",
+		// The required path never issues gt submit.
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit")).toBe(
+			false,
 		);
+		// Exactly one lease push for feature-b, leasing the pre-restack snapshot SHA.
+		expect(
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "git" &&
+					call.args[0] === "push" &&
+					call.args.includes(`--force-with-lease=refs/heads/feature-b:${SHA_B}`),
+			),
+		).toHaveLength(1);
+		// Exactly one base-retarget mutation for PR 102.
+		expect(
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "gh" &&
+					call.args[0] === "api" &&
+					call.args[1] === "graphql" &&
+					call.args.includes("pullRequestId=PR_node_102"),
+			),
+		).toHaveLength(1);
+		// The maintenance pre-submit `gh pr view feature-b` read is gone: only the preflight read and
+		// the merge-loop merge-gate read remain (the exact scripted sequence via assertDone proves no
+		// extra maintenance read was issued).
+		expect(
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "gh" &&
+					call.args[0] === "pr" &&
+					call.args[1] === "view" &&
+					call.args[2] === "feature-b",
+			),
+		).toHaveLength(2);
 	});
 
-	test("post-restack PR read failure halts required next-landing maintenance", async () => {
+	test("lease rejection halts required next-landing maintenance after merge", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
-			guardShaStep("feature-b", SHA_B),
-			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
+			leasePushStep("feature-b", SHA_B, {
 				code: 1,
-				stderr: "PR lookup failed",
+				stderr:
+					" ! [rejected]        feature-b -> feature-b (stale info)\nerror: failed to push some refs to 'origin'\n",
 			}),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1983,10 +1992,27 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("could not verify PR metadata for feature-b after restack");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain(
+			"remote branch feature-b moved since landing started; refusing forced push",
+		);
+		// No base retarget or gt submit after the lease was rejected.
+		expect(
+			pi.execCalls.some(
+				(call) => call.command === "gh" && call.args[0] === "api" && call.args[1] === "graphql",
+			),
+		).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit")).toBe(
 			false,
 		);
+		expect(
+			pi.execCalls
+				.filter(
+					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
+				)
+				.map((call) => call.args[2]),
+		).toEqual(["101"]);
 	});
 
 	test("post-restack PR read failure warns for optional descendant maintenance", async () => {
@@ -2366,13 +2392,8 @@ describe("land-stack command scenarios", () => {
 			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: "feature-a",
-			}),
-			submitUpdateStep("feature-b"),
+			leasePushStep("feature-b", SHA_B),
+			retargetBaseStep({ prNumber: 102 }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
 				stdout: `${SHA_B}\n`,
 			}),
@@ -2955,46 +2976,26 @@ describe("land-stack command scenarios", () => {
 		);
 	});
 
-	test("submit/update failure after a successful merge reports already-landed PRs", async () => {
+	test("retarget failure after a successful push halts with a gh pr edit suggestion", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
-			...postRestackSubmitCheckSteps({
-				branch: "feature-b",
-				sha: SHA_B,
-				prNumber: 102,
-				base: "feature-a",
-			}),
-			step(
-				"gt",
-				[
-					"submit",
-					"--branch",
-					"feature-b",
-					"--no-stack",
-					"--update-only",
-					"--no-edit",
-					"--no-ai",
-					"--no-interactive",
-					"--force",
-				],
-				{
-					code: 1,
-					stderr: "submit failed",
-				},
-			),
+			leasePushStep("feature-b", SHA_B),
+			retargetBaseStep({ prNumber: 102, result: { code: 1, stderr: "retarget failed" } }),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("land stopped at feature-b");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
-		expect(streamText).toContain(
-			"Submit/update failed after merging #101; stopping before merging feature-b.",
+		expect(streamText).toContain("retargeting its base to main failed");
+		expect(streamText).toContain("gh pr edit 102 --base main");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit")).toBe(
+			false,
 		);
 	});
 

@@ -189,8 +189,12 @@ describe("land stack sandbox integration", () => {
 				expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
 					commandIndex(log, "gt", ["restack", "--branch", FEATURE_B]),
 				);
+				// The required next-landing path retargets feature-b's base via a GraphQL mutation
+				// (after restacking + a --force-with-lease push) instead of `gt submit --update-only`.
+				expect(commandArgs(log, "gt", "submit").map((args) => args[2])).not.toContain(FEATURE_B);
+				expect(commandIndex(log, "gh", ["api", "graphql"])).toBeGreaterThanOrEqual(0);
 				expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
-					commandIndex(log, "gt", ["submit", "--branch", FEATURE_B]),
+					commandIndex(log, "gh", ["api", "graphql"]),
 				);
 				expect(commandIndex(log, "gh", ["pr", "merge", "102"])).toBeLessThan(
 					commandIndex(log, "gt", ["get", FEATURE_C]),
@@ -480,6 +484,15 @@ async function initializeGitStack(
 		command: "git",
 		args: ["remote", "add", "origin", git.repoRoot],
 	});
+	// The required next-landing path pushes the restacked branch back to origin with
+	// --force-with-lease; origin points at this same non-bare repo, so allow ref updates to a
+	// checked-out branch (the lease push against the up-to-date origin is otherwise a no-op).
+	await runRequiredCommand({
+		cwd: git.repoRoot,
+		env: git.env,
+		command: "git",
+		args: ["config", "receive.denyCurrentBranch", "ignore"],
+	});
 	return {
 		[FEATURE_A]: await revParse(git, FEATURE_A),
 		[FEATURE_B]: await revParse(git, FEATURE_B),
@@ -705,6 +718,21 @@ if (command === "gh") {
     pr.state = "MERGED";
     pr.mergedAt = "2026-07-02T00:00:00Z";
     finish(0, "");
+  }
+  if (args[0] === "api" && args[1] === "graphql") {
+    const idArg = args.find((arg) => arg.startsWith("pullRequestId="));
+    const baseArg = args.find((arg) => arg.startsWith("baseRefName="));
+    const pullRequestId = idArg ? idArg.slice("pullRequestId=".length) : "";
+    const baseRefName = baseArg ? baseArg.slice("baseRefName=".length) : "main";
+    const pr = Object.values(state.prs || {}).find((candidate) => candidate.id === pullRequestId);
+    if (!pr) finish(1, "", "no such PR id: " + pullRequestId + "\\n");
+    pr.baseRefName = baseRefName;
+    finish(
+      0,
+      JSON.stringify({
+        data: { updatePullRequest: { pullRequest: { id: pr.id, number: pr.number, baseRefName: pr.baseRefName } } },
+      }) + "\\n",
+    );
   }
   finish(1, "", "unexpected gh command: " + args.join(" ") + "\\n");
 }

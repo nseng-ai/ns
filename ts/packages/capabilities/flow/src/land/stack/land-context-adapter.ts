@@ -4,6 +4,10 @@ import {
 	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
 	type GitWorktreeStateFs,
 } from "@nseng-ai/capability-kit/git";
+import {
+	parseRetargetPullRequestBaseResult,
+	retargetPullRequestBaseArgs,
+} from "@nseng-ai/capability-kit/github/pr-mutations";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import {
 	landCompleted,
@@ -21,7 +25,9 @@ import type {
 	LandingFailure,
 	LandingPhase,
 	LandOutcome,
+	LandPushBranchWithLeaseResult,
 	LandResult,
+	LandRetargetPullRequestBaseResult,
 	ManagedSlotWorktree,
 	PullRequestFacts,
 	WorkingTreeStatus,
@@ -32,6 +38,7 @@ import {
 	BACKUP_REF_NAMESPACE,
 	BACKUP_REF_PREV_NAMESPACE,
 	GH_MERGE_TIMEOUT_MS,
+	GH_TIMEOUT_MS,
 	GIT_REMOTE_TIMEOUT_MS,
 	GIT_TIMEOUT_MS,
 	GT_MUTATION_TIMEOUT_MS,
@@ -44,6 +51,7 @@ import {
 	formatGraphiteOperation,
 	getDownstackNoCheckoutOperation,
 	parseGitFetchRefusedCheckedOut,
+	parseGitPushLeaseRejected,
 	restackOperation,
 	submitUpdateOperation,
 	type LandGraphiteCommandChannel,
@@ -101,6 +109,8 @@ export function createLandContext(
 				snapshotBackupRefs({ pi, repoRoot, branches }),
 			advanceBranchFromRemote: async ({ repoRoot, branch }) =>
 				advanceBranchFromRemote({ pi, repoRoot, branch }),
+			pushBranchToRemoteWithLease: async ({ repoRoot, branch, expectedRemoteSha }) =>
+				pushBranchToRemoteWithLease({ pi, repoRoot, branch, expectedRemoteSha }),
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) =>
@@ -184,6 +194,8 @@ export function createLandContext(
 					execResult: diagnosticResult,
 				});
 			},
+			retargetPullRequestBase: async ({ repoRoot, pullRequest, baseRefName }) =>
+				retargetPullRequestBase({ pi, repoRoot, pullRequest, baseRefName }),
 		},
 		worktrees: {
 			worktrees: async ({ repoRoot }) =>
@@ -265,6 +277,70 @@ async function advanceBranchFromRemote(options: {
 
 function advanceBranchFromRemoteArgs(branch: string): string[] {
 	return ["fetch", "--quiet", "--no-tags", "origin", `refs/heads/${branch}:refs/heads/${branch}`];
+}
+
+async function pushBranchToRemoteWithLease(options: {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly branch: string;
+	readonly expectedRemoteSha: string;
+}): Promise<LandPushBranchWithLeaseResult> {
+	// Explicit lease value (no reliance on remote-tracking refs): refuse the forced push if origin
+	// moved past the pre-restack snapshot SHA, which means the remote branch changed mid-run.
+	const args = pushBranchToRemoteWithLeaseArgs(options.branch, options.expectedRemoteSha);
+	const result = await exec({
+		pi: options.pi,
+		command: "git",
+		args,
+		cwd: options.repoRoot,
+		timeoutMs: GIT_REMOTE_TIMEOUT_MS,
+	});
+	if (result.code === 0) return { type: "pushed" };
+	if (parseGitPushLeaseRejected(result)) return { type: "lease-rejected" };
+	return { type: "failure", commandDisplay: formatCommand("git", args), result };
+}
+
+function pushBranchToRemoteWithLeaseArgs(branch: string, expectedRemoteSha: string): string[] {
+	return [
+		"push",
+		"--quiet",
+		`--force-with-lease=refs/heads/${branch}:${expectedRemoteSha}`,
+		"origin",
+		`refs/heads/${branch}:refs/heads/${branch}`,
+	];
+}
+
+async function retargetPullRequestBase(options: {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly pullRequest: PullRequestFacts;
+	readonly baseRefName: string;
+}): Promise<LandRetargetPullRequestBaseResult> {
+	const args = retargetPullRequestBaseArgs({
+		pullRequestId: options.pullRequest.id,
+		baseRefName: options.baseRefName,
+	});
+	const commandDisplay = formatCommand("gh", args);
+	const result = await exec({
+		pi: options.pi,
+		command: "gh",
+		args,
+		cwd: options.repoRoot,
+		timeoutMs: GH_TIMEOUT_MS,
+	});
+	if (result.code !== 0) return { type: "failure", commandDisplay, result };
+
+	const parsed = parseRetargetPullRequestBaseResult(result.stdout);
+	if (parsed.type === "ok") return { type: "retargeted" };
+	if (parsed.type === "graphql-errors") {
+		return { type: "failure", message: parsed.messages.join("; "), commandDisplay, result };
+	}
+	return {
+		type: "failure",
+		message: `gh api graphql updatePullRequest returned an unexpected response (${parsed.type}).`,
+		commandDisplay,
+		result,
+	};
 }
 
 async function deleteLocalBranch(options: {

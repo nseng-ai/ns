@@ -294,6 +294,14 @@ export function parseGitFetchRefusedCheckedOut(
 	return { branch, path };
 }
 
+export function parseGitPushLeaseRejected(result: ExecResult): boolean {
+	// `git push --force-with-lease` prints a rejection line carrying both `[rejected]` and
+	// `(stale info)` when the remote moved past the leased expectation; other non-zero exits are
+	// generic failures.
+	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
+	return /\[rejected\]/i.test(output) && /\(stale info\)/i.test(output);
+}
+
 export function stripAnsi(text: string): string {
 	return stripTerminalEscapes(text);
 }

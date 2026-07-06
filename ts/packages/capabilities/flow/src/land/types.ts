@@ -294,6 +294,11 @@ export interface LandGitGateway {
 		readonly repoRoot: string;
 		readonly branch: string;
 	}): Promise<LandAdvanceBranchResult>;
+	pushBranchToRemoteWithLease(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly expectedRemoteSha: string;
+	}): Promise<LandPushBranchWithLeaseResult>;
 }
 
 export interface LandGitRanCommand {
@@ -305,6 +310,15 @@ export type LandAdvanceBranchResult =
 	| { readonly type: "advanced" }
 	| { readonly type: "checked-out"; readonly branch: string; readonly path: string }
 	| ({ readonly type: "failure" } & LandGitRanCommand);
+
+export type LandPushBranchWithLeaseResult =
+	| { readonly type: "pushed" }
+	| { readonly type: "lease-rejected" }
+	| ({ readonly type: "failure" } & LandGitRanCommand);
+
+export type LandRetargetPullRequestBaseResult =
+	| { readonly type: "retargeted" }
+	| ({ readonly type: "failure"; readonly message?: string } & LandGitRanCommand);
 
 export interface WorkingTreeStatus {
 	readonly isClean: boolean;
@@ -423,6 +437,11 @@ export interface LandGithubPrGateway {
 		readonly repoRoot: string;
 		readonly pullRequest: PullRequestFacts;
 	}): Promise<LandResult<SquashMergePullRequestResult>>;
+	retargetPullRequestBase(request: {
+		readonly repoRoot: string;
+		readonly pullRequest: PullRequestFacts;
+		readonly baseRefName: string;
+	}): Promise<LandRetargetPullRequestBaseResult>;
 }
 
 export interface LandWorktreeSlotFactsGateway {

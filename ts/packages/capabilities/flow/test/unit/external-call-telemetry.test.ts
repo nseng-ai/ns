@@ -79,6 +79,28 @@ describe("flow land external-call telemetry classification", () => {
 		});
 	});
 
+	test("classifies the updatePullRequest base-retarget mutation with a single-request quota", () => {
+		expect(
+			classifyCommandInvocation({
+				command: "gh",
+				args: [
+					"api",
+					"graphql",
+					"-f",
+					"pullRequestId=PR_node_102",
+					"-f",
+					"baseRefName=main",
+					"-f",
+					"query=mutation($pullRequestId:ID!,$baseRefName:String!){updatePullRequest(input:{pullRequestId:$pullRequestId,baseRefName:$baseRefName}){pullRequest{id number baseRefName}}}",
+				],
+			}),
+		).toMatchObject({
+			category: "github-cli",
+			operation: "gh api graphql updatePullRequest",
+			quota: { graphqlRequests: 1, restRequests: 0, rateLimitCost: 1 },
+		});
+	});
+
 	test("does not infer batched GraphQL branch count from query-only aliases", () => {
 		expect(
 			classifyCommandInvocation({
