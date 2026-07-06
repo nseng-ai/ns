@@ -17,7 +17,7 @@ function createHarness(options: HarnessOptions = {}) {
 	const events: string[] = [];
 	let stashMessage = "";
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
-	const exec = async (command: string, args: string[]) => {
+	const exec = async (command: string, args: string[], _timeout: number) => {
 		events.push(`exec:${command} ${args.join(" ")}`);
 		if (command === "git" && args[0] === "stash" && args[1] === "push") {
 			stashMessage = args.at(-1) ?? "";

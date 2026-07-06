@@ -43,7 +43,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	const snapshot = createSnapshot(options.currentBranch ?? "feature/base");
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const childBranches = options.childBranches ?? [];
-	const exec = async (command: string, args: string[]) => {
+	const exec = async (command: string, args: string[], _timeout: number) => {
 		calls.push({ command, args });
 		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 			return ok(`${snapshot.branch}\n`);
@@ -141,7 +141,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	let head = "abc123def456";
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const upstreamMode = options.upstreamMode ?? "ahead";
-	const exec = async (command: string, args: string[]) => {
+	const exec = async (command: string, args: string[], _timeout: number) => {
 		events.push(`exec:${command} ${args.join(" ")}`);
 		if (command === "git" && args[0] === "for-each-ref") {
 			if (args[1] === "--format=%(refname)") {
