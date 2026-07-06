@@ -2,7 +2,8 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { truncateText, type CommandResult, type PendingWorktreeSnapshot } from "./shared.ts";
+import { truncateText, type AutobranchExec, type PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchGitGateway } from "./git-gateway.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -51,7 +52,7 @@ export interface AutobranchPreparationInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -257,7 +258,8 @@ export interface AutobranchFlowInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
+	git: AutobranchGitGateway;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -297,6 +299,7 @@ export async function runDirtyAutobranchFlow(
 		branchName: prepared.plan.branchName,
 		checkpointMessage: prepared.plan.checkpointMessage,
 		exec: input.exec,
+		git: input.git,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
 		...(input.now ? { now: input.now } : {}),
 	});

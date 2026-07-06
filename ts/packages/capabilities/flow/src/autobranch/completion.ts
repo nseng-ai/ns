@@ -1,4 +1,4 @@
-import type { CommandResult } from "./shared.ts";
+import type { AutobranchExec } from "./shared.ts";
 
 export const AUTOBRANCH_GIT_TIMEOUT_MS = 30_000;
 
@@ -20,7 +20,7 @@ export interface AutobranchCompletionSummary {
 }
 
 export async function summarizeAutobranchCompletion(input: {
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
 	plan: AutobranchCompletionPlan;
 	dirtyWarning: string;
 }): Promise<AutobranchCompletionSummary> {

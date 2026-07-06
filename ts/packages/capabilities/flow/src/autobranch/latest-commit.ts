@@ -1,5 +1,6 @@
 import { shortSha } from "../commit-display/index.ts";
-import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchGitGateway } from "./git-gateway.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
 import {
@@ -45,7 +46,8 @@ export interface LatestCommitAutobranchInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
+	git: AutobranchGitGateway;
 	onPhase?: (message: string) => void;
 	now?: () => number;
 }
@@ -67,6 +69,7 @@ export async function createLatestCommitAutobranchFlow(
 		cwd: input.cwd,
 		plan: prepared.plan,
 		exec: input.exec,
+		git: input.git,
 		...(input.now ? { now: input.now } : {}),
 	});
 	if (!transaction.ok) {

@@ -3,6 +3,7 @@ import {
 	runAutobranchTransaction,
 	type AutobranchTransactionInput,
 } from "../../src/autobranch/dirty-worktree.ts";
+import { createAutobranchGitGateway } from "../../src/autobranch/git-gateway.ts";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
@@ -17,32 +18,34 @@ function createHarness(options: HarnessOptions = {}) {
 	const events: string[] = [];
 	let stashMessage = "";
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
+	const exec = async (command: string, args: string[]) => {
+		events.push(`exec:${command} ${args.join(" ")}`);
+		if (command === "git" && args[0] === "stash" && args[1] === "push") {
+			stashMessage = args.at(-1) ?? "";
+			return options.shouldStashPushFail
+				? fail("stash push failed")
+				: ok("Saved working directory\n");
+		}
+		if (command === "git" && args[0] === "stash" && args[1] === "list") {
+			return options.isStashRefMissing
+				? ok("stash@{0}\0On base-branch: unrelated stash\n")
+				: ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
+		}
+		if (command === "git" && args[0] === "stash" && args[1] === "pop") {
+			return options.shouldStashPopFail ? fail("stash conflict") : ok("restored\n");
+		}
+		if (command === "gt" && args[0] === "create") {
+			return options.shouldGtCreateFail ? fail("gt create failed") : ok("created\n");
+		}
+		return ok();
+	};
 	const input: AutobranchTransactionInput = {
 		cwd: "/repo",
 		branchName: "test-branch",
 		checkpointMessage: "[cp] Update checkpoint tests\n\n- Add coverage",
 		now: () => 123,
-		exec: async (command, args) => {
-			events.push(`exec:${command} ${args.join(" ")}`);
-			if (command === "git" && args[0] === "stash" && args[1] === "push") {
-				stashMessage = args.at(-1) ?? "";
-				return options.shouldStashPushFail
-					? fail("stash push failed")
-					: ok("Saved working directory\n");
-			}
-			if (command === "git" && args[0] === "stash" && args[1] === "list") {
-				return options.isStashRefMissing
-					? ok("stash@{0}\0On base-branch: unrelated stash\n")
-					: ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
-			}
-			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
-				return options.shouldStashPopFail ? fail("stash conflict") : ok("restored\n");
-			}
-			if (command === "gt" && args[0] === "create") {
-				return options.shouldGtCreateFail ? fail("gt create failed") : ok("created\n");
-			}
-			return ok();
-		},
+		exec,
+		git: createAutobranchGitGateway(exec),
 		commitPreparedCheckpointMessage: async (message) => {
 			events.push(`commit:${message}`);
 			return commitResult;

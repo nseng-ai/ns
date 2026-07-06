@@ -7,7 +7,6 @@ import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 export type AutobranchExec = (
 	command: string,
 	args: string[],
-	cwd: string,
 	timeout: number,
 ) => Promise<CommandResult>;
 

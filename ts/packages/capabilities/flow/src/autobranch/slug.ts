@@ -1,4 +1,4 @@
-import type { CommandResult } from "./shared.ts";
+import type { AutobranchExec } from "./shared.ts";
 import {
 	deriveSlugWithModel,
 	formatRawTextModelFailure,
@@ -40,7 +40,7 @@ export interface BranchSlugPromptInput {
 export interface BranchSlugDerivationInput {
 	cwd: string;
 	prompt: string;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
 }
 
 export type BranchSlugModelResult =

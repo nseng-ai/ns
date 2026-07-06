@@ -1,20 +1,19 @@
-import type { CommandResult } from "./shared.ts";
+import type { AutobranchExec } from "./shared.ts";
+import type { AutobranchGitGateway } from "./git-gateway.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import {
 	defineFailureCatalog,
 	formatFailureCatalogEntry,
 } from "../phase-stream/failure-catalog.ts";
 
-const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
-const STASH_PUSH_TIMEOUT_MS = 120_000;
-const STASH_POP_TIMEOUT_MS = 120_000;
 
 export interface AutobranchTransactionInput {
 	cwd: string;
 	branchName: string;
 	checkpointMessage: string;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
+	git: AutobranchGitGateway;
 	commitPreparedCheckpointMessage: (
 		message: string,
 	) => Promise<{ summary: string } | { error: string }>;
@@ -78,7 +77,7 @@ export async function runAutobranchTransaction(
 	return { ok: true, commitSummary: committed.summary };
 }
 
-type TransactionExecutionInput = Pick<AutobranchTransactionInput, "cwd" | "exec">;
+type TransactionExecutionInput = Pick<AutobranchTransactionInput, "cwd" | "exec" | "git">;
 
 type StashPendingChangesResult =
 	| { ok: true; ref: string }
@@ -89,13 +88,9 @@ async function stashPendingChanges(
 	input: TransactionExecutionInput,
 	message: string,
 ): Promise<StashPendingChangesResult> {
-	const stashed = await input.exec(
-		"git",
-		["stash", "push", "--include-untracked", "-m", message],
-		STASH_PUSH_TIMEOUT_MS,
-	);
-	if (stashed.code !== 0) {
-		return { ok: false, kind: "stash_failed", error: formatAutobranchCommandDetails(stashed) };
+	const stashed = await input.git.stashPush(message);
+	if (!stashed.ok) {
+		return { ok: false, kind: "stash_failed", error: stashed.details };
 	}
 
 	const ref = await findStashRef(input, message);
@@ -109,18 +104,13 @@ async function findStashRef(
 	input: TransactionExecutionInput,
 	message: string,
 ): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
-	const listed = await input.exec(
-		"git",
-		["stash", "list", "--format=%gd%x00%s"],
-		GIT_FACT_TIMEOUT_MS,
-	);
-	if (listed.code !== 0) {
-		return { ok: false, error: formatAutobranchCommandDetails(listed) };
+	const listed = await input.git.listStashes();
+	if (!listed.ok) {
+		return { ok: false, error: listed.details };
 	}
-	for (const line of listed.stdout.split("\n")) {
-		const [ref, subject] = line.split("\0");
-		if (ref && subject?.includes(message)) {
-			return { ok: true, ref };
+	for (const entry of listed.value) {
+		if (entry.subject.includes(message)) {
+			return { ok: true, ref: entry.ref };
 		}
 	}
 	return { ok: false, error: "No matching stash entry found." };
@@ -144,9 +134,9 @@ async function restoreStash(
 	input: TransactionExecutionInput,
 	ref: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	const restored = await input.exec("git", ["stash", "pop", ref], STASH_POP_TIMEOUT_MS);
-	if (restored.code !== 0) {
-		return { ok: false, error: formatAutobranchCommandDetails(restored) };
+	const restored = await input.git.stashPop(ref);
+	if (!restored.ok) {
+		return { ok: false, error: restored.details };
 	}
 	return { ok: true };
 }

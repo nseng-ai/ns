@@ -1,9 +1,4 @@
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
-
-import type { CommandResult } from "./shared.ts";
-import { formatAutobranchCommandDetails } from "./shared.ts";
-
-const GIT_TIMEOUT_MS = 30_000;
+import type { AutobranchGitGateway } from "./git-gateway.ts";
 
 export type UpstreamHeadState =
 	| { type: "no_upstream" }
@@ -13,45 +8,36 @@ export type UpstreamHeadState =
 
 export interface UpstreamHeadStateInput {
 	cwd: string;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	git: AutobranchGitGateway;
 }
 
 export async function inspectUpstreamHeadState(
 	input: UpstreamHeadStateInput,
 ): Promise<UpstreamHeadState> {
-	const branch = await input.exec("git", ["branch", "--show-current"], GIT_TIMEOUT_MS);
-	if (branch.code !== 0) {
-		return { type: "failed", error: formatAutobranchCommandDetails(branch) };
+	const branch = await input.git.currentBranch();
+	if (!branch.ok) {
+		return { type: "failed", error: branch.details };
 	}
-	const branchName = firstNonEmptyLine(branch.stdout);
+	const branchName = branch.value;
 	if (!branchName) {
 		return { type: "failed", error: "git branch --show-current returned no branch name." };
 	}
 
-	const upstream = await input.exec(
-		"git",
-		["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branchName}`],
-		GIT_TIMEOUT_MS,
-	);
-	if (upstream.code !== 0) {
-		return { type: "failed", error: formatAutobranchCommandDetails(upstream) };
+	const upstream = await input.git.upstreamOf(branchName);
+	if (!upstream.ok) {
+		return { type: "failed", error: upstream.details };
 	}
 
-	const upstreamName = firstNonEmptyLine(upstream.stdout);
+	const upstreamName = upstream.value;
 	if (!upstreamName) {
 		return { type: "no_upstream" };
 	}
 
-	const containsHead = await input.exec(
-		"git",
-		["merge-base", "--is-ancestor", "HEAD", upstreamName],
-		GIT_TIMEOUT_MS,
-	);
-	if (containsHead.code === 0) {
-		return { type: "upstream_contains_head", upstream: upstreamName };
+	const containsHead = await input.git.isAncestor("HEAD", upstreamName);
+	if (!containsHead.ok) {
+		return { type: "failed", error: containsHead.details };
 	}
-	if (containsHead.code === 1) {
-		return { type: "head_not_in_upstream", upstream: upstreamName };
-	}
-	return { type: "failed", error: formatAutobranchCommandDetails(containsHead) };
+	return containsHead.value
+		? { type: "upstream_contains_head", upstream: upstreamName }
+		: { type: "head_not_in_upstream", upstream: upstreamName };
 }

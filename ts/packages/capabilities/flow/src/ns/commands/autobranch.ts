@@ -2,6 +2,7 @@ import {
 	runDirtyAutobranchFlow,
 	type ParsedAutobranchArgs,
 } from "../../autobranch/dirty-worktree.ts";
+import { createAutobranchGitGateway } from "../../autobranch/git-gateway.ts";
 import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
@@ -147,12 +148,14 @@ async function createAutobranchCheckpointFlow(
 		return { ok: false, reason: "clean_worktree", root: snapshot.root };
 	}
 
+	const exec = (command: string, commandArgs: string[], timeout: number) =>
+		execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout });
 	const flow = await runDirtyAutobranchFlow({
 		cwd: snapshot.root,
 		args,
 		snapshot,
-		exec: (command, commandArgs, timeout) =>
-			execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
+		exec,
+		git: createAutobranchGitGateway(exec),
 		prepareCheckpointMessage: (pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) =>
 			prepareFlowCheckpointMessage(ctx, pendingSnapshot),
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),

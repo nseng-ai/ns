@@ -1,4 +1,8 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import {
+	createAutobranchGitGateway,
+	type AutobranchGitGateway,
+} from "../../src/autobranch/git-gateway.ts";
 import type {
 	CommandResult,
 	PendingWorktreeSnapshot,
@@ -32,6 +36,18 @@ export function fail(stderr: string, code = 1): CommandResult & ExecResult {
 
 export function eventIndex(events: readonly string[], prefix: string): number {
 	return events.findIndex((event) => event.startsWith(prefix));
+}
+
+export function createGitWorldHarness(options: GitWorldExecOptions = {}): {
+	exec: (command: string, args: string[]) => Promise<CommandResult & ExecResult>;
+	git: AutobranchGitGateway;
+	events: string[];
+} {
+	const harness = createGitWorldExec(options);
+	return {
+		...harness,
+		git: createAutobranchGitGateway(harness.exec),
+	};
 }
 
 export function createGitWorldExec(options: GitWorldExecOptions = {}): {

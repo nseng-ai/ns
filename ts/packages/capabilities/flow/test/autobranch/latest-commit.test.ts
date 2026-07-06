@@ -14,6 +14,7 @@ import {
 	type LatestCommitTransactionInput,
 } from "../../src/autobranch/latest-commit.ts";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { createAutobranchGitGateway } from "../../src/autobranch/git-gateway.ts";
 
 interface PreparationHarnessOptions {
 	slug?: string;
@@ -42,53 +43,53 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	const snapshot = createSnapshot(options.currentBranch ?? "feature/base");
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const childBranches = options.childBranches ?? [];
+	const exec = async (command: string, args: string[]) => {
+		calls.push({ command, args });
+		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
+			return ok(`${snapshot.branch}\n`);
+		}
+		if (command === "git" && args[0] === "for-each-ref") {
+			if (args[1] === "--format=%(refname)") {
+				return ok();
+			}
+			if (upstreamMode === "failed") {
+				return fail("bad upstream state", 128);
+			}
+			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
+		}
+		if (command === "git" && args[0] === "merge-base") {
+			return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+		}
+		if (command === "gt" && args[0] === "children") {
+			return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
+		}
+		if (command === "git" && args[0] === "rev-list") {
+			return ok(options.parentsLine ?? "abc123def456 parent987654\n");
+		}
+		if (command === "git" && args[0] === "log" && args.includes("--format=%B")) {
+			return ok("Add latest commit support\n\nBody line\n");
+		}
+		if (command === "git" && args[0] === "diff") {
+			return ok("diff --git a/src/autobranch.ts b/src/autobranch.ts\n+latest commit support\n");
+		}
+		if (command === "pi") {
+			return options.piResult ?? ok("add-latest-commit-branch\n");
+		}
+		if (command === "git" && args[0] === "check-ref-format") {
+			return ok();
+		}
+		if (command === "git" && args[0] === "show-ref") {
+			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+		}
+		return ok();
+	};
 	const input = {
 		cwd: "/repo",
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
-		exec: async (command: string, args: string[]) => {
-			calls.push({ command, args });
-			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
-				return ok(`${snapshot.branch}\n`);
-			}
-			if (command === "git" && args[0] === "for-each-ref") {
-				if (args[1] === "--format=%(refname)") {
-					return ok();
-				}
-				if (upstreamMode === "failed") {
-					return fail("bad upstream state", 128);
-				}
-				return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
-			}
-			if (command === "git" && args[0] === "merge-base") {
-				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
-			}
-			if (command === "gt" && args[0] === "children") {
-				return options.shouldChildrenFail
-					? fail("gt children failed")
-					: ok(childBranches.join("\n"));
-			}
-			if (command === "git" && args[0] === "rev-list") {
-				return ok(options.parentsLine ?? "abc123def456 parent987654\n");
-			}
-			if (command === "git" && args[0] === "log" && args.includes("--format=%B")) {
-				return ok("Add latest commit support\n\nBody line\n");
-			}
-			if (command === "git" && args[0] === "diff") {
-				return ok("diff --git a/src/autobranch.ts b/src/autobranch.ts\n+latest commit support\n");
-			}
-			if (command === "pi") {
-				return options.piResult ?? ok("add-latest-commit-branch\n");
-			}
-			if (command === "git" && args[0] === "check-ref-format") {
-				return ok();
-			}
-			if (command === "git" && args[0] === "show-ref") {
-				const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-				return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
-			}
-			return ok();
-		},
+		exec,
+		git: createAutobranchGitGateway(exec),
 	};
 	return { input, calls };
 }
@@ -136,83 +137,85 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	let head = "abc123def456";
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const upstreamMode = options.upstreamMode ?? "ahead";
+	const exec = async (command: string, args: string[]) => {
+		events.push(`exec:${command} ${args.join(" ")}`);
+		if (command === "git" && args[0] === "for-each-ref") {
+			if (args[1] === "--format=%(refname)") {
+				return ok();
+			}
+			if (upstreamMode === "failed") {
+				return fail("bad upstream state", 128);
+			}
+			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
+		}
+		if (command === "git" && args[0] === "merge-base") {
+			return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+		}
+		if (command === "git" && args[0] === "check-ref-format") {
+			return ok();
+		}
+		if (command === "git" && args[0] === "show-ref") {
+			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+		}
+		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
+			return ok(`${currentBranch}\n`);
+		}
+		if (command === "git" && args[0] === "branch" && args[1] === "-D") {
+			const branchName = args[2] ?? "";
+			if (branchName.startsWith("autobranch-backup/")) {
+				return options.shouldDeleteBackupFail ? fail("delete failed") : ok("deleted\n");
+			}
+			return options.shouldDeleteCreatedBranchFail
+				? fail("delete created failed")
+				: ok("deleted\n");
+		}
+		if (command === "git" && args[0] === "branch") {
+			return ok();
+		}
+		if (command === "git" && args[0] === "rev-parse") {
+			return ok(`${options.verifyHead ?? head}\n`);
+		}
+		if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
+			if (
+				currentBranch === sourceBranch &&
+				args[2] === "parent987654" &&
+				options.shouldSourceResetFail
+			) {
+				return fail("source reset failed");
+			}
+			if (
+				currentBranch === "latest-commit-branch" &&
+				args[2] === "abc123def456" &&
+				options.shouldBranchResetFail
+			) {
+				return fail("branch reset failed");
+			}
+			head = args[2] ?? head;
+			return ok();
+		}
+		if (command === "gt" && args[0] === "create") {
+			if (options.shouldGtCreateFail) {
+				return fail("gt create failed");
+			}
+			currentBranch = args[1] ?? currentBranch;
+			return ok("created\n");
+		}
+		if (command === "git" && args[0] === "checkout") {
+			if (options.shouldRestoreFail) {
+				return fail("checkout failed");
+			}
+			currentBranch = args[1] ?? currentBranch;
+			return ok();
+		}
+		return ok();
+	};
 	const input: LatestCommitTransactionInput = {
 		cwd: "/repo",
 		plan: basePlan({ sourceBranch }),
 		now: () => 123,
-		exec: async (command, args) => {
-			events.push(`exec:${command} ${args.join(" ")}`);
-			if (command === "git" && args[0] === "for-each-ref") {
-				if (args[1] === "--format=%(refname)") {
-					return ok();
-				}
-				if (upstreamMode === "failed") {
-					return fail("bad upstream state", 128);
-				}
-				return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
-			}
-			if (command === "git" && args[0] === "merge-base") {
-				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
-			}
-			if (command === "git" && args[0] === "check-ref-format") {
-				return ok();
-			}
-			if (command === "git" && args[0] === "show-ref") {
-				const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-				return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
-			}
-			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
-				return ok(`${currentBranch}\n`);
-			}
-			if (command === "git" && args[0] === "branch" && args[1] === "-D") {
-				const branchName = args[2] ?? "";
-				if (branchName.startsWith("autobranch-backup/")) {
-					return options.shouldDeleteBackupFail ? fail("delete failed") : ok("deleted\n");
-				}
-				return options.shouldDeleteCreatedBranchFail
-					? fail("delete created failed")
-					: ok("deleted\n");
-			}
-			if (command === "git" && args[0] === "branch") {
-				return ok();
-			}
-			if (command === "git" && args[0] === "rev-parse") {
-				return ok(`${options.verifyHead ?? head}\n`);
-			}
-			if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
-				if (
-					currentBranch === sourceBranch &&
-					args[2] === "parent987654" &&
-					options.shouldSourceResetFail
-				) {
-					return fail("source reset failed");
-				}
-				if (
-					currentBranch === "latest-commit-branch" &&
-					args[2] === "abc123def456" &&
-					options.shouldBranchResetFail
-				) {
-					return fail("branch reset failed");
-				}
-				head = args[2] ?? head;
-				return ok();
-			}
-			if (command === "gt" && args[0] === "create") {
-				if (options.shouldGtCreateFail) {
-					return fail("gt create failed");
-				}
-				currentBranch = args[1] ?? currentBranch;
-				return ok("created\n");
-			}
-			if (command === "git" && args[0] === "checkout") {
-				if (options.shouldRestoreFail) {
-					return fail("checkout failed");
-				}
-				currentBranch = args[1] ?? currentBranch;
-				return ok();
-			}
-			return ok();
-		},
+		exec,
+		git: createAutobranchGitGateway(exec),
 	};
 	return { input, events };
 }
