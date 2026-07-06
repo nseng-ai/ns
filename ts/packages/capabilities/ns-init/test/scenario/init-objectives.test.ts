@@ -4,7 +4,10 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import { initObjectives } from "../../src/init-objectives.ts";
 import type { ObjectiveActivationContext } from "../../src/activation-context.ts";
-import { InMemoryActivationFilesGateway, InMemorySkillMaterializer } from "../../src/testing.ts";
+import {
+	InMemoryActivationFilesGateway,
+	InMemorySkillMaterializer,
+} from "../../src/testing/index.ts";
 
 function initContext(options: { nsToml?: string } = {}): {
 	context: ObjectiveActivationContext;
