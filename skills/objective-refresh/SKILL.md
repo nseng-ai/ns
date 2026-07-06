@@ -42,7 +42,7 @@ Uncommitted Objective edits are input, not a stop: worktree content, committed p
 Write invariants, in addition to the never-commit absolute:
 
 - Edit only the selected Objective directories.
-- Never edit, move, delete, normalize, or recreate an existing file under `updates/`.
+- For `updates/`, follow the `objective` umbrella skill's immutable Semantic Update rule: refreshes may add new update files, not change old ones.
 - Never move, delete, rename, or recreate an Objective slug directory.
 - Never edit archived Objectives unless explicitly asked.
 

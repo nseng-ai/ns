@@ -60,36 +60,36 @@
       carried the full precedence list. Re-verified 2026-07-03: the precedence list
       resolves only in `lifecycle.md` (`## Branch creation policy`); `from-plan` still
       names `--branch-creation graphite` inline and points at that section.
-- [~] Per-skill remediation, technique chosen by the (lift × risk) quadrant and ordered
-  by value (reach), not raw lift. **Method decided 2026-06-20; re-audited 2026-06-20**
-  (update `2026-06-20T140000`). From-scratch rewrite against `writing-great-skills`
-  (behavior preserved; duplication collapse and oversized-block disclosure fall out as
-  byproducts) is the technique for the high-lift/low-risk quadrant; safety-critical /
-  rigid-output-contract skills take the **surgical** path; others take prune-to-stub or
-  move-to-reference. Per-target gate for any rewrite: extract the behavioral contract
-  (triggers, ordered steps, stop/ask conditions, output shapes, safety rules, CLI calls),
-  rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
-  "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
-  (never a symlinked copy).
-  **Queue re-ranked 2026-07-03 (post-ADR-0016 reach re-derivation; update
-  `20260703T194738Z`).** Kinds, line counts, and per-target debt re-verified against
-  ground truth. Only `brmem` and `objective` remain ambient (`normal`); all other
-  targets are `command-backed`. New order: (1) `brmem`, (2) `objective`,
-  (3) `dignified-python`, (4) `code-thermostack`, (5) `refactor-swarm`,
-  (6) `objective-create`, (7) `code-gt-restack-resolve` (surgical),
-  (8) `code-resolve-merge-conflicts` (surgical), (9) `objective-close` (surgical),
-  (10) `ccc-available-work` / `ccc-stack-map` (only if cheap). Naming caution: the
-  active `rename-ji-to-ns` objective is churning skill directory names — re-resolve
-  each target's current directory at pickup, and prefer landing content edits after
-  the rename stabilizes.
-  **Dropped targets:** `branch-context-impl` (36 lines, lift 1 / risk 4 — its only
-  disclosable block is a 6-trigger STOP safety contract, so disclosing it is
-  net-negative and a rewrite most likely softens the contract; leave as-is);
-  `pr-address` (see its row below); `python-fake-driven-testing` SKILL.md rewrite and
-  `sdl-flow-submit`/`ji-flow-submit`/`ns-flow-submit` move-to-reference (earlier two mooted — see their rows);
-  `python-fake-driven-test-layout` (pilot rationale spent — see its row); and
-  `enriched-plan-save` (deferred to the plan-verification workstream — see its row).
-  Targets and their known debt / technique:
+- [x] Per-skill remediation, technique chosen by the (lift × risk) quadrant and ordered
+      by value (reach), not raw lift. **Method decided 2026-06-20; re-audited 2026-06-20**
+      (update `2026-06-20T140000`). From-scratch rewrite against `writing-great-skills`
+      (behavior preserved; duplication collapse and oversized-block disclosure fall out as
+      byproducts) is the technique for the high-lift/low-risk quadrant; safety-critical /
+      rigid-output-contract skills take the **surgical** path; others take prune-to-stub or
+      move-to-reference. Per-target gate for any rewrite: extract the behavioral contract
+      (triggers, ordered steps, stop/ask conditions, output shapes, safety rules, CLI calls),
+      rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
+      "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
+      (never a symlinked copy).
+      **Queue re-ranked 2026-07-03 (post-ADR-0016 reach re-derivation; update
+      `20260703T194738Z`).** Kinds, line counts, and per-target debt re-verified against
+      ground truth. Only `brmem` and `objective` remain ambient (`normal`); all other
+      targets are `command-backed`. New order: (1) `brmem`, (2) `objective`,
+      (3) `dignified-python`, (4) `code-thermostack`, (5) `refactor-swarm`,
+      (6) `objective-create`, (7) `code-gt-restack-resolve` (surgical),
+      (8) `code-resolve-merge-conflicts` (surgical), (9) `objective-close` (surgical),
+      (10) `ccc-available-work` / `ccc-stack-map` (only if cheap). Naming caution: the
+      active `rename-ji-to-ns` objective is churning skill directory names — re-resolve
+      each target's current directory at pickup, and prefer landing content edits after
+      the rename stabilizes.
+      **Dropped targets:** `branch-context-impl` (36 lines, lift 1 / risk 4 — its only
+      disclosable block is a 6-trigger STOP safety contract, so disclosing it is
+      net-negative and a rewrite most likely softens the contract; leave as-is);
+      `pr-address` (see its row below); `python-fake-driven-testing` SKILL.md rewrite and
+      `sdl-flow-submit`/`ji-flow-submit`/`ns-flow-submit` move-to-reference (earlier two mooted — see their rows);
+      `python-fake-driven-test-layout` (pilot rationale spent — see its row); and
+      `enriched-plan-save` (deferred to the plan-verification workstream — see its row).
+      Targets and their known debt / technique:
   - `objective-stack-impl` — **DONE (rewrite method, the retro-rewrite decided yes).**
     First disclosed under the prior surgical method (282→217); then re-remediated as a
     from-scratch rewrite against `writing-great-skills`, behavior preserved via
@@ -218,7 +218,11 @@
     See update `20260703T203832Z`. `ccc-branch-triage` and
     `handoff-pickup` stay parked.
     Evidence bar for the row: per-target contract diff shows no behavioral change; no
-    verbatim-duplicated contract remains among these skills.
+    verbatim-duplicated contract remains among these skills. Final closure sweep
+    `20260706T214142Z` rechecked the ≥5/high-value target set, found and collapsed three
+    residual shared-contract copies (Objective PR evidence pointers, Objective immutable
+    updates pointers, and ccc read-only posture), then confirmed no cross-file long-line
+    contract duplicates across the target set.
 - [x] **`python-fake-driven-testing` reference-tree merge** — completed by folding
       `references/quick-reference.md` into `references/workflows.md` and updating
       `SKILL.md` routing so feature, bug, and quick-placement/command lookup all load the

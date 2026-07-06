@@ -255,3 +255,18 @@ Risks:
   recorded reasons: `python-fake-driven-testing` SKILL.md and `ns-flow-submit`
   (mooted), `python-fake-driven-test-layout` (pilot rationale spent → polish tier),
   `enriched-plan-save` (block owned by the plan-verification workstream).
+
+## Closure
+
+Closed as completed on 2026-07-06. All three systemic findings are resolved, and every
+first-party skill from the 2026-06 audit scoring ≥5 is either remediated or explicitly
+recorded as dropped/deferred/parked with rationale. The final closure sweep
+(`20260706T214142Z`) found and collapsed the last residual duplicated contract copies
+(Objective PR evidence pointers, Objective immutable-update pointers, and ccc read-only
+posture), then confirmed no cross-file long-line contract duplicates across the target
+set.
+
+Remaining caveats are outside this Objective's scope: the polish tier remains a Non-Goal,
+and the `code-gt-restack-resolve` TEMPORARY TS-toolchain cleanup remains externally gated
+on the TS toolchain rollout. No durable orientation rule needs graduation; this Objective
+has no `orientation.md`.
