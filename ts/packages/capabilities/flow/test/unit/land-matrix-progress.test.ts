@@ -127,7 +127,7 @@ describe("land matrix progress", () => {
 		expect(output).toContain("feature/a (#123)");
 	});
 
-	test("renders inactive global rows without redundant detail text", () => {
+	test("hides inactive global rows and their detail text", () => {
 		const output = stripAnsi(
 			renderLandMatrixProgressFrame({
 				caps: caps(),
@@ -154,8 +154,8 @@ describe("land matrix progress", () => {
 			}).join("\n"),
 		);
 
-		expect(output).toContain("Prepare");
-		expect(output).toContain("Slots");
+		expect(output).not.toContain("Prepare");
+		expect(output).not.toContain("Slots");
 		expect(output).not.toContain("not required");
 		expect(output).not.toContain("pending");
 	});
@@ -206,7 +206,6 @@ describe("land matrix progress", () => {
 		for (const rowLine of rowLines) {
 			expect(rowLine.match(/·/g)).toHaveLength(4);
 		}
-
 	});
 });
 
