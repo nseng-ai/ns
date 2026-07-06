@@ -1,10 +1,8 @@
 import { type BranchContextEvidence } from "@nseng-ai/branch-context/api";
 import { formatImplBranchContextCommand } from "../surfaces.ts";
-import type { ExecResult } from "@nseng-ai/foundation/command";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
-import type { ExtensionAPI, NewSessionOptions, NewSessionResult } from "../host-types.ts";
-
-export type BranchContextGtUpstackImplHost = Pick<ExtensionAPI, "exec">;
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { NewSessionOptions, NewSessionResult } from "../host-types.ts";
 
 export type BranchContextGtUpstackImplNewSessionOptions = NewSessionOptions;
 export type BranchContextGtUpstackImplNewSessionResult = NewSessionResult;
@@ -26,7 +24,7 @@ export interface BranchContextGtUpstackImplContext {
 }
 
 export interface BranchContextGtUpstackImplLaunchOptions {
-	host: BranchContextGtUpstackImplHost;
+	git: Pick<GitGateway, "checkout">;
 	ctx: BranchContextGtUpstackImplContext;
 	statusKey: string;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
@@ -47,8 +45,6 @@ export type BranchContextGtUpstackImplLaunchResult =
 			parentSession?: string;
 	  };
 
-const CHECKOUT_TIMEOUT_MS = 30_000;
-
 export async function runBranchContextGtUpstackImplLaunch(
 	options: BranchContextGtUpstackImplLaunchOptions,
 ): Promise<BranchContextGtUpstackImplLaunchResult> {
@@ -60,7 +56,7 @@ export async function runBranchContextGtUpstackImplLaunch(
 	try {
 		setRuntimeStatus(options.ctx, options.statusKey, "checking out branch context…");
 		const checkout = await checkoutBranchContext({
-			host: options.host,
+			git: options.git,
 			cwd: options.ctx.cwd,
 			targetBranch: branch,
 			signal: options.signal,
@@ -118,7 +114,7 @@ export function formatBranchContextGtUpstackImplFollowUpFlow(
 type CheckoutResult = { type: "ok" } | { type: "failed"; message: string };
 
 interface CheckoutBranchContextOptions {
-	host: BranchContextGtUpstackImplHost;
+	git: Pick<GitGateway, "checkout">;
 	cwd: string;
 	targetBranch: string;
 	signal: AbortSignal | undefined;
@@ -127,28 +123,17 @@ interface CheckoutBranchContextOptions {
 async function checkoutBranchContext(
 	options: CheckoutBranchContextOptions,
 ): Promise<CheckoutResult> {
-	const result = await options.host.exec("git", ["checkout", options.targetBranch], {
+	const result = await options.git.checkout({
 		cwd: options.cwd,
-		timeout: CHECKOUT_TIMEOUT_MS,
+		branch: options.targetBranch,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
-	if (result.code === 0) {
+	if (result.ok) {
 		return { type: "ok" };
 	}
 
-	const output = formatCheckoutFailureOutput(result);
 	return {
 		type: "failed",
-		message: `git checkout ${options.targetBranch} failed with exit code ${result.code}: ${output}`,
+		message: result.error.message,
 	};
-}
-
-function formatCheckoutFailureOutput(result: ExecResult): string {
-	if (result.stderr.length > 0) {
-		return result.stderr;
-	}
-	if (result.stdout.length > 0) {
-		return result.stdout;
-	}
-	return "(no output)";
 }

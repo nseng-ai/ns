@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
@@ -89,13 +91,17 @@ function checkoutStep(result: Parameters<typeof step>[2] = {}): ReturnType<typeo
 	return step("git", ["checkout", BRANCH], result);
 }
 
+function gitForPi(pi: FakePi): RealGitGateway {
+	return new RealGitGateway(piExecApiToCommandExecApi(pi), { timeoutMs: 30_000 });
+}
+
 describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 	test("checks out the branch and dispatches impl in a new session", async () => {
 		const pi = new FakePi([checkoutStep()]);
 		const ctx = new FakeGtUpstackImplContext({ parentSession: "/sessions/source.jsonl" });
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			host: pi,
+			git: gitForPi(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -141,7 +147,7 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 		const ctx = new FakeGtUpstackImplContext();
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			host: pi,
+			git: gitForPi(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -155,32 +161,41 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 			branch: BRANCH,
 			key: KEY,
 			phase: "checkout",
-			message: `git checkout ${BRANCH} failed with exit code 2: checkout failed`,
+			message: `git checkout failed (exit code 2).
+
+Command: git checkout ${BRANCH}
+
+----- stdout tail -----
+(empty)
+
+----- stderr tail -----
+checkout failed`,
 		});
 	});
 
 	test("reports checkout startup errors as checkout failures", async () => {
+		const pi = new FakePi([
+			{ command: "git", args: ["checkout", BRANCH], error: new Error("git is unavailable") },
+		]);
 		const ctx = new FakeGtUpstackImplContext();
-		const host = {
-			async exec(): Promise<never> {
-				throw new Error("git is unavailable");
-			},
-		};
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			host,
+			git: gitForPi(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
 		});
 
+		pi.assertDone();
 		expect(ctx.newSessionParentSessions).toEqual([]);
 		expect(result).toEqual({
 			type: "failed",
 			branch: BRANCH,
 			key: KEY,
 			phase: "checkout",
-			message: "git is unavailable",
+			message: `git command failed before completion.
+Command: git checkout ${BRANCH}
+Error: git is unavailable`,
 		});
 	});
 
@@ -190,7 +205,7 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 		ctx.shouldCancelNewSession = true;
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			host: pi,
+			git: gitForPi(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -207,7 +222,7 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 		ctx.shouldThrowBeforeReplacement = true;
 
 		const result = await runBranchContextGtUpstackImplLaunch({
-			host: pi,
+			git: gitForPi(pi),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -231,7 +246,7 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 
 		await expect(
 			runBranchContextGtUpstackImplLaunch({
-				host: pi,
+				git: gitForPi(pi),
 				ctx,
 				statusKey: STATUS_KEY,
 				target: { branch: BRANCH, key: KEY },
