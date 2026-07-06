@@ -1,6 +1,6 @@
 import { runCommand } from "@nseng-ai/foundation/exec";
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
-import type { NsProgressPhaseListener } from "@nseng-ai/ns/kernel/sdk";
+import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import type { TextRepairProgressEvent } from "@nseng-ai/capability-kit/text-repair";
@@ -9,7 +9,7 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 } from "@nseng-ai/capability-kit/checkpoint-flow";
-import type { NsExtensionApi } from "@nseng-ai/ns/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,

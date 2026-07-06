@@ -1,5 +1,5 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { NsCommandIo } from "@nseng-ai/ns/kernel/sdk";
+import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
 	completed,
 	failure,

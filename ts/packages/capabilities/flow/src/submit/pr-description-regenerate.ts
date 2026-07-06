@@ -1,7 +1,7 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
 import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
-import type { NsExtensionApi } from "@nseng-ai/ns/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { RealGithubPrGateway } from "./github-pr-gateway.ts";
 import type { PromptSource } from "./pr-description.ts";
 
@@ -10,7 +10,7 @@ export interface NsPrDescriptionRuntime {
 	git: GitGateway;
 }
 
-/** Temporary internal migration seam; not exported from `@nseng-ai/ns/kernel/sdk`. */
+/** Temporary internal migration seam; not exported from `@nseng-ai/kernel/sdk`. */
 export function createNsPrDescriptionRuntime(ctx: NsExtensionApi): NsPrDescriptionRuntime {
 	const runner = createNsCommandRunner(ctx);
 	return {

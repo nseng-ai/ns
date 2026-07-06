@@ -1,7 +1,7 @@
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
-import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/ns/kernel/command-io";
+import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
-import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/ns/kernel/sdk";
+import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,

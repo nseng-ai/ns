@@ -261,9 +261,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
-      '@nseng-ai/ns':
+      '@nseng-ai/kernel':
         specifier: workspace:*
-        version: link:../../hosts/ns-cli
+        version: link:../../kernel
       '@nseng-ai/slots':
         specifier: workspace:*
         version: link:../slots
@@ -453,9 +453,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../infra/foundation
-      '@nseng-ai/ns':
+      '@nseng-ai/kernel':
         specifier: workspace:*
-        version: link:../hosts/ns-cli
+        version: link:../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3

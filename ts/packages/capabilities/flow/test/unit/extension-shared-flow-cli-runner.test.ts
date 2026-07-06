@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/ns/kernel/sdk";
-import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/ns/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 interface ExecCall {
 	command: string;
 	args: string[];

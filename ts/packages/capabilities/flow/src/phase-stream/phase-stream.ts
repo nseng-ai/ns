@@ -9,7 +9,7 @@
 // TTY/non-TTY rendering. Lower layers stay domain-pure and emit `NsProgressPhaseEvent`s keyed by stable
 // `phaseKey`s.
 //
-// This is the one `flow → clinkr` edge. The event type lives in `@nseng-ai/ns/kernel/sdk`, so clinkr stays free
+// This is the one `flow → clinkr` edge. The event type lives in `@nseng-ai/kernel/sdk`, so clinkr stays free
 // of any `@nseng-ai/*` dependency and is never imported by graphite.
 //
 // Flow resolves streaming `Caps` from its command host context's explicit render capabilities.
@@ -21,8 +21,8 @@ import {
 	systemStreamClock,
 	type StreamSinkDeps,
 } from "@nseng-ai/clinkr/stream";
-import type { NsProgressPhaseEvent } from "@nseng-ai/ns/kernel/sdk";
-import type { NsExtensionApi } from "@nseng-ai/ns/kernel/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";

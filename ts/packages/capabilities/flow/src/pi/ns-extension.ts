@@ -1,5 +1,5 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
-import { runCli, type NsCommandInfo } from "@nseng-ai/ns/kernel/cli";
+import { runCli, type NsCommandInfo } from "@nseng-ai/kernel/cli";
 import { PUSH_COMMAND_SUMMARY } from "../ns/commands/push.ts";
 
 import {

@@ -12,7 +12,7 @@ import {
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "../../src/submit/index.ts";
-import type { TextGenerationResult } from "@nseng-ai/ns/kernel/sdk";
+import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";

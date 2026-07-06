@@ -1,5 +1,5 @@
 import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command";
-import type { NsConfirmOptions } from "@nseng-ai/ns/kernel/sdk";
+import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import type { PullRequestFacts } from "../types.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";

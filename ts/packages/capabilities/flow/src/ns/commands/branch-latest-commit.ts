@@ -4,7 +4,7 @@ import {
 } from "../../autobranch/latest-commit.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
-import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/ns/kernel/sdk";
+import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";

@@ -1,4 +1,4 @@
-import type { NsProgressPhaseEvent } from "@nseng-ai/ns/kernel/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
 /** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */
