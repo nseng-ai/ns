@@ -2,7 +2,8 @@
 
 Load this reference when the user says objective pattern, umbrella Objective, synthesis
 Objective, child Objective, autoobjective, ideation Objective, orienting Objective
-(formerly cross-cutting), or asks which shape an Objective should take. (For standing / no-natural-finish-line
+(formerly cross-cutting), steelthread Objective, or asks which shape an Objective
+should take. (For standing / no-natural-finish-line
 Objectives, `references/standing-objectives.md` remains the deeper reference.)
 
 ## What a pattern is
@@ -95,3 +96,28 @@ live in `docs/agents/wayfinder-objective-adaptation.md`.
 Skill support: `objective-create` charts ideation records Destination-first with typed
 Question Rows and Fog; `objective-next` recommends from the Frontier and recognizes
 Crystallization; `objective-update` resolves Question Rows and graduates Fog.
+
+### Steelthread Objective
+
+An Objective whose scope is deliberately the thinnest end-to-end slice of a larger
+ambition: one real task completing through every layer of the real system, with
+widening explicitly out of scope. The seams between layers are where the surprises
+live; the thread de-risks integration while the design is still cheap to change.
+`## Completion Criteria` is the thread validated end-to-end; `## Non-Goals` names the
+deferred breadth, which belongs to follow-on Objectives (often making the steelthread
+the first Child under an Umbrella) or to a deliberate scope rebaseline after closure.
+
+- Use when: an architecture, workflow, or product surface needs its layers proven
+  connected before breadth is built. It is the natural first execution shape after an
+  Ideation Objective's Crystallization.
+- The pattern names the whole record's scope. A steelthread roadmap row inside a
+  broader Objective is a milestone, not a Steelthread Objective.
+- Horizon note: a steelthread is always bounded — standing and steelthread do not
+  compose.
+- A **throwaway steelthread** variant is legitimate when the thing being validated is
+  a design rather than a durable skeleton (standalone scratch code, no reusable
+  infra); the record's `## Scope` must say so explicitly.
+- Failure modes: **breadth creep** — the thread quietly widening into feature work
+  mid-flight; defend by descoping, not by absorbing. And the **cardboard thread** —
+  stubbing so many layers that completing the one task validates nothing about the
+  real system.

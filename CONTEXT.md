@@ -6,7 +6,7 @@ This context captures project language for durable planning workflows in this re
 
 **ns**:
 The product's proper name. Always lowercase, including at sentence starts; rewrite the sentence rather than capitalizing it. It evokes nonslop, namespace, and Nick Schrock's initials.
-*Avoid*: NS, Ns, ns, JI, Ji, SDL, Source Development Lifecycle
+*Avoid*: NS, Ns, JI, Ji, SDL, Source Development Lifecycle
 
 **Objective**:
 A checked-in documentation workstream for durable multi-session, multi-branch, or multi-PR work.
@@ -51,6 +51,10 @@ The phase exit of an **Ideation Objective**: the **Frontier** empties of **Quest
 **Orienting Objective**:
 A prose-only **Objective** pattern defined by carrying `orientation.md`: a standing, agent-facing rule stating the direction every agent — including agents on unrelated work — must respect while the record is open. The orientation joins the always-load set (`ns objective exec load-orientations`) and leaves it automatically at closure. The name is what it does: it orients agents.
 *Avoid*: Cross-cutting Objective (retired name), orientation-bearing Objective, ambient Objective, orientation registry
+
+**Steelthread Objective**:
+A prose-only **Objective** pattern whose scope is deliberately the thinnest end-to-end slice of a larger ambition — one real task completing through every layer of the real system, with widening explicitly deferred to follow-on work. The thread validated end-to-end is the completion criterion; the pattern names the whole record's scope, not a steelthread milestone row inside a broader Objective.
+*Avoid*: MVP, prototype, spike, proof of concept, walking skeleton, thin slice, tracer bullet
 
 **Durable Narrative Roadmap Record**:
 The role of an **Objective** as human-readable context and ordered work guidance, without owning workflow-control semantics.
