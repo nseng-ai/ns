@@ -40,6 +40,16 @@ export {
 } from "./extension.ts";
 export { EXPLORE_FLEET_WIDGET_KEY, formatExploreFleetWidgetLines } from "./fleet.ts";
 export {
+	EXPLORE_FLEET_COMMAND_NAME,
+	ExploreFleetNavigator,
+	loadFleetTaskDetail,
+	openExploreFleetNavigator,
+	registerExploreFleetCommand,
+	type ExploreFleetNavigatorDependencies,
+	type ExploreFleetNavigatorOptions,
+	type ExploreFleetTaskDetail,
+} from "./fleet-navigator.ts";
+export {
 	createFunctionExplorerRuntime,
 	createSubprocessExplorerRuntime,
 	type ExplorerRuntime,
