@@ -1,4 +1,4 @@
-import type { GithubPrFeedbackFailure, PrFeedbackGithubGateway, GithubPrSummary } from "../api.ts";
+import type { GithubPrFeedbackFailure, PrAddressGithubGateway, GithubPrSummary } from "../api.ts";
 
 import type { GatewayOptions } from "./gateways.ts";
 
@@ -48,7 +48,7 @@ export type BranchPrMappingResult =
 
 export interface MapBranchesToOpenPrsOptions {
 	branches: readonly string[];
-	prFeedback: PrFeedbackGithubGateway;
+	prFeedback: PrAddressGithubGateway;
 	gatewayOptions: GatewayOptions;
 }
 

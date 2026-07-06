@@ -1,7 +1,7 @@
 import type {
 	GithubBranchPrChecksOutcome,
 	GithubPrFeedbackFailure,
-	PrFeedbackGithubGateway,
+	PrAddressGithubGateway,
 } from "../api.ts";
 
 import {
@@ -53,7 +53,7 @@ export type BranchPrChecksResult =
 
 export interface CollectBranchPrChecksOptions {
 	branches: readonly string[];
-	prFeedback: PrFeedbackGithubGateway;
+	prFeedback: PrAddressGithubGateway;
 	gatewayOptions: GatewayOptions;
 }
 

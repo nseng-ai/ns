@@ -1,6 +1,6 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
-import type { PrFeedbackGithubGateway, GithubPrSummary, GithubStatusChecks } from "../api.ts";
+import type { PrAddressGithubGateway, GithubPrSummary, GithubStatusChecks } from "../api.ts";
 
 import type { GatewayOptions } from "./gateways.ts";
 import { resolvePrTarget, type PrTargetFailureResult } from "./pr-target.ts";
@@ -41,7 +41,7 @@ export type PrChecksResult = { type: "ok"; checks: PrChecksPayload } | PrTargetF
 
 export interface CollectPrChecksOptions {
 	git: GitGateway;
-	prFeedback: PrFeedbackGithubGateway;
+	prFeedback: PrAddressGithubGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber?: number;
 }
