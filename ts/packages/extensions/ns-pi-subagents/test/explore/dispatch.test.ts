@@ -23,14 +23,14 @@ import {
 	stoppedProgress,
 	waitForSpawn,
 } from "../../src/explore/testing.ts";
-import { READ_ONLY_SUBAGENT_TOOLS } from "../../src/runner-subagents/read-only-tools.ts";
+import { READ_ONLY_SUBAGENT_TOOLS } from "@internal/pi-tools/runner-subagents";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentStatus,
-} from "../../src/runner-subagents/extension-api.ts";
+} from "@internal/pi-tools/runner-subagents";
 
 const anthropicCtx: RunnerSubagentContext = {
 	cwd: "/repo",

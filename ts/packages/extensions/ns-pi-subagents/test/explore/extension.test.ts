@@ -25,7 +25,7 @@ import {
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
 } from "../../src/explore/testing.ts";
-import type { RunnerSubagentUpdate } from "../../src/runner-subagents/extension-api.ts";
+import type { RunnerSubagentUpdate } from "@internal/pi-tools/runner-subagents";
 
 const ROOT = "/repo";
 const definition = makeExplorerAgentDefinition({

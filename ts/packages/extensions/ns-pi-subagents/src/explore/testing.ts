@@ -13,7 +13,7 @@ import type {
 	RunnerSubagentProtocolErrorResult,
 	RunnerSubagentResult,
 	RunnerSubagentStoppedWithoutUsefulTextResult,
-} from "../runner-subagents/extension-api.ts";
+} from "@internal/pi-tools/runner-subagents";
 import {
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
@@ -28,7 +28,7 @@ export {
 	jsonLine,
 	sessionMessageLine,
 	waitForSpawn,
-} from "../runner-subagents/testing.ts";
+} from "@internal/pi-tools/runner-subagents/testing";
 
 export function makeExplorerAgentDefinition(
 	overrides: Partial<PiAgentDefinition> = {},
