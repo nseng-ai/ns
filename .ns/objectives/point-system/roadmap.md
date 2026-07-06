@@ -14,9 +14,12 @@
     kernel tests, `just ts-check`, `just ts-lint`, `just ts-format-check`, and
     `git diff --check` passed on commit `6ac5f1b19`; full `just` reached an unrelated
     existing `@nseng-ai/objectives` topology-circle style-guard failure.
-- [ ] `ns.points` manifest discovery and point catalog computation: definitions joined
+- [x] `ns.points` manifest discovery and point catalog computation: definitions joined
       with installations — installed-but-undefined (error), override-in-effect,
       defined-but-uninstalled; conventional `.ns/prompts/<point-id>.md` folded in.
+  - Evidence: local branch `point-system-catalog-slice` commit `1e99c38a0` added kernel
+    point definition discovery, `loadPointCatalog`/`computePointCatalog`, conventional
+    prompt probing, and fake-driven unit coverage for catalog diagnostics.
 - [ ] Migrate `flow.submit.pre` as first consumer: declare the point in the flow extension
       manifest, replace `[flow.hooks].pre_submit` with `[points]."flow.submit.pre"` in the
       loader and this repo's `ns.toml`, update submit-hooks runtime and scenario tests.
