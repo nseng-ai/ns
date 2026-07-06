@@ -7,7 +7,7 @@ import type {
 } from "@internal/pi-tools/runner-subagents";
 import type { ExploreBreadth, ExploreBreadthProfile } from "./contract.ts";
 import type { DispatchExplorerSubagentOptions, ExplorerDispatchOutcome } from "./dispatch.ts";
-import type { ExploreInput } from "./extension.ts";
+import type { ExploreInput, ExploreTaskInput } from "./input.ts";
 import type { ExplorerLaunchPlan } from "./model-policy.ts";
 
 export type ExploreDispatchFunction = (
@@ -54,10 +54,8 @@ export interface ExploreTaskOutcome {
 	failover?: ExplorerDispatchOutcome["failover"];
 }
 
-export type ExploreTaskInputFields = ExploreInput["tasks"][number];
-
 export interface ExploreTaskState {
-	input: ExploreTaskInputFields;
+	input: ExploreTaskInput;
 	state: "queued" | "running" | "done";
 	latestUpdate?: RunnerSubagentUpdate;
 	outcome?: ExploreTaskOutcome;

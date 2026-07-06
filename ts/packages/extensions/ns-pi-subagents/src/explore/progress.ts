@@ -1,4 +1,5 @@
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { ToolContext, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
@@ -74,7 +75,7 @@ function exploreTaskProgressView(state: ExploreTaskState): ExploreTaskProgressVi
 		return {
 			icon: state.outcome.result.status === "final-text" ? "✓" : "✗",
 			status: state.outcome.result.status,
-			...(sessionFile === undefined ? {} : { sessionFile }),
+			...optionalEntries({ sessionFile }),
 		};
 	}
 	if (state.state === "queued") return { icon: "·", status: "queued" };
@@ -85,7 +86,7 @@ function exploreTaskProgressView(state: ExploreTaskState): ExploreTaskProgressVi
 	return {
 		icon: "▶",
 		status: update.progress.state,
-		...(activityText === undefined ? {} : { activityText }),
+		...optionalEntries({ activityText }),
 	};
 }
 

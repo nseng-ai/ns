@@ -21,7 +21,7 @@ export function syncExploreFleetWidget(
 export function formatExploreFleetWidgetLines(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 ): string[] {
-	const tasks = runs.flatMap((run) => run.tasks).sort(compareFleetTasksForDisplay);
+	const tasks = sortedFleetTasks(runs);
 	if (tasks.length === 0) return [];
 	const running = tasks.filter((task) => task.state === "running").length;
 	return [
@@ -40,7 +40,13 @@ function formatExploreFleetTaskLine(task: RunnerSubagentFleetTaskSnapshot): stri
 	);
 }
 
-function taskIcon(task: RunnerSubagentFleetTaskSnapshot): string {
+export function sortedFleetTasks(
+	runs: readonly { tasks: readonly RunnerSubagentFleetTaskSnapshot[] }[],
+): RunnerSubagentFleetTaskSnapshot[] {
+	return runs.flatMap((run) => run.tasks).sort(compareFleetTasksForDisplay);
+}
+
+export function taskIcon(task: RunnerSubagentFleetTaskSnapshot): string {
 	if (task.state === "queued") return "·";
 	if (task.state === "running") return "▶";
 	return task.finalStatus === "final-text" ? "✓" : "✗";

@@ -24,7 +24,6 @@ export {
 export {
 	dispatchExplorerSubagent,
 	type DispatchExplorerSubagentOptions,
-	type DispatchSubagentFn,
 	type ExplorerDispatchOutcome,
 } from "./dispatch.ts";
 export {

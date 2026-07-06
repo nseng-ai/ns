@@ -18,17 +18,7 @@ import {
 	type ExplorerLaunchPlan,
 	type IsProviderAuthConfigured,
 } from "./model-policy.ts";
-import {
-	createFunctionExplorerRuntime,
-	createSubprocessExplorerRuntime,
-	type ExplorerRuntime,
-} from "./runtime.ts";
-
-export type DispatchSubagentFn = (
-	pi: RunnerSubagentPi,
-	ctx: RunnerSubagentContext,
-	options: RunnerSubagentOptions,
-) => Promise<RunnerSubagentResult>;
+import { createSubprocessExplorerRuntime, type ExplorerRuntime } from "./runtime.ts";
 
 export interface DispatchExplorerSubagentOptions {
 	title: string;
@@ -39,7 +29,6 @@ export interface DispatchExplorerSubagentOptions {
 
 export interface ExplorerDispatcherDependencies {
 	isProviderAuthConfigured?: IsProviderAuthConfigured;
-	dispatchSubagent?: DispatchSubagentFn;
 	runtime?: ExplorerRuntime;
 }
 
@@ -73,13 +62,7 @@ export async function dispatchExplorerSubagent(
 	const { pi, ctx, intent, definition } = input;
 	const dependencies = input.dependencies ?? {};
 	const authProbe = dependencies.isProviderAuthConfigured ?? isProviderAuthConfigured;
-	const runtime =
-		dependencies.runtime ??
-		(dependencies.dispatchSubagent === undefined
-			? createSubprocessExplorerRuntime()
-			: createFunctionExplorerRuntime((runtimeInput) =>
-					dependencies.dispatchSubagent!(runtimeInput.pi, runtimeInput.ctx, runtimeInput.options),
-				));
+	const runtime = dependencies.runtime ?? createSubprocessExplorerRuntime();
 	const launchPlan = resolveExplorerLaunchPlan({
 		...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
 		isProviderAuthConfigured: authProbe,

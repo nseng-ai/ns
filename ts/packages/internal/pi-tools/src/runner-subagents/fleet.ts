@@ -77,14 +77,14 @@ export class RunnerSubagentFleetRegistry {
 		return snapshotRun(run);
 	}
 
-	markRunning(taskId: string): void {
+	markRunning(taskId: string | undefined): void {
 		this.updateTask(taskId, (task) => {
 			task.state = "running";
 			task.sequence = this.sequence++;
 		});
 	}
 
-	markProgress(taskId: string, update: RunnerSubagentUpdate): void {
+	markProgress(taskId: string | undefined, update: RunnerSubagentUpdate): void {
 		this.updateTask(taskId, (task) => {
 			const activity = activityDescription(update);
 			if (activity !== undefined) task.latestActivity = activity;
@@ -93,7 +93,7 @@ export class RunnerSubagentFleetRegistry {
 		});
 	}
 
-	markDone(taskId: string, result: RunnerSubagentResult): void {
+	markDone(taskId: string | undefined, result: RunnerSubagentResult): void {
 		this.updateTask(taskId, (task) => {
 			task.state = "done";
 			task.finalStatus = result.status;
@@ -119,7 +119,11 @@ export class RunnerSubagentFleetRegistry {
 			.sort(compareFleetTasksForDisplay);
 	}
 
-	private updateTask(taskId: string, update: (task: MutableRunnerSubagentFleetTask) => void): void {
+	private updateTask(
+		taskId: string | undefined,
+		update: (task: MutableRunnerSubagentFleetTask) => void,
+	): void {
+		if (taskId === undefined) return;
 		const task = this.findTask(taskId);
 		if (task === undefined) return;
 		update(task);

@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { formatErrorMessage, formatZodError } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import {
@@ -7,7 +5,6 @@ import {
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
-import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
@@ -25,15 +22,21 @@ import {
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
-	type ExploreBreadth,
 } from "./contract.ts";
 import { dispatchExplorerSubagent } from "./dispatch.ts";
+import {
+	EXPLORE_PROMPT_MAX_CHARS,
+	EXPLORE_TITLE_MAX_CHARS,
+	exploreInputSchema,
+	type ExploreInput,
+} from "./input.ts";
 import { syncExploreFleetWidget } from "./fleet.ts";
 import { registerExploreFleetCommand } from "./fleet-navigator.ts";
 import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
 import {
 	registerExploreTranscriptCommand,
+	type CommandRegistrar,
 	type TranscriptViewerDependencies,
 } from "./transcript-viewer.ts";
 import {
@@ -54,13 +57,7 @@ export type {
 
 export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
-	registerCommand?: (
-		name: string,
-		options: {
-			description?: string;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	) => void;
+	registerCommand?: CommandRegistrar;
 };
 
 export interface ExploreExtensionOptions {
@@ -81,37 +78,7 @@ interface ExploreAbortScope {
 	dispose(): void;
 }
 
-const EXPLORE_DEFAULT_BREADTH: ExploreBreadth = "medium";
-const EXPLORE_TITLE_MAX_CHARS = 120;
-const EXPLORE_PROMPT_MAX_CHARS = 4_000;
-
-const exploreInputSchema = z
-	.object({
-		breadth: z.enum(EXPLORE_BREADTH_VALUES).default(EXPLORE_DEFAULT_BREADTH),
-		tasks: z
-			.array(
-				z.object({
-					title: z.string().trim().min(1).max(EXPLORE_TITLE_MAX_CHARS),
-					prompt: z.string().trim().min(1).max(EXPLORE_PROMPT_MAX_CHARS),
-				}),
-			)
-			.min(2)
-			.max(EXPLORE_ABSOLUTE_MAX_TASKS),
-	})
-	.strict()
-	.superRefine((input, ctx) => {
-		const profile = EXPLORE_BREADTH_PROFILES[input.breadth];
-		if (input.tasks.length > profile.maxTasks) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["tasks"],
-				message: `Too many explore tasks for breadth "${input.breadth}": got ${input.tasks.length}, max ${profile.maxTasks}. Choose a larger breadth or fewer tasks.`,
-			});
-		}
-	});
-
-export type ExploreInput = z.infer<typeof exploreInputSchema>;
-export type ExploreTaskInput = ExploreInput["tasks"][number];
+export type { ExploreInput, ExploreTaskInput } from "./input.ts";
 
 export const EXPLORE_PARAMETERS = {
 	type: "object",
@@ -183,7 +150,6 @@ export default function exploreExtension(
 	registerExploreFleetCommand({
 		pi,
 		registry: fleetRegistry,
-		...(options.transcriptViewer === undefined ? {} : { dependencies: options.transcriptViewer }),
 	});
 
 	pi.registerTool({
@@ -347,7 +313,7 @@ async function runExploreTasks(request: {
 			run: async (state, index) => {
 				const fleetTaskId = fleetRun.tasks[index]?.id;
 				state.state = "running";
-				if (fleetTaskId !== undefined) request.fleetRegistry.markRunning(fleetTaskId);
+				request.fleetRegistry.markRunning(fleetTaskId);
 				emitProgress();
 				const outcome = await runOneExploreTask({
 					pi: request.pi,
@@ -358,13 +324,13 @@ async function runExploreTasks(request: {
 					dispatchExplorer: request.dispatchExplorer,
 					onProgress: (update) => {
 						state.latestUpdate = update;
-						if (fleetTaskId !== undefined) request.fleetRegistry.markProgress(fleetTaskId, update);
+						request.fleetRegistry.markProgress(fleetTaskId, update);
 						emitProgress();
 					},
 				});
 				state.state = "done";
 				state.outcome = outcome;
-				if (fleetTaskId !== undefined) request.fleetRegistry.markDone(fleetTaskId, outcome.result);
+				request.fleetRegistry.markDone(fleetTaskId, outcome.result);
 				emitProgress();
 				return outcome;
 			},

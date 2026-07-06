@@ -10,7 +10,6 @@ import type {
 } from "@nseng-ai/pi/runtime/extension-types";
 
 import {
-	compareFleetTasksForDisplay,
 	createRunnerSubagentJsonEventParser,
 	extractRunnerSubagentTimelineFromSessionJsonl,
 	type RunnerSubagentFleetRegistry,
@@ -19,13 +18,13 @@ import {
 	type RunnerSubagentTimeline,
 	type RunnerSubagentTimelineEntry,
 } from "@internal/pi-tools/runner-subagents";
-import { formatExploreFleetWidgetLines } from "./fleet.ts";
+import { formatExploreFleetWidgetLines, sortedFleetTasks, taskIcon } from "./fleet.ts";
+import type { CommandRegistrar } from "./transcript-viewer.ts";
 
 export const EXPLORE_FLEET_COMMAND_NAME = "ns:explore:fleet";
 
 export interface ExploreFleetNavigatorDependencies {
 	readTextFile?: (path: string) => Promise<string>;
-	entryCap?: number;
 }
 
 export interface ExploreFleetTaskDetail {
@@ -41,13 +40,7 @@ export interface ExploreFleetTaskDetail {
 }
 
 interface CommandRegistrarHost {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
-		},
-	): void;
+	registerCommand: CommandRegistrar;
 }
 
 export function registerExploreFleetCommand<TPi extends object>(input: {
@@ -98,9 +91,6 @@ export async function openExploreFleetNavigator(input: {
 				registry: input.registry,
 				readTextFile,
 				done,
-				...(input.dependencies?.entryCap === undefined
-					? {}
-					: { entryCap: input.dependencies.entryCap }),
 			}),
 		{ overlay: true, overlayOptions: { title: "Explore fleet" } },
 	);
@@ -111,7 +101,6 @@ export interface ExploreFleetNavigatorOptions {
 	registry: RunnerSubagentFleetRegistry;
 	readTextFile: (path: string) => Promise<string>;
 	done(value: undefined): void;
-	entryCap?: number;
 }
 
 export class ExploreFleetNavigator implements RenderComponent {
@@ -119,24 +108,22 @@ export class ExploreFleetNavigator implements RenderComponent {
 	private readonly registry: RunnerSubagentFleetRegistry;
 	private readonly readTextFile: (path: string) => Promise<string>;
 	private readonly done: (value: undefined) => void;
-	private readonly entryCap: number | undefined;
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private tasks: RunnerSubagentFleetTaskSnapshot[];
 	private selectedTaskId: string | undefined;
 	private detail: ExploreFleetTaskDetail | undefined;
 	private detailScrollFromBottom = 0;
-	private follow = true;
-	private readInFlight = false;
-	private readQueued = false;
-	private disposed = false;
+	private isFollowing = true;
+	private isReadInFlight = false;
+	private hasQueuedRead = false;
+	private isDisposed = false;
 
 	constructor(options: ExploreFleetNavigatorOptions) {
 		this.tui = options.tui;
 		this.registry = options.registry;
 		this.readTextFile = options.readTextFile;
 		this.done = options.done;
-		this.entryCap = options.entryCap;
 		this.tasks = this.readTasks();
 		this.selectedTaskId = this.tasks[0]?.id;
 		this.unsubscribe = this.registry.subscribe(() => {
@@ -161,8 +148,8 @@ export class ExploreFleetNavigator implements RenderComponent {
 	}
 
 	dispose(): void {
-		if (this.disposed) return;
-		this.disposed = true;
+		if (this.isDisposed) return;
+		this.isDisposed = true;
 		this.unsubscribe();
 	}
 
@@ -199,19 +186,19 @@ export class ExploreFleetNavigator implements RenderComponent {
 		}
 		if (data === "f") {
 			this.detailScrollFromBottom = 0;
-			this.follow = true;
+			this.isFollowing = true;
 			this.tui.requestRender();
 			return;
 		}
 		if (isUpKey(data)) {
 			this.detailScrollFromBottom += 1;
-			this.follow = false;
+			this.isFollowing = false;
 			this.tui.requestRender();
 			return;
 		}
 		if (isDownKey(data)) {
 			this.detailScrollFromBottom = Math.max(0, this.detailScrollFromBottom - 1);
-			if (this.detailScrollFromBottom === 0) this.follow = true;
+			if (this.detailScrollFromBottom === 0) this.isFollowing = true;
 			this.tui.requestRender();
 		}
 	}
@@ -232,19 +219,19 @@ export class ExploreFleetNavigator implements RenderComponent {
 		this.mode = "detail";
 		this.detail = undefined;
 		this.detailScrollFromBottom = 0;
-		this.follow = true;
+		this.isFollowing = true;
 		this.scheduleDetailLoad();
 		this.tui.requestRender();
 	}
 
 	private scheduleDetailLoad(): void {
-		if (this.readInFlight) {
-			this.readQueued = true;
+		if (this.isReadInFlight) {
+			this.hasQueuedRead = true;
 			return;
 		}
 		const task = this.selectedTask();
 		if (task === undefined) return;
-		this.readInFlight = true;
+		this.isReadInFlight = true;
 		void this.runDetailLoad(task);
 	}
 
@@ -252,16 +239,15 @@ export class ExploreFleetNavigator implements RenderComponent {
 		const detail = await loadFleetTaskDetail({
 			task,
 			readTextFile: this.readTextFile,
-			...(this.entryCap === undefined ? {} : { entryCap: this.entryCap }),
 		});
-		this.readInFlight = false;
-		if (!this.disposed && this.mode === "detail" && this.selectedTaskId === task.id) {
+		this.isReadInFlight = false;
+		if (!this.isDisposed && this.mode === "detail" && this.selectedTaskId === task.id) {
 			this.detail = detail;
-			if (this.follow) this.detailScrollFromBottom = 0;
+			if (this.isFollowing) this.detailScrollFromBottom = 0;
 			this.tui.requestRender();
 		}
-		if (!this.disposed && this.readQueued) {
-			this.readQueued = false;
+		if (!this.isDisposed && this.hasQueuedRead) {
+			this.hasQueuedRead = false;
 			this.scheduleDetailLoad();
 		}
 	}
@@ -352,7 +338,6 @@ export class ExploreFleetNavigator implements RenderComponent {
 export async function loadFleetTaskDetail(input: {
 	task: RunnerSubagentFleetTaskSnapshot;
 	readTextFile: (path: string) => Promise<string>;
-	entryCap?: number;
 }): Promise<ExploreFleetTaskDetail> {
 	if (input.task.sessionFile === undefined)
 		return placeholderDetail(input.task, "no session file yet");
@@ -372,10 +357,7 @@ export async function loadFleetTaskDetail(input: {
 	parser.pushChunk(jsonl);
 	parser.finish();
 	const snapshot = parser.getSnapshot();
-	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
-		jsonl,
-		input.entryCap === undefined ? {} : { entryCap: input.entryCap },
-	);
+	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
 	return detailFromSnapshot(input.task, input.task.sessionFile, snapshot, timeline);
 }
 
@@ -414,12 +396,6 @@ function placeholderDetail(
 	};
 }
 
-function sortedFleetTasks(
-	runs: readonly { tasks: readonly RunnerSubagentFleetTaskSnapshot[] }[],
-): RunnerSubagentFleetTaskSnapshot[] {
-	return runs.flatMap((run) => run.tasks).sort(compareFleetTasksForDisplay);
-}
-
 function fleetCounts(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): {
 	running: number;
 	queued: number;
@@ -453,12 +429,6 @@ function renderTimelineEntry(entry: RunnerSubagentTimelineEntry): string {
 function modelText(snapshot: RunnerSubagentJsonEventParserSnapshot): string {
 	const model = snapshot.progress.launch?.model;
 	return model === undefined ? "model unknown" : `${model.provider}/${model.id}`;
-}
-
-function taskIcon(task: RunnerSubagentFleetTaskSnapshot): string {
-	if (task.state === "queued") return "·";
-	if (task.state === "running") return "▶";
-	return task.finalStatus === "final-text" ? "✓" : "✗";
 }
 
 function isUpKey(data: string): boolean {
