@@ -2,18 +2,14 @@
 
 ## Work
 
-- [~] Kernel shared `ns.toml` loader: single parse, Zod-validated `[points]` table and
+- [x] Kernel shared `ns.toml` loader: single parse, Zod-validated `[points]` table and
   declared settings schemas, structured diagnostics.
   - Placement decided and initial API landed: `@nseng-ai/kernel` owns the internal
     project-config/points loader surface; `ns.points` manifest schema/types live with SDK
     manifest metadata.
-  - Remaining before `[x]`: migrate real consumers onto this loader and get full `just`
-    green once the unrelated existing Objective topology-circle style-guard failure is
-    cleared or excluded by evidence.
-  - Evidence: fake-driven kernel unit tests for parse/validation/diagnostics; targeted
-    kernel tests, `just ts-check`, `just ts-lint`, `just ts-format-check`, and
-    `git diff --check` passed on commit `6ac5f1b19`; full `just` reached an unrelated
-    existing `@nseng-ai/objectives` topology-circle style-guard failure.
+  - Evidence: fake-driven kernel unit tests for parse/validation/diagnostics; real
+    consumers migrated in later rows; targeted validation passes. Full `just` consistently
+    reaches a known unrelated `@nseng-ai/objectives` topology-circle style-guard failure.
 - [x] `ns.points` manifest discovery and point catalog computation: definitions joined
       with installations — installed-but-undefined (error), override-in-effect,
       defined-but-uninstalled; conventional `.ns/prompts/<point-id>.md` folded in.
@@ -38,7 +34,7 @@
     `NS_DEV_PR_DESCRIPTION_PROMPT` override through the kernel catalog as prompt env override
     source info with diagnostics while preserving behavior.
   - Policy: each rename cuts over reader and file in the same slice.
-- [~] Migrate declared settings: roaster (`diff`, `model_profiles`), areg (`agents`),
+- [x] Migrate declared settings: roaster (`diff`, `model_profiles`), areg (`agents`),
   ns-init (`harnesses`) onto the shared loader; delete all four ad-hoc smol-toml parsers.
   - Landed: local branch `point-system-settings-loader-Pa0ixh` commit `a56987991`
     migrates `areg` `[areg].agents` onto the kernel loader with a declared settings schema
@@ -46,7 +42,10 @@
   - Landed: local branch `point-system-roaster-settings-loader-ZdmM9j` commit `d9a13235f`
     migrates roaster `[roaster.diff]` and `[roaster.model_profiles]` onto the kernel loader
     with declared settings schemas and removes reviews' direct `smol-toml` dependency.
-  - Remaining before `[x]`: ns-init `harnesses`.
+  - Landed: local branch `point-system/ns-init-settings-loader` commit `f73c3cde`
+    migrates ns-init harness settings onto the kernel loader, removes ns-init's direct
+    `smol-toml` dependency, and a targeted predecessor scan finds no remaining direct
+    `smol-toml` imports/dependencies in the four retired config surfaces.
 - [ ] CLI: `ns extension points` (catalog) and `ns extension point <id>` (detail) under
       the `ns extension` group, per `skills/ns-cli-design` conventions.
   - Evidence: CLI scenario tests including `--format` machine output.
