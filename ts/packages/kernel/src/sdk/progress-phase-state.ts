@@ -87,51 +87,47 @@ export function createProgressPhaseStateStore(
 		phaseKey: string,
 		label: string | undefined,
 	): ProgressPhaseView | undefined {
-		const location = ensureLocation(phaseKey);
-		if (location === undefined) return undefined;
-		setActive(location);
-		const record = recordAt(location);
-		if (record === undefined) return undefined;
-		const nextLabel = label ?? record.spec.label;
-		const nextRecord = { ...withSupersededLabel(record, nextLabel), label: nextLabel };
-		replaceRecord(location, nextRecord);
-		return viewAt(location);
+		return updateRecord(phaseKey, {
+			prepare: setActive,
+			update: (record) => withLabel(record, label ?? record.spec.label),
+		});
 	}
 
 	function applyProgress(phaseKey: string, label: string): ProgressPhaseView | undefined {
-		const location = ensureLocation(phaseKey);
-		if (location === undefined) return undefined;
-		ensureProgressTargetActive(location);
-		const record = recordAt(location);
-		if (record === undefined) return undefined;
-		const nextRecord = { ...withSupersededLabel(record, label), label };
-		replaceRecord(location, nextRecord);
-		return viewAt(location);
+		return updateRecord(phaseKey, {
+			prepare: ensureProgressTargetActive,
+			update: (record) => withLabel(record, label),
+		});
 	}
 
 	function applyDone(phaseKey: string, detail: string | undefined): ProgressPhaseView | undefined {
-		const location = ensureLocation(phaseKey);
-		if (location === undefined) return undefined;
-		const record = recordAt(location);
-		if (record === undefined) return undefined;
-		const nextRecord = completeRecord(record, detail);
-		replaceRecord(location, nextRecord);
-		return viewAt(location);
+		return updateRecord(phaseKey, { update: (record) => completeRecord(record, detail) });
 	}
 
 	function applyFailed(phaseKey: string, detail: string): ProgressPhaseView | undefined {
+		return updateRecord(phaseKey, {
+			update: (record) => withLabel(record, detail, { state: "failed" }),
+			after: failParentForSubstep,
+		});
+	}
+
+	function updateRecord(
+		phaseKey: string,
+		options: {
+			prepare?(location: PhaseLocation): void;
+			update(record: PhaseRecord): PhaseRecord;
+			after?(location: PhaseLocation): void;
+		},
+	): ProgressPhaseView | undefined {
 		const location = ensureLocation(phaseKey);
 		if (location === undefined) return undefined;
+		options.prepare?.(location);
 		const record = recordAt(location);
 		if (record === undefined) return undefined;
-		const nextRecord = {
-			...withSupersededLabel(record, detail),
-			state: "failed",
-			label: detail,
-		} satisfies PhaseRecord;
+		const nextRecord = options.update(record);
 		replaceRecord(location, nextRecord);
-		failParentForSubstep(location);
-		return viewAt(location);
+		options.after?.(location);
+		return viewForRecord(nextRecord);
 	}
 
 	function ensureLocation(phaseKey: string): PhaseLocation | undefined {
@@ -148,11 +144,6 @@ export function createProgressPhaseStateStore(
 	function recordAt(location: PhaseLocation): PhaseRecord | undefined {
 		if (location.type === "top") return records[location.index];
 		return records[location.parentIndex]?.substeps[location.index];
-	}
-
-	function viewAt(location: PhaseLocation): ProgressPhaseView | undefined {
-		const record = recordAt(location);
-		return record === undefined ? undefined : viewForRecord(record);
 	}
 
 	function replaceRecord(location: PhaseLocation, record: PhaseRecord): void {
@@ -303,6 +294,14 @@ function indexRecords(records: readonly PhaseRecord[]): Map<string, PhaseLocatio
 
 function replaceAt<T>(items: readonly T[], index: number, item: T): T[] {
 	return items.map((current, currentIndex) => (currentIndex === index ? item : current));
+}
+
+function withLabel(
+	record: PhaseRecord,
+	nextLabel: string | undefined,
+	extra: Partial<PhaseRecord> = {},
+): PhaseRecord {
+	return { ...withSupersededLabel(record, nextLabel), label: nextLabel, ...extra };
 }
 
 function withSupersededLabel(record: PhaseRecord, nextLabel: string | undefined): PhaseRecord {
