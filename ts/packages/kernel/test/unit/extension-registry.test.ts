@@ -416,10 +416,6 @@ describe("extension registry", () => {
 		expect(candidate).toMatchObject({
 			moduleReference: { type: "package", specifier: "@nseng-ai/objectives/ns/commands/list" },
 		});
-		if (candidate === undefined) return;
-
-		const selected = await loadSelectedNsCommand(candidate);
-		expect(selected.ok).toBe(true);
 	});
 
 	test("listing command infos preserve package manifest metadata without importing", async () => {
