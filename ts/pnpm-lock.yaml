@@ -695,9 +695,6 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
-      '@nseng-ai/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
       smol-toml:
         specifier: 'catalog:'
         version: 1.6.1

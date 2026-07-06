@@ -6,7 +6,7 @@ import {
 	skillLookupDescriptorForSourceType,
 	type SkillLookupRoot,
 	type SkillLookupSourceType,
-} from "@nseng-ai/pi/skills/lookup";
+} from "./skill-lookup.ts";
 
 import { missingCheckSkillInspection } from "./gateways.ts";
 import type {

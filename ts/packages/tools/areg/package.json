@@ -20,7 +20,6 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/command-backed-skill-registry": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/pi": "workspace:*",
 		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
