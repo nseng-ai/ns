@@ -4,6 +4,7 @@ import {
 	type ParsedAutobranchArgs,
 } from "./dirty-worktree.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
+import { createAutobranchGitGateway } from "./git-gateway.ts";
 import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
 import {
@@ -49,6 +50,7 @@ export async function createFlowAutobranchCheckpointFlow(
 		};
 	}
 
+	const git = createAutobranchGitGateway(input.exec);
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
 		return createLatestCommitAutobranchFlow({
@@ -56,6 +58,7 @@ export async function createFlowAutobranchCheckpointFlow(
 			args: input.args,
 			snapshot,
 			exec: input.exec,
+			git,
 			...(input.onPhase ? { onPhase: input.onPhase } : {}),
 			...(input.now ? { now: input.now } : {}),
 		});
@@ -66,6 +69,7 @@ export async function createFlowAutobranchCheckpointFlow(
 		args: input.args,
 		snapshot,
 		exec: input.exec,
+		git,
 		prepareCheckpointMessage: input.prepareCheckpointMessage,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
 		...(input.onPhase ? { onPhase: input.onPhase } : {}),

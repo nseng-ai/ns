@@ -1,3 +1,4 @@
+import { createAutobranchGitGateway } from "../../autobranch/git-gateway.ts";
 import {
 	createLatestCommitAutobranchFlow,
 	type LatestCommitAutobranchInput,
@@ -67,12 +68,14 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			);
 		}
 
+		const exec = (command: string, commandArgs: string[], timeout: number) =>
+			execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout });
 		const result = await createLatestCommitAutobranchFlow({
 			cwd: snapshot.root,
 			args,
 			snapshot,
-			exec: (command, commandArgs, timeout) =>
-				execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
+			exec,
+			git: createAutobranchGitGateway(exec),
 		});
 		if (!result.ok) {
 			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)

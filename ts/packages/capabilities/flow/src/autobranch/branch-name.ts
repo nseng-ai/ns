@@ -1,11 +1,11 @@
-import type { CommandResult } from "./shared.ts";
+import type { AutobranchExec } from "./shared.ts";
 import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@nseng-ai/foundation/branch-slug";
 
 const GIT_TIMEOUT_MS = 30_000;
 
 export interface BranchNameAvailabilityInput {
 	cwd: string;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
 }
 
 export interface AvailableBranchName {

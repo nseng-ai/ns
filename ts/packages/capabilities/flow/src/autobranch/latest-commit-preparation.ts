@@ -1,5 +1,6 @@
 import { shortSha } from "../commit-display/index.ts";
-import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchGitGateway } from "./git-gateway.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -12,14 +13,14 @@ import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 
-const GIT_TIMEOUT_MS = 30_000;
 const GT_TIMEOUT_MS = 120_000;
 
 export interface LatestCommitPreparationInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	exec: AutobranchExec;
+	git: AutobranchGitGateway;
 }
 
 interface LatestCommitFacts {
@@ -117,7 +118,7 @@ export async function prepareLatestCommitAutobranchPlan(
 }
 
 export async function loadLatestCommitFacts(
-	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "snapshot">,
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "git" | "snapshot">,
 ): Promise<LatestCommitFactsResult> {
 	const upstream = await inspectUpstreamHeadState(input);
 	if (upstream.type === "failed") {
@@ -135,26 +136,15 @@ export async function loadLatestCommitFacts(
 		return { ok: false, kind: "child_branch_refusal", children: children.children };
 	}
 
-	const parents = await input.exec(
-		"git",
-		["rev-list", "--parents", "-n", "1", "HEAD"],
-		GIT_TIMEOUT_MS,
-	);
-	if (parents.code !== 0) {
+	const parents = await input.git.headParents();
+	if (!parents.ok) {
 		return {
 			ok: false,
 			kind: "commit_parent_lookup_failed",
-			error: formatAutobranchCommandDetails(parents),
+			error: parents.details,
 		};
 	}
-	const [headSha, ...parentShas] = parents.stdout.trim().split(/\s+/).filter(Boolean);
-	if (!headSha) {
-		return {
-			ok: false,
-			kind: "commit_parent_lookup_failed",
-			error: "git rev-list returned no HEAD commit.",
-		};
-	}
+	const { headSha, parentShas } = parents.value;
 	if (parentShas.length === 0) {
 		return { ok: false, kind: "root_commit_refusal", headSha };
 	}
@@ -163,24 +153,24 @@ export async function loadLatestCommitFacts(
 	}
 
 	const [message, diff] = await Promise.all([
-		input.exec("git", ["log", "-1", "--format=%B"], GIT_TIMEOUT_MS),
-		input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], GIT_TIMEOUT_MS),
+		input.git.headCommitMessage(),
+		input.git.headCommitDiff(),
 	]);
-	if (message.code !== 0) {
+	if (!message.ok) {
 		return {
 			ok: false,
 			kind: "commit_evidence_failed",
-			error: formatAutobranchCommandDetails(message),
+			error: message.details,
 		};
 	}
-	if (diff.code !== 0) {
+	if (!diff.ok) {
 		return {
 			ok: false,
 			kind: "commit_evidence_failed",
-			error: formatAutobranchCommandDetails(diff),
+			error: diff.details,
 		};
 	}
-	const commitSubject = message.stdout.split("\n")[0]?.trim();
+	const commitSubject = message.value.split("\n")[0]?.trim();
 	const commitSummary = commitSubject ? `${shortSha(headSha)} ${commitSubject}` : shortSha(headSha);
 
 	return {
@@ -189,8 +179,8 @@ export async function loadLatestCommitFacts(
 			sourceBranch: input.snapshot.branch,
 			originalHeadSha: headSha,
 			parentSha: parentShas[0] as string,
-			commitMessage: message.stdout,
-			commitDiff: diff.stdout,
+			commitMessage: message.value,
+			commitDiff: diff.value,
 			commitSummary,
 			...(upstream.type === "head_not_in_upstream" ? { upstream: upstream.upstream } : {}),
 		},
