@@ -103,13 +103,13 @@ function runtimeWithFakes(
 					reviewsDir: "/repo/.ns/reviews",
 				}),
 			localDiff: new FakeLocalDiffGateway({
-				defaultDiff: { type: "ok", value: options.diff ?? diffForPath("src/app.ts") },
+				defaultDiff: { ok: true, value: options.diff ?? diffForPath("src/app.ts") },
 			}),
 			reviewRunner:
 				options.reviewRunner ??
 				new FakeReviewRunnerGateway({
 					defaultResult: {
-						type: "ok",
+						ok: true,
 						value: options.response ?? {
 							payload: createFindingsReview([]),
 							usage: null,
@@ -245,7 +245,7 @@ describe("@nseng-ai/reviews/api", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			error: { type: "review-execution-invalid-json" },
+			error: { code: "review-execution-invalid-json" },
 		});
 	});
 
@@ -273,8 +273,8 @@ describe("@nseng-ai/reviews/api", () => {
 
 		const result = await client.publishFindings({ prNumber: 47 });
 
-		expect(result.type).toBe("ok");
-		if (result.type !== "ok") throw new Error(result.error.message);
+		expect(result.ok).toBe(true);
+		if (!result.ok) throw new Error(result.error.message);
 		expect(result.value.summaryStatus.type).toBe("posted");
 		expect(github.createdReviews()).toHaveLength(1);
 		expect(github.createdReviews()[0]?.comments[0]?.body).toContain(
@@ -288,7 +288,7 @@ describe("@nseng-ai/reviews/api", () => {
 			runtime: runtimeWithFakes({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					listReviewKeysFailure: {
-						type: "reviews-dir-missing",
+						code: "reviews-dir-missing",
 						message: "No reviews directory at /repo/.ns/reviews.",
 					},
 				}),
@@ -300,7 +300,7 @@ describe("@nseng-ai/reviews/api", () => {
 		expect(result).toEqual({
 			ok: false,
 			failure: {
-				errorType: "reviews-dir-missing",
+				code: "reviews-dir-missing",
 				message: "No reviews directory at /repo/.ns/reviews.",
 			},
 		});

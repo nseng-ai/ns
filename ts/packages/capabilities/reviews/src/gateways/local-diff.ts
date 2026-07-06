@@ -11,7 +11,7 @@ import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
-import type { LocalDiffFailure, RoasterResult } from "../core/failures.ts";
+import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
 import { createLocalDiff, type LocalDiff } from "../core/models.ts";
 import { buildGitDiffArgs, parseRoasterProjectConfigToml } from "../core/project-config.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
@@ -27,7 +27,7 @@ export interface LoadDiffOptions {
 }
 
 export interface LocalDiffGateway {
-	loadDiff(options: LoadDiffOptions): Promise<RoasterResult<LocalDiff>>;
+	loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>>;
 }
 
 export interface RealLocalDiffGatewayOptions {
@@ -44,20 +44,20 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		this.gitGateway = options.gitGateway ?? new RealGitGateway(options.execApi);
 	}
 
-	async loadDiff(options: LoadDiffOptions): Promise<RoasterResult<LocalDiff>> {
+	async loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>> {
 		const repoRoot = await this.gitGateway.repoRoot({ cwd: options.cwd, signal: options.signal });
 		if (!repoRoot.ok) {
 			return error({
-				type: "repo-root-unavailable",
+				code: "repo-root-unavailable",
 				message: repoRoot.error.message,
 			});
 		}
 
 		const baseRef = await this.resolveBaseRef(options, repoRoot.value);
-		if (baseRef.type === "error") return baseRef;
+		if (!baseRef.ok) return baseRef;
 
 		const excludeGlobsResult = await this.resolveExcludeGlobs(options, repoRoot.value);
-		if (excludeGlobsResult.type === "error") return excludeGlobsResult;
+		if (!excludeGlobsResult.ok) return excludeGlobsResult;
 		const excludeGlobs = excludeGlobsResult.value;
 
 		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs })];
@@ -70,20 +70,20 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			result = await this.execApi.exec("git", args, execOptions(repoRoot.value, options));
 		} catch (caught) {
 			return error({
-				type: "git-invocation-failed",
+				code: "git-invocation-failed",
 				message: `${displayCommand} failed to start in ${repoRoot.value}: ${formatErrorMessage(caught)}`,
 			});
 		}
 
 		if (result.code !== 0 || result.killed) {
 			return error({
-				type: "git-diff-failed",
+				code: "git-diff-failed",
 				message: `${displayCommand} failed in ${repoRoot.value}: ${commandFailureReason(result)}`,
 			});
 		}
 
 		return {
-			type: "ok",
+			ok: true,
 			value: createLocalDiff({
 				baseRef: baseRef.value,
 				diffText: result.stdout,
@@ -95,17 +95,17 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 	private async resolveBaseRef(
 		options: LoadDiffOptions,
 		repoRoot: string,
-	): Promise<RoasterResult<string>> {
+	): Promise<ReviewResult<string>> {
 		const explicitBaseRef = options.baseRef?.trim() ?? "";
-		if (explicitBaseRef !== "") return { type: "ok", value: explicitBaseRef };
+		if (explicitBaseRef !== "") return { ok: true, value: explicitBaseRef };
 
 		const trunk = await this.gitGateway.trunkBranch({ cwd: repoRoot, signal: options.signal });
 		if (trunk.type === "found" && trunk.value.trim() !== "")
-			return { type: "ok", value: trunk.value.trim() };
+			return { ok: true, value: trunk.value.trim() };
 		if (trunk.type === "error")
-			return error({ type: "base-ref-unavailable", message: trunk.error.message });
+			return error({ code: "base-ref-unavailable", message: trunk.error.message });
 		return error({
-			type: "base-ref-unavailable",
+			code: "base-ref-unavailable",
 			message: "Unable to resolve a base branch. Pass --base-ref explicitly.",
 		});
 	}
@@ -113,38 +113,37 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 	private async resolveExcludeGlobs(
 		options: LoadDiffOptions,
 		repoRoot: string,
-	): Promise<RoasterResult<readonly string[]>> {
-		if (options.excludeGlobs !== undefined) return { type: "ok", value: options.excludeGlobs };
+	): Promise<ReviewResult<readonly string[]>> {
+		if (options.excludeGlobs !== undefined) return { ok: true, value: options.excludeGlobs };
 
 		const path = join(repoRoot, "ns.toml");
 		let source: string;
 		try {
 			source = await readFile(path, "utf8");
 		} catch (caught) {
-			if (isMissingFileError(caught)) return { type: "ok", value: [] };
+			if (isMissingFileError(caught)) return { ok: true, value: [] };
 			return error({
-				type: "project-config-invalid",
+				code: "project-config-invalid",
 				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
 			});
 		}
 
 		const config = parseRoasterProjectConfigToml(source, path);
-		if (config.type === "error")
-			return error({ type: "project-config-invalid", message: config.error.message });
-		return { type: "ok", value: config.config.diff.exclude };
+		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
+		return { ok: true, value: config.config.diff.exclude };
 	}
 }
 
 export interface FakeLocalDiffGatewayOptions {
 	readonly diffsByBaseRef?:
-		| ReadonlyMap<string | null | undefined, RoasterResult<LocalDiff>>
-		| Readonly<Record<string, RoasterResult<LocalDiff>>>;
-	readonly defaultDiff?: RoasterResult<LocalDiff>;
+		| ReadonlyMap<string | null | undefined, ReviewResult<LocalDiff>>
+		| Readonly<Record<string, ReviewResult<LocalDiff>>>;
+	readonly defaultDiff?: ReviewResult<LocalDiff>;
 }
 
 export class FakeLocalDiffGateway implements LocalDiffGateway {
-	private readonly diffsByBaseRef = new Map<string | null | undefined, RoasterResult<LocalDiff>>();
-	private readonly defaultDiff: RoasterResult<LocalDiff>;
+	private readonly diffsByBaseRef = new Map<string | null | undefined, ReviewResult<LocalDiff>>();
+	private readonly defaultDiff: ReviewResult<LocalDiff>;
 	private readonly requestedBaseRefsInternal: Array<string | null | undefined> = [];
 	private readonly requestedExcludeGlobsInternal: Array<readonly string[] | undefined> = [];
 
@@ -158,13 +157,13 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 		}
 		this.defaultDiff = copyResult(
 			options.defaultDiff ?? {
-				type: "ok",
+				ok: true,
 				value: createLocalDiff({ baseRef: "main", diffText: "", files: [] }),
 			},
 		);
 	}
 
-	async loadDiff(options: LoadDiffOptions): Promise<RoasterResult<LocalDiff>> {
+	async loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>> {
 		this.requestedBaseRefsInternal.push(options.baseRef);
 		this.requestedExcludeGlobsInternal.push(options.excludeGlobs);
 		return copyResult(this.diffsByBaseRef.get(options.baseRef) ?? this.defaultDiff);
@@ -181,17 +180,17 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 	}
 }
 
-function copyResult(result: RoasterResult<LocalDiff>): RoasterResult<LocalDiff> {
-	if (result.type === "error") return { type: "error", error: { ...result.error } };
-	return { type: "ok", value: localDiffCopy(result.value) };
+function copyResult(result: ReviewResult<LocalDiff>): ReviewResult<LocalDiff> {
+	if (!result.ok) return { ok: false, error: { ...result.error } };
+	return { ok: true, value: localDiffCopy(result.value) };
 }
 
 function localDiffCopy(value: LocalDiff): LocalDiff {
 	return createLocalDiff({ baseRef: value.baseRef, diffText: value.diffText, files: value.files });
 }
 
-function error(errorValue: LocalDiffFailure): RoasterResult<never> {
-	return { type: "error", error: errorValue };
+function error(errorValue: LocalDiffFailure): ReviewResult<never> {
+	return { ok: false, error: errorValue };
 }
 
 function execOptions(

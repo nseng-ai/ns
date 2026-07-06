@@ -17,7 +17,6 @@ import {
 	inlineMarkerForFinding,
 	renderInlineBody,
 } from "./findings-comment.ts";
-import { callGithub } from "./github-feedback-failures.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
 import { type PostInlineFindingsResult } from "./models.ts";
 
@@ -34,17 +33,17 @@ export async function postInlineFindings(
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
 	const githubOptions = environmentOptions(options.runScope);
-	const changedFilesResult = await callGithubOrEmptyResult(
+	const changedFilesResult = await readGithubOrEmptyResult(
 		{ ...githubOptions, prNumber: options.prNumber },
 		(params) => ctx.github.getPrChangedFiles(params),
 	);
-	if (changedFilesResult.type === "empty") return changedFilesResult.result;
+	if ("type" in changedFilesResult) return changedFilesResult.result;
 
-	const reviewCommentsResult = await callGithubOrEmptyResult(
+	const reviewCommentsResult = await readGithubOrEmptyResult(
 		{ ...githubOptions, prNumber: options.prNumber },
 		(params) => ctx.github.getPrReviewComments(params),
 	);
-	if (reviewCommentsResult.type === "empty") return reviewCommentsResult.result;
+	if ("type" in reviewCommentsResult) return reviewCommentsResult.result;
 
 	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
 	const existingMarkers = new Set(
@@ -75,11 +74,12 @@ export async function postInlineFindings(
 	let postedCount = 0;
 	if (comments.length > 0) {
 		try {
-			const posted = await callGithub(
-				{ ...githubOptions, prNumber: options.prNumber, comments },
-				(params) => ctx.github.createPrReview(params),
-			);
-			if (posted.type === "error") apiError = posted.error.message;
+			const posted = await ctx.github.createPrReview({
+				...githubOptions,
+				prNumber: options.prNumber,
+				comments,
+			});
+			if (!posted.ok) apiError = posted.error.message;
 			else postedCount = comments.length;
 		} catch (caught) {
 			apiError = formatErrorMessage(caught);
@@ -96,16 +96,16 @@ export async function postInlineFindings(
 }
 
 type GithubReadOrEmptyResult<T> =
-	| { readonly type: "ok"; readonly value: T }
+	| { readonly ok: true; readonly value: T }
 	| { readonly type: "empty"; readonly result: PostInlineFindingsResult };
 
-async function callGithubOrEmptyResult<T, TOptions extends { readonly cwd: string | undefined }>(
+async function readGithubOrEmptyResult<T, TOptions extends { readonly cwd: string | undefined }>(
 	options: TOptions,
 	call: (options: TOptions) => Promise<Result<T, GithubPrFeedbackFailure>>,
 ): Promise<GithubReadOrEmptyResult<T>> {
 	try {
-		const result = await callGithub(options, call);
-		if (result.type === "error") {
+		const result = await call(options);
+		if (!result.ok) {
 			return { type: "empty", result: { ...emptyInlineResult(), apiError: result.error.message } };
 		}
 		return result;

@@ -1,9 +1,9 @@
 import type {
+	GithubPrFeedbackFailure,
 	GithubPrFeedbackOptions,
 	GithubPrReviewThread,
 } from "@nseng-ai/capability-kit/github/pr-feedback";
 
-import type { GitHubGatewayFailure, RoasterFailure } from "./failures.ts";
 import {
 	capTrailingRecords,
 	inlineMarkerForFinding,
@@ -14,7 +14,6 @@ import {
 import type { PriorFindingsPromptContext, PriorFindingsPromptContextEntry } from "./models.ts";
 import { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 import type { ReviewsGithubPrFeedbackGateway } from "./context.ts";
-import { callGithub } from "./github-feedback-failures.ts";
 
 export type PriorFindingResolutionStatus = PriorFindingsPromptContextEntry["resolutionStatus"];
 export type PriorFindingContextEntry = PriorFindingsPromptContextEntry;
@@ -38,7 +37,7 @@ export type GatherPriorFindingsContextResult =
 			readonly type: "without-context";
 			readonly reason: PriorFindingsContextMissingReason;
 			readonly message: string;
-			readonly error?: GitHubGatewayFailure;
+			readonly error?: GithubPrFeedbackFailure;
 	  };
 
 export interface GatherPriorFindingsContextOptions extends GithubPrFeedbackOptions {
@@ -60,20 +59,17 @@ export async function gatherPriorFindingsContext(
 
 	const githubOptions = copyFeedbackOptions(options);
 	const marker = summaryMarkerForReview(options.reviewName);
-	const summaryComment = await callGithub(
-		{
-			...githubOptions,
-			prNumber: options.prNumber,
-			marker,
-			authorLogin: ROASTER_BOT_LOGIN,
-		},
-		(params) => gateway.findPrDiscussionCommentByMarker(params),
-	);
-	if (summaryComment.type === "error") {
+	const summaryComment = await gateway.findPrDiscussionCommentByMarker({
+		...githubOptions,
+		prNumber: options.prNumber,
+		marker,
+		authorLogin: ROASTER_BOT_LOGIN,
+	});
+	if (!summaryComment.ok) {
 		return withoutContext(
 			"github-read-failed",
 			`Could not read PR discussion comments for prior findings: ${summaryComment.error.message}`,
-			githubGatewayFailure(summaryComment.error),
+			summaryComment.error,
 		);
 	}
 	if (summaryComment.value === null) {
@@ -99,15 +95,15 @@ export async function gatherPriorFindingsContext(
 		);
 	}
 
-	const reviewThreads = await callGithub(
-		{ ...githubOptions, prNumber: options.prNumber },
-		(params) => gateway.getPrReviewThreads(params),
-	);
-	if (reviewThreads.type === "error") {
+	const reviewThreads = await gateway.getPrReviewThreads({
+		...githubOptions,
+		prNumber: options.prNumber,
+	});
+	if (!reviewThreads.ok) {
 		return withoutContext(
 			"github-read-failed",
 			`Could not read PR review threads for prior-finding resolution status: ${reviewThreads.error.message}`,
-			githubGatewayFailure(reviewThreads.error),
+			reviewThreads.error,
 		);
 	}
 
@@ -166,21 +162,10 @@ function copyFeedbackOptions(options: GithubPrFeedbackOptions): GithubPrFeedback
 	};
 }
 
-function githubGatewayFailure(error: RoasterFailure): GitHubGatewayFailure {
-	if (
-		error.type === "github-cli-failed" ||
-		error.type === "github-json-invalid" ||
-		error.type === "github-response-invalid"
-	) {
-		return { type: error.type, message: error.message };
-	}
-	return { type: "github-cli-failed", message: error.message };
-}
-
 function withoutContext(
 	reason: PriorFindingsContextMissingReason,
 	message: string,
-	error?: GitHubGatewayFailure,
+	error?: GithubPrFeedbackFailure,
 ): GatherPriorFindingsContextResult {
 	return {
 		type: "without-context",

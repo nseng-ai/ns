@@ -7,8 +7,8 @@ import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core
 import {
 	isReviewLogFailure,
 	type ReviewLogFailure,
-	type RoasterFailure,
-	type RoasterResult,
+	type ReviewFailure,
+	type ReviewResult,
 } from "../core/failures.ts";
 import {
 	publishFindings,
@@ -184,17 +184,17 @@ export type RecordFindingsOutcome =
 			readonly result: ReviewRunResult;
 			readonly error: ReviewLogFailure;
 	  }
-	| { readonly type: "failed"; readonly error: RoasterFailure };
+	| { readonly type: "failed"; readonly error: ReviewFailure };
 
 export async function buildReviewListResult(
 	ctx: RoasterRuntime,
 	request: ReviewListRequest,
-): Promise<RoasterResult<ReviewListResult>> {
+): Promise<ReviewResult<ReviewListResult>> {
 	const catalog = await ctx.reviewCatalog.listReviewKeys(catalogOptions(ctx.runScope));
-	if (catalog.type === "error") return catalog;
+	if (!catalog.ok) return catalog;
 
 	const loaded = await loadDefinitions(ctx, catalog.value.keys);
-	if (loaded.type === "error") return loaded;
+	if (!loaded.ok) return loaded;
 
 	let selectedKeys = catalog.value.keys;
 	if (request.ci) {
@@ -204,7 +204,7 @@ export async function buildReviewListResult(
 	}
 	if (request.applicable) {
 		const diff = await loadDiffFromRequest(ctx, request.baseRef);
-		if (diff.type === "error") return diff;
+		if (!diff.ok) return diff;
 		const selectedBeforeApplicability = new Set(selectedKeys);
 		selectedKeys = applicableReviewKeys(
 			new Map(
@@ -226,7 +226,7 @@ export async function buildReviewListResult(
 			localOnly: item.definition.localOnly,
 		}));
 	return {
-		type: "ok",
+		ok: true,
 		value: reviewListResultSchema.parse({
 			reviewsDir: catalog.value.reviewsDir,
 			keys: selectedKeys,
@@ -240,7 +240,7 @@ export async function runReviewList(
 	ctx: RoasterRuntime,
 	request: ReviewListRequest,
 ): Promise<ClinkrExit<ReviewListResult>> {
-	return clinkrExitFromRoasterResult(await buildReviewListResult(ctx, request));
+	return clinkrExitFromReviewResult(await buildReviewListResult(ctx, request));
 }
 
 export function renderReviewList(result: ReviewListResult): string {
@@ -265,12 +265,12 @@ export function renderReviewList(result: ReviewListResult): string {
 export async function buildRoastSkillListResult(
 	ctx: RoasterRuntime,
 	_request: RoastSkillListRequest,
-): Promise<RoasterResult<RoastSkillListResult>> {
+): Promise<ReviewResult<RoastSkillListResult>> {
 	const loaded = await loadRoastSkillEntries({
 		...catalogOptions(ctx.runScope),
 		reviewCatalog: ctx.reviewCatalog,
 	});
-	if (loaded.type === "error") return loaded;
+	if (!loaded.ok) return loaded;
 
 	const entries = loaded.value.map((entry) => ({
 		surface: entry.surface,
@@ -282,7 +282,7 @@ export async function buildRoastSkillListResult(
 		defaultPrompt: entry.defaultPrompt,
 	}));
 	return {
-		type: "ok",
+		ok: true,
 		value: roastSkillListResultSchema.parse({ count: entries.length, entries }),
 	};
 }
@@ -291,7 +291,7 @@ export async function runRoastSkillList(
 	ctx: RoasterRuntime,
 	request: RoastSkillListRequest,
 ): Promise<ClinkrExit<RoastSkillListResult>> {
-	return clinkrExitFromRoasterResult(await buildRoastSkillListResult(ctx, request));
+	return clinkrExitFromReviewResult(await buildRoastSkillListResult(ctx, request));
 }
 
 export function renderRoastSkillList(result: RoastSkillListResult): string {
@@ -350,7 +350,7 @@ export function clinkrExitFromReviewRunOutcome(
 	ctx: Pick<RoasterRuntime, "stderr">,
 	outcome: Awaited<ReturnType<typeof runRoasterReview>>,
 ): ClinkrExit<ReviewRunResult> {
-	if (outcome.type === "failed") return failureFromRoaster(outcome.error);
+	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	ctx.stderr(
 		`resolved model=${outcome.progress.model} model_profile=${outcome.progress.modelProfile} base_ref=${outcome.progress.baseRef} changed_paths=${outcome.progress.changedPathCount}\n`,
 	);
@@ -399,13 +399,13 @@ export async function recordSameSessionFindings(
 	request: RecordFindingsRequest,
 ): Promise<RecordFindingsOutcome> {
 	const payload = await readFindingsPayload(ctx);
-	if (payload.type === "error") return { type: "failed", error: payload.error };
+	if (!payload.ok) return { type: "failed", error: payload.error };
 
 	const loaded = await loadReviewExecutionContext(ctx, {
 		reviewKey: request.reviewKey,
 		...optionalEntry("baseRef", request.baseRef),
 	});
-	if (loaded.type === "error") return { type: "failed", error: loaded.error };
+	if (!loaded.ok) return { type: "failed", error: loaded.error };
 	const { source, definition, diff } = loaded.value;
 
 	const result = reviewRunResultSchema.parse({
@@ -422,7 +422,7 @@ export async function recordSameSessionFindings(
 	});
 
 	const logResult = await writeReviewRunLog(ctx, { reviewKey: source.key, result });
-	if (logResult.type === "error") {
+	if (!logResult.ok) {
 		if (!isReviewLogFailure(logResult.error)) return { type: "failed", error: logResult.error };
 		return { type: "recorded_log_failed", result, error: logResult.error };
 	}
@@ -434,7 +434,7 @@ export function clinkrExitFromRecordFindingsOutcome(
 	ctx: Pick<RoasterRuntime, "stderr">,
 	outcome: RecordFindingsOutcome,
 ): ClinkrExit<ReviewRunResult> {
-	if (outcome.type === "failed") return failureFromRoaster(outcome.error);
+	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	if (outcome.type === "recorded_log_failed") {
 		return negative(
 			`${renderReviewRun(outcome.result)}\n\nroaster: failed to write Branch Memory review log:\n${outcome.error.message}`,
@@ -447,18 +447,18 @@ export function clinkrExitFromRecordFindingsOutcome(
 
 async function readFindingsPayload(
 	ctx: RoasterRuntime,
-): Promise<RoasterResult<ReviewFindingsPayload>> {
+): Promise<ReviewResult<ReviewFindingsPayload>> {
 	const result = parseJsonInputText({
 		text: await ctx.stdin(),
 		schema: reviewFindingsPayloadSchema,
 		jsonDescription: "record-findings stdin",
 		schemaDescription: "record-findings stdin { findings: [...] }",
 	});
-	if (result.type === "ok") return result;
+	if (result.type === "ok") return { ok: true, value: result.value };
 	return {
-		type: "error",
+		ok: false,
 		error: {
-			type: reviewRunnerFailureTypeFromJsonInputError(result.error),
+			code: reviewRunnerFailureTypeFromJsonInputError(result.error),
 			message: result.error.message,
 		},
 	};
@@ -475,14 +475,14 @@ function reviewRunnerFailureTypeFromJsonInputError(
 export async function buildReviewLogResult(
 	ctx: RoasterRuntime,
 	request: ReviewLogRequest,
-): Promise<RoasterResult<ReviewLogResult>> {
+): Promise<ReviewResult<ReviewLogResult>> {
 	const entries = await ctx.reviewLog.listReviewLogs({
 		...environmentOptions(ctx.runScope),
 		...optionalEntry("reviewKey", request.key),
 	});
-	if (entries.type === "error") return entries;
+	if (!entries.ok) return entries;
 	return {
-		type: "ok",
+		ok: true,
 		value: reviewLogResultSchema.parse({
 			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
 			reviewKey: request.key ?? null,
@@ -496,7 +496,7 @@ export async function runReviewLog(
 	ctx: RoasterRuntime,
 	request: ReviewLogRequest,
 ): Promise<ClinkrExit<ReviewLogResult>> {
-	return clinkrExitFromRoasterResult(await buildReviewLogResult(ctx, request));
+	return clinkrExitFromReviewResult(await buildReviewLogResult(ctx, request));
 }
 
 export function renderReviewLog(result: ReviewLogResult): string {
@@ -521,8 +521,7 @@ export async function runPublishFindings(
 	request: PublishFindingsRequest,
 ): Promise<number> {
 	const result = await publishFindingsFromRequest(ctx, request);
-	if (result.type === "error")
-		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
+	if (!result.ok) return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
 
 	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
 	return 0;
@@ -539,7 +538,7 @@ export function clinkrExitFromPublishFindingsResult(
 	ctx: Pick<RoasterRuntime, "stderr">,
 	result: PublishFindingsResult,
 ): ClinkrExit<PublishFindingsCommandResult> {
-	if (result.type === "error") return failureFromPublicationError(result.error);
+	if (!result.ok) return failureFromPublicationError(result.error);
 
 	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
 	return ok(publishFindingsResultSchema.parse(result.value));
@@ -575,8 +574,8 @@ interface LoadedDefinition {
 }
 
 type LoadDefinitionsResult =
-	| { readonly type: "ok"; readonly value: readonly LoadedDefinition[] }
-	| { readonly type: "error"; readonly error: RoasterFailure };
+	| { readonly ok: true; readonly value: readonly LoadedDefinition[] }
+	| { readonly ok: false; readonly error: ReviewFailure };
 
 async function loadDefinitions(
 	ctx: RoasterRuntime,
@@ -589,10 +588,10 @@ async function loadDefinitions(
 			reviewCatalog: ctx.reviewCatalog,
 			key,
 		});
-		if (parsed.type === "error") return parsed;
+		if (!parsed.ok) return parsed;
 		loaded.push({ key: parsed.value.source.key, definition: parsed.value.definition });
 	}
-	return { type: "ok", value: loaded };
+	return { ok: true, value: loaded };
 }
 
 function renderReviewListEntry(review: ReviewListResult["reviews"][number]): string {
@@ -611,8 +610,8 @@ function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"]
 	};
 }
 
-function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
-	return failure(error.type, error.message);
+function failureFromReview(error: ReviewFailure): ClinkrExit<never> {
+	return failure(error.code, error.message);
 }
 
 function failureFromPublicationError(error: PublicationError): ClinkrExit<never> {
@@ -622,9 +621,9 @@ function failureFromPublicationError(error: PublicationError): ClinkrExit<never>
 	});
 }
 
-function clinkrExitFromRoasterResult<T>(result: RoasterResult<T>): ClinkrExit<T> {
-	if (result.type === "ok") return ok(result.value);
-	return failureFromRoaster(result.error);
+function clinkrExitFromReviewResult<T>(result: ReviewResult<T>): ClinkrExit<T> {
+	if (result.ok) return ok(result.value);
+	return failureFromReview(result.error);
 }
 
 function loadDiffFromRequest(
@@ -654,7 +653,7 @@ function lastReviewedHeadOptions(request: PublishFindingsRequest): {
 }
 
 function renderPublishFindingsDiagnostics(
-	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
+	result: Extract<PublishFindingsResult, { readonly ok: true }>["value"],
 ): string {
 	return [
 		renderInlineFindingsSummary(result),

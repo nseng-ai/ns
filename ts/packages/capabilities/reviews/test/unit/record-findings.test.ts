@@ -113,7 +113,7 @@ describe("runRecordFindings", () => {
 
 	test("log write failure exits negative while preserving the review result", async () => {
 		const reviewLog = new FakeReviewLogGateway({
-			writeFailure: { type: "review-log-write-failed", message: "brmem put failed" },
+			writeFailure: { code: "review-log-write-failed", message: "brmem put failed" },
 		});
 		const ctx = createRoasterRuntime(
 			fakeRoasterContext({
@@ -142,7 +142,7 @@ describe("runRecordFindings", () => {
 function diffGateway(baseRef: string): FakeLocalDiffGateway {
 	return new FakeLocalDiffGateway({
 		defaultDiff: {
-			type: "ok",
+			ok: true,
 			value: createLocalDiff({ baseRef, diffText: "", files: [] }),
 		},
 	});

@@ -25,12 +25,12 @@ const SAMPLE_DIFF =
 describe("FakeLocalDiffGateway", () => {
 	test("returns copied configured diffs and records requested base refs", async () => {
 		const diff = createLocalDiff({ baseRef: "main", diffText: SAMPLE_DIFF, files: [] });
-		const gateway = new FakeLocalDiffGateway({ defaultDiff: { type: "ok", value: diff } });
+		const gateway = new FakeLocalDiffGateway({ defaultDiff: { ok: true, value: diff } });
 
 		const result = await gateway.loadDiff({ cwd: "/repo", baseRef: "main" });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") expect(result.value).toEqual(diff);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value).toEqual(diff);
 		expect(gateway.requestedBaseRefs()).toEqual(["main"]);
 	});
 });
@@ -52,8 +52,8 @@ describe("RealLocalDiffGateway", () => {
 
 		const result = await gateway.loadDiff({ cwd: repoRoot, baseRef: "main" });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
+		expect(result.ok).toBe(true);
+		if (result.ok) {
 			expect(result.value.baseRef).toBe("main");
 			expect(result.value.changedPaths).toEqual(["src/app.ts"]);
 		}
@@ -89,9 +89,9 @@ describe("RealLocalDiffGateway", () => {
 
 		const result = await gateway.loadDiff({ cwd: repoRoot });
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
-			expect(result.error.type).toBe("git-diff-failed");
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe("git-diff-failed");
 			expect(result.error.message).toContain("git -c diff.noprefix=false");
 			expect(result.error.message).toContain("origin/trunk...HEAD");
 			expect(result.error.message).toContain(repoRoot);

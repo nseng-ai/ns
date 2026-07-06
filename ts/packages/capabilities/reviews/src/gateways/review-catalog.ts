@@ -6,7 +6,7 @@ import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import { mapFromRecordOrMap, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-import type { ReviewCatalogFailure, RoasterResult } from "../core/failures.ts";
+import type { ReviewCatalogFailure, ReviewResult } from "../core/failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
 const NS_DIRNAME = ".ns";
@@ -27,12 +27,12 @@ export interface ReviewCatalogGateway {
 	listReviewKeys(options: {
 		readonly cwd: string;
 		readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	}): Promise<RoasterResult<ReviewCatalog>>;
+	}): Promise<ReviewResult<ReviewCatalog>>;
 	loadReviewSource(options: {
 		readonly cwd: string;
 		readonly key: string;
 		readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	}): Promise<RoasterResult<ReviewSource>>;
+	}): Promise<ReviewResult<ReviewSource>>;
 }
 
 export interface RealReviewCatalogGatewayOptions {
@@ -49,16 +49,16 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 	async listReviewKeys(options: {
 		readonly cwd: string;
 		readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	}): Promise<RoasterResult<ReviewCatalog>> {
+	}): Promise<ReviewResult<ReviewCatalog>> {
 		const reviewsDir = await this.reviewsDir(options.cwd, options.signal);
-		if (reviewsDir.type === "error") return reviewsDir;
+		if (!reviewsDir.ok) return reviewsDir;
 
 		const requiredReviewsDir = await requireReviewsDirectory(reviewsDir.value);
-		if (requiredReviewsDir.type === "error") return requiredReviewsDir;
+		if (!requiredReviewsDir.ok) return requiredReviewsDir;
 
 		const records = await reviewRecordDirectories(requiredReviewsDir.value);
 		return {
-			type: "ok",
+			ok: true,
 			value: {
 				reviewsDir: reviewsDir.value,
 				keys: records,
@@ -70,32 +70,32 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		readonly cwd: string;
 		readonly key: string;
 		readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	}): Promise<RoasterResult<ReviewSource>> {
+	}): Promise<ReviewResult<ReviewSource>> {
 		const reviewsDir = await this.reviewsDir(options.cwd, options.signal);
-		if (reviewsDir.type === "error") return reviewsDir;
+		if (!reviewsDir.ok) return reviewsDir;
 		const resolved = await resolveReviewPath(reviewsDir.value, options.key);
-		if (resolved.type === "error") return resolved;
+		if (!resolved.ok) return resolved;
 
 		const status = await directoryStatus(resolved.value.path);
 		if (status === "missing") {
 			return error({
-				type: "review-definition-not-found",
+				code: "review-definition-not-found",
 				message: `No review found for key ${JSON.stringify(options.key)} at ${resolved.value.path}.`,
 			});
 		}
 		if (status !== "file") {
 			return error({
-				type: "review-definition-not-file",
+				code: "review-definition-not-file",
 				message: `Review definition is not a file: ${resolved.value.path}`,
 			});
 		}
 
 		try {
 			const source = await readFile(resolved.value.path, "utf8");
-			return { type: "ok", value: { key: resolved.value.key, path: resolved.value.path, source } };
+			return { ok: true, value: { key: resolved.value.key, path: resolved.value.path, source } };
 		} catch (caught) {
 			return error({
-				type: "review-definition-read-failed",
+				code: "review-definition-read-failed",
 				message: `Unable to read review definition ${resolved.value.path}: ${caught instanceof Error ? caught.message : String(caught)}`,
 			});
 		}
@@ -104,11 +104,11 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 	private async reviewsDir(
 		cwd: string,
 		signal: AbortSignal | undefined,
-	): Promise<RoasterResult<string>> {
+	): Promise<ReviewResult<string>> {
 		const repoRoot = await this.gitGateway.repoRoot({ cwd, signal });
 		if (!repoRoot.ok)
-			return error({ type: "reviews-dir-missing", message: repoRoot.error.message });
-		return { type: "ok", value: join(repoRoot.value, NS_DIRNAME, REVIEWS_DIRNAME) };
+			return error({ code: "reviews-dir-missing", message: repoRoot.error.message });
+		return { ok: true, value: join(repoRoot.value, NS_DIRNAME, REVIEWS_DIRNAME) };
 	}
 }
 
@@ -141,18 +141,18 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 	async listReviewKeys(_options: {
 		readonly cwd: string;
 		readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	}): Promise<RoasterResult<ReviewCatalog>> {
+	}): Promise<ReviewResult<ReviewCatalog>> {
 		if (this.listReviewKeysFailure !== null) return error({ ...this.listReviewKeysFailure });
 		const keys =
 			this.reviewKeys === null ? [...this.reviewSourcesByKey.keys()].sort() : [...this.reviewKeys];
-		return { type: "ok", value: { reviewsDir: this.reviewsDirValue, keys } };
+		return { ok: true, value: { reviewsDir: this.reviewsDirValue, keys } };
 	}
 
 	async loadReviewSource(options: {
 		readonly cwd: string;
 		readonly key: string;
 		readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	}): Promise<RoasterResult<ReviewSource>> {
+	}): Promise<ReviewResult<ReviewSource>> {
 		this.requestedReviewKeysInternal.push(options.key);
 		const configuredFailure = this.reviewSourceFailuresByKey.get(options.key);
 		if (configuredFailure !== undefined) return error({ ...configuredFailure });
@@ -160,12 +160,12 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 		const path = reviewPathForKey(this.reviewsDirValue, options.key);
 		if (source === undefined) {
 			return error({
-				type: "review-definition-not-found",
+				code: "review-definition-not-found",
 				message: `No fake review definition configured for key ${JSON.stringify(options.key)} at ${path}.`,
 			});
 		}
 		return {
-			type: "ok",
+			ok: true,
 			value: { key: options.key, path, source },
 		};
 	}
@@ -183,49 +183,49 @@ interface ResolvedReviewPath {
 async function resolveReviewPath(
 	reviewsDir: string,
 	key: string,
-): Promise<RoasterResult<ResolvedReviewPath>> {
+): Promise<ReviewResult<ResolvedReviewPath>> {
 	const normalized = key.trim();
 	if (normalized === "")
 		return error({
-			type: "review-key-invalid",
+			code: "review-key-invalid",
 			message: "Review key must not be empty.",
 		});
 	if (!isValidReviewKeyName(normalized)) {
 		return error({
-			type: "review-key-invalid",
+			code: "review-key-invalid",
 			message: `Review key must be a direct folder name without slashes, backslashes, absolute paths, or traversal: ${JSON.stringify(key)}`,
 		});
 	}
 
 	const requiredReviewsDir = await requireReviewsDirectory(reviewsDir);
-	if (requiredReviewsDir.type === "error") return requiredReviewsDir;
+	if (!requiredReviewsDir.ok) return requiredReviewsDir;
 
 	const path = reviewPathForKey(requiredReviewsDir.value, normalized);
 	const rel = relative(requiredReviewsDir.value, path);
 	if (rel.startsWith("..") || rel === "" || rel.startsWith(sep)) {
 		return error({
-			type: "review-key-invalid",
+			code: "review-key-invalid",
 			message: `Review key ${JSON.stringify(key)} resolves outside ${requiredReviewsDir.value}.`,
 		});
 	}
-	return { type: "ok", value: { key: normalized, path } };
+	return { ok: true, value: { key: normalized, path } };
 }
 
-async function requireReviewsDirectory(reviewsDir: string): Promise<RoasterResult<string>> {
+async function requireReviewsDirectory(reviewsDir: string): Promise<ReviewResult<string>> {
 	const status = await directoryStatus(reviewsDir);
 	if (status === "missing") {
 		return error({
-			type: "reviews-dir-missing",
+			code: "reviews-dir-missing",
 			message: `No reviews directory at ${reviewsDir}. Create it and add \`<key>/review.md\` definitions.`,
 		});
 	}
 	if (status !== "directory") {
 		return error({
-			type: "reviews-dir-not-directory",
+			code: "reviews-dir-not-directory",
 			message: `Reviews path is not a directory: ${reviewsDir}`,
 		});
 	}
-	return { type: "ok", value: reviewsDir };
+	return { ok: true, value: reviewsDir };
 }
 
 async function reviewRecordDirectories(root: string): Promise<string[]> {
@@ -268,6 +268,6 @@ async function directoryStatus(path: string): Promise<PathStatus> {
 	}
 }
 
-function error(errorValue: ReviewCatalogFailure): RoasterResult<never> {
-	return { type: "error", error: errorValue };
+function error(errorValue: ReviewCatalogFailure): ReviewResult<never> {
+	return { ok: false, error: errorValue };
 }

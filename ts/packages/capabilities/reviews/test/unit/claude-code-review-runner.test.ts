@@ -47,8 +47,8 @@ describe("Claude Code review output parsing", () => {
 			inputCoverage: coverage,
 		});
 
-		expect(parsed.type).toBe("ok");
-		if (parsed.type === "ok") {
+		expect(parsed.ok).toBe(true);
+		if (parsed.ok) {
 			expect(parsed.value.payload).toMatchObject({ format: "findings", count: 1 });
 			expect(parsed.value.usage).toMatchObject({
 				inputTokens: 10,
@@ -65,7 +65,7 @@ describe("Claude Code review output parsing", () => {
 			inputCoverage: null,
 		});
 
-		expect(parsed.type).toBe("ok");
+		expect(parsed.ok).toBe(true);
 	});
 
 	test.each([
@@ -83,9 +83,9 @@ describe("Claude Code review output parsing", () => {
 	])("maps malformed output to $failureType", ({ stdout, failureType }) => {
 		const parsed = parseClaudeCodeReviewOutput({ stdout, inputCoverage: null });
 
-		expect(parsed.type).toBe("error");
-		if (parsed.type === "error") {
-			expect(parsed.error.type).toBe(failureType);
+		expect(parsed.ok).toBe(false);
+		if (!parsed.ok) {
+			expect(parsed.error.code).toBe(failureType);
 		}
 	});
 
@@ -95,9 +95,9 @@ describe("Claude Code review output parsing", () => {
 			inputCoverage: null,
 		});
 
-		expect(parsed.type).toBe("error");
-		if (parsed.type === "error") {
-			expect(parsed.error.type).toBe("review-execution-invalid-response");
+		expect(parsed.ok).toBe(false);
+		if (!parsed.ok) {
+			expect(parsed.error.code).toBe("review-execution-invalid-response");
 			expect(parsed.error.message).toContain("Confirm --json-schema is honored");
 			expect(parsed.error.message.length).toBeLessThan(650);
 		}
@@ -109,8 +109,8 @@ describe("Claude Code review output parsing", () => {
 			inputCoverage: null,
 		});
 
-		expect(parsed.type).toBe("ok");
-		if (parsed.type === "ok") {
+		expect(parsed.ok).toBe(true);
+		if (parsed.ok) {
 			expect(parsed.value.usage).toBeNull();
 			expect(parsed.value.payload.count).toBe(1);
 		}
@@ -128,9 +128,9 @@ describe("Claude Code review output parsing", () => {
 			inputCoverage: null,
 		});
 
-		expect(parsed.type).toBe("error");
-		if (parsed.type === "error") {
-			expect(parsed.error.type).toBe("review-execution-invalid-findings");
+		expect(parsed.ok).toBe(false);
+		if (!parsed.ok) {
+			expect(parsed.error.code).toBe("review-execution-invalid-findings");
 		}
 	});
 });

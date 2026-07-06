@@ -1,4 +1,4 @@
-import type { RoasterFailure, RoasterResult } from "./failures.ts";
+import type { ReviewFailure, ReviewResult } from "./failures.ts";
 import {
 	RealReviewCatalogGateway,
 	type ReviewCatalogGateway,
@@ -20,12 +20,12 @@ export interface RoastSkillEntry {
 
 export type RoastReviewLoadResult =
 	| {
-			readonly type: "ok";
+			readonly ok: true;
 			readonly entry: RoastSkillEntry;
 			readonly source: ReviewSource;
 			readonly definition: ReviewDefinition;
 	  }
-	| { readonly type: "error"; readonly error: RoasterFailure };
+	| { readonly ok: false; readonly error: ReviewFailure };
 
 export interface LoadRoastSkillEntriesOptions {
 	readonly cwd: string;
@@ -60,21 +60,21 @@ const ROAST_SKILL_ROLE_TEXT = {
 
 export async function loadRoastSkillEntries(
 	options: LoadRoastSkillEntriesOptions,
-): Promise<RoasterResult<readonly RoastSkillEntry[]>> {
+): Promise<ReviewResult<readonly RoastSkillEntry[]>> {
 	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
 	const catalog = await reviewCatalog.listReviewKeys({
 		cwd: options.cwd,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
-	if (catalog.type === "error") return catalog;
+	if (!catalog.ok) return catalog;
 
 	const entries: RoastSkillEntry[] = [];
 	for (const key of catalog.value.keys) {
 		const loaded = await loadRoastReviewDefinition({ ...options, reviewCatalog, key });
-		if (loaded.type === "error") return { type: "error", error: loaded.error };
+		if (!loaded.ok) return { ok: false, error: loaded.error };
 		entries.push(loaded.entry);
 	}
-	return { type: "ok", value: entries };
+	return { ok: true, value: entries };
 }
 
 export async function loadRoastReviewDefinition(
@@ -87,10 +87,10 @@ export async function loadRoastReviewDefinition(
 		reviewCatalog,
 		key: options.key,
 	});
-	if (loaded.type === "error") return loaded;
+	if (!loaded.ok) return loaded;
 
 	return {
-		type: "ok",
+		ok: true,
 		entry: roastSkillEntryFromDefinition(loaded.value.source.key, loaded.value.definition),
 		source: loaded.value.source,
 		definition: loaded.value.definition,

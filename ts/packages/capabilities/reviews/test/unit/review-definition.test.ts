@@ -369,7 +369,7 @@ describe("parseReviewDefinition", () => {
 type ParseResult = ReturnType<typeof parseReviewDefinition>;
 
 function expectOk(result: ParseResult): ReviewDefinition {
-	if (result.type === "error") throw new Error(result.error.message);
+	if (!result.ok) throw new Error(result.error.message);
 	return result.definition;
 }
 
@@ -377,6 +377,6 @@ function expectError(result: ParseResult): {
 	readonly code: ReviewDefinitionParseErrorCode;
 	readonly message: string;
 } {
-	if (result.type === "ok") throw new Error("Expected review definition parse to fail.");
+	if (result.ok) throw new Error("Expected review definition parse to fail.");
 	return result.error;
 }

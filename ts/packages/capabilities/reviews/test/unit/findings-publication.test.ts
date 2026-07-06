@@ -48,10 +48,10 @@ describe("findings comment markers", () => {
 		const parsed = parseFindingsCommentBody(body);
 
 		expect(parsed).toEqual({
-			type: "ok",
+			ok: true,
 			parsed: { marker: "<!-- roaster:typescript-style -->", body },
 		});
-		expect(parseFindingsCommentBody("intro\n<!-- roaster:typescript-style -->").type).toBe("error");
+		expect(parseFindingsCommentBody("intro\n<!-- roaster:typescript-style -->").ok).toBe(false);
 	});
 
 	test("inline marker is stable and extractable", () => {
@@ -109,7 +109,7 @@ describe("renderFindingsComment", () => {
 		const body = renderFindingsComment(findingsPayload, { machineState });
 
 		expect(body.startsWith("<!-- roaster:typescript-style -->\n")).toBe(true);
-		expect(parseFindingsCommentBody(body).type).toBe("ok");
+		expect(parseFindingsCommentBody(body).ok).toBe(true);
 		expect(parseFindingsCommentMachineState(body)).toMatchObject({
 			version: 1,
 			lastReviewedHead: LAST_REVIEWED_HEAD,
@@ -213,8 +213,8 @@ describe("payload parsers", () => {
 				},
 			}),
 		);
-		expect(payloadResult.type).toBe("ok");
-		if (payloadResult.type === "ok") {
+		expect(payloadResult.ok).toBe(true);
+		if (payloadResult.ok) {
 			expect(payloadResult.payload.modelProfile).toBe("quick");
 			expect(payloadResult.payload.count).toBe(1);
 		}
@@ -255,8 +255,8 @@ describe("payload parsers", () => {
 			}),
 		);
 
-		expect(nested.type).toBe("error");
-		expect(snakeCase.type).toBe("error");
+		expect(nested.ok).toBe(false);
+		expect(snakeCase.ok).toBe(false);
 	});
 
 	test("parses error envelopes as renderable payloads", () => {
@@ -265,8 +265,8 @@ describe("payload parsers", () => {
 			{ fallbackReviewName: "review", fallbackBaseRef: "base" },
 		);
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
+		expect(result.ok).toBe(true);
+		if (result.ok) {
 			expect(result.payload.errorType).toBe("failure");
 			expect(result.payload.reviewName).toBe("review");
 		}
@@ -293,8 +293,8 @@ describe("payload parsers", () => {
 			}),
 		);
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
+		expect(result.ok).toBe(true);
+		if (result.ok) {
 			expect(result.payload.errorType).toBeNull();
 			expect(result.payload.reviewName).toBe("typescript-style");
 			expect(result.payload.findings).toEqual([WARNING_FINDING]);
@@ -306,8 +306,8 @@ describe("payload parsers", () => {
 			JSON.stringify({ status: "failure", exitCode: 2, errorType: "failure", message: "boom" }),
 		);
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
 			expect(result.error.message).toContain("--review-name");
 			expect(result.error.message).toContain("--base-ref");
 		}
@@ -319,8 +319,8 @@ describe("payload parsers", () => {
 			{ fallbackReviewName: "review", fallbackBaseRef: "base" },
 		);
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
+		expect(result.ok).toBe(true);
+		if (result.ok) {
 			expect(result.payload.errorType).toBe("negative");
 			expect(result.payload.errorMessage).toBe("no findings");
 			expect(result.payload.reviewName).toBe("review");
@@ -333,8 +333,8 @@ describe("payload parsers", () => {
 			JSON.stringify({ exitCode: 3, errorType: "failure", message: "boom" }),
 		);
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
 			expect(result.error.message).toBe(
 				"expected a clinkr envelope with top-level 'status' and 'exitCode'",
 			);
@@ -352,8 +352,8 @@ describe("publishFindings", () => {
 			envelope: buildFindingsEnvelope([]),
 		});
 
-		expect(result.type).toBe("error");
-		if (result.type === "error") {
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
 			expect(result.error.fatalFailurePhase).toBe("summary-write");
 			expect(result.error.reason).toBe("github-write-failed");
 			expect(result.error.message).toContain("discussion write failed");
@@ -375,11 +375,9 @@ describe("publishFindings", () => {
 			envelope: buildFindingsEnvelope([WARNING_FINDING]),
 		});
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") {
-			expect(result.value.inlineStatus.apiError).toBe(
-				"GitHub response for create PR review: did not match the expected shape: inline validation failed in /repo",
-			);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.inlineStatus.apiError).toBe("inline validation failed");
 			expect(result.value.summaryStatus).toEqual({
 				type: "posted",
 				marker: "<!-- roaster:typescript-style -->",
@@ -397,7 +395,7 @@ describe("publishFindings", () => {
 			lastReviewedHead: LAST_REVIEWED_HEAD,
 		});
 
-		expect(result.type).toBe("ok");
+		expect(result.ok).toBe(true);
 		const written = await github.findPrDiscussionCommentByMarker({
 			cwd: "/repo",
 			prNumber: 47,
@@ -441,7 +439,7 @@ describe("publishFindings", () => {
 			},
 		});
 
-		expect(result.type).toBe("ok");
+		expect(result.ok).toBe(true);
 		const written = await github.findPrDiscussionCommentByMarker({
 			cwd: "/repo",
 			prNumber: 47,

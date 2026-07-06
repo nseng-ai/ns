@@ -177,7 +177,7 @@ describe("gatherPriorFindingsContext", () => {
 			type: "without-context",
 			reason: "github-read-failed",
 			error: {
-				type: "github-cli-failed",
+				code: "github_pr_feedback_graphql_failed",
 				message: expect.stringContaining("GraphQL failed"),
 			},
 		});

@@ -4,7 +4,7 @@ import {
 	type RoasterRuntime,
 	type RoasterRunScope,
 } from "./context.ts";
-import type { RoasterFailure, RoasterResult } from "./failures.ts";
+import type { ReviewFailure, ReviewResult } from "./failures.ts";
 import type { PublishFindingsResult } from "./findings-publication.ts";
 import { ROASTER_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import type {
@@ -62,8 +62,8 @@ export type {
 	ReviewUsage,
 	RoastSkillListRequest,
 	RoastSkillListResult,
-	RoasterFailure,
-	RoasterResult,
+	ReviewFailure,
+	ReviewResult,
 	RoasterRuntime,
 	RoasterRunScope,
 	RunRoasterReviewOutcome,
@@ -71,10 +71,7 @@ export type {
 	RunRoasterReviewRequest,
 };
 
-export interface RoasterApiFailure {
-	readonly errorType: string;
-	readonly message: string;
-}
+export type RoasterApiFailure = ReviewFailure;
 
 export type RoasterApiResult<T> =
 	| { readonly ok: true; readonly result: T }
@@ -168,10 +165,7 @@ function reviewListRequestWithDefaults(request: Partial<ReviewListRequest>): Rev
 	};
 }
 
-function roasterResultToApiResult<T>(result: RoasterResult<T>): RoasterApiResult<T> {
-	if (result.type === "ok") return { ok: true, result: result.value };
-	return {
-		ok: false,
-		failure: { errorType: result.error.type, message: result.error.message },
-	};
+function roasterResultToApiResult<T>(result: ReviewResult<T>): RoasterApiResult<T> {
+	if (result.ok) return { ok: true, result: result.value };
+	return { ok: false, failure: result.error };
 }

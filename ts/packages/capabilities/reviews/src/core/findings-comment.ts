@@ -103,8 +103,8 @@ export interface ParsedFindingsCommentBody {
 }
 
 export type FindingsCommentBodyParseResult =
-	| { readonly type: "ok"; readonly parsed: ParsedFindingsCommentBody }
-	| { readonly type: "error"; readonly error: FindingsCommentBodyParseError };
+	| { readonly ok: true; readonly parsed: ParsedFindingsCommentBody }
+	| { readonly ok: false; readonly error: FindingsCommentBodyParseError };
 
 export function renderFindingsComment(
 	payload: FindingsPayload,
@@ -143,7 +143,7 @@ export function parseFindingsCommentBody(raw: string): FindingsCommentBodyParseR
 	const match = SUMMARY_MARKER_RE.exec(firstLine.trimEnd());
 	if (match === null)
 		return commentBodyError("first line of body must be a `<!-- roaster:<key> -->` marker");
-	return { type: "ok", parsed: { marker: `<!-- ${match[1]} -->`, body: raw } };
+	return { ok: true, parsed: { marker: `<!-- ${match[1]} -->`, body: raw } };
 }
 
 export function buildFindingsCommentMachineState(
@@ -477,5 +477,5 @@ function stripActivityLog(body: string): string {
 }
 
 function commentBodyError(message: string): FindingsCommentBodyParseResult {
-	return { type: "error", error: { type: "findings_comment_body_parse_error", message } };
+	return { ok: false, error: { type: "findings_comment_body_parse_error", message } };
 }

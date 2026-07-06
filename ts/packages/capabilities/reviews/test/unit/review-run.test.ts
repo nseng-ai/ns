@@ -61,13 +61,13 @@ describe("runRoasterReview", () => {
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
-				type: "ok",
+				ok: true,
 				value: createLocalDiff({ baseRef: "main", diffText: "", files: [] }),
 			},
 		});
 		const reviewRunner = new FakeReviewRunnerGateway({
 			defaultResult: {
-				type: "ok",
+				ok: true,
 				value: {
 					payload: createFindingsReview([
 						{
@@ -130,7 +130,7 @@ describe("runRoasterReview", () => {
 			fakeRoasterContext({
 				localDiff: new FakeLocalDiffGateway({
 					defaultDiff: {
-						type: "ok",
+						ok: true,
 						value: createLocalDiff({
 							baseRef: "main",
 							diffText: [tsFile.rawText, markdownFile.rawText].join(""),
@@ -242,8 +242,8 @@ describe("runRoasterReview", () => {
 				}),
 				reviewRunner: new FakeReviewRunnerGateway({
 					defaultResult: {
-						type: "error",
-						error: { type: "review-execution-failed", message: "runner failed" },
+						ok: false,
+						error: { code: "review-execution-failed", message: "runner failed" },
 					},
 				}),
 				reviewLog,
@@ -254,14 +254,14 @@ describe("runRoasterReview", () => {
 
 		expect(outcome).toEqual({
 			type: "failed",
-			error: { type: "review-execution-failed", message: "runner failed" },
+			error: { code: "review-execution-failed", message: "runner failed" },
 		});
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
 	test("returns completed_log_failed when only the Branch Memory review-log write fails", async () => {
 		const reviewLog = new FakeReviewLogGateway({
-			writeFailure: { type: "review-log-write-failed", message: "brmem put failed" },
+			writeFailure: { code: "review-log-write-failed", message: "brmem put failed" },
 		});
 		const ctx = createRoasterRuntime(
 			fakeRoasterContext({
@@ -279,7 +279,7 @@ describe("runRoasterReview", () => {
 		if (outcome.type !== "completed_log_failed") return;
 		expect(outcome.result.reviewName).toBe("typescript-style");
 		expect(outcome.error).toEqual({
-			type: "review-log-write-failed",
+			code: "review-log-write-failed",
 			message: "brmem put failed",
 		});
 	});
