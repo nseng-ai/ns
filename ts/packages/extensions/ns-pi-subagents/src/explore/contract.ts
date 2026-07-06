@@ -1,6 +1,7 @@
 export const EXPLORER_AGENT_NAME = "explorer";
 export const EXPLORER_AGENT_REPO_RELATIVE_PATH = ".ns/pi/agents/explorer.md";
 export const EXPLORE_TOOL_NAME = "explore";
+export const EXPLORE_FLEET_COMMAND_NAME = "ns:explore:fleet";
 
 export const EXPLORE_BREADTH_VALUES = ["quick", "medium", "very-thorough"] as const;
 export type ExploreBreadth = (typeof EXPLORE_BREADTH_VALUES)[number];

@@ -19,6 +19,7 @@ import {
 	EXPLORE_ABSOLUTE_MAX_TASKS,
 	EXPLORE_BREADTH_PROFILES,
 	EXPLORE_BREADTH_VALUES,
+	EXPLORE_FLEET_COMMAND_NAME,
 	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
@@ -30,7 +31,7 @@ import {
 	exploreInputSchema,
 	type ExploreInput,
 } from "./input.ts";
-import { syncExploreFleetWidget } from "./fleet.ts";
+import { syncExploreFleetDisplay } from "./fleet.ts";
 import { registerExploreFleetCommand } from "./fleet-navigator.ts";
 import { emitExploreProgress, EXPLORE_PROGRESS_WIDGET_KEY } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
@@ -295,9 +296,9 @@ async function runExploreTasks(request: {
 	};
 	const fleetRun = request.fleetRegistry.startRun(request.exploreInput.tasks);
 	const unsubscribeFleet = request.fleetRegistry.subscribe(() => {
-		syncExploreFleetWidget(request.ctx, request.fleetRegistry.snapshot());
+		syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 	});
-	syncExploreFleetWidget(request.ctx, request.fleetRegistry.snapshot());
+	syncExploreFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 
 	function emitProgress(): void {
 		emitExploreProgress(request.ctx, states, request.onUpdate);
@@ -336,7 +337,7 @@ async function runExploreTasks(request: {
 			},
 		});
 
-		return outcomes.map((outcome, index) => {
+		const finalOutcomes = outcomes.map((outcome, index) => {
 			if (outcome !== undefined) return outcome;
 			const title = request.exploreInput.tasks[index]?.title ?? `Task ${index + 1}`;
 			return {
@@ -345,9 +346,25 @@ async function runExploreTasks(request: {
 				result: cancelledResult(title, request.signal, "Explore task was not started."),
 			};
 		});
+		notifyExploreAbnormalEnd(request.ctx, finalOutcomes);
+		return finalOutcomes;
 	} finally {
 		unsubscribeFleet();
 		setRunnerSubagentWidget(request.ctx, EXPLORE_PROGRESS_WIDGET_KEY, undefined);
+	}
+}
+
+function notifyExploreAbnormalEnd(ctx: ToolContext, outcomes: readonly ExploreTaskOutcome[]): void {
+	if (!ctx.hasUI) return;
+	const unfinished = outcomes.filter((outcome) => outcome.result.status !== "final-text").length;
+	if (unfinished === 0) return;
+	try {
+		ctx.ui.notify(
+			`explore: ${unfinished} of ${outcomes.length} tasks did not finish cleanly — /${EXPLORE_FLEET_COMMAND_NAME} to inspect`,
+			"warning",
+		);
+	} catch {
+		// Notifications are display-only and must not affect explore results.
 	}
 }
 

@@ -50,12 +50,24 @@ interface ToolContextOptions {
 	cwd?: string;
 	model?: ToolContext["model"];
 	widgetCalls?: WidgetCall[];
+	statusCalls?: StatusCall[];
+	notifications?: Notification[];
 }
 
 interface WidgetCall {
 	key: string;
 	content: string[] | undefined;
 	options: { placement?: WidgetPlacement } | undefined;
+}
+
+interface StatusCall {
+	key: string;
+	value: string | undefined;
+}
+
+interface Notification {
+	message: string;
+	level: string | undefined;
 }
 
 interface Deferred<T> {
@@ -82,14 +94,16 @@ function deferredAt<T>(deferreds: readonly Deferred<T>[], index: number): Deferr
 }
 
 function toolContext(options: ToolContextOptions = {}): ToolContext {
-	const widgetCalls = options.widgetCalls;
+	const { widgetCalls, statusCalls, notifications } = options;
 	return {
 		cwd: options.cwd ?? ROOT,
-		hasUI: widgetCalls !== undefined,
+		hasUI: widgetCalls !== undefined || statusCalls !== undefined || notifications !== undefined,
 		mode: "json",
 		...(options.model === undefined ? {} : { model: options.model }),
 		ui: {
-			notify: () => {},
+			notify: (message: string, level?: string) => {
+				notifications?.push({ message, level });
+			},
 			...(widgetCalls === undefined
 				? {}
 				: {
@@ -99,6 +113,13 @@ function toolContext(options: ToolContextOptions = {}): ToolContext {
 							options: { placement?: WidgetPlacement } | undefined,
 						) => {
 							widgetCalls.push({ key, content, options });
+						},
+					}),
+			...(statusCalls === undefined
+				? {}
+				: {
+						setStatus: (key: string, value: string | undefined) => {
+							statusCalls.push({ key, value });
 						},
 					}),
 		},
@@ -350,6 +371,51 @@ describe("explore extension", () => {
 		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
 		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await running;
+	});
+
+	test("advertises the fleet navigator in the footer status and notifies on abnormal completion", async () => {
+		const statusCalls: StatusCall[] = [];
+		const notifications: Notification[] = [];
+		const tool = registerExploreTool({
+			dispatchExplorer: async (_pi, _ctx, intent) =>
+				intent.title === "Scout 1"
+					? finalOutcome("done", "/tmp/one.jsonl")
+					: errorOutcome("child failed", "/tmp/two.jsonl"),
+		});
+		await tool.execute(
+			"tool-1",
+			exploreParams(2),
+			undefined,
+			undefined,
+			toolContext({ statusCalls, notifications }),
+		);
+
+		expect(statusCalls.at(-1)).toEqual({
+			key: "ns.explore.fleet",
+			value: "explore fleet: 1 done, 1 failed · /ns:explore:fleet",
+		});
+		expect(notifications).toEqual([
+			{
+				message: "explore: 1 of 2 tasks did not finish cleanly — /ns:explore:fleet to inspect",
+				level: "warning",
+			},
+		]);
+	});
+
+	test("does not notify when every explore task produces final text", async () => {
+		const notifications: Notification[] = [];
+		const tool = registerExploreTool({
+			dispatchExplorer: async (_pi, _ctx, intent) =>
+				finalOutcome("done", `/tmp/${intent.title}.jsonl`),
+		});
+		await tool.execute(
+			"tool-1",
+			exploreParams(2),
+			undefined,
+			undefined,
+			toolContext({ notifications }),
+		);
+		expect(notifications).toEqual([]);
 	});
 
 	test("passes child intent, cwd, combined signal, and progress callback", async () => {

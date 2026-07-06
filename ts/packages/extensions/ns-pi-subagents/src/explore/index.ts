@@ -37,7 +37,13 @@ export {
 	type ExploreToolDetails,
 	type ExploreToolStatus,
 } from "./extension.ts";
-export { EXPLORE_FLEET_WIDGET_KEY, formatExploreFleetWidgetLines } from "./fleet.ts";
+export {
+	EXPLORE_FLEET_ENTRY_HINT,
+	EXPLORE_FLEET_STATUS_KEY,
+	EXPLORE_FLEET_WIDGET_KEY,
+	formatExploreFleetStatusText,
+	formatExploreFleetWidgetLines,
+} from "./fleet.ts";
 export {
 	EXPLORE_FLEET_COMMAND_NAME,
 	ExploreFleetNavigator,

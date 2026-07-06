@@ -18,10 +18,11 @@ import {
 	type RunnerSubagentTimeline,
 	type RunnerSubagentTimelineEntry,
 } from "@internal/pi-tools/runner-subagents";
+import { EXPLORE_FLEET_COMMAND_NAME } from "./contract.ts";
 import { formatExploreFleetWidgetLines, sortedFleetTasks, taskIcon } from "./fleet.ts";
 import type { CommandRegistrar } from "./transcript-viewer.ts";
 
-export const EXPLORE_FLEET_COMMAND_NAME = "ns:explore:fleet";
+export { EXPLORE_FLEET_COMMAND_NAME } from "./contract.ts";
 
 export interface ExploreFleetNavigatorDependencies {
 	readTextFile?: (path: string) => Promise<string>;
