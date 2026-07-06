@@ -78,17 +78,6 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		};
 	}
 
-	async inspectInstructionFiles(request: { projectDir: string; env: NodeJS.ProcessEnv }) {
-		return {
-			agentsMd: await inspectTextFile(path.join(request.projectDir, "AGENTS.md")),
-			claudeMd: await inspectTextFile(path.join(request.projectDir, "CLAUDE.md")),
-			claudeDir: await inspectPath(path.join(request.projectDir, ".claude")),
-			claudeSettings: await inspectTextFile(
-				path.join(request.projectDir, ".claude", "settings.local.json"),
-			),
-		};
-	}
-
 	async inspectPiArtifacts(request: { projectDir: string; env: NodeJS.ProcessEnv }) {
 		return {
 			piDir: await inspectPath(path.join(request.projectDir, ".pi")),

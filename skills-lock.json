@@ -407,11 +407,6 @@
       "sourceType": "local",
       "computedHash": "43db9517fc43c0ec732d2269c579389cf227ca882201bb76b66ebd3fde1606dd"
     },
-    "skillx": {
-      "source": "skills/skillx",
-      "sourceType": "local",
-      "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
-    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",

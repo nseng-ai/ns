@@ -17,24 +17,6 @@ interface AregProjectMutationPolicyDescriptor {
 	writeFailedCode: string;
 }
 
-const INIT_MUTATION_POLICY = {
-	policy: "init",
-	isAllowedRelativePath: isAllowedInitRelativePath,
-	refusedTargetCode: "init-write-target-refused",
-	shouldCheckUnsupportedFirst: true,
-	unsupportedMessage: (relativePath) =>
-		`Refusing to write unsupported init target: ${relativePath}`,
-	unsafeMessage: (relativePath) => `Refusing to write unsafe init target: ${relativePath}`,
-	outsideMessage: (relativePath) => `Refusing to write outside project root: ${relativePath}`,
-	symlinkCode: "init-symlink",
-	notFileCode: "init-not-file",
-	parentSymlinkCode: "init-parent-symlink",
-	parentNotDirectoryCode: "init-parent-not-directory",
-	parentMissingCode: "init-parent-missing",
-	parentCreateFailedCode: "init-parent-create-failed",
-	writeFailedCode: "init-write-failed",
-} satisfies AregProjectMutationPolicyDescriptor;
-
 const SKILL_KIND_MUTATION_POLICY = {
 	policy: "skill-kind",
 	isAllowedRelativePath: isAllowedSkillKindRelativePath,
@@ -59,17 +41,9 @@ export function getAregProjectMutationPolicyDescriptor(
 	policy: AregProjectMutationPolicy,
 ): AregProjectMutationPolicyDescriptor {
 	switch (policy) {
-		case "init":
-			return INIT_MUTATION_POLICY;
 		case "skill-kind":
 			return SKILL_KIND_MUTATION_POLICY;
 	}
-}
-
-function isAllowedInitRelativePath(relativePath: string): boolean {
-	return ["ns.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(
-		relativePath,
-	);
 }
 
 function isAllowedSkillKindRelativePath(relativePath: string): boolean {

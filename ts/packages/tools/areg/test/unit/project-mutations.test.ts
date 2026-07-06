@@ -5,22 +5,16 @@ import { describe, expect, test } from "vitest";
 import type { AregCliContext } from "../../src/context.ts";
 import {
 	FakeAregGithubGateway,
-	FakeAregHostGateway,
-	FakeAregNpxSkillsGateway,
 	FakeAregProjectGateway,
 	FakeAregPromptGateway,
-	FakeAregSkillxWorkspaceGateway,
 } from "../../src/fake-gateways.ts";
 import { applyProjectMutationPlan } from "../../src/operations/project-mutations.ts";
 
 function context(project: FakeAregProjectGateway): AregCliContext {
 	return {
-		host: new FakeAregHostGateway(),
 		github: new FakeAregGithubGateway(),
-		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(),
 		project,
 		git: new InMemoryGitGateway(),
-		npxSkills: new FakeAregNpxSkillsGateway(),
 		prompt: new FakeAregPromptGateway(),
 		interaction: createFakeClinkrInteraction().interaction,
 		cwd: "/repo",

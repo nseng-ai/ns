@@ -1,5 +1,4 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk } from "@nseng-ai/foundation/result";
 import {
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForRoot,
@@ -16,12 +15,6 @@ import type {
 	AregGithubGateway,
 	AregGithubSkillFileResult,
 	AregGithubSkillListResult,
-	AregHostGateway,
-	AregHostToolName,
-	AregNpxSkillsAddRequest,
-	AregNpxSkillsAddResult,
-	AregNpxSkillsGateway,
-	AregOperationResult,
 	PathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
@@ -42,13 +35,7 @@ import type {
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
 	AregSkillKindSourceType,
-	AregSkillxInstallRequest,
-	AregSkillxInstallResult,
-	AregSkillxInstalledSkill,
-	AregSkillxWorkspaceCleanupRequest,
-	AregSkillxWorkspaceGateway,
 	TextFileState,
-	AregToolCheckResult,
 } from "./gateways.ts";
 import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-classification.ts";
 import {
@@ -58,7 +45,6 @@ import {
 
 export type FakeAregProjectOperation =
 	| { type: "inspect-project-base"; cwd: string; projectPath: string }
-	| { type: "inspect-instruction-files"; projectDir: string }
 	| { type: "inspect-pi-artifacts"; projectDir: string }
 	| { type: "inspect-pi-skill-inventory"; projectDir: string }
 	| { type: "inspect-skill-name-inventory"; projectDir: string }
@@ -114,10 +100,6 @@ export interface FakeAregProjectGatewayOptions {
 	lockfile?: TextFileState | object | string;
 	nsToml?: TextFileState | string;
 	aregJson?: TextFileState | object | string;
-	agentsMd?: TextFileState | string;
-	claudeMd?: TextFileState | string;
-	claudeDir?: PathState;
-	claudeSettings?: TextFileState | string;
 	piDir?: PathState;
 	piSettings?: TextFileState | object | string;
 	replacementSurfaces?: readonly string[];
@@ -140,7 +122,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly projectDir: string;
 	private readonly projectPathState: PathState;
 	private readonly files: Map<string, TextFileState>;
-	private readonly claudeDir: PathState;
 	private readonly piDir: PathState;
 	private readonly replacementSurfaces: readonly string[];
 	private readonly piSkillInventory: AregPiSkillInventoryInspection | undefined;
@@ -166,15 +147,8 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			["skills-lock.json", normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} })],
 			["ns.toml", normalizeTextFileState(options.nsToml ?? { type: "missing" })],
 			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
-			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
-			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
-			[
-				".claude/settings.local.json",
-				normalizeTextFileState(options.claudeSettings ?? { type: "missing" }),
-			],
 			[".pi/settings.json", normalizeTextFileState(options.piSettings ?? { type: "missing" })],
 		]);
-		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
 		this.piDir = copyPathState(options.piDir ?? { type: "missing" });
 		this.replacementSurfaces = [...(options.replacementSurfaces ?? [])];
 		this.piSkillInventory =
@@ -225,16 +199,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			lockfile: this.fileState("skills-lock.json"),
 			nsToml: this.fileState("ns.toml"),
 			aregJson: this.fileState("areg.json"),
-		};
-	}
-
-	async inspectInstructionFiles(request: AregProjectDirRequest) {
-		this.log.push({ type: "inspect-instruction-files", projectDir: request.projectDir });
-		return {
-			agentsMd: this.fileState("AGENTS.md"),
-			claudeMd: this.fileState("CLAUDE.md"),
-			claudeDir: copyPathState(this.claudeDir),
-			claudeSettings: this.fileState(".claude/settings.local.json"),
 		};
 	}
 
@@ -522,43 +486,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	}
 }
 
-export type FakeAregHostOperation = { type: "check-tool"; tool: AregHostToolName; cwd: string };
-
-export interface FakeAregHostGatewayOptions {
-	tools?: Partial<Record<AregHostToolName, string | null>>;
-}
-
-export class FakeAregHostGateway implements AregHostGateway {
-	private readonly tools: ReadonlyMap<AregHostToolName, string | null>;
-	private readonly log: FakeAregHostOperation[] = [];
-
-	constructor(options: FakeAregHostGatewayOptions = {}) {
-		this.tools = new Map(
-			Object.entries(options.tools ?? {}) as Array<[AregHostToolName, string | null]>,
-		);
-	}
-
-	async checkTool(options: {
-		tool: AregHostToolName;
-		cwd: string;
-		env: NodeJS.ProcessEnv;
-	}): Promise<AregToolCheckResult> {
-		this.log.push({ type: "check-tool", tool: options.tool, cwd: options.cwd });
-		const path = this.tools.get(options.tool);
-		if (path === null)
-			return {
-				type: "missing",
-				tool: options.tool,
-				message: `Required host tool is missing: ${options.tool}`,
-			};
-		return { type: "found", tool: options.tool, path: path ?? `/fake/bin/${options.tool}` };
-	}
-
-	operations(): readonly FakeAregHostOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
-	}
-}
-
 export type FakeAregGithubOperation =
 	| {
 			type: "list-skill-directory-names";
@@ -642,51 +569,6 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 	}
 }
 
-export type FakeAregNpxSkillsOperation = { type: "add-skills" } & Omit<
-	AregNpxSkillsAddRequest,
-	"env"
->;
-
-export interface FakeAregNpxSkillsGatewayOptions {
-	failure?: AregErrorInfo;
-	failures?: Readonly<Record<string, AregErrorInfo>>;
-}
-
-export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
-	private readonly failure: AregErrorInfo | undefined;
-	private readonly failures: ReadonlyMap<string, AregErrorInfo>;
-	private readonly log: FakeAregNpxSkillsOperation[] = [];
-
-	constructor(options: FakeAregNpxSkillsGatewayOptions = {}) {
-		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
-		this.failures = new Map(
-			Object.entries(options.failures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]),
-		);
-	}
-
-	async addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult> {
-		this.log.push({
-			type: "add-skills",
-			sourceRepo: request.sourceRepo,
-			skillNames: [...request.skillNames],
-			targetAgents: [...request.targetAgents],
-			cwd: request.cwd,
-		});
-		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
-		const keyedFailure = this.failures.get(failureKey(request.sourceRepo, request.skillNames));
-		if (keyedFailure !== undefined) return { type: "error", error: copyErrorInfo(keyedFailure) };
-		return { type: "ok" };
-	}
-
-	operations(): readonly FakeAregNpxSkillsOperation[] {
-		return this.log.map((operation) => ({
-			...operation,
-			skillNames: [...operation.skillNames],
-			targetAgents: [...operation.targetAgents],
-		}));
-	}
-}
-
 export type FakeAregPromptOperation = {
 	type: "confirm";
 	message: string;
@@ -723,64 +605,6 @@ export class FakeAregPromptGateway implements AregPromptGateway {
 	operations(): readonly FakeAregPromptOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
 	}
-}
-
-export type FakeAregSkillxOperation =
-	| ({ type: "install-into-workspace" } & Omit<AregSkillxInstallRequest, "env">)
-	| ({ type: "cleanup-workspace" } & AregSkillxWorkspaceCleanupRequest);
-
-export interface FakeAregSkillxWorkspaceGatewayOptions {
-	workspaceRoot?: string;
-	installedSkills?: readonly AregSkillxInstalledSkill[];
-	failure?: AregErrorInfo;
-	cleanupFailure?: AregErrorInfo;
-}
-
-export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGateway {
-	private readonly workspaceRoot: string;
-	private readonly installedSkills: readonly AregSkillxInstalledSkill[];
-	private readonly failure: AregErrorInfo | undefined;
-	private readonly cleanupFailure: AregErrorInfo | undefined;
-	private readonly log: FakeAregSkillxOperation[] = [];
-
-	constructor(options: FakeAregSkillxWorkspaceGatewayOptions = {}) {
-		this.workspaceRoot = options.workspaceRoot ?? "/tmp/areg-skillx";
-		this.installedSkills = (options.installedSkills ?? []).map(copyInstalledSkill);
-		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
-		this.cleanupFailure =
-			options.cleanupFailure === undefined ? undefined : copyErrorInfo(options.cleanupFailure);
-	}
-
-	async installIntoWorkspace(request: AregSkillxInstallRequest): Promise<AregSkillxInstallResult> {
-		this.log.push({
-			type: "install-into-workspace",
-			sourceRepo: request.sourceRepo,
-			...optionalEntry("skillName", request.skillName),
-			cwd: request.cwd,
-		});
-		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
-		return {
-			type: "ok",
-			workspace: {
-				workspaceRoot: this.workspaceRoot,
-				installedSkills: this.installedSkills.map(copyInstalledSkill),
-			},
-		};
-	}
-
-	async cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult> {
-		this.log.push({ type: "cleanup-workspace", workspaceRoot: request.workspaceRoot });
-		if (this.cleanupFailure !== undefined) return resultErr(copyErrorInfo(this.cleanupFailure));
-		return resultOk(undefined);
-	}
-
-	operations(): readonly FakeAregSkillxOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
-	}
-}
-
-function failureKey(sourceRepo: string, skillNames: readonly string[]): string {
-	return `${sourceRepo}:${skillNames.join(",")}`;
 }
 
 function copyProjectOperation(operation: FakeAregProjectOperation): FakeAregProjectOperation {
@@ -991,15 +815,6 @@ function isReadonlyStringArray(
 	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
 ): value is readonly string[] {
 	return Array.isArray(value);
-}
-
-function copyInstalledSkill(skill: AregSkillxInstalledSkill): AregSkillxInstalledSkill {
-	return {
-		name: skill.name,
-		directory: skill.directory,
-		skillFile: skill.skillFile,
-		relativeFiles: [...skill.relativeFiles],
-	};
 }
 
 function copyErrorInfo(error: AregErrorInfo): AregErrorInfo {

@@ -3,7 +3,6 @@ import type {
 	AregErrorInfo,
 	AregProjectGateway,
 	AregProjectManagedTargetRequest,
-	AregProjectMutationPolicy,
 	AregProjectMutationResult,
 } from "../gateways.ts";
 
@@ -36,16 +35,12 @@ interface BaseApplyProjectMutationPlanRequest {
 	execute?: boolean;
 }
 
-type ApplyProjectMutationPlanRequest =
-	| (BaseApplyProjectMutationPlanRequest & {
-			policy: Exclude<AregProjectMutationPolicy, "skill-kind">;
-	  })
-	| (BaseApplyProjectMutationPlanRequest & {
-			policy: "skill-kind";
-			deletes: readonly ProjectDeletePlan[];
-			deleteSymlinks: readonly ProjectDeleteSymlinkPlan[];
-			removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
-	  });
+type ApplyProjectMutationPlanRequest = BaseApplyProjectMutationPlanRequest & {
+	policy: "skill-kind";
+	deletes: readonly ProjectDeletePlan[];
+	deleteSymlinks: readonly ProjectDeleteSymlinkPlan[];
+	removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
+};
 
 export const PROJECT_FILE_MUTATION_OPERATION_TYPES = [
 	"write",
@@ -53,10 +48,7 @@ export const PROJECT_FILE_MUTATION_OPERATION_TYPES = [
 	"delete-symlink",
 	"remove-empty-dir",
 ] as const;
-export const PROJECT_MUTATION_OPERATION_TYPES = [
-	...PROJECT_FILE_MUTATION_OPERATION_TYPES,
-	"external",
-] as const;
+export const PROJECT_MUTATION_OPERATION_TYPES = [...PROJECT_FILE_MUTATION_OPERATION_TYPES] as const;
 export const PROJECT_MUTATION_OPERATION_STATUSES = [
 	"applied",
 	"failed",

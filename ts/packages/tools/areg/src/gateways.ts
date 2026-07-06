@@ -16,26 +16,11 @@ import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
 // is assignable to this narrowed surface.
 export type AregGitGateway = Pick<GitGateway, "optionalRepoRoot" | "gitPath">;
 
-export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
-export type AregHostToolName = (typeof AREG_HOST_TOOL_NAMES)[number];
-
 export interface AregErrorInfo extends ErrorInfo {
 	displayCommand?: string;
 }
 
 export type AregOperationResult = Result<undefined, AregErrorInfo>;
-
-export type AregToolCheckResult =
-	| { type: "found"; tool: AregHostToolName; path: string }
-	| { type: "missing"; tool: AregHostToolName; message: string };
-
-export interface AregHostGateway {
-	checkTool(options: {
-		tool: AregHostToolName;
-		cwd: string;
-		env: NodeJS.ProcessEnv;
-	}): Promise<AregToolCheckResult>;
-}
 
 export type AregGithubSkillListResult =
 	| { type: "ok"; skillNames: readonly string[] }
@@ -63,55 +48,8 @@ export interface AregGithubGateway {
 	}): Promise<AregGithubSkillFileResult>;
 }
 
-export interface AregNpxSkillsAddRequest {
-	sourceRepo: string;
-	/** Empty means install all skills from the source repository. */
-	skillNames: readonly string[];
-	targetAgents: readonly string[];
-	cwd: string;
-	env: NodeJS.ProcessEnv;
-}
-
-export type AregNpxSkillsAddResult = { type: "ok" } | { type: "error"; error: AregErrorInfo };
-
-export interface AregNpxSkillsGateway {
-	addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult>;
-}
-
 export interface AregPromptGateway {
 	confirm(request: { message: string; defaultValue: boolean }): Promise<boolean>;
-}
-
-export interface AregSkillxInstalledSkill {
-	name: string;
-	directory: string;
-	skillFile: string;
-	relativeFiles: readonly string[];
-}
-
-export interface AregSkillxWorkspaceInstall {
-	workspaceRoot: string;
-	installedSkills: readonly AregSkillxInstalledSkill[];
-}
-
-export interface AregSkillxInstallRequest {
-	sourceRepo: string;
-	skillName?: string;
-	cwd: string;
-	env: NodeJS.ProcessEnv;
-}
-
-export interface AregSkillxWorkspaceCleanupRequest {
-	workspaceRoot: string;
-}
-
-export type AregSkillxInstallResult =
-	| { type: "ok"; workspace: AregSkillxWorkspaceInstall }
-	| { type: "error"; error: AregErrorInfo };
-
-export interface AregSkillxWorkspaceGateway {
-	installIntoWorkspace(request: AregSkillxInstallRequest): Promise<AregSkillxInstallResult>;
-	cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult>;
 }
 
 export type { PathState, TextFileState };
@@ -220,13 +158,6 @@ export interface AregProjectBaseInspection {
 	aregJson: TextFileState;
 }
 
-export interface AregInstructionFilesInspection {
-	agentsMd: TextFileState;
-	claudeMd: TextFileState;
-	claudeDir: PathState;
-	claudeSettings: TextFileState;
-}
-
 export interface AregPiArtifactsInspection {
 	piDir: PathState;
 	piSettings: TextFileState;
@@ -257,7 +188,7 @@ export type AregSkillKindResolveResult =
 	| { type: "ok"; skillName: string }
 	| { type: "error"; error: AregErrorInfo };
 
-export type AregProjectMutationPolicy = "init" | "skill-kind";
+export type AregProjectMutationPolicy = "skill-kind";
 
 export interface AregProjectTextWriteRequest {
 	projectDir: string;
@@ -297,7 +228,6 @@ export type AregProjectRemoveEmptyDirResult =
  */
 export interface AregProjectGateway {
 	inspectProjectBase(request: AregProjectInspectionRequest): Promise<AregProjectBaseInspection>;
-	inspectInstructionFiles(request: AregProjectDirRequest): Promise<AregInstructionFilesInspection>;
 	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
 	inspectPiSkillInventory(request: AregProjectDirRequest): Promise<AregPiSkillInventoryInspection>;
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
@@ -323,13 +253,6 @@ export interface AregProjectGateway {
 	removeEmptyDir(
 		request: AregProjectRemoveEmptyDirRequest,
 	): Promise<AregProjectRemoveEmptyDirResult>;
-}
-
-export interface AregInitTextWritePlan {
-	relativePath: "ns.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
-	content: string;
-	description: string;
-	createParent: boolean;
 }
 
 export interface AregSkillKindTextWritePlan {

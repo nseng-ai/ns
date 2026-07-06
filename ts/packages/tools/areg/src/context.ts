@@ -6,28 +6,19 @@ import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import type {
 	AregGithubGateway,
 	AregGitGateway,
-	AregHostGateway,
-	AregNpxSkillsGateway,
 	AregProjectGateway,
 	AregPromptGateway,
-	AregSkillxWorkspaceGateway,
 } from "./gateways.ts";
 import {
 	RealAregGithubGateway,
-	RealAregHostGateway,
-	RealAregNpxSkillsGateway,
 	RealAregProjectGateway,
 	RealAregPromptGateway,
-	RealAregSkillxWorkspaceGateway,
 } from "./real-gateways.ts";
 
 export interface AregCliContext {
-	host: AregHostGateway;
 	github: AregGithubGateway;
-	skillxWorkspace: AregSkillxWorkspaceGateway;
 	project: AregProjectGateway;
 	git: AregGitGateway;
-	npxSkills: AregNpxSkillsGateway;
 	prompt: AregPromptGateway;
 	interaction: ClinkrInteraction;
 	cwd: string;
@@ -39,15 +30,11 @@ export function createRealAregContext(
 ): AregCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
-	const npxSkills = new RealAregNpxSkillsGateway();
 	const git = new RealGitGateway(new NodeCommandExecApi());
 	return {
-		host: new RealAregHostGateway(),
 		github: new RealAregGithubGateway(),
-		skillxWorkspace: new RealAregSkillxWorkspaceGateway({ npxSkills }),
 		project: new RealAregProjectGateway({ git }),
 		git,
-		npxSkills,
 		prompt: new RealAregPromptGateway(),
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,

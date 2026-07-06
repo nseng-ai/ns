@@ -2,7 +2,6 @@ import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
-	AregInstructionFilesInspection,
 	PathState,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
@@ -41,20 +40,6 @@ export interface AregSkillKindProjectInspection {
 	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
 	skills: readonly AregSkillKindSkillInspection[];
-}
-
-export type AregInitProjectInspection = AregProjectBaseInspection & AregInstructionFilesInspection;
-
-export async function inspectInitProject(
-	ctx: AregCliContext,
-	projectPath: string,
-): Promise<AregInitProjectInspection> {
-	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
-	const instructionFiles = await ctx.project.inspectInstructionFiles({
-		projectDir: base.projectDir,
-		env: ctx.env,
-	});
-	return { ...base, ...instructionFiles };
 }
 
 export async function collectProjectInspectionFacts(

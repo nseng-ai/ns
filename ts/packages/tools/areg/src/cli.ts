@@ -16,15 +16,7 @@ import {
 	renderCheck,
 	runCheck,
 } from "./operations/check.ts";
-import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { buildSkillGroup } from "./operations/skill-kind.ts";
-import { buildSkillxGroup } from "./operations/skillx.ts";
-import {
-	renderUpdateSkills,
-	runUpdateSkills,
-	updateSkillsRequestSchema,
-	updateSkillsResultSchema,
-} from "./operations/update-skills.ts";
 
 export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	context?: AregCliContext;
@@ -47,30 +39,12 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 	},
 	configureCli: ({ root }) => {
 		root.command({
-			name: "init",
-			description: "Initialize an existing Git project for areg skill workflows.",
-			schema: initRequestSchema,
-			positionals: { target: { position: 0 } },
-			options: { yes: { short: "-y" } },
-			resultSchema: initResultSchema,
-			handler: runInit,
-			renderHuman: renderInit,
-		});
-		root.command({
 			name: "check",
 			description: "Check that skills follow areg conventions.",
 			schema: checkRequestSchema,
 			resultSchema: checkResultSchema,
 			handler: runCheck,
 			renderHuman: renderCheck,
-		});
-		root.command({
-			name: "update-skills",
-			description: "Refresh GitHub-sourced skills recorded in skills-lock.json.",
-			schema: updateSkillsRequestSchema,
-			resultSchema: updateSkillsResultSchema,
-			handler: runUpdateSkills,
-			renderHuman: renderUpdateSkills,
 		});
 		const doctorGroup = new ClinkrGroup<AregCliContext>({
 			name: "doctor",
@@ -86,13 +60,6 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 		});
 		root.group(doctorGroup);
 		root.group(buildSkillGroup());
-		const execGroup = new ClinkrGroup<AregCliContext>({
-			name: "exec",
-			description: "Commands for use by skills (not interactive users).",
-			isHidden: true,
-		});
-		execGroup.group(buildSkillxGroup());
-		root.group(execGroup);
 	},
 });
 

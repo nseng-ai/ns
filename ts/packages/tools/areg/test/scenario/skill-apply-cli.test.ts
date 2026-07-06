@@ -5,8 +5,6 @@ import { describe, expect, test } from "vitest";
 import type { AregCliContext } from "../../src/context.ts";
 import {
 	FakeAregGithubGateway,
-	FakeAregHostGateway,
-	FakeAregNpxSkillsGateway,
 	FakeAregProjectGateway,
 	FakeAregPromptGateway,
 	type FakeAregProjectOperation,
@@ -29,18 +27,9 @@ function contextWithProject(
 	interaction: FakeClinkrInteraction = createFakeClinkrInteraction(),
 ): AregCliContext {
 	return {
-		host: new FakeAregHostGateway(),
 		github: new FakeAregGithubGateway(),
-		skillxWorkspace: {
-			installIntoWorkspace: async () => ({
-				type: "error",
-				error: { code: "not-used", message: "not used" },
-			}),
-			cleanupWorkspace: async () => ({ ok: true, value: undefined }),
-		},
 		project,
 		git: new InMemoryGitGateway(),
-		npxSkills: new FakeAregNpxSkillsGateway(),
 		prompt,
 		interaction: interaction.interaction,
 		cwd: "/repo",
