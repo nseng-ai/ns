@@ -1,17 +1,20 @@
 import { normalize } from "node:path";
 
+import type { NsSubpackage } from "./package-metadata.ts";
+
 export function belongsToDeclaredSubpackage(
 	pathWithinSrc: string,
-	subpackages: readonly string[],
+	subpackages: readonly NsSubpackage[],
 ): boolean {
 	const normalizedPath = toPosix(normalize(pathWithinSrc));
 	return subpackages.some(
-		(subpackage) => normalizedPath === subpackage || normalizedPath.startsWith(`${subpackage}/`),
+		(subpackage) =>
+			normalizedPath === subpackage.name || normalizedPath.startsWith(`${subpackage.name}/`),
 	);
 }
 
-export function formatDeclaredSubpackageUnits(subpackages: readonly string[]): string {
-	return subpackages.map((subpackage) => `src/${subpackage}/`).join(", ");
+export function formatDeclaredSubpackageUnits(subpackages: readonly NsSubpackage[]): string {
+	return subpackages.map((subpackage) => `src/${subpackage.name}/`).join(", ");
 }
 
 function toPosix(path: string): string {

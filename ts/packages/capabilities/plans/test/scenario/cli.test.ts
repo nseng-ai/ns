@@ -6,6 +6,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { VERSION } from "../../src/cli.ts";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../../src/testing.ts";
 
@@ -237,11 +238,11 @@ describe("plans CLI help, version, and dispatch pins", () => {
 	test("prints -V and ignores trailing version args", async () => {
 		const short = await runWithFakes(["-V"]);
 		expect(await short.exit).toBe(0);
-		expect(short.stdout.join("")).toBe("0.1.1\n");
+		expect(short.stdout.join("")).toBe(`${VERSION}\n`);
 
 		const trailing = await runWithFakes(["--version", "extra-arg"]);
 		expect(await trailing.exit).toBe(0);
-		expect(trailing.stdout.join("")).toBe("0.1.1\n");
+		expect(trailing.stdout.join("")).toBe(`${VERSION}\n`);
 		// PINNED QUIRK (clinkr-migration): top-level --version ignores trailing arguments.
 	});
 

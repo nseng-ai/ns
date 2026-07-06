@@ -638,4 +638,6 @@ function writeNsResultOutput(
 	deps.stderr(output);
 }
 
+export const VERSION = entry.version;
+
 await entry.runIfMain({ isImportMetaMain: import.meta.main });

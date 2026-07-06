@@ -7,8 +7,8 @@ import {
 } from "./config.ts";
 import { packageEdgeKey } from "./package-tier-taxonomy.ts";
 import { collectExtensionManifestWorkspaceEdges } from "./dependency-graph.ts";
-import { lineAndColumnForOffset, type TextPosition } from "./json-diagnostics.ts";
-import { isRecord, type PackageMetadata } from "./package-metadata.ts";
+import { findManifestKeyPosition, type TextPosition } from "./json-diagnostics.ts";
+import { declaredSubpackageNames, isRecord, type PackageMetadata } from "./package-metadata.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
 
 export function collectPackageTierLayeringViolations(
@@ -77,7 +77,7 @@ function isAllowedPiSubpackagePeerEdge(
 	if (edge.to !== "@nseng-ai/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
 	if (metadata?.nsTier !== "capability") return false;
-	if (!metadata.nsSubpackages.includes("pi")) return false;
+	if (!declaredSubpackageNames(metadata.nsSubpackages).includes("pi")) return false;
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
 }
 
@@ -92,7 +92,7 @@ function collectSubpackageTierMetadataViolations(metadata: PackageMetadata): Sou
 	if (!isRecord(nsField) || !isRecord(nsField.subpackageTiers)) return [];
 	const violations: SourceRuleViolation[] = [];
 	for (const [subpackage, rawTier] of Object.entries(nsField.subpackageTiers)) {
-		if (!metadata.nsSubpackages.includes(subpackage)) {
+		if (!declaredSubpackageNames(metadata.nsSubpackages).includes(subpackage)) {
 			violations.push(
 				buildSubpackageTierMetadataViolation(
 					metadata,
@@ -121,7 +121,11 @@ function buildSubpackageTierMetadataViolation(
 ): SourceRuleViolation {
 	return buildManifestPositionViolation(
 		metadata,
-		findManifestKeyPosition(metadata, "ns", "subpackageTiers", subpackage),
+		findManifestKeyPosition(
+			metadata.manifestContent,
+			["ns", "subpackageTiers", subpackage],
+			subpackage,
+		),
 		`${reason}.`,
 	);
 }
@@ -132,7 +136,7 @@ function buildTierMetadataViolation(
 ): SourceRuleViolation {
 	return buildManifestPositionViolation(
 		metadata,
-		findManifestKeyPosition(metadata, "ns", "tier"),
+		findManifestKeyPosition(metadata.manifestContent, ["ns", "tier"], "tier"),
 		`${reason}; declare one of: ${packageTierValues.join(", ")}.`,
 	);
 }
@@ -149,23 +153,4 @@ function buildManifestPositionViolation(
 		column: position.column,
 		text: `${metadata.name} ${reason}`,
 	};
-}
-
-function findManifestKeyPosition(
-	metadata: PackageMetadata,
-	...keys: readonly string[]
-): TextPosition {
-	let matchedOffset: number | undefined;
-	let searchOffset = 0;
-	for (const key of keys) {
-		const keyOffset = metadata.manifestContent.indexOf(JSON.stringify(key), searchOffset);
-		if (keyOffset < 0) break;
-		matchedOffset = keyOffset;
-		searchOffset = keyOffset;
-	}
-	if (matchedOffset !== undefined) {
-		return lineAndColumnForOffset(metadata.manifestContent, matchedOffset);
-	}
-	const nameOffset = metadata.manifestContent.indexOf(`"${metadata.name}"`);
-	return lineAndColumnForOffset(metadata.manifestContent, Math.max(0, nameOffset));
 }

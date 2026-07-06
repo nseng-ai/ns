@@ -25,10 +25,14 @@ export interface PackageMetadata {
 	manifestContent: string;
 	readonly nsTier: PackageTier | undefined;
 	readonly rawNsTier: unknown;
-	readonly nsSubpackages: readonly string[];
+	readonly nsSubpackages: readonly NsSubpackage[];
 	readonly nsRemainder: boolean;
-	readonly nsSubpackageTiers: ReadonlyMap<string, PackageTier>;
 	readonly exportSubpaths: ReadonlySet<string>;
+}
+
+export interface NsSubpackage {
+	readonly name: string;
+	readonly tier: PackageTier | undefined;
 }
 
 export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetadata> {
@@ -39,17 +43,17 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 		const parsed: unknown = JSON.parse(manifestContent);
 		if (!isPackageManifest(parsed)) continue;
 		const rawNsTier = readRawNsTier(parsed.ns);
+		const nsTier = parsePackageTier(rawNsTier);
 		metadataByName.set(parsed.name, {
 			name: parsed.name,
 			packageDir: relative(repoRoot, packageDir),
 			packageJsonPath: relative(repoRoot, packageJsonPath),
 			manifest: parsed,
 			manifestContent,
-			nsTier: parsePackageTier(rawNsTier),
+			nsTier,
 			rawNsTier,
 			nsSubpackages: readNsSubpackages(parsed.ns),
 			nsRemainder: readNsRemainder(parsed.ns),
-			nsSubpackageTiers: readNsSubpackageTiers(parsed.ns),
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}
@@ -61,11 +65,18 @@ export function readRawNsTier(nsField: unknown): unknown {
 	return nsField.tier;
 }
 
-export function readNsSubpackages(nsField: unknown): readonly string[] {
+export function readNsSubpackages(nsField: unknown): readonly NsSubpackage[] {
 	if (!isRecord(nsField)) return [];
 	const value = nsField.subpackages;
 	if (!Array.isArray(value)) return [];
-	return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
+	const subpackageTiers = readNsSubpackageTiers(nsField);
+	return value
+		.filter((entry): entry is string => typeof entry === "string" && entry !== "")
+		.map((name) => ({ name, tier: subpackageTiers.get(name) }));
+}
+
+export function declaredSubpackageNames(subpackages: readonly NsSubpackage[]): readonly string[] {
+	return subpackages.map((subpackage) => subpackage.name);
 }
 
 export function readNsRemainder(nsField: unknown): boolean {

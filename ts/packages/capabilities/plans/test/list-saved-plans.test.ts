@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { VERSION } from "../src/cli.ts";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
@@ -107,7 +108,7 @@ describe("plans list CLI", () => {
 			stderr: version.stderr,
 		});
 		expect(versionExitCode).toBe(0);
-		expect(version.stdoutText()).toBe("0.1.1\n");
+		expect(version.stdoutText()).toBe(`${VERSION}\n`);
 	});
 
 	test("prints list help", async () => {

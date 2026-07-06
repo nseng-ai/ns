@@ -1,12 +1,12 @@
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupDescriptorForSourceType,
-} from "./skill-lookup.ts";
+} from "@nseng-ai/foundation/skill-lookup";
 import type {
 	SkillLookupRoot,
 	SkillLookupRootDescriptor,
 	SkillLookupSourceType,
-} from "./skill-lookup.ts";
+} from "@nseng-ai/foundation/skill-lookup";
 import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;

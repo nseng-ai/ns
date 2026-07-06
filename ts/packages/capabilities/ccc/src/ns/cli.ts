@@ -183,4 +183,6 @@ function renderAutobranch(result: AutobranchResult): string {
 	return result.summary;
 }
 
+export const VERSION = entry.version;
+
 await entry.runIfMain({ isImportMetaMain: import.meta.main });
