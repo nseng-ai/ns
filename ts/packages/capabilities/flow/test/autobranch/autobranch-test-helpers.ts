@@ -38,6 +38,43 @@ export function eventIndex(events: readonly string[], prefix: string): number {
 	return events.findIndex((event) => event.startsWith(prefix));
 }
 
+export function createFakeBranchAvailability(
+	exec: (command: string, args: string[]) => Promise<CommandResult>,
+): { isBranchNameAvailable(branchName: string): Promise<boolean> } {
+	return {
+		async isBranchNameAvailable(branchName) {
+			const valid = await exec("git", ["check-ref-format", "--branch", branchName]);
+			if (valid.code !== 0) return false;
+
+			const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
+			for (const ref of refsToCheck) {
+				const exists = await exec("git", ["show-ref", "--verify", "--quiet", ref]);
+				if (exists.code !== 1) return false;
+			}
+
+			const childRefs = await exec("git", [
+				"for-each-ref",
+				"--format=%(refname)",
+				`${branchHeadRef(branchName)}/`,
+			]);
+			return childRefs.code === 0 && childRefs.stdout.trim().length === 0;
+		},
+	};
+}
+
+function branchHeadRef(branchName: string): string {
+	return `refs/heads/${branchName}`;
+}
+
+function branchParentHeadRefs(branchName: string): string[] {
+	const segments = branchName.split("/");
+	const refs: string[] = [];
+	for (let index = 1; index < segments.length; index += 1) {
+		refs.push(branchHeadRef(segments.slice(0, index).join("/")));
+	}
+	return refs;
+}
+
 export function createGitWorldHarness(options: GitWorldExecOptions = {}): {
 	exec: (command: string, args: string[]) => Promise<CommandResult & ExecResult>;
 	git: AutobranchGitGateway;
@@ -46,8 +83,15 @@ export function createGitWorldHarness(options: GitWorldExecOptions = {}): {
 	const harness = createGitWorldExec(options);
 	return {
 		...harness,
-		git: createAutobranchGitGateway({ cwd: "/repo", exec: harness.exec }),
+		git: createTestAutobranchGitGateway("/repo", harness.exec),
 	};
+}
+
+export function createTestAutobranchGitGateway(
+	cwd: string,
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>,
+): AutobranchGitGateway {
+	return createAutobranchGitGateway({ cwd, exec });
 }
 
 export function createGitWorldExec(options: GitWorldExecOptions = {}): {
@@ -94,6 +138,9 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 				return ok();
 			}
 			if (command === "git" && args[0] === "show-ref") {
+				return { code: 1, stdout: "", stderr: "", killed: false };
+			}
+			if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
 				return { code: 1, stdout: "", stderr: "", killed: false };
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {

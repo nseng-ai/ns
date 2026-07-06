@@ -43,7 +43,7 @@ function createHarness(options: HarnessOptions = {}) {
 		cwd: "/repo",
 		args: options.args ?? { slug: "test-branch" },
 		now: () => 123,
-		exec: async (command, args) => world.exec(command, args),
+		exec: async (command, args, _timeout) => world.exec(command, args),
 		prepareCheckpointMessage: async (snapshot) => {
 			events.push("prepare");
 			preparedSnapshots.push(snapshot);

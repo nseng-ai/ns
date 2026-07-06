@@ -435,7 +435,7 @@ describe("in-memory git gateway", () => {
 
 	test("models staged-changes state, unstage, and checkout mutations with call logs", async () => {
 		const git = new InMemoryGitGateway({
-			stagedChanges: true,
+			hasStagedChanges: true,
 			currentBranch: "feature/source-plan",
 		});
 
@@ -454,7 +454,7 @@ describe("in-memory git gateway", () => {
 
 	test("supports configured staged-changes, whitespace, unstage, and checkout failures", async () => {
 		const git = new InMemoryGitGateway({
-			stagedChanges: true,
+			hasStagedChanges: true,
 			hasStagedChangesFailure: { code: "git_staged_probe_failed", message: "probe denied" },
 			checkStagedWhitespaceFailure: {
 				code: "git_staged_whitespace_failed",

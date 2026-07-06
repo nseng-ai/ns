@@ -77,7 +77,7 @@ export async function runAutobranchTransaction(
 	return { ok: true, commitSummary: committed.summary };
 }
 
-type TransactionExecutionInput = Pick<AutobranchTransactionInput, "cwd" | "exec" | "git">;
+type TransactionExecutionInput = Pick<AutobranchTransactionInput, "git">;
 
 type StashPendingChangesResult =
 	| { ok: true; ref: string }

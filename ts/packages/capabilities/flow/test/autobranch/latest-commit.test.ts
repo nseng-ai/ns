@@ -4,6 +4,7 @@ import {
 	fail,
 	ok,
 	type CommandResult,
+	createTestAutobranchGitGateway,
 	type PendingWorktreeSnapshot,
 	type UpstreamMode,
 } from "./autobranch-test-helpers.ts";
@@ -14,7 +15,6 @@ import {
 	type LatestCommitTransactionInput,
 } from "../../src/autobranch/latest-commit.ts";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
-import { createAutobranchGitGateway } from "../../src/autobranch/git-gateway.ts";
 
 interface PreparationHarnessOptions {
 	slug?: string;
@@ -82,6 +82,10 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
 			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
 		}
+		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
+			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			return existingBranches.has(branch) ? ok(`${branch}\n`) : { code: 1, stdout: "", stderr: "" };
+		}
 		return ok();
 	};
 	const input = {
@@ -89,7 +93,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
-		git: createAutobranchGitGateway({ cwd: "/repo", exec }),
+		git: createTestAutobranchGitGateway("/repo", exec),
 	};
 	return { input, calls };
 }
@@ -158,6 +162,10 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
 			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
 		}
+		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
+			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			return existingBranches.has(branch) ? ok(`${branch}\n`) : { code: 1, stdout: "", stderr: "" };
+		}
 		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 			return ok(`${currentBranch}\n`);
 		}
@@ -215,7 +223,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		plan: basePlan({ sourceBranch }),
 		now: () => 123,
 		exec,
-		git: createAutobranchGitGateway({ cwd: "/repo", exec }),
+		git: createTestAutobranchGitGateway("/repo", exec),
 	};
 	return { input, events };
 }

@@ -6,7 +6,6 @@ import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@nseng-ai/c
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
@@ -143,11 +142,12 @@ async function handleAutobranch(
 ): Promise<ClinkrExit<AutobranchResult>> {
 	const args: FlowAutobranchRequest = request.slug === undefined ? {} : { slug: request.slug };
 	const autobranch = ctx.autobranch ?? {};
+	const exec = (command: string, commandArgs: string[], timeout: number) =>
+		ctx.commands.exec(command, commandArgs, { cwd: ctx.cwd, timeout, env: ctx.env });
 	const result = await createFlowAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
-		exec: (command, commandArgs, timeout) =>
-			ctx.commands.exec(command, commandArgs, { cwd: ctx.cwd, timeout, env: ctx.env }),
+		exec,
 		prepareCheckpointMessage:
 			autobranch.prepareCheckpointMessage ??
 			((snapshot) => prepareAutobranchCheckpointMessage(snapshot, ctx.env)),

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { findAvailableBranchName } from "../../src/autobranch/branch-name.ts";
-import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
+import {
+	createFakeBranchAvailability,
+	fail,
+	ok,
+	type CommandResult,
+} from "./autobranch-test-helpers.ts";
 
 interface BranchAvailabilityHarnessOptions {
 	existingBranches?: ReadonlySet<string>;
@@ -34,40 +39,9 @@ function createBranchAvailabilityHarness(options: BranchAvailabilityHarnessOptio
 	return {
 		calls,
 		input: {
-			git: {
-				async isBranchNameAvailable(branchName: string): Promise<boolean> {
-					const valid = await exec("git", ["check-ref-format", "--branch", branchName]);
-					if (valid.code !== 0) return false;
-
-					const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
-					for (const ref of refsToCheck) {
-						const exists = await exec("git", ["show-ref", "--verify", "--quiet", ref]);
-						if (exists.code !== 1) return false;
-					}
-
-					const childRefsResult = await exec("git", [
-						"for-each-ref",
-						"--format=%(refname)",
-						`${branchHeadRef(branchName)}/`,
-					]);
-					return childRefsResult.code === 0 && childRefsResult.stdout.trim().length === 0;
-				},
-			},
+			git: createFakeBranchAvailability(exec),
 		},
 	};
-}
-
-function branchHeadRef(branchName: string): string {
-	return `refs/heads/${branchName}`;
-}
-
-function branchParentHeadRefs(branchName: string): string[] {
-	const segments = branchName.split("/");
-	const refs: string[] = [];
-	for (let index = 1; index < segments.length; index += 1) {
-		refs.push(branchHeadRef(segments.slice(0, index).join("/")));
-	}
-	return refs;
 }
 
 function candidate(name: string, hasSuffix = false): { name: string; hasSuffix: boolean } {

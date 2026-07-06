@@ -12,6 +12,11 @@ import {
 } from "@nseng-ai/foundation/command";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import {
+	createAutobranchGitGateway,
+	type AutobranchGitGateway,
+} from "../autobranch/git-gateway.ts";
+import type { AutobranchExec } from "../autobranch/shared.ts";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
@@ -38,6 +43,15 @@ export function execGit(
 
 export const createCliExecAdapter = createNsCliExecAdapter;
 export const execExtensionCommand = execNsCommand;
+
+export function createAutobranchExecContext(
+	ctx: NsExtensionApi,
+	cwd: string,
+): { exec: AutobranchExec; git: AutobranchGitGateway } {
+	const exec: AutobranchExec = (command, commandArgs, timeout) =>
+		execExtensionCommand({ ctx, command, args: commandArgs, cwd, timeoutMs: timeout });
+	return { exec, git: createAutobranchGitGateway({ cwd, exec }) };
+}
 
 export async function createCommitWithPreparedMessage(
 	ctx: NsExtensionApi,

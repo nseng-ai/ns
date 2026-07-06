@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { verifyRunnerStep, type GateCheckId } from "../../../src/runner/gate.ts";
 import type { RunnerReport } from "../../../src/runner/report.ts";
+import { stagedWhitespaceFailure } from "../../support/git-fixtures.ts";
 import { contextWithRunnerFakes, type RunnerFakesOptions } from "./context.ts";
 
 const DEFAULT_HEAD = "0123456789abcdef0123456789abcdef01234567";
@@ -207,7 +208,7 @@ describe("verifyRunnerStep", () => {
 	});
 
 	test("fails index-clean and does not stage when the child pre-staged changes", async () => {
-		const ctx = gateContext({ git: { stagedChanges: true } });
+		const ctx = gateContext({ git: { hasStagedChanges: true } });
 
 		const outcome = await verifyRunnerStep(ctx, {
 			mode: "default",
@@ -275,10 +276,7 @@ describe("verifyRunnerStep", () => {
 	test("fails diff-check when the staged whitespace check fails", async () => {
 		const ctx = gateContext({
 			git: {
-				checkStagedWhitespaceFailure: {
-					code: "git_staged_whitespace_failed",
-					message: "git diff --cached --check failed: trailing whitespace",
-				},
+				checkStagedWhitespaceFailure: stagedWhitespaceFailure(),
 			},
 		});
 
@@ -304,10 +302,7 @@ describe("verifyRunnerStep", () => {
 	test("reports unstage failure without masking the cached diff-check failure", async () => {
 		const ctx = gateContext({
 			git: {
-				checkStagedWhitespaceFailure: {
-					code: "git_staged_whitespace_failed",
-					message: "git diff --cached --check failed: trailing whitespace",
-				},
+				checkStagedWhitespaceFailure: stagedWhitespaceFailure(),
 				unstageAllFailure: {
 					code: "git_unstage_failed",
 					message: "index locked",

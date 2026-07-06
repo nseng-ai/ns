@@ -54,7 +54,7 @@ export interface InMemoryGitGatewayState {
 	stagePathsFailure?: GitErrorInfo;
 	commitSha?: string;
 	commitFailure?: GitErrorInfo;
-	stagedChanges?: boolean;
+	hasStagedChanges?: boolean;
 	hasStagedChangesFailure?: GitErrorInfo;
 	checkStagedWhitespaceFailure?: GitErrorInfo;
 	unstageAllFailure?: GitErrorInfo;
@@ -122,7 +122,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly stagePathsFailure: GitErrorInfo | undefined;
 	private readonly commitSha: string;
 	private readonly commitFailure: GitErrorInfo | undefined;
-	private stagedChangesState: boolean;
+	private hasStagedChangesState: boolean;
 	private readonly hasStagedChangesFailure: GitErrorInfo | undefined;
 	private readonly checkStagedWhitespaceFailure: GitErrorInfo | undefined;
 	private readonly unstageAllFailure: GitErrorInfo | undefined;
@@ -193,7 +193,7 @@ export class InMemoryGitGateway implements GitGateway {
 		this.stagePathsFailure = state.stagePathsFailure;
 		this.commitSha = state.commitSha ?? "fedcba9876543210fedcba9876543210fedcba98";
 		this.commitFailure = state.commitFailure;
-		this.stagedChangesState = state.stagedChanges ?? false;
+		this.hasStagedChangesState = state.hasStagedChanges ?? false;
 		this.hasStagedChangesFailure = state.hasStagedChangesFailure;
 		this.checkStagedWhitespaceFailure = state.checkStagedWhitespaceFailure;
 		this.unstageAllFailure = state.unstageAllFailure;
@@ -516,7 +516,7 @@ export class InMemoryGitGateway implements GitGateway {
 		if (this.hasStagedChangesFailure !== undefined) {
 			return { ok: false, error: { ...this.hasStagedChangesFailure } };
 		}
-		return { ok: true, value: this.stagedChangesState };
+		return { ok: true, value: this.hasStagedChangesState };
 	}
 
 	async checkStagedWhitespace(params: GitCwdParams): Promise<GitOperationResult> {
@@ -532,7 +532,7 @@ export class InMemoryGitGateway implements GitGateway {
 		if (this.unstageAllFailure !== undefined) {
 			return { ok: false, error: { ...this.unstageAllFailure } };
 		}
-		this.stagedChangesState = false;
+		this.hasStagedChangesState = false;
 		return { ok: true };
 	}
 
