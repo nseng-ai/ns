@@ -90,5 +90,6 @@ canonical in the root `CONTEXT.md`.
   passes through; this pattern names deliberately staying there while the way is found.
 - Size Question Rows to one agent session, and resolve one per session.
 
-Status note (2026-07-05): the pattern is newly named; objective-create/next/update skill
-support for typed question rows is recorded direction, not yet landed behavior.
+Skill support: `objective-create` charts ideation records Destination-first with typed
+Question Rows and Fog; `objective-next` recommends from the Frontier and recognizes
+Crystallization; `objective-update` resolves Question Rows and graduates Fog.
