@@ -1,4 +1,4 @@
-import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../runner/prompt.ts";
+import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "./objective-runner-rules.ts";
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
 export type ObjectiveCliSubcommand = "next" | "update" | "close" | "autorun";

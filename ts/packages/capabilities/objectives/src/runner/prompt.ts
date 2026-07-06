@@ -1,6 +1,7 @@
 import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 
+import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../core/objective-runner-rules.ts";
 import type { RunnerStepMode } from "./context.ts";
 
 // Ported from the autopilot prototype's stack-navigation rule: the runner
@@ -8,9 +9,6 @@ import type { RunnerStepMode } from "./context.ts";
 // Graphite stack mid-step.
 const RUNNER_GRAPHITE_STACK_NAVIGATION_RULE =
 	"Do not run `gt create`, `gt checkout`, `gt restack`, or any command whose purpose is to rebase/reorder or navigate the Graphite stack; after Graphite tracking succeeds, use plain `git switch` instead of `gt checkout` because Graphite checkout may demand a restack when a downstack branch is behind trunk. If a branch appears to need restacking, report it and stop.";
-
-export const OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE =
-	"Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization.";
 
 interface ReportFieldDescriptor {
 	key: string;
