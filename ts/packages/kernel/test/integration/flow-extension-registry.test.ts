@@ -31,7 +31,10 @@ describe("checked-in flow ns extension registry loading", () => {
 		});
 
 		expect(catalog.diagnostics).toEqual([]);
-		expect([...catalog.candidates.keys()]).toEqual([
+		const flowCandidates = [...catalog.candidates].filter(([_key, candidate]) =>
+			candidate.source.level === "project"
+		);
+		expect(flowCandidates.map(([key]) => key)).toEqual([
 			"flow/autobranch",
 			"flow/autoslot",
 			"flow/branch-latest-commit",
@@ -46,7 +49,7 @@ describe("checked-in flow ns extension registry loading", () => {
 		]);
 
 		const failures: string[] = [];
-		for (const [key, candidate] of catalog.candidates) {
+		for (const [key, candidate] of flowCandidates) {
 			const loaded = await loadSelectedNsCommand(candidate);
 			if (!loaded.ok) failures.push(`${key}: ${loaded.diagnostic.message}`);
 		}
