@@ -1,9 +1,12 @@
-import { existsSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
-
 import { formatCommand, piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
-import { RealGitGateway, type GitLocalBranchTip } from "@nseng-ai/capability-kit/git";
+import {
+	detectGitOperationInProgressAt,
+	RealGitGateway,
+	type GitLocalBranchTip,
+	type GitOperationInProgress,
+	type GitWorktreeStateFs,
+} from "@nseng-ai/capability-kit/git";
 import { reconcileTopologyToLiveBranches } from "@nseng-ai/capability-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
@@ -278,11 +281,12 @@ function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): string[
 	return warnings;
 }
 
-export type InProgressGitOperation = "merge" | "cherry-pick" | "revert" | "rebase";
+export type InProgressGitOperation = GitOperationInProgress;
 
 export async function assertCleanRepo(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
+	options: { gitStateFs?: GitWorktreeStateFs } = {},
 ): Promise<LandStackOutcome> {
 	const status = await exec({
 		pi,
@@ -302,7 +306,10 @@ export async function assertCleanRepo(
 		return failure(landStackFailure("Working tree is dirty; refusing to start stack landing."));
 	}
 
-	const operation = await detectInProgressOperation(pi, repoRoot);
+	const operation = detectInProgressOperation(
+		repoRoot,
+		options.gitStateFs === undefined ? {} : { fs: options.gitStateFs },
+	);
 	if (operation) {
 		return failure(
 			landStackFailure(
@@ -313,67 +320,23 @@ export async function assertCleanRepo(
 	return completed();
 }
 
-export interface DetectInProgressOperationOptions {
-	pathExists?: (path: string) => boolean;
+export interface GitOperationDetectionOptions {
+	fs?: GitWorktreeStateFs;
 }
 
-export async function detectInProgressOperation(
-	pi: LandStackExtensionAPI,
+export function detectInProgressOperation(
 	repoRoot: string,
-	options: DetectInProgressOperationOptions = {},
-): Promise<InProgressGitOperation | undefined> {
-	const pathExists = options.pathExists ?? defaultPathExists;
-	const refs: Array<{ ref: string; operation: InProgressGitOperation }> = [
-		{ ref: "MERGE_HEAD", operation: "merge" },
-		{ ref: "CHERRY_PICK_HEAD", operation: "cherry-pick" },
-		{ ref: "REVERT_HEAD", operation: "revert" },
-	];
-
-	for (const { ref, operation } of refs) {
-		const result = await exec({
-			pi,
-			command: "git",
-			args: ["rev-parse", "-q", "--verify", ref],
-			cwd: repoRoot,
-			timeoutMs: GIT_TIMEOUT_MS,
-		});
-		if (result.code === 0) {
-			return operation;
-		}
-	}
-
-	// REBASE_HEAD can be left behind as a stale pseudo-ref after Git reports a
-	// clean, normal worktree. Treat only Git's active rebase state directories as
-	// authoritative for rebase detection.
-	for (const dir of ["rebase-merge", "rebase-apply"]) {
-		const pathResult = await exec({
-			pi,
-			command: "git",
-			args: ["rev-parse", "--git-path", dir],
-			cwd: repoRoot,
-			timeoutMs: GIT_TIMEOUT_MS,
-		});
-		if (pathResult.code !== 0) continue;
-		const gitPath = pathResult.stdout.trim();
-		if (gitPath && pathExists(resolveGitPath(repoRoot, gitPath))) {
-			return "rebase";
-		}
-	}
-
-	return undefined;
+	options: GitOperationDetectionOptions = {},
+): InProgressGitOperation | undefined {
+	// REBASE_HEAD can be left behind as a stale pseudo-ref after Git reports a clean, normal worktree.
+	// The kit detector treats only Git's active rebase state directories as authoritative for rebase.
+	return detectGitOperationInProgressAt(repoRoot, options)?.operation;
 }
 
 export function formatInProgressOperationLabel(operation: InProgressGitOperation): string {
 	if (operation === "cherry-pick") return "A cherry-pick";
+	if (operation === "bisect") return "A bisect";
 	return `A ${operation}`;
-}
-
-function defaultPathExists(path: string): boolean {
-	return existsSync(path);
-}
-
-export function resolveGitPath(repoRoot: string, gitPath: string): string {
-	return isAbsolute(gitPath) ? gitPath : resolve(repoRoot, gitPath);
 }
 
 export async function assertLocalBranchExists(

@@ -65,7 +65,7 @@
 
 Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
 
-- [ ] Extend kit `git` with operation-in-progress/worktree-admin detection:
+- [x] Extend kit `git` with operation-in-progress/worktree-admin detection:
       pin — one kit module covering marker-file detection (`MERGE_HEAD`,
       `CHERRY_PICK_HEAD`, `REVERT_HEAD`, `rebase-merge`/`rebase-apply`, bisect),
       `gitdir:` file resolution / `--git-common-dir` admin-dir resolution, and
@@ -83,6 +83,13 @@ Second wave (Tier 2 rows pulled from Parked 2026-07-05, ranked by impact):
     taxonomies genuinely diverge (e.g. slots' rebase head-name recovery does
     not generalize), if the kit `git` extension proves non-additive, or if
     the hosts/pi exec-seam wiring needs a new adapter.
+  - Evidence: `pnpm --dir ts --filter @nseng-ai/capability-kit test`,
+    `pnpm --dir ts --filter @nseng-ai/slots test`,
+    `pnpm --dir ts --filter @nseng-ai/flow test`,
+    `pnpm --dir ts --filter @nseng-ai/pi test`,
+    `pnpm --dir ts --filter @nseng-ai/ccc test`, `just ts-check`, `just`, and
+    grep verification for retired duplicate symbols passed on local branch
+    `kit-git-worktree-state-consolidation`.
 - [ ] Promote the content-slug derivation layer beside kit `model-slug`:
       pin — generalize
       `ts/packages/capabilities/plans/src/content-slug-derivation.ts`

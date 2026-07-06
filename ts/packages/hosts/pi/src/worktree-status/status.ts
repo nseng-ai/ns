@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { runAvailableBrmemCommand } from "@nseng-ai/capability-kit/brmem-cli";
@@ -11,7 +11,7 @@ import {
 	type PiExecResultLike,
 	tailText,
 } from "@nseng-ai/foundation/command";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
 import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/capability-kit/github/identity";
@@ -76,10 +76,6 @@ export function repoNameFromWorktreeStatusGitPaths(
 	const repoName = basename(repoDir);
 	return repoName.length > 0 ? repoName : undefined;
 }
-
-type GitFileParseResult =
-	| { type: "found"; paths: WorktreeStatusGitPaths | undefined }
-	| { type: "not-gitdir-file" };
 
 export type GtCommitStatus =
 	| { type: "count"; count: number }
@@ -910,40 +906,15 @@ function formatColoredSegment(text: string, color: string, theme: StatusTheme | 
 export function findWorktreeStatusGitPaths(cwd: string): WorktreeStatusGitPaths | undefined {
 	let dir = resolve(cwd);
 	for (;;) {
-		const gitPath = join(dir, ".git");
-		if (existsSync(gitPath)) {
-			try {
-				const stat = statSync(gitPath);
-				if (stat.isFile()) {
-					const gitFileResult = gitPathsFromGitFile(dir, gitPath);
-					if (gitFileResult.type === "found") return gitFileResult.paths;
-				} else if (stat.isDirectory()) {
-					const headPath = join(gitPath, "HEAD");
-					if (!existsSync(headPath)) return undefined;
-					return { repoDir: dir, gitDir: gitPath, commonGitDir: gitPath, headPath };
-				}
-			} catch {
-				return undefined;
-			}
+		const resolution = resolveWorktreeGitDirs(dir);
+		if (resolution.type === "resolved") {
+			if (!resolution.dirs.hasHead) return undefined;
+			return { repoDir: dir, ...resolution.dirs };
 		}
+		if (resolution.type === "unreadable") return undefined;
 
 		const parent = dirname(dir);
 		if (parent === dir) return undefined;
 		dir = parent;
 	}
-}
-
-function gitPathsFromGitFile(repoDir: string, gitPath: string): GitFileParseResult {
-	const content = readFileSync(gitPath, "utf8").trim();
-	if (!content.startsWith("gitdir: ")) return { type: "not-gitdir-file" };
-
-	const gitDir = resolve(repoDir, content.slice(8).trim());
-	const headPath = join(gitDir, "HEAD");
-	if (!existsSync(headPath)) return { type: "found", paths: undefined };
-
-	const commonDirPath = join(gitDir, "commondir");
-	const commonGitDir = existsSync(commonDirPath)
-		? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim())
-		: gitDir;
-	return { type: "found", paths: { repoDir, gitDir, commonGitDir, headPath } };
 }

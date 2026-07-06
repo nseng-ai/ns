@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import {
+	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
+	type GitWorktreeStateFs,
+} from "@nseng-ai/capability-kit/git";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { stripAnsi } from "../../src/land/stack/graphite-command-channel.ts";
@@ -409,14 +412,24 @@ function submitRestackRecheckStep(
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
-	return [
-		step("git", ["status", "--porcelain=v1"]),
-		step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
-		step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
-		step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
-	];
+	return [step("git", ["status", "--porcelain=v1"])];
+}
+
+function fakeGitStateFs(paths: readonly string[]): GitWorktreeStateFs {
+	const existing = new Set(paths);
+	return {
+		pathKind(path) {
+			return existing.has(path)
+				? path.includes(".") && !path.endsWith(".git")
+					? "file"
+					: "directory"
+				: "missing";
+		},
+		readTextFile(path) {
+			if (path.endsWith("/.git/HEAD")) return "ref: refs/heads/main\n";
+			return "";
+		},
+	};
 }
 
 function numberedDb(
@@ -1051,13 +1064,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 145,
-					failures: 3,
+					calls: 140,
+					failures: 0,
 					categories: {
 						graphite: 54,
 						"github-cli": 45,
 						"github-api": 0,
-						git: 46,
+						git: 41,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 66 },
@@ -1067,13 +1080,13 @@ describe("land-stack command scenarios", () => {
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 313,
-					failures: 3,
+					calls: 308,
+					failures: 0,
 					categories: {
 						graphite: 124,
 						"github-cli": 101,
 						"github-api": 0,
-						git: 88,
+						git: 83,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 150 },
@@ -1208,12 +1221,39 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...repoIntro({ dbRows: DB_TO_CURRENT }),
 			step("git", ["status", "--porcelain=v1"]),
-			step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { stdout: SHA_A, code: 0 }),
 		];
-		const { pi, notifications } = await runLandStack("--yes", script);
+		const { pi, notifications } = await runLandStack("--yes", script, {
+			executeOptions: {
+				gitStateFs: fakeGitStateFs([
+					`${ROOT}/.git`,
+					`${ROOT}/.git/HEAD`,
+					`${ROOT}/.git/MERGE_HEAD`,
+				]),
+			},
+		});
 
 		pi.assertDone();
 		expect(notifications[0]?.message).toContain("A merge is in progress");
+		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
+	});
+
+	test("in-progress bisect refuses before mutation", async () => {
+		const script = [
+			...repoIntro({ dbRows: DB_TO_CURRENT }),
+			step("git", ["status", "--porcelain=v1"]),
+		];
+		const { pi, notifications } = await runLandStack("--yes", script, {
+			executeOptions: {
+				gitStateFs: fakeGitStateFs([
+					`${ROOT}/.git`,
+					`${ROOT}/.git/HEAD`,
+					`${ROOT}/.git/BISECT_LOG`,
+				]),
+			},
+		});
+
+		pi.assertDone();
+		expect(notifications[0]?.message).toContain("A bisect is in progress");
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});
 

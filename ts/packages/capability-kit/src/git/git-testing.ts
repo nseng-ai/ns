@@ -36,6 +36,8 @@ export interface InMemoryGitGatewayState {
 	trunkBranch?: OptionalValueState<string>;
 	originUrl?: OptionalValueState<string>;
 	headCommit?: ValueState<string>;
+	gitCommonDir?: ValueState<string>;
+	previousBranch?: OptionalValueState<string>;
 	gitPaths?: Readonly<Record<string, ValueState<string>>>;
 	existingBranches?: readonly string[];
 	invalidBranchRefs?: readonly string[];
@@ -95,6 +97,8 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly trunkBranchState: OptionalValueState<string>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
+	private readonly gitCommonDirState: ValueState<string>;
+	private readonly previousBranchState: OptionalValueState<string>;
 	private readonly gitPathStates: Readonly<Record<string, ValueState<string>>>;
 	private readonly branches: Set<string>;
 	private readonly invalidBranchRefs: Set<string>;
@@ -120,6 +124,8 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly trunkBranchLog: GitCall[] = [];
 	private readonly originUrlLog: GitCall[] = [];
 	private readonly headCommitLog: GitCall[] = [];
+	private readonly gitCommonDirLog: GitCall[] = [];
+	private readonly previousBranchLog: GitCall[] = [];
 	private readonly gitPathLog: GitPathCall[] = [];
 	private readonly validateBranchRefLog: GitBranchCall[] = [];
 	private readonly localBranchPresenceLog: GitBranchCall[] = [];
@@ -140,6 +146,8 @@ export class InMemoryGitGateway implements GitGateway {
 		this.trunkBranchState = state.trunkBranch ?? "main";
 		this.originUrlState = state.originUrl ?? "git@github.com:Owner/Repo.git\n";
 		this.headCommitState = state.headCommit ?? "0123456789abcdef0123456789abcdef01234567";
+		this.gitCommonDirState = state.gitCommonDir ?? "/repo/.git";
+		this.previousBranchState = state.previousBranch ?? { type: "missing" };
 		this.gitPathStates = { ...state.gitPaths };
 		this.branches = new Set(state.existingBranches ?? []);
 		this.invalidBranchRefs = new Set(state.invalidBranchRefs ?? []);
@@ -199,6 +207,14 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get headCommitCalls(): readonly GitCall[] {
 		return copyCalls(this.headCommitLog);
+	}
+
+	get gitCommonDirCalls(): readonly GitCall[] {
+		return copyCalls(this.gitCommonDirLog);
+	}
+
+	get previousBranchCalls(): readonly GitCall[] {
+		return copyCalls(this.previousBranchLog);
 	}
 
 	get gitPathCalls(): readonly GitPathCall[] {
@@ -318,6 +334,24 @@ export class InMemoryGitGateway implements GitGateway {
 			this.headCommitState,
 			"head_commit_failed",
 			"Could not resolve HEAD commit.",
+		);
+	}
+
+	async gitCommonDir(params: GitCwdParams): Promise<GitResult<string>> {
+		this.gitCommonDirLog.push(callFromParams(params));
+		return valueResult(
+			this.gitCommonDirState,
+			"git_common_dir_failed",
+			"Could not resolve git common directory.",
+		);
+	}
+
+	async previousBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
+		this.previousBranchLog.push(callFromParams(params));
+		return optionalValueResult(
+			this.previousBranchState,
+			"previous_branch_failed",
+			"Could not resolve previous branch.",
 		);
 	}
 

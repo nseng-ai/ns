@@ -23,6 +23,8 @@ describe("in-memory git gateway", () => {
 			trunkBranch: "trunk",
 			originUrl: "git@github.com:Owner/Repo.git\n",
 			headCommit: START_POINT,
+			gitCommonDir: "/work/.git",
+			previousBranch: "feature/previous",
 			gitPaths: { "info/exclude": "/work/.git/info/exclude" },
 		});
 
@@ -41,6 +43,11 @@ describe("in-memory git gateway", () => {
 			value: "git@github.com:Owner/Repo.git\n",
 		});
 		expect(await git.headCommit({ cwd: "/work" })).toEqual({ ok: true, value: START_POINT });
+		expect(await git.gitCommonDir({ cwd: "/work" })).toEqual({ ok: true, value: "/work/.git" });
+		expect(await git.previousBranch({ cwd: "/work" })).toEqual({
+			type: "found",
+			value: "feature/previous",
+		});
 		expect(await git.gitPath({ cwd: "/work", relativePath: "info/exclude" })).toEqual({
 			ok: true,
 			value: "/work/.git/info/exclude",
@@ -51,6 +58,8 @@ describe("in-memory git gateway", () => {
 		expect(git.trunkBranchCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.originUrlCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.headCommitCalls).toEqual([{ cwd: "/work" }]);
+		expect(git.gitCommonDirCalls).toEqual([{ cwd: "/work" }]);
+		expect(git.previousBranchCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.gitPathCalls).toEqual([{ cwd: "/work", relativePath: "info/exclude" }]);
 	});
 
@@ -147,6 +156,8 @@ describe("in-memory git gateway", () => {
 			trunkBranch: { type: "failure" },
 			originUrl: { type: "missing" },
 			headCommit: { type: "failure" },
+			gitCommonDir: { type: "failure" },
+			previousBranch: { type: "missing" },
 			gitPaths: { "info/exclude": { type: "failure" } },
 			createBranchFailure: { code: "branch-create-failed", message: "Could not create branch." },
 		});
@@ -173,6 +184,11 @@ describe("in-memory git gateway", () => {
 			ok: false,
 			error: { code: "git_path_failed", message: "Could not resolve git path." },
 		});
+		expect(await git.gitCommonDir({ cwd: ROOT })).toEqual({
+			ok: false,
+			error: { code: "git_common_dir_failed", message: "Could not resolve git common directory." },
+		});
+		expect(await git.previousBranch({ cwd: ROOT })).toEqual({ type: "missing" });
 		expect(await git.createBranchAtHead({ cwd: ROOT, branch: BRANCH })).toEqual({
 			ok: false,
 			error: { code: "branch-create-failed", message: "Could not create branch." },

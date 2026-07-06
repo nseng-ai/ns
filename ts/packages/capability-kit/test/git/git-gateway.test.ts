@@ -140,6 +140,42 @@ describe("real git gateway", () => {
 		expect(commands.execCalls.every((call) => call.options?.timeout === 10_000)).toBe(true);
 	});
 
+	test("resolves git common dir with command protocol", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["rev-parse", "--git-common-dir"], { stdout: ".git\n" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.gitCommonDir({ cwd: "/work" })).toEqual({ ok: true, value: "/work/.git" });
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{
+				command: "git",
+				args: ["rev-parse", "--git-common-dir"],
+				options: { cwd: "/work", timeout: 10_000 },
+			},
+		]);
+	});
+
+	test("resolves previous branch as optional command protocol", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["rev-parse", "--abbrev-ref", "@{-1}"], { stdout: "feature/previous\n" }),
+			step("git", ["rev-parse", "--abbrev-ref", "@{-1}"], { code: 128, stderr: "no reflog" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.previousBranch({ cwd: "/work" })).toEqual({
+			type: "found",
+			value: "feature/previous",
+		});
+		expect(await git.previousBranch({ cwd: "/work" })).toEqual({ type: "missing" });
+		commands.assertDone();
+		expect(commands.execCalls.map((call) => call.args)).toEqual([
+			["rev-parse", "--abbrev-ref", "@{-1}"],
+			["rev-parse", "--abbrev-ref", "@{-1}"],
+		]);
+	});
+
 	test("resolves git paths with absolute path command protocol", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], {

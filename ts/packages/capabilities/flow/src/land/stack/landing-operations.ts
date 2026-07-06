@@ -106,7 +106,11 @@ export async function confirmAndFreeManagedSlots(
 	if (result.type === "failure") return failure(preMergeSlotFailure(result.failure));
 
 	setStatus(ctx, "rechecking landing worktrees...");
-	const cleanRepo = await assertCleanRepo(pi, plan.repoRoot);
+	const cleanRepo = await assertCleanRepo(
+		pi,
+		plan.repoRoot,
+		runtime.gitStateFs === undefined ? {} : { gitStateFs: runtime.gitStateFs },
+	);
 	if (cleanRepo.type === "failure") return cleanRepo;
 	const conflicts = await detectWorktreeConflicts(
 		pi,

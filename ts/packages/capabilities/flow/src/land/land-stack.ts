@@ -1,3 +1,4 @@
+import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
@@ -44,6 +45,7 @@ export interface ExecuteStackLandingOptions {
 	graphite?: LandGraphiteCommandChannel;
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 	observabilityChannels?: FlowLandObservabilityChannels;
+	gitStateFs?: GitWorktreeStateFs;
 }
 
 export function registerLandStackRenderer(
@@ -75,7 +77,11 @@ export async function executeStackLanding(
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
-	const createdRuntime = createLandRuntime(pi, commandStream);
+	const createdRuntime = createLandRuntime(
+		pi,
+		commandStream,
+		options.gitStateFs === undefined ? {} : { gitStateFs: options.gitStateFs },
+	);
 	const runtime: LandRuntime =
 		options.graphite === undefined
 			? createdRuntime
