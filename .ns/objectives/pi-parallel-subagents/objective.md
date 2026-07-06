@@ -149,3 +149,9 @@ Risks:
   Resolved 2026-07-05: ship as a private ns workspace Pi extension package first;
   external distribution still requires extracting or bundling the internal
   runner-subagent substrate (`updates/2026-07-05-ns-pi-subagents-package-created.md`).
+
+## Closure
+
+Closed 2026-07-06. This Objective delivered the original Pi parallel subagents capability: the read-only `explore` fan-out tool, bounded parent-context scout findings, live progress rendering, packaged `@nseng-ai/ns-pi-subagents` extension surface, fleet/transcript monitoring, runtime seam, and the consolidation assessment recorded in the roadmap are all complete.
+
+Follow-on work should not repurpose this slug. The successor Objective is `ns-pi-subagents-consolidation`, which owns post-delivery package/entrypoint consolidation, extension workspace helper cleanup, and hardening of the dogfooded subagent extension surface.
