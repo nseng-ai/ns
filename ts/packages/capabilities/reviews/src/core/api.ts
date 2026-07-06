@@ -71,12 +71,6 @@ export type {
 	RunRoasterReviewRequest,
 };
 
-export type RoasterApiFailure = ReviewFailure;
-
-export type RoasterApiResult<T> =
-	| { readonly ok: true; readonly result: T }
-	| { readonly ok: false; readonly failure: RoasterApiFailure };
-
 export interface RoasterClientOptions {
 	readonly cwd: string;
 	readonly env?: ExplicitUndefined<
@@ -92,11 +86,11 @@ export interface RoasterClientOptions {
 }
 
 export interface RoasterClient {
-	listReviews(request?: Partial<ReviewListRequest>): Promise<RoasterApiResult<ReviewListResult>>;
+	listReviews(request?: Partial<ReviewListRequest>): Promise<ReviewResult<ReviewListResult>>;
 	listRoastSkills(
 		request?: Partial<RoastSkillListRequest>,
-	): Promise<RoasterApiResult<RoastSkillListResult>>;
-	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<RoasterApiResult<ReviewLogResult>>;
+	): Promise<ReviewResult<RoastSkillListResult>>;
+	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<ReviewResult<ReviewLogResult>>;
 	/** Runs a review and writes a Roaster review log through the configured review log gateway. */
 	runReview(request: RunRoasterReviewRequest): Promise<RunRoasterReviewOutcome>;
 	/** Records same-session findings from stdin and writes a Roaster review log. */
@@ -115,15 +109,13 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 
 	return {
 		async listReviews(request = {}) {
-			return roasterResultToApiResult(
-				await buildReviewListResult(getRuntime(), reviewListRequestWithDefaults(request)),
-			);
+			return await buildReviewListResult(getRuntime(), reviewListRequestWithDefaults(request));
 		},
 		async listRoastSkills(_request = {}) {
-			return roasterResultToApiResult(await buildRoastSkillListResult(getRuntime(), {}));
+			return await buildRoastSkillListResult(getRuntime(), {});
 		},
 		async listReviewLogs(request = {}) {
-			return roasterResultToApiResult(await buildReviewLogResult(getRuntime(), request));
+			return await buildReviewLogResult(getRuntime(), request);
 		},
 		async runReview(request) {
 			return await runRoasterReview(getRuntime(), request);
@@ -163,9 +155,4 @@ function reviewListRequestWithDefaults(request: Partial<ReviewListRequest>): Rev
 		ci: request.ci ?? false,
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
 	};
-}
-
-function roasterResultToApiResult<T>(result: ReviewResult<T>): RoasterApiResult<T> {
-	if (result.ok) return { ok: true, result: result.value };
-	return { ok: false, failure: result.error };
 }

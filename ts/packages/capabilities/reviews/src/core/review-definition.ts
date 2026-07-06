@@ -1,6 +1,6 @@
 import { splitMarkdownFrontmatter } from "@nseng-ai/foundation/markdown-frontmatter";
 import { formatErrorMessage, formatZodError, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErr, type Result } from "@nseng-ai/foundation/result";
+import { resultErr, type Result, type ResultErr } from "@nseng-ai/foundation/result";
 import { parse } from "yaml";
 
 import {
@@ -17,9 +17,7 @@ const ALLOWED_FRONTMATTER_KEYS = [
 ] as const;
 const ALLOWED_APPLIES_TO_KEYS = ["exclude", "include"] as const;
 
-export type ReviewDefinitionParseResult =
-	| { readonly ok: true; readonly definition: ReviewDefinition }
-	| { readonly ok: false; readonly error: ReviewDefinitionParseError };
+export type ReviewDefinitionParseResult = Result<ReviewDefinition, ReviewDefinitionParseError>;
 
 export interface ReviewDefinitionParseError {
 	readonly code: ReviewDefinitionParseErrorCode;
@@ -117,7 +115,7 @@ export function parseReviewDefinition(
 			`Review definition parser produced a value that does not match reviewDefinitionSchema: ${formatZodError(parsedDefinition.error)}`,
 		);
 	}
-	return { ok: true, definition: parsedDefinition.data };
+	return { ok: true, value: parsedDefinition.data };
 }
 
 type FrontmatterSplitResult =
@@ -296,18 +294,11 @@ function validateApplicabilityPattern(
 	return { ok: true, value: normalized };
 }
 
-type ReviewDefinitionFailureResult = Extract<
-	Result<never, ReviewDefinitionParseError>,
-	{ readonly ok: false }
->;
-
 function failure(
 	code: ReviewDefinitionParseErrorCode,
 	message: string,
-): ReviewDefinitionFailureResult {
-	const result = resultErr<never, ReviewDefinitionParseError>({ code, message });
-	if (!result.ok) return result;
-	throw new Error("unreachable resultErr success");
+): ResultErr<ReviewDefinitionParseError> {
+	return resultErr({ code, message });
 }
 
 function sortedUnknownKeys(

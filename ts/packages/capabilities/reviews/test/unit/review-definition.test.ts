@@ -370,7 +370,7 @@ type ParseResult = ReturnType<typeof parseReviewDefinition>;
 
 function expectOk(result: ParseResult): ReviewDefinition {
 	if (!result.ok) throw new Error(result.error.message);
-	return result.definition;
+	return result.value;
 }
 
 function expectError(result: ParseResult): {

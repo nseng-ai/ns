@@ -49,7 +49,7 @@ describe("findings comment markers", () => {
 
 		expect(parsed).toEqual({
 			ok: true,
-			parsed: { marker: "<!-- roaster:typescript-style -->", body },
+			value: { marker: "<!-- roaster:typescript-style -->", body },
 		});
 		expect(parseFindingsCommentBody("intro\n<!-- roaster:typescript-style -->").ok).toBe(false);
 	});
@@ -215,8 +215,8 @@ describe("payload parsers", () => {
 		);
 		expect(payloadResult.ok).toBe(true);
 		if (payloadResult.ok) {
-			expect(payloadResult.payload.modelProfile).toBe("quick");
-			expect(payloadResult.payload.count).toBe(1);
+			expect(payloadResult.value.modelProfile).toBe("quick");
+			expect(payloadResult.value.count).toBe(1);
 		}
 	});
 
@@ -267,8 +267,8 @@ describe("payload parsers", () => {
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.payload.errorType).toBe("failure");
-			expect(result.payload.reviewName).toBe("review");
+			expect(result.value.errorType).toBe("failure");
+			expect(result.value.reviewName).toBe("review");
 		}
 	});
 
@@ -295,9 +295,9 @@ describe("payload parsers", () => {
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.payload.errorType).toBeNull();
-			expect(result.payload.reviewName).toBe("typescript-style");
-			expect(result.payload.findings).toEqual([WARNING_FINDING]);
+			expect(result.value.errorType).toBeNull();
+			expect(result.value.reviewName).toBe("typescript-style");
+			expect(result.value.findings).toEqual([WARNING_FINDING]);
 		}
 	});
 
@@ -321,10 +321,10 @@ describe("payload parsers", () => {
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.payload.errorType).toBe("negative");
-			expect(result.payload.errorMessage).toBe("no findings");
-			expect(result.payload.reviewName).toBe("review");
-			expect(result.payload.baseRef).toBe("base");
+			expect(result.value.errorType).toBe("negative");
+			expect(result.value.errorMessage).toBe("no findings");
+			expect(result.value.reviewName).toBe("review");
+			expect(result.value.baseRef).toBe("base");
 		}
 	});
 

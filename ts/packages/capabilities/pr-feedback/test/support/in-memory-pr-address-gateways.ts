@@ -2,7 +2,7 @@ import type {
 	GithubBranchPrChecksOutcome,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
-	GithubPrFeedbackGateway,
+	PrFeedbackGithubGateway,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
 	GithubPrLookupMiss,
@@ -92,7 +92,7 @@ export interface ResolveReviewThreadsLogEntry {
 	threadIds: readonly string[];
 }
 
-export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
+export class InMemoryGithubPrFeedbackGateway implements PrFeedbackGithubGateway {
 	private readonly prsByNumber: ReadonlyMap<number, GithubPrSummary>;
 	private readonly prsByBranch: ReadonlyMap<string, GithubPrSummary>;
 	private readonly reviews: ReadonlyMap<number, readonly GithubPrReview[]>;

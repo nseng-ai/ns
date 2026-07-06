@@ -1,7 +1,7 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { ReviewResult } from "../core/failures.ts";
+import type { ReviewFailure, ReviewResult } from "../core/failures.ts";
 import {
 	createFindingsReview,
 	reviewExecutionResponseSchema,
@@ -187,8 +187,6 @@ function truncateModelResponse(response: string): string {
 		: `${response.slice(0, TRUNCATED_MODEL_RESPONSE_CHARS)}…`;
 }
 
-function harnessOutputError(
-	error: Extract<ReviewResult<never>, { readonly ok: false }>["error"],
-): ReviewResult<never> {
+function harnessOutputError(error: ReviewFailure): ReviewResult<never> {
 	return { ok: false, error };
 }

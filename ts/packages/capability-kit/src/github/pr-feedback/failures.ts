@@ -23,13 +23,13 @@ interface FailureFromMessageOptions extends GithubPrFeedbackCursorContextFields 
 }
 
 export function feedbackOk<T>(value: T): Result<T, GithubPrFeedbackFailure> {
-	return resultOk<T, GithubPrFeedbackFailure>(value);
+	return resultOk(value);
 }
 
 export function feedbackErr<T = never>(
 	error: GithubPrFeedbackFailure,
 ): Result<T, GithubPrFeedbackFailure> {
-	return resultErr<T, GithubPrFeedbackFailure>(error);
+	return resultErr(error);
 }
 
 export function failureFromStartup(

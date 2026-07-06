@@ -1,5 +1,5 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
-import { resultErr, type Result } from "@nseng-ai/foundation/result";
+import { resultErr, type Result, type ResultErr } from "@nseng-ai/foundation/result";
 import { parse } from "smol-toml";
 
 export interface RoasterDiffProjectConfig {
@@ -16,9 +16,7 @@ export interface RoasterProjectConfig {
 	readonly modelProfiles: RoasterModelProfilesProjectConfig;
 }
 
-export type ProjectConfigParseResult =
-	| { readonly ok: true; readonly config: RoasterProjectConfig }
-	| { readonly ok: false; readonly error: ProjectConfigError };
+export type ProjectConfigParseResult = Result<RoasterProjectConfig, ProjectConfigError>;
 
 export interface ProjectConfigError {
 	readonly code: ProjectConfigErrorCode;
@@ -62,9 +60,9 @@ export function parseRoasterProjectConfigToml(
 		);
 	}
 
-	if (!isRecord(data)) return { ok: true, config: EMPTY_CONFIG };
+	if (!isRecord(data)) return { ok: true, value: EMPTY_CONFIG };
 	const roaster = data.roaster;
-	if (roaster === undefined) return { ok: true, config: EMPTY_CONFIG };
+	if (roaster === undefined) return { ok: true, value: EMPTY_CONFIG };
 	if (!isRecord(roaster))
 		return failure("invalid-table", formatMessage("[roaster] must be a TOML table.", pathLabel));
 
@@ -76,7 +74,7 @@ export function parseRoasterProjectConfigToml(
 
 	return {
 		ok: true,
-		config: { diff: parsedDiff.value, modelProfiles: parsedModelProfiles.value },
+		value: { diff: parsedDiff.value, modelProfiles: parsedModelProfiles.value },
 	};
 }
 
@@ -224,12 +222,8 @@ function validateRoasterExcludePattern(
 	return { ok: true, value: undefined };
 }
 
-type ProjectConfigFailure = Extract<Result<never, ProjectConfigError>, { readonly ok: false }>;
-
-function failure(code: ProjectConfigErrorCode, message: string): ProjectConfigFailure {
-	const result = resultErr<never, ProjectConfigError>({ code, message });
-	if (!result.ok) return result;
-	throw new Error("unreachable resultErr success");
+function failure(code: ProjectConfigErrorCode, message: string): ResultErr<ProjectConfigError> {
+	return resultErr({ code, message });
 }
 
 function formatMessage(message: string, pathLabel: string | undefined): string {

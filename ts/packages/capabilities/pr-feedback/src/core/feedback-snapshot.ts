@@ -1,7 +1,7 @@
 import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
-	GithubPrFeedbackGateway,
+	PrFeedbackGithubGateway,
 	GithubPrReview,
 	GithubPrReviewThread,
 } from "../api.ts";
@@ -22,7 +22,7 @@ export type FeedbackSnapshotResult =
 	| { type: "failure"; message: string; failure: GithubPrFeedbackFailure };
 
 export interface FetchFeedbackSnapshotOptions {
-	gateway: GithubPrFeedbackGateway;
+	gateway: PrFeedbackGithubGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber: number;
 }
