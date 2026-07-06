@@ -18,8 +18,7 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/handoffs": "workspace:*",
-		"@nseng-ai/objectives": "workspace:*",
-		"@nseng-ai/pi-command-surfaces": "workspace:*"
+		"@nseng-ai/objectives": "workspace:*"
 	},
 	"ns": {
 		"tier": "host"

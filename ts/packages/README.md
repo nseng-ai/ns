@@ -27,6 +27,6 @@ Package names, public import specifiers, binary names, and workspace dependency 
 
 ## Public package release qualification
 
-Run `pnpm --dir ts run release:qualify-public` to qualify the first public-package batch (`@nseng-ai/capability-kit` and `@nseng-ai/flow`) without registry writes. The command prints the full intended public package set, runs each batch package's `check` and `test` scripts, prepares `dist/publish` package roots with registry-compatible dependency specs, rejects `workspace:`/`catalog:`/private-package leakage, and runs `npm publish --dry-run` for the generated roots.
+Run `pnpm --dir ts run release:qualify-public` to qualify the first public-package batch (`@nseng-ai/capability-kit` and `@nseng-ai/flow`) without registry writes. The command prints the full intended public package set, runs each batch package's `check` and `test` scripts, prepares `dist/publish` package roots with registry-compatible dependency specs, rewrites folded kernel imports to the public `@nseng-ai/ns/kernel/*` subpaths, rejects `workspace:`/`catalog:`/private-package leakage, and runs `npm publish --dry-run` for the generated roots.
 
-Use `pnpm --dir ts run release:qualify-public -- --all` only after extending the preparation logic for the complete package set. Use `--skip-checks` or `--skip-dry-run` only for local diagnosis; those modes are not release evidence.
+Use `pnpm --dir ts run release:qualify-public -- --all` to qualify the complete intended public package set, including `@nseng-ai/ccc`. Use `--skip-checks` or `--skip-dry-run` only for local diagnosis; those modes are not release evidence.

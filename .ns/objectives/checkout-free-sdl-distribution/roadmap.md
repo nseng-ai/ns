@@ -14,17 +14,16 @@
     for bundled first-party capabilities.
 - [x] Triage every runtime workspace dependency of `@nseng-ai/kernel` (transitively): per
       package, decide publish vs bundle-inline vs exclude. Record the table.
-      `@nseng-ai/kernel` remains `private: true` permanently: its runtime surface ships
-      only folded inside the published `@nseng-ai/ns` bundle (esbuild inlines kernel
-      source at bundle time); no standalone kernel publish path exists.
+      The kernel remains folded inside the published `@nseng-ai/ns` bundle (esbuild
+      inlines kernel source at bundle time), with public consumers using
+      `@nseng-ai/ns/kernel/*`; no standalone kernel publish path exists.
   - Decision table recorded in
     `updates/20260704T235456Z-runtime-dependency-triage-decisions.md`; current package
     names have since moved to the external `@nseng-ai/*` workspace scope.
-  - Current private inventory is runtime/loader-referenced (`@nseng-ai/kernel`,
-    `@nseng-ai/capability-kit`, `@nseng-ai/flow`, `@nseng-ai/ccc`), excluded
-    host/internal packages (`@nseng-ai/pi`, `nscc`, `@internal/pi-tools`,
-    `@nseng-ai/pi-command-surfaces`), and non-runtime internal tooling
-    (`@internal/typescript-style-guard`).
+  - Current public-set adjustment: `@nseng-ai/ccc` is public/standalone. Remaining
+    excluded host/internal packages are `@nseng-ai/pi`, `@nseng-ai/pi-command-surfaces`,
+    `nscc`, `@internal/pi-tools`, and non-runtime internal tooling
+    `@internal/typescript-style-guard`.
 - [~] Replace the source-path module loader
   (`ts/packages/kernel/src/runtime/module-loader.ts`) so `@nseng-ai/objectives` + its hidden
   `exec` surface resolve from the bundle/published package, not absolute on-disk `.ts`
@@ -52,8 +51,9 @@
       workspace-to-published name mapping strategy.
   - Decision: workspace manifests now use the external `@nseng-ai/*` scope directly; do
     not build a per-package `@ns/*` to `@nseng-ai/*` dependency-name rewrite layer.
-    Runtime packages already carry names such as `@nseng-ai/ns`, `@nseng-ai/kernel`,
-    `@nseng-ai/capability-kit`, `@nseng-ai/flow`, and `@nseng-ai/objectives`.
+    Runtime packages already carry names such as `@nseng-ai/ns`,
+    `@nseng-ai/capability-kit`, `@nseng-ai/flow`, `@nseng-ai/ccc`, and
+    `@nseng-ai/objectives`; folded kernel public imports use `@nseng-ai/ns/kernel/*`.
   - Remaining implementation work: private runtime packages still need publish metadata,
     private flips or wrapper decisions, build outputs, and install verification.
 - [x] Publish a versioned `@nseng-ai/ns` package to npm and confirm a global/`npx`

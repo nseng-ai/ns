@@ -496,9 +496,6 @@ importers:
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../../capabilities/objectives
-      '@nseng-ai/pi-command-surfaces':
-        specifier: workspace:*
-        version: link:../pi-command-surfaces
 
   packages/hosts/ns-cli:
     dependencies:

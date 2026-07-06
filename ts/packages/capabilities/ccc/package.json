@@ -1,7 +1,6 @@
 {
 	"name": "@nseng-ai/ccc",
 	"version": "0.1.0",
-	"private": true,
 	"type": "module",
 	"bin": {
 		"ccc": "./src/ns/cli.ts"
@@ -15,6 +14,12 @@
 		"./trunk-pull": "./src/ns/trunk-pull.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
+	},
+	"files": [
+		"src"
+	],
+	"publishConfig": {
+		"access": "public"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
