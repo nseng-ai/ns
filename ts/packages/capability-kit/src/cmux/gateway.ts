@@ -68,6 +68,7 @@ export type IdentifyCmuxCallerParams = CmuxCommandContext;
 
 export interface CreateCmuxTerminalSurfaceParams extends CmuxCommandContext {
 	caller: CmuxCallerContext;
+	shouldFocus?: boolean;
 }
 
 export interface RenameCmuxTabParams extends CmuxCommandContext, CmuxSurfaceRef {
@@ -139,7 +140,7 @@ export class RealCmuxGateway implements CmuxGateway {
 			"--pane",
 			params.caller.paneId,
 			"--focus",
-			"true",
+			params.shouldFocus === false ? "false" : "true",
 		];
 		if (params.caller.windowId !== undefined) {
 			args.push("--window", params.caller.windowId);

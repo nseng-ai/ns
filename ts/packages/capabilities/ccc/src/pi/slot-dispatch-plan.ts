@@ -50,8 +50,7 @@ function registerDispatchPlanCommand(
 		host: pi,
 		commandName: config.commandName,
 		commandDefinition: {
-			description:
-				"Attach the latest session-saved plan to a new Graphite-tracked branch via branch-context and launch it in a new cmux workspace.",
+			description: `Attach the latest session-saved plan to a new Graphite-tracked branch via branch-context and launch it in a new cmux ${config.destination}.`,
 			argumentHint: "[--dry-run] [--help]",
 			handler: async (rawArgs, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });

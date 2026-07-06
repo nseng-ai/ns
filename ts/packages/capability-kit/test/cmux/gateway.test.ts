@@ -101,6 +101,31 @@ describe("RealCmuxGateway", () => {
 		});
 	});
 
+	test("createTerminalSurface can leave caller focus unchanged", async () => {
+		const { gateway, commands } = cmux([
+			{ stdout: JSON.stringify({ surface_id: "surface-1", workspace_id: "workspace-1" }) },
+		]);
+
+		await gateway.createTerminalSurface({
+			cwd: CWD,
+			caller: { workspaceId: "workspace-1", paneId: "pane-1" },
+			shouldFocus: false,
+		});
+
+		expect(commands.calls()[0]?.args).toEqual([
+			"--json",
+			"new-surface",
+			"--type",
+			"terminal",
+			"--workspace",
+			"workspace-1",
+			"--pane",
+			"pane-1",
+			"--focus",
+			"false",
+		]);
+	});
+
 	test("renameTab includes --window only when a window id exists", async () => {
 		const { gateway, commands } = cmux([{}, {}]);
 

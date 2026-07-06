@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { cmuxCommandExecApi, type CmuxCommandExecHost } from "./command.ts";
 import {
 	RealCmuxGateway,
@@ -33,6 +35,7 @@ export interface LaunchFocusedCmuxTabOptions {
 	tabTitle: string;
 	command: string;
 	signal: AbortSignal | undefined;
+	shouldFocus?: boolean;
 	onStage?: (stage: CmuxTabLaunchStage) => void;
 	gateway?: CmuxGateway;
 }
@@ -44,7 +47,7 @@ export type FocusedCmuxTabLaunchResult =
 export async function launchFocusedCmuxTab(
 	options: LaunchFocusedCmuxTabOptions,
 ): Promise<FocusedCmuxTabLaunchResult> {
-	const { host, cwd, tabTitle, command, signal } = options;
+	const { host, cwd, tabTitle, command, signal, shouldFocus } = options;
 	const gateway = options.gateway ?? createRealCmuxGateway(host);
 
 	options.onStage?.("identify");
@@ -57,7 +60,8 @@ export async function launchFocusedCmuxTab(
 	const created = await gateway.createTerminalSurface({
 		cwd,
 		caller: identified.value,
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("signal", signal),
+		...optionalEntry("shouldFocus", shouldFocus),
 	});
 	if (created.type === "failed") {
 		return { type: "failed", message: created.failure.message };
@@ -65,8 +69,7 @@ export async function launchFocusedCmuxTab(
 
 	const surfaceId = created.value.surfaceId;
 	const workspaceId = created.value.workspaceId ?? identified.value.workspaceId;
-	const windowIdEntry =
-		identified.value.windowId === undefined ? {} : { windowId: identified.value.windowId };
+	const windowIdEntry = optionalEntry("windowId", identified.value.windowId);
 	const recoveryMessage = (failureMessage: string): string =>
 		`${failureMessage}\n\nCreated cmux surface: ${surfaceId}\nManual recovery: run ${command}`;
 
@@ -76,7 +79,7 @@ export async function launchFocusedCmuxTab(
 		workspaceId,
 		surfaceId,
 		title: tabTitle,
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("signal", signal),
 		...windowIdEntry,
 	});
 	if (renamed.type === "failed") {
@@ -94,7 +97,7 @@ export async function launchFocusedCmuxTab(
 		workspaceId,
 		surfaceId,
 		text: `${command}\n`,
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("signal", signal),
 		...windowIdEntry,
 	});
 	if (sent.type === "failed") {

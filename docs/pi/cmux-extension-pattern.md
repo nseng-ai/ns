@@ -69,7 +69,7 @@ Workspace-opening commands currently do not auto-run sidebar updates after succe
 
 The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during a future CCC/cmux targeting pass rather than inferred from `cmux workspace list` in this slice.
 
-The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. The new-surface variant checks out the same slot worktree, creates a focused terminal surface in the caller workspace, renames the tab to the branch, and sends the child Pi launch command from the slot worktree. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
+The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. The new-surface variant checks out the same slot worktree, creates an unfocused terminal surface in the caller workspace, renames the tab to the branch, and sends the child Pi launch command from the slot worktree. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
 
 ## Caller workspace contract
 
