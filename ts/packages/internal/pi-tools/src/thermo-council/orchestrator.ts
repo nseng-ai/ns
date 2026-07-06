@@ -240,7 +240,12 @@ function createCouncilProgressTracker(
 		recordOutcome(seat, outcome) {
 			const current = states.get(seat.id) ?? { seat };
 			states.set(seat.id, { ...current, outcome });
-			setStatus(ctx, renderCouncilProgressStatus(seats, states));
+			setStatus(
+				ctx,
+				areAllCouncilSeatsDone(seats, states)
+					? undefined
+					: renderCouncilProgressStatus(seats, states),
+			);
 		},
 	};
 }
@@ -249,9 +254,23 @@ function renderCouncilProgressStatus(
 	seats: readonly ThermoCouncilSeatConfig[],
 	states: ReadonlyMap<ThermoCouncilSeatConfig["id"], CouncilSeatRunState>,
 ): string {
-	const completed = seats.filter((seat) => states.get(seat.id)?.outcome !== undefined).length;
+	const completed = seats.filter((seat) => isCouncilSeatDone(seat, states)).length;
 	const summaries = seats.map((seat) => renderCouncilSeatProgress(states.get(seat.id) ?? { seat }));
 	return compactStatus(`council ${completed}/${seats.length} done · ${summaries.join(" · ")}`);
+}
+
+function areAllCouncilSeatsDone(
+	seats: readonly ThermoCouncilSeatConfig[],
+	states: ReadonlyMap<ThermoCouncilSeatConfig["id"], CouncilSeatRunState>,
+): boolean {
+	return seats.every((seat) => isCouncilSeatDone(seat, states));
+}
+
+function isCouncilSeatDone(
+	seat: ThermoCouncilSeatConfig,
+	states: ReadonlyMap<ThermoCouncilSeatConfig["id"], CouncilSeatRunState>,
+): boolean {
+	return states.get(seat.id)?.outcome !== undefined;
 }
 
 function renderCouncilSeatProgress(state: CouncilSeatRunState): string {

@@ -461,6 +461,8 @@ describe("thermo council extension", () => {
 
 		for (const call of runner.calls.slice(0, 3)) call.process.close(0);
 		await waitForSpawnCount(runner.calls, 4);
+		expect(ctx.ui.statuses).toContain("<cleared>");
+		expect(ctx.ui.statuses.some((status) => status.includes("council 3/3 done"))).toBe(false);
 		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
 		runner.calls[3]?.process.close(0);
 		await running;
