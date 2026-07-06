@@ -1,9 +1,9 @@
 # Objective Patterns
 
 Load this reference when the user says objective pattern, umbrella Objective, synthesis
-Objective, child Objective, autoobjective, ideation Objective, orienting Objective
-(formerly cross-cutting), steelthread Objective, or asks which shape an Objective
-should take. (For standing / no-natural-finish-line
+Objective, subobjective, child Objective, autoobjective, ideation Objective, orienting
+Objective (formerly cross-cutting), steelthread Objective, or asks which shape an
+Objective should take. (For standing / no-natural-finish-line
 Objectives, `references/standing-objectives.md` remains the deeper reference.)
 
 ## What a pattern is
@@ -31,7 +31,8 @@ Objectives, `references/standing-objectives.md` remains the deeper reference.)
 
 ### Umbrella Objective
 
-A parent that coordinates a family of narrower **Child Objectives** via Objective Edges
+A parent that coordinates a family of narrower **Subobjectives** (renamed from Child
+Objective, 2026-07-06; Child Objective remains a valid synonym) via Objective Edges
 while remaining the durable home for cross-child lessons, migration guides, and
 synthesized closure evidence. The synthesis duty is part of the pattern (renamed from
 Synthesis Objective; ADR 0001 substance, ADR 0030 name). Parent roadmap may use `[~]` to
@@ -105,11 +106,25 @@ widening explicitly out of scope. The seams between layers are where the surpris
 live; the thread de-risks integration while the design is still cheap to change.
 `## Completion Criteria` is the thread validated end-to-end; `## Non-Goals` names the
 deferred breadth, which belongs to follow-on Objectives (often making the steelthread
-the first Child under an Umbrella) or to a deliberate scope rebaseline after closure.
+the first Subobjective under an Umbrella) or to a deliberate scope rebaseline after
+closure.
 
 - Use when: an architecture, workflow, or product surface needs its layers proven
   connected before breadth is built. It is the natural first execution shape after an
   Ideation Objective's Crystallization.
+- `## Parked` in a steelthread record commonly holds work that is already figured out —
+  decided designs, resolved hook points, named follow-on slices — deliberately
+  sequenced post-thread. Parking defers only the implementation, not the thinking: the
+  decisions stand (as Semantic Updates and design-orientation prose), and the thread
+  must not preclude them.
+- Two equivalent shapings: reshape the record itself so its scope is the thread
+  (breadth moves to `## Parked`), or split the thread into a Subobjective and promote
+  the original record to an Umbrella holding
+  the overall ambition. Prefer the child split when the parked breadth is substantial
+  enough to need its own coordination.
+- Composes well with Autoobjective: the thread is bounded, concrete, and slice-shaped,
+  which makes it a natural autorun target — a steelthread autoobjective is a common
+  combination.
 - The pattern names the whole record's scope. A steelthread roadmap row inside a
   broader Objective is a milestone, not a Steelthread Objective.
 - Horizon note: a steelthread is always bounded — standing and steelthread do not

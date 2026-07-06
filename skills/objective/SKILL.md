@@ -47,7 +47,7 @@ Use these step skills for explicit workflow requests:
 
 - For standing / ongoing / no-natural-finish-line Objectives, read `references/standing-objectives.md`.
 - For execution-friendly Objective policy, `## Definition of Progress`, `## Runner Policy`, row-level `Policy:`, or Objective runner concepts, read `references/execution-policy.md`.
-- For Objective patterns — umbrella (formerly synthesis), child, autoobjective, orienting (formerly cross-cutting), ideation, steelthread, or "which shape should this Objective take" — read `references/objective-patterns.md`.
+- For Objective patterns — umbrella (formerly synthesis), subobjective (synonym: child), autoobjective, orienting (formerly cross-cutting), ideation, steelthread, or "which shape should this Objective take" — read `references/objective-patterns.md`.
 
 ## Files
 

@@ -13,11 +13,11 @@ A checked-in documentation workstream for durable multi-session, multi-branch, o
 *Avoid*: hidden agent state, ticket
 
 **Umbrella Objective**:
-A prose-only **Objective** pattern that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (renamed from Synthesis Objective per `docs/adr/0030-rename-synthesis-objective-to-umbrella-objective.md`).
+A prose-only **Objective** pattern that coordinates a family of narrower **Subobjectives** while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (renamed from Synthesis Objective per `docs/adr/0030-rename-synthesis-objective-to-umbrella-objective.md`).
 *Avoid*: Synthesis Objective (retired name), fire-and-forget umbrella, mirrored task tracker, hidden parent state, Objective CLI feature
 
-**Child Objective**:
-A narrower **Objective** created from a parent **Umbrella Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
+**Subobjective**:
+A narrower **Objective** created from a parent **Umbrella Objective** to own one implementation, research, or migration slice; renamed from Child Objective (2026-07-06), which remains a valid synonym. The subobjective remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that it exists and is in progress.
 *Avoid*: Subticket, hidden task, third Objective status
 
 **Autoobjective**:
