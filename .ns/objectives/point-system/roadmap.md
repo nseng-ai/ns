@@ -3,7 +3,7 @@
 ## Work
 
 - [~] Kernel shared `ns.toml` loader: single parse, Zod-validated `[points]` table and
-      declared settings schemas, structured diagnostics.
+  declared settings schemas, structured diagnostics.
   - Placement decided and initial API landed: `@nseng-ai/kernel` owns the internal
     project-config/points loader surface; `ns.points` manifest schema/types live with SDK
     manifest metadata.
