@@ -20,7 +20,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 
 - Prefer composable features with explicit dependencies over hidden integration.
 - Durable state should be git-native: refs, branches, GitHub issues/PRs where collaboration warrants; avoid hidden databases/ad-hoc state files.
-- Keep units small and testable: pure transformations plus Gateway interfaces for external I/O.
+- Keep units small and testable: pure transformations plus Gateway interfaces for external I/O. Before declaring a new external-tool gateway interface or consolidating overlapping gateways, read `docs/conventions/consumer-gateways-and-command-shape.md`.
 - Port thoughtfully; do not copy abstractions unchanged when simpler designs fit.
 - ns is self-hosting: this repo both develops the platform and is its first consumer. Before deciding whether new code is a platform capability (tested `ts/packages/*`) or a consumer instance (a `.ns/*` artifact), read `docs/conventions/platform-and-consumer.md`; provisional consumer artifacts must carry an explicit promotion path.
 

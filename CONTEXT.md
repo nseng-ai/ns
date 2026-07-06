@@ -145,6 +145,10 @@ A deterministic transform with no I/O and no ns runtime knowledge. Pure utilitie
 The per-domain *seam* for a real-world I/O, external-tool, external-protocol, or precise filesystem-backed gateway — its contract, fake/testing support, `ctx`→gateway adapter, and real adapter — owned at `@nseng-ai/capability-kit/<domain>`. It is first-party gateway infrastructure, not product capability domain.
 *Avoid*: neutral-infra gateway, product capability, generic filesystem gateway
 
+**Consumer Gateway**:
+A capability-owned narrowed gateway interface — a subset of a provider **Gateway**'s methods (often a `Pick`), with result vocabulary in the consuming capability's own domain terms. The capability owns the narrowed interface and its vocabulary; the **Kit Gateway** owns the full provider contract. `docs/conventions/consumer-gateways-and-command-shape.md` holds the narrowing and command-shape rules.
+*Avoid*: consumer port, partial gateway, domain port
+
 **Capability Gateway Backend**:
 A retired transitional term for the standalone packages that used to own heavy real **Kit Gateway** implementations before the gateway backends folded into **Capability Kit** subpackages. Do not use `capability-gateway-backend` as a live package tier or introduce new packages in that role; use **Kit Gateway** for the current `@nseng-ai/capability-kit/<domain>` ownership model.
 *Avoid*: live tier, new backend package, gateway-adapter, neutral-infra gateway

@@ -8,6 +8,15 @@ Accepted — refines ADR 0018 (and through it ADR 0009, ADR 0012, ADR 0016).
 per-domain placement table are now `@nseng-ai/foundation` at `ts/packages/infra/foundation`; the
 placement analysis below is otherwise unchanged.)
 
+(amended by the gateway-consumer-hygiene slice, 2026-07-06: the `git` row's "revisit
+`capability-kit-owned` after the split" is resolved toward **`capability-kit-owned`** —
+`RealGitGateway` and the `GitGateway` seam live in `@nseng-ai/capability-kit/git`. Evidence: 15
+consumers across four consumption tiers, three exec-adapter construction seams
+(`NodeCommandExecApi`, `NsCommandExecApi`, and Pi exec bridging), no cycle pressure materialized,
+and adapter LOC stayed stable rather than bloating the kit. Consumer-facing shape rules — how
+consumers narrow against the seam and what the kit may export as standalone command-shape — now
+live in `docs/conventions/consumer-gateways-and-command-shape.md`.)
+
 ## Context
 
 ADR 0018 established the four-bucket rule for decomposing `@sdl/core` (pure utility, Kit gateway,
