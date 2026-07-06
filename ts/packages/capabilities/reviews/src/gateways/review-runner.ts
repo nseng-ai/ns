@@ -8,8 +8,9 @@ import {
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
+import { resultErr } from "@nseng-ai/foundation/result";
 
-import type { ReviewFailure, ReviewResult } from "../core/failures.ts";
+import type { ReviewResult } from "../core/failures.ts";
 import {
 	createFindingsReview,
 	reviewRunnerRequestSchema,
@@ -102,13 +103,13 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		if (request.model.trim() === "") {
-			return runnerError({
+			return resultErr({
 				code: "model-not-provided",
 				message: "A Claude Code model must be provided.",
 			});
 		}
 		if (!isClaudeCodeSupportedModelPattern(request.model)) {
-			return runnerError({
+			return resultErr({
 				code: "model-not-supported-by-harness",
 				message: `Model is not supported by the Claude Code harness: ${request.model}`,
 			});
@@ -118,13 +119,13 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 		try {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
 		} catch (error) {
-			return runnerError({
+			return resultErr({
 				code: "harness-invocation-failed",
 				message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}`,
 			});
 		}
 		if (resolvedBinary === undefined) {
-			return runnerError({
+			return resultErr({
 				code: "harness-binary-missing",
 				message: "Claude Code binary 'claude' was not found on PATH.",
 			});
@@ -150,17 +151,17 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 		try {
 			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
 		} catch (error) {
-			return runnerError({
+			return resultErr({
 				code: "harness-invocation-failed",
 				message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}`,
 			});
 		}
 
 		if (result.startupError !== undefined) {
-			return runnerError({ code: "harness-invocation-failed", message: result.startupError });
+			return resultErr({ code: "harness-invocation-failed", message: result.startupError });
 		}
 		if (result.code !== 0 || result.killed) {
-			return runnerError({
+			return resultErr({
 				code: "harness-execution-failed",
 				message: runnerExecutionMessage(result),
 			});
@@ -208,8 +209,4 @@ function copyRunReviewOptions(options: RunReviewOptions): RunReviewOptions {
 		...(options.env === undefined ? {} : { env: { ...options.env } }),
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	};
-}
-
-function runnerError(error: ReviewFailure): ReviewResult<never> {
-	return { ok: false, error };
 }

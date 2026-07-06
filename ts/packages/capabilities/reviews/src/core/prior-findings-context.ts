@@ -3,6 +3,7 @@ import type {
 	GithubPrFeedbackOptions,
 	GithubPrReviewThread,
 } from "@nseng-ai/capability-kit/github/pr-feedback";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	capTrailingRecords,
@@ -11,6 +12,7 @@ import {
 	summaryMarkerForReview,
 	type PriorFindingRecord,
 } from "./findings-comment.ts";
+import type { GitHubGatewayFailure } from "./failures.ts";
 import type { PriorFindingsPromptContext, PriorFindingsPromptContextEntry } from "./models.ts";
 import { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 import type { ReviewsGithubPrFeedbackGateway } from "./context.ts";
@@ -37,7 +39,7 @@ export type GatherPriorFindingsContextResult =
 			readonly type: "without-context";
 			readonly reason: PriorFindingsContextMissingReason;
 			readonly message: string;
-			readonly error?: GithubPrFeedbackFailure;
+			readonly error?: GitHubGatewayFailure;
 	  };
 
 export interface GatherPriorFindingsContextOptions extends GithubPrFeedbackOptions {
@@ -69,7 +71,7 @@ export async function gatherPriorFindingsContext(
 		return withoutContext(
 			"github-read-failed",
 			`Could not read PR discussion comments for prior findings: ${summaryComment.error.message}`,
-			summaryComment.error,
+			githubReadFailure(summaryComment.error),
 		);
 	}
 	if (summaryComment.value === null) {
@@ -103,7 +105,7 @@ export async function gatherPriorFindingsContext(
 		return withoutContext(
 			"github-read-failed",
 			`Could not read PR review threads for prior-finding resolution status: ${reviewThreads.error.message}`,
-			reviewThreads.error,
+			githubReadFailure(reviewThreads.error),
 		);
 	}
 
@@ -157,20 +159,28 @@ function resolutionStatusForThreads(
 function copyFeedbackOptions(options: GithubPrFeedbackOptions): GithubPrFeedbackOptions {
 	return {
 		cwd: options.cwd,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("env", options.env),
+		...optionalEntry("signal", options.signal),
+	};
+}
+
+function githubReadFailure(error: GithubPrFeedbackFailure): GitHubGatewayFailure {
+	return {
+		code: "github-read-failed",
+		message: error.message,
+		details: { githubCode: error.code },
 	};
 }
 
 function withoutContext(
 	reason: PriorFindingsContextMissingReason,
 	message: string,
-	error?: GithubPrFeedbackFailure,
+	error?: GitHubGatewayFailure,
 ): GatherPriorFindingsContextResult {
 	return {
 		type: "without-context",
 		reason,
 		message,
-		...(error === undefined ? {} : { error }),
+		...optionalEntry("error", error),
 	};
 }
