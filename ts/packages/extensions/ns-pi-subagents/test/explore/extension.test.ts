@@ -332,7 +332,7 @@ describe("explore extension", () => {
 		).toBe(true);
 	});
 
-	test("advertises the fleet navigator in the footer status and notifies on abnormal completion", async () => {
+	test("clears the fleet footer status and notifies on abnormal completion", async () => {
 		const statusCalls: StatusCall[] = [];
 		const notifications: Notification[] = [];
 		const tool = registerExploreTool({
@@ -349,10 +349,7 @@ describe("explore extension", () => {
 			toolContext({ statusCalls, notifications }),
 		);
 
-		expect(statusCalls.at(-1)).toEqual({
-			key: "ns.explore.fleet",
-			value: "explore fleet: 1 done, 1 failed · F2/alt+e",
-		});
+		expect(statusCalls.at(-1)).toEqual({ key: "ns.explore.fleet", value: undefined });
 		expect(notifications).toEqual([
 			{
 				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:explore:fleet",

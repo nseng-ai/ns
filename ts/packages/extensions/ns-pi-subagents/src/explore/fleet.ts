@@ -43,7 +43,7 @@ export function formatExploreFleetStatusText(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 ): string | undefined {
 	const tasks = sortedFleetTasks(runs);
-	if (tasks.length === 0) return undefined;
+	if (!hasActiveFleetTasks(tasks)) return undefined;
 	return `explore fleet: ${describeFleetCounts(tasks)} · ${EXPLORE_FLEET_SHORTCUT_LABEL}`;
 }
 

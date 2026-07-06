@@ -71,7 +71,7 @@ describe("runner subagent fleet display for explore", () => {
 		expect(titles).toEqual(["New", "Running"]);
 	});
 
-	test("summarizes fleet state in the footer status with the shortcut hint", () => {
+	test("summarizes active fleet state in the footer status with the shortcut hint", () => {
 		const registry = new RunnerSubagentFleetRegistry();
 		expect(formatExploreFleetStatusText(registry.snapshot())).toBeUndefined();
 
@@ -92,9 +92,7 @@ describe("runner subagent fleet display for explore", () => {
 		);
 
 		registry.markDone(second, makeErrorResult("failed"));
-		expect(formatExploreFleetStatusText(registry.snapshot())).toBe(
-			"explore fleet: 1 done, 1 failed · F2/alt+e",
-		);
+		expect(formatExploreFleetStatusText(registry.snapshot())).toBeUndefined();
 	});
 
 	test("syncs widget lines and footer status through the tool context", () => {
@@ -129,6 +127,6 @@ describe("runner subagent fleet display for explore", () => {
 		registry.markDone(only, makeFinalTextResult("done"));
 		syncExploreFleetDisplay(ctx, registry.snapshot());
 		expect(widgetCalls.at(-1)).toEqual({ key: EXPLORE_FLEET_WIDGET_KEY, content: undefined });
-		expect(statusCalls.at(-1)?.value).toBe("explore fleet: 1 done · F2/alt+e");
+		expect(statusCalls.at(-1)).toEqual({ key: EXPLORE_FLEET_STATUS_KEY, value: undefined });
 	});
 });
