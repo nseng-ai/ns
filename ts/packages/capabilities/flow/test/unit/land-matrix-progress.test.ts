@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
-import type { StreamClock, StreamSinkDeps, StreamWriter } from "@nseng-ai/clinkr/stream";
 import {
 	createLandMatrixProgressController,
 	formatLandProgressTitle,
@@ -11,6 +10,7 @@ import {
 	type LandMatrixRowSpec,
 } from "../../src/land/land-matrix-progress.ts";
 import type { FlowLandingPlan } from "../../src/land/stack/types.ts";
+import { streamCapture } from "./stream-test-helpers.ts";
 
 function caps(parts: Partial<Caps> = {}): Caps {
 	return {
@@ -19,43 +19,6 @@ function caps(parts: Partial<Caps> = {}): Caps {
 		columns: 96,
 		canRenderUnicode: true,
 		...parts,
-	};
-}
-
-interface RecordingClock extends StreamClock {
-	readonly sleeps: number[];
-}
-
-function fakeClock(): RecordingClock {
-	const sleeps: number[] = [];
-	return {
-		sleeps,
-		sleep(ms: number): Promise<void> {
-			sleeps.push(ms);
-			return new Promise(() => {});
-		},
-	};
-}
-
-function streamCapture(): { deps: StreamSinkDeps; writes: string[]; redraws: string[] } {
-	const writes: string[] = [];
-	const redraws: string[] = [];
-	const writer: StreamWriter = {
-		write: (text) => {
-			writes.push(text);
-		},
-		redraw: (frame) => {
-			redraws.push(frame);
-		},
-		done: () => {},
-	};
-	return {
-		deps: {
-			clock: fakeClock(),
-			writer,
-		},
-		writes,
-		redraws,
 	};
 }
 
@@ -102,7 +65,7 @@ describe("land matrix progress", () => {
 	});
 
 	test("does not render until setRows renders the full pending matrix", () => {
-		const capture = streamCapture();
+		const capture = streamCapture({ sleep: "pending" });
 		const controller = createLandMatrixProgressController({
 			caps: caps(),
 			deps: capture.deps,
