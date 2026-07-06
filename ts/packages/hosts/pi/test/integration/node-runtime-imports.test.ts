@@ -66,7 +66,7 @@ describe("Node runtime import smoke", () => {
 			expect.arrayContaining([
 				".pi/extensions/backing-skill-commands.ts",
 				".pi/extensions/context-profiler.ts",
-				".pi/extensions/subagents.ts",
+				".pi/extensions/agents.ts",
 				".pi/extensions/grill-ui.ts",
 				".pi/extensions/pr.ts",
 				".pi/extensions/thermo-council.ts",
