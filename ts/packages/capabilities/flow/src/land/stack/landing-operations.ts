@@ -19,7 +19,7 @@ import type { LandingPlan, PullRequestFacts, WorktreeConflict } from "../types.t
 import type {
 	LandStackCommandContext,
 	LandedPr,
-	LandingWarning,
+	UiLandingWarning,
 	MergeLoopState,
 	RemainingCleanup,
 } from "./types.ts";
@@ -30,11 +30,8 @@ import {
 	slotFreeArgs,
 	slotNameFromPath,
 } from "./worktrees.ts";
-import {
-	setStatus,
-	type LandMatrixColumnKey,
-	type LandMatrixProgressSink,
-} from "../land-presentation.ts";
+import { setStatus } from "../land-presentation.ts";
+import type { LandMatrixColumnKey, LandMatrixProgressSink } from "../land-matrix-progress.ts";
 import { runTrackedMatrixStep } from "../../phase-stream/matrix-progress-core.ts";
 import {
 	confirmPreMergeMaintenance,
@@ -43,7 +40,7 @@ import {
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
 import { toLandStackFailure } from "./landing-plan.ts";
-import type { LandContext, LandGitGateway, LandingFailure, ManagedSlotWorktree } from "../api.ts";
+import type { LandGitGateway, LandingFailure, ManagedSlotWorktree } from "../api.ts";
 
 function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflict[]): string {
 	return [
@@ -68,14 +65,11 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 	return undefined;
 }
 
-interface PreMergeSlotMaintenanceOptions extends PreMergeMaintenanceOptions {
-	readonly landContext: LandContext;
-}
-
 export async function confirmAndFreeManagedSlots(
-	options: PreMergeSlotMaintenanceOptions,
+	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { runtime, ctx, landContext, plan } = options;
+	const { runtime, ctx, plan } = options;
+	const context = runtime.landContext;
 	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("ns", ["slot", ...freeArgs]);
@@ -101,7 +95,7 @@ export async function confirmAndFreeManagedSlots(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	setStatus(ctx, "freeing landing slots...");
-	const result = await landContext.worktrees.freeSlots({
+	const result = await context.worktrees.freeSlots({
 		repoRoot: plan.repoRoot,
 		slots: plan.managedSlotConflicts.map(toManagedSlotWorktree),
 	});
@@ -180,7 +174,7 @@ export interface PrepareMergeLoopStateOptions {
 	git: LandGitGateway;
 	repoRoot: string;
 	branches: readonly string[];
-	warnings: LandingWarning[];
+	warnings: UiLandingWarning[];
 }
 
 export async function prepareMergeLoopState(
@@ -204,13 +198,24 @@ export interface RunMergeLoopOptions {
 	readonly ctx: LandStackCommandContext;
 	readonly plan: LandingPlan;
 	readonly landed: LandedPr[];
-	readonly warnings: LandingWarning[];
-	readonly commandStream?: LandStackCommandStream;
+	readonly warnings: UiLandingWarning[];
+	readonly commandStream: LandStackCommandStream;
 	readonly mergeState?: MergeLoopState;
 }
 
+const ignoreLandMatrixProgress = (): void => undefined;
+
+const NULL_LAND_MATRIX_PROGRESS_SINK: LandMatrixProgressSink = {
+	setRows: ignoreLandMatrixProgress,
+	setRunningCommands: ignoreLandMatrixProgress,
+	setCell: ignoreLandMatrixProgress,
+	setAllCells: ignoreLandMatrixProgress,
+	setAllOtherCells: ignoreLandMatrixProgress,
+	recordMergedPr: ignoreLandMatrixProgress,
+};
+
 interface WithMatrixCellStepOptions<T> {
-	matrix: LandMatrixProgressSink | undefined;
+	matrix: LandMatrixProgressSink;
 	branch: string;
 	column: LandMatrixColumnKey;
 	op: () => Promise<LandStackResult<T>>;
@@ -221,13 +226,13 @@ async function withMatrixCellStep<T>(
 ): Promise<LandStackResult<T>> {
 	return await runTrackedMatrixStep({
 		onActive: () => {
-			options.matrix?.setCell(options.branch, options.column, { state: "active" });
+			options.matrix.setCell(options.branch, options.column, { state: "active" });
 		},
 		onDone: () => {
-			options.matrix?.setCell(options.branch, options.column, { state: "done" });
+			options.matrix.setCell(options.branch, options.column, { state: "done" });
 		},
 		onFailed: () => {
-			options.matrix?.setCell(options.branch, options.column, { state: "failed" });
+			options.matrix.setCell(options.branch, options.column, { state: "failed" });
 		},
 		op: options.op,
 	});
@@ -236,13 +241,14 @@ async function withMatrixCellStep<T>(
 export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
-	const { runtime, ctx, plan, landed, warnings } = options;
-	const { landContext } = runtime;
+	const { runtime, ctx, plan, landed, warnings, commandStream } = options;
+	const context = runtime.landContext;
+	const matrix = commandStream.matrix ?? NULL_LAND_MATRIX_PROGRESS_SINK;
 	const { repoRoot, stack } = plan;
 	let state = options.mergeState;
 	if (!state) {
 		const preparedState = await prepareMergeLoopState({
-			git: landContext.git,
+			git: context.git,
 			repoRoot,
 			branches: [...stack.landingBranches, ...stack.descendantBranches],
 			warnings,
@@ -254,13 +260,13 @@ export async function runMergeLoop(
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
 		const gated = await withMatrixCellStep({
-			matrix: options.commandStream?.matrix,
+			matrix,
 			branch,
 			column: "gate",
 			op: async () => {
-				const localSha = await landContext.git.localBranchSha({ repoRoot, branch });
+				const localSha = await context.git.localBranchSha({ repoRoot, branch });
 				if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
-				const pr = await landContext.github.pullRequestFacts({
+				const pr = await context.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: branch,
 				});
@@ -278,13 +284,13 @@ export async function runMergeLoop(
 		if (gated.type === "failure") return gated;
 		const currentPr = gated.value;
 		const merged = await withMatrixCellStep({
-			matrix: options.commandStream?.matrix,
+			matrix,
 			branch,
 			column: "merge",
 			op: async () => {
-				options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
+				commandStream.note(`Merging PR #${currentPr.number} ${branch}...`);
 				setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
-				const merge = await landContext.github.squashMergePullRequest({
+				const merge = await context.github.squashMergePullRequest({
 					repoRoot,
 					pullRequest: currentPr,
 				});
@@ -295,12 +301,12 @@ export async function runMergeLoop(
 		});
 		if (merged.type === "failure") return merged;
 		const verified = await withMatrixCellStep({
-			matrix: options.commandStream?.matrix,
+			matrix,
 			branch,
 			column: "verify",
 			op: async () => {
 				setStatus(ctx, `verifying #${currentPr.number}...`);
-				const facts = await landContext.github.pullRequestFacts({
+				const facts = await context.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: String(currentPr.number),
 				});
@@ -344,34 +350,33 @@ export async function runMergeLoop(
 			title: currentPr.title,
 			...(prUrl ? { url: prUrl } : {}),
 		});
-		options.commandStream?.matrix?.setCell(branch, "verify", { state: "done" });
-		options.commandStream?.emitLiveProgress({
+		commandStream.emitLiveProgress({
 			prNumber: currentPr.number,
 			branch,
 		});
-		options.commandStream?.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
+		commandStream.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
-		options.commandStream?.matrix?.setCell(branch, "restack", { state: "active" });
+		matrix.setCell(branch, "restack", { state: "active" });
 		const maintenance = await performGraphiteMaintenance({
-			landContext,
+			landContext: context,
 			progress: {
-				note: (message) => options.commandStream?.note(message),
+				note: (message) => commandStream.note(message),
 				setStatus: (message) => setStatus(ctx, message),
 			},
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
 		});
 		if (maintenance.kind === "halt") {
-			options.commandStream?.matrix?.setCell(branch, "restack", { state: "failed" });
+			matrix.setCell(branch, "restack", { state: "failed" });
 			return failure(maintenance.failure);
 		}
 		if (maintenance.kind === "skip") {
-			options.commandStream?.matrix?.setCell(branch, "restack", { state: "skipped" });
+			matrix.setCell(branch, "restack", { state: "skipped" });
 			if (maintenance.warning !== undefined) {
 				state.warnings.push(maintenance.warning);
 			}
 		} else {
-			options.commandStream?.matrix?.setCell(branch, "restack", { state: "done" });
+			matrix.setCell(branch, "restack", { state: "done" });
 		}
 	}
 	return success(state.cleanup);

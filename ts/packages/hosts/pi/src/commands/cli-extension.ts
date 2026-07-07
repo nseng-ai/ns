@@ -755,4 +755,11 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		}
 		seenPiCommandNames.add(piCommandName);
 	}
+	for (const aliasCommandName of Object.keys(spec.piCommandAliases ?? {})) {
+		if (!seenNames.has(aliasCommandName)) {
+			throw new Error(
+				`CLI command extension for ${spec.cliName} includes a Pi command alias key ${aliasCommandName} that does not match any declared command name.`,
+			);
+		}
+	}
 }

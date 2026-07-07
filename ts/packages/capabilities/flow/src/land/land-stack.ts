@@ -28,13 +28,14 @@ import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
 import { buildLandingPlan } from "./stack/landing-plan.ts";
 import { presentLandStackFailure, type LandingSession } from "./stack/landing-coordination.ts";
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
-import { landMatrixRowsFromPlan, present, setStatus, usage } from "./land-presentation.ts";
+import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
+import { present, setStatus, usage } from "./land-presentation.ts";
 import { executeLandingPlan } from "./stack/landing-plan-execution.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandedPr,
-	LandingWarning,
+	UiLandingWarning,
 	ParsedArgs,
 } from "./stack/types.ts";
 
@@ -72,7 +73,7 @@ export async function executeStackLanding(
 	options: ExecuteStackLandingOptions = {},
 ): Promise<LandStackOutcome> {
 	const landed: LandedPr[] = [];
-	const warnings: LandingWarning[] = [];
+	const warnings: UiLandingWarning[] = [];
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
 	const io = observabilityChannels.progressIo ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {

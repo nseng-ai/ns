@@ -18,10 +18,10 @@ import {
 	formatFailure,
 	formatFailureNotification,
 	landFailureKind,
-	landMatrixRowsFromPlan,
 	presentBrief,
 	setStatus,
 } from "../land-presentation.ts";
+import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
@@ -58,7 +58,7 @@ async function preparePlanForMergeCore(
 ): Promise<LandStackResult<LandingPlan>> {
 	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
-	const { landContext } = runtime;
+	const context = runtime.landContext;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
@@ -70,7 +70,6 @@ async function preparePlanForMergeCore(
 			runtime,
 			ctx,
 			plan,
-			landContext,
 			confirmation: preMergeConfirmation,
 		});
 		if (slotOutcome.type === "failure") return slotOutcome;
@@ -80,7 +79,7 @@ async function preparePlanForMergeCore(
 		return await submitRequiredUpdatesAndRecheckPlan({
 			ctx,
 			plan,
-			landContext,
+			landContext: context,
 			commandStream,
 			preMergeConfirmation,
 		});
@@ -100,18 +99,19 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
+	const { ctx, plan, commandStream, preMergeConfirmation } = options;
+	const context = options.landContext;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		ctx,
 		plan,
-		landContext,
+		landContext: context,
 		confirmation: preMergeConfirmation,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
-	const rechecked = await buildLandingPlan(landContext, ctx.cwd, {
+	const rechecked = await buildLandingPlan(context, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
 	});

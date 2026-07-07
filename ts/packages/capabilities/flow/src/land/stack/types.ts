@@ -149,6 +149,7 @@ export interface CommandStreamMessageDetails {
 	prLinks: CommandStreamPrLink[];
 }
 
+export type UiLandingWarning = LandingWarning;
 export interface RetainedLocalBranchCleanup {
 	branch: string;
 	path: string;
@@ -161,7 +162,7 @@ export interface RemainingCleanup {
 export interface MergeLoopState {
 	expectedShas: Map<string, string>;
 	deletedBranches: Set<string>;
-	warnings: LandingWarning[];
+	warnings: UiLandingWarning[];
 	cleanup: RemainingCleanup;
 }
 
