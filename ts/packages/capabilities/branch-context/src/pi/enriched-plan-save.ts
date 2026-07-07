@@ -1,7 +1,7 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
-import type { Stats } from "node:fs";
+import { readFileSync, type Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
@@ -13,6 +13,12 @@ import {
 	optionalEntry,
 } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import {
+	loadPointCatalog,
+	nodeProjectConfigGateway,
+	resolvePromptPointSource,
+	type PromptPointSource,
+} from "@nseng-ai/kernel/project-config/points";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi/commands/ack";
@@ -56,71 +62,15 @@ interface WriteSavedPlanFileProgressDetails {
 	elapsedSeconds?: number;
 }
 
-const WRITE_PLAN_PROMPT_NAME = "plans-write";
+const WRITE_PLAN_POINT_ID = "branch-context.plans-write";
 
-export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contract:
-- Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
-- Make the plan self-contained. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
-- Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and proportional validation guidance.
-- Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order over vague instructions.
-- If you inspected evidence during planning, summarize the discovered facts in the plan so the downstream agent does not need to rediscover them unless verification is required.
-
-External research/context contract:
-- If planning used anything outside the repository — web searches, external docs, GitHub issues/PRs, API docs, CLIs hitting remote services, local files outside the repo, or other non-repo resources — include the relevant findings inline in the saved plan.
-- Do not merely link to external resources. Summarize the concrete facts, constraints, examples, decisions, and caveats the downstream agent needs.
-- Include source/provenance where useful: URL, command, document name, issue/PR number, accessed date/time if known, and why it mattered.
-- If external findings may become stale, mark what should be revalidated during implementation.
-- Do not include secrets, credentials, private tokens, or unnecessary sensitive data.
-
-<!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
-Refactor execution strategy:
-- If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
-- Apply the canonical guidance in \`skills/enriched-plan-save/references/refactor-execution-strategy.md\`, including the final stale-terminology grep/equivalent check when changing names or concepts.
-<!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
-
-Recommended saved plan sections:
-- Goal and user-visible outcome.
-- Planning context and discovered facts, including relevant repository state.
-- External/off-repo research context, or a note that none was used when that helps remove ambiguity.
-- Files, symbols, commands, and tests likely to change.
-- Step-by-step implementation approach.
-- Validation guidance and expected results. Do not over-specify routine test/check scope as a planning decision; leave ordinary validation coverage to the implementing agent's project policy and changed-file judgment.
-- Risks, assumptions, edge cases, and open questions.
-
-Workflow:
-1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
-2. Produce a detailed Markdown implementation plan.
-3. Review the final Markdown plan content for completeness.
-4. Call write_saved_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
-5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
-6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any branch-context command/tool.
-
-Local plan store contract:
-- Canonical path convention: $XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md, defaulting to $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md. No fallback path is read or written; only $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md is used.
-- <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
-- <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
-- Existing saved plan file: write_saved_plan_file refuses to overwrite it; do not manually choose a replacement slug.
-- Working-tree behavior: no checked-in plan file is created.
-
-Saved-plan filename slug rules:
-- write_saved_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
-- Do not generate, guess, or pass a slug yourself.
-- The derived slug is kebab-case, 3–7 words, specific to the work described by the final plan, and rejects dates, random IDs, and generic-only slugs.
-
-When the plan is ready, call write_saved_plan_file with:
-- content: the complete reviewed Markdown plan content
-- summary: optional one-sentence summary of the plan
-
-Exact tool call shape:
-\`\`\`json
-{
-  "content": "# Plan\\n...",
-  "summary": "One-sentence summary of the plan."
-}
-\`\`\`
-
-If summary is not useful, omit it from the tool call rather than passing an empty string. Do not create target branches or write Branch Memory in this workflow.`;
+export const DEFAULT_WRITE_PLAN_PROMPT_BODY = readFileSync(
+	new URL(
+		"../../../../../../.ns/extensions/branch-context/prompts/plans-write-default.md",
+		import.meta.url,
+	),
+	"utf8",
+).trimEnd();
 
 type WritePlanPromptBodyResolution =
 	| { type: "resolved"; body: string }
@@ -181,10 +131,10 @@ async function resolveWritePlanPromptBody(
 	}
 
 	try {
-		return await readRepoWritePlanPromptBody(repoRoot.path);
+		return await readWritePlanPromptBody(repoRoot.path);
 	} catch (error) {
 		return fallbackWritePlanPromptBody(
-			`repo prompt ${repoPromptPath(repoRoot.path)} could not be read: ${formatErrorMessage(error)}`,
+			`prompt point ${WRITE_PLAN_POINT_ID} could not be read: ${formatErrorMessage(error)}`,
 		);
 	}
 }
@@ -208,27 +158,38 @@ async function resolveGitRoot(
 	return { type: "resolved", path: result.value };
 }
 
-async function readRepoWritePlanPromptBody(
-	repoRoot: string,
-): Promise<WritePlanPromptBodyResolution> {
-	const nsPath = join(repoRoot, ".ns");
-	const promptDir = join(nsPath, "prompts");
-	const promptPath = repoPromptPath(repoRoot);
-	await assertSafeDirectory(nsPath, ".ns");
-	await assertSafeDirectory(promptDir, ".ns/prompts");
-	await assertSafeFile(promptPath, `.ns/prompts/${WRITE_PLAN_PROMPT_NAME}.md`);
+async function readWritePlanPromptBody(repoRoot: string): Promise<WritePlanPromptBodyResolution> {
+	const catalog = loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway });
+	const source = resolvePromptPointSource(catalog, WRITE_PLAN_POINT_ID);
+	const promptPath = promptSourcePath(repoRoot, source);
+	if (promptPath === undefined) {
+		return fallbackWritePlanPromptBody(`prompt point ${WRITE_PLAN_POINT_ID} has no default`);
+	}
+	await assertSafeFile(promptPath.path, promptPath.label);
 
-	const content = await readFile(promptPath, "utf8");
+	const content = await readFile(promptPath.path, "utf8");
 	if (content.trim().length === 0) {
-		return fallbackWritePlanPromptBody(`repo prompt ${promptPath} is empty`);
+		return fallbackWritePlanPromptBody(`${promptPath.label} is empty`);
 	}
 	return { type: "resolved", body: content };
 }
 
-async function assertSafeDirectory(targetPath: string, label: string): Promise<void> {
-	const stats = await assertNotSymlink(targetPath, label);
-	if (!stats.isDirectory()) {
-		throw new Error(`${label} is not a directory`);
+function promptSourcePath(
+	repoRoot: string,
+	source: PromptPointSource,
+): { path: string; label: string } | undefined {
+	switch (source.type) {
+		case "ns.toml":
+			return { path: join(repoRoot, source.path), label: `ns.toml prompt ${source.path}` };
+		case "conventional":
+			return { path: join(repoRoot, source.path), label: source.path };
+		case "default":
+			return {
+				path: join(dirname(source.manifestPath), source.path),
+				label: `manifest default ${source.path}`,
+			};
+		case "missing":
+			return undefined;
 	}
 }
 
@@ -245,10 +206,6 @@ async function assertNotSymlink(targetPath: string, label: string): Promise<Stat
 		throw new Error(`${label} is a symlink`);
 	}
 	return stats;
-}
-
-function repoPromptPath(repoRoot: string): string {
-	return join(repoRoot, ".ns", "prompts", `${WRITE_PLAN_PROMPT_NAME}.md`);
 }
 
 export async function handleWritePlanCommand(

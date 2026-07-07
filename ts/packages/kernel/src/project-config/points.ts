@@ -84,6 +84,12 @@ export type PointCatalog = {
 	diagnostics: readonly ProjectConfigDiagnostic[];
 };
 
+export type PromptPointSource =
+	| { type: "ns.toml"; pointId: string; path: string }
+	| { type: "conventional"; pointId: string; path: string }
+	| { type: "default"; pointId: string; path: string; manifestPath: string }
+	| { type: "missing"; pointId: string };
+
 export const nodeProjectConfigGateway: ProjectConfigGateway = {
 	readTextFile(request) {
 		try {
@@ -264,6 +270,41 @@ export function loadPointCatalog(request: {
 		config: configResult.config ?? { points: [], settings: new Map() },
 		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
 	});
+}
+
+export function resolvePromptPointSource(
+	catalog: PointCatalog,
+	pointId: string,
+): PromptPointSource {
+	const entry = catalog.entries.find((catalogEntry) => catalogEntry.definition.id === pointId);
+	if (entry === undefined || entry.definition.accepts !== "prompt")
+		return { type: "missing", pointId };
+
+	const configured = entry.installations.find(
+		(installation) =>
+			installation.source === "ns.toml" && installation.installation.accepts === "prompt",
+	);
+	if (configured?.source === "ns.toml" && configured.installation.accepts === "prompt") {
+		return { type: "ns.toml", pointId, path: configured.installation.path };
+	}
+
+	const conventional = entry.installations.find(
+		(installation) => installation.source === "conventional-prompt",
+	);
+	if (conventional?.source === "conventional-prompt") {
+		return { type: "conventional", pointId, path: conventional.path };
+	}
+
+	if (entry.definition.defaultPath !== undefined && entry.definition.manifestPath !== undefined) {
+		return {
+			type: "default",
+			pointId,
+			path: entry.definition.defaultPath,
+			manifestPath: entry.definition.manifestPath,
+		};
+	}
+
+	return { type: "missing", pointId };
 }
 
 export function computePointCatalog(request: {

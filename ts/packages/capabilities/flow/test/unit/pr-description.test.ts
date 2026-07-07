@@ -251,25 +251,42 @@ describe("PR description helpers", () => {
 
 	test("resolves prompts env path before repo override before builtin", async () => {
 		const root = join(tmpdir(), `ns-dev-pr-prompt-${randomUUID()}`);
-		const repoPromptDir = join(root, "repo", ".ns", "prompts");
+		const repo = join(root, "repo");
+		const repoPromptDir = join(repo, ".ns", "prompts");
+		const extensionDir = join(repo, ".ns", "extensions", "flow");
 		await mkdir(repoPromptDir, { recursive: true });
-		await writeFile(join(repoPromptDir, "pr-description.md"), "repo prompt", "utf8");
+		await mkdir(extensionDir, { recursive: true });
+		await writeFile(
+			join(extensionDir, "package.json"),
+			JSON.stringify({
+				ns: {
+					group: "flow",
+					points: [
+						{
+							path: ["submit", "pr-description"],
+							accepts: "prompt",
+							semantics: "override",
+						},
+					],
+				},
+			}),
+			"utf8",
+		);
+		await writeFile(join(repoPromptDir, "flow.submit.pr-description.md"), "repo prompt", "utf8");
 		const envPath = join(root, "env.md");
 		await writeFile(envPath, "env prompt", "utf8");
 
 		await expect(
 			resolvePrDescriptionPrompt({
 				env: { [PR_DESCRIPTION_PROMPT_ENV]: envPath },
-				repoRoot: join(root, "repo"),
+				repoRoot: repo,
 			}),
 		).resolves.toMatchObject({
 			ok: true,
 			text: "env prompt",
 			source: { type: "env" },
 		});
-		await expect(
-			resolvePrDescriptionPrompt({ env: {}, repoRoot: join(root, "repo") }),
-		).resolves.toMatchObject({
+		await expect(resolvePrDescriptionPrompt({ env: {}, repoRoot: repo })).resolves.toMatchObject({
 			ok: true,
 			text: "repo prompt",
 			source: { type: "repo" },
