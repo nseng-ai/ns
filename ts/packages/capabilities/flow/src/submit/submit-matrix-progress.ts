@@ -21,6 +21,14 @@ export type SubmitMatrixCellState = MatrixCellState;
 export type SubmitMatrixColumnKey = "metadata" | "submit" | "verify" | "description";
 export type SubmitMatrixGlobalKey = "inventory" | "hooks" | "checkpoint" | "preflight" | "restack";
 export type SubmitMatrixCellUpdate = MatrixCellUpdate;
+export type SubmitMetadataProgressReason =
+	| "existing-pr"
+	| "amendment-not-applicable"
+	| "generating-metadata"
+	| "amending-metadata-commit"
+	| "metadata-prepared"
+	| "metadata-amendment-failed"
+	| "metadata-generation-failed";
 
 export type SubmitMatrixColumnSpec = MatrixColumnSpec<SubmitMatrixColumnKey>;
 
@@ -126,28 +134,22 @@ export const SUBMIT_MATRIX_GLOBAL_ROWS: readonly SubmitMatrixGlobalRowSpec[] = [
 	},
 ];
 
-/**
- * Map a branch-level metadata progress message to a compact label that fits the
- * 8-column Metadata cell. Unknown messages return undefined so the cell falls
- * back to its state symbol instead of showing an ambiguous truncated phrase.
- */
-export function compactSubmitMetadataCellText(message: string): string | undefined {
-	switch (message) {
-		case "existing PR":
+/** Map a branch-level metadata reason to a compact label that fits the 8-column Metadata cell. */
+export function compactSubmitMetadataCellText(reason: SubmitMetadataProgressReason): string {
+	switch (reason) {
+		case "existing-pr":
 			return "exists";
-		case "metadata amendment not applicable":
+		case "amendment-not-applicable":
 			return "n/a";
-		case "generating metadata":
+		case "generating-metadata":
 			return "gen";
-		case "amending metadata commit":
+		case "amending-metadata-commit":
 			return "amend";
-		case "metadata prepared":
+		case "metadata-prepared":
 			return "ready";
-		case "metadata amendment failed":
-		case "metadata generation failed":
+		case "metadata-amendment-failed":
+		case "metadata-generation-failed":
 			return "failed";
-		default:
-			return undefined;
 	}
 }
 

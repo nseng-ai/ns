@@ -17,6 +17,7 @@ import type { TextGenerator } from "./index.ts";
 import { formatItemCount } from "./submit-format.ts";
 import type {
 	SubmitMatrixCellState,
+	SubmitMetadataProgressReason,
 	SubmitStackTopology,
 	SubmitStackTopologyBranch,
 } from "./submit-matrix-progress.ts";
@@ -33,7 +34,7 @@ export type SubmitMetadataProgressListener = (message: string) => void;
 export type SubmitBranchMetadataProgressListener = (event: {
 	branch: string;
 	state: Exclude<SubmitMatrixCellState, "pending">;
-	message?: string;
+	reason?: SubmitMetadataProgressReason;
 }) => void;
 
 export interface SubmitMetadataCommandParams {
@@ -419,14 +420,14 @@ export async function prepareSubmitPrMetadata(input: {
 	const metadataBranches = new Set(newBranches.map((branch) => branch.branch));
 	for (const branch of inspected.value.branches) {
 		if (branch.kind === "existing") {
-			input.onBranchProgress?.({ branch: branch.branch, state: "skipped", message: "existing PR" });
+			input.onBranchProgress?.({ branch: branch.branch, state: "skipped", reason: "existing-pr" });
 			continue;
 		}
 		if (!metadataBranches.has(branch.branch)) {
 			input.onBranchProgress?.({
 				branch: branch.branch,
 				state: "skipped",
-				message: "metadata amendment not applicable",
+				reason: "amendment-not-applicable",
 			});
 		}
 	}
@@ -468,7 +469,7 @@ export async function prepareSubmitPrMetadata(input: {
 		input.onBranchProgress?.({
 			branch: metadata.branch,
 			state: "active",
-			message: "amending metadata commit",
+			reason: "amending-metadata-commit",
 		});
 		const amended = await input.gateway.amendBranchMetadataCommit({
 			cwd: input.cwd,
@@ -481,7 +482,7 @@ export async function prepareSubmitPrMetadata(input: {
 			input.onBranchProgress?.({
 				branch: metadata.branch,
 				state: "failed",
-				message: "metadata amendment failed",
+				reason: "metadata-amendment-failed",
 			});
 			return {
 				kind: "failed",
@@ -493,7 +494,7 @@ export async function prepareSubmitPrMetadata(input: {
 		input.onBranchProgress?.({
 			branch: metadata.branch,
 			state: "done",
-			message: "metadata prepared",
+			reason: "metadata-prepared",
 		});
 	}
 
@@ -535,7 +536,7 @@ async function generateMetadataForBranches(input: {
 		input.onBranchProgress?.({
 			branch: branch.branch,
 			state: "active",
-			message: "generating metadata",
+			reason: "generating-metadata",
 		});
 		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
 		const generated = await preparePrDescription({
@@ -556,7 +557,7 @@ async function generateMetadataForBranches(input: {
 			input.onBranchProgress?.({
 				branch: branch.branch,
 				state: "failed",
-				message: "metadata generation failed",
+				reason: "metadata-generation-failed",
 			});
 			return {
 				kind: "failed",

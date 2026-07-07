@@ -162,15 +162,14 @@ describe("submit matrix progress", () => {
 		expect(rowLine("feature/no-text")).toContain("✓");
 	});
 
-	test("compactSubmitMetadataCellText maps known metadata messages and rejects unknown ones", () => {
-		expect(compactSubmitMetadataCellText("existing PR")).toBe("exists");
-		expect(compactSubmitMetadataCellText("metadata amendment not applicable")).toBe("n/a");
-		expect(compactSubmitMetadataCellText("generating metadata")).toBe("gen");
-		expect(compactSubmitMetadataCellText("amending metadata commit")).toBe("amend");
-		expect(compactSubmitMetadataCellText("metadata prepared")).toBe("ready");
-		expect(compactSubmitMetadataCellText("metadata amendment failed")).toBe("failed");
-		expect(compactSubmitMetadataCellText("metadata generation failed")).toBe("failed");
-		expect(compactSubmitMetadataCellText("something novel")).toBeUndefined();
+	test("compactSubmitMetadataCellText maps metadata reasons to cell labels", () => {
+		expect(compactSubmitMetadataCellText("existing-pr")).toBe("exists");
+		expect(compactSubmitMetadataCellText("amendment-not-applicable")).toBe("n/a");
+		expect(compactSubmitMetadataCellText("generating-metadata")).toBe("gen");
+		expect(compactSubmitMetadataCellText("amending-metadata-commit")).toBe("amend");
+		expect(compactSubmitMetadataCellText("metadata-prepared")).toBe("ready");
+		expect(compactSubmitMetadataCellText("metadata-amendment-failed")).toBe("failed");
+		expect(compactSubmitMetadataCellText("metadata-generation-failed")).toBe("failed");
 	});
 
 	test("topology rows are branch-first and enrich existing PRs immediately", () => {

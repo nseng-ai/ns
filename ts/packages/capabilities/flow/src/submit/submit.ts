@@ -332,7 +332,7 @@ export async function runSubmitCommand(
 			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
 		onBranchProgress: (event) => {
 			const text =
-				event.message === undefined ? undefined : compactSubmitMetadataCellText(event.message);
+				event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
 			options.submitMatrix?.setCell(event.branch, "metadata", {
 				state: event.state,
 				...(text === undefined ? {} : { text }),

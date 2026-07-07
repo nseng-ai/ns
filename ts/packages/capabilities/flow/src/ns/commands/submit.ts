@@ -353,11 +353,9 @@ function createMatrixPhaseForwarder(
 	ctx: NsExtensionApi,
 	matrix: SubmitMatrixProgressController,
 ): (event: NsProgressPhaseEvent) => void {
-	const forward = createForwardOnlyPhaseListener(ctx);
-	return (event) => {
-		forward(event);
-		matrix.applyGlobalPhaseEvent("checkpoint", event);
-	};
+	return createMatrixAwarePhaseListener(ctx, matrix, (submitMatrix, event) => {
+		submitMatrix.applyGlobalPhaseEvent("checkpoint", event);
+	});
 }
 
 function createForwardOnlyPhaseListener(
@@ -372,14 +370,24 @@ function createSubmitPhaseListener(
 	ctx: NsExtensionApi,
 	matrix: SubmitMatrixProgressController,
 ): (event: NsProgressPhaseEvent) => void {
-	const forward = createForwardOnlyPhaseListener(ctx);
-	return (event) => {
-		forward(event);
+	return createMatrixAwarePhaseListener(ctx, matrix, (submitMatrix, event) => {
 		// Surface the full metadata progress message as the matrix tail line so
 		// compact branch-cell labels are never the only source of detail.
 		if (event.type === "phase-progress" && event.phaseKey === "metadata") {
-			matrix.note(event.label);
+			submitMatrix.note(event.label);
 		}
+	});
+}
+
+function createMatrixAwarePhaseListener(
+	ctx: NsExtensionApi,
+	matrix: SubmitMatrixProgressController,
+	onEvent: (matrix: SubmitMatrixProgressController, event: NsProgressPhaseEvent) => void,
+): (event: NsProgressPhaseEvent) => void {
+	const forward = createForwardOnlyPhaseListener(ctx);
+	return (event) => {
+		forward(event);
+		onEvent(matrix, event);
 	};
 }
 
