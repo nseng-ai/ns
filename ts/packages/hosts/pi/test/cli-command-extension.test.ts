@@ -1190,11 +1190,11 @@ describe("cli command extension helper", () => {
 	});
 
 	test("suppresses stale command-context errors after session replacement", async () => {
-		let runCalled = false;
+		let hasRunBeenCalled = false;
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: () => {
-				runCalled = true;
+				hasRunBeenCalled = true;
 				return 0;
 			},
 		});
@@ -1212,7 +1212,7 @@ describe("cli command extension helper", () => {
 
 		await expect(commandFor(pi, "dev:preview-status").handler("", ctx)).resolves.toBeUndefined();
 
-		expect(runCalled).toBe(false);
+		expect(hasRunBeenCalled).toBe(false);
 		expect(pi.sentMessages).toEqual([]);
 	});
 
