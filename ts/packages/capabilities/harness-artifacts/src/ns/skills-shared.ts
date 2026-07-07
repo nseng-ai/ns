@@ -8,13 +8,14 @@ import {
 
 export interface SkillsCommandContext {
 	cwd: string;
+	projectRoot: string;
 	homeDir?: string;
 	env: Record<string, string | undefined>;
 }
 
 export function harnessResolutionContext(context: SkillsCommandContext) {
 	return firstPartySkillProvisionPathContext({
-		projectRoot: context.cwd,
+		projectRoot: context.projectRoot,
 		homeDir: context.homeDir ?? context.env.HOME ?? "",
 		env: context.env,
 	});

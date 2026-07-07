@@ -311,7 +311,7 @@ function manifestEntryKey(entry: InstallManifestEntryData): string {
 	return provisionIdentityKey(entry);
 }
 
-function provisionIdentityKey(
+export function provisionIdentityKey(
 	identity: Pick<ProvisionPlan, "artifactId" | "harness" | "kind" | "scope">,
 ): string {
 	return `${identity.harness}:${identity.scope}:${identity.kind}:${identity.artifactId}`;

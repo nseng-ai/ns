@@ -166,7 +166,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 	},
 	{ skillName: "skill-creator", surface: "skill:creator", kind: "generic-backing-skill" },
 	{ skillName: "skill-management", surface: "skill:management", kind: "generic-backing-skill" },
-	{ skillName: "skillx", surface: "skill:x", kind: "generic-backing-skill" },
 	{
 		skillName: "thermo-nuclear-code-quality-review",
 		surface: "thermo:nuclear-code-quality-review",

@@ -38,8 +38,9 @@ Copy Matt-sourced reusable skills exactly when they remain general-purpose build
 
 ```bash
 npx skills add mattpocock/skills --agent codex claude-code -y --skill <name>
-areg update-skills --skill <name>
 ```
+
+Then update ns metadata with the current skill-management workflow; do not use the removed `areg update-skills` command.
 
 Use exact vendored copies for shared vocabulary or loops such as `grilling`, `domain-modeling`, `codebase-design`, and `writing-great-skills` unless ns intentionally forks them.
 

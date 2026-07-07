@@ -173,10 +173,24 @@ describe("harness artifact reconcile driver", () => {
 		).toBe(contentHashForText("objective v2\n"));
 	});
 
-	test("local target edits conflict without force and are overwritten with force", async () => {
+	test("local target edits conflict in dry-run and apply without force and are overwritten with force", async () => {
 		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.setFile("/repo/.pi/skills/objective/SKILL.md", "local edit\n");
+
+		const dryRunConflict = await runHarnessArtifactReconcile(fixture.request({ dryRun: true }));
+
+		expect(dryRunConflict).toMatchObject({ ok: true });
+		if (!dryRunConflict.ok) return;
+		expect(dryRunConflict.value.mode).toBe("dry-run");
+		expect(dryRunConflict.value.needsForce).toBe(true);
+		expect(
+			dryRunConflict.value.artifacts.find((artifact) => artifact.skillName === "objective"),
+		).toMatchObject({
+			action: "conflicted",
+			conflictingFiles: ["/repo/.pi/skills/objective/SKILL.md"],
+		});
+		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("local edit\n");
 
 		const conflict = await runHarnessArtifactReconcile(fixture.request());
 
@@ -194,6 +208,11 @@ describe("harness artifact reconcile driver", () => {
 		const forced = await runHarnessArtifactReconcile(fixture.request({ force: true }));
 
 		expect(forced).toMatchObject({ ok: true });
+		if (!forced.ok) return;
+		expect(forced.value.needsForce).toBe(false);
+		expect(
+			forced.value.artifacts.find((artifact) => artifact.skillName === "objective"),
+		).not.toMatchObject({ action: "conflicted" });
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
 	});
 
@@ -246,12 +265,12 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 	const fs = new InMemoryHarnessFs(files);
 	return {
 		fs,
-		request(overrides: { force?: boolean } = {}) {
+		request(overrides: { dryRun?: boolean; force?: boolean } = {}) {
 			return {
 				projectRoot: "/repo",
 				homeDir: "/home/alice",
 				env: { XDG_DATA_HOME: "/home/alice/.local/share" },
-				dryRun: false,
+				dryRun: overrides.dryRun ?? false,
 				force: overrides.force ?? false,
 				fs,
 				discoveryGateway: fs,
