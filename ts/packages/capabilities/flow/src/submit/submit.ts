@@ -351,11 +351,7 @@ export async function runSubmitCommand(
 			prewrite.diagnostic === undefined ? [] : formatErrorInfoDiagnosticLines(prewrite.diagnostic);
 		return failure(prewrite.exitCode ?? 1, stderr, {
 			failurePresentation: "unknown",
-			rawFailureTranscript: textFailureTranscript(
-				"pre-submit metadata",
-				stderr,
-				details.length === 0 ? undefined : { details },
-			),
+			rawFailureTranscript: textFailureTranscript("pre-submit metadata", stderr, details),
 		});
 	}
 
@@ -482,11 +478,7 @@ export async function runSubmitCommand(
 		const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
 		return failure(1, stderr, {
 			failurePresentation: "deterministic",
-			rawFailureTranscript: textFailureTranscript(
-				"PR description",
-				stderr,
-				details.length === 0 ? {} : { details },
-			),
+			rawFailureTranscript: textFailureTranscript("PR description", stderr, details),
 		});
 	}
 
@@ -812,12 +804,12 @@ function commandFailureTranscript(
 function textFailureTranscript(
 	phase: string,
 	summary: string,
-	options?: { details?: readonly string[] },
+	details?: readonly string[],
 ): SubmitFailureTranscript {
 	return {
 		phase,
 		summary,
-		...(options?.details === undefined ? {} : { details: options.details }),
+		...(details === undefined || details.length === 0 ? {} : { details }),
 		commands: [],
 	};
 }
