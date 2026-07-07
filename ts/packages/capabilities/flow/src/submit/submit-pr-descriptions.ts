@@ -45,7 +45,6 @@ type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbac
 
 export interface SubmitPrDescriptionProgressEvent {
 	prNumber: number;
-	branch?: string;
 	state: "active" | "done" | "skipped" | "failed";
 	message?: string;
 }
@@ -112,7 +111,6 @@ export async function generateSubmitPrDescriptions(input: {
 			if (!resolvedGeneration.ok) {
 				input.onPrProgress?.({
 					prNumber: number,
-					branch: viewed.value.headRefName,
 					state: "failed",
 					message: firstNonEmptyLine(resolvedGeneration.error) ?? "generation setup failed",
 				});
@@ -141,7 +139,6 @@ export async function generateSubmitPrDescriptions(input: {
 		const progress = prProgressForResult(result);
 		input.onPrProgress?.({
 			prNumber: number,
-			branch: viewed.value.headRefName,
 			state: progress.state,
 			...(progress.message === undefined ? {} : { message: progress.message }),
 		});

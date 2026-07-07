@@ -47,10 +47,9 @@ const unusedTextGenerator: TextGenerator = {
 };
 
 describe("generateSubmitPrDescriptions", () => {
-	test("emits PR-addressed progress with branch attribution after PR metadata loads", async () => {
+	test("emits PR-addressed progress after PR metadata loads", async () => {
 		const events: Array<{
 			prNumber: number;
-			branch?: string;
 			state: string;
 			message?: string;
 		}> = [];
@@ -82,7 +81,7 @@ describe("generateSubmitPrDescriptions", () => {
 		expect(result).toMatchObject({ ok: true, prewritten: [{ label: "#12" }] });
 		expect(events).toEqual([
 			{ prNumber: 12, state: "active", message: "loading PR metadata" },
-			{ prNumber: 12, branch: "feature/demo", state: "done", message: "prewritten" },
+			{ prNumber: 12, state: "done", message: "prewritten" },
 		]);
 	});
 });

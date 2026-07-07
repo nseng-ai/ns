@@ -775,18 +775,18 @@ describe("runSubmitCommand", () => {
 	});
 });
 
-type SubmitMatrixGlobalEvent = {
+interface SubmitMatrixGlobalEvent {
 	key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0];
 	state: Parameters<SubmitMatrixProgressSink["setGlobal"]>[1]["state"];
 	text?: string;
-};
+}
 
-type SubmitMatrixPrCellEvent = {
+interface SubmitMatrixPrCellEvent {
 	prNumber: number;
 	column: Parameters<SubmitMatrixProgressSink["setCellByPrNumber"]>[1];
 	state: Parameters<SubmitMatrixProgressSink["setCellByPrNumber"]>[2]["state"];
 	text?: string;
-};
+}
 
 class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 	readonly globalEvents: SubmitMatrixGlobalEvent[] = [];
