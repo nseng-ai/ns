@@ -13,6 +13,7 @@ import {
 	formatBranchContextCreatePreview,
 	formatBranchContextEvidence,
 	resolveBranchContextCreatePreviewContext,
+	selectBranchContextCreateOperationTarget,
 } from "../src/core/branch-context-creation.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
@@ -86,6 +87,12 @@ describe("buildBranchContextCreateOperation", () => {
 				branchCreation: "graphite",
 				summary: "Create the branch.",
 			},
+			branchSelection: {
+				type: "exact",
+				requestedBranch: PLAN_SLUG,
+				selectedBranch: PLAN_SLUG,
+				collisions: [],
+			},
 			summary: "Create the branch.",
 		});
 	});
@@ -101,6 +108,12 @@ describe("buildBranchContextCreateOperation", () => {
 		expect(operation.branch).toBe(TARGET_BRANCH);
 		expect(operation.key).toBe(PLAN_KEY);
 		expect(operation.summary).toBeUndefined();
+		expect(operation.branchSelection).toEqual({
+			type: "exact",
+			requestedBranch: TARGET_BRANCH,
+			selectedBranch: TARGET_BRANCH,
+			collisions: [],
+		});
 		expect(operation.params).toEqual({
 			slug: PLAN_SLUG,
 			filePath: PLAN_FILE,
@@ -281,6 +294,86 @@ describe("branch-context create execution", () => {
 				content: "# Plan\n",
 			},
 		]);
+	});
+
+	test("default target branch collision selects a suffixed branch before creation", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			existingBranches: [PLAN_SLUG],
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchCreation: "plain-git",
+		});
+
+		const selected = await selectBranchContextCreateOperationTarget({
+			cwd: ROOT,
+			operation,
+			git,
+			brmem,
+			isExplicitTargetBranch: false,
+		});
+
+		expect(selected.branch).toBe(`${PLAN_SLUG}-2`);
+		expect(selected.key).toBe(PLAN_KEY);
+		expect(selected.branchSelection).toEqual({
+			type: "auto-suffixed",
+			requestedBranch: PLAN_SLUG,
+			selectedBranch: `${PLAN_SLUG}-2`,
+			collisions: [{ branch: PLAN_SLUG, isLocalBranch: true, hasAttachedPlan: false }],
+		});
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("multiple default target collisions select the first absent suffix", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			existingBranches: [PLAN_SLUG, `${PLAN_SLUG}-2`],
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const operation = buildBranchContextCreateOperation({ slug: PLAN_SLUG, filePath: PLAN_FILE });
+
+		const selected = await selectBranchContextCreateOperationTarget({
+			cwd: ROOT,
+			operation,
+			git,
+			brmem,
+			isExplicitTargetBranch: false,
+		});
+
+		expect(selected.branch).toBe(`${PLAN_SLUG}-3`);
+		expect(selected.branchSelection.type).toBe("auto-suffixed");
+		expect(selected.branchSelection.collisions.map((collision) => collision.branch)).toEqual([
+			PLAN_SLUG,
+			`${PLAN_SLUG}-2`,
+		]);
+	});
+
+	test("default target selection treats stale Branch Memory as occupied", async () => {
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: PLAN_SLUG, key: PLAN_KEY, content: "# Old plan\n" }],
+		});
+		const operation = buildBranchContextCreateOperation({ slug: PLAN_SLUG, filePath: PLAN_FILE });
+
+		const selected = await selectBranchContextCreateOperationTarget({
+			cwd: ROOT,
+			operation,
+			git,
+			brmem,
+			isExplicitTargetBranch: false,
+		});
+
+		expect(selected.branch).toBe(`${PLAN_SLUG}-2`);
+		expect(selected.branchSelection).toMatchObject({
+			type: "auto-suffixed",
+			collisions: [{ branch: PLAN_SLUG, isLocalBranch: false, hasAttachedPlan: true }],
+		});
 	});
 
 	test("existing target branches fail before checking Branch Memory", async () => {

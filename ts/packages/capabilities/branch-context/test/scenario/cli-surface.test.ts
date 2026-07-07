@@ -335,9 +335,47 @@ describe("branch-context CLI surface pinning", () => {
 				refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
 				commit: "commit0000000000000000000000000000000002",
 				sourceFile: planFile,
+				requestedBranch: PLAN_SLUG,
+				selectedBranch: PLAN_SLUG,
+				branchSelection: {
+					type: "exact",
+					requestedBranch: PLAN_SLUG,
+					selectedBranch: PLAN_SLUG,
+					collisions: [],
+				},
 			},
 		});
 		// PINNED QUIRK (clinkr-migration): duplicate scalar flags are accepted and the last value wins.
+	});
+
+	test("default branch collision auto-suffixes create JSON output", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const run = runWithFakes(
+			["exec", "from-plan", "--slug", PLAN_SLUG, "--plan-file", planFile, "--format", "json"],
+			{ cwd: repoRoot, git: { headCommit: START_POINT, existingBranches: [PLAN_SLUG] } },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			status: "ok",
+			exitCode: 0,
+			data: {
+				slug: PLAN_SLUG,
+				branch: `${PLAN_SLUG}-2`,
+				key: PLAN_KEY,
+				requestedBranch: PLAN_SLUG,
+				selectedBranch: `${PLAN_SLUG}-2`,
+				branchSelection: {
+					type: "auto-suffixed",
+					requestedBranch: PLAN_SLUG,
+					selectedBranch: `${PLAN_SLUG}-2`,
+					collisions: [{ branch: PLAN_SLUG, isLocalBranch: true, hasAttachedPlan: false }],
+				},
+			},
+		});
 	});
 
 	test("pins invalid branch-creation as a raw commander choices error in human and JSON modes", async () => {
@@ -447,6 +485,14 @@ describe("branch-context CLI surface pinning", () => {
 						refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
 						commit: "commit0000000000000000000000000000000002",
 						sourceFile: planFile,
+						requestedBranch: branch,
+						selectedBranch: branch,
+						branchSelection: {
+							type: "exact",
+							requestedBranch: branch,
+							selectedBranch: branch,
+							collisions: [],
+						},
 						summary: "Create it",
 					},
 				},

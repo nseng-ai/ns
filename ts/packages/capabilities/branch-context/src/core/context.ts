@@ -17,6 +17,7 @@ export interface BranchContextContext {
 
 export interface BranchContextContextOptions {
 	cwd?: string;
+	brmemCommands?: StdinCapableCommandExecApi;
 }
 
 export type BranchContextContextFactory<Args extends unknown[]> = (
@@ -29,7 +30,9 @@ export function createBranchContextContext(
 ): BranchContextContext {
 	const cwd = options.cwd ?? process.cwd();
 	const git = new RealGitGateway(commands);
-	const brmem = new RealGitBrmemGateway({ cwd, commands, git });
+	const brmemCommands = options.brmemCommands ?? commands;
+	const brmemGit = brmemCommands === commands ? git : new RealGitGateway(brmemCommands);
+	const brmem = new RealGitBrmemGateway({ cwd, commands: brmemCommands, git: brmemGit });
 	return {
 		commands,
 		git,

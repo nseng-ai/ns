@@ -4,6 +4,7 @@ import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
+import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
@@ -22,14 +23,19 @@ import {
 	buildBranchContextOutputMessage,
 	buildBranchContextPlanKey,
 	buildImplBranchContextPrompt,
+	createBranchContextContext,
 	createRealBranchContextContext,
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
 	describeBranchContextGraphiteCreationSteps,
+	formatBranchSelectionLines,
+	selectBranchContextCreateOperationTarget,
+	buildBranchContextCreateOperation,
 	formatExistingBranchContextReuse,
 	formatLoadedAttachedPlanEvidence,
 	resolveExistingBranchContextReuse,
+	type BranchContextBranchSelection,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
 	type BranchCreationMethod,
@@ -72,14 +78,14 @@ const GRAPHITE_BRANCH_CREATION_HELP =
 
 export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
-Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
+Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, default target branches auto-suffix on collisions, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
   --graphite         Create with the branch-context Graphite method.
   --plain-git        Create with plain Git only; no Graphite tracking.
-  --branch <name>    Use an explicit target branch name.
+  --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
   --help, -h         Show this help.
 
 ${GRAPHITE_BRANCH_CREATION_HELP}
@@ -97,7 +103,7 @@ Options:
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
   --graphite         Default: create with the branch-context Graphite method.
   --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
-  --branch <name>    Use an explicit target branch name.
+  --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
   --help, -h         Show this help.
 
 ${GRAPHITE_BRANCH_CREATION_HELP}
@@ -167,9 +173,11 @@ interface CreateBranchContextPreviewBase {
 	filePath: string;
 	fileName: string;
 	planKey: string;
+	requestedBranch?: string;
 	targetBranch: string;
 	branchNameForCreation?: string;
 	isExplicitTargetBranch: boolean;
+	branchSelection?: BranchContextBranchSelection;
 	slugEvidence: PlanContentSlugEvidence;
 	branchCreation: BranchCreationMethod;
 	summary?: string;
@@ -239,12 +247,32 @@ class CreateBranchContextUsageError extends Error {
 	}
 }
 
+function shouldResolveTargetBranchInPreview(options: BranchContextExtensionOptions): boolean {
+	return options.resolveTargetBranchInPreview ?? options.branchContextOperations === undefined;
+}
+
 function resolveBranchContextContext(
 	pi: ExtensionAPI,
 	cwd: string,
 	options: BranchContextExtensionOptions,
+	contextOptions: { useRealBrmemCommands?: boolean } = {},
 ) {
-	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
+	if (options.createBranchContextContext !== undefined) {
+		return options.createBranchContextContext(pi, cwd);
+	}
+	if (pi.exec !== undefined) {
+		return createBranchContextContext(
+			{
+				supportsStdin: true,
+				exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
+			},
+			{
+				cwd,
+				...(contextOptions.useRealBrmemCommands ? { brmemCommands: new NodeCommandExecApi() } : {}),
+			},
+		);
+	}
+	return createRealBranchContextContext({ cwd });
 }
 
 export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchContextArgs {
@@ -395,17 +423,38 @@ export async function deriveCreateBranchContextPreview(
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
+	const requestedOperation = buildBranchContextCreateOperation({
+		slug: slugEvidence.slug,
+		filePath: selectedFile.filePath,
+		branchCreation,
+		...(target.branchNameForCreation === undefined
+			? {}
+			: { branchName: target.branchNameForCreation }),
+	});
+	let selectedOperation = requestedOperation;
+	if (shouldResolveTargetBranchInPreview(options)) {
+		const context = resolveBranchContextContext(pi, ctx.cwd, options);
+		selectedOperation = await selectBranchContextCreateOperationTarget({
+			cwd: ctx.cwd,
+			operation: requestedOperation,
+			git: context.git,
+			brmem: context.brmem,
+			isExplicitTargetBranch: target.isExplicitTargetBranch,
+		});
+	}
 	const base = {
 		slug: slugEvidence.slug,
 		savedPlanFileStem: selected.savedPlanFileStem,
 		filePath: selectedFile.filePath,
 		fileName: selectedFile.fileName,
 		planKey,
-		targetBranch: target.targetBranch,
-		...(target.branchNameForCreation === undefined
+		requestedBranch: target.targetBranch,
+		targetBranch: selectedOperation.branch,
+		...(selectedOperation.branch === slugEvidence.slug
 			? {}
-			: { branchNameForCreation: target.branchNameForCreation }),
+			: { branchNameForCreation: selectedOperation.branch }),
 		isExplicitTargetBranch: target.isExplicitTargetBranch,
+		branchSelection: selectedOperation.branchSelection,
 		branchCreation,
 		slugEvidence,
 	};
@@ -449,6 +498,7 @@ export function formatCreateBranchContextPreview(preview: CreateBranchContextPre
 	lines.push("Target:");
 	lines.push(`Branch: ${preview.targetBranch}`);
 	lines.push(`Branch creation: ${preview.branchCreation}`);
+	lines.push(...formatBranchSelectionLines(preview.branchSelection));
 	lines.push("Attach plan as:");
 	lines.push(`Branch Memory namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 	lines.push(`Branch Memory key: ${preview.planKey}`);
@@ -934,12 +984,14 @@ async function createBranchContextFromPreview({
 		slug: string;
 		filePath: string;
 		branchCreation: BranchCreationMethod;
+		branchSelection?: BranchContextBranchSelection;
 		branchName?: string;
 		summary?: string;
 	} = {
 		slug: preview.slug,
 		filePath: preview.filePath,
 		branchCreation: preview.branchCreation,
+		...(preview.branchSelection === undefined ? {} : { branchSelection: preview.branchSelection }),
 	};
 	if (preview.branchNameForCreation !== undefined) {
 		params.branchName = preview.branchNameForCreation;
@@ -950,7 +1002,9 @@ async function createBranchContextFromPreview({
 
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
-		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
+		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions, {
+			useRealBrmemCommands: true,
+		}),
 	});
 }
 
