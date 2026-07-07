@@ -43,7 +43,10 @@ export {
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
 	firstPartySkillProvisionPathContext,
+	provisionFirstPartySkill,
 	resolveFirstPartyCatalogSourceRoot,
+	type ProvisionFirstPartySkillOutcome,
+	type ProvisionFirstPartySkillRequest,
 } from "./first-party-skill-provisioning.ts";
 export {
 	ALL_HARNESS_IDS,
@@ -134,6 +137,8 @@ export {
 	contentHashForBytes,
 	contentHashForText,
 	installManifestKey,
+	provisionFileDecisionSchema,
+	provisionPlanFileSchema,
 	type BuildProvisionPlanInput,
 	type InstallManifestData,
 	type InstallManifestEntryData,

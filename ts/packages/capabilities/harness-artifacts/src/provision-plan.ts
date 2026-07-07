@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { optionalEntry, sha256Digest } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { z } from "zod";
 
 import {
 	artifactProvisionName,
@@ -118,6 +119,20 @@ export interface ProvisionDecisionSet {
 	files: readonly ProvisionFileDecision[];
 	needsForce: boolean;
 }
+
+export const provisionPlanFileSchema = z.object({
+	relativePath: z.string(),
+	sourcePath: z.string(),
+	targetPath: z.string(),
+	contentHash: z.string(),
+});
+
+export const provisionFileDecisionSchema = z.object({
+	type: z.enum(["fresh-write", "unchanged", "locally-edited-conflict"]),
+	file: provisionPlanFileSchema,
+	currentHash: z.string().optional(),
+	manifestHash: z.string().optional(),
+});
 
 export type ProvisionDecisionErrorInfo =
 	| {
