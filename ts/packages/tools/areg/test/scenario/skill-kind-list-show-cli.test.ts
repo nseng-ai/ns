@@ -27,6 +27,7 @@ const sampleSkillKindListResult: SkillKindListResult = {
 				claudeMirror: false,
 			},
 			replacement: { verified: false, label: "replacement-missing" },
+			manifestSources: [],
 			notes: ["diagnostic note"],
 		},
 	],
@@ -167,6 +168,7 @@ describe("areg skill list/show CLI", () => {
 						label: "replacement-missing",
 						advice: expect.stringContaining("Skill 'demo-skill' would hide /skill:demo-skill"),
 					},
+					manifestSources: [],
 					notes: [],
 				},
 				{
@@ -191,7 +193,29 @@ describe("areg skill list/show CLI", () => {
 							"Skill 'vendored-skill' would hide /skill:vendored-skill",
 						),
 					},
+					manifestSources: [],
 					notes: [],
+				},
+			],
+		});
+	});
+
+	test("show includes shared manifest provenance for managed lookup-root skills", async () => {
+		const run = runScenario(["skill", "show", "demo", "--format", "json"], {
+			project: {
+				localSkills: [skill("demo")],
+				manifestSkillSources: [{ skillName: "demo", targetSkillRelativePath: "skills/demo" }],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(JSON.parse(run.stdout.join("")).data.skill).toMatchObject({
+			skill: "demo",
+			manifestSources: [
+				{
+					manifestKey: "skill:demo:pi:project",
+					packageName: "@example/skills",
+					targetSkillRelativePath: "skills/demo",
 				},
 			],
 		});

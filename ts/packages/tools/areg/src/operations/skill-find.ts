@@ -11,7 +11,10 @@ import {
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregSkillFindSkillInspection } from "../gateways.ts";
+import type {
+	AregManifestSkillSourceInspection,
+	AregSkillFindSkillInspection,
+} from "../gateways.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
 import { parseSkillFrontmatterBlock } from "@nseng-ai/harness-artifacts/api";
 import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
@@ -23,6 +26,18 @@ const skillFindWarningSchema = z.object({
 	code: z.string(),
 	message: z.string(),
 	path: z.string(),
+});
+
+const skillFindManifestSourceSchema = z.object({
+	harness: z.string(),
+	scope: z.string(),
+	manifestPath: z.string(),
+	manifestKey: z.string(),
+	sourceType: z.enum(["first-party", "npm-module"]),
+	packageName: z.string(),
+	sourceRelativePath: z.string(),
+	version: z.string(),
+	targetSkillRelativePath: z.string(),
 });
 
 const skillFindMatchSchema = z.object({
@@ -37,6 +52,7 @@ const skillFindMatchSchema = z.object({
 	frontmatterName: z.string().optional(),
 	description: z.string().optional(),
 	shouldDisableModelInvocation: z.boolean().optional(),
+	manifestSources: z.array(skillFindManifestSourceSchema).optional(),
 	warnings: z.array(skillFindWarningSchema).optional(),
 });
 
@@ -169,7 +185,26 @@ function toSkillFindMatch(
 		basePath: toProjectPath(projectDir, skill.baseRelativePath),
 		skillFilePath,
 		...frontmatter.fields,
+		...(skill.manifestSources === undefined
+			? {}
+			: { manifestSources: skill.manifestSources.map(toSkillFindManifestSource) }),
 		...(frontmatter.warnings.length === 0 ? {} : { warnings: frontmatter.warnings }),
+	};
+}
+
+function toSkillFindManifestSource(
+	source: AregManifestSkillSourceInspection,
+): z.infer<typeof skillFindManifestSourceSchema> {
+	return {
+		harness: source.harness,
+		scope: source.scope,
+		manifestPath: source.manifestPath,
+		manifestKey: source.manifestKey,
+		sourceType: source.source.type,
+		packageName: source.source.packageName,
+		sourceRelativePath: source.source.relativePath,
+		version: source.source.version,
+		targetSkillRelativePath: source.targetSkillRelativePath,
 	};
 }
 
@@ -280,6 +315,11 @@ function renderSkillFindSuccess(result: SkillFindSuccessResult): string {
 	for (const match of result.matches) {
 		const marker = hasDuplicates ? (match.isPreferred ? "* " : "  ") : "";
 		lines.push(`  ${marker}${match.skillFileRelativePath}`);
+		for (const source of match.manifestSources ?? []) {
+			lines.push(
+				`    manifest: ${source.harness} ${source.manifestKey} ${source.packageName}@${source.version}`,
+			);
+		}
 	}
 	return lines.join("\n");
 }

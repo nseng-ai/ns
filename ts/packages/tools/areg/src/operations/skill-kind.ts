@@ -73,6 +73,18 @@ const skillKindReplacementSchema = z.object({
 	advice: z.string().optional(),
 });
 
+const skillKindManifestSourceSchema = z.object({
+	harness: z.string(),
+	scope: z.string(),
+	manifestPath: z.string(),
+	manifestKey: z.string(),
+	sourceType: z.enum(["first-party", "npm-module"]),
+	packageName: z.string(),
+	sourceRelativePath: z.string(),
+	version: z.string(),
+	targetSkillRelativePath: z.string(),
+});
+
 const skillKindRecordSchema = z.object({
 	skill: z.string(),
 	kind: z.enum(INFERRED_SKILL_INVOCATION_KINDS),
@@ -81,6 +93,7 @@ const skillKindRecordSchema = z.object({
 	piExtension: z.enum(PI_EXTENSION_STATUSES),
 	artifacts: skillKindArtifactFactsSchema,
 	replacement: skillKindReplacementSchema,
+	manifestSources: z.array(skillKindManifestSourceSchema),
 	notes: z.array(z.string()),
 });
 
@@ -363,6 +376,7 @@ export function renderSkillKindList(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	if (result.skills.length === 0) return "No managed skills found.";
+	const includeSources = result.skills.some((record) => record.manifestSources.length > 0);
 	const includeNotes = result.skills.some((record) => record.notes.length > 0);
 	const columns: TextTableColumn[] = [
 		{ header: "SKILL", style: "bold-cyan" },
@@ -371,6 +385,7 @@ export function renderSkillKindList(
 		{ header: "NATIVE" },
 		{ header: "PI" },
 	];
+	if (includeSources) columns.push({ header: "SOURCES" });
 	if (includeNotes) columns.push({ header: "NOTES", style: "dim" });
 	return renderTextTable({
 		columns,
@@ -382,6 +397,7 @@ export function renderSkillKindList(
 				record.nativeDirect,
 				record.piExtension,
 			];
+			if (includeSources) base.push(skillKindSourcesLabel(record));
 			if (includeNotes) base.push(record.notes.join("; "));
 			return base;
 		}),
@@ -408,6 +424,14 @@ export function renderSkillKindShow(result: SkillKindShowResult): string {
 		`- .claude/skills mirror: ${presence(record.artifacts.claudeMirror)}`,
 		`- Pi replacement: ${record.replacement.label}`,
 	];
+	if (record.manifestSources.length > 0) {
+		lines.push("Manifest sources:");
+		for (const source of record.manifestSources) {
+			lines.push(
+				`- ${source.harness} ${source.manifestKey}: ${source.packageName}@${source.version} -> ${source.targetSkillRelativePath}`,
+			);
+		}
+	}
 	if (record.notes.length > 0) {
 		lines.push("Notes:");
 		for (const note of record.notes) lines.push(`- ${note}`);
@@ -472,8 +496,15 @@ function toSkillKindRecordResult(record: SkillKindRecord): SkillKindRecordResult
 			evidence: record.replacement.evidence,
 			advice: record.replacement.advice,
 		},
+		manifestSources: record.manifestSources.map((source) => ({ ...source })),
 		notes: [...record.notes],
 	};
+}
+
+function skillKindSourcesLabel(record: SkillKindRecordResult): string {
+	if (record.manifestSources.length === 0) return "";
+	const labels = new Set(record.manifestSources.map((source) => source.harness));
+	return ["manifest", ...labels].join(":");
 }
 
 function renderApplyOperation(
@@ -519,6 +550,7 @@ function emptyShowResult(projectDir: string, skillName: string): SkillKindShowRe
 				claudeMirror: false,
 			},
 			replacement: { verified: false, label: "replacement-missing" },
+			manifestSources: [],
 			notes: [],
 		},
 	};

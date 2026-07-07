@@ -13,6 +13,8 @@ import type {
 	AregCheckSkillInspection,
 	AregErrorInfo,
 	AregGithubGateway,
+	AregManifestSkillSourceInspection,
+	AregManifestSkillSourcesInspection,
 	AregGithubSkillFileResult,
 	AregGithubSkillListResult,
 	PathState,
@@ -48,6 +50,7 @@ export type FakeAregProjectOperation =
 	| { type: "inspect-pi-artifacts"; projectDir: string }
 	| { type: "inspect-pi-skill-inventory"; projectDir: string }
 	| { type: "inspect-skill-name-inventory"; projectDir: string }
+	| { type: "inspect-manifest-skill-sources"; projectDir: string }
 	| { type: "inspect-skill-find-roots"; projectDir: string }
 	| { type: "inspect-check-skill"; projectDir: string; skillName: string }
 	| { type: "inspect-skill-kind-skill"; projectDir: string; skillName: string }
@@ -84,6 +87,19 @@ export interface FakeAregSkillKindSkillOptions {
 	claudePath?: PathState;
 }
 
+export interface FakeAregManifestSkillSourceOptions {
+	skillName: string;
+	harness?: AregManifestSkillSourceInspection["harness"];
+	scope?: AregManifestSkillSourceInspection["scope"];
+	manifestPath?: string;
+	manifestKey?: string;
+	source?: Partial<AregManifestSkillSourceInspection["source"]>;
+	targetRootRelativePath?: string;
+	targetSkillRelativePath?: string;
+	skillDir?: PathState;
+	skillMd?: TextFileState | string;
+}
+
 export interface FakeAregSkillFindSkillOptions {
 	name: string;
 	root?: SkillLookupRoot;
@@ -91,6 +107,7 @@ export interface FakeAregSkillFindSkillOptions {
 	baseRelativePath?: string;
 	skillDir?: PathState;
 	skillMd?: TextFileState | string;
+	manifestSources?: readonly FakeAregManifestSkillSourceOptions[];
 }
 
 export interface FakeAregProjectGatewayOptions {
@@ -111,6 +128,8 @@ export interface FakeAregProjectGatewayOptions {
 	checkSkills?: readonly FakeAregCheckSkillOptions[];
 	localSkills?: readonly FakeAregSkillKindSkillOptions[];
 	findSkills?: readonly FakeAregSkillFindSkillOptions[];
+	manifestSkillSources?: readonly FakeAregManifestSkillSourceOptions[];
+	manifestErrors?: readonly AregManifestSkillSourcesInspection["errors"][number][];
 	pairingDirectories?: readonly AregCheckPairingDirectory[];
 	resolveFailures?: Readonly<Record<string, AregErrorInfo>>;
 	preflightFailures?: Readonly<Record<string, AregErrorInfo>>;
@@ -132,6 +151,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly checkSkills: AregCheckSkillInspection[];
 	private readonly localSkills: AregSkillKindSkillInspection[];
 	private readonly explicitFindSkills: AregSkillFindSkillInspection[] | undefined;
+	private readonly manifestSkillSources: AregManifestSkillSourcesInspection;
 	private readonly pairingDirectories: readonly AregCheckPairingDirectory[];
 	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
 	private readonly preflightFailures: ReadonlyMap<string, AregErrorInfo>;
@@ -163,6 +183,10 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		this.localSkills = (options.localSkills ?? []).map(copyFakeSkillKindSkill);
 		this.explicitFindSkills =
 			options.findSkills === undefined ? undefined : options.findSkills.map(copyFakeSkillFindSkill);
+		this.manifestSkillSources = {
+			sources: (options.manifestSkillSources ?? []).map(copyFakeManifestSkillSource),
+			errors: (options.manifestErrors ?? []).map((error) => ({ ...error })),
+		};
 		this.pairingDirectories = (options.pairingDirectories ?? []).map(copyPairingDirectory);
 		this.resolveFailures = new Map(
 			Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [
@@ -232,6 +256,16 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			agentsSkillNames: [...this.agentsSkillNames],
 			claudeSkillNames: [...this.claudeSkillNames],
 			skillKindNames: this.localSkills.map((skill) => skill.name),
+		};
+	}
+
+	async inspectManifestSkillSources(
+		request: AregProjectDirRequest,
+	): Promise<AregManifestSkillSourcesInspection> {
+		this.log.push({ type: "inspect-manifest-skill-sources", projectDir: request.projectDir });
+		return {
+			sources: this.manifestSkillSources.sources.map(copyManifestSkillSource),
+			errors: this.manifestSkillSources.errors.map((error) => ({ ...error })),
 		};
 	}
 
@@ -452,7 +486,15 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	}
 
 	private currentFindSkills(): AregSkillFindSkillInspection[] {
-		return this.explicitFindSkills ?? this.localSkills.map(skillKindSkillToFindSkill);
+		const skills = this.explicitFindSkills ?? this.localSkills.map(skillKindSkillToFindSkill);
+		const manifestSourcesBySkill = groupManifestSourcesBySkill(this.manifestSkillSources.sources);
+		return skills.map((skill) => {
+			const manifestSources = manifestSourcesBySkill.get(skill.name);
+			return {
+				...skill,
+				...(manifestSources === undefined ? {} : { manifestSources }),
+			};
+		});
 	}
 
 	private preflightFailure(relativePath: string): AregErrorInfo | undefined {
@@ -646,6 +688,36 @@ function copyFakeSkillFindSkill(
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
 		),
+		...(skill.manifestSources === undefined
+			? {}
+			: { manifestSources: skill.manifestSources.map(copyFakeManifestSkillSource) }),
+	};
+}
+
+function copyFakeManifestSkillSource(
+	source: FakeAregManifestSkillSourceOptions,
+): AregManifestSkillSourceInspection {
+	const manifestKey = source.manifestKey ?? `skill:${source.skillName}:pi:project`;
+	const targetSkillRelativePath =
+		source.targetSkillRelativePath ?? `.pi/skills/${source.skillName}`;
+	return {
+		skillName: source.skillName,
+		harness: source.harness ?? "pi",
+		scope: source.scope ?? "project",
+		manifestPath: source.manifestPath ?? "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
+		manifestKey,
+		source: {
+			type: source.source?.type ?? "npm-module",
+			packageName: source.source?.packageName ?? "@example/skills",
+			relativePath: source.source?.relativePath ?? `skills/${source.skillName}`,
+			version: source.source?.version ?? "1.0.0",
+		},
+		targetRootRelativePath: source.targetRootRelativePath ?? ".pi/skills",
+		targetSkillRelativePath,
+		skillDir: copyPathState(source.skillDir ?? { type: "directory" }),
+		skillMd: normalizeTextFileState(
+			source.skillMd ?? `---\nname: ${source.skillName}\ndescription: ${source.skillName}\n---\n`,
+		),
 	};
 }
 
@@ -712,7 +784,33 @@ function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindS
 		...copySkillInspectionCore(skill),
 		root: skill.root,
 		sourceType: skill.sourceType,
+		...(skill.manifestSources === undefined
+			? {}
+			: { manifestSources: skill.manifestSources.map(copyManifestSkillSource) }),
 	};
+}
+
+function copyManifestSkillSource(
+	source: AregManifestSkillSourceInspection,
+): AregManifestSkillSourceInspection {
+	return {
+		...source,
+		source: { ...source.source },
+		skillDir: copyPathState(source.skillDir),
+		skillMd: copyTextFileState(source.skillMd),
+	};
+}
+
+function groupManifestSourcesBySkill(
+	sources: readonly AregManifestSkillSourceInspection[],
+): ReadonlyMap<string, readonly AregManifestSkillSourceInspection[]> {
+	const grouped = new Map<string, AregManifestSkillSourceInspection[]>();
+	for (const source of sources) {
+		const existing = grouped.get(source.skillName) ?? [];
+		existing.push(source);
+		grouped.set(source.skillName, existing);
+	}
+	return grouped;
 }
 
 function skillKindSkillToFindSkill(

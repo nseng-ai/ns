@@ -7,6 +7,7 @@ import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckSkillInspection,
 	PathState,
+	AregManifestSkillSourcesInspection,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
@@ -57,6 +58,7 @@ export interface DoctorSkillsInspection {
 	skillInventory: AregSkillNameInventory;
 	piSkillInventory: AregPiSkillInventoryInspection;
 	replacement: AregReplacementInspection;
+	manifestSkillSources: AregManifestSkillSourcesInspection;
 	piDir: PathState;
 	piSettings: TextFileState;
 	checkSkills: readonly AregCheckSkillInspection[];
@@ -162,11 +164,13 @@ export function buildDoctorSkillFindings(
 		piDir: inspection.piDir,
 		piSettings: inspection.piSettings,
 		replacement: inspection.replacement,
+		manifestSkillSources: inspection.manifestSkillSources,
 		skills: inspection.skillKindSkills,
 	});
 	const records = skillKindRecords.ok ? skillKindRecords.value : [];
 	const findings: DoctorSkillFinding[] = [];
 	findings.push(...filesystemFindings(inspection));
+	findings.push(...manifestFindings(inspection));
 	findings.push(...piInventoryFindings(inspection));
 	findings.push(...replacementFindings(records, piSettings.value.exclusions));
 	if (!skillKindRecords.ok) {
@@ -206,9 +210,27 @@ async function inspectDoctorSkillsProject(
 	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir, env: ctx.env });
 	const skillInventory = await ctx.project.inspectSkillNameInventory({ projectDir, env: ctx.env });
 	const piSkillInventory = await ctx.project.inspectPiSkillInventory({ projectDir, env: ctx.env });
-	const skillNames = allKnownSkillNames(skillInventory, { includeSkillKindNames: true });
+	const manifestSkillSources = await ctx.project.inspectManifestSkillSources({
+		projectDir,
+		env: ctx.env,
+	});
+	const skillNames = uniqueSortedStrings([
+		...allKnownSkillNames(skillInventory, { includeSkillKindNames: true }),
+		...manifestSkillSources.sources.map((source) => source.skillName),
+	]);
 	const checkSkills = await collectCheckSkillInspections(ctx, projectDir, skillNames);
-	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillNames);
+	const skillKindNames = uniqueSortedStrings([
+		...allKnownSkillNames(skillInventory, { includeSkillKindNames: true }),
+		...manifestSkillSources.sources
+			.filter(
+				(source) =>
+					source.skillDir.type === "directory" &&
+					source.skillMd.type === "file" &&
+					isSkillKindLookupPath(source.targetSkillRelativePath),
+			)
+			.map((source) => source.skillName),
+	]);
+	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillKindNames);
 	return {
 		type: "ok",
 		value: {
@@ -217,12 +239,17 @@ async function inspectDoctorSkillsProject(
 			skillInventory,
 			piSkillInventory,
 			replacement: piArtifacts.replacement,
+			manifestSkillSources,
 			piDir: piArtifacts.piDir,
 			piSettings: piArtifacts.piSettings,
 			checkSkills,
 			skillKindSkills,
 		},
 	};
+}
+
+function isSkillKindLookupPath(relativePath: string): boolean {
+	return relativePath.startsWith("skills/") || relativePath.startsWith(".agents/skills/");
 }
 
 function filesystemFindings(inspection: DoctorSkillsInspection): readonly DoctorSkillFinding[] {
@@ -278,6 +305,66 @@ function filesystemFindings(inspection: DoctorSkillsInspection): readonly Doctor
 		}
 		if (skill.agentsPath.type !== "missing" && skill.remoteSkillMd.type !== "file") {
 			findings.push(missingSkillMdFinding(skill.name, `.agents/skills/${skill.name}/SKILL.md`));
+		}
+	}
+	return findings;
+}
+
+function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSkillFinding[] {
+	const findings: DoctorSkillFinding[] = [];
+	for (const error of inspection.manifestSkillSources.errors) {
+		findings.push({
+			code: "install-manifest-unreadable",
+			severity: "error",
+			message: error.message,
+			remediation:
+				"Fix the shared harness artifact manifest or run ns update to reconcile manifest-tracked artifacts.",
+			path: error.manifestPath,
+		});
+	}
+	for (const source of inspection.manifestSkillSources.sources) {
+		const evidence = {
+			manifestPath: source.manifestPath,
+			manifestKey: source.manifestKey,
+			harness: source.harness,
+			scope: source.scope,
+			sourceType: source.source.type,
+			packageName: source.source.packageName,
+			version: source.source.version,
+			targetSkillRelativePath: source.targetSkillRelativePath,
+		};
+		if (source.skillDir.type === "missing") {
+			findings.push({
+				code: "manifest-skill-target-missing",
+				severity: "warning",
+				skill: source.skillName,
+				path: source.targetSkillRelativePath,
+				message: `Shared manifest entry ${source.manifestKey} targets ${source.targetSkillRelativePath}, but the skill directory is missing.`,
+				remediation:
+					"Run ns update to reconcile manifest-tracked harness artifacts, or remove/fix the stale manifest entry through the owning provisioning workflow.",
+				evidence,
+			});
+		} else if (source.skillMd.type === "missing") {
+			findings.push({
+				code: "manifest-skill-md-missing",
+				severity: "warning",
+				skill: source.skillName,
+				path: `${source.targetSkillRelativePath}/SKILL.md`,
+				message: `Shared manifest entry ${source.manifestKey} targets ${source.targetSkillRelativePath}, but SKILL.md is missing.`,
+				remediation:
+					"Run ns update to reconcile manifest-tracked harness artifacts, or remove/fix the stale manifest entry through the owning provisioning workflow.",
+				evidence,
+			});
+		} else {
+			findings.push({
+				code: "manifest-skill-source",
+				severity: "info",
+				skill: source.skillName,
+				path: source.targetSkillRelativePath,
+				message: `${source.skillName} is tracked by shared manifest entry ${source.manifestKey} from ${source.source.packageName}@${source.source.version}.`,
+				remediation: "No action required unless this manifest provenance is stale.",
+				evidence,
+			});
 		}
 	}
 	return findings;

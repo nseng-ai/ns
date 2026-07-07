@@ -3,6 +3,7 @@ import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	PathState,
+	AregManifestSkillSourcesInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
@@ -17,6 +18,7 @@ export interface AregProjectInspectionFacts extends AregProjectBaseInspection {
 	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
 	skillInventory: AregSkillNameInventory;
+	manifestSkillSources: AregManifestSkillSourcesInspection;
 }
 
 export interface AregCheckProjectInspection {
@@ -29,6 +31,7 @@ export interface AregCheckProjectInspection {
 	piDir: PathState;
 	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
+	manifestSkillSources: AregManifestSkillSourcesInspection;
 	skills: readonly AregCheckSkillInspection[];
 	pairingDirectories: readonly AregCheckPairingDirectory[];
 }
@@ -39,6 +42,7 @@ export interface AregSkillKindProjectInspection {
 	piDir: PathState;
 	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
+	manifestSkillSources: AregManifestSkillSourcesInspection;
 	skills: readonly AregSkillKindSkillInspection[];
 }
 
@@ -55,12 +59,17 @@ export async function collectProjectInspectionFacts(
 		projectDir: base.projectDir,
 		env: ctx.env,
 	});
+	const manifestSkillSources = await ctx.project.inspectManifestSkillSources({
+		projectDir: base.projectDir,
+		env: ctx.env,
+	});
 	return {
 		...base,
 		piDir: piArtifacts.piDir,
 		piSettings: piArtifacts.piSettings,
 		replacement: piArtifacts.replacement,
 		skillInventory,
+		manifestSkillSources,
 	};
 }
 
@@ -77,11 +86,13 @@ export async function inspectCheckProject(
 	const lockfileSkillNames = lockfileResult.ok
 		? lockfileResult.value.skills.map((skill) => skill.name)
 		: [];
+	const manifestSkillNames = facts.manifestSkillSources.sources.map((source) => source.skillName);
 	const skillNames = uniqueSortedStrings([
 		...lockfileSkillNames,
 		...facts.skillInventory.skillsDirectoryNames,
 		...facts.skillInventory.agentsSkillNames,
 		...facts.skillInventory.claudeSkillNames,
+		...manifestSkillNames,
 	]);
 	return {
 		projectDir: facts.projectDir,
@@ -93,6 +104,7 @@ export async function inspectCheckProject(
 		piDir: facts.piDir,
 		piSettings: facts.piSettings,
 		replacement: facts.replacement,
+		manifestSkillSources: facts.manifestSkillSources,
 		skills: await collectCheckSkillInspections(ctx, facts.projectDir, skillNames),
 		pairingDirectories: await ctx.project.inspectPairingDirectories({
 			projectDir: facts.projectDir,
@@ -112,10 +124,21 @@ export async function inspectSkillKindProject(
 		piDir: facts.piDir,
 		piSettings: facts.piSettings,
 		replacement: facts.replacement,
+		manifestSkillSources: facts.manifestSkillSources,
 		skills: await collectSkillKindInspections(
 			ctx,
 			facts.projectDir,
-			facts.skillInventory.skillKindNames,
+			uniqueSortedStrings([
+				...facts.skillInventory.skillKindNames,
+				...facts.manifestSkillSources.sources
+					.filter(
+						(source) =>
+							source.skillDir.type === "directory" &&
+							source.skillMd.type === "file" &&
+							isSkillKindLookupPath(source.targetSkillRelativePath),
+					)
+					.map((source) => source.skillName),
+			]),
 		),
 	};
 }
@@ -138,6 +161,10 @@ export async function collectSkillKindInspections(
 	return await collectSkillInspections(skillNames, (skillName) =>
 		ctx.project.inspectSkillKindSkill({ projectDir, skillName, env: ctx.env }),
 	);
+}
+
+function isSkillKindLookupPath(relativePath: string): boolean {
+	return relativePath.startsWith("skills/") || relativePath.startsWith(".agents/skills/");
 }
 
 async function collectSkillInspections<T>(

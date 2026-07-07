@@ -64,6 +64,42 @@ describe("areg check CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 	});
 
+	test("recognizes a present manifest-provisioned skill without requiring a lockfile entry", async () => {
+		const run = runScenario(["check", "--format", "json"], {
+			project: project({
+				manifestSkillSources: [
+					{ skillName: "manifest-skill", targetSkillRelativePath: "skills/manifest-skill" },
+				],
+				checkSkills: [localSkill("manifest-skill")],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(JSON.parse(run.stdout.join("")).data).toMatchObject({ ok: true, issues: [] });
+	});
+
+	test("reports missing manifest-provisioned skill targets", async () => {
+		const run = runScenario(["check", "--format", "json"], {
+			project: project({
+				manifestSkillSources: [
+					{
+						skillName: "manifest-skill",
+						targetSkillRelativePath: ".pi/skills/manifest-skill",
+						skillDir: { type: "missing" },
+					},
+				],
+			}),
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(JSON.parse(run.stdout.join("")).data.issues).toContainEqual(
+			expect.objectContaining({
+				code: "manifest-skill-target-missing",
+				skill: "manifest-skill",
+			}),
+		);
+	});
+
 	test("success JSON uses a Clinkr envelope with structured check data", async () => {
 		const run = runScenario(["check", "--format", "json"], {
 			project: project({

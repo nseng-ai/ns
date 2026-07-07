@@ -5,6 +5,11 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import {
+	buildInstallManifestData,
+	INSTALL_MANIFEST_FILE_NAME,
+} from "@nseng-ai/harness-artifacts/api";
+import type { InstallManifestEntryData } from "@nseng-ai/harness-artifacts/api";
 
 import { RealAregGithubGateway, RealAregProjectGateway } from "../../src/real-gateways.ts";
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
@@ -87,6 +92,62 @@ describe("real areg gateways", () => {
 					hasClaude: true,
 					claudeText: "# Claude\n\n@AGENTS.md\n",
 				},
+			]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("project gateway inspects shared harness artifact manifests", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-manifest."));
+		try {
+			const project = path.join(root, "project");
+			const targetRoot = path.join(project, ".pi", "skills");
+			const skillRoot = path.join(targetRoot, "manifest-skill");
+			await mkdir(skillRoot, { recursive: true });
+			await writeFile(path.join(skillRoot, "SKILL.md"), "---\nname: manifest-skill\n---\n");
+			const entry: InstallManifestEntryData = {
+				artifactId: "manifest-skill",
+				kind: "skill",
+				provisionName: "manifest-skill",
+				harness: "pi",
+				scope: "project",
+				targetRoot,
+				targetArtifactPath: skillRoot,
+				source: {
+					type: "npm-module",
+					packageName: "@example/skills",
+					relativePath: "skills/manifest-skill",
+					version: "1.2.3",
+				},
+				files: {
+					"SKILL.md": {
+						sourcePath: "/source/SKILL.md",
+						targetPath: path.join(skillRoot, "SKILL.md"),
+						contentHash: "a".repeat(64),
+					},
+				},
+			};
+			await writeFile(
+				path.join(targetRoot, INSTALL_MANIFEST_FILE_NAME),
+				`${JSON.stringify(buildInstallManifestData([entry]), null, 2)}\n`,
+			);
+
+			const gateway = new RealAregProjectGateway();
+			const manifest = await gateway.inspectManifestSkillSources({ projectDir: project, env: {} });
+
+			expect(manifest.errors).toEqual([]);
+			expect(manifest.sources).toEqual([
+				expect.objectContaining({
+					skillName: "manifest-skill",
+					harness: "pi",
+					scope: "project",
+					manifestPath: path.join(targetRoot, INSTALL_MANIFEST_FILE_NAME),
+					source: expect.objectContaining({ packageName: "@example/skills", version: "1.2.3" }),
+					targetSkillRelativePath: path.join(".pi", "skills", "manifest-skill"),
+					skillDir: { type: "directory" },
+					skillMd: { type: "file", text: "---\nname: manifest-skill\n---\n" },
+				}),
 			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
