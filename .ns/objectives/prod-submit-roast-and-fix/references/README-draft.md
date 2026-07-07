@@ -176,9 +176,9 @@ ns flow ship                # the happy path: all phases, in order
 └─ (push + attest)          # gt submit + record review state — ship-only, not standalone
 ```
 
-`[Position: subcommands are thin porcelain in flow; the machinery stays owned by the
-reviews capability (review execution, fixer engine) and flow (descriptions). `ship
-review` is a flow-flavored composition of reviews plumbing, not a fork of it.]`
+[Position: subcommands are thin porcelain in flow; the machinery stays owned by the
+reviews capability (review execution, fixer engine) and flow (descriptions). The `ship review`
+subcommand is a flow-flavored composition of reviews plumbing, not a fork of it.]
 
 Details that only matter when running stages individually:
 
@@ -282,22 +282,22 @@ The structural gaps this README knowingly leaves, in one place:
 
 ## Appendix: positions this README takes on the frontier
 
-| Roadmap row / decision | Position taken above |
-| --- | --- |
-| Submission-class surface | separate verbs: `ns flow submit` (plain push) and `ns flow ship` (shipping pipeline) |
-| Submit scope (new) | checkpoint (template message) → readiness → gt submit → thin verify; no hooks, no reviews, no PR prose; completion criterion upgrades to "submit gets faster" |
-| Hook point migration (new) | `flow.submit.pre` point becomes `flow.ship.pre`; submit has no hook point |
-| Ship decomposition (new) | subcommands `check` / `review` / `fix` / `describe`; push+attest ship-only terminal, never standalone |
-| Findings persistence (new) | findings-at-rest in Branch Memory, owned by reviews capability (extends `record-findings`/review-log surface), keyed by stack diff hash; `fix` consumes on key match, re-reviews on miss; resume falls out for free |
-| Findings report (new) | classification happens at review time (autofix-able vs manual); report groups outcomes autofixed / discarded / manual; discarded+manual never block; persisted in the findings store |
-| Disposition prompt point (new) | the autofix-able standard is a pluggable point-system prompt (provisionally `reviews.autofix.disposition`); default shared with download-feedback; building it is in-scope for the objective |
-| Stack-tip review semantics | `merge-base(trunk, tip)..tip`; stack-scoped findings |
-| AUTO classification axis | renamed **autofix-able**: `auto_apply` frontmatter gate + per-finding `disposition: "autofix" \| "manual"`; definition shared with download-feedback (bounded, reviewable, no product/design decision) |
-| Latency reality check | asserted <~2 min, **unmeasured** |
-| Validation bar | scoped tsgo+lint on touched packages (full `just` lives in ship's validate phase) |
-| Fixer engine | reviews capability keeps branch-scoped `review-fix` primitive; `ship fix` wraps it |
-| Fix placement | single labeled autofix commit at tip |
-| Anti-incremental state | **OPEN** — encoding undecided (git note vs PR machine block vs Branch-Memory-derived); diff-hash keying is the settled part |
-| Pipeline integration | validate → review/autofix → describe → push+attest; ship is local-only, never a CI runner; terminal runs confirm autofixes, non-interactive runs push without confirmation (SHA+diffstat always in report); never-block/never-dirty (only validate aborts) |
-| Remote reviews residual role | roaster.yml stays as backstop for un-attested content |
-| Naming (aside) | capability = reviews; `roaster` CLI face / namespace / workflow name unchanged; face rename out of scope |
+| Roadmap row / decision         | Position taken above                                                                                                                                                                                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Submission-class surface       | separate verbs: `ns flow submit` (plain push) and `ns flow ship` (shipping pipeline)                                                                                                                                                                       |
+| Submit scope (new)             | checkpoint (template message) → readiness → gt submit → thin verify; no hooks, no reviews, no PR prose; completion criterion upgrades to "submit gets faster"                                                                                              |
+| Hook point migration (new)     | `flow.submit.pre` point becomes `flow.ship.pre`; submit has no hook point                                                                                                                                                                                  |
+| Ship decomposition (new)       | subcommands `check` / `review` / `fix` / `describe`; push+attest ship-only terminal, never standalone                                                                                                                                                      |
+| Findings persistence (new)     | findings-at-rest in Branch Memory, owned by reviews capability (extends `record-findings`/review-log surface), keyed by stack diff hash; `fix` consumes on key match, re-reviews on miss; resume falls out for free                                        |
+| Findings report (new)          | classification happens at review time (autofix-able vs manual); report groups outcomes autofixed / discarded / manual; discarded+manual never block; persisted in the findings store                                                                       |
+| Disposition prompt point (new) | the autofix-able standard is a pluggable point-system prompt (provisionally `reviews.autofix.disposition`); default shared with download-feedback; building it is in-scope for the objective                                                               |
+| Stack-tip review semantics     | `merge-base(trunk, tip)..tip`; stack-scoped findings                                                                                                                                                                                                       |
+| AUTO classification axis       | renamed **autofix-able**: `auto_apply` frontmatter gate + per-finding `disposition: "autofix" \| "manual"`; definition shared with download-feedback (bounded, reviewable, no product/design decision)                                                     |
+| Latency reality check          | asserted <~2 min, **unmeasured**                                                                                                                                                                                                                           |
+| Validation bar                 | scoped tsgo+lint on touched packages (full `just` lives in ship's validate phase)                                                                                                                                                                          |
+| Fixer engine                   | reviews capability keeps branch-scoped `review-fix` primitive; `ship fix` wraps it                                                                                                                                                                         |
+| Fix placement                  | single labeled autofix commit at tip                                                                                                                                                                                                                       |
+| Anti-incremental state         | **OPEN** — encoding undecided (git note vs PR machine block vs Branch-Memory-derived); diff-hash keying is the settled part                                                                                                                                |
+| Pipeline integration           | validate → review/autofix → describe → push+attest; ship is local-only, never a CI runner; terminal runs confirm autofixes, non-interactive runs push without confirmation (SHA+diffstat always in report); never-block/never-dirty (only validate aborts) |
+| Remote reviews residual role   | roaster.yml stays as backstop for un-attested content                                                                                                                                                                                                      |
+| Naming (aside)                 | capability = reviews; `roaster` CLI face / namespace / workflow name unchanged; face rename out of scope                                                                                                                                                   |
