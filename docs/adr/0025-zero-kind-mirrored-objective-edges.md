@@ -44,7 +44,7 @@ Mirrored prose failed because nothing checked the mirror — consistency rested 
 ## Consequences
 
 - Every reader of `objective.md` — check heading lints, `read-objective`, `list`, `load-orientations`, and the Objective skill family — must strip or parse Record Frontmatter and behave identically for records with and without it.
-- The linter verifies structure, not prose quality or freshness. Perspective-correct annotations and timely Blocked Sentence updates are prompting-owned at the skill touchpoints; in particular, a stale blocked sentence for an external (non-edge) blocker has no machine catch.
+- The linter verifies structure, not prose quality or freshness. Perspective-correct annotations and timely Blocked Sentence updates are prompting-owned at the skill touchpoints; in particular, a stale blocked sentence for an external (non-edge) blocker has no machine catch. *(Amended 2026-07-07: for edge-named gates there is now a machine nudge — `check` emits a non-failing warning when a blocked record has a closed edge counterpart, from marker state only. Disposition remains skill judgment; external, non-edge blockers still have no machine catch.)*
 - The frontmatter schema is closed: no keys beyond `blocked` and `edges`, and no registries, UUIDs, or hidden attachment metadata riding along.
 - `sdl objective list` can now render machine-derived edge counts and a blocked status indicator; blocked renders as a sub-state of open, not a new lifecycle state.
 - Closed records' historical relationship prose (consolidation, subsumption, umbrella history) is never backfilled into live edges.
