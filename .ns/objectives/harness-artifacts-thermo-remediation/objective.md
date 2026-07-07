@@ -79,4 +79,10 @@ This Objective is execution-friendly for `objective-next` and designed for `obje
 
 ## Open Questions
 
-- Should the first-party root sentinel gain a real (non-injected) integration test for the upward walk, and where does it live?
+- Resolved by implementation evidence: the first-party root sentinel is derived from the catalog entry, and the home/path safety slice updated the ns-cli fixture to use a real `git init` path so the upward-walk behavior is covered without the retired `.git` marker fallback.
+
+## Closure
+
+Completed by a local Graphite stack launched from `update-objective-pr-grouping-policy` and ending at `harness-thermo/low-tail-cleanup-step-d6jQOU`. The runner produced validated local commits for the five intended PR groups plus one tiny LOW-tail cleanup: home/path safety foundation, provisioning apply/reconcile semantics, provisioning I/O and fs plumbing, first-party skills/catalog consolidation, AREG/tail cleanup, and localizing AREG string sorting.
+
+All HIGH findings were remediated with tests or deletion/grep evidence in the runner checkpoints. All MEDIUM rows were remediated by the stack. The LOW sweep is closed as partially implemented (`sortStrings` API altitude fixed) with the remaining non-blocking LOW candidates explicitly parked in `roadmap.md` rather than widened into unrelated cleanup. Each runner step reported `just` green before its commit; the PR Group 4 staged-index mistake was recovered by a runner recovery step before commit. No push, submit, PR mutation, publish, merge, or external write was performed.

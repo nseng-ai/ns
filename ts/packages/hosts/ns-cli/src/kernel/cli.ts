@@ -1,6 +1,7 @@
 export {
 	buildCli,
 	listNsCommands,
+	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
 	repoLocalNsExtensionToPreinstalledCatalog,
 	runCli,
 	VERSION,
