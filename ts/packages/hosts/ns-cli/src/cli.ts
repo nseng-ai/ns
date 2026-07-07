@@ -7,7 +7,6 @@ import {
 	type NsCliDeps,
 } from "@nseng-ai/kernel/cli";
 import { listNsInitPreinstalledNsCommandCatalogEntries } from "@nseng-ai/ns-init/ns/preinstalled-catalog";
-import { listObjectivePreinstalledNsCommandCatalogEntries } from "@nseng-ai/objectives/ns/preinstalled-catalog";
 
 export async function runNsCli(args: readonly string[], deps: NsCliDeps = {}): Promise<number> {
 	return await runCli(args, {
@@ -18,7 +17,6 @@ export async function runNsCli(args: readonly string[], deps: NsCliDeps = {}): P
 
 function listPreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
 	return [
-		...listObjectivePreinstalledNsCommandCatalogEntries(),
 		...listNsInitPreinstalledNsCommandCatalogEntries(),
 		...listSkillsPreinstalledNsCommandCatalogEntries(),
 	];

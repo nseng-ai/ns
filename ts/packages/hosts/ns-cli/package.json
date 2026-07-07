@@ -2,10 +2,15 @@
 	"name": "@nseng-ai/ns",
 	"version": "0.1.2",
 	"description": "Checkout-free ns CLI package.",
-	"type": "module",
 	"bin": {
 		"ns": "bin/ns.js"
 	},
+	"files": [
+		"bin",
+		"kernel",
+		"README.md"
+	],
+	"type": "module",
 	"exports": {
 		"./kernel/cli": "./src/kernel/cli.ts",
 		"./kernel/command-io": "./src/kernel/command-io.ts",
@@ -13,16 +18,8 @@
 		"./kernel/pi-text-generation": "./src/kernel/pi-text-generation.ts",
 		"./kernel/sdk": "./src/kernel/sdk.ts"
 	},
-	"files": [
-		"bin",
-		"kernel",
-		"README.md"
-	],
 	"publishConfig": {
 		"access": "public"
-	},
-	"engines": {
-		"node": ">=24.12.0"
 	},
 	"scripts": {
 		"build:bundle": "node scripts/build-bundle.mjs",
@@ -40,12 +37,14 @@
 		"@nseng-ai/harness-artifacts": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@nseng-ai/ns-init": "workspace:*",
-		"@nseng-ai/objectives": "workspace:*",
 		"jiti": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"esbuild": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.12.0"
 	},
 	"ns": {
 		"tier": "host",
