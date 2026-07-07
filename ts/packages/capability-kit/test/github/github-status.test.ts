@@ -359,7 +359,7 @@ describe("GitHub status check classification", () => {
 		expect(
 			tallyGithubStatusChecks([
 				githubWorkflowCheckRun({
-					workflowName: "roaster",
+					workflowName: "reviews",
 					workflowRunDatabaseId: 100,
 					workflowRunUpdatedAt: "2026-06-26T14:18:05Z",
 					name: "review",
@@ -368,7 +368,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:18:05Z",
 				}),
 				githubWorkflowCheckRun({
-					workflowName: "roaster",
+					workflowName: "reviews",
 					workflowRunDatabaseId: 101,
 					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
 					name: "discover",
@@ -377,7 +377,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:18:40Z",
 				}),
 				githubWorkflowCheckRun({
-					workflowName: "roaster",
+					workflowName: "reviews",
 					workflowRunDatabaseId: 101,
 					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
 					name: "review (reinvented-abstractions-tripwire)",
@@ -386,7 +386,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:21:23Z",
 				}),
 				githubWorkflowCheckRun({
-					workflowName: "roaster",
+					workflowName: "reviews",
 					workflowRunDatabaseId: 101,
 					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
 					name: "review (ns-typescript-style-tripwire)",
@@ -402,7 +402,7 @@ describe("GitHub status check classification", () => {
 		expect(
 			tallyGithubStatusChecks([
 				githubWorkflowCheckRun({
-					workflowName: "roaster",
+					workflowName: "reviews",
 					workflowRunDatabaseId: 100,
 					workflowRunUpdatedAt: "2026-06-26T14:18:05Z",
 					name: "review",
@@ -411,7 +411,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:18:05Z",
 				}),
 				githubWorkflowCheckRun({
-					workflowName: "roaster",
+					workflowName: "reviews",
 					workflowRunDatabaseId: 101,
 					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
 					name: "review",

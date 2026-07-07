@@ -19,9 +19,9 @@ export function parseUnifiedDiff(diffText: string): readonly DiffFile[] {
 
 function parsePierreDiffFiles(diffText: string): readonly FileDiffMetadata[] {
 	try {
-		return parsePatchFiles(diffText, "roaster-diff").flatMap((patch) => patch.files);
+		return parsePatchFiles(diffText, "reviews-diff").flatMap((patch) => patch.files);
 	} catch {
-		// Preserve roaster's forgiving parser boundary: unsupported patch text becomes no parsed files.
+		// Preserve Reviews forgiving parser boundary: unsupported patch text becomes no parsed files.
 		return [];
 	}
 }
@@ -58,7 +58,7 @@ function changeKindFromPierre(metadata: FileDiffMetadata, rawText: string): Diff
 }
 
 function isCopiedPatch(rawText: string): boolean {
-	// @pierre/diffs 1.2.10 reports Git copy metadata as rename-*; preserve roaster's copied kind from raw headers.
+	// @pierre/diffs 1.2.10 reports Git copy metadata as rename-*; preserve Reviews copied kind from raw headers.
 	return /^copy from .+$/mu.test(rawText) && /^copy to .+$/mu.test(rawText);
 }
 

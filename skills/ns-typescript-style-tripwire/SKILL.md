@@ -11,7 +11,7 @@ Use `.ns/reviews/ns-typescript-style-tripwire/review.md` as the authoritative re
 If running inside this repository and the ns command face is available, prefer:
 
 ```bash
-ns roaster review run ns-typescript-style-tripwire
+ns reviews review run ns-typescript-style-tripwire
 ```
 
 If reviewing inline, first read `.ns/reviews/ns-typescript-style-tripwire/review.md`, then apply that review definition exactly to the supplied diff or current branch changes. Keep findings grounded in the diff.

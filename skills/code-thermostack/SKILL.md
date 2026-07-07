@@ -15,7 +15,7 @@ Thermostack turns a thermonuclear maintainability review of the current Graphite
 - Never amend the original branch. Create local child branches above the current stack tip.
 - Stop at the first non-confident implementation decision or validation failure. Preserve the completed clean prefix, leave state visible, and report the exact blocker and pending batches.
 - Do not create or leave hidden WIP branches. Local-only deletion of an empty/no-code current branch is allowed when it is clearly safe; otherwise leave visible state and report the blocker.
-- Keep persistence session-local. Thermostack itself does not store review plans in Branch Memory, roaster state, or other durable stores.
+- Keep persistence session-local. Thermostack itself does not store review plans in Branch Memory, reviews state, or other durable stores.
 
 ## Subagent contract
 
@@ -40,7 +40,7 @@ Capability and configuration:
 4. Determine and record `STACK_BASE_REF`, the base of the current Graphite stack, before dispatching the reviewer. This is the default review base. Prefer Graphite plumbing and repository trunk/base facts over display output. If the current branch is the bottom branch, `gt parent --no-interactive` is usually the stack base; if the current branch is higher in a stack, walk parent relationships until the first non-stack/trunk ancestor. If the stack base is ambiguous, stop and ask rather than reviewing the wrong diff.
 5. Sanity-check the review scope with `git diff --stat "$STACK_BASE_REF"...HEAD` and `git diff --name-only "$STACK_BASE_REF"...HEAD`. The diff must reflect the intended stack changes. Never compare `$BASE_BRANCH...HEAD` when `BASE_BRANCH` is the checked-out branch; that produces an empty review.
 6. Check for existing generated branches for this base. Stop if branches matching the exact base prefix already exist (for example `$BASE_BRANCH/thermo-*`) unless the user explicitly chooses a recovery path.
-7. Confirm the thermonuclear Roaster review definition is readable at `.ns/reviews/thermonuclear-review/review.md`. This review definition is the authoritative thermonuclear review content for Thermostack; the `roast-thermonuclear-review` skill is only a thin invoke-only wrapper around it.
+7. Confirm the thermonuclear Reviews review definition is readable at `.ns/reviews/thermonuclear-review/review.md`. This review definition is the authoritative thermonuclear review content for Thermostack; the `review-thermonuclear-review` skill is only a thin invoke-only wrapper around it.
 
 ## 2. Collect thermonuclear findings
 

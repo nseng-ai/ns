@@ -40,7 +40,7 @@ describe("FakeReviewCatalogGateway", () => {
 
 describe("RealReviewCatalogGateway", () => {
 	test("discovers direct review folders in stable order", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-"));
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-review-catalog-"));
 		await mkdir(join(repoRoot, ".ns", "reviews", "typescript-style", "references"), {
 			recursive: true,
 		});
@@ -74,7 +74,7 @@ describe("RealReviewCatalogGateway", () => {
 	});
 
 	test("loads source for a valid key", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-load-"));
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-review-catalog-load-"));
 		await mkdir(join(repoRoot, ".ns", "reviews", "typescript-style"), { recursive: true });
 		await writeFile(
 			join(repoRoot, ".ns", "reviews", "typescript-style", "review.md"),
@@ -109,7 +109,7 @@ describe("RealReviewCatalogGateway", () => {
 	);
 
 	test("reports missing reviews directory and missing definitions", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-missing-"));
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-review-catalog-missing-"));
 		const gateway = new RealReviewCatalogGateway({
 			gitGateway: new InMemoryGitGateway({ repoRoot }),
 		});

@@ -3,7 +3,7 @@ import { parseJsonInputText, type JsonInputError } from "@nseng-ai/capability-ki
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";
+import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
 	isReviewLogFailure,
 	type ReviewLogFailure,
@@ -18,7 +18,7 @@ import {
 } from "../core/findings-publication.ts";
 import { gatherPriorFindingsContext } from "../core/prior-findings-context.ts";
 import {
-	ROASTER_REVIEW_LOG_NAMESPACE,
+	REVIEW_LOG_NAMESPACE,
 	type ReviewLogEntry,
 	type ReviewLogWriteResult,
 } from "../gateways/review-log.ts";
@@ -34,10 +34,10 @@ import {
 	type ReviewRunResult,
 } from "../core/models.ts";
 import { applicableReviewKeys } from "../core/review-applicability.ts";
-import { roasterReviewDisplayRole, roasterReviewRoleLabel } from "../core/review-display.ts";
+import { reviewDisplayRole, reviewRoleLabel } from "../core/review-display.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
-import { loadRoastSkillEntries, roastReviewPathForKey } from "../core/skill-reviews.ts";
-import { loadReviewExecutionContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
+import { reviewSkillEntryFromDefinition } from "../core/skill-reviews.ts";
+import { loadReviewExecutionContext, runReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 const DEFAULT_PRIOR_FINDINGS_CONTEXT_FINDING_COUNT = 50;
@@ -51,11 +51,17 @@ export const reviewListRequestSchema = z.object({
 	baseRef: z.string().optional().describe("Base ref used when filtering applicable reviews."),
 });
 
+export const reviewSkillMetadataSchema = z.object({
+	surface: nonBlankStringSchema,
+	label: nonBlankStringSchema,
+});
+
 export const reviewMetadataSchema = z.object({
 	key: nonBlankStringSchema,
 	description: nonBlankStringSchema,
 	modelProfile: nonBlankStringSchema,
 	localOnly: z.boolean(),
+	reviewSkill: reviewSkillMetadataSchema,
 });
 
 export const reviewListResultSchema = z.object({
@@ -67,26 +73,6 @@ export const reviewListResultSchema = z.object({
 
 export type ReviewListRequest = z.infer<typeof reviewListRequestSchema>;
 export type ReviewListResult = z.infer<typeof reviewListResultSchema>;
-
-export const roastSkillMetadataSchema = z.object({
-	surface: nonBlankStringSchema,
-	label: nonBlankStringSchema,
-	reviewKey: nonBlankStringSchema,
-	reviewPath: nonBlankStringSchema,
-	title: nonBlankStringSchema,
-	description: nonBlankStringSchema,
-	defaultPrompt: nonBlankStringSchema,
-});
-
-export const roastSkillListRequestSchema = z.object({});
-
-export const roastSkillListResultSchema = z.object({
-	count: z.int().min(0),
-	entries: z.array(roastSkillMetadataSchema),
-});
-
-export type RoastSkillListRequest = z.infer<typeof roastSkillListRequestSchema>;
-export type RoastSkillListResult = z.infer<typeof roastSkillListResultSchema>;
 
 export const reviewRunRequestSchema = z.object({
 	key: nonBlankStringSchema.describe("Review key to run."),
@@ -187,7 +173,7 @@ export type RecordFindingsOutcome =
 	| { readonly type: "failed"; readonly error: ReviewFailure };
 
 export async function buildReviewListResult(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: ReviewListRequest,
 ): Promise<ReviewResult<ReviewListResult>> {
 	const catalog = await ctx.reviewCatalog.listReviewKeys(catalogOptions(ctx.runScope));
@@ -219,12 +205,16 @@ export async function buildReviewListResult(
 	const selected = new Set(selectedKeys);
 	const reviews = loaded.value
 		.filter((item) => selected.has(item.key))
-		.map((item) => ({
-			key: item.key,
-			description: item.definition.description,
-			modelProfile: item.definition.modelProfile,
-			localOnly: item.definition.localOnly,
-		}));
+		.map((item) => {
+			const skillEntry = reviewSkillEntryFromDefinition(item.key, item.definition);
+			return {
+				key: item.key,
+				description: item.definition.description,
+				modelProfile: item.definition.modelProfile,
+				localOnly: item.definition.localOnly,
+				reviewSkill: skillEntry,
+			};
+		});
 	return {
 		ok: true,
 		value: reviewListResultSchema.parse({
@@ -237,7 +227,7 @@ export async function buildReviewListResult(
 }
 
 export async function runReviewList(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: ReviewListRequest,
 ): Promise<ClinkrExit<ReviewListResult>> {
 	return clinkrExitFromReviewResult(await buildReviewListResult(ctx, request));
@@ -246,10 +236,10 @@ export async function runReviewList(
 export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviewsDir}`, `Reviews: ${result.count}`];
 	const tripwires = result.reviews.filter(
-		(review) => roasterReviewDisplayRole(review.modelProfile) === "tripwire",
+		(review) => reviewDisplayRole(review.modelProfile) === "tripwire",
 	);
 	const deepReviews = result.reviews.filter(
-		(review) => roasterReviewDisplayRole(review.modelProfile) === "deep_review",
+		(review) => reviewDisplayRole(review.modelProfile) === "deep_review",
 	);
 	if (tripwires.length > 0) {
 		lines.push(`Tripwires: ${tripwires.length}`);
@@ -262,54 +252,14 @@ export function renderReviewList(result: ReviewListResult): string {
 	return lines.join("\n");
 }
 
-export async function buildRoastSkillListResult(
-	ctx: RoasterRuntime,
-	_request: RoastSkillListRequest,
-): Promise<ReviewResult<RoastSkillListResult>> {
-	const loaded = await loadRoastSkillEntries({
-		...catalogOptions(ctx.runScope),
-		reviewCatalog: ctx.reviewCatalog,
-	});
-	if (!loaded.ok) return loaded;
-
-	const entries = loaded.value.map((entry) => ({
-		surface: entry.surface,
-		label: entry.label,
-		reviewKey: entry.reviewKey,
-		reviewPath: roastReviewPathForKey(entry.reviewKey),
-		title: entry.title,
-		description: entry.description,
-		defaultPrompt: entry.defaultPrompt,
-	}));
-	return {
-		ok: true,
-		value: roastSkillListResultSchema.parse({ count: entries.length, entries }),
-	};
-}
-
-export async function runRoastSkillList(
-	ctx: RoasterRuntime,
-	request: RoastSkillListRequest,
-): Promise<ClinkrExit<RoastSkillListResult>> {
-	return clinkrExitFromReviewResult(await buildRoastSkillListResult(ctx, request));
-}
-
-export function renderRoastSkillList(result: RoastSkillListResult): string {
-	const lines = [`Roast skill entries: ${result.count}`];
-	for (const entry of result.entries) {
-		lines.push(`- ${entry.surface} — ${entry.label} (review: ${entry.reviewKey})`);
-	}
-	return lines.join("\n");
-}
-
 export async function runReviewByKey(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: ReviewRunRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
 	const priorFindingsContext = await loadPriorFindingsPromptContext(ctx, request);
 	return clinkrExitFromReviewRunOutcome(
 		ctx,
-		await runRoasterReview(ctx, {
+		await runReview(ctx, {
 			key: request.key,
 			...optionalEntries({
 				model: request.model,
@@ -323,7 +273,7 @@ export async function runReviewByKey(
 }
 
 async function loadPriorFindingsPromptContext(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: ReviewRunRequest,
 ): Promise<PriorFindingsPromptContext | undefined> {
 	if (request.priorFindingsPrNumber === undefined) return undefined;
@@ -347,8 +297,8 @@ async function loadPriorFindingsPromptContext(
 }
 
 export function clinkrExitFromReviewRunOutcome(
-	ctx: Pick<RoasterRuntime, "stderr">,
-	outcome: Awaited<ReturnType<typeof runRoasterReview>>,
+	ctx: Pick<ReviewsRuntime, "stderr">,
+	outcome: Awaited<ReturnType<typeof runReview>>,
 ): ClinkrExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	ctx.stderr(
@@ -356,7 +306,7 @@ export function clinkrExitFromReviewRunOutcome(
 	);
 	if (outcome.type === "completed_log_failed") {
 		return negative(
-			`${renderReviewRun(outcome.result)}\n\nroaster: failed to write Branch Memory review log:\n${outcome.error.message}`,
+			`${renderReviewRun(outcome.result)}\n\nreviews: failed to write Branch Memory review log:\n${outcome.error.message}`,
 			{ data: outcome.result },
 		);
 	}
@@ -365,7 +315,7 @@ export function clinkrExitFromReviewRunOutcome(
 
 export function renderReviewRun(result: ReviewRunResult): string {
 	const lines = [
-		`${roasterReviewRoleLabel(result.modelProfile)}: ${result.reviewName}`,
+		`${reviewRoleLabel(result.modelProfile)}: ${result.reviewName}`,
 		`Model: ${result.model}`,
 		`Base ref: ${result.baseRef}`,
 		`Findings: ${result.count}`,
@@ -388,14 +338,14 @@ export function renderReviewRun(result: ReviewRunResult): string {
 }
 
 export async function runRecordFindings(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: RecordFindingsRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
 	return clinkrExitFromRecordFindingsOutcome(ctx, await recordSameSessionFindings(ctx, request));
 }
 
 export async function recordSameSessionFindings(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: RecordFindingsRequest,
 ): Promise<RecordFindingsOutcome> {
 	const payload = await readFindingsPayload(ctx);
@@ -431,13 +381,13 @@ export async function recordSameSessionFindings(
 }
 
 export function clinkrExitFromRecordFindingsOutcome(
-	ctx: Pick<RoasterRuntime, "stderr">,
+	ctx: Pick<ReviewsRuntime, "stderr">,
 	outcome: RecordFindingsOutcome,
 ): ClinkrExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	if (outcome.type === "recorded_log_failed") {
 		return negative(
-			`${renderReviewRun(outcome.result)}\n\nroaster: failed to write Branch Memory review log:\n${outcome.error.message}`,
+			`${renderReviewRun(outcome.result)}\n\nreviews: failed to write Branch Memory review log:\n${outcome.error.message}`,
 			{ data: outcome.result },
 		);
 	}
@@ -446,7 +396,7 @@ export function clinkrExitFromRecordFindingsOutcome(
 }
 
 async function readFindingsPayload(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 ): Promise<ReviewResult<ReviewFindingsPayload>> {
 	const result = parseJsonInputText({
 		text: await ctx.stdin(),
@@ -473,7 +423,7 @@ function reviewRunnerFailureTypeFromJsonInputError(
 }
 
 export async function buildReviewLogResult(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: ReviewLogRequest,
 ): Promise<ReviewResult<ReviewLogResult>> {
 	const entries = await ctx.reviewLog.listReviewLogs({
@@ -484,7 +434,7 @@ export async function buildReviewLogResult(
 	return {
 		ok: true,
 		value: reviewLogResultSchema.parse({
-			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
+			namespace: REVIEW_LOG_NAMESPACE,
 			reviewKey: request.key ?? null,
 			count: entries.value.length,
 			entries: entries.value.map(reviewLogEntryResult),
@@ -493,7 +443,7 @@ export async function buildReviewLogResult(
 }
 
 export async function runReviewLog(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: ReviewLogRequest,
 ): Promise<ClinkrExit<ReviewLogResult>> {
 	return clinkrExitFromReviewResult(await buildReviewLogResult(ctx, request));
@@ -502,10 +452,10 @@ export async function runReviewLog(
 export function renderReviewLog(result: ReviewLogResult): string {
 	if (result.count === 0) {
 		return result.reviewKey === null
-			? "No roaster review logs found for this branch."
-			: `No roaster review logs found for review key ${result.reviewKey} on this branch.`;
+			? "No review logs found for this branch."
+			: `No review logs found for review key ${result.reviewKey} on this branch.`;
 	}
-	const lines = [`Roaster review logs: ${result.count}`];
+	const lines = [`Review logs: ${result.count}`];
 	for (const entry of result.entries) {
 		lines.push(
 			`- ${entry.ranAt ?? "unknown time"}  ${entry.reviewKey ?? "unknown review"}  ${entry.entryKey}`,
@@ -517,7 +467,7 @@ export function renderReviewLog(result: ReviewLogResult): string {
 }
 
 export async function runPublishFindings(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
 ): Promise<number> {
 	const result = await publishFindingsFromRequest(ctx, request);
@@ -528,14 +478,14 @@ export async function runPublishFindings(
 }
 
 export async function runPublishFindingsCommand(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
 ): Promise<ClinkrExit<PublishFindingsCommandResult>> {
 	return clinkrExitFromPublishFindingsResult(ctx, await publishFindingsFromRequest(ctx, request));
 }
 
 export function clinkrExitFromPublishFindingsResult(
-	ctx: Pick<RoasterRuntime, "stderr">,
+	ctx: Pick<ReviewsRuntime, "stderr">,
 	result: PublishFindingsResult,
 ): ClinkrExit<PublishFindingsCommandResult> {
 	if (!result.ok) return failureFromPublicationError(result.error);
@@ -552,7 +502,7 @@ export function renderPublishFindingsResult(result: PublishFindingsCommandResult
 }
 
 export async function publishFindingsFromRequest(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
 ): Promise<PublishFindingsResult> {
 	const envelope = await ctx.stdin();
@@ -574,7 +524,7 @@ interface LoadedDefinition {
 }
 
 async function loadDefinitions(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	keys: readonly string[],
 ): Promise<ReviewResult<readonly LoadedDefinition[]>> {
 	const loaded: LoadedDefinition[] = [];
@@ -593,7 +543,8 @@ async function loadDefinitions(
 function renderReviewListEntry(review: ReviewListResult["reviews"][number]): string {
 	const model = ` (model profile: ${review.modelProfile})`;
 	const scope = review.localOnly ? " [local-only]" : "";
-	return `- ${review.key}: ${review.description}${model}${scope}`;
+	const skill = ` [${review.reviewSkill.surface} — ${review.reviewSkill.label}]`;
+	return `- ${review.key}: ${review.description}${model}${scope}${skill}`;
 }
 
 function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"][number] {
@@ -611,7 +562,7 @@ function failureFromReview(error: ReviewFailure): ClinkrExit<never> {
 }
 
 function failureFromPublicationError(error: PublicationError): ClinkrExit<never> {
-	return failure("roaster-publish-findings-failed", `publish-findings: ${error.message}`, {
+	return failure("reviews-publish-findings-failed", `publish-findings: ${error.message}`, {
 		fatalFailurePhase: error.fatalFailurePhase,
 		reason: error.reason,
 	});
@@ -623,9 +574,9 @@ function clinkrExitFromReviewResult<T>(result: ReviewResult<T>): ClinkrExit<T> {
 }
 
 function loadDiffFromRequest(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	baseRef: string | undefined,
-): ReturnType<RoasterRuntime["localDiff"]["loadDiff"]> {
+): ReturnType<ReviewsRuntime["localDiff"]["loadDiff"]> {
 	return ctx.localDiff.loadDiff({
 		...environmentOptions(ctx.runScope),
 		...optionalEntry("baseRef", baseRef),
@@ -663,7 +614,7 @@ function renderInlineFindingsSummary(result: PublishFindingsCommandResult): stri
 	return `inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`;
 }
 
-function stderrFailure(ctx: RoasterRuntime, message: string): number {
+function stderrFailure(ctx: ReviewsRuntime, message: string): number {
 	ctx.stderr(message);
 	return 1;
 }

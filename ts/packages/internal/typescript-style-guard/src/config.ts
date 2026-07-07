@@ -82,8 +82,8 @@ export const concreteCapabilityCommandSurfaces = [
 export const standaloneToolCommandSurfaces = [
 	{
 		packageName: "@nseng-ai/reviews",
-		cliPrefixes: ["roaster", "roast"],
-		slashPrefixes: ["roaster", "roast"],
+		cliPrefixes: ["reviews", "review"],
+		slashPrefixes: ["reviews", "review"],
 	},
 ] as const satisfies readonly ConcreteCapabilityCommandSurface[];
 

@@ -1,13 +1,13 @@
 [areg]
 agents = ["codex", "claude-code"]
 
-[roaster.diff]
+[reviews.diff]
 exclude = [
   ".agents/skills/**/*.py",
   ".claude/skills/**/*.py",
 ]
 
-[roaster.model_profiles]
+[reviews.model_profiles]
 quick = "haiku"
 deep = "sonnet"
 

@@ -31,7 +31,7 @@ const features = [
   },
   {
     title: "Extension ecosystem",
-    description: "Retrospectives, review roasts, and PR-feedback triage — built on the ns kernel.",
+    description: "Retrospectives, code reviews, and PR-feedback triage — built on the ns kernel.",
     href: "/extensions",
   },
 ];

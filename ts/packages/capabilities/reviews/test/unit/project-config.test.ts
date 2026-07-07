@@ -2,33 +2,33 @@ import { describe, expect, test } from "vitest";
 
 import {
 	buildGitDiffArgs,
-	parseRoasterProjectConfigToml,
-	roasterExcludeGlobsToGitPathspecs,
+	parseReviewsProjectConfigToml,
+	reviewsExcludeGlobsToGitPathspecs,
 	type ProjectConfigErrorCode,
 } from "../../src/core/project-config.ts";
 
-describe("parseRoasterProjectConfigToml", () => {
+describe("parseReviewsProjectConfigToml", () => {
 	test.each([
 		["empty TOML", ""],
 		["areg-only config", '[areg]\nagents = ["codex", "claude-code"]\n'],
-		["missing diff table", "[roaster]\n"],
-		["diff table without exclude", "[roaster.diff]\nunknown = true\n"],
+		["missing diff table", "[reviews]\n"],
+		["diff table without exclude", "[reviews.diff]\nunknown = true\n"],
 	])("returns empty excludes for %s", (_label, source) => {
-		const config = expectOk(parseRoasterProjectConfigToml(source));
+		const config = expectOk(parseReviewsProjectConfigToml(source));
 
 		expect(config.diff.exclude).toEqual([]);
 	});
 
 	test("defaults model profiles to Claude Code supported aliases", () => {
-		const config = expectOk(parseRoasterProjectConfigToml(""));
+		const config = expectOk(parseReviewsProjectConfigToml(""));
 
 		expect(config.modelProfiles).toEqual({ quick: "haiku", deep: "sonnet" });
 	});
 
-	test("parses roaster diff excludes", () => {
+	test("parses reviews diff excludes", () => {
 		const config = expectOk(
-			parseRoasterProjectConfigToml(
-				'[roaster.diff]\nexclude = [".agents/skills/**/*.py", ".claude/skills/**/*.py"]\n',
+			parseReviewsProjectConfigToml(
+				'[reviews.diff]\nexclude = [".agents/skills/**/*.py", ".claude/skills/**/*.py"]\n',
 			),
 		);
 
@@ -37,7 +37,7 @@ describe("parseRoasterProjectConfigToml", () => {
 
 	test("parses known sections and ignores unrelated fields", () => {
 		const config = expectOk(
-			parseRoasterProjectConfigToml(
+			parseReviewsProjectConfigToml(
 				"[some_future_tool]\n" +
 					'enabled = "maybe"\n' +
 					"\n" +
@@ -45,11 +45,11 @@ describe("parseRoasterProjectConfigToml", () => {
 					'agents = ["codex"]\n' +
 					'unknown = "ignored"\n' +
 					"\n" +
-					"[roaster.diff]\n" +
+					"[reviews.diff]\n" +
 					'exclude = [".agents/skills/**/*.py"]\n' +
 					"unknown = true\n" +
 					"\n" +
-					"[roaster.model_profiles]\n" +
+					"[reviews.model_profiles]\n" +
 					'quick = "haiku"\n' +
 					'deep = "opus"\n',
 			),
@@ -60,26 +60,26 @@ describe("parseRoasterProjectConfigToml", () => {
 	});
 
 	test.each([
-		['[roaster.diff]\nexclude = "*.py"\n', "array", "invalid-exclude"],
-		['[roaster.diff]\nexclude = ["*.py", 1]\n', "non-empty strings", "invalid-exclude"],
-		['[roaster.diff]\nexclude = [""]\n', "non-empty strings", "invalid-exclude"],
-		['[roaster.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid-exclude"],
-		['[roaster.diff]\nexclude = ["skills/../*.py"]\n', "path segments", "invalid-exclude"],
+		['[reviews.diff]\nexclude = "*.py"\n', "array", "invalid-exclude"],
+		['[reviews.diff]\nexclude = ["*.py", 1]\n', "non-empty strings", "invalid-exclude"],
+		['[reviews.diff]\nexclude = [""]\n', "non-empty strings", "invalid-exclude"],
+		['[reviews.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid-exclude"],
+		['[reviews.diff]\nexclude = ["skills/../*.py"]\n', "path segments", "invalid-exclude"],
 		[
-			'[roaster.diff]\nexclude = [":(exclude,glob)vendor/**/*.py"]\n',
+			'[reviews.diff]\nexclude = [":(exclude,glob)vendor/**/*.py"]\n',
 			"pathspecs",
 			"invalid-exclude",
 		],
 		[
-			'[roaster.model_profiles]\nfast = "haiku"\n',
+			'[reviews.model_profiles]\nfast = "haiku"\n',
 			"unknown profile key(s): fast",
 			"invalid-model-profiles",
 		],
-		['roaster = "not a table"\n', "[roaster] must be a TOML table", "invalid-table"],
-		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid-table"],
-		["[roaster\n", "Invalid TOML", "invalid-toml"],
+		['reviews = "not a table"\n', "[reviews] must be a TOML table", "invalid-table"],
+		['[reviews]\ndiff = "not a table"\n', "[reviews.diff] must be a TOML table", "invalid-table"],
+		["[reviews\n", "Invalid TOML", "invalid-toml"],
 	] as const)("rejects invalid config %#", (source, message, code) => {
-		const error = expectError(parseRoasterProjectConfigToml(source, "ns.toml"));
+		const error = expectError(parseReviewsProjectConfigToml(source, "ns.toml"));
 
 		expect(error.code).toBe(code);
 		expect(error.message).toContain("ns.toml: ");
@@ -90,7 +90,7 @@ describe("parseRoasterProjectConfigToml", () => {
 describe("git diff pathspec helpers", () => {
 	test("converts plain exclude globs to git exclude pathspecs", () => {
 		expect(
-			roasterExcludeGlobsToGitPathspecs([".agents/skills/**/*.py", ".claude/skills/**/*.py"]),
+			reviewsExcludeGlobsToGitPathspecs([".agents/skills/**/*.py", ".claude/skills/**/*.py"]),
 		).toEqual([":(exclude,glob).agents/skills/**/*.py", ":(exclude,glob).claude/skills/**/*.py"]);
 	});
 
@@ -136,7 +136,7 @@ describe("git diff pathspec helpers", () => {
 	});
 });
 
-type ParseResult = ReturnType<typeof parseRoasterProjectConfigToml>;
+type ParseResult = ReturnType<typeof parseReviewsProjectConfigToml>;
 
 function expectOk(result: ParseResult) {
 	if (!result.ok) throw new Error(result.error.message);

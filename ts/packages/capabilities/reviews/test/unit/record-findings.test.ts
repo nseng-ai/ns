@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { createRoasterRuntime } from "../../src/core/context.ts";
+import { createReviewsRuntime } from "../../src/core/context.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
 import { createLocalDiff, type ReviewFinding } from "../../src/core/models.ts";
 import { runRecordFindings } from "../../src/operations/cli-operations.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 
 const REVIEW_SOURCE = `---
 description: Review TypeScript diffs.
@@ -28,8 +28,8 @@ describe("runRecordFindings", () => {
 	test("records validated same-session findings as a review run log", async () => {
 		const reviewLog = new FakeReviewLogGateway();
 		const stderr: string[] = [];
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
@@ -57,15 +57,15 @@ describe("runRecordFindings", () => {
 		});
 		expect(exit.data.findings).toEqual([FINDING]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
-		expect(reviewLog.writtenEntries()[0]?.content).toContain("# Roaster Review: typescript-style");
+		expect(reviewLog.writtenEntries()[0]?.content).toContain("# Reviews Review: typescript-style");
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("- Model profile: `deep`");
 		expect(stderr.join("")).toContain("recorded review log: reviews/typescript-style/");
 	});
 
 	test("rejects malformed JSON without writing a log", async () => {
 		const reviewLog = new FakeReviewLogGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({ stdin: async () => "not json", reviewLog }),
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({ stdin: async () => "not json", reviewLog }),
 		);
 
 		const exit = await runRecordFindings(ctx, { reviewKey: "typescript-style" });
@@ -78,8 +78,8 @@ describe("runRecordFindings", () => {
 
 	test("rejects schema-invalid findings without writing a log", async () => {
 		const reviewLog = new FakeReviewLogGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				stdin: async () => JSON.stringify({ findings: [{ summary: "bad" }] }),
 				reviewLog,
 			}),
@@ -95,8 +95,8 @@ describe("runRecordFindings", () => {
 
 	test("unknown review key fails before writing a log", async () => {
 		const reviewLog = new FakeReviewLogGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway(),
 				reviewLog,
 				stdin: async () => JSON.stringify({ findings: [FINDING] }),
@@ -115,8 +115,8 @@ describe("runRecordFindings", () => {
 		const reviewLog = new FakeReviewLogGateway({
 			writeFailure: { code: "review-log-write-failed", message: "brmem put failed" },
 		});
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),

@@ -7,15 +7,15 @@ import {
 	runPublishFindingsCommand,
 	type PublishFindingsRequest,
 } from "../operations/cli-operations.ts";
-import { roasterNsCommand } from "../ns/command.ts";
+import { reviewsNsCommand } from "../ns/command.ts";
 
-const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish Roaster findings to GitHub.
+const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish Reviews findings to GitHub.
 
-This hidden ns automation command preserves Roaster's review-run envelope stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Roaster's gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
+This hidden ns automation command preserves Reviews review-run envelope stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Reviews gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
 
-export const roasterExecPublishFindingsCommand = roasterNsCommand({
+export const reviewsExecPublishFindingsCommand = reviewsNsCommand({
 	name: "exec-publish-findings",
-	summary: "Publish Roaster findings to GitHub.",
+	summary: "Publish Reviews findings to GitHub.",
 	description: EXEC_PUBLISH_FINDINGS_DESCRIPTION,
 	schema: publishFindingsRequestSchema,
 	resultSchema: publishFindingsResultSchema,
@@ -26,7 +26,7 @@ export const roasterExecPublishFindingsCommand = roasterNsCommand({
 });
 
 export default defineExtension({
-	commands: [roasterExecPublishFindingsCommand],
+	commands: [reviewsExecPublishFindingsCommand],
 });
 
-export type RoasterExecPublishFindingsRequest = PublishFindingsRequest;
+export type ReviewsExecPublishFindingsRequest = PublishFindingsRequest;

@@ -29,11 +29,11 @@ class EchoPutCommandExecApi implements CommandExecApi {
 			stdout: JSON.stringify({
 				exitCode: 0,
 				data: {
-					namespace: "roaster",
+					namespace: "reviews",
 					key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 					branch: "feature",
 					refName:
-						"refs/brmem/ns/roaster/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+						"refs/brmem/ns/reviews/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 					commit: "abc123",
 					sourceFile,
 				},
@@ -72,7 +72,7 @@ describe("RealReviewLogGateway", () => {
 			"put",
 			"reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			"--namespace",
-			"roaster",
+			"reviews",
 			"--branch",
 			"feature",
 			"--file",
@@ -89,18 +89,18 @@ describe("RealReviewLogGateway", () => {
 					data: {
 						entries: [
 							{
-								namespace: "roaster",
+								namespace: "reviews",
 								key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 								branch: "feature",
 								refName:
-									"refs/brmem/ns/roaster/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+									"refs/brmem/ns/reviews/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 							},
 							{
-								namespace: "roaster",
+								namespace: "reviews",
 								key: "reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
 								branch: "feature",
 								refName:
-									"refs/brmem/ns/roaster/feature:reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
+									"refs/brmem/ns/reviews/feature:reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
 							},
 						],
 					},
@@ -119,7 +119,7 @@ describe("RealReviewLogGateway", () => {
 		expect(execApi.calls()[0]?.args).toEqual([
 			"list",
 			"--namespace",
-			"roaster",
+			"reviews",
 			"--format",
 			"json",
 		]);

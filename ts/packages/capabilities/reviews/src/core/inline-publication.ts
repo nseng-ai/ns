@@ -7,9 +7,9 @@ import type {
 
 import {
 	environmentOptions,
-	ROASTER_BOT_LOGIN,
+	REVIEWS_BOT_LOGIN,
 	type ReviewsGithubPrFeedbackGateway,
-	type RoasterRunScope,
+	type ReviewsRunScope,
 } from "./context.ts";
 import type { FindingsPayload } from "./findings-comment.ts";
 import {
@@ -22,7 +22,7 @@ import { type PostInlineFindingsResult } from "./models.ts";
 
 export interface PostInlineFindingsOptions {
 	readonly prNumber: number;
-	readonly runScope: RoasterRunScope;
+	readonly runScope: ReviewsRunScope;
 }
 
 export async function postInlineFindings(
@@ -47,7 +47,7 @@ export async function postInlineFindings(
 	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
 	const existingMarkers = new Set(
 		reviewCommentsResult.value
-			.filter((comment) => comment.author === ROASTER_BOT_LOGIN)
+			.filter((comment) => comment.author === REVIEWS_BOT_LOGIN)
 			.flatMap((comment) => extractInlineMarkers(comment.body)),
 	);
 	const comments: GithubPrInlineCommentInput[] = [];

@@ -516,23 +516,23 @@ describe("parseBrmemListEntries", () => {
 	const validData = {
 		entries: [
 			{
-				namespace: "roaster",
+				namespace: "reviews",
 				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 				branch: "feature/demo",
 				refName:
-					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+					"refs/brmem/ns/reviews/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			},
 		],
 	} satisfies Record<string, unknown>;
 
 	test("parses list entries to camelCase fields", () => {
-		expect(parseBrmemListEntries(envelope(validData), { namespace: "roaster" })).toEqual([
+		expect(parseBrmemListEntries(envelope(validData), { namespace: "reviews" })).toEqual([
 			{
-				namespace: "roaster",
+				namespace: "reviews",
 				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 				branch: "feature/demo",
 				refName:
-					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+					"refs/brmem/ns/reviews/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			},
 		]);
 	});
@@ -551,7 +551,7 @@ describe("parseBrmemListEntries", () => {
 	test("throws when expected namespace or branch does not match", () => {
 		expect(() =>
 			parseBrmemListEntries(envelope(validData), { namespace: "branch-context" }),
-		).toThrow(/namespace "roaster" != "branch-context"/);
+		).toThrow(/namespace "reviews" != "branch-context"/);
 		expect(() => parseBrmemListEntries(envelope(validData), { branch: "other" })).toThrow(
 			/branch "feature\/demo" != "other"/,
 		);
@@ -559,15 +559,15 @@ describe("parseBrmemListEntries", () => {
 });
 
 describe("listBrmemEntries", () => {
-	const listArgs = ["list", "--namespace", "roaster", "--format", "json"];
+	const listArgs = ["list", "--namespace", "reviews", "--format", "json"];
 	const validData = {
 		entries: [
 			{
-				namespace: "roaster",
+				namespace: "reviews",
 				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 				branch: "feature/demo",
 				refName:
-					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+					"refs/brmem/ns/reviews/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			},
 		],
 	} satisfies Record<string, unknown>;
@@ -581,7 +581,7 @@ describe("listBrmemEntries", () => {
 		const result = await listBrmemEntries({
 			gateway,
 			cwd: ROOT,
-			namespace: "roaster",
+			namespace: "reviews",
 			signal,
 		});
 
@@ -589,7 +589,7 @@ describe("listBrmemEntries", () => {
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) throw new Error(`expected successful list: ${result.error.message}`);
 		expect(result.value[0]?.refName).toBe(
-			"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+			"refs/brmem/ns/reviews/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 		);
 		expect(gateway.calls[0]?.options).toEqual({
 			cwd: ROOT,
@@ -603,7 +603,7 @@ describe("listBrmemEntries", () => {
 		const gateway = new FakeGateway([
 			step(
 				"brmem",
-				["list", "--namespace", "roaster", "--branch", "feature/demo", "--format", "json"],
+				["list", "--namespace", "reviews", "--branch", "feature/demo", "--format", "json"],
 				{ code: 0, stdout: envelope(validData) },
 			),
 		]);
@@ -611,7 +611,7 @@ describe("listBrmemEntries", () => {
 		const result = await listBrmemEntries({
 			gateway,
 			cwd: ROOT,
-			namespace: "roaster",
+			namespace: "reviews",
 			branch: "feature/demo",
 			env,
 		});
@@ -628,7 +628,7 @@ describe("listBrmemEntries", () => {
 	test("maps list command failures", async () => {
 		const nonzero = new FakeGateway([step("brmem", listArgs, { code: 2, stderr: "bad args" })]);
 		expect(
-			await listBrmemEntries({ gateway: nonzero, cwd: ROOT, namespace: "roaster" }),
+			await listBrmemEntries({ gateway: nonzero, cwd: ROOT, namespace: "reviews" }),
 		).toMatchObject({
 			ok: false,
 			error: { code: "brmem_list_failed" },
@@ -639,7 +639,7 @@ describe("listBrmemEntries", () => {
 			step("brmem", listArgs, { code: 127, stderr: "brmem: command not found" }),
 		]);
 		expect(
-			await listBrmemEntries({ gateway: unavailable, cwd: ROOT, namespace: "roaster" }),
+			await listBrmemEntries({ gateway: unavailable, cwd: ROOT, namespace: "reviews" }),
 		).toMatchObject({
 			ok: false,
 			error: { code: "brmem_unavailable" },
@@ -650,14 +650,14 @@ describe("listBrmemEntries", () => {
 	test("maps malformed list output", async () => {
 		const gateway = new FakeGateway([step("brmem", listArgs, { code: 0, stdout: "{" })]);
 
-		const result = await listBrmemEntries({ gateway, cwd: ROOT, namespace: "roaster" });
+		const result = await listBrmemEntries({ gateway, cwd: ROOT, namespace: "reviews" });
 
 		gateway.assertDone();
 		expect(result).toMatchObject({
 			ok: false,
 			error: {
 				code: "brmem_malformed_list",
-				displayCommand: "brmem list --namespace roaster --format json",
+				displayCommand: "brmem list --namespace reviews --format json",
 			},
 		});
 	});

@@ -13,15 +13,15 @@ First read `.ns/reviews/reinvented-abstractions-tripwire/review.md`, then apply 
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
-ns roaster review run reinvented-abstractions-tripwire
+ns reviews review run reinvented-abstractions-tripwire
 ```
 
-In Pi-hosted sessions, use this skill's same review instructions or the same ns command face above; no separate Roaster runner alias is required.
+In Pi-hosted sessions, use this skill's same review instructions or the same ns command face above; no separate reviews runner alias is required.
 
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 
 ```bash
-ns roaster exec record-findings --review-key reinvented-abstractions-tripwire --format json < findings.json
+ns reviews exec record-findings --review-key reinvented-abstractions-tripwire --format json < findings.json
 ```
 
-Pipe that JSON envelope to `ns roaster exec publish-findings` when publishing to GitHub.
+Pipe that JSON envelope to `ns reviews exec publish-findings` when publishing to GitHub.

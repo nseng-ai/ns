@@ -1,5 +1,5 @@
 ---
-# Provenance: this is the ns-specific Roaster review definition produced
+# Provenance: this is the ns-specific Reviews review definition produced
 # by merging the portable TypeScript style guide (`skills/typescript-style/`,
 # especially `core-rules.md`, `checklist.md`, and
 # `references/review-taste-and-process.md`) with the project overlay
@@ -11,10 +11,10 @@
 # by re-reading those source documents, keep only diff-grounded/mechanically
 # reviewable rules in the Active Tier A section, move higher-context design rules
 # to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
-# Roaster, and then run:
+# Reviews, and then run:
 #
 #   dprint check .ns/reviews/ns-typescript-style-tripwire/review.md
-#   pnpm --dir ts exec vitest run packages/roaster/test/unit/review-definition.test.ts
+#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   NS TypeScript style Tripwire: enforce ns TypeScript style guide and
   ns TypeScript overlay on the supplied diff. Flag concrete,

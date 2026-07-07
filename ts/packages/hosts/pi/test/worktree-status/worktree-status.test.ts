@@ -767,13 +767,13 @@ describe("composed local and gh worktree status loading", () => {
 						number: 2066,
 						checkNodes: [
 							worktreePrCheckRun({
-								workflowName: "roaster",
+								workflowName: "reviews",
 								name: "review",
 								conclusion: "CANCELLED",
 								completedAt: "2026-01-01T00:00:00Z",
 							}),
 							worktreePrCheckRun({
-								workflowName: "roaster",
+								workflowName: "reviews",
 								name: "review",
 								conclusion: "SUCCESS",
 								completedAt: "2026-01-01T00:10:00Z",

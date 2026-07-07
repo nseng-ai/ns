@@ -5,16 +5,16 @@ import { tmpdir } from "node:os";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { createRoasterRuntime } from "../../src/core/context.ts";
+import { createReviewsRuntime } from "../../src/core/context.ts";
 import {
 	buildFindingsCommentMachineState,
 	renderFindingsComment,
 	summaryMarkerForReview,
 	type LastReviewedHeadState,
 } from "../../src/core/findings-comment.ts";
-import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
+import { REVIEWS_BOT_LOGIN } from "../../src/core/reviews-bot.ts";
 import { runReviewByKey } from "../../src/operations/cli-operations.ts";
-import { runRoasterReview } from "../../src/operations/review-run.ts";
+import { runReview } from "../../src/operations/review-run.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
@@ -27,7 +27,7 @@ import {
 	type DiffFile,
 	type ReviewFinding,
 } from "../../src/core/models.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 import { githubDiscussionComment } from "../support/github-fixtures.ts";
 
 const REVIEW_SOURCE = `---
@@ -52,12 +52,12 @@ const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 	baseMergeBaseSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 };
 
-describe("runRoasterReview", () => {
+describe("runReview", () => {
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[roaster.diff]\nexclude = ["generated/**"]\n[roaster.model_profiles]\ndeep = "opus"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[reviews.model_profiles]\ndeep = "opus"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -84,8 +84,8 @@ describe("runRoasterReview", () => {
 			},
 		});
 		const reviewLog = new FakeReviewLogGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				gitGateway: gitGateway(repoRoot),
 				localDiff,
 				reviewCatalog: new FakeReviewCatalogGateway({
@@ -97,7 +97,7 @@ describe("runRoasterReview", () => {
 			}),
 		);
 
-		const outcome = await runRoasterReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome.type).toBe("completed");
 		if (outcome.type !== "completed") return;
@@ -126,8 +126,8 @@ describe("runRoasterReview", () => {
 			"diff --git a/download-feedback-instructions.md b/download-feedback-instructions.md\n+# Docs\n",
 		);
 		const reviewRunner = new FakeReviewRunnerGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				localDiff: new FakeLocalDiffGateway({
 					defaultDiff: {
 						ok: true,
@@ -140,7 +140,7 @@ describe("runRoasterReview", () => {
 				}),
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: {
-						"code-smell-roaster":
+						"code-smell-reviews":
 							"---\n" +
 							"description: Review code smells.\n" +
 							"applies_to:\n" +
@@ -156,7 +156,7 @@ describe("runRoasterReview", () => {
 			}),
 		);
 
-		const outcome = await runRoasterReview(ctx, { key: "code-smell-roaster" });
+		const outcome = await runReview(ctx, { key: "code-smell-reviews" });
 
 		expect(outcome.type).toBe("completed");
 		expect(reviewRunner.calls()[0]?.request.target.localDiff.changedPaths).toEqual(["src/file.ts"]);
@@ -169,8 +169,8 @@ describe("runRoasterReview", () => {
 			discussionCommentsByPr: new Map([[123, [priorFindingsSummaryComment()]]]),
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
@@ -193,8 +193,8 @@ describe("runRoasterReview", () => {
 		});
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const stderr: string[] = [];
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
@@ -217,7 +217,7 @@ describe("runRoasterReview", () => {
 				env: {},
 				prNumber: 123,
 				marker: summaryMarkerForReview("typescript-style"),
-				authorLogin: ROASTER_BOT_LOGIN,
+				authorLogin: REVIEWS_BOT_LOGIN,
 			},
 		]);
 		expect(github.reviewThreadCalls()).toEqual([{ cwd: "/repo", env: {}, prNumber: 123 }]);
@@ -235,8 +235,8 @@ describe("runRoasterReview", () => {
 
 	test("does not write a review log when the runner fails", async () => {
 		const reviewLog = new FakeReviewLogGateway();
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
@@ -250,7 +250,7 @@ describe("runRoasterReview", () => {
 			}),
 		);
 
-		const outcome = await runRoasterReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome).toEqual({
 			type: "failed",
@@ -263,8 +263,8 @@ describe("runRoasterReview", () => {
 		const reviewLog = new FakeReviewLogGateway({
 			writeFailure: { code: "review-log-write-failed", message: "brmem put failed" },
 		});
-		const ctx = createRoasterRuntime(
-			fakeRoasterContext({
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
@@ -273,7 +273,7 @@ describe("runRoasterReview", () => {
 			}),
 		);
 
-		const outcome = await runRoasterReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome.type).toBe("completed_log_failed");
 		if (outcome.type !== "completed_log_failed") return;
@@ -286,7 +286,7 @@ describe("runRoasterReview", () => {
 });
 
 async function tempRepoRoot(): Promise<string> {
-	return await mkdtemp(join(tmpdir(), "roaster-review-run-"));
+	return await mkdtemp(join(tmpdir(), "reviews-review-run-"));
 }
 
 function diffFile(path: string, rawText: string): DiffFile {
@@ -329,7 +329,7 @@ function priorFindingsSummaryComment(): GithubPrDiscussionComment {
 	};
 	return githubDiscussionComment({
 		id: 1,
-		author: ROASTER_BOT_LOGIN,
+		author: REVIEWS_BOT_LOGIN,
 		body: renderFindingsComment(payload, {
 			machineState: buildFindingsCommentMachineState({
 				payload,

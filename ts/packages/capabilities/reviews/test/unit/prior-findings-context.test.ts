@@ -21,7 +21,7 @@ import {
 } from "../../src/core/findings-comment.ts";
 import type { ReviewFinding } from "../../src/core/models.ts";
 import { gatherPriorFindingsContext } from "../../src/core/prior-findings-context.ts";
-import { ROASTER_BOT_LOGIN } from "../../src/core/roaster-bot.ts";
+import { REVIEWS_BOT_LOGIN } from "../../src/core/reviews-bot.ts";
 import { githubDiscussionComment } from "../support/github-fixtures.ts";
 
 const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
@@ -146,7 +146,7 @@ describe("gatherPriorFindingsContext", () => {
 	});
 
 	test("degrades to context-free review when state parsing fails", async () => {
-		const body = `${summaryMarkerForReview("typescript-style")}\n## roaster`;
+		const body = `${summaryMarkerForReview("typescript-style")}\n## reviews`;
 		const gateway = new FakeGithubPrFeedbackGateway({
 			discussionCommentsByPr: new Map([[123, [summaryComment({ body })]]]),
 			reviewThreadsByPr: new Map([[123, []]]),
@@ -239,7 +239,7 @@ function request(options: { readonly cap: number }) {
 }
 
 function summaryComment(options: { readonly body: string }): GithubPrDiscussionComment {
-	return githubDiscussionComment({ id: 1, author: ROASTER_BOT_LOGIN, body: options.body });
+	return githubDiscussionComment({ id: 1, author: REVIEWS_BOT_LOGIN, body: options.body });
 }
 
 function reviewThread(options: {
@@ -259,7 +259,7 @@ function reviewThread(options: {
 			{
 				id: 1,
 				body: options.body,
-				author: ROASTER_BOT_LOGIN,
+				author: REVIEWS_BOT_LOGIN,
 				path: "src/app.ts",
 				line: 12,
 				startLine: null,

@@ -11,11 +11,11 @@ import {
 	type ReviewFinding,
 	type ReviewInputCoverage,
 } from "./models.ts";
-import { roasterReviewDisplayRole } from "./review-display.ts";
+import { reviewDisplayRole } from "./review-display.ts";
 
-const SUMMARY_MARKER_RE = /^<!-- (roaster:[^ ]+) -->$/;
-const INLINE_MARKER_PREFIX = "roaster-inline";
-const MACHINE_STATE_START = "<!-- roaster-state:v1";
+const SUMMARY_MARKER_RE = /^<!-- (reviews:[^ ]+) -->$/;
+const INLINE_MARKER_PREFIX = "reviews-inline";
+const MACHINE_STATE_START = "<!-- reviews-state:v1";
 const MACHINE_STATE_END = "-->";
 const MACHINE_STATE_LINE_WIDTH = 100;
 // Keep the newest exact-finding records when long-running PRs exceed the durable comment budget.
@@ -23,7 +23,7 @@ export const PRIOR_FINDINGS_STATE_CAP = 50;
 const ACTIVITY_LOG_HEADING = "### Activity Log";
 const ACTIVITY_LOG_CAP = 10;
 const OMITTED_INPUT_FILES_RENDER_LIMIT = 10;
-const FOOTER = "_Posted by roaster. This comment is informational and does not block the check._";
+const FOOTER = "_Posted by reviews. This comment is informational and does not block the check._";
 
 const SEVERITY_LABELS = {
 	error: "⛔ error",
@@ -136,7 +136,7 @@ export function renderFindingsComment(
 }
 
 export function summaryMarkerForReview(reviewName: string): string {
-	return `<!-- roaster:${reviewName} -->`;
+	return `<!-- reviews:${reviewName} -->`;
 }
 
 export function parseFindingsCommentBody(raw: string): FindingsCommentBodyParseResult {
@@ -144,7 +144,7 @@ export function parseFindingsCommentBody(raw: string): FindingsCommentBodyParseR
 	if (firstLine === undefined || firstLine === "") return commentBodyError("input body is empty");
 	const match = SUMMARY_MARKER_RE.exec(firstLine.trimEnd());
 	if (match === null)
-		return commentBodyError("first line of body must be a `<!-- roaster:<key> -->` marker");
+		return commentBodyError("first line of body must be a `<!-- reviews:<key> -->` marker");
 	return { ok: true, value: { marker: `<!-- ${match[1]} -->`, body: raw } };
 }
 
@@ -220,7 +220,7 @@ export function renderInlineBody(
 		"",
 		finding.details,
 		"",
-		"_Posted by roaster. Re-running may skip this comment by marker._",
+		"_Posted by reviews. Re-running may skip this comment by marker._",
 	].join("\n");
 }
 
@@ -352,18 +352,15 @@ function parseJson(raw: string): unknown | null {
 }
 
 function renderFindingsCommentHeading(payload: FindingsPayload): string {
-	if (
-		payload.modelProfile !== null &&
-		roasterReviewDisplayRole(payload.modelProfile) === "tripwire"
-	) {
-		return `## roaster tripwire · \`${payload.reviewName}\``;
+	if (payload.modelProfile !== null && reviewDisplayRole(payload.modelProfile) === "tripwire") {
+		return `## reviews tripwire · \`${payload.reviewName}\``;
 	}
-	return `## roaster · \`${payload.reviewName}\``;
+	return `## reviews · \`${payload.reviewName}\``;
 }
 
 function inlineReviewLabel(modelProfile: string | null | undefined): "Tripwire" | "Review" {
 	if (modelProfile !== null && modelProfile !== undefined) {
-		return roasterReviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Review";
+		return reviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Review";
 	}
 	return "Review";
 }
@@ -382,7 +379,7 @@ function renderInlinePostingStatus(status: InlinePostingStatus): string[] {
 
 function renderErrorBody(payload: FindingsPayload): string[] {
 	return [
-		`**Roaster failed** against base \`${payload.baseRef}\`. ⚠️`,
+		`**Reviews failed** against base \`${payload.baseRef}\`. ⚠️`,
 		"",
 		`- **Error type:** \`${payload.errorType ?? "unknown"}\``,
 		`- **Message:** ${payload.errorMessage ?? "(none)"}`,
@@ -401,11 +398,11 @@ function renderInputCoverage(coverage: ReviewInputCoverage): string[] {
 		return [
 			...lines,
 			"",
-			"Bounded prompt input included all files in the filtered diff after configured roaster exclusions.",
+			"Bounded prompt input included all files in the filtered diff after configured reviews exclusions.",
 		];
 	lines.push(
 		"",
-		"Review completed with bounded prompt input. The following filtered-diff file segments were not supplied in prompt input after configured roaster exclusions:",
+		"Review completed with bounded prompt input. The following filtered-diff file segments were not supplied in prompt input after configured reviews exclusions:",
 	);
 	for (const file of coverage.omittedFiles.slice(0, OMITTED_INPUT_FILES_RENDER_LIMIT)) {
 		lines.push(`- \`${file.path}\` (${formatOmittedReviewInputFile(file)})`);

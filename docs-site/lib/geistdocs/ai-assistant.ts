@@ -19,7 +19,7 @@ export const agent = {
       "Plan implementation work as durable Objectives and enriched plans",
       "Run concurrent branches in isolated worktree slots",
       "Carry branch-scoped context across sessions and agents",
-      "Extend the kernel with extensions like retrospectives, review roasts, and PR-feedback triage",
+      "Extend the kernel with extensions like retrospectives, code reviews, and PR-feedback triage",
     ],
   },
   instructions: [

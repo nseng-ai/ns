@@ -19,11 +19,11 @@ This is part of the Objective skill family. Use the `objective` umbrella for sha
 
 - **Read-only on Objective records.** Read `.ns/objectives/<slug>/` and `.ns/objective-archive/<slug>/`; never edit, create, move, archive, close, or update Objective files.
 - **No formal tooling changes.** Do not add `ns objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
-- **No roaster/handoff coupling.** Do not store in roaster or handoff namespaces and do not depend on their retention, runner, diff cap, review log, or artifact formats.
+- **No reviews/handoff coupling.** Do not store in reviews or handoff namespaces and do not depend on their retention, runner, diff cap, review log, or artifact formats.
 - **Basis stays review-agnostic.** The evidence-phase basis carries no quality claims, risk ratings, or recommendations; judgment lives only in the separate retro artifact. Neither artifact is an approval gate or merge gate.
 - **Advisory archaeology.** Post-merge git rarely preserves an Objective boundary. Report confidence and gaps instead of fabricating completeness.
 
-Stop if the user asks this workflow to mutate Objective records, become a handoff artifact, depend on roaster, or add first-class CLI/tooling. If the delivered PR/commit set cannot be reconstructed with reasonable confidence, still produce a low-confidence basis with explicit gaps unless the user asked for an exact-only result.
+Stop if the user asks this workflow to mutate Objective records, become a handoff artifact, depend on reviews, or add first-class CLI/tooling. If the delivered PR/commit set cannot be reconstructed with reasonable confidence, still produce a low-confidence basis with explicit gaps unless the user asked for an exact-only result.
 
 ## Storage contract
 

@@ -1,12 +1,12 @@
 import {
-	createRealRoasterContext,
-	createRoasterRuntime,
-	type RoasterRuntime,
-	type RoasterRunScope,
+	createRealReviewsContext,
+	createReviewsRuntime,
+	type ReviewsRuntime,
+	type ReviewsRunScope,
 } from "./context.ts";
 import type { ReviewFailure, ReviewResult } from "./failures.ts";
 import type { PublishFindingsResult } from "./findings-publication.ts";
-import { ROASTER_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
+import { REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import type {
 	LocalDiff,
 	ReviewDefinition,
@@ -20,7 +20,6 @@ import type {
 import {
 	buildReviewListResult,
 	buildReviewLogResult,
-	buildRoastSkillListResult,
 	publishFindingsFromRequest,
 	recordSameSessionFindings,
 	type PublishFindingsRequest,
@@ -30,18 +29,16 @@ import {
 	type ReviewListResult,
 	type ReviewLogRequest,
 	type ReviewLogResult,
-	type RoastSkillListRequest,
-	type RoastSkillListResult,
 } from "../operations/cli-operations.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import {
-	runRoasterReview,
-	type RunRoasterReviewOutcome,
-	type RunRoasterReviewProgress,
-	type RunRoasterReviewRequest,
+	runReview,
+	type RunReviewOutcome,
+	type RunReviewProgress,
+	type RunReviewRequest,
 } from "../operations/review-run.ts";
 
-export { ROASTER_REVIEW_LOG_NAMESPACE };
+export { REVIEW_LOG_NAMESPACE };
 export type {
 	LocalDiff,
 	ReviewDefinition,
@@ -60,18 +57,16 @@ export type {
 	ReviewLogResult,
 	ReviewRunResult,
 	ReviewUsage,
-	RoastSkillListRequest,
-	RoastSkillListResult,
 	ReviewFailure,
 	ReviewResult,
-	RoasterRuntime,
-	RoasterRunScope,
-	RunRoasterReviewOutcome,
-	RunRoasterReviewProgress,
-	RunRoasterReviewRequest,
+	ReviewsRuntime,
+	ReviewsRunScope,
+	RunReviewOutcome,
+	RunReviewProgress,
+	RunReviewRequest,
 };
 
-export interface RoasterClientOptions {
+export interface ReviewsClientOptions {
 	readonly cwd: string;
 	readonly env?: ExplicitUndefined<
 		"env-map",
@@ -82,26 +77,23 @@ export interface RoasterClientOptions {
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
 	/** Inject a prebuilt gateway-injected runtime instead of constructing real adapters. */
-	readonly runtime?: RoasterRuntime;
+	readonly runtime?: ReviewsRuntime;
 }
 
-export interface RoasterClient {
+export interface ReviewsClient {
 	listReviews(request?: Partial<ReviewListRequest>): Promise<ReviewResult<ReviewListResult>>;
-	listRoastSkills(
-		request?: Partial<RoastSkillListRequest>,
-	): Promise<ReviewResult<RoastSkillListResult>>;
 	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<ReviewResult<ReviewLogResult>>;
-	/** Runs a review and writes a Roaster review log through the configured review log gateway. */
-	runReview(request: RunRoasterReviewRequest): Promise<RunRoasterReviewOutcome>;
-	/** Records same-session findings from stdin and writes a Roaster review log. */
+	/** Runs a review and writes a Reviews review log through the configured review log gateway. */
+	runReview(request: RunReviewRequest): Promise<RunReviewOutcome>;
+	/** Records same-session findings from stdin and writes a Reviews review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
-	/** Publishes a Roaster review-run envelope from stdin to GitHub. */
+	/** Publishes a Reviews review-run envelope from stdin to GitHub. */
 	publishFindings(request: PublishFindingsRequest): Promise<PublishFindingsResult>;
 }
 
-export function createRoasterClient(options: RoasterClientOptions): RoasterClient {
-	let runtime: RoasterRuntime | null = null;
-	function getRuntime(): RoasterRuntime {
+export function createReviewsClient(options: ReviewsClientOptions): ReviewsClient {
+	let runtime: ReviewsRuntime | null = null;
+	function getRuntime(): ReviewsRuntime {
 		if (runtime !== null) return runtime;
 		runtime = options.runtime ?? createRealRuntime(options);
 		return runtime;
@@ -111,14 +103,11 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 		async listReviews(request = {}) {
 			return await buildReviewListResult(getRuntime(), reviewListRequestWithDefaults(request));
 		},
-		async listRoastSkills(_request = {}) {
-			return await buildRoastSkillListResult(getRuntime(), {});
-		},
 		async listReviewLogs(request = {}) {
 			return await buildReviewLogResult(getRuntime(), request);
 		},
 		async runReview(request) {
-			return await runRoasterReview(getRuntime(), request);
+			return await runReview(getRuntime(), request);
 		},
 		async recordFindings(request) {
 			return await recordSameSessionFindings(getRuntime(), request);
@@ -129,9 +118,9 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 	};
 }
 
-function createRealRuntime(options: RoasterClientOptions): RoasterRuntime {
-	return createRoasterRuntime(
-		createRealRoasterContext({
+function createRealRuntime(options: ReviewsClientOptions): ReviewsRuntime {
+	return createReviewsRuntime(
+		createRealReviewsContext({
 			cwd: options.cwd,
 			env: normalizedEnv(options.env),
 			stdin: options.stdin ?? (async () => ""),

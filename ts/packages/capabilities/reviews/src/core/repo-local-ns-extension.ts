@@ -3,54 +3,39 @@ import {
 	repoLocalNsCommandDescriptor,
 } from "@nseng-ai/kernel/sdk";
 
-import { roasterExecPublishFindingsCommand } from "../commands/exec-publish-findings.ts";
-import { roasterExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
-import { roasterReviewListCommand } from "../commands/review-list.ts";
-import { roasterReviewLogCommand } from "../commands/review-log.ts";
-import { roasterReviewLsCommand } from "../commands/review-ls.ts";
-import { roasterReviewRunCommand } from "../commands/review-run.ts";
-import { roasterRoastListCommand } from "../commands/roast-list.ts";
+import { reviewsExecPublishFindingsCommand } from "../commands/exec-publish-findings.ts";
+import { reviewsExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
+import { reviewListCommand } from "../commands/list.ts";
+import { reviewLogCommand } from "../commands/log.ts";
+import { reviewLsCommand } from "../commands/ls.ts";
+import { reviewRunCommand } from "../commands/run.ts";
 
-export const roasterRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
-	group: "roaster",
-	description: "Run configured code review roasters and publish findings.",
+export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
+	group: "reviews",
+	description: "Run configured code reviews and publish findings.",
 	commands: [
 		repoLocalNsCommandDescriptor({
-			command: roasterReviewListCommand,
-			manifestName: "review-list",
-			manifestPath: ["review", "list"],
+			command: reviewListCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: roasterReviewLsCommand,
-			manifestName: "review-ls",
-			manifestPath: ["review", "ls"],
+			command: reviewLsCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: roasterReviewLogCommand,
-			manifestName: "review-log",
-			manifestPath: ["review", "log"],
+			command: reviewLogCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: roasterReviewRunCommand,
-			manifestName: "review-run",
-			manifestPath: ["review", "run"],
+			command: reviewRunCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: roasterExecRecordFindingsCommand,
+			command: reviewsExecRecordFindingsCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: roasterExecPublishFindingsCommand,
-			packageExportPrefix: "@nseng-ai/reviews/commands",
-		}),
-		repoLocalNsCommandDescriptor({
-			command: roasterRoastListCommand,
-			manifestName: "roast-list",
-			manifestPath: ["roast", "list"],
+			command: reviewsExecPublishFindingsCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 	],

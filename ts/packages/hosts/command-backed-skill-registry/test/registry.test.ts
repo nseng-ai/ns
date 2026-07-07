@@ -40,7 +40,7 @@ const ALLOWED_FOLLOW_UP_SURFACE_PREFIXES = [
 	"python:",
 	"refactor:",
 	"reinvented:",
-	"roast:",
+	"review:",
 	"skill:",
 	"thermo:",
 	"ts:",

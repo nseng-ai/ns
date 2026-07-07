@@ -92,7 +92,7 @@ export default defineExtension({
 		if (!loaded.ok) return;
 		const validation = validateNsExtensionContribution(
 			loaded.defaultExport,
-			{ name: "review-list", segments: ["roaster", "review", "list"] },
+			{ name: "review-list", segments: ["reviews", "review", "list"] },
 			modulePath,
 		);
 		expect(validation.ok).toBe(true);

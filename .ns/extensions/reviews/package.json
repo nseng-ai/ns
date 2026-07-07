@@ -1,0 +1,54 @@
+{
+  "ns": {
+    "description": "Run configured code reviews and publish findings.",
+    "group": "reviews",
+    "settings": [
+      {
+        "path": [
+          "reviews",
+          "diff"
+        ],
+        "description": "Diff input options for Reviews."
+      },
+      {
+        "path": [
+          "reviews",
+          "model_profiles"
+        ],
+        "description": "Model aliases for Reviews quick and deep review profiles."
+      }
+    ],
+    "commands": [
+      {
+        "name": "list",
+        "description": "List configured Reviews review definitions.",
+        "entry": "./src/commands/list.ts"
+      },
+      {
+        "name": "ls",
+        "description": "Alias for reviews list.",
+        "entry": "./src/commands/ls.ts"
+      },
+      {
+        "name": "log",
+        "description": "List Reviews review logs for this branch.",
+        "entry": "./src/commands/log.ts"
+      },
+      {
+        "name": "run",
+        "description": "Run a configured Reviews review over the current diff.",
+        "entry": "./src/commands/run.ts"
+      },
+      {
+        "name": "exec-record-findings",
+        "description": "Record same-session Reviews findings from stdin.",
+        "entry": "./src/commands/exec-record-findings.ts"
+      },
+      {
+        "name": "exec-publish-findings",
+        "description": "Publish Reviews findings to GitHub.",
+        "entry": "./src/commands/exec-publish-findings.ts"
+      }
+    ]
+  }
+}

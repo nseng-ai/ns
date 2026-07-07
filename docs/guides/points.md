@@ -96,7 +96,7 @@ Prompt resolution ladder (first match wins):
   `installed-but-undefined` diagnostic.
 - Hook points take only command arrays; prompt points take only a non-empty
   path string. Mismatched values are rejected with a diagnostic.
-- Settings (typed config like `[roaster.diff]`) are **not** points. They stay
+- Settings (typed config like `[reviews.diff]`) are **not** points. They stay
   in extension-rooted TOML tables with manifest-declared schemas.
 
 ## For extension authors: defining points

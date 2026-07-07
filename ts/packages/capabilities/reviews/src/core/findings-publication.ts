@@ -11,9 +11,9 @@ import { z } from "zod";
 
 import {
 	environmentOptions,
-	ROASTER_BOT_LOGIN,
+	REVIEWS_BOT_LOGIN,
 	type ReviewsGithubPrFeedbackGateway,
-	type RoasterRunScope,
+	type ReviewsRunScope,
 } from "./context.ts";
 import {
 	buildFindingsCommentMachineState,
@@ -148,7 +148,7 @@ export type PublishFindingsResult =
 	| { readonly ok: false; readonly error: PublicationError };
 
 export async function publishFindings(
-	ctx: { readonly github: ReviewsGithubPrFeedbackGateway; readonly runScope: RoasterRunScope },
+	ctx: { readonly github: ReviewsGithubPrFeedbackGateway; readonly runScope: ReviewsRunScope },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
@@ -163,7 +163,7 @@ export async function publishFindings(
 		...environmentOptions(ctx.runScope),
 		prNumber: options.prNumber,
 		marker,
-		authorLogin: ROASTER_BOT_LOGIN,
+		authorLogin: REVIEWS_BOT_LOGIN,
 	});
 	if (!existing.ok)
 		return publicationError("summary-lookup", "github-lookup-failed", existing.error.message);

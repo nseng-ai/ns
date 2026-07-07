@@ -229,8 +229,8 @@ describe("TypeScript style guard source rules", () => {
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
 		{
-			name: "lower-layer source cannot import roaster without treating roaster as a capability",
-			code: 'import { createRoasterClient } from "@nseng-ai/reviews/api";',
+			name: "lower-layer source cannot import reviews without treating reviews as a capability",
+			code: 'import { createReviewsClient } from "@nseng-ai/reviews/api";',
 			path: "ts/packages/kernel/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},

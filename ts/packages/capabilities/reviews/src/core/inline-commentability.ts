@@ -3,7 +3,7 @@ import type { GithubPrChangedFile } from "@nseng-ai/capability-kit/github/pr-fee
 
 import type { InlineClassificationResult, ReviewFinding } from "./models.ts";
 
-const INLINE_PATCH_FILE = "__roaster_inline__.patch";
+const INLINE_PATCH_FILE = "__reviews_inline__.patch";
 
 export function commentableRightSideLines(patch: string | null): ReadonlySet<number> {
 	const lines = new Set<number>();
@@ -19,7 +19,7 @@ export function commentableRightSideLines(patch: string | null): ReadonlySet<num
 
 function parseInlinePatchHunks(patch: string): readonly Hunk[] {
 	try {
-		return parsePatchFiles(syntheticUnifiedPatch(patch), "roaster-inline").flatMap((parsedPatch) =>
+		return parsePatchFiles(syntheticUnifiedPatch(patch), "reviews-inline").flatMap((parsedPatch) =>
 			parsedPatch.files.flatMap((file) => file.hunks),
 		);
 	} catch {

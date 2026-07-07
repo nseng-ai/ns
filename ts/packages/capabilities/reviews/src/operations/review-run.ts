@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";
+import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
 	isReviewLogFailure,
 	type ReviewLogFailure,
@@ -22,16 +22,16 @@ import {
 	type ReviewRunResult,
 } from "../core/models.ts";
 import {
-	DEFAULT_ROASTER_MODEL_PROFILES,
-	isRoasterModelProfileKey,
-	parseRoasterProjectConfigToml,
-	type RoasterModelProfileKey,
-	type RoasterProjectConfig,
+	DEFAULT_REVIEWS_MODEL_PROFILES,
+	isReviewsModelProfileKey,
+	parseReviewsProjectConfigToml,
+	type ReviewsModelProfileKey,
+	type ReviewsProjectConfig,
 } from "../core/project-config.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 
-export interface RunRoasterReviewRequest {
+export interface RunReviewRequest {
 	readonly key: string;
 	readonly model?: string;
 	readonly modelProfile?: string;
@@ -40,32 +40,32 @@ export interface RunRoasterReviewRequest {
 	readonly priorFindingsContext?: PriorFindingsPromptContext;
 }
 
-export type RunRoasterReviewOutcome =
+export type RunReviewOutcome =
 	| {
 			readonly type: "completed";
 			readonly result: ReviewRunResult;
 			readonly logEntry: ReviewLogWriteResult;
-			readonly progress: RunRoasterReviewProgress;
+			readonly progress: RunReviewProgress;
 	  }
 	| {
 			readonly type: "completed_log_failed";
 			readonly result: ReviewRunResult;
 			readonly error: ReviewLogFailure;
-			readonly progress: RunRoasterReviewProgress;
+			readonly progress: RunReviewProgress;
 	  }
 	| { readonly type: "failed"; readonly error: ReviewFailure };
 
-export interface RunRoasterReviewProgress {
+export interface RunReviewProgress {
 	readonly reviewKey: string;
 	readonly reviewPath: string;
-	readonly modelProfile: RoasterModelProfileKey;
+	readonly modelProfile: ReviewsModelProfileKey;
 	readonly model: string;
 	readonly baseRef: string;
 	readonly changedPathCount: number;
 }
 
 interface ResolvedReviewModel {
-	readonly modelProfile: RoasterModelProfileKey;
+	readonly modelProfile: ReviewsModelProfileKey;
 	readonly model: string;
 }
 
@@ -82,14 +82,14 @@ export interface LoadReviewExecutionContextRequest {
 export interface ReviewExecutionContext {
 	readonly source: ReviewSource;
 	readonly definition: ReviewDefinition;
-	readonly config: RoasterProjectConfig;
+	readonly config: ReviewsProjectConfig;
 	readonly diff: LocalDiff;
 }
 
-export async function runRoasterReview(
-	ctx: RoasterRuntime,
-	request: RunRoasterReviewRequest,
-): Promise<RunRoasterReviewOutcome> {
+export async function runReview(
+	ctx: ReviewsRuntime,
+	request: RunReviewRequest,
+): Promise<RunReviewOutcome> {
 	const loaded = await loadReviewExecutionContext(ctx, {
 		reviewKey: request.key,
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
@@ -102,7 +102,7 @@ export async function runRoasterReview(
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
 
-	const progress: RunRoasterReviewProgress = {
+	const progress: RunReviewProgress = {
 		reviewKey: source.key,
 		reviewPath: source.path,
 		modelProfile: model.modelProfile,
@@ -147,7 +147,7 @@ export async function runRoasterReview(
 }
 
 export async function loadReviewExecutionContext(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	request: LoadReviewExecutionContextRequest,
 ): Promise<ReviewResult<ReviewExecutionContext>> {
 	const loaded = await loadParsedReviewDefinition({
@@ -179,7 +179,7 @@ export async function loadReviewExecutionContext(
 }
 
 export async function writeReviewRunLog(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	options: {
 		readonly reviewKey: string;
 		readonly result: ReviewRunResult;
@@ -221,17 +221,17 @@ function reviewRunResult(
 }
 
 function resolveReviewModel(
-	request: RunRoasterReviewRequest,
+	request: RunReviewRequest,
 	definition: ReviewDefinition,
-	config: RoasterProjectConfig,
+	config: ReviewsProjectConfig,
 ): ReviewResult<ResolvedReviewModel> {
 	const profile = (request.modelProfile ?? definition.modelProfile).trim();
-	if (!isRoasterModelProfileKey(profile)) {
+	if (!isReviewsModelProfileKey(profile)) {
 		return {
 			ok: false,
 			error: {
 				code: "review-definition-invalid",
-				message: `Unknown Roaster model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
+				message: `Unknown Reviews model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
 			},
 		};
 	}
@@ -243,7 +243,7 @@ function resolveReviewModel(
 }
 
 async function reviewLogMetadata(
-	ctx: RoasterRuntime,
+	ctx: ReviewsRuntime,
 	logBranch: string | undefined,
 ): Promise<ReviewLogMetadata> {
 	const options = environmentOptions(ctx.runScope);
@@ -261,7 +261,7 @@ async function reviewLogMetadata(
 }
 
 function branchMetadataValue(
-	result: Awaited<ReturnType<RoasterRuntime["gitGateway"]["currentBranch"]>>,
+	result: Awaited<ReturnType<ReviewsRuntime["gitGateway"]["currentBranch"]>>,
 ): string {
 	switch (result.type) {
 		case "branch":
@@ -278,8 +278,8 @@ function unavailableMetadataValue(message: string): string {
 }
 
 export async function loadProjectConfigFromContext(
-	ctx: RoasterRuntime,
-): Promise<ReviewResult<RoasterProjectConfig>> {
+	ctx: ReviewsRuntime,
+): Promise<ReviewResult<ReviewsProjectConfig>> {
 	const repoRoot = await ctx.gitGateway.repoRoot(catalogOptions(ctx.runScope));
 	if (!repoRoot.ok) {
 		return {
@@ -296,7 +296,7 @@ export async function loadProjectConfigFromContext(
 		if (isMissingFileError(caught)) {
 			return {
 				ok: true,
-				value: { diff: { exclude: [] }, modelProfiles: DEFAULT_ROASTER_MODEL_PROFILES },
+				value: { diff: { exclude: [] }, modelProfiles: DEFAULT_REVIEWS_MODEL_PROFILES },
 			};
 		}
 		return {
@@ -308,7 +308,7 @@ export async function loadProjectConfigFromContext(
 		};
 	}
 
-	const parsed = parseRoasterProjectConfigToml(source, path);
+	const parsed = parseReviewsProjectConfigToml(source, path);
 	if (!parsed.ok) {
 		return {
 			ok: false,
