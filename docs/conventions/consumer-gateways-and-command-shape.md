@@ -6,7 +6,7 @@ A single canonical provider gateway (the 21-method `GitGateway` at `ts/packages/
 
 ## Domain-first gateway shape
 
-A capability gateway must expose domain operations over domain objects, even when its current real adapter is a thin wrapper over the filesystem, Git, a command, or another external substrate. Do not promote raw substrate primitives such as `readOptionalTextFile`, `listDirectory`, `statPath`, or `writeFile` into a capability-facing gateway just because the first implementation delegates to those calls. The gateway's interface should name what the capability needs: read an installed manifest, discover module artifact declarations, write a managed artifact, resolve a worktree status, load a plan-store entry, etc.
+A capability gateway must expose domain operations over domain objects, even when its current real adapter is a thin wrapper over the filesystem, Git, a command, or another external substrate. Do not promote raw substrate primitives such as `readOptionalTextFile`, `listDirectory`, `statPath`, or `writeFile` into a capability-facing gateway just because the first implementation delegates to those calls. The gateway's interface should name what the capability needs: read an installed manifest, discover module artifact declarations, write a provisioned harness artifact, resolve a worktree status, load a plan-store entry, etc.
 
 Thin substrate helpers may still exist inside a real adapter, fake, or kit gateway implementation, but callers should cross the seam in the capability's vocabulary. If a proposed gateway method could be reused unchanged by an unrelated domain because it is just filesystem or process mechanics, it probably belongs below the capability seam, not on the capability gateway.
 
