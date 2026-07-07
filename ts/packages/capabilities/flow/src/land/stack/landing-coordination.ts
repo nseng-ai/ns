@@ -35,7 +35,6 @@ export interface LandingSession {
 
 interface PreparePlanForMergeOptions {
 	runtime: StackLandingRuntime;
-	landContext: LandContext;
 	session: LandingSession;
 	plan: LandingPlan;
 	preMergeConfirmation?: PreMergeConfirmation;
@@ -57,8 +56,9 @@ export async function preparePlanForMerge(
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtime, landContext, plan } = options;
+	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
+	const { landContext } = runtime;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {

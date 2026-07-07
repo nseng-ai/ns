@@ -29,15 +29,16 @@ export function createStackLandingRuntime(
 ): StackLandingRuntime {
 	const commands = withCommandStreaming(pi, commandStream);
 	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi, commandStream });
+	const gitStateFsEntry = optionalEntry("gitStateFs", options.gitStateFs);
 	const landContext = createLandContext(commands, {
 		graphite,
-		...optionalEntry("gitStateFs", options.gitStateFs),
+		...gitStateFsEntry,
 	});
 	return {
 		source: pi,
 		commands,
 		graphite,
 		landContext,
-		...optionalEntry("gitStateFs", options.gitStateFs),
+		...gitStateFsEntry,
 	};
 }

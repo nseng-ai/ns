@@ -102,7 +102,6 @@ export async function executeStackLanding(
 		commandStream.matrix?.setRows(landMatrixRowsFromPlan(plan.value));
 		return await executeLandingPlan({
 			runtime,
-			landContext: runtime.landContext,
 			parsedArgs,
 			options,
 			session,
