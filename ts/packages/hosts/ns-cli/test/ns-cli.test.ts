@@ -409,19 +409,29 @@ describe("ns CLI host", () => {
 			]),
 		);
 
-		await writeFile(moduleTarget, "local edit\n", "utf8");
+		await writeFile(objectiveTarget, "local edit\n", "utf8");
+		await writeFile(
+			join(projectRoot, ".ns", "extensions", "acme-module", "skills", "module-skill", "SKILL.md"),
+			"# module skill v2\n",
+			"utf8",
+		);
 		const refused = await runNsCliJson(["update"], cwd);
 		const refusedEnvelope = parseJsonOutput(refused);
 		expect(refused.exit).toBe(1);
 		expect(refusedEnvelope).toMatchObject({ status: "negative", exitCode: 1 });
+		expect(dataFromEnvelope(refusedEnvelope)).toMatchObject({ mode: "dry-run", needsForce: true });
 		expect(dataFromEnvelope(refusedEnvelope).artifacts).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ skillName: "module-skill", action: "conflicted" }),
+				expect.objectContaining({ skillName: "module-skill", action: "refreshed" }),
+				expect.objectContaining({ skillName: "objective", action: "conflicted" }),
 			]),
 		);
+		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
+		expect(await readFile(objectiveTarget, "utf8")).toBe("local edit\n");
 
 		const forced = await runNsCliJson(["update", "--force"], cwd);
 		expect(forced.exit).toBe(0);
-		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
+		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill v2\n");
+		expect(await readFile(objectiveTarget, "utf8")).toContain("# objective");
 	});
 });

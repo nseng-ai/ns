@@ -18,7 +18,7 @@ import {
 	buildInstallManifestEntry,
 	buildProvisionPlan,
 	classifyProvisionDecisions,
-	contentHashForText,
+	contentHashForBytes,
 	installManifestKey,
 	type InstallManifestData,
 	type InstallManifestEntryData,
@@ -60,9 +60,16 @@ export interface HarnessArtifactProvisionApplyResult extends HarnessArtifactProv
 }
 
 export interface HarnessArtifactFileSystemGateway {
-	listTextFiles(
+	listFiles(
 		rootPath: string,
 	): Promise<Result<readonly string[], HarnessArtifactFileSystemErrorInfo>>;
+	readOptionalFile(
+		path: string,
+	): Promise<Result<OptionalFileState, HarnessArtifactFileSystemErrorInfo>>;
+	writeFile(
+		path: string,
+		bytes: Uint8Array,
+	): Promise<Result<void, HarnessArtifactFileSystemErrorInfo>>;
 	readOptionalTextFile(
 		path: string,
 	): Promise<Result<OptionalTextFileState, HarnessArtifactFileSystemErrorInfo>>;
@@ -72,6 +79,7 @@ export interface HarnessArtifactFileSystemGateway {
 	): Promise<Result<void, HarnessArtifactFileSystemErrorInfo>>;
 }
 
+export type OptionalFileState = { type: "missing" } | { type: "file"; bytes: Uint8Array };
 export type OptionalTextFileState = { type: "missing" } | { type: "file"; text: string };
 
 export interface HarnessArtifactFileSystemErrorInfo {
@@ -126,11 +134,28 @@ const installManifestSchema: z.ZodType<InstallManifestData> = z.object({
 });
 
 export const nodeHarnessArtifactFileSystemGateway: HarnessArtifactFileSystemGateway = {
-	async listTextFiles(rootPath) {
+	async listFiles(rootPath) {
 		try {
-			return resultOk(await listTextFiles(rootPath));
+			return resultOk(await listFiles(rootPath));
 		} catch (error) {
 			return resultErr(fileSystemError(rootPath, "list", error));
+		}
+	},
+	async readOptionalFile(path) {
+		try {
+			return resultOk({ type: "file", bytes: await readFile(path) });
+		} catch (error) {
+			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
+			return resultErr(fileSystemError(path, "read", error));
+		}
+	},
+	async writeFile(path, bytes) {
+		try {
+			await mkdir(dirname(path), { recursive: true });
+			await writeFile(path, bytes);
+			return resultOk(undefined);
+		} catch (error) {
+			return resultErr(fileSystemError(path, "write", error));
 		}
 	},
 	async readOptionalTextFile(path) {
@@ -188,9 +213,9 @@ export async function applyHarnessArtifactProvision(
 	for (const decision of prepared.value.decisions.files) {
 		if (decision.type === "unchanged") continue;
 		const sourcePath = join(request.sourceRoot, decision.file.sourcePath);
-		const source = await readRequiredTextFile(fs, sourcePath);
+		const source = await readRequiredFile(fs, sourcePath);
 		if (!source.ok) return source;
-		const write = await fs.writeTextFile(decision.file.targetPath, source.value);
+		const write = await fs.writeFile(decision.file.targetPath, source.value);
 		if (!write.ok) return write;
 		writtenFiles.push(decision.file.targetPath);
 	}
@@ -278,28 +303,28 @@ async function collectSourceFiles(input: {
 	sourceRelativePath: string;
 }): Promise<Result<readonly ProvisionSourceFile[], HarnessArtifactProvisionErrorInfo>> {
 	const sourceDirectory = join(input.sourceRoot, input.sourceRelativePath);
-	const relativePaths = await input.fs.listTextFiles(sourceDirectory);
+	const relativePaths = await input.fs.listFiles(sourceDirectory);
 	if (!relativePaths.ok) return relativePaths;
 	const sourceFiles: ProvisionSourceFile[] = [];
 	for (const relativePath of relativePaths.value) {
 		const sourcePath = join(sourceDirectory, relativePath);
-		const source = await readRequiredTextFile(input.fs, sourcePath);
+		const source = await readRequiredFile(input.fs, sourcePath);
 		if (!source.ok) return source;
-		sourceFiles.push({ relativePath, contentHash: contentHashForText(source.value) });
+		sourceFiles.push({ relativePath, contentHash: contentHashForBytes(source.value) });
 	}
 	return resultOk(sourceFiles);
 }
 
-async function readRequiredTextFile(
+async function readRequiredFile(
 	fs: HarnessArtifactFileSystemGateway,
 	path: string,
-): Promise<Result<string, HarnessArtifactProvisionErrorInfo>> {
-	const source = await fs.readOptionalTextFile(path);
+): Promise<Result<Uint8Array, HarnessArtifactProvisionErrorInfo>> {
+	const source = await fs.readOptionalFile(path);
 	if (!source.ok) return source;
 	if (source.value.type === "missing") {
 		return resultErr(fileSystemError(path, "read", new Error("Source file is missing.")));
 	}
-	return resultOk(source.value.text);
+	return resultOk(source.value.bytes);
 }
 
 async function collectTargetHashFacts(input: {
@@ -308,7 +333,7 @@ async function collectTargetHashFacts(input: {
 }): Promise<Result<readonly TargetFileHashFact[], HarnessArtifactProvisionErrorInfo>> {
 	const facts: TargetFileHashFact[] = [];
 	for (const file of input.plan.files) {
-		const target = await input.fs.readOptionalTextFile(file.targetPath);
+		const target = await input.fs.readOptionalFile(file.targetPath);
 		if (!target.ok) return target;
 		if (target.value.type === "missing") {
 			facts.push({ type: "missing", targetPath: file.targetPath });
@@ -316,7 +341,7 @@ async function collectTargetHashFacts(input: {
 			facts.push({
 				type: "file",
 				targetPath: file.targetPath,
-				contentHash: contentHashForText(target.value.text),
+				contentHash: contentHashForBytes(target.value.bytes),
 			});
 		}
 	}
@@ -363,18 +388,18 @@ function updateManifest(manifest: InstallManifestData, plan: ProvisionPlan): Ins
 	return buildInstallManifestData([...entries, nextEntry]);
 }
 
-async function listTextFiles(rootPath: string): Promise<readonly string[]> {
-	return sortStrings(await walkTextFiles(rootPath, ""));
+async function listFiles(rootPath: string): Promise<readonly string[]> {
+	return sortStrings(await walkFiles(rootPath, ""));
 }
 
-async function walkTextFiles(rootPath: string, relativePath: string): Promise<readonly string[]> {
+async function walkFiles(rootPath: string, relativePath: string): Promise<readonly string[]> {
 	const directory = relativePath === "" ? rootPath : join(rootPath, relativePath);
 	const entries = await readdir(directory, { withFileTypes: true });
 	const output: string[] = [];
 	for (const entry of entries) {
 		const entryRelativePath = relativePath === "" ? entry.name : join(relativePath, entry.name);
 		if (entry.isDirectory()) {
-			output.push(...(await walkTextFiles(rootPath, entryRelativePath)));
+			output.push(...(await walkFiles(rootPath, entryRelativePath)));
 		} else if (entry.isFile()) {
 			output.push(entryRelativePath);
 		} else {

@@ -117,6 +117,7 @@ export {
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionPreview,
 	type HarnessArtifactProvisionRequest,
+	type OptionalFileState,
 	type OptionalTextFileState,
 } from "./provision-apply.ts";
 export {
@@ -124,6 +125,7 @@ export {
 	buildInstallManifestEntry,
 	buildProvisionPlan,
 	classifyProvisionDecisions,
+	contentHashForBytes,
 	contentHashForText,
 	installManifestKey,
 	type BuildProvisionPlanInput,

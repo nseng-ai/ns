@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import type { SkillHarnessArtifactEntry } from "../src/artifact-catalog.ts";
 import {
 	applyHarnessArtifactProvision,
+	contentHashForBytes,
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	previewHarnessArtifactProvision,
@@ -28,6 +29,7 @@ const skillArtifact = {
 } as const satisfies SkillHarnessArtifactEntry;
 
 const tempRoots: string[] = [];
+const binaryAssetBytes = Buffer.from([0, 159, 255, 10]);
 
 afterEach(async () => {
 	await Promise.all(tempRoots.map((root) => rm(root, { recursive: true, force: true })));
@@ -44,6 +46,7 @@ describe("harness artifact provision apply", () => {
 		if (!result.ok) return;
 		expect(result.value.writtenFiles).toEqual([
 			join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
+			join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),
 			join(fixture.projectRoot, ".pi/skills/objective-next/references/guide.md"),
 		]);
 		await expect(
@@ -52,6 +55,9 @@ describe("harness artifact provision apply", () => {
 		await expect(
 			readFile(join(fixture.projectRoot, ".pi/skills/objective-next/references/guide.md"), "utf8"),
 		).resolves.toBe("reference guide\n");
+		await expect(
+			readFile(join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin")),
+		).resolves.toEqual(binaryAssetBytes);
 
 		const manifest = await readManifest(
 			join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME),
@@ -79,6 +85,11 @@ describe("harness artifact provision apply", () => {
 							targetPath: join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
 							contentHash: contentHashForText("skill instructions\n"),
 						},
+						"assets/icon.bin": {
+							sourcePath: "skills/objective-next/assets/icon.bin",
+							targetPath: join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),
+							contentHash: contentHashForBytes(binaryAssetBytes),
+						},
 						"references/guide.md": {
 							sourcePath: "skills/objective-next/references/guide.md",
 							targetPath: join(
@@ -105,6 +116,7 @@ describe("harness artifact provision apply", () => {
 		expect(second).toMatchObject({ ok: true });
 		if (!second.ok) return;
 		expect(second.value.decisions.files.map((decision) => decision.type)).toEqual([
+			"unchanged",
 			"unchanged",
 			"unchanged",
 		]);
@@ -148,9 +160,11 @@ describe("harness artifact provision apply", () => {
 		expect(result.value.decisions.files.map((decision) => decision.type)).toEqual([
 			"locally-edited-conflict",
 			"fresh-write",
+			"fresh-write",
 		]);
 		expect(result.value.writtenFiles).toEqual([
 			targetSkill,
+			join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),
 			join(fixture.projectRoot, ".pi/skills/objective-next/references/guide.md"),
 		]);
 		await expect(readFile(targetSkill, "utf8")).resolves.toBe("skill instructions\n");
@@ -166,22 +180,40 @@ describe("harness artifact provision apply", () => {
 		const fixture = await createFixture();
 		const sourceSkill = join(fixture.sourceRoot, "skills/objective-next/SKILL.md");
 		const sourceGuide = join(fixture.sourceRoot, "skills/objective-next/references/guide.md");
-		const writtenFiles = new Map<string, string>();
+		const sourceIcon = join(fixture.sourceRoot, "skills/objective-next/assets/icon.bin");
+		const textEncoder = new TextEncoder();
+		const textDecoder = new TextDecoder();
+		const writtenFiles = new Map<string, Uint8Array>();
 		const fakeFs: HarnessArtifactFileSystemGateway = {
-			async listTextFiles(rootPath) {
+			async listFiles(rootPath) {
 				expect(rootPath).toBe(join(fixture.sourceRoot, "skills/objective-next"));
-				return { ok: true, value: ["SKILL.md", "references/guide.md"] };
+				return { ok: true, value: ["SKILL.md", "assets/icon.bin", "references/guide.md"] };
 			},
-			async readOptionalTextFile(path) {
-				if (path === sourceSkill) return { ok: true, value: { type: "file", text: "skill\n" } };
-				if (path === sourceGuide) return { ok: true, value: { type: "file", text: "guide\n" } };
-				if (writtenFiles.has(path)) {
-					return { ok: true, value: { type: "file", text: writtenFiles.get(path)! } };
+			async readOptionalFile(path) {
+				if (path === sourceSkill) {
+					return { ok: true, value: { type: "file", bytes: textEncoder.encode("skill\n") } };
 				}
+				if (path === sourceGuide) {
+					return { ok: true, value: { type: "file", bytes: textEncoder.encode("guide\n") } };
+				}
+				if (path === sourceIcon) {
+					return { ok: true, value: { type: "file", bytes: Uint8Array.from(binaryAssetBytes) } };
+				}
+				const bytes = writtenFiles.get(path);
+				if (bytes !== undefined) return { ok: true, value: { type: "file", bytes } };
 				return { ok: true, value: { type: "missing" } };
 			},
+			async writeFile(path, bytes) {
+				writtenFiles.set(path, bytes);
+				return { ok: true, value: undefined };
+			},
+			async readOptionalTextFile(path) {
+				const bytes = writtenFiles.get(path);
+				if (bytes === undefined) return { ok: true, value: { type: "missing" } };
+				return { ok: true, value: { type: "file", text: textDecoder.decode(bytes) } };
+			},
 			async writeTextFile(path, text) {
-				writtenFiles.set(path, text);
+				writtenFiles.set(path, textEncoder.encode(text));
 				return { ok: true, value: undefined };
 			},
 		};
@@ -192,13 +224,19 @@ describe("harness artifact provision apply", () => {
 		if (!result.ok) return;
 		expect(result.value.writtenFiles).toEqual([
 			join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
+			join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),
 			join(fixture.projectRoot, ".pi/skills/objective-next/references/guide.md"),
 		]);
-		expect(writtenFiles.get(join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"))).toBe(
-			"skill\n",
-		);
 		expect(
-			writtenFiles.get(join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME)),
+			writtenFiles.get(join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md")),
+		).toEqual(textEncoder.encode("skill\n"));
+		expect(
+			writtenFiles.get(join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin")),
+		).toEqual(Uint8Array.from(binaryAssetBytes));
+		expect(
+			textDecoder.decode(
+				writtenFiles.get(join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME)),
+			),
 		).toContain("pi:project:skill:objective-next-skill");
 	});
 
@@ -211,6 +249,7 @@ describe("harness artifact provision apply", () => {
 		if (!result.ok) return;
 		expect(result.value.plan.targetRoot).toBe(join(fixture.projectRoot, ".pi/skills"));
 		expect(result.value.decisions.files.map((decision) => decision.type)).toEqual([
+			"fresh-write",
 			"fresh-write",
 			"fresh-write",
 		]);
@@ -233,6 +272,10 @@ async function createFixture() {
 	await writeTextFile(
 		join(sourceRoot, "skills/objective-next/references/guide.md"),
 		"reference guide\n",
+	);
+	await writeBinaryFile(
+		join(sourceRoot, "skills/objective-next/assets/icon.bin"),
+		binaryAssetBytes,
 	);
 	return {
 		sourceRoot,
@@ -258,4 +301,9 @@ async function readManifest(path: string): Promise<InstallManifestData> {
 async function writeTextFile(path: string, text: string): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, text, "utf8");
+}
+
+async function writeBinaryFile(path: string, bytes: Uint8Array): Promise<void> {
+	await mkdir(dirname(path), { recursive: true });
+	await writeFile(path, bytes);
 }
