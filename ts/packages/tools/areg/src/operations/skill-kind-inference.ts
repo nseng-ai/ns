@@ -2,7 +2,10 @@ import { err, type Result } from "@nseng-ai/foundation/result";
 
 import type { AregSkillKindSkillInspection } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
-import { parseSkillFrontmatterBlock, type SkillFrontmatterData } from "./frontmatter.ts";
+import {
+	parseSkillFrontmatterBlock,
+	type SkillFrontmatterData,
+} from "@nseng-ai/harness-artifacts/api";
 import {
 	formatReplacementLabel,
 	replacementAdvice,

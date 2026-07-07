@@ -1,6 +1,6 @@
 import type { Result } from "@nseng-ai/foundation/result";
 
-import { transformSkillFrontmatter } from "./frontmatter.ts";
+import { transformSkillFrontmatter } from "@nseng-ai/harness-artifacts/api";
 import {
 	DISABLE_MODEL_INVOCATION_KEY,
 	KIND_PROPERTIES,

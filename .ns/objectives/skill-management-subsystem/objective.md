@@ -73,8 +73,7 @@ Risks:
 
 ## Open Questions
 
-- Final package name: leading candidate `@nseng-ai/harness-artifacts`; confirm before the package lands.
-- First harness set: current lean is `pi` + `claude-code` first, with the table shape making further harnesses (cursor, codex, opencode, windsurf, gemini) pure data additions; confirm.
+- First harness set is decided: `pi` + `claude-code` + `codex` (matching `@nseng-ai/ns-init`'s `HarnessId` union), with the table shape making further harnesses (cursor, opencode, windsurf, gemini) pure data additions.
 - How AREG's `skills-lock.json` and the new install manifest converge on one hash/record format so `areg check`/`doctor` can verify installs made by the casual path.
 - Where the `ns update` command surface lives: this Objective ships the reconcile primitive; the update command is broader extension-lifecycle work and may belong to the kernel/extension-lifecycle area.
 - Whether `ns skills` needs a plan subcommand or an `install --dry-run`, per local CLI conventions.

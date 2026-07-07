@@ -1,9 +1,9 @@
 import type { AregCliContext } from "../context.ts";
-import type { AregPathState } from "../gateways.ts";
+import type { PathState } from "../gateways.ts";
 
 export interface ProjectPathInspection {
 	projectDir: string;
-	projectPathState: AregPathState;
+	projectPathState: PathState;
 }
 
 export type ResolvedProjectGitRoot<TInspection extends ProjectPathInspection> =

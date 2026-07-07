@@ -13,7 +13,7 @@ import {
 	claudeSkillMirrorRelativePath,
 	expectedAgentsSkillSymlinkTarget,
 	expectedClaudeSkillSymlinkTarget,
-} from "./skill-mirror-conventions.ts";
+} from "@nseng-ai/harness-artifacts/api";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import {
 	PROJECT_FILE_MUTATION_OPERATION_TYPES,

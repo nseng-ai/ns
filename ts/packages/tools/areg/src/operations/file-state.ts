@@ -1,10 +1,10 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, type Result } from "@nseng-ai/foundation/result";
 
-import type { AregPathState, AregTextFileState } from "../gateways.ts";
+import type { PathState, TextFileState } from "../gateways.ts";
 
-type NonUsableTextFileState = Exclude<AregTextFileState, { type: "file" } | { type: "missing" }>;
-type NonUsableDirectoryState = Exclude<AregPathState, { type: "directory" } | { type: "missing" }>;
+type NonUsableTextFileState = Exclude<TextFileState, { type: "file" } | { type: "missing" }>;
+type NonUsableDirectoryState = Exclude<PathState, { type: "directory" } | { type: "missing" }>;
 
 export function isPathStateError(error: { code: string }): boolean {
 	return (
@@ -16,7 +16,7 @@ export function isPathStateError(error: { code: string }): boolean {
 
 export function validateOptionalDirectoryState(options: {
 	pathLabel: string;
-	state: AregPathState;
+	state: PathState;
 	action: string;
 	symlinkSubject?: string;
 }): Result<undefined> {

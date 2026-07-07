@@ -2,8 +2,8 @@ import { formatErrorMessage, formatZodIssue, optionalEntry } from "@nseng-ai/fou
 import { resultErr, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
-import type { AregTextFileState } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
+import type { TextFileState } from "./fs-state.ts";
+import { sortStrings } from "./sort.ts";
 
 export const SOURCE_TYPES = ["local", "github", "git", "gitlab"] as const;
 
@@ -92,7 +92,7 @@ export function parseLockfileText(text: string): Result<SkillsLockfile> {
 
 export function parseInspectedLockfile(input: {
 	projectDir: string;
-	lockfile: AregTextFileState;
+	lockfile: TextFileState;
 }): Result<SkillsLockfile> {
 	if (input.lockfile.type !== "file")
 		return resultErr({

@@ -7,13 +7,13 @@ import { missingCheckSkillInspection } from "../gateways.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { isPathStateError } from "./file-state.ts";
-import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
+import { parseSkillFrontmatterBlock } from "@nseng-ai/harness-artifacts/api";
 import {
 	parseInspectedLockfile,
 	parseLockfileData,
 	type LockfileSkill,
 	type SkillsLockfile,
-} from "./lockfile.ts";
+} from "@nseng-ai/harness-artifacts/api";
 import { verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
 import {
@@ -21,7 +21,7 @@ import {
 	expectedClaudeSkillSymlinkTarget,
 	isAgentsSkillMirror,
 	isClaudeSkillMirror,
-} from "./skill-mirror-conventions.ts";
+} from "@nseng-ai/harness-artifacts/api";
 import {
 	inferSkillKindRecord,
 	inspectSkillFrontmatter,

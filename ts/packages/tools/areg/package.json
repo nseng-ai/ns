@@ -20,6 +20,7 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/command-backed-skill-registry": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/harness-artifacts": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"zod": "catalog:"
 	},

@@ -3,32 +3,32 @@ import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	AregInstructionFilesInspection,
-	AregPathState,
+	PathState,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
-	AregTextFileState,
+	TextFileState,
 } from "../gateways.ts";
 import { uniqueSortedStrings } from "../sort.ts";
-import { parseInspectedLockfile } from "./lockfile.ts";
+import { parseInspectedLockfile } from "@nseng-ai/harness-artifacts/api";
 
 export interface AregProjectInspectionFacts extends AregProjectBaseInspection {
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
+	piDir: PathState;
+	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
 	skillInventory: AregSkillNameInventory;
 }
 
 export interface AregCheckProjectInspection {
 	projectDir: string;
-	projectPathState: AregPathState;
-	lockfile: AregTextFileState;
+	projectPathState: PathState;
+	lockfile: TextFileState;
 	skillsDirectoryNames: readonly string[];
 	agentsSkillNames: readonly string[];
 	excludedSkillNames: readonly string[];
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
+	piDir: PathState;
+	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
 	skills: readonly AregCheckSkillInspection[];
 	pairingDirectories: readonly AregCheckPairingDirectory[];
@@ -36,9 +36,9 @@ export interface AregCheckProjectInspection {
 
 export interface AregSkillKindProjectInspection {
 	projectDir: string;
-	projectPathState: AregPathState;
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
+	projectPathState: PathState;
+	piDir: PathState;
+	piSettings: TextFileState;
 	replacement: AregReplacementInspection;
 	skills: readonly AregSkillKindSkillInspection[];
 }

@@ -1,7 +1,7 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { err, type Result } from "@nseng-ai/foundation/result";
 
-import type { AregPathState, AregTextFileState } from "../gateways.ts";
+import type { PathState, TextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 
 export interface PiSettingsData {
@@ -12,10 +12,7 @@ export interface PiSettingsData {
 
 export type ParsePiSettingsResult = Result<PiSettingsData>;
 
-export function parsePiSettings(
-	piDir: AregPathState,
-	settings: AregTextFileState,
-): ParsePiSettingsResult {
+export function parsePiSettings(piDir: PathState, settings: TextFileState): ParsePiSettingsResult {
 	const piDirectory = validateOptionalDirectoryState({
 		pathLabel: ".pi",
 		state: piDir,

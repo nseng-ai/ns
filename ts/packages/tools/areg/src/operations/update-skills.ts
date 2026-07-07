@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregErrorInfo, AregGithubSkillFileResult } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
-import { parseInspectedLockfile, type LockfileSkill } from "./lockfile.ts";
+import { parseInspectedLockfile, type LockfileSkill } from "@nseng-ai/harness-artifacts/api";
 import { resolveProjectAgents } from "./project-agents.ts";
 
 const updateStatusSchema = z.enum(["planned", "updated", "failed"]);

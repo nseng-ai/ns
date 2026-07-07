@@ -3,11 +3,11 @@ import path from "node:path";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
-import type { AregErrorInfo, AregProjectMutationPolicy, AregTextFileState } from "../gateways.ts";
+import type { AregErrorInfo, AregProjectMutationPolicy, TextFileState } from "../gateways.ts";
 import {
 	classifySkillMirrorSymlinkState,
 	expectedMirrorTarget,
-} from "../operations/skill-mirror-conventions.ts";
+} from "@nseng-ai/harness-artifacts/api";
 import { errorInfo } from "./errors.ts";
 import { inspectPath, isPathAtOrBelow } from "./fs-utils.ts";
 import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
@@ -35,7 +35,7 @@ interface ValidateTextWriteTargetOptions {
 
 type WriteTargetValidationResult = { ok: true } | { ok: false; error: AregErrorInfo };
 
-export async function inspectTextFile(candidate: string): Promise<AregTextFileState> {
+export async function inspectTextFile(candidate: string): Promise<TextFileState> {
 	const pathState = await inspectPath(candidate);
 	if (
 		pathState.type === "missing" ||

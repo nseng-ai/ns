@@ -13,7 +13,7 @@ export type {
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
 	AregOperationResult,
-	AregPathState,
+	PathState,
 	AregProjectBaseInspection,
 	AregProjectDirRequest,
 	AregProjectGateway,
@@ -33,7 +33,7 @@ export type {
 	AregSkillxWorkspaceCleanupRequest,
 	AregSkillxWorkspaceGateway,
 	AregSkillxWorkspaceInstall,
-	AregTextFileState,
+	TextFileState,
 	AregToolCheckResult,
 } from "./gateways.ts";
 export { parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
