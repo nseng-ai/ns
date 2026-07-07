@@ -25,7 +25,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { FALLBACK_TIER, label, TIER_RANK, TIERS } from "./tiers.mjs";
 import { synthesizeSpec } from "./synthesize-spec.mjs";
@@ -112,6 +112,12 @@ function assembleLinks(edgeGraph, cycleFacts) {
   return links;
 }
 
+function relativePathForDisplay(path) {
+  const fromCwd = relative(process.cwd(), resolve(path));
+  const displayPath = fromCwd === "" ? "." : fromCwd;
+  return displayPath.split("\\").join("/");
+}
+
 function assemblePackageGraph(analysis, tierOverrides = {}) {
   const ids = Object.keys(analysis.packages).sort();
   const { fanOut, fanIn } = fanCounts(analysis.graph, ids);
@@ -132,6 +138,7 @@ function assemblePackageGraph(analysis, tierOverrides = {}) {
       loc: pkg.loc ?? 0,
       tier,
       path: pkg.path,
+      filesystemPath: relativePathForDisplay(pkg.path),
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
       subpackageCount: subpackageCounts.get(id) || 0,
@@ -161,6 +168,7 @@ function assembleCircleGraph(analysis, tierOverrides = {}) {
       component: fact.component,
       isRoot: fact.component === ".",
       path: fact.path,
+      filesystemPath: relativePathForDisplay(fact.path),
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
       fill: colors[fact.packageName].fill,
@@ -263,6 +271,36 @@ function GRAPH_RENDERER() {
       .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
       .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
       .on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; });
+  }
+  function escapeHtml(text) {
+    return String(text ?? "").replace(/[&<>]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[char]));
+  }
+  function copyTextToClipboard(text) {
+    if (!text) return;
+    const fallbackCopy = () => {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand("copy"); } finally { textarea.remove(); }
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+    showCopyToast(text);
+  }
+  function showCopyToast(text) {
+    const toast = document.getElementById("copy-toast");
+    if (!toast) return;
+    toast.textContent = "Copied " + text;
+    toast.classList.remove("hidden");
+    window.clearTimeout(showCopyToast.timeoutId);
+    showCopyToast.timeoutId = window.setTimeout(() => toast.classList.add("hidden"), 1600);
   }
   function build(viewKey) {
     view = viewKey;
@@ -415,17 +453,22 @@ function GRAPH_RENDERER() {
       const who = viewKey === "package"
         ? `<div class="text-slate-300">tier ${TIERS[d.tier].name}${sub}</div>`
         : `<div class="text-slate-300">package <span class="font-mono">${d.packageName}</span> · tier ${TIERS[d.tier].name}</div>`;
-      const zoomHint = zoomTarget(d)
-        ? `<div class="text-slate-400 mt-1 italic">click to zoom into ${viewKey === "package" ? `${d.subpackageCount + 1} circles` : `<span class="font-mono">${d.packageName}</span>`}</div>`
+      const pathLine = d.filesystemPath
+        ? `<div class="mt-2 rounded bg-slate-800 px-2 py-1 font-mono text-[11px] text-slate-200">${escapeHtml(d.filesystemPath)}</div>`
         : "";
-      return `<div class="font-semibold">${d.id}</div>${who}<div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>${zoomHint}`;
+      const clickHint = zoomTarget(d)
+        ? `click to copy path and zoom into ${viewKey === "package" ? `${d.subpackageCount + 1} circles` : `<span class="font-mono">${d.packageName}</span>`}`
+        : "click to copy path";
+      return `<div class="font-semibold">${d.id}</div>${who}<div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>${pathLine}<div class="text-slate-400 mt-1 italic">${clickHint}</div>`;
     };
     // zoom targets: a package node with subpackages, or (in the all-circles
     // view) any circle — clicking isolates its enclosing package's circles.
     const zoomTarget = (d) => DATA.circle
       && (viewKey === "package" ? d.subpackageCount > 0 : !focusPkg);
     nodeG.on("click", (e, d) => {
-      if (e.defaultPrevented || !zoomTarget(d)) return; // drags suppress clicks
+      if (e.defaultPrevented) return; // drags suppress clicks
+      copyTextToClipboard(d.filesystemPath);
+      if (!zoomTarget(d)) return;
       focusPkg = viewKey === "package" ? d.id : d.packageName;
       build("circle");
     });
@@ -555,7 +598,8 @@ function renderGraphSection(s, graphData) {
     </div>
     <div class="relative rounded-lg border border-slate-200 bg-white">
       <svg id="depgraph" class="w-full" style="height:820px; display:block; cursor:grab;"></svg>
-      <div id="g-tip" class="pointer-events-none absolute hidden rounded-md bg-slate-900/95 text-slate-100 text-xs px-3 py-2 shadow-lg leading-relaxed" style="max-width:260px"></div>
+      <div id="g-tip" class="pointer-events-none absolute hidden rounded-md bg-slate-900/95 text-slate-100 text-xs px-3 py-2 shadow-lg leading-relaxed" style="max-width:320px"></div>
+      <div id="copy-toast" class="pointer-events-none absolute top-3 right-3 hidden rounded-md bg-slate-900/90 px-3 py-2 text-xs text-white shadow-lg"></div>
       <div class="absolute bottom-3 right-3 flex items-end gap-3 text-[10px] text-slate-400 bg-white/80 rounded px-3 py-2">
         <span class="uppercase tracking-wider">area ∝ LOC</span>
         <svg width="92" height="46"><circle cx="14" cy="34" r="6" fill="none" stroke="#94a3b8"/><circle cx="42" cy="28" r="12" fill="none" stroke="#94a3b8"/><circle cx="76" cy="22" r="22" fill="none" stroke="#94a3b8"/></svg>
