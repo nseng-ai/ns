@@ -22,8 +22,8 @@ import type { LandingWarning, MergeLoopState } from "./types.ts";
 import { formatConflict, slotNameFromPath } from "./worktrees.ts";
 
 export interface GraphiteMaintenanceProgress {
-	readonly note?: (message: string) => void;
-	readonly setStatus?: (message: string) => void;
+	readonly note: (message: string) => void;
+	readonly setStatus: (message: string) => void;
 }
 
 interface GraphiteMaintenanceStep {
@@ -396,11 +396,11 @@ export async function performGraphiteMaintenance(
 		if (refreshExpected) return refreshExpected;
 
 		if (submitCheck.kind === "skip-submit") {
-			progress.note?.(`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`);
+			progress.note(`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`);
 			continue;
 		}
 
-		progress.setStatus?.(`submitting ${maintenanceBranch}...`);
+		progress.setStatus(`submitting ${maintenanceBranch}...`);
 		const submittedControl = postDeleteRecorder.apply(
 			await submitMaintenanceBranch(branchOperationContext),
 			maintenanceBranch,
@@ -479,8 +479,8 @@ async function refreshMaintenanceBranch(
 		landedBranch,
 		maintenance,
 	} = options;
-	progress.note?.(`Refreshing stack through ${maintenanceBranch}...`);
-	progress.setStatus?.(`refreshing stack through ${maintenanceBranch}...`);
+	progress.note(`Refreshing stack through ${maintenanceBranch}...`);
+	progress.setStatus(`refreshing stack through ${maintenanceBranch}...`);
 	const refresh = await landContext.graphite.refreshBranchFromRemote({
 		repoRoot,
 		branch: maintenanceBranch,
@@ -501,7 +501,7 @@ async function refreshMaintenanceBranch(
 	}
 
 	if (refresh.type === "checkout-conflict") {
-		progress.note?.(
+		progress.note(
 			`Deferred optional descendant maintenance for ${maintenanceBranch} because ${formatCheckedOutElsewhere(refresh)}.\nRun ${refresh.commandDisplay} manually when that worktree is free.`,
 		);
 		return {
@@ -620,8 +620,8 @@ async function deleteLocalGraphiteBranchAfterLanding(
 		progress,
 		maintenance,
 	} = options;
-	progress.note?.(`Cleaning up local branch ${branch}...`);
-	progress.setStatus?.(`deleting local Graphite branch ${branch}...`);
+	progress.note(`Cleaning up local branch ${branch}...`);
+	progress.setStatus(`deleting local Graphite branch ${branch}...`);
 	const deletion = await landContext.graphite.deleteLocalBranch({
 		repoRoot,
 		branch,
@@ -654,7 +654,7 @@ async function restackMaintenanceBranch(
 	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
 	const { landContext, progress, repoRoot, prNumber, maintenanceBranch, maintenance } = options;
-	progress.setStatus?.(`restacking ${maintenanceBranch}...`);
+	progress.setStatus(`restacking ${maintenanceBranch}...`);
 	const restacked = await landContext.graphite.restack({
 		repoRoot,
 		branch: maintenanceBranch,
