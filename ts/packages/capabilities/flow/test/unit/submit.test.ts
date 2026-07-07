@@ -819,8 +819,6 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 
 	setPendingCells(): void {}
 
-	setAllOtherCells(): void {}
-
 	applyGlobalPhaseEvent(): void {}
 
 	applyPrLinks(): void {}

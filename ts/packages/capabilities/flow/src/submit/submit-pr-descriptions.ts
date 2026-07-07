@@ -138,12 +138,12 @@ export async function generateSubmitPrDescriptions(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
-		const progressMessage = prProgressMessageForResult(result);
+		const progress = prProgressForResult(result);
 		input.onPrProgress?.({
 			prNumber: number,
 			branch: viewed.value.headRefName,
-			state: prProgressStateForResult(result),
-			...(progressMessage === undefined ? {} : { message: progressMessage }),
+			state: progress.state,
+			...(progress.message === undefined ? {} : { message: progress.message }),
 		});
 		accumulator = collectPrDescriptionResult({
 			result,
@@ -178,33 +178,21 @@ function createPrDescriptionAccumulator(): PrDescriptionAccumulator {
 	};
 }
 
-function prProgressStateForResult(
-	result: PrDescriptionOrchestrationResult,
-): SubmitPrDescriptionProgressEvent["state"] {
+function prProgressForResult(result: PrDescriptionOrchestrationResult): {
+	state: SubmitPrDescriptionProgressEvent["state"];
+	message?: string;
+} {
 	switch (result.type) {
 		case "skipped":
-			return "skipped";
+			return { state: "skipped", message: "skipped (unchanged)" };
 		case "matched_prewritten":
+			return { state: "done", message: "prewritten" };
 		case "updated":
+			return { state: "done", message: "updated" };
 		case "generated":
-			return "done";
+			return { state: "done", message: "generated" };
 		case "failed":
-			return "failed";
-	}
-}
-
-function prProgressMessageForResult(result: PrDescriptionOrchestrationResult): string | undefined {
-	switch (result.type) {
-		case "skipped":
-			return "skipped (unchanged)";
-		case "matched_prewritten":
-			return "prewritten";
-		case "updated":
-			return "updated";
-		case "generated":
-			return "generated";
-		case "failed":
-			return firstNonEmptyLine(result.reason) ?? "description failed";
+			return { state: "failed", message: firstNonEmptyLine(result.reason) ?? "description failed" };
 	}
 }
 

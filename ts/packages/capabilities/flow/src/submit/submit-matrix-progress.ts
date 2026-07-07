@@ -77,11 +77,6 @@ export interface SubmitMatrixProgressSink {
 	): void;
 	setAllCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
 	setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
-	setAllOtherCells(
-		column: SubmitMatrixColumnKey,
-		branch: string,
-		update: SubmitMatrixCellUpdate,
-	): void;
 	applyGlobalPhaseEvent(key: SubmitMatrixGlobalKey, event: NsProgressPhaseEvent): void;
 	applyPrLinks(prLinks: readonly SubmitPrLink[]): void;
 }
@@ -248,10 +243,9 @@ export function createSubmitMatrixProgressController(options: {
 		update: SubmitMatrixCellUpdate,
 	): void {
 		controller.updateRows((rows) => {
-			const row = rows.filter(isSubmitMatrixRowView).find((item) => {
-				const number = item.pr === undefined ? undefined : prNumberFromLink(item.pr);
-				return number === String(prNumber);
-			});
+			const row = rows
+				.filter(isSubmitMatrixRowView)
+				.find((item) => prNumberForRow(item) === String(prNumber));
 			if (row === undefined) return;
 			row.cells[column] = update;
 		});
@@ -276,7 +270,6 @@ export function createSubmitMatrixProgressController(options: {
 		setCellByPrNumber,
 		setAllCells: controller.setAllCells,
 		setPendingCells,
-		setAllOtherCells: controller.setAllOtherCells,
 		applyGlobalPhaseEvent,
 		applyPrLinks,
 		note: controller.note,
@@ -291,7 +284,7 @@ export function applyPrLinksToRows(
 ): void {
 	const existingNumbers = new Set(
 		rows.flatMap((row) => {
-			const number = row.pr === undefined ? undefined : prNumberFromLink(row.pr);
+			const number = prNumberForRow(row);
 			return number === undefined ? [] : [number];
 		}),
 	);
@@ -334,6 +327,10 @@ function isSubmitMatrixRowView(
 	row: MatrixRowView<SubmitMatrixColumnKey>,
 ): row is MatrixRowView<SubmitMatrixColumnKey> & SubmitMatrixRowView {
 	return "branch" in row && typeof row.branch === "string" && "kind" in row;
+}
+
+function prNumberForRow(row: SubmitMatrixRowView): string | undefined {
+	return row.pr === undefined ? undefined : prNumberFromLink(row.pr);
 }
 
 function checkpointCommandsForPhase(phaseKey: string): readonly string[] {
