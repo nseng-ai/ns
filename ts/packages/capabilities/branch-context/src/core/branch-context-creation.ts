@@ -26,7 +26,6 @@ export interface CreateBranchContextFromFileParams {
 	slug: string;
 	filePath: string;
 	branchName?: string;
-	branchSelection?: BranchContextBranchSelection;
 	branchCreation?: BranchCreationMethod;
 	summary?: string;
 }
@@ -102,17 +101,14 @@ export async function createBranchContextFromFile(
 	const operation = buildBranchContextCreateOperation(params);
 	const { git, brmem, graphite } = options.context;
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
-	const selectedOperation =
-		params.branchSelection === undefined
-			? await selectBranchContextCreateOperationTarget({
-					cwd: options.cwd,
-					operation,
-					git,
-					brmem,
-					isExplicitTargetBranch: params.branchName !== undefined,
-					...optionalEntry("signal", options.signal),
-				})
-			: withBranchSelection(operation, params.branchSelection);
+	const selectedOperation = await selectBranchContextCreateOperationTarget({
+		cwd: options.cwd,
+		operation,
+		git,
+		brmem,
+		isExplicitTargetBranch: params.branchName !== undefined,
+		...optionalEntry("signal", options.signal),
+	});
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
 		rawFilePath: selectedOperation.filePath,
@@ -188,9 +184,6 @@ export function buildBranchContextCreateOperation(
 	};
 	if (branch !== slug) {
 		operationParams.branchName = branch;
-	}
-	if (params.branchSelection !== undefined) {
-		operationParams.branchSelection = params.branchSelection;
 	}
 	if (summary !== undefined) {
 		operationParams.summary = summary;
@@ -457,11 +450,7 @@ function withBranchSelection(
 	branchSelection: BranchContextBranchSelection,
 ): BranchContextCreateOperation {
 	const branch = branchSelection.selectedBranch;
-	const params: CreateBranchContextFromFileParams = {
-		...operation.params,
-		...(branch === operation.slug ? {} : { branchName: branch }),
-	};
-	return { ...operation, branch, params, branchSelection };
+	return { ...operation, branch, branchSelection };
 }
 
 export function formatBranchSelectionLines(

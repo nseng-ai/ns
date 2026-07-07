@@ -20,7 +20,9 @@ import {
 	REPO_ROOT,
 	ROOT,
 	TARGET_BRANCH,
+	FakePi,
 	contentSlugEvidence,
+	isDefaultBranchAvailabilityProbe,
 } from "./branch-context-extension-support.ts";
 
 function expectBranchCreationPolicyPrecedence(text: string): void {
@@ -40,6 +42,17 @@ function expectBranchCreationPolicyPrecedence(text: string): void {
 	expect(wrapperIndex).toBeLessThan(repoPolicyIndex);
 	expect(repoPolicyIndex).toBeLessThan(portableDefaultIndex);
 }
+
+describe("FakePi exec recording", () => {
+	test("records defaulted branch availability probes", async () => {
+		const pi = new FakePi();
+
+		await pi.exec("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`]);
+
+		expect(pi.execCalls).toHaveLength(1);
+		expect(isDefaultBranchAvailabilityProbe(pi.execCalls[0]!)).toBe(true);
+	});
+});
 
 describe("branch-context from-plan policy docs", () => {
 	test("direct skill invocation honors repo Graphite policy precedence", async () => {
