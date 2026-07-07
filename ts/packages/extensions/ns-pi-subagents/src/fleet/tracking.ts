@@ -1,12 +1,10 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
-
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
-import { syncSubagentFleetDisplay } from "./display.ts";
+import { syncSubagentFleetDisplay, type SubagentFleetDisplayContext } from "./display.ts";
 
 export interface SubagentFleetRunTracking {
 	markRunning(index: number): void;
@@ -17,7 +15,7 @@ export interface SubagentFleetRunTracking {
 
 export function trackSubagentFleetRun(input: {
 	registry: SubagentFleetRegistry;
-	ctx: ToolContext;
+	ctx: SubagentFleetDisplayContext;
 	tasks: readonly SubagentFleetTaskInput[];
 	parentSessionFile: string | undefined;
 }): SubagentFleetRunTracking {

@@ -1,6 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import { SubagentFleetRegistry } from "./fleet/registry.ts";
+import { getOrCreateSubagentFleetRegistry } from "./fleet/provider.ts";
 import {
 	registerDispatchRunnerSubagentTool,
 	type DispatchRunnerSubagentExtensionAPI,
@@ -34,7 +34,7 @@ export default function nsPiSubagentsExtension(
 	pi: NsPiSubagentsExtensionAPI,
 	options: NsPiSubagentsExtensionOptions = {},
 ): void {
-	const fleetRegistry = new SubagentFleetRegistry();
+	const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
 	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,

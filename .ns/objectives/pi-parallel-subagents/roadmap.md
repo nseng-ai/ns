@@ -133,4 +133,7 @@
 - Shared higher-level parallel subagent orchestration for explore + thermo-council is
   intentionally parked. Reassess only if a future third caller demonstrates a neutral
   scheduler/progress abstraction that preserves capability-specific result contracts,
-  recovery, and reporting without coupling the tools together.
+  recovery, and reporting without coupling the tools together. Monitoring/runtime
+  integration is no longer parked: thermo-council now uses the generic agents fleet and
+  runtime seam through `@nseng-ai/ns-pi-subagents/api` while keeping orchestration local
+  (see `updates/2026-07-06-council-monitoring-consolidation.md`).

@@ -9,12 +9,12 @@ import {
 	type ValidateGeneratedTextResult,
 } from "@nseng-ai/capability-kit/text-repair";
 import {
+	createSubprocessSubagentRuntime,
 	extractRunnerSubagentToolCallPayloadsFromSessionJsonl,
-	dispatchRunnerSubagent,
 	resultDiagnostic,
-	type JsonObject,
 	type RunnerSubagentResult,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+	type SubagentRuntime,
+} from "@nseng-ai/ns-pi-subagents/api";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 
 import {
@@ -33,6 +33,7 @@ import {
 interface ReviewerRecoveryContext {
 	readonly pi: ThermoCouncilExtensionAPI;
 	readonly ctx: ThermoCouncilCommandContext;
+	readonly runtime?: SubagentRuntime;
 }
 
 interface ReviewParseRecovery {
@@ -41,7 +42,7 @@ interface ReviewParseRecovery {
 
 export async function reviewerOutcomeFromRunnerResult(
 	seat: ThermoCouncilSeatConfig,
-	result: RunnerSubagentResult<JsonObject>,
+	result: RunnerSubagentResult,
 	recoveryContext?: ReviewerRecoveryContext,
 ): Promise<ThermoCouncilReviewerOutcome> {
 	if (result.status === "completed") {
@@ -112,7 +113,7 @@ function failedOutcome(
 	};
 }
 
-function reviewerFailureDiagnostic(result: RunnerSubagentResult<JsonObject>): string {
+function reviewerFailureDiagnostic(result: RunnerSubagentResult): string {
 	const diagnostic =
 		result.status === "final-text"
 			? "Reviewer returned final text instead of terminal capture."
@@ -120,17 +121,14 @@ function reviewerFailureDiagnostic(result: RunnerSubagentResult<JsonObject>): st
 	return appendRunnerResultContext(diagnostic, result);
 }
 
-function appendRunnerResultContext(
-	diagnostic: string,
-	result: RunnerSubagentResult<JsonObject>,
-): string {
+function appendRunnerResultContext(diagnostic: string, result: RunnerSubagentResult): string {
 	const details = runnerResultDiagnosticDetails(result);
 	if (details.length === 0) return diagnostic;
 	const sentence = diagnostic.endsWith(".") ? diagnostic.slice(0, -1) : diagnostic;
 	return `${sentence} (${details.join("; ")}).`;
 }
 
-function runnerResultDiagnosticDetails(result: RunnerSubagentResult<JsonObject>): string[] {
+function runnerResultDiagnosticDetails(result: RunnerSubagentResult): string[] {
 	return [
 		`status: ${result.status}`,
 		...runnerStopReasonDetail(result),
@@ -139,16 +137,16 @@ function runnerResultDiagnosticDetails(result: RunnerSubagentResult<JsonObject>)
 	];
 }
 
-function runnerStopReasonDetail(result: RunnerSubagentResult<JsonObject>): string[] {
+function runnerStopReasonDetail(result: RunnerSubagentResult): string[] {
 	if (!("stopReason" in result) || result.stopReason === undefined) return [];
 	return [`stopReason: ${result.stopReason}`];
 }
 
-function runnerProgressDetails(result: RunnerSubagentResult<JsonObject>): string[] {
+function runnerProgressDetails(result: RunnerSubagentResult): string[] {
 	return [`turns: ${result.progress.turnCount}`, `tools: ${result.progress.toolCount}`];
 }
 
-function runnerLaunchDetails(result: RunnerSubagentResult<JsonObject>): string[] {
+function runnerLaunchDetails(result: RunnerSubagentResult): string[] {
 	const launch = result.progress.launch;
 	if (launch === undefined) return [];
 	return [
@@ -229,16 +227,17 @@ async function generateReviewRepairText(input: {
 	readonly prompt: string;
 	readonly recoveryContext: ReviewerRecoveryContext;
 }): Promise<TextGenerationResult> {
-	const result = await dispatchRunnerSubagent(
-		input.recoveryContext.pi,
-		toRunnerSubagentContext(input.recoveryContext.ctx),
-		{
+	const runtime = input.recoveryContext.runtime ?? createSubprocessSubagentRuntime();
+	const result = await runtime.dispatch({
+		pi: input.recoveryContext.pi,
+		ctx: toRunnerSubagentContext(input.recoveryContext.ctx),
+		options: {
 			title: "Thermo council payload repair",
 			returnMode: "final-text",
 			tools: [],
 			prompt: input.prompt,
 		},
-	);
+	});
 	if (result.status !== "final-text") {
 		return {
 			ok: false,

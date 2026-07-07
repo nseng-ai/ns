@@ -1,4 +1,5 @@
 export { default, thermoCouncilParity } from "./extension.ts";
+export type { ThermoCouncilExtensionOptions } from "./extension.ts";
 export type {
 	CustomMessage,
 	ExecOptions,
@@ -25,6 +26,7 @@ export type {
 	ThermoCouncilSeatStatus,
 } from "./contract.ts";
 export { runThermoCouncilCommand } from "./orchestrator.ts";
+export type { RunThermoCouncilCommandOptions } from "./orchestrator.ts";
 export { reviewerOutcomeFromRunnerResult } from "./review-recovery.ts";
 export { buildReviewerPrompt } from "./prompt.ts";
 export { renderThermoCouncilReport } from "./report.ts";

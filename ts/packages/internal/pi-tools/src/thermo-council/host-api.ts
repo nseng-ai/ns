@@ -1,7 +1,4 @@
-import type {
-	RunnerSubagentContext,
-	RunnerSubagentPi,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import type { RunnerSubagentContext, RunnerSubagentPi } from "@nseng-ai/ns-pi-subagents/api";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 export interface ExecResult {
@@ -37,6 +34,11 @@ export interface ThermoCouncilCommandContext {
 	readonly ui?: {
 		notify?(message: string, level?: "info" | "warning" | "error"): void;
 		setStatus?(key: string, value: string | undefined): void;
+		setWidget?(
+			key: string,
+			lines: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	waitForIdle?(): Promise<void>;
 }
