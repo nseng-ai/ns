@@ -27,7 +27,12 @@ export type ObjectiveCreateCommandSpec = ObjectiveCreateSkillSpec & {
 	skillName: ObjectiveCreateSkillName;
 };
 
-export type ObjectiveCreatePattern = "wayfinding" | "steelthread" | "standing";
+export type ObjectiveCreatePattern =
+	| "wayfinding"
+	| "steelthread"
+	| "standing"
+	| "umbrella"
+	| "autoobjective";
 export type ObjectiveCreatePatternCommandName = `ns:objective:create:${ObjectiveCreatePattern}`;
 export type ObjectiveCreatePatternSkillName = `objective-create-${ObjectiveCreatePattern}`;
 
@@ -120,6 +125,16 @@ export const objectiveCreatePatternCommandSpecs: ObjectiveCreatePatternCommandSp
 		pattern: "standing",
 		description:
 			"Read objective-create-standing backing Markdown to interview for and create a standing Objective with retirement-shaped completion criteria.",
+	}),
+	defineObjectiveCreatePatternCommandSpec({
+		pattern: "umbrella",
+		description:
+			"Read objective-create-umbrella backing Markdown to interview for and create an umbrella Objective coordinating Subobjectives via mirrored edges.",
+	}),
+	defineObjectiveCreatePatternCommandSpec({
+		pattern: "autoobjective",
+		description:
+			"Read objective-create-autoobjective backing Markdown to interview for and create an autoobjective shaped for autonomous Objective Runner steps.",
 	}),
 ];
 

@@ -259,6 +259,11 @@
       "sourceType": "local",
       "computedHash": "059e3d47258c0840c43e2d322351b150d4ecf03c36b1e8875a730da7f5c418e5"
     },
+    "objective-create-autoobjective": {
+      "source": "skills/objective-create-autoobjective",
+      "sourceType": "local",
+      "computedHash": "f2c04506734434b1dc9e2c0da721095a3b15148a0541d36515134ba6be618783"
+    },
     "objective-create-readme-driven-development": {
       "source": "skills/objective-create-readme-driven-development",
       "sourceType": "local",
@@ -273,6 +278,11 @@
       "source": "skills/objective-create-steelthread",
       "sourceType": "local",
       "computedHash": "049355a092eaa516869e8a24b2ab185e09c4dae219085ce896f77e3dd0c492c2"
+    },
+    "objective-create-umbrella": {
+      "source": "skills/objective-create-umbrella",
+      "sourceType": "local",
+      "computedHash": "5fce151c3e522e097e39cd348268df8e98505521faf36d8a17c887286717a3c8"
     },
     "objective-create-wayfinding": {
       "source": "skills/objective-create-wayfinding",
