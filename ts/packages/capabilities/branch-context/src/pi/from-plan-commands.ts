@@ -4,7 +4,6 @@ import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
@@ -265,7 +264,7 @@ function resolveBranchContextContext(
 	if (pi.exec !== undefined) {
 		return createBranchContextContext(
 			{ exec: (command, args, execOptions) => pi.exec(command, args, execOptions) },
-			{ cwd, brmemCommands: new NodeCommandExecApi() },
+			{ cwd },
 		);
 	}
 	return createRealBranchContextContext({ cwd });

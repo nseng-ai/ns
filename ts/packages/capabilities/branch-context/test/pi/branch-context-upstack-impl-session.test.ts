@@ -17,7 +17,6 @@ import {
 	gitCheckoutStep,
 	gitCurrentBranchStep,
 	makeNamedPlanFile,
-	nonAvailabilityExecCalls,
 	planSlugExecCall,
 	planSlugStep,
 	branchContextEvidence,
@@ -74,7 +73,7 @@ describe("branch-context-upstack-impl-session", () => {
 			branchCreation: "graphite",
 		});
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -124,7 +123,7 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(fakes.selectPlanCalls).toHaveLength(1);
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -190,7 +189,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -221,7 +220,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -290,7 +289,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -361,7 +360,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -403,7 +402,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -529,7 +528,10 @@ describe("branch-context-upstack-impl-session", () => {
 	test("ns:branch-context:upstack-impl-from-plan dry-run defaults to Graphite even when the extension option says plain Git", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		registerBranchContextExtension(pi, { branchContextDefaultCreation: "plain-git" });
+		registerBranchContextExtension(pi, {
+			branchContextDefaultCreation: "plain-git",
+			shouldResolveTargetBranchInPreview: false,
+		});
 		const command = pi.commands.get("ns:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 
@@ -537,7 +539,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -572,7 +574,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -604,7 +606,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({ branchCreation: "plain-git" });
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),

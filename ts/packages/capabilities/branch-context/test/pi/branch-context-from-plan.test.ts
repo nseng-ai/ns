@@ -18,7 +18,6 @@ import {
 	gitRootStep,
 	makeNamedPlanFile,
 	makeTempDir,
-	nonAvailabilityExecCalls,
 	planSlugExecCall,
 	planSlugStep,
 	planStoreDirectory,
@@ -29,10 +28,20 @@ import {
 	writePlanStoreFile,
 } from "./branch-context-extension-support.ts";
 
+function registerFromPlanTestExtension(
+	pi: FakePi,
+	options: NonNullable<Parameters<typeof registerBranchContextExtension>[1]> = {},
+): void {
+	registerBranchContextExtension(pi, {
+		shouldResolveTargetBranchInPreview: false,
+		...options,
+	});
+}
+
 describe("branch-context-from-plan", () => {
 	test("ns:branch-context:from-plan help displays usage without mutation", async () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi, { shouldResolveTargetBranchInPreview: false });
+		registerFromPlanTestExtension(pi);
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext();
 
@@ -55,10 +64,7 @@ describe("branch-context-from-plan", () => {
 			gitOriginStep(),
 			planSlugStep(savedPlanFileContent(PLAN_KEY)),
 		]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext();
 
@@ -66,7 +72,7 @@ describe("branch-context-from-plan", () => {
 
 		pi.assertDone();
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -108,10 +114,7 @@ describe("branch-context-from-plan", () => {
 			gitOriginStep(),
 			planSlugStep(savedPlanFileContent(sessionKey), contentSlug),
 		]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -149,10 +152,7 @@ describe("branch-context-from-plan", () => {
 		const contentSlug = "add-docs-portal-site";
 		const explicitPath = await writePlanStoreFile(directoryPath, explicitKey, 1_800_000_000_000);
 		const pi = new FakePi([planSlugStep(savedPlanFileContent(explicitKey), contentSlug)]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -166,7 +166,7 @@ describe("branch-context-from-plan", () => {
 
 		pi.assertDone();
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
@@ -187,14 +187,14 @@ describe("branch-context-from-plan", () => {
 
 		for (const rawPath of [filePath, `@${filePath}`]) {
 			const pi = new FakePi([planSlugStep(content, contentSlug)]);
-			registerBranchContextExtension(pi, { shouldResolveTargetBranchInPreview: false });
+			registerFromPlanTestExtension(pi);
 			const command = pi.commands.get("ns:branch-context:from-plan");
 
 			await command?.handler(`--dry-run ${rawPath}`, createContext().ctx);
 
 			pi.assertDone();
 			expect(
-				nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				pi.execCalls.map((call) => ({
 					command: call.command,
 					args: call.args,
 				})),
@@ -217,13 +217,13 @@ describe("branch-context-from-plan", () => {
 		const pi = new FakePi([
 			planSlugStep(DEFAULT_PLAN_CONTENT, repairedSlug, { stdout: rawOutput }),
 		]);
-		registerBranchContextExtension(pi, { shouldResolveTargetBranchInPreview: false });
+		registerFromPlanTestExtension(pi);
 		const command = pi.commands.get("ns:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
 
 		pi.assertDone();
-		expect(nonAvailabilityExecCalls(pi.execCalls).map((call) => call.command)).toEqual(["pi"]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["pi"]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${repairedSlug}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${repairedSlug}`);
@@ -248,10 +248,7 @@ describe("branch-context-from-plan", () => {
 			gitOriginStep(),
 			planSlugStep(savedPlanFileContent(diskKey), diskSlug),
 		]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -287,10 +284,7 @@ describe("branch-context-from-plan", () => {
 			branchKey: "other-branch",
 		};
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(wrongBranchEvidence)],
@@ -319,10 +313,7 @@ describe("branch-context-from-plan", () => {
 		const sourceBranch = "main";
 		const outsidePath = await makeNamedPlanFile(`${PLAN_KEY}`);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -362,10 +353,7 @@ describe("branch-context-from-plan", () => {
 			branchKey: "wrong-branch-key",
 		};
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(wrongBranchKeyEvidence)],
@@ -399,10 +387,7 @@ describe("branch-context-from-plan", () => {
 			sourceBranch,
 		});
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(mismatchEvidence)],
@@ -437,10 +422,7 @@ describe("branch-context-from-plan", () => {
 			gitOriginStep(),
 			planSlugStep(savedPlanFileContent(sessionKey), contentSlug),
 		]);
-		registerBranchContextExtension(pi, {
-			planStoreRoot,
-			shouldResolveTargetBranchInPreview: false,
-		});
+		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -660,7 +642,7 @@ describe("branch-context-from-plan", () => {
 		const filePath = await makeNamedPlanFile("bad.md");
 		const contentSlug = "add-docs-portal-site";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT, contentSlug)]);
-		registerBranchContextExtension(pi, { shouldResolveTargetBranchInPreview: false });
+		registerFromPlanTestExtension(pi);
 		const command = pi.commands.get("ns:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
@@ -678,13 +660,13 @@ describe("branch-context-from-plan", () => {
 		const pi = new FakePi([
 			planSlugStep(DEFAULT_PLAN_CONTENT, PLAN_SLUG, { code: 1, stderr: "model unavailable" }),
 		]);
-		registerBranchContextExtension(pi, { shouldResolveTargetBranchInPreview: false });
+		registerFromPlanTestExtension(pi);
 		const command = pi.commands.get("ns:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
 		pi.assertDone();
-		expect(nonAvailabilityExecCalls(pi.execCalls).map((call) => call.command)).toEqual(["pi"]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["pi"]);
 		expect(
 			pi.execCalls.some(
 				(call) =>
@@ -708,7 +690,7 @@ describe("branch-context-from-plan", () => {
 
 	test("ns:branch-context:from-plan rejects relative explicit paths before primitive mutation", async () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi, { shouldResolveTargetBranchInPreview: false });
+		registerFromPlanTestExtension(pi);
 		const command = pi.commands.get("ns:branch-context:from-plan");
 
 		await command?.handler("relative-source-plan.md --yes", createContext().ctx);
@@ -735,7 +717,7 @@ describe("branch-context-from-plan", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toHaveLength(1);
 		expect(
-			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+			pi.execCalls.map((call) => ({
 				command: call.command,
 				args: call.args,
 			})),
