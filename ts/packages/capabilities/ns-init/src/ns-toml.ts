@@ -1,5 +1,11 @@
-import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
-import { parse } from "smol-toml";
+import {
+	getProjectConfigSetting,
+	parseProjectConfigToml,
+	projectConfigErrorFromDiagnostics,
+	type ProjectConfigDiagnostic,
+	type SettingsSchema,
+} from "@nseng-ai/kernel/project-config/points";
+import { z } from "zod";
 
 import { ALL_HARNESS_IDS, type HarnessId } from "./skill-materializer.ts";
 
@@ -24,26 +30,25 @@ export type NsTomlErrorCode =
 	| "invalid-harnesses"
 	| "ambiguous-harnesses-assignment";
 
+const nsInitHarnessesSettingsSchema = {
+	path: ["harnesses"] as const,
+	schema: z.array(z.string()).nonempty(),
+	invalidMessage: ({ pathLabel }) =>
+		`${pathLabel} top-level harnesses must be a non-empty string array.`,
+} satisfies SettingsSchema<readonly string[]>;
+
 export function parseNsTomlHarnesses(
 	content: string,
 	pathLabel = "ns.toml",
 ): NsTomlHarnessesParseResult {
-	let data: unknown;
-	try {
-		data = parse(content);
-	} catch (error) {
-		return {
-			type: "error",
-			error: {
-				code: "invalid-toml",
-				message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
-			},
-		};
-	}
-	if (!isRecord(data)) return { type: "missing" };
-	const harnesses = data.harnesses;
+	const result = parseProjectConfigToml(content, {
+		pathLabel,
+		settingsSchemas: [nsInitHarnessesSettingsSchema],
+	});
+	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
+	const harnesses = getProjectConfigSetting(result.config, nsInitHarnessesSettingsSchema);
 	if (harnesses === undefined) return { type: "missing" };
-	return parseHarnessesValue(harnesses, `${pathLabel} top-level harnesses`);
+	return normalizeHarnessSelection(harnesses);
 }
 
 export function renderNsTomlHarnesses(harnesses: readonly HarnessId[]): string {
@@ -97,24 +102,18 @@ export function normalizeHarnessSelection(
 	return { type: "ok", harnesses: selected };
 }
 
-function parseHarnessesValue(value: unknown, label: string): NsTomlHarnessesParseResult {
-	if (!Array.isArray(value) || value.length === 0) {
-		return {
-			type: "error",
-			error: { code: "invalid-harnesses", message: `${label} must be a non-empty string array.` },
-		};
-	}
-	const values: string[] = [];
-	for (const item of value) {
-		if (typeof item !== "string") {
-			return {
-				type: "error",
-				error: { code: "invalid-harnesses", message: `${label} must be a non-empty string array.` },
-			};
-		}
-		values.push(item);
-	}
-	return normalizeHarnessSelection(values);
+function nsTomlErrorFromDiagnostics(
+	diagnostics: readonly ProjectConfigDiagnostic[],
+	pathLabel: string,
+): NsTomlHarnessesParseResult {
+	const error = projectConfigErrorFromDiagnostics(diagnostics, {
+		invalidToml: "invalid-toml",
+		invalidSettingsByPath: { harnesses: "invalid-harnesses" },
+		defaultCode: "invalid-toml",
+		defaultMessage: `${pathLabel}: invalid ns.toml`,
+		pathLabel,
+	});
+	return { type: "error", error: { code: error.code, message: error.message } };
 }
 
 function replaceTopLevelHarnessesAssignment(

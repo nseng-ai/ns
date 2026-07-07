@@ -14,6 +14,8 @@ import {
 	applyPreparedPrDescriptionUpdate,
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,
+	PR_DESCRIPTION_PROMPT_ENV,
+	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	createNsPrDescriptionRuntime,
 	formatPromptSourceLabel,
 	prDescriptionFingerprintPolicyForForce,
@@ -22,9 +24,6 @@ import {
 	type PrDescriptionUpdateResult,
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
-
-const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
-const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ns/prompts/pr-description.md";
 
 const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and ns-managed generated body region.
 

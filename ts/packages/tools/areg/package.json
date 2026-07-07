@@ -20,10 +20,17 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/command-backed-skill-registry": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"smol-toml": "catalog:",
+		"@nseng-ai/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {
-		"tier": "standalone-tool"
+		"tier": "standalone-tool",
+		"group": "areg",
+		"settings": [
+			{
+				"path": ["areg"],
+				"description": "Agent IDs areg should initialize when --agent is not supplied."
+			}
+		]
 	}
 }

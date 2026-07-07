@@ -2,6 +2,17 @@
 	"ns": {
 		"description": "Create and load branch-scoped implementation context.",
 		"group": "branch-context",
+		"points": [
+			{
+				"path": [
+					"plans-write"
+				],
+				"accepts": "prompt",
+				"semantics": "override",
+				"default": "./prompts/plans-write-default.md",
+				"description": "Prompt body for saving self-contained branch-context plans."
+			}
+		],
 		"commands": [
 			{
 				"path": [

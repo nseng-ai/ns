@@ -59,6 +59,39 @@ The abstract promise that extension authors have a stable import surface. The `n
 **Internal workspace export**:
 An `@ns/kernel` subpath shared across first-party workspace packages for kernel-owned implementation seams, but not promised through the Public author API. Package metadata records these subpaths under `ns.internalWorkspaceExports`.
 *Avoid*: plugin API, public SDK, command-author import path, capability domain home.
+
+**Point definition**:
+Static manifest metadata under `ns.points` declaring a point's path, accepted installation kind, semantics, description, and optional prompt default. Point definitions are discovered without selected-command loading.
+*Avoid*: command entry, setting, runtime registration
+
+**Point id**:
+The full point identifier `<group>.<path...>`, where the extension group is the namespace root. First-party ids usually follow `<group>.<workflow>.<leaf>`, but the kernel enforces the group root rather than a workflow taxonomy.
+*Avoid*: path-only id, consumer-defined id, lifecycle id
+
+**Point installation**:
+Consumer project config for a point. Hook installations come from `[points]`; prompt installations can come from `[points]` or the conventional `.ns/prompts/<point-id>.md` path.
+*Avoid*: point definition, extension manifest, global install tier
+
+**Kernel project-config loader**:
+The single parse/validation path for repo-root `ns.toml`, including the `[points]` table and manifest-declared settings schemas. Extension-rooted settings tables stay settings; they do not become points.
+*Avoid*: per-capability TOML parser, prompt-resolution ladder, settings-as-points
+
+**Point catalog**:
+The kernel-computed view of point definitions, installations, active prompt sources, and diagnostics such as installed-but-undefined, override-in-effect, and defined-but-uninstalled.
+*Avoid*: registry, command catalog, extension discovery catalog
+
+**Prompt default**:
+A package-relative markdown file declared by an override prompt point and used when no higher-precedence project or development source is active.
+*Avoid*: TypeScript prompt constant, hook fallback, global default
+
+**Active prompt source**:
+The prompt source selected by the resolution ladder: development environment override, `[points]`, conventional `.ns/prompts/<point-id>.md`, then manifest default. The catalog reports this source; the kernel resolves content but does not perform the LM interaction.
+*Avoid*: prompt execution, hook source, hidden fallback
+
+**ns extension points command surface**:
+Read-only CLI introspection under `ns extension points` and `ns extension point <id>` for catalog and detail output. The surface explains definitions, installations, sources, and diagnostics; it does not mutate extensions or project config.
+*Avoid*: `ns extension install`, runtime lifecycle graph, capability workflow command
+
 **Capability API**:
 A curated typed programmatic export owned by a capability package and consumed in-process by downstream packages. Capability APIs are separate from kernel-loaded command entries and from `@ns/kernel/sdk`.
 *Avoid*: command contribution, kernel dependency resolver, package-private module, CLI invocation of a provider.

@@ -15,8 +15,17 @@ function runUnavailableChangesCli(args: readonly string[]) {
 }
 
 describe("ns flow changes CLI availability", () => {
-	test("static ns command metadata is empty after the kernel reset", async () => {
-		expect(listNsCommands()).toEqual([]);
+	test("static ns command metadata only includes kernel-owned extension introspection", async () => {
+		expect(listNsCommands()).toEqual([
+			{
+				name: "point",
+				description: "Show one ns point definition and its active source.",
+			},
+			{
+				name: "points",
+				description: "List defined ns points and their active sources.",
+			},
+		]);
 
 		const topHelp = runUnavailableChangesCli(["--help"]);
 		expect(await topHelp.exit).toBe(0);

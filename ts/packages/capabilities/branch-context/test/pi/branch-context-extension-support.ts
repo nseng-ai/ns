@@ -537,7 +537,8 @@ export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): 
 	const dir = await makeTempDir();
 	const promptDir = join(dir, ".ns", "prompts");
 	await mkdir(promptDir, { recursive: true });
-	await writeFile(join(promptDir, "plans-write.md"), content, "utf8");
+	await writeBranchContextPointManifest(dir);
+	await writeFile(join(promptDir, "branch-context.plans-write.md"), content, "utf8");
 	return dir;
 }
 
@@ -545,9 +546,34 @@ export async function makeRepoPromptSymlink(): Promise<string> {
 	const dir = await makeTempDir();
 	const target = await makeTempDir("branch-context-prompt-target-");
 	await mkdir(join(dir, ".ns", "prompts"), { recursive: true });
-	await writeFile(join(target, "plans-write.md"), "linked prompt\n", "utf8");
-	await symlink(join(target, "plans-write.md"), join(dir, ".ns", "prompts", "plans-write.md"));
+	await writeBranchContextPointManifest(dir);
+	await writeFile(join(target, "branch-context.plans-write.md"), "linked prompt\n", "utf8");
+	await symlink(
+		join(target, "branch-context.plans-write.md"),
+		join(dir, ".ns", "prompts", "branch-context.plans-write.md"),
+	);
 	return dir;
+}
+
+async function writeBranchContextPointManifest(repoRoot: string): Promise<void> {
+	const extensionDir = join(repoRoot, ".ns", "extensions", "branch-context");
+	await mkdir(extensionDir, { recursive: true });
+	await writeFile(
+		join(extensionDir, "package.json"),
+		JSON.stringify({
+			ns: {
+				group: "branch-context",
+				points: [
+					{
+						path: ["plans-write"],
+						accepts: "prompt",
+						semantics: "override",
+					},
+				],
+			},
+		}),
+		"utf8",
+	);
 }
 
 export function planStoreDirectory(

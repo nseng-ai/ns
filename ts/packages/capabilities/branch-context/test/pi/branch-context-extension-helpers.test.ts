@@ -181,7 +181,7 @@ describe("buildWritePlanPrompt", () => {
 	});
 
 	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
-		const promptPath = join(REPO_ROOT, ".ns", "prompts", "plans-write.md");
+		const promptPath = join(REPO_ROOT, ".ns", "prompts", "branch-context.plans-write.md");
 		const checkedInContent = await readFile(promptPath, "utf8");
 
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);

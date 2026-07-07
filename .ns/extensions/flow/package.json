@@ -2,6 +2,21 @@
   "ns": {
     "description": "Checkpoint, branch, submit, and land Graphite-backed work.",
     "group": "flow",
+    "points": [
+      {
+        "path": ["submit", "pre"],
+        "accepts": "hook",
+        "semantics": "additive",
+        "description": "Runs before flow submit checkpoints and submits the stack."
+      },
+      {
+        "path": ["submit", "pr-description"],
+        "accepts": "prompt",
+        "semantics": "override",
+        "default": "./prompts/pr-description-default.md",
+        "description": "System prompt for the PR title and managed body."
+      }
+    ],
     "commands": [
       {
         "name": "changes",

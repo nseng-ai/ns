@@ -15,6 +15,7 @@ import {
 import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
+import { writeTestPointManifest } from "../support/point-manifest.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
@@ -63,7 +64,6 @@ function runWithFakes(options: Parameters<typeof runFlowSubmitCommandWithFakes>[
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
@@ -72,7 +72,6 @@ function cleanCheckpointResponses(): ScriptedExecResponse[] {
 
 function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
@@ -152,9 +151,20 @@ function defaultPrDescriptionText(): string {
 async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<string> {
 	const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-test-"));
 	tempDirs.push(repoRoot);
+	await writeTestPointManifest(repoRoot, {
+		group: "flow",
+		points: [
+			{
+				path: ["submit", "pre"],
+				accepts: "hook",
+				semantics: "additive",
+				description: "Runs before submit.",
+			},
+		],
+	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`[flow.hooks]\npre_submit = ${JSON.stringify(preSubmit)}\n`,
+		`[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;
@@ -297,9 +307,9 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(7);
 		const error = run.stderr.join("");
-		expect(error).toContain(
-			"Pre-submit hook failed: just (exit code 7). Submission was not attempted.",
-		);
+		expect(error).toContain("Pre-submit hook failed (exit code 7).");
+		expect(error).toContain("Command: just");
+		expect(error).toContain("Submission was not attempted.");
 		expect(error).toContain("hook stdout");
 		expect(error).toContain("hook stderr");
 		expect(error).toContain("Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.");

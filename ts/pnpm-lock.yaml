@@ -267,9 +267,6 @@ importers:
       '@nseng-ai/slots':
         specifier: workspace:*
         version: link:../slots
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -317,9 +314,6 @@ importers:
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -420,9 +414,6 @@ importers:
       '@pierre/diffs':
         specifier: 'catalog:'
         version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
@@ -704,9 +695,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
+      '@nseng-ai/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3

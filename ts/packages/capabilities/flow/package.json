@@ -38,7 +38,6 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@nseng-ai/slots": "workspace:*",
-		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"ns": {

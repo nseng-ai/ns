@@ -314,7 +314,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 	});
 
-	test("reports the historical env prompt path in success output", async () => {
+	test("ignores env prompt overrides when no repo point catalog is available", async () => {
 		const promptPath = join(tmpdir(), `ns-regenerate-pr-prompt-${Date.now()}.md`);
 		await writeFile(promptPath, "custom system prompt", "utf8");
 		try {
@@ -324,20 +324,21 @@ describe("project-local regenerate-pr extension behavior", () => {
 			});
 
 			expect(await run.exit).toBe(0);
-			expect(run.stdout.join("")).toContain(`Prompt: ${promptPath}`);
-			expect(run.context.textGeneratorCalls[0]?.system).toBe("custom system prompt");
+			expect(run.stdout.join("")).toContain("Prompt: built-in");
+			expect(run.context.textGeneratorCalls[0]?.system).toBe(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT);
 		} finally {
 			await rm(promptPath, { force: true });
 		}
 	});
 
-	test("unreadable prompt env path exits 2", async () => {
+	test("unreadable prompt env path is ignored when no repo point catalog is available", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: { confirm: () => true },
 			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
 		});
 
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Could not read NS_DEV_PR_DESCRIPTION_PROMPT");
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Prompt: built-in");
+		expect(run.stderr.join("")).not.toContain("Could not read NS_DEV_PR_DESCRIPTION_PROMPT");
 	});
 });

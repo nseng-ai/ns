@@ -1,3 +1,4 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -9,6 +10,7 @@ import {
 	type NsResult,
 } from "../sdk/index.ts";
 
+import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "global" | "project";
@@ -45,16 +47,24 @@ export interface BuiltInNsCommandCandidate extends NsCommandCandidate {
 	command: NsCommand;
 }
 
-export interface BuiltInCommandDefinition {
+export interface BuiltInCommandDefinition extends Partial<NsCommandPath> {
 	command: NsCommand;
-	summary: string;
-	description: string;
 }
 
-export const NS_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
-export const NS_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
-
-export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {};
+export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {
+	"extension/point": {
+		name: "point",
+		segments: ["extension", "point"],
+		groupDescription: "Inspect ns extension metadata.",
+		command: extensionPointCommand,
+	},
+	"extension/points": {
+		name: "points",
+		segments: ["extension", "points"],
+		groupDescription: "Inspect ns extension metadata.",
+		command: extensionPointsCommand,
+	},
+};
 
 const nsCommandSchema = z.object({
 	name: z.string(),
@@ -109,9 +119,14 @@ export function commandPathMatches(left: NsCommandPath, right: NsCommandPath): b
 export function listBuiltInNsCommandCandidates(): BuiltInNsCommandCandidate[] {
 	return Object.entries(builtInCommandDefinitions)
 		.map(([name, definition]) => ({
-			name,
-			description: definition.summary,
-			fullDescription: definition.description,
+			name: definition.name ?? name,
+			...optionalEntries({
+				group: definition.group,
+				segments: definition.segments,
+				groupDescription: definition.groupDescription,
+			}),
+			description: definition.command.summary,
+			fullDescription: definition.command.description,
 			source: { level: "built-in" as const, label: `built-in command ${name}` },
 			command: definition.command,
 		}))
@@ -126,11 +141,11 @@ export function toCommandCliInfo(
 	candidate: NsCommandPath & Pick<NsCommandCliInfo, "description" | "fullDescription">,
 ): NsCommandCliInfo {
 	return {
-		...(candidate.group === undefined ? {} : { group: candidate.group }),
-		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
-		...(candidate.groupDescription === undefined
-			? {}
-			: { groupDescription: candidate.groupDescription }),
+		...optionalEntries({
+			group: candidate.group,
+			segments: candidate.segments,
+			groupDescription: candidate.groupDescription,
+		}),
 		name: candidate.name,
 		description: candidate.description,
 		fullDescription: candidate.fullDescription,
@@ -146,8 +161,8 @@ export function commandInfoForLoadedCommand(
 	if (sourceLevel === "built-in" && definition !== undefined) {
 		return {
 			name: command.name,
-			description: definition.summary,
-			fullDescription: definition.description,
+			description: definition.command.summary,
+			fullDescription: definition.command.description,
 		};
 	}
 	return toCommandCliInfo({

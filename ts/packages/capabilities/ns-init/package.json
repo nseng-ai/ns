@@ -21,11 +21,16 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
-		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"ns": {
 		"tier": "capability",
+		"settings": [
+			{
+				"path": ["harnesses"],
+				"description": "Harness IDs ns init should activate when --harness is not supplied."
+			}
+		],
 		"subpackages": [
 			"ns",
 			"testing"

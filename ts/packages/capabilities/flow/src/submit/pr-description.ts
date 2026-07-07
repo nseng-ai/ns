@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
@@ -21,17 +23,32 @@ import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/t
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+import {
+	buildPointCatalog,
+	loadPointCatalog,
+	nodeProjectConfigGateway,
+	resolvePromptPointPath,
+	resolvePromptPointSource,
+	type PointCatalog,
+	type PromptPointSource,
+} from "@nseng-ai/kernel/project-config/points";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 
 export { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV, selectPrDescriptionModelRef };
 export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
-export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ns/prompts/pr-description.md";
+export const FLOW_PR_DESCRIPTION_POINT_ID = "flow.submit.pr-description";
+export const REPO_PR_DESCRIPTION_PROMPT_PATH = `.ns/prompts/${FLOW_PR_DESCRIPTION_POINT_ID}.md`;
 export const GENERATED_BODY_MARKER = "<!-- generated-by: ji-dev pr-description v1 -->";
 export const MANAGED_BODY_BEGIN_MARKER = "<!-- ns-pr-description:begin";
 export const MANAGED_BODY_END_MARKER = "<!-- ns-pr-description:end -->";
 export const PR_DESCRIPTION_GENERATOR_VERSION = "ns-pr-description-v2";
 export const MAX_DIFF_CHARS = 120_000;
+
+const prDescriptionPromptEnvOverride = {
+	pointId: FLOW_PR_DESCRIPTION_POINT_ID,
+	envVar: PR_DESCRIPTION_PROMPT_ENV,
+} as const;
 
 const LOCKFILE_BASENAMES = new Set([
 	"pnpm-lock.yaml",
@@ -42,74 +59,17 @@ const LOCKFILE_BASENAMES = new Set([
 	"Cargo.lock",
 ]);
 
-export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = `You are a pull request metadata generator. Analyze the provided git diff and return ONLY a freshly generated PR title and body.
+const DEFAULT_PR_DESCRIPTION_PROMPT_PATH = "./prompts/pr-description-default.md";
+const DEFAULT_PR_DESCRIPTION_PROMPT_URL = new URL(
+	DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
+	import.meta.url,
+);
+const DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH = fileURLToPath(import.meta.url);
 
-## Analysis Principles
-
-Analyze the diff following these principles:
-
-- **Be concise and strategic** - focus on significant changes
-- **Use component-level descriptions** - reference modules/components, not individual functions
-- **Highlight breaking changes prominently**
-- **Note test coverage patterns**
-- **Use relative paths from repository root**
-
-## Level of Detail
-
-- Focus on architectural and component-level impact
-- Keep "Key Changes" to 3-5 major items
-- Group related changes together
-- Skip minor refactoring, formatting, or trivial updates
-
-## Output Format
-
-[Clear one-line PR title describing the change]
-
-[2-3 sentence summary explaining what changed and why. State what the branch does (feature/fix/refactor) and highlight key changes briefly.]
-
-## Key Changes
-
-- [3-5 high-level component/architectural changes]
-- Strategic change description focusing on purpose and impact
-- Focus on what capabilities changed, not implementation details
-
-<details>
-<summary>Files Changed</summary>
-
-### Added (N files)
-- \`path/to/file.ts\` - Brief purpose (one line)
-
-### Modified (N files)
-- \`path/to/file.ts\` - What area changed (component level)
-
-### Deleted (N files)
-- \`path/to/file.ts\` - Why removed (strategic reason)
-
-</details>
-
-## User Experience
-[Only include this section if changes affect user-facing behavior: CLI commands, prompts, output, workflows]
-
-**Before:** [old user experience]
-**After:** [new user experience]
-[Optional 1-2 sentence explanation of the improvement]
-
-## Critical Notes
-[Only if there are breaking changes, security concerns, or important warnings - 1-2 bullets max]
-
-## Rules
-
-- **IMPORTANT**: Output the PR title and body directly. Do NOT wrap your response in code fences or markdown blocks.
-- Output ONLY the PR title and body (no preamble, no explanation, no commentary)
-- NO Claude attribution or footer (NEVER add "Generated with Claude Code" or similar)
-- NO metadata headers (NEVER add \`**Author:**\`, \`**Plan:**\`, \`Closes #N\`, or similar)
-- Use relative paths from repository root
-- Be concise (15-40 lines total, shorter if no User Experience section)
-- First line = freshly generated PR title, rest = PR body
-- Regenerate the title from the diff and commit messages; do not preserve an existing PR title unless the changes independently justify that exact title
-- Avoid function-level details unless critical
-- Maximum 5 key changes
-- Only include Critical Notes if necessary`;
+export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = readFileSync(
+	DEFAULT_PR_DESCRIPTION_PROMPT_URL,
+	"utf8",
+).trimEnd();
 
 export type PromptSource =
 	| { type: "env"; path: string }
@@ -294,37 +254,90 @@ export async function resolvePrDescriptionGeneration(input: {
 	};
 }
 
-export async function resolvePrDescriptionPrompt(input: {
+interface PrDescriptionPointContext {
 	env: Record<string, string | undefined>;
 	repoRoot?: string;
 	cwd?: string;
-}): Promise<PromptResolutionResult> {
-	const envPath = input.env[PR_DESCRIPTION_PROMPT_ENV]?.trim();
-	if (envPath) {
-		const path = resolvePromptPath(envPath, input.repoRoot, input.cwd);
-		try {
-			return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
-		} catch (error) {
-			return {
-				ok: false,
-				error: `Could not read ${PR_DESCRIPTION_PROMPT_ENV} prompt file at ${path}: ${formatErrorMessage(error)}`,
-				source: { type: "env", path },
-			};
-		}
-	}
+}
 
-	if (input.repoRoot !== undefined) {
-		const repoPath = join(input.repoRoot, REPO_PR_DESCRIPTION_PROMPT_PATH);
-		if (await isReadableFile(repoPath)) {
-			return {
-				ok: true,
-				text: await readFile(repoPath, "utf8"),
-				source: { type: "repo", path: repoPath },
-			};
-		}
-	}
+export async function resolvePrDescriptionPrompt(
+	input: PrDescriptionPointContext,
+): Promise<PromptResolutionResult> {
+	const catalog = loadPrDescriptionPointCatalog(input);
+	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
+	const prompt = await readPrDescriptionPointSource({ ...input, pointSource });
+	if (prompt !== undefined) return prompt;
 
 	return { ok: true, text: DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT, source: { type: "builtin" } };
+}
+
+function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): PointCatalog {
+	if (request.repoRoot !== undefined) {
+		const catalog = loadPointCatalog({
+			repoRoot: request.repoRoot,
+			gateway: nodeProjectConfigGateway,
+			promptEnvOverride: prDescriptionPromptEnvOverride,
+			env: request.env,
+		});
+		if (resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID).type !== "missing") {
+			return catalog;
+		}
+	}
+	return buildPointCatalog({
+		repoRoot: request.repoRoot ?? process.cwd(),
+		gateway: { pathExists: () => ({ type: "missing" }) },
+		pointDefinitions: [
+			{
+				id: FLOW_PR_DESCRIPTION_POINT_ID,
+				accepts: "prompt",
+				semantics: "override",
+				defaultPath: DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
+				manifestPath: DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH,
+			},
+		],
+		config: { points: [], settings: new Map() },
+	});
+}
+
+async function readPrDescriptionPointSource(
+	request: PrDescriptionPointContext & { pointSource: PromptPointSource },
+): Promise<PromptResolutionResult | undefined> {
+	switch (request.pointSource.type) {
+		case "env": {
+			const path = resolvePromptPath(request.pointSource.path, request.repoRoot, request.cwd);
+			try {
+				return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
+			} catch (error) {
+				return {
+					ok: false,
+					error: `Could not read ${request.pointSource.envVar} prompt file at ${path}: ${formatErrorMessage(error)}`,
+					source: { type: "env", path },
+				};
+			}
+		}
+		case "ns.toml":
+		case "conventional": {
+			if (request.repoRoot === undefined) return undefined;
+			const resolved = resolvePromptPointPath(request.repoRoot, request.pointSource);
+			if (resolved === undefined || !(await isReadableFile(resolved.path))) return undefined;
+			return {
+				ok: true,
+				text: await readFile(resolved.path, "utf8"),
+				source: { type: "repo", path: resolved.path },
+			};
+		}
+		case "default": {
+			const resolved = resolvePromptPointPath(
+				request.repoRoot ?? process.cwd(),
+				request.pointSource,
+			);
+			if (resolved === undefined) return undefined;
+			const text = await readFile(resolved.path, "utf8");
+			return { ok: true, text: text.trimEnd(), source: { type: "builtin" } };
+		}
+		case "missing":
+			return undefined;
+	}
 }
 
 export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext): string {

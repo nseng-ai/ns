@@ -1,8 +1,7 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
@@ -10,28 +9,20 @@ import {
 	discoverNsPackageCommands,
 } from "../../src/extensions/discovery.ts";
 
-const tempDirs: string[] = [];
-
-async function createTempDir(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-extension-discovery-"));
-	tempDirs.push(directory);
-	return directory;
-}
+const tempDirs = createTempDirTracker();
 
 function writeFile(path: string, content = "export default {}\n"): void {
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, content);
 }
 
-afterEach(() => {
-	for (const directory of tempDirs.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
+afterEach(async () => {
+	await tempDirs.cleanup();
 });
 
 describe("extension discovery", () => {
 	test("discovers one-level files, directory indexes, and package command manifest entries", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(join(root, "bare.ts"));
 		writeFile(join(root, "plain.js"));
 		writeFile(join(root, "types.d.ts"), "export interface Ignored {}\n");
@@ -67,7 +58,7 @@ describe("extension discovery", () => {
 	});
 
 	test("missing root is okay and file root is an error", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		const missing = join(root, "missing");
 		expect(discoverExtensionsInRoot(missing)).toEqual({ commands: [], diagnostics: [] });
 
@@ -79,7 +70,7 @@ describe("extension discovery", () => {
 	});
 
 	test("malformed package manifests produce structured diagnostics", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(join(root, "bad-json", "package.json"), "{ nope");
 		writeFile(join(root, "missing-ns", "package.json"), JSON.stringify({ name: "missing" }));
 		writeFile(
@@ -116,7 +107,7 @@ describe("extension discovery", () => {
 	});
 
 	test("invalid package-level group suppresses manifest commands", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "bad-group", "package.json"),
 			JSON.stringify({
@@ -139,7 +130,7 @@ describe("extension discovery", () => {
 	});
 
 	test("package-level groups apply to manifest commands", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "tools", "package.json"),
 			JSON.stringify({
@@ -165,7 +156,7 @@ describe("extension discovery", () => {
 	});
 
 	test("manifest path entries may include compatibility names", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "reviews", "package.json"),
 			JSON.stringify({
@@ -208,7 +199,7 @@ describe("extension discovery", () => {
 	});
 
 	test("manifest entry groups override the package-level group", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "tools", "package.json"),
 			JSON.stringify({
@@ -239,7 +230,7 @@ describe("extension discovery", () => {
 	});
 
 	test("manifest ns.commands must be an array", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({ ns: { extensions: ["./src/index.ts"] } }),
@@ -253,7 +244,7 @@ describe("extension discovery", () => {
 	});
 
 	test("manifest structure diagnostics are classified from shared schema issues", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "bad-commands", "package.json"),
 			JSON.stringify({ ns: { commands: "./src/index.ts" } }),
@@ -270,7 +261,7 @@ describe("extension discovery", () => {
 	});
 
 	test("bulk ns package discovery suppresses manifest structure diagnostics", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		const packageDir = join(root, "ordinary-package");
 		writeFile(join(packageDir, "package.json"), JSON.stringify({ ns: "commands" }));
 
@@ -280,7 +271,7 @@ describe("extension discovery", () => {
 	});
 
 	test("unknown package manifest fields do not break command discovery", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "tools", "package.json"),
 			JSON.stringify({
@@ -308,7 +299,7 @@ describe("extension discovery", () => {
 	});
 
 	test("manifest command entry diagnostics include commandName when the entry has a name", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({
@@ -326,7 +317,7 @@ describe("extension discovery", () => {
 	});
 
 	test("invalid fullDescription keeps its distinct manifest diagnostic", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({
@@ -356,7 +347,7 @@ describe("extension discovery", () => {
 	});
 
 	test("direct entries with invalid inferred command names are malformed", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(join(root, "Bad.ts"));
 		writeFile(join(root, "bad_name", "index.ts"));
 
@@ -370,7 +361,7 @@ describe("extension discovery", () => {
 	});
 
 	test("directory index discovery prefers index.ts over index.js", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		writeFile(join(root, "both", "index.ts"));
 		writeFile(join(root, "both", "index.js"));
 
@@ -387,7 +378,7 @@ describe("extension discovery", () => {
 	});
 
 	test("directory without index or manifest is malformed", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-extension-discovery-");
 		mkdirSync(join(root, "empty"), { recursive: true });
 
 		const result = discoverExtensionsInRoot(root);
