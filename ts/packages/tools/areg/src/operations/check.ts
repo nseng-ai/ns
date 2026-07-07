@@ -10,13 +10,13 @@ import {
 	parseInspectedLockfile,
 	parseLockfileData,
 	parseSkillFrontmatterBlock,
-	sortStrings,
 	type LockfileSkill,
 	type SkillsLockfile,
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { AregCliContext } from "../context.ts";
 import { missingCheckSkillInspection } from "../gateways.ts";
+import { sortStrings } from "../sort.ts";
 import { manifestSourceFinding } from "./manifest-sources.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { isPathStateError } from "./file-state.ts";
