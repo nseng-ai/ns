@@ -1,5 +1,5 @@
 import { buildStackLandingPlan } from "../api.ts";
-import type { LandingFailure } from "../api.ts";
+import type { LandingFailure, LandingPlan, PrSubmitRequirement } from "../api.ts";
 import {
 	failure,
 	landStackFailure,
@@ -8,8 +8,6 @@ import {
 	type LandStackResult,
 } from "./errors.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
-import { copyPullRequestSnapshot } from "./pull-request-snapshot.ts";
-import type { FlowLandingPlan, PrSubmitRequirement } from "./types.ts";
 
 export async function buildLandingPlan(
 	runtime: LandRuntime,
@@ -18,7 +16,7 @@ export async function buildLandingPlan(
 		shouldAllowSubmitRequiredState?: boolean;
 		landingBranchLimit?: number;
 	} = {},
-): Promise<LandStackResult<FlowLandingPlan>> {
+): Promise<LandStackResult<LandingPlan>> {
 	const landPlan = await buildStackLandingPlan(createRuntimeLandContext(runtime), cwd, {
 		shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
 		...(options.landingBranchLimit === undefined
@@ -27,74 +25,7 @@ export async function buildLandingPlan(
 	});
 	if (landPlan.type === "failure") return failure(toLandStackFailure(landPlan.failure));
 
-	return success(toFlowLandingPlan(landPlan.value));
-}
-
-type StackLandingPlanResult = Awaited<ReturnType<typeof buildStackLandingPlan>>;
-type StackLandingPlan = Extract<StackLandingPlanResult, { readonly type: "success" }>["value"];
-
-function toFlowLandingPlan(plan: StackLandingPlan): FlowLandingPlan {
-	return {
-		repoRoot: plan.repoRoot,
-		metadataDbPath: plan.metadataDbPath,
-		stack: {
-			trunk: plan.stack.trunk,
-			current: plan.stack.current,
-			actualCurrentBranch: plan.stack.actualCurrentBranch,
-			landingTargetBranch: plan.stack.landingTargetBranch,
-			landingBranches: [...plan.stack.landingBranches],
-			remainingLandingBranches: [...plan.stack.remainingLandingBranches],
-			descendantBranches: [...plan.stack.descendantBranches],
-			descendantRootBranches: [...plan.stack.descendantRootBranches],
-			warnings: plan.stack.warnings.map((warning) => warning.message),
-		},
-		branchPlans: plan.branchPlans.map((branchPlan) => ({
-			branch: branchPlan.branch,
-			localSha: branchPlan.localSha,
-			pr: copyPullRequestSnapshot(branchPlan.pr),
-		})),
-		prSubmitRequirements: plan.prSubmitRequirements.map((requirement) => ({
-			branch: requirement.branch,
-			prNumber: requirement.prNumber,
-			localSha: requirement.localSha,
-			prHeadSha: requirement.prHeadSha,
-			baseRefName: requirement.baseRefName,
-			...(requirement.expectedBaseRefName === undefined
-				? {}
-				: { expectedBaseRefName: requirement.expectedBaseRefName }),
-			reasons: [...requirement.reasons],
-		})),
-		submitRestackRequirements: plan.submitRestackRequirements.map((requirement) => ({
-			branch: requirement.branch,
-			parent: requirement.parent,
-		})),
-		managedSlotConflicts: plan.managedSlotConflicts.map((conflict) => ({
-			branch: conflict.branch,
-			path: conflict.path,
-			kind: conflict.type,
-		})),
-		descendantMaintenance: toFlowDescendantMaintenance(plan.descendantMaintenance),
-	};
-}
-
-function toFlowDescendantMaintenance(
-	plan: StackLandingPlan["descendantMaintenance"],
-): FlowLandingPlan["descendantMaintenance"] {
-	if (plan.type === "none") return { kind: "none", branches: [] };
-	if (plan.type === "auto") {
-		return { kind: "auto", branches: [...plan.branches], targetBranches: [...plan.targetBranches] };
-	}
-	return {
-		kind: "skipped",
-		branches: [...plan.branches],
-		targetBranches: [...plan.targetBranches],
-		conflicts: plan.conflicts.map((conflict) => ({
-			branch: conflict.branch,
-			path: conflict.path,
-			kind: conflict.type,
-		})),
-		reason: plan.reason,
-	};
+	return success(landPlan.value);
 }
 
 export function toLandStackFailure(failureValue: LandingFailure): LandStackFailure {

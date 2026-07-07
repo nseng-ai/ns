@@ -22,11 +22,11 @@ import {
 	parseArgs,
 	registerLandStackRenderer,
 } from "../../src/land/land-stack.ts";
+import type { PullRequestFacts } from "../../src/land/api.ts";
 import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	NotifyLevel,
-	PullRequestSnapshot,
 } from "../../src/land/stack/types.ts";
 import {
 	BACKUP_ROTATION_ARGS,
@@ -492,7 +492,7 @@ function numberedPreflightPrSteps(options: {
 	);
 }
 
-function batchedPrStdout(prs: readonly PullRequestSnapshot[]): string {
+function batchedPrStdout(prs: readonly PullRequestFacts[]): string {
 	return `${JSON.stringify({
 		data: {
 			repository: Object.fromEntries(prs.map((pr, index) => [`b${index}`, { nodes: [pr] }])),
@@ -875,7 +875,7 @@ function mergeSingleFeatureA(): ScriptedExec[] {
 	return mergeFeatureAThroughDelete({ refreshTarget: null });
 }
 
-function badInitialPrPreflight(pr: PullRequestSnapshot): ScriptedExec[] {
+function badInitialPrPreflight(pr: PullRequestFacts): ScriptedExec[] {
 	return [
 		...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
 		...cleanRepoChecks(),

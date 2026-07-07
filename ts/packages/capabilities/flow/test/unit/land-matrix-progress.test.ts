@@ -9,7 +9,7 @@ import {
 	renderLandMatrixProgressFrame,
 	type LandMatrixRowSpec,
 } from "../../src/land/land-matrix-progress.ts";
-import type { FlowLandingPlan } from "../../src/land/stack/types.ts";
+import type { LandingPlan } from "../../src/land/api.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
 function caps(parts: Partial<Caps> = {}): Caps {
@@ -172,10 +172,8 @@ function pendingLandRowView(row: LandMatrixRowSpec) {
 	};
 }
 
-function plan(): FlowLandingPlan {
+function plan(): Pick<LandingPlan, "branchPlans" | "stack"> {
 	return {
-		repoRoot: "/repo",
-		metadataDbPath: "/repo/.git/graphite.db",
 		stack: {
 			trunk: "main",
 			current: "feature/b",
@@ -191,10 +189,6 @@ function plan(): FlowLandingPlan {
 			{ branch: "feature/a", localSha: "aaa", pr: pr("feature/a", 123) },
 			{ branch: "feature/b", localSha: "bbb", pr: pr("feature/b", 124) },
 		],
-		prSubmitRequirements: [],
-		submitRestackRequirements: [],
-		managedSlotConflicts: [],
-		descendantMaintenance: { kind: "none", branches: [] },
 	};
 }
 

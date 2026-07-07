@@ -30,7 +30,7 @@ import {
 	type GraphiteTopology,
 } from "../../src/land/stack/graphite-topology.ts";
 import { validateOpenPrBasics } from "../../src/land/api.ts";
-import type { LandOutcome } from "../../src/land/api.ts";
+import type { LandingPlan, LandOutcome, PullRequestFacts } from "../../src/land/api.ts";
 import {
 	formatFailure,
 	formatPlan,
@@ -42,9 +42,7 @@ import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	LandedPr,
-	FlowLandingPlan,
 	NotifyLevel,
-	PullRequestSnapshot,
 } from "../../src/land/stack/types.ts";
 import {
 	detectWorktreeConflicts,
@@ -268,7 +266,7 @@ function prSnapshot(overrides: {
 	state?: string;
 	isDraft?: boolean;
 	mergedAt?: string | null;
-}): PullRequestSnapshot {
+}): PullRequestFacts {
 	return {
 		id: `PR_node_${overrides.number}`,
 		number: overrides.number,
@@ -551,8 +549,8 @@ describe("land-stack pure helpers", () => {
 
 		pi.assertDone();
 		expect(conflicts).toEqual([
-			{ branch: CURRENT, path: "/symlink/repo", kind: "current" },
-			{ branch: "feature-a", path: slotPath, kind: "managed-slot" },
+			{ branch: CURRENT, path: "/symlink/repo", type: "current" },
+			{ branch: "feature-a", path: slotPath, type: "managed-slot" },
 		]);
 	});
 
@@ -573,8 +571,8 @@ describe("land-stack pure helpers", () => {
 
 		pi.assertDone();
 		expect(conflicts).toEqual([
-			{ branch: CURRENT, path: ROOT, kind: "current" },
-			{ branch: "feature-a", path: legacySlotPath, kind: "manual-worktree" },
+			{ branch: CURRENT, path: ROOT, type: "current" },
+			{ branch: "feature-a", path: legacySlotPath, type: "manual-worktree" },
 		]);
 	});
 
@@ -654,7 +652,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("formats plans and failures", () => {
-		const plan: FlowLandingPlan = {
+		const plan: LandingPlan = {
 			repoRoot: ROOT,
 			metadataDbPath: DB_PATH,
 			stack: {
@@ -666,7 +664,7 @@ describe("land-stack pure helpers", () => {
 				remainingLandingBranches: [],
 				descendantBranches: [DESCENDANT],
 				descendantRootBranches: [DESCENDANT],
-				warnings: ["off-column branch ignored"],
+				warnings: [{ level: "warning", message: "off-column branch ignored" }],
 			},
 			branchPlans: [
 				{
@@ -680,16 +678,22 @@ describe("land-stack pure helpers", () => {
 					pr: prSnapshot({ number: 102, branch: CURRENT, base: "feature-a", sha: SHA_B }),
 				},
 			],
+			preflight: {
+				status: "ready",
+				checkedBranches: ["feature-a", CURRENT],
+				warnings: [],
+				failures: [],
+			},
 			prSubmitRequirements: [],
 			submitRestackRequirements: [],
 			managedSlotConflicts: [
 				{
 					branch: "feature-a",
 					path: "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01",
-					kind: "managed-slot",
+					type: "managed-slot",
 				},
 			],
-			descendantMaintenance: { kind: "auto", branches: [DESCENDANT], targetBranches: [DESCENDANT] },
+			descendantMaintenance: { type: "auto", branches: [DESCENDANT], targetBranches: [DESCENDANT] },
 		};
 		const formatted = formatPlan(plan);
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");
@@ -698,7 +702,7 @@ describe("land-stack pure helpers", () => {
 		expect(formatted).toContain(
 			"gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
 		);
-		const planWithSubmit: FlowLandingPlan = {
+		const planWithSubmit: LandingPlan = {
 			...plan,
 			prSubmitRequirements: [
 				{
@@ -1000,6 +1004,7 @@ describe("land-stack pure helpers", () => {
 			details,
 			warnings: [
 				{
+					level: "warning",
 					message: "Post-landing cleanup failed.",
 					notificationAction: "Resolve PR #101 manually.",
 				},
@@ -1014,6 +1019,7 @@ describe("land-stack pure helpers", () => {
 			formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
 				warnings: [
 					{
+						level: "warning",
 						message: "Post-landing cleanup failed.",
 						suggestedAction: "Delete local branch feature-a manually.",
 					},
@@ -1022,7 +1028,7 @@ describe("land-stack pure helpers", () => {
 		).toBe("Delete local branch feature-a manually.");
 		expect(
 			formatSuccessNotification("Landed 1 PR: #101 feature-a.", {
-				warnings: [{ message: "Inspect the stack manually." }],
+				warnings: [{ level: "warning", message: "Inspect the stack manually." }],
 			}),
 		).toBe("Inspect the stack manually.");
 		expect(

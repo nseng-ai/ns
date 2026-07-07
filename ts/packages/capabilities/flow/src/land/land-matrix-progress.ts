@@ -11,7 +11,7 @@ import {
 	type MatrixRowView,
 } from "../phase-stream/matrix-progress-core.ts";
 import { LAND_PHASES } from "../phase-stream/phase-stream-specs.ts";
-import type { FlowLandingPlan } from "./stack/types.ts";
+import type { LandingPlan } from "./types.ts";
 
 export type LandMatrixColumnKey = "gate" | "merge" | "verify" | "restack";
 
@@ -62,7 +62,9 @@ export function formatLandProgressTitle(state: LandLiveProgressState): string {
 	return BASE_LAND_TITLE;
 }
 
-export function landMatrixRowsFromPlan(plan: FlowLandingPlan): readonly LandMatrixRowSpec[] {
+export function landMatrixRowsFromPlan(
+	plan: Pick<LandingPlan, "branchPlans" | "stack">,
+): readonly LandMatrixRowSpec[] {
 	return plan.stack.landingBranches.map((branch) => {
 		const branchPlan = plan.branchPlans.find((item) => item.branch === branch);
 		const prNumber = branchPlan?.pr.number ?? 0;

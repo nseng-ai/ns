@@ -16,12 +16,11 @@ import {
 	restackTargetForSubmit,
 } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement } from "./landing-plan.ts";
+import type { DescendantMaintenancePlan, LandingPlan } from "../types.ts";
 import type {
 	CommandStreamMessageDetails,
-	DescendantMaintenancePlan,
 	LandStackCommandContext,
 	LandedPr,
-	FlowLandingPlan,
 	LandingWarning,
 	LandResultKind,
 	NotifyLevel,
@@ -32,7 +31,7 @@ import { formatConflict, formatSlotConflict } from "./worktrees.ts";
 
 const MAX_NOTIFICATION_CHARS = 160;
 
-export function formatPlan(plan: FlowLandingPlan): string {
+export function formatPlan(plan: LandingPlan): string {
 	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
 	const lines: string[] = [];
 
@@ -62,7 +61,7 @@ export function formatPlan(plan: FlowLandingPlan): string {
 	if (stack.warnings.length > 0) {
 		lines.push("", "Warnings:");
 		for (const warning of stack.warnings) {
-			lines.push(`  - ${warning}`);
+			lines.push(`  - ${warning.message}`);
 		}
 	}
 
@@ -122,11 +121,11 @@ export function formatPlan(plan: FlowLandingPlan): string {
 }
 
 function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
-	if (maintenance.kind === "none") {
+	if (maintenance.type === "none") {
 		return ["No descendant PRs above the current branch will be merged."];
 	}
 
-	if (maintenance.kind === "auto") {
+	if (maintenance.type === "auto") {
 		return [
 			"Will leave open and try to restack/update after target PRs land:",
 			...maintenance.branches.map((branch) => `  - ${branch}`),
@@ -168,7 +167,7 @@ export function formatSuccessSummary(
 	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
 	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
 	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
-	if (descendantMaintenance.kind === "auto" && descendantMaintenance.branches.length > 0) {
+	if (descendantMaintenance.type === "auto" && descendantMaintenance.branches.length > 0) {
 		if (hasDescendantMaintenanceDeferral(noteEntries)) {
 			lines.push(
 				`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`,
@@ -180,7 +179,7 @@ export function formatSuccessSummary(
 		} else {
 			lines.push(`Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`);
 		}
-	} else if (descendantMaintenance.kind === "skipped") {
+	} else if (descendantMaintenance.type === "skipped") {
 		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
 		lines.push(`Reason: ${descendantMaintenance.reason}.`);
 	}

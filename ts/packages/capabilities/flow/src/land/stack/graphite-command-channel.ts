@@ -10,12 +10,8 @@ import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
-import type {
-	CommandInvocation,
-	CommandStreamFinish,
-	LandStackExtensionAPI,
-	FlowLandingPlan,
-} from "./types.ts";
+import type { LandingPlan } from "../types.ts";
+import type { CommandInvocation, CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 const READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX = [
 	"flow",
@@ -205,11 +201,11 @@ export function untrackLocalBranchOperation(
 	return { kind: "untrack-local-branch", branch };
 }
 
-export function restackTargetForSubmit(plan: FlowLandingPlan): string | undefined {
+export function restackTargetForSubmit(plan: LandingPlan): string | undefined {
 	return plan.submitRestackRequirements[0]?.branch;
 }
 
-export function formatSubmitUpdateCommandLines(plan: FlowLandingPlan): string[] {
+export function formatSubmitUpdateCommandLines(plan: LandingPlan): string[] {
 	const submitOperation = submitUpdateOperation({ branch: plan.stack.landingTargetBranch });
 	const restackTarget = restackTargetForSubmit(plan);
 	return restackTarget

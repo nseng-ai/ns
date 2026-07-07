@@ -1,5 +1,11 @@
-import { collectSubmitRestackRequirements, toWarningNotifications } from "../api.ts";
-import type { LandContext, LandingFailure } from "../api.ts";
+import { collectSubmitRestackRequirements } from "../api.ts";
+import type {
+	LandContext,
+	LandingFailure,
+	LandingPlan,
+	PrSubmitRequirement,
+	RestackRequirement,
+} from "../api.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
 	confirmPreMergeMaintenance,
@@ -15,16 +21,11 @@ import {
 } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
 import { setStatus } from "./presentation.ts";
-import type {
-	FlowLandingPlan,
-	LandStackCommandContext,
-	PrSubmitRequirement,
-	RestackRequirement,
-} from "./types.ts";
+import type { LandStackCommandContext } from "./types.ts";
 
 export interface PreMergeSubmitMaintenanceOptions {
 	readonly ctx: LandStackCommandContext;
-	readonly plan: FlowLandingPlan;
+	readonly plan: LandingPlan;
 	readonly landContext: LandContext;
 	readonly confirmation?: PreMergeConfirmation;
 }
@@ -75,10 +76,11 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		}
 
 		setStatus(ctx, "verifying restack...");
-		const remainingRestack = await collectSubmitRestackRequirements(landContext, plan.repoRoot, {
-			...plan.stack,
-			warnings: toWarningNotifications(plan.stack.warnings),
-		});
+		const remainingRestack = await collectSubmitRestackRequirements(
+			landContext,
+			plan.repoRoot,
+			plan.stack,
+		);
 		if (remainingRestack.type === "failure") {
 			return failure(toLandStackFailure(remainingRestack.failure));
 		}
@@ -116,7 +118,7 @@ function preMergeGraphiteFailure(
 	});
 }
 
-export function formatSubmitUpdateDetails(plan: FlowLandingPlan): string {
+export function formatSubmitUpdateDetails(plan: LandingPlan): string {
 	const restackTarget = restackTargetForSubmit(plan);
 	const commands = formatSubmitUpdateCommandLines(plan);
 	const lines = [
@@ -146,7 +148,9 @@ export function formatSubmitUpdateDetails(plan: FlowLandingPlan): string {
 	return lines.join("\n");
 }
 
-export function formatRemainingSubmitRequirements(requirements: PrSubmitRequirement[]): string {
+export function formatRemainingSubmitRequirements(
+	requirements: readonly PrSubmitRequirement[],
+): string {
 	return [
 		"gt submit/update completed, but GitHub PR metadata still differs from local Graphite refs.",
 		"No PRs were landed.",
