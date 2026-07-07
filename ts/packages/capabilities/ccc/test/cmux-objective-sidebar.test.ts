@@ -441,7 +441,7 @@ describe("cmux Objective sidebar deterministic helpers", () => {
 			"foo/bar",
 			".",
 			"..",
-			".ns/objective-archive/old/objective.md",
+			".ns/not-objectives/old/objective.md",
 			"/tmp/outside/objective.md",
 		]) {
 			expect(resolveObjectiveSelector(selector, cwd).type).toBe("invalid");

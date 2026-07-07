@@ -22,11 +22,11 @@ Active root:
   closed.md  # optional marker
 ```
 
-The archive root mirrors this layout under `.ns/objective-archive/<slug>/`, preserving the `closed.md` marker when present. Do not use `docs/objectives/`.
+Do not use `docs/objectives/`.
 
-**Slug identity.** The `<slug>` directory name is the durable Objective identity. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate an Objective under a new slug unless the user explicitly asks for an Objective slug migration.
+**Slug identity.** The `<slug>` directory name is the durable Objective identity while the record exists in the checkout. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate an Objective under a new slug unless the user explicitly asks for an Objective slug migration.
 
-**Archive is a location move.** Archive state is represented by location: `ns objective archive <slug>` moves the whole record out of active discovery; `ns objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory — an explicit location move for the same slug identity, not a slug migration.
+**Deletion is source-controlled.** Closing an Objective does not delete it. If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control and recover it from git history if needed. Do not add tombstones, registries, or an Objective-specific archive location.
 
 ## Objective skill family
 
@@ -115,9 +115,8 @@ A minimal Closure Marker. Its existence means closed; closure meaning belongs in
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before running active-Objective workflows.
-3. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
-4. If no candidates exist, say so and suggest `objective-create` when appropriate.
+2. If no slug or path is explicit, run `ns objective list --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose.
+3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
@@ -129,10 +128,10 @@ A picker UI may use deterministic git facts to group changed active Objectives f
 
 `ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, showing per-record status, latest update, related local-branch count, and Objective Edge count. It does not parse Objective prose or infer status from branches, and it has no Graphite branch projection, current-branch mode, or third active status. Related-branch names and edge-annotation detail are no longer on `list`; use `ns objective show <slug>` for a single record.
 
-- `--status all` means all statuses in the active root only — archived records under `.ns/objective-archive/` are physically outside active discovery. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`.
+- `--status all` means all statuses in the active root only. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`.
 - `--names`: emits filtered active-root slugs, one per line; use it only for machine-readable active-slug extraction.
 
-`ns objective show <slug>` is the single-record detail view: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record, and every Objective Edge with both this record's annotation and the counterpart's back-edge annotation plus its active/archived/missing state. It is read-only and takes `--format md` / `--format json` like the other Objective commands.
+`ns objective show <slug>` is the single-record detail view: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record, and every Objective Edge with both this record's annotation and the counterpart's back-edge annotation plus its active/missing state. It is read-only and takes `--format md` / `--format json` like the other Objective commands.
 
 ## Tracking Gate
 
@@ -150,7 +149,7 @@ Safe consolidation rules:
 - Edit the surviving Objective's `objective.md` and `roadmap.md` to absorb the active scope, roadmap rows, risks, and open questions that should remain live.
 - Close each subsumed Objective with `objective-close` semantics: add `## Closure` to its `objective.md`, write minimal `closed.md`, and put the subsumption rationale in closure prose.
 - Write new Semantic Updates in the survivor and each subsumed record explaining the consolidation decision, where active tracking moved, and any follow-ups.
-- Archive only if the user explicitly asks to retire the closed record from active-root status after closure.
+- Delete through source control only if the user explicitly asks to remove the closed record from active checkout state after closure.
 
 ## Non-goals
 

@@ -1,19 +1,19 @@
 # @nseng-ai/objectives
 
-This context captures domain language for the `objective` capability package: the CLI surfaces over checked-in Objective records and the in-process Capability API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and capability-specific terms; the Objective *system* vocabulary (Objective, Active/Archive Objective Root, Objective Update/Close/Archive, Semantic Update, Closure Marker, …) stays canonical in the root [ns](../../../CONTEXT.md) context and is cited here, not redefined.
+This context captures domain language for the `objective` capability package: the CLI surfaces over checked-in Objective records and the in-process Capability API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and capability-specific terms; the Objective *system* vocabulary (Objective, Active Objective Root, Objective Update/Close, Semantic Update, Closure Marker, …) stays canonical in the root [ns](../../../CONTEXT.md) context and is cited here, not redefined.
 
 ## Language
 
 **`ns objective` command surface**:
-The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `archive`, `check`, `list`, and `show` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@nseng-ai/objectives/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
+The public ns-grouped Objective CLI surface — `ns objective ...` — whose commands `check`, `list`, and `show` view checked-in Objective records. The former top-level `bin.objective` executable is retired; `@nseng-ai/objectives/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
 *Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:
 The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, reporting per-record status, latest update, related local-branch count, and Objective Edge count. Local branch names and edge-attribution detail are no longer a `list` concern; they move to `ns objective show`.
-*Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory, per-record branch-name attribution
+*Avoid*: Graphite stack projection, deleted-record discovery, Objective selection authority, cross-worktree inventory, per-record branch-name attribution
 
 **`ns objective show`**:
-The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and every Objective Edge with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus its active/archived/missing state.
+The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and every Objective Edge with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus whether the counterpart record exists.
 *Avoid*: Graphite stack projection, Objective selection authority, edge mutation surface, prose interpretation, hidden `exec` placement
 
 **EDGES list column**:
@@ -21,7 +21,7 @@ The `ns objective list` column to the right of LATEST UPDATE showing a record's 
 *Avoid*: edge detail rendering (that is `ns objective show`), annotation display (that is `ns objective show`), blocked lifecycle status in machine output, deriving blocked state from body prose
 
 **Edge linting in `ns objective check`**:
-The structural **Record Frontmatter** lint in `ns objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every record across the active and archive roots with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; one warning-severity advisory (a Blocked Sentence alongside a closed edge counterpart, from marker state only) is reported without failing the check or sweep; the linter never interprets **Edge Annotation** prose or derives blocked state.
+The structural **Record Frontmatter** lint in `ns objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every active-root record with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; one warning-severity advisory (a Blocked Sentence alongside a closed edge counterpart, from marker state only) is reported without failing the check or sweep; the linter never interprets **Edge Annotation** prose or derives blocked state.
 *Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
 
 **Hidden `ns objective exec`**:
@@ -29,8 +29,8 @@ The hidden `ns objective exec ...` command group of deterministic skill- and age
 *Avoid*: public human command, Objective Capability API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:
-The rule that the `ns objective` CLI reads and writes Objective records only as checked-in Markdown under the root-defined **Active Objective Root** / **Objective Archive Root**, including `ns objective archive` / `--unarchive` directory moves; it is a view-and-mutation surface over those root system terms, not a separate store.
-*Avoid*: hidden database, Branch Memory storage, redefining Objective or Objective Archive, Graphite-derived record set
+The rule that the `ns objective` CLI reads Objective records only as checked-in Markdown under the root-defined **Active Objective Root**. Records leave active checkout state by ordinary source-controlled deletion and can be recovered from git history when needed; there is no Objective-specific parking store.
+*Avoid*: hidden database, Branch Memory storage, deleted-record store, Graphite-derived record set, tombstone registry
 
 **Objective Capability API**:
 The curated `@nseng-ai/objectives/api` surface for in-process sibling consumers (`ccc`, `nscc`, and Pi's objective adapters): the `createObjectiveClient(...)` facade returning ok/failure results, plus the relocated Objective-selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.

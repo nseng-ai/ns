@@ -17,7 +17,7 @@ This is part of the Objective skill family. Use the `objective` umbrella for sha
 
 ## Boundaries
 
-- **Read-only on Objective records.** Read `.ns/objectives/<slug>/` and `.ns/objective-archive/<slug>/`; never edit, create, move, archive, close, or update Objective files.
+- **Read-only on Objective records.** Read `.ns/objectives/<slug>/`; never edit, create, move, delete, close, or update Objective files.
 - **No formal tooling changes.** Do not add `ns objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
 - **No reviews/handoff coupling.** Do not store in reviews or handoff namespaces and do not depend on their retention, runner, diff cap, review log, or artifact formats.
 - **Basis stays review-agnostic.** The evidence-phase basis carries no quality claims, risk ratings, or recommendations; judgment lives only in the separate retro artifact. Neither artifact is an approval gate or merge gate.
@@ -46,7 +46,7 @@ Do not store full diff bytes in brmem. The durable basis stores the reconstructi
 
 ### 1. Select exactly one Objective
 
-Require an explicit Objective slug or a path under `.ns/objectives/<slug>/` or `.ns/objective-archive/<slug>/`. If none is explicit, run:
+Require an explicit Objective slug or a path under `.ns/objectives/<slug>/`. If none is explicit, run:
 
 ```bash
 ns objective list --format md
@@ -81,11 +81,7 @@ Primary starting signal: trunk commits that touched the Objective directory:
 git log --oneline <trunk> -- .ns/objectives/<slug>/
 ```
 
-For archived Objectives, also check the archive path if needed:
-
-```bash
-git log --oneline <trunk> -- .ns/objective-archive/<slug>/
-```
+If the record was deleted from the active checkout, inspect git history for `.ns/objectives/<slug>/` rather than using an Objective-specific archive path.
 
 Resolve each candidate commit to associated PRs with `gh`. Useful commands include:
 
@@ -158,7 +154,7 @@ Create a Markdown briefing with this shape:
 
 - Slug: <slug>
 - Title: <title>
-- Closure state: <open|closed|archived/closed|unknown>
+- Closure state: <open|closed|deleted|unknown>
 - Source record: <path>
 - Storage branch: <branch>
 

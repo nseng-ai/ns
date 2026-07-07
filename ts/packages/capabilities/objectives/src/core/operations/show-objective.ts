@@ -12,8 +12,7 @@ import {
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import type { ObjectiveRecordDocumentReadResult } from "../storage.ts";
-import { activeRecordRelativePath, type ObjectiveStorage } from "../storage.ts";
+import type { ObjectiveRecordDocumentReadResult, ObjectiveStorage } from "../storage.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import { findObjectiveEdgeAnnotation } from "./edge-lint.ts";
@@ -32,8 +31,8 @@ export const showObjectiveRequestSchema = z.object({
 });
 
 const showObjectiveEdgeCounterpartSchema = z.object({
-	// active/archived/missing follows the same active-then-archive record resolution the edge linter uses.
-	state: z.enum(["active", "archived", "missing"]),
+	// Whether active-root-only record resolution found the counterpart record.
+	exists: z.boolean(),
 	// Back-edge annotation naming this record in the counterpart's frontmatter; null when the
 	// counterpart record or its back-edge is missing, unreadable, or malformed.
 	annotation: z.string().nullable(),
@@ -198,15 +197,16 @@ async function resolveEdgeCounterpart(
 	| { type: "ok"; value: ShowObjectiveEdgeCounterpart }
 	| { type: "storage-error"; error: { code: string; message: string } }
 > {
-	// Reuse the edge linter's active-then-archive resolution helper on `ObjectiveStorage`.
 	const resolved = await storage.resolveRecordRelativePath(endpoint);
 	if (!resolved.ok) return { type: "storage-error", error: resolved.error };
 	if (resolved.value === null) {
-		return { type: "ok", value: { state: "missing", annotation: null } };
+		return { type: "ok", value: { exists: false, annotation: null } };
 	}
-	const state = resolved.value === activeRecordRelativePath(endpoint) ? "active" : "archived";
 	const read = await storage.readObjectiveRecordDocument(resolved.value);
-	return { type: "ok", value: { state, annotation: backEdgeAnnotation(read, ownSlug) } };
+	return {
+		type: "ok",
+		value: { exists: true, annotation: backEdgeAnnotation(read, ownSlug) },
+	};
 }
 
 function backEdgeAnnotation(
@@ -326,21 +326,26 @@ function labeledWrappedBlock(options: {
 	);
 }
 
-function edgeStateIntent(state: ShowObjectiveEdgeCounterpart["state"]): Intent {
-	if (state === "active") return "muted";
-	if (state === "archived") return "warn";
+function counterpartIntent(counterpart: ShowObjectiveEdgeCounterpart): Intent {
+	if (counterpart.exists) return "muted";
 	return "error";
+}
+
+function counterpartLabel(counterpart: ShowObjectiveEdgeCounterpart): string {
+	if (counterpart.exists) return "found";
+	return "missing";
 }
 
 // The counterpart's back-edge annotation is deliberately absent from the human surface: in the
 // healthy case it restates the own-side annotation. Both sides remain on `--format md`.
 function renderEdgeLines(edge: ShowObjectiveEdge, caps: Caps): string[] {
-	const intent = edgeStateIntent(edge.counterpart.state);
+	const intent = counterpartIntent(edge.counterpart);
+	const label = counterpartLabel(edge.counterpart);
 	const lines = [
 		`${paint(caps, intent, glyph(caps, "open"))} ${bold(paint(caps, "accent", edge.objective))}  ${paint(
 			caps,
 			intent,
-			edge.counterpart.state,
+			label,
 		)}`,
 	];
 	const width = contentWidth(caps, 4);
@@ -381,7 +386,7 @@ export function renderShowObjectiveMarkdown(result: ShowObjectiveResult): string
 		parts.push("_No Objective Edges declared._\n");
 	} else {
 		for (const edge of result.edges) {
-			parts.push(`### \`${edge.objective}\` (${edge.counterpart.state})\n\n`);
+			parts.push(`### \`${edge.objective}\` (${counterpartLabel(edge.counterpart)})\n\n`);
 			parts.push(`- this record: ${edge.annotation}\n`);
 			parts.push(`- \`${edge.objective}\`: ${counterpartAnnotationText(edge.counterpart)}\n\n`);
 		}

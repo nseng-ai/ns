@@ -293,11 +293,6 @@ Global extensions live under:
 - [Autonomous Objective lessons](../../.ns/objectives/eliminate-redundant-optional-undefined/autonomous-objective-lessons.md): lessons from running the standing (maintain-forever) autoobjective variant.
 - **Executing one:** the supported runner is the `/ns:objective:autorun [<slug>] [scope / step budget / standing guidance]` Pi command from the packaged Objective Pi extension (`ts/packages/capabilities/objectives/src/pi/extension.ts`) — without a slug it opens the same active-Objective picker logic as `/ns:objective:next`; with a slug it expands the repo `objective-autorun` skill so the parent session agent owns the loop and every between-step judgment. Each mechanical step (runner-begin → implementation subagent → runner-finish) runs through the `objective_runner_step` tool from `.pi/extensions/objective-autorun.ts` and returns a Runner Checkpoint to judge. The run ends with local stacked branches handed back to the normal Graphite/flow workflow and obeys the canonical forbidden-action wording in `ts/packages/capabilities/objectives/src/runner/prompt.ts` (`OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE`): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization."
 
-## Core subagent proposal records
-
-- [Pi Core Subagent MVP Objective](../../.ns/objective-archive/pi-core-subagent-mvp/objective.md): archived design record for the proposed Pi core foreground runner subagent primitive and terminal capture semantics.
-- [Pi Core Subagent MVP Roadmap](../../.ns/objective-archive/pi-core-subagent-mvp/roadmap.md): archived review-slice plan for the primitive.
-
 ## Session `cwd` semantics
 
 Pi's working directory is **session-bound**, not shell-command-bound.

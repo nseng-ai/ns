@@ -19,7 +19,6 @@ const MAX_ERROR_CHARS = 4_000;
 const MAX_ERROR_LINES = 20;
 const ACTIVE_OBJECTIVE_PREFIX = ".ns/objectives/";
 const ACTIVE_OBJECTIVE_ROOT = ".ns/objectives";
-const ARCHIVE_OBJECTIVE_ROOT = ".ns/objective-archive";
 
 export type ObjectiveSelectorParseResult =
 	| {
@@ -271,14 +270,6 @@ function resolveAbsoluteObjectiveSelector(
 
 function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelectorParseResult {
 	const normalized = posix.normalize(selector);
-	if (
-		normalized === ARCHIVE_OBJECTIVE_ROOT ||
-		normalized.startsWith(`${ARCHIVE_OBJECTIVE_ROOT}/`)
-	) {
-		return invalidSelector(
-			"Archived Objective paths are not supported; pass an active .ns/objectives/<slug> path.",
-		);
-	}
 	if (normalized === ACTIVE_OBJECTIVE_ROOT) {
 		return invalidSelector("Pass an Objective slug or path below .ns/objectives/<slug>.");
 	}

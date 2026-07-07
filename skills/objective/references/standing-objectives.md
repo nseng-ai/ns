@@ -7,7 +7,7 @@ Load this reference only when the user says standing, ongoing, continuous, no-na
 - A **standing Objective** is an Objective whose horizon has no natural goal-met finish line.
 - Standing does not mean permanent. Close it when retired, superseded, obsolete, no longer worth maintaining, or intentionally abandoned.
 - Do not add lifecycle state, type fields, frontmatter, schema, registries, hidden state, queues, ledgers, or task databases.
-- `active` / `closed` remains enough. Archive/unarchive remains a location move, not a standing-specific state.
+- `active` / `closed` remains enough. Removal from active checkout state is ordinary source-control deletion, not a standing-specific state.
 
 ## Horizon vs drive
 

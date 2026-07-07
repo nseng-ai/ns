@@ -3,7 +3,6 @@ import {
 	repoLocalNsCommandDescriptor,
 } from "@nseng-ai/kernel/sdk";
 
-import { objectiveArchiveNsCommand } from "./commands/archive.ts";
 import { objectiveCheckNsCommand } from "./commands/check.ts";
 import { objectiveExecListCandidatesNsCommand } from "./commands/exec-list-candidates.ts";
 import { objectiveExecLoadOrientationsNsCommand } from "./commands/exec-load-orientations.ts";
@@ -22,7 +21,6 @@ export const objectiveRepoLocalNsExtension = defineRepoLocalNsExtensionDescripto
 		objectiveListNsCommand,
 		objectiveShowNsCommand,
 		objectiveCheckNsCommand,
-		objectiveArchiveNsCommand,
 		objectiveExecListCandidatesNsCommand,
 		objectiveExecLoadOrientationsNsCommand,
 		objectiveExecReadObjectiveNsCommand,

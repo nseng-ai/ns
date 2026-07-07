@@ -11,19 +11,13 @@ An Objective is not a workflow controller, state machine, hidden agent store, or
 
 ## Canonical Locations
 
-Active Objective records live under the checked-in active root:
+Objective records live under the checked-in active root:
 
 ```text
 .ns/objectives/
 ```
 
-Archived Objective records live under the checked-in archive root:
-
-```text
-.ns/objective-archive/
-```
-
-Each objective is keyed by its directory slug. Active records use this shape:
+Each objective is keyed by its directory slug. Records use this shape:
 
 ```text
 .ns/objectives/<slug>/
@@ -34,18 +28,16 @@ Each objective is keyed by its directory slug. Active records use this shape:
   closed.md        # optional; existence means closed
 ```
 
-Archived records preserve the same internal shape under `.ns/objective-archive/<slug>/`.
-
 Rules:
 
-- `.ns/objectives/` and `.ns/objective-archive/` are first-class repository content and should be committed.
-- The `<slug>` directory name is the stable objective identity in either root.
+- `.ns/objectives/` is first-class repository content and should be committed.
+- The `<slug>` directory name is the stable objective identity while the record exists in the checkout.
 - The markdown title may change without changing objective identity.
 - Command, product, branch, package, and prose renames do not imply Objective slug renames.
-- Moving `.ns/objectives/<old>/` to `.ns/objectives/<new>/` or `.ns/objective-archive/<old>/` to `.ns/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
-- Moving `.ns/objectives/<slug>/` to `.ns/objective-archive/<slug>/` is Objective archive, not slug migration.
-- Open/closed state and active/archived location are orthogonal: `closed.md` records closure state; root location controls whether normal active workflows discover the record.
-- Do not add UUIDs, registries, or hidden attachment metadata. The only sanctioned YAML is optional Record Frontmatter at the top of `objective.md`, carrying exactly `blocked` and `edges` (ADR 0025; see Record Frontmatter below).
+- Moving `.ns/objectives/<old>/` to `.ns/objectives/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
+- `closed.md` records closure state. Closed records remain in `.ns/objectives/` until a human deletes them.
+- If a record should disappear from active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control; recover it from git history if needed.
+- Do not add UUIDs, registries, tombstones, slug reservations, or hidden attachment metadata. The only sanctioned YAML is optional Record Frontmatter at the top of `objective.md`, carrying exactly `blocked` and `edges` (ADR 0025; see Record Frontmatter below).
 - V1 starts fresh from `.ns/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
 ## Documentation Surfaces
@@ -188,9 +180,9 @@ Rules:
 
 - Closure context belongs in `objective.md` under `## Closure`.
 - `closed.md` may be minimal; its content is not the source of closure meaning.
-- Closing an objective does not move its directory; archive/unarchive is a separate explicit operation.
-- Closed active objectives remain readable (for example via `ns objective exec read-objective`) but are not eligible for `objective-next` by default.
-- Archived objectives are outside normal Objective discovery regardless of whether `closed.md` exists.
+- Closing an objective does not move or delete its directory.
+- Closed objectives remain readable (for example via `ns objective exec read-objective`) but are not eligible for `objective-next` by default.
+- A human may delete a closed record through source control when it should no longer appear in the checkout.
 - There is no `objective-reopen` workflow in v1.
 
 ## Objective Selection
@@ -198,11 +190,10 @@ Rules:
 When an operation needs an existing active objective, resolve it in this order:
 
 1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
-2. If the user-provided path is under `.ns/objective-archive/<slug>/`, stop and ask whether to unarchive before running active Objective workflows.
-3. If no slug or path is explicit, list candidate objective directories under `.ns/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
-4. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
+2. If no slug or path is explicit, list candidate objective directories under `.ns/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
+3. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
 
-Archived slugs remain reserved Objective identities. Do not silently create a new active Objective with the same slug as an archived record; ask whether to unarchive, inspect, or choose a different slug.
+A previously deleted slug may be recreated when the user explicitly wants that identity again; source control history is the only historical link.
 
 Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
 
@@ -212,7 +203,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, `ns objective archive`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose, and the runner's local commit is runner-owned bookkeeping around a verified step (ADR 0024), not a prose mutation surface.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ns objective list`, `ns objective show`, `ns objective check`, and under `ns objective exec`: `list-candidates`, `read-objective`, `load-orientations`, `tracking-gate`, `runner-begin`, `runner-finish`, and `runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits, and the runner's local commit is runner-owned bookkeeping around a verified step (ADR 0024), not a prose mutation surface.
 
 ### `ns objective list`
 
@@ -220,7 +211,7 @@ Lists compact Objective records in the current checkout.
 
 Contract:
 
-- Read active Objective records only from `.ns/objectives/` in the current working tree; archived records under `.ns/objective-archive/` are excluded even when `--status all` is passed.
+- Read Objective records only from `.ns/objectives/` in the current working tree; deleted records are absent even when `--status all` is passed.
 - Report checkout-local status from the active record: direct `.ns/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
 - Do not treat nested files such as `.ns/objectives/<slug>/updates/closed.md` as closure markers.
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
@@ -254,7 +245,7 @@ Contract:
 - Resolve an explicit slug (or slug-like path) to one Objective record without mutating files. Missing or invalid slugs return structured non-ok result data rather than guessing a record.
 - Report status and Blocked Sentence, latest update and update count, outstanding changes under the record path, root/path facts, and malformed-frontmatter messages when present.
 - Attribute related local branches for this single record: local non-trunk branches whose `.ns/objectives` changes touch the shown slug are listed under Branches. If the branch walk ceiling is hit, human/Markdown output notes that branch attribution is truncated and JSON sets `updated_branches_truncated`.
-- Render every Objective Edge declared by this record with this record's annotation plus the counterpart's back-edge annotation when available. Counterparts are resolved active-first, then archive, then `missing`; malformed or unreadable counterpart frontmatter produces no back-edge annotation.
+- Render every Objective Edge declared by this record with this record's annotation plus the counterpart's back-edge annotation when available. Counterparts are resolved in the active root only; a deleted counterpart is `missing`, and malformed or unreadable counterpart frontmatter produces no back-edge annotation.
 - Emit machine JSON as a Clinkr envelope whose ok `data` includes `slug`, `path`, `root_path`, `closed`, `blocked_sentence`, optional `frontmatter_malformed`, `latest_update_iso`, `update_count`, `has_outstanding_changes`, `updated_branches`, `updated_branches_truncated`, and `edges`.
 - Support `--format md` and `--format json` like other Objective commands.
 - Do not summarize Objective prose, choose a canonical implementation branch, or depend on Graphite.
@@ -272,7 +263,7 @@ Checks Objective record structure without interpreting prose meaning.
 Contract:
 
 - `ns objective check <slug>` checks one record: required files, required Markdown heading presence, and Record Frontmatter structure — edge shape, mirror lookups in counterpart records, non-empty Edge Annotations, non-empty Blocked Sentence, at most one edge per unordered slug pair, and no keys beyond `blocked` and `edges`.
-- `ns objective check --all` sweeps every record's Record Frontmatter across the active and archive roots and reports structural edge/blocked violations.
+- `ns objective check --all` sweeps every active-root record's Record Frontmatter and reports structural edge/blocked violations.
 - Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
 - One non-failing **warning** advisory: a record carrying a Blocked Sentence while at least one edge counterpart is closed is flagged, naming the closed counterpart(s). The advisory is deterministic marker state (blocked-present plus counterpart `closed.md`), not prose interpretation, and it never fails the check or the sweep; disposing of the Blocked Sentence stays skill judgment.
 - Heading checks are presence-only structure; the command does not interpret prose meaning, roadmap state, or execution policy.
@@ -288,7 +279,6 @@ Contract:
 - Read active Objective records only from `.ns/objectives/` in the current working tree.
 - Include only open records with a direct `orientation.md` file.
 - Exclude records with direct `closed.md`; closure automatically removes them from the load set.
-- Exclude archived records under `.ns/objective-archive/`.
 - Sort deterministically by slug.
 - Do not parse Objective prose or orientation Markdown; emit headers and raw file contents.
 - Markdown/default output is suitable for AGENTS.md onboarding: each record renders as `### .ns/objectives/<slug>/orientation.md` followed by the raw file content with trailing newlines normalized.
@@ -400,8 +390,8 @@ Contract:
 - Resolve the objective using the selection rules.
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
 - Write `closed.md` as an existence-only Closure Marker.
-- Leave the objective directory in its current root.
-- Do not delete the objective or archive it implicitly; use `ns objective archive` separately when the user wants the record outside active discovery.
+- Leave the objective directory in `.ns/objectives/<slug>/`.
+- Do not delete the objective implicitly. If the user wants the record outside active checkout state, delete it separately through source control.
 - Do not create a reopen mechanism in v1.
 
 Future CLI pushdown candidates:
@@ -410,23 +400,9 @@ Future CLI pushdown candidates:
 - Refusal when already closed unless the user asks to amend closure context.
 - Verification that `objective.md` contains a `## Closure` section.
 
-### `ns objective archive`
+### Source-control deletion
 
-Moves an Objective record between active and archived roots without editing Objective Markdown.
-
-Contract:
-
-- `ns objective archive <slug>` moves `.ns/objectives/<slug>/` to `.ns/objective-archive/<slug>/`.
-- `ns objective archive <slug> --unarchive` moves `.ns/objective-archive/<slug>/` back to `.ns/objectives/<slug>/`.
-- Preserve the slug and all files, including `closed.md` when present.
-- Refuse invalid slugs, missing source directories, non-directory sources, and existing destinations.
-- Do not infer closure from archive state and do not infer archive state from closure.
-- Do not merge active and archived directories; a destination collision requires human resolution.
-
-Shipped CLI:
-
-- Run `ns objective archive <slug>` to remove a record from normal active discovery.
-- Run `ns objective archive <slug> --unarchive` to make an archived record active again.
+There is no Objective-specific archive command. If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control. Git history is the recovery mechanism.
 
 ### `ns objective exec tracking-gate`
 
@@ -487,7 +463,7 @@ Good CLI responsibilities:
 - List candidate objectives from checkout-local active-root records. *(shipped: `ns objective list`.)*
 - Detect closed markers. *(shipped for active-root records: `ns objective list`, `ns objective exec read-objective`, and `ns objective exec load-orientations` use direct `closed.md` presence.)*
 - Load active Objective orientation files for agent onboarding. *(shipped: `ns objective exec load-orientations`.)*
-- Move Objective records between active and archived roots without editing prose. *(shipped: `ns objective archive`.)*
+- Source-control deletion and recovery remains ordinary git behavior, not Objective-specific CLI state.
 - Summarize runner-subagent session usage for Objective run digestion. *(shipped: `ns objective exec runner-subagent-usage`.)*
 - Scaffold required files and headings. *(future.)*
 - Detect missing required files, headings, and Record Frontmatter structure. *(shipped: `ns objective check`.)*

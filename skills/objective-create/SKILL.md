@@ -38,7 +38,7 @@ New records live in the active root only:
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing any file.
 - Write only under `.ns/objectives/<slug>/`; never `docs/objectives/` or anywhere else.
 - Slug identity is the umbrella skill's rule: renames never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --status all --format md`; if a likely existing Objective appears, stop and ask whether the user meant `objective-update`, a direct read, or an explicit slug migration.
-- Check both roots before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read — never overwrite. If `.ns/objective-archive/<slug>/` exists, stop and ask whether to unarchive (`ns objective archive <slug> --unarchive`) instead of creating a duplicate slug.
+- Check the active root before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read — never overwrite. If the slug was previously deleted, source control history is the only historical link; recreate it only when the user wants that identity again.
 - Records are Markdown: write them directly, using `ns objective exec` only for deterministic reads; the only sanctioned YAML is Record Frontmatter below.
 
 ## Record Frontmatter: initial edges and Blocked Sentence
@@ -61,7 +61,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 
 ## Workflow
 
-1. Run the interview; confirm the slug and clear both roots per Slug and path, loading any conditional reference before its questions.
+1. Run the interview; confirm the slug and clear the active root per Slug and path, loading any conditional reference before its questions.
 2. Create `.ns/objectives/<slug>/` with `updates/`, `objective.md`, and `roadmap.md` per Required shape, in concise human-readable narrative.
 3. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per its section — including the counterpart mirrors — and run `ns objective check <slug>`; otherwise write no frontmatter.
 4. If the Objective is orienting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the umbrella skill's format: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Lifecycle/graduation metadata stays in `roadmap.md`, never in `orientation.md`.
@@ -70,7 +70,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 ## Stop / ask
 
 - The slug is missing, unconfirmed, invalid-looking, or points outside `.ns/objectives/`.
-- The target Objective directory already exists (active or archived).
+- The target Objective directory already exists.
 - The request looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
 - Durable context is too thin to write thesis, scope, completion criteria, assumptions, risks, or requested execution policy without inventing them.
 - The request needs multiple Objectives: create only one and ask the user to run the command again for the others.

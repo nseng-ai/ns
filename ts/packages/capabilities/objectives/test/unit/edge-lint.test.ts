@@ -63,12 +63,6 @@ describe("objectiveEdgeLintChecks", () => {
 		expect(await lint(storage, "alpha", content)).toEqual([]);
 	});
 
-	test("mirror lookup resolves counterparts in the archive root", async () => {
-		const storage = storageWith([{ ...MIRRORED_BETA, isArchived: true, isClosed: true }]);
-		const content = recordContent(edgeLines("beta", "Still linked after archiving."));
-		expect(await lint(storage, "alpha", content)).toEqual([]);
-	});
-
 	test("malformed frontmatter is a single error", async () => {
 		const storage = storageWith([]);
 		const violations = await lint(
@@ -134,7 +128,7 @@ describe("objectiveEdgeLintChecks", () => {
 			recordContent(edgeLines("ghost", "No such record.")),
 		);
 		expect(labels(violations)).toEqual(["objective.md edge ghost endpoint exists"]);
-		expect(violations[0]?.detail).toBe("no record in the active or archive root");
+		expect(violations[0]?.detail).toBe("no record in the active root");
 	});
 
 	test("counterpart without frontmatter is a missing mirror error", async () => {
@@ -179,19 +173,6 @@ describe("objectiveEdgeLintChecks", () => {
 		);
 	});
 
-	test("blocked record with a closed archived counterpart still gets the warning", async () => {
-		const storage = storageWith([{ ...MIRRORED_BETA, isArchived: true, isClosed: true }]);
-		const content = recordContent([
-			"blocked: Gated on beta landing first.",
-			...edgeLines("beta", "Consumed as a hard dependency."),
-		]);
-		const violations = await lint(storage, "alpha", content);
-		expect(labels(violations)).toEqual([
-			"objective.md Blocked Sentence has no closed edge counterparts",
-		]);
-		expect(violations[0]?.severity).toBe("warning");
-	});
-
 	test("unblocked record with a closed edge counterpart gets no warning", async () => {
 		const storage = storageWith([{ ...MIRRORED_BETA, isClosed: true }]);
 		const content = recordContent(edgeLines("beta", "Consumed as a hard dependency."));
@@ -200,25 +181,21 @@ describe("objectiveEdgeLintChecks", () => {
 });
 
 describe("sweepObjectiveEdgeLint", () => {
-	test("sweeps active and archived records and reports only violations", async () => {
+	test("sweeps active records and reports only violations", async () => {
 		const storage = storageWith([
 			{ slug: "alpha", objectiveMd: recordContent(edgeLines("beta", "Depends on beta.")) },
 			MIRRORED_BETA,
 			{ slug: "plain", objectiveMd: "# Plain record\n" },
 			{
-				slug: "archived-dangler",
+				slug: "active-dangler",
 				objectiveMd: recordContent(edgeLines("ghost", "Points nowhere.")),
-				isArchived: true,
-				isClosed: true,
 			},
 		]);
 		const result = await sweepObjectiveEdgeLint(storage);
 		if (!result.ok) throw new Error(result.error.message);
 		expect(result.value.recordCount).toBe(4);
 		expect(labels(result.value.violations)).toEqual(["objective.md edge ghost endpoint exists"]);
-		expect(result.value.violations[0]?.path).toBe(
-			".ns/objective-archive/archived-dangler/objective.md",
-		);
+		expect(result.value.violations[0]?.path).toBe(".ns/objectives/active-dangler/objective.md");
 	});
 
 	test("a record directory without objective.md is a violation", async () => {

@@ -22,10 +22,10 @@ describe("objectiveChangedSlugsFromPaths", () => {
 		).toEqual(["alpha", "zeta"]);
 	});
 
-	test("archive, unrelated, and Objective root paths are ignored", () => {
+	test("non-active, unrelated, and Objective root paths are ignored", () => {
 		expect(
 			objectiveChangedSlugsFromPaths([
-				".ns/objective-archive/alpha/objective.md",
+				".ns/not-objectives/alpha/objective.md",
 				"docs/readme.md",
 				".ns/objectives",
 			]),

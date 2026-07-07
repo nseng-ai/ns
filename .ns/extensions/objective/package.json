@@ -19,11 +19,6 @@
 				"entry": "./src/commands/check.ts"
 			},
 			{
-				"name": "archive",
-				"description": "Archive or unarchive an Objective record by moving its directory.",
-				"entry": "./src/commands/archive.ts"
-			},
-			{
 				"name": "exec-list-candidates",
 				"description": "List active Objective slug candidates for shell and agent autocomplete.",
 				"entry": "./src/commands/exec-list-candidates.ts"

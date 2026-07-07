@@ -102,7 +102,7 @@ describe("objective show", () => {
 			{
 				objective: "beta",
 				annotation: "Alpha depends on beta.",
-				counterpart: { state: "active", annotation: "Beta feeds alpha." },
+				counterpart: { exists: true, annotation: "Beta feeds alpha." },
 			},
 		]);
 		const human = plainHuman(data);
@@ -114,38 +114,7 @@ describe("objective show", () => {
 		expect(markdown).toContain("Beta feeds alpha.");
 	});
 
-	test("archived counterpart reports archived state with its back-edge annotation", async () => {
-		const exit = await runShowObjective(
-			contextWith({
-				fake: {
-					records: [
-						{
-							slug: "alpha",
-							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
-							),
-						},
-						{
-							slug: "beta",
-							isArchived: true,
-							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "alpha", annotation: "Beta feeds alpha." }]),
-							),
-						},
-					],
-				},
-			}),
-			{ slug: "alpha" },
-		);
-
-		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({
-			state: "archived",
-			annotation: "Beta feeds alpha.",
-		});
-	});
-
-	test("missing counterpart yields missing state and a null annotation", async () => {
+	test("missing counterpart yields exists false and a null annotation", async () => {
 		const exit = await runShowObjective(
 			contextWith({
 				fake: {
@@ -163,7 +132,7 @@ describe("objective show", () => {
 		);
 
 		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({ state: "missing", annotation: null });
+		expect(data.edges[0]?.counterpart).toEqual({ exists: false, annotation: null });
 	});
 
 	test("counterpart without a back-edge yields a null annotation", async () => {
@@ -185,7 +154,7 @@ describe("objective show", () => {
 		);
 
 		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({ state: "active", annotation: null });
+		expect(data.edges[0]?.counterpart).toEqual({ exists: true, annotation: null });
 	});
 
 	test("counterpart with malformed frontmatter yields a null annotation", async () => {
@@ -207,7 +176,7 @@ describe("objective show", () => {
 		);
 
 		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({ state: "active", annotation: null });
+		expect(data.edges[0]?.counterpart).toEqual({ exists: true, annotation: null });
 	});
 
 	test("attributes a local branch that touches the record", async () => {
@@ -253,24 +222,24 @@ describe("objective show", () => {
 		expect(data.isUpdatedBranchesTruncated).toBe(true);
 	});
 
-	test("renders edge states without back-edge prose", () => {
+	test("renders counterpart existence without back-edge prose", () => {
 		const human = plainHuman(
 			okResult({
 				edges: [
 					{
 						objective: "beta",
 						annotation: "Alpha depends on beta.",
-						counterpart: { state: "archived", annotation: "Beta feeds alpha." },
+						counterpart: { exists: true, annotation: "Beta feeds alpha." },
 					},
 					{
 						objective: "ghost",
 						annotation: "Alpha depends on ghost.",
-						counterpart: { state: "missing", annotation: null },
+						counterpart: { exists: false, annotation: null },
 					},
 				],
 			}),
 		);
-		expect(human).toContain("beta  archived");
+		expect(human).toContain("beta  found");
 		expect(human).toContain("ghost  missing");
 		expect(human).toContain("Alpha depends on beta.");
 		expect(human).not.toContain("Beta feeds alpha.");
@@ -303,7 +272,7 @@ describe("objective show", () => {
 						{
 							objective: "beta",
 							annotation: "Alpha depends on beta.",
-							counterpart: { state: "active", annotation: null },
+							counterpart: { exists: true, annotation: null },
 						},
 					],
 				}),

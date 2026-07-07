@@ -1,6 +1,6 @@
 # Runner Subagent Helper
 
-This document describes the local runner-subagent helper tracked by the archived [Pi Core Subagent MVP Objective](../../.ns/objective-archive/pi-core-subagent-mvp/objective.md). It is a repo-local extension/package-layer primitive, not a Pi core API.
+This document describes the local runner-subagent helper. It is a repo-local extension/package-layer primitive, not a Pi core API.
 
 ## Mental model
 

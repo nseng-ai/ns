@@ -61,19 +61,15 @@ The role of an **Objective** as human-readable context and ordered work guidance
 *Avoid*: Workflow controller, state machine, task database
 
 **Active Objective Root**:
-The checked-in repository directory `.ns/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows.
-*Avoid*: open objectives directory, hidden local cache, archive root
+The checked-in repository directory `.ns/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows. Records leave active checkout state by ordinary source-control deletion.
+*Avoid*: open objectives directory, hidden local cache, archive root, tombstone store
 
-**Objective Archive Root**:
-The checked-in repository directory `.ns/objective-archive/` that parks Objective records outside normal active discovery without changing their slug, prose, updates, or closure marker.
-*Avoid*: deletion, closed objective root, hidden cache
-
-**Archived Objective**:
-An **Objective** record located under the **Objective Archive Root**. Archive state is a location choice, not a replacement for open/closed state.
-*Avoid*: closed objective, deleted objective, stale update
+**Deleted Objective Record**:
+An **Objective** record removed from `.ns/objectives/` through ordinary source control. It is absent from Objective discovery; git history is the recovery mechanism.
+*Avoid*: archived objective, closed objective, stale update, hidden tombstone
 
 **Objective Slug**:
-The directory name under an Objective root that is the stable identity for one **Objective**.
+The directory name under the **Active Objective Root** that is the stable identity for one **Objective** while the record exists in the checkout.
 *Avoid*: title, branch name, PR name, package name
 
 **Objective Slug Migration**:
@@ -93,12 +89,8 @@ The explicit mutation workflow that updates objective tracking by editing durabl
 *Avoid*: Progress log, automatic refresh, hidden reconciliation
 
 **Objective Close**:
-The explicit mutation workflow that records an objective as complete or intentionally abandoned while preserving its checked-in history and writing a **Closure Marker**.
-*Avoid*: Deletion, archive, archival state machine
-
-**Objective Archive**:
-The explicit directory-move workflow that moves an Objective record between the **Active Objective Root** and the **Objective Archive Root** without editing Objective prose or changing closed/open state.
-*Avoid*: Objective Close, slug migration, deletion
+The explicit mutation workflow that records an objective as complete or intentionally abandoned while preserving its checked-in active-root record and writing a **Closure Marker**.
+*Avoid*: Deletion, archival state machine
 
 **Closure Marker**:
 A lightweight `closed.md` file whose existence lets tools identify closed objectives without language-model interpretation.
@@ -109,7 +101,7 @@ An optional YAML block at the top of an **Objective**'s `objective.md` carrying 
 *Avoid*: general metadata block, execution-policy store, extra frontmatter keys, hidden attachment metadata, registry
 
 **Objective Edge**:
-An undirected, kind-less, mirrored connection between two **Objective** records, listed in both endpoints' **Record Frontmatter** as `{objective: <slug>, annotation: <sentence>}`. Edge identity is the unordered slug pair, with at most one edge between two records; direction, causality, and relationship kind live in the **Edge Annotation** prose, never the schema. Mutation is skill-owned, and archiving an endpoint does not break an edge.
+An undirected, kind-less, mirrored connection between two **Objective** records, listed in both endpoints' **Record Frontmatter** as `{objective: <slug>, annotation: <sentence>}`. Edge identity is the unordered slug pair, with at most one edge between two records; direction, causality, and relationship kind live in the **Edge Annotation** prose, never the schema. Mutation is skill-owned, and deleting an endpoint makes the counterpart missing until the edge is updated or the record is recovered from git history.
 *Avoid*: typed edge kind, `to:`/`from:` directionality, single-sided edge, machine-readable dependency link
 
 **Edge Annotation**:
@@ -120,7 +112,7 @@ The required prose sentence each endpoint of an **Objective Edge** carries in it
 The prose-valued `blocked:` key in **Record Frontmatter**: presence means the record is blocked (for any reason — another objective, an external gate) and the value says why. There is no boolean — the sentence is the state — and it is set and cleared only by skill judgment, never by machine auto-flip.
 *Avoid*: blocked boolean, machine-derived flag, lifecycle state, status ping
 
-Objective state vocabulary clusters as: open vs. closed is the lifecycle state (the **Closure Marker** decides closed), active vs. archived is a location choice (**Objective Archive Root**), and blocked — the presence of a **Blocked Sentence** — is a sub-state of open, not a third lifecycle state.
+Objective state vocabulary clusters as: open vs. closed is the lifecycle state (the **Closure Marker** decides closed), present vs. deleted is ordinary source-controlled checkout state, and blocked — the presence of a **Blocked Sentence** — is a sub-state of open, not a third lifecycle state.
 
 **Harness artifact**:
 An ns-owned resource materialized into an assistant **Harness**; current kinds are `skill`, `agent`, and `extension-bundle`. Handoff artifacts and consumer artifacts are separate domain terms, so qualify this term when ambiguity is possible.
