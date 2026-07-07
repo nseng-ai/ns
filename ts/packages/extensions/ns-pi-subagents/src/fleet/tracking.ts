@@ -18,20 +18,12 @@ export interface SubagentFleetRunTracking {
 	dispose(): void;
 }
 
-const NOOP_SUBAGENT_FLEET_RUN_TRACKING: SubagentFleetRunTracking = {
-	markRunning: () => {},
-	markProgress: () => {},
-	markDone: () => {},
-	dispose: () => {},
-};
-
 export function trackSubagentFleetRun(input: {
-	registry: RunnerSubagentFleetRegistry | undefined;
+	registry: RunnerSubagentFleetRegistry;
 	ctx: ToolContext;
 	tasks: readonly RunnerSubagentFleetTaskInput[];
 	parentSessionFile: string | undefined;
 }): SubagentFleetRunTracking {
-	if (input.registry === undefined) return NOOP_SUBAGENT_FLEET_RUN_TRACKING;
 	const registry = input.registry;
 
 	const run = registry.startRun(input.tasks, {

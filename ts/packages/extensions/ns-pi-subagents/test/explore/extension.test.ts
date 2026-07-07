@@ -13,7 +13,8 @@ import {
 	EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS,
 	EXPLORE_TOOL_NAME,
 } from "../../src/explore/contract.ts";
-import exploreExtension, {
+import {
+	registerExploreTool,
 	type ExploreDispatchFunction,
 	type ExploreExtensionAPI,
 	type ExploreExtensionOptions,
@@ -25,7 +26,10 @@ import {
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
 } from "../helpers/explore-testing.ts";
-import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import {
+	RunnerSubagentFleetRegistry,
+	type RunnerSubagentUpdate,
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 
 const ROOT = "/repo";
 const definition = makeExplorerAgentDefinition({
@@ -126,7 +130,7 @@ function toolContext(options: ToolContextOptions = {}): ToolContext {
 	};
 }
 
-function registerExploreTool(
+function makeExploreTool(
 	options: {
 		pi?: FakePi;
 		cwd?: string | null;
@@ -136,13 +140,14 @@ function registerExploreTool(
 	} = {},
 ): ToolDefinition {
 	const pi = options.pi ?? new FakePi();
-	exploreExtension(pi, {
+	registerExploreTool(pi, {
 		...(options.cwd === null ? {} : { cwd: options.cwd ?? ROOT }),
 		loadAgentDefinition: options.loadAgentDefinition ?? (() => definition),
 		...(options.dispatchExplorer === undefined
 			? {}
 			: { dispatchExplorer: options.dispatchExplorer }),
 		...(options.timers === undefined ? {} : { timers: options.timers }),
+		fleetRegistry: new RunnerSubagentFleetRegistry(),
 	});
 	const tool = pi.tools.get(EXPLORE_TOOL_NAME);
 	expect(tool).toBeDefined();
@@ -187,7 +192,7 @@ function latestWidgetContent(widgetCalls: readonly WidgetCall[]): string[] {
 describe("explore extension", () => {
 	test("registers the explore tool with Markdown metadata and a strict task schema", () => {
 		const pi = new FakePi();
-		const tool = registerExploreTool({ pi });
+		const tool = makeExploreTool({ pi });
 
 		expect(pi.tools.has(EXPLORE_TOOL_NAME)).toBe(true);
 		expect(tool.label).toBe("Markdown Explorer");
@@ -207,7 +212,7 @@ describe("explore extension", () => {
 
 	test("validates task count and breadth caps before dispatching", async () => {
 		const dispatchCalls: string[] = [];
-		const tool = registerExploreTool({
+		const tool = makeExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) => {
 				dispatchCalls.push(intent.title);
 				return finalOutcome("done", "/tmp/child.jsonl");
@@ -257,7 +262,7 @@ describe("explore extension", () => {
 				inFlight -= 1;
 			}
 		};
-		const tool = registerExploreTool({ dispatchExplorer });
+		const tool = makeExploreTool({ dispatchExplorer });
 		const running = tool.execute(
 			"tool-1",
 			{ breadth: "medium", ...exploreParams(4) },
@@ -298,7 +303,7 @@ describe("explore extension", () => {
 			return await deferredAt(deferreds, index).promise;
 		};
 		const widgetCalls: WidgetCall[] = [];
-		const tool = registerExploreTool({ dispatchExplorer });
+		const tool = makeExploreTool({ dispatchExplorer });
 		const running = tool.execute(
 			"tool-1",
 			{ breadth: "medium", ...exploreParams(4) },
@@ -335,7 +340,7 @@ describe("explore extension", () => {
 	test("clears the fleet footer status and notifies on abnormal completion", async () => {
 		const statusCalls: StatusCall[] = [];
 		const notifications: Notification[] = [];
-		const tool = registerExploreTool({
+		const tool = makeExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) =>
 				intent.title === "Scout 1"
 					? finalOutcome("done", "/tmp/one.jsonl")
@@ -360,7 +365,7 @@ describe("explore extension", () => {
 
 	test("does not notify when every explore task produces final text", async () => {
 		const notifications: Notification[] = [];
-		const tool = registerExploreTool({
+		const tool = makeExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) =>
 				finalOutcome("done", `/tmp/${intent.title}.jsonl`),
 		});
@@ -395,7 +400,7 @@ describe("explore extension", () => {
 			intent.onProgress?.(progressUpdate);
 			return finalOutcome(`done ${intent.title}`, `/tmp/${intent.title}.jsonl`);
 		};
-		const tool = registerExploreTool({ cwd: null, dispatchExplorer });
+		const tool = makeExploreTool({ cwd: null, dispatchExplorer });
 		const parentAbort = new AbortController();
 		const result = await tool.execute(
 			"tool-1",
@@ -415,7 +420,7 @@ describe("explore extension", () => {
 
 	test("formats successful, partial, failed, and truncated results", async () => {
 		const longText = `${"x".repeat(EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS + 10)}END`;
-		const partialTool = registerExploreTool({
+		const partialTool = makeExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) => {
 				if (intent.title === "Scout 1") return finalOutcome(longText, "/tmp/one.jsonl");
 				return errorOutcome("child failed", "/tmp/two.jsonl");
@@ -447,7 +452,7 @@ describe("explore extension", () => {
 			/\binterim\b|result file|retrieval handle|retrievable on demand/iu,
 		);
 
-		const failedTool = registerExploreTool({
+		const failedTool = makeExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) =>
 				errorOutcome(`${intent.title} failed`, "/tmp/fail.jsonl"),
 		});
@@ -467,7 +472,7 @@ describe("explore extension", () => {
 		const taskCount = 8;
 		const perTaskBudget = Math.floor(EXPLORE_DIRECT_RESULT_TOTAL_CAP_CHARS / taskCount);
 		const longText = `${"x".repeat(EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS + 10)}END`;
-		const tool = registerExploreTool({
+		const tool = makeExploreTool({
 			dispatchExplorer: async (_pi, _ctx, intent) =>
 				finalOutcome(longText, `/tmp/${intent.title}.jsonl`),
 		});
@@ -493,7 +498,7 @@ describe("explore extension", () => {
 	});
 
 	test("returns a friendly configuration error when explorer.md is missing or wrong", async () => {
-		const missingTool = registerExploreTool({
+		const missingTool = makeExploreTool({
 			loadAgentDefinition: () => {
 				throw new Error("Could not find .ns/pi/agents while walking up from /missing.");
 			},
@@ -509,7 +514,7 @@ describe("explore extension", () => {
 		expect(missing.content[0]?.text).toContain(".ns/pi/agents/explorer.md");
 		expect((missing.details as ExploreToolDetails).status).toBe("configuration-error");
 
-		const wrongTool = registerExploreTool({
+		const wrongTool = makeExploreTool({
 			loadAgentDefinition: () => makeExplorerAgentDefinition({ toolName: "other" }),
 		});
 		const wrong = await wrongTool.execute(
@@ -522,7 +527,7 @@ describe("explore extension", () => {
 		expect(wrong.isError).toBe(true);
 		expect(wrong.content[0]?.text).toContain('declares toolName "other"');
 
-		const missingGuidelineTool = registerExploreTool({
+		const missingGuidelineTool = makeExploreTool({
 			loadAgentDefinition: () =>
 				makeExplorerAgentDefinition({
 					promptGuidelines: ["Use explore for reconnaissance.", "Prefer direct reads."],
@@ -571,7 +576,7 @@ describe("explore extension", () => {
 				);
 			});
 		};
-		const tool = registerExploreTool({ dispatchExplorer, timers: manualTimers.timers });
+		const tool = makeExploreTool({ dispatchExplorer, timers: manualTimers.timers });
 		const running = tool.execute(
 			"tool-1",
 			{ breadth: "quick", ...exploreParams(2) },

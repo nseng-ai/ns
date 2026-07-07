@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { RunnerSubagentFleetTaskSnapshot } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
 	AGENTS_TRANSCRIPT_COMMAND_NAME,
-	parseExploreTranscript,
+	parseSubagentTranscript,
 	renderTranscriptMarkdown,
 } from "../../src/fleet/transcript-viewer.ts";
 
@@ -17,7 +17,7 @@ const task: RunnerSubagentFleetTaskSnapshot = {
 	sessionFile: "/tmp/scout.jsonl",
 };
 
-describe("explore transcript viewer", () => {
+describe("subagent transcript viewer", () => {
 	test("uses the agents transcript command surface", () => {
 		expect(AGENTS_TRANSCRIPT_COMMAND_NAME).toBe("ns:agents:transcript");
 	});
@@ -43,7 +43,7 @@ describe("explore transcript viewer", () => {
 			}),
 		].join("\n");
 
-		const transcript = parseExploreTranscript({ task, jsonl });
+		const transcript = parseSubagentTranscript({ task, jsonl });
 		expect(transcript.title).toBe("Scout transcript");
 		expect(transcript.entries.map((entry) => entry.type)).toContain("assistant");
 		expect(renderTranscriptMarkdown(transcript, 80)).toContain("Use src/explore.");

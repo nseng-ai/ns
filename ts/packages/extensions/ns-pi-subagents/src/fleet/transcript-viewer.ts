@@ -9,7 +9,7 @@ import type {
 	RunnerSubagentFleetRegistry,
 	RunnerSubagentFleetTaskSnapshot,
 } from "../runner-subagents/fleet.ts";
-import type { ExploreReadTextFileDependencies } from "../explore/read-text-dependencies.ts";
+import type { ReadTextFileDependencies } from "./read-text-dependencies.ts";
 import { AGENTS_COMMAND_NAMESPACE } from "./contract.ts";
 
 export const AGENTS_TRANSCRIPT_COMMAND_NAME = `${AGENTS_COMMAND_NAMESPACE}:transcript`;
@@ -25,18 +25,16 @@ export interface TranscriptView {
 	entries: readonly TranscriptEntry[];
 }
 
-export type TranscriptViewerDependencies = ExploreReadTextFileDependencies;
-
-export function registerExploreTranscriptCommand(input: {
+export function registerAgentsTranscriptCommand(input: {
 	pi: { registerCommand?: CommandRegistrar };
 	registry: RunnerSubagentFleetRegistry;
-	dependencies?: TranscriptViewerDependencies;
+	dependencies?: ReadTextFileDependencies;
 }): void {
 	if (input.pi.registerCommand === undefined) return;
 	input.pi.registerCommand(AGENTS_TRANSCRIPT_COMMAND_NAME, {
 		description: "Open a read-only transcript for a recent agents fleet child session.",
 		async handler(_args, ctx) {
-			await openExploreTranscriptViewer({
+			await openAgentsTranscriptViewer({
 				ctx,
 				registry: input.registry,
 				...(input.dependencies === undefined ? {} : { dependencies: input.dependencies }),
@@ -53,15 +51,15 @@ export type CommandRegistrar = (
 	},
 ) => void;
 
-export async function openExploreTranscriptViewer(input: {
+export async function openAgentsTranscriptViewer(input: {
 	ctx: CommandContext;
 	registry: RunnerSubagentFleetRegistry;
-	dependencies?: TranscriptViewerDependencies;
+	dependencies?: ReadTextFileDependencies;
 }): Promise<void> {
 	const tasks = input.registry.tasksWithSessionFiles();
 	if (tasks.length === 0) {
 		input.ctx.ui.notify(
-			"No explore child session transcripts are known in this Pi session.",
+			"No subagent child session transcripts are known in this Pi session.",
 			"info",
 		);
 		return;
@@ -72,18 +70,21 @@ export async function openExploreTranscriptViewer(input: {
 		input.dependencies?.readTextFile ?? ((path: string) => readFile(path, "utf8"));
 	let transcript: TranscriptView;
 	try {
-		transcript = parseExploreTranscript({
+		transcript = parseSubagentTranscript({
 			task: selected,
 			jsonl: await readTextFile(selected.sessionFile!),
 		});
 	} catch (error) {
-		input.ctx.ui.notify(`Could not read explore transcript: ${formatErrorMessage(error)}`, "error");
+		input.ctx.ui.notify(
+			`Could not read subagent transcript: ${formatErrorMessage(error)}`,
+			"error",
+		);
 		return;
 	}
 	await showTranscript(input.ctx, transcript);
 }
 
-export function parseExploreTranscript(input: {
+export function parseSubagentTranscript(input: {
 	task: RunnerSubagentFleetTaskSnapshot;
 	jsonl: string;
 }): TranscriptView {
@@ -124,7 +125,7 @@ async function selectTranscriptTask(
 ): Promise<RunnerSubagentFleetTaskSnapshot | undefined> {
 	const labels = tasks.map(taskLabel);
 	const selectedLabel =
-		ctx.ui.select === undefined ? labels[0] : await ctx.ui.select("Explore transcripts", labels);
+		ctx.ui.select === undefined ? labels[0] : await ctx.ui.select("Subagent transcripts", labels);
 	if (selectedLabel === undefined) return undefined;
 	const index = labels.indexOf(selectedLabel);
 	return tasks[index];
@@ -151,7 +152,7 @@ async function showTranscript(ctx: CommandContext, transcript: TranscriptView): 
 				},
 				invalidate() {},
 			}),
-			{ overlay: true, overlayOptions: { title: "Explore transcript" } },
+			{ overlay: true, overlayOptions: { title: "Subagent transcript" } },
 		);
 		return;
 	}

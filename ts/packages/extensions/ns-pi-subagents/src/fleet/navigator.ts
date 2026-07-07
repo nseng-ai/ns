@@ -40,10 +40,7 @@ import {
 	sortedFleetTasks,
 	taskIcon,
 } from "./display.ts";
-import type {
-	ExploreReadTextFileDependencies,
-	ReadTextFile,
-} from "../explore/read-text-dependencies.ts";
+import type { ReadTextFile, ReadTextFileDependencies } from "./read-text-dependencies.ts";
 import type { CommandRegistrar } from "./transcript-viewer.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
@@ -53,8 +50,6 @@ const PARENT_ENTRY_TITLE = "Parent Pi session";
 
 const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
 const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
-
-export type SubagentFleetNavigatorDependencies = ExploreReadTextFileDependencies;
 
 export interface SubagentFleetTaskDetail {
 	task: RunnerSubagentFleetTaskSnapshot;
@@ -113,7 +108,7 @@ type FleetNavigatorEntry = ParentFleetNavigatorEntry | TaskFleetNavigatorEntry;
 export function registerSubagentFleetCommand<TPi extends object>(input: {
 	pi: TPi;
 	registry: RunnerSubagentFleetRegistry;
-	dependencies?: SubagentFleetNavigatorDependencies;
+	dependencies?: ReadTextFileDependencies;
 }): void {
 	if (!hasRegisterCommand(input.pi)) return;
 	const host: CommandRegistrarHost = input.pi;
@@ -136,7 +131,7 @@ export function registerSubagentFleetCommand<TPi extends object>(input: {
 export function registerSubagentFleetShortcut<TPi extends object>(input: {
 	pi: TPi;
 	registry: RunnerSubagentFleetRegistry;
-	dependencies?: SubagentFleetNavigatorDependencies;
+	dependencies?: ReadTextFileDependencies;
 }): void {
 	if (!hasRegisterShortcut(input.pi)) return;
 	for (const shortcut of SUBAGENT_FLEET_SHORTCUTS) {
@@ -156,7 +151,7 @@ export function registerSubagentFleetShortcut<TPi extends object>(input: {
 export async function openSubagentFleetNavigator(input: {
 	ctx: SubagentFleetNavigatorContext;
 	registry: RunnerSubagentFleetRegistry;
-	dependencies?: SubagentFleetNavigatorDependencies;
+	dependencies?: ReadTextFileDependencies;
 }): Promise<void> {
 	const parentSessionFile = input.ctx.sessionManager?.getSessionFile?.();
 	if (!input.ctx.hasUI || input.ctx.ui.custom === undefined) {
@@ -165,9 +160,7 @@ export async function openSubagentFleetNavigator(input: {
 			lines.push("subagent fleet: no subagent runs yet", `◉ parent session — ${parentSessionFile}`);
 		}
 		input.ctx.ui.notify(
-			lines.length === 0
-				? "No subagent fleet tasks are known in this Pi session."
-				: lines.join("\n"),
+			lines.length === 0 ? "No subagents have run in this Pi session yet." : lines.join("\n"),
 			"info",
 		);
 		return;
@@ -404,7 +397,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 
 	private listBody(innerWidth: number, bodyRows: number): string[] {
 		if (this.entries.length === 0) {
-			return ["No explore subagents have run in this Pi session yet."];
+			return ["No subagents have run in this Pi session yet."];
 		}
 		const selectedIndex = Math.max(
 			0,
@@ -438,7 +431,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 
 	private detailHeader(): string[] {
 		const entry = this.selectedEntry();
-		if (entry === undefined) return ["No selected explore task."];
+		if (entry === undefined) return ["No selected subagent task."];
 		const detail = this.detail;
 		if (detail === undefined) {
 			return [
@@ -601,7 +594,7 @@ function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
 	};
 }
 
-/** Parent Pi session rendered as a pinned navigator entry above child explorers. */
+/** Parent Pi session rendered as a pinned navigator entry above child subagents. */
 function parentSessionEntry(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 	fallbackSessionFile?: string,
