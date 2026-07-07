@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { makeKernelDiagnostic } from "./diagnostics.ts";
 
@@ -114,9 +114,5 @@ function diagnostic(
 	message: string,
 	options: { path?: string } = {},
 ): ExtensionRootScanDiagnostic {
-	return makeKernelDiagnostic({ code, message, ...optionalPath(options.path) });
-}
-
-function optionalPath(path: string | undefined): { path?: string } {
-	return path === undefined ? {} : { path };
+	return makeKernelDiagnostic({ code, message, ...optionalEntry("path", options.path) });
 }

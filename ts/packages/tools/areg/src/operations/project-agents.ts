@@ -41,6 +41,7 @@ export function resolveProjectAgents(input: {
 export function parseNsAregAgents(text: string, pathLabel = "ns.toml"): Result<string[]> {
 	const result = parseProjectConfigToml(text, {
 		pathLabel,
+		pointsTable: { mode: "skip" },
 		settingsSchemas: [aregSettingsSchema],
 	});
 	if (!result.ok) {

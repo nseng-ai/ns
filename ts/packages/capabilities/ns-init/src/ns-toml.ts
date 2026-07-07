@@ -37,12 +37,15 @@ const nsInitHarnessesSettingsSchema = {
 		`${pathLabel} top-level harnesses must be a non-empty string array.`,
 } satisfies SettingsSchema<readonly string[]>;
 
+const nsInitHarnessesSettingsKey = nsInitHarnessesSettingsSchema.path.join(".");
+
 export function parseNsTomlHarnesses(
 	content: string,
 	pathLabel = "ns.toml",
 ): NsTomlHarnessesParseResult {
 	const result = parseProjectConfigToml(content, {
 		pathLabel,
+		pointsTable: { mode: "skip" },
 		settingsSchemas: [nsInitHarnessesSettingsSchema],
 	});
 	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
@@ -108,7 +111,7 @@ function nsTomlErrorFromDiagnostics(
 ): NsTomlHarnessesParseResult {
 	const error = projectConfigErrorFromDiagnostics(diagnostics, {
 		invalidToml: "invalid-toml",
-		invalidSettingsByPath: { harnesses: "invalid-harnesses" },
+		invalidSettingsByPath: { [nsInitHarnessesSettingsKey]: "invalid-harnesses" },
 		defaultCode: "invalid-toml",
 		defaultMessage: `${pathLabel}: invalid ns.toml`,
 		pathLabel,

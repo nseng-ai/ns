@@ -38,8 +38,10 @@ export async function createFlowAutobranchCheckpointFlow(
 	input: FlowAutobranchCheckpointInput,
 ): Promise<FlowAutobranchCheckpointResult> {
 	input.onPhase?.("Inspecting worktree…");
+	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,
+		git,
 		execGit: (args, timeout) => input.exec("git", args, timeout),
 	});
 	if (!loaded.ok) {
@@ -50,7 +52,6 @@ export async function createFlowAutobranchCheckpointFlow(
 		};
 	}
 
-	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
 		return createLatestCommitAutobranchFlow({

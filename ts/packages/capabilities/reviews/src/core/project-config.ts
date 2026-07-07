@@ -76,11 +76,15 @@ const roasterModelProfilesSettingsSchema = {
 		formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
 } satisfies SettingsSchema<RoasterSettingsRecord>;
 
-const SETTINGS_TABLE_ERROR_CODES = new Map([
-	["roaster", "invalid-table"],
-	["roaster.diff", "invalid-table"],
-	["roaster.model_profiles", "invalid-table"],
-] as const);
+const roasterRootSettingsKey = roasterRootSettingsSchema.path.join(".");
+const roasterDiffSettingsKey = roasterDiffSettingsSchema.path.join(".");
+const roasterModelProfilesSettingsKey = roasterModelProfilesSettingsSchema.path.join(".");
+
+const SETTINGS_TABLE_ERROR_CODES = {
+	[roasterRootSettingsKey]: "invalid-table",
+	[roasterDiffSettingsKey]: "invalid-table",
+	[roasterModelProfilesSettingsKey]: "invalid-table",
+} as const;
 
 export function parseRoasterProjectConfigToml(
 	source: string,
@@ -88,6 +92,7 @@ export function parseRoasterProjectConfigToml(
 ): ProjectConfigParseResult {
 	const result = parseProjectConfigToml(source, {
 		...(pathLabel === undefined ? {} : { pathLabel }),
+		pointsTable: { mode: "skip" },
 		settingsSchemas: [
 			roasterRootSettingsSchema,
 			roasterDiffSettingsSchema,

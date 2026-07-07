@@ -73,7 +73,9 @@ describe("project point config", () => {
 	});
 
 	test("reports TOML parse failures and does not validate partial config", () => {
-		const result = parseProjectConfigToml("[points\n", { pointDefinitions });
+		const result = parseProjectConfigToml("[points\n", {
+			pointsTable: { mode: "validate", pointDefinitions },
+		});
 
 		expect(result.ok).toBe(false);
 		expect(result.diagnostics).toEqual([
@@ -147,7 +149,7 @@ describe("project point config", () => {
 "flow.submit.pr-description" = []
 "other.submit.pre" = ["just"]
 `,
-			{ pointDefinitions },
+			{ pointsTable: { mode: "validate", pointDefinitions } },
 		);
 
 		expect(result.ok).toBe(false);
@@ -173,7 +175,7 @@ context_lines = 8
 include_binary = false
 `,
 			{
-				pointDefinitions,
+				pointsTable: { mode: "validate", pointDefinitions },
 				settingsSchemas: [
 					{
 						path: ["roaster", "diff"],
@@ -200,6 +202,7 @@ include_binary = false
 agents = ["codex"]
 `,
 			{
+				pointsTable: { mode: "skip" },
 				settingsSchemas: [
 					{ path: ["areg"], schema: z.object({ agents: z.array(z.string().min(1)) }) },
 				],
@@ -218,7 +221,7 @@ agents = ["codex"]
 context_lines = "wide"
 `,
 			{
-				pointDefinitions,
+				pointsTable: { mode: "validate", pointDefinitions },
 				settingsSchemas: [
 					{ path: ["roaster", "diff"], schema: z.object({ context_lines: z.number().int() }) },
 				],

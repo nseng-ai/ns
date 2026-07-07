@@ -20,9 +20,6 @@ export function makeKernelDiagnostic<TExtra extends object = Record<never, never
 	request: KernelDiagnosticRequest<TExtra>,
 ): (KernelDiagnosticBase & { severity: "error" }) & TExtra;
 export function makeKernelDiagnostic<TExtra extends object = Record<never, never>>(
-	request: KernelDiagnosticRequest<TExtra> & { severity: "error" },
-): (KernelDiagnosticBase & { severity: "error" }) & TExtra;
-export function makeKernelDiagnostic<TExtra extends object = Record<never, never>>(
 	request: KernelDiagnosticRequest<TExtra> & { severity: "info" },
 ): (KernelDiagnosticBase & { severity: "info" }) & TExtra;
 export function makeKernelDiagnostic<TExtra extends object = Record<never, never>>(

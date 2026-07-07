@@ -285,19 +285,21 @@ function appendDiagnosticsSection(
 }
 
 function renderSource(source: PointSourceView): string {
-	return pointSourceRenderers[source.source](source as never);
+	switch (source.source) {
+		case "env":
+			return `env ${source.envVar} -> ${source.path}`;
+		case "repo-prompt":
+			return `repo ns.toml -> ${source.path}`;
+		case "repo-hook":
+			return `repo ns.toml commands: ${source.commands.join(", ")}`;
+		case "conventional":
+			return `conventional ${source.path}`;
+		case "default":
+			return `default ${source.path}`;
+		case "missing":
+			return "missing";
+	}
 }
-
-const pointSourceRenderers: {
-	[K in PointSourceView["source"]]: (source: Extract<PointSourceView, { source: K }>) => string;
-} = {
-	env: (source) => `env ${source.envVar} -> ${source.path}`,
-	"repo-prompt": (source) => `repo ns.toml -> ${source.path}`,
-	"repo-hook": (source) => `repo ns.toml commands: ${source.commands.join(", ")}`,
-	conventional: (source) => `conventional ${source.path}`,
-	default: (source) => `default ${source.path}`,
-	missing: () => "missing",
-};
 
 function renderDiagnostic(diagnostic: z.infer<typeof pointDiagnosticSchema>): string {
 	return `- ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;

@@ -1,5 +1,5 @@
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
-import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
 import type { CommandRunner } from "@nseng-ai/foundation/command";
 import {
 	RealGithubPrGateway,
@@ -21,19 +21,22 @@ export interface NsSubmitRuntime {
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitMetadataGateway;
 	prDescription: RunSubmitCommandOptions["prDescription"];
+	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
 /** Temporary internal migration seam; not exported from `@nseng-ai/kernel/sdk`. */
 export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
+	const git = createNsGitGateway(ctx);
 	return {
 		commandRunner,
 		submitGateway: new RealSubmitGateway(commandRunner),
 		metadataGateway: new RealSubmitMetadataGateway(commandRunner),
+		git,
 		prDescription: {
 			githubPr: new RealGithubPrGateway(commandRunner),
 			textGenerator: ctx.textGenerator,
-			git: createNsGitGateway(ctx),
+			git,
 			env: ctx.env,
 		},
 	};
