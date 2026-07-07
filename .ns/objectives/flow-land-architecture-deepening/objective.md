@@ -41,15 +41,15 @@ The four review candidates, sequenced so the earlier ones make the later ones me
 
 - The 40+ scenario tests in `land-stack-command-scenarios.test.ts` plus the sandbox/integration lanes are a sufficient safety net to refactor beneath without behavior drift; if a gap appears, the slice adds targeted coverage first.
 - The `FlowLandingPlan`/`StackLandingPlan` translation carries no load-bearing semantics beyond the observed renames and warning flattening; if a genuine divergence surfaces, that field's translation stays deliberately rather than being deleted.
-- Candidate 3 can preserve subprocess command shapes and telemetry exactly while restructuring the module; the perf-rollout Objective's telemetry baselines (linear-11 = 145 calls, linear-25 = 313) remain valid comparison points.
+- Candidate 3 preserved subprocess command shapes and telemetry-facing scenario expectations while restructuring the module; the perf-rollout Objective's telemetry baselines (linear-11 = 145 calls, linear-25 = 313) remain valid comparison points.
 
 **Risks**
 
-- Candidate 3 touches the same surface the perf rollout will later modify; landing it carelessly could invalidate the perf reference stack's reading value or shift telemetry baselines. Mitigation: land as small revertible slices, record before/after scenario call counts, and coordinate sequencing with the perf-rollout roadmap.
-- Since `flow-land-incremental-perf-rollout` is now blocked on this Objective, stalling here stalls the perf work too; candidates 1–2 should land promptly to keep the gate short.
-- Moving maintenance toward the Land Domain Core could tempt scope creep into a full land-execution migration; slices stay candidate-scoped.
+- Candidate 3 touched the same surface the perf rollout will later modify, but the structural slice preserved scenario expectations and kept performance primitive changes out of scope. Remaining mitigation: coordinate Candidate 4 disposition and perf unblocking with the perf-rollout roadmap.
+- Since `flow-land-incremental-perf-rollout` is now blocked on this Objective, stalling here stalls the perf work too; Candidate 4 disposition should stay narrow so the gate can clear promptly.
+- Moving maintenance toward the Land Domain Core could tempt scope creep into a full land-execution migration; Candidate 3 resolved this pass by keeping executable orchestration under `stack/` and cleaning the seam around `LandContext` plus progress.
 
 ## Open Questions
 
-- How much of the maintenance phase moves into the Land Domain Core proper (`src/land/`) versus staying in `stack/` but re-expressed over the Land Gateway Set? Decide during candidate 3, honoring the Flow Land Compatibility Boundary.
+- Resolved during Candidate 3: executable maintenance orchestration stays under `stack/` for this pass, re-expressed over `LandContext` plus a narrow progress interface rather than moved wholesale into the Land Domain Core.
 - Whether candidate 4 is worth doing at all once 1–3 have reshaped the module map; closure accepts a recorded decision either way.

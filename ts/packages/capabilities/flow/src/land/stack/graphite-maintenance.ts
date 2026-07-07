@@ -2,7 +2,6 @@ import type { ExecResult } from "@nseng-ai/foundation/command";
 import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
-import type { LandStackCommandStream } from "./command-stream.ts";
 import {
 	formatGraphiteOperation,
 	parseGitCheckedOutElsewhere,
@@ -10,15 +9,8 @@ import {
 	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
-import {
-	formatRestackFailureMessage,
-	formatSubmitFailureMessage,
-	setStatus,
-} from "./presentation.ts";
+import { formatRestackFailureMessage, formatSubmitFailureMessage } from "./presentation.ts";
 import { validateOpenPrBasics } from "../api.ts";
-import { loadPr } from "./pr-facts.ts";
-import { loadLocalSha } from "./stack-facts.ts";
-import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandContext,
@@ -26,20 +18,19 @@ import type {
 	LandGraphiteRestackScope,
 	PullRequestFacts,
 } from "../api.ts";
-import type { LandStackCommandContext, LandingWarning, MergeLoopState } from "./types.ts";
+import type { LandingWarning, MergeLoopState } from "./types.ts";
 import { formatConflict, slotNameFromPath } from "./worktrees.ts";
 
-export interface GraphiteMaintenanceOptions {
-	commandStream?: LandStackCommandStream;
-	mergeState?: MergeLoopState;
+export interface GraphiteMaintenanceProgress {
+	readonly note?: (message: string) => void;
+	readonly setStatus?: (message: string) => void;
 }
 
 interface GraphiteMaintenanceStep {
-	index: number;
-	branch: string;
-	prNumber: number;
-	state: MergeLoopState;
-	options: GraphiteMaintenanceOptions;
+	readonly index: number;
+	readonly branch: string;
+	readonly prNumber: number;
+	readonly state: MergeLoopState;
 }
 
 type MaintenanceMode =
@@ -124,28 +115,25 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 }
 
 interface PerformGraphiteMaintenanceOptions {
-	landContext: LandContext;
-	runtime: StackLandingRuntime;
-	ctx: LandStackCommandContext;
-	plan: LandingPlan;
-	step: GraphiteMaintenanceStep;
+	readonly landContext: LandContext;
+	readonly progress: GraphiteMaintenanceProgress;
+	readonly plan: LandingPlan;
+	readonly step: GraphiteMaintenanceStep;
 }
 
-interface MaintenanceOperationContext {
-	landContext: LandContext;
-	runtime: StackLandingRuntime;
-	ctx: LandStackCommandContext;
-	repoRoot: string;
-	plan: LandingPlan;
-	prNumber: number;
-	landedBranch: string;
-	state: MergeLoopState;
-	commandOptions: GraphiteMaintenanceOptions;
-	maintenance: MaintenanceTargetPlan;
+interface MaintenanceOperationInput {
+	readonly landContext: LandContext;
+	readonly progress: GraphiteMaintenanceProgress;
+	readonly repoRoot: string;
+	readonly plan: LandingPlan;
+	readonly prNumber: number;
+	readonly landedBranch: string;
+	readonly state: MergeLoopState;
+	readonly maintenance: MaintenanceTargetPlan;
 }
 
-interface MaintenanceBranchOperationContext extends MaintenanceOperationContext {
-	maintenanceBranch: string;
+interface MaintenanceBranchOperationInput extends MaintenanceOperationInput {
+	readonly maintenanceBranch: string;
 }
 
 type SubmitMaintenanceCheckOutcome =
@@ -200,18 +188,18 @@ function createMaintenanceStepRecorder(): MaintenanceStepRecorder {
 }
 
 function withMaintenanceBranch(
-	operationContext: MaintenanceOperationContext,
+	operationInput: MaintenanceOperationInput,
 	maintenanceBranch: string,
-): MaintenanceBranchOperationContext {
-	return { ...operationContext, maintenanceBranch };
+): MaintenanceBranchOperationInput {
+	return { ...operationInput, maintenanceBranch };
 }
 
 async function checkSubmitMaintenanceBranch(
-	options: MaintenanceBranchOperationContext,
+	options: MaintenanceBranchOperationInput,
 ): Promise<SubmitMaintenanceCheckOutcome> {
-	const { runtime, repoRoot, plan, prNumber, landedBranch, maintenanceBranch, maintenance } =
+	const { landContext, repoRoot, plan, prNumber, landedBranch, maintenanceBranch, maintenance } =
 		options;
-	const localSha = await loadLocalSha(runtime.commands, repoRoot, maintenanceBranch);
+	const localSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
 	if (localSha.type === "failure") {
 		return failOrWarn(maintenance.severity, {
 			failure: landStackFailure(
@@ -229,7 +217,10 @@ async function checkSubmitMaintenanceBranch(
 		});
 	}
 
-	const pr = await loadPr(runtime.commands, repoRoot, maintenanceBranch);
+	const pr = await landContext.github.pullRequestFacts({
+		repoRoot,
+		branchOrNumber: maintenanceBranch,
+	});
 	if (pr.type === "failure") {
 		return failOrWarn(maintenance.severity, {
 			failure: landStackFailure(
@@ -268,15 +259,18 @@ function isPrMetadataCurrentForMaintenance(options: {
 }
 
 async function refreshExpectedShaAfterRestack(
-	options: MaintenanceBranchOperationContext,
+	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceOutcome | undefined> {
-	const { runtime, repoRoot, plan, prNumber, maintenanceBranch, state, maintenance } = options;
+	const { landContext, repoRoot, plan, prNumber, maintenanceBranch, state, maintenance } = options;
 	if (!shouldRefreshExpectedShasAfterRestack(maintenance)) return undefined;
 	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
 	// expectation for later forced refresh targets; comparing against pre-restack
 	// SHAs would false-positive on every 3+ branch stack and on forked descendants.
 	for (const refreshTarget of refreshTargetsAfterMaintainedBranch(plan, maintenanceBranch)) {
-		const refreshedSha = await loadLocalSha(runtime.commands, repoRoot, refreshTarget);
+		const refreshedSha = await landContext.git.localBranchSha({
+			repoRoot,
+			branch: refreshTarget,
+		});
 		if (refreshedSha.type === "failure") {
 			return {
 				kind: "halt",
@@ -295,7 +289,7 @@ async function refreshExpectedShaAfterRestack(
 }
 
 async function submitMaintenanceBranch(
-	options: MaintenanceBranchOperationContext,
+	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
 	const { landContext, repoRoot, plan, prNumber, maintenanceBranch, maintenance } = options;
 	// Post-merge maintenance restacks after a landed PR, so the remote PR branch may
@@ -327,30 +321,28 @@ async function submitMaintenanceBranch(
 export async function performGraphiteMaintenance(
 	maintenanceOptions: PerformGraphiteMaintenanceOptions,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { landContext, runtime, ctx, plan, step } = maintenanceOptions;
+	const { landContext, progress, plan, step } = maintenanceOptions;
 	const { repoRoot } = plan;
-	const { index, branch, prNumber, state, options } = step;
+	const { index, branch, prNumber, state } = step;
 	const maintenance = planGraphiteMaintenanceTargets(plan, index);
 
 	if (maintenance.mode === "skip-descendant") {
 		return { kind: "skip", warning: skippedDescendantMaintenanceWarning(plan, branch) };
 	}
 
-	const operationContext: MaintenanceOperationContext = {
+	const operationInput: MaintenanceOperationInput = {
 		landContext,
-		runtime,
-		ctx,
+		progress,
 		repoRoot,
 		plan,
 		prNumber,
 		landedBranch: branch,
 		state,
-		commandOptions: options,
 		maintenance,
 	};
 	const refreshFailureRecorder = createMaintenanceStepRecorder();
 	for (const maintenanceBranch of maintenance.branches) {
-		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
+		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
 		const guardControl = refreshFailureRecorder.apply(
 			await guardMaintenanceBranch(branchOperationContext),
 			maintenanceBranch,
@@ -379,15 +371,15 @@ export async function performGraphiteMaintenance(
 		};
 	}
 
-	const deleteCheck = await checkGraphiteBranchBeforeDelete(operationContext);
+	const deleteCheck = await checkGraphiteBranchBeforeDelete(operationInput);
 	if (deleteCheck !== undefined) return deleteCheck;
 
-	const deletion = await deleteLocalGraphiteBranchAfterLanding(operationContext);
+	const deletion = await deleteLocalGraphiteBranchAfterLanding(operationInput);
 	if (deletion.kind !== "proceed") return deletion;
 
 	const postDeleteRecorder = createMaintenanceStepRecorder();
 	for (const maintenanceBranch of maintenance.branches) {
-		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
+		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
 		const restackControl = postDeleteRecorder.apply(
 			await restackMaintenanceBranch(branchOperationContext),
 			maintenanceBranch,
@@ -404,13 +396,11 @@ export async function performGraphiteMaintenance(
 		if (refreshExpected) return refreshExpected;
 
 		if (submitCheck.kind === "skip-submit") {
-			options.commandStream?.note(
-				`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`,
-			);
+			progress.note?.(`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`);
 			continue;
 		}
 
-		setStatus(ctx, `submitting ${maintenanceBranch}...`);
+		progress.setStatus?.(`submitting ${maintenanceBranch}...`);
 		const submittedControl = postDeleteRecorder.apply(
 			await submitMaintenanceBranch(branchOperationContext),
 			maintenanceBranch,
@@ -436,13 +426,13 @@ export async function performGraphiteMaintenance(
 }
 
 async function guardMaintenanceBranch(
-	options: MaintenanceBranchOperationContext,
+	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
-	const { runtime, repoRoot, prNumber, maintenanceBranch, maintenance, state, landedBranch } =
+	const { landContext, repoRoot, prNumber, maintenanceBranch, maintenance, state, landedBranch } =
 		options;
 	// Guard every forced refresh: gt get --force resets the local branch to remote
 	// state, so refuse if the branch moved since this run snapshotted it.
-	const guardSha = await loadLocalSha(runtime.commands, repoRoot, maintenanceBranch);
+	const guardSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
 	if (guardSha.type === "failure") {
 		return failOrWarn(maintenance.severity, {
 			failure: landStackFailure(
@@ -478,20 +468,19 @@ async function guardMaintenanceBranch(
 }
 
 async function refreshMaintenanceBranch(
-	options: MaintenanceBranchOperationContext,
+	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
 	const {
 		landContext,
+		progress,
 		repoRoot,
 		prNumber,
 		maintenanceBranch,
 		landedBranch,
-		commandOptions,
-		ctx,
 		maintenance,
 	} = options;
-	commandOptions.commandStream?.note(`Refreshing stack through ${maintenanceBranch}...`);
-	setStatus(ctx, `refreshing stack through ${maintenanceBranch}...`);
+	progress.note?.(`Refreshing stack through ${maintenanceBranch}...`);
+	progress.setStatus?.(`refreshing stack through ${maintenanceBranch}...`);
 	const refresh = await landContext.graphite.refreshBranchFromRemote({
 		repoRoot,
 		branch: maintenanceBranch,
@@ -512,7 +501,7 @@ async function refreshMaintenanceBranch(
 	}
 
 	if (refresh.type === "checkout-conflict") {
-		commandOptions.commandStream?.note(
+		progress.note?.(
 			`Deferred optional descendant maintenance for ${maintenanceBranch} because ${formatCheckedOutElsewhere(refresh)}.\nRun ${refresh.commandDisplay} manually when that worktree is free.`,
 		);
 		return {
@@ -567,7 +556,7 @@ function aggregateOptionalDescendantMaintenanceWarnings(options: {
 }
 
 async function checkGraphiteBranchBeforeDelete(
-	options: MaintenanceOperationContext,
+	options: MaintenanceOperationInput,
 ): Promise<GraphiteMaintenanceStop | undefined> {
 	const {
 		landContext,
@@ -620,7 +609,7 @@ async function checkGraphiteBranchBeforeDelete(
 }
 
 async function deleteLocalGraphiteBranchAfterLanding(
-	options: MaintenanceOperationContext,
+	options: MaintenanceOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
 	const {
 		landContext,
@@ -628,12 +617,11 @@ async function deleteLocalGraphiteBranchAfterLanding(
 		landedBranch: branch,
 		prNumber,
 		state,
-		commandOptions,
+		progress,
 		maintenance,
-		ctx,
 	} = options;
-	commandOptions.commandStream?.note(`Cleaning up local branch ${branch}...`);
-	setStatus(ctx, `deleting local Graphite branch ${branch}...`);
+	progress.note?.(`Cleaning up local branch ${branch}...`);
+	progress.setStatus?.(`deleting local Graphite branch ${branch}...`);
 	const deletion = await landContext.graphite.deleteLocalBranch({
 		repoRoot,
 		branch,
@@ -663,10 +651,10 @@ async function deleteLocalGraphiteBranchAfterLanding(
 }
 
 async function restackMaintenanceBranch(
-	options: MaintenanceBranchOperationContext,
+	options: MaintenanceBranchOperationInput,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { landContext, repoRoot, prNumber, maintenanceBranch, maintenance, ctx } = options;
-	setStatus(ctx, `restacking ${maintenanceBranch}...`);
+	const { landContext, progress, repoRoot, prNumber, maintenanceBranch, maintenance } = options;
+	progress.setStatus?.(`restacking ${maintenanceBranch}...`);
 	const restacked = await landContext.graphite.restack({
 		repoRoot,
 		branch: maintenanceBranch,

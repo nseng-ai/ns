@@ -1,4 +1,5 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
+import type { LandStackCommandStream } from "./command-stream.ts";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	completed,
@@ -9,10 +10,7 @@ import {
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./errors.ts";
-import {
-	performGraphiteMaintenance,
-	type GraphiteMaintenanceOptions,
-} from "./graphite-maintenance.ts";
+import { performGraphiteMaintenance } from "./graphite-maintenance.ts";
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
 import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
@@ -198,12 +196,14 @@ export async function prepareMergeLoopState(
 	});
 }
 
-export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
-	runtime: StackLandingRuntime;
-	ctx: LandStackCommandContext;
-	plan: LandingPlan;
-	landed: LandedPr[];
-	warnings: LandingWarning[];
+export interface RunMergeLoopOptions {
+	readonly runtime: StackLandingRuntime;
+	readonly ctx: LandStackCommandContext;
+	readonly plan: LandingPlan;
+	readonly landed: LandedPr[];
+	readonly warnings: LandingWarning[];
+	readonly commandStream?: LandStackCommandStream;
+	readonly mergeState?: MergeLoopState;
 }
 
 interface WithMatrixCellStepOptions<T> {
@@ -351,10 +351,12 @@ export async function runMergeLoop(
 		options.commandStream?.matrix?.setCell(branch, "restack", { state: "active" });
 		const maintenance = await performGraphiteMaintenance({
 			landContext,
-			runtime,
-			ctx,
+			progress: {
+				note: (message) => options.commandStream?.note(message),
+				setStatus: (message) => setStatus(ctx, message),
+			},
 			plan,
-			step: { index, branch, prNumber: currentPr.number, state, options },
+			step: { index, branch, prNumber: currentPr.number, state },
 		});
 		if (maintenance.kind === "halt") {
 			options.commandStream?.matrix?.setCell(branch, "restack", { state: "failed" });
