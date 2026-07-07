@@ -140,8 +140,7 @@ export function listStaticNsCommandInfos(): NsCommandCliInfo[] {
 
 export function toCommandCliInfo(
 	candidate: NsCommandPath &
-		Pick<NsCommandCliInfo, "description" | "fullDescription"> &
-		Pick<Partial<NsCommandCliInfo>, "helpGroup">,
+		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup">,
 ): NsCommandCliInfo {
 	return {
 		...optionalEntries({

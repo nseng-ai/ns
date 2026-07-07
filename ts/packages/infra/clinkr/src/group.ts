@@ -173,22 +173,18 @@ interface BuildCommandOptions<TContext> {
 	isRoot: boolean;
 }
 
-type CommandTextMetadataKey = "description" | "summary" | "helpGroup";
-
-const commandTextMetadataKeys = [
-	"description",
-	"summary",
-	"helpGroup",
-] as const satisfies readonly CommandTextMetadataKey[];
-
 const leafCommandMetadataSetters = [
 	{ key: "description", apply: (command: Command, value: string) => command.description(value) },
 	{ key: "summary", apply: (command: Command, value: string) => command.summary(value) },
 	{ key: "helpGroup", apply: (command: Command, value: string) => command.helpGroup(value) },
 ] as const satisfies readonly {
-	key: CommandTextMetadataKey;
+	key: string;
 	apply: (command: Command, value: string) => Command;
 }[];
+
+type CommandTextMetadataKey = (typeof leafCommandMetadataSetters)[number]["key"];
+
+const commandTextMetadataKeys = leafCommandMetadataSetters.map((setter) => setter.key);
 
 function optionalCommandTextMetadata(
 	metadata: Readonly<Record<CommandTextMetadataKey, string | undefined>>,
