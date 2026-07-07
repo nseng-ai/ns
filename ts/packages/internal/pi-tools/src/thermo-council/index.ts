@@ -24,11 +24,9 @@ export type {
 	ThermoCouncilSeatId,
 	ThermoCouncilSeatStatus,
 } from "./contract.ts";
-export {
-	parseThermoCouncilMaxConcurrency,
-	reviewerOutcomeFromRunnerResult,
-	runThermoCouncilCommand,
-} from "./orchestrator.ts";
+export { runThermoCouncilCommand } from "./orchestrator.ts";
+export { parseThermoCouncilMaxConcurrency } from "./progress.ts";
+export { reviewerOutcomeFromRunnerResult } from "./review-recovery.ts";
 export { buildReviewerPrompt } from "./prompt.ts";
 export { renderThermoCouncilReport } from "./report.ts";
 export { parseThermoCouncilSeats } from "./seats.ts";
