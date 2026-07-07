@@ -10,3 +10,6 @@ exclude = [
 [roaster.model_profiles]
 quick = "haiku"
 deep = "sonnet"
+
+[flow.hooks]
+pre_submit = ["just"]

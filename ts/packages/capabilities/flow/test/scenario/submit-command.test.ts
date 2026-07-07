@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -63,6 +63,7 @@ function runWithFakes(options: Parameters<typeof runFlowSubmitCommandWithFakes>[
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
@@ -71,6 +72,7 @@ function cleanCheckpointResponses(): ScriptedExecResponse[] {
 
 function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
@@ -145,6 +147,17 @@ function commitsJson(): string {
 
 function defaultPrDescriptionText(): string {
 	return "Generated PR\n\nGenerated body";
+}
+
+async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<string> {
+	const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-test-"));
+	tempDirs.push(repoRoot);
+	await writeFile(
+		join(repoRoot, "ns.toml"),
+		`[flow.hooks]\npre_submit = ${JSON.stringify(preSubmit)}\n`,
+		"utf8",
+	);
+	return repoRoot;
 }
 
 describe("project-local submit extension", () => {
@@ -237,6 +250,76 @@ describe("project-local submit extension", () => {
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 			]),
 		);
+	});
+
+	test("configured pre-submit hook runs before checkpoint and submit", async () => {
+		const repoRoot = await createSubmitHooksRepo(["just"]);
+		const run = runWithFakes({
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: `${repoRoot}\n` } },
+					{ match: "just", result: { stdout: "hooks ok\n" } },
+					...successfulSubmitResponses(),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.liveOutput).toContainEqual(transient("running just…"));
+		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hooks ok\n" });
+		const settled = lastStderrOutput(run.liveOutput);
+		expect(settled).toContain("pre-submit hooks passed");
+		const calls = formattedExecCalls(run.context);
+		expect(calls.indexOf("just")).toBeGreaterThanOrEqual(0);
+		expect(
+			calls.indexOf(
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+			),
+		).toBeGreaterThan(calls.indexOf("just"));
+	});
+
+	test("failing pre-submit hook aborts submit with deterministic failure output", async () => {
+		const repoRoot = await createSubmitHooksRepo(["just"]);
+		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-hook-failure-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: `${repoRoot}\n` } },
+					{
+						match: "just",
+						result: { code: 7, stdout: "hook stdout\n", stderr: "hook stderr\n" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(7);
+		const error = run.stderr.join("");
+		expect(error).toContain(
+			"Pre-submit hook failed: just (exit code 7). Submission was not attempted.",
+		);
+		expect(error).toContain("hook stdout");
+		expect(error).toContain("hook stderr");
+		expect(error).toContain("Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.");
+		expect(error).toContain("Raw log:");
+		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hook stdout\n" });
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "hook stderr\n" });
+		expect(formattedExecCalls(run.context)).not.toContain("git symbolic-ref --short HEAD");
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
+			false,
+		);
+	});
+
+	test("hooks: false skips configured pre-submit hooks", async () => {
+		const repoRoot = await createSubmitHooksRepo(["just"]);
+		const run = runWithFakes({ cwd: repoRoot, request: { hooks: false } });
+
+		expect(await run.exit).toBe(0);
+		expect(formattedExecCalls(run.context)).not.toContain("just");
+		expect(run.liveOutput).not.toContainEqual(transient("running just…"));
+		expect(lastStderrOutput(run.liveOutput)).not.toContain("pre-submit hooks passed");
 	});
 
 	test("--force passes --force to Graphite submit readiness and submit", async () => {
@@ -641,6 +724,7 @@ describe("project-local submit extension", () => {
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
@@ -1326,6 +1410,9 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 			},
 		});
 
+		await vi.waitFor(() => {
+			expect(formattedExecCalls(run.context)).toContain(viewCommand);
+		});
 		await vi.runAllTimersAsync();
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
