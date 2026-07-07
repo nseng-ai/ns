@@ -1,6 +1,9 @@
 import { err, type Result } from "@nseng-ai/foundation/result";
 
-import type { AregSkillKindSkillInspection } from "../gateways.ts";
+import type {
+	AregManifestSkillSourceInspection,
+	AregSkillKindSkillInspection,
+} from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import {
 	parseSkillFrontmatterBlock,
@@ -93,6 +96,18 @@ export interface SkillKindReplacementInfo {
 	advice?: string;
 }
 
+export interface SkillKindManifestSourceInfo {
+	harness: string;
+	scope: string;
+	manifestPath: string;
+	manifestKey: string;
+	sourceType: "first-party" | "npm-module";
+	packageName: string;
+	sourceRelativePath: string;
+	version: string;
+	targetSkillRelativePath: string;
+}
+
 export interface SkillKindRecord {
 	skill: string;
 	kind: InferredSkillInvocationKind;
@@ -101,6 +116,7 @@ export interface SkillKindRecord {
 	piExtension: PiExtensionStatus;
 	artifacts: SkillKindArtifactFacts;
 	replacement: SkillKindReplacementInfo;
+	manifestSources: readonly SkillKindManifestSourceInfo[];
 	notes: readonly string[];
 }
 
@@ -167,6 +183,7 @@ export function inferSkillKindRecord(options: {
 		piExtension: piExtensionStatus(kind, artifacts, options.replacement),
 		artifacts,
 		replacement,
+		manifestSources: [],
 		notes: buildNotes({
 			skillName: options.skillName,
 			kind,
@@ -191,6 +208,9 @@ export function buildSkillKindRecords(
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
 	const records: SkillKindRecord[] = [];
+	const manifestSourcesBySkill = groupSkillKindManifestSources(
+		inspection.manifestSkillSources.sources,
+	);
 	for (const skill of sortSkills(inspection.skills)) {
 		const readiness = validateInspectableSkill(skill);
 		if (!readiness.ok) return readiness;
@@ -205,19 +225,50 @@ export function buildSkillKindRecords(
 		);
 		if (!frontmatter.ok) return frontmatter;
 		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
-		records.push(
-			inferSkillKindRecord({
-				skillName: skill.name,
-				frontmatter: frontmatter.value,
-				hasCodexSidecar: skill.openaiPolicy.type === "file",
-				isPiExcluded: piSettings.value.exclusions.includes(`-skills/${skill.name}`),
-				hasAgentsMirror: skill.agentsPath.type !== "missing",
-				hasClaudeMirror: skill.claudePath.type !== "missing",
-				replacement,
-			}),
-		);
+		const record = inferSkillKindRecord({
+			skillName: skill.name,
+			frontmatter: frontmatter.value,
+			hasCodexSidecar: skill.openaiPolicy.type === "file",
+			isPiExcluded: piSettings.value.exclusions.includes(`-skills/${skill.name}`),
+			hasAgentsMirror: skill.agentsPath.type !== "missing",
+			hasClaudeMirror: skill.claudePath.type !== "missing",
+			replacement,
+		});
+		const manifestSources = manifestSourcesBySkill.get(skill.name) ?? [];
+		records.push({
+			...record,
+			manifestSources: manifestSources.map(toSkillKindManifestSourceInfo),
+		});
 	}
 	return { ok: true, value: records };
+}
+
+function groupSkillKindManifestSources(
+	sources: readonly AregManifestSkillSourceInspection[],
+): ReadonlyMap<string, readonly AregManifestSkillSourceInspection[]> {
+	const grouped = new Map<string, AregManifestSkillSourceInspection[]>();
+	for (const source of sources) {
+		const existing = grouped.get(source.skillName) ?? [];
+		existing.push(source);
+		grouped.set(source.skillName, existing);
+	}
+	return grouped;
+}
+
+function toSkillKindManifestSourceInfo(
+	source: AregManifestSkillSourceInspection,
+): SkillKindManifestSourceInfo {
+	return {
+		harness: source.harness,
+		scope: source.scope,
+		manifestPath: source.manifestPath,
+		manifestKey: source.manifestKey,
+		sourceType: source.source.type,
+		packageName: source.source.packageName,
+		sourceRelativePath: source.source.relativePath,
+		version: source.source.version,
+		targetSkillRelativePath: source.targetSkillRelativePath,
+	};
 }
 
 export function validateInspectableSkill(skill: AregSkillKindSkillInspection): Result<undefined> {

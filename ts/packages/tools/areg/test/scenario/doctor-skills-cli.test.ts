@@ -45,6 +45,33 @@ function vendoredCheckSkill(
 }
 
 describe("areg doctor skills CLI", () => {
+	test("reports manifest-provisioned skill provenance", async () => {
+		const run = runScenario(["doctor", "skills", "--format", "json"], {
+			project: {
+				manifestSkillSources: [
+					{
+						skillName: "manifest-skill",
+						targetSkillRelativePath: ".pi/skills/manifest-skill",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const body = JSON.parse(run.stdout.join(""));
+		expect(body.data.findings).toContainEqual(
+			expect.objectContaining({
+				code: "manifest-skill-source",
+				severity: "info",
+				skill: "manifest-skill",
+				evidence: expect.objectContaining({
+					manifestKey: "skill:manifest-skill:pi:project",
+					packageName: "@example/skills",
+				}),
+			}),
+		);
+	});
+
 	test("reports all clear when areg, Pi inventory, and replacements align", async () => {
 		const run = runScenario(["doctor", "skills"], {
 			project: {

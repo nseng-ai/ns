@@ -9,7 +9,12 @@ import type {
 } from "@nseng-ai/foundation/skill-lookup";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
-import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
+import type {
+	HarnessId,
+	HarnessScope,
+	PathState,
+	TextFileState,
+} from "@nseng-ai/harness-artifacts/api";
 
 // The git methods areg consumes: resolve the repo root and materialize
 // worktree-relative git paths (for example `info/exclude`). A full `GitGateway`
@@ -105,6 +110,38 @@ export function skillKindDescriptorForSourceType(
 	return descriptor;
 }
 
+export type AregManifestSourceType = "first-party" | "npm-module";
+
+export interface AregManifestSkillSourceProvenance {
+	type: AregManifestSourceType;
+	packageName: string;
+	relativePath: string;
+	version: string;
+}
+
+export interface AregManifestSkillSourceInspection {
+	skillName: string;
+	harness: HarnessId;
+	scope: HarnessScope;
+	manifestPath: string;
+	manifestKey: string;
+	source: AregManifestSkillSourceProvenance;
+	targetRootRelativePath: string;
+	targetSkillRelativePath: string;
+	skillDir: PathState;
+	skillMd: TextFileState;
+}
+
+export interface AregManifestInspectionError {
+	manifestPath: string;
+	message: string;
+}
+
+export interface AregManifestSkillSourcesInspection {
+	sources: readonly AregManifestSkillSourceInspection[];
+	errors: readonly AregManifestInspectionError[];
+}
+
 export interface AregSkillFindSkillInspection {
 	name: string;
 	root: SkillLookupRoot;
@@ -112,6 +149,7 @@ export interface AregSkillFindSkillInspection {
 	baseRelativePath: string;
 	skillDir: PathState;
 	skillMd: TextFileState;
+	manifestSources?: readonly AregManifestSkillSourceInspection[];
 }
 
 export interface AregSkillFindRootsInspection {
@@ -231,6 +269,9 @@ export interface AregProjectGateway {
 	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
 	inspectPiSkillInventory(request: AregProjectDirRequest): Promise<AregPiSkillInventoryInspection>;
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
+	inspectManifestSkillSources(
+		request: AregProjectDirRequest,
+	): Promise<AregManifestSkillSourcesInspection>;
 	inspectSkillFindRoots(request: AregProjectDirRequest): Promise<AregSkillFindRootsInspection>;
 	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
 	inspectSkillKindSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;

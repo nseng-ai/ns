@@ -13,6 +13,13 @@ import {
 	skillLookupFileRelativePath,
 	type SkillLookupSourceType,
 } from "@nseng-ai/foundation/skill-lookup";
+import {
+	ALL_HARNESS_IDS,
+	INSTALL_MANIFEST_FILE_NAME,
+	readInstallManifestAtRoot,
+	resolveHarnessSkillRoot,
+	type InstallManifestEntryData,
+} from "@nseng-ai/harness-artifacts/api";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
 import type {
@@ -20,6 +27,9 @@ import type {
 	AregCheckSkillInspection,
 	AregErrorInfo,
 	AregGitGateway,
+	AregManifestInspectionError,
+	AregManifestSkillSourceInspection,
+	AregManifestSkillSourcesInspection,
 	AregPiSkillInventoryInspection,
 	AregProjectFileDeleteRequest,
 	AregProjectGateway,
@@ -106,11 +116,18 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		};
 	}
 
+	async inspectManifestSkillSources(request: {
+		projectDir: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregManifestSkillSourcesInspection> {
+		return inspectManifestSkillSources(request.projectDir, request.env);
+	}
+
 	async inspectSkillFindRoots(request: {
 		projectDir: string;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregSkillFindRootsInspection> {
-		return { skills: await inspectSkillFindRoots(request.projectDir) };
+		return { skills: await inspectSkillFindRoots(request.projectDir, request.env) };
 	}
 
 	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
@@ -473,8 +490,71 @@ async function listVendoredSkillKindNames(projectDir: string): Promise<string[]>
 	).map((entry) => entry.name);
 }
 
-async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
+async function inspectManifestSkillSources(
+	projectDir: string,
+	env: NodeJS.ProcessEnv,
+): Promise<AregManifestSkillSourcesInspection> {
+	const sources: AregManifestSkillSourceInspection[] = [];
+	const errors: AregManifestInspectionError[] = [];
+	const context = { projectRoot: projectDir, homeDir: env.HOME ?? "", env };
+	for (const harness of ALL_HARNESS_IDS) {
+		const root = resolveHarnessSkillRoot({ harness, scope: "project", context });
+		if (!root.ok) {
+			errors.push({ manifestPath: harness, message: root.error.message });
+			continue;
+		}
+		const manifestPath = path.join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME);
+		const manifest = await readInstallManifestAtRoot({ targetRoot: root.value.rootPath });
+		if (!manifest.ok) {
+			errors.push({ manifestPath, message: manifest.error.message });
+			continue;
+		}
+		for (const [manifestKey, entry] of Object.entries(manifest.value.artifacts)) {
+			if (entry.kind !== "skill") continue;
+			sources.push(await inspectManifestSkillSource(projectDir, manifestPath, manifestKey, entry));
+		}
+	}
+	return { sources: sortManifestSkillSources(sources), errors };
+}
+
+async function inspectManifestSkillSource(
+	projectDir: string,
+	manifestPath: string,
+	manifestKey: string,
+	entry: InstallManifestEntryData,
+): Promise<AregManifestSkillSourceInspection> {
+	return {
+		skillName: entry.provisionName,
+		harness: entry.harness,
+		scope: entry.scope,
+		manifestPath,
+		manifestKey,
+		source: { ...entry.source },
+		targetRootRelativePath: path.relative(projectDir, entry.targetRoot),
+		targetSkillRelativePath: path.relative(projectDir, entry.targetArtifactPath),
+		skillDir: await inspectPath(entry.targetArtifactPath),
+		skillMd: await inspectTextFile(path.join(entry.targetArtifactPath, "SKILL.md")),
+	};
+}
+
+function sortManifestSkillSources(
+	sources: readonly AregManifestSkillSourceInspection[],
+): AregManifestSkillSourceInspection[] {
+	return [...sources].sort(
+		(left, right) =>
+			left.skillName.localeCompare(right.skillName) ||
+			left.harness.localeCompare(right.harness) ||
+			left.manifestKey.localeCompare(right.manifestKey),
+	);
+}
+
+async function inspectSkillFindRoots(
+	projectDir: string,
+	env: NodeJS.ProcessEnv,
+): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
+	const manifestInspection = await inspectManifestSkillSources(projectDir, env);
+	const manifestSourcesBySkill = groupManifestSourcesBySkill(manifestInspection.sources);
 	for (const root of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
 		const rootPath = toProjectPath(projectDir, root.root);
 		const entries = await scanSkillRootEntries(rootPath, {
@@ -486,6 +566,7 @@ async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindS
 		for (const entry of entries) {
 			const baseRelativePath = skillLookupBaseRelativePath(root.root, entry.name);
 			const basePath = path.join(rootPath, entry.name);
+			const manifestSources = manifestSourcesBySkill.get(entry.name);
 			skills.push({
 				name: entry.name,
 				root: root.root,
@@ -493,10 +574,23 @@ async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindS
 				baseRelativePath,
 				skillDir: await inspectPath(basePath),
 				skillMd: entry.skillMd,
+				...(manifestSources === undefined ? {} : { manifestSources }),
 			});
 		}
 	}
 	return skills;
+}
+
+function groupManifestSourcesBySkill(
+	sources: readonly AregManifestSkillSourceInspection[],
+): ReadonlyMap<string, readonly AregManifestSkillSourceInspection[]> {
+	const grouped = new Map<string, AregManifestSkillSourceInspection[]>();
+	for (const source of sources) {
+		const existing = grouped.get(source.skillName) ?? [];
+		existing.push(source);
+		grouped.set(source.skillName, existing);
+	}
+	return grouped;
 }
 
 interface ScanSkillRootOptions {

@@ -20,6 +20,31 @@ describe("areg skill find CLI", () => {
 		expect(run.stdout.join("")).toBe("demo\n  skills/demo/SKILL.md\n");
 	});
 
+	test("includes shared manifest provenance for matching on-disk skills", async () => {
+		const run = runScenario(["skill", "find", "demo", "--format", "json"], {
+			project: {
+				findSkills: [{ name: "demo", root: "skills", skillMd: DEMO_SKILL }],
+				manifestSkillSources: [{ skillName: "demo", targetSkillRelativePath: "skills/demo" }],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(jsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				preferred: {
+					manifestSources: [
+						{
+							manifestKey: "skill:demo:pi:project",
+							packageName: "@example/skills",
+							targetSkillRelativePath: "skills/demo",
+						},
+					],
+				},
+			},
+		});
+	});
+
 	test("includes parsed frontmatter with predicate boolean naming", async () => {
 		const run = runScenario(["skill", "find", "demo", "--format", "json"], {
 			project: { findSkills: [{ name: "demo", root: "skills", skillMd: DEMO_SKILL }] },

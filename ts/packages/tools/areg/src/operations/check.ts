@@ -57,6 +57,9 @@ const CHECK_ISSUE_CODES = [
 	"agents-md-missing-peer",
 	"claude-md-missing-agents-ref",
 	"pi-settings-unusable",
+	"invalid-install-manifest",
+	"manifest-skill-target-missing",
+	"manifest-skill-md-missing",
 ] as const;
 
 const MAX_SKILL_DESCRIPTION_CHARS = 1024;
@@ -150,6 +153,7 @@ export function buildCheckReport(
 		issues.push(...checkSkillInvocationKind(entry, inspected, record));
 	}
 	issues.push(...checkLockfileHashes(lockfile));
+	issues.push(...checkManifestSkillSources(inspection));
 	issues.push(...checkOrphansAndDangling(lockfile, inspection));
 	issues.push(...checkPairing(inspection));
 	return {
@@ -180,6 +184,34 @@ export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 	}
 	lines.push("", `${report.issues.length} error(s)`);
 	return lines.join("\n");
+}
+
+function checkManifestSkillSources(inspection: CheckProjectInspection): CheckIssue[] {
+	const issues: CheckIssue[] = [];
+	for (const error of inspection.manifestSkillSources.errors) {
+		issues.push(issue("project", "invalid-install-manifest", error.message));
+	}
+	for (const source of inspection.manifestSkillSources.sources) {
+		const sourceLabel = `Shared manifest entry ${source.manifestKey} from ${source.source.packageName}@${source.source.version}`;
+		if (source.skillDir.type === "missing") {
+			issues.push(
+				issue(
+					source.skillName,
+					"manifest-skill-target-missing",
+					`${sourceLabel} targets ${source.targetSkillRelativePath}, but the skill directory is missing`,
+				),
+			);
+		} else if (source.skillMd.type === "missing") {
+			issues.push(
+				issue(
+					source.skillName,
+					"manifest-skill-md-missing",
+					`${sourceLabel} targets ${source.targetSkillRelativePath}, but SKILL.md is missing`,
+				),
+			);
+		}
+	}
+	return issues;
 }
 
 function checkLocalSkill(
