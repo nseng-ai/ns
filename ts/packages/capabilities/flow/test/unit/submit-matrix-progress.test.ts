@@ -19,7 +19,7 @@ function caps(parts: Partial<Caps> = {}): Caps {
 }
 
 describe("submit matrix progress", () => {
-	test("renders fixed global rows, checkpoint substeps, and four branch columns", () => {
+	test("renders fixed global rows, checkpoint substeps, and two branch columns", () => {
 		const rows = submitMatrixRowsFromTopology({
 			currentBranch: "feature/b",
 			branches: [
@@ -62,6 +62,22 @@ describe("submit matrix progress", () => {
 						},
 					],
 				},
+				{
+					key: "submit",
+					label: "Submit",
+					detail: "stack submitted",
+					activeLabel: "running gt submit…",
+					state: "active",
+					substeps: [],
+				},
+				{
+					key: "verify",
+					label: "Verify",
+					detail: "current PR verified",
+					activeLabel: "checking current PR…",
+					state: "pending",
+					substeps: [],
+				},
 			],
 			rows: rows.map((row) => ({
 				branch: row.branch,
@@ -70,8 +86,6 @@ describe("submit matrix progress", () => {
 				...(row.pr === undefined ? {} : { pr: row.pr }),
 				cells: {
 					metadata: { state: row.kind === "existing" ? "skipped" : "done" },
-					submit: { state: "active" },
-					verify: { state: "pending" },
 					description: { state: "pending" },
 				},
 			})),
@@ -85,17 +99,20 @@ describe("submit matrix progress", () => {
 		expect(output).toContain("Inspect");
 		expect(output).toContain("Branch / PR");
 		expect(output).toContain("Metadata");
+		expect(output).toContain("Description");
 		expect(output).toContain("Submit");
 		expect(output).toContain("Verify");
-		expect(output).toContain("Description");
+		const headerLine = output.split("\n").find((line) => line.includes("Branch / PR"));
+		expect(headerLine).toContain("Metadata");
+		expect(headerLine).toContain("Description");
+		expect(headerLine).not.toContain("Submit");
+		expect(headerLine).not.toContain("Verify");
 		expect(output).toContain("feature/a (#123)");
 		expect(output).toContain("feature/b");
 	});
 
 	test("branch cells render compact text when it fits and keep symbols otherwise", () => {
 		const cells = {
-			submit: { state: "pending" },
-			verify: { state: "pending" },
 			description: { state: "pending" },
 		} as const;
 		const lines = renderSubmitMatrixProgressFrame({

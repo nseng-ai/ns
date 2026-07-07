@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
@@ -20,6 +21,7 @@ import type {
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
+import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
 export type SubmitPrDescriptionGenerationResult =
 	| ({ ok: true } & SubmitPrDescriptionSummary)
@@ -43,12 +45,21 @@ interface PrDescriptionAccumulator {
 
 type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbacks";
 
+export interface SubmitPrDescriptionProgressEvent {
+	prNumber: number;
+	state: Exclude<SubmitMatrixCellState, "pending">;
+	message?: string;
+}
+
+export type SubmitPrDescriptionProgressListener = (event: SubmitPrDescriptionProgressEvent) => void;
+
 export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	onProgress?: (message: string) => void;
+	onPrProgress?: SubmitPrDescriptionProgressListener;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
 	const prewrittenByBranch = new Map(
@@ -70,8 +81,18 @@ export async function generateSubmitPrDescriptions(input: {
 		if (number === undefined) continue;
 
 		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
+		input.onPrProgress?.({
+			prNumber: number,
+			state: "active",
+			message: "loading PR metadata",
+		});
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
+			input.onPrProgress?.({
+				prNumber: number,
+				state: "failed",
+				message: firstNonEmptyLine(viewed.error.message) ?? "metadata load failed",
+			});
 			accumulator = collectPrDescriptionFailure(accumulator, {
 				link,
 				number,
@@ -90,6 +111,11 @@ export async function generateSubmitPrDescriptions(input: {
 				git: input.prDescription.git,
 			});
 			if (!resolvedGeneration.ok) {
+				input.onPrProgress?.({
+					prNumber: number,
+					state: "failed",
+					message: firstNonEmptyLine(resolvedGeneration.error) ?? "generation setup failed",
+				});
 				accumulator = collectPrDescriptionFailure(accumulator, {
 					link,
 					number,
@@ -112,6 +138,12 @@ export async function generateSubmitPrDescriptions(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
+		const progress = prProgressForResult(result);
+		input.onPrProgress?.({
+			prNumber: number,
+			state: progress.state,
+			...optionalEntry("message", progress.message),
+		});
 		accumulator = collectPrDescriptionResult({
 			result,
 			link,
@@ -143,6 +175,24 @@ function createPrDescriptionAccumulator(): PrDescriptionAccumulator {
 		previews: [],
 		failures: [],
 	};
+}
+
+function prProgressForResult(result: PrDescriptionOrchestrationResult): {
+	state: SubmitPrDescriptionProgressEvent["state"];
+	message?: string;
+} {
+	switch (result.type) {
+		case "skipped":
+			return { state: "skipped", message: "skipped (unchanged)" };
+		case "matched_prewritten":
+			return { state: "done", message: "prewritten" };
+		case "updated":
+			return { state: "done", message: "updated" };
+		case "generated":
+			return { state: "done", message: "generated" };
+		case "failed":
+			return { state: "failed", message: firstNonEmptyLine(result.reason) ?? "description failed" };
+	}
 }
 
 function collectPrDescriptionResult(input: {

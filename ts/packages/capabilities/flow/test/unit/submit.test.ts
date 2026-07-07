@@ -3,11 +3,13 @@ import { describe, expect, test } from "vitest";
 import {
 	parseCommitMessages,
 	parseGtLogStack,
+	ok,
 	parseParentBranch,
 	RealSubmitMetadataGateway,
 	runSubmitCommand,
 	type GithubPrGateway,
 	type SubmitGateway,
+	type SubmitMatrixProgressSink,
 	type SubmitMetadataGateway,
 	type TextGenerator,
 } from "../../src/submit/index.ts";
@@ -15,6 +17,7 @@ import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { ScriptedCommandRunner, startupErrorStep, step } from "@nseng-ai/foundation/exec/testing";
+import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 
 describe("formatSubmitSuccessText", () => {
 	test("omits the description preview line when no first line is available", () => {
@@ -642,6 +645,93 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 });
 
 describe("runSubmitCommand", () => {
+	test("records submit and verify as global matrix rows and descriptions by PR", async () => {
+		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const linkB = { label: "#456", url: "https://github.com/acme/repo/pull/456" };
+		const submitMatrix = new RecordingSubmitMatrix();
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => ({
+				kind: "ready",
+				output: { stdout: "ready", stderr: "", exitCode: 0 },
+			}),
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => ({
+				kind: "success",
+				output: { stdout: "submitted", stderr: "", exitCode: 0 },
+				prLinks: [linkA, linkB],
+			}),
+			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
+			verifyCurrentPr: async () => ({
+				kind: "present",
+				output: { stdout: "current", stderr: "", exitCode: 0 },
+				prLinks: [linkB],
+			}),
+		};
+		const metadataGateway: SubmitMetadataGateway = {
+			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectSubmitStack: async () => ({
+				ok: true,
+				value: {
+					currentBranch: "feature/b",
+					hasUpstackBranches: false,
+					branches: [
+						{ kind: "existing", branch: "feature/a", parentBranch: "main", pr: linkA },
+						{
+							kind: "new",
+							branch: "feature/b",
+							parentBranch: "feature/a",
+							commitMessages: [{ headline: "Add b" }, { headline: "Refine b" }],
+							diff: "diff --git a/b b/b\n+b",
+						},
+					],
+				},
+			}),
+			ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
+			amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
+		};
+		const githubPr = new SubmitDescriptionGithubPrGateway();
+		const textGenerator = new ScriptedTextGenerator([
+			{ ok: true, text: "Title A\n\nBody A" },
+			{ ok: true, text: "Title B\n\nBody B" },
+		]);
+
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway,
+			restack: true,
+			force: false,
+			prDescription: {
+				githubPr,
+				textGenerator,
+				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				env: {},
+			},
+			submitMatrix,
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(submitMatrix.globalEvents.filter((event) => event.key === "submit")).toEqual([
+			{
+				key: "submit",
+				state: "active",
+				text: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+			},
+			{ key: "submit", state: "done", text: "stack submitted" },
+		]);
+		expect(submitMatrix.globalEvents.filter((event) => event.key === "verify")).toEqual([
+			{ key: "verify", state: "active", text: "checking current PR" },
+			{ key: "verify", state: "done", text: "current PR verified (#456)" },
+		]);
+		expect(submitMatrix.prCellEvents).toEqual([
+			{ prNumber: 123, column: "description", state: "active", text: "loading PR metadata" },
+			{ prNumber: 123, column: "description", state: "done", text: "generated" },
+			{ prNumber: 456, column: "description", state: "active", text: "loading PR metadata" },
+			{ prNumber: 456, column: "description", state: "done", text: "generated" },
+		]);
+		textGenerator.assertDone();
+	});
+
 	test("formats gateway-domain preflight failures without Graphite stderr fixtures", async () => {
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => ({
@@ -684,6 +774,95 @@ describe("runSubmitCommand", () => {
 		);
 	});
 });
+
+interface SubmitMatrixGlobalEvent {
+	key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0];
+	state: Parameters<SubmitMatrixProgressSink["setGlobal"]>[1]["state"];
+	text?: string;
+}
+
+interface SubmitMatrixPrCellEvent {
+	prNumber: number;
+	column: Parameters<SubmitMatrixProgressSink["setCellByPrNumber"]>[1];
+	state: Parameters<SubmitMatrixProgressSink["setCellByPrNumber"]>[2]["state"];
+	text?: string;
+}
+
+class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
+	readonly globalEvents: SubmitMatrixGlobalEvent[] = [];
+	readonly prCellEvents: SubmitMatrixPrCellEvent[] = [];
+
+	setRows(): void {}
+
+	setRunningCommands(): void {}
+
+	setGlobal(
+		key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0],
+		update: Parameters<SubmitMatrixProgressSink["setGlobal"]>[1],
+	): void {
+		this.globalEvents.push({ key, state: update.state, ...optionalText(update.text) });
+	}
+
+	setGlobalSubstep(): void {}
+
+	setCell(): void {}
+
+	setCellByPrNumber(
+		prNumber: number,
+		column: Parameters<SubmitMatrixProgressSink["setCellByPrNumber"]>[1],
+		update: Parameters<SubmitMatrixProgressSink["setCellByPrNumber"]>[2],
+	): void {
+		this.prCellEvents.push({ prNumber, column, state: update.state, ...optionalText(update.text) });
+	}
+
+	setAllCells(): void {}
+
+	setPendingCells(): void {}
+
+	applyGlobalPhaseEvent(): void {}
+
+	applyPrLinks(): void {}
+}
+
+class SubmitDescriptionGithubPrGateway implements GithubPrGateway {
+	async viewCurrentBranchPr(): Promise<never> {
+		return unexpectedCall("viewCurrentBranchPr");
+	}
+
+	async viewPr(params: { number: number }) {
+		return {
+			ok: true,
+			value: {
+				number: params.number,
+				url: `https://github.com/acme/repo/pull/${params.number}`,
+				title: `Current title ${params.number}`,
+				body: `Current body ${params.number}`,
+				headRefName: params.number === 123 ? "feature/a" : "feature/b",
+				baseRefName: params.number === 123 ? "main" : "feature/a",
+			},
+		} as const;
+	}
+
+	async getPrCommitMessages() {
+		return ok([{ headline: "Add feature" }]);
+	}
+
+	async getPrDiff() {
+		return ok("diff --git a/file b/file\n+change");
+	}
+
+	async stablePatchIdForPr() {
+		return ok({ patchId: "patch-id", diff: "diff --git a/file b/file\n+change" });
+	}
+
+	async editPr() {
+		return ok(undefined);
+	}
+}
+
+function optionalText(text: string | undefined): { text?: string } {
+	return text === undefined ? {} : { text };
+}
 
 const unusedSubmitMetadataGateway: SubmitMetadataGateway = {
 	inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),

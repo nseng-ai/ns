@@ -195,7 +195,6 @@ export interface RunSubmitCommandOptions {
 	/** Typed phase sequencing for a presentation driver. Separate channel from the raw `onOutput`. */
 	onPhase?: NsProgressPhaseListener;
 	submitMatrix?: SubmitMatrixProgressSink;
-	submitMatrixCurrentBranch?: string;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
 }
@@ -356,7 +355,7 @@ export async function runSubmitCommand(
 			phaseKey: "submit",
 			label: submitCommandDisplay,
 		},
-		(matrix) => matrix.setAllCells("submit", { state: "active", text: submitCommandDisplay }),
+		(matrix) => matrix.setGlobal("submit", { state: "active", text: submitCommandDisplay }),
 	);
 	const submittedStep = await runSubmitPhaseStep({
 		options,
@@ -375,6 +374,10 @@ export async function runSubmitCommand(
 			phaseKey: "submit",
 			label: stackUpdateCommandDisplay,
 		});
+		options.submitMatrix?.setGlobal("submit", {
+			state: "active",
+			text: "updating upstack PRs",
+		});
 		const stackUpdateStep = await runSubmitPhaseStep({
 			options,
 			phaseLabel: "stack update",
@@ -387,9 +390,9 @@ export async function runSubmitCommand(
 		combinedSubmitOutcome = combineSubmitOutcomes(combinedSubmitOutcome, stackUpdateStep.result);
 	}
 
-	options.submitMatrix?.setAllCells("submit", { state: "done", text: "stack submitted" });
+	options.submitMatrix?.setGlobal("submit", { state: "done", text: "stack submitted" });
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "verification" }, (matrix) =>
-		matrix.setAllCells("verify", { state: "active", text: "checking current PR" }),
+		matrix.setGlobal("verify", { state: "active", text: "checking current PR" }),
 	);
 	options.submitMatrix?.setRunningCommands([CURRENT_PR_COMMAND_DISPLAY]);
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
@@ -398,7 +401,7 @@ export async function runSubmitCommand(
 		combinedSubmitOutcome.semanticFailureCause !== undefined ||
 		shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
 	) {
-		options.submitMatrix?.setAllCells("verify", { state: "failed", text: "verification failed" });
+		options.submitMatrix?.setGlobal("verify", { state: "failed", text: "verification failed" });
 		const stderr = formatPostSubmitFailureOutput({
 			submitted: combinedSubmitOutcome,
 			currentPr,
@@ -423,17 +426,13 @@ export async function runSubmitCommand(
 			? mergePrLinks(combinedSubmitOutcome.prLinks, currentPr.prLinks)
 			: mergePrLinks(combinedSubmitOutcome.prLinks, []);
 	options.submitMatrix?.applyPrLinks(prLinks);
-	if (currentPr.kind === "present" && options.submitMatrixCurrentBranch !== undefined) {
-		options.submitMatrix?.setCell(options.submitMatrixCurrentBranch, "verify", {
+	if (currentPr.kind === "present") {
+		options.submitMatrix?.setGlobal("verify", {
 			state: "done",
-			text: "current PR verified",
-		});
-		options.submitMatrix?.setAllOtherCells("verify", options.submitMatrixCurrentBranch, {
-			state: "skipped",
-			text: "only current branch verified",
+			text: formatVerifiedCurrentPrText(currentPr.prLinks),
 		});
 	} else {
-		options.submitMatrix?.setAllCells("verify", {
+		options.submitMatrix?.setGlobal("verify", {
 			state: "skipped",
 			text: "current PR not detected",
 		});
@@ -445,10 +444,9 @@ export async function runSubmitCommand(
 			phaseKey: "descriptions",
 			label: formatDescriptionPhaseStart(prLinks.length),
 		},
-		(matrix) =>
-			matrix.setAllCells("description", {
-				state: prLinks.length === 0 ? "skipped" : "active",
-			}),
+		(matrix) => {
+			if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
+		},
 	);
 	options.submitMatrix?.setRunningCommands(
 		prLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
@@ -460,13 +458,15 @@ export async function runSubmitCommand(
 		prewrittenMetadata: prewrite.prepared,
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
+		onPrProgress: (event) => {
+			options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
+				state: event.state,
+				...optionalEntry("text", event.message),
+			});
+		},
 	});
 	options.submitMatrix?.setRunningCommands([]);
 	if (!descriptionResult.ok) {
-		options.submitMatrix?.setAllCells("description", {
-			state: "failed",
-			text: "description failed",
-		});
 		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
 		const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
 		return failure(1, stderr, {
@@ -479,9 +479,7 @@ export async function runSubmitCommand(
 		});
 	}
 
-	options.submitMatrix?.setAllCells("description", {
-		state: prLinks.length === 0 ? "skipped" : "done",
-	});
+	options.submitMatrix?.setPendingCells("description", { state: "skipped" });
 	const successText =
 		prLinks.length > 0
 			? formatSubmitSuccessText(prLinks, descriptionResult)
@@ -497,6 +495,12 @@ type RestackDecision = "run" | "declined" | "unavailable";
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
+}
+
+function formatVerifiedCurrentPrText(prLinks: readonly SubmitPrLink[]): string {
+	const prNumber = prLinks.map(prNumberFromLink).find((number) => number !== undefined);
+	if (prNumber === undefined) return "current PR verified";
+	return `current PR verified (#${prNumber})`;
 }
 
 function preflightFailureFor(input: {
@@ -626,7 +630,7 @@ async function runSubmitPhaseStep(input: {
 	input.options.submitMatrix?.setRunningCommands([]);
 	if (result.kind === "success") return { kind: "success", result };
 
-	input.options.submitMatrix?.setAllCells("submit", {
+	input.options.submitMatrix?.setGlobal("submit", {
 		state: "failed",
 		text: `${input.phaseLabel} failed`,
 	});
