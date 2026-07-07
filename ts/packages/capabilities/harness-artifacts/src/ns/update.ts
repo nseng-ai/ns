@@ -26,19 +26,19 @@ export async function runNsUpdate(
 		projectRoot: context.projectRoot,
 		...optionalEntry("homeDir", context.homeDir),
 		env: context.env,
-		force: request.force,
+		shouldForce: request.force,
 	};
 	if (request.dryRun || !request.force) {
-		const preview = await runHarnessArtifactReconcile({ ...baseRequest, dryRun: true });
+		const preview = await runHarnessArtifactReconcile({ ...baseRequest, isDryRun: true });
 		if (!preview.ok) return reconcileFailureExit(preview.error);
 		if (request.dryRun) return ok(preview.value);
-		if (preview.value.needsForce) {
+		if (preview.value.isForceRequired) {
 			return negative("Update refused: locally edited target files require --force.", {
 				data: preview.value,
 			});
 		}
 	}
-	const result = await runHarnessArtifactReconcile({ ...baseRequest, dryRun: false });
+	const result = await runHarnessArtifactReconcile({ ...baseRequest, isDryRun: false });
 	if (!result.ok) return reconcileFailureExit(result.error);
 	if (result.value.skippedCollisions.length > 0) {
 		return negative("Update skipped colliding harness artifacts.", { data: result.value });
@@ -78,7 +78,7 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 			lines.push(`- ${collision.kind} ${collision.value}: ${collision.packages.join(", ")}`);
 		}
 	}
-	if (result.needsForce) lines.push("", "Conflicts found; re-run with --force to overwrite.");
+	if (result.isForceRequired) lines.push("", "Conflicts found; re-run with --force to overwrite.");
 	lines.push(
 		"",
 		`summary: ${countArtifacts(result, "installed")} installed, ${countArtifacts(result, "refreshed")} refreshed, ${countArtifacts(result, "unchanged")} unchanged, ${countArtifacts(result, "conflicted")} conflicted, ${countArtifacts(result, "skipped")} skipped, ${result.orphans.length} orphaned, ${result.diagnostics.length} diagnostic(s)`,

@@ -91,11 +91,6 @@ export class InMemoryHarnessFs
 		this.ensureParentDirectories(path);
 	}
 
-	setBytes(path: string, bytes: Uint8Array): void {
-		this.nodes.set(path, { type: "file", bytes });
-		this.ensureParentDirectories(path);
-	}
-
 	readBytes(path: string): Uint8Array | undefined {
 		const node = this.nodes.get(path);
 		return node?.type === "file" ? node.bytes : undefined;

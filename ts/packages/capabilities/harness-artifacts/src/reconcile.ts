@@ -93,15 +93,12 @@ export function planHarnessArtifactReconcile(input: {
 	desired: readonly DesiredHarnessArtifact[];
 	harnessSelection: readonly HarnessId[] | undefined;
 	manifests: readonly HarnessManifestSnapshot[];
-}): Result<
-	{
-		pairs: readonly ReconcilePair[];
-		orphans: readonly OrphanedManifestEntry[];
-		skippedDesired: readonly DesiredHarnessArtifact[];
-		skippedCollisions: readonly SkippedArtifactCollision[];
-	},
-	never
-> {
+}): {
+	pairs: readonly ReconcilePair[];
+	orphans: readonly OrphanedManifestEntry[];
+	skippedDesired: readonly DesiredHarnessArtifact[];
+	skippedCollisions: readonly SkippedArtifactCollision[];
+} {
 	const collisionPlan = planDesiredCollisionSkips(input.desired);
 
 	const skippedDesiredIdentities = new Set(
@@ -166,22 +163,22 @@ export function planHarnessArtifactReconcile(input: {
 		}
 	}
 
-	return resultOk({
+	return {
 		pairs: [...pairsByKey.values()].sort((left, right) => left.key.localeCompare(right.key)),
 		orphans: orphans.sort((left, right) =>
 			`${left.harness}\0${left.artifactId}`.localeCompare(`${right.harness}\0${right.artifactId}`),
 		),
 		skippedDesired: collisionPlan.skippedDesired,
 		skippedCollisions: collisionPlan.skippedCollisions,
-	});
+	};
 }
 
 export interface RunHarnessArtifactReconcileRequest {
 	projectRoot: string;
 	homeDir?: string;
 	env: Record<string, string | undefined>;
-	dryRun: boolean;
-	force: boolean;
+	isDryRun: boolean;
+	shouldForce: boolean;
 	fs?: HarnessArtifactFileSystemGateway;
 	discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
 	firstPartySourceRoot?: string;
@@ -216,7 +213,7 @@ export const reconcileReportSchema = z.object({
 	orphans: z.array(orphanedManifestEntrySchema),
 	diagnostics: z.array(moduleArtifactDiscoveryDiagnosticSchema),
 	skippedCollisions: z.array(skippedArtifactCollisionSchema),
-	needsForce: z.boolean(),
+	isForceRequired: z.boolean(),
 });
 export type ReconcileReport = z.output<typeof reconcileReportSchema>;
 
@@ -268,10 +265,9 @@ export async function runHarnessArtifactReconcile(
 		harnessSelection: selection.value.harnessSelection,
 		manifests: manifests.value,
 	});
-	if (!plan.ok) return plan;
 
 	const artifacts: ReconcileArtifactOutcome[] = [];
-	for (const desired of plan.value.skippedDesired) {
+	for (const desired of plan.skippedDesired) {
 		artifacts.push(
 			...skippedCollisionOutcomes({
 				desired,
@@ -280,7 +276,7 @@ export async function runHarnessArtifactReconcile(
 			}),
 		);
 	}
-	for (const pair of plan.value.pairs) {
+	for (const pair of plan.pairs) {
 		const prepared = await prepareProvision({
 			artifact: pair.desired.artifact,
 			harness: pair.harness,
@@ -291,12 +287,12 @@ export async function runHarnessArtifactReconcile(
 			fs,
 		});
 		if (!prepared.ok) return prepared;
-		if (request.dryRun) {
+		if (request.isDryRun) {
 			artifacts.push(
 				reconcileOutcomeFromProvision({
 					pair,
 					provision: prepared.value,
-					...(prepared.value.decisions.needsForce ? { action: "conflicted" as const } : {}),
+					...(prepared.value.decisions.isForceRequired ? { action: "conflicted" as const } : {}),
 					writtenFiles: [],
 					conflictingFiles: prepared.value.decisions.files
 						.filter((decision) => decision.type === "locally-edited-conflict")
@@ -306,7 +302,9 @@ export async function runHarnessArtifactReconcile(
 			continue;
 		}
 
-		const applied = await applyPreparedProvision(prepared.value, { force: request.force });
+		const applied = await applyPreparedProvision(prepared.value, {
+			shouldForce: request.shouldForce,
+		});
 		if (!applied.ok) return applied;
 		if (applied.value.outcome === "conflicted") {
 			artifacts.push(
@@ -329,13 +327,13 @@ export async function runHarnessArtifactReconcile(
 	}
 
 	return resultOk({
-		mode: request.dryRun ? "dry-run" : "applied",
+		mode: request.isDryRun ? "dry-run" : "applied",
 		harnessSelection: selection.value.state,
 		artifacts,
-		orphans: [...plan.value.orphans],
+		orphans: [...plan.orphans],
 		diagnostics: [...moduleDiscovery.diagnostics],
-		skippedCollisions: [...plan.value.skippedCollisions],
-		needsForce: artifacts.some((artifact) => artifact.action === "conflicted"),
+		skippedCollisions: [...plan.skippedCollisions],
+		isForceRequired: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
 }
 

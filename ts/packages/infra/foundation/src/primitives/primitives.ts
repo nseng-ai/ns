@@ -80,6 +80,13 @@ export function errorCodeFromUnknown(value: unknown): string | number | undefine
 	return typeof code === "string" || typeof code === "number" ? code : undefined;
 }
 
+export function resolveHomeDir(
+	explicit: string | undefined,
+	env: Record<string, string | undefined>,
+): string | undefined {
+	return explicit ?? env.HOME;
+}
+
 export interface ZodIssueLike {
 	readonly path: readonly unknown[];
 	readonly message: string;

@@ -385,7 +385,7 @@ describe("ns CLI host", () => {
 		const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
 
 		expect(installed.exit).toBe(0);
-		expect(installedData).toMatchObject({ mode: "applied", needsForce: false });
+		expect(installedData).toMatchObject({ mode: "applied", isForceRequired: false });
 		expect(installedData.artifacts).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ skillName: "module-skill", action: "installed" }),
@@ -428,7 +428,10 @@ describe("ns CLI host", () => {
 		const refusedEnvelope = parseJsonOutput(refused);
 		expect(refused.exit).toBe(1);
 		expect(refusedEnvelope).toMatchObject({ status: "negative", exitCode: 1 });
-		expect(dataFromEnvelope(refusedEnvelope)).toMatchObject({ mode: "dry-run", needsForce: true });
+		expect(dataFromEnvelope(refusedEnvelope)).toMatchObject({
+			mode: "dry-run",
+			isForceRequired: true,
+		});
 		expect(dataFromEnvelope(refusedEnvelope).artifacts).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ skillName: "module-skill", action: "refreshed" }),

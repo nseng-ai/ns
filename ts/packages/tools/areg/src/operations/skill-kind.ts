@@ -367,7 +367,7 @@ export function renderSkillKindList(
 ): string {
 	if (result.skills.length === 0) return "No managed skills found.";
 	const hasSources = result.skills.some((record) => record.manifestSources.length > 0);
-	const includeNotes = result.skills.some((record) => record.notes.length > 0);
+	const shouldIncludeNotes = result.skills.some((record) => record.notes.length > 0);
 	const columns: TextTableColumn[] = [
 		{ header: "SKILL", style: "bold-cyan" },
 		{ header: "KIND" },
@@ -376,7 +376,7 @@ export function renderSkillKindList(
 		{ header: "PI" },
 	];
 	if (hasSources) columns.push({ header: "SOURCES" });
-	if (includeNotes) columns.push({ header: "NOTES", style: "dim" });
+	if (shouldIncludeNotes) columns.push({ header: "NOTES", style: "dim" });
 	return renderTextTable({
 		columns,
 		rows: result.skills.map((record) => {
@@ -388,7 +388,7 @@ export function renderSkillKindList(
 				record.piExtension,
 			];
 			if (hasSources) base.push(skillKindSourcesLabel(record));
-			if (includeNotes) base.push(record.notes.join("; "));
+			if (shouldIncludeNotes) base.push(record.notes.join("; "));
 			return base;
 		}),
 		canEmitAnsi: caps.canEmitAnsi,
@@ -499,20 +499,20 @@ function skillKindSourcesLabel(record: SkillKindRecordResult): string {
 
 function renderApplyOperation(
 	operation: SkillKindApplyResult["skills"][number]["operations"][number],
-	dryRun: boolean,
+	isDryRun: boolean,
 ): string | undefined {
 	if (!("isApplied" in operation)) return undefined;
 	switch (operation.type) {
 		case "write":
-			return `${dryRun ? "Would write" : "Wrote"} ${operation.path}`;
+			return `${isDryRun ? "Would write" : "Wrote"} ${operation.path}`;
 		case "skip":
-			return `${dryRun ? "Would skip" : "Skipped"} ${operation.path}: ${operation.reason ?? "already current"}`;
+			return `${isDryRun ? "Would skip" : "Skipped"} ${operation.path}: ${operation.reason ?? "already current"}`;
 		case "delete":
-			return `${dryRun ? "Would delete" : "Deleted"} ${operation.path}`;
+			return `${isDryRun ? "Would delete" : "Deleted"} ${operation.path}`;
 		case "delete-symlink":
-			return `${dryRun ? "Would delete symlink" : "Deleted symlink"} ${operation.path}`;
+			return `${isDryRun ? "Would delete symlink" : "Deleted symlink"} ${operation.path}`;
 		case "remove-empty-dir":
-			if (dryRun) return `Would remove ${operation.path} if empty`;
+			if (isDryRun) return `Would remove ${operation.path} if empty`;
 			return operation.isApplied ? `Removed ${operation.path}` : undefined;
 	}
 }

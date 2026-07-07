@@ -14,7 +14,7 @@ import {
 import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
 import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
-import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import {
 	buildNsCompletionScript,
@@ -124,7 +124,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
 		const resolvedCwd = deps.cwd ?? injectedContext?.cwd ?? cwd;
 		const resolvedEnv = deps.env ?? injectedContext?.env ?? env;
-		const homeDir = deps.homeDir ?? resolvedEnv.HOME ?? injectedContext?.homeDir;
+		const homeDir = resolveHomeDir(deps.homeDir, resolvedEnv) ?? injectedContext?.homeDir;
 		const commandCatalog = await (
 			deps.extensionRegistry?.loadCommandCatalog ?? loadNsCommandCatalog
 		)({

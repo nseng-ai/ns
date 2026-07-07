@@ -8,7 +8,7 @@ import {
 } from "@nseng-ai/clinkr";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import { runCommand } from "@nseng-ai/foundation/exec";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";
@@ -39,7 +39,7 @@ export function createRealNsCommandContext(
 ): NsExtensionApi {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
-	const homeDir = options.homeDir ?? env.HOME;
+	const homeDir = resolveHomeDir(options.homeDir, env);
 	const textGenerator = createTextGenerator();
 	const confirm = createTerminalConfirmPrompt();
 	const stdout = (text: string) => process.stdout.write(text);

@@ -16,8 +16,10 @@ import type {
 import {
 	MANIFEST_FAILURE_CODE,
 	MANIFEST_FAILURE_REMEDIATION,
-	manifestSkillKindNames,
 	manifestSourceFinding,
+} from "./manifest-source-findings.ts";
+import {
+	manifestSkillKindNames,
 	toManifestSkillSourceView,
 	type AregManifestSkillSourcesInspection,
 } from "./manifest-sources.ts";

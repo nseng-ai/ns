@@ -14,7 +14,7 @@ import type { AregCliContext } from "../context.ts";
 import type { AregSkillFindSkillInspection } from "../gateways.ts";
 import {
 	aregManifestSkillSourceViewSchema,
-	manifestSourceViewsForSkill,
+	manifestSourceViewsBySkillName,
 	type AregManifestSkillSourceView,
 } from "./manifest-sources.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
@@ -115,18 +115,14 @@ export async function runSkillFind(
 		projectDir,
 		env: ctx.env,
 	});
+	const manifestSourceViews = manifestSourceViewsBySkillName(manifestSources.sources);
 	const searchedRoots = buildSkillFindSearchedRoots(projectDir, request.skill);
 	const exactSkills = inspection.skills
 		.filter((skill) => skill.name === request.skill)
 		.toSorted(compareSkillFindInspection);
 	if (exactSkills.length > 0) {
 		const matches = exactSkills.map((skill, index) =>
-			toSkillFindMatch(
-				projectDir,
-				skill,
-				index === 0,
-				manifestSourceViewsForSkill(manifestSources.sources, skill.name),
-			),
+			toSkillFindMatch(projectDir, skill, index === 0, manifestSourceViews.get(skill.name)),
 		);
 		const preferred = matches[0];
 		if (preferred === undefined)
@@ -172,7 +168,7 @@ function toSkillFindMatch(
 	projectDir: string,
 	skill: AregSkillFindSkillInspection,
 	isPreferred: boolean,
-	manifestSources: readonly AregManifestSkillSourceView[],
+	manifestSources: readonly AregManifestSkillSourceView[] | undefined,
 ): SkillFindMatch {
 	const skillFileRelativePath = skillLookupFileRelativePath(skill.root, skill.name);
 	const skillFilePath = toProjectPath(projectDir, skillFileRelativePath);
@@ -187,7 +183,7 @@ function toSkillFindMatch(
 		basePath: toProjectPath(projectDir, skill.baseRelativePath),
 		skillFilePath,
 		...frontmatter.fields,
-		...(manifestSources.length === 0 ? {} : { manifestSources: [...manifestSources] }),
+		...(manifestSources === undefined ? {} : { manifestSources: [...manifestSources] }),
 		...(frontmatter.warnings.length === 0 ? {} : { warnings: frontmatter.warnings }),
 	};
 }

@@ -156,7 +156,7 @@ describe("harness artifact provision apply", () => {
 		expect(prepared).toMatchObject({ ok: true });
 		if (!prepared.ok) return;
 
-		const result = await applyPreparedProvision(prepared.value, { force: true });
+		const result = await applyPreparedProvision(prepared.value, { shouldForce: true });
 
 		expect(result).toMatchObject({ ok: true, value: { outcome: "applied" } });
 		if (!result.ok || result.value.outcome !== "applied") return;

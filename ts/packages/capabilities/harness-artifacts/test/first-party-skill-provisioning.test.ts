@@ -32,8 +32,8 @@ function request(
 		scope: "project",
 		projectRoot: PROJECT_ROOT,
 		env: {},
-		dryRun: false,
-		force: false,
+		isDryRun: false,
+		shouldForce: false,
 		sourceRoot: SOURCE_ROOT,
 		sourceVersion: "test-version",
 		fs,
@@ -72,7 +72,7 @@ describe("provisionFirstPartySkill", () => {
 	test("previews without writing in dry-run mode", async () => {
 		const fs = sourceFixtureFs();
 
-		const outcome = await provisionFirstPartySkill(request(fs, { dryRun: true }));
+		const outcome = await provisionFirstPartySkill(request(fs, { isDryRun: true }));
 
 		expect(outcome).toMatchObject({
 			type: "provisioned",
@@ -96,7 +96,7 @@ describe("provisionFirstPartySkill", () => {
 		});
 		expect(fs.readText(TARGET_SKILL_PATH)).toBe("local edit\n");
 
-		const forced = await provisionFirstPartySkill(request(fs, { force: true }));
+		const forced = await provisionFirstPartySkill(request(fs, { shouldForce: true }));
 		expect(forced).toMatchObject({ type: "provisioned", mode: "applied" });
 		expect(fs.readText(TARGET_SKILL_PATH)).toBe("objective skill\n");
 	});

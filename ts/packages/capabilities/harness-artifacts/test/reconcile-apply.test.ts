@@ -79,12 +79,12 @@ describe("harness artifact reconcile driver", () => {
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.setFile("/repo/.pi/skills/objective/SKILL.md", "local edit\n");
 
-		const dryRunConflict = await runHarnessArtifactReconcile(fixture.request({ dryRun: true }));
+		const dryRunConflict = await runHarnessArtifactReconcile(fixture.request({ isDryRun: true }));
 
 		expect(dryRunConflict).toMatchObject({ ok: true });
 		if (!dryRunConflict.ok) return;
 		expect(dryRunConflict.value.mode).toBe("dry-run");
-		expect(dryRunConflict.value.needsForce).toBe(true);
+		expect(dryRunConflict.value.isForceRequired).toBe(true);
 		expect(
 			dryRunConflict.value.artifacts.find((artifact) => artifact.skillName === "objective"),
 		).toMatchObject({
@@ -97,7 +97,7 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(conflict).toMatchObject({ ok: true });
 		if (!conflict.ok) return;
-		expect(conflict.value.needsForce).toBe(true);
+		expect(conflict.value.isForceRequired).toBe(true);
 		expect(
 			conflict.value.artifacts.find((artifact) => artifact.skillName === "objective"),
 		).toMatchObject({
@@ -106,11 +106,11 @@ describe("harness artifact reconcile driver", () => {
 		});
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("local edit\n");
 
-		const forced = await runHarnessArtifactReconcile(fixture.request({ force: true }));
+		const forced = await runHarnessArtifactReconcile(fixture.request({ shouldForce: true }));
 
 		expect(forced).toMatchObject({ ok: true });
 		if (!forced.ok) return;
-		expect(forced.value.needsForce).toBe(false);
+		expect(forced.value.isForceRequired).toBe(false);
 		expect(
 			forced.value.artifacts.find((artifact) => artifact.skillName === "objective"),
 		).not.toMatchObject({ action: "conflicted" });
@@ -193,13 +193,13 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 	const fs = new InMemoryHarnessFs(files);
 	return {
 		fs,
-		request(overrides: { dryRun?: boolean; force?: boolean } = {}) {
+		request(overrides: { isDryRun?: boolean; shouldForce?: boolean } = {}) {
 			return {
 				projectRoot: "/repo",
 				homeDir: "/home/alice",
 				env: { XDG_DATA_HOME: "/home/alice/.local/share" },
-				dryRun: overrides.dryRun ?? false,
-				force: overrides.force ?? false,
+				isDryRun: overrides.isDryRun ?? false,
+				shouldForce: overrides.shouldForce ?? false,
 				fs,
 				discoveryGateway: fs,
 				firstPartySourceRoot: "/first-party",

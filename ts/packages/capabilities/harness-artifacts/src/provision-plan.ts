@@ -116,7 +116,7 @@ export interface ProvisionFileDecision {
 
 export interface ProvisionDecisionSet {
 	files: readonly ProvisionFileDecision[];
-	needsForce: boolean;
+	isForceRequired: boolean;
 }
 
 export const provisionPlanFileSchema = z.object({
@@ -306,7 +306,7 @@ export function classifyProvisionDecisions(input: {
 
 	return resultOk({
 		files: decisions,
-		needsForce: decisions.some((decision) => decision.type === "locally-edited-conflict"),
+		isForceRequired: decisions.some((decision) => decision.type === "locally-edited-conflict"),
 	});
 }
 
