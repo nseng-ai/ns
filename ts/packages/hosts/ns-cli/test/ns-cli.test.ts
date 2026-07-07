@@ -1,21 +1,19 @@
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { runNsCli } from "../src/cli.ts";
+import {
+	createEmptyProject,
+	dataFromEnvelope,
+	parseJsonOutput,
+	runNsCliJson,
+} from "./support/cli-harness.ts";
 
-const tempDirs: string[] = [];
 const packageRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const tsRoot = resolve(packageRoot, "../../..");
-
-async function createEmptyProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-cli-host-"));
-	tempDirs.push(directory);
-	return directory;
-}
 
 async function pathExists(path: string): Promise<boolean> {
 	try {
@@ -25,40 +23,6 @@ async function pathExists(path: string): Promise<boolean> {
 		return false;
 	}
 }
-
-async function runNsCliJson(args: readonly string[], cwd: string) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const homeDir = join(cwd, ".home");
-	const exit = await runNsCli([...args, "--format", "json"], {
-		cwd,
-		homeDir,
-		env: { HOME: homeDir, CLAUDE_CONFIG_DIR: join(cwd, ".claude-user") },
-		stdout: (text) => stdout.push(text),
-		stderr: (text) => stderr.push(text),
-	});
-	return { exit, stdout: stdout.join(""), stderr: stderr.join("") };
-}
-
-function parseJsonOutput(run: { stdout: string }): Record<string, unknown> {
-	const parsed: unknown = JSON.parse(run.stdout);
-	if (typeof parsed !== "object" || parsed === null) {
-		throw new Error("Expected JSON object output.");
-	}
-	return parsed as Record<string, unknown>;
-}
-
-function dataFromEnvelope(envelope: Record<string, unknown>): Record<string, unknown> {
-	const data = envelope.data;
-	if (typeof data !== "object" || data === null) {
-		throw new Error("Expected envelope data object.");
-	}
-	return data as Record<string, unknown>;
-}
-
-afterEach(async () => {
-	await Promise.all(tempDirs.splice(0).map((directory) => rm(directory, { recursive: true })));
-});
 
 interface KernelExportSurface {
 	readonly name: string;
@@ -187,66 +151,25 @@ describe("ns CLI host", () => {
 		expect(stderr.join("")).toBe("");
 	});
 
-	test("resolves skill paths for harness aliases and both scopes", async () => {
+	test("smokes skills path host wiring for an alias user-scope case", async () => {
 		const cwd = await createEmptyProject();
-		const homeDir = join(cwd, ".home");
-		const cases = [
-			{
-				harness: "claude",
-				scope: "user",
-				expectedHarness: "claude-code",
-				expectedRoot: join(cwd, ".claude-user", "skills"),
-			},
-			{
-				harness: "claude-code",
-				scope: "project",
-				expectedHarness: "claude-code",
-				expectedRoot: join(cwd, ".claude", "skills"),
-			},
-			{
-				harness: "codex",
-				scope: "user",
-				expectedHarness: "codex",
-				expectedRoot: join(homeDir, ".agents", "skills"),
-			},
-			{
-				harness: "codex",
-				scope: "project",
-				expectedHarness: "codex",
-				expectedRoot: join(cwd, ".agents", "skills"),
-			},
-			{
-				harness: "pi-dev",
-				scope: "user",
-				expectedHarness: "pi",
-				expectedRoot: join(homeDir, ".pi", "agent", "skills"),
-			},
-			{
-				harness: "pi",
-				scope: "project",
-				expectedHarness: "pi",
-				expectedRoot: join(cwd, ".pi", "skills"),
-			},
-		] as const;
+		const expectedRoot = join(cwd, ".claude-user", "skills");
+		const run = await runNsCliJson(
+			["skills", "path", "objective", "--harness", "claude", "--scope", "user"],
+			cwd,
+		);
+		const data = dataFromEnvelope(parseJsonOutput(run));
 
-		for (const testCase of cases) {
-			const run = await runNsCliJson(
-				["skills", "path", "objective", "--harness", testCase.harness, "--scope", testCase.scope],
-				cwd,
-			);
-			const data = dataFromEnvelope(parseJsonOutput(run));
-
-			expect(run.exit).toBe(0);
-			expect(data).toMatchObject({
-				skill: "objective",
-				artifactId: "objective-skill",
-				harness: testCase.expectedHarness,
-				scope: testCase.scope,
-				targetRoot: testCase.expectedRoot,
-				targetArtifactPath: join(testCase.expectedRoot, "objective"),
-			});
-			expect(run.stderr).toBe("");
-		}
+		expect(run.exit).toBe(0);
+		expect(data).toMatchObject({
+			skill: "objective",
+			artifactId: "objective-skill",
+			harness: "claude-code",
+			scope: "user",
+			targetRoot: expectedRoot,
+			targetArtifactPath: join(expectedRoot, "objective"),
+		});
+		expect(run.stderr).toBe("");
 	});
 
 	test("previews skill install without writing target files or manifest", async () => {
