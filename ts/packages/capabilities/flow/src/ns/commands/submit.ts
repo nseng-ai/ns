@@ -4,6 +4,7 @@ import process from "node:process";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import type { CommandRunner } from "@nseng-ai/foundation/command";
+import { resolveGitRepoRoot, type ExecGit } from "@nseng-ai/capability-kit/pending-worktree";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
@@ -44,7 +45,12 @@ import {
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
-const SUBMIT_REPO_ROOT_TIMEOUT_MS = 30_000;
+const FLOW_SUBMIT_GIT_FACT_TIMEOUT_MS = 30_000;
+
+interface SubmitCheckpointContext {
+	gateway: RealCheckpointGateway;
+	repoRoot?: string;
+}
 
 const submitSchema = z.object({
 	restack: z
@@ -95,8 +101,13 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 	},
 	async run(ctx: NsExtensionApi, request: SubmitRequest) {
 		const runtime = createNsSubmitRuntime(ctx);
-		const checkpointGateway = new RealCheckpointGateway(runtime.commandRunner);
-		const repoRoot = request.hooks ? await resolveSubmitRepoRoot(runtime.commandRunner) : undefined;
+		const repoRoot = request.hooks
+			? await resolveFlowSubmitGitRepoRoot(runtime.commandRunner)
+			: undefined;
+		const checkpointContext: SubmitCheckpointContext = {
+			gateway: new RealCheckpointGateway(runtime.commandRunner),
+			...optionalEntry("repoRoot", repoRoot),
+		};
 		const hooksLoad =
 			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
 		if (hooksLoad.kind === "invalid") {
@@ -110,8 +121,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 				runtime,
 				caps,
 				hooksLoad,
-				checkpointGateway,
-				...optionalEntry("repoRoot", repoRoot),
+				checkpointContext,
 			});
 		}
 		return await runSettledPhaseStream({
@@ -162,10 +172,9 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 				const checkpoint = await runCheckpointIfPending({
 					cwd: ctx.cwd,
 					env: ctx.env,
-					gateway: checkpointGateway,
+					...checkpointContext,
 					textGenerator: ctx.textGenerator,
 					onPhase: stream.emit,
-					...optionalEntry("repoRoot", repoRoot),
 				});
 				if (checkpoint.kind === "failed") {
 					return await phaseFailureResult(ctx, {
@@ -213,13 +222,16 @@ export default defineExtension({
 	commands: [flowSubmitCommand],
 });
 
-async function resolveSubmitRepoRoot(runner: CommandRunner): Promise<string | undefined> {
-	const result = await runner("git", ["rev-parse", "--show-toplevel"], {
-		timeout: SUBMIT_REPO_ROOT_TIMEOUT_MS,
+async function resolveFlowSubmitGitRepoRoot(runner: CommandRunner): Promise<string | undefined> {
+	const result = await resolveGitRepoRoot({
+		execGit: commandRunnerExecGit(runner),
+		timeoutMs: FLOW_SUBMIT_GIT_FACT_TIMEOUT_MS,
 	});
-	if (result.code !== 0 || result.startupError !== undefined) return undefined;
-	const repoRoot = result.stdout.trim();
-	return repoRoot === "" ? undefined : repoRoot;
+	return result.type === "found" ? result.root : undefined;
+}
+
+function commandRunnerExecGit(runner: CommandRunner): ExecGit {
+	return (args, timeout) => runner("git", args, { timeout });
 }
 
 async function runSubmitWithMatrix(input: {
@@ -228,10 +240,9 @@ async function runSubmitWithMatrix(input: {
 	runtime: NsSubmitRuntime;
 	caps: Caps;
 	hooksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
-	checkpointGateway: RealCheckpointGateway;
-	repoRoot?: string;
+	checkpointContext: SubmitCheckpointContext;
 }) {
-	const { ctx, request, runtime, caps, hooksLoad, checkpointGateway } = input;
+	const { ctx, request, runtime, caps, hooksLoad, checkpointContext } = input;
 	const matrix = createSubmitMatrixProgressController({
 		caps,
 		deps: flowStreamDeps(ctx, caps),
@@ -281,18 +292,13 @@ async function runSubmitWithMatrix(input: {
 			});
 			matrix.setRunningCommands([]);
 			if (hooksOutcome.kind === "failed") {
-				matrix.setGlobal("hooks", { state: "failed", text: "hooks failed" });
-				const hookFailure = await maybeFormatSubmitFailureWithModel(
-					{
-						stdout: "",
-						stderr: formatFlowSubmitHookFailure(hooksOutcome),
-						exitCode: flowSubmitHookFailureExitCode(hooksOutcome),
-						failurePresentation: "deterministic",
-					},
-					ctx,
-				);
-				await matrix.finish({ isFailed: true });
-				return failed(resultFailureMessage(hookFailure), hookFailure.exitCode);
+				return await matrixPhaseFailureResult(ctx, matrix, {
+					key: "hooks",
+					failedText: "hooks failed",
+					stderr: formatFlowSubmitHookFailure(hooksOutcome),
+					exitCode: flowSubmitHookFailureExitCode(hooksOutcome),
+					failurePresentation: "deterministic",
+				});
 			}
 			matrix.setGlobal("hooks", { state: "done", text: "hooks complete" });
 		}
@@ -302,24 +308,18 @@ async function runSubmitWithMatrix(input: {
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			gateway: checkpointGateway,
+			...checkpointContext,
 			textGenerator: ctx.textGenerator,
 			onPhase: checkpointPhase,
-			...optionalEntry("repoRoot", input.repoRoot),
 		});
 		matrix.setRunningCommands([]);
 		if (checkpoint.kind === "failed") {
-			matrix.setGlobal("checkpoint", { state: "failed", text: "checkpoint failed" });
-			const checkpointFailure = await maybeFormatSubmitFailureWithModel(
-				{
-					stdout: "",
-					stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
-					exitCode: checkpoint.output.exitCode,
-				},
-				ctx,
-			);
-			await matrix.finish({ isFailed: true });
-			return failed(resultFailureMessage(checkpointFailure), checkpoint.output.exitCode);
+			return await matrixPhaseFailureResult(ctx, matrix, {
+				key: "checkpoint",
+				failedText: "checkpoint failed",
+				stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
+				exitCode: checkpoint.output.exitCode,
+			});
 		}
 		matrix.setGlobal("checkpoint", { state: "done", text: "checkpoint complete" });
 
@@ -372,6 +372,31 @@ function createForwardOnlyPhaseListener(
 	return (event) => {
 		if (ctx.progress.isLive) ctx.progress.phase(event);
 	};
+}
+
+async function matrixPhaseFailureResult(
+	ctx: NsExtensionApi,
+	matrix: SubmitMatrixProgressController,
+	failure: {
+		key: "hooks" | "checkpoint";
+		failedText: string;
+		stderr: string;
+		exitCode: number;
+		failurePresentation?: SubmitCommandResult["failurePresentation"];
+	},
+): Promise<ReturnType<typeof failed>> {
+	matrix.setGlobal(failure.key, { state: "failed", text: failure.failedText });
+	const interpreted = await maybeFormatSubmitFailureWithModel(
+		{
+			stdout: "",
+			stderr: failure.stderr,
+			exitCode: failure.exitCode,
+			...optionalEntry("failurePresentation", failure.failurePresentation),
+		},
+		ctx,
+	);
+	await matrix.finish({ isFailed: true });
+	return failed(resultFailureMessage(interpreted), interpreted.exitCode);
 }
 
 async function phaseFailureResult(

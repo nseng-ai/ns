@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
@@ -58,8 +59,15 @@ const LOCKFILE_BASENAMES = new Set([
 	"Cargo.lock",
 ]);
 
+const DEFAULT_PR_DESCRIPTION_PROMPT_PATH = "./prompts/pr-description-default.md";
+const DEFAULT_PR_DESCRIPTION_PROMPT_URL = new URL(
+	DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
+	import.meta.url,
+);
+const DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH = fileURLToPath(import.meta.url);
+
 export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = readFileSync(
-	new URL("./prompts/pr-description-default.md", import.meta.url),
+	DEFAULT_PR_DESCRIPTION_PROMPT_URL,
 	"utf8",
 ).trimEnd();
 
@@ -283,6 +291,8 @@ function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): Poin
 				id: FLOW_PR_DESCRIPTION_POINT_ID,
 				accepts: "prompt",
 				semantics: "override",
+				defaultPath: DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
+				manifestPath: DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH,
 			},
 		],
 		config: { points: [], settings: new Map() },

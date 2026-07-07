@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
+import { makeKernelDiagnostic } from "./diagnostics.ts";
+
 export interface ExtensionRootScanDiagnostic {
 	severity: "error";
 	code: string;
@@ -112,10 +114,9 @@ function diagnostic(
 	message: string,
 	options: { path?: string } = {},
 ): ExtensionRootScanDiagnostic {
-	return {
-		severity: "error",
-		code,
-		message,
-		...(options.path === undefined ? {} : { path: options.path }),
-	};
+	return makeKernelDiagnostic({ code, message, ...optionalPath(options.path) });
+}
+
+function optionalPath(path: string | undefined): { path?: string } {
+	return path === undefined ? {} : { path };
 }

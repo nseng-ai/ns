@@ -1,7 +1,7 @@
 import {
 	getProjectConfigSetting,
 	parseProjectConfigToml,
-	primaryProjectConfigDiagnostic,
+	projectConfigErrorFromDiagnostics,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
@@ -76,7 +76,11 @@ const roasterModelProfilesSettingsSchema = {
 		formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
 } satisfies SettingsSchema<RoasterSettingsRecord>;
 
-const SETTINGS_TABLE_PATHS = new Set(["roaster", "roaster.diff", "roaster.model_profiles"]);
+const SETTINGS_TABLE_ERROR_CODES = new Map([
+	["roaster", "invalid-table"],
+	["roaster.diff", "invalid-table"],
+	["roaster.model_profiles", "invalid-table"],
+] as const);
 
 export function parseRoasterProjectConfigToml(
 	source: string,
@@ -90,7 +94,7 @@ export function parseRoasterProjectConfigToml(
 			roasterModelProfilesSettingsSchema,
 		],
 	});
-	if (!result.ok) return projectConfigErrorFromDiagnostics(result.diagnostics, pathLabel);
+	if (!result.ok) return projectConfigParseErrorFromDiagnostics(result.diagnostics, pathLabel);
 
 	const diffSettings = getProjectConfigSetting(result.config, roasterDiffSettingsSchema);
 	const parsedDiff = parseDiffConfig(diffSettings, pathLabel);
@@ -244,34 +248,18 @@ function validateRoasterExcludePattern(
 	return { ok: true, value: undefined };
 }
 
-function projectConfigErrorFromDiagnostics(
+function projectConfigParseErrorFromDiagnostics(
 	diagnostics: readonly ProjectConfigDiagnostic[],
 	pathLabel: string | undefined,
 ): ProjectConfigParseResult {
-	const diagnostic = primaryProjectConfigDiagnostic(diagnostics);
-	if (diagnostic?.code === "ns_toml_invalid") {
-		return resultErrOf("invalid-toml", formatNsTomlInvalidMessage(diagnostic, pathLabel));
-	}
-	if (
-		diagnostic?.code === "settings_table_invalid" &&
-		diagnostic.path !== undefined &&
-		SETTINGS_TABLE_PATHS.has(diagnostic.path)
-	) {
-		return resultErrOf("invalid-table", diagnostic.message);
-	}
-	return resultErrOf(
-		"invalid-table",
-		diagnostic?.message ?? formatMessage("invalid ns.toml", pathLabel),
-	);
-}
-
-function formatNsTomlInvalidMessage(
-	diagnostic: ProjectConfigDiagnostic,
-	pathLabel: string | undefined,
-): string {
-	if (pathLabel !== undefined) return diagnostic.message;
-	if (diagnostic.causeMessage !== undefined) return `Invalid TOML.\n${diagnostic.causeMessage}`;
-	return diagnostic.message;
+	const error = projectConfigErrorFromDiagnostics(diagnostics, {
+		invalidToml: "invalid-toml",
+		invalidSettingsByPath: SETTINGS_TABLE_ERROR_CODES,
+		defaultCode: "invalid-table",
+		defaultMessage: formatMessage("invalid ns.toml", pathLabel),
+		...(pathLabel === undefined ? {} : { pathLabel }),
+	});
+	return resultErrOf(error.code, error.message);
 }
 
 function formatMessage(message: string, pathLabel: string | undefined): string {
