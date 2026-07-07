@@ -126,6 +126,31 @@ export const SUBMIT_MATRIX_GLOBAL_ROWS: readonly SubmitMatrixGlobalRowSpec[] = [
 	},
 ];
 
+/**
+ * Map a branch-level metadata progress message to a compact label that fits the
+ * 8-column Metadata cell. Unknown messages return undefined so the cell falls
+ * back to its state symbol instead of showing an ambiguous truncated phrase.
+ */
+export function compactSubmitMetadataCellText(message: string): string | undefined {
+	switch (message) {
+		case "existing PR":
+			return "exists";
+		case "metadata amendment not applicable":
+			return "n/a";
+		case "generating metadata":
+			return "gen";
+		case "amending metadata commit":
+			return "amend";
+		case "metadata prepared":
+			return "ready";
+		case "metadata amendment failed":
+		case "metadata generation failed":
+			return "failed";
+		default:
+			return undefined;
+	}
+}
+
 export function submitMatrixRowsFromTopology(
 	topology: SubmitStackTopology,
 ): readonly SubmitMatrixRowSpec[] {

@@ -3,7 +3,10 @@ import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
-import type { SubmitMatrixProgressSink } from "./submit-matrix-progress.ts";
+import {
+	compactSubmitMetadataCellText,
+	type SubmitMatrixProgressSink,
+} from "./submit-matrix-progress.ts";
 import {
 	formatSubmitPreflightFailureCause,
 	type CurrentPrVerificationFailureCause,
@@ -327,11 +330,14 @@ export async function runSubmitCommand(
 		textGenerator: options.prDescription.textGenerator,
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
-		onBranchProgress: (event) =>
+		onBranchProgress: (event) => {
+			const text =
+				event.message === undefined ? undefined : compactSubmitMetadataCellText(event.message);
 			options.submitMatrix?.setCell(event.branch, "metadata", {
 				state: event.state,
-				...(event.message === undefined ? {} : { text: event.message }),
-			}),
+				...(text === undefined ? {} : { text }),
+			});
+		},
 	});
 	options.submitMatrix?.setRunningCommands([]);
 	if (prewrite.kind === "failed") {

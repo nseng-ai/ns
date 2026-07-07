@@ -317,7 +317,7 @@ async function runSubmitWithMatrix(input: {
 		}
 		matrix.setGlobal("checkpoint", { state: "done", text: "checkpoint complete" });
 
-		const onPhase = createForwardOnlyPhaseListener(ctx);
+		const onPhase = createSubmitPhaseListener(ctx, matrix);
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,
@@ -365,6 +365,21 @@ function createForwardOnlyPhaseListener(
 ): (event: NsProgressPhaseEvent) => void {
 	return (event) => {
 		if (ctx.progress.isLive) ctx.progress.phase(event);
+	};
+}
+
+function createSubmitPhaseListener(
+	ctx: NsExtensionApi,
+	matrix: SubmitMatrixProgressController,
+): (event: NsProgressPhaseEvent) => void {
+	const forward = createForwardOnlyPhaseListener(ctx);
+	return (event) => {
+		forward(event);
+		// Surface the full metadata progress message as the matrix tail line so
+		// compact branch-cell labels are never the only source of detail.
+		if (event.type === "phase-progress" && event.phaseKey === "metadata") {
+			matrix.note(event.label);
+		}
 	};
 }
 

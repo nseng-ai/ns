@@ -15,6 +15,7 @@ import {
 	spinnerFrame,
 	statusLine,
 	truncatePlain,
+	visibleWidth,
 } from "@nseng-ai/foundation/cli-theme";
 import type { NsProgress, NsProgressPhaseInfo } from "@nseng-ai/kernel/sdk";
 
@@ -494,23 +495,28 @@ function renderMatrixRow<ColumnKey extends string>(
 		labelWidth(caps),
 	);
 	const cells = columns
-		.map((column) => centerCell(renderCell(caps, row.cells[column.key], tick), column.width))
+		.map((column) =>
+			centerCell(renderCell(caps, row.cells[column.key], tick, column.width), column.width),
+		)
 		.join("  ");
 	return `${label}  ${cells}`;
 }
 
-function renderCell(caps: Caps, cell: MatrixCellView, tick: number): string {
+function renderCell(caps: Caps, cell: MatrixCellView, tick: number, width: number): string {
+	// Compact text renders only when it fits the column; longer text (for example full
+	// command displays) falls back to the legacy symbols so narrow columns stay scannable.
+	const text = cell.text !== undefined && visibleWidth(cell.text) <= width ? cell.text : undefined;
 	switch (cell.state) {
 		case "pending":
-			return dim("·");
+			return dim(text ?? "·");
 		case "active":
-			return paint(caps, "accent", spinnerFrame(caps, tick));
+			return paint(caps, "accent", text ?? spinnerFrame(caps, tick));
 		case "done":
-			return "✓";
+			return text ?? "✓";
 		case "skipped":
-			return dim("–");
+			return dim(text ?? "–");
 		case "failed":
-			return "✗";
+			return text === undefined ? "✗" : paint(caps, "error", text);
 	}
 }
 

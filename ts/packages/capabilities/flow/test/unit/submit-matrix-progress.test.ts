@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import {
+	compactSubmitMetadataCellText,
 	renderSubmitMatrixProgressFrame,
 	submitMatrixRowsFromTopology,
 } from "../../src/submit/submit-matrix-progress.ts";
@@ -89,6 +90,87 @@ describe("submit matrix progress", () => {
 		expect(output).toContain("Description");
 		expect(output).toContain("feature/a (#123)");
 		expect(output).toContain("feature/b");
+	});
+
+	test("branch cells render compact text when it fits and keep symbols otherwise", () => {
+		const cells = {
+			submit: { state: "pending" },
+			verify: { state: "pending" },
+			description: { state: "pending" },
+		} as const;
+		const lines = renderSubmitMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow submit",
+			globals: [],
+			rows: [
+				{
+					branch: "feature/active",
+					label: "feature/active",
+					kind: "new",
+					cells: { ...cells, metadata: { state: "active", text: "gen" } },
+				},
+				{
+					branch: "feature/skipped",
+					label: "feature/skipped",
+					kind: "existing",
+					cells: { ...cells, metadata: { state: "skipped", text: "exists" } },
+				},
+				{
+					branch: "feature/done",
+					label: "feature/done",
+					kind: "new",
+					cells: { ...cells, metadata: { state: "done", text: "ready" } },
+				},
+				{
+					branch: "feature/failed",
+					label: "feature/failed",
+					kind: "new",
+					cells: { ...cells, metadata: { state: "failed", text: "failed" } },
+				},
+				{
+					branch: "feature/long-text",
+					label: "feature/long-text",
+					kind: "new",
+					cells: {
+						...cells,
+						metadata: { state: "skipped", text: "metadata amendment not applicable" },
+					},
+				},
+				{
+					branch: "feature/no-text",
+					label: "feature/no-text",
+					kind: "new",
+					cells: { ...cells, metadata: { state: "done" } },
+				},
+			],
+		});
+
+		const output = stripAnsi(lines.join("\n"));
+		const rowLine = (branch: string): string => {
+			const line = output.split("\n").find((item) => item.includes(branch));
+			if (line === undefined) throw new Error(`missing row for ${branch}`);
+			return line;
+		};
+		expect(rowLine("feature/active")).toContain("gen");
+		expect(rowLine("feature/skipped")).toContain("exists");
+		expect(rowLine("feature/done")).toContain("ready");
+		expect(rowLine("feature/failed")).toContain("failed");
+		// Text wider than the 8-column Metadata cell falls back to the legacy symbol.
+		expect(rowLine("feature/long-text")).toContain("–");
+		expect(rowLine("feature/long-text")).not.toContain("amendment");
+		// Cells without text keep the legacy symbol rendering.
+		expect(rowLine("feature/no-text")).toContain("✓");
+	});
+
+	test("compactSubmitMetadataCellText maps known metadata messages and rejects unknown ones", () => {
+		expect(compactSubmitMetadataCellText("existing PR")).toBe("exists");
+		expect(compactSubmitMetadataCellText("metadata amendment not applicable")).toBe("n/a");
+		expect(compactSubmitMetadataCellText("generating metadata")).toBe("gen");
+		expect(compactSubmitMetadataCellText("amending metadata commit")).toBe("amend");
+		expect(compactSubmitMetadataCellText("metadata prepared")).toBe("ready");
+		expect(compactSubmitMetadataCellText("metadata amendment failed")).toBe("failed");
+		expect(compactSubmitMetadataCellText("metadata generation failed")).toBe("failed");
+		expect(compactSubmitMetadataCellText("something novel")).toBeUndefined();
 	});
 
 	test("topology rows are branch-first and enrich existing PRs immediately", () => {
