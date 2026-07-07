@@ -13,7 +13,6 @@ import {
 	toWarningNotifications,
 } from "../api.ts";
 import type {
-	LandAdvanceBranchResult,
 	LandContext,
 	LandGraphiteCommandResult,
 	LandGraphiteDeleteLocalBranchResult,
@@ -32,7 +31,6 @@ import {
 	BACKUP_REF_NAMESPACE,
 	BACKUP_REF_PREV_NAMESPACE,
 	GH_MERGE_TIMEOUT_MS,
-	GIT_REMOTE_TIMEOUT_MS,
 	GIT_TIMEOUT_MS,
 	GT_MUTATION_TIMEOUT_MS,
 	SLOT_TIMEOUT_MS,
@@ -98,8 +96,6 @@ export function createLandContext(
 				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
 			snapshotBackupRefs: async ({ repoRoot, branches }) =>
 				snapshotBackupRefs({ pi, repoRoot, branches }),
-			advanceBranchFromRemote: async ({ repoRoot, branch }) =>
-				advanceBranchFromRemote({ pi, repoRoot, branch }),
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) =>
@@ -237,27 +233,6 @@ async function refreshBranchFromRemote(options: {
 		};
 	}
 	return { type: "failure", commandDisplay, result: result.result };
-}
-
-async function advanceBranchFromRemote(options: {
-	readonly pi: LandStackExtensionAPI;
-	readonly repoRoot: string;
-	readonly branch: string;
-}): Promise<LandAdvanceBranchResult> {
-	const args = advanceBranchFromRemoteArgs(options.branch);
-	const result = await exec({
-		pi: options.pi,
-		command: "git",
-		args,
-		cwd: options.repoRoot,
-		timeoutMs: GIT_REMOTE_TIMEOUT_MS,
-	});
-	if (result.code === 0) return { type: "advanced" };
-	return { type: "failure", commandDisplay: formatCommand("git", args), result };
-}
-
-function advanceBranchFromRemoteArgs(branch: string): string[] {
-	return ["fetch", "--quiet", "--no-tags", "origin", `refs/heads/${branch}:refs/heads/${branch}`];
 }
 
 async function deleteLocalBranch(options: {

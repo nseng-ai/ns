@@ -38,14 +38,6 @@ const BACKUP_ROTATION_ARGS = [
 	`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
 ];
 const GT_MUTATION_TIMEOUT_MS = 600_000;
-const GIT_REMOTE_TIMEOUT_MS = 120_000;
-const ADVANCE_MAIN_ARGS = [
-	"fetch",
-	"--quiet",
-	"--no-tags",
-	"origin",
-	"refs/heads/main:refs/heads/main",
-];
 const REFRESH_ARGS = [
 	"get",
 	"feature-b",
@@ -282,37 +274,6 @@ describe("land context adapter facts", () => {
 				options: { cwd: ROOT, timeout: 30000 },
 			},
 		]);
-		pi.assertDone();
-	});
-
-	test("advances a branch from origin with a direct fast-forward fetch", async () => {
-		const pi = new FakePi([step("git", ADVANCE_MAIN_ARGS)]);
-		const context = createTestLandContext(pi);
-
-		await expect(
-			context.git.advanceBranchFromRemote({ repoRoot: ROOT, branch: "main" }),
-		).resolves.toEqual({ type: "advanced" });
-		expect(pi.execCalls).toEqual([
-			{
-				command: "git",
-				args: ADVANCE_MAIN_ARGS,
-				options: { cwd: ROOT, timeout: GIT_REMOTE_TIMEOUT_MS },
-			},
-		]);
-		pi.assertDone();
-	});
-
-	test("reports direct branch advance failures with command details", async () => {
-		const pi = new FakePi([step("git", ADVANCE_MAIN_ARGS, { code: 1, stderr: "fetch failed\n" })]);
-		const context = createTestLandContext(pi);
-
-		await expect(
-			context.git.advanceBranchFromRemote({ repoRoot: ROOT, branch: "main" }),
-		).resolves.toEqual({
-			type: "failure",
-			commandDisplay: formatCommand("git", ADVANCE_MAIN_ARGS),
-			result: execResult({ code: 1, stderr: "fetch failed\n" }),
-		});
 		pi.assertDone();
 	});
 

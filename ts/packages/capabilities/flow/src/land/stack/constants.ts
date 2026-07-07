@@ -3,7 +3,6 @@ export const STATUS_KEY = "land";
 export const COMMAND_STREAM_MESSAGE_TYPE = "land-command-stream";
 
 export const GIT_TIMEOUT_MS = 30_000;
-export const GIT_REMOTE_TIMEOUT_MS = 120_000;
 export const GH_TIMEOUT_MS = 30_000;
 export const GH_MERGE_TIMEOUT_MS = 120_000;
 export const GT_TIMEOUT_MS = 120_000;
