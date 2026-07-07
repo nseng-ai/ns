@@ -1,7 +1,7 @@
 ---
 name: readme-driven-development
-description: Develop a feature or system README-first — draft, grill, and settle a user-facing README as the canonical design contract before implementation.
 disable-model-invocation: true
+description: Develop a feature or system README-first — draft, grill, and settle a user-facing README as the canonical design contract before implementation.
 ---
 
 # readme-driven-development
