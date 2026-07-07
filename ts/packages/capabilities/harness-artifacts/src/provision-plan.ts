@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import { optionalEntry, sha256Digest } from "@nseng-ai/foundation/primitives";
@@ -137,6 +138,10 @@ export type ProvisionDecisionErrorInfo =
 
 export function contentHashForText(text: string): string {
 	return sha256Digest(text);
+}
+
+export function contentHashForBytes(bytes: Uint8Array): string {
+	return createHash("sha256").update(bytes).digest("hex");
 }
 
 export function buildProvisionPlan(

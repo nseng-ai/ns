@@ -21,20 +21,24 @@ export async function runNsUpdate(
 	context: SkillsCommandContext,
 	request: NsUpdateRequest,
 ): Promise<ClinkrExit<NsUpdateResult>> {
-	const result = await runHarnessArtifactReconcile({
+	const baseRequest = {
 		projectRoot: context.projectRoot,
 		homeDir: context.homeDir ?? context.env.HOME ?? "",
 		env: context.env,
-		dryRun: request.dryRun,
 		force: request.force,
-	});
-	if (!result.ok) return reconcileFailureExit(result.error);
-	if (request.dryRun) return ok(result.value);
-	if (result.value.needsForce) {
-		return negative("Update refused: locally edited target files require --force.", {
-			data: result.value,
-		});
+	};
+	if (request.dryRun || !request.force) {
+		const preview = await runHarnessArtifactReconcile({ ...baseRequest, dryRun: true });
+		if (!preview.ok) return reconcileFailureExit(preview.error);
+		if (request.dryRun) return ok(preview.value);
+		if (preview.value.needsForce) {
+			return negative("Update refused: locally edited target files require --force.", {
+				data: preview.value,
+			});
+		}
 	}
+	const result = await runHarnessArtifactReconcile({ ...baseRequest, dryRun: false });
+	if (!result.ok) return reconcileFailureExit(result.error);
 	return ok(result.value);
 }
 

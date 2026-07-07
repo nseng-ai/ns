@@ -15,7 +15,10 @@ import type {
 	ModuleDiscoveryPathState,
 } from "../src/module-artifact-discovery.ts";
 
-type FakeNode = { type: "file"; text: string } | { type: "directory" } | { type: "other" };
+type FakeNode = { type: "file"; bytes: Uint8Array } | { type: "directory" } | { type: "other" };
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 class InMemoryHarnessFs
 	implements HarnessArtifactFileSystemGateway, HarnessArtifactModuleDiscoveryGateway
@@ -26,12 +29,15 @@ class InMemoryHarnessFs
 	constructor(files: Record<string, string | FakeNode>) {
 		this.nodes = new Map();
 		for (const [path, value] of Object.entries(files)) {
-			this.nodes.set(path, typeof value === "string" ? { type: "file", text: value } : value);
+			this.nodes.set(
+				path,
+				typeof value === "string" ? { type: "file", bytes: textEncoder.encode(value) } : value,
+			);
 			this.ensureParentDirectories(path);
 		}
 	}
 
-	async listTextFiles(rootPath: string) {
+	async listFiles(rootPath: string) {
 		const prefix = `${rootPath}/`;
 		const paths = [...this.nodes.entries()]
 			.filter(([path, node]) => path.startsWith(prefix) && node.type === "file")
@@ -40,18 +46,39 @@ class InMemoryHarnessFs
 		return { ok: true as const, value: paths };
 	}
 
+	async readOptionalFile(path: string) {
+		const node = this.nodes.get(path);
+		if (node?.type === "file") {
+			return { ok: true as const, value: { type: "file" as const, bytes: node.bytes } };
+		}
+		return { ok: true as const, value: { type: "missing" as const } };
+	}
+
+	async writeFile(path: string, bytes: Uint8Array) {
+		this.writeBytes(path, bytes);
+		return { ok: true as const, value: undefined };
+	}
+
 	async readOptionalTextFile(path: string) {
 		const node = this.nodes.get(path);
-		if (node?.type === "file")
-			return { ok: true as const, value: { type: "file" as const, text: node.text } };
+		if (node?.type === "file") {
+			return {
+				ok: true as const,
+				value: { type: "file" as const, text: textDecoder.decode(node.bytes) },
+			};
+		}
 		return { ok: true as const, value: { type: "missing" as const } };
 	}
 
 	async writeTextFile(path: string, text: string) {
-		this.nodes.set(path, { type: "file", text });
+		this.writeBytes(path, textEncoder.encode(text));
+		return { ok: true as const, value: undefined };
+	}
+
+	private writeBytes(path: string, bytes: Uint8Array): void {
+		this.nodes.set(path, { type: "file", bytes });
 		this.ensureParentDirectories(path);
 		this.writtenFiles.push(path);
-		return { ok: true as const, value: undefined };
 	}
 
 	async readDirectory(path: string) {
@@ -71,13 +98,13 @@ class InMemoryHarnessFs
 	}
 
 	setFile(path: string, text: string): void {
-		this.nodes.set(path, { type: "file", text });
+		this.nodes.set(path, { type: "file", bytes: textEncoder.encode(text) });
 		this.ensureParentDirectories(path);
 	}
 
 	readText(path: string): string | undefined {
 		const node = this.nodes.get(path);
-		return node?.type === "file" ? node.text : undefined;
+		return node?.type === "file" ? textDecoder.decode(node.bytes) : undefined;
 	}
 
 	clearWrittenFiles(): void {

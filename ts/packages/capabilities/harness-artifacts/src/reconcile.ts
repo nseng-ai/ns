@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
@@ -278,14 +278,14 @@ export async function runHarnessArtifactReconcile(
 			sourceVersion: pair.desired.sourceVersion,
 			fs,
 		};
-		const preview = await previewHarnessArtifactProvision(provisionRequest);
-		if (!preview.ok) return preview;
-		if (preview.value.decisions.needsForce && !request.force) {
+		if (request.dryRun) {
+			const preview = await previewHarnessArtifactProvision(provisionRequest);
+			if (!preview.ok) return preview;
 			artifacts.push(
 				reconcileOutcomeFromProvision({
 					pair,
 					provision: preview.value,
-					action: "conflicted",
+					...(preview.value.decisions.needsForce ? { action: "conflicted" as const } : {}),
 					writtenFiles: [],
 					conflictingFiles: preview.value.decisions.files
 						.filter((decision) => decision.type === "locally-edited-conflict")
@@ -295,20 +295,23 @@ export async function runHarnessArtifactReconcile(
 			continue;
 		}
 
-		if (request.dryRun) {
-			artifacts.push(
-				reconcileOutcomeFromProvision({
-					pair,
-					provision: preview.value,
-					writtenFiles: [],
-					conflictingFiles: [],
-				}),
-			);
-			continue;
+		const applied = await applyHarnessArtifactProvision({
+			...provisionRequest,
+			shouldForce: request.force,
+		});
+		if (!applied.ok) {
+			if (applied.error.code === "locally_edited_conflict") {
+				artifacts.push(
+					reconcileConflictedOutcome({
+						pair,
+						manifestPath: applied.error.details.manifestPath,
+						conflictingFiles: applied.error.details.conflictingFiles,
+					}),
+				);
+				continue;
+			}
+			return applied;
 		}
-
-		const applied = await applyHarnessArtifactProvision({ ...provisionRequest, shouldForce: true });
-		if (!applied.ok) return applied;
 		artifacts.push(
 			reconcileOutcomeFromProvision({
 				pair,
@@ -482,6 +485,27 @@ function classifyReconcileAction(input: {
 	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
 	if (input.hasManifestEntry) return "refreshed";
 	return "installed";
+}
+
+function reconcileConflictedOutcome(input: {
+	pair: ReconcilePair;
+	manifestPath: string;
+	conflictingFiles: readonly string[];
+}): ReconcileArtifactOutcome {
+	return {
+		action: "conflicted",
+		artifactId: input.pair.desired.artifact.id,
+		skillName: input.pair.desired.artifact.skillName,
+		harness: input.pair.harness,
+		scope: input.pair.scope,
+		origin: input.pair.origin,
+		sourceType: input.pair.desired.artifact.source.type,
+		packageName: input.pair.desired.artifact.source.packageName,
+		targetArtifactPath: join(dirname(input.manifestPath), input.pair.desired.artifact.skillName),
+		manifestPath: input.manifestPath,
+		writtenFiles: [],
+		conflictingFiles: [...input.conflictingFiles],
+	};
 }
 
 function reconcileOutcomeFromProvision(input: {

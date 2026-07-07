@@ -3,9 +3,17 @@ import {
 	repoLocalNsCommandDescriptor,
 } from "@nseng-ai/kernel/sdk";
 
+import { nsUpdateCommand } from "./commands/update.ts";
 import { skillsInstallNsCommand } from "./commands/install.ts";
 import { skillsListNsCommand } from "./commands/list.ts";
 import { skillsPathNsCommand } from "./commands/path.ts";
+
+const harnessArtifactsNsCommandPackageExportPrefix = "@nseng-ai/harness-artifacts/ns/commands";
+
+export const nsUpdateRepoLocalNsCommandDescriptor = repoLocalNsCommandDescriptor({
+	command: nsUpdateCommand,
+	packageExportPrefix: harnessArtifactsNsCommandPackageExportPrefix,
+});
 
 export const skillsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "skills",
@@ -13,7 +21,7 @@ export const skillsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	commands: [skillsListNsCommand, skillsPathNsCommand, skillsInstallNsCommand].map((command) =>
 		repoLocalNsCommandDescriptor({
 			command,
-			packageExportPrefix: "@nseng-ai/harness-artifacts/ns/commands",
+			packageExportPrefix: harnessArtifactsNsCommandPackageExportPrefix,
 		}),
 	),
 });
