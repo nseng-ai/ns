@@ -126,8 +126,6 @@ export const branchContextResultSchema = z.object({
 	refName: z.string(),
 	commit: z.string(),
 	sourceFile: z.string(),
-	requestedBranch: z.string(),
-	selectedBranch: z.string(),
 	branchSelection: z.union([
 		branchSelectionBaseSchema.extend({ type: z.literal("exact") }),
 		branchSelectionBaseSchema.extend({ type: z.literal("auto-suffixed") }),
@@ -482,8 +480,6 @@ function branchContextJson(evidence: BranchContextEvidence): {
 	refName: string;
 	commit: string;
 	sourceFile: string;
-	requestedBranch: string;
-	selectedBranch: string;
 	branchSelection: NonNullable<BranchContextEvidence["branchSelection"]>;
 	summary?: string;
 } {
@@ -503,8 +499,6 @@ function branchContextJson(evidence: BranchContextEvidence): {
 		refName: evidence.refName,
 		commit: evidence.commit,
 		sourceFile: evidence.sourceFile,
-		requestedBranch: branchSelection.requestedBranch,
-		selectedBranch: branchSelection.selectedBranch,
 		branchSelection,
 		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
 	};

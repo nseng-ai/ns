@@ -16,11 +16,7 @@ import {
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import type {
-	ExecOptions,
-	ExecResult,
-	StdinCapableCommandExecApi,
-} from "@nseng-ai/foundation/command";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
@@ -161,14 +157,15 @@ export function branchContextExtensionTestOptions(
 ): BranchContextExtensionOptions {
 	return {
 		branchContextOperations: operations,
-		resolveTargetBranchInPreview: true,
+		shouldResolveTargetBranchInPreview: true,
 		createBranchContextContext(pi, cwd) {
-			const stdinCapablePi: StdinCapableCommandExecApi = {
-				supportsStdin: true,
-				exec: (command, args, options) => pi.exec(command, args, options),
-			};
 			return {
-				...createBranchContextContext(stdinCapablePi, { cwd }),
+				...createBranchContextContext(
+					{ exec: (command, args, options) => pi.exec(command, args, options) },
+					{
+						cwd,
+					},
+				),
 				brmem: new InMemoryBranchMemoryGateway({
 					currentBranch: SOURCE_BRANCH,
 					entries: entries.map((entry) => ({
