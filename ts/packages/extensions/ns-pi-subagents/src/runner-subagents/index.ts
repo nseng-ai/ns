@@ -4,19 +4,6 @@ export type { MapWithConcurrencyInput } from "./concurrency.ts";
 export { READ_ONLY_SUBAGENT_TOOLS } from "./read-only-tools.ts";
 export { setRunnerSubagentWidget } from "./widget.ts";
 export {
-	RUNNER_SUBAGENT_FLEET_RECENT_TASK_CAP,
-	RunnerSubagentFleetRegistry,
-	compareFleetTasksForDisplay,
-} from "./fleet.ts";
-export type {
-	RunnerSubagentFleetRunSnapshot,
-	RunnerSubagentFleetStartRunOptions,
-	RunnerSubagentFleetTaskInput,
-	RunnerSubagentFleetTaskSnapshot,
-	RunnerSubagentFleetTaskState,
-} from "./fleet.ts";
-
-export {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
@@ -85,6 +72,8 @@ export type {
 export {
 	DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+	RUNNER_AGENT_NAME,
+	RUNNER_AGENT_REPO_RELATIVE_PATH,
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	dispatchRunnerSubagentDetails,
 	formatDispatchRunnerSubagentProgress,

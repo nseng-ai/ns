@@ -1,9 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
-import {
-	RunnerSubagentFleetRegistry,
-	type RunnerSubagentUpdate,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 
 import {
@@ -129,7 +127,7 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("moves the list selection with CSI arrows while preserving vim keys", () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Second" }, { title: "First" }]);
 		const second = run.tasks[0];
 		const first = run.tasks[1];
@@ -155,7 +153,7 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("scrolls detail with CSI arrows while preserving vim keys", async () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scrollable", prompt: "short prompt" }]);
 		const task = run.tasks[0];
 		if (task === undefined) throw new Error("missing task fixture");
@@ -190,7 +188,7 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("drives list, detail, prompt toggle, live reload, back, and close", async () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([
 			{ title: "Second" },
 			{ title: "First", prompt: "Map the investigator command.\nList call sites." },
@@ -256,8 +254,17 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("registers command and falls back to notify without UI", async () => {
-		const registry = new RunnerSubagentFleetRegistry();
-		registry.startRun([{ title: "Scout" }]);
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Scout" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task");
+		registry.markDone(task.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/scout.jsonl",
+		});
 		const commands = new Map<
 			string,
 			{ handler(args: string, ctx: CommandContext): Promise<void> | void }
@@ -270,17 +277,24 @@ describe("subagent fleet navigator", () => {
 				commands.set(name, command);
 			},
 		};
-		registerSubagentFleetCommand({ pi, registry });
+		registerSubagentFleetCommand({
+			pi,
+			registry,
+			dependencies: { readTextFile: async () => sessionJsonl() },
+		});
 
 		expect(commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
 		const notifications: string[] = [];
 		await commands.get(SUBAGENT_FLEET_COMMAND_NAME)!.handler("", noUiCommandContext(notifications));
 		expect(notifications.join("\n")).toContain("subagent fleet:");
 		expect(notifications.join("\n")).toContain("Scout");
+		expect(notifications.join("\n")).toContain("assistant: Found details");
+		expect(notifications.join("\n")).toContain("last tool: read");
+		expect(notifications.join("\n")).toContain("turns=1, tools=1, state=stopped");
 	});
 
 	test("registers every fleet shortcut and opens the navigator through them", async () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const shortcuts = new Map<
 			string,
 			{
@@ -308,7 +322,7 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("shows the parent Pi session even before any subagent run", async () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
@@ -327,7 +341,7 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("pins the parent Pi session as a navigable entry", async () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout" }], {
 			parentSessionFile: "/tmp/parent.jsonl",
 		});
@@ -353,6 +367,8 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		const detail = view.render(100).join("\n");
 		expect(detail).toContain("Parent Pi session");
+		expect(detail).toContain("stopped · stopped");
+		expect(detail).not.toContain("running · running");
 		expect(detail).toContain("openai-codex/gpt-5.4");
 	});
 });

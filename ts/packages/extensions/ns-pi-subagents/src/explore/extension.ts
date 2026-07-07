@@ -7,7 +7,6 @@ import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runti
 import {
 	mapWithConcurrency,
 	type RunnerSubagentContext,
-	type RunnerSubagentFleetRegistry,
 	type RunnerSubagentPi,
 	type RunnerSubagentUpdate,
 } from "../runner-subagents/index.ts";
@@ -28,17 +27,15 @@ import {
 	type ExploreInput,
 } from "./input.ts";
 import { SUBAGENT_FLEET_ENTRY_HINT } from "../fleet/display.ts";
-import type { RegisterShortcutFunction } from "../fleet/navigator.ts";
 import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
+import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
-import type { ReadTextFileDependencies } from "../fleet/read-text-dependencies.ts";
-import type { CommandRegistrar } from "../fleet/transcript-viewer.ts";
 import {
 	checkAgentDefinitionConfiguration,
 	type AgentDefinitionConfigurationCheck,
-} from "../fleet/agent-configuration.ts";
+} from "../agent-configuration.ts";
 import {
 	abortReasonDiagnostic,
 	cancelledResult,
@@ -57,15 +54,12 @@ export type {
 
 export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
-	registerCommand?: CommandRegistrar;
-	registerShortcut?: RegisterShortcutFunction;
 };
 
 export interface ExploreExtensionOptions extends SubagentToolOptions {
 	dispatchExplorer?: ExploreDispatchFunction;
 	explorerRuntime?: ExplorerRuntime;
 	timers?: TimerScheduler;
-	transcriptViewer?: ReadTextFileDependencies;
 }
 
 interface ExploreAbortScope {
@@ -201,10 +195,9 @@ function checkExplorerConfiguration(
 	return checkAgentDefinitionConfiguration({
 		agentName: EXPLORER_AGENT_NAME,
 		cwd,
-		expectedToolName: EXPLORE_TOOL_NAME,
+		toolName: EXPLORE_TOOL_NAME,
 		loadAgentDefinition,
 		requiredFilePath: EXPLORER_AGENT_REPO_RELATIVE_PATH,
-		unavailableToolName: EXPLORE_TOOL_NAME,
 		validateDefinition: (definition) => {
 			const guidelineIndexesMissingExplore = definition.promptGuidelines
 				.map((guideline, index) => (/\bexplore\b/u.test(guideline) ? undefined : index + 1))
@@ -258,7 +251,7 @@ async function runExploreTasks(request: {
 	signal: AbortSignal;
 	dispatchExplorer: ExploreDispatchFunction;
 	onUpdate: ((update: Partial<ToolResult>) => void) | undefined;
-	fleetRegistry: RunnerSubagentFleetRegistry;
+	fleetRegistry: SubagentFleetRegistry;
 }): Promise<ExploreTaskOutcome[]> {
 	const states: ExploreTaskState[] = request.exploreInput.tasks.map((task) => ({
 		input: task,

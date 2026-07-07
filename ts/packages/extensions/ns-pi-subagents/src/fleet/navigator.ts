@@ -28,10 +28,10 @@ import type {
 	RunnerSubagentTimelineEntry,
 } from "../runner-subagents/timeline.ts";
 import type {
-	RunnerSubagentFleetRegistry,
-	RunnerSubagentFleetRunSnapshot,
-	RunnerSubagentFleetTaskSnapshot,
-} from "../runner-subagents/fleet.ts";
+	SubagentFleetRegistry,
+	SubagentFleetRunSnapshot,
+	SubagentFleetTaskSnapshot,
+} from "./registry.ts";
 import type { RunnerSubagentUsageMetadata } from "../runner-subagents/extension-api.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
 import {
@@ -41,7 +41,6 @@ import {
 	taskIcon,
 } from "./display.ts";
 import type { ReadTextFile, ReadTextFileDependencies } from "./read-text-dependencies.ts";
-import type { CommandRegistrar } from "./transcript-viewer.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
 
@@ -52,7 +51,8 @@ const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
 const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
 
 export interface SubagentFleetTaskDetail {
-	task: RunnerSubagentFleetTaskSnapshot;
+	title: string;
+	prompt?: string;
 	sessionFile?: string;
 	modelText: string;
 	turnCount: number;
@@ -74,6 +74,14 @@ export interface SubagentFleetNavigatorContext {
 	sessionManager?: { getSessionFile?(): string | undefined };
 	ui: Pick<CommandContext["ui"], "notify" | "custom">;
 }
+
+export type CommandRegistrar = (
+	name: string,
+	options: {
+		description?: string;
+		handler(args: string, ctx: CommandContext): Promise<void> | void;
+	},
+) => void;
 
 export type RegisterShortcutFunction = (
 	shortcut: string,
@@ -100,14 +108,14 @@ interface ParentFleetNavigatorEntry {
 
 interface TaskFleetNavigatorEntry {
 	kind: "task";
-	task: RunnerSubagentFleetTaskSnapshot;
+	task: SubagentFleetTaskSnapshot;
 }
 
 type FleetNavigatorEntry = ParentFleetNavigatorEntry | TaskFleetNavigatorEntry;
 
 export function registerSubagentFleetCommand<TPi extends object>(input: {
 	pi: TPi;
-	registry: RunnerSubagentFleetRegistry;
+	registry: SubagentFleetRegistry;
 	dependencies?: ReadTextFileDependencies;
 }): void {
 	if (!hasRegisterCommand(input.pi)) return;
@@ -130,7 +138,7 @@ export function registerSubagentFleetCommand<TPi extends object>(input: {
 
 export function registerSubagentFleetShortcut<TPi extends object>(input: {
 	pi: TPi;
-	registry: RunnerSubagentFleetRegistry;
+	registry: SubagentFleetRegistry;
 	dependencies?: ReadTextFileDependencies;
 }): void {
 	if (!hasRegisterShortcut(input.pi)) return;
@@ -150,24 +158,24 @@ export function registerSubagentFleetShortcut<TPi extends object>(input: {
 
 export async function openSubagentFleetNavigator(input: {
 	ctx: SubagentFleetNavigatorContext;
-	registry: RunnerSubagentFleetRegistry;
+	registry: SubagentFleetRegistry;
 	dependencies?: ReadTextFileDependencies;
 }): Promise<void> {
 	const parentSessionFile = input.ctx.sessionManager?.getSessionFile?.();
+	const readTextFile =
+		input.dependencies?.readTextFile ?? ((path: string) => readFile(path, "utf8"));
 	if (!input.ctx.hasUI || input.ctx.ui.custom === undefined) {
-		const lines = formatSubagentFleetTaskLines(input.registry.snapshot());
-		if (lines.length === 0 && parentSessionFile !== undefined) {
-			lines.push("subagent fleet: no subagent runs yet", `◉ parent session — ${parentSessionFile}`);
-		}
+		const lines = await formatNoUiSubagentFleetLines({
+			registry: input.registry,
+			readTextFile,
+			parentSessionFile,
+		});
 		input.ctx.ui.notify(
 			lines.length === 0 ? "No subagents have run in this Pi session yet." : lines.join("\n"),
 			"info",
 		);
 		return;
 	}
-
-	const readTextFile =
-		input.dependencies?.readTextFile ?? ((path: string) => readFile(path, "utf8"));
 	await input.ctx.ui.custom<undefined>(
 		(tui, _theme, _keybindings, done) =>
 			new SubagentFleetNavigator({
@@ -181,9 +189,72 @@ export async function openSubagentFleetNavigator(input: {
 	);
 }
 
+async function formatNoUiSubagentFleetLines(input: {
+	registry: SubagentFleetRegistry;
+	readTextFile: ReadTextFile;
+	parentSessionFile: string | undefined;
+}): Promise<string[]> {
+	const lines = formatSubagentFleetTaskLines(input.registry.snapshot());
+	if (lines.length === 0 && input.parentSessionFile !== undefined) {
+		lines.push(
+			"subagent fleet: no subagent runs yet",
+			`◉ parent session — ${input.parentSessionFile}`,
+		);
+	}
+	const tasks = input.registry.tasksWithSessionFiles().slice(0, 3);
+	for (const task of tasks) {
+		lines.push(...(await formatNoUiTaskSummary({ task, readTextFile: input.readTextFile })));
+	}
+	return lines;
+}
+
+async function formatNoUiTaskSummary(input: {
+	task: SubagentFleetTaskSnapshot;
+	readTextFile: ReadTextFile;
+}): Promise<string[]> {
+	const sessionFile = input.task.sessionFile;
+	if (sessionFile === undefined) return [];
+	try {
+		const jsonl = await input.readTextFile(sessionFile);
+		const parser = createRunnerSubagentJsonEventParser({
+			title: input.task.title,
+			sessionFile,
+		});
+		parser.pushChunk(jsonl);
+		parser.finish();
+		const snapshot = parser.getSnapshot();
+		const assistant = snapshot.finalAssistantText ?? snapshot.activity.assistantPreview;
+		const tool = snapshot.activity.lastToolName;
+		const toolResult = snapshot.activity.lastToolResultPreview;
+		return [
+			truncatePlain(
+				`  ${input.task.title}: ${input.task.finalStatus ?? input.task.state} — ${sessionFile}`,
+				180,
+			),
+			...(assistant === undefined ? [] : [truncatePlain(`    assistant: ${assistant}`, 180)]),
+			...(tool === undefined
+				? []
+				: [
+						truncatePlain(
+							`    last tool: ${tool}${toolResult === undefined ? "" : ` — ${toolResult}`}`,
+							180,
+						),
+					]),
+			`    turns=${snapshot.progress.turnCount}, tools=${snapshot.progress.toolCount}, state=${snapshot.progress.state}`,
+		];
+	} catch (error) {
+		return [
+			truncatePlain(
+				`  ${input.task.title}: could not read transcript summary: ${formatErrorMessage(error)}`,
+				180,
+			),
+		];
+	}
+}
+
 export interface SubagentFleetNavigatorOptions {
 	tui: Pick<TuiHandle, "requestRender"> & { readonly terminal?: { readonly rows?: number } };
-	registry: RunnerSubagentFleetRegistry;
+	registry: SubagentFleetRegistry;
 	readTextFile: ReadTextFile;
 	done(value: undefined): void;
 	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
@@ -192,7 +263,7 @@ export interface SubagentFleetNavigatorOptions {
 
 export class SubagentFleetNavigator implements RenderComponent {
 	private readonly tui: Pick<TuiHandle, "requestRender">;
-	private readonly registry: RunnerSubagentFleetRegistry;
+	private readonly registry: SubagentFleetRegistry;
 	private readonly readTextFile: ReadTextFile;
 	private readonly done: (value: undefined) => void;
 	private readonly fallbackParentSessionFile: string | undefined;
@@ -349,8 +420,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
-		const detail = await loadFleetTaskDetail({
-			task: taskSnapshotForDetail(entry),
+		const detail = await loadFleetEntryDetail({
+			entry,
 			readTextFile: this.readTextFile,
 		});
 		this.isReadInFlight = false;
@@ -466,7 +537,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 
 	private detailContentLines(detail: SubagentFleetTaskDetail): string[] {
 		const lines: string[] = [];
-		const prompt = detail.task.prompt;
+		const prompt = detail.prompt;
 		if (prompt !== undefined) {
 			if (this.isPromptExpanded) {
 				lines.push("prompt:", ...prompt.split("\n"), "");
@@ -497,22 +568,32 @@ export class SubagentFleetNavigator implements RenderComponent {
 }
 
 export async function loadFleetTaskDetail(input: {
-	task: RunnerSubagentFleetTaskSnapshot;
+	task: SubagentFleetTaskSnapshot;
 	readTextFile: ReadTextFile;
 }): Promise<SubagentFleetTaskDetail> {
-	const sessionFile = input.task.sessionFile;
-	if (sessionFile === undefined) return placeholderDetail(input.task, "no session file yet");
+	return loadFleetEntryDetail({
+		entry: { kind: "task", task: input.task },
+		readTextFile: input.readTextFile,
+	});
+}
+
+async function loadFleetEntryDetail(input: {
+	entry: FleetNavigatorEntry;
+	readTextFile: ReadTextFile;
+}): Promise<SubagentFleetTaskDetail> {
+	const sessionFile = entrySessionFile(input.entry);
+	if (sessionFile === undefined) return placeholderDetail(input.entry, "no session file yet");
 	let jsonl: string;
 	try {
 		jsonl = await input.readTextFile(sessionFile);
 	} catch (error) {
 		return placeholderDetail(
-			input.task,
+			input.entry,
 			`Could not read session file: ${formatErrorMessage(error)}`,
 		);
 	}
 	const parser = createRunnerSubagentJsonEventParser({
-		title: input.task.title,
+		title: entryTitle(input.entry),
 		sessionFile,
 	});
 	parser.pushChunk(jsonl);
@@ -520,43 +601,49 @@ export async function loadFleetTaskDetail(input: {
 	const snapshot = parser.getSnapshot();
 	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
 	const usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, () => jsonl);
-	return detailFromSnapshot({ task: input.task, sessionFile, snapshot, timeline, usage });
+	return detailFromSnapshot({ entry: input.entry, sessionFile, snapshot, timeline, usage });
 }
 
 function detailFromSnapshot(input: {
-	task: RunnerSubagentFleetTaskSnapshot;
+	entry: FleetNavigatorEntry;
 	sessionFile: string;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	timeline: RunnerSubagentTimeline;
 	usage: RunnerSubagentUsageMetadata;
 }): SubagentFleetTaskDetail {
+	const task = input.entry.kind === "task" ? input.entry.task : undefined;
 	return {
-		task: input.task,
+		title: entryTitle(input.entry),
+		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
 		sessionFile: input.sessionFile,
 		modelText: modelText(input.snapshot),
 		turnCount: input.snapshot.progress.turnCount,
 		toolCount: input.snapshot.progress.toolCount,
 		elapsedMs: input.snapshot.progress.elapsedMs,
 		state: input.snapshot.progress.state,
-		status: input.task.finalStatus ?? input.snapshot.stopReason ?? input.task.state,
+		status:
+			task?.finalStatus ??
+			input.snapshot.stopReason ??
+			task?.state ??
+			input.snapshot.progress.state,
 		timeline: input.timeline,
 		usage: input.usage,
 	};
 }
 
-function placeholderDetail(
-	task: RunnerSubagentFleetTaskSnapshot,
-	message: string,
-): SubagentFleetTaskDetail {
+function placeholderDetail(entry: FleetNavigatorEntry, message: string): SubagentFleetTaskDetail {
+	const task = entry.kind === "task" ? entry.task : undefined;
+	const sessionFile = entrySessionFile(entry);
 	return {
-		task,
-		...(task.sessionFile === undefined ? {} : { sessionFile: task.sessionFile }),
+		title: entryTitle(entry),
+		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
+		...(sessionFile === undefined ? {} : { sessionFile }),
 		modelText: "model unknown",
 		turnCount: 0,
 		toolCount: 0,
 		elapsedMs: 0,
-		state: task.state,
-		status: task.finalStatus ?? task.state,
+		state: task?.state ?? "session",
+		status: task?.finalStatus ?? task?.state ?? "session",
 		timeline: { entries: [], droppedEntryCount: 0 },
 		message,
 	};
@@ -596,7 +683,7 @@ function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
 
 /** Parent Pi session rendered as a pinned navigator entry above child subagents. */
 function parentSessionEntry(
-	runs: readonly RunnerSubagentFleetRunSnapshot[],
+	runs: readonly SubagentFleetRunSnapshot[],
 	fallbackSessionFile?: string,
 ): ParentFleetNavigatorEntry | undefined {
 	const sessionFile = latestParentSessionFile(runs) ?? fallbackSessionFile;
@@ -624,18 +711,6 @@ function entryTitle(entry: FleetNavigatorEntry): string {
 
 function entrySessionFile(entry: FleetNavigatorEntry): string | undefined {
 	return entry.kind === "parent" ? entry.sessionFile : entry.task.sessionFile;
-}
-
-function taskSnapshotForDetail(entry: FleetNavigatorEntry): RunnerSubagentFleetTaskSnapshot {
-	if (entry.kind === "task") return entry.task;
-	return {
-		id: entry.id,
-		runId: entry.id,
-		index: -1,
-		title: entry.title,
-		state: "running",
-		sessionFile: entry.sessionFile,
-	};
 }
 
 function windowRange(

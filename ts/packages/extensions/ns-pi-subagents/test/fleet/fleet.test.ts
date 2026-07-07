@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
-import { RunnerSubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import {
 	SUBAGENT_FLEET_STATUS_KEY,
 	SUBAGENT_FLEET_WIDGET_KEY,
@@ -11,11 +11,12 @@ import {
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
 } from "../../src/fleet/display.ts";
+import { trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
 import { makeErrorResult, makeFinalTextResult } from "../helpers/explore-testing.ts";
 
 describe("runner subagent fleet display for explore", () => {
 	test("renders one active widget line and clears once the fleet is idle", () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout files" }, { title: "Scout tests" }]);
 		const first = run.tasks[0]?.id;
 		const second = run.tasks[1]?.id;
@@ -32,7 +33,7 @@ describe("runner subagent fleet display for explore", () => {
 	});
 
 	test("formats the no-UI task dump with per-task status and session files", () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout files" }, { title: "Scout tests" }]);
 		const first = run.tasks[0]?.id;
 		const second = run.tasks[1]?.id;
@@ -52,7 +53,7 @@ describe("runner subagent fleet display for explore", () => {
 	});
 
 	test("evicts completed tasks without dropping running tasks", () => {
-		const registry = new RunnerSubagentFleetRegistry({ recentTaskCap: 1 });
+		const registry = new SubagentFleetRegistry({ recentTaskCap: 1 });
 		const run = registry.startRun([{ title: "Old" }, { title: "New" }, { title: "Running" }]);
 		const oldTask = run.tasks[0]?.id;
 		const newTask = run.tasks[1]?.id;
@@ -72,7 +73,7 @@ describe("runner subagent fleet display for explore", () => {
 	});
 
 	test("summarizes active fleet state in the footer status with the shortcut hint", () => {
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		expect(formatSubagentFleetStatusText(registry.snapshot())).toBeUndefined();
 
 		const run = registry.startRun([{ title: "Scout files" }, { title: "Scout tests" }]);
@@ -95,6 +96,36 @@ describe("runner subagent fleet display for explore", () => {
 		expect(formatSubagentFleetStatusText(registry.snapshot())).toBeUndefined();
 	});
 
+	test("tracking dispose marks unfinished tasks terminal", () => {
+		const registry = new SubagentFleetRegistry();
+		const ctx: ToolContext = {
+			cwd: "/repo",
+			hasUI: true,
+			mode: "tui",
+			ui: {
+				notify: () => {},
+				setWidget: () => {},
+				setStatus: () => {},
+			},
+		};
+		const tracking = trackSubagentFleetRun({
+			registry,
+			ctx,
+			tasks: [{ title: "Started" }, { title: "Queued" }],
+			parentSessionFile: undefined,
+		});
+
+		tracking.markRunning(0);
+		tracking.dispose();
+		tracking.dispose();
+
+		const tasks = registry.snapshot().flatMap((run) => run.tasks);
+		expect(tasks.map((task) => [task.title, task.state, task.finalStatus])).toEqual([
+			["Started", "done", "error"],
+			["Queued", "done", "error"],
+		]);
+	});
+
 	test("syncs widget lines and footer status through the tool context", () => {
 		const widgetCalls: { key: string; content: string[] | undefined }[] = [];
 		const statusCalls: { key: string; value: string | undefined }[] = [];
@@ -109,7 +140,7 @@ describe("runner subagent fleet display for explore", () => {
 			},
 		};
 
-		const registry = new RunnerSubagentFleetRegistry();
+		const registry = new SubagentFleetRegistry();
 		syncSubagentFleetDisplay(ctx, registry.snapshot());
 		expect(widgetCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_WIDGET_KEY, content: undefined });
 		expect(statusCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_STATUS_KEY, value: undefined });

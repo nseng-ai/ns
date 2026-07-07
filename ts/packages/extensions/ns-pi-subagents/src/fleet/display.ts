@@ -4,9 +4,9 @@ import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
 import {
 	compareFleetTasksForDisplay,
-	type RunnerSubagentFleetRunSnapshot,
-	type RunnerSubagentFleetTaskSnapshot,
-} from "../runner-subagents/fleet.ts";
+	type SubagentFleetRunSnapshot,
+	type SubagentFleetTaskSnapshot,
+} from "./registry.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUT_LABEL } from "./contract.ts";
 
 export const SUBAGENT_FLEET_WIDGET_KEY = "ns.agents.fleet";
@@ -15,7 +15,7 @@ export const SUBAGENT_FLEET_ENTRY_HINT = `${SUBAGENT_FLEET_SHORTCUT_LABEL} · /$
 
 export function syncSubagentFleetDisplay(
 	ctx: ToolContext,
-	runs: readonly RunnerSubagentFleetRunSnapshot[],
+	runs: readonly SubagentFleetRunSnapshot[],
 ): void {
 	const lines = formatSubagentFleetWidgetLines(runs);
 	setRunnerSubagentWidget(ctx, SUBAGENT_FLEET_WIDGET_KEY, lines.length === 0 ? undefined : lines);
@@ -27,7 +27,7 @@ export function syncSubagentFleetDisplay(
  * fleet is idle. Per-task detail lives in the fleet navigator, not the widget.
  */
 export function formatSubagentFleetWidgetLines(
-	runs: readonly RunnerSubagentFleetRunSnapshot[],
+	runs: readonly SubagentFleetRunSnapshot[],
 ): string[] {
 	const tasks = sortedFleetTasks(runs);
 	if (!hasActiveFleetTasks(tasks)) return [];
@@ -40,7 +40,7 @@ export function formatSubagentFleetWidgetLines(
 }
 
 export function formatSubagentFleetStatusText(
-	runs: readonly RunnerSubagentFleetRunSnapshot[],
+	runs: readonly SubagentFleetRunSnapshot[],
 ): string | undefined {
 	const tasks = sortedFleetTasks(runs);
 	if (!hasActiveFleetTasks(tasks)) return undefined;
@@ -48,9 +48,7 @@ export function formatSubagentFleetStatusText(
 }
 
 /** Multi-line task dump for hosts without an interactive UI. */
-export function formatSubagentFleetTaskLines(
-	runs: readonly RunnerSubagentFleetRunSnapshot[],
-): string[] {
+export function formatSubagentFleetTaskLines(runs: readonly SubagentFleetRunSnapshot[]): string[] {
 	const tasks = sortedFleetTasks(runs);
 	if (tasks.length === 0) return [];
 	const parentSessionFile = latestParentSessionFile(runs);
@@ -63,7 +61,7 @@ export function formatSubagentFleetTaskLines(
 	];
 }
 
-function describeFleetCounts(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): string {
+function describeFleetCounts(tasks: readonly SubagentFleetTaskSnapshot[]): string {
 	const running = tasks.filter((task) => task.state === "running").length;
 	const queued = tasks.filter((task) => task.state === "queued").length;
 	if (running + queued > 0) {
@@ -74,7 +72,7 @@ function describeFleetCounts(tasks: readonly RunnerSubagentFleetTaskSnapshot[]):
 	return failed > 0 ? `${succeeded} done, ${failed} failed` : `${succeeded} done`;
 }
 
-function hasActiveFleetTasks(tasks: readonly RunnerSubagentFleetTaskSnapshot[]): boolean {
+function hasActiveFleetTasks(tasks: readonly SubagentFleetTaskSnapshot[]): boolean {
 	return tasks.some((task) => task.state === "running" || task.state === "queued");
 }
 
@@ -87,7 +85,7 @@ function setSubagentFleetStatus(ctx: ToolContext, text: string | undefined): voi
 	}
 }
 
-function formatSubagentFleetTaskLine(task: RunnerSubagentFleetTaskSnapshot): string {
+function formatSubagentFleetTaskLine(task: SubagentFleetTaskSnapshot): string {
 	const icon = taskIcon(task);
 	const status = task.finalStatus ?? task.state;
 	const suffix = task.sessionFile ?? task.latestActivity;
@@ -98,7 +96,7 @@ function formatSubagentFleetTaskLine(task: RunnerSubagentFleetTaskSnapshot): str
 }
 
 export function latestParentSessionFile(
-	runs: readonly RunnerSubagentFleetRunSnapshot[],
+	runs: readonly SubagentFleetRunSnapshot[],
 ): string | undefined {
 	return runs
 		.map((run) => run.parentSessionFile)
@@ -107,12 +105,12 @@ export function latestParentSessionFile(
 }
 
 export function sortedFleetTasks(
-	runs: readonly { tasks: readonly RunnerSubagentFleetTaskSnapshot[] }[],
-): RunnerSubagentFleetTaskSnapshot[] {
+	runs: readonly { tasks: readonly SubagentFleetTaskSnapshot[] }[],
+): SubagentFleetTaskSnapshot[] {
 	return runs.flatMap((run) => run.tasks).sort(compareFleetTasksForDisplay);
 }
 
-export function taskIcon(task: RunnerSubagentFleetTaskSnapshot): string {
+export function taskIcon(task: SubagentFleetTaskSnapshot): string {
 	if (task.state === "queued") return "·";
 	if (task.state === "running") return "▶";
 	return task.finalStatus === "final-text" ? "✓" : "✗";

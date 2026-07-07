@@ -26,10 +26,8 @@ import {
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
 } from "../helpers/explore-testing.ts";
-import {
-	RunnerSubagentFleetRegistry,
-	type RunnerSubagentUpdate,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 
 const ROOT = "/repo";
 const definition = makeExplorerAgentDefinition({
@@ -147,7 +145,7 @@ function makeExploreTool(
 			? {}
 			: { dispatchExplorer: options.dispatchExplorer }),
 		...(options.timers === undefined ? {} : { timers: options.timers }),
-		fleetRegistry: new RunnerSubagentFleetRegistry(),
+		fleetRegistry: new SubagentFleetRegistry(),
 	});
 	const tool = pi.tools.get(EXPLORE_TOOL_NAME);
 	expect(tool).toBeDefined();
