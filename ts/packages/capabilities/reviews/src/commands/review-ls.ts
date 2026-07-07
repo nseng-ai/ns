@@ -3,16 +3,16 @@ import { defineExtension } from "@nseng-ai/kernel/sdk";
 import { type ReviewListRequest } from "../operations/cli-operations.ts";
 import { createReviewListCommand } from "./review-list.ts";
 
-const REVIEW_LS_DESCRIPTION = `Alias for ns roaster review list.`;
+const REVIEW_LS_DESCRIPTION = `Alias for ns reviews list.`;
 
-export const roasterReviewLsCommand = createReviewListCommand({
+export const reviewsReviewLsCommand = createReviewListCommand({
 	name: "ls",
-	summary: "Alias for review list.",
+	summary: "Alias for reviews list.",
 	description: REVIEW_LS_DESCRIPTION,
 });
 
 export default defineExtension({
-	commands: [roasterReviewLsCommand],
+	commands: [reviewsReviewLsCommand],
 });
 
-export type RoasterReviewLsRequest = ReviewListRequest;
+export type ReviewsReviewLsRequest = ReviewListRequest;

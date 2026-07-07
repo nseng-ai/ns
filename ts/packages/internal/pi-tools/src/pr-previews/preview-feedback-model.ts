@@ -225,8 +225,8 @@ function normalizeCommentBodyLines(body: string): string[] {
 
 function normalizeCommentBodyLine(line: string): string | null {
 	const trimmed = line.trim();
-	if (/^<!--\s*roaster-inline:/u.test(trimmed)) return null;
-	if (trimmed.startsWith("_Posted by roaster.")) return null;
+	if (/^<!--\s*reviews-inline:/u.test(trimmed)) return null;
+	if (trimmed.startsWith("_Posted by reviews.")) return null;
 	const bold = /^\*\*(?<text>.*)\*\*$/u.exec(trimmed)?.groups?.text;
 	if (bold !== undefined) return bold;
 	const review = /^_Review:\s*`(?<review>[^`]+)`\._$/u.exec(trimmed)?.groups?.review;

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ReviewFailure, ReviewResult } from "../../src/core/failures.ts";
 
-describe("roaster failures", () => {
+describe("reviews failures", () => {
 	test("carry the consumed failure shape", () => {
 		const failure: ReviewFailure = {
 			code: "git-diff-failed",

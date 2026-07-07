@@ -21,7 +21,7 @@ applies_to:
 ---
 
 Review the supplied diff/current branch changes for architecture deepening
-opportunities. This is a diff-grounded Roaster review, not an interactive repo
+opportunities. This is a diff-grounded review, not an interactive repo
 survey: do not write HTML reports, do not open browser artifacts, do not run a
 grilling loop, and do not propose broad architecture projects unrelated to the
 changed code.

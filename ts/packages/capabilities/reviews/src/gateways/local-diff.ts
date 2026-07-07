@@ -14,7 +14,7 @@ import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
 import { createLocalDiff, type LocalDiff } from "../core/models.ts";
-import { buildGitDiffArgs, parseRoasterProjectConfigToml } from "../core/project-config.ts";
+import { buildGitDiffArgs, parseReviewsProjectConfigToml } from "../core/project-config.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
@@ -129,7 +129,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			});
 		}
 
-		const config = parseRoasterProjectConfigToml(source, path);
+		const config = parseReviewsProjectConfigToml(source, path);
 		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
 		return { ok: true, value: config.value.diff.exclude };
 	}

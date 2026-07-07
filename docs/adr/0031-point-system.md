@@ -22,7 +22,7 @@ Extension manifests declare static `ns.points` metadata beside `ns.commands`. Th
 
 Repo-root `ns.toml` has one `[points]` table keyed by full point id. Conventional prompt files at `.ns/prompts/<point-id>.md` also count as prompt installations without a TOML line. Hook resolution is `[points]` or no installation; workflow flags such as `--no-hooks` are execution controls, not resolution tiers. Prompt resolution is development environment override reported by the catalog, then `[points]`, then conventional `.ns/prompts/<point-id>.md`, then manifest default. v1 installations are project-only; there is no XDG/global installation tier.
 
-Settings remain typed plain config, not points. They keep extension-rooted TOML tables such as `[roaster.diff]`, with schemas declared by extension manifests and parsed by the shared loader. The unification is loader and manifest machinery, not changing settings into `[points]` entries.
+Settings remain typed plain config, not points. They keep extension-rooted TOML tables such as `[reviews.diff]`, with schemas declared by extension manifests and parsed by the shared loader. The unification is loader and manifest machinery, not changing settings into `[points]` entries.
 
 Hooks exec directly and sequentially with no shell; the first failure aborts the surrounding workflow step. The platform resolves prompts but never executes them. Agentic work at a lifecycle moment is represented as a hook invoking an agentic CLI, not as prompt execution by the point system.
 
@@ -41,7 +41,7 @@ The shared single-parse project-config loader, declared settings schemas, point 
 
 Consumers install; extension authors define. Future customization surfaces should define points, settings, or both through the shared loader rather than adding direct `ns.toml` parsers or bespoke prompt ladders.
 
-The point catalog can report installed-but-undefined errors, override-in-effect information, defined-but-uninstalled entries, and active prompt sources. Existing provisional surfaces migrated onto this model: `[flow.hooks].pre_submit` became `[points]."flow.submit.pre"`, prompt ladders moved to declared prompt points with id-based prompt files/defaults, and roaster/areg/ns-init settings moved to manifest-declared schemas.
+The point catalog can report installed-but-undefined errors, override-in-effect information, defined-but-uninstalled entries, and active prompt sources. Existing provisional surfaces migrated onto this model: `[flow.hooks].pre_submit` became `[points]."flow.submit.pre"`, prompt ladders moved to declared prompt points with id-based prompt files/defaults, and reviews/areg/ns-init settings moved to manifest-declared schemas.
 
 The temporary Objective brief was a planning artifact. After this decision and the corresponding context vocabulary landed, the brief was deleted; durable truth is this ADR plus mutable `CONTEXT.md` files.
 

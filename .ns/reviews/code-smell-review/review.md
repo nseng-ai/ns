@@ -1,6 +1,6 @@
 ---
 description: |
-  Code-smell-only roaster review: inspect the supplied diff for Fowler-style
+  Code-smell-only review: inspect the supplied diff for Fowler-style
   code smells, with blunt but evidence-based feedback and small refactor fixes.
 model_profile: deep
 local_only: false
@@ -27,7 +27,7 @@ current import provenance is documented in `docs/agents/matt-pocock-skills.md`
 `6eeb81b5fcfeeb5bd531dd47ab2f9f2bbea27461`, package version `1.0.1`). When
 refreshing Matt-sourced skills, compare upstream `pocock-review`'s smell
 baseline and apply relevant changes here manually. Preserve this review's
-NS-local adaptations: code-smell-only scope, roaster tone, `.ns/reviews`
+NS-local adaptations: code-smell-only scope, review tone, `.ns/reviews`
 frontmatter, and explicit exclusions for spec/standards/tests/formatting.
 
 Review only the supplied diff/current branch changes plus the minimum nearby
@@ -35,10 +35,10 @@ context needed to judge design smell. This is intentionally narrow: do not revie
 spec correctness, repo coding standards, formatting, lint issues, test coverage,
 commit organization, stack shape, PR process, or VCS hygiene.
 
-The tone should be blunt, memorable, and useful. Roast the design smell, not the
+The tone should be blunt, memorable, and useful. Critique the design smell, not the
 author. Every finding is a judgement call and must be grounded in changed hunks
 or directly necessary nearby context. If there are no meaningful smell findings,
-say so plainly and do not invent a roast.
+say so plainly and do not invent a finding.
 
 ## Smell baseline
 
@@ -86,12 +86,12 @@ Only emit findings that match one of these smells:
 Use this structure:
 
 ```md
-## Code-Smell Roaster Review
+## Code-Smell Review
 
 ### Findings
 
 1. **<Smell>** — `<file>:<line or hunk>`
-   - Roast: <one sharp sentence about the design smell>
+   - Finding: <one sharp sentence about the design smell>
    - Evidence: <quote or summarize the changed hunk>
    - Smallest fix: <specific refactor>
 

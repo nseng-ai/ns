@@ -9,7 +9,7 @@ import { flowRepoLocalNsExtension } from "@nseng-ai/flow/repo-local-ns-extension
 import { handoffRepoLocalNsExtension } from "@nseng-ai/handoffs/repo-local-ns-extension";
 import { objectiveRepoLocalNsExtension } from "@nseng-ai/objectives/repo-local-ns-extension";
 import { objectivePreinstalledNsCommandCatalog } from "@nseng-ai/objectives/ns/preinstalled-catalog";
-import { roasterRepoLocalNsExtension } from "@nseng-ai/reviews/repo-local-ns-extension";
+import { reviewsRepoLocalNsExtension } from "@nseng-ai/reviews/repo-local-ns-extension";
 import type {
 	RepoLocalNsExtensionCommandDescriptor,
 	RepoLocalNsExtensionDescriptor,
@@ -48,7 +48,7 @@ const REPO_LOCAL_EXTENSION_DESCRIPTORS = [
 	flowRepoLocalNsExtension,
 	handoffRepoLocalNsExtension,
 	objectiveRepoLocalNsExtension,
-	roasterRepoLocalNsExtension,
+	reviewsRepoLocalNsExtension,
 ] as const satisfies readonly RepoLocalNsExtensionDescriptor[];
 
 describe("repo-local ns extension manifest parity", () => {

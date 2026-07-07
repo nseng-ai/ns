@@ -104,7 +104,7 @@ Repo-local first-party extensions in this repository use this command-leaf patte
 
 Do not point multiple manifest command entries at a shared `.ns/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
 
-`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ns/branch-context/ns/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
+`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ns/branch-context/ns/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Reviews' top-level `review-list` manifest leaf.
 
 ```ts
 import { repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
@@ -121,10 +121,10 @@ const routeEncodedDescriptor = repoLocalNsCommandDescriptor({
   command: reviewListCommand,
   manifestName: "review-list",
   manifestPath: ["review", "list"],
-  packageExportPrefix: "@ns/roaster/commands",
+  packageExportPrefix: "@ns-ai/reviews/commands",
 });
 // manifestEntry: "./src/commands/review-list.ts"
-// packageExport: "@ns/roaster/commands/review-list"
+// packageExport: "@ns-ai/reviews/commands/review-list"
 ```
 
 ### `defineRepoLocalNsExtensionDescriptor()`

@@ -1,9 +1,9 @@
 export {
-	createRealRoasterContext,
-	createRoasterRuntime,
-	type CreateRealRoasterContextOptions,
-	type RoasterContext,
-	type RoasterRuntime,
+	createRealReviewsContext,
+	createReviewsRuntime,
+	type CreateRealReviewsContextOptions,
+	type ReviewsContext,
+	type ReviewsRuntime,
 } from "./context.ts";
 export {
 	assembleReviewPrompt,
@@ -37,10 +37,10 @@ export {
 	type PriorFindingsContext,
 } from "./prior-findings-context.ts";
 export {
-	runRoasterReview,
-	type RunRoasterReviewOutcome,
-	type RunRoasterReviewProgress,
-	type RunRoasterReviewRequest,
+	runReviewsReview,
+	type RunReviewsReviewOutcome,
+	type RunReviewsReviewProgress,
+	type RunReviewsReviewRequest,
 } from "../operations/review-run.ts";
 export type {
 	LocalDiffFailure,
@@ -58,12 +58,12 @@ export type {
 	ReviewRunnerFailureCode,
 } from "./failures.ts";
 export {
-	loadRoastReviewDefinition,
-	loadRoastSkillEntries,
-	roastReviewPathForKey,
-	roasterRunSurfaceForReviewKey,
-	type LoadRoastReviewDefinitionOptions,
-	type LoadRoastSkillEntriesOptions,
-	type RoastReviewLoadResult,
-	type RoastSkillEntry,
+	loadReviewSkillDefinition,
+	loadReviewSkillEntries,
+	reviewPathForKey,
+	reviewsRunSurfaceForReviewKey,
+	type LoadReviewSkillDefinitionOptions,
+	type LoadReviewSkillEntriesOptions,
+	type ReviewSkillDefinitionLoadResult,
+	type ReviewSkillEntry,
 } from "./skill-reviews.ts";

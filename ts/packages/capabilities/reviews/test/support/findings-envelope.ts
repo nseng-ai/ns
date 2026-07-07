@@ -1,5 +1,5 @@
 import type { ReviewFinding } from "../../src/core/models.ts";
-import { roastReviewPathForKey } from "../../src/core/skill-reviews.ts";
+import { reviewPathForKey } from "../../src/core/skill-reviews.ts";
 
 export interface FindingsEnvelopeOptions {
 	readonly reviewName?: string;
@@ -19,7 +19,7 @@ export function buildFindingsEnvelope(
 		exitCode: 0,
 		data: {
 			reviewName,
-			reviewPath: options.reviewPath ?? roastReviewPathForKey(reviewName),
+			reviewPath: options.reviewPath ?? reviewPathForKey(reviewName),
 			modelProfile: options.modelProfile ?? "quick",
 			model: options.model ?? "haiku",
 			baseRef: options.baseRef ?? "main",

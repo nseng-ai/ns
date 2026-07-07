@@ -84,7 +84,7 @@ function defaultPrFeedback(): InMemoryGithubPrFeedbackGateway {
 				}),
 				discussionComment({
 					id: 11,
-					body: "<!-- roaster: finding -->",
+					body: "<!-- reviews: finding -->",
 					author: "github-actions[bot]",
 					url: "https://example.test/comment/11",
 				}),
@@ -145,7 +145,7 @@ describe("ns address exec download-feedback", () => {
 		expect(markdown).not.toContain("RT_resolved");
 		expect(markdown).toContain("Please explain the migration path.");
 		expect(markdown).toContain("Can we document this?");
-		expect(markdown).not.toContain("<!-- roaster: finding -->");
+		expect(markdown).not.toContain("<!-- reviews: finding -->");
 	});
 
 	test("includes resolved review threads when requested", async () => {

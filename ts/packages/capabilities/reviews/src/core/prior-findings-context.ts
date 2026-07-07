@@ -14,7 +14,7 @@ import {
 } from "./findings-comment.ts";
 import type { GitHubGatewayFailure } from "./failures.ts";
 import type { PriorFindingsPromptContext, PriorFindingsPromptContextEntry } from "./models.ts";
-import { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
+import { REVIEWS_BOT_LOGIN } from "./reviews-bot.ts";
 import type { ReviewsGithubPrFeedbackGateway } from "./context.ts";
 
 export type PriorFindingResolutionStatus = PriorFindingsPromptContextEntry["resolutionStatus"];
@@ -65,7 +65,7 @@ export async function gatherPriorFindingsContext(
 		...githubOptions,
 		prNumber: options.prNumber,
 		marker,
-		authorLogin: ROASTER_BOT_LOGIN,
+		authorLogin: REVIEWS_BOT_LOGIN,
 	});
 	if (!summaryComment.ok) {
 		return withoutContext(
@@ -77,7 +77,7 @@ export async function gatherPriorFindingsContext(
 	if (summaryComment.value === null) {
 		return withoutContext(
 			"summary-comment-missing",
-			`No roaster Findings summary comment for review ${options.reviewName} was found on PR #${options.prNumber}.`,
+			`No reviews Findings summary comment for review ${options.reviewName} was found on PR #${options.prNumber}.`,
 		);
 	}
 
@@ -85,7 +85,7 @@ export async function gatherPriorFindingsContext(
 	if (machineState === null) {
 		return withoutContext(
 			"machine-state-missing",
-			`The roaster Findings summary comment for review ${options.reviewName} did not contain a parseable roaster-state:v1 block.`,
+			`The reviews Findings summary comment for review ${options.reviewName} did not contain a parseable reviews-state:v1 block.`,
 		);
 	}
 
@@ -93,7 +93,7 @@ export async function gatherPriorFindingsContext(
 	if (stampedFindings.length === 0) {
 		return withoutContext(
 			"no-prior-findings",
-			`The roaster Findings summary comment for review ${options.reviewName} contained no prior findings.`,
+			`The reviews Findings summary comment for review ${options.reviewName} contained no prior findings.`,
 		);
 	}
 

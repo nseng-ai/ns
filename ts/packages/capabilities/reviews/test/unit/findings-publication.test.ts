@@ -6,7 +6,7 @@ import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/tes
 import type { Result } from "@nseng-ai/foundation/result";
 import { describe, expect, test } from "vitest";
 
-import { createRoasterRuntime } from "../../src/core/context.ts";
+import { createReviewsRuntime } from "../../src/core/context.ts";
 import {
 	buildFindingsCommentMachineState,
 	extractInlineMarkers,
@@ -23,7 +23,7 @@ import {
 	type LastReviewedHeadState,
 } from "../../src/core/findings-publication.ts";
 import type { ReviewFinding, ReviewInputCoverage } from "../../src/core/models.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
 import { githubDiscussionComment } from "../support/github-fixtures.ts";
 import { FailingDiscussionGateway } from "../support/github-gateways.ts";
@@ -43,15 +43,15 @@ const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 
 describe("findings comment markers", () => {
 	test("summary marker is first-line parseable", () => {
-		const body = `${summaryMarkerForReview("typescript-style")}\n## roaster`;
+		const body = `${summaryMarkerForReview("typescript-style")}\n## reviews`;
 
 		const parsed = parseFindingsCommentBody(body);
 
 		expect(parsed).toEqual({
 			ok: true,
-			value: { marker: "<!-- roaster:typescript-style -->", body },
+			value: { marker: "<!-- reviews:typescript-style -->", body },
 		});
-		expect(parseFindingsCommentBody("intro\n<!-- roaster:typescript-style -->").ok).toBe(false);
+		expect(parseFindingsCommentBody("intro\n<!-- reviews:typescript-style -->").ok).toBe(false);
 	});
 
 	test("inline marker is stable and extractable", () => {
@@ -72,7 +72,7 @@ describe("renderInlineBody", () => {
 		expect(body).toContain("**warning: Avoid broad casts**");
 		expect(body).toContain("_Review: `typescript-style`._");
 		expect(body).toContain("Validate the payload");
-		expect(body).toContain("Posted by roaster");
+		expect(body).toContain("Posted by reviews");
 	});
 });
 
@@ -89,8 +89,8 @@ describe("renderFindingsComment", () => {
 			errorMessage: "boom",
 		});
 
-		expect(body.startsWith("<!-- roaster:typescript-style -->\n")).toBe(true);
-		expect(body).toContain("**Roaster failed**");
+		expect(body.startsWith("<!-- reviews:typescript-style -->\n")).toBe(true);
+		expect(body).toContain("**Reviews failed**");
 		expect(body).toContain("harness-failed");
 	});
 
@@ -108,7 +108,7 @@ describe("renderFindingsComment", () => {
 		});
 		const body = renderFindingsComment(findingsPayload, { machineState });
 
-		expect(body.startsWith("<!-- roaster:typescript-style -->\n")).toBe(true);
+		expect(body.startsWith("<!-- reviews:typescript-style -->\n")).toBe(true);
 		expect(parseFindingsCommentBody(body).ok).toBe(true);
 		expect(parseFindingsCommentMachineState(body)).toMatchObject({
 			version: 1,
@@ -344,8 +344,8 @@ describe("payload parsers", () => {
 
 describe("publishFindings", () => {
 	test("reports summary write as a fatal summary phase", async () => {
-		const runtime = createRoasterRuntime(
-			fakeRoasterContext({ github: new FailingDiscussionGateway() }),
+		const runtime = createReviewsRuntime(
+			fakeReviewsContext({ github: new FailingDiscussionGateway() }),
 		);
 		const result = await publishFindings(runtime, {
 			prNumber: 47,
@@ -361,8 +361,8 @@ describe("publishFindings", () => {
 	});
 
 	test("keeps inline failures non-fatal and reports summary status", async () => {
-		const runtime = createRoasterRuntime(
-			fakeRoasterContext({
+		const runtime = createReviewsRuntime(
+			fakeReviewsContext({
 				github: new InlineFailureGateway({
 					changedFilesByPr: new Map([
 						[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -12 +12 @@\n+new" }]],
@@ -380,14 +380,14 @@ describe("publishFindings", () => {
 			expect(result.value.inlineStatus.apiError).toBe("inline validation failed");
 			expect(result.value.summaryStatus).toEqual({
 				type: "posted",
-				marker: "<!-- roaster:typescript-style -->",
+				marker: "<!-- reviews:typescript-style -->",
 			});
 		}
 	});
 
 	test("posts Last-reviewed head state and current findings in the machine block", async () => {
 		const github = new FakeGithubPrFeedbackGateway();
-		const runtime = createRoasterRuntime(fakeRoasterContext({ github }));
+		const runtime = createReviewsRuntime(fakeReviewsContext({ github }));
 
 		const result = await publishFindings(runtime, {
 			prNumber: 47,
@@ -399,7 +399,7 @@ describe("publishFindings", () => {
 		const written = await github.findPrDiscussionCommentByMarker({
 			cwd: "/repo",
 			prNumber: 47,
-			marker: "<!-- roaster:typescript-style -->",
+			marker: "<!-- reviews:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
 		expect(written.ok).toBe(true);
@@ -428,7 +428,7 @@ describe("publishFindings", () => {
 				],
 			]),
 		});
-		const runtime = createRoasterRuntime(fakeRoasterContext({ github }));
+		const runtime = createReviewsRuntime(fakeReviewsContext({ github }));
 
 		const result = await publishFindings(runtime, {
 			prNumber: 47,
@@ -443,7 +443,7 @@ describe("publishFindings", () => {
 		const written = await github.findPrDiscussionCommentByMarker({
 			cwd: "/repo",
 			prNumber: 47,
-			marker: "<!-- roaster:typescript-style -->",
+			marker: "<!-- reviews:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
 		expect(written.ok).toBe(true);

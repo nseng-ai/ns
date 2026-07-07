@@ -1,60 +1,60 @@
 # @nseng-ai/reviews Context
 
-Roaster is an ns Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
+Reviews is an ns Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
 
 ## Glossary
 
-### Roaster
+### Reviews
 
 The ns Capability that runs configured read-only PR-diff checks and emits structured findings.
 
-Avoid: describing Roaster runs as remediation workflows or as agents that edit code.
+Avoid: describing Reviews runs as remediation workflows or as agents that edit code.
 
-### Roaster Domain Core
+### Reviews Domain Core
 
-Roaster-owned gateway-injected logic for the review catalog, local-diff review execution, review-log storage, finding schemas, and publication behavior.
+Reviews-owned gateway-injected logic for the review catalog, local-diff review execution, review-log storage, finding schemas, and publication behavior.
 
-Avoid: putting Roaster domain behavior in the ns kernel, Pi host, or generic infrastructure packages.
+Avoid: putting Reviews domain behavior in the ns kernel, Pi host, or generic infrastructure packages.
 
 ### ns Command Face
 
-The canonical user-facing command surface for Roaster: `ns roaster ...`, including `ns roaster review list`, `ns roaster review run <key>`, `ns roaster review log`, `ns roaster roast list`, and hidden automation leaves under `ns roaster exec ...`.
+The canonical user-facing command surface for Reviews: `ns reviews ...`, including `ns reviews list`, `ns reviews review run <key>`, `ns reviews review log`, `ns reviews list`, and hidden automation leaves under `ns reviews exec ...`.
 
-Avoid: teaching the removed standalone `roaster` binary as an active compatibility surface or canonical invocation path.
+Avoid: teaching the removed standalone `reviews` binary as an active compatibility surface or canonical invocation path.
 
-### Roaster Capability API
+### Reviews Capability API
 
-The curated in-process consumer API exported as `@nseng-ai/reviews/api` for packages that need Roaster behavior without shelling out.
+The curated in-process consumer API exported as `@nseng-ai/reviews/api` for packages that need Reviews behavior without shelling out.
 
 Avoid: importing private `@nseng-ai/reviews/src/...` modules or treating the broad package root as the Capability API.
 
 ### Review definition
 
-A Markdown catalog entry at `.ns/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Roaster should check. Sibling assets under that folder are not separate Review definitions.
+A Markdown catalog entry at `.ns/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Reviews should check. Sibling assets under that folder are not separate Review definitions.
 
 Avoid: calling review definitions GitHub PR reviews, or treating the catalog key as a GitHub review identity.
 
 ### Tripwire
 
-A quick Roaster review definition (`model_profile: quick`) intended to cheaply flag likely issues. It produces findings only; it does not prove the issue exhaustively or resolve it.
+A quick Reviews review definition (`model_profile: quick`) intended to cheaply flag likely issues. It produces findings only; it does not prove the issue exhaustively or resolve it.
 
-Avoid: using Tripwire for all Roaster runs, using Tripwire as a formal schema `kind`, or implying it edits/remediates.
+Avoid: using Tripwire for all Reviews runs, using Tripwire as a formal schema `kind`, or implying it edits/remediates.
 
 ### Deep review
 
-A Roaster review definition with `model_profile: deep`, intended for higher-context judgment and stronger recommendations. It still emits findings through Roaster, but it is not the cheap Tripwire UX category.
+A Reviews review definition with `model_profile: deep`, intended for higher-context judgment and stronger recommendations. It still emits findings through Reviews, but it is not the cheap Tripwire UX category.
 
 Avoid: implying deep reviews can mutate state or resolve findings.
 
 ### Finding
 
-A structured issue reported by a Roaster run, with path, line, severity, summary, and details.
+A structured issue reported by a Reviews run, with path, line, severity, summary, and details.
 
 Avoid: using finding for Objective evidence, review-thread state, or generic GitHub comments.
 
 ### Findings comment
 
-The summary PR discussion comment managed by Roaster for one review key.
+The summary PR discussion comment managed by Reviews for one review key.
 
 Avoid: confusing it with GitHub PR review comments or review threads.
 
@@ -78,12 +78,12 @@ Avoid: cache key, input filter (review input stays whole-diff), base SHA alone.
 
 ### Review log
 
-A Branch Memory record of a Roaster run under the `roaster` namespace and `reviews/<review-key>/...` key path.
+A Branch Memory record of a Reviews run under the `reviews` namespace and `reviews/<review-key>/...` key path.
 
 Avoid: calling review logs durable Objective updates or changing the namespace/key path when changing user-facing terminology.
 
 ### GitHub publication boundary
 
-The explicit guarded write boundary that publishes Roaster findings to GitHub, currently exposed through `ns roaster exec publish-findings` for automation.
+The explicit guarded write boundary that publishes Reviews findings to GitHub, currently exposed through `ns reviews exec publish-findings` for automation.
 
 Avoid: implying ordinary review runs publish comments, or performing live publication validation without explicit confirmation.

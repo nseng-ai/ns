@@ -28,7 +28,7 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > ADR 0015, serialized ji machine values were migrated to kebab-case with
 > camelCase JSON property names, Branch Context / Plans generic error wrappers
 > were replaced by modeled failure types with structured recovery data, and the
-> Retro/Vibechk output-bound rows were remediated while `roaster review log` was
+> Retro/Vibechk output-bound rows were remediated while `reviews review log` was
 > parked below the ADR 0012 evidence threshold. Historical file:line anchors and
 > per-row classifications below remain point-in-time audit evidence.
 
@@ -86,7 +86,7 @@ framework does not enforce:
 | packagechk     | `NAME` (check), `claim-pypi`, `claim-npm`                                                                                                                                     | all `rawCommand` (raw-exit)                                                 |
 | plans          | `list`, `exec save/resolve`                                                                                                                                                   | generic error wrapper                                                       |
 | pr-address     | `exec pr-details/branch-pr/open-prs/pr-reviews/pr-review-threads/pr-discussion-comments/pr-checks/reply-review-thread/resolve-review-thread/download-feedback/map-branch-prs` | only external mutators in repo are the two thread writes                    |
-| roaster        | `ns roaster review list/ls/run/log`, `ns roaster roast list`, `ns roaster exec record-findings/publish-findings`                                                              | standalone binary removed; ji extension command face is the active surface  |
+| reviews        | `ns reviews list, ns reviews review ls/run/log`, `ns reviews list`, `ns reviews exec record-findings/publish-findings`                                                        | standalone binary removed; ji extension command face is the active surface  |
 | ns             | `shell show/install` (local; dual-mounted under `ns` and `ns slot`); mounts `@ji/slot` group + runtime extension commands                                                     | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
 | jicc           | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
 | slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `ns slot`; **reference** Tier 3 (`gc`)                        |
@@ -115,7 +115,7 @@ are `shell show`/`shell install`. All other `ns ...` commands are either the
 | 12 | c    | All errors collapse to one generic `errorType` (`branch_context_error`/`plans_error`) via wrapper; modeled detail lost, no `data`      | `branch-context` (all), `plans` (all)                                                                                                                            | land-now-fix                                          |
 | 13 | c    | `failure(...)` carries message only, no structured `data` (near-universal)                                                             | most packages                                                                                                                                                    | land-now-fix                                          |
 | 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `jicc cmux report`, `vibechk run`, `ccc exec autobranch`                                                                                     | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
-| 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `retro` (both), `vibechk runs/show/diff`, `roaster review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)    | mixed (land-now-fix / parked)                         |
+| 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `retro` (both), `vibechk runs/show/diff`, `reviews review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)    | mixed (land-now-fix / parked)                         |
 
 ## Cross-cutting themes
 
@@ -170,7 +170,7 @@ are `shell show`/`shell install`. All other `ns ...` commands are either the
    "unbounded" lists are naturally domain-small (branch-scoped refs, per-repo
    plans, handoff inventories) and are parked. The genuine candidates are `retro`
    (dereferences arbitrary `value: unknown` subtrees), `vibechk` (full
-   transcripts/diffs), and `roaster review log` (accumulates per branch).
+   transcripts/diffs), and `reviews review log` (accumulates per branch).
 
 7. **`ccc land`/`land-stack` are not Clinkr CLI commands.** They are a Pi
    slash-command surface (`/ns:flow:land`) on a bespoke `LandStackResult`
@@ -463,33 +463,33 @@ action-miss (`negative`) split is now the ratified standard (ADR 0015 #4), not a
 inconsistency — predicate lookups stay `ok`, requested-target/action misses stay
 `negative`.
 
-### roaster
+### reviews
 
-Roaster's standalone binary has been removed. The active CLI audit surface is the ji extension command face.
+Reviews standalone binary has been removed. The active CLI audit surface is the ji extension command face.
 
 | Command                            | Mutating? | Area  | Finding                                                                    | Classification | Evidence (file:line)                           |
 | ---------------------------------- | --------- | ----- | -------------------------------------------------------------------------- | -------------- | ---------------------------------------------- |
-| `ns roaster review list`           | No        | all   | Tier 0 read-only; `ok` always, `count` exposed, finite catalog             | conformant     | `commands/review-list.ts`; `cli-operations.ts` |
-| `ns roaster review ls`             | No        | all   | Tier 0 read-only alias                                                     | conformant     | `commands/review-ls.ts`                        |
-| `ns roaster review run`            | Yes       | a     | Tier 1 additive Branch Memory log write; no confirm; non-interactive       | conformant     | `commands/review-run.ts`; `review-run.ts`      |
-| `ns roaster review run`            | Yes       | b     | findings + `inputCoverage` (omitted/cap state) + `count` in schema         | conformant     | `cli-operations.ts`; `models.ts`               |
-| `ns roaster review run`            | Yes       | c     | snake_case errorType via `failureFromRoaster`; no structured `data`        | land-now-fix   | `cli-operations.ts`                            |
-| `ns roaster review run`            | Yes       | d     | `negative` for `completed_log_failed` partial success — correct            | conformant     | `cli-operations.ts`                            |
-| `ns roaster review log`            | No        | b     | `ok`+`count` but no continuation/bound state; entries accrue per branch    | land-now-fix   | `cli-operations.ts`                            |
-| `ns roaster review log`            | No        | a/c/d | Tier 0; empty→`ok` correct; snake_case errorType                           | conformant     | `cli-operations.ts`                            |
-| `ns roaster roast list`            | No        | all   | Tier 0 read-only; finite catalog, `count`                                  | conformant     | `commands/roast-list.ts`; `cli-operations.ts`  |
-| `ns roaster exec record-findings`  | Yes       | a     | Tier 1 additive log write; reads stdin; non-interactive                    | conformant     | `commands/exec-record-findings.ts`             |
-| `ns roaster exec record-findings`  | Yes       | c     | snake_case errorType; no structured `data`                                 | land-now-fix   | `cli-operations.ts`                            |
-| `ns roaster exec record-findings`  | Yes       | d     | `negative` for log-write-failed partial success — correct                  | conformant     | `cli-operations.ts`                            |
-| `ns roaster exec publish-findings` | Yes       | a     | Tier 1 additive/idempotent GitHub PR comments; CI non-interactive          | conformant     | `commands/exec-publish-findings.ts`            |
-| `ns roaster exec publish-findings` | Yes       | c/d   | Enveloped command with result schema and failure envelope; no raw-exit gap | conformant     | `commands/exec-publish-findings.ts`            |
+| `ns reviews list`                  | No        | all   | Tier 0 read-only; `ok` always, `count` exposed, finite catalog             | conformant     | `commands/review-list.ts`; `cli-operations.ts` |
+| `ns reviews review ls`             | No        | all   | Tier 0 read-only alias                                                     | conformant     | `commands/review-ls.ts`                        |
+| `ns reviews review run`            | Yes       | a     | Tier 1 additive Branch Memory log write; no confirm; non-interactive       | conformant     | `commands/review-run.ts`; `review-run.ts`      |
+| `ns reviews review run`            | Yes       | b     | findings + `inputCoverage` (omitted/cap state) + `count` in schema         | conformant     | `cli-operations.ts`; `models.ts`               |
+| `ns reviews review run`            | Yes       | c     | snake_case errorType via `failureFromReview`; no structured `data`         | land-now-fix   | `cli-operations.ts`                            |
+| `ns reviews review run`            | Yes       | d     | `negative` for `completed_log_failed` partial success — correct            | conformant     | `cli-operations.ts`                            |
+| `ns reviews review log`            | No        | b     | `ok`+`count` but no continuation/bound state; entries accrue per branch    | land-now-fix   | `cli-operations.ts`                            |
+| `ns reviews review log`            | No        | a/c/d | Tier 0; empty→`ok` correct; snake_case errorType                           | conformant     | `cli-operations.ts`                            |
+| `ns reviews list`                  | No        | all   | Tier 0 read-only; finite catalog, `count`                                  | conformant     | `commands/review-list.ts`; `cli-operations.ts` |
+| `ns reviews exec record-findings`  | Yes       | a     | Tier 1 additive log write; reads stdin; non-interactive                    | conformant     | `commands/exec-record-findings.ts`             |
+| `ns reviews exec record-findings`  | Yes       | c     | snake_case errorType; no structured `data`                                 | land-now-fix   | `cli-operations.ts`                            |
+| `ns reviews exec record-findings`  | Yes       | d     | `negative` for log-write-failed partial success — correct                  | conformant     | `cli-operations.ts`                            |
+| `ns reviews exec publish-findings` | Yes       | a     | Tier 1 additive/idempotent GitHub PR comments; CI non-interactive          | conformant     | `commands/exec-publish-findings.ts`            |
+| `ns reviews exec publish-findings` | Yes       | c/d   | Enveloped command with result schema and failure envelope; no raw-exit gap | conformant     | `commands/exec-publish-findings.ts`            |
 
-**roaster notes:** Largely conformant: clean Tier-1-only danger profile (no destructive
+**reviews notes:** Largely conformant: clean Tier-1-only danger profile (no destructive
 flows, no prompt-hang surface), disciplined snake_case `errorType`, semantically correct
 `negative` for partial-success log-write failures, good input-coverage bounding on review
-runs, and an enveloped `ns roaster exec publish-findings` publication leaf. The former
+runs, and an enveloped `ns reviews exec publish-findings` publication leaf. The former
 standalone raw-exit publication exception was resolved by removing the standalone binary.
-Remaining Roaster follow-ups: attach structured `data` to remaining `failure(...)` calls;
+Remaining Reviews follow-ups: attach structured `data` to remaining `failure(...)` calls;
 consider bound/continuation state for `review log`.
 
 ### ns
@@ -628,7 +628,7 @@ Semantic Updates record the current-source remediations and parking decisions.
    skillx`, `brmem resolve-prompt`); replace the generic error-collapse wrappers in
    `branch-context`/`plans` with modeled errorTypes; add structured `data` where it aids
    recovery (lower priority, ADR 0010 "consider").
-4. **Area (b), land-now where it matters / else parked:** `retro`, `vibechk`, `roaster
+4. **Area (b), land-now where it matters / else parked:** `retro`, `vibechk`, `reviews
    review log`. Leave domain-small lists parked under the ADR 0012 threshold.
 
 ## ADR-needed questions — resolved by ADR 0015

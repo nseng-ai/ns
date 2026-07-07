@@ -37,7 +37,7 @@ function diffFile(path: string, rawText: string): DiffFile {
 	};
 }
 
-describe("roaster domain schemas", () => {
+describe("reviews domain schemas", () => {
 	test("accepts representative review definitions and findings payloads", () => {
 		const definition = reviewDefinitionSchema.parse({
 			name: "typescript-style",

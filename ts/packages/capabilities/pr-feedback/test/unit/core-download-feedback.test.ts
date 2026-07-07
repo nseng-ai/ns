@@ -57,7 +57,7 @@ describe("collectDownloadFeedback", () => {
 		expect(result.feedback.markdown).not.toContain("RT_resolved");
 		expect(result.feedback.markdown).toContain("Please explain the migration path.");
 		expect(result.feedback.markdown).toContain("Can we document this?");
-		expect(result.feedback.markdown).not.toContain("<!-- roaster: finding -->");
+		expect(result.feedback.markdown).not.toContain("<!-- reviews: finding -->");
 	});
 
 	test("include flags alter selections and counts", async () => {
@@ -81,7 +81,7 @@ describe("collectDownloadFeedback", () => {
 			excludedAutomationComments: 0,
 		});
 		expect(result.feedback.markdown).toContain("RT_resolved");
-		expect(result.feedback.markdown).toContain("<!-- roaster: finding -->");
+		expect(result.feedback.markdown).toContain("<!-- reviews: finding -->");
 		expect(result.feedback.markdown).toContain("### Review 2: R_empty");
 	});
 
@@ -335,7 +335,7 @@ function populatedPrFeedback(): InMemoryGithubPrFeedbackGateway {
 				}),
 				discussionComment({
 					id: 11,
-					body: "<!-- roaster: finding -->",
+					body: "<!-- reviews: finding -->",
 					author: "github-actions[bot]",
 					url: "https://example.test/comment/11",
 				}),

@@ -14,7 +14,7 @@ import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
+export { REVIEWS_BOT_LOGIN } from "./reviews-bot.ts";
 
 export type ReviewsGithubPrFeedbackGateway = Pick<
 	GithubPrFeedbackGateway,
@@ -27,7 +27,7 @@ export type ReviewsGithubPrFeedbackGateway = Pick<
 	| "updatePrDiscussionComment"
 >;
 
-export interface RoasterGateways {
+export interface ReviewsGateways {
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
@@ -36,7 +36,7 @@ export interface RoasterGateways {
 	readonly reviewRunner: ReviewRunnerGateway;
 }
 
-export interface RoasterContext extends RoasterGateways {
+export interface ReviewsContext extends ReviewsGateways {
 	readonly execApi: CommandExecApi;
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
@@ -46,7 +46,7 @@ export interface RoasterContext extends RoasterGateways {
 	readonly stderr: (text: string) => void;
 }
 
-export interface CreateRealRoasterContextOptions {
+export interface CreateRealReviewsContextOptions {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly stdin: () => Promise<string>;
@@ -59,30 +59,30 @@ export interface CreateRealRoasterContextOptions {
 	readonly reviewRunner?: ReviewRunnerGateway;
 }
 
-export interface RoasterRunScope {
+export interface ReviewsRunScope {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface RoasterEnvironmentOptions {
+export interface ReviewsEnvironmentOptions {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface RoasterCatalogOptions {
+export interface ReviewsCatalogOptions {
 	readonly cwd: string;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface RoasterRuntime extends RoasterGateways {
-	readonly runScope: RoasterRunScope;
+export interface ReviewsRuntime extends ReviewsGateways {
+	readonly runScope: ReviewsRunScope;
 	readonly stdin: () => Promise<string>;
 	readonly stderr: (text: string) => void;
 }
 
-export function createRealRoasterContext(options: CreateRealRoasterContextOptions): RoasterContext {
+export function createRealReviewsContext(options: CreateRealReviewsContextOptions): ReviewsContext {
 	const execApi = options.execApi ?? new NodeCommandExecApi();
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
 	return {
@@ -102,7 +102,7 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 	};
 }
 
-export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
+export function createReviewsRuntime(context: ReviewsContext): ReviewsRuntime {
 	const { execApi, cwd, env, signal, stdout, ...runtimeFields } = context;
 	void execApi;
 	void stdout;
@@ -116,14 +116,14 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 	};
 }
 
-export function environmentOptions(scope: RoasterRunScope): RoasterEnvironmentOptions {
+export function environmentOptions(scope: ReviewsRunScope): ReviewsEnvironmentOptions {
 	return {
 		...catalogOptions(scope),
 		env: scope.env,
 	};
 }
 
-export function catalogOptions(scope: RoasterRunScope): RoasterCatalogOptions {
+export function catalogOptions(scope: ReviewsRunScope): ReviewsCatalogOptions {
 	return {
 		cwd: scope.cwd,
 		...optionalEntry("signal", scope.signal),

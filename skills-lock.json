@@ -346,18 +346,18 @@
       "sourceType": "local",
       "computedHash": "d77ac7b897d91771beee4904ce38a457c13e94df99749c89fb8f4da3b2e39b5d"
     },
-    "roast-dry-but-not-too-dry": {
-      "source": "skills/roast-dry-but-not-too-dry",
+    "review-dry-but-not-too-dry": {
+      "source": "skills/review-dry-but-not-too-dry",
       "sourceType": "local",
       "computedHash": "42cf62df05c7bad6bf25a1bb8f07df328d9aeb459ba3db40db3abcea68cac0cf"
     },
-    "roast-improve-codebase-architecture": {
-      "source": "skills/roast-improve-codebase-architecture",
+    "review-improve-codebase-architecture": {
+      "source": "skills/review-improve-codebase-architecture",
       "sourceType": "local",
       "computedHash": "757dca5a58804d899d376435d1608a0d653289a13c002b38b176ea60d3c14ff9"
     },
-    "roast-thermonuclear-review": {
-      "source": "skills/roast-thermonuclear-review",
+    "review-thermonuclear-review": {
+      "source": "skills/review-thermonuclear-review",
       "sourceType": "local",
       "computedHash": "7e80abba397da7b48024bc6680466004e89424e3600167d095c1ad02d320dc62"
     },

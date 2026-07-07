@@ -58,7 +58,7 @@ describe("review log helpers", () => {
 			},
 		);
 
-		expect(markdown).toContain("# Roaster Review: team/review key");
+		expect(markdown).toContain("# Reviews Review: team/review key");
 		expect(markdown).toContain("- Model profile: `deep`");
 		expect(markdown).toContain("### 1. info — `unknown:—`");
 		expect(markdown).toContain("Readable **Markdown** details.");
@@ -73,7 +73,7 @@ describe("review log helpers", () => {
 			headCommit: "abc123",
 		});
 
-		expect(markdown).toContain("# Roaster Tripwire: team/review key");
+		expect(markdown).toContain("# Reviews Tripwire: team/review key");
 		expect(markdown).toContain("- Model profile: `quick`");
 	});
 

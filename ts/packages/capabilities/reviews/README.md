@@ -1,21 +1,21 @@
 # @nseng-ai/reviews
 
-Roaster runs configured, read-only code reviews against the current PR diff and records structured findings. In this repo the canonical command face is:
+Reviews runs configured, read-only code reviews against the current PR diff and records structured findings. In this repo the canonical command face is:
 
 ```bash
-ns roaster ...
+ns reviews ...
 ```
 
 ## Review definitions
 
-Review definitions live in `.ns/reviews/<key>/review.md`. The key is the direct child folder name under `.ns/reviews`; for example `.ns/reviews/ns-typescript-style-tripwire/review.md` is `ns-typescript-style-tripwire`. Roaster loads only direct child `review.md` files, so colocated files such as `references/*.md` are review assets rather than review definitions.
+Review definitions live in `.ns/reviews/<key>/review.md`. The key is the direct child folder name under `.ns/reviews`; for example `.ns/reviews/ns-typescript-style-tripwire/review.md` is `ns-typescript-style-tripwire`. Reviews loads only direct child `review.md` files, so colocated files such as `references/*.md` are review assets rather than review definitions.
 
 A definition is a Markdown file with YAML frontmatter followed by the review instructions:
 
 ```md
 ---
 description: |
-  Short human-readable description shown by `ns roaster review list`.
+  Short human-readable description shown by `ns reviews list`.
 model_profile: quick
 local_only: false
 applies_to:
@@ -31,9 +31,9 @@ Review only the supplied diff...
 Frontmatter fields:
 
 - `description` — required non-empty string.
-- `model_profile` — optional non-empty string; defaults to `quick`. Current display groups `quick` as a tripwire and other profiles such as `deep` as deep reviews. `ns roaster review run --model-profile ...` can override it for one run.
-- `local_only` — optional boolean; defaults to `false`. Set `true` only for reviews that must never run in CI. CI discovery uses `ns roaster review list --ci`, which excludes `local_only: true` definitions.
-- `applies_to.include` — optional list of repo-relative glob patterns. When present, `ns roaster review list --applicable` selects the review only when the diff touches a matching path.
+- `model_profile` — optional non-empty string; defaults to `quick`. Current display groups `quick` as a tripwire and other profiles such as `deep` as deep reviews. `ns reviews review run --model-profile ...` can override it for one run.
+- `local_only` — optional boolean; defaults to `false`. Set `true` only for reviews that must never run in CI. CI discovery uses `ns reviews list --ci`, which excludes `local_only: true` definitions.
+- `applies_to.include` — optional list of repo-relative glob patterns. When present, `ns reviews list --applicable` selects the review only when the diff touches a matching path.
 - `applies_to.exclude` — optional list of repo-relative glob patterns removed from applicability. Use this for vendored skill directories or generated areas.
 
 Applicability patterns must be globs, not git pathspecs; keep them repo-relative and do not use `..` segments.
@@ -43,38 +43,38 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 List all configured reviews:
 
 ```bash
-ns roaster review list
+ns reviews list
 ```
 
 List the reviews that CI would consider, before path applicability:
 
 ```bash
-ns roaster review list --ci
+ns reviews list --ci
 ```
 
 List the CI-enabled reviews applicable to the current diff against a base branch:
 
 ```bash
-ns roaster review list --ci --applicable --base-ref main
+ns reviews list --ci --applicable --base-ref main
 ```
 
 Run one review locally:
 
 ```bash
-ns roaster review run <review-key> --base-ref main
+ns reviews review run <review-key> --base-ref main
 ```
 
 Useful checks after editing a review definition:
 
 ```bash
 dprint check .ns/reviews/<review-key>/review.md
-ns roaster review list --ci --format json
-ns roaster review list --ci --applicable --base-ref main --format json
+ns reviews list --ci --format json
+ns reviews list --ci --applicable --base-ref main --format json
 ```
 
 ## CI operation
 
-The GitHub Actions workflow is `.github/workflows/roaster.yml`.
+The GitHub Actions workflow is `.github/workflows/reviews.yml`.
 
 Discovery job:
 
@@ -83,7 +83,7 @@ Discovery job:
 3. Runs:
 
    ```bash
-   ns roaster review list --ci --applicable --base-ref "$BASE_REF" --format json
+   ns reviews list --ci --applicable --base-ref "$BASE_REF" --format json
    ```
 
 4. Uses `.data.keys` as the review matrix.
@@ -94,30 +94,30 @@ Review job:
 2. Runs each selected review with:
 
    ```bash
-   ns roaster review run "$REVIEW_KEY" \
+   ns reviews review run "$REVIEW_KEY" \
      --base-ref "$BASE_REF" \
      --log-branch "$GITHUB_HEAD_REF" \
      --format json
    ```
 
-3. Pipes the result envelope to `ns roaster exec publish-findings` so findings are posted to the PR summary comment and inline comments when possible.
+3. Pipes the result envelope to `ns reviews exec publish-findings` so findings are posted to the PR summary comment and inline comments when possible.
 
 Operational notes:
 
 - CI requires `ANTHROPIC_API_KEY` for review execution and uses `GITHUB_TOKEN` for PR publication.
 - Draft PRs and forked PRs are skipped by the workflow guard.
 - A review definition appears in CI only when `local_only` is omitted or set to `false` and its `applies_to` globs match the current diff when `--applicable` is used.
-- Review logs are written to Branch Memory under the `roaster` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns roaster review log`.
+- Review logs are written to Branch Memory under the `reviews` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns reviews review log`.
 
-## Review convergence: how Roaster avoids repetitive feedback
+## Review convergence: how Reviews avoids repetitive feedback
 
-Without convergence, each push re-runs a stateless whole-diff review, and the model rephrases or relocates the same criticism after the author resolves it — a resolve→resubmit treadmill. Roaster prevents this with two complementary mechanisms (design rationale in ADR 0027):
+Without convergence, each push re-runs a stateless whole-diff review, and the model rephrases or relocates the same criticism after the author resolves it — a resolve→resubmit treadmill. Reviews prevents this with two complementary mechanisms (design rationale in ADR 0027):
 
 1. **Generation-time semantic suppression** (primary). When a run is supplied with PR context, a gathering step assembles two optional prompt inputs:
    - **Prior-findings context** — a bounded set of previously surfaced findings for that review key on the PR, each with its review-thread resolution status. The prompt instructs the model not to re-raise a previously surfaced finding, resolved or unresolved, unless the underlying issue materially worsened. An anchoring guard limits suppression to the same underlying issue: genuinely new problems still surface, even in the same file or adjacent to a prior finding.
    - **Last-reviewed head** — the PR head SHA, reviewed base ref, and base merge-base recorded at the previous publish. Regions changed since the prior round get full-strength review; unchanged already-reviewed regions are held to the prior round's standard. Changed-since comparison uses PR-delta (merge-base) semantics rather than raw old-head..new-head, so a content-preserving Graphite restack or force-push does not read as churn.
 2. **Exact-match publication dedupe** (deterministic backstop). Inline findings carry sha256-derived comment markers; publication skips any finding whose marker already exists on the PR. This catches only byte-identical repeats — the generation-time layer handles rephrased or line-shifted ones.
 
-GitHub is the durable convergence store. Publishing stamps a machine-readable `roaster-state:v1` block into the marker-keyed Findings summary comment: the last-reviewed head SHA, base ref, base merge-base, and a capped cumulative union of surfaced findings, so a successfully suppressed finding does not disappear from state after one quiet round. Gathering reads that stamped block and hydrates thread resolution through the `pr-feedback` GraphQL surface; it never reconstructs state by parsing rendered comment markdown.
+GitHub is the durable convergence store. Publishing stamps a machine-readable `reviews-state:v1` block into the marker-keyed Findings summary comment: the last-reviewed head SHA, base ref, base merge-base, and a capped cumulative union of surfaced findings, so a successfully suppressed finding does not disappear from state after one quiet round. Gathering reads that stamped block and hydrates thread resolution through the `pr-feedback` GraphQL surface; it never reconstructs state by parsing rendered comment markdown.
 
-Degradation is safe by construction: `ns roaster review run` stays PR-context-free by default (CI opts in), any gathering failure falls back to a context-free full review — noisy but never silently wrong — and if changed-since status cannot be computed the run degrades to Prior-findings-only convergence.
+Degradation is safe by construction: `ns reviews review run` stays PR-context-free by default (CI opts in), any gathering failure falls back to a context-free full review — noisy but never silently wrong — and if changed-since status cannot be computed the run degrades to Prior-findings-only convergence.

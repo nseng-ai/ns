@@ -37,11 +37,11 @@ describe("FakeLocalDiffGateway", () => {
 
 describe("RealLocalDiffGateway", () => {
 	test("uses explicit base ref, config excludes, and parses changed paths", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-"));
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-"));
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
+			'[reviews.diff]\nexclude = [".agents/skills/**/*.py"]\n',
 			"utf8",
 		);
 		const execApi = new ScriptedCommandExecApi([{ stdout: SAMPLE_DIFF }]);
@@ -79,7 +79,7 @@ describe("RealLocalDiffGateway", () => {
 	});
 
 	test("falls back to trunk branch and reports git diff failures", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-failure-"));
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-failure-"));
 		await mkdir(repoRoot, { recursive: true });
 		const execApi = new ScriptedCommandExecApi([{ stderr: "fatal: bad revision", code: 128 }]);
 		const gateway = new RealLocalDiffGateway({

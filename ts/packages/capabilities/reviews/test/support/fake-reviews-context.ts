@@ -2,7 +2,7 @@ import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
-import type { RoasterContext } from "../../src/core/context.ts";
+import type { ReviewsContext } from "../../src/core/context.ts";
 import {
 	FakeReviewRunnerGateway,
 	type ReviewRunnerGateway,
@@ -16,7 +16,7 @@ import {
 } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/review-log.ts";
 
-export interface FakeRoasterContextOptions {
+export interface FakeReviewsContextOptions {
 	readonly execApi?: CommandExecApi;
 	readonly gitGateway?: GitGateway;
 	readonly localDiff?: LocalDiffGateway;
@@ -32,7 +32,7 @@ export interface FakeRoasterContextOptions {
 	readonly stderr?: (text: string) => void;
 }
 
-export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): RoasterContext {
+export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): ReviewsContext {
 	const execApi = options.execApi ?? new ScriptedCommandExecApi();
 	const gitGateway =
 		options.gitGateway ??

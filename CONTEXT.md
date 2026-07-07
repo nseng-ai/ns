@@ -204,7 +204,7 @@ A first-party ns feature area (objectives, handoff, slot, flow, …) — a set o
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
-An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, roaster, retro, and **CCC**), as opposed to a third-party extension.
+An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, reviews, retro, and **CCC**), as opposed to a third-party extension.
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:

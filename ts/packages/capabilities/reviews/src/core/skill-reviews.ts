@@ -5,11 +5,11 @@ import {
 	type ReviewSource,
 } from "../gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
-import { roasterReviewDisplayRole, type RoasterReviewDisplayRole } from "./review-display.ts";
+import { reviewsReviewDisplayRole, type ReviewsReviewDisplayRole } from "./review-display.ts";
 import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-export interface RoastSkillEntry {
+export interface ReviewSkillEntry {
 	readonly surface: string;
 	readonly reviewKey: string;
 	readonly title: string;
@@ -18,22 +18,22 @@ export interface RoastSkillEntry {
 	readonly defaultPrompt: string;
 }
 
-export type RoastReviewLoadResult =
+export type ReviewSkillDefinitionLoadResult =
 	| {
 			readonly ok: true;
-			readonly entry: RoastSkillEntry;
+			readonly entry: ReviewSkillEntry;
 			readonly source: ReviewSource;
 			readonly definition: ReviewDefinition;
 	  }
 	| { readonly ok: false; readonly error: ReviewFailure };
 
-export interface LoadRoastSkillEntriesOptions {
+export interface LoadReviewSkillEntriesOptions {
 	readonly cwd: string;
 	readonly reviewCatalog?: ReviewCatalogGateway;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface LoadRoastReviewDefinitionOptions extends LoadRoastSkillEntriesOptions {
+export interface LoadReviewSkillDefinitionOptions extends LoadReviewSkillEntriesOptions {
 	readonly key: string;
 }
 
@@ -44,23 +44,23 @@ const ACRONYMS = new Map([
 	["typescript", "TypeScript"],
 ]);
 
-const ROAST_SKILL_ROLE_TEXT = {
+const REVIEW_SKILL_ROLE_TEXT = {
 	tripwire: {
 		labelPrefix: "Tripwire",
 		promptNoun: "tripwire",
 	},
 	deep_review: {
-		labelPrefix: "Roast",
-		promptNoun: "roast",
+		labelPrefix: "Review",
+		promptNoun: "review",
 	},
 } as const satisfies Record<
-	RoasterReviewDisplayRole,
+	ReviewsReviewDisplayRole,
 	{ readonly labelPrefix: string; readonly promptNoun: string }
 >;
 
-export async function loadRoastSkillEntries(
-	options: LoadRoastSkillEntriesOptions,
-): Promise<ReviewResult<readonly RoastSkillEntry[]>> {
+export async function loadReviewSkillEntries(
+	options: LoadReviewSkillEntriesOptions,
+): Promise<ReviewResult<readonly ReviewSkillEntry[]>> {
 	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
 	const catalog = await reviewCatalog.listReviewKeys({
 		cwd: options.cwd,
@@ -68,18 +68,18 @@ export async function loadRoastSkillEntries(
 	});
 	if (!catalog.ok) return catalog;
 
-	const entries: RoastSkillEntry[] = [];
+	const entries: ReviewSkillEntry[] = [];
 	for (const key of catalog.value.keys) {
-		const loaded = await loadRoastReviewDefinition({ ...options, reviewCatalog, key });
+		const loaded = await loadReviewSkillDefinition({ ...options, reviewCatalog, key });
 		if (!loaded.ok) return { ok: false, error: loaded.error };
 		entries.push(loaded.entry);
 	}
 	return { ok: true, value: entries };
 }
 
-export async function loadRoastReviewDefinition(
-	options: LoadRoastReviewDefinitionOptions,
-): Promise<RoastReviewLoadResult> {
+export async function loadReviewSkillDefinition(
+	options: LoadReviewSkillDefinitionOptions,
+): Promise<ReviewSkillDefinitionLoadResult> {
 	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
 	const loaded = await loadParsedReviewDefinition({
 		cwd: options.cwd,
@@ -91,50 +91,53 @@ export async function loadRoastReviewDefinition(
 
 	return {
 		ok: true,
-		entry: roastSkillEntryFromDefinition(loaded.value.source.key, loaded.value.definition),
+		entry: reviewSkillEntryFromDefinition(loaded.value.source.key, loaded.value.definition),
 		source: loaded.value.source,
 		definition: loaded.value.definition,
 	};
 }
 
-function roastSkillSurfaceForDefinition(key: string, role: RoasterReviewDisplayRole): string {
+function reviewSkillSurfaceForDefinition(key: string, role: ReviewsReviewDisplayRole): string {
 	if (role === "tripwire" && key.endsWith("-tripwire")) return `skill:${key}`;
-	return `skill:roast-${key}`;
+	return `skill:review-${key}`;
 }
 
-export function roasterRunSurfaceForReviewKey(key: string): string {
-	return `roaster:run:${key}`;
+export function reviewsRunSurfaceForReviewKey(key: string): string {
+	return `reviews:run:${key}`;
 }
 
-export function roastReviewPathForKey(key: string): string {
+export function reviewPathForKey(key: string): string {
 	return `.ns/reviews/${key}/review.md`;
 }
 
-function roastSkillTitleForDefinition(key: string, role: RoasterReviewDisplayRole): string {
+function reviewSkillTitleForDefinition(key: string, role: ReviewsReviewDisplayRole): string {
 	const titleKey =
 		role === "tripwire" && key.endsWith("-tripwire") ? key.slice(0, -"-tripwire".length) : key;
 	const words = titleKey.split(/[/-]/u).filter((word) => word.length > 0);
 	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
 }
 
-function roastSkillLabel(title: string, role: RoasterReviewDisplayRole): string {
-	return `${ROAST_SKILL_ROLE_TEXT[role].labelPrefix}: ${title}`;
+function reviewSkillLabel(title: string, role: ReviewsReviewDisplayRole): string {
+	return `${REVIEW_SKILL_ROLE_TEXT[role].labelPrefix}: ${title}`;
 }
 
-function roastDefaultPrompt(title: string, role: RoasterReviewDisplayRole): string {
-	return `Run the ${title} ${ROAST_SKILL_ROLE_TEXT[role].promptNoun} against the current branch changes.`;
+function reviewDefaultPrompt(title: string, role: ReviewsReviewDisplayRole): string {
+	return `Run the ${title} ${REVIEW_SKILL_ROLE_TEXT[role].promptNoun} against the current branch changes.`;
 }
 
-function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
-	const role = roasterReviewDisplayRole(definition.modelProfile);
-	const title = roastSkillTitleForDefinition(key, role);
+function reviewSkillEntryFromDefinition(
+	key: string,
+	definition: ReviewDefinition,
+): ReviewSkillEntry {
+	const role = reviewsReviewDisplayRole(definition.modelProfile);
+	const title = reviewSkillTitleForDefinition(key, role);
 	return {
-		surface: roastSkillSurfaceForDefinition(key, role),
+		surface: reviewSkillSurfaceForDefinition(key, role),
 		reviewKey: key,
 		title,
-		label: roastSkillLabel(title, role),
+		label: reviewSkillLabel(title, role),
 		description: definition.description,
-		defaultPrompt: roastDefaultPrompt(title, role),
+		defaultPrompt: reviewDefaultPrompt(title, role),
 	};
 }
 

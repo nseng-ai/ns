@@ -10,8 +10,8 @@ import type {
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
 import type { NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
-function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
-	const registry = fakeRoasterRegistry();
+function runWithFakeReviewsExtension(options: RunWithFakesOptions) {
+	const registry = fakeReviewsRegistry();
 	const run = runCliWithFakes(
 		{ ...options, extensionRegistry: registry },
 		{
@@ -22,14 +22,14 @@ function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
 	return { ...run, registry };
 }
 
-describe("Roaster ns command face", () => {
-	test("top-level help discovers Roaster manifest metadata without loading selected code", async () => {
-		const run = runWithFakeRoasterExtension({ args: ["--help"] });
+describe("Reviews ns command face", () => {
+	test("top-level help discovers Reviews manifest metadata without loading selected code", async () => {
+		const run = runWithFakeReviewsExtension({ args: ["--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("roaster");
-		expect(help).toContain("Run configured Roaster reviews.");
+		expect(help).toContain("reviews");
+		expect(help).toContain("Run configured code reviews.");
 		expect(help).not.toContain("--applicable");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
@@ -37,13 +37,12 @@ describe("Roaster ns command face", () => {
 		expect(run.registry.loadLog).toEqual([]);
 	});
 
-	test("group help exposes nested Roaster commands without running backends", async () => {
-		const run = runWithFakeRoasterExtension({ args: ["roaster", "review", "--help"] });
+	test("group help exposes nested Reviews commands without running backends", async () => {
+		const run = runWithFakeReviewsExtension({ args: ["reviews", "review", "--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ns roaster review");
-		expect(help).toContain("list");
+		expect(help).toContain("Usage: ns reviews review");
 		expect(help).toContain("ls");
 		expect(help).toContain("log");
 		expect(help).toContain("run");
@@ -55,12 +54,12 @@ describe("Roaster ns command face", () => {
 		expect(run.registry.loadLog).toEqual([]);
 	});
 
-	test("selected Roaster help loads only the selected command schema", async () => {
-		const run = runWithFakeRoasterExtension({ args: ["roaster", "review", "list", "--help"] });
+	test("selected Reviews help loads only the selected command schema", async () => {
+		const run = runWithFakeReviewsExtension({ args: ["reviews", "list", "--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ns roaster review list");
+		expect(help).toContain("Usage: ns reviews list");
 		expect(help).toContain("--applicable");
 		expect(help).toContain("--ci");
 		expect(help).toContain("--base-ref");
@@ -68,12 +67,12 @@ describe("Roaster ns command face", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["roaster/review/list"]);
+		expect(run.registry.loadLog).toEqual(["reviews/list"]);
 	});
 
-	test("selected Roaster command publishes its machine schema", async () => {
-		const run = runWithFakeRoasterExtension({
-			args: ["roaster", "review", "log", "--json-schema"],
+	test("selected Reviews command publishes its machine schema", async () => {
+		const run = runWithFakeReviewsExtension({
+			args: ["reviews", "review", "log", "--json-schema"],
 		});
 
 		expect(await run.exit).toBe(0);
@@ -82,12 +81,12 @@ describe("Roaster ns command face", () => {
 		expect(schema).toHaveProperty("outputJsonSchema");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["roaster/review/log"]);
+		expect(run.registry.loadLog).toEqual(["reviews/review/log"]);
 	});
 
-	test("hidden Roaster publish-findings publishes its machine schema", async () => {
-		const run = runWithFakeRoasterExtension({
-			args: ["roaster", "exec", "publish-findings", "--json-schema"],
+	test("hidden Reviews publish-findings publishes its machine schema", async () => {
+		const run = runWithFakeReviewsExtension({
+			args: ["reviews", "exec", "publish-findings", "--json-schema"],
 		});
 
 		expect(await run.exit, run.stderr.join("")).toBe(0);
@@ -96,12 +95,12 @@ describe("Roaster ns command face", () => {
 		expect(schema).toHaveProperty("outputJsonSchema");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["roaster/exec-publish-findings"]);
+		expect(run.registry.loadLog).toEqual(["reviews/exec-publish-findings"]);
 	});
 
-	test("selected visible Roaster path routes parsed requests and the ns API", async () => {
-		const run = runWithFakeRoasterExtension({
-			args: ["roaster", "review", "list", "--format", "json", "--ci", "--base-ref", "main"],
+	test("selected visible Reviews path routes parsed requests and the ns API", async () => {
+		const run = runWithFakeReviewsExtension({
+			args: ["reviews", "list", "--format", "json", "--ci", "--base-ref", "main"],
 			cwd: "/workspace/project",
 		});
 
@@ -110,19 +109,19 @@ describe("Roaster ns command face", () => {
 		expect(envelope.status).toBe("ok");
 		expect(envelope.exitCode).toBe(0);
 		expect(envelope.data).toMatchObject({
-			commandKey: "roaster/review/list",
+			commandKey: "reviews/list",
 			cwd: "/workspace/project",
 			request: { ci: true, baseRef: "main" },
 		});
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["roaster/review/list"]);
+		expect(run.registry.loadLog).toEqual(["reviews/list"]);
 	});
 
-	test("selected hidden Roaster path routes parsed requests and ns stdin", async () => {
-		const run = runWithFakeRoasterExtension({
-			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
+	test("selected hidden Reviews path routes parsed requests and ns stdin", async () => {
+		const run = runWithFakeReviewsExtension({
+			args: ["reviews", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
 			state: { stdin: '{"status":"ok"}' },
 		});
 
@@ -130,18 +129,18 @@ describe("Roaster ns command face", () => {
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
 		expect(envelope.data).toMatchObject({
-			commandKey: "roaster/exec-publish-findings",
+			commandKey: "reviews/exec-publish-findings",
 			stdin: '{"status":"ok"}',
 			request: { prNumber: 47 },
 		});
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["roaster/exec-publish-findings"]);
+		expect(run.registry.loadLog).toEqual(["reviews/exec-publish-findings"]);
 	});
 });
 
-interface FakeRoasterRegistry {
+interface FakeReviewsRegistry {
 	loadLog: string[];
 	loadCommandCatalog: NonNullable<
 		NonNullable<NsCliDeps["extensionRegistry"]>["loadCommandCatalog"]
@@ -151,7 +150,7 @@ interface FakeRoasterRegistry {
 	) => Promise<SelectedNsCommandLoadResult>;
 }
 
-interface FakeRoasterCommandSpec {
+interface FakeReviewsCommandSpec {
 	readonly name: string;
 	readonly description: string;
 	readonly entryPath: string;
@@ -159,18 +158,18 @@ interface FakeRoasterCommandSpec {
 	readonly command: NsCommand;
 }
 
-const fakeRoasterCommandSpecs = [
+const fakeReviewsCommandSpecs = [
 	{
 		name: "review-list",
-		description: "List configured Roaster review definitions.",
-		entryPath: "fake://roaster/src/commands/review-list.ts",
-		segments: ["roaster", "review", "list"],
-		command: fakeRoasterCommand({
-			key: "roaster/review/list",
+		description: "List configured Reviews and generated review-skill metadata.",
+		entryPath: "fake://reviews/src/commands/review-list.ts",
+		segments: ["reviews", "list"],
+		command: fakeReviewsCommand({
+			key: "reviews/list",
 			name: "list",
-			summary: "List configured Roaster review definitions.",
+			summary: "List configured Reviews review definitions.",
 			description:
-				"List configured Roaster review definitions through a gateway-injected fake command.",
+				"List configured Reviews review definitions through a gateway-injected fake command.",
 			schema: z.object({
 				applicable: z.boolean().optional(),
 				ci: z.boolean().default(false),
@@ -180,83 +179,71 @@ const fakeRoasterCommandSpecs = [
 	},
 	{
 		name: "review-ls",
-		description: "Alias for review list.",
-		entryPath: "fake://roaster/src/commands/review-ls.ts",
-		segments: ["roaster", "review", "ls"],
-		command: fakeRoasterCommand({
-			key: "roaster/review/ls",
+		description: "Alias for reviews list.",
+		entryPath: "fake://reviews/src/commands/review-ls.ts",
+		segments: ["reviews", "review", "ls"],
+		command: fakeReviewsCommand({
+			key: "reviews/review/ls",
 			name: "ls",
-			summary: "Alias for review list.",
-			description: "Alias for the fake Roaster review list command.",
+			summary: "Alias for reviews list.",
+			description: "Alias for the fake Reviews list command.",
 		}),
 	},
 	{
 		name: "review-log",
-		description: "List Roaster review logs for this branch.",
-		entryPath: "fake://roaster/src/commands/review-log.ts",
-		segments: ["roaster", "review", "log"],
-		command: fakeRoasterCommand({
-			key: "roaster/review/log",
+		description: "List Reviews review logs for this branch.",
+		entryPath: "fake://reviews/src/commands/review-log.ts",
+		segments: ["reviews", "review", "log"],
+		command: fakeReviewsCommand({
+			key: "reviews/review/log",
 			name: "log",
-			summary: "List Roaster review logs for this branch.",
-			description: "List fake Roaster review logs for this branch.",
+			summary: "List Reviews review logs for this branch.",
+			description: "List fake Reviews review logs for this branch.",
 			schema: z.object({ key: z.string().optional() }),
 		}),
 	},
 	{
 		name: "review-run",
-		description: "Run a configured Roaster review over the current diff.",
-		entryPath: "fake://roaster/src/commands/review-run.ts",
-		segments: ["roaster", "review", "run"],
-		command: fakeRoasterCommand({
-			key: "roaster/review/run",
+		description: "Run a configured Reviews review over the current diff.",
+		entryPath: "fake://reviews/src/commands/review-run.ts",
+		segments: ["reviews", "review", "run"],
+		command: fakeReviewsCommand({
+			key: "reviews/review/run",
 			name: "run",
-			summary: "Run a configured Roaster review over the current diff.",
-			description: "Run a fake Roaster review over the current diff.",
+			summary: "Run a configured Reviews review over the current diff.",
+			description: "Run a fake Reviews review over the current diff.",
 		}),
 	},
 	{
 		name: "exec-record-findings",
-		description: "Record same-session Roaster findings from stdin.",
-		entryPath: "fake://roaster/src/commands/exec-record-findings.ts",
-		command: fakeRoasterCommand({
-			key: "roaster/exec-record-findings",
+		description: "Record same-session Reviews findings from stdin.",
+		entryPath: "fake://reviews/src/commands/exec-record-findings.ts",
+		command: fakeReviewsCommand({
+			key: "reviews/exec-record-findings",
 			name: "exec-record-findings",
-			summary: "Record same-session Roaster findings from stdin.",
-			description: "Record fake same-session Roaster findings from stdin.",
+			summary: "Record same-session Reviews findings from stdin.",
+			description: "Record fake same-session Reviews findings from stdin.",
 		}),
 	},
 	{
 		name: "exec-publish-findings",
-		description: "Publish Roaster findings to GitHub.",
-		entryPath: "fake://roaster/src/commands/exec-publish-findings.ts",
-		command: fakeRoasterCommand({
-			key: "roaster/exec-publish-findings",
+		description: "Publish Reviews findings to GitHub.",
+		entryPath: "fake://reviews/src/commands/exec-publish-findings.ts",
+		command: fakeReviewsCommand({
+			key: "reviews/exec-publish-findings",
 			name: "exec-publish-findings",
-			summary: "Publish Roaster findings to GitHub.",
-			description: "Publish fake Roaster findings to GitHub.",
+			summary: "Publish Reviews findings to GitHub.",
+			description: "Publish fake Reviews findings to GitHub.",
 			schema: z.object({
 				prNumber: z.coerce.number().int().positive(),
 			}),
 		}),
 	},
-	{
-		name: "roast-list",
-		description: "List Roaster review-skill commands.",
-		entryPath: "fake://roaster/src/commands/roast-list.ts",
-		segments: ["roaster", "roast", "list"],
-		command: fakeRoasterCommand({
-			key: "roaster/roast/list",
-			name: "list",
-			summary: "List Roaster review-skill commands.",
-			description: "List fake Roaster review-skill commands.",
-		}),
-	},
-] as const satisfies readonly FakeRoasterCommandSpec[];
+] as const satisfies readonly FakeReviewsCommandSpec[];
 
-function fakeRoasterRegistry(): FakeRoasterRegistry {
+function fakeReviewsRegistry(): FakeReviewsRegistry {
 	const loadLog: string[] = [];
-	const candidates = fakeRoasterCommandSpecs.map(roasterCandidate);
+	const candidates = fakeReviewsCommandSpecs.map(reviewsCandidate);
 	const candidatesByKey = new Map(
 		candidates.map((candidate) => [candidateKey(candidate), candidate]),
 	);
@@ -278,14 +265,14 @@ function fakeRoasterRegistry(): FakeRoasterRegistry {
 		async loadSelectedCommand(candidate) {
 			const key = candidateKey(candidate);
 			loadLog.push(key);
-			const spec = fakeRoasterCommandSpecs.find((entry) => roasterSpecKey(entry) === key);
+			const spec = fakeReviewsCommandSpecs.find((entry) => reviewsSpecKey(entry) === key);
 			if (spec === undefined) {
 				return {
 					ok: false,
 					diagnostic: {
 						severity: "error",
 						code: "extension_command_missing",
-						message: `Missing fake Roaster command ${key}`,
+						message: `Missing fake Reviews command ${key}`,
 						commandName: key,
 					},
 				};
@@ -300,22 +287,22 @@ function fakeRoasterRegistry(): FakeRoasterRegistry {
 	};
 }
 
-function roasterCandidate(spec: FakeRoasterCommandSpec): ExtensionCommandCandidate {
+function reviewsCandidate(spec: FakeReviewsCommandSpec): ExtensionCommandCandidate {
 	return {
-		group: "roaster",
+		group: "reviews",
 		...(spec.segments === undefined ? {} : { segments: spec.segments }),
 		name: spec.name,
 		description: spec.description,
 		fullDescription: spec.description,
-		groupDescription: "Run configured Roaster reviews.",
-		source: { level: "project", label: "fake checked-in Roaster extension" },
+		groupDescription: "Run configured code reviews.",
+		source: { level: "project", label: "fake checked-in Reviews extension" },
 		moduleReference: { type: "file", path: spec.entryPath },
 		entryPath: spec.entryPath,
 		hasStaticCommandInfo: true,
 	};
 }
 
-function fakeRoasterCommand(options: {
+function fakeReviewsCommand(options: {
 	key: string;
 	name: string;
 	summary: string;
@@ -351,9 +338,9 @@ async function readStdin(ctx: NsExtensionApi): Promise<string> {
 	return await (ctx.stdin?.() ?? Promise.resolve(""));
 }
 
-function roasterSpecKey(spec: FakeRoasterCommandSpec): string {
+function reviewsSpecKey(spec: FakeReviewsCommandSpec): string {
 	if (spec.segments !== undefined) return spec.segments.join("/");
-	return `roaster/${spec.name}`;
+	return `reviews/${spec.name}`;
 }
 
 function candidateKey(

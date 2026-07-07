@@ -71,7 +71,7 @@ function omittedReviewInputFile(
 
 function buildCappedDiffHeader(coverage: ReviewInputCoverage): string {
 	const lines = [
-		"# Roaster note: diff input was capped before sending to the review model.",
+		"# Reviews note: diff input was capped before sending to the review model.",
 		`# Full diff estimate: ~${coverage.fullDiffEstimatedTokens} tokens; prompt diff cap: ${coverage.promptDiffTokenCap} tokens; per-file cap: ${coverage.promptDiffFileTokenCap} tokens.`,
 		"# Omitted file diffs:",
 		...coverage.omittedFiles.map(

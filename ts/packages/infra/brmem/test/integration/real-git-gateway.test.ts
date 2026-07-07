@@ -80,7 +80,7 @@ describe("RealGitBrmemGateway integration", () => {
 			expect(
 				(
 					await gateway.putEntry({
-						namespace: "roaster",
+						namespace: "reviews",
 						branch: "feat/x",
 						key,
 						content: "review\n",
@@ -88,12 +88,12 @@ describe("RealGitBrmemGateway integration", () => {
 				).type,
 			).toBe("ok");
 
-			const listed = await gateway.listEntries({ namespace: "roaster", branch: "feat/x" });
+			const listed = await gateway.listEntries({ namespace: "reviews", branch: "feat/x" });
 			if (listed.type !== "ok") throw new Error("unexpected list error");
 			expect(listed.value.map((entry) => entry.key)).toEqual([key]);
-			expect(repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns/roaster/feat---x"])).toBe(
-				`${key}\n`,
-			);
+			expect(
+				repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns-ai/reviews/feat---x"]),
+			).toBe(`${key}\n`);
 		} finally {
 			repo.cleanup();
 		}

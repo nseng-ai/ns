@@ -193,14 +193,14 @@ describe("PR checks preview vertical layout", () => {
 	test("explains canceled check logs without calling gh", () => {
 		const lines = checkLogUnavailableReason({
 			...previewCheck("review"),
-			workflow_name: "roaster",
+			workflow_name: "reviews",
 			conclusion: "CANCELED",
 		});
 
 		expect(lines).toEqual([
 			"Logs are not available because this check was canceled.",
 			"",
-			"Check: roaster / review",
+			"Check: reviews / review",
 			"Conclusion: CANCELED",
 			"GitHub can omit job logs for checks that never ran or were canceled before log upload.",
 		]);

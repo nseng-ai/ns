@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { installCheckedInRoasterExtension } from "../helpers/roaster-extension.ts";
+import { installCheckedInReviewsExtension } from "../helpers/reviews-extension.ts";
 import { parseJsonOutput, runCliWithFakes } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
@@ -15,14 +15,14 @@ afterEach(async () => {
 	}
 });
 
-describe("checked-in Roaster ns extension loading", () => {
-	test("real loader exposes selected Roaster review list help", async () => {
-		const cwd = await createRoasterProject();
-		const run = runWithRealRoasterExtension({ args: ["roaster", "review", "list", "--help"], cwd });
+describe("checked-in Reviews ns extension loading", () => {
+	test("real loader exposes selected Reviews list help", async () => {
+		const cwd = await createReviewsProject();
+		const run = runWithRealReviewsExtension({ args: ["reviews", "list", "--help"], cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ns roaster review list");
+		expect(help).toContain("Usage: ns reviews list");
 		expect(help).toContain("--applicable");
 		expect(help).toContain("--ci");
 		expect(help).toContain("--base-ref");
@@ -32,22 +32,21 @@ describe("checked-in Roaster ns extension loading", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("real loader preserves Roaster nested and hidden command surfaces", async () => {
-		const cwd = await createRoasterProject();
-		const groupHelp = runWithRealRoasterExtension({ args: ["roaster", "review", "--help"], cwd });
+	test("real loader preserves Reviews nested and hidden command surfaces", async () => {
+		const cwd = await createReviewsProject();
+		const groupHelp = runWithRealReviewsExtension({ args: ["reviews", "review", "--help"], cwd });
 
 		expect(await groupHelp.exit).toBe(0);
 		const help = groupHelp.stdout.join("");
-		expect(help).toContain("Usage: ns roaster review");
-		expect(help).toContain("list");
+		expect(help).toContain("Usage: ns reviews review");
 		expect(help).toContain("ls");
 		expect(help).toContain("log");
 		expect(help).toContain("run");
 		expect(help).not.toContain("exec");
 		expect(groupHelp.stderr.join("")).toBe("");
 
-		const hiddenSchema = runWithRealRoasterExtension({
-			args: ["roaster", "exec", "publish-findings", "--json-schema"],
+		const hiddenSchema = runWithRealReviewsExtension({
+			args: ["reviews", "exec", "publish-findings", "--json-schema"],
 			cwd,
 		});
 		expect(await hiddenSchema.exit).toBe(0);
@@ -56,14 +55,14 @@ describe("checked-in Roaster ns extension loading", () => {
 	});
 });
 
-async function createRoasterProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-roaster-extension-project-"));
+async function createReviewsProject(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "ns-reviews-extension-project-"));
 	tempDirs.push(directory);
-	installCheckedInRoasterExtension(directory);
+	installCheckedInReviewsExtension(directory);
 	return directory;
 }
 
-function runWithRealRoasterExtension(options: { args: readonly string[]; cwd: string }) {
+function runWithRealReviewsExtension(options: { args: readonly string[]; cwd: string }) {
 	return runCliWithFakes(options, {
 		execResponses: () => [],
 		textGenerationResults: () => [],

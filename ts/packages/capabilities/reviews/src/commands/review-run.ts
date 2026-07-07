@@ -7,15 +7,15 @@ import {
 	runReviewByKey,
 	type ReviewRunRequest,
 } from "../operations/cli-operations.ts";
-import { roasterNsCommand } from "../ns/command.ts";
+import { reviewsNsCommand } from "../ns/command.ts";
 
-const REVIEW_RUN_DESCRIPTION = `Run a configured Roaster review over the current diff.
+const REVIEW_RUN_DESCRIPTION = `Run a configured Reviews review over the current diff.
 
-This ns command adapts ns execution context to Roaster's gateway-injected runtime, delegates review execution through the shared Roaster operation wrapper, writes the Roaster Branch Memory review log, and preserves review-run failure semantics. Discovery and group help read only manifest metadata; selected execution may run git, model, and Branch Memory operations.`;
+This ns command adapts ns execution context to Reviews gateway-injected runtime, delegates review execution through the shared Reviews operation wrapper, writes the Reviews Branch Memory review log, and preserves review-run failure semantics. Discovery and group help read only manifest metadata; selected execution may run git, model, and Branch Memory operations.`;
 
-export const roasterReviewRunCommand = roasterNsCommand({
+export const reviewsReviewRunCommand = reviewsNsCommand({
 	name: "run",
-	summary: "Run a configured Roaster review over the current diff.",
+	summary: "Run a configured Reviews review over the current diff.",
 	description: REVIEW_RUN_DESCRIPTION,
 	schema: reviewRunRequestSchema,
 	positionals: { key: { position: 0 } },
@@ -35,7 +35,7 @@ export const roasterReviewRunCommand = roasterNsCommand({
 });
 
 export default defineExtension({
-	commands: [roasterReviewRunCommand],
+	commands: [reviewsReviewRunCommand],
 });
 
-export type RoasterReviewRunRequest = ReviewRunRequest;
+export type ReviewsReviewRunRequest = ReviewRunRequest;

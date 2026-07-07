@@ -7,15 +7,15 @@ import {
 	runRecordFindings,
 	type RecordFindingsRequest,
 } from "../operations/cli-operations.ts";
-import { roasterNsCommand } from "../ns/command.ts";
+import { reviewsNsCommand } from "../ns/command.ts";
 
-const EXEC_RECORD_FINDINGS_DESCRIPTION = `Record same-session Roaster findings from stdin.
+const EXEC_RECORD_FINDINGS_DESCRIPTION = `Record same-session Reviews findings from stdin.
 
-This hidden ns automation command preserves Roaster's record-findings JSON stdin contract, validates the findings payload inside Roaster-owned logic, and writes the same Branch Memory review log under namespace roaster and reviews/<review-key>/... keys. It intentionally does not publish findings to GitHub.`;
+This hidden ns automation command preserves Reviews record-findings JSON stdin contract, validates the findings payload inside Reviews-owned logic, and writes the same Branch Memory review log under namespace reviews and reviews/<review-key>/... keys. It intentionally does not publish findings to GitHub.`;
 
-export const roasterExecRecordFindingsCommand = roasterNsCommand({
+export const reviewsExecRecordFindingsCommand = reviewsNsCommand({
 	name: "exec-record-findings",
-	summary: "Record same-session Roaster findings from stdin.",
+	summary: "Record same-session Reviews findings from stdin.",
 	description: EXEC_RECORD_FINDINGS_DESCRIPTION,
 	schema: recordFindingsRequestSchema,
 	resultSchema: reviewRunResultSchema,
@@ -26,7 +26,7 @@ export const roasterExecRecordFindingsCommand = roasterNsCommand({
 });
 
 export default defineExtension({
-	commands: [roasterExecRecordFindingsCommand],
+	commands: [reviewsExecRecordFindingsCommand],
 });
 
-export type RoasterExecRecordFindingsRequest = RecordFindingsRequest;
+export type ReviewsExecRecordFindingsRequest = RecordFindingsRequest;

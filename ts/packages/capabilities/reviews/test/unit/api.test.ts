@@ -2,15 +2,15 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import { describe, expect, test } from "vitest";
 
-import { createRoasterClient, ROASTER_REVIEW_LOG_NAMESPACE } from "@nseng-ai/reviews/api";
+import { createReviewsClient, REVIEWS_REVIEW_LOG_NAMESPACE } from "@nseng-ai/reviews/api";
 import type {
 	RecordFindingsOutcome,
 	ReviewListResult,
-	RoasterRuntime,
-	RunRoasterReviewOutcome,
+	ReviewsRuntime,
+	RunReviewsReviewOutcome,
 } from "@nseng-ai/reviews/api";
 import {
-	createRoasterRuntime,
+	createReviewsRuntime,
 	type ReviewsGithubPrFeedbackGateway,
 } from "../../src/core/context.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
@@ -25,7 +25,7 @@ import {
 	type ReviewFinding,
 } from "../../src/core/models.ts";
 import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 
 const REVIEW_KEY = "typescript-style";
 
@@ -83,9 +83,9 @@ function runtimeWithFakes(
 		readonly stdin?: string;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
 	} = {},
-): RoasterRuntime {
-	return createRoasterRuntime(
-		fakeRoasterContext({
+): ReviewsRuntime {
+	return createReviewsRuntime(
+		fakeReviewsContext({
 			gitGateway: new InMemoryGitGateway({
 				repoRoot: "/repo",
 				optionalRepoRoot: "/repo",
@@ -126,16 +126,16 @@ function runtimeWithFakes(
 
 describe("@nseng-ai/reviews/api", () => {
 	test("exports a client facade and stable domain types", async () => {
-		const client = createRoasterClient({ cwd: "/repo", runtime: runtimeWithFakes() });
+		const client = createReviewsClient({ cwd: "/repo", runtime: runtimeWithFakes() });
 		const result = await client.listReviews();
 		const typedResult: ReviewListResult | null = result.ok ? result.value : null;
 
-		expect(ROASTER_REVIEW_LOG_NAMESPACE).toBe("roaster");
+		expect(REVIEWS_REVIEW_LOG_NAMESPACE).toBe("reviews");
 		expect(typedResult?.keys).toEqual([REVIEW_KEY]);
 	});
 
 	test("listReviews delegates through the fake catalog", async () => {
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				sources: {
@@ -161,11 +161,11 @@ describe("@nseng-ai/reviews/api", () => {
 			entries: [
 				{
 					key: "reviews/typescript-style/2026-06-28T20-00-00-000Z.md",
-					content: "# Roaster Review",
+					content: "# Reviews Review",
 				},
 			],
 		});
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({ reviewLog }),
 		});
@@ -174,7 +174,7 @@ describe("@nseng-ai/reviews/api", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) throw new Error(result.error.message);
-		expect(result.value.namespace).toBe("roaster");
+		expect(result.value.namespace).toBe("reviews");
 		expect(result.value.entries).toHaveLength(1);
 		expect(result.value.entries[0]?.reviewKey).toBe(REVIEW_KEY);
 	});
@@ -188,7 +188,7 @@ describe("@nseng-ai/reviews/api", () => {
 			details: "Return a structured failure instead of throwing for expected cases.",
 		};
 		const reviewLog = new FakeReviewLogGateway({ branch: "feature/api" });
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				reviewLog,
@@ -196,18 +196,18 @@ describe("@nseng-ai/reviews/api", () => {
 			}),
 		});
 
-		const outcome: RunRoasterReviewOutcome = await client.runReview({ key: REVIEW_KEY });
+		const outcome: RunReviewsReviewOutcome = await client.runReview({ key: REVIEW_KEY });
 
 		expect(outcome.type).toBe("completed");
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
-		expect(reviewLog.writtenEntries()[0]?.namespace).toBe("roaster");
+		expect(reviewLog.writtenEntries()[0]?.namespace).toBe("reviews");
 		if (outcome.type !== "completed") throw new Error("expected completed outcome");
 		expect(outcome.result.findings).toEqual([finding]);
 	});
 
 	test("recordFindings reads stdin and writes a same-session review log", async () => {
 		const reviewLog = new FakeReviewLogGateway({ branch: "feature/api" });
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				reviewLog,
@@ -236,7 +236,7 @@ describe("@nseng-ai/reviews/api", () => {
 	});
 
 	test("recordFindings returns domain failures for malformed stdin", async () => {
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({ stdin: "not json" }),
 		});
@@ -255,7 +255,7 @@ describe("@nseng-ai/reviews/api", () => {
 				[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -4 +4 @@\n+new" }]],
 			]),
 		});
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				github,
@@ -265,7 +265,7 @@ describe("@nseng-ai/reviews/api", () => {
 						line: 4,
 						severity: "warning",
 						summary: "Published through the API facade.",
-						details: "The command can route through RoasterClient.publishFindings.",
+						details: "The command can route through ReviewsClient.publishFindings.",
 					},
 				]),
 			}),
@@ -283,7 +283,7 @@ describe("@nseng-ai/reviews/api", () => {
 	});
 
 	test("maps command-faced failures without exposing ClinkrExit", async () => {
-		const client = createRoasterClient({
+		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				reviewCatalog: new FakeReviewCatalogGateway({

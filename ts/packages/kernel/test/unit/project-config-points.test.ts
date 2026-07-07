@@ -109,19 +109,19 @@ describe("project point config", () => {
 				{
 					severity: "error",
 					code: "settings_table_invalid",
-					path: "roaster.diff",
-					message: "ns.toml: [roaster.diff] must be a TOML table.",
+					path: "reviews.diff",
+					message: "ns.toml: [reviews.diff] must be a TOML table.",
 				},
 			],
 			{
 				invalidToml: "invalid-toml",
-				invalidSettingsByPath: { "roaster.diff": "invalid-table" },
+				invalidSettingsByPath: { "reviews.diff": "invalid-table" },
 				defaultCode: "invalid-toml",
 			},
 		);
 		expect(invalidSettings).toMatchObject({
 			code: "invalid-table",
-			message: "ns.toml: [roaster.diff] must be a TOML table.",
+			message: "ns.toml: [reviews.diff] must be a TOML table.",
 		});
 	});
 
@@ -170,7 +170,7 @@ describe("project point config", () => {
 			`[points]
 "flow.submit.pre" = ["just"]
 
-[roaster.diff]
+[reviews.diff]
 context_lines = 8
 include_binary = false
 `,
@@ -178,7 +178,7 @@ include_binary = false
 				pointsTable: { mode: "validate", pointDefinitions },
 				settingsSchemas: [
 					{
-						path: ["roaster", "diff"],
+						path: ["reviews", "diff"],
 						schema: z.object({ context_lines: z.number().int(), include_binary: z.boolean() }),
 					},
 				],
@@ -187,7 +187,7 @@ include_binary = false
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.config.settings.get("roaster.diff")).toEqual({
+		expect(result.config.settings.get("reviews.diff")).toEqual({
 			context_lines: 8,
 			include_binary: false,
 		});
@@ -217,20 +217,20 @@ agents = ["codex"]
 
 	test("reports declared settings schema failures", () => {
 		const result = parseProjectConfigToml(
-			`[roaster.diff]
+			`[reviews.diff]
 context_lines = "wide"
 `,
 			{
 				pointsTable: { mode: "validate", pointDefinitions },
 				settingsSchemas: [
-					{ path: ["roaster", "diff"], schema: z.object({ context_lines: z.number().int() }) },
+					{ path: ["reviews", "diff"], schema: z.object({ context_lines: z.number().int() }) },
 				],
 			},
 		);
 
 		expect(result.ok).toBe(false);
 		expect(result.diagnostics).toEqual([
-			expect.objectContaining({ code: "settings_table_invalid", path: "roaster.diff" }),
+			expect.objectContaining({ code: "settings_table_invalid", path: "reviews.diff" }),
 		]);
 	});
 

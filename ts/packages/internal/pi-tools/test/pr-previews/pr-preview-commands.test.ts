@@ -274,53 +274,53 @@ const CURRENT_PR_1952_REVIEW_THREADS = [
 		id: "PRRT_kwDOR4YhMs6LDqVa",
 		line: 304,
 		commentId: 3447739320,
-		body: `<!-- roaster-inline:duplicative-abstractions:05b6661786cbf1fd -->
+		body: `<!-- reviews-inline:duplicative-abstractions:05b6661786cbf1fd -->
 **info: fitToWidth utility duplicated from context-profiler/render.ts**
 _Review: \`duplicative-abstractions\`._
 
 The new fitToWidth(value: string, width: number) function (line 304) duplicates the implementation already exported from context-profiler/render.ts. Both truncate-then-pad text to a fixed width using truncateToWidth and visibleWidth from pi-tui. The new version adds a width <= 0 guard but is otherwise equivalent. Siblings in the codebase import fitToWidth from context-profiler/render.ts — should the new PrPreviewFeedbackView route through that shared export instead of hand-rolling?
 Evidence: \`ts/packages/internal/pi-tools/src/context-profiler/render.ts\`
 
-_Posted by roaster. Re-running may skip this comment by marker._`,
+_Posted by reviews. Re-running may skip this comment by marker._`,
 	}),
 	currentPr1952Thread({
 		id: "PRRT_kwDOR4YhMs6LDqVc",
 		line: 316,
 		commentId: 3447739323,
-		body: `<!-- roaster-inline:duplicative-abstractions:a1ffb2403abc2be8 -->
+		body: `<!-- reviews-inline:duplicative-abstractions:a1ffb2403abc2be8 -->
 **info: clamp utility duplicated from context-profiler/render.ts**
 _Review: \`duplicative-abstractions\`._
 
 The new clamp(value: number, min: number, max: number) function (line 316) duplicates the clamping utility already exported from context-profiler/render.ts. The implementations are nearly identical; context-profiler's version adds a guard for max < min. Since clamp is a common operation, siblings like context-profiler/view.ts import the shared export — should this new code import from there instead of defining locally?
 Evidence: \`ts/packages/internal/pi-tools/src/context-profiler/render.ts\`
 
-_Posted by roaster. Re-running may skip this comment by marker._`,
+_Posted by reviews. Re-running may skip this comment by marker._`,
 	}),
 	currentPr1952Thread({
 		id: "PRRT_kwDOR4YhMs6LDqVd",
 		line: 310,
 		commentId: 3447739324,
-		body: `<!-- roaster-inline:duplicative-abstractions:b94684670e00730d -->
+		body: `<!-- reviews-inline:duplicative-abstractions:b94684670e00730d -->
 **info: reconcileScroll algorithm overlaps with context-profiler but may diverge**
 _Review: \`duplicative-abstractions\`._
 
 The new reconcileScroll(selection: number, scroll: number, height: number) function (line 310) keeps a selection visible within a scrollable viewport. Context-profiler exports a reconcileScroll with a different signature (takes options object with scroll, anchor, areaHeight, totalLines) that enforces anchoring semantics. Both solve scroll-state reconciliation but with different contracts. The simpler new algorithm may be sufficient for the preview use-case, but a follow-up agent should verify whether one implementation should be canonical or if they serve genuinely different purposes.
 Evidence: \`ts/packages/internal/pi-tools/src/context-profiler/render.ts\`
 
-_Posted by roaster. Re-running may skip this comment by marker._`,
+_Posted by reviews. Re-running may skip this comment by marker._`,
 	}),
 	currentPr1952Thread({
 		id: "PRRT_kwDOR4YhMs6LDqbW",
 		line: 183,
 		commentId: 3447739828,
 		createdAt: "2026-06-21T01:09:29Z",
-		body: `<!-- roaster-inline:ns-typescript-style:a2446bd16426bc13 -->
+		body: `<!-- reviews-inline:ns-typescript-style:a2446bd16426bc13 -->
 **warning: Function with 4+ positional parameters**
 _Review: \`ns-typescript-style\`._
 
 The \`border\` method declares 4 required positional parameters (left, fill, right, width). Rule 12 (Long positional parameter lists) recommends using a named \`*Options\` object for functions with four or more positional parameters, rather than separate positional parameters.
 
-_Posted by roaster. Re-running may skip this comment by marker._`,
+_Posted by reviews. Re-running may skip this comment by marker._`,
 	}),
 ] as const satisfies readonly PrPreviewFeedbackThread[];
 
@@ -668,7 +668,7 @@ describe("/pr:preview-feedback", () => {
 		expect(detailLines[0]).not.toContain("Path:");
 	});
 
-	test("current PR 1952 roaster details omit machine markers and footer noise", () => {
+	test("current PR 1952 reviews details omit machine markers and footer noise", () => {
 		const details = buildThreadDetailLines(CURRENT_PR_1952_REVIEW_THREADS[0]).join("\n");
 
 		expect(details).toContain(
@@ -678,8 +678,8 @@ describe("/pr:preview-feedback", () => {
 		expect(details).toContain(
 			"Evidence: `ts/packages/internal/pi-tools/src/context-profiler/render.ts`",
 		);
-		expect(details).not.toContain("roaster-inline");
-		expect(details).not.toContain("Posted by roaster");
+		expect(details).not.toContain("reviews-inline");
+		expect(details).not.toContain("Posted by reviews");
 	});
 
 	test("wrapped detail viewport scrolls to the visual bottom", () => {

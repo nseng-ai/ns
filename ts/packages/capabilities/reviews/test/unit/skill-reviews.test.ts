@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import {
-	loadRoastReviewDefinition,
-	loadRoastSkillEntries,
-	roastReviewPathForKey,
+	loadReviewSkillDefinition,
+	loadReviewSkillEntries,
+	reviewPathForKey,
 } from "../../src/core/skill-reviews.ts";
 
 const REVIEW_SOURCE = `---
@@ -16,7 +16,7 @@ description: Fixture review description.
 Inspect the diff.
 `;
 
-describe("Roaster skill review catalog", () => {
+describe("Reviews skill review catalog", () => {
 	test("uses the catalog gateway and parser for async discovery", async () => {
 		const reviewCatalog = new FakeReviewCatalogGateway({
 			reviewKeys: ["zeta-review", "alpha-review"],
@@ -26,7 +26,7 @@ describe("Roaster skill review catalog", () => {
 			},
 		});
 
-		const loaded = await loadRoastSkillEntries({ cwd: "/repo", reviewCatalog });
+		const loaded = await loadReviewSkillEntries({ cwd: "/repo", reviewCatalog });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
@@ -36,7 +36,7 @@ describe("Roaster skill review catalog", () => {
 			"Alpha description.",
 		]);
 		expect(loaded.value[0]).toMatchObject({
-			surface: "skill:roast-zeta-review",
+			surface: "skill:review-zeta-review",
 			title: "Zeta review",
 			label: "Tripwire: Zeta review",
 			defaultPrompt: "Run the Zeta review tripwire against the current branch changes.",
@@ -49,7 +49,7 @@ describe("Roaster skill review catalog", () => {
 			reviewSourcesByKey: { "alpha-review": REVIEW_SOURCE },
 		});
 
-		const loaded = await loadRoastReviewDefinition({
+		const loaded = await loadReviewSkillDefinition({
 			cwd: "/repo",
 			reviewCatalog,
 			key: "alpha-review",
@@ -57,7 +57,7 @@ describe("Roaster skill review catalog", () => {
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		expect(loaded.entry.surface).toBe("skill:roast-alpha-review");
+		expect(loaded.entry.surface).toBe("skill:review-alpha-review");
 		expect(loaded.source.source).toBe(REVIEW_SOURCE);
 		expect(loaded.definition.description).toBe("Fixture review description.");
 	});
@@ -68,7 +68,7 @@ describe("Roaster skill review catalog", () => {
 			reviewSourcesByKey: { "invalid-review": invalidSource },
 		});
 
-		const loaded = await loadRoastSkillEntries({ cwd: "/repo", reviewCatalog });
+		const loaded = await loadReviewSkillEntries({ cwd: "/repo", reviewCatalog });
 
 		expect(loaded).toMatchObject({
 			ok: false,
@@ -85,7 +85,7 @@ describe("Roaster skill review catalog", () => {
 			},
 		});
 
-		const loaded = await loadRoastReviewDefinition({
+		const loaded = await loadReviewSkillDefinition({
 			cwd: "/repo",
 			reviewCatalog,
 			key: "dry-but-not-too-dry",
@@ -94,13 +94,13 @@ describe("Roaster skill review catalog", () => {
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
 		expect(loaded.entry).toMatchObject({
-			surface: "skill:roast-dry-but-not-too-dry",
+			surface: "skill:review-dry-but-not-too-dry",
 			reviewKey: "dry-but-not-too-dry",
 			title: "DRY but not too DRY",
-			label: "Roast: DRY but not too DRY",
-			defaultPrompt: "Run the DRY but not too DRY roast against the current branch changes.",
+			label: "Review: DRY but not too DRY",
+			defaultPrompt: "Run the DRY but not too DRY review against the current branch changes.",
 		});
-		expect(roastReviewPathForKey(loaded.entry.reviewKey)).toBe(
+		expect(reviewPathForKey(loaded.entry.reviewKey)).toBe(
 			".ns/reviews/dry-but-not-too-dry/review.md",
 		);
 	});

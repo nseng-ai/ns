@@ -12,7 +12,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	catalogOptions,
-	createRoasterRuntime,
+	createReviewsRuntime,
 	environmentOptions,
 	type ReviewsGithubPrFeedbackGateway,
 } from "../../src/core/context.ts";
@@ -28,7 +28,7 @@ import {
 	type ReviewExecutionResponse,
 	type ReviewRunnerRequest,
 } from "../../src/core/models.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 
 const sampleReviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
@@ -156,16 +156,16 @@ class RecordingGitHubGateway implements ReviewsGithubPrFeedbackGateway {
 	}
 }
 
-describe("createRoasterRuntime", () => {
+describe("createReviewsRuntime", () => {
 	test("derives operation capabilities from the full CLI context", async () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
 		const reviewRunner = new RecordingReviewRunnerGateway();
-		const env = { ROASTER_TEST: "1" };
+		const env = { REVIEWS_TEST: "1" };
 		const signal = new AbortController().signal;
 		const stderr: string[] = [];
-		const context = fakeRoasterContext({
+		const context = fakeReviewsContext({
 			localDiff,
 			reviewCatalog,
 			github,
@@ -177,7 +177,7 @@ describe("createRoasterRuntime", () => {
 			stderr: (text) => stderr.push(text),
 		});
 
-		const ctx = createRoasterRuntime(context);
+		const ctx = createReviewsRuntime(context);
 		const runOptions = environmentOptions(ctx.runScope);
 		const catalogRunOptions = catalogOptions(ctx.runScope);
 
@@ -208,7 +208,7 @@ describe("createRoasterRuntime", () => {
 		await ctx.github.findPrDiscussionCommentByMarker({
 			...runOptions,
 			prNumber: 47,
-			marker: "<!-- roaster:typescript-style -->",
+			marker: "<!-- reviews:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
 		await ctx.github.addPrDiscussionComment({ ...runOptions, prNumber: 47, body: "body" });
@@ -232,7 +232,7 @@ describe("createRoasterRuntime", () => {
 			env,
 			signal,
 			prNumber: 47,
-			marker: "<!-- roaster:typescript-style -->",
+			marker: "<!-- reviews:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
 		expect(github.reviewThreadCalls[0]).toEqual({ cwd: "/repo", env, signal, prNumber: 47 });

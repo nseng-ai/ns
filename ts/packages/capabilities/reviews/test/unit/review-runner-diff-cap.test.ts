@@ -74,7 +74,7 @@ describe("prompt-sized diff coverage", () => {
 			}),
 		]);
 		expect(result.diffText).toContain(
-			"# Roaster note: diff input was capped before sending to the review model.",
+			"# Reviews note: diff input was capped before sending to the review model.",
 		);
 		expect(result.diffText).toContain("# - large.ts (modified,");
 		expect(result.diffText).toContain("file exceeds cap");

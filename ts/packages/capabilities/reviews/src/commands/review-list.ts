@@ -7,11 +7,11 @@ import {
 	runReviewList,
 	type ReviewListRequest,
 } from "../operations/cli-operations.ts";
-import { roasterNsCommand } from "../ns/command.ts";
+import { reviewsNsCommand } from "../ns/command.ts";
 
-const REVIEW_LIST_DESCRIPTION = `List configured Roaster review definitions.
+const REVIEW_LIST_DESCRIPTION = `List configured Reviews review definitions.
 
-This ns command adapts ns execution context to Roaster's gateway-injected runtime, then delegates through the curated @nseng-ai/reviews/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
+This ns command adapts ns execution context to Reviews gateway-injected runtime, then delegates through the curated @nseng-ai/reviews/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
 
 export interface ReviewListCommandMetadata {
 	readonly name: string;
@@ -20,7 +20,7 @@ export interface ReviewListCommandMetadata {
 }
 
 export function createReviewListCommand(metadata: ReviewListCommandMetadata) {
-	return roasterNsCommand({
+	return reviewsNsCommand({
 		...metadata,
 		schema: reviewListRequestSchema,
 		options: {
@@ -36,14 +36,14 @@ export function createReviewListCommand(metadata: ReviewListCommandMetadata) {
 	});
 }
 
-export const roasterReviewListCommand = createReviewListCommand({
+export const reviewsReviewListCommand = createReviewListCommand({
 	name: "list",
-	summary: "List configured Roaster review definitions.",
+	summary: "List configured Reviews review definitions.",
 	description: REVIEW_LIST_DESCRIPTION,
 });
 
 export default defineExtension({
-	commands: [roasterReviewListCommand],
+	commands: [reviewsReviewListCommand],
 });
 
-export type RoasterReviewListRequest = ReviewListRequest;
+export type ReviewsReviewListRequest = ReviewListRequest;
