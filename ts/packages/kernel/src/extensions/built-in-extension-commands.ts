@@ -17,9 +17,10 @@ import {
 } from "../sdk/extension-manifest.ts";
 import type { NsCommand } from "../sdk/index.ts";
 
-const knownPromptEnvOverrides = [
-	{ pointId: "flow.submit.pr-description", envVar: "NS_DEV_PR_DESCRIPTION_PROMPT" },
-] as const;
+const knownPromptEnvOverride = {
+	pointId: "flow.submit.pr-description",
+	envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+} as const;
 
 const pointDiagnosticSchema = z.object({
 	severity: z.enum(["error", "info"]),
@@ -121,7 +122,7 @@ function loadCatalog(cwd: string, env: Record<string, string | undefined>): Poin
 		repoRoot: cwd,
 		gateway: nodeProjectConfigGateway,
 		env,
-		promptEnvOverrides: knownPromptEnvOverrides,
+		promptEnvOverride: knownPromptEnvOverride,
 	});
 }
 

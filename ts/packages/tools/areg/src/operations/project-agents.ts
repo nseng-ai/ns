@@ -1,6 +1,7 @@
 import {
 	getProjectConfigSetting,
 	parseProjectConfigToml,
+	primaryProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
@@ -43,7 +44,7 @@ export function parseNsAregAgents(text: string, pathLabel = "ns.toml"): Result<s
 		settingsSchemas: [aregSettingsSchema],
 	});
 	if (!result.ok) {
-		const diagnostic = result.diagnostics.find((candidate) => candidate.severity === "error");
+		const diagnostic = primaryProjectConfigDiagnostic(result.diagnostics);
 		return err({
 			code: "ns_toml_invalid",
 			message: diagnostic?.message ?? `${pathLabel}: invalid ns.toml`,

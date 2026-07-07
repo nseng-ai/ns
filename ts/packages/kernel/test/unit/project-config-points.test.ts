@@ -12,6 +12,7 @@ import {
 	loadPointCatalog,
 	loadProjectConfig,
 	parseProjectConfigToml,
+	primaryProjectConfigDiagnostic,
 	resolvePromptPointSource,
 	type PointDefinition,
 	type ProjectConfigGateway,
@@ -83,7 +84,31 @@ describe("project point config", () => {
 		const result = parseProjectConfigToml("[points\n", { pointDefinitions });
 
 		expect(result.ok).toBe(false);
-		expect(result.diagnostics).toEqual([expect.objectContaining({ code: "ns_toml_invalid" })]);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "ns_toml_invalid",
+				pathLabel: "ns.toml",
+				causeMessage: expect.any(String),
+				message: expect.stringContaining("ns.toml: Invalid TOML.\n"),
+			}),
+		]);
+	});
+
+	test("selects the first error diagnostic as the primary project config diagnostic", () => {
+		const info = {
+			severity: "info",
+			code: "point_defined_uninstalled",
+			message: "Point is not installed.",
+		} as const;
+		const error = {
+			severity: "error",
+			code: "settings_table_invalid",
+			message: "Settings are invalid.",
+		} as const;
+
+		expect(primaryProjectConfigDiagnostic([info, error])).toBe(error);
+		expect(primaryProjectConfigDiagnostic([info])).toBe(info);
+		expect(primaryProjectConfigDiagnostic([])).toBeUndefined();
 	});
 
 	test("reports undefined points and values that do not match point kind", () => {
@@ -300,9 +325,10 @@ context_lines = "wide"
 			repoRoot: "/repo",
 			gateway,
 			pointDefinitions,
-			promptEnvOverrides: [
-				{ pointId: "flow.submit.pr-description", envVar: "NS_DEV_PR_DESCRIPTION_PROMPT" },
-			],
+			promptEnvOverride: {
+				pointId: "flow.submit.pr-description",
+				envVar: "NS_DEV_PR_DESCRIPTION_PROMPT",
+			},
 			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "dev.md" },
 		});
 
@@ -345,6 +371,25 @@ context_lines = "wide"
 				path: "flow.submit.pre",
 			}),
 		]);
+	});
+
+	test("catalog ignores the scalar prompt env override for other prompt points", () => {
+		const catalog = computePointCatalog({
+			repoRoot: "/repo",
+			gateway: { pathExists: () => ({ type: "missing" }) },
+			pointDefinitions,
+			config: { points: [], settings: new Map() },
+			promptEnvOverride: { pointId: "other.prompt", envVar: "NS_DEV_PR_DESCRIPTION_PROMPT" },
+			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "dev.md" },
+		});
+
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+			type: "missing",
+			pointId: "flow.submit.pr-description",
+		});
+		expect(catalog.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain(
+			"point_prompt_env_override_in_effect",
+		);
 	});
 
 	test("catalog carries loader diagnostics for undefined installs and reports uninstalled definitions", () => {

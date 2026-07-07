@@ -44,6 +44,11 @@ export const MANAGED_BODY_END_MARKER = "<!-- ns-pr-description:end -->";
 export const PR_DESCRIPTION_GENERATOR_VERSION = "ns-pr-description-v2";
 export const MAX_DIFF_CHARS = 120_000;
 
+const prDescriptionPromptEnvOverride = {
+	pointId: FLOW_PR_DESCRIPTION_POINT_ID,
+	envVar: PR_DESCRIPTION_PROMPT_ENV,
+} as const;
+
 const LOCKFILE_BASENAMES = new Set([
 	"pnpm-lock.yaml",
 	"package-lock.json",
@@ -259,14 +264,11 @@ export async function resolvePrDescriptionPrompt(
 }
 
 function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): PointCatalog {
-	const promptEnvOverrides = [
-		{ pointId: FLOW_PR_DESCRIPTION_POINT_ID, envVar: PR_DESCRIPTION_PROMPT_ENV },
-	];
 	if (request.repoRoot !== undefined) {
 		const catalog = loadPointCatalog({
 			repoRoot: request.repoRoot,
 			gateway: nodeProjectConfigGateway,
-			promptEnvOverrides,
+			promptEnvOverride: prDescriptionPromptEnvOverride,
 			env: request.env,
 		});
 		if (resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID).type !== "missing") {

@@ -51,6 +51,14 @@ export interface ProjectConfigDiagnostic {
 	code: string;
 	message: string;
 	path?: string;
+	pathLabel?: string;
+	causeMessage?: string;
+}
+
+export function primaryProjectConfigDiagnostic(
+	diagnostics: readonly ProjectConfigDiagnostic[],
+): ProjectConfigDiagnostic | undefined {
+	return diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
 }
 
 export type ProjectPointInstallation =
@@ -179,10 +187,14 @@ export function parseProjectConfigToml(
 	try {
 		parsed = parse(source);
 	} catch (error) {
+		const causeMessage = formatErrorMessage(error);
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("ns_toml_invalid", `${pathLabel}: Invalid TOML.\n${formatErrorMessage(error)}`),
+				diagnostic("ns_toml_invalid", `${pathLabel}: Invalid TOML.\n${causeMessage}`, {
+					pathLabel,
+					causeMessage,
+				}),
 			],
 		};
 	}
@@ -192,7 +204,9 @@ export function parseProjectConfigToml(
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("ns_toml_invalid", `${pathLabel}: top-level TOML document must be a table.`),
+				diagnostic("ns_toml_invalid", `${pathLabel}: top-level TOML document must be a table.`, {
+					pathLabel,
+				}),
 			],
 		};
 	}
@@ -242,7 +256,7 @@ export function loadPointCatalog(request: {
 	pointDefinitions?: readonly PointDefinition[];
 	extensionRoot?: string;
 	settingsSchemas?: readonly SettingsSchema[];
-	promptEnvOverrides?: readonly PromptPointEnvOverride[];
+	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }): PointCatalog {
 	const definitionResult =
@@ -263,7 +277,9 @@ export function loadPointCatalog(request: {
 		pointDefinitions: definitionResult.pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
 		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
-		promptEnvOverrides: request.promptEnvOverrides ?? [],
+		...(request.promptEnvOverride === undefined
+			? {}
+			: { promptEnvOverride: request.promptEnvOverride }),
 		env: request.env ?? {},
 	});
 }
@@ -318,7 +334,7 @@ export interface BuildPointCatalogRequest {
 	pointDefinitions: readonly PointDefinition[];
 	config: LoadedProjectConfig;
 	diagnostics?: readonly ProjectConfigDiagnostic[];
-	promptEnvOverrides?: readonly PromptPointEnvOverride[];
+	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }
 
@@ -342,7 +358,7 @@ export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatal
 			const envOverride = findPromptEnvOverride({
 				pointId: definition.id,
 				env: request.env ?? {},
-				overrides: request.promptEnvOverrides ?? [],
+				...(request.promptEnvOverride === undefined ? {} : { override: request.promptEnvOverride }),
 			});
 			if (envOverride !== undefined) {
 				installations = [{ source: "env-prompt", ...envOverride }, ...installations];
@@ -461,13 +477,12 @@ function findPromptConfigInstallation(entry: PointCatalogEntry):
 function findPromptEnvOverride(request: {
 	pointId: string;
 	env: Record<string, string | undefined>;
-	overrides: readonly PromptPointEnvOverride[];
+	override?: PromptPointEnvOverride;
 }): { pointId: string; envVar: string; path: string } | undefined {
-	const override = request.overrides.find((candidate) => candidate.pointId === request.pointId);
-	if (override === undefined) return undefined;
-	const path = request.env[override.envVar]?.trim();
+	if (request.override?.pointId !== request.pointId) return undefined;
+	const path = request.env[request.override.envVar]?.trim();
 	if (!path) return undefined;
-	return { pointId: request.pointId, envVar: override.envVar, path };
+	return { pointId: request.pointId, envVar: request.override.envVar, path };
 }
 
 function parsePointsTable(request: {
@@ -827,13 +842,20 @@ function readNonEmptyString(value: unknown): string | undefined {
 function diagnostic(
 	code: string,
 	message: string,
-	options: { path?: string; severity?: ProjectConfigDiagnostic["severity"] } = {},
+	options: {
+		path?: string;
+		pathLabel?: string;
+		causeMessage?: string;
+		severity?: ProjectConfigDiagnostic["severity"];
+	} = {},
 ): ProjectConfigDiagnostic {
 	return {
 		severity: options.severity ?? "error",
 		code,
 		message,
 		...optionalEntry("path", options.path),
+		...optionalEntry("pathLabel", options.pathLabel),
+		...optionalEntry("causeMessage", options.causeMessage),
 	};
 }
 

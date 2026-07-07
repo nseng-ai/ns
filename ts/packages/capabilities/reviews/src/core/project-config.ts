@@ -1,6 +1,7 @@
 import {
 	getProjectConfigSetting,
 	parseProjectConfigToml,
+	primaryProjectConfigDiagnostic,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
@@ -249,10 +250,9 @@ function projectConfigErrorFromDiagnostics(
 	diagnostics: readonly ProjectConfigDiagnostic[],
 	pathLabel: string | undefined,
 ): ProjectConfigParseResult {
-	const diagnostic =
-		diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
+	const diagnostic = primaryProjectConfigDiagnostic(diagnostics);
 	if (diagnostic?.code === "ns_toml_invalid") {
-		return resultErrOf("invalid-toml", normalizeNsTomlMessage(diagnostic.message, pathLabel));
+		return resultErrOf("invalid-toml", formatNsTomlInvalidMessage(diagnostic, pathLabel));
 	}
 	if (diagnostic?.code === "settings_table_invalid" && diagnostic.path !== undefined) {
 		const code = SETTINGS_TABLE_ERROR_CODES[diagnostic.path];
@@ -264,9 +264,13 @@ function projectConfigErrorFromDiagnostics(
 	);
 }
 
-function normalizeNsTomlMessage(message: string, pathLabel: string | undefined): string {
-	if (pathLabel !== undefined) return message;
-	return message.replace(/^ns\.toml: /u, "");
+function formatNsTomlInvalidMessage(
+	diagnostic: ProjectConfigDiagnostic,
+	pathLabel: string | undefined,
+): string {
+	if (pathLabel !== undefined) return diagnostic.message;
+	if (diagnostic.causeMessage !== undefined) return `Invalid TOML.\n${diagnostic.causeMessage}`;
+	return diagnostic.message;
 }
 
 function formatMessage(message: string, pathLabel: string | undefined): string {
