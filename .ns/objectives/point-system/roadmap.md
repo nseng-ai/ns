@@ -38,8 +38,12 @@
     `NS_DEV_PR_DESCRIPTION_PROMPT` override through the kernel catalog as prompt env override
     source info with diagnostics while preserving behavior.
   - Policy: each rename cuts over reader and file in the same slice.
-- [ ] Migrate declared settings: roaster (`diff`, `model_profiles`), areg (`agents`),
-      ns-init (`harnesses`) onto the shared loader; delete all four ad-hoc smol-toml parsers.
+- [~] Migrate declared settings: roaster (`diff`, `model_profiles`), areg (`agents`),
+  ns-init (`harnesses`) onto the shared loader; delete all four ad-hoc smol-toml parsers.
+  - Landed: local branch `point-system-settings-loader-Pa0ixh` commit `a56987991`
+    migrates `areg` `[areg].agents` onto the kernel loader with a declared settings schema
+    and removes areg's direct `smol-toml` dependency.
+  - Remaining before `[x]`: roaster `diff`/`model_profiles` and ns-init `harnesses`.
 - [ ] CLI: `ns extension points` (catalog) and `ns extension point <id>` (detail) under
       the `ns extension` group, per `skills/ns-cli-design` conventions.
   - Evidence: CLI scenario tests including `--format` machine output.

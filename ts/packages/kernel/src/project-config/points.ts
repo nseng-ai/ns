@@ -156,7 +156,7 @@ export function parseProjectConfigToml(
 	source: string,
 	request: {
 		pathLabel?: string;
-		pointDefinitions: readonly PointDefinition[];
+		pointDefinitions?: readonly PointDefinition[];
 		settingsSchemas?: readonly SettingsSchema[];
 	},
 ): LoadProjectConfigResult {
@@ -185,12 +185,15 @@ export function parseProjectConfigToml(
 
 	const diagnostics: ProjectConfigDiagnostic[] = [];
 	const document = documentResult.data;
-	const points = parsePointsTable({
-		pathLabel,
-		value: document["points"],
-		pointDefinitions: request.pointDefinitions,
-		diagnostics,
-	});
+	const points =
+		request.pointDefinitions === undefined
+			? []
+			: parsePointsTable({
+					pathLabel,
+					value: document["points"],
+					pointDefinitions: request.pointDefinitions,
+					diagnostics,
+				});
 	const settings = parseDeclaredSettings({
 		pathLabel,
 		document,
