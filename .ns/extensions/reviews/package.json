@@ -21,9 +21,8 @@
     "commands": [
       {
         "name": "list",
-        "description": "List configured Reviews and generated review-skill metadata.",
-        "fullDescription": "List configured Reviews review definitions, including generated review-skill metadata.",
-        "entry": "./src/commands/review-list.ts"
+        "description": "List configured Reviews review definitions.",
+        "entry": "./src/commands/list.ts"
       },
       {
         "name": "review-ls",
@@ -40,7 +39,7 @@
           "review",
           "log"
         ],
-        "description": "List review logs for this branch.",
+        "description": "List Reviews review logs for this branch.",
         "entry": "./src/commands/review-log.ts"
       },
       {
@@ -49,17 +48,17 @@
           "review",
           "run"
         ],
-        "description": "Run a configured review over the current diff.",
+        "description": "Run a configured Reviews review over the current diff.",
         "entry": "./src/commands/review-run.ts"
       },
       {
         "name": "exec-record-findings",
-        "description": "Record same-session review findings from stdin.",
+        "description": "Record same-session Reviews findings from stdin.",
         "entry": "./src/commands/exec-record-findings.ts"
       },
       {
         "name": "exec-publish-findings",
-        "description": "Publish review findings to GitHub.",
+        "description": "Publish Reviews findings to GitHub.",
         "entry": "./src/commands/exec-publish-findings.ts"
       }
     ]

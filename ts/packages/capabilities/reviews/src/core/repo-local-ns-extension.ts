@@ -5,7 +5,7 @@ import {
 
 import { reviewsExecPublishFindingsCommand } from "../commands/exec-publish-findings.ts";
 import { reviewsExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
-import { reviewsReviewListCommand } from "../commands/review-list.ts";
+import { reviewsReviewListCommand } from "../commands/list.ts";
 import { reviewsReviewLogCommand } from "../commands/review-log.ts";
 import { reviewsReviewLsCommand } from "../commands/review-ls.ts";
 import { reviewsReviewRunCommand } from "../commands/review-run.ts";
@@ -16,7 +16,6 @@ export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor(
 	commands: [
 		repoLocalNsCommandDescriptor({
 			command: reviewsReviewListCommand,
-			manifestName: "review-list",
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({

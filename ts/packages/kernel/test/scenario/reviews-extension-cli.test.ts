@@ -160,9 +160,9 @@ interface FakeReviewsCommandSpec {
 
 const fakeReviewsCommandSpecs = [
 	{
-		name: "review-list",
+		name: "list",
 		description: "List configured Reviews and generated review-skill metadata.",
-		entryPath: "fake://reviews/src/commands/review-list.ts",
+		entryPath: "fake://reviews/src/commands/list.ts",
 		segments: ["reviews", "list"],
 		command: fakeReviewsCommand({
 			key: "reviews/list",

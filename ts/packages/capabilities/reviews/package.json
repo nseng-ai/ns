@@ -5,7 +5,7 @@
   "exports": {
     ".": "./src/core/index.ts",
     "./api": "./src/core/api.ts",
-    "./commands/review-list": "./src/commands/review-list.ts",
+    "./commands/list": "./src/commands/list.ts",
     "./commands/review-ls": "./src/commands/review-ls.ts",
     "./commands/review-log": "./src/commands/review-log.ts",
     "./commands/review-run": "./src/commands/review-run.ts",

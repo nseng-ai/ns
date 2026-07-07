@@ -91,9 +91,9 @@ describe("RealGitBrmemGateway integration", () => {
 			const listed = await gateway.listEntries({ namespace: "reviews", branch: "feat/x" });
 			if (listed.type !== "ok") throw new Error("unexpected list error");
 			expect(listed.value.map((entry) => entry.key)).toEqual([key]);
-			expect(
-				repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns-ai/reviews/feat---x"]),
-			).toBe(`${key}\n`);
+			expect(repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns/reviews/feat---x"])).toBe(
+				`${key}\n`,
+			);
 		} finally {
 			repo.cleanup();
 		}

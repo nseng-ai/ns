@@ -117,14 +117,12 @@ const descriptor = repoLocalNsCommandDescriptor({
 // manifestEntry: "./src/commands/attach.ts"
 // packageExport: "@ns/branch-context/ns/commands/attach"
 
-const routeEncodedDescriptor = repoLocalNsCommandDescriptor({
-  command: reviewListCommand,
-  manifestName: "review-list",
-  manifestPath: ["review", "list"],
-  packageExportPrefix: "@ns-ai/reviews/commands",
+const listDescriptor = repoLocalNsCommandDescriptor({
+  command: reviewsListCommand,
+  packageExportPrefix: "@nseng-ai/reviews/commands",
 });
-// manifestEntry: "./src/commands/review-list.ts"
-// packageExport: "@ns-ai/reviews/commands/review-list"
+// manifestEntry: "./src/commands/list.ts"
+// packageExport: "@nseng-ai/reviews/commands/list"
 ```
 
 ### `defineRepoLocalNsExtensionDescriptor()`
