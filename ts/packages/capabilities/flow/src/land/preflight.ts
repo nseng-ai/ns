@@ -345,18 +345,24 @@ export function validateInitialPrPreflight(
 	for (let index = 0; index < branchPlans.length; index += 1) {
 		const branchPlan = branchPlans[index];
 		if (branchPlan === undefined) continue;
-		const basics = validateOpenPrBasics({
+		const expectedBaseRefName = index === 0 ? trunk : undefined;
+		const mismatches = prExpectationMismatches({
 			branch: branchPlan.branch,
 			localSha: branchPlan.localSha,
 			pr: branchPlan.pr,
-			allowHeadShaMismatch: Boolean(options.shouldAllowSubmitRequiredState),
+			...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
 		});
+		const basics = validateOpenPrBasicsFromMismatches(
+			{
+				branch: branchPlan.branch,
+				localSha: branchPlan.localSha,
+				pr: branchPlan.pr,
+				allowHeadShaMismatch: Boolean(options.shouldAllowSubmitRequiredState),
+			},
+			mismatches,
+		);
 		if (basics.type === "failure") return basics;
-		if (
-			index === 0 &&
-			branchPlan.pr.baseRefName !== trunk &&
-			!options.shouldAllowSubmitRequiredState
-		) {
+		if (mismatches.hasExpectedBaseMismatch && !options.shouldAllowSubmitRequiredState) {
 			return landOutcomeFailure(
 				domainFailure({
 					phase: "preflight",
@@ -377,9 +383,15 @@ export function validateStrictMergeGate(input: {
 	readonly pr: PullRequestFacts;
 	readonly trunk: string;
 }): LandOutcome {
-	const basics = validateOpenPrBasics(input);
+	const mismatches = prExpectationMismatches({
+		branch: input.branch,
+		localSha: input.localSha,
+		pr: input.pr,
+		expectedBaseRefName: input.trunk,
+	});
+	const basics = validateOpenPrBasicsFromMismatches(input, mismatches);
 	if (basics.type === "failure") return basics;
-	if (input.pr.baseRefName !== input.trunk) {
+	if (mismatches.hasExpectedBaseMismatch) {
 		return landOutcomeFailure(
 			domainFailure({
 				phase: "merge",
@@ -400,8 +412,44 @@ export function validateOpenPrBasics(input: {
 	readonly pr: PullRequestFacts;
 	readonly allowHeadShaMismatch?: boolean;
 }): LandOutcome {
+	return validateOpenPrBasicsFromMismatches(input, prExpectationMismatches(input));
+}
+
+interface PrExpectationMismatches {
+	readonly isNotOpen: boolean;
+	readonly isDraft: boolean;
+	readonly hasHeadBranchMismatch: boolean;
+	readonly hasHeadShaMismatch: boolean;
+	readonly hasExpectedBaseMismatch: boolean;
+}
+
+function prExpectationMismatches(input: {
+	readonly branch: string;
+	readonly localSha: string;
+	readonly pr: PullRequestFacts;
+	readonly expectedBaseRefName?: string;
+}): PrExpectationMismatches {
+	return {
+		isNotOpen: input.pr.state !== "OPEN",
+		isDraft: input.pr.isDraft,
+		hasHeadBranchMismatch: input.pr.headRefName !== input.branch,
+		hasHeadShaMismatch: input.pr.headRefOid !== input.localSha,
+		hasExpectedBaseMismatch:
+			input.expectedBaseRefName !== undefined && input.pr.baseRefName !== input.expectedBaseRefName,
+	};
+}
+
+function validateOpenPrBasicsFromMismatches(
+	input: {
+		readonly branch: string;
+		readonly localSha: string;
+		readonly pr: PullRequestFacts;
+		readonly allowHeadShaMismatch?: boolean;
+	},
+	mismatches: PrExpectationMismatches,
+): LandOutcome {
 	const { branch, localSha, pr } = input;
-	if (pr.state !== "OPEN") {
+	if (mismatches.isNotOpen) {
 		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
@@ -412,7 +460,7 @@ export function validateOpenPrBasics(input: {
 			}),
 		);
 	}
-	if (pr.isDraft) {
+	if (mismatches.isDraft) {
 		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
@@ -423,7 +471,7 @@ export function validateOpenPrBasics(input: {
 			}),
 		);
 	}
-	if (pr.headRefName !== branch) {
+	if (mismatches.hasHeadBranchMismatch) {
 		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
@@ -434,7 +482,7 @@ export function validateOpenPrBasics(input: {
 			}),
 		);
 	}
-	if (pr.headRefOid !== localSha && !input.allowHeadShaMismatch) {
+	if (mismatches.hasHeadShaMismatch && !input.allowHeadShaMismatch) {
 		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
@@ -458,13 +506,19 @@ export function collectPrSubmitRequirements(
 		const branchPlan = branchPlans[index];
 		if (branchPlan === undefined) continue;
 		const expectedBaseRefName = index === 0 ? trunk : undefined;
+		const mismatches = prExpectationMismatches({
+			branch: branchPlan.branch,
+			localSha: branchPlan.localSha,
+			pr: branchPlan.pr,
+			...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
+		});
 		const reasons: string[] = [];
-		if (branchPlan.pr.headRefOid !== branchPlan.localSha) {
+		if (mismatches.hasHeadShaMismatch) {
 			reasons.push(
 				`head ${shortSha(branchPlan.pr.headRefOid)} != local ${shortSha(branchPlan.localSha)}`,
 			);
 		}
-		if (expectedBaseRefName !== undefined && branchPlan.pr.baseRefName !== expectedBaseRefName) {
+		if (mismatches.hasExpectedBaseMismatch) {
 			reasons.push(`base ${branchPlan.pr.baseRefName} != ${expectedBaseRefName}`);
 		}
 		if (reasons.length > 0) {
