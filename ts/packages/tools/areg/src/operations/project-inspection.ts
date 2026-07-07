@@ -1,16 +1,18 @@
 import type { AregCliContext } from "../context.ts";
+import type {
+	AregCheckPairingDirectory,
+	AregCheckSkillInspection,
+	PathState,
+	AregProjectBaseInspection,
+	AregReplacementInspection,
+	AregSkillKindSkillInspection,
+	AregSkillNameInventory,
+	TextFileState,
+} from "../gateways.ts";
 import {
 	manifestSkillKindNames,
-	type AregCheckPairingDirectory,
-	type AregCheckSkillInspection,
-	type PathState,
 	type AregManifestSkillSourcesInspection,
-	type AregProjectBaseInspection,
-	type AregReplacementInspection,
-	type AregSkillKindSkillInspection,
-	type AregSkillNameInventory,
-	type TextFileState,
-} from "../gateways.ts";
+} from "./manifest-sources.ts";
 import { uniqueSortedStrings } from "../sort.ts";
 import { parseInspectedLockfile } from "@nseng-ai/harness-artifacts/api";
 

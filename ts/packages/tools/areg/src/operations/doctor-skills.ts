@@ -4,19 +4,23 @@ import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives"
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import {
-	classifyManifestSkillSource,
-	manifestSkillKindNames,
-	type AregCheckSkillInspection,
-	type PathState,
-	type AregManifestSkillSourcesInspection,
-	type AregPiSkillInventoryInspection,
-	type AregProjectBaseInspection,
-	type AregReplacementInspection,
-	type AregSkillKindSkillInspection,
-	type AregSkillNameInventory,
-	type TextFileState,
+import type {
+	AregCheckSkillInspection,
+	PathState,
+	AregPiSkillInventoryInspection,
+	AregProjectBaseInspection,
+	AregReplacementInspection,
+	AregSkillKindSkillInspection,
+	AregSkillNameInventory,
+	TextFileState,
 } from "../gateways.ts";
+import {
+	MANIFEST_FAILURE_CODE,
+	MANIFEST_FAILURE_REMEDIATION,
+	manifestSkillKindNames,
+	manifestSourceFinding,
+	type AregManifestSkillSourcesInspection,
+} from "./manifest-sources.ts";
 import { uniqueSortedStrings } from "../sort.ts";
 import { renderDoctorSkills } from "./doctor-skills-report.ts";
 import {
@@ -305,11 +309,10 @@ function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSk
 	const findings: DoctorSkillFinding[] = [];
 	for (const error of inspection.manifestSkillSources.errors) {
 		findings.push({
-			code: "install-manifest-unreadable",
+			code: MANIFEST_FAILURE_CODE,
 			severity: "error",
 			message: error.message,
-			remediation:
-				"Fix the shared harness artifact manifest or run ns update to reconcile manifest-tracked artifacts.",
+			remediation: MANIFEST_FAILURE_REMEDIATION,
 			path: error.manifestPath,
 		});
 	}
@@ -324,27 +327,15 @@ function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSk
 			version: source.source.version,
 			targetSkillRelativePath: source.targetSkillRelativePath,
 		};
-		const sourceStatus = classifyManifestSkillSource(source);
-		if (sourceStatus === "target-missing") {
+		const finding = manifestSourceFinding(source);
+		if (finding !== undefined) {
 			findings.push({
-				code: "manifest-skill-target-missing",
+				code: finding.code,
 				severity: "warning",
 				skill: source.skillName,
-				path: source.targetSkillRelativePath,
-				message: `Shared manifest entry ${source.manifestKey} targets ${source.targetSkillRelativePath}, but the skill directory is missing.`,
-				remediation:
-					"Run ns update to reconcile manifest-tracked harness artifacts, or remove/fix the stale manifest entry through the owning provisioning workflow.",
-				evidence,
-			});
-		} else if (sourceStatus === "md-missing") {
-			findings.push({
-				code: "manifest-skill-md-missing",
-				severity: "warning",
-				skill: source.skillName,
-				path: `${source.targetSkillRelativePath}/SKILL.md`,
-				message: `Shared manifest entry ${source.manifestKey} targets ${source.targetSkillRelativePath}, but SKILL.md is missing.`,
-				remediation:
-					"Run ns update to reconcile manifest-tracked harness artifacts, or remove/fix the stale manifest entry through the owning provisioning workflow.",
+				path: finding.path,
+				message: finding.message,
+				remediation: finding.remediation,
 				evidence,
 			});
 		} else {

@@ -1,11 +1,11 @@
 import { err, type Result } from "@nseng-ai/foundation/result";
 
+import type { AregSkillKindSkillInspection } from "../gateways.ts";
 import {
 	groupBySkillName,
 	toManifestSkillSourceView,
 	type AregManifestSkillSourceView,
-	type AregSkillKindSkillInspection,
-} from "../gateways.ts";
+} from "./manifest-sources.ts";
 import {
 	parseSkillFrontmatterBlock,
 	sortStrings,

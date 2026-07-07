@@ -186,20 +186,23 @@ export function buildProvisionPlan(
 		});
 	}
 
-	const sortedRelativePaths = sortStrings(input.sourceFiles.map((file) => file.relativePath));
-	const seenRelativePaths = new Set<string>();
-	const files: ProvisionPlanFile[] = [];
-	for (const relativePath of sortedRelativePaths) {
-		if (seenRelativePaths.has(relativePath)) {
+	const sourceFilesByPath = new Map<string, ProvisionSourceFile>();
+	for (const sourceFile of input.sourceFiles) {
+		if (sourceFilesByPath.has(sourceFile.relativePath)) {
 			return resultErr({
 				code: "duplicate_source_file",
-				message: `Provision source file ${JSON.stringify(relativePath)} appears more than once.`,
-				details: { relativePath },
+				message: `Provision source file ${JSON.stringify(sourceFile.relativePath)} appears more than once.`,
+				details: { relativePath: sourceFile.relativePath },
 			});
 		}
-		seenRelativePaths.add(relativePath);
-		const sourceFile = input.sourceFiles.find((file) => file.relativePath === relativePath);
-		if (sourceFile === undefined) continue;
+		sourceFilesByPath.set(sourceFile.relativePath, sourceFile);
+	}
+	const files: ProvisionPlanFile[] = [];
+	for (const relativePath of sortStrings([...sourceFilesByPath.keys()])) {
+		const sourceFile = sourceFilesByPath.get(relativePath);
+		if (sourceFile === undefined) {
+			throw new Error(`Provision source file vanished for ${relativePath}.`);
+		}
 		files.push({
 			relativePath,
 			sourcePath: join(input.artifact.source.relativePath, relativePath),

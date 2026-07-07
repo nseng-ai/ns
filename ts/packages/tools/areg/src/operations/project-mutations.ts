@@ -28,19 +28,15 @@ interface ProjectDeleteSymlinkPlan {
 	description: string;
 }
 
-interface BaseApplyProjectMutationPlanRequest {
+interface ApplyProjectMutationPlanRequest {
 	ctx: AregCliContext;
 	projectDir: string;
 	writes: readonly ProjectTextWritePlan[];
-	execute?: boolean;
-}
-
-type ApplyProjectMutationPlanRequest = BaseApplyProjectMutationPlanRequest & {
-	policy: "skill-kind";
 	deletes: readonly ProjectDeletePlan[];
 	deleteSymlinks: readonly ProjectDeleteSymlinkPlan[];
 	removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
-};
+	execute?: boolean;
+}
 
 export const PROJECT_FILE_MUTATION_OPERATION_TYPES = [
 	"write",
@@ -203,7 +199,6 @@ function flattenProjectMutationPlan(
 			plan,
 		}),
 	);
-	if (request.policy !== "skill-kind") return writes;
 	const deletes = request.deletes.map(
 		(plan): DeleteOperation => ({
 			type: "delete",
@@ -240,7 +235,6 @@ const PROJECT_MUTATION_OPERATION_HANDLERS = {
 				content: operation.plan.content,
 				description: operation.plan.description,
 				createParent: operation.plan.createParent,
-				policy: request.policy,
 				env: request.ctx.env,
 			});
 		},
@@ -251,7 +245,6 @@ const PROJECT_MUTATION_OPERATION_HANDLERS = {
 				content: operation.plan.content,
 				description: operation.plan.description,
 				createParent: operation.plan.createParent,
-				policy: request.policy,
 				env: request.ctx.env,
 			});
 		},
@@ -331,7 +324,6 @@ function managedTargetRequest(
 		projectDir: request.projectDir,
 		relativePath: operation.plan.relativePath,
 		description: operation.plan.description,
-		policy: "skill-kind",
 		env: request.ctx.env,
 	};
 }

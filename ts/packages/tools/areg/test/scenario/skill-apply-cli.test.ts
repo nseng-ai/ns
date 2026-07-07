@@ -4,9 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
 import {
-	FakeAregGithubGateway,
 	FakeAregProjectGateway,
-	FakeAregPromptGateway,
 	type FakeAregProjectOperation,
 	type FakeAregSkillKindSkillOptions,
 } from "../../src/fake-gateways.ts";
@@ -23,14 +21,11 @@ function skill(
 
 function contextWithProject(
 	project: FakeAregProjectGateway,
-	prompt = new FakeAregPromptGateway(),
 	interaction: FakeClinkrInteraction = createFakeClinkrInteraction(),
 ): AregCliContext {
 	return {
-		github: new FakeAregGithubGateway(),
 		project,
 		git: new InMemoryGitGateway(),
-		prompt,
 		interaction: interaction.interaction,
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
@@ -114,7 +109,6 @@ describe("areg skill apply CLI", () => {
 				replacementSurfaces: ["code:workflows"],
 				localSkills: [skill("code-workflows")],
 			},
-			prompt: { responses: [false] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -244,7 +238,7 @@ describe("areg skill apply CLI", () => {
 		});
 		const interaction = createFakeClinkrInteraction();
 		const run = runScenario(["skill", "apply", "--dry-run", "unlisted", "setup-hidden"], {
-			context: contextWithProject(project, new FakeAregPromptGateway(), interaction),
+			context: contextWithProject(project, interaction),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -284,7 +278,6 @@ describe("areg skill apply CLI", () => {
 		const declined = runScenario(["skill", "apply", "unlisted", "setup-hidden"], {
 			context: contextWithProject(
 				declinedProject,
-				new FakeAregPromptGateway(),
 				createFakeClinkrInteraction({ confirmations: [{ type: "declined" }], isInteractive: true }),
 			),
 		});
@@ -512,13 +505,12 @@ describe("areg skill apply CLI", () => {
 				}),
 			],
 		});
-		const prompt = new FakeAregPromptGateway({ responses: [true, false] });
 		const interaction = createFakeClinkrInteraction({
 			confirmations: [{ type: "confirmed" }, { type: "declined" }],
 			isInteractive: true,
 		});
 
-		const result = await runSkillKindApply(contextWithProject(project, prompt, interaction), {
+		const result = await runSkillKindApply(contextWithProject(project, interaction), {
 			path: ".",
 			kind: "normal",
 			skills: ["alpha", "beta"],
@@ -548,10 +540,9 @@ describe("areg skill apply CLI", () => {
 				skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
 			],
 		});
-		const prompt = new FakeAregPromptGateway({ responses: [false] });
 		const interaction = createFakeClinkrInteraction({ confirmations: [{ type: "declined" }] });
 
-		const result = await runSkillKindApply(contextWithProject(project, prompt, interaction), {
+		const result = await runSkillKindApply(contextWithProject(project, interaction), {
 			path: ".",
 			kind: "normal",
 			skills: ["demo"],

@@ -11,7 +11,7 @@ import { renderTextTable, type TextTableColumn } from "@nseng-ai/foundation/text
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import { aregManifestSkillSourceViewSchema } from "../gateways.ts";
+import { aregManifestSkillSourceViewSchema } from "./manifest-sources.ts";
 import { isPathStateError } from "./file-state.ts";
 import { inspectSkillKindProject } from "./project-inspection.ts";
 import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
@@ -318,7 +318,6 @@ export async function runSkillKindApply(
 	const applyResult = await applyProjectMutationPlan({
 		ctx,
 		projectDir,
-		policy: "skill-kind",
 		writes: plans.flatMap(plannedWrites),
 		deletes: plans.flatMap(plannedDeletes),
 		deleteSymlinks: plans.flatMap(plannedDeleteSymlinks),

@@ -3,19 +3,13 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
-import {
-	FakeAregGithubGateway,
-	FakeAregProjectGateway,
-	FakeAregPromptGateway,
-} from "../../src/fake-gateways.ts";
+import { FakeAregProjectGateway } from "../../src/fake-gateways.ts";
 import { applyProjectMutationPlan } from "../../src/operations/project-mutations.ts";
 
 function context(project: FakeAregProjectGateway): AregCliContext {
 	return {
-		github: new FakeAregGithubGateway(),
 		project,
 		git: new InMemoryGitGateway(),
-		prompt: new FakeAregPromptGateway(),
 		interaction: createFakeClinkrInteraction().interaction,
 		cwd: "/repo",
 		env: {},
@@ -33,7 +27,6 @@ describe("applyProjectMutationPlan", () => {
 		const result = await applyProjectMutationPlan({
 			ctx: context(project),
 			projectDir: "/repo",
-			policy: "skill-kind",
 			writes: [
 				{
 					relativePath: "skills/demo/SKILL.md",
@@ -86,7 +79,6 @@ describe("applyProjectMutationPlan", () => {
 		const result = await applyProjectMutationPlan({
 			ctx: context(project),
 			projectDir: "/repo",
-			policy: "skill-kind",
 			writes: [
 				{
 					relativePath: "skills/demo/SKILL.md",
@@ -144,7 +136,6 @@ describe("applyProjectMutationPlan", () => {
 		const result = await applyProjectMutationPlan({
 			ctx: context(project),
 			projectDir: "/repo",
-			policy: "skill-kind",
 			writes: [],
 			deletes: [],
 			deleteSymlinks: [
@@ -179,7 +170,6 @@ describe("applyProjectMutationPlan", () => {
 		const result = await applyProjectMutationPlan({
 			ctx: context(project),
 			projectDir: "/repo",
-			policy: "skill-kind",
 			writes: [],
 			deletes: [],
 			deleteSymlinks: [
