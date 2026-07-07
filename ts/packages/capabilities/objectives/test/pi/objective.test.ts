@@ -52,7 +52,7 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 		"Run objective-update for this explicitly selected Objective slug or path:",
 	"ns:objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
 	"ns:objective:autorun":
-		"Run objective-autorun for this explicitly selected Objective slug or path:",
+		"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",
 };
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
@@ -634,8 +634,9 @@ describe("ns:objective:autorun command", () => {
 				"# Test Objective Autorun Skill\n\nUse the selected Objective.",
 			);
 			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
+			expect(result.pi.sentUserMessages[0]).toContain(ACTION_PROMPTS["ns:objective:autorun"]);
 			expect(result.pi.sentUserMessages[0]).toContain(
-				"Run objective-autorun for this explicitly selected Objective slug or path:",
+				"Pi session note: use the `objective_runner_step` tool",
 			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:autorun")).toBe(false);

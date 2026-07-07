@@ -4,34 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { z as ZodNamespace } from "zod";
 
-// Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi surface for the
-// objective-autorun skill — the `/ns:objective:autorun` command expands the repo skill and hands the
-// loop to the session agent, and the `objective_runner_step` tool mechanically wraps ONE runner
-// step (runner-begin → implementation subagent with live widget → runner-finish) and returns the
-// Runner Checkpoint for the parent to judge. Judgment stays in the parent LLM per ADR 0022/0024.
+// Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi tool for the
+// objective-autorun skill. The canonical `/ns:objective:autorun` command lives in
+// `@nseng-ai/objectives/pi`; this local extension only registers the `objective_runner_step` tool,
+// which mechanically wraps ONE runner step (runner-begin → implementation subagent with live widget
+// → runner-finish) and returns the Runner Checkpoint for the parent to judge. Judgment stays in the
+// parent LLM per ADR 0022/0024.
 //
-// Promotion path, once the flow proves itself in real Pi runs:
-// (a) command → an `@nseng-ai/objectives/pi` command spec (`objectiveCommandSpecs` in
-//     ts/packages/capabilities/objectives/src/core/objective-command-specs.ts) with an auto parity
-//     table entry;
-// (b) tool → a new `@internal/pi-tools` subpackage beside thermo-council (package.json `exports`
-//     + `ns.subpackages` + `.pi/lib/workspace-packages.ts` fallback map + parity test).
+// Promotion path, once the flow proves itself in real Pi runs: lift this tool into a new
+// `@internal/pi-tools` subpackage beside thermo-council (package.json `exports` + `ns.subpackages` +
+// `.pi/lib/workspace-packages.ts` fallback map + parity test).
 //
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
 // rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
-import { nsCommandSurface } from "../../ts/packages/infra/foundation/src/primitives/command.ts";
-import {
-	registerCommandWithImmediateAck,
-	sendCommandProgressOrNotify,
-} from "../../ts/packages/hosts/pi/src/commands/ack.ts";
-import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
-import {
-	chooseActiveObjectiveSlug,
-	objectiveSelectionContextFromCommandContext,
-	type ObjectiveSelectionSpec,
-} from "../../ts/packages/capabilities/objectives/src/api/index.ts";
-import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/runner/prompt.ts";
+import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/core/objective-runner-rules.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
@@ -49,7 +36,6 @@ import {
 	setRunnerSubagentWidget,
 } from "../../ts/packages/internal/pi-tools/src/runner-subagents/widget.ts";
 import {
-	buildFencedTextBlock,
 	formatZodError,
 	optionalEntries,
 	optionalEntry,
@@ -68,31 +54,12 @@ const requireFromPiTools = createRequire(
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
 
-const COMMAND_NAME = nsCommandSurface("objective", "autorun");
 const TOOL_NAME = "objective_runner_step";
 const WIDGET_KEY = "objective-runner-step";
-const SKILL_NAME = "objective-autorun";
 const SCRATCH_ROOT_PREFIX = "objective-runner-step";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
-const OBJECTIVE_AUTORUN_SELECTION_SPEC = {
-	statusKey: COMMAND_NAME,
-	selectionTitle: "Select an active Objective for autorun",
-	shouldCompactDiffSuggestion: true,
-} satisfies ObjectiveSelectionSpec;
 
-type NotifyLevel = "info" | "warning" | "error";
 type RunnerStepPhase = "begin" | "subagent" | "finish";
-
-interface CommandContext {
-	cwd: string;
-	hasUI: boolean;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
-		select?(title: string, options: string[]): Promise<string | undefined>;
-		setStatus(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
-}
 
 interface RunObjectiveRunnerStepOptions {
 	readonly pi: ExtensionAPI;
@@ -140,14 +107,7 @@ interface ExtensionAPI {
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
 	): Promise<PiExecResultLike>;
-	sendUserMessage(content: string): Promise<void> | void;
 }
-
-const PI_ADDENDUM = `### Pi session addendum — objective_runner_step tool
-
-In this session, run each runner step by calling the \`objective_runner_step\` tool with \`{ objective, guidance, recover?, model? }\` instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step: it runs runner-begin, dispatches the implementation subagent with the generated prompt (progress renders in a live widget), runs runner-finish, and returns the Runner Checkpoint markdown as its result. It also owns report/facts scratch paths — skip the skill's step-artifact bookkeeping; every call gets fresh paths automatically, including recovery attempts.
-
-Everything else in the objective-autorun skill still binds you: derive thin, judgment-bearing guidance per step, read every checkpoint and make an explicit continue/recover/stop decision, record Semantic Updates via the objective-update skill between steps, and honor all stop conditions and hard boundaries. Canonical forbidden-action rule from \`ts/packages/capabilities/objectives/src/runner/prompt.ts\`: "${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}". Never commit on trunk; later push/submit/handoff decisions belong outside the runner and require separate human direction. To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
 const objectiveRunnerStepInputSchema = z
 	.object({
@@ -196,17 +156,6 @@ const OBJECTIVE_RUNNER_STEP_PARAMETERS = z.toJSONSchema(objectiveRunnerStepInput
 const stepCountsBySlug = new Map<string, number>();
 
 export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Pick an Objective when needed, then run the objective-autorun parent loop in this session with runner steps wrapped by the objective_runner_step tool.",
-			argumentHint: "[objective-slug] [scope / step budget / standing guidance]",
-			handler: async (args, ctx) => runAutorunCommand(pi, args, ctx),
-		},
-	});
-
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Objective runner step",
@@ -215,55 +164,6 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
 			runObjectiveRunnerStep({ pi, params, signal, ctx }),
 	});
-}
-
-async function runAutorunCommand(
-	pi: ExtensionAPI,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
-	const explicitArgs = args.trim();
-	const selectedArgs =
-		explicitArgs.length === 0 ? await chooseAutorunObjective(pi, ctx) : explicitArgs;
-	if (selectedArgs === undefined) return;
-
-	let skillBlock: string;
-	try {
-		const skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
-		skillBlock = skill.block;
-	} catch {
-		skillBlock = `The repo ${SKILL_NAME} skill (skills/${SKILL_NAME}/SKILL.md) could not be expanded inline; read it from the repo and follow it as the loop contract before proceeding.`;
-		sendCommandProgressOrNotify({
-			host: pi,
-			ctx,
-			message: `Could not expand the ${SKILL_NAME} skill; sending a fallback pointer instead.`,
-			delivery: "notify",
-			level: "warning",
-		});
-	}
-
-	const prompt = [
-		skillBlock,
-		"The fenced block below is the user's explicit Objective selection and launch scope for this run (slug plus optional scope, step budget, and standing guidance):",
-		buildFencedTextBlock(selectedArgs),
-		PI_ADDENDUM,
-	].join("\n\n");
-
-	await ctx.waitForIdle();
-	await pi.sendUserMessage(prompt);
-}
-
-async function chooseAutorunObjective(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-): Promise<string | undefined> {
-	const slug = await chooseActiveObjectiveSlug(
-		piExecApiToCommandExecApi(pi),
-		objectiveSelectionContextFromCommandContext(ctx),
-		OBJECTIVE_AUTORUN_SELECTION_SPEC,
-	);
-	if (slug === undefined) return undefined;
-	return slug;
 }
 
 async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): Promise<ToolResult> {

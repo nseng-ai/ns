@@ -1,0 +1,2 @@
+export const OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE =
+	"Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization.";
