@@ -1,6 +1,8 @@
 import {
+	getProjectConfigSetting,
 	parseProjectConfigToml,
 	type ProjectConfigDiagnostic,
+	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
@@ -49,22 +51,33 @@ const EMPTY_CONFIG: RoasterProjectConfig = {
 const MODEL_PROFILE_KEYS = ["quick", "deep"] as const;
 export type RoasterModelProfileKey = (typeof MODEL_PROFILE_KEYS)[number];
 
+type RoasterSettingsRecord = Record<string, unknown>;
+
 const roasterRootSettingsSchema = {
 	path: ["roaster"] as const,
 	schema: z.record(z.string(), z.unknown()),
-};
+	invalidMessage: ({ pathLabel }) => formatMessage("[roaster] must be a TOML table.", pathLabel),
+} satisfies SettingsSchema<RoasterSettingsRecord>;
 
 const roasterDiffSettingsSchema = {
 	path: ["roaster", "diff"] as const,
 	schema: z.record(z.string(), z.unknown()),
-};
+	invalidMessage: ({ pathLabel }) =>
+		formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
+} satisfies SettingsSchema<RoasterSettingsRecord>;
 
 const roasterModelProfilesSettingsSchema = {
 	path: ["roaster", "model_profiles"] as const,
 	schema: z.record(z.string(), z.unknown()),
-};
+	invalidMessage: ({ pathLabel }) =>
+		formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
+} satisfies SettingsSchema<RoasterSettingsRecord>;
 
-const recordSchema = z.record(z.string(), z.unknown());
+const SETTINGS_TABLE_ERROR_CODES: Readonly<Record<string, ProjectConfigErrorCode>> = {
+	roaster: "invalid-table",
+	"roaster.diff": "invalid-table",
+	"roaster.model_profiles": "invalid-table",
+};
 
 export function parseRoasterProjectConfigToml(
 	source: string,
@@ -80,11 +93,14 @@ export function parseRoasterProjectConfigToml(
 	});
 	if (!result.ok) return projectConfigErrorFromDiagnostics(result.diagnostics, pathLabel);
 
-	const diffSettings = result.config.settings.get("roaster.diff");
+	const diffSettings = getProjectConfigSetting(result.config, roasterDiffSettingsSchema);
 	const parsedDiff = parseDiffConfig(diffSettings, pathLabel);
 	if (!parsedDiff.ok) return parsedDiff;
 
-	const modelProfileSettings = result.config.settings.get("roaster.model_profiles");
+	const modelProfileSettings = getProjectConfigSetting(
+		result.config,
+		roasterModelProfilesSettingsSchema,
+	);
 	const parsedModelProfiles = parseModelProfiles(modelProfileSettings, pathLabel);
 	if (!parsedModelProfiles.ok) return parsedModelProfiles;
 
@@ -128,17 +144,13 @@ export function isRoasterModelProfileKey(value: string): value is RoasterModelPr
 	return MODEL_PROFILE_KEYS.includes(value as RoasterModelProfileKey);
 }
 
-function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffConfigParseResult {
+function parseDiffConfig(
+	value: RoasterSettingsRecord | undefined,
+	pathLabel: string | undefined,
+): DiffConfigParseResult {
 	if (value === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
-	const recordResult = recordSchema.safeParse(value);
-	if (!recordResult.success) {
-		return resultErrOf(
-			"invalid-table",
-			formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
-		);
-	}
 
-	const exclude = recordResult.data.exclude;
+	const exclude = value.exclude;
 	if (exclude === undefined) return { ok: true, value: EMPTY_CONFIG.diff };
 	const parsedExclude = parseExcludeGlobs(exclude, pathLabel);
 	if (!parsedExclude.ok) return parsedExclude;
@@ -146,18 +158,10 @@ function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffCon
 }
 
 function parseModelProfiles(
-	value: unknown,
+	settings: RoasterSettingsRecord | undefined,
 	pathLabel: string | undefined,
 ): ModelProfilesParseResult {
-	if (value === undefined) return { ok: true, value: DEFAULT_ROASTER_MODEL_PROFILES };
-	const recordResult = recordSchema.safeParse(value);
-	if (!recordResult.success) {
-		return resultErrOf(
-			"invalid-table",
-			formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
-		);
-	}
-	const settings = recordResult.data;
+	if (settings === undefined) return { ok: true, value: DEFAULT_ROASTER_MODEL_PROFILES };
 
 	const unknownKeys = Object.keys(settings)
 		.filter((key) => !isRoasterModelProfileKey(key))
@@ -250,25 +254,9 @@ function projectConfigErrorFromDiagnostics(
 	if (diagnostic?.code === "ns_toml_invalid") {
 		return resultErrOf("invalid-toml", normalizeNsTomlMessage(diagnostic.message, pathLabel));
 	}
-	if (diagnostic?.code === "settings_table_invalid") {
-		if (diagnostic.path === "roaster") {
-			return resultErrOf(
-				"invalid-table",
-				formatMessage("[roaster] must be a TOML table.", pathLabel),
-			);
-		}
-		if (diagnostic.path === "roaster.diff") {
-			return resultErrOf(
-				"invalid-table",
-				formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
-			);
-		}
-		if (diagnostic.path === "roaster.model_profiles") {
-			return resultErrOf(
-				"invalid-table",
-				formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
-			);
-		}
+	if (diagnostic?.code === "settings_table_invalid" && diagnostic.path !== undefined) {
+		const code = SETTINGS_TABLE_ERROR_CODES[diagnostic.path];
+		if (code !== undefined) return resultErrOf(code, diagnostic.message);
 	}
 	return resultErrOf(
 		"invalid-table",

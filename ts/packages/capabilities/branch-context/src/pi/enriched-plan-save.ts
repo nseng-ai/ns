@@ -1,8 +1,6 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { readFileSync, type Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-
 import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
@@ -16,8 +14,8 @@ import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 import {
 	loadPointCatalog,
 	nodeProjectConfigGateway,
+	resolvePromptPointPath,
 	resolvePromptPointSource,
-	type PromptPointSource,
 } from "@nseng-ai/kernel/project-config/points";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
@@ -65,10 +63,7 @@ interface WriteSavedPlanFileProgressDetails {
 const WRITE_PLAN_POINT_ID = "branch-context.plans-write";
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = readFileSync(
-	new URL(
-		"../../../../../../.ns/extensions/branch-context/prompts/plans-write-default.md",
-		import.meta.url,
-	),
+	new URL("./prompts/plans-write-default.md", import.meta.url),
 	"utf8",
 ).trimEnd();
 
@@ -161,7 +156,7 @@ async function resolveGitRoot(
 async function readWritePlanPromptBody(repoRoot: string): Promise<WritePlanPromptBodyResolution> {
 	const catalog = loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway });
 	const source = resolvePromptPointSource(catalog, WRITE_PLAN_POINT_ID);
-	const promptPath = promptSourcePath(repoRoot, source);
+	const promptPath = resolvePromptPointPath(repoRoot, source);
 	if (promptPath === undefined) {
 		return fallbackWritePlanPromptBody(`prompt point ${WRITE_PLAN_POINT_ID} has no default`);
 	}
@@ -172,25 +167,6 @@ async function readWritePlanPromptBody(repoRoot: string): Promise<WritePlanPromp
 		return fallbackWritePlanPromptBody(`${promptPath.label} is empty`);
 	}
 	return { type: "resolved", body: content };
-}
-
-function promptSourcePath(
-	repoRoot: string,
-	source: PromptPointSource,
-): { path: string; label: string } | undefined {
-	switch (source.type) {
-		case "ns.toml":
-			return { path: join(repoRoot, source.path), label: `ns.toml prompt ${source.path}` };
-		case "conventional":
-			return { path: join(repoRoot, source.path), label: source.path };
-		case "default":
-			return {
-				path: join(dirname(source.manifestPath), source.path),
-				label: `manifest default ${source.path}`,
-			};
-		case "missing":
-			return undefined;
-	}
 }
 
 async function assertSafeFile(targetPath: string, label: string): Promise<void> {

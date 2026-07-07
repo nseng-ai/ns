@@ -315,9 +315,9 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(7);
 		const error = run.stderr.join("");
-		expect(error).toContain(
-			"Pre-submit hook failed: just (exit code 7). Submission was not attempted.",
-		);
+		expect(error).toContain("Pre-submit hook failed (exit code 7).");
+		expect(error).toContain("Command: just");
+		expect(error).toContain("Submission was not attempted.");
 		expect(error).toContain("hook stdout");
 		expect(error).toContain("hook stderr");
 		expect(error).toContain("Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.");

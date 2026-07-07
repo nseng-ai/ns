@@ -13,9 +13,13 @@
 
 import type { CommandRunner, ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
 import {
+	formatCommandResultFailure,
+	outputListenerToExecCallbacks,
+} from "@nseng-ai/foundation/command";
+import {
+	hookCommandsForPoint,
 	loadPointCatalog,
 	nodeProjectConfigGateway,
-	type PointCatalog,
 	type ProjectConfigDiagnostic,
 } from "@nseng-ai/kernel/project-config/points";
 import { z } from "zod";
@@ -23,7 +27,6 @@ import { z } from "zod";
 /** Hooks run consumer validation suites (for example `just`), so allow far longer than a git call. */
 const PRE_SUBMIT_HOOK_TIMEOUT_MS = 1_800_000;
 const REPO_ROOT_TIMEOUT_MS = 30_000;
-const HOOK_FAILURE_OUTPUT_MAX_CHARS = 4_000;
 
 export interface FlowSubmitHook {
 	/** The configured hook string verbatim, for progress labels and failure messages. */
@@ -59,16 +62,7 @@ export function parseFlowSubmitHookCommands(
 			};
 		}
 		const display = entry.trim();
-		const [executable, ...args] = display.split(/\s+/);
-		if (executable === undefined || executable === "") {
-			return {
-				ok: false,
-				error: {
-					code: "invalid-pre-submit",
-					message: `${pathLabel} must contain only non-empty strings.`,
-				},
-			};
-		}
+		const [executable = "", ...args] = display.split(/\s+/);
 		parsed.push({ display, executable, args });
 	}
 	return { ok: true, value: parsed };
@@ -117,7 +111,7 @@ export async function loadFlowSubmitHooks(
 		};
 	}
 
-	const commands = flowSubmitPreHookCommands(catalog);
+	const commands = hookCommandsForPoint(catalog, FLOW_SUBMIT_PRE_POINT_ID);
 	if (commands.length === 0) return { kind: "none" };
 	const parsed = parseFlowSubmitHookCommands(commands);
 	if (!parsed.ok) return { kind: "invalid", error: parsed.error };
@@ -147,15 +141,9 @@ export async function runFlowSubmitHooks(
 	const total = options.hooks.length;
 	for (const [index, hook] of options.hooks.entries()) {
 		options.onHookStarted?.({ hook, index, total });
-		const onOutput = options.onOutput;
 		const result = await options.runner(hook.executable, hook.args, {
 			timeout: PRE_SUBMIT_HOOK_TIMEOUT_MS,
-			...(onOutput === undefined
-				? {}
-				: {
-						onStdout: (text: string) => onOutput("stdout", text),
-						onStderr: (text: string) => onOutput("stderr", text),
-					}),
+			...outputListenerToExecCallbacks(options.onOutput),
 		});
 		if (result.code !== 0 || result.killed || result.startupError !== undefined) {
 			return { kind: "failed", hook, result };
@@ -169,41 +157,16 @@ export function flowSubmitHookFailureExitCode(failure: FlowSubmitHookFailure): n
 }
 
 export function formatFlowSubmitHookFailure(failure: FlowSubmitHookFailure): string {
-	const lines = [
-		`Pre-submit hook failed: ${failure.hook.display} (exit code ${failure.result.code}). Submission was not attempted.`,
-	];
-	if (failure.result.startupError !== undefined) {
-		lines.push("", `Startup error: ${failure.result.startupError}`);
-	}
-	if (failure.result.killed) {
-		lines.push("", "The hook was killed before completing (timeout or signal).");
-	}
-	const tail = boundHookOutputTail(failure.result);
-	if (tail !== "") {
-		lines.push("", tail);
-	}
-	lines.push("", "Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.");
-	return `${lines.join("\n")}\n`;
-}
-
-function boundHookOutputTail(result: ExecResult): string {
-	const combined = [result.stdout.trimEnd(), result.stderr.trimEnd()]
-		.filter((text) => text !== "")
-		.join("\n");
-	if (combined.length <= HOOK_FAILURE_OUTPUT_MAX_CHARS) return combined;
-	const omittedChars = combined.length - HOOK_FAILURE_OUTPUT_MAX_CHARS;
-	return `… ${omittedChars} leading character(s) omitted\n${combined.slice(-HOOK_FAILURE_OUTPUT_MAX_CHARS)}`;
-}
-
-function flowSubmitPreHookCommands(catalog: PointCatalog): readonly string[] {
-	const entry = catalog.entries.find(
-		(catalogEntry) => catalogEntry.definition.id === FLOW_SUBMIT_PRE_POINT_ID,
-	);
-	const installation = entry?.installations.find(
-		(candidate) => candidate.source === "ns.toml" && candidate.installation.accepts === "hook",
-	);
-	if (installation?.source !== "ns.toml" || installation.installation.accepts !== "hook") return [];
-	return installation.installation.commands;
+	return `${[
+		formatCommandResultFailure(
+			"Pre-submit hook failed",
+			failure.hook.executable,
+			failure.hook.args,
+			failure.result,
+		),
+		"Submission was not attempted.",
+		"Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.",
+	].join("\n\n")}\n`;
 }
 
 function formatCatalogDiagnostics(diagnostics: readonly ProjectConfigDiagnostic[]): string {

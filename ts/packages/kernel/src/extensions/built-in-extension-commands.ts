@@ -11,6 +11,10 @@ import {
 	type PointCatalogInstallation,
 	type ProjectConfigDiagnostic,
 } from "../project-config/points.ts";
+import {
+	nsExtensionPointAcceptsValues,
+	nsExtensionPointSemanticsValues,
+} from "../sdk/extension-manifest.ts";
 import type { NsCommand } from "../sdk/index.ts";
 
 const knownPromptEnvOverrides = [
@@ -35,8 +39,8 @@ const pointSourceSchema = z.union([
 
 const pointSummarySchema = z.object({
 	id: z.string(),
-	accepts: z.enum(["hook", "prompt"]),
-	semantics: z.enum(["additive", "override"]),
+	accepts: z.enum(nsExtensionPointAcceptsValues),
+	semantics: z.enum(nsExtensionPointSemanticsValues),
 	description: z.string().optional(),
 	manifestPath: z.string().optional(),
 	defaultPath: z.string().optional(),
@@ -210,9 +214,7 @@ function renderPointsHuman(result: z.infer<typeof extensionPointsResultSchema>):
 			`- ${point.id} (${point.accepts}, ${point.semantics}) — ${renderSource(point.activeSource)}`,
 		);
 	}
-	if (result.diagnostics.length > 0) {
-		lines.push("", "diagnostics:", ...result.diagnostics.map(renderDiagnostic));
-	}
+	appendDiagnosticsSection(lines, result.diagnostics, { leadingBlank: true });
 	return `${lines.join("\n")}\n`;
 }
 
@@ -233,10 +235,18 @@ function renderPointDetailHuman(result: z.infer<typeof extensionPointDetailResul
 			...point.installations.map((source) => `- ${renderSource(source)}`),
 		);
 	}
-	if (result.diagnostics.length > 0) {
-		lines.push("diagnostics:", ...result.diagnostics.map(renderDiagnostic));
-	}
+	appendDiagnosticsSection(lines, result.diagnostics);
 	return `${lines.join("\n")}\n`;
+}
+
+function appendDiagnosticsSection(
+	lines: string[],
+	diagnostics: readonly z.infer<typeof pointDiagnosticSchema>[],
+	options: { leadingBlank?: boolean } = {},
+): void {
+	if (diagnostics.length === 0) return;
+	if (options.leadingBlank === true) lines.push("");
+	lines.push("diagnostics:", ...diagnostics.map(renderDiagnostic));
 }
 
 function renderSource(source: z.infer<typeof pointSourceSchema>): string {

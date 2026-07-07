@@ -1,4 +1,8 @@
-import { parseProjectConfigToml } from "@nseng-ai/kernel/project-config/points";
+import {
+	getProjectConfigSetting,
+	parseProjectConfigToml,
+	type SettingsSchema,
+} from "@nseng-ai/kernel/project-config/points";
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { err, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
@@ -8,10 +12,15 @@ import { rejectTextState } from "./file-state.ts";
 
 export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
 
+const aregSettingsValueSchema = z.object({ agents: z.array(z.string().min(1)).optional() });
+
+type AregSettings = z.output<typeof aregSettingsValueSchema>;
+
 const aregSettingsSchema = {
 	path: ["areg"] as const,
-	schema: z.object({ agents: z.array(z.string().min(1)).optional() }),
-};
+	schema: aregSettingsValueSchema,
+	invalidMessage: ({ pathLabel }) => `${pathLabel} [areg].agents must be a non-empty string list.`,
+} satisfies SettingsSchema<AregSettings>;
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
@@ -37,15 +46,11 @@ export function parseNsAregAgents(text: string, pathLabel = "ns.toml"): Result<s
 		const diagnostic = result.diagnostics.find((candidate) => candidate.severity === "error");
 		return err({
 			code: "ns_toml_invalid",
-			message:
-				diagnostic?.code === "settings_table_invalid" && diagnostic.path === "areg"
-					? `${pathLabel} [areg].agents must be a non-empty string list.`
-					: (diagnostic?.message ?? `${pathLabel}: invalid ns.toml`),
+			message: diagnostic?.message ?? `${pathLabel}: invalid ns.toml`,
 		});
 	}
-	const settings = result.config.settings.get("areg");
-	if (settings === undefined) return { ok: true, value: [] };
-	const areg = aregSettingsSchema.schema.parse(settings);
+	const areg = getProjectConfigSetting(result.config, aregSettingsSchema);
+	if (areg === undefined) return { ok: true, value: [] };
 	return { ok: true, value: areg.agents ?? [] };
 }
 

@@ -182,11 +182,7 @@ describe("flow submit hooks", () => {
 
 		const formatted = formatFlowSubmitHookFailure(failure);
 		expect(flowSubmitHookFailureExitCode(failure)).toBe(1);
-		expect(formatted).toContain(
-			"Pre-submit hook failed: just (exit code 1). Submission was not attempted.",
-		);
-		expect(formatted).toContain("… ");
-		expect(formatted).toContain("leading character(s) omitted");
+		expect(formatted).toContain("…");
 		expect(formatted).toContain("kept stdout");
 		expect(formatted).toContain("kept stderr");
 		expect(formatted).toContain(
@@ -202,10 +198,10 @@ describe("flow submit hooks", () => {
 		};
 
 		expect(flowSubmitHookFailureExitCode(failure)).toBe(1);
-		expect(formatFlowSubmitHookFailure(failure)).toContain("Startup error: spawn ENOENT");
 		expect(formatFlowSubmitHookFailure(failure)).toContain(
-			"The hook was killed before completing (timeout or signal).",
+			"Pre-submit hook failed (failed before completion).",
 		);
+		expect(formatFlowSubmitHookFailure(failure)).toContain("spawn ENOENT");
 	});
 });
 

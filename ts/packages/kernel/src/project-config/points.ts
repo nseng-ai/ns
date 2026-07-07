@@ -1,39 +1,43 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { isPathInside } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
+import { NS_COMMAND_NAME_PATTERN } from "../sdk/command-name.ts";
 import {
 	nsExtensionManifestPointSchema,
 	nsExtensionPackageManifestSchema,
+	nsExtensionPointAcceptsValues,
+	nsExtensionPointSemanticsValues,
 } from "../sdk/extension-manifest.ts";
 
-export type PointAccepts = "hook" | "prompt";
-export type PointSemantics = "additive" | "override";
+export type PointAccepts = (typeof nsExtensionPointAcceptsValues)[number];
+export type PointSemantics = (typeof nsExtensionPointSemanticsValues)[number];
 
-export type PointDefinition = {
+export interface PointDefinition {
 	id: string;
 	accepts: PointAccepts;
 	semantics: PointSemantics;
 	description?: string;
 	defaultPath?: string;
 	manifestPath?: string;
-};
+}
 
-export type SettingsSchema = {
+export interface SettingsSchema<T = unknown> {
 	path: readonly [string, ...string[]];
-	schema: ZodType;
-};
+	schema: ZodType<T>;
+	invalidMessage?: (context: { pathLabel: string; key: string }) => string;
+}
 
-export type ProjectConfigGateway = {
+export interface ProjectConfigGateway {
 	readTextFile: (request: { repoRoot: string; relativePath: string }) => ProjectConfigReadResult;
 	pathExists?: (request: {
 		repoRoot: string;
 		relativePath: string;
 	}) => ProjectConfigPathExistsResult;
-};
+}
 
 export type ProjectConfigReadResult =
 	| { type: "found"; text: string }
@@ -45,50 +49,57 @@ export type ProjectConfigPathExistsResult =
 	| { type: "missing" }
 	| { type: "error"; message: string };
 
-export type ProjectConfigDiagnostic = {
+export interface ProjectConfigDiagnostic {
 	severity: "error" | "info";
 	code: string;
 	message: string;
 	path?: string;
-};
+}
 
 export type ProjectPointInstallation =
 	| { pointId: string; accepts: "hook"; commands: readonly string[] }
 	| { pointId: string; accepts: "prompt"; path: string };
 
-export type LoadedProjectConfig = {
+export interface LoadedProjectConfig {
 	points: readonly ProjectPointInstallation[];
 	settings: ReadonlyMap<string, unknown>;
-};
+}
+
+export function getProjectConfigSetting<T>(
+	config: LoadedProjectConfig,
+	schema: SettingsSchema<T>,
+): T | undefined {
+	return config.settings.get(schema.path.join(".")) as T | undefined;
+}
 
 export type LoadProjectConfigResult =
 	| { ok: true; config: LoadedProjectConfig; diagnostics: readonly ProjectConfigDiagnostic[] }
 	| { ok: false; diagnostics: readonly ProjectConfigDiagnostic[]; config?: LoadedProjectConfig };
 
-export type PointDefinitionDiscoveryResult = {
+export interface PointDefinitionDiscoveryResult {
 	pointDefinitions: readonly PointDefinition[];
 	diagnostics: readonly ProjectConfigDiagnostic[];
-};
+}
 
 export type PointCatalogInstallation =
 	| { source: "env-prompt"; pointId: string; envVar: string; path: string }
 	| { source: "ns.toml"; installation: ProjectPointInstallation }
 	| { source: "conventional-prompt"; pointId: string; path: string };
 
-export type PromptPointEnvOverride = {
+export interface PromptPointEnvOverride {
 	pointId: string;
 	envVar: string;
-};
+}
 
-export type PointCatalogEntry = {
+export interface PointCatalogEntry {
 	definition: PointDefinition;
 	installations: readonly PointCatalogInstallation[];
-};
+}
 
-export type PointCatalog = {
+export interface PointCatalog {
 	entries: readonly PointCatalogEntry[];
 	diagnostics: readonly ProjectConfigDiagnostic[];
-};
+}
 
 export type PromptPointSource =
 	| { type: "env"; pointId: string; envVar: string; path: string }
@@ -106,7 +117,7 @@ export const nodeProjectConfigGateway: ProjectConfigGateway = {
 			};
 		} catch (error) {
 			if (isNodeFileNotFound(error)) return { type: "missing" };
-			return { type: "error", message: formatUnknownError(error) };
+			return { type: "error", message: formatErrorMessage(error) };
 		}
 	},
 	pathExists(request) {
@@ -115,7 +126,7 @@ export const nodeProjectConfigGateway: ProjectConfigGateway = {
 				? { type: "present" }
 				: { type: "missing" };
 		} catch (error) {
-			return { type: "error", message: formatUnknownError(error) };
+			return { type: "error", message: formatErrorMessage(error) };
 		}
 	},
 };
@@ -168,7 +179,7 @@ export function parseProjectConfigToml(
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("ns_toml_invalid", `${pathLabel}: Invalid TOML.\n${formatUnknownError(error)}`),
+				diagnostic("ns_toml_invalid", `${pathLabel}: Invalid TOML.\n${formatErrorMessage(error)}`),
 			],
 		};
 	}
@@ -183,25 +194,23 @@ export function parseProjectConfigToml(
 		};
 	}
 
-	const diagnostics: ProjectConfigDiagnostic[] = [];
 	const document = documentResult.data;
-	const points =
+	const pointsResult =
 		request.pointDefinitions === undefined
-			? []
+			? { installations: [], diagnostics: [] }
 			: parsePointsTable({
 					pathLabel,
 					value: document["points"],
 					pointDefinitions: request.pointDefinitions,
-					diagnostics,
 				});
-	const settings = parseDeclaredSettings({
+	const settingsResult = parseDeclaredSettings({
 		pathLabel,
 		document,
 		settingsSchemas: request.settingsSchemas ?? [],
-		diagnostics,
 	});
+	const diagnostics = [...pointsResult.diagnostics, ...settingsResult.diagnostics];
 
-	const config = { points, settings };
+	const config = { points: pointsResult.installations, settings: settingsResult.settings };
 	if (diagnostics.length > 0) return { ok: false, config, diagnostics };
 	return { ok: true, config, diagnostics: [] };
 }
@@ -233,7 +242,7 @@ export function discoverPointDefinitionsInRoot(rootDir: string): PointDefinition
 			diagnostics: [
 				diagnostic(
 					"extension_root_read_failed",
-					`Could not read extension root ${rootDir}.\n${formatUnknownError(error)}`,
+					`Could not read extension root ${rootDir}.\n${formatErrorMessage(error)}`,
 					{ path: rootDir },
 				),
 			],
@@ -275,7 +284,7 @@ export function loadPointCatalog(request: {
 		pointDefinitions: definitionResult.pointDefinitions,
 		settingsSchemas: request.settingsSchemas ?? [],
 	});
-	return computePointCatalog({
+	return buildPointCatalog({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
 		pointDefinitions: definitionResult.pointDefinitions,
@@ -294,10 +303,8 @@ export function resolvePromptPointSource(
 	if (entry === undefined || entry.definition.accepts !== "prompt")
 		return { type: "missing", pointId };
 
-	const envOverride = entry.installations.find(
-		(installation) => installation.source === "env-prompt",
-	);
-	if (envOverride?.source === "env-prompt") {
+	const envOverride = findCatalogInstallation(entry, "env-prompt");
+	if (envOverride !== undefined) {
 		return {
 			type: "env",
 			pointId,
@@ -306,18 +313,13 @@ export function resolvePromptPointSource(
 		};
 	}
 
-	const configured = entry.installations.find(
-		(installation) =>
-			installation.source === "ns.toml" && installation.installation.accepts === "prompt",
-	);
-	if (configured?.source === "ns.toml" && configured.installation.accepts === "prompt") {
+	const configured = findPromptConfigInstallation(entry);
+	if (configured !== undefined) {
 		return { type: "ns.toml", pointId, path: configured.installation.path };
 	}
 
-	const conventional = entry.installations.find(
-		(installation) => installation.source === "conventional-prompt",
-	);
-	if (conventional?.source === "conventional-prompt") {
+	const conventional = findCatalogInstallation(entry, "conventional-prompt");
+	if (conventional !== undefined) {
 		return { type: "conventional", pointId, path: conventional.path };
 	}
 
@@ -333,7 +335,11 @@ export function resolvePromptPointSource(
 	return { type: "missing", pointId };
 }
 
-export function computePointCatalog(request: {
+export function computePointCatalog(request: BuildPointCatalogRequest): PointCatalog {
+	return buildPointCatalog(request);
+}
+
+export interface BuildPointCatalogRequest {
 	repoRoot: string;
 	gateway: Pick<ProjectConfigGateway, "pathExists">;
 	pointDefinitions: readonly PointDefinition[];
@@ -341,7 +347,9 @@ export function computePointCatalog(request: {
 	diagnostics?: readonly ProjectConfigDiagnostic[];
 	promptEnvOverrides?: readonly PromptPointEnvOverride[];
 	env?: Record<string, string | undefined>;
-}): PointCatalog {
+}
+
+export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatalog {
 	const diagnostics: ProjectConfigDiagnostic[] = [...(request.diagnostics ?? [])];
 	const installationsByPoint = new Map<string, PointCatalogInstallation[]>();
 	for (const installation of request.config.points) {
@@ -366,10 +374,10 @@ export function computePointCatalog(request: {
 			if (envOverride !== undefined) {
 				installations = [{ source: "env-prompt", ...envOverride }, ...installations];
 				diagnostics.push(
-					infoDiagnostic(
+					diagnostic(
 						"point_prompt_env_override_in_effect",
 						`Prompt point ${definition.id} is overridden by env var ${envOverride.envVar}.`,
-						{ path: definition.id },
+						{ path: definition.id, severity: "info" },
 					),
 				);
 			}
@@ -397,18 +405,18 @@ export function computePointCatalog(request: {
 
 		if (definition.semantics === "override" && installations.length > 0) {
 			diagnostics.push(
-				infoDiagnostic(
+				diagnostic(
 					"point_override_in_effect",
 					`Override point ${definition.id} has a repo installation in effect.`,
-					{ path: definition.id },
+					{ path: definition.id, severity: "info" },
 				),
 			);
 		} else if (installations.length === 0) {
 			diagnostics.push(
-				infoDiagnostic(
+				diagnostic(
 					"point_defined_uninstalled",
 					`Point ${definition.id} is defined but not installed in this repo.`,
-					{ path: definition.id },
+					{ path: definition.id, severity: "info" },
 				),
 			);
 		}
@@ -417,6 +425,64 @@ export function computePointCatalog(request: {
 	}
 
 	return { entries, diagnostics };
+}
+
+export function hookCommandsForPoint(catalog: PointCatalog, pointId: string): readonly string[] {
+	const entry = catalog.entries.find((catalogEntry) => catalogEntry.definition.id === pointId);
+	if (entry === undefined) return [];
+	const installation = findCatalogInstallation(entry, "ns.toml");
+	if (installation?.installation.accepts !== "hook") return [];
+	return installation.installation.commands;
+}
+
+export function resolvePromptPointPath(
+	repoRoot: string,
+	source: PromptPointSource,
+): { path: string; label: string } | undefined {
+	switch (source.type) {
+		case "env":
+			return {
+				path: resolve(repoRoot, source.path),
+				label: `${source.envVar} prompt ${source.path}`,
+			};
+		case "ns.toml":
+			return { path: join(repoRoot, source.path), label: `ns.toml prompt ${source.path}` };
+		case "conventional":
+			return { path: join(repoRoot, source.path), label: source.path };
+		case "default":
+			return {
+				path: join(dirname(source.manifestPath), source.path),
+				label: `manifest default ${source.path}`,
+			};
+		case "missing":
+			return undefined;
+	}
+}
+
+function findCatalogInstallation<TSource extends PointCatalogInstallation["source"]>(
+	entry: PointCatalogEntry,
+	source: TSource,
+): Extract<PointCatalogInstallation, { source: TSource }> | undefined {
+	return entry.installations.find(
+		(installation): installation is Extract<PointCatalogInstallation, { source: TSource }> =>
+			installation.source === source,
+	);
+}
+
+function findPromptConfigInstallation(entry: PointCatalogEntry):
+	| {
+			source: "ns.toml";
+			installation: Extract<ProjectPointInstallation, { accepts: "prompt" }>;
+	  }
+	| undefined {
+	return entry.installations.find(
+		(
+			installation,
+		): installation is {
+			source: "ns.toml";
+			installation: Extract<ProjectPointInstallation, { accepts: "prompt" }>;
+		} => installation.source === "ns.toml" && installation.installation.accepts === "prompt",
+	);
 }
 
 function findPromptEnvOverride(request: {
@@ -435,17 +501,20 @@ function parsePointsTable(request: {
 	pathLabel: string;
 	value: unknown;
 	pointDefinitions: readonly PointDefinition[];
-	diagnostics: ProjectConfigDiagnostic[];
-}): readonly ProjectPointInstallation[] {
-	if (request.value === undefined) return [];
+}): {
+	installations: readonly ProjectPointInstallation[];
+	diagnostics: readonly ProjectConfigDiagnostic[];
+} {
+	if (request.value === undefined) return { installations: [], diagnostics: [] };
+	const diagnostics: ProjectConfigDiagnostic[] = [];
 	const tableResult = recordSchema.safeParse(request.value);
 	if (!tableResult.success) {
-		request.diagnostics.push(
+		diagnostics.push(
 			diagnostic("points_table_invalid", `${request.pathLabel}: [points] must be a TOML table.`, {
 				path: "points",
 			}),
 		);
-		return [];
+		return { installations: [], diagnostics };
 	}
 
 	const definitions = new Map(
@@ -455,7 +524,7 @@ function parsePointsTable(request: {
 	for (const [pointId, value] of Object.entries(tableResult.data)) {
 		const definition = definitions.get(pointId);
 		if (definition === undefined) {
-			request.diagnostics.push(
+			diagnostics.push(
 				diagnostic(
 					"point_installation_undefined",
 					`${request.pathLabel}: [points].${JSON.stringify(pointId)} installs an undefined point.`,
@@ -471,9 +540,9 @@ function parsePointsTable(request: {
 			value,
 		});
 		if (parsed.ok) installations.push(parsed.installation);
-		else request.diagnostics.push(parsed.diagnostic);
+		else diagnostics.push(parsed.diagnostic);
 	}
-	return installations;
+	return { installations, diagnostics };
 }
 
 function parsePointInstallation(request: {
@@ -485,65 +554,72 @@ function parsePointInstallation(request: {
 	| { ok: true; installation: ProjectPointInstallation }
 	| { ok: false; diagnostic: ProjectConfigDiagnostic } {
 	if (request.definition.accepts === "hook") {
-		const valueResult = z.array(z.string()).safeParse(request.value);
-		if (!valueResult.success) {
-			return {
-				ok: false,
-				diagnostic: diagnostic(
-					"point_installation_invalid",
-					`${request.pathLabel}: hook point ${request.pointId} must be an array of command strings.`,
-					{ path: `points.${request.pointId}` },
-				),
-			};
-		}
-		return {
-			ok: true,
-			installation: { pointId: request.pointId, accepts: "hook", commands: valueResult.data },
-		};
+		return parseInstallationValue({
+			...request,
+			schema: z.array(z.string()),
+			invalidMessage: `${request.pathLabel}: hook point ${request.pointId} must be an array of command strings.`,
+			buildInstallation: (commands) => ({
+				pointId: request.pointId,
+				accepts: "hook",
+				commands,
+			}),
+		});
 	}
 
-	const valueResult = z.string().min(1).safeParse(request.value);
+	return parseInstallationValue({
+		...request,
+		schema: z.string().min(1),
+		invalidMessage: `${request.pathLabel}: prompt point ${request.pointId} must be a non-empty path string.`,
+		buildInstallation: (path) => ({ pointId: request.pointId, accepts: "prompt", path }),
+	});
+}
+
+function parseInstallationValue<T>(request: {
+	pointId: string;
+	value: unknown;
+	schema: ZodType<T>;
+	invalidMessage: string;
+	buildInstallation: (value: T) => ProjectPointInstallation;
+}):
+	| { ok: true; installation: ProjectPointInstallation }
+	| { ok: false; diagnostic: ProjectConfigDiagnostic } {
+	const valueResult = request.schema.safeParse(request.value);
 	if (!valueResult.success) {
 		return {
 			ok: false,
-			diagnostic: diagnostic(
-				"point_installation_invalid",
-				`${request.pathLabel}: prompt point ${request.pointId} must be a non-empty path string.`,
-				{ path: `points.${request.pointId}` },
-			),
+			diagnostic: diagnostic("point_installation_invalid", request.invalidMessage, {
+				path: `points.${request.pointId}`,
+			}),
 		};
 	}
-	return {
-		ok: true,
-		installation: { pointId: request.pointId, accepts: "prompt", path: valueResult.data },
-	};
+	return { ok: true, installation: request.buildInstallation(valueResult.data) };
 }
 
 function parseDeclaredSettings(request: {
 	pathLabel: string;
 	document: Record<string, unknown>;
 	settingsSchemas: readonly SettingsSchema[];
-	diagnostics: ProjectConfigDiagnostic[];
-}): ReadonlyMap<string, unknown> {
+}): {
+	settings: ReadonlyMap<string, unknown>;
+	diagnostics: readonly ProjectConfigDiagnostic[];
+} {
 	const settings = new Map<string, unknown>();
+	const diagnostics: ProjectConfigDiagnostic[] = [];
 	for (const setting of request.settingsSchemas) {
 		const settingValue = valueAtPath(request.document, setting.path);
 		if (settingValue === undefined) continue;
 		const schemaResult = setting.schema.safeParse(settingValue);
 		const key = setting.path.join(".");
 		if (!schemaResult.success) {
-			request.diagnostics.push(
-				diagnostic(
-					"settings_table_invalid",
-					`${request.pathLabel}: [${key}] does not match its declared settings schema.`,
-					{ path: key },
-				),
-			);
+			const message =
+				setting.invalidMessage?.({ pathLabel: request.pathLabel, key }) ??
+				`${request.pathLabel}: [${key}] does not match its declared settings schema.`;
+			diagnostics.push(diagnostic("settings_table_invalid", message, { path: key }));
 			continue;
 		}
 		settings.set(key, schemaResult.data);
 	}
-	return settings;
+	return { settings, diagnostics };
 }
 
 function valueAtPath(
@@ -570,7 +646,7 @@ function discoverPackagePointDefinitions(packageJsonPath: string): PointDefiniti
 			diagnostics: [
 				diagnostic(
 					"extension_manifest_parse_failed",
-					`Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+					`Could not parse extension manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
 					{ path: packageJsonPath },
 				),
 			],
@@ -609,11 +685,11 @@ function discoverPackagePointDefinitions(packageJsonPath: string): PointDefiniti
 
 	const pointDefinitions: PointDefinition[] = [];
 	const diagnostics: ProjectConfigDiagnostic[] = [];
+	const location = { packageJsonPath, packageDir: dirname(packageJsonPath) };
 	for (const point of manifest.ns.points) {
 		const pointResult = pointDefinitionFromManifestPoint({
 			group,
-			packageJsonPath,
-			packageDir: dirname(packageJsonPath),
+			location,
 			point,
 		});
 		if (pointResult.ok) pointDefinitions.push(pointResult.definition);
@@ -622,10 +698,14 @@ function discoverPackagePointDefinitions(packageJsonPath: string): PointDefiniti
 	return { pointDefinitions, diagnostics };
 }
 
-function pointDefinitionFromManifestPoint(request: {
-	group: string;
+interface PackageManifestLocation {
 	packageJsonPath: string;
 	packageDir: string;
+}
+
+function pointDefinitionFromManifestPoint(request: {
+	group: string;
+	location: PackageManifestLocation;
 	point: unknown;
 }):
 	| { ok: true; definition: PointDefinition }
@@ -637,8 +717,8 @@ function pointDefinitionFromManifestPoint(request: {
 			diagnostics: [
 				diagnostic(
 					"extension_manifest_point_invalid",
-					`Extension manifest points must be objects with supported known fields: ${request.packageJsonPath}.`,
-					{ path: request.packageJsonPath },
+					`Extension manifest points must be objects with supported known fields: ${request.location.packageJsonPath}.`,
+					{ path: request.location.packageJsonPath },
 				),
 			],
 		};
@@ -648,17 +728,16 @@ function pointDefinitionFromManifestPoint(request: {
 	const path = parsePointManifestPath(point.path);
 	const diagnostics: ProjectConfigDiagnostic[] = [...path.diagnostics];
 	if (point.accepts === undefined) {
-		diagnostics.push(manifestPointFieldDiagnostic("accepts", request.packageJsonPath));
+		diagnostics.push(manifestPointFieldDiagnostic("accepts", request.location.packageJsonPath));
 	}
 	if (point.semantics === undefined) {
-		diagnostics.push(manifestPointFieldDiagnostic("semantics", request.packageJsonPath));
+		diagnostics.push(manifestPointFieldDiagnostic("semantics", request.location.packageJsonPath));
 	}
 
 	let defaultPath: string | undefined;
 	if (point.default !== undefined) {
 		const defaultValidation = validateManifestRelativePath({
-			packageDir: request.packageDir,
-			packageJsonPath: request.packageJsonPath,
+			location: request.location,
 			rawPath: point.default,
 		});
 		if (defaultValidation.ok) defaultPath = point.default;
@@ -683,7 +762,7 @@ function pointDefinitionFromManifestPoint(request: {
 			semantics: point.semantics,
 			...(description === undefined ? {} : { description }),
 			...(defaultPath === undefined ? {} : { defaultPath }),
-			manifestPath: request.packageJsonPath,
+			manifestPath: request.location.packageJsonPath,
 		},
 	};
 }
@@ -712,8 +791,7 @@ function parsePointManifestPath(value: unknown): {
 }
 
 function validateManifestRelativePath(request: {
-	packageDir: string;
-	packageJsonPath: string;
+	location: PackageManifestLocation;
 	rawPath: string;
 }): { ok: true } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
 	if (
@@ -726,7 +804,7 @@ function validateManifestRelativePath(request: {
 			diagnostic: diagnostic(
 				"extension_manifest_point_default_not_relative",
 				`Extension manifest point default must be a relative POSIX-style path inside the package: ${request.rawPath}.`,
-				{ path: request.packageJsonPath },
+				{ path: request.location.packageJsonPath },
 			),
 		};
 	}
@@ -736,18 +814,18 @@ function validateManifestRelativePath(request: {
 			diagnostic: diagnostic(
 				"extension_manifest_point_default_not_markdown",
 				`Extension manifest point default must be a markdown file path: ${request.rawPath}.`,
-				{ path: request.packageJsonPath },
+				{ path: request.location.packageJsonPath },
 			),
 		};
 	}
-	const resolvedPath = resolve(request.packageDir, request.rawPath);
-	if (!isPathInside(request.packageDir, resolvedPath)) {
+	const resolvedPath = resolve(request.location.packageDir, request.rawPath);
+	if (!isPathInside(request.location.packageDir, resolvedPath)) {
 		return {
 			ok: false,
 			diagnostic: diagnostic(
 				"extension_manifest_point_default_escapes",
 				`Extension manifest point default must not escape its package directory: ${request.rawPath}.`,
-				{ path: request.packageJsonPath },
+				{ path: request.location.packageJsonPath },
 			),
 		};
 	}
@@ -776,7 +854,7 @@ function inspectDirectory(
 			ok: false,
 			diagnostic: diagnostic(
 				"extension_root_stat_failed",
-				`Could not inspect ${label} ${path}.\n${formatUnknownError(error)}`,
+				`Could not inspect ${label} ${path}.\n${formatErrorMessage(error)}`,
 				{ path },
 			),
 		};
@@ -784,7 +862,7 @@ function inspectDirectory(
 }
 
 function readManifestNameSegment(value: unknown): string | undefined {
-	return typeof value === "string" && /^[a-z][a-z0-9-]*$/u.test(value) ? value : undefined;
+	return typeof value === "string" && NS_COMMAND_NAME_PATTERN.test(value) ? value : undefined;
 }
 
 function readNonEmptyString(value: unknown): string | undefined {
@@ -794,23 +872,10 @@ function readNonEmptyString(value: unknown): string | undefined {
 function diagnostic(
 	code: string,
 	message: string,
-	options: { path?: string } = {},
+	options: { path?: string; severity?: ProjectConfigDiagnostic["severity"] } = {},
 ): ProjectConfigDiagnostic {
 	return {
-		severity: "error",
-		code,
-		message,
-		...(options.path === undefined ? {} : { path: options.path }),
-	};
-}
-
-function infoDiagnostic(
-	code: string,
-	message: string,
-	options: { path?: string } = {},
-): ProjectConfigDiagnostic {
-	return {
-		severity: "info",
+		severity: options.severity ?? "error",
 		code,
 		message,
 		...(options.path === undefined ? {} : { path: options.path }),
@@ -824,11 +889,6 @@ function isNodeFileNotFound(error: unknown): boolean {
 		"code" in error &&
 		(error as { code?: unknown }).code === "ENOENT"
 	);
-}
-
-function formatUnknownError(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }
 
 const recordSchema = z.record(z.string(), z.unknown());
