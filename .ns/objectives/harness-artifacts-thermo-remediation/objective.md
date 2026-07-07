@@ -33,20 +33,20 @@ The five HIGHs: (H1) the `homeDir ?? env.HOME ?? ""` sentinel lets `ns skills`/`
 - Every HIGH finding is remediated with completion evidence (tests exercising the fixed behavior where behavior changed; deletion confirmed by grep where the remedy is deletion) and full repo validation green.
 - Every MEDIUM finding is either remediated or parked with an explicit rationale in a Semantic Update; none is silently dropped.
 - The LOW sweep row is done or explicitly parked.
-- The remediation branches form a reviewable Graphite stack on top of the reviewed stack.
+- The remediation branches form a reviewable Graphite stack on top of the reviewed stack, targeting about five PRs grouped by subsystem/risk rather than one PR per roadmap row.
 
 ## Definition of Progress
 
 Progress is keepable when:
 
-- a roadmap row's remediation is implemented, validated (`just` green, full TS suite), and committed as its own stacked branch/commit;
+- a coherent remediation PR group is implemented, validated (`just` green, full TS suite), and committed as its own stacked branch/commit;
 - a finding is re-verified as already fixed or invalidated by upstream stack changes, recorded via Semantic Update;
 - a decision-bearing row (repo-local descriptor honesty, kernel homeDir exposure) reaches a confirmed decision recorded in the record.
 
 Do not keep changes that:
 
 - change behavior beyond what the finding's remedy prescribes;
-- mix multiple roadmap rows into one commit without checkpoint approval;
+- mix roadmap rows across the agreed PR groups without checkpoint approval;
 - leave validation red or tests skipped.
 
 Useful evidence includes: grep output proving dead code is gone, before/after I/O counts for H2, targeted tests for H1's explicit-error path and the collision-skip policy, and `just` output.
@@ -55,11 +55,12 @@ Useful evidence includes: grep output proving dead code is gone, before/after I/
 
 This Objective is execution-friendly for `objective-next` and designed for `objective-autorun` under the boundaries below.
 
-- Direct execution is allowed when: the slice is behavior-preserving deletion, refactoring, or internal restructuring (H3, H4, H5 sweeps; fs plumbing consolidation; dead planner branches; ns-init dead surface; LOW sweep; sentinel derivation; test-fixture fixes), validated by full repo validation.
-- Steer or ask first when: the slice changes machine-facing contracts or user-visible behavior — error variants and codes (H2's `locally_edited_conflict` removal, `init-*` code renames, check/doctor code alignment), `ns update` failure semantics (collision skip-and-report), CLI JSON output shapes — or touches the kernel `NsExtensionApi` surface (H1's homeDir exposure), or a finding no longer matches current code on re-verification.
-- How work may change files and be left: edits under the packages named in Scope plus their tests; each committed step is a clean stacked Graphite branch; no uncommitted work left across steps.
+- Direct execution is allowed when: the slice is behavior-preserving deletion, refactoring, internal restructuring, or one of the preauthorized contract/product decisions below, validated by full repo validation.
+- Preauthorized decisions: H1 should expose the kernel-computed `homeDir` on `NsExtensionApi` and use it to remove all three capability-side `?? ""` sentinels; H2 may delete `shouldForce` and the `locally_edited_conflict` apply-layer error in favor of first-class conflict outcomes; reconcile collision remediation should provision non-colliding artifacts, report skipped collisions, and exit nonzero; repo-local descriptor honesty should convert the skills commands to plain preinstalled catalog entries and delete `repo-local-ns-extension.ts`; AREG remediation may atomically rename machine-facing error/status codes when the rename is directly tied to the selected row and all in-repo consumers/tests are updated in the same slice.
+- Steer or ask first when: a slice changes CLI JSON output shapes beyond the decisions above, changes behavior beyond the finding's remedy, edits outside Scope, or a finding no longer matches current code on re-verification.
+- How work may change files and be left: edits under the packages named in Scope plus their tests; each completed slice may be left as a clean local Graphite branch/commit stacked on the previous remediation slice; no uncommitted work left across steps.
 - Validation before keeping work: `just` (full repo validation) green per step; formatting via autofixers only.
-- What will not happen unless explicitly requested: PR submission or updates, pushing, publishing, restacking/reshaping the underlying reviewed stack, edits outside the Scope packages, or external system writes of any kind.
+- What will not happen unless explicitly requested: PR submission or updates, pushing, publishing, restacking/reshaping the underlying reviewed stack beyond local remediation stacking, edits outside the Scope packages, or external system writes of any kind.
 
 ## Assumptions and Risks
 
@@ -73,11 +74,9 @@ This Objective is execution-friendly for `objective-next` and designed for `obje
 
 - H2 restructures the manifest write path (conflict-as-outcome, single prepare); a regression here corrupts install manifests. Mitigation: the existing reconcile/provision test suites plus new tests around the conflict outcome before the old error variant is deleted.
 - The reconcile collision-policy change (skip-and-report instead of hard-fail) alters `ns update` semantics; if the skip policy is wrong, colliding artifacts could be silently half-provisioned. Mitigation: steer-first row policy and explicit tests for the collision report.
-- Two rows are decision-bearing with real alternatives (repo-local descriptor honesty: manifest+parity-test vs plain catalog entries; H1: kernel `NsExtensionApi` exposure vs capability-local resolution). Runner must not pick unilaterally — both carry ask-first row policy.
+- Resolved execution decisions intentionally allow private, unreleased contract churn for this remediation: H1 uses kernel `NsExtensionApi.homeDir`; H2 removes the `locally_edited_conflict` apply error; reconcile collision handling is partial-provision-plus-nonzero; skills commands become plain preinstalled catalog entries; AREG code renames are allowed when atomic with in-repo consumer/test updates.
 - Upstream stack activity is live (mid-review commits observed); parallel edits may conflict with remediation slices. Mitigation: re-verify per slice and restack early.
 
 ## Open Questions
 
-- H1 seam: expose the kernel-computed `homeDir` on `NsExtensionApi` (deletes all three capability-side re-derivations) or fix locally in a shared capability helper? Kernel exposure is the reviewer's recommendation but widens a kernel surface.
-- Repo-local descriptor honesty: check in `.ns/extensions/skills/` + parity test, or convert to plain preinstalled-catalog entries? Depends on whether repo-local exposure of the skills group is actually wanted.
 - Should the first-party root sentinel gain a real (non-injected) integration test for the upward walk, and where does it live?
