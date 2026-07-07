@@ -1,9 +1,11 @@
 import type { ObjectiveDiffSelection } from "./objective-picker.ts";
 
+export type ObjectiveSelectionMode = "compact-diff-suggestion" | "advancement";
+
 export interface ObjectiveSelectionSpec {
 	statusKey: string;
 	selectionTitle: string;
-	shouldCompactDiffSuggestion?: boolean;
+	selectionMode?: ObjectiveSelectionMode;
 }
 
 export interface ObjectiveSkillPromptSpec {

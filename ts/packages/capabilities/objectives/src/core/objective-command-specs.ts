@@ -65,7 +65,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
 		postSelectionReminder:
 			"\nThis explicit objective-next invocation preauthorizes update-and-continue when the Tracking Gate finds clear material current-branch or worktree progress for this same Objective that is absent from Objective tracking: run objective-update for this selected Objective, reread the Objective and repo evidence, reapply the gate, then continue. Ask before updating only when evidence, Objective fit, or update scope is ambiguous.",
-		shouldCompactDiffSuggestion: true,
+		selectionMode: "advancement",
 	}),
 	defineObjectiveCommandSpec({
 		skillName: "objective-update",
@@ -100,6 +100,6 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		actionPrompt:
 			"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",
 		postSelectionReminder: OBJECTIVE_AUTORUN_PI_TOOL_REMINDER,
-		shouldCompactDiffSuggestion: true,
+		selectionMode: "advancement",
 	}),
 ];
