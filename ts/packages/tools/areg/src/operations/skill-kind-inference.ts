@@ -6,9 +6,9 @@ import {
 	type AregManifestSkillSourceView,
 	type AregSkillKindSkillInspection,
 } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
 import {
 	parseSkillFrontmatterBlock,
+	sortStrings,
 	type SkillFrontmatterData,
 } from "@nseng-ai/harness-artifacts/api";
 import {

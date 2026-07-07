@@ -64,6 +64,7 @@ export {
 } from "./ns-toml.ts";
 export {
 	planHarnessArtifactReconcile,
+	reconcileReportSchema,
 	runHarnessArtifactReconcile,
 	type DesiredHarnessArtifact,
 	type HarnessManifestSnapshot,
@@ -80,6 +81,7 @@ export {
 export {
 	discoverExtensionModuleHarnessArtifacts,
 	nodeHarnessArtifactModuleDiscoveryGateway,
+	moduleArtifactDiscoveryDiagnosticSchema,
 	type DiscoverExtensionModuleHarnessArtifactsRequest,
 	type DiscoverExtensionModuleHarnessArtifactsResult,
 	type HarnessArtifactModuleDiscoveryGateway,

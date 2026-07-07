@@ -2,11 +2,13 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
 
-import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
+import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
+import { sortDiagnosticsByKey } from "./diagnostic-sort.ts";
 import type { OptionalTextFileState } from "./provision-apply.ts";
 import { sortStrings } from "./sort.ts";
 import {
@@ -95,6 +97,29 @@ export interface ModuleArtifactDiscoveryDiagnostic {
 	artifactId?: string;
 	artifactName?: string;
 }
+
+const moduleArtifactDiscoveryDiagnosticCodeSchema = z.enum(
+	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
+);
+
+export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> =
+	z
+		.object({
+			code: moduleArtifactDiscoveryDiagnosticCodeSchema,
+			message: z.string(),
+			path: z.string().optional(),
+			packageName: z.string().optional(),
+			artifactId: z.string().optional(),
+			artifactName: z.string().optional(),
+		})
+		.transform((diagnostic) => ({
+			code: diagnostic.code,
+			message: diagnostic.message,
+			...optionalEntry("path", diagnostic.path),
+			...optionalEntry("packageName", diagnostic.packageName),
+			...optionalEntry("artifactId", diagnostic.artifactId),
+			...optionalEntry("artifactName", diagnostic.artifactName),
+		}));
 
 export const nodeHarnessArtifactModuleDiscoveryGateway: HarnessArtifactModuleDiscoveryGateway = {
 	async readDirectory(path) {
@@ -286,13 +311,13 @@ async function validateDiscoveredArtifacts(options: {
 		const artifactRoot = resolve(options.moduleRoot, artifact.source.relativePath);
 		if (!isPathInside(options.moduleRoot, artifactRoot)) {
 			diagnostics.push(
-				artifactDiagnostic(
-					"module_artifact_skill_path_escapes",
-					`Skill harness artifact path must remain inside its package: ${artifact.source.relativePath}.`,
-					artifact.source.relativePath,
+				artifactDiagnostic({
+					code: "module_artifact_skill_path_escapes",
+					message: `Skill harness artifact path must remain inside its package: ${artifact.source.relativePath}.`,
+					path: artifact.source.relativePath,
 					artifact,
-					options.packageName,
-				),
+					packageName: options.packageName,
+				}),
 			);
 			continue;
 		}
@@ -303,25 +328,25 @@ async function validateDiscoveredArtifacts(options: {
 		}
 		if (state.value.type === "missing") {
 			diagnostics.push(
-				artifactDiagnostic(
-					"module_artifact_skill_entry_missing",
-					`Declared skill harness artifact must contain SKILL.md: ${artifact.source.relativePath}.`,
-					join(artifact.source.relativePath, "SKILL.md"),
+				artifactDiagnostic({
+					code: "module_artifact_skill_entry_missing",
+					message: `Declared skill harness artifact must contain SKILL.md: ${artifact.source.relativePath}.`,
+					path: join(artifact.source.relativePath, "SKILL.md"),
 					artifact,
-					options.packageName,
-				),
+					packageName: options.packageName,
+				}),
 			);
 			continue;
 		}
 		if (state.value.type !== "file") {
 			diagnostics.push(
-				artifactDiagnostic(
-					"module_artifact_skill_entry_not_directory",
-					`Declared skill harness artifact SKILL.md path must be a file: ${artifact.source.relativePath}.`,
-					join(artifact.source.relativePath, "SKILL.md"),
+				artifactDiagnostic({
+					code: "module_artifact_skill_entry_not_directory",
+					message: `Declared skill harness artifact SKILL.md path must be a file: ${artifact.source.relativePath}.`,
+					path: join(artifact.source.relativePath, "SKILL.md"),
 					artifact,
-					options.packageName,
-				),
+					packageName: options.packageName,
+				}),
 			);
 			continue;
 		}
@@ -333,25 +358,27 @@ async function validateDiscoveredArtifacts(options: {
 	};
 }
 
-function artifactDiagnostic(
+interface ArtifactDiagnosticOptions {
 	code: Extract<
 		ModuleArtifactDiscoveryDiagnosticCode,
 		| "module_artifact_skill_path_escapes"
 		| "module_artifact_skill_entry_missing"
 		| "module_artifact_skill_entry_not_directory"
-	>,
-	message: string,
-	path: string,
-	artifact: SkillHarnessArtifactEntry,
-	packageName: string,
-): ModuleArtifactDiscoveryDiagnostic {
+	>;
+	message: string;
+	path: string;
+	artifact: SkillHarnessArtifactEntry;
+	packageName: string;
+}
+
+function artifactDiagnostic(options: ArtifactDiagnosticOptions): ModuleArtifactDiscoveryDiagnostic {
 	return {
-		code,
-		message,
-		path,
-		packageName,
-		artifactId: artifact.id,
-		artifactName: artifact.skillName,
+		code: options.code,
+		message: options.message,
+		path: options.path,
+		packageName: options.packageName,
+		artifactId: options.artifact.id,
+		artifactName: options.artifact.skillName,
 	};
 }
 
@@ -441,20 +468,14 @@ function discoveryFileSystemDiagnostic(
 function sortDiscoveryDiagnostics(
 	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[],
 ): readonly ModuleArtifactDiscoveryDiagnostic[] {
-	return [...diagnostics].sort((left, right) =>
-		diagnosticSortKey(left).localeCompare(diagnosticSortKey(right)),
-	);
-}
-
-function diagnosticSortKey(diagnostic: ModuleArtifactDiscoveryDiagnostic): string {
-	return [
-		diagnostic.path ?? "",
-		diagnostic.packageName ?? "",
-		diagnostic.artifactId ?? "",
-		diagnostic.artifactName ?? "",
+	return sortDiagnosticsByKey(diagnostics, (diagnostic) => [
+		diagnostic.path,
+		diagnostic.packageName,
+		diagnostic.artifactId,
+		diagnostic.artifactName,
 		diagnostic.code,
 		diagnostic.message,
-	].join("\0");
+	]);
 }
 
 function fileSystemError(

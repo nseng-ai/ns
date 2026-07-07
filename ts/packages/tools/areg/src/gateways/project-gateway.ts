@@ -18,6 +18,7 @@ import {
 	INSTALL_MANIFEST_FILE_NAME,
 	readInstallManifestAtRoot,
 	resolveHarnessSkillRoot,
+	sortStrings,
 	type InstallManifestEntryData,
 } from "@nseng-ai/harness-artifacts/api";
 
@@ -50,7 +51,6 @@ import type {
 	AregSkillKindSkillInspection,
 	TextFileState,
 } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
 import { errorInfo } from "./errors.ts";
 import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
 import {

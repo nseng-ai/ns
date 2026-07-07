@@ -1,15 +1,10 @@
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	ALL_HARNESS_IDS,
-	HARNESS_SCOPES,
-	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
+	reconcileReportSchema,
 	runHarnessArtifactReconcile,
-	type ModuleArtifactDiscoveryDiagnostic,
 	type ReconcileErrorInfo,
-	type ReconcileReport,
 } from "../api.ts";
 import type { SkillsCommandContext } from "./skills-shared.ts";
 
@@ -18,66 +13,7 @@ export const nsUpdateRequestSchema = z.object({
 	force: z.boolean().default(false),
 });
 
-const harnessSchema = z.enum(ALL_HARNESS_IDS);
-const scopeSchema = z.enum(HARNESS_SCOPES);
-
-const harnessSelectionSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("ns-toml"), harnesses: z.array(harnessSchema) }),
-	z.object({ type: z.literal("missing") }),
-]);
-
-const diagnosticCodeSchema = z.enum(MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES);
-
-const diagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> = z
-	.object({
-		code: diagnosticCodeSchema,
-		message: z.string(),
-		path: z.string().optional(),
-		packageName: z.string().optional(),
-		artifactId: z.string().optional(),
-		artifactName: z.string().optional(),
-	})
-	.transform((diagnostic) => ({
-		code: diagnostic.code,
-		message: diagnostic.message,
-		...optionalEntry("path", diagnostic.path),
-		...optionalEntry("packageName", diagnostic.packageName),
-		...optionalEntry("artifactId", diagnostic.artifactId),
-		...optionalEntry("artifactName", diagnostic.artifactName),
-	}));
-
-const reconcileArtifactOutcomeSchema = z.object({
-	action: z.enum(["installed", "refreshed", "unchanged", "conflicted"]),
-	artifactId: z.string(),
-	skillName: z.string(),
-	harness: harnessSchema,
-	scope: scopeSchema,
-	origin: z.enum(["declared", "manifest"]),
-	sourceType: z.enum(["first-party", "npm-module"]),
-	packageName: z.string(),
-	targetArtifactPath: z.string(),
-	manifestPath: z.string(),
-	writtenFiles: z.array(z.string()),
-	conflictingFiles: z.array(z.string()),
-});
-
-const orphanedManifestEntrySchema = z.object({
-	artifactId: z.string(),
-	harness: harnessSchema,
-	scope: scopeSchema,
-	targetRoot: z.string(),
-	packageName: z.string(),
-	sourceType: z.enum(["first-party", "npm-module"]),
-});
-
-export const nsUpdateResultSchema: z.ZodType<ReconcileReport> = z.object({
-	mode: z.enum(["dry-run", "applied"]),
-	harnessSelection: harnessSelectionSchema,
-	artifacts: z.array(reconcileArtifactOutcomeSchema),
-	orphans: z.array(orphanedManifestEntrySchema),
-	diagnostics: z.array(diagnosticSchema),
-	needsForce: z.boolean(),
-});
+export const nsUpdateResultSchema = reconcileReportSchema;
 export type NsUpdateRequest = z.output<typeof nsUpdateRequestSchema>;
 export type NsUpdateResult = z.output<typeof nsUpdateResultSchema>;
 
