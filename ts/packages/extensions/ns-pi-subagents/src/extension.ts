@@ -18,6 +18,7 @@ import {
 	type RegisterShortcutFunction,
 } from "./fleet/navigator.ts";
 import type { ReadTextFileDependencies } from "./fleet/read-text-dependencies.ts";
+import { createGitReadWorktreeState } from "./fleet/worktree-state.ts";
 
 export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI &
 	DispatchRunnerSubagentExtensionAPI & {
@@ -35,13 +36,26 @@ export default function nsPiSubagentsExtension(
 	options: NsPiSubagentsExtensionOptions = {},
 ): void {
 	const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
+	const fleetNavigatorDependencies = resolveFleetNavigatorDependencies(pi, options);
 	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,
-		...optionalEntry("dependencies", options.fleetNavigatorDependencies),
+		...optionalEntry("dependencies", fleetNavigatorDependencies),
 	};
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
 	registerExploreTool(pi, { ...options, fleetRegistry });
 	registerDispatchRunnerSubagentTool(pi, { ...options, fleetRegistry });
+}
+
+function resolveFleetNavigatorDependencies(
+	pi: NsPiSubagentsExtensionAPI,
+	options: NsPiSubagentsExtensionOptions,
+): ReadTextFileDependencies | undefined {
+	const explicit = options.fleetNavigatorDependencies;
+	if (explicit?.readWorktreeState !== undefined) return explicit;
+	return {
+		...(explicit ?? {}),
+		readWorktreeState: createGitReadWorktreeState({ exec: pi }),
+	};
 }
