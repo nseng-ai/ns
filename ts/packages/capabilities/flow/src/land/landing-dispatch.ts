@@ -3,8 +3,11 @@ import { executeStackLanding } from "./land-stack.ts";
 import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
 import type { StackLandingRuntime } from "./stack/stack-landing-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
-import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
-import { presentBrief, presentFailureAndReturn } from "./stack/presentation.ts";
+import {
+	presentBrief,
+	presentFailureAndReturn,
+	renderPlainLandConfirmationDetails,
+} from "./land-presentation.ts";
 import { loadLandingShape } from "./stack/stack-facts.ts";
 import type {
 	LandingShape,

@@ -13,7 +13,7 @@ import {
 	formatSuccessSummary,
 	presentDryRunLanding,
 	presentLandingSuccess,
-} from "./presentation.ts";
+} from "../land-presentation.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandingPlan } from "../types.ts";
 import type { LandingWarning, ParsedArgs } from "./types.ts";

@@ -9,7 +9,7 @@ import {
 	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
-import { formatRestackFailureMessage, formatSubmitFailureMessage } from "./presentation.ts";
+import { formatRestackFailureMessage, formatSubmitFailureMessage } from "../land-presentation.ts";
 import { validateOpenPrBasics } from "../api.ts";
 import type {
 	DescendantMaintenancePlan,

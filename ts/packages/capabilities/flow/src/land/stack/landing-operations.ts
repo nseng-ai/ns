@@ -30,8 +30,11 @@ import {
 	slotFreeArgs,
 	slotNameFromPath,
 } from "./worktrees.ts";
-import { setStatus } from "./presentation.ts";
-import type { LandMatrixColumnKey, LandMatrixProgressSink } from "../land-matrix-progress.ts";
+import {
+	setStatus,
+	type LandMatrixColumnKey,
+	type LandMatrixProgressSink,
+} from "../land-presentation.ts";
 import { runTrackedMatrixStep } from "../../phase-stream/matrix-progress-core.ts";
 import {
 	confirmPreMergeMaintenance,

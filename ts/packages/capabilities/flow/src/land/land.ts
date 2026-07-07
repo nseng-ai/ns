@@ -11,18 +11,20 @@ import {
 	type FlowLandObservabilityChannels,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
-import type { LandMatrixProgressSink } from "./land-matrix-progress.ts";
 import type {
 	FlowLandExternalCallTelemetryEvent,
 	FlowLandExternalCallTelemetrySink,
 } from "./stack/external-call-telemetry.ts";
 import { createStackLandingRuntime } from "./stack/stack-landing-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
-import { notifyPrintAware, presentFailureAndReturn, usage } from "./stack/presentation.ts";
 import {
+	notifyPrintAware,
+	presentFailureAndReturn,
 	renderLandConfirmationDetails,
 	renderLandResultBlockFromMessage,
-} from "./stack/land-presentation.ts";
+	usage,
+	type LandMatrixProgressSink,
+} from "./land-presentation.ts";
 import { runLandingDispatch } from "../land/landing-dispatch.ts";
 import type { Caps } from "@nseng-ai/clinkr";
 import type {

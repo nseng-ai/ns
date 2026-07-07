@@ -36,7 +36,7 @@ import {
 	formatPlan,
 	formatSuccessNotification,
 	usage,
-} from "../../src/land/stack/presentation.ts";
+} from "../../src/land/land-presentation.ts";
 import { detectInProgressOperation } from "../../src/land/stack/stack-facts.ts";
 import type {
 	LandStackExtensionAPI,

@@ -23,7 +23,7 @@ import {
 	commandExternalCallTelemetryEvent,
 	type FlowLandExternalCallTelemetrySink,
 } from "./external-call-telemetry.ts";
-import type { LandMatrixProgressSink } from "../land-matrix-progress.ts";
+import type { LandMatrixProgressSink } from "../land-presentation.ts";
 import type {
 	CommandInvocation,
 	CommandStreamMessageDetails,

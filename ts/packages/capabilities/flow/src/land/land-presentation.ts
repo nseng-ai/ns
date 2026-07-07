@@ -1,33 +1,202 @@
+// Flow land presentation: the single presentation surface for the `ns flow land` command face.
+//
+// Consolidates result-block/confirmation rendering, plan/warning/failure/success formatting,
+// command-context presentation/notification helpers, and the live matrix progress controller
+// that were previously split across `stack/presentation.ts`, `stack/land-presentation.ts`, and
+// `land-matrix-progress.ts`.
+//
+// `land` reports typed settled outcomes at the Flow CLI edge. The generic finite block layout
+// lives in `@nseng-ai/foundation/cli-theme` because the repeated shape was proven across Flow and
+// CCC; land keeps this local facade because the Pi command-stream path must remain ANSI-free and
+// domain-specific land facts stay in Flow/Land-owned code.
+
+import type { Caps } from "@nseng-ai/clinkr";
+import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
+import {
+	bold,
+	paint,
+	renderResultBlock,
+	renderResultBlockFromMessage,
+} from "@nseng-ai/foundation/cli-theme";
 import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
 } from "@nseng-ai/foundation/terminal-presentation";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
-import { shortSha } from "../../commit-display/index.ts";
-import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
-import { formatCommandDetails } from "./command-exec.ts";
-import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
-import { emptyResult, failure, type LandStackFailure, type LandStackResult } from "./errors.ts";
-import { landUsageOptionRows, landUsageTokens } from "./flags.ts";
+import type { NsProgress } from "@nseng-ai/kernel/sdk";
+import { shortSha } from "../commit-display/index.ts";
+import {
+	createMatrixProgressController,
+	renderMatrixProgressFrame,
+	rowsWithKey,
+	type MatrixCellUpdate,
+	type MatrixColumnSpec,
+	type MatrixRowView,
+} from "../phase-stream/matrix-progress-core.ts";
+import { LAND_PHASES } from "../phase-stream/phase-stream-specs.ts";
+import { formatCommandDetails } from "./stack/command-exec.ts";
+import {
+	commandStreamDetailsForLanded,
+	type LandStackCommandStream,
+} from "./stack/command-stream.ts";
+import { COMMAND_NAME, STATUS_KEY } from "./stack/constants.ts";
+import {
+	emptyResult,
+	failure,
+	type LandStackFailure,
+	type LandStackResult,
+} from "./stack/errors.ts";
+import { landUsageOptionRows, landUsageTokens } from "./stack/flags.ts";
 import {
 	formatGraphiteOperation,
 	restackOperation,
 	restackTargetForSubmit,
-} from "./graphite-command-channel.ts";
-import { formatPrSubmitRequirement } from "./landing-plan.ts";
-import type { DescendantMaintenancePlan, LandingPlan } from "../types.ts";
+} from "./stack/graphite-command-channel.ts";
+import { formatPrSubmitRequirement } from "./stack/landing-plan.ts";
 import type {
 	CommandStreamMessageDetails,
-	LandStackCommandContext,
+	LandConfirmationPreview,
 	LandedPr,
 	LandingWarning,
 	LandResultKind,
+	LandStackCommandContext,
 	NotifyLevel,
 	PrintAwareLandStackCommandContext,
 	RemainingCleanup,
-} from "./types.ts";
-import { formatConflict, formatSlotConflict } from "./worktrees.ts";
+} from "./stack/types.ts";
+import { formatConflict, formatSlotConflict } from "./stack/worktrees.ts";
+import type { DescendantMaintenancePlan, LandingPlan } from "./types.ts";
+
+// --------------------------------------------------------------------------
+// Result blocks and confirmation rendering
+// --------------------------------------------------------------------------
+
+/**
+ * The visual intent of a land outcome (canonical type in `types.ts`). Distinct from the
+ * `LandStackFailure` notify level (which owns stdout/stderr routing and exit-code flipping): a
+ * declined guardrail renders `refusal` (warn) even when it is notified at `error` level to flip the
+ * exit code (house-style §7.3). The inventoried land states map onto these three kinds:
+ *   - success: fast-path merge, stack success summary, post-landing cleanup done.
+ *   - refusal: non-interactive confirmation refusal, cancelled-before-merge, base-branch mismatch,
+ *     "nothing to do", post-landing cleanup declined / not-a-managed-slot.
+ *   - failure: preflight load failure, merge-loop failure (incl. partial success), slot/submit
+ *     pre-merge failures, post-landing free/delete failures, unexpected error.
+ */
+export type { LandResultKind };
+
+export interface LandResultBlock {
+	kind: LandResultKind;
+	/** Leading one-line summary (already-phrased prose); rendered bold + intent-painted with a glyph. */
+	headline: string;
+	/**
+	 * Domain-authored detail at normal weight: the plan preview, partial-success "already landed"
+	 * list, failure cause + command details, or post-landing cleanup details. Built by the typed
+	 * formatters in `presentation.ts`; passed through as-is so this stays a pure layout primitive.
+	 */
+	body?: string;
+	/** Optional normal-weight "what to do next" line (e.g. a suggested recovery command). */
+	guidance?: string;
+	/** Optional working directory / repo root, shown as dimmed plumbing evidence when present. */
+	cwd?: string;
+}
+
+export interface LandResultMessageBlock {
+	kind: LandResultKind;
+	/** Domain-authored message whose first line becomes the headline and rest becomes the body. */
+	message: string;
+	/** Optional normal-weight "what to do next" line (e.g. a suggested recovery command). */
+	guidance?: string;
+	/** Optional working directory / repo root, shown as dimmed plumbing evidence when present. */
+	cwd?: string;
+}
+
+/** Render a land result block to a string, styled and degraded for `caps`. */
+export function renderLandResultBlock(caps: Caps, input: LandResultBlock): string {
+	return renderResultBlock(caps, input);
+}
+
+/** Render a domain-authored land message using the shared first-line headline grammar. */
+export function renderLandResultBlockFromMessage(
+	caps: Caps,
+	input: LandResultMessageBlock,
+): string {
+	return renderResultBlockFromMessage(caps, input);
+}
+
+export function renderPlainLandConfirmationDetails(input: LandConfirmationPreview): string {
+	return buildConfirmationLines(input, plainConfirmationStyle()).join("\n");
+}
+
+export function renderLandConfirmationDetails(caps: Caps, input: LandConfirmationPreview): string {
+	return buildConfirmationLines(input, styledConfirmationStyle(caps)).join("\n");
+}
+
+interface ConfirmationLineStyle {
+	headline(text: string): string;
+	section(text: string): string;
+	bulletPrefix(text: string): string;
+	planLabel(text: string): string;
+	guidance(text: string): string;
+}
+
+function plainConfirmationStyle(): ConfirmationLineStyle {
+	return {
+		headline: identity,
+		section: identity,
+		bulletPrefix: identity,
+		planLabel: identity,
+		guidance: identity,
+	};
+}
+
+function styledConfirmationStyle(caps: Caps): ConfirmationLineStyle {
+	return {
+		headline: (text) => bold(paint(caps, "accent", text)),
+		section: (text) => paint(caps, "accent", text),
+		bulletPrefix: (text) => paint(caps, "accent", text),
+		planLabel: (text) => paint(caps, "muted", text),
+		guidance: (text) => paint(caps, "success", text),
+	};
+}
+
+function identity(text: string): string {
+	return text;
+}
+
+function buildConfirmationLines(
+	input: LandConfirmationPreview,
+	style: ConfirmationLineStyle,
+): string[] {
+	const labelWidth = confirmationPlanLabelWidth(input);
+	return [
+		style.headline(input.headline),
+		"",
+		style.section("Impact"),
+		...input.impactLines.map((line) => `${style.bulletPrefix("  •")} ${line}`),
+		"",
+		style.section("Plan"),
+		...input.planRows.map((row) => renderConfirmationPlanRow(row, labelWidth, style)),
+		"",
+		style.guidance(input.guidance),
+	];
+}
+
+function confirmationPlanLabelWidth(input: LandConfirmationPreview): number {
+	return input.planRows.reduce((width, row) => Math.max(width, row.label.length), 0);
+}
+
+function renderConfirmationPlanRow(
+	row: LandConfirmationPreview["planRows"][number],
+	labelWidth: number,
+	style: ConfirmationLineStyle,
+): string {
+	return `${style.planLabel(`  ${row.label.padEnd(labelWidth)}`)}  ${row.value}`;
+}
+
+// --------------------------------------------------------------------------
+// Plan, warning, failure, and success formatting + presentation helpers
+// --------------------------------------------------------------------------
 
 const MAX_NOTIFICATION_CHARS = 160;
 
@@ -514,4 +683,138 @@ export function setStatus(ctx: LandStackCommandContext, message: string | undefi
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(STATUS_KEY, message ? `land: ${message}` : undefined);
 	}
+}
+
+// --------------------------------------------------------------------------
+// Live matrix progress
+// --------------------------------------------------------------------------
+
+export type LandMatrixColumnKey = "gate" | "merge" | "verify" | "restack";
+
+export interface LandMatrixRowSpec {
+	branch: string;
+	prNumber: number;
+	label: string;
+}
+
+export interface LandMatrixProgressSink {
+	setRows(rows: readonly LandMatrixRowSpec[]): void;
+	setRunningCommands(commands: readonly string[]): void;
+	setCell(branch: string, column: LandMatrixColumnKey, update: MatrixCellUpdate): void;
+	setAllCells(column: LandMatrixColumnKey, update: MatrixCellUpdate): void;
+	setAllOtherCells(column: LandMatrixColumnKey, branch: string, update: MatrixCellUpdate): void;
+	recordMergedPr(prNumber: number): void;
+}
+
+export interface LandMatrixProgressController extends LandMatrixProgressSink {
+	begin(): void;
+	setTitle(title: string): void;
+	note(text: string): void;
+	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
+	stop(): Promise<void>;
+}
+
+export interface LandLiveProgressState {
+	totalPrs?: number;
+	landedPrs: number;
+}
+
+export const BASE_LAND_TITLE = "ns flow land";
+
+export const LAND_MATRIX_COLUMNS: readonly MatrixColumnSpec<LandMatrixColumnKey>[] = [
+	{ key: "gate", label: "Gate", width: 5 },
+	{ key: "merge", label: "Merge", width: 6 },
+	{ key: "verify", label: "Verify", width: 6 },
+	{ key: "restack", label: "Restack", width: 7 },
+];
+
+export function formatLandProgressTitle(state: LandLiveProgressState): string {
+	if (state.totalPrs !== undefined) {
+		return `${BASE_LAND_TITLE} — ${state.landedPrs}/${state.totalPrs} target PRs merged`;
+	}
+	if (state.landedPrs > 0) {
+		return `${BASE_LAND_TITLE} — ${state.landedPrs} target PR${state.landedPrs === 1 ? "" : "s"} merged`;
+	}
+	return BASE_LAND_TITLE;
+}
+
+export function landMatrixRowsFromPlan(
+	plan: Pick<LandingPlan, "branchPlans" | "stack">,
+): readonly LandMatrixRowSpec[] {
+	return plan.stack.landingBranches.map((branch) => {
+		const branchPlan = plan.branchPlans.find((item) => item.branch === branch);
+		const prNumber = branchPlan?.pr.number ?? 0;
+		return {
+			branch,
+			prNumber,
+			label: prNumber === 0 ? branch : `${branch} (#${prNumber})`,
+		};
+	});
+}
+
+export function createLandMatrixProgressController(options: {
+	caps: Caps;
+	deps: StreamSinkDeps;
+	forward?: NsProgress;
+}): LandMatrixProgressController {
+	const liveState: LandLiveProgressState = { landedPrs: 0 };
+	const landedPrNumbers = new Set<number>();
+	const controller = createMatrixProgressController({
+		caps: options.caps,
+		deps: options.deps,
+		title: formatLandProgressTitle(liveState),
+		rows: [],
+		columns: LAND_MATRIX_COLUMNS,
+		globalRows: [],
+		phases: LAND_PHASES,
+		...(options.forward === undefined ? {} : { forward: options.forward }),
+		begin: "lazy",
+	});
+
+	function setRows(rows: readonly LandMatrixRowSpec[]): void {
+		liveState.totalPrs = rows.length;
+		controller.setTitle(formatLandProgressTitle(liveState));
+		controller.setRows(rowsWithKey(rows, (row) => row.branch));
+	}
+
+	function recordMergedPr(prNumber: number): void {
+		if (landedPrNumbers.has(prNumber)) return;
+		landedPrNumbers.add(prNumber);
+		liveState.landedPrs += 1;
+		controller.setTitle(formatLandProgressTitle(liveState));
+	}
+
+	return {
+		begin: controller.begin,
+		setTitle: controller.setTitle,
+		setRows,
+		setRunningCommands: controller.setRunningCommands,
+		setCell: controller.setCell,
+		setAllCells: controller.setAllCells,
+		setAllOtherCells: controller.setAllOtherCells,
+		recordMergedPr,
+		note: controller.note,
+		finish: controller.finish,
+		stop: controller.stop,
+	};
+}
+
+export function renderLandMatrixProgressFrame(input: {
+	caps: Caps;
+	title: string;
+	runningCommands?: readonly string[];
+	rows: readonly (LandMatrixRowSpec & MatrixRowView<LandMatrixColumnKey>)[];
+	tailLine?: string;
+	tick?: number;
+}): readonly string[] {
+	return renderMatrixProgressFrame({
+		caps: input.caps,
+		title: input.title,
+		columns: LAND_MATRIX_COLUMNS,
+		...(input.runningCommands === undefined ? {} : { runningCommands: input.runningCommands }),
+		globals: [],
+		rows: input.rows,
+		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
+		...(input.tick === undefined ? {} : { tick: input.tick }),
+	});
 }

@@ -20,7 +20,7 @@ import {
 	submitUpdateOperation,
 } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
-import { setStatus } from "./presentation.ts";
+import { setStatus } from "../land-presentation.ts";
 import type { LandStackCommandContext } from "./types.ts";
 
 export interface PreMergeSubmitMaintenanceOptions {

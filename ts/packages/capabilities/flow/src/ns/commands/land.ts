@@ -5,8 +5,8 @@ import {
 	formatLandProgressTitle,
 	type LandLiveProgressState,
 	type LandMatrixProgressController,
-} from "../../land/land-matrix-progress.ts";
-export { formatLandProgressTitle } from "../../land/land-matrix-progress.ts";
+} from "../../land/land-presentation.ts";
+export { formatLandProgressTitle } from "../../land/land-presentation.ts";
 import type {
 	LandLiveProgressEvent,
 	LandLiveProgressSink,
