@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
@@ -110,7 +111,7 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		return loadPendingWorktreeSnapshot({
 			cwd: params.cwd,
 			execGit: (args, timeout) => this.exec("git", args, params.cwd, timeout),
-			...(params.repoRoot === undefined ? {} : { repoRoot: params.repoRoot }),
+			...optionalEntry("repoRoot", params.repoRoot),
 		});
 	}
 
@@ -178,7 +179,7 @@ export async function runCheckpointWorkflow(
 	onPhase?.({ type: "phase-started", phaseKey: "inspect" });
 	const loaded = await options.gateway.loadPendingWorktreeSnapshot({
 		cwd: options.cwd,
-		...(options.repoRoot === undefined ? {} : { repoRoot: options.repoRoot }),
+		...optionalEntry("repoRoot", options.repoRoot),
 	});
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 

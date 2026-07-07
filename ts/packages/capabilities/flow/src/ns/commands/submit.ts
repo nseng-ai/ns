@@ -4,6 +4,7 @@ import process from "node:process";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import type { CommandRunner } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
@@ -110,7 +111,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 				caps,
 				hooksLoad,
 				checkpointGateway,
-				...(repoRoot === undefined ? {} : { repoRoot }),
+				...optionalEntry("repoRoot", repoRoot),
 			});
 		}
 		return await runSettledPhaseStream({
@@ -164,7 +165,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 					gateway: checkpointGateway,
 					textGenerator: ctx.textGenerator,
 					onPhase: stream.emit,
-					...(repoRoot === undefined ? {} : { repoRoot }),
+					...optionalEntry("repoRoot", repoRoot),
 				});
 				if (checkpoint.kind === "failed") {
 					return await phaseFailureResult(ctx, {
@@ -304,7 +305,7 @@ async function runSubmitWithMatrix(input: {
 			gateway: checkpointGateway,
 			textGenerator: ctx.textGenerator,
 			onPhase: checkpointPhase,
-			...(input.repoRoot === undefined ? {} : { repoRoot: input.repoRoot }),
+			...optionalEntry("repoRoot", input.repoRoot),
 		});
 		matrix.setRunningCommands([]);
 		if (checkpoint.kind === "failed") {
@@ -386,9 +387,7 @@ async function phaseFailureResult(
 			stdout: "",
 			stderr: failure.stderr,
 			exitCode: failure.exitCode,
-			...(failure.failurePresentation === undefined
-				? {}
-				: { failurePresentation: failure.failurePresentation }),
+			...optionalEntry("failurePresentation", failure.failurePresentation),
 		},
 		ctx,
 	);

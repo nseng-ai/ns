@@ -1,6 +1,5 @@
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
-export { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 
 import {
 	failed,
@@ -142,11 +141,11 @@ export function toCommandCliInfo(
 	candidate: NsCommandPath & Pick<NsCommandCliInfo, "description" | "fullDescription">,
 ): NsCommandCliInfo {
 	return {
-		...(candidate.group === undefined ? {} : { group: candidate.group }),
-		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
-		...(candidate.groupDescription === undefined
-			? {}
-			: { groupDescription: candidate.groupDescription }),
+		...optionalEntries({
+			group: candidate.group,
+			segments: candidate.segments,
+			groupDescription: candidate.groupDescription,
+		}),
 		name: candidate.name,
 		description: candidate.description,
 		fullDescription: candidate.fullDescription,

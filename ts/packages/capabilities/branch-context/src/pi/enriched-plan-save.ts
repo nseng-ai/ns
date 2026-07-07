@@ -156,6 +156,11 @@ async function resolveGitRoot(
 async function readWritePlanPromptBody(repoRoot: string): Promise<WritePlanPromptBodyResolution> {
 	const catalog = loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway });
 	const source = resolvePromptPointSource(catalog, WRITE_PLAN_POINT_ID);
+	if (source.type === "env") {
+		return fallbackWritePlanPromptBody(
+			`prompt point ${WRITE_PLAN_POINT_ID} has unsupported env source`,
+		);
+	}
 	const promptPath = resolvePromptPointPath(repoRoot, source);
 	if (promptPath === undefined) {
 		return fallbackWritePlanPromptBody(`prompt point ${WRITE_PLAN_POINT_ID} has no default`);

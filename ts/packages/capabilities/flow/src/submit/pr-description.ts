@@ -23,7 +23,7 @@ import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
-	computePointCatalog,
+	buildPointCatalog,
 	loadPointCatalog,
 	nodeProjectConfigGateway,
 	resolvePromptPointPath,
@@ -246,11 +246,11 @@ export async function resolvePrDescriptionGeneration(input: {
 	};
 }
 
-type PrDescriptionPointContext = {
+interface PrDescriptionPointContext {
 	env: Record<string, string | undefined>;
 	repoRoot?: string;
 	cwd?: string;
-};
+}
 
 export async function resolvePrDescriptionPrompt(
 	input: PrDescriptionPointContext,
@@ -275,7 +275,7 @@ function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): Poin
 			return catalog;
 		}
 	}
-	return computePointCatalog({
+	return buildPointCatalog({
 		repoRoot: request.repoRoot ?? process.cwd(),
 		gateway: { pathExists: () => ({ type: "missing" }) },
 		pointDefinitions: [
@@ -306,27 +306,24 @@ async function readPrDescriptionPointSource(
 			}
 		}
 		case "ns.toml":
-		case "conventional":
+		case "conventional": {
+			if (request.repoRoot === undefined) return undefined;
+			const resolved = resolvePromptPointPath(request.repoRoot, request.pointSource);
+			if (resolved === undefined || !(await isReadableFile(resolved.path))) return undefined;
+			return {
+				ok: true,
+				text: await readFile(resolved.path, "utf8"),
+				source: { type: "repo", path: resolved.path },
+			};
+		}
 		case "default": {
-			if (request.repoRoot === undefined && request.pointSource.type !== "default")
-				return undefined;
 			const resolved = resolvePromptPointPath(
 				request.repoRoot ?? process.cwd(),
 				request.pointSource,
 			);
 			if (resolved === undefined) return undefined;
-			if (request.pointSource.type !== "default" && !(await isReadableFile(resolved.path))) {
-				return undefined;
-			}
 			const text = await readFile(resolved.path, "utf8");
-			return {
-				ok: true,
-				text: request.pointSource.type === "default" ? text.trimEnd() : text,
-				source:
-					request.pointSource.type === "default"
-						? { type: "builtin" }
-						: { type: "repo", path: resolved.path },
-			};
+			return { ok: true, text: text.trimEnd(), source: { type: "builtin" } };
 		}
 		case "missing":
 			return undefined;

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import {
-	computePointCatalog,
+	buildPointCatalog,
 	discoverPointDefinitionsInRoot,
 	loadPointCatalog,
 	loadProjectConfig,
@@ -274,7 +274,7 @@ context_lines = "wide"
 		const gateway = new InMemoryProjectConfigGateway({
 			".ns/prompts/flow.submit.pr-description.md": "Prompt",
 		});
-		const catalog = computePointCatalog({
+		const catalog = buildPointCatalog({
 			repoRoot: "/repo",
 			gateway,
 			pointDefinitions,
@@ -374,7 +374,7 @@ context_lines = "wide"
 	});
 
 	test("catalog ignores the scalar prompt env override for other prompt points", () => {
-		const catalog = computePointCatalog({
+		const catalog = buildPointCatalog({
 			repoRoot: "/repo",
 			gateway: { pathExists: () => ({ type: "missing" }) },
 			pointDefinitions,

@@ -29,12 +29,12 @@ export interface PointDefinition {
 export interface SettingsSchema<T = unknown> {
 	path: readonly [string, ...string[]];
 	schema: ZodType<T>;
-	invalidMessage?: (context: { pathLabel: string; key: string }) => string;
+	invalidMessage?: (context: { pathLabel: string }) => string;
 }
 
 export interface ProjectConfigGateway {
 	readTextFile: (request: { repoRoot: string; relativePath: string }) => ProjectConfigReadResult;
-	pathExists?: (request: {
+	pathExists: (request: {
 		repoRoot: string;
 		relativePath: string;
 	}) => ProjectConfigPathExistsResult;
@@ -88,8 +88,14 @@ export interface PointDefinitionDiscoveryResult {
 	diagnostics: readonly ProjectConfigDiagnostic[];
 }
 
+export interface ResolvedPromptEnvOverride {
+	pointId: string;
+	envVar: string;
+	path: string;
+}
+
 export type PointCatalogInstallation =
-	| { source: "env-prompt"; pointId: string; envVar: string; path: string }
+	| ({ source: "env-prompt" } & ResolvedPromptEnvOverride)
 	| { source: "ns.toml"; installation: ProjectPointInstallation }
 	| { source: "conventional-prompt"; pointId: string; path: string };
 
@@ -109,7 +115,7 @@ export interface PointCatalog {
 }
 
 export type PromptPointSource =
-	| { type: "env"; pointId: string; envVar: string; path: string }
+	| ({ type: "env" } & ResolvedPromptEnvOverride)
 	| { type: "ns.toml"; pointId: string; path: string }
 	| { type: "conventional"; pointId: string; path: string }
 	| { type: "default"; pointId: string; path: string; manifestPath: string }
@@ -277,9 +283,7 @@ export function loadPointCatalog(request: {
 		pointDefinitions: definitionResult.pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
 		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
-		...(request.promptEnvOverride === undefined
-			? {}
-			: { promptEnvOverride: request.promptEnvOverride }),
+		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
 }
@@ -324,10 +328,6 @@ export function resolvePromptPointSource(
 	return { type: "missing", pointId };
 }
 
-export function computePointCatalog(request: BuildPointCatalogRequest): PointCatalog {
-	return buildPointCatalog(request);
-}
-
 export interface BuildPointCatalogRequest {
 	repoRoot: string;
 	gateway: Pick<ProjectConfigGateway, "pathExists">;
@@ -358,7 +358,7 @@ export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatal
 			const envOverride = findPromptEnvOverride({
 				pointId: definition.id,
 				env: request.env ?? {},
-				...(request.promptEnvOverride === undefined ? {} : { override: request.promptEnvOverride }),
+				...optionalEntry("override", request.promptEnvOverride),
 			});
 			if (envOverride !== undefined) {
 				installations = [{ source: "env-prompt", ...envOverride }, ...installations];
@@ -373,15 +373,15 @@ export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatal
 		}
 		if (definition.accepts === "prompt" && installations.length === 0) {
 			const conventionalPath = `.ns/prompts/${definition.id}.md`;
-			const existsResult = request.gateway.pathExists?.({
+			const existsResult = request.gateway.pathExists({
 				repoRoot: request.repoRoot,
 				relativePath: conventionalPath,
 			});
-			if (existsResult?.type === "present") {
+			if (existsResult.type === "present") {
 				installations = [
 					{ source: "conventional-prompt", pointId: definition.id, path: conventionalPath },
 				];
-			} else if (existsResult?.type === "error") {
+			} else if (existsResult.type === "error") {
 				diagnostics.push(
 					diagnostic(
 						"point_conventional_prompt_probe_failed",
@@ -426,14 +426,9 @@ export function hookCommandsForPoint(catalog: PointCatalog, pointId: string): re
 
 export function resolvePromptPointPath(
 	repoRoot: string,
-	source: PromptPointSource,
+	source: Exclude<PromptPointSource, { type: "env" }>,
 ): { path: string; label: string } | undefined {
 	switch (source.type) {
-		case "env":
-			return {
-				path: resolve(repoRoot, source.path),
-				label: `${source.envVar} prompt ${source.path}`,
-			};
 		case "ns.toml":
 			return { path: join(repoRoot, source.path), label: `ns.toml prompt ${source.path}` };
 		case "conventional":
@@ -478,7 +473,7 @@ function findPromptEnvOverride(request: {
 	pointId: string;
 	env: Record<string, string | undefined>;
 	override?: PromptPointEnvOverride;
-}): { pointId: string; envVar: string; path: string } | undefined {
+}): ResolvedPromptEnvOverride | undefined {
 	if (request.override?.pointId !== request.pointId) return undefined;
 	const path = request.env[request.override.envVar]?.trim();
 	if (!path) return undefined;
@@ -600,7 +595,7 @@ function parseDeclaredSettings(request: {
 		const key = setting.path.join(".");
 		if (!schemaResult.success) {
 			const message =
-				setting.invalidMessage?.({ pathLabel: request.pathLabel, key }) ??
+				setting.invalidMessage?.({ pathLabel: request.pathLabel }) ??
 				`${request.pathLabel}: [${key}] does not match its declared settings schema.`;
 			diagnostics.push(diagnostic("settings_table_invalid", message, { path: key }));
 			continue;

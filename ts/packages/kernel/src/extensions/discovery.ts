@@ -15,12 +15,11 @@ import {
 } from "../sdk/index.ts";
 
 import {
-	NS_COMMAND_NAME_PATTERN,
-	NS_COMMAND_NAME_RULE,
 	commandLeafName,
 	formatUnknownError,
 	type NsCommandCandidate,
 } from "./command-registry.ts";
+import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import type { NsCommandModuleReference } from "./module-reference.ts";
 import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";

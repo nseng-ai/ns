@@ -54,31 +54,29 @@ export type RoasterModelProfileKey = (typeof MODEL_PROFILE_KEYS)[number];
 
 type RoasterSettingsRecord = Record<string, unknown>;
 
+const recordSchema = z.record(z.string(), z.unknown());
+
 const roasterRootSettingsSchema = {
 	path: ["roaster"] as const,
-	schema: z.record(z.string(), z.unknown()),
+	schema: recordSchema,
 	invalidMessage: ({ pathLabel }) => formatMessage("[roaster] must be a TOML table.", pathLabel),
 } satisfies SettingsSchema<RoasterSettingsRecord>;
 
 const roasterDiffSettingsSchema = {
 	path: ["roaster", "diff"] as const,
-	schema: z.record(z.string(), z.unknown()),
+	schema: recordSchema,
 	invalidMessage: ({ pathLabel }) =>
 		formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
 } satisfies SettingsSchema<RoasterSettingsRecord>;
 
 const roasterModelProfilesSettingsSchema = {
 	path: ["roaster", "model_profiles"] as const,
-	schema: z.record(z.string(), z.unknown()),
+	schema: recordSchema,
 	invalidMessage: ({ pathLabel }) =>
 		formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
 } satisfies SettingsSchema<RoasterSettingsRecord>;
 
-const SETTINGS_TABLE_ERROR_CODES: Readonly<Record<string, ProjectConfigErrorCode>> = {
-	roaster: "invalid-table",
-	"roaster.diff": "invalid-table",
-	"roaster.model_profiles": "invalid-table",
-};
+const SETTINGS_TABLE_PATHS = new Set(["roaster", "roaster.diff", "roaster.model_profiles"]);
 
 export function parseRoasterProjectConfigToml(
 	source: string,
@@ -254,9 +252,12 @@ function projectConfigErrorFromDiagnostics(
 	if (diagnostic?.code === "ns_toml_invalid") {
 		return resultErrOf("invalid-toml", formatNsTomlInvalidMessage(diagnostic, pathLabel));
 	}
-	if (diagnostic?.code === "settings_table_invalid" && diagnostic.path !== undefined) {
-		const code = SETTINGS_TABLE_ERROR_CODES[diagnostic.path];
-		if (code !== undefined) return resultErrOf(code, diagnostic.message);
+	if (
+		diagnostic?.code === "settings_table_invalid" &&
+		diagnostic.path !== undefined &&
+		SETTINGS_TABLE_PATHS.has(diagnostic.path)
+	) {
+		return resultErrOf("invalid-table", diagnostic.message);
 	}
 	return resultErrOf(
 		"invalid-table",
