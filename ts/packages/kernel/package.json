@@ -9,6 +9,7 @@
 		"./context": "./src/cli/context.ts",
 		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
 		"./progress-phase-state": "./src/sdk/progress-phase-state.ts",
+		"./project-config/points": "./src/project-config/points.ts",
 		"./sdk": "./src/sdk/index.ts"
 	},
 	"ns": {
@@ -16,6 +17,7 @@
 		"subpackages": [
 			"cli",
 			"extensions",
+			"project-config",
 			"runtime",
 			"sdk"
 		],
@@ -27,7 +29,8 @@
 			"./command-io",
 			"./context",
 			"./pi-text-generation",
-			"./progress-phase-state"
+			"./progress-phase-state",
+			"./project-config/points"
 		]
 	},
 	"bin": {
@@ -43,6 +46,7 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"jiti": "catalog:",
+		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"publishConfig": {
