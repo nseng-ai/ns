@@ -9,7 +9,7 @@ import packageExtension from "../src/extension.ts";
 import { EXPLORE_TOOL_NAME } from "../src/explore/contract.ts";
 import { makeExplorerAgentDefinition } from "./helpers/explore-testing.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
-import { EXPLORE_TRANSCRIPT_COMMAND_NAME } from "../src/fleet/transcript-viewer.ts";
+import { AGENTS_TRANSCRIPT_COMMAND_NAME } from "../src/fleet/transcript-viewer.ts";
 import type { NsPiSubagentsExtensionAPI } from "../src/extension.ts";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
@@ -63,7 +63,7 @@ describe("ns-pi-subagents package", () => {
 		expect(pi.tools.has(EXPLORE_TOOL_NAME)).toBe(true);
 		expect(pi.tools.has("dispatch_runner_subagent")).toBe(true);
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
-		expect(pi.commands.has(EXPLORE_TRANSCRIPT_COMMAND_NAME)).toBe(true);
+		expect(pi.commands.has(AGENTS_TRANSCRIPT_COMMAND_NAME)).toBe(true);
 		expect(pi.commands.has("ns:subagents:fleet")).toBe(false);
 		expect(pi.commands.has("ns:explore:transcript")).toBe(false);
 	});

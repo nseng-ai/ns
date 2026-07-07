@@ -2,9 +2,9 @@
 
 ## Work
 
-- [~] Land the current consolidation stack under this Objective.
-  Evidence to preserve: `extension-registry-shim-loading-coverage-split` (open PR #3052) moves real shim-loading checks to the integration lane; `subagent-fleet-dispatch-runner-subagent` (open PR #3069) consolidates explore, dispatch runner subagents, transcript viewing, and fleet navigation under the unified `@nseng-ai/ns-pi-subagents` extension; `stack-feedback/extension-workspace-helper` (open PR #3071) extracts the shared kernel extension-registry test workspace helper. Update this row with merge evidence when the stack lands.
-  - Policy: human-owned. The Objective Runner never submits, pushes, or merges; runner steps for the rows below stack on top of these unlanded branches.
+- [x] Land the current consolidation stack under this Objective.
+      Completed 2026-07-06 on the top-of-stack closure branch: PR #3052 moves real shim-loading checks to the integration lane; PR #3069 consolidates explore, dispatch runner subagents, transcript viewing, and fleet navigation under the unified `@nseng-ai/ns-pi-subagents` extension; PR #3071 extracts the shared kernel extension-registry test workspace helper; current PR #3108 adds final follow-on remediation by unifying fleet tracking and command naming. These PRs were still open when closure was authored; merging the stack is the trunk-landing event for this Objective's final tracking state.
+  - Policy: human-owned. The Objective Runner never submits, pushes, or merges; no PR submission, push, or merge was performed by Objective tracking.
 - [x] Rename the consolidated command surface to `ns:agents:*`.
       Completed 2026-07-06: `ns:subagents:fleet` → `ns:agents:fleet`; `ns:explore:transcript` → `ns:agents:transcript`; widget/status keys use `ns.agents.fleet`; shim `.pi/extensions/subagents.ts` moved to `.pi/extensions/agents.ts` while keeping the `.pi/lib/workspace-packages.ts` mapping unchanged. No compatibility aliases were added. Package name `@nseng-ai/ns-pi-subagents` and the `explore` / `dispatch_runner_subagent` tool names are unchanged. Updated `docs/pi/README.md`, `docs/pi/runner-subagent-helper.md`, package README/docs-site path references, and the `CONTEXT-MAP.md` `@nseng-ai/ns-pi-subagents` vocabulary line to record the agents-view vs. subagent-substrate split.
   - Policy: direct execution.

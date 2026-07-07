@@ -110,9 +110,13 @@ function registerTool(options: RegisterToolOptions = {}): DispatchRunnerSubagent
 	const pi = options.pi ?? new FakePi();
 	const definitionRoot = options.definitionRoot ?? createRunnerDefinitionRoot();
 	dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
+	return getRegisteredDispatchRunnerSubagentTool(pi);
+}
+
+function getRegisteredDispatchRunnerSubagentTool(pi: FakePi): DispatchRunnerSubagentToolDefinition {
 	const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
-	expect(tool).toBeDefined();
-	return tool!;
+	if (tool === undefined) throw new Error("dispatch_runner_subagent tool was not registered.");
+	return tool;
 }
 
 function finalTextMessage(text: string, stopReason = "stop"): string {
@@ -276,9 +280,8 @@ describe("dispatch_runner_subagent extension", () => {
 
 		dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
 
-		const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
-		expect(tool).toBeDefined();
-		const result = await tool!.execute(
+		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
+		const result = await tool.execute(
 			"tool-1",
 			{ title: "Bad runner", prompt: "Do work." },
 			undefined,
@@ -298,10 +301,9 @@ describe("dispatch_runner_subagent extension", () => {
 		const fleetRegistry = new RunnerSubagentFleetRegistry();
 		const definitionRoot = createRunnerDefinitionRoot();
 		dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot, fleetRegistry });
-		const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
-		expect(tool).toBeDefined();
+		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
 
-		const running = tool!.execute(
+		const running = tool.execute(
 			"tool-1",
 			{ title: "Fleet dispatch", prompt: "Report through fleet." },
 			undefined,

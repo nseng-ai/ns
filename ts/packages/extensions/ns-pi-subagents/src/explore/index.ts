@@ -78,7 +78,7 @@ export {
 	type InProcessExplorerSessionFactory,
 } from "./in-process-runtime.ts";
 export {
-	EXPLORE_TRANSCRIPT_COMMAND_NAME,
+	AGENTS_TRANSCRIPT_COMMAND_NAME,
 	parseExploreTranscript,
 	renderTranscriptMarkdown,
 	type TranscriptEntry,

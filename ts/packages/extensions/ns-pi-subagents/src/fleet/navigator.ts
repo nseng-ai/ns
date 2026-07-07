@@ -17,7 +17,7 @@ import {
 	sliceWrappedDetailLinesForViewport,
 } from "@internal/pi-tools/overlay-kit";
 import { readRunnerSubagentUsageFromSessionFile } from "../runner-subagents/extension-usage.ts";
-import { formatElapsed } from "../runner-subagents/extension.ts";
+import { formatRunnerSubagentElapsed } from "../runner-subagents/presentation.ts";
 import {
 	createRunnerSubagentJsonEventParser,
 	type RunnerSubagentJsonEventParserSnapshot,
@@ -450,7 +450,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		}
 		return [
 			entryTitle(entry),
-			`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatElapsed(detail.elapsedMs)}`,
+			`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatRunnerSubagentElapsed(detail.elapsedMs)}`,
 			usageLine(detail),
 			`session: ${detail.sessionFile ?? "no session file yet"}`,
 		];

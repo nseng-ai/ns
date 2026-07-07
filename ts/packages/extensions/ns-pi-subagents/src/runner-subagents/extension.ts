@@ -32,8 +32,8 @@ import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
-import { RunnerSubagentFleetRegistry } from "./fleet.ts";
-import { syncSubagentFleetDisplay } from "../fleet/display.ts";
+import type { SubagentToolOptions } from "../fleet/tool-options.ts";
+import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
@@ -75,11 +75,7 @@ export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi & {
 	registerTool(definition: ToolDefinition): void;
 };
 
-export interface DispatchRunnerSubagentExtensionOptions {
-	cwd?: string;
-	fleetRegistry?: RunnerSubagentFleetRegistry;
-	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
-}
+export type DispatchRunnerSubagentExtensionOptions = SubagentToolOptions;
 
 type DispatchRunnerConfigurationCheck =
 	| { ok: true; definition: PiAgentDefinition }
@@ -156,18 +152,12 @@ export function registerDispatchRunnerSubagentTool(
 				};
 			}
 
-			const parentSessionFile = ctx.sessionManager?.getSessionFile?.();
-			const fleetRun = options.fleetRegistry?.startRun(
-				[{ title: input.title, prompt: input.prompt }],
-				parentSessionFile === undefined ? {} : { parentSessionFile },
-			);
-			const fleetTaskId = fleetRun?.tasks[0]?.id;
-			const unsubscribeFleet = options.fleetRegistry?.subscribe(() => {
-				syncSubagentFleetDisplay(ctx, options.fleetRegistry?.snapshot() ?? []);
+			const fleetTracking = trackSubagentFleetRun({
+				registry: options.fleetRegistry,
+				ctx,
+				tasks: [{ title: input.title, prompt: input.prompt }],
+				parentSessionFile: ctx.sessionManager?.getSessionFile?.(),
 			});
-			if (options.fleetRegistry !== undefined) {
-				syncSubagentFleetDisplay(ctx, options.fleetRegistry.snapshot());
-			}
 
 			try {
 				const { result, curatedContext } = await runFinalTextSubagent({
@@ -179,7 +169,7 @@ export function registerDispatchRunnerSubagentTool(
 					widgetKey: WIDGET_KEY,
 					...optionalEntries({ model: input.model, signal }),
 					onStart: (start) => {
-						options.fleetRegistry?.markRunning(fleetTaskId);
+						fleetTracking.markRunning(0);
 						onUpdate?.({
 							content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
 							details: {
@@ -191,7 +181,7 @@ export function registerDispatchRunnerSubagentTool(
 						});
 					},
 					onProgress: (update) => {
-						options.fleetRegistry?.markProgress(fleetTaskId, update);
+						fleetTracking.markProgress(0, update);
 						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
 						onUpdate?.({
 							content: [{ type: "text", text: progressText }],
@@ -203,7 +193,7 @@ export function registerDispatchRunnerSubagentTool(
 						});
 					},
 				});
-				options.fleetRegistry?.markDone(fleetTaskId, result);
+				fleetTracking.markDone(0, result);
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
@@ -213,7 +203,7 @@ export function registerDispatchRunnerSubagentTool(
 					}),
 				};
 			} finally {
-				unsubscribeFleet?.();
+				fleetTracking.dispose();
 			}
 		},
 	});
@@ -354,16 +344,12 @@ export function truncateFinalTextForToolContent(text: string): {
 	};
 }
 
-export function formatElapsed(elapsedMs: number): string {
-	return formatRunnerSubagentElapsed(elapsedMs);
-}
-
 export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentProgress): string {
 	const currentTool =
 		progress.currentTool === undefined ? "" : `; current tool: ${progress.currentTool}`;
 	return [
 		`Running forked Pi process: ${runnerSubagentDisplayTitle(progress)}`,
-		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
+		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatRunnerSubagentElapsed(progress.elapsedMs)}`,
 		...(progress.launch === undefined ? [] : [formatLaunchLine(progress.launch)]),
 		`Session file: ${runnerSubagentSessionFileText(progress)}`,
 	].join("\n");
@@ -427,7 +413,7 @@ function formatProgressLine(result: RunnerSubagentResult): string {
 		result.progress.currentTool === undefined
 			? ""
 			: `; current tool: ${result.progress.currentTool}`;
-	return `Elapsed: ${formatElapsed(result.elapsedMs)}; turns: ${result.progress.turnCount}; tools: ${result.progress.toolCount}${currentTool}`;
+	return `Elapsed: ${formatRunnerSubagentElapsed(result.elapsedMs)}; turns: ${result.progress.turnCount}; tools: ${result.progress.toolCount}${currentTool}`;
 }
 
 function runnerSubagentStopReason(result: RunnerSubagentResult): string | undefined {

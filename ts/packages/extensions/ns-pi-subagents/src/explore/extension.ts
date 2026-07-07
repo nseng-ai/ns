@@ -30,8 +30,10 @@ import {
 	exploreInputSchema,
 	type ExploreInput,
 } from "./input.ts";
-import { SUBAGENT_FLEET_ENTRY_HINT, syncSubagentFleetDisplay } from "../fleet/display.ts";
+import { SUBAGENT_FLEET_ENTRY_HINT } from "../fleet/display.ts";
 import type { RegisterShortcutFunction } from "../fleet/navigator.ts";
+import type { SubagentToolOptions } from "../fleet/tool-options.ts";
+import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 import { emitExploreProgress } from "./progress.ts";
 import type { ExplorerRuntime } from "./runtime.ts";
 import type { CommandRegistrar, TranscriptViewerDependencies } from "../fleet/transcript-viewer.ts";
@@ -57,12 +59,9 @@ export type ExploreExtensionAPI = RunnerSubagentPi & {
 	registerShortcut?: RegisterShortcutFunction;
 };
 
-export interface ExploreExtensionOptions {
-	cwd?: string;
+export interface ExploreExtensionOptions extends SubagentToolOptions {
 	dispatchExplorer?: ExploreDispatchFunction;
 	explorerRuntime?: ExplorerRuntime;
-	fleetRegistry?: RunnerSubagentFleetRegistry;
-	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 	timers?: TimerScheduler;
 	transcriptViewer?: TranscriptViewerDependencies;
 }
@@ -290,15 +289,12 @@ async function runExploreTasks(request: {
 		...(request.ctx.model === undefined ? {} : { model: request.ctx.model }),
 		signal: request.signal,
 	};
-	const parentSessionFile = request.ctx.sessionManager?.getSessionFile?.();
-	const fleetRun = request.fleetRegistry.startRun(
-		request.exploreInput.tasks,
-		parentSessionFile === undefined ? {} : { parentSessionFile },
-	);
-	const unsubscribeFleet = request.fleetRegistry.subscribe(() => {
-		syncSubagentFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
+	const fleetTracking = trackSubagentFleetRun({
+		registry: request.fleetRegistry,
+		ctx: request.ctx,
+		tasks: request.exploreInput.tasks,
+		parentSessionFile: request.ctx.sessionManager?.getSessionFile?.(),
 	});
-	syncSubagentFleetDisplay(request.ctx, request.fleetRegistry.snapshot());
 
 	function emitProgress(): void {
 		emitExploreProgress(states, request.onUpdate);
@@ -312,9 +308,8 @@ async function runExploreTasks(request: {
 			maxConcurrency: request.maxConcurrency,
 			signal: request.signal,
 			run: async (state, index) => {
-				const fleetTaskId = fleetRun.tasks[index]?.id;
 				state.state = "running";
-				request.fleetRegistry.markRunning(fleetTaskId);
+				fleetTracking.markRunning(index);
 				emitProgress();
 				const outcome = await runOneExploreTask({
 					pi: request.pi,
@@ -325,13 +320,13 @@ async function runExploreTasks(request: {
 					dispatchExplorer: request.dispatchExplorer,
 					onProgress: (update) => {
 						state.latestUpdate = update;
-						request.fleetRegistry.markProgress(fleetTaskId, update);
+						fleetTracking.markProgress(index, update);
 						emitProgress();
 					},
 				});
 				state.state = "done";
 				state.outcome = outcome;
-				request.fleetRegistry.markDone(fleetTaskId, outcome.result);
+				fleetTracking.markDone(index, outcome.result);
 				emitProgress();
 				return outcome;
 			},
@@ -349,7 +344,7 @@ async function runExploreTasks(request: {
 		notifyExploreAbnormalEnd(request.ctx, finalOutcomes);
 		return finalOutcomes;
 	} finally {
-		unsubscribeFleet();
+		fleetTracking.dispose();
 	}
 }
 
