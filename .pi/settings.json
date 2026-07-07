@@ -62,6 +62,7 @@
     "-skills/objective-autorun",
     "-skills/review-dry-but-not-too-dry",
     "-skills/review-improve-codebase-architecture",
-    "-skills/review-thermonuclear-review"
+    "-skills/review-thermonuclear-review",
+    "-skills/objective-create-wayfinding"
   ]
 }

@@ -17,23 +17,25 @@ import {
 	completeObjectiveListArgs,
 	createObjectiveClient,
 	isObjectiveListStatus,
+	allObjectiveCreateCommandSpecs,
 	type ObjectiveClient,
 	type ObjectiveClientOptions,
 	objectiveCommandSpecs,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
+	objectiveCreatePatternCommandSpecs,
 	objectiveSelectionContextFromCommandContext,
 	objectiveSelectionHostFromExec,
 	parseObjectiveCandidatesData,
 	parseObjectiveListArgTokens,
 	renderObjectiveListMarkdown,
+	type AnyObjectiveCreateCommandSpec,
 	type ObjectiveCandidatesParseResult,
 	type ObjectiveCommandSpec,
-	type ObjectiveCreateCommandSpec,
 	type ObjectiveListParsedArgs,
 	type ObjectiveStatusFilter,
 } from "../api/index.ts";
-import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
+import { definePiSurfaceParity, type FullPiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "@nseng-ai/pi/skills/expansion";
 import type {
 	AutocompleteItem,
@@ -88,7 +90,7 @@ interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 	spec: TSpec;
 }
 
-interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<ObjectiveCreateCommandSpec> {
+interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<AnyObjectiveCreateCommandSpec> {
 	rawArgs: string;
 }
 
@@ -156,14 +158,14 @@ async function invokeObjectiveCreateSkill(
 }
 
 function buildObjectiveCreateSkillPrompt(
-	spec: ObjectiveCreateCommandSpec,
+	spec: AnyObjectiveCreateCommandSpec,
 	skillBlock: string,
 	initialRequest: string,
 ): string {
 	if (initialRequest === "") {
 		return `${skillBlock}
 
-No initial Objective creation request was provided. Start the objective-create interview by asking the first necessary question before writing files.`;
+No initial Objective creation request was provided. Start the ${spec.skillName} interview by asking the first necessary question before writing files.`;
 	}
 
 	return `${skillBlock}
@@ -172,7 +174,7 @@ ${spec.actionPrompt}
 
 ${buildFencedTextBlock(initialRequest)}
 
-Treat this as the user's initial Objective creation request. Use it as context, but still follow objective-create's interview and slug-confirmation workflow before writing files.`;
+Treat this as the user's initial Objective creation request. Use it as context, but still follow ${spec.skillName}'s interview and slug-confirmation workflow before writing files.`;
 }
 
 async function handleObjectiveCreateCommand(
@@ -385,6 +387,24 @@ function renderObjectiveListHelp(): string {
 	return `Usage: /${OBJECTIVE_LIST_COMMAND_NAME} ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
 }
 
+function objectiveParityEntry(
+	spec: { commandName: string; description: string; skillName: string },
+	details: { cli: string; notes: string },
+): FullPiSurfaceParity {
+	return {
+		kind: "command",
+		surface: spec.commandName,
+		workflow: spec.description,
+		parity: "FULL",
+		cli: details.cli,
+		skill: spec.skillName,
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@nseng-ai/objectives/pi",
+		sourceModule: "objective",
+		notes: details.notes,
+	};
+}
+
 export const objectiveParity = definePiSurfaceParity([
 	{
 		kind: "command",
@@ -399,34 +419,24 @@ export const objectiveParity = definePiSurfaceParity([
 		notes:
 			"Pi command uses the Objective Capability API in-process and keeps output format controlled by the Objective Pi adapter.",
 	},
-	{
-		kind: "command",
-		surface: objectiveCreateCommandSpec.commandName,
-		workflow: objectiveCreateCommandSpec.description,
-		parity: "FULL",
+	objectiveParityEntry(objectiveCreateCommandSpec, {
 		cli: "ns objective exec read-objective plus direct Objective Markdown creation",
-		skill: objectiveCreateCommandSpec.skillName,
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/objectives/pi",
-		sourceModule: "objective",
 		notes:
 			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
-	},
-	...objectiveCommandSpecs.map(
-		(spec) =>
-			({
-				kind: "command",
-				surface: spec.commandName,
-				workflow: spec.description,
-				parity: "FULL",
-				cli: `ns objective ${spec.cliSubcommand}`,
-				skill: spec.skillName,
-				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@nseng-ai/objectives/pi",
-				sourceModule: "objective",
-				notes:
-					"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
-			}) as const,
+	}),
+	...objectiveCreatePatternCommandSpecs.map((spec) =>
+		objectiveParityEntry(spec, {
+			cli: `${spec.skillName} skill (portable)`,
+			notes:
+				"Pi command expands the portable pattern-facade creation skill and preserves any initial user request as context.",
+		}),
+	),
+	...objectiveCommandSpecs.map((spec) =>
+		objectiveParityEntry(spec, {
+			cli: `ns objective ${spec.cliSubcommand}`,
+			notes:
+				"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
+		}),
 	),
 ] as const);
 
@@ -443,21 +453,23 @@ export default function objectiveExtension(
 		runCli: async (args, deps) => await runObjectiveCliCommand(args, deps, options),
 	});
 
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: objectiveCreateCommandSpec.commandName,
-		commandDefinition: {
-			description: objectiveCreateCommandSpec.description,
-			argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
-			handler: async (args, ctx) =>
-				handleObjectiveCreateCommand({
-					pi,
-					spec: objectiveCreateCommandSpec,
-					rawArgs: args,
-					ctx,
-				}),
-		},
-	});
+	for (const spec of allObjectiveCreateCommandSpecs) {
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: spec.commandName,
+			commandDefinition: {
+				description: spec.description,
+				argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
+				handler: async (args, ctx) =>
+					handleObjectiveCreateCommand({
+						pi,
+						spec,
+						rawArgs: args,
+						ctx,
+					}),
+			},
+		});
+	}
 
 	for (const spec of objectiveCommandSpecs) {
 		registerCommandWithImmediateAck({

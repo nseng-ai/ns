@@ -71,12 +71,19 @@ export type {
 	ObjectiveCliCompletionItem,
 } from "../core/objective-candidates.ts";
 export {
+	allObjectiveCreateCommandSpecs,
 	objectiveCommandSpecs,
 	objectiveCreateCommandSpec,
+	objectiveCreatePatternCommandSpecs,
 } from "../core/objective-command-specs.ts";
 export type {
+	AnyObjectiveCreateCommandSpec,
 	ObjectiveCommandSpec,
 	ObjectiveCreateCommandSpec,
+	ObjectiveCreatePattern,
+	ObjectiveCreatePatternCommandName,
+	ObjectiveCreatePatternCommandSpec,
+	ObjectiveCreatePatternSkillName,
 } from "../core/objective-command-specs.ts";
 export { parseObjectiveListData } from "../core/objective-list-json.ts";
 export type { ObjectiveListParseResult } from "../core/objective-list-json.ts";
