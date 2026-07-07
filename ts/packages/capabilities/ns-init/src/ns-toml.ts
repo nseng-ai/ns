@@ -1,5 +1,8 @@
-import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
-import { parse } from "smol-toml";
+import {
+	parseProjectConfigToml,
+	type ProjectConfigDiagnostic,
+} from "@nseng-ai/kernel/project-config/points";
+import { z } from "zod";
 
 import { ALL_HARNESS_IDS, type HarnessId } from "./skill-materializer.ts";
 
@@ -24,24 +27,21 @@ export type NsTomlErrorCode =
 	| "invalid-harnesses"
 	| "ambiguous-harnesses-assignment";
 
+const nsInitHarnessesSettingsSchema = {
+	path: ["harnesses"] as const,
+	schema: z.array(z.string()).nonempty(),
+};
+
 export function parseNsTomlHarnesses(
 	content: string,
 	pathLabel = "ns.toml",
 ): NsTomlHarnessesParseResult {
-	let data: unknown;
-	try {
-		data = parse(content);
-	} catch (error) {
-		return {
-			type: "error",
-			error: {
-				code: "invalid-toml",
-				message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
-			},
-		};
-	}
-	if (!isRecord(data)) return { type: "missing" };
-	const harnesses = data.harnesses;
+	const result = parseProjectConfigToml(content, {
+		pathLabel,
+		settingsSchemas: [nsInitHarnessesSettingsSchema],
+	});
+	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
+	const harnesses = result.config.settings.get("harnesses");
 	if (harnesses === undefined) return { type: "missing" };
 	return parseHarnessesValue(harnesses, `${pathLabel} top-level harnesses`);
 }
@@ -95,6 +95,42 @@ export function normalizeHarnessSelection(
 		};
 	}
 	return { type: "ok", harnesses: selected };
+}
+
+function nsTomlErrorFromDiagnostics(
+	diagnostics: readonly ProjectConfigDiagnostic[],
+	pathLabel: string,
+): NsTomlHarnessesParseResult {
+	const diagnostic =
+		diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
+	if (diagnostic?.code === "ns_toml_invalid") {
+		return {
+			type: "error",
+			error: {
+				code: "invalid-toml",
+				message: diagnostic.message.replace(
+					`${pathLabel}: Invalid TOML.\n`,
+					`Invalid TOML in ${pathLabel}: `,
+				),
+			},
+		};
+	}
+	if (diagnostic?.code === "settings_table_invalid" && diagnostic.path === "harnesses") {
+		return {
+			type: "error",
+			error: {
+				code: "invalid-harnesses",
+				message: `${pathLabel} top-level harnesses must be a non-empty string array.`,
+			},
+		};
+	}
+	return {
+		type: "error",
+		error: {
+			code: "invalid-toml",
+			message: diagnostic?.message ?? `${pathLabel}: invalid ns.toml`,
+		},
+	};
 }
 
 function parseHarnessesValue(value: unknown, label: string): NsTomlHarnessesParseResult {

@@ -14,6 +14,15 @@ describe("ns.toml harnesses", () => {
 		});
 	});
 
+	it("parses harnesses alongside point-system config", () => {
+		expect(
+			parseNsTomlHarnesses('harnesses = ["pi"]\n\n[points]\n"flow.submit.pre" = ["just"]\n'),
+		).toEqual({
+			type: "ok",
+			harnesses: ["pi"],
+		});
+	});
+
 	it("ignores table-local harnesses", () => {
 		expect(parseNsTomlHarnesses('[areg]\nharnesses = ["codex"]\n')).toEqual({ type: "missing" });
 	});
@@ -23,6 +32,27 @@ describe("ns.toml harnesses", () => {
 		expect(result.type).toBe("error");
 		if (result.type !== "error") throw new Error("expected error");
 		expect(result.error.code).toBe("invalid-harnesses");
+		expect(result.error.message).toBe(
+			'Unknown harness "cursor". Expected one of claude-code, codex, pi.',
+		);
+	});
+
+	it("rejects invalid harness shapes", () => {
+		const result = parseNsTomlHarnesses("harnesses = []\n");
+		expect(result.type).toBe("error");
+		if (result.type !== "error") throw new Error("expected error");
+		expect(result.error).toEqual({
+			code: "invalid-harnesses",
+			message: "ns.toml top-level harnesses must be a non-empty string array.",
+		});
+	});
+
+	it("preserves invalid TOML diagnostics", () => {
+		const result = parseNsTomlHarnesses("harnesses = [\n");
+		expect(result.type).toBe("error");
+		if (result.type !== "error") throw new Error("expected error");
+		expect(result.error.code).toBe("invalid-toml");
+		expect(result.error.message).toContain("Invalid TOML in ns.toml:");
 	});
 
 	it("renders explicit top-level harnesses", () => {
