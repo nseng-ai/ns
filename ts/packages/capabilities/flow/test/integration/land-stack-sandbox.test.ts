@@ -180,8 +180,10 @@ describe("land stack sandbox integration", () => {
 				]);
 				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_C);
 				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_D);
-				expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBe(-1);
 				expect(commandIndex(log, "gh", ["pr", "merge", "101"])).toBeLessThan(
+					commandIndex(log, "gt", ["get", FEATURE_B]),
+				);
+				expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBeLessThan(
 					commandIndex(log, "gt", ["delete", FEATURE_A]),
 				);
 				expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
@@ -457,12 +459,6 @@ async function initializeGitStack(
 	await createBranchWithCommit({ git, branch: FEATURE_B, startPoint: FEATURE_A });
 	await createBranchWithCommit({ git, branch: FEATURE_C, startPoint: FEATURE_B });
 	await createBranchWithCommit({ git, branch: FEATURE_D, startPoint: FEATURE_B });
-	await runRequiredCommand({
-		cwd: git.repoRoot,
-		env: git.env,
-		command: "git",
-		args: ["remote", "add", "origin", git.repoRoot],
-	});
 	await runRequiredCommand({
 		cwd: git.repoRoot,
 		env: git.env,

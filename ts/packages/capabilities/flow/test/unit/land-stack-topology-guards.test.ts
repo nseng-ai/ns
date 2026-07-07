@@ -23,7 +23,6 @@ import {
 	guardShaStep,
 	prSnapshot,
 	prStdout,
-	trunkFetchStep,
 } from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
@@ -441,7 +440,18 @@ function mergeFeatureAThroughDelete(
 	];
 	const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 	if (refreshTarget) {
-		steps.push(guardShaStep(refreshTarget, SHA_B), trunkFetchStep());
+		steps.push(
+			guardShaStep(refreshTarget, SHA_B),
+			step("gt", [
+				"get",
+				refreshTarget,
+				"--downstack",
+				"--no-restack",
+				"--no-checkout",
+				"--force",
+				"--no-interactive",
+			]),
+		);
 	}
 	steps.push(
 		childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []),
@@ -560,7 +570,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});
 
-	test("stops hard when a required maintenance target moved since landing started", async () => {
+	test("stops hard when a required gt get target moved since landing started", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
@@ -573,7 +583,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain(
-			`local branch feature-b moved from ${shortSha(SHA_B)} to ${shortSha(SHA_C)} since landing started; refusing post-merge maintenance to avoid clobbering local commits`,
+			`local branch feature-b moved from ${shortSha(SHA_B)} to ${shortSha(SHA_C)} since landing started; refusing gt get --force to avoid clobbering local commits`,
 		);
 		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(
@@ -597,7 +607,15 @@ describe("fork-safe topology and destructive-phase guards", () => {
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureA({ includeCleanup: false }),
 			guardShaStep("feature-b", SHA_B),
-			trunkFetchStep(),
+			step("gt", [
+				"get",
+				"feature-b",
+				"--downstack",
+				"--no-restack",
+				"--no-checkout",
+				"--force",
+				"--no-interactive",
+			]),
 			childrenRecheckStep("feature-a", ["feature-b", "rogue-branch"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);

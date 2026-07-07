@@ -290,10 +290,6 @@ export interface LandGitGateway {
 		readonly repoRoot: string;
 		readonly branches: readonly string[];
 	}): Promise<LandResult<ReadonlyMap<string, string>>>;
-	advanceBranchFromRemote(request: {
-		readonly repoRoot: string;
-		readonly branch: string;
-	}): Promise<LandAdvanceBranchResult>;
 }
 
 export interface WorkingTreeStatus {
@@ -370,16 +366,10 @@ export function boundaryFailureDiagnostics(
 	};
 }
 
-export interface LandRanCommand {
+export interface LandGraphiteRanCommand {
 	readonly commandDisplay: string;
 	readonly result: LandCommandResult;
 }
-
-export type LandAdvanceBranchResult =
-	| { readonly type: "advanced" }
-	| ({ readonly type: "failure" } & LandRanCommand);
-
-export type LandGraphiteRanCommand = LandRanCommand;
 
 export type LandGraphiteCommandResult =
 	| { readonly type: "success"; readonly result: LandCommandResult }

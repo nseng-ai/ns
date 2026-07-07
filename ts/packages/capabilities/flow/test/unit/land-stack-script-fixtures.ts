@@ -83,7 +83,18 @@ function mergeFeatureA(
 	if (includeCleanup) {
 		const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 		if (refreshTarget) {
-			steps.push(guardShaStep(refreshTarget, SHA_B), trunkFetchStep());
+			steps.push(
+				guardShaStep(refreshTarget, SHA_B),
+				step("gt", [
+					"get",
+					refreshTarget,
+					"--downstack",
+					"--no-restack",
+					"--no-checkout",
+					"--force",
+					"--no-interactive",
+				]),
+			);
 		}
 		steps.push(
 			childrenRecheckStep(topologyArgs, "feature-a", ["feature-b"]),
@@ -113,20 +124,6 @@ export function guardShaStep(branch: string, sha: string): LandStackScriptedExec
 	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
 		stdout: `${sha}\n`,
 	});
-}
-
-interface TrunkFetchStepOptions {
-	readonly trunk?: string;
-	readonly result?: Partial<ExecResult>;
-}
-
-export function trunkFetchStep(options: TrunkFetchStepOptions = {}): LandStackScriptedExec {
-	const { trunk = TRUNK, result } = options;
-	return step(
-		"git",
-		["fetch", "--quiet", "--no-tags", "origin", `refs/heads/${trunk}:refs/heads/${trunk}`],
-		result,
-	);
 }
 
 export function submitUpdateStep(branch: string): LandStackScriptedExec {

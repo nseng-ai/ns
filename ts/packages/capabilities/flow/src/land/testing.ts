@@ -1,6 +1,5 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import type {
-	LandAdvanceBranchResult,
 	LandContext,
 	LandingBoundaryFailure,
 	LandGitGateway,
@@ -41,7 +40,6 @@ export interface InMemoryLandGitGatewayState {
 	readonly localBranchExistsFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly localBranchShaFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly snapshotBackupRefsFailure?: LandingBoundaryFailure;
-	readonly advanceBranchResults?: Readonly<Record<string, LandAdvanceBranchResult>>;
 }
 
 export interface LandRepoRootCall {
@@ -75,7 +73,6 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly localBranchExistsFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly localBranchShaFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly snapshotBackupRefsFailure: LandingBoundaryFailure | undefined;
-	private readonly advanceBranchResults: ReadonlyMap<string, LandAdvanceBranchResult>;
 	private readonly resolveRepoRootLog: LandRepoRootCall[] = [];
 	private readonly currentBranchLog: LandRepoCall[] = [];
 	private readonly workingTreeStatusLog: LandRepoCall[] = [];
@@ -84,7 +81,6 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly listLocalBranchesLog: LandRepoCall[] = [];
 	private readonly branchContainsParentLog: LandBranchContainsParentCall[] = [];
 	private readonly snapshotBackupRefsLog: LandSnapshotBackupRefsCall[] = [];
-	private readonly advanceBranchFromRemoteLog: LandBranchCall[] = [];
 
 	constructor(state: InMemoryLandGitGatewayState = {}) {
 		this.repoRootState = state.repoRoot ?? "/repo";
@@ -107,12 +103,6 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 			]),
 		);
 		this.snapshotBackupRefsFailure = cloneOptionalData(state.snapshotBackupRefsFailure);
-		this.advanceBranchResults = new Map(
-			Object.entries(state.advanceBranchResults ?? {}).map(([branch, result]) => [
-				branch,
-				cloneData(result),
-			]),
-		);
 	}
 
 	get resolveRepoRootCalls(): readonly LandRepoRootCall[] {
@@ -145,10 +135,6 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 
 	get snapshotBackupRefsCalls(): readonly LandSnapshotBackupRefsCall[] {
 		return cloneData(this.snapshotBackupRefsLog);
-	}
-
-	get advanceBranchFromRemoteCalls(): readonly LandBranchCall[] {
-		return cloneData(this.advanceBranchFromRemoteLog);
 	}
 
 	async resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>> {
@@ -291,14 +277,6 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 			shas.set(branch, sha);
 		}
 		return { type: "success", value: shas };
-	}
-
-	async advanceBranchFromRemote(request: {
-		readonly repoRoot: string;
-		readonly branch: string;
-	}): Promise<LandAdvanceBranchResult> {
-		this.advanceBranchFromRemoteLog.push({ repoRoot: request.repoRoot, branch: request.branch });
-		return cloneData(this.advanceBranchResults.get(request.branch) ?? { type: "advanced" });
 	}
 }
 
