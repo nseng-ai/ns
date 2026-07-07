@@ -241,30 +241,24 @@ export async function resolvePrDescriptionGeneration(input: {
 	};
 }
 
-export async function resolvePrDescriptionPrompt(input: {
+type PrDescriptionPointContext = {
 	env: Record<string, string | undefined>;
 	repoRoot?: string;
 	cwd?: string;
-}): Promise<PromptResolutionResult> {
-	const catalog = loadPrDescriptionPointCatalog({
-		...(input.repoRoot === undefined ? {} : { repoRoot: input.repoRoot }),
-		env: input.env,
-	});
+};
+
+export async function resolvePrDescriptionPrompt(
+	input: PrDescriptionPointContext,
+): Promise<PromptResolutionResult> {
+	const catalog = loadPrDescriptionPointCatalog(input);
 	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
-	const prompt = await readPrDescriptionPointSource({
-		...(input.repoRoot === undefined ? {} : { repoRoot: input.repoRoot }),
-		...(input.cwd === undefined ? {} : { cwd: input.cwd }),
-		pointSource,
-	});
+	const prompt = await readPrDescriptionPointSource({ ...input, pointSource });
 	if (prompt !== undefined) return prompt;
 
 	return { ok: true, text: DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT, source: { type: "builtin" } };
 }
 
-function loadPrDescriptionPointCatalog(request: {
-	repoRoot?: string;
-	env: Record<string, string | undefined>;
-}): PointCatalog {
+function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): PointCatalog {
 	const promptEnvOverrides = [
 		{ pointId: FLOW_PR_DESCRIPTION_POINT_ID, envVar: PR_DESCRIPTION_PROMPT_ENV },
 	];
@@ -293,11 +287,9 @@ function loadPrDescriptionPointCatalog(request: {
 	});
 }
 
-async function readPrDescriptionPointSource(request: {
-	repoRoot?: string;
-	cwd?: string;
-	pointSource: PromptPointSource;
-}): Promise<PromptResolutionResult | undefined> {
+async function readPrDescriptionPointSource(
+	request: PrDescriptionPointContext & { pointSource: PromptPointSource },
+): Promise<PromptResolutionResult | undefined> {
 	switch (request.pointSource.type) {
 		case "env": {
 			const path = resolvePromptPath(request.pointSource.path, request.repoRoot, request.cwd);
