@@ -46,7 +46,6 @@ import type {
 	CommandStreamMessageDetails,
 	LandConfirmationPreview,
 	LandedPr,
-	UiLandingWarning,
 	LandResultKind,
 	LandStackCommandContext,
 	NotifyLevel,
@@ -54,7 +53,7 @@ import type {
 	RemainingCleanup,
 } from "./stack/types.ts";
 import { formatConflict, formatSlotConflict } from "./stack/worktrees.ts";
-import type { DescendantMaintenancePlan, LandingPlan } from "./types.ts";
+import type { DescendantMaintenancePlan, LandingPlan, LandingWarning } from "./types.ts";
 
 // --------------------------------------------------------------------------
 // Result blocks and confirmation rendering
@@ -306,7 +305,7 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 export function formatSuccessSummary(
 	landed: LandedPr[],
 	descendantMaintenance: DescendantMaintenancePlan,
-	warnings: UiLandingWarning[],
+	warnings: LandingWarning[],
 	cleanup: RemainingCleanup,
 ): string {
 	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
@@ -359,22 +358,22 @@ export function formatSuccessSummary(
 	return lines.join("\n");
 }
 
-function landingWarningLevel(warning: UiLandingWarning): "warning" | "info" {
+function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
 	return warning.level ?? "warning";
 }
 
-function hasDescendantMaintenanceWarning(warnings: UiLandingWarning[]): boolean {
+function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
 	return warnings.some((warning) => warning.message.toLowerCase().includes("descendant"));
 }
 
-function hasDescendantMaintenanceDeferral(warnings: UiLandingWarning[]): boolean {
+function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
 	return warnings.some((warning) => {
 		const message = warning.message.toLowerCase();
 		return message.includes("descendant") && message.includes("deferred");
 	});
 }
 
-export function formatLandingWarning(warning: UiLandingWarning): string[] {
+export function formatLandingWarning(warning: LandingWarning): string[] {
 	const lines = [`- ${warning.message}`];
 	if (warning.commandDisplay || warning.result) {
 		lines.push(
@@ -456,7 +455,7 @@ export function formatFailedTarget(failure: LandStackFailure): string {
 
 export interface FormatSuccessNotificationOptions {
 	details?: CommandStreamMessageDetails;
-	warnings?: readonly UiLandingWarning[];
+	warnings?: readonly LandingWarning[];
 }
 
 export function formatSuccessNotification(
@@ -472,7 +471,7 @@ export function formatSuccessNotification(
 }
 
 function formatWarningSuccessNotification(
-	warnings: readonly UiLandingWarning[],
+	warnings: readonly LandingWarning[],
 	details?: CommandStreamMessageDetails,
 ): string | undefined {
 	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
@@ -483,7 +482,7 @@ function formatWarningSuccessNotification(
 	return details ? linkifyPrReferences(compact, prLinksFromDetails(details)) : compact;
 }
 
-function firstWarningAction(warnings: readonly UiLandingWarning[]): string | undefined {
+function firstWarningAction(warnings: readonly LandingWarning[]): string | undefined {
 	for (const warning of warnings) {
 		const action = nonBlank(warning.notificationAction) ?? nonBlank(warning.suggestedAction);
 		if (action !== undefined) return action;
@@ -632,7 +631,7 @@ interface PresentLandingSuccessOptions {
 	ctx: LandStackCommandContext;
 	commandStream: LandStackCommandStream;
 	landed: readonly LandedPr[];
-	warnings: readonly UiLandingWarning[];
+	warnings: readonly LandingWarning[];
 	successSummary: string;
 }
 

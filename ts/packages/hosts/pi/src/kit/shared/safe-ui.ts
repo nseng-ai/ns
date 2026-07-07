@@ -1,6 +1,9 @@
 const STALE_EXTENSION_CONTEXT_MESSAGE = "This extension ctx is stale";
 
-type SafePiUiStaleContextResult = { type: "stale-context"; message: string };
+interface SafePiUiStaleContextResult {
+	type: "stale-context";
+	message: string;
+}
 
 export type SafePiUiResult = { type: "ok" } | SafePiUiStaleContextResult;
 

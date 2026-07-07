@@ -1,6 +1,6 @@
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import type { DescendantMaintenancePlan, LandingPlan, LandGraphiteRestackScope } from "../api.ts";
-import type { UiLandingWarning } from "./types.ts";
+import { landingWarning, type LandingWarning } from "../types.ts";
 import {
 	formatGraphiteOperation,
 	restackOperation,
@@ -29,7 +29,7 @@ export interface MaintenanceTargetPlan {
 
 export interface BranchMaintenanceWarning {
 	readonly branch: string;
-	readonly warning: UiLandingWarning;
+	readonly warning: LandingWarning;
 }
 
 export function planGraphiteMaintenanceTargets(
@@ -97,23 +97,21 @@ export function refreshTargetsAfterMaintainedBranch(
 export function skippedDescendantMaintenanceWarning(
 	plan: LandingPlan,
 	branch: string,
-): UiLandingWarning {
+): LandingWarning {
 	const maintenance = plan.descendantMaintenance;
 	if (maintenance.type !== "skipped") {
-		return {
-			level: "warning",
+		return landingWarning({
 			message: `Descendant restack/update was skipped for ${branch}.`,
 			suggestedAction: "Inspect the stack and update descendant PRs manually if needed.",
-		};
+		});
 	}
 
 	const conflictText = maintenance.conflicts.map(formatConflict).join("; ");
-	return {
-		level: "warning",
+	return landingWarning({
 		message: `Final local Graphite cleanup for ${branch} and descendant restack/update were skipped because ${maintenance.reason}: ${conflictText}.`,
 		suggestedAction: `Detach or free the descendant worktrees, then restack/update ${maintenance.branches.join(", ")} and delete local branch ${branch} manually if appropriate.`,
 		notificationAction: skippedDescendantNotificationAction(maintenance),
-	};
+	});
 }
 
 interface OptionalDescendantRefreshDeferredWarningOptions {
@@ -125,7 +123,7 @@ interface OptionalDescendantRefreshDeferredWarningOptions {
 
 export function optionalDescendantRefreshDeferredWarning(
 	options: OptionalDescendantRefreshDeferredWarningOptions,
-): UiLandingWarning {
+): LandingWarning {
 	const { descendantBranch, landedBranch, getCommandDisplay, checkoutConflict } = options;
 	const restackCommandDisplay = formatGraphiteOperation(
 		restackOperation({ branch: descendantBranch, scope: "upstack" }),
@@ -146,7 +144,7 @@ export function aggregateOptionalDescendantMaintenanceWarnings(options: {
 	readonly landedBranch: string;
 	readonly targetBranches: readonly string[];
 	readonly cleanupState: "skipped" | "completed";
-}): UiLandingWarning {
+}): LandingWarning {
 	const { warnings, landedBranch, targetBranches, cleanupState } = options;
 	if (warnings.length === 1) {
 		const [onlyWarning] = warnings;

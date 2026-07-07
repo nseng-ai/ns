@@ -2,8 +2,6 @@ import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command"
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import type { LandingWarning, StackSnapshot } from "../types.ts";
 
-export type { LandingWarning };
-
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
 /**
@@ -149,8 +147,6 @@ export interface CommandStreamMessageDetails {
 	prLinks: CommandStreamPrLink[];
 }
 
-export type UiLandingWarning = LandingWarning;
-
 export interface RetainedLocalBranchCleanup {
 	branch: string;
 	path: string;
@@ -163,7 +159,7 @@ export interface RemainingCleanup {
 export interface MergeLoopState {
 	expectedShas: Map<string, string>;
 	deletedBranches: Set<string>;
-	warnings: UiLandingWarning[];
+	warnings: LandingWarning[];
 	cleanup: RemainingCleanup;
 }
 

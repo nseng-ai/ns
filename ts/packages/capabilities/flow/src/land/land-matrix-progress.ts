@@ -1,5 +1,6 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NsProgress } from "@nseng-ai/kernel/sdk";
 import {
 	createMatrixProgressController,
@@ -90,7 +91,7 @@ export function createLandMatrixProgressController(options: {
 		columns: LAND_MATRIX_COLUMNS,
 		globalRows: [],
 		phases: LAND_PHASES,
-		...(options.forward === undefined ? {} : { forward: options.forward }),
+		...optionalEntry("forward", options.forward),
 		begin: "lazy",
 	});
 
@@ -134,10 +135,10 @@ export function renderLandMatrixProgressFrame(input: {
 		caps: input.caps,
 		title: input.title,
 		columns: LAND_MATRIX_COLUMNS,
-		...(input.runningCommands === undefined ? {} : { runningCommands: input.runningCommands }),
+		...optionalEntry("runningCommands", input.runningCommands),
 		globals: [],
 		rows: input.rows,
-		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
-		...(input.tick === undefined ? {} : { tick: input.tick }),
+		...optionalEntry("tailLine", input.tailLine),
+		...optionalEntry("tick", input.tick),
 	});
 }

@@ -35,9 +35,9 @@ import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandedPr,
-	UiLandingWarning,
 	ParsedArgs,
 } from "./stack/types.ts";
+import type { LandingWarning } from "./types.ts";
 
 export type { LandStackExtensionAPI } from "./stack/types.ts";
 
@@ -73,7 +73,7 @@ export async function executeStackLanding(
 	options: ExecuteStackLandingOptions = {},
 ): Promise<LandStackOutcome> {
 	const landed: LandedPr[] = [];
-	const warnings: UiLandingWarning[] = [];
+	const warnings: LandingWarning[] = [];
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
 	const io = observabilityChannels.progressIo ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {

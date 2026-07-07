@@ -15,11 +15,10 @@ import { formatGraphiteOperation } from "./graphite-command-channel.ts";
 import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
-import type { LandingPlan, PullRequestFacts, WorktreeConflict } from "../types.ts";
+import type { LandingPlan, LandingWarning, PullRequestFacts, WorktreeConflict } from "../types.ts";
 import type {
 	LandStackCommandContext,
 	LandedPr,
-	UiLandingWarning,
 	MergeLoopState,
 	RemainingCleanup,
 } from "./types.ts";
@@ -174,7 +173,7 @@ export interface PrepareMergeLoopStateOptions {
 	git: LandGitGateway;
 	repoRoot: string;
 	branches: readonly string[];
-	warnings: UiLandingWarning[];
+	warnings: LandingWarning[];
 }
 
 export async function prepareMergeLoopState(
@@ -198,7 +197,7 @@ export interface RunMergeLoopOptions {
 	readonly ctx: LandStackCommandContext;
 	readonly plan: LandingPlan;
 	readonly landed: LandedPr[];
-	readonly warnings: UiLandingWarning[];
+	readonly warnings: LandingWarning[];
 	readonly commandStream: LandStackCommandStream;
 	readonly mergeState?: MergeLoopState;
 }
