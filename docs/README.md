@@ -15,6 +15,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 ## Index
 
 - [ADR maintenance policy](adr/README.md): how to preserve accepted ADRs while keeping mutable guidance current.
+- [Points guide](guides/points.md): user-facing guide to the point system — installing hooks and prompts via `ns.toml`/`.ns/prompts/`, and defining points in extension manifests.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Branch retrospective evidence](retro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
