@@ -1,4 +1,5 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { errorResult } from "../explore/result.ts";
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
 import type {
 	RunnerSubagentResult,
@@ -63,17 +64,8 @@ export function trackSubagentFleetRun(input: {
 }
 
 function unfinishedFleetTaskResult(task: SubagentFleetTaskInput): RunnerSubagentResult {
-	return {
-		status: "error",
-		diagnostic: "Subagent fleet tracking ended before this task produced a terminal result.",
-		error: { message: "Subagent fleet tracking disposed before task completion." },
-		elapsedMs: 0,
-		progress: {
-			state: "stopped",
-			title: task.title,
-			toolCount: 0,
-			turnCount: 0,
-			elapsedMs: 0,
-		},
-	};
+	return errorResult(
+		task.title,
+		"Subagent fleet tracking ended before this task produced a terminal result.",
+	);
 }

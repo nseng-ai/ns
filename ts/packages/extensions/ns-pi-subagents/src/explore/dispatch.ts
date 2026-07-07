@@ -18,7 +18,7 @@ import {
 	type ExplorerLaunchPlan,
 	type IsProviderAuthConfigured,
 } from "./model-policy.ts";
-import { createSubprocessExplorerRuntime, type ExplorerRuntime } from "./runtime.ts";
+import { createSubprocessSubagentRuntime, type SubagentRuntime } from "../runtime/seam.ts";
 
 export interface DispatchExplorerSubagentOptions {
 	title: string;
@@ -29,7 +29,7 @@ export interface DispatchExplorerSubagentOptions {
 
 export interface ExplorerDispatcherDependencies {
 	isProviderAuthConfigured?: IsProviderAuthConfigured;
-	runtime?: ExplorerRuntime;
+	runtime?: SubagentRuntime;
 }
 
 export interface ExplorerDispatchOutcome {
@@ -62,7 +62,7 @@ export async function dispatchExplorerSubagent(
 	const { pi, ctx, intent, definition } = input;
 	const dependencies = input.dependencies ?? {};
 	const authProbe = dependencies.isProviderAuthConfigured ?? isProviderAuthConfigured;
-	const runtime = dependencies.runtime ?? createSubprocessExplorerRuntime();
+	const runtime = dependencies.runtime ?? createSubprocessSubagentRuntime();
 	const launchPlan = resolveExplorerLaunchPlan({
 		...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
 		isProviderAuthConfigured: authProbe,

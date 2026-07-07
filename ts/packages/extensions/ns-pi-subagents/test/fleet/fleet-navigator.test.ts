@@ -283,13 +283,13 @@ describe("subagent fleet navigator", () => {
 			dependencies: { readTextFile: async () => sessionJsonl() },
 		});
 
-		expect(commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
+		const command = commands.get(SUBAGENT_FLEET_COMMAND_NAME);
+		if (command === undefined) throw new Error("Expected subagent fleet command.");
 		const notifications: string[] = [];
-		await commands.get(SUBAGENT_FLEET_COMMAND_NAME)!.handler("", noUiCommandContext(notifications));
+		await command.handler("", noUiCommandContext(notifications));
 		expect(notifications.join("\n")).toContain("subagent fleet:");
 		expect(notifications.join("\n")).toContain("Scout");
-		expect(notifications.join("\n")).toContain("assistant: Found details");
-		expect(notifications.join("\n")).toContain("last tool: read");
+		expect(notifications.join("\n")).toContain("openai-codex/gpt-5.4");
 		expect(notifications.join("\n")).toContain("turns=1, tools=1, state=stopped");
 	});
 

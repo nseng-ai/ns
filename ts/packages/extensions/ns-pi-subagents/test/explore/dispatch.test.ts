@@ -11,7 +11,7 @@ import {
 	type DispatchExplorerSubagentOptions,
 	type ExplorerDispatcherDependencies,
 } from "../../src/explore/dispatch.ts";
-import { createFunctionExplorerRuntime } from "../../src/explore/runtime.ts";
+import { createFunctionSubagentRuntime } from "../../src/runtime/seam.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
 	createRecordingExplorerDispatch,
@@ -55,7 +55,7 @@ type ExplorerDispatchTestDependencies = ExplorerDispatcherDependencies;
 type RecordingExplorerDispatch = ReturnType<typeof createRecordingExplorerDispatch>["dispatch"];
 
 function explorerRuntime(dispatch: RecordingExplorerDispatch) {
-	return createFunctionExplorerRuntime((input) => dispatch(input.pi, input.ctx, input.options));
+	return createFunctionSubagentRuntime((input) => dispatch(input.pi, input.ctx, input.options));
 }
 
 function explorerDispatcher(dependencies: ExplorerDispatchTestDependencies = {}) {
@@ -232,7 +232,7 @@ describe("dispatchExplorerSubagent", () => {
 		const controller = new AbortController();
 		const recording = createRecordingExplorerDispatch([makeErrorResult("aborted spawn")]);
 		const dispatch = explorerDispatcher({
-			runtime: createFunctionExplorerRuntime(async (input) => {
+			runtime: createFunctionSubagentRuntime(async (input) => {
 				const result = await recording.dispatch(input.pi, input.ctx, input.options);
 				controller.abort("user cancelled");
 				return result;

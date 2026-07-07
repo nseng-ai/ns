@@ -1,4 +1,8 @@
-import type { RunnerSubagentContext, RunnerSubagentPi } from "@nseng-ai/ns-pi-subagents/api";
+import type {
+	RunnerSubagentContext,
+	RunnerSubagentPi,
+	SubagentFleetDisplayContext,
+} from "@nseng-ai/ns-pi-subagents/api";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 export interface ExecResult {
@@ -26,20 +30,16 @@ export interface RegisteredCommand {
 	handler(args: string, ctx: ThermoCouncilCommandContext): Promise<void> | void;
 }
 
+type ThermoCouncilCommandUi = NonNullable<SubagentFleetDisplayContext["ui"]> & {
+	notify?(message: string, level?: "info" | "warning" | "error"): void;
+};
+
 export interface ThermoCouncilCommandContext {
 	readonly cwd: string;
 	readonly signal?: AbortSignal;
 	readonly model?: ModelInfo;
 	readonly hasUI?: boolean;
-	readonly ui?: {
-		notify?(message: string, level?: "info" | "warning" | "error"): void;
-		setStatus?(key: string, value: string | undefined): void;
-		setWidget?(
-			key: string,
-			lines: string[] | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		): void;
-	};
+	readonly ui?: ThermoCouncilCommandUi;
 	waitForIdle?(): Promise<void>;
 }
 

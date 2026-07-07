@@ -6,7 +6,6 @@ import {
 	blockThermoCouncilReviewTool,
 	submitThermoCouncilReviewTool,
 	type ThermoCouncilReviewerOutcome,
-	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
 } from "./contract.ts";
 import {
@@ -17,6 +16,8 @@ import {
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
 	type SubagentFleetRegistry,
+	type SubagentFleetRunTracking,
+	type SubagentFleetTaskInput,
 	type SubagentRuntime,
 } from "@nseng-ai/ns-pi-subagents/api";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
@@ -33,6 +34,7 @@ import {
 	type ThermoCouncilCommandContext,
 	type ThermoCouncilExtensionAPI,
 } from "./host-api.ts";
+import type { ThermoCouncilRunContext } from "./run-context.ts";
 import {
 	parseThermoCouncilMaxConcurrency,
 	parseThermoCouncilSeats,
@@ -42,13 +44,9 @@ import { seatLabels } from "./progress.ts";
 import { reviewerOutcomeFromRunnerResult } from "./review-recovery.ts";
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
-interface LaunchThermoCouncilReviewerOptions {
-	readonly pi: ThermoCouncilExtensionAPI;
-	readonly ctx: ThermoCouncilCommandContext;
-	readonly runtime: SubagentRuntime;
-	readonly scope: ThermoCouncilScope;
+
+interface LaunchThermoCouncilReviewerOptions extends ThermoCouncilRunContext {
 	readonly seat: ThermoCouncilSeatConfig;
-	readonly reviewGuidance?: string;
 	readonly onProgress?: (update: RunnerSubagentUpdate) => void;
 }
 
@@ -57,15 +55,10 @@ interface LaunchThermoCouncilReviewerResult {
 	readonly runnerResult: RunnerSubagentResult;
 }
 
-interface RunCouncilSeatsOptions {
-	readonly pi: ThermoCouncilExtensionAPI;
-	readonly ctx: ThermoCouncilCommandContext;
-	readonly scope: ThermoCouncilScope;
+interface RunCouncilSeatsOptions extends ThermoCouncilRunContext {
 	readonly seats: readonly ThermoCouncilSeatConfig[];
 	readonly maxConcurrency: number;
-	readonly runtime: SubagentRuntime;
 	readonly fleetRegistry: SubagentFleetRegistry;
-	readonly reviewGuidance?: string;
 }
 
 export interface RunThermoCouncilCommandOptions {
@@ -111,15 +104,12 @@ export async function runThermoCouncilCommand(
 			return;
 		}
 		setStatus(ctx, "running final thermo council synthesis…");
-		const finalSynthesisTracking = trackSubagentFleetRun({
+		const synthesisResult = await withFleetTracking({
 			registry: fleetRegistry,
 			ctx,
 			tasks: [{ title: "Thermo council final synthesis" }],
-			parentSessionFile: undefined,
-		});
-		finalSynthesisTracking.markRunning(0);
-		const synthesisResult = await (async () => {
-			try {
+			run: async (tracking) => {
+				tracking.markRunning(0);
 				return await synthesizeThermoCouncilFinalReport({
 					pi,
 					ctx,
@@ -129,14 +119,12 @@ export async function runThermoCouncilCommand(
 					deterministicReport,
 					...(reviewGuidance === undefined ? {} : { reviewGuidance }),
 					onProgress: (update) => {
-						finalSynthesisTracking.markProgress(0, update);
+						tracking.markProgress(0, update);
 					},
-					onRunnerResult: (result) => finalSynthesisTracking.markDone(0, result),
+					onRunnerResult: (result) => tracking.markDone(0, result),
 				});
-			} finally {
-				finalSynthesisTracking.dispose();
-			}
-		})();
+			},
+		});
 		const report =
 			synthesisResult.type === "completed"
 				? synthesisResult.report
@@ -204,37 +192,53 @@ async function runCouncilSeatsWithConcurrencyLimit({
 	fleetRegistry,
 	reviewGuidance,
 }: RunCouncilSeatsOptions): Promise<ThermoCouncilReviewerOutcome[]> {
-	const tracking = trackSubagentFleetRun({
+	return await withFleetTracking({
 		registry: fleetRegistry,
 		ctx,
 		tasks: seats.map((seat) => ({ title: `Thermo council: ${seat.label}` })),
+		run: async (tracking) => {
+			const outcomes = await mapWithConcurrency({
+				items: seats.map((seat, index) => ({ seat, index })),
+				maxConcurrency,
+				run: async ({ seat, index }) => {
+					tracking.markRunning(index);
+					const result = await launchThermoCouncilReviewer({
+						pi,
+						ctx,
+						runtime,
+						scope,
+						seat,
+						...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+						onProgress: (update) => tracking.markProgress(index, update),
+					});
+					tracking.markDone(index, result.runnerResult);
+					return result.outcome;
+				},
+			});
+			return outcomes.map((outcome, index) => {
+				if (outcome === undefined) {
+					throw new Error(`Missing thermo-council outcome for seat index ${index}.`);
+				}
+				return outcome;
+			});
+		},
+	});
+}
+
+async function withFleetTracking<T>(input: {
+	readonly registry: SubagentFleetRegistry;
+	readonly ctx: ThermoCouncilCommandContext;
+	readonly tasks: readonly SubagentFleetTaskInput[];
+	run(tracking: SubagentFleetRunTracking): Promise<T>;
+}): Promise<T> {
+	const tracking = trackSubagentFleetRun({
+		registry: input.registry,
+		ctx: input.ctx,
+		tasks: input.tasks,
 		parentSessionFile: undefined,
 	});
 	try {
-		const outcomes = await mapWithConcurrency({
-			items: seats.map((seat, index) => ({ seat, index })),
-			maxConcurrency,
-			run: async ({ seat, index }) => {
-				tracking.markRunning(index);
-				const result = await launchThermoCouncilReviewer({
-					pi,
-					ctx,
-					runtime,
-					scope,
-					seat,
-					...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-					onProgress: (update) => tracking.markProgress(index, update),
-				});
-				tracking.markDone(index, result.runnerResult);
-				return result.outcome;
-			},
-		});
-		return outcomes.map((outcome, index) => {
-			if (outcome === undefined) {
-				throw new Error(`Missing thermo-council outcome for seat index ${index}.`);
-			}
-			return outcome;
-		});
+		return await input.run(tracking);
 	} finally {
 		tracking.dispose();
 	}

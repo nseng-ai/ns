@@ -5,7 +5,7 @@ import type {
 	RunnerSubagentProgress,
 	RunnerSubagentResult,
 } from "../runner-subagents/index.ts";
-import type { ExplorerRuntime, ExplorerRuntimeDispatchInput } from "./runtime.ts";
+import type { SubagentRuntime, SubagentRuntimeDispatchInput } from "../runtime/seam.ts";
 
 export type InProcessExplorerSessionEvent =
 	| { type: "assistant"; text: string }
@@ -37,7 +37,7 @@ export interface InProcessExplorerRuntimeOptions {
 
 export function createInProcessExplorerRuntime(
 	options: InProcessExplorerRuntimeOptions,
-): ExplorerRuntime {
+): SubagentRuntime {
 	return {
 		dispatch(input) {
 			return dispatchInProcessExplorer(input, options.sessionFactory);
@@ -46,7 +46,7 @@ export function createInProcessExplorerRuntime(
 }
 
 async function dispatchInProcessExplorer(
-	input: ExplorerRuntimeDispatchInput,
+	input: SubagentRuntimeDispatchInput,
 	sessionFactory: InProcessExplorerSessionFactory,
 ): Promise<RunnerSubagentResult> {
 	const startedAt = Date.now();
@@ -122,7 +122,7 @@ async function dispatchInProcessExplorer(
 }
 
 function initialProgress(
-	input: ExplorerRuntimeDispatchInput,
+	input: SubagentRuntimeDispatchInput,
 	startedAt: number,
 	sessionFile: string | undefined,
 ): RunnerSubagentProgress {
@@ -192,7 +192,7 @@ function mapInProcessEvent(
 }
 
 function cancelledResult(
-	input: ExplorerRuntimeDispatchInput,
+	input: SubagentRuntimeDispatchInput,
 	startedAt: number,
 	progress: RunnerSubagentProgress,
 ): RunnerSubagentResult {

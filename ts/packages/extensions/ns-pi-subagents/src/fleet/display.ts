@@ -4,6 +4,7 @@ import {
 	type SubagentFleetRunSnapshot,
 	type SubagentFleetTaskSnapshot,
 } from "./registry.ts";
+import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUT_LABEL } from "./contract.ts";
 
 export const SUBAGENT_FLEET_WIDGET_KEY = "ns.agents.fleet";
@@ -27,7 +28,14 @@ export function syncSubagentFleetDisplay(
 	runs: readonly SubagentFleetRunSnapshot[],
 ): void {
 	const lines = formatSubagentFleetWidgetLines(runs);
-	setSubagentFleetWidget(ctx, lines.length === 0 ? undefined : lines);
+	setRunnerSubagentWidget(
+		{
+			hasUI: ctx.hasUI !== false,
+			...(ctx.ui === undefined ? {} : { ui: ctx.ui }),
+		},
+		SUBAGENT_FLEET_WIDGET_KEY,
+		lines.length === 0 ? undefined : lines,
+	);
 	setSubagentFleetStatus(ctx, formatSubagentFleetStatusText(runs));
 }
 
@@ -83,18 +91,6 @@ function describeFleetCounts(tasks: readonly SubagentFleetTaskSnapshot[]): strin
 
 function hasActiveFleetTasks(tasks: readonly SubagentFleetTaskSnapshot[]): boolean {
 	return tasks.some((task) => task.state === "running" || task.state === "queued");
-}
-
-function setSubagentFleetWidget(
-	ctx: SubagentFleetDisplayContext,
-	lines: string[] | undefined,
-): void {
-	if (ctx.hasUI === false) return;
-	try {
-		ctx.ui?.setWidget?.(SUBAGENT_FLEET_WIDGET_KEY, lines, { placement: "aboveEditor" });
-	} catch {
-		// Widget updates are display-only and must not affect subagent execution.
-	}
 }
 
 function setSubagentFleetStatus(ctx: SubagentFleetDisplayContext, text: string | undefined): void {

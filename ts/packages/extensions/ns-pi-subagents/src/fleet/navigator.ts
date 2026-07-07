@@ -212,35 +212,15 @@ async function formatNoUiTaskSummary(input: {
 	task: SubagentFleetTaskSnapshot;
 	readTextFile: ReadTextFile;
 }): Promise<string[]> {
-	const sessionFile = input.task.sessionFile;
-	if (sessionFile === undefined) return [];
 	try {
-		const jsonl = await input.readTextFile(sessionFile);
-		const parser = createRunnerSubagentJsonEventParser({
-			title: input.task.title,
-			sessionFile,
-		});
-		parser.pushChunk(jsonl);
-		parser.finish();
-		const snapshot = parser.getSnapshot();
-		const assistant = snapshot.finalAssistantText ?? snapshot.activity.assistantPreview;
-		const tool = snapshot.activity.lastToolName;
-		const toolResult = snapshot.activity.lastToolResultPreview;
+		const detail = await loadFleetTaskDetail(input);
 		return [
 			truncatePlain(
-				`  ${input.task.title}: ${input.task.finalStatus ?? input.task.state} — ${sessionFile}`,
+				`  ${detail.title}: ${detail.status} — ${detail.sessionFile ?? "no session file"}`,
 				180,
 			),
-			...(assistant === undefined ? [] : [truncatePlain(`    assistant: ${assistant}`, 180)]),
-			...(tool === undefined
-				? []
-				: [
-						truncatePlain(
-							`    last tool: ${tool}${toolResult === undefined ? "" : ` — ${toolResult}`}`,
-							180,
-						),
-					]),
-			`    turns=${snapshot.progress.turnCount}, tools=${snapshot.progress.toolCount}, state=${snapshot.progress.state}`,
+			`    ${detail.modelText}; turns=${detail.turnCount}, tools=${detail.toolCount}, state=${detail.state}`,
+			...(detail.message === undefined ? [] : [truncatePlain(`    ${detail.message}`, 180)]),
 		];
 	} catch (error) {
 		return [
@@ -611,7 +591,7 @@ function detailFromSnapshot(input: {
 	timeline: RunnerSubagentTimeline;
 	usage: RunnerSubagentUsageMetadata;
 }): SubagentFleetTaskDetail {
-	const task = input.entry.kind === "task" ? input.entry.task : undefined;
+	const task = entryTask(input.entry);
 	return {
 		title: entryTitle(input.entry),
 		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
@@ -632,7 +612,7 @@ function detailFromSnapshot(input: {
 }
 
 function placeholderDetail(entry: FleetNavigatorEntry, message: string): SubagentFleetTaskDetail {
-	const task = entry.kind === "task" ? entry.task : undefined;
+	const task = entryTask(entry);
 	const sessionFile = entrySessionFile(entry);
 	return {
 		title: entryTitle(entry),
@@ -673,7 +653,10 @@ function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
 	queued: number;
 	done: number;
 } {
-	const tasks = entries.flatMap((entry) => (entry.kind === "task" ? [entry.task] : []));
+	const tasks = entries.flatMap((entry) => {
+		const task = entryTask(entry);
+		return task === undefined ? [] : [task];
+	});
 	return {
 		running: tasks.filter((task) => task.state === "running").length,
 		queued: tasks.filter((task) => task.state === "queued").length,
@@ -707,6 +690,10 @@ function entryId(entry: FleetNavigatorEntry | undefined): string | undefined {
 
 function entryTitle(entry: FleetNavigatorEntry): string {
 	return entry.kind === "parent" ? entry.title : entry.task.title;
+}
+
+function entryTask(entry: FleetNavigatorEntry): SubagentFleetTaskSnapshot | undefined {
+	return entry.kind === "task" ? entry.task : undefined;
 }
 
 function entrySessionFile(entry: FleetNavigatorEntry): string | undefined {

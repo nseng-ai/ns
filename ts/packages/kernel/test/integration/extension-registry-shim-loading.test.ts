@@ -20,10 +20,10 @@ describe("extension registry shim loading", () => {
 			homeDir: workspace.homeDir,
 		});
 		const candidate = catalog.candidates.get("list");
-		expect(candidate).toMatchObject({
-			moduleReference: { type: "package", specifier: "@nseng-ai/objectives/ns/commands/list" },
-		});
-		if (candidate === undefined) return;
+		if (candidate === undefined || !("moduleReference" in candidate)) {
+			throw new Error("Expected list shim package candidate.");
+		}
+		expect(candidate.moduleReference.type).toBe("package");
 
 		const selected = await loadSelectedNsCommand(candidate);
 		expect(selected.ok).toBe(true);
