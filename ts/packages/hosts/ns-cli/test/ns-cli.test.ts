@@ -196,7 +196,7 @@ describe("ns CLI host", () => {
 
 		const help = stdout.join("");
 		expect(exit).toBe(0);
-		expect(help).toContain("Built-in Commands:");
+		expect(help).toContain("Built-ins:");
 		expect(help).toContain("  shell");
 		expect(help).toContain("  completion");
 		expect(help).toContain("  init");
