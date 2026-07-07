@@ -22,6 +22,7 @@ import {
 	resolvePrDescriptionPrompt,
 	truncateDiff,
 } from "../../src/submit/index.ts";
+import { writeTestPointManifest } from "../support/point-manifest.ts";
 
 function validDraft(): string {
 	return `Add pluggable PR descriptions
@@ -253,25 +254,17 @@ describe("PR description helpers", () => {
 		const root = join(tmpdir(), `ns-dev-pr-prompt-${randomUUID()}`);
 		const repo = join(root, "repo");
 		const repoPromptDir = join(repo, ".ns", "prompts");
-		const extensionDir = join(repo, ".ns", "extensions", "flow");
 		await mkdir(repoPromptDir, { recursive: true });
-		await mkdir(extensionDir, { recursive: true });
-		await writeFile(
-			join(extensionDir, "package.json"),
-			JSON.stringify({
-				ns: {
-					group: "flow",
-					points: [
-						{
-							path: ["submit", "pr-description"],
-							accepts: "prompt",
-							semantics: "override",
-						},
-					],
+		await writeTestPointManifest(repo, {
+			group: "flow",
+			points: [
+				{
+					path: ["submit", "pr-description"],
+					accepts: "prompt",
+					semantics: "override",
 				},
-			}),
-			"utf8",
-		);
+			],
+		});
 		await writeFile(join(repoPromptDir, "flow.submit.pr-description.md"), "repo prompt", "utf8");
 		const envPath = join(root, "env.md");
 		await writeFile(envPath, "env prompt", "utf8");

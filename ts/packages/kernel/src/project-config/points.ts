@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
@@ -40,15 +40,11 @@ export interface ProjectConfigGateway {
 	}) => ProjectConfigPathExistsResult;
 }
 
-export type ProjectConfigReadResult =
-	| { type: "found"; text: string }
-	| { type: "missing" }
-	| { type: "error"; message: string };
+type ProjectConfigProbeResult<T> = T | { type: "missing" } | { type: "error"; message: string };
 
-export type ProjectConfigPathExistsResult =
-	| { type: "present" }
-	| { type: "missing" }
-	| { type: "error"; message: string };
+export type ProjectConfigReadResult = ProjectConfigProbeResult<{ type: "found"; text: string }>;
+
+export type ProjectConfigPathExistsResult = ProjectConfigProbeResult<{ type: "present" }>;
 
 export interface ProjectConfigDiagnostic {
 	severity: "error" | "info";
@@ -72,6 +68,8 @@ export function getProjectConfigSetting<T>(
 ): T | undefined {
 	return config.settings.get(schema.path.join(".")) as T | undefined;
 }
+
+export const emptyLoadedProjectConfig: LoadedProjectConfig = { points: [], settings: new Map() };
 
 export type LoadProjectConfigResult =
 	| { ok: true; config: LoadedProjectConfig; diagnostics: readonly ProjectConfigDiagnostic[] }
@@ -109,26 +107,30 @@ export type PromptPointSource =
 	| { type: "default"; pointId: string; path: string; manifestPath: string }
 	| { type: "missing"; pointId: string };
 
+function tryProjectConfigProbe<T>(
+	probe: () => ProjectConfigProbeResult<T>,
+): ProjectConfigProbeResult<T> {
+	try {
+		return probe();
+	} catch (error) {
+		if (isNodeFileNotFound(error)) return { type: "missing" };
+		return { type: "error", message: formatErrorMessage(error) };
+	}
+}
+
 export const nodeProjectConfigGateway: ProjectConfigGateway = {
 	readTextFile(request) {
-		try {
-			return {
-				type: "found",
-				text: readFileSync(join(request.repoRoot, request.relativePath), "utf8"),
-			};
-		} catch (error) {
-			if (isNodeFileNotFound(error)) return { type: "missing" };
-			return { type: "error", message: formatErrorMessage(error) };
-		}
+		return tryProjectConfigProbe(() => ({
+			type: "found",
+			text: readFileSync(join(request.repoRoot, request.relativePath), "utf8"),
+		}));
 	},
 	pathExists(request) {
-		try {
-			return existsSync(join(request.repoRoot, request.relativePath))
+		return tryProjectConfigProbe(() =>
+			existsSync(join(request.repoRoot, request.relativePath))
 				? { type: "present" }
-				: { type: "missing" };
-		} catch (error) {
-			return { type: "error", message: formatErrorMessage(error) };
-		}
+				: { type: "missing" },
+		);
 	},
 };
 
@@ -145,7 +147,7 @@ export function loadProjectConfig(request: {
 	if (readResult.type === "missing") {
 		return {
 			ok: true,
-			config: { points: [], settings: new Map() },
+			config: emptyLoadedProjectConfig,
 			diagnostics: [],
 		};
 	}
@@ -259,7 +261,7 @@ export function loadPointCatalog(request: {
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
 		pointDefinitions: definitionResult.pointDefinitions,
-		config: configResult.config ?? { points: [], settings: new Map() },
+		config: configResult.config ?? emptyLoadedProjectConfig,
 		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
 		promptEnvOverrides: request.promptEnvOverrides ?? [],
 		env: request.env ?? {},
@@ -831,7 +833,7 @@ function diagnostic(
 		severity: options.severity ?? "error",
 		code,
 		message,
-		...(options.path === undefined ? {} : { path: options.path }),
+		...optionalEntry("path", options.path),
 	};
 }
 

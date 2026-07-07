@@ -11,22 +11,24 @@
 // interpretation; point an entry at a script for anything richer. The first failing hook aborts the
 // submit before any state changes.
 
-import type { CommandRunner, ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
 import {
 	formatCommandResultFailure,
 	outputListenerToExecCallbacks,
+	type CommandRunner,
+	type ExecOutputListener,
+	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import {
 	hookCommandsForPoint,
 	loadPointCatalog,
 	nodeProjectConfigGateway,
 	type ProjectConfigDiagnostic,
+	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
 import { z } from "zod";
 
 /** Hooks run consumer validation suites (for example `just`), so allow far longer than a git call. */
 const PRE_SUBMIT_HOOK_TIMEOUT_MS = 1_800_000;
-const REPO_ROOT_TIMEOUT_MS = 30_000;
 
 export interface FlowSubmitHook {
 	/** The configured hook string verbatim, for progress labels and failure messages. */
@@ -36,10 +38,11 @@ export interface FlowSubmitHook {
 }
 
 const FLOW_SUBMIT_PRE_POINT_ID = "flow.submit.pre";
-const LEGACY_FLOW_HOOKS_SETTING_SCHEMA = {
-	path: ["flow", "hooks"] as const,
+const LEGACY_FLOW_HOOKS_SETTING_SCHEMA: SettingsSchema = {
+	path: ["flow", "hooks"],
 	schema: z.never(),
 };
+const LEGACY_FLOW_HOOKS_PATH = LEGACY_FLOW_HOOKS_SETTING_SCHEMA.path.join(".");
 
 export interface FlowHooksConfigError {
 	code: "invalid-config" | "invalid-pre-submit";
@@ -74,27 +77,15 @@ export type FlowSubmitHooksLoad =
 	| { kind: "invalid"; error: FlowHooksConfigError };
 
 export interface LoadFlowSubmitHooksOptions {
-	cwd: string;
-	runner: CommandRunner;
+	repoRoot: string;
 }
 
-/**
- * Locate the repo-root `ns.toml` and parse its pre-submit hooks. A missing repo (not a git worktree)
- * or missing/empty config is `none` — submit's own preflight surfaces repo problems with better
- * messages than a hook loader could.
- */
+/** Parse pre-submit hooks from the repo-root `ns.toml`. A missing/empty config is `none`. */
 export async function loadFlowSubmitHooks(
 	options: LoadFlowSubmitHooksOptions,
 ): Promise<FlowSubmitHooksLoad> {
-	const revParse = await options.runner("git", ["rev-parse", "--show-toplevel"], {
-		timeout: REPO_ROOT_TIMEOUT_MS,
-	});
-	if (revParse.code !== 0 || revParse.startupError !== undefined) return { kind: "none" };
-	const repoRoot = revParse.stdout.trim();
-	if (repoRoot === "") return { kind: "none" };
-
 	const catalog = loadPointCatalog({
-		repoRoot,
+		repoRoot: options.repoRoot,
 		gateway: nodeProjectConfigGateway,
 		settingsSchemas: [LEGACY_FLOW_HOOKS_SETTING_SCHEMA],
 	});
@@ -174,7 +165,7 @@ function formatCatalogDiagnostics(diagnostics: readonly ProjectConfigDiagnostic[
 }
 
 function formatCatalogDiagnostic(diagnostic: ProjectConfigDiagnostic): string {
-	if (diagnostic.code === "settings_table_invalid" && diagnostic.path === "flow.hooks") {
+	if (diagnostic.code === "settings_table_invalid" && diagnostic.path === LEGACY_FLOW_HOOKS_PATH) {
 		return 'ns.toml: [flow.hooks] is no longer supported; install pre-submit hooks at [points]."flow.submit.pre".';
 	}
 	return diagnostic.message;

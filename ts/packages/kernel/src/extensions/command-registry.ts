@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { z } from "zod";
 export { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 
 import {

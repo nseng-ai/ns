@@ -3,6 +3,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import type { Caps } from "@nseng-ai/clinkr";
+import type { CommandRunner } from "@nseng-ai/foundation/command";
 import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
@@ -42,6 +43,7 @@ import {
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
+const SUBMIT_REPO_ROOT_TIMEOUT_MS = 30_000;
 
 const submitSchema = z.object({
 	restack: z
@@ -92,15 +94,24 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 	},
 	async run(ctx: NsExtensionApi, request: SubmitRequest) {
 		const runtime = createNsSubmitRuntime(ctx);
-		const hooksLoad = request.hooks
-			? await loadFlowSubmitHooks({ cwd: ctx.cwd, runner: runtime.commandRunner })
-			: { kind: "none" as const };
+		const checkpointGateway = new RealCheckpointGateway(runtime.commandRunner);
+		const repoRoot = request.hooks ? await resolveSubmitRepoRoot(runtime.commandRunner) : undefined;
+		const hooksLoad =
+			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
 		if (hooksLoad.kind === "invalid") {
 			return failed(hooksLoad.error.message, 2);
 		}
 		const caps = resolveFlowStreamCaps(ctx);
 		if (caps.isTty) {
-			return await runSubmitWithMatrix({ ctx, request, runtime, caps, hooksLoad });
+			return await runSubmitWithMatrix({
+				ctx,
+				request,
+				runtime,
+				caps,
+				hooksLoad,
+				checkpointGateway,
+				...(repoRoot === undefined ? {} : { repoRoot }),
+			});
 		}
 		return await runSettledPhaseStream({
 			caps,
@@ -150,9 +161,10 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 				const checkpoint = await runCheckpointIfPending({
 					cwd: ctx.cwd,
 					env: ctx.env,
-					gateway: new RealCheckpointGateway(runtime.commandRunner),
+					gateway: checkpointGateway,
 					textGenerator: ctx.textGenerator,
 					onPhase: stream.emit,
+					...(repoRoot === undefined ? {} : { repoRoot }),
 				});
 				if (checkpoint.kind === "failed") {
 					return await phaseFailureResult(ctx, {
@@ -200,14 +212,25 @@ export default defineExtension({
 	commands: [flowSubmitCommand],
 });
 
+async function resolveSubmitRepoRoot(runner: CommandRunner): Promise<string | undefined> {
+	const result = await runner("git", ["rev-parse", "--show-toplevel"], {
+		timeout: SUBMIT_REPO_ROOT_TIMEOUT_MS,
+	});
+	if (result.code !== 0 || result.startupError !== undefined) return undefined;
+	const repoRoot = result.stdout.trim();
+	return repoRoot === "" ? undefined : repoRoot;
+}
+
 async function runSubmitWithMatrix(input: {
 	ctx: NsExtensionApi;
 	request: SubmitRequest;
 	runtime: NsSubmitRuntime;
 	caps: Caps;
 	hooksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
+	checkpointGateway: RealCheckpointGateway;
+	repoRoot?: string;
 }) {
-	const { ctx, request, runtime, caps, hooksLoad } = input;
+	const { ctx, request, runtime, caps, hooksLoad, checkpointGateway } = input;
 	const matrix = createSubmitMatrixProgressController({
 		caps,
 		deps: flowStreamDeps(ctx, caps),
@@ -278,9 +301,10 @@ async function runSubmitWithMatrix(input: {
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			gateway: new RealCheckpointGateway(runtime.commandRunner),
+			gateway: checkpointGateway,
 			textGenerator: ctx.textGenerator,
 			onPhase: checkpointPhase,
+			...(input.repoRoot === undefined ? {} : { repoRoot: input.repoRoot }),
 		});
 		matrix.setRunningCommands([]);
 		if (checkpoint.kind === "failed") {

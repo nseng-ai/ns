@@ -25,15 +25,24 @@ export type PendingWorktreeError =
 export async function loadPendingWorktreeSnapshot(input: {
 	cwd: string;
 	execGit: ExecGit;
+	repoRoot?: string;
 }): Promise<
 	{ ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
-	const root = await input.execGit(["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-	if (root.code !== 0) {
-		return {
-			ok: false,
-			error: { kind: "not_git_repo", message: "Not inside a git repository.", result: root },
-		};
+	let root = input.repoRoot;
+	if (root === undefined) {
+		const rootResult = await input.execGit(["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
+		if (rootResult.code !== 0) {
+			return {
+				ok: false,
+				error: {
+					kind: "not_git_repo",
+					message: "Not inside a git repository.",
+					result: rootResult,
+				},
+			};
+		}
+		root = rootResult.stdout.trim();
 	}
 
 	const branch = await input.execGit(["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
@@ -63,7 +72,7 @@ export async function loadPendingWorktreeSnapshot(input: {
 	return {
 		ok: true,
 		snapshot: {
-			root: root.stdout.trim(),
+			root,
 			branch: branch.stdout.trim(),
 			status: status.stdout,
 			diff: diff.stdout,

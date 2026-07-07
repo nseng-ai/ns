@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,6 +15,7 @@ import {
 import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
+import { writeTestPointManifest } from "../support/point-manifest.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
@@ -63,7 +64,6 @@ function runWithFakes(options: Parameters<typeof runFlowSubmitCommandWithFakes>[
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
@@ -72,7 +72,6 @@ function cleanCheckpointResponses(): ScriptedExecResponse[] {
 
 function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
@@ -152,24 +151,17 @@ function defaultPrDescriptionText(): string {
 async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<string> {
 	const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-test-"));
 	tempDirs.push(repoRoot);
-	await mkdir(join(repoRoot, ".ns/extensions/flow"), { recursive: true });
-	await writeFile(
-		join(repoRoot, ".ns/extensions/flow/package.json"),
-		JSON.stringify({
-			ns: {
-				group: "flow",
-				points: [
-					{
-						path: ["submit", "pre"],
-						accepts: "hook",
-						semantics: "additive",
-						description: "Runs before submit.",
-					},
-				],
+	await writeTestPointManifest(repoRoot, {
+		group: "flow",
+		points: [
+			{
+				path: ["submit", "pre"],
+				accepts: "hook",
+				semantics: "additive",
+				description: "Runs before submit.",
 			},
-		}),
-		"utf8",
-	);
+		],
+	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
 		`[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,

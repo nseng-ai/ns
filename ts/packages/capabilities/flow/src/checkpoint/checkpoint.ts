@@ -22,7 +22,7 @@ import {
 } from "@nseng-ai/capability-kit/text-generation";
 
 export interface CheckpointGateway {
-	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<
+	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
 		| {
 				ok: true;
 				snapshot: PendingWorktreeSnapshot;
@@ -59,6 +59,7 @@ export interface RunCheckpointCommandOptions {
 	env: Record<string, string | undefined>;
 	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
+	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
 	onPhase?: NsProgressPhaseListener;
 }
@@ -96,7 +97,7 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		this.runner = runner;
 	}
 
-	async loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<
+	async loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
 		| {
 				ok: true;
 				snapshot: PendingWorktreeSnapshot;
@@ -109,6 +110,7 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		return loadPendingWorktreeSnapshot({
 			cwd: params.cwd,
 			execGit: (args, timeout) => this.exec("git", args, params.cwd, timeout),
+			...(params.repoRoot === undefined ? {} : { repoRoot: params.repoRoot }),
 		});
 	}
 
@@ -174,7 +176,10 @@ export async function runCheckpointWorkflow(
 ): Promise<CheckpointWorkflowResult> {
 	const onPhase = options.onPhase;
 	onPhase?.({ type: "phase-started", phaseKey: "inspect" });
-	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
+	const loaded = await options.gateway.loadPendingWorktreeSnapshot({
+		cwd: options.cwd,
+		...(options.repoRoot === undefined ? {} : { repoRoot: options.repoRoot }),
+	});
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
 	const snapshot = loaded.snapshot;

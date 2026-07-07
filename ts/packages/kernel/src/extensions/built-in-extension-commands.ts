@@ -36,6 +36,7 @@ const pointSourceSchema = z.union([
 	z.object({ source: z.literal("default"), path: z.string(), manifestPath: z.string() }),
 	z.object({ source: z.literal("missing") }),
 ]);
+type PointSourceView = z.infer<typeof pointSourceSchema>;
 
 const pointSummarySchema = z.object({
 	id: z.string(),
@@ -53,6 +54,7 @@ export const extensionPointsResultSchema = z.object({
 	diagnostics: z.array(pointDiagnosticSchema),
 });
 
+const extensionPointsRequestSchema = z.object({});
 const extensionPointDetailRequestSchema = z.object({ id: z.string().min(1) });
 
 const extensionPointDetailSchema = pointSummarySchema.extend({
@@ -76,13 +78,13 @@ const extensionPointResultSchema = z.union([
 ]);
 
 export const extensionPointsCommand: NsCommand<
-	z.ZodObject,
+	typeof extensionPointsRequestSchema,
 	z.infer<typeof extensionPointsResultSchema>
 > = {
 	name: "points",
 	summary: "List defined ns points and their active sources.",
 	description: "List defined ns points and their active sources.",
-	schema: z.object({}),
+	schema: extensionPointsRequestSchema,
 	resultSchema: extensionPointsResultSchema,
 	run: (ctx) => ok(toPointsResult(loadCatalog(ctx.cwd, ctx.env))),
 	renderHuman: (data) => renderPointsHuman(extensionPointsResultSchema.parse(data)),
@@ -166,36 +168,68 @@ function activeSourceForEntry(
 	entry: PointCatalogEntry,
 ): z.infer<typeof pointSourceSchema> {
 	if (entry.definition.accepts === "prompt") {
-		const source = resolvePromptPointSource(catalog, entry.definition.id);
-		if (source.type === "env") return { source: "env", envVar: source.envVar, path: source.path };
-		if (source.type === "ns.toml") return { source: "repo-prompt", path: source.path };
-		if (source.type === "conventional") return { source: "conventional", path: source.path };
-		if (source.type === "default") {
-			return { source: "default", path: source.path, manifestPath: source.manifestPath };
-		}
-		return { source: "missing" };
+		return pointSourceFromPromptSource(resolvePromptPointSource(catalog, entry.definition.id));
 	}
 
 	const installation = entry.installations.find(
 		(candidate) => candidate.source === "ns.toml" && candidate.installation.accepts === "hook",
 	);
 	if (installation?.source === "ns.toml" && installation.installation.accepts === "hook") {
-		return { source: "repo-hook", commands: [...installation.installation.commands] };
+		return pointSourceFromHookCommands(installation.installation.commands);
 	}
-	return { source: "missing" };
+	return missingPointSource();
 }
 
 function toPointSource(installation: PointCatalogInstallation): z.infer<typeof pointSourceSchema> {
 	if (installation.source === "env-prompt") {
-		return { source: "env", envVar: installation.envVar, path: installation.path };
+		return envPointSource(installation.envVar, installation.path);
 	}
 	if (installation.source === "conventional-prompt") {
-		return { source: "conventional", path: installation.path };
+		return conventionalPointSource(installation.path);
 	}
 	if (installation.installation.accepts === "hook") {
-		return { source: "repo-hook", commands: [...installation.installation.commands] };
+		return pointSourceFromHookCommands(installation.installation.commands);
 	}
-	return { source: "repo-prompt", path: installation.installation.path };
+	return repoPromptPointSource(installation.installation.path);
+}
+
+function pointSourceFromPromptSource(
+	source: ReturnType<typeof resolvePromptPointSource>,
+): z.infer<typeof pointSourceSchema> {
+	switch (source.type) {
+		case "env":
+			return envPointSource(source.envVar, source.path);
+		case "ns.toml":
+			return repoPromptPointSource(source.path);
+		case "conventional":
+			return conventionalPointSource(source.path);
+		case "default":
+			return { source: "default", path: source.path, manifestPath: source.manifestPath };
+		case "missing":
+			return missingPointSource();
+	}
+}
+
+function envPointSource(envVar: string, path: string): z.infer<typeof pointSourceSchema> {
+	return { source: "env", envVar, path };
+}
+
+function repoPromptPointSource(path: string): z.infer<typeof pointSourceSchema> {
+	return { source: "repo-prompt", path };
+}
+
+function pointSourceFromHookCommands(
+	commands: readonly string[],
+): z.infer<typeof pointSourceSchema> {
+	return { source: "repo-hook", commands: [...commands] };
+}
+
+function conventionalPointSource(path: string): z.infer<typeof pointSourceSchema> {
+	return { source: "conventional", path };
+}
+
+function missingPointSource(): z.infer<typeof pointSourceSchema> {
+	return { source: "missing" };
 }
 
 function diagnosticsForPoint(
@@ -249,14 +283,20 @@ function appendDiagnosticsSection(
 	lines.push("diagnostics:", ...diagnostics.map(renderDiagnostic));
 }
 
-function renderSource(source: z.infer<typeof pointSourceSchema>): string {
-	if (source.source === "env") return `env ${source.envVar} -> ${source.path}`;
-	if (source.source === "repo-hook") return `repo ns.toml commands: ${source.commands.join(", ")}`;
-	if (source.source === "repo-prompt") return `repo ns.toml -> ${source.path}`;
-	if (source.source === "conventional") return `conventional ${source.path}`;
-	if (source.source === "default") return `default ${source.path}`;
-	return "missing";
+function renderSource(source: PointSourceView): string {
+	return pointSourceRenderers[source.source](source as never);
 }
+
+const pointSourceRenderers: {
+	[K in PointSourceView["source"]]: (source: Extract<PointSourceView, { source: K }>) => string;
+} = {
+	env: (source) => `env ${source.envVar} -> ${source.path}`,
+	"repo-prompt": (source) => `repo ns.toml -> ${source.path}`,
+	"repo-hook": (source) => `repo ns.toml commands: ${source.commands.join(", ")}`,
+	conventional: (source) => `conventional ${source.path}`,
+	default: (source) => `default ${source.path}`,
+	missing: () => "missing",
+};
 
 function renderDiagnostic(diagnostic: z.infer<typeof pointDiagnosticSchema>): string {
 	return `- ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;

@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ import {
 	runFlowSubmitHooks,
 	type FlowSubmitHook,
 } from "../../src/submit/submit-hooks.ts";
+import { writeTestPointManifest } from "../support/point-manifest.ts";
 
 const tempDirs: string[] = [];
 
@@ -36,24 +37,17 @@ function execResult(result: Partial<ExecResult> = {}): ExecResult {
 async function createSubmitHooksRepo(nsToml: string): Promise<string> {
 	const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-unit-"));
 	tempDirs.push(repoRoot);
-	await mkdir(join(repoRoot, ".ns/extensions/flow"), { recursive: true });
-	await writeFile(
-		join(repoRoot, ".ns/extensions/flow/package.json"),
-		JSON.stringify({
-			ns: {
-				group: "flow",
-				points: [
-					{
-						path: ["submit", "pre"],
-						accepts: "hook",
-						semantics: "additive",
-						description: "Runs before submit.",
-					},
-				],
+	await writeTestPointManifest(repoRoot, {
+		group: "flow",
+		points: [
+			{
+				path: ["submit", "pre"],
+				accepts: "hook",
+				semantics: "additive",
+				description: "Runs before submit.",
 			},
-		}),
-		"utf8",
-	);
+		],
+	});
 	await writeFile(join(repoRoot, "ns.toml"), nsToml, "utf8");
 	return repoRoot;
 }
@@ -64,11 +58,7 @@ async function expectConfigError(
 	message: string,
 ): Promise<void> {
 	const repoRoot = await createSubmitHooksRepo(source);
-	const runner: CommandRunner = async (command, args) => {
-		expect([command, ...args]).toEqual(["git", "rev-parse", "--show-toplevel"]);
-		return execResult({ stdout: `${repoRoot}\n` });
-	};
-	const result = await loadFlowSubmitHooks({ cwd: repoRoot, runner });
+	const result = await loadFlowSubmitHooks({ repoRoot });
 	expect(result.kind).toBe("invalid");
 	if (result.kind === "invalid") {
 		expect(result.error.code).toBe(code);
@@ -99,12 +89,7 @@ describe("flow submit hooks", () => {
 [points]
 "flow.submit.pre" = ["just", "scripts/pre-submit --fix"]
 `);
-		const runner: CommandRunner = async (command, args) => {
-			expect([command, ...args]).toEqual(["git", "rev-parse", "--show-toplevel"]);
-			return execResult({ stdout: `${repoRoot}\n` });
-		};
-
-		expect(await loadFlowSubmitHooks({ cwd: repoRoot, runner })).toEqual({
+		expect(await loadFlowSubmitHooks({ repoRoot })).toEqual({
 			kind: "hooks",
 			hooks: [
 				{ display: "just", executable: "just", args: [] },
@@ -120,12 +105,7 @@ describe("flow submit hooks", () => {
 	test("missing ns.toml loads as no hooks", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-unit-"));
 		tempDirs.push(repoRoot);
-		const runner: CommandRunner = async (command, args) => {
-			expect([command, ...args]).toEqual(["git", "rev-parse", "--show-toplevel"]);
-			return execResult({ stdout: `${repoRoot}\n` });
-		};
-
-		expect(await loadFlowSubmitHooks({ cwd: repoRoot, runner })).toEqual({ kind: "none" });
+		expect(await loadFlowSubmitHooks({ repoRoot })).toEqual({ kind: "none" });
 	});
 
 	test("reports invalid hook config cases", async () => {
