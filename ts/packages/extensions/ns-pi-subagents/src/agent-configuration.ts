@@ -9,10 +9,9 @@ export type AgentDefinitionConfigurationCheck =
 export interface AgentDefinitionConfigurationOptions {
 	agentName: string;
 	cwd: string;
-	expectedToolName: string;
+	toolName: string;
 	loadAgentDefinition(agentName: string, cwd: string): PiAgentDefinition;
 	requiredFilePath: string;
-	unavailableToolName: string;
 	validateDefinition?: (definition: PiAgentDefinition) => string | undefined;
 }
 
@@ -25,13 +24,13 @@ export function checkAgentDefinitionConfiguration(
 	} catch (error) {
 		return {
 			ok: false,
-			diagnostic: `${options.requiredFilePath} is required for ${options.unavailableToolName} but could not be loaded: ${formatErrorMessage(error)}`,
+			diagnostic: `${options.requiredFilePath} is required for ${options.toolName} but could not be loaded: ${formatErrorMessage(error)}`,
 		};
 	}
-	if (definition.toolName !== options.expectedToolName) {
+	if (definition.toolName !== options.toolName) {
 		return {
 			ok: false,
-			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${options.expectedToolName}".`,
+			diagnostic: `${definition.filePath} declares toolName "${definition.toolName}"; expected "${options.toolName}".`,
 		};
 	}
 	const validationDiagnostic = options.validateDefinition?.(definition);

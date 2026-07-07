@@ -1,10 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
-import {
-	RunnerSubagentFleetRegistry,
-	type RunnerSubagentFleetTaskInput,
-} from "../runner-subagents/fleet.ts";
+import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
@@ -19,9 +16,9 @@ export interface SubagentFleetRunTracking {
 }
 
 export function trackSubagentFleetRun(input: {
-	registry: RunnerSubagentFleetRegistry;
+	registry: SubagentFleetRegistry;
 	ctx: ToolContext;
-	tasks: readonly RunnerSubagentFleetTaskInput[];
+	tasks: readonly SubagentFleetTaskInput[];
 	parentSessionFile: string | undefined;
 }): SubagentFleetRunTracking {
 	const registry = input.registry;
@@ -32,24 +29,53 @@ export function trackSubagentFleetRun(input: {
 	const unsubscribe = registry.subscribe(() => {
 		syncSubagentFleetDisplay(input.ctx, registry.snapshot());
 	});
+	const doneIndexes = new Set<number>();
+	let isDisposed = false;
 	syncSubagentFleetDisplay(input.ctx, registry.snapshot());
 
-	function taskId(index: number): string | undefined {
-		return run.tasks[index]?.id;
+	function requireTaskId(index: number): string {
+		const taskId = run.tasks[index]?.id;
+		if (taskId === undefined) {
+			throw new Error(`Subagent fleet run ${run.id} has no task at index ${index}.`);
+		}
+		return taskId;
 	}
 
 	return {
 		markRunning(index) {
-			registry.markRunning(taskId(index));
+			registry.markRunning(requireTaskId(index));
 		},
 		markProgress(index, update) {
-			registry.markProgress(taskId(index), update);
+			registry.markProgress(requireTaskId(index), update);
 		},
 		markDone(index, result) {
-			registry.markDone(taskId(index), result);
+			doneIndexes.add(index);
+			registry.markDone(requireTaskId(index), result);
 		},
 		dispose() {
+			if (isDisposed) return;
+			isDisposed = true;
+			for (const task of run.tasks) {
+				if (doneIndexes.has(task.index)) continue;
+				registry.markDone(task.id, unfinishedFleetTaskResult(task));
+			}
 			unsubscribe();
+		},
+	};
+}
+
+function unfinishedFleetTaskResult(task: SubagentFleetTaskInput): RunnerSubagentResult {
+	return {
+		status: "error",
+		diagnostic: "Subagent fleet tracking ended before this task produced a terminal result.",
+		error: { message: "Subagent fleet tracking disposed before task completion." },
+		elapsedMs: 0,
+		progress: {
+			state: "stopped",
+			title: task.title,
+			toolCount: 0,
+			turnCount: 0,
+			elapsedMs: 0,
 		},
 	};
 }

@@ -1,6 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import { RunnerSubagentFleetRegistry } from "./runner-subagents/fleet.ts";
+import { SubagentFleetRegistry } from "./fleet/registry.ts";
 import {
 	registerDispatchRunnerSubagentTool,
 	type DispatchRunnerSubagentExtensionAPI,
@@ -11,25 +11,35 @@ import {
 	type ExploreExtensionAPI,
 	type ExploreExtensionOptions,
 } from "./explore/extension.ts";
-import { registerSubagentFleetCommand, registerSubagentFleetShortcut } from "./fleet/navigator.ts";
-import { registerAgentsTranscriptCommand } from "./fleet/transcript-viewer.ts";
+import {
+	registerSubagentFleetCommand,
+	registerSubagentFleetShortcut,
+	type CommandRegistrar,
+	type RegisterShortcutFunction,
+} from "./fleet/navigator.ts";
+import type { ReadTextFileDependencies } from "./fleet/read-text-dependencies.ts";
 
-export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI & DispatchRunnerSubagentExtensionAPI;
+export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI &
+	DispatchRunnerSubagentExtensionAPI & {
+		registerCommand?: CommandRegistrar;
+		registerShortcut?: RegisterShortcutFunction;
+	};
 
 export type NsPiSubagentsExtensionOptions = ExploreExtensionOptions &
-	DispatchRunnerSubagentExtensionOptions;
+	DispatchRunnerSubagentExtensionOptions & {
+		transcriptViewer?: ReadTextFileDependencies;
+	};
 
 export default function nsPiSubagentsExtension(
 	pi: NsPiSubagentsExtensionAPI,
 	options: NsPiSubagentsExtensionOptions = {},
 ): void {
-	const fleetRegistry = new RunnerSubagentFleetRegistry();
+	const fleetRegistry = new SubagentFleetRegistry();
 	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,
 		...optionalEntry("dependencies", options.transcriptViewer),
 	};
-	registerAgentsTranscriptCommand(fleetCommandInput);
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
 	registerExploreTool(pi, { ...options, fleetRegistry });

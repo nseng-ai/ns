@@ -28,13 +28,15 @@ import {
 	agentConfigurationErrorText,
 	checkAgentDefinitionConfiguration,
 	type AgentDefinitionConfigurationCheck,
-} from "../fleet/agent-configuration.ts";
+} from "../agent-configuration.ts";
 import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
 import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
+export const RUNNER_AGENT_NAME = "runner";
+export const RUNNER_AGENT_REPO_RELATIVE_PATH = ".ns/pi/agents/runner.md";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
@@ -47,14 +49,24 @@ const dispatchRunnerSubagentInputSchema = z.object({
 
 export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
 
-export interface DispatchRunnerSubagentDetails {
-	status: RunnerSubagentResult["status"] | "configuration-error";
+export type DispatchRunnerSubagentDetails =
+	| DispatchRunnerSubagentRunDetails
+	| DispatchRunnerSubagentConfigurationErrorDetails;
+
+export interface DispatchRunnerSubagentConfigurationErrorDetails {
+	status: "configuration-error";
+	title: string;
+	diagnostic: string;
+}
+
+export interface DispatchRunnerSubagentRunDetails {
+	status: RunnerSubagentResult["status"];
 	title?: string;
 	requestedModel?: string;
 	curatedContext?: CuratedRunnerSubagentContextAudit;
-	elapsedMs?: number;
+	elapsedMs: number;
 	sessionFile?: string;
-	progress?: RunnerSubagentResult["progress"];
+	progress: RunnerSubagentResult["progress"];
 	usage?: RunnerSubagentUsageMetadata;
 	finalTextChars?: number;
 	finalTextTruncated?: boolean;
@@ -99,9 +111,9 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 const FALLBACK_RUNNER_TOOL_METADATA = {
 	label: "Forked Pi subagent",
 	description: "dispatch_runner_subagent is unavailable: runner agent definition is misconfigured.",
-	promptSnippet: "dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed.",
+	promptSnippet: `dispatch_runner_subagent is unavailable until ${RUNNER_AGENT_REPO_RELATIVE_PATH} is fixed.`,
 	promptGuidelines: [
-		"dispatch_runner_subagent is unavailable until .ns/pi/agents/runner.md is fixed.",
+		`dispatch_runner_subagent is unavailable until ${RUNNER_AGENT_REPO_RELATIVE_PATH} is fixed.`,
 	],
 };
 
@@ -203,8 +215,8 @@ function configurationErrorResult(
 				type: "text",
 				text: agentConfigurationErrorText({
 					toolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
-					agentKind: "runner",
-					requiredFilePath: ".ns/pi/agents/runner.md",
+					agentKind: RUNNER_AGENT_NAME,
+					requiredFilePath: RUNNER_AGENT_REPO_RELATIVE_PATH,
 					diagnostic,
 				}),
 			},
@@ -223,12 +235,11 @@ function checkRunnerConfiguration(
 	cwd: string,
 ): AgentDefinitionConfigurationCheck {
 	return checkAgentDefinitionConfiguration({
-		agentName: "runner",
+		agentName: RUNNER_AGENT_NAME,
 		cwd,
-		expectedToolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+		toolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 		loadAgentDefinition,
-		requiredFilePath: ".ns/pi/agents/runner.md",
-		unavailableToolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+		requiredFilePath: RUNNER_AGENT_REPO_RELATIVE_PATH,
 	});
 }
 

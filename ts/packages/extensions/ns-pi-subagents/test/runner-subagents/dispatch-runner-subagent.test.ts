@@ -10,10 +10,10 @@ import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { ThinkingLevel } from "@nseng-ai/pi/runtime/types";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
-	RunnerSubagentFleetRegistry,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
@@ -113,7 +113,7 @@ function registerTool(options: RegisterToolOptions = {}): DispatchRunnerSubagent
 	const definitionRoot = options.definitionRoot ?? createRunnerDefinitionRoot();
 	registerDispatchRunnerSubagentTool(pi, {
 		cwd: definitionRoot,
-		fleetRegistry: new RunnerSubagentFleetRegistry(),
+		fleetRegistry: new SubagentFleetRegistry(),
 	});
 	return getRegisteredDispatchRunnerSubagentTool(pi);
 }
@@ -295,7 +295,7 @@ describe("dispatch_runner_subagent extension", () => {
 
 		registerDispatchRunnerSubagentTool(pi, {
 			cwd: definitionRoot,
-			fleetRegistry: new RunnerSubagentFleetRegistry(),
+			fleetRegistry: new SubagentFleetRegistry(),
 		});
 
 		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
@@ -320,7 +320,7 @@ describe("dispatch_runner_subagent extension", () => {
 		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
 		registerDispatchRunnerSubagentTool(pi, {
 			cwd: definitionRoot,
-			fleetRegistry: new RunnerSubagentFleetRegistry(),
+			fleetRegistry: new SubagentFleetRegistry(),
 		});
 		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
 
@@ -358,7 +358,7 @@ describe("dispatch_runner_subagent extension", () => {
 			sessionFileText: sessionMessageLine(finalTextMessage("Fleet result.")),
 		});
 		const pi = new FakePi(runner.dependencies);
-		const fleetRegistry = new RunnerSubagentFleetRegistry();
+		const fleetRegistry = new SubagentFleetRegistry();
 		const definitionRoot = createRunnerDefinitionRoot();
 		registerDispatchRunnerSubagentTool(pi, { cwd: definitionRoot, fleetRegistry });
 		const tool = getRegisteredDispatchRunnerSubagentTool(pi);

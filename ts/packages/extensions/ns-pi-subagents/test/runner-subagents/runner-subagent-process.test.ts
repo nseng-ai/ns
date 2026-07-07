@@ -19,7 +19,7 @@ import {
 	jsonLine,
 	sessionMessageLine,
 	waitForSpawn,
-} from "./runner-subagent-fakes.ts";
+} from "../../src/runner-subagents/testing.ts";
 
 const ctx: RunnerSubagentContext = { cwd: "/repo" };
 const pi: RunnerSubagentPi = {};

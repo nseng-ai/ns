@@ -1,7 +1,7 @@
 import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
-import { agentConfigurationErrorText } from "../fleet/agent-configuration.ts";
+import { agentConfigurationErrorText } from "../agent-configuration.ts";
 import { resultDiagnostic, type RunnerSubagentResult } from "../runner-subagents/index.ts";
 import {
 	EXPLORE_DIRECT_RESULT_PER_TASK_CAP_CHARS,

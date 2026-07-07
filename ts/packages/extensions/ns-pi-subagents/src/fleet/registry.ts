@@ -1,65 +1,68 @@
-import type { RunnerSubagentResult, RunnerSubagentUpdate } from "./extension-api.ts";
-import { runnerSubagentPrimaryActivityPreview } from "./activity.ts";
+import type {
+	RunnerSubagentResult,
+	RunnerSubagentUpdate,
+} from "../runner-subagents/extension-api.ts";
+import { runnerSubagentPrimaryActivityPreview } from "../runner-subagents/activity.ts";
 
-export const RUNNER_SUBAGENT_FLEET_RECENT_TASK_CAP = 20;
+export const SUBAGENT_FLEET_RECENT_TASK_CAP = 20;
 
-export type RunnerSubagentFleetTaskState = "queued" | "running" | "done";
+export type SubagentFleetTaskState = "queued" | "running" | "done";
 
-export interface RunnerSubagentFleetTaskInput {
+export interface SubagentFleetTaskInput {
 	title: string;
 	prompt?: string;
 }
 
-export interface RunnerSubagentFleetTaskSnapshot {
+export interface SubagentFleetTaskSnapshot {
 	id: string;
 	runId: string;
 	index: number;
 	title: string;
 	prompt?: string;
-	state: RunnerSubagentFleetTaskState;
+	state: SubagentFleetTaskState;
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
 	sessionFile?: string;
 }
 
-export interface RunnerSubagentFleetRunSnapshot {
+export interface SubagentFleetRunSnapshot {
 	id: string;
 	parentSessionFile?: string;
-	tasks: readonly RunnerSubagentFleetTaskSnapshot[];
+	tasks: readonly SubagentFleetTaskSnapshot[];
 }
 
-export interface RunnerSubagentFleetStartRunOptions {
+export interface SubagentFleetStartRunOptions {
 	parentSessionFile?: string;
 }
 
-interface MutableRunnerSubagentFleetTask {
+interface MutableSubagentFleetTask {
 	id: string;
 	runId: string;
 	index: number;
 	title: string;
 	prompt?: string;
-	state: RunnerSubagentFleetTaskState;
+	state: SubagentFleetTaskState;
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
 	sessionFile?: string;
 	sequence: number;
 }
 
-interface MutableRunnerSubagentFleetRun {
+interface MutableSubagentFleetRun {
 	id: string;
 	parentSessionFile?: string;
-	tasks: MutableRunnerSubagentFleetTask[];
+	tasks: MutableSubagentFleetTask[];
 }
 
-export class RunnerSubagentFleetRegistry {
+export class SubagentFleetRegistry {
 	private readonly recentTaskCap: number;
 	private nextRunNumber = 1;
 	private sequence = 1;
-	private readonly runs: MutableRunnerSubagentFleetRun[] = [];
+	private readonly runs: MutableSubagentFleetRun[] = [];
 	private readonly listeners = new Set<() => void>();
 
 	constructor(options: { recentTaskCap?: number } = {}) {
-		this.recentTaskCap = options.recentTaskCap ?? RUNNER_SUBAGENT_FLEET_RECENT_TASK_CAP;
+		this.recentTaskCap = options.recentTaskCap ?? SUBAGENT_FLEET_RECENT_TASK_CAP;
 	}
 
 	subscribe(listener: () => void): () => void {
@@ -68,10 +71,10 @@ export class RunnerSubagentFleetRegistry {
 	}
 
 	startRun(
-		tasks: readonly RunnerSubagentFleetTaskInput[],
-		options: RunnerSubagentFleetStartRunOptions = {},
-	): RunnerSubagentFleetRunSnapshot {
-		const run: MutableRunnerSubagentFleetRun = {
+		tasks: readonly SubagentFleetTaskInput[],
+		options: SubagentFleetStartRunOptions = {},
+	): SubagentFleetRunSnapshot {
+		const run: MutableSubagentFleetRun = {
 			id: `subagents-${this.nextRunNumber}`,
 			...(options.parentSessionFile === undefined
 				? {}
@@ -93,14 +96,14 @@ export class RunnerSubagentFleetRegistry {
 		return snapshotRun(run);
 	}
 
-	markRunning(taskId: string | undefined): void {
+	markRunning(taskId: string): void {
 		this.updateTask(taskId, (task) => {
 			task.state = "running";
 			task.sequence = this.sequence++;
 		});
 	}
 
-	markProgress(taskId: string | undefined, update: RunnerSubagentUpdate): void {
+	markProgress(taskId: string, update: RunnerSubagentUpdate): void {
 		this.updateTask(taskId, (task) => {
 			const activity = activityDescription(update);
 			if (activity !== undefined) task.latestActivity = activity;
@@ -109,7 +112,7 @@ export class RunnerSubagentFleetRegistry {
 		});
 	}
 
-	markDone(taskId: string | undefined, result: RunnerSubagentResult): void {
+	markDone(taskId: string, result: RunnerSubagentResult): void {
 		this.updateTask(taskId, (task) => {
 			task.state = "done";
 			task.finalStatus = result.status;
@@ -124,29 +127,25 @@ export class RunnerSubagentFleetRegistry {
 		this.emit();
 	}
 
-	snapshot(): readonly RunnerSubagentFleetRunSnapshot[] {
+	snapshot(): readonly SubagentFleetRunSnapshot[] {
 		return this.runs.map(snapshotRun);
 	}
 
-	tasksWithSessionFiles(): RunnerSubagentFleetTaskSnapshot[] {
+	tasksWithSessionFiles(): SubagentFleetTaskSnapshot[] {
 		return this.snapshot()
 			.flatMap((run) => run.tasks)
 			.filter((task) => task.sessionFile !== undefined)
 			.sort(compareFleetTasksForDisplay);
 	}
 
-	private updateTask(
-		taskId: string | undefined,
-		update: (task: MutableRunnerSubagentFleetTask) => void,
-	): void {
-		if (taskId === undefined) return;
+	private updateTask(taskId: string, update: (task: MutableSubagentFleetTask) => void): void {
 		const task = this.findTask(taskId);
 		if (task === undefined) return;
 		update(task);
 		this.emit();
 	}
 
-	private findTask(taskId: string): MutableRunnerSubagentFleetTask | undefined {
+	private findTask(taskId: string): MutableSubagentFleetTask | undefined {
 		for (const run of this.runs) {
 			const task = run.tasks.find((candidate) => candidate.id === taskId);
 			if (task !== undefined) return task;
@@ -176,18 +175,18 @@ export class RunnerSubagentFleetRegistry {
 }
 
 export function compareFleetTasksForDisplay(
-	left: RunnerSubagentFleetTaskSnapshot,
-	right: RunnerSubagentFleetTaskSnapshot,
+	left: SubagentFleetTaskSnapshot,
+	right: SubagentFleetTaskSnapshot,
 ): number {
 	return taskSortRank(left) - taskSortRank(right);
 }
 
-function taskSortRank(task: RunnerSubagentFleetTaskSnapshot): number {
+function taskSortRank(task: SubagentFleetTaskSnapshot): number {
 	const stateRank = task.state === "running" ? 0 : task.state === "queued" ? 1 : 2;
 	return stateRank * 10_000 + task.index;
 }
 
-function snapshotRun(run: MutableRunnerSubagentFleetRun): RunnerSubagentFleetRunSnapshot {
+function snapshotRun(run: MutableSubagentFleetRun): SubagentFleetRunSnapshot {
 	return {
 		id: run.id,
 		...(run.parentSessionFile === undefined ? {} : { parentSessionFile: run.parentSessionFile }),
@@ -195,7 +194,7 @@ function snapshotRun(run: MutableRunnerSubagentFleetRun): RunnerSubagentFleetRun
 	};
 }
 
-function snapshotTask(task: MutableRunnerSubagentFleetTask): RunnerSubagentFleetTaskSnapshot {
+function snapshotTask(task: MutableSubagentFleetTask): SubagentFleetTaskSnapshot {
 	return {
 		id: task.id,
 		runId: task.runId,
