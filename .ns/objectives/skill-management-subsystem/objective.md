@@ -10,6 +10,8 @@ edges:
     annotation: Subobjective — graduated 2026-07-07 from the parked reconciliation-sweep row. Owns the skill-workflow/docs/vocabulary reconciliation sweep and the bare-"artifact" collision cleanup (AREG "managed artifacts" → kind-overlays rename); no provisioning behavior changes.
   - objective: remote-artifact-module-acquisition
     annotation: Subobjective — graduated 2026-07-07 from the parked remote-acquisition row (user decision). Owns the first-party fetch path for artifact-bearing npm modules (`ns.toml` artifact-packages, pi-derived spec grammar) plus version-resolution-for-fetched-modules, and carries the retired-trust-gating risk acceptance for re-judgment.
+  - objective: harness-artifacts-post-review-cleanup
+    annotation: Subobjective — finishes the remaining post-review harness-artifacts cleanup after the API re-export / force-required naming slice, resolving home-dir ownership, provision/reconcile design, schema/source cleanup, and review-thread disposition before parked breadth graduates further.
 ---
 
 # Reusable Skill Management Subsystem
