@@ -154,3 +154,46 @@ Risks:
 - Do any of the remaining READ-ONLY ad-hoc git callers (the Parked row) merit
   their own Consumer Gateways, or are they better left as direct reads? Decide
   when that row is pulled into Work, not now.
+
+## Closure
+
+Closed 2026-07-07. Every `## Work` row (A, B, C, D1–D4) landed and is verified
+against trunk HEAD (`9fa6a502d`):
+
+- **A — Docs bundle**: `docs/conventions/consumer-gateways-and-command-shape.md`
+  and `ts/packages/capability-kit/AGENTS.md` exist; root `AGENTS.md` routes to
+  the convention doc on the "Keep units small and testable" bullet;
+  `docs/adr/0019-gateway-real-implementation-placement-gate.md` amends the `git`
+  row toward `capability-kit-owned`; root `CONTEXT.md` carries the **Consumer
+  Gateway** term.
+- **B — Kit export demotion**: the `execNs*` family
+  (`execNsCommand`, `createNsCliExecAdapter`, `execNsGit`,
+  `readNsGitPorcelainStatus`) is gone from
+  `ts/packages/capability-kit/src/git/index.ts` and now lives in flow
+  (`ts/packages/capabilities/flow/src/ns/`).
+- **C — Pick-narrowing exemplars**: `WorktreeStatusGitGateway`,
+  `PrAddressGitGateway`, `RetrosGitGateway`, and `AregGitGateway` are in place
+  in their consumer packages.
+- **D1 — Kit contract verbs**: `hasStagedChanges`, `checkStagedWhitespace`,
+  `unstageAll`, and `checkout` ship on `GitGateway`
+  (`ts/packages/capability-kit/src/git/contract.ts`), the real implementation
+  (`git/index.ts`), and the in-memory fake (`git/git-testing.ts`); the four
+  `KnownGitErrorCode` values (`git_staged_probe_failed`,
+  `git_staged_whitespace_failed`, `git_unstage_failed`, `git_checkout_failed`)
+  are defined and covered by tests.
+- **D2 — Objectives runner gate**:
+  `ts/packages/capabilities/objectives/src/runner/gate.ts` routes its
+  index-clean and staged-whitespace checks through `ctx.git`.
+- **D3 — Flow autobranch Consumer Gateway**: `AutobranchGitGateway`
+  (`ts/packages/capabilities/flow/src/autobranch/git-gateway.ts`) is threaded
+  through `upstream.ts`, `latest-commit-preparation.ts`,
+  `latest-commit-transaction.ts`, and `dirty-transaction.ts`.
+- **D4 — branch-context checkout**:
+  `ts/packages/capabilities/branch-context/src/pi/gt/upstack-impl-launch.ts`
+  takes `git: Pick<GitGateway, "checkout">`.
+
+Per-row validation (`just` green plus targeted Vitest) is recorded in the
+`roadmap.md` Work notes. The one remaining open item is the **Read-only ad-hoc
+git callers** Parked row, which the Completion Criteria explicitly exclude from
+closure ("triaging or executing it is not required for closure"); it stays
+recorded for a later deliberate pull.

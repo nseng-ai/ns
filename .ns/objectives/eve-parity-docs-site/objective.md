@@ -75,8 +75,9 @@ not from a staged preservation artifact.
   per-feature animated visuals (`components/visuals/*`).
 - **Extensions gallery page**: included as a structural mirror of eve's
   integrations gallery, but the ns version catalogs extensions rather than
-  generic integrations. Real entries are `aretro`, `roaster`, and `pr-address`;
-  skills ship as part of extensions. It starts from a docs-site-local data/config
+  generic integrations. Real extension doc pages are `retro`, `reviews`, and
+  `pr-address` (renamed from the earlier `aretro`/`roaster`); skills ship as part
+  of extensions. It starts from a docs-site-local data/config
   shape unless a later implementation proves a shared catalog package is
   necessary.
 
@@ -126,7 +127,7 @@ not from a staged preservation artifact.
   Concepts (ns kernel features), Extensions, Guides — in the geistdocs
   frontmatter schema + `meta.json`, with no orphaned/dead sidebar entries.
   (Tools and Skills as top-level sections are gone: slot/objectives/branch
-  memory are kernel features, aretro/roaster/pr-address are extension pages, and
+  memory are kernel features, retro/reviews/pr-address are extension pages, and
   skills are documented as part of their extensions.)
 - The `agent{}` instructions block and nav/identity reflect ns (not eve or
   legacy sdl text).
@@ -149,8 +150,12 @@ not from a staged preservation artifact.
   recoverable from git history and useful as reference material for the published
   corpus port. The migrated corpus now lives under `docs-site/docs/**` as `.mdx`
   pages with Fumadocs `meta.json` IA; no staged preservation artifact was needed.
-  The page prose is currently intentionally stubbed with TODO/Lorum ipsum
-  placeholders so incomplete launch content is obvious.
+  The happy-path slice pages — Get started (`installation`, `quickstart`), the
+  Objectives concept, and the objective CLI reference — now carry real
+  customer-facing prose aligned with the shipped `ns` surface (npm install
+  truthfully gated until `@nseng-ai/ns` publishes). The remaining pages are still
+  intentionally stubbed with TODO/Lorum ipsum placeholders so incomplete launch
+  content is obvious.
 - A standalone (non-workspace) Next.js app coexists fine alongside the `ts/`
   pnpm workspace, as the prior standalone Astro app did.
 - Keeping md-tracking on (an external call to `geistdocs.com`) is acceptable
@@ -177,8 +182,9 @@ not from a staged preservation artifact.
   builds with the Get started / Concepts / Tools / Guides / Skills IA, search,
   the marketing home structure, the extensions gallery, the AI-native machine
   routes, and gated Vercel wiring. Remaining exposure is content, not
-  structure: the intentional TODO/Lorum ipsum page stubs, launch-level
-  identity/positioning copy, and actual launch readiness.
+  structure: the happy-path slice now has real prose, but the remaining pages are
+  still intentional TODO/Lorum ipsum stubs, plus launch-level
+  identity/positioning copy and actual launch readiness.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
 - **Future-name docs.** The site documents `ns` commands while the shipped
@@ -213,10 +219,11 @@ not from a staged preservation artifact.
   corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
   Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
   Geist shiki theme, the fence-label normalizer, and last-modified behavior.
-- **Content prose readiness: reopened.** The docs IA and file corpus are present,
-  but generated prose has been intentionally replaced by obvious TODO/Lorum ipsum
-  placeholders. Launch readiness now requires rewriting those pages with accurate
-  SDL copy.
+- **Content prose readiness: reopened, partially resolved.** The docs IA and file
+  corpus are present. The happy-path slice (Get started install/quickstart, the
+  Objectives concept, the objective CLI reference) now has real ns-first prose;
+  the remaining pages are still obvious TODO/Lorum ipsum placeholders. Launch
+  readiness requires rewriting those remaining pages with accurate ns copy.
 - **Launch bar for the first ship (opened 2026-07-05).** `ship-objectives-to-customers`
   decided a fully-live happy-path slice (install `ns` core → `ns install
   @nseng-ai/objectives` → `ns init`, Claude Code first): the site goes public with only
@@ -270,7 +277,7 @@ Decisions captured during the framing conversation:
 10. **Kernel/extensions positioning (2026-07-03)** — nothing is standalone: the
     **ns kernel** (canonical vocabulary: the core the extensions are built on)
     owns slots, objectives, branch memory (brmem is an internal kernel utility),
-    handoffs, and shipping; `aretro`, `roaster`, `pr-address` are extensions;
+    handoffs, and shipping; `retro`, `reviews`, `pr-address` are extensions;
     skills ship as part of extensions. The docs Tools and Skills sections
     dissolve into kernel feature pages and extension pages.
 11. **Copy derives from the north star (2026-07-03)** — no tagline iteration;

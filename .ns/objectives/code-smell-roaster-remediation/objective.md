@@ -199,7 +199,9 @@ Assumptions:
   `infra/foundation/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
   `capability-kit/src/*`; the `@local-pi-tools/*` sub-packages were
   consolidated into one `@internal/pi-tools` package at
-  `ts/packages/internal/pi-tools`; the `sdlcc` host was renamed `nscc`;
+  `ts/packages/internal/pi-tools` (with `runner-subagents` later extracted
+  again into its own `@nseng-ai/ns-pi-subagents` extension package at
+  `ts/packages/extensions/ns-pi-subagents`); the `sdlcc` host was renamed `nscc`;
   `worktree-status` moved into `hosts/pi/src/worktree-status`; and
   `capabilities/land` was absorbed into `capabilities/flow/src/land`. The
   first-party CLI was also renamed `sdl` → `ns` and the repo state root
@@ -211,10 +213,10 @@ Assumptions:
   bundle-data-clump), consistent with the precedent Objectives.
 - Most of the 162 findings are independent, package-local refactors safe to
   parallelize across PRs; a minority (large Divergent Change god-files such as
-  `internal/pi-tools/src/thermo-council/orchestrator.ts` or
   `internal/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts`) are
   larger design decisions better split across multiple slices within their
-  cluster.
+  cluster. (The former sibling example, `thermo-council/orchestrator.ts`, has
+  since been split — see Risks and `roadmap.md`.)
 
 Risks:
 
@@ -231,13 +233,16 @@ Risks:
   a ceiling, on Duplicated Code in the repo.
 - **Large god-file findings** are higher-risk to split without behavior
   regressions; treat these as their own slice with extra validation rather
-  than folding into a larger cluster PR. Two have already been split this way
-  (`backing-skill-commands` `extension.ts` and `hosts/pi`
-  `commands/cli-extension.ts` — see `roadmap.md`). Still pending, at their
-  post-reorg paths: `internal/pi-tools/src/thermo-council/orchestrator.ts`
-  (~620 lines), `internal/pi-tools/src/pr-feedback-watch/feedback-watch/
-  controller.ts` (~820 lines), `internal/pi-tools/src/grill/extension.ts`
-  (~550 lines), and `capability-kit/src/graphite/status.ts`.
+  than folding into a larger cluster PR. Five have already been split this way
+  (`backing-skill-commands` `extension.ts`, `hosts/pi`
+  `commands/cli-extension.ts`, `capability-kit/src/graphite/status.ts`,
+  `internal/pi-tools/src/thermo-council/orchestrator.ts` (now ~275 lines), and
+  `internal/pi-tools/src/grill/extension.ts` (now ~120 lines) — see
+  `roadmap.md`). One large god-file remains only partially reduced:
+  `internal/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts` (still
+  ~790 lines after the event-journal seam was extracted), whose remaining
+  polling-strategy / status-presenter / runner-discovery seams are the open
+  local-pi-tools follow-up.
 - **Mechanical extraction risk:** "extract a shared helper" fixes can
   introduce a real but non-obvious behavior difference (e.g., differing error
   wrapping) if applied too mechanically; each fix needs the validation step,
@@ -245,14 +250,16 @@ Risks:
 
 ## Open Questions
 
-- Whether the remaining large Divergent Change god-file findings
-  (`thermo-council/orchestrator.ts`, `pr-feedback-watch/feedback-watch/
-  controller.ts`, `grill/extension.ts`, `graphite/status.ts`) should get their
-  own dedicated roadmap rows split out of their parent cluster once a runner
-  starts implementing that cluster. Practice so far (backing-skill-commands
-  `extension.ts`, hosts/pi `cli-extension.ts`) has been a dedicated sub-slice
-  per god-file within the parent row; deciding row splits stays deferred to
-  pickup time.
+- Whether the one remaining large Divergent Change god-file finding
+  (`pr-feedback-watch/feedback-watch/controller.ts`) should get its own
+  dedicated roadmap row split out of its parent cluster, and how to slice its
+  remaining polling-strategy / status-presenter / runner-discovery seams after
+  the event-journal seam already extracted. Practice so far has settled the
+  question for the others: each god-file (`backing-skill-commands`
+  `extension.ts`, hosts/pi `cli-extension.ts`, `graphite/status.ts`,
+  `thermo-council/orchestrator.ts`, `grill/extension.ts`) got a dedicated
+  sub-slice within its parent row, and deciding the controller.ts row split
+  stays deferred to pickup time.
 - Whether any remaining `infra`/`capabilities` findings should be disposed as
   routed to `ts-cli-core-structural-cleanup` before implementation, versus
   deciding row-by-row at pickup. Practice so far has been row-by-row: the

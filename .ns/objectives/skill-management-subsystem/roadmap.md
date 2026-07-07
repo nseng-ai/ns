@@ -22,6 +22,8 @@
 
 - [~] Subobjective `remote-artifact-module-acquisition`: first-party fetch path for artifact-bearing npm modules via an `ns.toml` declaration list, with per-source update/pinning semantics (edge-tracked). Design-heavy front; in flight; synthesize closure evidence here when it closes.
 
+- [~] Subobjective `harness-artifacts-post-review-cleanup`: finish the remaining post-review harness-artifacts cleanup after the API re-export / `requiresForce` naming slice — home-dir/harness-path ownership, provision/reconcile design seams, schema/source-of-truth duplication, and PR review-thread disposition (edge-tracked; open). Bounded execution child, not orienting; in flight; synthesize closure evidence here when it closes.
+
 - [ ] Follow-on: uninstall, stale-after-upgrade detection, and rename cleanup on the landed minimal `ns update` (manifest-enabled; split from the former lifecycle parked row — version resolution moved to the remote-acquisition Subobjective).
 
 ## Parked

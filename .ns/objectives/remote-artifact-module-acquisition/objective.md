@@ -20,7 +20,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 
 - **Provisioning from modules already works; only acquisition is missing.** `@nseng-ai/harness-artifacts` parses static `ns.harnessArtifacts` declarations (`module-artifact-declaration.ts`) without executing module code; the reconcile planner/driver plus minimal top-level `ns update` provision first-party and extension-root artifacts with a per-file SHA-256 install manifest, idempotence, and clobber protection. Acquisition only needs to put modules on disk where discovery already looks (or extend discovery to a new fetched-module root).
 - **Today's arrival paths:** committed `.ns/extensions/` directories and the XDG root — i.e., vendoring, which gives pinning for free via git.
-- **`ns.toml` exists** at the repo root (written by `ns init`, parsed in `ts/packages/capabilities/ns-init/src/ns-toml.ts`) and already carries the project's `harnesses = [...]` selection; the `artifact-packages` list would extend this file, not invent new state.
+- **`ns.toml` exists** at the repo root (written by `ns init`, parsed via `ts/packages/capabilities/harness-artifacts/src/ns-toml.ts` and consumed by the ns-init flow) and already carries the project's `harnesses = [...]` selection; the `artifact-packages` list would extend this file, not invent new state.
 - **Pi's mechanism is the debugged reference:** uniform spec grammar, pinned-npm skip semantics, git-refs-reconciled-not-advanced, self-update kept separate from artifact update.
 - **Umbrella risk acceptance carried in (see Risks):** project trust gating was deliberately retired at the umbrella (2026-07-07); fetched modules will provision prompt-payload skill files with no consent gate.
 
