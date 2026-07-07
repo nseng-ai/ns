@@ -1,14 +1,15 @@
 import type { AregCliContext } from "../context.ts";
-import type {
-	AregCheckPairingDirectory,
-	AregCheckSkillInspection,
-	PathState,
-	AregManifestSkillSourcesInspection,
-	AregProjectBaseInspection,
-	AregReplacementInspection,
-	AregSkillKindSkillInspection,
-	AregSkillNameInventory,
-	TextFileState,
+import {
+	manifestSkillKindNames,
+	type AregCheckPairingDirectory,
+	type AregCheckSkillInspection,
+	type PathState,
+	type AregManifestSkillSourcesInspection,
+	type AregProjectBaseInspection,
+	type AregReplacementInspection,
+	type AregSkillKindSkillInspection,
+	type AregSkillNameInventory,
+	type TextFileState,
 } from "../gateways.ts";
 import { uniqueSortedStrings } from "../sort.ts";
 import { parseInspectedLockfile } from "@nseng-ai/harness-artifacts/api";
@@ -130,14 +131,7 @@ export async function inspectSkillKindProject(
 			facts.projectDir,
 			uniqueSortedStrings([
 				...facts.skillInventory.skillKindNames,
-				...facts.manifestSkillSources.sources
-					.filter(
-						(source) =>
-							source.skillDir.type === "directory" &&
-							source.skillMd.type === "file" &&
-							isSkillKindLookupPath(source.targetSkillRelativePath),
-					)
-					.map((source) => source.skillName),
+				...manifestSkillKindNames(facts.manifestSkillSources.sources),
 			]),
 		),
 	};
@@ -161,10 +155,6 @@ export async function collectSkillKindInspections(
 	return await collectSkillInspections(skillNames, (skillName) =>
 		ctx.project.inspectSkillKindSkill({ projectDir, skillName, env: ctx.env }),
 	);
-}
-
-function isSkillKindLookupPath(relativePath: string): boolean {
-	return relativePath.startsWith("skills/") || relativePath.startsWith(".agents/skills/");
 }
 
 async function collectSkillInspections<T>(

@@ -7,7 +7,7 @@ import {
 	type SkillLookupSourceType,
 } from "@nseng-ai/foundation/skill-lookup";
 
-import { missingCheckSkillInspection } from "./gateways.ts";
+import { groupBySkillName, missingCheckSkillInspection } from "./gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -487,7 +487,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 
 	private currentFindSkills(): AregSkillFindSkillInspection[] {
 		const skills = this.explicitFindSkills ?? this.localSkills.map(skillKindSkillToFindSkill);
-		const manifestSourcesBySkill = groupManifestSourcesBySkill(this.manifestSkillSources.sources);
+		const manifestSourcesBySkill = groupBySkillName(this.manifestSkillSources.sources);
 		return skills.map((skill) => {
 			const manifestSources = manifestSourcesBySkill.get(skill.name);
 			return {
@@ -799,18 +799,6 @@ function copyManifestSkillSource(
 		skillDir: copyPathState(source.skillDir),
 		skillMd: copyTextFileState(source.skillMd),
 	};
-}
-
-function groupManifestSourcesBySkill(
-	sources: readonly AregManifestSkillSourceInspection[],
-): ReadonlyMap<string, readonly AregManifestSkillSourceInspection[]> {
-	const grouped = new Map<string, AregManifestSkillSourceInspection[]>();
-	for (const source of sources) {
-		const existing = grouped.get(source.skillName) ?? [];
-		existing.push(source);
-		grouped.set(source.skillName, existing);
-	}
-	return grouped;
 }
 
 function skillKindSkillToFindSkill(

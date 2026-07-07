@@ -16,14 +16,13 @@ import {
 import {
 	harnessResolutionContext,
 	provisionErrorExit,
+	skillsResolvedArtifactLocationSchema,
+	skillsTargetRequestSchema,
 	unknownSkillExit,
 	type SkillsCommandContext,
 } from "./skills-shared.ts";
 
-export const skillsInstallRequestSchema = z.object({
-	skill: z.string().min(1),
-	harness: z.string().min(1),
-	scope: z.enum(["user", "project"]).default("project"),
+export const skillsInstallRequestSchema = skillsTargetRequestSchema.extend({
 	dryRun: z.boolean().default(false),
 	force: z.boolean().default(false),
 });
@@ -42,14 +41,8 @@ const provisionDecisionSchema = z.object({
 	manifestHash: z.string().optional(),
 });
 
-export const skillsInstallResultSchema = z.object({
+export const skillsInstallResultSchema = skillsResolvedArtifactLocationSchema.extend({
 	mode: z.enum(["dry-run", "applied"]),
-	skill: z.string(),
-	artifactId: z.string(),
-	harness: z.enum(["claude-code", "codex", "pi"]),
-	scope: z.enum(["user", "project"]),
-	targetRoot: z.string(),
-	targetArtifactPath: z.string(),
 	manifestPath: z.string(),
 	needsForce: z.boolean(),
 	decisions: z.array(provisionDecisionSchema),
@@ -160,7 +153,7 @@ function installResultFromPlan(input: {
 		targetRoot: input.plan.targetRoot,
 		targetArtifactPath: input.plan.targetArtifactPath,
 		manifestPath: input.manifestPath,
-		needsForce: input.decisions.shouldForce,
+		needsForce: input.decisions.needsForce,
 		decisions: input.decisions.files.map((decision) => ({
 			type: decision.type,
 			file: decision.file,

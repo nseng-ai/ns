@@ -1,12 +1,6 @@
+import type { HarnessId } from "@nseng-ai/harness-artifacts/api";
+
 import type { NsInitErrorInfo } from "./error-info.ts";
-
-export type HarnessId = "claude-code" | "codex" | "pi";
-
-export const ALL_HARNESS_IDS = [
-	"claude-code",
-	"codex",
-	"pi",
-] as const satisfies readonly HarnessId[];
 
 export interface SkillMaterializeParams {
 	repoRoot: string;

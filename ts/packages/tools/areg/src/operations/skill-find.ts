@@ -11,9 +11,10 @@ import {
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type {
-	AregManifestSkillSourceInspection,
-	AregSkillFindSkillInspection,
+import {
+	aregManifestSkillSourceViewSchema,
+	toManifestSkillSourceView,
+	type AregSkillFindSkillInspection,
 } from "../gateways.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
 import { parseSkillFrontmatterBlock } from "@nseng-ai/harness-artifacts/api";
@@ -28,17 +29,7 @@ const skillFindWarningSchema = z.object({
 	path: z.string(),
 });
 
-const skillFindManifestSourceSchema = z.object({
-	harness: z.string(),
-	scope: z.string(),
-	manifestPath: z.string(),
-	manifestKey: z.string(),
-	sourceType: z.enum(["first-party", "npm-module"]),
-	packageName: z.string(),
-	sourceRelativePath: z.string(),
-	version: z.string(),
-	targetSkillRelativePath: z.string(),
-});
+const skillFindManifestSourceSchema = aregManifestSkillSourceViewSchema;
 
 const skillFindMatchSchema = z.object({
 	name: z.string(),
@@ -187,24 +178,8 @@ function toSkillFindMatch(
 		...frontmatter.fields,
 		...(skill.manifestSources === undefined
 			? {}
-			: { manifestSources: skill.manifestSources.map(toSkillFindManifestSource) }),
+			: { manifestSources: skill.manifestSources.map(toManifestSkillSourceView) }),
 		...(frontmatter.warnings.length === 0 ? {} : { warnings: frontmatter.warnings }),
-	};
-}
-
-function toSkillFindManifestSource(
-	source: AregManifestSkillSourceInspection,
-): z.infer<typeof skillFindManifestSourceSchema> {
-	return {
-		harness: source.harness,
-		scope: source.scope,
-		manifestPath: source.manifestPath,
-		manifestKey: source.manifestKey,
-		sourceType: source.source.type,
-		packageName: source.source.packageName,
-		sourceRelativePath: source.source.relativePath,
-		version: source.source.version,
-		targetSkillRelativePath: source.targetSkillRelativePath,
 	};
 }
 

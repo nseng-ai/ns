@@ -1,12 +1,17 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage, formatZodIssue } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, formatZodIssue, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import type { HarnessArtifactEntry } from "./artifact-catalog.ts";
-import type { HarnessPathContext, HarnessScope } from "./harness-paths.ts";
+import {
+	ALL_HARNESS_IDS,
+	HARNESS_SCOPES,
+	type HarnessPathContext,
+	type HarnessScope,
+} from "./harness-paths.ts";
 import { sortStrings } from "./sort.ts";
 import {
 	buildInstallManifestData,
@@ -90,23 +95,12 @@ export type HarnessArtifactProvisionErrorInfo =
 			details: { manifestPath: string; conflictingFiles: readonly string[] };
 	  };
 
-const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.discriminatedUnion(
-	"type",
-	[
-		z.object({
-			type: z.literal("first-party"),
-			packageName: z.string(),
-			relativePath: z.string(),
-			version: z.string(),
-		}),
-		z.object({
-			type: z.literal("npm-module"),
-			packageName: z.string(),
-			relativePath: z.string(),
-			version: z.string(),
-		}),
-	],
-);
+const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.object({
+	type: z.enum(["first-party", "npm-module"]),
+	packageName: z.string(),
+	relativePath: z.string(),
+	version: z.string(),
+});
 
 const installManifestFileSchema: z.ZodType<InstallManifestFileData> = z.object({
 	sourcePath: z.string(),
@@ -118,8 +112,8 @@ const installManifestEntrySchema: z.ZodType<InstallManifestEntryData> = z.object
 	artifactId: z.string(),
 	kind: z.literal("skill"),
 	provisionName: z.string(),
-	harness: z.enum(["claude-code", "codex", "pi"]),
-	scope: z.enum(["project", "user"]),
+	harness: z.enum(ALL_HARNESS_IDS),
+	scope: z.enum(HARNESS_SCOPES),
 	targetRoot: z.string(),
 	targetArtifactPath: z.string(),
 	source: installManifestSourceSchema,
@@ -265,7 +259,7 @@ async function prepareProvision(
 	const existingManifestEntry = manifest.value.artifacts[installManifestKey(plan.value)];
 	const decisions = classifyProvisionDecisions({
 		plan: plan.value,
-		...(existingManifestEntry === undefined ? {} : { existingManifestEntry }),
+		...optionalEntry("existingManifestEntry", existingManifestEntry),
 		targetFacts: targetFacts.value,
 	});
 	if (!decisions.ok) return decisions;
@@ -370,28 +364,24 @@ function updateManifest(manifest: InstallManifestData, plan: ProvisionPlan): Ins
 }
 
 async function listTextFiles(rootPath: string): Promise<readonly string[]> {
-	const output: string[] = [];
-	await walkTextFiles(rootPath, "", output);
-	return sortStrings(output);
+	return sortStrings(await walkTextFiles(rootPath, ""));
 }
 
-async function walkTextFiles(
-	rootPath: string,
-	relativePath: string,
-	output: string[],
-): Promise<void> {
+async function walkTextFiles(rootPath: string, relativePath: string): Promise<readonly string[]> {
 	const directory = relativePath === "" ? rootPath : join(rootPath, relativePath);
 	const entries = await readdir(directory, { withFileTypes: true });
+	const output: string[] = [];
 	for (const entry of entries) {
 		const entryRelativePath = relativePath === "" ? entry.name : join(relativePath, entry.name);
 		if (entry.isDirectory()) {
-			await walkTextFiles(rootPath, entryRelativePath, output);
+			output.push(...(await walkTextFiles(rootPath, entryRelativePath)));
 		} else if (entry.isFile()) {
 			output.push(entryRelativePath);
 		} else {
 			throw new Error(`Unsupported non-file source path: ${join(rootPath, entryRelativePath)}`);
 		}
 	}
+	return output;
 }
 
 function fileSystemError(

@@ -1,3 +1,5 @@
+import type { HarnessId } from "@nseng-ai/harness-artifacts/api";
+
 import type { ObjectiveActivationContext } from "./activation-context.ts";
 import type {
 	ActivationFilesGateway,
@@ -6,7 +8,7 @@ import type {
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 import { applyObjectiveInstructionBlock, ensureClaudeAgentsImport } from "./instruction-block.ts";
-import type { HarnessId, SkillMaterializeResult } from "./skill-materializer.ts";
+import type { SkillMaterializeResult } from "./skill-materializer.ts";
 
 export interface ResolvedActivationRepository {
 	repoRoot: string;

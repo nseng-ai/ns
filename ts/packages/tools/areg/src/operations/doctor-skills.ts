@@ -4,16 +4,18 @@ import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives"
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type {
-	AregCheckSkillInspection,
-	PathState,
-	AregManifestSkillSourcesInspection,
-	AregPiSkillInventoryInspection,
-	AregProjectBaseInspection,
-	AregReplacementInspection,
-	AregSkillKindSkillInspection,
-	AregSkillNameInventory,
-	TextFileState,
+import {
+	classifyManifestSkillSource,
+	manifestSkillKindNames,
+	type AregCheckSkillInspection,
+	type PathState,
+	type AregManifestSkillSourcesInspection,
+	type AregPiSkillInventoryInspection,
+	type AregProjectBaseInspection,
+	type AregReplacementInspection,
+	type AregSkillKindSkillInspection,
+	type AregSkillNameInventory,
+	type TextFileState,
 } from "../gateways.ts";
 import { uniqueSortedStrings } from "../sort.ts";
 import { renderDoctorSkills } from "./doctor-skills-report.ts";
@@ -221,14 +223,7 @@ async function inspectDoctorSkillsProject(
 	const checkSkills = await collectCheckSkillInspections(ctx, projectDir, skillNames);
 	const skillKindNames = uniqueSortedStrings([
 		...allKnownSkillNames(skillInventory, { includeSkillKindNames: true }),
-		...manifestSkillSources.sources
-			.filter(
-				(source) =>
-					source.skillDir.type === "directory" &&
-					source.skillMd.type === "file" &&
-					isSkillKindLookupPath(source.targetSkillRelativePath),
-			)
-			.map((source) => source.skillName),
+		...manifestSkillKindNames(manifestSkillSources.sources),
 	]);
 	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillKindNames);
 	return {
@@ -246,10 +241,6 @@ async function inspectDoctorSkillsProject(
 			skillKindSkills,
 		},
 	};
-}
-
-function isSkillKindLookupPath(relativePath: string): boolean {
-	return relativePath.startsWith("skills/") || relativePath.startsWith(".agents/skills/");
 }
 
 function filesystemFindings(inspection: DoctorSkillsInspection): readonly DoctorSkillFinding[] {
@@ -333,7 +324,8 @@ function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSk
 			version: source.source.version,
 			targetSkillRelativePath: source.targetSkillRelativePath,
 		};
-		if (source.skillDir.type === "missing") {
+		const sourceStatus = classifyManifestSkillSource(source);
+		if (sourceStatus === "target-missing") {
 			findings.push({
 				code: "manifest-skill-target-missing",
 				severity: "warning",
@@ -344,7 +336,7 @@ function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSk
 					"Run ns update to reconcile manifest-tracked harness artifacts, or remove/fix the stale manifest entry through the owning provisioning workflow.",
 				evidence,
 			});
-		} else if (source.skillMd.type === "missing") {
+		} else if (sourceStatus === "md-missing") {
 			findings.push({
 				code: "manifest-skill-md-missing",
 				severity: "warning",

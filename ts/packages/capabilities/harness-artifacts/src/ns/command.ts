@@ -1,11 +1,9 @@
-import { access } from "node:fs/promises";
-import { dirname, join } from "node:path";
-
 import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
 import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
+import { findWorkspaceRootByMarkers } from "@nseng-ai/capability-kit/workspace-root";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
 
@@ -24,7 +22,9 @@ export function harnessArtifactsNsCommand<S extends NsCommandSchema, T>(
 		createContext: async (ctx) => {
 			const repoRootResult = await createNsGitGateway(ctx).optionalRepoRoot({ cwd: ctx.cwd });
 			const projectRoot =
-				repoRootResult.type === "found" ? repoRootResult.value : await findGitMarkerRoot(ctx.cwd);
+				repoRootResult.type === "found"
+					? repoRootResult.value
+					: (findWorkspaceRootByMarkers({ cwd: ctx.cwd, markers: [".git"] }) ?? ctx.cwd);
 			return {
 				cwd: ctx.cwd,
 				projectRoot,
@@ -33,23 +33,4 @@ export function harnessArtifactsNsCommand<S extends NsCommandSchema, T>(
 			};
 		},
 	});
-}
-
-async function findGitMarkerRoot(cwd: string): Promise<string> {
-	let current = cwd;
-	while (true) {
-		if (await pathExists(join(current, ".git"))) return current;
-		const parent = dirname(current);
-		if (parent === current) return cwd;
-		current = parent;
-	}
-}
-
-async function pathExists(path: string): Promise<boolean> {
-	try {
-		await access(path);
-		return true;
-	} catch {
-		return false;
-	}
 }

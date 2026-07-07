@@ -34,6 +34,7 @@ export {
 } from "./first-party-skill-provisioning.ts";
 export {
 	ALL_HARNESS_IDS,
+	HARNESS_SCOPES,
 	HARNESS_SPECS,
 	normalizeHarnessId,
 	resolveHarnessArtifactPath,
@@ -82,6 +83,7 @@ export {
 	type DiscoverExtensionModuleHarnessArtifactsRequest,
 	type DiscoverExtensionModuleHarnessArtifactsResult,
 	type HarnessArtifactModuleDiscoveryGateway,
+	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
 	type ModuleArtifactDiscoveryDiagnostic,
 	type ModuleArtifactDiscoveryDiagnosticCode,
 	type ModuleArtifactDiscoveryFileSystemErrorInfo,
@@ -93,6 +95,7 @@ export {
 } from "./module-artifact-discovery.ts";
 export {
 	isValidModuleArtifactRelativePath,
+	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
 	parseModuleArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
 	type ModuleArtifactDeclarationDiagnosticCode,
@@ -138,6 +141,7 @@ export {
 	type ProvisionableHarnessArtifactEntry,
 	type TargetFileHashFact,
 } from "./provision-plan.ts";
+export { sortStrings } from "./sort.ts";
 export {
 	parseSkillFrontmatterBlock,
 	parseSkillFrontmatterTopLevelLine,

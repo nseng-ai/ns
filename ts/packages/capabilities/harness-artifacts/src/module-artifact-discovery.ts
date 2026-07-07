@@ -7,7 +7,10 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
+import type { OptionalTextFileState } from "./provision-apply.ts";
+import { sortStrings } from "./sort.ts";
 import {
+	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
 	parseModuleArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
 } from "./module-artifact-declaration.ts";
@@ -45,17 +48,17 @@ export interface HarnessArtifactModuleDiscoveryGateway {
 	): Promise<Result<ModuleDiscoveryPathState, ModuleArtifactDiscoveryFileSystemErrorInfo>>;
 }
 
-export type ModuleDiscoveryDirectoryEntry = {
+export interface ModuleDiscoveryDirectoryEntry {
 	name: string;
 	type: "directory" | "file" | "other";
-};
+}
 
 export type ModuleDiscoveryDirectoryState =
 	| { type: "missing" }
 	| { type: "file" }
 	| { type: "directory"; entries: readonly ModuleDiscoveryDirectoryEntry[] };
 
-export type ModuleDiscoveryTextFileState = { type: "missing" } | { type: "file"; text: string };
+export type ModuleDiscoveryTextFileState = OptionalTextFileState;
 
 export type ModuleDiscoveryPathState =
 	| { type: "missing" }
@@ -69,16 +72,20 @@ export interface ModuleArtifactDiscoveryFileSystemErrorInfo {
 	details: { path: string; operation: "stat" | "list" | "read" };
 }
 
+export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
+	...MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
+	"module_artifact_extension_root_unavailable",
+	"module_artifact_extension_root_not_directory",
+	"module_artifact_extension_root_unreadable",
+	"module_artifact_skill_path_escapes",
+	"module_artifact_skill_entry_missing",
+	"module_artifact_skill_entry_not_directory",
+	"module_artifact_duplicate_id",
+	"module_artifact_duplicate_target_name",
+] as const;
+
 export type ModuleArtifactDiscoveryDiagnosticCode =
-	| ModuleArtifactDeclarationDiagnostic["code"]
-	| "module_artifact_extension_root_unavailable"
-	| "module_artifact_extension_root_not_directory"
-	| "module_artifact_extension_root_unreadable"
-	| "module_artifact_skill_path_escapes"
-	| "module_artifact_skill_entry_missing"
-	| "module_artifact_skill_entry_not_directory"
-	| "module_artifact_duplicate_id"
-	| "module_artifact_duplicate_target_name";
+	(typeof MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES)[number];
 
 export interface ModuleArtifactDiscoveryDiagnostic {
 	code: ModuleArtifactDiscoveryDiagnosticCode;
@@ -278,14 +285,15 @@ async function validateDiscoveredArtifacts(options: {
 	for (const artifact of options.artifacts) {
 		const artifactRoot = resolve(options.moduleRoot, artifact.source.relativePath);
 		if (!isPathInside(options.moduleRoot, artifactRoot)) {
-			diagnostics.push({
-				code: "module_artifact_skill_path_escapes",
-				message: `Skill harness artifact path must remain inside its package: ${artifact.source.relativePath}.`,
-				path: artifact.source.relativePath,
-				packageName: options.packageName,
-				artifactId: artifact.id,
-				artifactName: artifact.skillName,
-			});
+			diagnostics.push(
+				artifactDiagnostic(
+					"module_artifact_skill_path_escapes",
+					`Skill harness artifact path must remain inside its package: ${artifact.source.relativePath}.`,
+					artifact.source.relativePath,
+					artifact,
+					options.packageName,
+				),
+			);
 			continue;
 		}
 		const state = await options.gateway.pathState(join(artifactRoot, "SKILL.md"));
@@ -294,25 +302,27 @@ async function validateDiscoveredArtifacts(options: {
 			continue;
 		}
 		if (state.value.type === "missing") {
-			diagnostics.push({
-				code: "module_artifact_skill_entry_missing",
-				message: `Declared skill harness artifact must contain SKILL.md: ${artifact.source.relativePath}.`,
-				path: join(artifact.source.relativePath, "SKILL.md"),
-				packageName: options.packageName,
-				artifactId: artifact.id,
-				artifactName: artifact.skillName,
-			});
+			diagnostics.push(
+				artifactDiagnostic(
+					"module_artifact_skill_entry_missing",
+					`Declared skill harness artifact must contain SKILL.md: ${artifact.source.relativePath}.`,
+					join(artifact.source.relativePath, "SKILL.md"),
+					artifact,
+					options.packageName,
+				),
+			);
 			continue;
 		}
 		if (state.value.type !== "file") {
-			diagnostics.push({
-				code: "module_artifact_skill_entry_not_directory",
-				message: `Declared skill harness artifact SKILL.md path must be a file: ${artifact.source.relativePath}.`,
-				path: join(artifact.source.relativePath, "SKILL.md"),
-				packageName: options.packageName,
-				artifactId: artifact.id,
-				artifactName: artifact.skillName,
-			});
+			diagnostics.push(
+				artifactDiagnostic(
+					"module_artifact_skill_entry_not_directory",
+					`Declared skill harness artifact SKILL.md path must be a file: ${artifact.source.relativePath}.`,
+					join(artifact.source.relativePath, "SKILL.md"),
+					artifact,
+					options.packageName,
+				),
+			);
 			continue;
 		}
 		artifacts.push(artifact);
@@ -320,6 +330,28 @@ async function validateDiscoveredArtifacts(options: {
 	return {
 		artifacts: artifacts.sort((left, right) => left.id.localeCompare(right.id)),
 		diagnostics: sortDiscoveryDiagnostics(diagnostics),
+	};
+}
+
+function artifactDiagnostic(
+	code: Extract<
+		ModuleArtifactDiscoveryDiagnosticCode,
+		| "module_artifact_skill_path_escapes"
+		| "module_artifact_skill_entry_missing"
+		| "module_artifact_skill_entry_not_directory"
+	>,
+	message: string,
+	path: string,
+	artifact: SkillHarnessArtifactEntry,
+	packageName: string,
+): ModuleArtifactDiscoveryDiagnostic {
+	return {
+		code,
+		message,
+		path,
+		packageName,
+		artifactId: artifact.id,
+		artifactName: artifact.skillName,
 	};
 }
 
@@ -423,10 +455,6 @@ function diagnosticSortKey(diagnostic: ModuleArtifactDiscoveryDiagnostic): strin
 		diagnostic.code,
 		diagnostic.message,
 	].join("\0");
-}
-
-function sortStrings(values: readonly string[]): readonly string[] {
-	return [...values].sort((left, right) => left.localeCompare(right));
 }
 
 function fileSystemError(

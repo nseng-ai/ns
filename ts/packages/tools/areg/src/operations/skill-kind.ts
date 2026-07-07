@@ -11,6 +11,7 @@ import { renderTextTable, type TextTableColumn } from "@nseng-ai/foundation/text
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
+import { aregManifestSkillSourceViewSchema } from "../gateways.ts";
 import { isPathStateError } from "./file-state.ts";
 import { inspectSkillKindProject } from "./project-inspection.ts";
 import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
@@ -73,17 +74,7 @@ const skillKindReplacementSchema = z.object({
 	advice: z.string().optional(),
 });
 
-const skillKindManifestSourceSchema = z.object({
-	harness: z.string(),
-	scope: z.string(),
-	manifestPath: z.string(),
-	manifestKey: z.string(),
-	sourceType: z.enum(["first-party", "npm-module"]),
-	packageName: z.string(),
-	sourceRelativePath: z.string(),
-	version: z.string(),
-	targetSkillRelativePath: z.string(),
-});
+const skillKindManifestSourceSchema = aregManifestSkillSourceViewSchema;
 
 const skillKindRecordSchema = z.object({
 	skill: z.string(),
@@ -376,7 +367,7 @@ export function renderSkillKindList(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	if (result.skills.length === 0) return "No managed skills found.";
-	const includeSources = result.skills.some((record) => record.manifestSources.length > 0);
+	const hasSources = result.skills.some((record) => record.manifestSources.length > 0);
 	const includeNotes = result.skills.some((record) => record.notes.length > 0);
 	const columns: TextTableColumn[] = [
 		{ header: "SKILL", style: "bold-cyan" },
@@ -385,7 +376,7 @@ export function renderSkillKindList(
 		{ header: "NATIVE" },
 		{ header: "PI" },
 	];
-	if (includeSources) columns.push({ header: "SOURCES" });
+	if (hasSources) columns.push({ header: "SOURCES" });
 	if (includeNotes) columns.push({ header: "NOTES", style: "dim" });
 	return renderTextTable({
 		columns,
@@ -397,7 +388,7 @@ export function renderSkillKindList(
 				record.nativeDirect,
 				record.piExtension,
 			];
-			if (includeSources) base.push(skillKindSourcesLabel(record));
+			if (hasSources) base.push(skillKindSourcesLabel(record));
 			if (includeNotes) base.push(record.notes.join("; "));
 			return base;
 		}),

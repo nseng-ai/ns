@@ -5,24 +5,15 @@ import { findFirstPartySkillArtifact, resolveHarnessArtifactPath } from "../api.
 import {
 	harnessPathErrorExit,
 	harnessResolutionContext,
+	skillsResolvedArtifactLocationSchema,
+	skillsTargetRequestSchema,
 	unknownSkillExit,
 	type SkillsCommandContext,
 } from "./skills-shared.ts";
 
-export const skillsPathRequestSchema = z.object({
-	skill: z.string().min(1),
-	harness: z.string().min(1),
-	scope: z.enum(["user", "project"]).default("project"),
-});
+export const skillsPathRequestSchema = skillsTargetRequestSchema;
 
-export const skillsPathResultSchema = z.object({
-	skill: z.string(),
-	artifactId: z.string(),
-	harness: z.enum(["claude-code", "codex", "pi"]),
-	scope: z.enum(["user", "project"]),
-	targetRoot: z.string(),
-	targetArtifactPath: z.string(),
-});
+export const skillsPathResultSchema = skillsResolvedArtifactLocationSchema;
 export type SkillsPathResult = z.infer<typeof skillsPathResultSchema>;
 
 export function runSkillsPath(

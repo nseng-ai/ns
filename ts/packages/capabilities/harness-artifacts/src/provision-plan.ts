@@ -32,19 +32,12 @@ export interface BuildProvisionPlanInput {
 	sourceFiles: readonly ProvisionSourceFile[];
 }
 
-export type ProvisionSourceProvenance =
-	| {
-			type: "first-party";
-			packageName: string;
-			relativePath: string;
-			version: string;
-	  }
-	| {
-			type: "npm-module";
-			packageName: string;
-			relativePath: string;
-			version: string;
-	  };
+export interface ProvisionSourceProvenance {
+	type: HarnessArtifactSource["type"];
+	packageName: string;
+	relativePath: string;
+	version: string;
+}
 
 export interface ProvisionPlanFile {
 	relativePath: string;
@@ -122,7 +115,7 @@ export interface ProvisionFileDecision {
 
 export interface ProvisionDecisionSet {
 	files: readonly ProvisionFileDecision[];
-	shouldForce: boolean;
+	needsForce: boolean;
 }
 
 export type ProvisionDecisionErrorInfo =
@@ -291,7 +284,7 @@ export function classifyProvisionDecisions(input: {
 
 	return resultOk({
 		files: decisions,
-		shouldForce: decisions.some((decision) => decision.type === "locally-edited-conflict"),
+		needsForce: decisions.some((decision) => decision.type === "locally-edited-conflict"),
 	});
 }
 

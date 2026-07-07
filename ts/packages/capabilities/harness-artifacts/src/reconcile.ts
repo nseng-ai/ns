@@ -83,11 +83,11 @@ export interface ReconcileCollision {
 	packages: readonly string[];
 }
 
-export type ReconcilePlanErrorInfo = {
+export interface ReconcilePlanErrorInfo {
 	code: "artifact_collision";
 	message: string;
 	details: { collisions: readonly ReconcileCollision[] };
-};
+}
 
 export function planHarnessArtifactReconcile(input: {
 	desired: readonly DesiredHarnessArtifact[];
@@ -270,7 +270,7 @@ export async function runHarnessArtifactReconcile(
 		};
 		const preview = await previewHarnessArtifactProvision(provisionRequest);
 		if (!preview.ok) return preview;
-		if (preview.value.decisions.shouldForce && !request.force) {
+		if (preview.value.decisions.needsForce && !request.force) {
 			artifacts.push(
 				reconcileOutcomeFromProvision({
 					pair,
@@ -290,12 +290,6 @@ export async function runHarnessArtifactReconcile(
 				reconcileOutcomeFromProvision({
 					pair,
 					provision: preview.value,
-					action: classifyReconcileAction({
-						decisionsAreUnchanged: preview.value.decisions.files.every(
-							(decision) => decision.type === "unchanged",
-						),
-						hasManifestEntry: pair.hasManifestEntry,
-					}),
 					writtenFiles: [],
 					conflictingFiles: [],
 				}),
@@ -309,12 +303,6 @@ export async function runHarnessArtifactReconcile(
 			reconcileOutcomeFromProvision({
 				pair,
 				provision: applied.value,
-				action: classifyReconcileAction({
-					decisionsAreUnchanged: applied.value.decisions.files.every(
-						(decision) => decision.type === "unchanged",
-					),
-					hasManifestEntry: pair.hasManifestEntry,
-				}),
 				writtenFiles: applied.value.writtenFiles,
 				conflictingFiles: [],
 			}),
@@ -489,12 +477,19 @@ function classifyReconcileAction(input: {
 function reconcileOutcomeFromProvision(input: {
 	pair: ReconcilePair;
 	provision: HarnessArtifactProvisionPreview;
-	action: ReconcileArtifactOutcome["action"];
+	action?: ReconcileArtifactOutcome["action"];
 	writtenFiles: readonly string[];
 	conflictingFiles: readonly string[];
 }): ReconcileArtifactOutcome {
 	return {
-		action: input.action,
+		action:
+			input.action ??
+			classifyReconcileAction({
+				decisionsAreUnchanged: input.provision.decisions.files.every(
+					(decision) => decision.type === "unchanged",
+				),
+				hasManifestEntry: input.pair.hasManifestEntry,
+			}),
 		artifactId: input.pair.desired.artifact.id,
 		skillName: input.pair.desired.artifact.skillName,
 		harness: input.pair.harness,

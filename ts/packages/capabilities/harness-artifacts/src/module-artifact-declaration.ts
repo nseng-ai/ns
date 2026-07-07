@@ -3,15 +3,19 @@ import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
 
+export const MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES = [
+	"module_artifact_package_json_invalid",
+	"module_artifact_package_name_invalid",
+	"module_artifact_declarations_not_array",
+	"module_artifact_declaration_invalid",
+	"module_artifact_kind_unsupported",
+	"module_artifact_name_invalid",
+	"module_artifact_path_invalid",
+	"module_artifact_duplicate_name",
+] as const;
+
 export type ModuleArtifactDeclarationDiagnosticCode =
-	| "module_artifact_package_json_invalid"
-	| "module_artifact_package_name_invalid"
-	| "module_artifact_declarations_not_array"
-	| "module_artifact_declaration_invalid"
-	| "module_artifact_kind_unsupported"
-	| "module_artifact_name_invalid"
-	| "module_artifact_path_invalid"
-	| "module_artifact_duplicate_name";
+	(typeof MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES)[number];
 
 export interface ModuleArtifactDeclarationDiagnostic {
 	code: ModuleArtifactDeclarationDiagnosticCode;
@@ -93,36 +97,38 @@ export function parseModuleArtifactDeclaration(
 		};
 	}
 
+	const packageName = packageJson.data.name;
+	const version = packageJson.data.version ?? "unversioned";
 	const declarations = packageJson.data.ns?.harnessArtifacts;
-	if (declarations === undefined) {
-		return {
-			ok: true,
-			packageName: packageJson.data.name,
-			version: packageJson.data.version ?? "unversioned",
-			artifacts: [],
-			diagnostics: [],
-		};
-	}
+	if (declarations === undefined) return emptyCatalog(packageName, version);
 	if (!Array.isArray(declarations)) {
-		return {
-			ok: true,
-			packageName: packageJson.data.name,
-			version: packageJson.data.version ?? "unversioned",
-			artifacts: [],
-			diagnostics: [
-				{
-					code: "module_artifact_declarations_not_array",
-					message: "Package manifest ns.harnessArtifacts must be an array.",
-				},
-			],
-		};
+		return emptyCatalog(packageName, version, [
+			{
+				code: "module_artifact_declarations_not_array",
+				message: "Package manifest ns.harnessArtifacts must be an array.",
+			},
+		]);
 	}
 
 	return parseDeclarations({
-		packageName: packageJson.data.name,
-		version: packageJson.data.version ?? "unversioned",
+		packageName,
+		version,
 		declarations,
 	});
+}
+
+function emptyCatalog(
+	packageName: string,
+	version: string,
+	diagnostics: readonly ModuleArtifactDeclarationDiagnostic[] = [],
+): ParseModuleArtifactDeclarationResult {
+	return {
+		ok: true,
+		packageName,
+		version,
+		artifacts: [],
+		diagnostics,
+	};
 }
 
 function parseDeclarations(options: {
@@ -165,6 +171,7 @@ function parseDeclarations(options: {
 			acceptedNames,
 		});
 		if (artifact.ok) {
+			acceptedNames.add(artifact.artifact.name);
 			artifacts.push(artifact.artifact);
 		} else {
 			diagnostics.push(...artifact.diagnostics);
@@ -184,7 +191,7 @@ function parseSkillDeclaration(options: {
 	packageName: string;
 	declaration: RawSkillDeclaration;
 	duplicateNames: ReadonlySet<string>;
-	acceptedNames: Set<string>;
+	acceptedNames: ReadonlySet<string>;
 }):
 	| { ok: true; artifact: SkillHarnessArtifactEntry }
 	| { ok: false; diagnostics: readonly ModuleArtifactDeclarationDiagnostic[] } {
@@ -219,7 +226,6 @@ function parseSkillDeclaration(options: {
 	if (options.acceptedNames.has(name)) {
 		return { ok: false, diagnostics: [] };
 	}
-	options.acceptedNames.add(name);
 	const description = readNonEmptyString(options.declaration.description);
 	return {
 		ok: true,
