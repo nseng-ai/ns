@@ -1,20 +1,14 @@
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	applyPreparedProvision,
-	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
-	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
-	findFirstPartySkillArtifact,
-	prepareProvision,
-	resolveFirstPartyCatalogSourceRoot,
-	type HarnessArtifactProvisionConflictOutcome,
+	provisionFileDecisionSchema,
+	provisionFirstPartySkill,
 	type ProvisionDecisionSet,
+	type ProvisionFirstPartySkillOutcome,
 	type ProvisionPlan,
 } from "../api.ts";
 import {
-	harnessResolutionContext,
 	provisionErrorExit,
 	skillsResolvedArtifactLocationSchema,
 	skillsTargetRequestSchema,
@@ -27,25 +21,11 @@ export const skillsInstallRequestSchema = skillsTargetRequestSchema.extend({
 	force: z.boolean().default(false),
 });
 
-const provisionFileSchema = z.object({
-	relativePath: z.string(),
-	sourcePath: z.string(),
-	targetPath: z.string(),
-	contentHash: z.string(),
-});
-
-const provisionDecisionSchema = z.object({
-	type: z.enum(["fresh-write", "unchanged", "locally-edited-conflict"]),
-	file: provisionFileSchema,
-	currentHash: z.string().optional(),
-	manifestHash: z.string().optional(),
-});
-
 export const skillsInstallResultSchema = skillsResolvedArtifactLocationSchema.extend({
 	mode: z.enum(["dry-run", "applied"]),
 	manifestPath: z.string(),
 	needsForce: z.boolean(),
-	decisions: z.array(provisionDecisionSchema),
+	decisions: z.array(provisionFileDecisionSchema),
 	writtenFiles: z.array(z.string()),
 });
 export type SkillsInstallResult = z.infer<typeof skillsInstallResultSchema>;
@@ -66,48 +46,36 @@ export async function runSkillsInstall(
 	context: SkillsCommandContext,
 	request: z.output<typeof skillsInstallRequestSchema>,
 ): Promise<ClinkrExit<SkillsInstallCommandResult>> {
-	const sourceRoot = resolveFirstPartyCatalogSourceRoot();
-	if (sourceRoot === undefined) {
-		return failure(
-			"catalog-source-unavailable",
-			FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
-		);
-	}
-	const artifact = findFirstPartySkillArtifact(request.skill);
-	if (artifact === undefined) return unknownSkillExit(request.skill);
-	const baseRequest = {
-		artifact,
+	const outcome = await provisionFirstPartySkill({
+		skill: request.skill,
 		harness: request.harness,
 		scope: request.scope,
-		context: harnessResolutionContext(context),
-		sourceRoot,
-		sourceVersion: FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
-	};
-	const prepared = await prepareProvision(baseRequest);
-	if (!prepared.ok) return provisionErrorExit(prepared.error);
-	if (request.dryRun) {
-		return ok(
-			installResultFromPlan({
-				mode: "dry-run",
-				plan: prepared.value.plan,
-				decisions: prepared.value.decisions,
-				manifestPath: prepared.value.manifestPath,
-				writtenFiles: [],
-			}),
-		);
+		projectRoot: context.projectRoot,
+		...(context.homeDir === undefined ? {} : { homeDir: context.homeDir }),
+		env: context.env,
+		dryRun: request.dryRun,
+		force: request.force,
+	});
+	switch (outcome.type) {
+		case "catalog-source-unavailable":
+			return failure("catalog-source-unavailable", outcome.message);
+		case "unknown-skill":
+			return unknownSkillExit(outcome.skill);
+		case "error":
+			return provisionErrorExit(outcome.error);
+		case "conflicted":
+			return installProvisionConflictExit(outcome);
+		case "provisioned":
+			return ok(
+				installResultFromPlan({
+					mode: outcome.mode,
+					plan: outcome.plan,
+					decisions: outcome.decisions,
+					manifestPath: outcome.manifestPath,
+					writtenFiles: outcome.writtenFiles,
+				}),
+			);
 	}
-	const applied = await applyPreparedProvision(prepared.value, { force: request.force });
-	if (!applied.ok) return provisionErrorExit(applied.error);
-	if (applied.value.outcome === "conflicted") return installProvisionConflictExit(applied.value);
-	return ok(
-		installResultFromPlan({
-			mode: "applied",
-			plan: applied.value.plan,
-			decisions: applied.value.decisions,
-			manifestPath: applied.value.manifestPath,
-			writtenFiles: applied.value.writtenFiles,
-		}),
-	);
 }
 
 export function renderSkillsInstallHuman(result: SkillsInstallCommandResult): string {
@@ -152,18 +120,13 @@ function installResultFromPlan(input: {
 		targetArtifactPath: input.plan.targetArtifactPath,
 		manifestPath: input.manifestPath,
 		needsForce: input.decisions.needsForce,
-		decisions: input.decisions.files.map((decision) => ({
-			type: decision.type,
-			file: decision.file,
-			...optionalEntry("currentHash", decision.currentHash),
-			...optionalEntry("manifestHash", decision.manifestHash),
-		})),
+		decisions: [...input.decisions.files],
 		writtenFiles: [...input.writtenFiles],
 	};
 }
 
 function installProvisionConflictExit(
-	outcome: HarnessArtifactProvisionConflictOutcome,
+	outcome: Extract<ProvisionFirstPartySkillOutcome, { type: "conflicted" }>,
 ): ClinkrExit<SkillsInstallCommandResult> {
 	return negative(
 		`Provision refused: ${outcome.conflictingFiles.length} locally edited target file(s). Re-run with --force to overwrite them.`,

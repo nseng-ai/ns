@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { contentHashForText, INSTALL_MANIFEST_FILE_NAME } from "@nseng-ai/harness-artifacts/api";
+import { INSTALL_MANIFEST_FILE_NAME } from "@nseng-ai/harness-artifacts/api";
 
 import { RealSkillMaterializer } from "../../src/real-skill-materializer.ts";
 
@@ -29,13 +29,9 @@ afterEach(async () => {
 });
 
 describe("RealSkillMaterializer", () => {
-	test("materializes objective skills through harness-artifacts apply", async () => {
+	test("materializes the catalog objective skill through harness-artifacts provisioning", async () => {
 		const fixture = await createFixture();
-		const materializer = new RealSkillMaterializer({
-			sourceRoot: fixture.sourceRoot,
-			sourceVersion: "test-version",
-			homeDir: fixture.homeDir,
-		});
+		const materializer = new RealSkillMaterializer({ homeDir: fixture.homeDir });
 
 		const result = await materializer.materializeObjectiveSkills({
 			repoRoot: fixture.repoRoot,
@@ -50,15 +46,11 @@ describe("RealSkillMaterializer", () => {
 				join(fixture.repoRoot, ".pi/skills/objective"),
 			],
 		});
-		await expect(
-			readFile(join(fixture.repoRoot, ".claude/skills/objective/SKILL.md"), "utf8"),
-		).resolves.toBe("objective skill\n");
-		await expect(
-			readFile(join(fixture.repoRoot, ".agents/skills/objective/references/guide.md"), "utf8"),
-		).resolves.toBe("objective guide\n");
-		await expect(
-			readFile(join(fixture.repoRoot, ".pi/skills/objective/SKILL.md"), "utf8"),
-		).resolves.toBe("objective skill\n");
+		for (const skillRoot of [".claude/skills", ".agents/skills", ".pi/skills"]) {
+			await expect(
+				readFile(join(fixture.repoRoot, skillRoot, "objective/SKILL.md"), "utf8"),
+			).resolves.toContain("objective");
+		}
 
 		const claudeManifest = await readManifest(
 			join(fixture.repoRoot, ".claude/skills", INSTALL_MANIFEST_FILE_NAME),
@@ -67,12 +59,6 @@ describe("RealSkillMaterializer", () => {
 			artifactId: "objective-skill",
 			provisionName: "objective",
 			targetArtifactPath: join(fixture.repoRoot, ".claude/skills/objective"),
-			files: {
-				"SKILL.md": {
-					targetPath: join(fixture.repoRoot, ".claude/skills/objective/SKILL.md"),
-					contentHash: contentHashForText("objective skill\n"),
-				},
-			},
 		});
 	});
 
@@ -80,11 +66,7 @@ describe("RealSkillMaterializer", () => {
 		const fixture = await createFixture();
 		const targetSkill = join(fixture.repoRoot, ".pi/skills/objective/SKILL.md");
 		await writeTextFile(targetSkill, "local edit\n");
-		const materializer = new RealSkillMaterializer({
-			sourceRoot: fixture.sourceRoot,
-			sourceVersion: "test-version",
-			homeDir: fixture.homeDir,
-		});
+		const materializer = new RealSkillMaterializer({ homeDir: fixture.homeDir });
 
 		const result = await materializer.materializeObjectiveSkills({
 			repoRoot: fixture.repoRoot,
@@ -108,15 +90,11 @@ describe("RealSkillMaterializer", () => {
 async function createFixture() {
 	const root = await mkdtemp(join(tmpdir(), "ns-init-skills-"));
 	tempRoots.push(root);
-	const sourceRoot = join(root, "source");
 	const repoRoot = join(root, "repo");
 	const homeDir = join(root, "home");
-	await writeTextFile(join(sourceRoot, "skills/objective/SKILL.md"), "objective skill\n");
-	await writeTextFile(
-		join(sourceRoot, "skills/objective/references/guide.md"),
-		"objective guide\n",
-	);
-	return { sourceRoot, repoRoot, homeDir };
+	await mkdir(repoRoot, { recursive: true });
+	await mkdir(homeDir, { recursive: true });
+	return { repoRoot, homeDir };
 }
 
 async function readManifest(path: string): Promise<InstallManifest> {

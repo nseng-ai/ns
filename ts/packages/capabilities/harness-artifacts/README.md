@@ -58,6 +58,6 @@ ns skills install <skill> --harness <claude-code|codex|pi> [--scope project|user
 
 ## Consumer seam
 
-`@nseng-ai/ns-init` consumes this package through `RealSkillMaterializer`, an implementation of ns-init's existing `SkillMaterializer` gateway. It resolves the first-party `objective` skill and provisions it into project-scope `claude-code`, `codex`, and `pi` harness roots using the shared apply path.
+`@nseng-ai/ns-init` consumes this package through `RealSkillMaterializer`, an implementation of ns-init's existing `SkillMaterializer` gateway that is a thin adapter over `provisionFirstPartySkill()`. The deep operation resolves the first-party catalog source root, prepares the provision once, and applies it into project-scope `claude-code`, `codex`, and `pi` harness roots using the shared apply path.
 
 Deferred breadth such as reconcile, extension-carried catalogs, AREG re-platforming, uninstall, and stale-after-upgrade behavior is tracked in the `skill-management-subsystem` umbrella objective, not in this steelthread package README.

@@ -1,4 +1,5 @@
 import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { ObjectiveActivationContext } from "../activation-context.ts";
@@ -12,6 +13,9 @@ export function createNsInitContext(
 		cwd: ctx.cwd,
 		git: createNsGitGateway(ctx),
 		files: new RealActivationFilesGateway(),
-		skills: new RealSkillMaterializer({ env: ctx.env }),
+		skills: new RealSkillMaterializer({
+			...optionalEntry("homeDir", ctx.homeDir),
+			env: ctx.env,
+		}),
 	};
 }

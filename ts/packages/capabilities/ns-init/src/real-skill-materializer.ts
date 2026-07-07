@@ -1,13 +1,8 @@
 import {
-	applyHarnessArtifactProvision,
-	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
-	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
-	findFirstPartySkillArtifact,
-	firstPartySkillProvisionPathContext,
-	resolveFirstPartyCatalogSourceRoot,
-	type HarnessArtifactProvisionConflictOutcome,
+	provisionFirstPartySkill,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessId,
+	type ProvisionFirstPartySkillOutcome,
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { NsInitErrorInfo } from "./error-info.ts";
@@ -18,21 +13,15 @@ import type {
 } from "./skill-materializer.ts";
 
 export interface RealSkillMaterializerOptions {
-	sourceRoot?: string;
-	sourceVersion?: string;
 	homeDir?: string;
 	env?: Record<string, string | undefined>;
 }
 
 export class RealSkillMaterializer implements SkillMaterializer {
-	private readonly sourceRoot: string | undefined;
-	private readonly sourceVersion: string;
 	private readonly homeDir: string | undefined;
 	private readonly env: Record<string, string | undefined>;
 
 	constructor(options: RealSkillMaterializerOptions = {}) {
-		this.sourceRoot = options.sourceRoot ?? resolveFirstPartyCatalogSourceRoot();
-		this.sourceVersion = options.sourceVersion ?? FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION;
 		this.homeDir = options.homeDir ?? options.env?.HOME;
 		this.env = { ...(options.env ?? {}) };
 	}
@@ -40,53 +29,43 @@ export class RealSkillMaterializer implements SkillMaterializer {
 	async materializeObjectiveSkills(
 		params: SkillMaterializeParams,
 	): Promise<SkillMaterializeResult> {
-		if (this.sourceRoot === undefined) {
-			return {
-				type: "unavailable",
-				reason: FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
-			};
-		}
-
-		const artifact = findFirstPartySkillArtifact("objective");
-		if (artifact === undefined) {
-			return {
-				type: "error",
-				error: {
-					code: "objective-skill-catalog-missing",
-					message: "The first-party objective skill is missing from the harness artifact catalog.",
-				},
-			};
-		}
-
 		const installedSkillPaths: string[] = [];
 		for (const harness of params.harnesses) {
-			const applied = await applyHarnessArtifactProvision({
-				artifact,
+			const outcome = await provisionFirstPartySkill({
+				skill: "objective",
 				harness,
 				scope: "project",
-				context: firstPartySkillProvisionPathContext({
-					projectRoot: params.repoRoot,
-					...homeDirEntry(this.homeDir),
-					env: this.env,
-				}),
-				sourceRoot: this.sourceRoot,
-				sourceVersion: this.sourceVersion,
+				projectRoot: params.repoRoot,
+				...(this.homeDir === undefined ? {} : { homeDir: this.homeDir }),
+				env: this.env,
+				dryRun: false,
+				force: false,
 			});
-			if (!applied.ok) {
-				return { type: "error", error: nsInitErrorFromProvisionError(harness, applied.error) };
+			switch (outcome.type) {
+				case "catalog-source-unavailable":
+					return { type: "unavailable", reason: outcome.message };
+				case "unknown-skill":
+					return {
+						type: "error",
+						error: {
+							code: "objective-skill-catalog-missing",
+							message:
+								"The first-party objective skill is missing from the harness artifact catalog.",
+						},
+					};
+				case "error":
+					return { type: "error", error: nsInitErrorFromProvisionError(harness, outcome.error) };
+				case "conflicted":
+					return {
+						type: "error",
+						error: nsInitErrorFromProvisionConflict(harness, outcome),
+					};
+				case "provisioned":
+					installedSkillPaths.push(outcome.plan.targetArtifactPath);
 			}
-			if (applied.value.outcome === "conflicted") {
-				return { type: "error", error: nsInitErrorFromProvisionConflict(harness, applied.value) };
-			}
-			installedSkillPaths.push(applied.value.plan.targetArtifactPath);
 		}
-
 		return { type: "materialized", installedSkillPaths };
 	}
-}
-
-function homeDirEntry(homeDir: string | undefined): { homeDir: string } | {} {
-	return homeDir === undefined ? {} : { homeDir };
 }
 
 function nsInitErrorFromProvisionError(
@@ -102,7 +81,7 @@ function nsInitErrorFromProvisionError(
 
 function nsInitErrorFromProvisionConflict(
 	harness: HarnessId,
-	conflict: HarnessArtifactProvisionConflictOutcome,
+	conflict: Extract<ProvisionFirstPartySkillOutcome, { type: "conflicted" }>,
 ): NsInitErrorInfo {
 	return {
 		code: "locally-edited-conflict",

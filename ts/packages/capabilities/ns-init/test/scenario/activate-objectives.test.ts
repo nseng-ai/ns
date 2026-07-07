@@ -4,7 +4,7 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
 import { activateObjectives } from "../../src/activate-objectives.ts";
 import type { ObjectiveActivationContext } from "../../src/activation-context.ts";
-import { pendingBundleSkillMaterializer } from "../../src/pending-bundle-skill-materializer.ts";
+import type { SkillMaterializer } from "../../src/skill-materializer.ts";
 import {
 	InMemoryActivationFilesGateway,
 	InMemorySkillMaterializer,
@@ -128,8 +128,13 @@ describe("activateObjectives", () => {
 		);
 	});
 
-	it("reports the pending-bundle skill stub as unavailable without failing activation", async () => {
-		const { context } = activationContext({ skills: pendingBundleSkillMaterializer });
+	it("reports an unavailable skill materializer without failing activation", async () => {
+		const unavailableSkillMaterializer: SkillMaterializer = {
+			async materializeObjectiveSkills() {
+				return { type: "unavailable", reason: "No skill source is available in this environment." };
+			},
+		};
+		const { context } = activationContext({ skills: unavailableSkillMaterializer });
 		const result = await activateObjectives(context, { cwd: "/repo", harnesses: ["claude-code"] });
 		expect(result).toMatchObject({
 			type: "activated",
