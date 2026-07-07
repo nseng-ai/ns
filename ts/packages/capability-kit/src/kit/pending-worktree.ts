@@ -8,6 +8,16 @@ export type WorktreeCommandResult = CommandResult;
 
 export type ExecGit = (args: string[], timeout: number) => Promise<WorktreeCommandResult>;
 
+type OptionalRepoRootGateway = {
+	optionalRepoRoot(params: {
+		cwd: string;
+	}): Promise<
+		| { type: "found"; value: string }
+		| { type: "missing" }
+		| { type: "error"; error: { message: string } }
+	>;
+};
+
 export interface PendingWorktreeSnapshot {
 	root: string;
 	branch: string;
@@ -22,25 +32,9 @@ export type PendingWorktreeError =
 	| { kind: "status_failed"; message: string; result: WorktreeCommandResult }
 	| { kind: "diff_failed"; message: string; result: WorktreeCommandResult };
 
-export type GitRepoRootResult =
-	| { type: "found"; root: string }
-	| { type: "missing"; result: WorktreeCommandResult };
-
-export async function resolveGitRepoRoot(input: {
-	execGit: ExecGit;
-	timeoutMs?: number;
-}): Promise<GitRepoRootResult> {
-	const result = await input.execGit(
-		["rev-parse", "--show-toplevel"],
-		input.timeoutMs ?? GIT_FACT_TIMEOUT_MS,
-	);
-	const root = result.stdout.trim();
-	if (result.code !== 0 || root === "") return { type: "missing", result };
-	return { type: "found", root };
-}
-
 export async function loadPendingWorktreeSnapshot(input: {
 	cwd: string;
+	git: OptionalRepoRootGateway;
 	execGit: ExecGit;
 	repoRoot?: string;
 }): Promise<
@@ -48,18 +42,20 @@ export async function loadPendingWorktreeSnapshot(input: {
 > {
 	let root = input.repoRoot;
 	if (root === undefined) {
-		const rootResult = await resolveGitRepoRoot({ execGit: input.execGit });
-		if (rootResult.type === "missing") {
+		const rootResult = await input.git.optionalRepoRoot({ cwd: input.cwd });
+		if (rootResult.type !== "found") {
 			return {
 				ok: false,
 				error: {
 					kind: "not_git_repo",
 					message: "Not inside a git repository.",
-					result: rootResult.result,
+					result: gitRootMissingCommandResult(
+						rootResult.type === "error" ? rootResult.error : undefined,
+					),
 				},
 			};
 		}
-		root = rootResult.root;
+		root = rootResult.value;
 	}
 
 	const branch = await input.execGit(["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
@@ -100,4 +96,14 @@ export async function loadPendingWorktreeSnapshot(input: {
 
 export function formatPendingWorktreeCommandDetails(result: WorktreeCommandResult): string {
 	return formatCommandDetails({ ...result, killed: result.killed ?? false });
+}
+
+function gitRootMissingCommandResult(
+	error: { message: string } | undefined,
+): WorktreeCommandResult {
+	return {
+		code: 128,
+		stdout: "",
+		stderr: error?.message ?? "fatal: not a git repository",
+	};
 }

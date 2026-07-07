@@ -4,6 +4,7 @@ import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import { createNsGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
 import type { TextRepairProgressEvent } from "@nseng-ai/capability-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
@@ -51,7 +52,10 @@ export interface NsCheckpointRuntime {
 
 export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRuntime {
 	return {
-		checkpointGateway: new RealCheckpointGateway(createNsCommandRunner(ctx)),
+		checkpointGateway: new RealCheckpointGateway({
+			runner: createNsCommandRunner(ctx),
+			git: createNsGitGateway(ctx),
+		}),
 	};
 }
 
@@ -93,9 +97,11 @@ export type CheckpointIfPendingResult =
 
 export class RealCheckpointGateway implements CheckpointGateway {
 	private readonly runner: CommandRunner;
+	private readonly git: Pick<GitGateway, "optionalRepoRoot">;
 
-	constructor(runner: CommandRunner = runCommand) {
-		this.runner = runner;
+	constructor(options: { runner?: CommandRunner; git: Pick<GitGateway, "optionalRepoRoot"> }) {
+		this.runner = options.runner ?? runCommand;
+		this.git = options.git;
 	}
 
 	async loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -110,6 +116,7 @@ export class RealCheckpointGateway implements CheckpointGateway {
 	> {
 		return loadPendingWorktreeSnapshot({
 			cwd: params.cwd,
+			git: this.git,
 			execGit: (args, timeout) => this.exec("git", args, params.cwd, timeout),
 			...optionalEntry("repoRoot", params.repoRoot),
 		});

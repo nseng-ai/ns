@@ -57,7 +57,7 @@ export interface ProjectConfigDiagnostic {
 
 export interface ProjectConfigDiagnosticErrorMapping<TCode extends string> {
 	invalidToml: TCode;
-	invalidSettingsByPath?: ReadonlyMap<string, TCode> | Readonly<Record<string, TCode>>;
+	invalidSettingsByPath?: Readonly<Record<string, TCode>>;
 	defaultCode: TCode;
 	defaultMessage?: string;
 	pathLabel?: string;
@@ -66,7 +66,6 @@ export interface ProjectConfigDiagnosticErrorMapping<TCode extends string> {
 export interface ProjectConfigMappedError<TCode extends string> {
 	code: TCode;
 	message: string;
-	diagnostic?: ProjectConfigDiagnostic;
 }
 
 export function primaryProjectConfigDiagnostic(
@@ -84,7 +83,6 @@ export function projectConfigErrorFromDiagnostics<TCode extends string>(
 		return {
 			code: mapping.invalidToml,
 			message: formatProjectConfigInvalidTomlMessage(diagnostic, mapping.pathLabel),
-			diagnostic,
 		};
 	}
 	if (diagnostic?.code === "settings_table_invalid" && diagnostic.path !== undefined) {
@@ -92,13 +90,11 @@ export function projectConfigErrorFromDiagnostics<TCode extends string>(
 		return {
 			code: settingsCode ?? mapping.defaultCode,
 			message: diagnostic.message,
-			diagnostic,
 		};
 	}
 	return {
 		code: mapping.defaultCode,
 		message: diagnostic?.message ?? mapping.defaultMessage ?? "invalid ns.toml",
-		...(diagnostic === undefined ? {} : { diagnostic }),
 	};
 }
 
@@ -107,14 +103,7 @@ function projectConfigSettingsCode<TCode extends string>(
 	path: string,
 ): TCode | undefined {
 	if (codes === undefined) return undefined;
-	if (isReadonlyStringMap(codes)) return codes.get(path);
 	return codes[path];
-}
-
-function isReadonlyStringMap<TValue>(
-	value: ReadonlyMap<string, TValue> | Readonly<Record<string, TValue>>,
-): value is ReadonlyMap<string, TValue> {
-	return typeof (value as { get?: unknown }).get === "function";
 }
 
 function formatProjectConfigInvalidTomlMessage(
@@ -134,6 +123,10 @@ export interface LoadedProjectConfig {
 	points: readonly ProjectPointInstallation[];
 	settings: ReadonlyMap<string, unknown>;
 }
+
+export type ProjectConfigPointsTableMode =
+	| { mode: "validate"; pointDefinitions: readonly PointDefinition[] }
+	| { mode: "skip" };
 
 export function getProjectConfigSetting<T>(
 	config: LoadedProjectConfig,
@@ -240,7 +233,7 @@ export function loadProjectConfig(request: {
 	}
 	return parseProjectConfigToml(readResult.text, {
 		pathLabel: "ns.toml",
-		pointDefinitions: request.pointDefinitions,
+		pointsTable: { mode: "validate", pointDefinitions: request.pointDefinitions },
 		settingsSchemas: request.settingsSchemas ?? [],
 	});
 }
@@ -249,7 +242,7 @@ export function parseProjectConfigToml(
 	source: string,
 	request: {
 		pathLabel?: string;
-		pointDefinitions?: readonly PointDefinition[];
+		pointsTable: ProjectConfigPointsTableMode;
 		settingsSchemas?: readonly SettingsSchema[];
 	},
 ): LoadProjectConfigResult {
@@ -281,12 +274,12 @@ export function parseProjectConfigToml(
 
 	const document = documentResult.data;
 	const pointsResult =
-		request.pointDefinitions === undefined
+		request.pointsTable.mode === "skip"
 			? { installations: [], diagnostics: [] }
 			: parsePointsTable({
 					pathLabel,
 					value: document["points"],
-					pointDefinitions: request.pointDefinitions,
+					pointDefinitions: request.pointsTable.pointDefinitions,
 				});
 	const settingsResult = parseDeclaredSettings({
 		pathLabel,
@@ -884,7 +877,7 @@ function manifestPointFieldDiagnostic(
 	return diagnostic(
 		"extension_manifest_point_field_invalid",
 		`Extension manifest point ${field} is required and must match the point manifest schema.`,
-		packageJsonPath === undefined ? {} : { path: packageJsonPath },
+		optionalEntry("path", packageJsonPath),
 	);
 }
 
@@ -905,14 +898,13 @@ function diagnostic(
 		severity?: ProjectConfigDiagnostic["severity"];
 	} = {},
 ): ProjectConfigDiagnostic {
-	const request = {
+	return makeKernelDiagnostic({
 		code,
 		message,
 		...optionalEntry("path", options.path),
 		extra: optionalEntry("causeMessage", options.causeMessage),
-	};
-	if (options.severity === "info") return makeKernelDiagnostic({ ...request, severity: "info" });
-	return makeKernelDiagnostic(request);
+		...optionalEntry("severity", options.severity),
+	});
 }
 
 function isNodeFileNotFound(error: unknown): boolean {

@@ -3,9 +3,8 @@ import { join } from "node:path";
 import process from "node:process";
 
 import type { Caps } from "@nseng-ai/clinkr";
-import type { CommandRunner } from "@nseng-ai/foundation/command";
-import { resolveGitRepoRoot, type ExecGit } from "@nseng-ai/capability-kit/pending-worktree";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
@@ -31,6 +30,7 @@ import {
 	formatFlowSubmitHookFailure,
 	loadFlowSubmitHooks,
 	runFlowSubmitHooks,
+	type FlowSubmitHook,
 } from "../../submit/submit-hooks.ts";
 import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
@@ -45,8 +45,6 @@ import {
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
-const FLOW_SUBMIT_GIT_FACT_TIMEOUT_MS = 30_000;
-
 interface SubmitCheckpointContext {
 	gateway: RealCheckpointGateway;
 	repoRoot?: string;
@@ -102,10 +100,10 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 	async run(ctx: NsExtensionApi, request: SubmitRequest) {
 		const runtime = createNsSubmitRuntime(ctx);
 		const repoRoot = request.hooks
-			? await resolveFlowSubmitGitRepoRoot(runtime.commandRunner)
+			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 			: undefined;
 		const checkpointContext: SubmitCheckpointContext = {
-			gateway: new RealCheckpointGateway(runtime.commandRunner),
+			gateway: new RealCheckpointGateway({ runner: runtime.commandRunner, git: runtime.git }),
 			...optionalEntry("repoRoot", repoRoot),
 		};
 		const hooksLoad =
@@ -150,10 +148,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 							stream.emit({
 								type: "phase-progress",
 								phaseKey: "hooks",
-								label:
-									total === 1
-										? `running ${hook.display}…`
-										: `running ${hook.display} (${index + 1}/${total})…`,
+								label: hookProgressLabel({ hook, index, total }),
 							}),
 						...(onOutput === undefined ? {} : { onOutput }),
 					});
@@ -222,16 +217,18 @@ export default defineExtension({
 	commands: [flowSubmitCommand],
 });
 
-async function resolveFlowSubmitGitRepoRoot(runner: CommandRunner): Promise<string | undefined> {
-	const result = await resolveGitRepoRoot({
-		execGit: commandRunnerExecGit(runner),
-		timeoutMs: FLOW_SUBMIT_GIT_FACT_TIMEOUT_MS,
-	});
-	return result.type === "found" ? result.root : undefined;
+async function resolveFlowSubmitGitRepoRoot(
+	git: Pick<GitGateway, "optionalRepoRoot">,
+	cwd: string,
+): Promise<string | undefined> {
+	const result = await git.optionalRepoRoot({ cwd });
+	return result.type === "found" ? result.value : undefined;
 }
 
-function commandRunnerExecGit(runner: CommandRunner): ExecGit {
-	return (args, timeout) => runner("git", args, { timeout });
+function hookProgressLabel(input: { hook: FlowSubmitHook; index: number; total: number }): string {
+	return input.total === 1
+		? `running ${input.hook.display}…`
+		: `running ${input.hook.display} (${input.index + 1}/${input.total})…`;
 }
 
 async function runSubmitWithMatrix(input: {
@@ -283,10 +280,7 @@ async function runSubmitWithMatrix(input: {
 				onHookStarted: ({ hook, index, total }) =>
 					matrix.setGlobal("hooks", {
 						state: "active",
-						text:
-							total === 1
-								? `running ${hook.display}…`
-								: `running ${hook.display} (${index + 1}/${total})…`,
+						text: hookProgressLabel({ hook, index, total }),
 					}),
 				onOutput,
 			});

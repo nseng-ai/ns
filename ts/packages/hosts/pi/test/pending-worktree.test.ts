@@ -5,6 +5,7 @@ import {
 	type ExecGit,
 	type WorktreeCommandResult,
 } from "@nseng-ai/capability-kit/pending-worktree";
+import type { GitGateway, GitOptionalResult } from "@nseng-ai/capability-kit/git";
 
 function ok(stdout = "", stderr = ""): WorktreeCommandResult {
 	return { code: 0, stdout, stderr };
@@ -18,20 +19,29 @@ function commandKey(args: string[]): string {
 	return args.join(" ");
 }
 
-function createHarness(results: Record<string, WorktreeCommandResult>) {
+function createHarness(
+	results: Record<string, WorktreeCommandResult>,
+	rootResult: GitOptionalResult<string> = { type: "found", value: "/repo" },
+) {
 	const calls: Array<{ args: string[]; timeout: number }> = [];
+	const rootCalls: string[] = [];
 	const execGit: ExecGit = async (args, timeout) => {
 		calls.push({ args, timeout });
 		return results[commandKey(args)] ?? fail(`missing fake for ${commandKey(args)}`);
 	};
-	return { calls, execGit };
+	const git: Pick<GitGateway, "optionalRepoRoot"> = {
+		async optionalRepoRoot(params) {
+			rootCalls.push(params.cwd);
+			return rootResult;
+		},
+	};
+	return { calls, rootCalls, execGit, git };
 }
 
 function successfulResults(
 	overrides: Partial<Record<string, WorktreeCommandResult>> = {},
 ): Record<string, WorktreeCommandResult> {
 	return {
-		"rev-parse --show-toplevel": ok("/repo\n"),
 		"symbolic-ref --short HEAD": ok("feature\n"),
 		"status --porcelain=v1": ok(" M file.ts\n"),
 		"diff HEAD --no-ext-diff": ok("diff --git a/file.ts b/file.ts\n"),
@@ -43,7 +53,11 @@ describe("loadPendingWorktreeSnapshot", () => {
 	test("successful snapshot includes root, branch, status, diff, and clean false", async () => {
 		const harness = createHarness(successfulResults());
 
-		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
 
 		expect(result).toEqual({
 			ok: true,
@@ -56,7 +70,6 @@ describe("loadPendingWorktreeSnapshot", () => {
 			},
 		});
 		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
-			"rev-parse --show-toplevel",
 			"symbolic-ref --short HEAD",
 			"status --porcelain=v1",
 			"diff HEAD --no-ext-diff",
@@ -66,7 +79,11 @@ describe("loadPendingWorktreeSnapshot", () => {
 	test("clean status returns clean true rather than an error", async () => {
 		const harness = createHarness(successfulResults({ "status --porcelain=v1": ok("") }));
 
-		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -75,24 +92,49 @@ describe("loadPendingWorktreeSnapshot", () => {
 		}
 	});
 
-	test("rev-parse failure returns not_git_repo and stops", async () => {
-		const harness = createHarness(
-			successfulResults({ "rev-parse --show-toplevel": fail("not a git repository") }),
-		);
+	test("missing repo root returns not_git_repo and stops", async () => {
+		const harness = createHarness(successfulResults(), { type: "missing" });
 
-		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
 
 		expect(result).toEqual({
 			ok: false,
 			error: {
 				kind: "not_git_repo",
 				message: "Not inside a git repository.",
-				result: fail("not a git repository"),
+				result: { code: 128, stdout: "", stderr: "fatal: not a git repository" },
 			},
 		});
-		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
-			"rev-parse --show-toplevel",
-		]);
+		expect(harness.rootCalls).toEqual(["/repo"]);
+		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([]);
+	});
+
+	test("repo root error returns not_git_repo with gateway detail and stops", async () => {
+		const harness = createHarness(successfulResults(), {
+			type: "error",
+			error: { code: "repo_root_failed", message: "git rev-parse failed" },
+		});
+
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				kind: "not_git_repo",
+				message: "Not inside a git repository.",
+				result: { code: 128, stdout: "", stderr: "git rev-parse failed" },
+			},
+		});
+		expect(harness.rootCalls).toEqual(["/repo"]);
+		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([]);
 	});
 
 	test("symbolic-ref failure returns detached_head", async () => {
@@ -100,7 +142,11 @@ describe("loadPendingWorktreeSnapshot", () => {
 			successfulResults({ "symbolic-ref --short HEAD": fail("not a symbolic ref") }),
 		);
 
-		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
 
 		expect(result).toEqual({
 			ok: false,
@@ -111,7 +157,6 @@ describe("loadPendingWorktreeSnapshot", () => {
 			},
 		});
 		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
-			"rev-parse --show-toplevel",
 			"symbolic-ref --short HEAD",
 		]);
 	});
@@ -121,7 +166,11 @@ describe("loadPendingWorktreeSnapshot", () => {
 			successfulResults({ "status --porcelain=v1": fail("status failed") }),
 		);
 
-		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
 
 		expect(result).toEqual({
 			ok: false,
@@ -132,7 +181,6 @@ describe("loadPendingWorktreeSnapshot", () => {
 			},
 		});
 		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
-			"rev-parse --show-toplevel",
 			"symbolic-ref --short HEAD",
 			"status --porcelain=v1",
 		]);
@@ -143,7 +191,11 @@ describe("loadPendingWorktreeSnapshot", () => {
 			successfulResults({ "diff HEAD --no-ext-diff": fail("diff failed") }),
 		);
 
-		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
+		const result = await loadPendingWorktreeSnapshot({
+			cwd: "/repo",
+			git: harness.git,
+			execGit: harness.execGit,
+		});
 
 		expect(result).toEqual({
 			ok: false,
@@ -154,7 +206,6 @@ describe("loadPendingWorktreeSnapshot", () => {
 			},
 		});
 		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
-			"rev-parse --show-toplevel",
 			"symbolic-ref --short HEAD",
 			"status --porcelain=v1",
 			"diff HEAD --no-ext-diff",

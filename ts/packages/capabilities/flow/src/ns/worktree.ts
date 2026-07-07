@@ -4,6 +4,7 @@ import {
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
 } from "@nseng-ai/capability-kit/pending-worktree";
+import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
 import { createNsCliExecAdapter, execNsCommand, execNsGit } from "./exec.ts";
 import {
 	formatCommandDetails,
@@ -29,6 +30,7 @@ export async function loadFlowPendingWorktreeSnapshot(
 > {
 	return await loadPendingWorktreeSnapshot({
 		cwd: ctx.cwd,
+		git: createNsGitGateway(ctx),
 		execGit: (args, timeout) => execGit(ctx, args, timeout),
 	});
 }
