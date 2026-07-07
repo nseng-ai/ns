@@ -14,7 +14,7 @@ import {
 } from "../../src/core/findings-comment.ts";
 import { REVIEWS_BOT_LOGIN } from "../../src/core/reviews-bot.ts";
 import { runReviewByKey } from "../../src/operations/cli-operations.ts";
-import { runReviewsReview } from "../../src/operations/review-run.ts";
+import { runReview } from "../../src/operations/review-run.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
@@ -52,7 +52,7 @@ const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 	baseMergeBaseSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 };
 
-describe("runReviewsReview", () => {
+describe("runReview", () => {
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
@@ -97,7 +97,7 @@ describe("runReviewsReview", () => {
 			}),
 		);
 
-		const outcome = await runReviewsReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome.type).toBe("completed");
 		if (outcome.type !== "completed") return;
@@ -156,7 +156,7 @@ describe("runReviewsReview", () => {
 			}),
 		);
 
-		const outcome = await runReviewsReview(ctx, { key: "code-smell-reviews" });
+		const outcome = await runReview(ctx, { key: "code-smell-reviews" });
 
 		expect(outcome.type).toBe("completed");
 		expect(reviewRunner.calls()[0]?.request.target.localDiff.changedPaths).toEqual(["src/file.ts"]);
@@ -250,7 +250,7 @@ describe("runReviewsReview", () => {
 			}),
 		);
 
-		const outcome = await runReviewsReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome).toEqual({
 			type: "failed",
@@ -273,7 +273,7 @@ describe("runReviewsReview", () => {
 			}),
 		);
 
-		const outcome = await runReviewsReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome.type).toBe("completed_log_failed");
 		if (outcome.type !== "completed_log_failed") return;

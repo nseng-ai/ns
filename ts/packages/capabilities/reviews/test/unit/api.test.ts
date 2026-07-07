@@ -2,12 +2,12 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import { describe, expect, test } from "vitest";
 
-import { createReviewsClient, REVIEWS_REVIEW_LOG_NAMESPACE } from "@nseng-ai/reviews/api";
+import { createReviewsClient, REVIEW_LOG_NAMESPACE } from "@nseng-ai/reviews/api";
 import type {
 	RecordFindingsOutcome,
 	ReviewListResult,
 	ReviewsRuntime,
-	RunReviewsReviewOutcome,
+	RunReviewOutcome,
 } from "@nseng-ai/reviews/api";
 import {
 	createReviewsRuntime,
@@ -130,7 +130,7 @@ describe("@nseng-ai/reviews/api", () => {
 		const result = await client.listReviews();
 		const typedResult: ReviewListResult | null = result.ok ? result.value : null;
 
-		expect(REVIEWS_REVIEW_LOG_NAMESPACE).toBe("reviews");
+		expect(REVIEW_LOG_NAMESPACE).toBe("reviews");
 		expect(typedResult?.keys).toEqual([REVIEW_KEY]);
 	});
 
@@ -196,7 +196,7 @@ describe("@nseng-ai/reviews/api", () => {
 			}),
 		});
 
-		const outcome: RunReviewsReviewOutcome = await client.runReview({ key: REVIEW_KEY });
+		const outcome: RunReviewOutcome = await client.runReview({ key: REVIEW_KEY });
 
 		expect(outcome.type).toBe("completed");
 		expect(reviewLog.writtenEntries()).toHaveLength(1);

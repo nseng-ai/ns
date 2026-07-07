@@ -31,7 +31,7 @@ import {
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 
-export interface RunReviewsReviewRequest {
+export interface RunReviewRequest {
 	readonly key: string;
 	readonly model?: string;
 	readonly modelProfile?: string;
@@ -40,22 +40,22 @@ export interface RunReviewsReviewRequest {
 	readonly priorFindingsContext?: PriorFindingsPromptContext;
 }
 
-export type RunReviewsReviewOutcome =
+export type RunReviewOutcome =
 	| {
 			readonly type: "completed";
 			readonly result: ReviewRunResult;
 			readonly logEntry: ReviewLogWriteResult;
-			readonly progress: RunReviewsReviewProgress;
+			readonly progress: RunReviewProgress;
 	  }
 	| {
 			readonly type: "completed_log_failed";
 			readonly result: ReviewRunResult;
 			readonly error: ReviewLogFailure;
-			readonly progress: RunReviewsReviewProgress;
+			readonly progress: RunReviewProgress;
 	  }
 	| { readonly type: "failed"; readonly error: ReviewFailure };
 
-export interface RunReviewsReviewProgress {
+export interface RunReviewProgress {
 	readonly reviewKey: string;
 	readonly reviewPath: string;
 	readonly modelProfile: ReviewsModelProfileKey;
@@ -86,10 +86,10 @@ export interface ReviewExecutionContext {
 	readonly diff: LocalDiff;
 }
 
-export async function runReviewsReview(
+export async function runReview(
 	ctx: ReviewsRuntime,
-	request: RunReviewsReviewRequest,
-): Promise<RunReviewsReviewOutcome> {
+	request: RunReviewRequest,
+): Promise<RunReviewOutcome> {
 	const loaded = await loadReviewExecutionContext(ctx, {
 		reviewKey: request.key,
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
@@ -102,7 +102,7 @@ export async function runReviewsReview(
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
 
-	const progress: RunReviewsReviewProgress = {
+	const progress: RunReviewProgress = {
 		reviewKey: source.key,
 		reviewPath: source.path,
 		modelProfile: model.modelProfile,
@@ -221,7 +221,7 @@ function reviewRunResult(
 }
 
 function resolveReviewModel(
-	request: RunReviewsReviewRequest,
+	request: RunReviewRequest,
 	definition: ReviewDefinition,
 	config: ReviewsProjectConfig,
 ): ReviewResult<ResolvedReviewModel> {

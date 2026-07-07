@@ -18,7 +18,7 @@ import {
 } from "../core/findings-publication.ts";
 import { gatherPriorFindingsContext } from "../core/prior-findings-context.ts";
 import {
-	REVIEWS_REVIEW_LOG_NAMESPACE,
+	REVIEW_LOG_NAMESPACE,
 	type ReviewLogEntry,
 	type ReviewLogWriteResult,
 } from "../gateways/review-log.ts";
@@ -34,10 +34,10 @@ import {
 	type ReviewRunResult,
 } from "../core/models.ts";
 import { applicableReviewKeys } from "../core/review-applicability.ts";
-import { reviewsReviewDisplayRole, reviewsReviewRoleLabel } from "../core/review-display.ts";
+import { reviewDisplayRole, reviewRoleLabel } from "../core/review-display.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
-import { loadReviewSkillEntries, reviewPathForKey } from "../core/skill-reviews.ts";
-import { loadReviewExecutionContext, runReviewsReview, writeReviewRunLog } from "./review-run.ts";
+import { reviewPathForKey, reviewSkillEntryFromDefinition } from "../core/skill-reviews.ts";
+import { loadReviewExecutionContext, runReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 const DEFAULT_PRIOR_FINDINGS_CONTEXT_FINDING_COUNT = 50;
@@ -205,21 +205,11 @@ export async function buildReviewListResult(
 		);
 	}
 
-	const skillEntries = await loadReviewSkillEntries({
-		...catalogOptions(ctx.runScope),
-		reviewCatalog: ctx.reviewCatalog,
-	});
-	if (!skillEntries.ok) return skillEntries;
-	const skillEntryByKey = new Map(skillEntries.value.map((entry) => [entry.reviewKey, entry]));
-
 	const selected = new Set(selectedKeys);
 	const reviews = loaded.value
 		.filter((item) => selected.has(item.key))
 		.map((item) => {
-			const skillEntry = skillEntryByKey.get(item.key);
-			if (skillEntry === undefined) {
-				throw new Error(`Review skill metadata missing for configured review ${item.key}`);
-			}
+			const skillEntry = reviewSkillEntryFromDefinition(item.key, item.definition);
 			return {
 				key: item.key,
 				description: item.definition.description,
@@ -255,10 +245,10 @@ export async function runReviewList(
 export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviewsDir}`, `Reviews: ${result.count}`];
 	const tripwires = result.reviews.filter(
-		(review) => reviewsReviewDisplayRole(review.modelProfile) === "tripwire",
+		(review) => reviewDisplayRole(review.modelProfile) === "tripwire",
 	);
 	const deepReviews = result.reviews.filter(
-		(review) => reviewsReviewDisplayRole(review.modelProfile) === "deep_review",
+		(review) => reviewDisplayRole(review.modelProfile) === "deep_review",
 	);
 	if (tripwires.length > 0) {
 		lines.push(`Tripwires: ${tripwires.length}`);
@@ -278,7 +268,7 @@ export async function runReviewByKey(
 	const priorFindingsContext = await loadPriorFindingsPromptContext(ctx, request);
 	return clinkrExitFromReviewRunOutcome(
 		ctx,
-		await runReviewsReview(ctx, {
+		await runReview(ctx, {
 			key: request.key,
 			...optionalEntries({
 				model: request.model,
@@ -317,7 +307,7 @@ async function loadPriorFindingsPromptContext(
 
 export function clinkrExitFromReviewRunOutcome(
 	ctx: Pick<ReviewsRuntime, "stderr">,
-	outcome: Awaited<ReturnType<typeof runReviewsReview>>,
+	outcome: Awaited<ReturnType<typeof runReview>>,
 ): ClinkrExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
 	ctx.stderr(
@@ -334,7 +324,7 @@ export function clinkrExitFromReviewRunOutcome(
 
 export function renderReviewRun(result: ReviewRunResult): string {
 	const lines = [
-		`${reviewsReviewRoleLabel(result.modelProfile)}: ${result.reviewName}`,
+		`${reviewRoleLabel(result.modelProfile)}: ${result.reviewName}`,
 		`Model: ${result.model}`,
 		`Base ref: ${result.baseRef}`,
 		`Findings: ${result.count}`,
@@ -453,7 +443,7 @@ export async function buildReviewLogResult(
 	return {
 		ok: true,
 		value: reviewLogResultSchema.parse({
-			namespace: REVIEWS_REVIEW_LOG_NAMESPACE,
+			namespace: REVIEW_LOG_NAMESPACE,
 			reviewKey: request.key ?? null,
 			count: entries.value.length,
 			entries: entries.value.map(reviewLogEntryResult),

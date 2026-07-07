@@ -5,33 +5,33 @@ import {
 
 import { reviewsExecPublishFindingsCommand } from "../commands/exec-publish-findings.ts";
 import { reviewsExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
-import { reviewsReviewListCommand } from "../commands/list.ts";
-import { reviewsReviewLogCommand } from "../commands/review-log.ts";
-import { reviewsReviewLsCommand } from "../commands/review-ls.ts";
-import { reviewsReviewRunCommand } from "../commands/review-run.ts";
+import { reviewListCommand } from "../commands/list.ts";
+import { reviewLogCommand } from "../commands/review-log.ts";
+import { reviewLsCommand } from "../commands/review-ls.ts";
+import { reviewRunCommand } from "../commands/review-run.ts";
 
 export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "reviews",
 	description: "Run configured code reviews and publish findings.",
 	commands: [
 		repoLocalNsCommandDescriptor({
-			command: reviewsReviewListCommand,
+			command: reviewListCommand,
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: reviewsReviewLsCommand,
+			command: reviewLsCommand,
 			manifestName: "review-ls",
 			manifestPath: ["review", "ls"],
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: reviewsReviewLogCommand,
+			command: reviewLogCommand,
 			manifestName: "review-log",
 			manifestPath: ["review", "log"],
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
-			command: reviewsReviewRunCommand,
+			command: reviewRunCommand,
 			manifestName: "review-run",
 			manifestPath: ["review", "run"],
 			packageExportPrefix: "@nseng-ai/reviews/commands",

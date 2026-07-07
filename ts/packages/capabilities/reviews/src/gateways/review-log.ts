@@ -10,9 +10,9 @@ import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
 import type { ReviewsEnvironmentOptions } from "../core/context.ts";
 import type { ReviewLogFailure, ReviewLogFailureCode, ReviewResult } from "../core/failures.ts";
 import type { ReviewInputCoverage, ReviewRunResult, ReviewUsage } from "../core/models.ts";
-import { reviewsReviewDisplayRole } from "../core/review-display.ts";
+import { reviewDisplayRole } from "../core/review-display.ts";
 
-export const REVIEWS_REVIEW_LOG_NAMESPACE = "reviews";
+export const REVIEW_LOG_NAMESPACE = "reviews";
 const REVIEW_LOG_PREFIX = "reviews";
 const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.md$/u;
 
@@ -74,7 +74,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 				const result = await putBrmemEntryFromFile({
 					gateway: this.execApi,
 					cwd: request.cwd,
-					namespace: REVIEWS_REVIEW_LOG_NAMESPACE,
+					namespace: REVIEW_LOG_NAMESPACE,
 					key: entryKey,
 					...(request.branch === undefined ? {} : { branch: request.branch }),
 					sourceFile: filePath,
@@ -104,7 +104,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 		const result = await listBrmemEntries({
 			gateway: this.execApi,
 			cwd: request.cwd,
-			namespace: REVIEWS_REVIEW_LOG_NAMESPACE,
+			namespace: REVIEW_LOG_NAMESPACE,
 			...(request.env === undefined ? {} : { env: request.env }),
 			signal: request.signal,
 		});
@@ -168,7 +168,7 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 		const key = reviewLogEntryKey({ reviewKey: request.reviewKey, ranAt: request.ranAt });
 		const branch = request.branch ?? this.branch;
 		const entry: WrittenReviewLogEntry = {
-			namespace: REVIEWS_REVIEW_LOG_NAMESPACE,
+			namespace: REVIEW_LOG_NAMESPACE,
 			key,
 			branch,
 			entryLocator: reviewLogEntryLocator(branch, key),
@@ -200,7 +200,7 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 		const reviewKey = seed.reviewKey === undefined ? (parsed?.reviewKey ?? null) : seed.reviewKey;
 		const ranAt = seed.ranAt === undefined ? (parsed?.ranAt ?? null) : seed.ranAt;
 		return {
-			namespace: REVIEWS_REVIEW_LOG_NAMESPACE,
+			namespace: REVIEW_LOG_NAMESPACE,
 			key: seed.key,
 			branch: seed.branch ?? this.branch,
 			entryLocator:
@@ -259,7 +259,7 @@ export function renderReviewLogMarkdown(
 }
 
 function renderReviewLogTitle(result: ReviewRunResult): string {
-	if (reviewsReviewDisplayRole(result.modelProfile) === "tripwire") {
+	if (reviewDisplayRole(result.modelProfile) === "tripwire") {
 		return `# Reviews Tripwire: ${result.reviewName}`;
 	}
 	return `# Reviews Review: ${result.reviewName}`;
@@ -370,7 +370,7 @@ function trimTrailingBlankLines(lines: readonly string[]): readonly string[] {
 }
 
 function reviewLogEntryLocator(branch: string, key: string): string {
-	return `refs/brmem/ns/${REVIEWS_REVIEW_LOG_NAMESPACE}/${branch.replaceAll("/", "---")}:${key}`;
+	return `refs/brmem/ns/${REVIEW_LOG_NAMESPACE}/${branch.replaceAll("/", "---")}:${key}`;
 }
 
 function sortReviewLogEntries(entries: readonly ReviewLogEntry[]): readonly ReviewLogEntry[] {

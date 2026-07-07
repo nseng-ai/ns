@@ -6,7 +6,7 @@ import {
 } from "./context.ts";
 import type { ReviewFailure, ReviewResult } from "./failures.ts";
 import type { PublishFindingsResult } from "./findings-publication.ts";
-import { REVIEWS_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
+import { REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import type {
 	LocalDiff,
 	ReviewDefinition,
@@ -32,13 +32,13 @@ import {
 } from "../operations/cli-operations.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import {
-	runReviewsReview,
-	type RunReviewsReviewOutcome,
-	type RunReviewsReviewProgress,
-	type RunReviewsReviewRequest,
+	runReview,
+	type RunReviewOutcome,
+	type RunReviewProgress,
+	type RunReviewRequest,
 } from "../operations/review-run.ts";
 
-export { REVIEWS_REVIEW_LOG_NAMESPACE };
+export { REVIEW_LOG_NAMESPACE };
 export type {
 	LocalDiff,
 	ReviewDefinition,
@@ -61,9 +61,9 @@ export type {
 	ReviewResult,
 	ReviewsRuntime,
 	ReviewsRunScope,
-	RunReviewsReviewOutcome,
-	RunReviewsReviewProgress,
-	RunReviewsReviewRequest,
+	RunReviewOutcome,
+	RunReviewProgress,
+	RunReviewRequest,
 };
 
 export interface ReviewsClientOptions {
@@ -84,7 +84,7 @@ export interface ReviewsClient {
 	listReviews(request?: Partial<ReviewListRequest>): Promise<ReviewResult<ReviewListResult>>;
 	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<ReviewResult<ReviewLogResult>>;
 	/** Runs a review and writes a Reviews review log through the configured review log gateway. */
-	runReview(request: RunReviewsReviewRequest): Promise<RunReviewsReviewOutcome>;
+	runReview(request: RunReviewRequest): Promise<RunReviewOutcome>;
 	/** Records same-session findings from stdin and writes a Reviews review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
 	/** Publishes a Reviews review-run envelope from stdin to GitHub. */
@@ -107,7 +107,7 @@ export function createReviewsClient(options: ReviewsClientOptions): ReviewsClien
 			return await buildReviewLogResult(getRuntime(), request);
 		},
 		async runReview(request) {
-			return await runReviewsReview(getRuntime(), request);
+			return await runReview(getRuntime(), request);
 		},
 		async recordFindings(request) {
 			return await recordSameSessionFindings(getRuntime(), request);

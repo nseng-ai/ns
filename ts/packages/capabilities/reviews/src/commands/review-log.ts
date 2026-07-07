@@ -11,7 +11,7 @@ import { reviewsNsCommand } from "../ns/command.ts";
 
 const REVIEW_LOG_DESCRIPTION = `List Branch Memory review log entries for this branch, optionally filtered by review key.`;
 
-export const reviewsReviewLogCommand = reviewsNsCommand({
+export const reviewLogCommand = reviewsNsCommand({
 	name: "log",
 	summary: "List Reviews review logs for this branch.",
 	description: REVIEW_LOG_DESCRIPTION,
@@ -25,7 +25,7 @@ export const reviewsReviewLogCommand = reviewsNsCommand({
 });
 
 export default defineExtension({
-	commands: [reviewsReviewLogCommand],
+	commands: [reviewLogCommand],
 });
 
-export type ReviewsReviewLogRequest = ReviewLogRequest;
+export type ReviewLogCommandRequest = ReviewLogRequest;

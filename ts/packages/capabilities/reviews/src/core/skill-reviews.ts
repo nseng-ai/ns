@@ -5,7 +5,7 @@ import {
 	type ReviewSource,
 } from "../gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
-import { reviewsReviewDisplayRole, type ReviewsReviewDisplayRole } from "./review-display.ts";
+import { reviewDisplayRole, type ReviewDisplayRole } from "./review-display.ts";
 import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
@@ -54,7 +54,7 @@ const REVIEW_SKILL_ROLE_TEXT = {
 		promptNoun: "review",
 	},
 } as const satisfies Record<
-	ReviewsReviewDisplayRole,
+	ReviewDisplayRole,
 	{ readonly labelPrefix: string; readonly promptNoun: string }
 >;
 
@@ -97,7 +97,7 @@ export async function loadReviewSkillDefinition(
 	};
 }
 
-function reviewSkillSurfaceForDefinition(key: string, role: ReviewsReviewDisplayRole): string {
+function reviewSkillSurfaceForDefinition(key: string, role: ReviewDisplayRole): string {
 	if (role === "tripwire" && key.endsWith("-tripwire")) return `skill:${key}`;
 	return `skill:review-${key}`;
 }
@@ -110,26 +110,26 @@ export function reviewPathForKey(key: string): string {
 	return `.ns/reviews/${key}/review.md`;
 }
 
-function reviewSkillTitleForDefinition(key: string, role: ReviewsReviewDisplayRole): string {
+function reviewSkillTitleForDefinition(key: string, role: ReviewDisplayRole): string {
 	const titleKey =
 		role === "tripwire" && key.endsWith("-tripwire") ? key.slice(0, -"-tripwire".length) : key;
 	const words = titleKey.split(/[/-]/u).filter((word) => word.length > 0);
 	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
 }
 
-function reviewSkillLabel(title: string, role: ReviewsReviewDisplayRole): string {
+function reviewSkillLabel(title: string, role: ReviewDisplayRole): string {
 	return `${REVIEW_SKILL_ROLE_TEXT[role].labelPrefix}: ${title}`;
 }
 
-function reviewDefaultPrompt(title: string, role: ReviewsReviewDisplayRole): string {
+function reviewDefaultPrompt(title: string, role: ReviewDisplayRole): string {
 	return `Run the ${title} ${REVIEW_SKILL_ROLE_TEXT[role].promptNoun} against the current branch changes.`;
 }
 
-function reviewSkillEntryFromDefinition(
+export function reviewSkillEntryFromDefinition(
 	key: string,
 	definition: ReviewDefinition,
 ): ReviewSkillEntry {
-	const role = reviewsReviewDisplayRole(definition.modelProfile);
+	const role = reviewDisplayRole(definition.modelProfile);
 	const title = reviewSkillTitleForDefinition(key, role);
 	return {
 		surface: reviewSkillSurfaceForDefinition(key, role),

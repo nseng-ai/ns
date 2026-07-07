@@ -37,10 +37,10 @@ export {
 	type PriorFindingsContext,
 } from "./prior-findings-context.ts";
 export {
-	runReviewsReview,
-	type RunReviewsReviewOutcome,
-	type RunReviewsReviewProgress,
-	type RunReviewsReviewRequest,
+	runReview,
+	type RunReviewOutcome,
+	type RunReviewProgress,
+	type RunReviewRequest,
 } from "../operations/review-run.ts";
 export type {
 	LocalDiffFailure,

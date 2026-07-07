@@ -36,14 +36,14 @@ export function createReviewListCommand(metadata: ReviewListCommandMetadata) {
 	});
 }
 
-export const reviewsReviewListCommand = createReviewListCommand({
+export const reviewListCommand = createReviewListCommand({
 	name: "list",
 	summary: "List configured Reviews review definitions.",
 	description: REVIEW_LIST_DESCRIPTION,
 });
 
 export default defineExtension({
-	commands: [reviewsReviewListCommand],
+	commands: [reviewListCommand],
 });
 
-export type ReviewsReviewListRequest = ReviewListRequest;
+export type ReviewListCommandRequest = ReviewListRequest;

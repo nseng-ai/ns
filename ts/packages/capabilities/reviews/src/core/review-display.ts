@@ -1,9 +1,9 @@
-export type ReviewsReviewDisplayRole = "tripwire" | "deep_review";
+export type ReviewDisplayRole = "tripwire" | "deep_review";
 
-export function reviewsReviewDisplayRole(modelProfile: string): ReviewsReviewDisplayRole {
+export function reviewDisplayRole(modelProfile: string): ReviewDisplayRole {
 	return modelProfile === "quick" ? "tripwire" : "deep_review";
 }
 
-export function reviewsReviewRoleLabel(modelProfile: string): "Tripwire" | "Deep review" {
-	return reviewsReviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Deep review";
+export function reviewRoleLabel(modelProfile: string): "Tripwire" | "Deep review" {
+	return reviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Deep review";
 }

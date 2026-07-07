@@ -11,7 +11,7 @@ import {
 	type ReviewFinding,
 	type ReviewInputCoverage,
 } from "./models.ts";
-import { reviewsReviewDisplayRole } from "./review-display.ts";
+import { reviewDisplayRole } from "./review-display.ts";
 
 const SUMMARY_MARKER_RE = /^<!-- (reviews:[^ ]+) -->$/;
 const INLINE_MARKER_PREFIX = "reviews-inline";
@@ -352,10 +352,7 @@ function parseJson(raw: string): unknown | null {
 }
 
 function renderFindingsCommentHeading(payload: FindingsPayload): string {
-	if (
-		payload.modelProfile !== null &&
-		reviewsReviewDisplayRole(payload.modelProfile) === "tripwire"
-	) {
+	if (payload.modelProfile !== null && reviewDisplayRole(payload.modelProfile) === "tripwire") {
 		return `## reviews tripwire · \`${payload.reviewName}\``;
 	}
 	return `## reviews · \`${payload.reviewName}\``;
@@ -363,7 +360,7 @@ function renderFindingsCommentHeading(payload: FindingsPayload): string {
 
 function inlineReviewLabel(modelProfile: string | null | undefined): "Tripwire" | "Review" {
 	if (modelProfile !== null && modelProfile !== undefined) {
-		return reviewsReviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Review";
+		return reviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Review";
 	}
 	return "Review";
 }
