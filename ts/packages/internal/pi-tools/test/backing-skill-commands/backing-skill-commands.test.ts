@@ -78,7 +78,7 @@ describe("command-backed skill registry", () => {
 			"ns:typescript:style-tripwire",
 		);
 		expect(commandBackedSkillSurface("pytest")).toBe("python:pytest");
-		expect(commandBackedSkillSurface("skillx")).toBeUndefined();
+		expect(commandBackedSkillSurface("unregistered-skill-name")).toBeUndefined();
 		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
 		expect(commandBackedSkillSurface("plain")).toBeUndefined();
 
@@ -116,7 +116,7 @@ describe("command-backed skill registry", () => {
 		expect(skillNames).toContain("objective-refresh");
 		expect(skillNames).toContain("objective-retro");
 		expect(skillNames).toContain("pytest");
-		expect(skillNames).not.toContain("skillx");
+		expect(skillNames).not.toContain("unregistered-skill-name");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");

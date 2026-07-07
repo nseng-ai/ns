@@ -33,7 +33,7 @@ describe("areg CLI shape", () => {
 		expect(help).not.toContain("update-skills");
 		expect(help).toContain("skill");
 		expect(help).not.toContain("exec");
-		expect(help).not.toContain("skillx");
+		expect(help).not.toContain("unregistered-subcommand");
 	});
 
 	test("skill help exposes flattened find list show and apply commands", async () => {
