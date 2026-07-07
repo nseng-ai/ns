@@ -15,4 +15,4 @@
 
 ## Parked
 
-- [ ] Push areg's remaining local logic (invocation-kind apply planning, `check` drift detection, skill find) down into `@nseng-ai/harness-artifacts`. **Trigger:** a second consumer needs that logic at runtime (e.g. `ns` grows a kind/overlay or drift surface). Decided constraints (2026-07-07, see `updates/20260707T170500Z-two-channel-layered-positioning.md`): no new `areg-core` package — the shared layer already exists as `@nseng-ai/harness-artifacts` (seeded by the earlier areg push-down); areg stays in `tools/` (zero inbound dependents), not `infra/` alongside brmem. **At this record's closure:** if untriggered, move this row to the `skill-management-subsystem` umbrella or retire it there with rationale — do not let it die silently in a closed record.
+No parked rows remain here. The areg push-down row moved to the `skill-management-subsystem` umbrella at closure.

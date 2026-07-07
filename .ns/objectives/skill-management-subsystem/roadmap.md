@@ -14,7 +14,8 @@
 - [x] Create the two graduated Subobjective records with mirrored edges and `[~]` rows here.
       **Done 2026-07-07**: `harness-artifact-vocabulary-reconciliation` and `remote-artifact-module-acquisition` created with mirrored edges; the acquisition child carries version-resolution-for-fetched-modules and restates the trust-gating risk acceptance in its Assumptions and Risks.
 
-- [~] Subobjective `harness-artifact-vocabulary-reconciliation`: the skill-workflow/docs/vocabulary reconciliation sweep plus the bare-"artifact" collision cleanup (edge-tracked). In flight; synthesize closure evidence here when it closes.
+- [x] Subobjective `harness-artifact-vocabulary-reconciliation`: the skill-workflow/docs/vocabulary reconciliation sweep plus the bare-"artifact" collision cleanup (edge-tracked).
+      **Closed 2026-07-07 as completed**: root `CONTEXT.md` carries the binding harness-artifact vocabulary cluster and Avoid entries; `CONTEXT-MAP.md` reflects harness overlays and the narrowed Skill/agent/resource ambiguity; areg's remaining local-logic push-down row moved into this umbrella's `## Parked` section.
 
 - [~] Subobjective `remote-artifact-module-acquisition`: first-party fetch path for artifact-bearing npm modules via an `ns.toml` declaration list, with per-source update/pinning semantics (edge-tracked). Design-heavy front; in flight; synthesize closure evidence here when it closes.
 
@@ -23,6 +24,8 @@
 ## Parked
 
 Deferred breadth from the 2026-07-06 steelthread reshape — widening the validated thread, as follow-on rows here or split-out Subobjectives:
+
+- [ ] Push areg's remaining local logic (invocation-kind apply planning, `check` drift detection, skill find) down into `@nseng-ai/harness-artifacts`. **Trigger:** a second consumer needs that logic at runtime (e.g. `ns` grows a kind/overlay or drift surface). Decided constraints (2026-07-07, see `harness-artifact-vocabulary-reconciliation/updates/20260707T170500Z-two-channel-layered-positioning.md`): no new `areg-core` package — the shared layer already exists as `@nseng-ai/harness-artifacts` (seeded by the earlier areg push-down); areg stays in `tools/` (zero inbound dependents), not `infra/` alongside brmem. Moved here 2026-07-07 at closure of subobjective `harness-artifact-vocabulary-reconciliation`.
 
 - [x] npm-module-bundled artifact provisioning (was "Extension-carried artifact provisioning"; merged with the AREG re-platform row).
       **Graduated 2026-07-06 into the Subobjective `npm-bundled-artifact-provisioning`; synthesized 2026-07-07** (edge-tracked). The child generalized first-party provisioning into static npm-module-bundled harness artifact declarations, landed additive npm-module source/provenance and manifest support in `@nseng-ai/harness-artifacts`, shipped the minimal top-level `ns update` reconcile slice, deliberately removed AREG's `npx skills` wrapping surfaces, and kept AREG as a standalone whole-project inspector with shared-manifest provenance/target-presence awareness. The proving-consumer finding: the shared core did need additive source-model/API changes, but the kernel kept zero artifact knowledge and consumers stayed thin. The retired dispositions still hold: no `npx skills` wrapping/replacement and no `skills-lock.json` / install-manifest convergence. Evidence: `updates/20260706T160000Z-npm-bundled-provisioning-and-areg-inspector-reframe.md` and `updates/20260707T002013Z-npm-bundled-provisioning-closure-synthesis.md`.
