@@ -28,6 +28,7 @@ export const intendedPublicPackages = [
 	"@nseng-ai/packagechk",
 	"@nseng-ai/vibechk",
 	"@nseng-ai/capability-kit",
+	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/flow",
 	"@nseng-ai/ccc",
 ];
@@ -47,6 +48,7 @@ export const publicPublishOrder = [
 	"@nseng-ai/foundation",
 	"@nseng-ai/kernel",
 	"@nseng-ai/capability-kit",
+	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/brmem",
 	"@nseng-ai/plans",
 	"@nseng-ai/branch-context",
@@ -269,5 +271,8 @@ function assertKernelExports(manifestByName) {
 		if (exports[subpath] !== expectedExports[subpath]) throw new Error(`@nseng-ai/kernel source manifest is missing ${subpath}`);
 	}
 	const nsManifest = manifestByName.get("@nseng-ai/ns")?.manifest;
-	if (nsManifest?.exports !== undefined) throw new Error("@nseng-ai/ns must not export kernel subpaths");
+	const nsExports = nsManifest?.exports ?? {};
+	for (const subpath of kernelPublicSubpaths.map((subpath) => `./kernel/${subpath}`)) {
+		if (nsExports[subpath] !== `./src${subpath.slice(1)}.ts`) throw new Error(`@nseng-ai/ns source manifest is missing ${subpath}`);
+	}
 }

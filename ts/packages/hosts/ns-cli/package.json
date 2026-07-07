@@ -1,6 +1,6 @@
 {
 	"name": "@nseng-ai/ns",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Checkout-free ns CLI package.",
 	"type": "module",
 	"bin": {
