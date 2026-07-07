@@ -43,6 +43,7 @@ export function registerBackingSkillCommands(host: BackingSkillCommandHost): voi
 				argumentHint: "[initial request]",
 				handler: async (args, ctx) => handleBackingSkillCommand({ host, spec, args, ctx }),
 			},
+			options: { delivery: "message" },
 		});
 	}
 }

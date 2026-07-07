@@ -32,11 +32,16 @@ function registerCommand(
 ): void {}
 
 class FakeBackingSkillHost {
+	readonly ackMessages: Array<{ customType: string; content: unknown; display: boolean }> = [];
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentMessages: string[] = [];
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
+	}
+
+	sendMessage(message: { customType: string; content: unknown; display: boolean }): void {
+		this.ackMessages.push(message);
 	}
 
 	sendUserMessage(content: string): void {
@@ -266,6 +271,13 @@ describe("registerBackingSkillCommands", () => {
 
 				await command?.handler("fix ```this``` please", commandContext(repoDir));
 
+				expect(host.ackMessages).toEqual([
+					expect.objectContaining({
+						content: "→ /code:workflows received; starting…",
+						customType: "ns-command-ack",
+						display: true,
+					}),
+				]);
 				expect(host.sentMessages).toHaveLength(1);
 				expect(host.sentMessages[0]).toContain(
 					`<skill name="code-workflows" location="${skillPath}">`,
