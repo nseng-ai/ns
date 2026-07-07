@@ -12,7 +12,10 @@ import {
 import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./stack/constants.ts";
 import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
-import { createLandRuntime, type LandRuntime } from "./stack/land-runtime.ts";
+import {
+	createStackLandingRuntime,
+	type StackLandingRuntime,
+} from "./stack/stack-landing-runtime.ts";
 import {
 	completed,
 	failure,
@@ -78,7 +81,7 @@ export async function executeStackLanding(
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
-	const runtime: LandRuntime = createLandRuntime(pi, commandStream, {
+	const runtime: StackLandingRuntime = createStackLandingRuntime(pi, commandStream, {
 		...optionalEntry("gitStateFs", options.gitStateFs),
 		...optionalEntry("graphite", options.graphite),
 	});

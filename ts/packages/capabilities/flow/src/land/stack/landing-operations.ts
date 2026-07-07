@@ -16,7 +16,7 @@ import {
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
 import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandingPlan, PullRequestFacts, WorktreeConflict } from "../types.ts";
 import type {
 	LandStackCommandContext,
@@ -199,7 +199,7 @@ export async function prepareMergeLoopState(
 }
 
 export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
-	runtime: LandRuntime;
+	runtime: StackLandingRuntime;
 	landContext: LandContext;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;

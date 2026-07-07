@@ -9,7 +9,7 @@ import {
 import { createLandContext } from "./land-context-adapter.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
-export interface LandRuntime {
+export interface StackLandingRuntime {
 	/** Original host API for non-streamed adapters and host-only capabilities. */
 	source: LandStackExtensionAPI;
 	/** Generic non-Graphite command execution with command-stream presentation. */
@@ -22,11 +22,11 @@ export interface LandRuntime {
 	gitStateFs?: GitWorktreeStateFs;
 }
 
-export function createLandRuntime(
+export function createStackLandingRuntime(
 	pi: LandStackExtensionAPI,
 	commandStream: LandStackCommandStream,
 	options: { gitStateFs?: GitWorktreeStateFs; graphite?: LandGraphiteCommandChannel } = {},
-): LandRuntime {
+): StackLandingRuntime {
 	const commands = withCommandStreaming(pi, commandStream);
 	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi, commandStream });
 	const landContext = createLandContext(commands, {

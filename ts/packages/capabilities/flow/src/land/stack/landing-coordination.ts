@@ -21,7 +21,7 @@ import {
 	presentBrief,
 	setStatus,
 } from "./presentation.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
 import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
@@ -34,7 +34,7 @@ export interface LandingSession {
 }
 
 interface PreparePlanForMergeOptions {
-	runtime: LandRuntime;
+	runtime: StackLandingRuntime;
 	landContext: LandContext;
 	session: LandingSession;
 	plan: LandingPlan;

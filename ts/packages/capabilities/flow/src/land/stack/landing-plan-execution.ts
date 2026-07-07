@@ -14,13 +14,13 @@ import {
 	presentDryRunLanding,
 	presentLandingSuccess,
 } from "./presentation.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
 import type { LandingWarning, ParsedArgs } from "./types.ts";
 
 interface ExecuteLandingPlanOptions {
-	runtime: LandRuntime;
+	runtime: StackLandingRuntime;
 	landContext: LandContext;
 	parsedArgs: ParsedArgs;
 	options: {
