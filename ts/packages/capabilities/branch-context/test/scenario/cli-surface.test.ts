@@ -335,8 +335,6 @@ describe("branch-context CLI surface pinning", () => {
 				refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
 				commit: "commit0000000000000000000000000000000002",
 				sourceFile: planFile,
-				requestedBranch: PLAN_SLUG,
-				selectedBranch: PLAN_SLUG,
 				branchSelection: {
 					type: "exact",
 					requestedBranch: PLAN_SLUG,
@@ -366,8 +364,6 @@ describe("branch-context CLI surface pinning", () => {
 				slug: PLAN_SLUG,
 				branch: `${PLAN_SLUG}-2`,
 				key: PLAN_KEY,
-				requestedBranch: PLAN_SLUG,
-				selectedBranch: `${PLAN_SLUG}-2`,
 				branchSelection: {
 					type: "auto-suffixed",
 					requestedBranch: PLAN_SLUG,
@@ -485,8 +481,6 @@ describe("branch-context CLI surface pinning", () => {
 						refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
 						commit: "commit0000000000000000000000000000000002",
 						sourceFile: planFile,
-						requestedBranch: branch,
-						selectedBranch: branch,
 						branchSelection: {
 							type: "exact",
 							requestedBranch: branch,

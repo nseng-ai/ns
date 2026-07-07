@@ -25,12 +25,12 @@ export type BranchContextContextFactory<Args extends unknown[]> = (
 ) => BranchContextContext;
 
 export function createBranchContextContext(
-	commands: StdinCapableCommandExecApi,
+	commands: CommandExecApi,
 	options: BranchContextContextOptions = {},
 ): BranchContextContext {
 	const cwd = options.cwd ?? process.cwd();
 	const git = new RealGitGateway(commands);
-	const brmemCommands = options.brmemCommands ?? commands;
+	const brmemCommands = options.brmemCommands ?? new NodeCommandExecApi();
 	const brmemGit = brmemCommands === commands ? git : new RealGitGateway(brmemCommands);
 	const brmem = new RealGitBrmemGateway({ cwd, commands: brmemCommands, git: brmemGit });
 	return {

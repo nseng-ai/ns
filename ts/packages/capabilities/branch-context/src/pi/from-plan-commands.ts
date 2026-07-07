@@ -4,7 +4,6 @@ import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
@@ -249,28 +248,23 @@ class CreateBranchContextUsageError extends Error {
 }
 
 function shouldResolveTargetBranchInPreview(options: BranchContextExtensionOptions): boolean {
-	return options.resolveTargetBranchInPreview ?? options.branchContextOperations === undefined;
+	return (
+		options.shouldResolveTargetBranchInPreview ?? options.branchContextOperations === undefined
+	);
 }
 
 function resolveBranchContextContext(
 	pi: ExtensionAPI,
 	cwd: string,
 	options: BranchContextExtensionOptions,
-	contextOptions: { useRealBrmemCommands?: boolean } = {},
 ) {
 	if (options.createBranchContextContext !== undefined) {
 		return options.createBranchContextContext(pi, cwd);
 	}
 	if (pi.exec !== undefined) {
 		return createBranchContextContext(
-			{
-				supportsStdin: true,
-				exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
-			},
-			{
-				cwd,
-				...(contextOptions.useRealBrmemCommands ? { brmemCommands: new NodeCommandExecApi() } : {}),
-			},
+			{ exec: (command, args, execOptions) => pi.exec(command, args, execOptions) },
+			{ cwd },
 		);
 	}
 	return createRealBranchContextContext({ cwd });
@@ -428,9 +422,7 @@ export async function deriveCreateBranchContextPreview(
 		slug: slugEvidence.slug,
 		filePath: selectedFile.filePath,
 		branchCreation,
-		...(target.branchNameForCreation === undefined
-			? {}
-			: { branchName: target.branchNameForCreation }),
+		...optionalEntry("branchName", target.branchNameForCreation),
 	});
 	let selectedOperation = requestedOperation;
 	if (shouldResolveTargetBranchInPreview(options)) {
@@ -451,9 +443,7 @@ export async function deriveCreateBranchContextPreview(
 		planKey,
 		requestedBranch: target.targetBranch,
 		targetBranch: selectedOperation.branch,
-		...(target.branchNameForCreation === undefined
-			? {}
-			: { branchNameForCreation: target.branchNameForCreation }),
+		...optionalEntry("branchNameForCreation", target.branchNameForCreation),
 		isExplicitTargetBranch: target.isExplicitTargetBranch,
 		branchSelection: selectedOperation.branchSelection,
 		branchCreation,
@@ -1001,9 +991,7 @@ async function createBranchContextFromPreview({
 
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
-		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions, {
-			useRealBrmemCommands: true,
-		}),
+		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
 	});
 }
 

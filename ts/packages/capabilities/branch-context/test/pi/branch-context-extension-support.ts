@@ -16,11 +16,7 @@ import {
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import type {
-	ExecOptions,
-	ExecResult,
-	StdinCapableCommandExecApi,
-} from "@nseng-ai/foundation/command";
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
@@ -87,6 +83,7 @@ export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly execCalls: ExecCall[] = [];
+	readonly defaultBranchAvailabilityProbeCalls: ExecCall[] = [];
 	readonly sentMessages: SentMessage[] = [];
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
@@ -106,11 +103,12 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
 		const defaultResult = defaultBranchAvailabilityResult(command, args);
 		if (defaultResult !== undefined) {
+			this.defaultBranchAvailabilityProbeCalls.push({ command, args: [...args], options });
 			return defaultResult;
 		}
+		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -161,14 +159,15 @@ export function branchContextExtensionTestOptions(
 ): BranchContextExtensionOptions {
 	return {
 		branchContextOperations: operations,
-		resolveTargetBranchInPreview: true,
+		shouldResolveTargetBranchInPreview: true,
 		createBranchContextContext(pi, cwd) {
-			const stdinCapablePi: StdinCapableCommandExecApi = {
-				supportsStdin: true,
-				exec: (command, args, options) => pi.exec(command, args, options),
-			};
 			return {
-				...createBranchContextContext(stdinCapablePi, { cwd }),
+				...createBranchContextContext(
+					{ exec: (command, args, options) => pi.exec(command, args, options) },
+					{
+						cwd,
+					},
+				),
 				brmem: new InMemoryBranchMemoryGateway({
 					currentBranch: SOURCE_BRANCH,
 					entries: entries.map((entry) => ({
@@ -355,16 +354,6 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 		code: overrides.code ?? 0,
 		killed: overrides.killed ?? false,
 	};
-}
-
-export function isDefaultBranchAvailabilityProbe(
-	call: Pick<ExecCall, "command" | "args">,
-): boolean {
-	return defaultBranchAvailabilityResult(call.command, call.args) !== undefined;
-}
-
-export function nonAvailabilityExecCalls(calls: readonly ExecCall[]): ExecCall[] {
-	return calls.filter((call) => !isDefaultBranchAvailabilityProbe(call));
 }
 
 function defaultBranchAvailabilityResult(command: string, args: string[]): ExecResult | undefined {

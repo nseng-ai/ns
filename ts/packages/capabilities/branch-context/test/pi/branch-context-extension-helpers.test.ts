@@ -22,7 +22,6 @@ import {
 	TARGET_BRANCH,
 	FakePi,
 	contentSlugEvidence,
-	isDefaultBranchAvailabilityProbe,
 } from "./branch-context-extension-support.ts";
 
 function expectBranchCreationPolicyPrecedence(text: string): void {
@@ -49,8 +48,8 @@ describe("FakePi exec recording", () => {
 
 		await pi.exec("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`]);
 
-		expect(pi.execCalls).toHaveLength(1);
-		expect(isDefaultBranchAvailabilityProbe(pi.execCalls[0]!)).toBe(true);
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.defaultBranchAvailabilityProbeCalls).toHaveLength(1);
 	});
 });
 

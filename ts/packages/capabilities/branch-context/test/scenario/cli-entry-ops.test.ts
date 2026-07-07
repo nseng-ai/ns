@@ -55,10 +55,7 @@ describe("branch-context exec", () => {
 				summary: "Create it",
 			},
 		});
-		expect(run.brmem.attachmentPresenceCalls).toEqual([
-			{ branch, key: PLAN_KEY },
-			{ branch, key: PLAN_KEY },
-		]);
+		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: PLAN_KEY }]);
 		expect(run.brmem.attachPlanCalls).toMatchObject([
 			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: PLAN_KEY, content: "# Plan\n" },
 		]);

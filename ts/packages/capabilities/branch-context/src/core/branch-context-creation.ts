@@ -1,5 +1,5 @@
 import type { BranchContextAttachData } from "./branch-memory.ts";
-import { assertBrmemEntryAbsent, attachBranchContext, AttachBranchContextError } from "./attach.ts";
+import { attachBranchContext, AttachBranchContextError } from "./attach.ts";
 import { checkBranchContextEntryPresence, throwBranchContextBrmemError } from "./branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
@@ -83,14 +83,17 @@ export interface BranchContextCreatePreviewContext {
 	graphiteParentBranch?: string;
 }
 
-export interface CreateBranchContextFromResolvedSourceOptions {
+interface BranchContextRepoAccess {
 	cwd: string;
-	operation: BranchContextCreateOperation;
-	sourceFile: string;
 	git: GitGateway;
 	brmem: BrmemGateway;
-	graphite: GraphiteBranchGateway;
 	signal?: AbortSignal;
+}
+
+export interface CreateBranchContextFromResolvedSourceOptions extends BranchContextRepoAccess {
+	operation: BranchContextCreateOperation;
+	sourceFile: string;
+	graphite: GraphiteBranchGateway;
 }
 
 export async function createBranchContextFromFile(
@@ -297,18 +300,15 @@ export function deriveTargetBranch(branchName: string | undefined, slug: string)
 	return trimmedBranchName && trimmedBranchName.length > 0 ? trimmedBranchName : slug;
 }
 
-export async function selectBranchContextCreateOperationTarget(options: {
-	cwd: string;
-	operation: BranchContextCreateOperation;
-	git: GitGateway;
-	brmem: BrmemGateway;
-	isExplicitTargetBranch: boolean;
-	signal?: AbortSignal;
-}): Promise<BranchContextCreateOperation> {
+export async function selectBranchContextCreateOperationTarget(
+	options: BranchContextRepoAccess & {
+		operation: BranchContextCreateOperation;
+		isExplicitTargetBranch: boolean;
+	},
+): Promise<BranchContextCreateOperation> {
 	const maxAttempts = 100;
 	const requestedBranch = options.operation.branch;
 	if (options.isExplicitTargetBranch) {
-		await assertSelectedTargetBranchStillAvailable(options);
 		return withBranchSelection(options.operation, exactBranchSelection(requestedBranch));
 	}
 
@@ -323,7 +323,7 @@ export async function selectBranchContextCreateOperationTarget(options: {
 			key: options.operation.key,
 			...optionalEntry("signal", options.signal),
 		});
-		if (!occupancy.isLocalBranch && !occupancy.hasAttachedPlan) {
+		if (!occupancy.collision.isLocalBranch && !occupancy.collision.hasAttachedPlan) {
 			const selection =
 				collisions.length === 0
 					? exactBranchSelection(candidate)
@@ -335,7 +335,7 @@ export async function selectBranchContextCreateOperationTarget(options: {
 						};
 			return withBranchSelection(options.operation, selection);
 		}
-		collisions.push({ branch: candidate, ...occupancy });
+		collisions.push({ branch: candidate, ...occupancy.collision });
 	}
 
 	throw new Error(
@@ -372,54 +372,85 @@ async function resolveStartPoint(
 	return head.value;
 }
 
-async function assertLocalBranchAbsent(
-	git: GitGateway,
-	cwd: string,
-	targetBranch: string,
-	signal: AbortSignal | undefined,
-): Promise<void> {
-	const check = await git.localBranchPresence({ cwd, branch: targetBranch, signal });
-	if (check.type === "absent") {
-		return;
-	}
-	if (check.type === "present") {
-		throw new Error(
-			[
-				"Target branch already exists; refusing to overwrite.",
-				`Branch: ${targetBranch}`,
-				`Ref: ${check.refName}`,
-				`Command: ${check.displayCommand}`,
-			].join("\n"),
-		);
-	}
-	throw new Error(check.error.message);
-}
-
-interface SelectedBranchAvailabilityOptions {
-	cwd: string;
+interface SelectedBranchAvailabilityOptions extends BranchContextRepoAccess {
 	operation: BranchContextCreateOperation;
-	git: GitGateway;
-	brmem: BrmemGateway;
-	signal?: AbortSignal;
 }
 
 async function assertSelectedTargetBranchStillAvailable(
 	options: SelectedBranchAvailabilityOptions,
 ): Promise<void> {
-	await assertLocalBranchAbsent(options.git, options.cwd, options.operation.branch, options.signal);
-	await assertBrmemEntryAbsent(options.brmem, options.operation.branch, options.operation.key, {
-		formatPresentMessage: formatStaleTargetBranchMemoryMessage,
+	const occupancy = await checkTargetBranchOccupancy({
+		cwd: options.cwd,
+		git: options.git,
+		brmem: options.brmem,
+		branch: options.operation.branch,
+		key: options.operation.key,
+		stopAfterLocalBranch: true,
+		...optionalEntry("signal", options.signal),
 	});
+	if (occupancy.localBranch !== undefined) {
+		throw new Error(
+			[
+				"Target branch already exists; refusing to overwrite.",
+				`Branch: ${options.operation.branch}`,
+				`Ref: ${occupancy.localBranch.refName}`,
+				`Command: ${occupancy.localBranch.displayCommand}`,
+			].join("\n"),
+		);
+	}
+	if (occupancy.collision.hasAttachedPlan) {
+		throw new Error(
+			formatStaleTargetBranchMemoryMessage({
+				targetBranch: options.operation.branch,
+				key: options.operation.key,
+			}),
+		);
+	}
 }
 
-async function checkTargetBranchOccupancy(options: {
-	cwd: string;
-	git: GitGateway;
-	brmem: BrmemGateway;
+interface CheckTargetBranchOccupancyOptions extends BranchContextRepoAccess {
 	branch: string;
 	key: string;
-	signal?: AbortSignal;
-}): Promise<{ isLocalBranch: boolean; hasAttachedPlan: boolean }> {
+	stopAfterLocalBranch?: boolean;
+}
+
+interface TargetBranchOccupancy {
+	collision: Omit<BranchContextBranchSelectionCollision, "branch">;
+	localBranch?: LocalBranchPresence;
+}
+
+interface LocalBranchPresence {
+	refName: string;
+	displayCommand: string;
+}
+
+async function checkTargetBranchOccupancy(
+	options: CheckTargetBranchOccupancyOptions,
+): Promise<TargetBranchOccupancy> {
+	const localBranch = await checkLocalBranchPresence(options);
+	if (localBranch !== undefined && options.stopAfterLocalBranch === true) {
+		return {
+			collision: { isLocalBranch: true, hasAttachedPlan: false },
+			localBranch,
+		};
+	}
+	const hasAttachedPlan = await checkAttachedPlanPresence(
+		options.brmem,
+		options.branch,
+		options.key,
+	);
+	return {
+		collision: {
+			isLocalBranch: localBranch !== undefined,
+			hasAttachedPlan,
+		},
+		...optionalEntry("localBranch", localBranch),
+	};
+}
+
+async function checkLocalBranchPresence(
+	options: Pick<CheckTargetBranchOccupancyOptions, "cwd" | "git" | "branch" | "signal">,
+): Promise<LocalBranchPresence | undefined> {
 	const localBranch = await options.git.localBranchPresence({
 		cwd: options.cwd,
 		branch: options.branch,
@@ -428,17 +459,22 @@ async function checkTargetBranchOccupancy(options: {
 	if (localBranch.type === "error") {
 		throw new Error(localBranch.error.message);
 	}
-	const attachedPlan = await checkBranchContextEntryPresence(options.brmem, {
-		branch: options.branch,
-		key: options.key,
-	});
+	if (localBranch.type === "absent") {
+		return undefined;
+	}
+	return { refName: localBranch.refName, displayCommand: localBranch.displayCommand };
+}
+
+async function checkAttachedPlanPresence(
+	brmem: BrmemGateway,
+	branch: string,
+	key: string,
+): Promise<boolean> {
+	const attachedPlan = await checkBranchContextEntryPresence(brmem, { branch, key });
 	if (attachedPlan.type === "error") {
 		throwBranchContextBrmemError(attachedPlan.error);
 	}
-	return {
-		isLocalBranch: localBranch.type === "present",
-		hasAttachedPlan: attachedPlan.type === "present",
-	};
+	return attachedPlan.type === "present";
 }
 
 function exactBranchSelection(branch: string): BranchContextBranchSelection {
