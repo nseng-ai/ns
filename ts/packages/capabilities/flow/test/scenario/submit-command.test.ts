@@ -532,6 +532,119 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).not.toContain("git diff feature/top..feature/upstack");
 	});
 
+	test("pre-submit metadata amend failure reports concise cause and raw diagnostics", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: { stdout: "ready\n" },
+					},
+					{
+						match: "gt log --stack --reverse --no-interactive",
+						result: {
+							stdout: "◯ main\n◯ feature/base\n◯ feature/mid\n◉ feature/top (current)\n",
+						},
+					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+					{
+						match: "gt branch info --no-interactive --branch feature/base",
+						result: { stdout: "Parent: main\n" },
+					},
+					{
+						match: "gt branch info --no-interactive --branch feature/mid",
+						result: { stdout: "Parent: feature/base\n" },
+					},
+					{
+						match: "gt branch info --no-interactive --branch feature/top",
+						result: { stdout: "Parent: feature/mid\n" },
+					},
+					{
+						match: "git log --format=%B%x00 main..feature/base",
+						result: { stdout: "Add base\0" },
+					},
+					{
+						match: "git diff main..feature/base",
+						result: { stdout: "diff --git a/src/base.ts b/src/base.ts\n" },
+					},
+					{
+						match: "git log --format=%B%x00 feature/base..feature/mid",
+						result: { stdout: "Add mid\0" },
+					},
+					{
+						match: "git diff feature/base..feature/mid",
+						result: { stdout: "diff --git a/src/mid.ts b/src/mid.ts\n" },
+					},
+					{
+						match: "git log --format=%B%x00 feature/mid..feature/top",
+						result: { stdout: "Add top\0" },
+					},
+					{
+						match: "git diff feature/mid..feature/top",
+						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
+					},
+					{ match: "git status --porcelain", result: { stdout: "" } },
+					{
+						match:
+							"gt modify --no-interactive --into feature/base -m Generated PR -m Generated body",
+						result: {},
+					},
+					{
+						match:
+							"gt modify --no-interactive --into feature/mid -m Generated PR -m Generated body",
+						result: {
+							code: 1,
+							stderr: "Graphite cannot modify branch: descendants need restack\n",
+						},
+					},
+				],
+				textGeneration: [
+					{ ok: true, text: defaultPrDescriptionText() },
+					{ ok: true, text: defaultPrDescriptionText() },
+					{ ok: true, text: defaultPrDescriptionText() },
+					{ ok: false, error: "submit failure interpretation unavailable" },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Could not amend local PR metadata for feature/mid");
+		expect(error).toContain("Submission was not attempted");
+		expect(error).toContain(
+			"Cause: gt exited 1: Graphite cannot modify branch: descendants need restack",
+		);
+		expect(error).toContain("Local PR metadata commit messages were amended before the failure:");
+		expect(error).toContain("- feature/base");
+		expect(error).toContain("Raw log:");
+		expect(
+			formattedExecCalls(run.context).some(
+				(call) =>
+					call.startsWith("gt submit --no-edit --publish --no-stack") &&
+					!call.endsWith("--dry-run"),
+			),
+		).toBe(false);
+
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		const rawLog = await readFile(rawPath ?? "", "utf8");
+		expect(rawLog).toContain("phase: pre-submit metadata");
+		expect(rawLog).toContain("code: submit_metadata_amend_failed");
+		expect(rawLog).toContain("message: Could not amend local PR metadata commit for feature/mid.");
+		expect(rawLog).toContain("command: gt");
+		expect(rawLog).toContain(
+			"args: modify --no-interactive --into feature/mid -m Generated PR -m Generated body",
+		);
+		expect(rawLog).toContain("exit_code: 1");
+		expect(rawLog).toContain("stderr: Graphite cannot modify branch: descendants need restack");
+		expect(rawLog).toContain("Local PR metadata commit messages were amended before the failure:");
+		expect(rawLog).toContain("- feature/base");
+	});
+
 	test("accepts submit-output PR links when current PR verification lags", async () => {
 		const run = runWithFakes({
 			state: {
