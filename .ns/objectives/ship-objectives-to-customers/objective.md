@@ -1,5 +1,4 @@
 ---
-blocked: First external publish is gated on the checkout-free-sdl-distribution hard dependency landing — a customer cannot install `ns` from npm and run it checkout-free until it does.
 edges:
   - objective: checkout-free-sdl-distribution
     annotation: Consumed as a hard dependency; checkout-free npm distribution of `ns` must land before objectives ship externally.
