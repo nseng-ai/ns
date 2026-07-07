@@ -57,13 +57,4 @@ export type {
 	ReviewRunnerFailure,
 	ReviewRunnerFailureCode,
 } from "./failures.ts";
-export {
-	loadReviewSkillDefinition,
-	loadReviewSkillEntries,
-	reviewPathForKey,
-	reviewsRunSurfaceForReviewKey,
-	type LoadReviewSkillDefinitionOptions,
-	type LoadReviewSkillEntriesOptions,
-	type ReviewSkillDefinitionLoadResult,
-	type ReviewSkillEntry,
-} from "./skill-reviews.ts";
+export { reviewsRunSurfaceForReviewKey, type ReviewSkillEntry } from "./skill-reviews.ts";

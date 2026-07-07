@@ -36,7 +36,7 @@ import {
 import { applicableReviewKeys } from "../core/review-applicability.ts";
 import { reviewDisplayRole, reviewRoleLabel } from "../core/review-display.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
-import { reviewPathForKey, reviewSkillEntryFromDefinition } from "../core/skill-reviews.ts";
+import { reviewSkillEntryFromDefinition } from "../core/skill-reviews.ts";
 import { loadReviewExecutionContext, runReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
@@ -54,9 +54,6 @@ export const reviewListRequestSchema = z.object({
 export const reviewSkillMetadataSchema = z.object({
 	surface: nonBlankStringSchema,
 	label: nonBlankStringSchema,
-	reviewPath: nonBlankStringSchema,
-	title: nonBlankStringSchema,
-	defaultPrompt: nonBlankStringSchema,
 });
 
 export const reviewMetadataSchema = z.object({
@@ -218,9 +215,6 @@ export async function buildReviewListResult(
 				reviewSkill: {
 					surface: skillEntry.surface,
 					label: skillEntry.label,
-					reviewPath: reviewPathForKey(skillEntry.reviewKey),
-					title: skillEntry.title,
-					defaultPrompt: skillEntry.defaultPrompt,
 				},
 			};
 		});
