@@ -139,7 +139,6 @@ function parseDeclarations(options: {
 }): ParseModuleArtifactDeclarationResult {
 	const diagnostics: ModuleArtifactDeclarationDiagnostic[] = [];
 	const artifacts: SkillHarnessArtifactEntry[] = [];
-	const acceptedNames = new Set<string>();
 	const duplicateNames = duplicateDeclarationNames(options.declarations);
 	for (const declaration of options.declarations) {
 		const parsed = declarationObjectSchema.safeParse(declaration);
@@ -169,10 +168,8 @@ function parseDeclarations(options: {
 			packageName: options.packageName,
 			declaration: skillDeclaration,
 			duplicateNames,
-			acceptedNames,
 		});
 		if (artifact.ok) {
-			acceptedNames.add(artifact.artifact.name);
 			artifacts.push(artifact.artifact);
 		} else {
 			diagnostics.push(...artifact.diagnostics);
@@ -192,7 +189,6 @@ function parseSkillDeclaration(options: {
 	packageName: string;
 	declaration: RawSkillDeclaration;
 	duplicateNames: ReadonlySet<string>;
-	acceptedNames: ReadonlySet<string>;
 }):
 	| { ok: true; artifact: SkillHarnessArtifactEntry }
 	| { ok: false; diagnostics: readonly ModuleArtifactDeclarationDiagnostic[] } {
@@ -223,9 +219,6 @@ function parseSkillDeclaration(options: {
 	}
 	if (diagnostics.length > 0 || name === undefined || relativePath === undefined) {
 		return { ok: false, diagnostics };
-	}
-	if (options.acceptedNames.has(name)) {
-		return { ok: false, diagnostics: [] };
 	}
 	const description = readNonEmptyString(options.declaration.description);
 	return {

@@ -22,19 +22,12 @@ import {
 	type InstallManifestEntryData,
 } from "@nseng-ai/harness-artifacts/api";
 
-import {
-	AREG_SKILL_KIND_ROOT_DESCRIPTORS,
-	groupBySkillName,
-	skillKindDescriptorForSourceType,
-} from "../gateways.ts";
+import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	AregErrorInfo,
 	AregGitGateway,
-	AregManifestInspectionError,
-	AregManifestSkillSourceInspection,
-	AregManifestSkillSourcesInspection,
 	AregPiSkillInventoryInspection,
 	AregProjectFileDeleteRequest,
 	AregProjectGateway,
@@ -52,7 +45,6 @@ import type {
 	TextFileState,
 } from "../gateways.ts";
 import { errorInfo } from "./errors.ts";
-import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
 import {
 	inspectPath,
 	inspectTextFile,
@@ -65,6 +57,11 @@ import {
 	validateSkillKindRemoveDirTarget,
 	validateWriteTarget,
 } from "./project-fs.ts";
+import type {
+	AregManifestInspectionError,
+	AregManifestSkillSourceInspection,
+	AregManifestSkillSourcesInspection,
+} from "../operations/manifest-sources.ts";
 import { classifyResolvedSkillKindInspection } from "./skill-kind-classification.ts";
 
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
@@ -131,7 +128,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		projectDir: string;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregSkillFindRootsInspection> {
-		return { skills: await inspectSkillFindRoots(request.projectDir, request.env) };
+		return { skills: await inspectSkillFindRoots(request.projectDir) };
 	}
 
 	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
@@ -202,7 +199,6 @@ export class RealAregProjectGateway implements AregProjectGateway {
 	async writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
 		const target = await resolveWriteTextFileTarget(request);
 		if (target.type === "error") return { ok: false, error: target.error };
-		const policyDescriptor = getAregProjectMutationPolicyDescriptor(request.policy);
 		if (request.createParent) {
 			try {
 				await mkdir(path.dirname(target.value), { recursive: true });
@@ -210,13 +206,12 @@ export class RealAregProjectGateway implements AregProjectGateway {
 				return {
 					ok: false,
 					error: errorInfo(
-						policyDescriptor.parentCreateFailedCode,
+						"skill-kind-parent-create-failed",
 						`Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`,
 					),
 				};
 			}
 			const revalidation = await validateWriteTarget({
-				policy: request.policy,
 				target: target.value,
 				projectRoot: target.projectRoot,
 				shouldCreateParent: request.createParent,
@@ -231,7 +226,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			return {
 				ok: false,
 				error: errorInfo(
-					policyDescriptor.writeFailedCode,
+					"skill-kind-write-failed",
 					`Failed to write ${request.description} at ${target.value}: ${formatErrorMessage(error)}`,
 				),
 			};
@@ -304,7 +299,6 @@ async function resolveWriteTextFileTarget(
 	const target = await resolveProjectMutationTarget(request);
 	if (target.type === "error") return target;
 	const validation = await validateWriteTarget({
-		policy: request.policy,
 		target: target.value,
 		projectRoot: target.projectRoot,
 		shouldCreateParent: request.createParent,
@@ -371,7 +365,6 @@ async function resolveRemoveEmptyDirTarget(
 
 async function resolveProjectMutationTarget(request: {
 	projectDir: string;
-	policy: AregProjectTextWriteRequest["policy"];
 	relativePath: string;
 	description: string;
 }): Promise<
@@ -380,7 +373,6 @@ async function resolveProjectMutationTarget(request: {
 	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
 	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
 	const target = resolveAllowedWriteTarget({
-		policy: request.policy,
 		projectRoot: projectRoot.value,
 		relativePath: request.relativePath,
 		description: request.description,
@@ -552,13 +544,8 @@ function sortManifestSkillSources(
 	);
 }
 
-async function inspectSkillFindRoots(
-	projectDir: string,
-	env: NodeJS.ProcessEnv,
-): Promise<AregSkillFindSkillInspection[]> {
+async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
-	const manifestInspection = await inspectManifestSkillSources(projectDir, env);
-	const manifestSourcesBySkill = groupBySkillName(manifestInspection.sources);
 	for (const root of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
 		const rootPath = toProjectPath(projectDir, root.root);
 		const entries = await scanSkillRootEntries(rootPath, {
@@ -570,7 +557,6 @@ async function inspectSkillFindRoots(
 		for (const entry of entries) {
 			const baseRelativePath = skillLookupBaseRelativePath(root.root, entry.name);
 			const basePath = path.join(rootPath, entry.name);
-			const manifestSources = manifestSourcesBySkill.get(entry.name);
 			skills.push({
 				name: entry.name,
 				root: root.root,
@@ -578,7 +564,6 @@ async function inspectSkillFindRoots(
 				baseRelativePath,
 				skillDir: await inspectPath(basePath),
 				skillMd: entry.skillMd,
-				...(manifestSources === undefined ? {} : { manifestSources }),
 			});
 		}
 	}

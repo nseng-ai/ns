@@ -16,7 +16,8 @@ import {
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { AregCliContext } from "../context.ts";
-import { classifyManifestSkillSource, missingCheckSkillInspection } from "../gateways.ts";
+import { missingCheckSkillInspection } from "../gateways.ts";
+import { manifestSourceFinding } from "./manifest-sources.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { isPathStateError } from "./file-state.ts";
 import { verifyPiReplacement } from "./pi-replacement.ts";
@@ -192,25 +193,8 @@ function checkManifestSkillSources(inspection: CheckProjectInspection): CheckIss
 		issues.push(issue("project", "invalid-install-manifest", error.message));
 	}
 	for (const source of inspection.manifestSkillSources.sources) {
-		const sourceLabel = `Shared manifest entry ${source.manifestKey} from ${source.source.packageName}@${source.source.version}`;
-		const sourceStatus = classifyManifestSkillSource(source);
-		if (sourceStatus === "target-missing") {
-			issues.push(
-				issue(
-					source.skillName,
-					"manifest-skill-target-missing",
-					`${sourceLabel} targets ${source.targetSkillRelativePath}, but the skill directory is missing`,
-				),
-			);
-		} else if (sourceStatus === "md-missing") {
-			issues.push(
-				issue(
-					source.skillName,
-					"manifest-skill-md-missing",
-					`${sourceLabel} targets ${source.targetSkillRelativePath}, but SKILL.md is missing`,
-				),
-			);
-		}
+		const finding = manifestSourceFinding(source);
+		if (finding !== undefined) issues.push(issue(source.skillName, finding.code, finding.message));
 	}
 	return issues;
 }

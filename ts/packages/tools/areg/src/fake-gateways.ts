@@ -7,16 +7,11 @@ import {
 	type SkillLookupSourceType,
 } from "@nseng-ai/foundation/skill-lookup";
 
-import { groupBySkillName, missingCheckSkillInspection } from "./gateways.ts";
+import { missingCheckSkillInspection } from "./gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	AregErrorInfo,
-	AregGithubGateway,
-	AregManifestSkillSourceInspection,
-	AregManifestSkillSourcesInspection,
-	AregGithubSkillFileResult,
-	AregGithubSkillListResult,
 	PathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
@@ -29,7 +24,6 @@ import type {
 	AregProjectRemoveEmptyDirResult,
 	AregProjectSymlinkDeleteRequest,
 	AregProjectTextWriteRequest,
-	AregPromptGateway,
 	AregSkillFindRootsInspection,
 	AregSkillFindSkillInspection,
 	AregSkillInspectionRequest,
@@ -39,6 +33,10 @@ import type {
 	AregSkillKindSourceType,
 	TextFileState,
 } from "./gateways.ts";
+import type {
+	AregManifestSkillSourceInspection,
+	AregManifestSkillSourcesInspection,
+} from "./operations/manifest-sources.ts";
 import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-classification.ts";
 import {
 	classifySkillMirrorSymlinkState,
@@ -107,7 +105,6 @@ export interface FakeAregSkillFindSkillOptions {
 	baseRelativePath?: string;
 	skillDir?: PathState;
 	skillMd?: TextFileState | string;
-	manifestSources?: readonly FakeAregManifestSkillSourceOptions[];
 }
 
 export interface FakeAregProjectGatewayOptions {
@@ -346,7 +343,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			content: request.content,
 			description: request.description,
 			createParent: request.createParent,
-			policy: request.policy,
 		});
 		const failure = this.preflightFailure(request.relativePath);
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
@@ -360,7 +356,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: request.projectDir,
 			relativePath: request.relativePath,
 			description: request.description,
-			policy: request.policy,
 		});
 		const failure = this.preflightFailure(request.relativePath);
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
@@ -374,7 +369,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: request.projectDir,
 			relativePath: request.relativePath,
 			description: request.description,
-			policy: request.policy,
 		});
 		const failure =
 			this.preflightFailure(request.relativePath) ??
@@ -390,7 +384,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: request.projectDir,
 			relativePath: request.relativePath,
 			description: request.description,
-			policy: request.policy,
 		});
 		const failure = this.preflightFailure(request.relativePath);
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
@@ -404,7 +397,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			content: request.content,
 			description: request.description,
 			createParent: request.createParent,
-			policy: request.policy,
 		});
 		const failure = this.mutationFailure(request.relativePath);
 		if (failure !== undefined) return { ok: false, error: failure };
@@ -423,7 +415,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: request.projectDir,
 			relativePath: request.relativePath,
 			description: request.description,
-			policy: request.policy,
 		});
 		const failure = this.mutationFailure(request.relativePath);
 		if (failure !== undefined) return { ok: false, error: failure };
@@ -442,7 +433,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: request.projectDir,
 			relativePath: request.relativePath,
 			description: request.description,
-			policy: request.policy,
 		});
 		const failure =
 			this.mutationFailure(request.relativePath) ??
@@ -465,7 +455,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: request.projectDir,
 			relativePath: request.relativePath,
 			description: request.description,
-			policy: request.policy,
 		});
 		const failure = this.mutationFailure(request.relativePath);
 		if (failure !== undefined) return { ok: false, error: failure };
@@ -486,15 +475,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	}
 
 	private currentFindSkills(): AregSkillFindSkillInspection[] {
-		const skills = this.explicitFindSkills ?? this.localSkills.map(skillKindSkillToFindSkill);
-		const manifestSourcesBySkill = groupBySkillName(this.manifestSkillSources.sources);
-		return skills.map((skill) => {
-			const manifestSources = manifestSourcesBySkill.get(skill.name);
-			return {
-				...skill,
-				...(manifestSources === undefined ? {} : { manifestSources }),
-			};
-		});
+		return this.explicitFindSkills ?? this.localSkills.map(skillKindSkillToFindSkill);
 	}
 
 	private preflightFailure(relativePath: string): AregErrorInfo | undefined {
@@ -525,127 +506,6 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 					? skill?.agentsPath
 					: skill?.claudePath;
 		return classifySkillMirrorSymlinkState(relativePath, state, description, target);
-	}
-}
-
-export type FakeAregGithubOperation =
-	| {
-			type: "list-skill-directory-names";
-			repo: string;
-			ref?: string;
-	  }
-	| {
-			type: "check-skill-file";
-			repo: string;
-			path: string;
-			ref?: string;
-	  };
-
-export interface FakeAregGithubGatewayOptions {
-	repos?: Record<string, readonly string[] | "missing" | "auth-error" | AregErrorInfo>;
-	files?: Record<string, "found" | "missing" | "auth-error" | AregErrorInfo>;
-}
-
-export class FakeAregGithubGateway implements AregGithubGateway {
-	private readonly repos: ReadonlyMap<
-		string,
-		readonly string[] | "missing" | "auth-error" | AregErrorInfo
-	>;
-	private readonly files: ReadonlyMap<string, "found" | "missing" | "auth-error" | AregErrorInfo>;
-	private readonly log: FakeAregGithubOperation[] = [];
-
-	constructor(options: FakeAregGithubGatewayOptions = {}) {
-		this.repos = new Map(
-			Object.entries(options.repos ?? {}).map(([repo, value]) => [repo, copyGithubState(value)]),
-		);
-		this.files = new Map(
-			Object.entries(options.files ?? {}).map(([path, value]) => [
-				path,
-				copyGithubFileState(value),
-			]),
-		);
-	}
-
-	async listSkillDirectoryNames(options: {
-		repo: string;
-		ref?: string;
-		env: NodeJS.ProcessEnv;
-	}): Promise<AregGithubSkillListResult> {
-		this.log.push({
-			type: "list-skill-directory-names",
-			repo: options.repo,
-			...optionalEntry("ref", options.ref),
-		});
-		const state = this.repos.get(options.repo);
-		if (state === undefined || state === "missing")
-			return { type: "missing", message: `Skill source not found: ${options.repo}` };
-		if (state === "auth-error")
-			return { type: "auth-error", message: `GitHub authentication failed for ${options.repo}` };
-		if (isReadonlyStringArray(state)) return { type: "ok", skillNames: [...state] };
-		return { type: "error", error: copyErrorInfo(state) };
-	}
-
-	async checkSkillFile(options: {
-		repo: string;
-		path: string;
-		ref?: string;
-		env: NodeJS.ProcessEnv;
-	}): Promise<AregGithubSkillFileResult> {
-		this.log.push({
-			type: "check-skill-file",
-			repo: options.repo,
-			path: options.path,
-			...optionalEntry("ref", options.ref),
-		});
-		const state = this.files.get(githubFileKey(options.repo, options.path, options.ref));
-		if (state === undefined || state === "found") return { type: "found" };
-		if (state === "missing")
-			return { type: "missing", message: `Skill file not found: ${options.repo}/${options.path}` };
-		if (state === "auth-error")
-			return { type: "auth-error", message: `GitHub authentication failed for ${options.repo}` };
-		return { type: "error", error: copyErrorInfo(state) };
-	}
-
-	operations(): readonly FakeAregGithubOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
-	}
-}
-
-export type FakeAregPromptOperation = {
-	type: "confirm";
-	message: string;
-	defaultValue: boolean;
-	response: boolean;
-};
-
-export interface FakeAregPromptGatewayOptions {
-	responses?: readonly boolean[];
-	shouldConfirmByDefault?: boolean;
-}
-
-export class FakeAregPromptGateway implements AregPromptGateway {
-	private readonly responses: boolean[];
-	private readonly shouldConfirmByDefault: boolean;
-	private readonly log: FakeAregPromptOperation[] = [];
-
-	constructor(options: FakeAregPromptGatewayOptions = {}) {
-		this.responses = [...(options.responses ?? [])];
-		this.shouldConfirmByDefault = options.shouldConfirmByDefault ?? false;
-	}
-
-	async confirm(request: { message: string; defaultValue: boolean }): Promise<boolean> {
-		const response = this.responses.shift() ?? this.shouldConfirmByDefault;
-		this.log.push({
-			type: "confirm",
-			message: request.message,
-			defaultValue: request.defaultValue,
-			response,
-		});
-		return response;
-	}
-
-	operations(): readonly FakeAregPromptOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
 	}
 }
 
@@ -688,9 +548,6 @@ function copyFakeSkillFindSkill(
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
 		),
-		...(skill.manifestSources === undefined
-			? {}
-			: { manifestSources: skill.manifestSources.map(copyFakeManifestSkillSource) }),
 	};
 }
 
@@ -784,9 +641,6 @@ function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindS
 		...copySkillInspectionCore(skill),
 		root: skill.root,
 		sourceType: skill.sourceType,
-		...(skill.manifestSources === undefined
-			? {}
-			: { manifestSources: skill.manifestSources.map(copyManifestSkillSource) }),
 	};
 }
 
@@ -878,33 +732,6 @@ function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPa
 	};
 }
 
-function copyGithubState(
-	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
-): readonly string[] | "missing" | "auth-error" | AregErrorInfo {
-	if (isReadonlyStringArray(value)) return [...value];
-	if (value === "missing" || value === "auth-error") return value;
-	return copyErrorInfo(value);
-}
-
-function copyGithubFileState(
-	value: "found" | "missing" | "auth-error" | AregErrorInfo,
-): "found" | "missing" | "auth-error" | AregErrorInfo {
-	if (value === "found" || value === "missing" || value === "auth-error") return value;
-	return copyErrorInfo(value);
-}
-
-function githubFileKey(repo: string, path: string, ref: string | undefined): string {
-	return ref === undefined ? `${repo}:${path}` : `${repo}:${path}@${ref}`;
-}
-
-function isReadonlyStringArray(
-	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
-): value is readonly string[] {
-	return Array.isArray(value);
-}
-
 function copyErrorInfo(error: AregErrorInfo): AregErrorInfo {
-	return error.displayCommand === undefined
-		? { code: error.code, message: error.message }
-		: { code: error.code, message: error.message, displayCommand: error.displayCommand };
+	return { code: error.code, message: error.message };
 }

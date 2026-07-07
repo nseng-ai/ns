@@ -5,19 +5,15 @@ export type {
 	AregCheckSkillInspection,
 	AregErrorInfo,
 	AregReplacementInspection,
-	AregGithubGateway,
-	AregGithubSkillListResult,
 	AregOperationResult,
 	PathState,
 	AregProjectBaseInspection,
 	AregProjectDirRequest,
 	AregProjectGateway,
 	AregProjectInspectionRequest,
-	AregProjectMutationPolicy,
 	AregProjectMutationResult,
 	AregProjectRemoveEmptyDirResult,
 	AregProjectTextWriteRequest,
-	AregPromptGateway,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -25,4 +21,4 @@ export type {
 	TextFileState,
 } from "./gateways.ts";
 export { parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
-export { RealAregGithubGateway, RealAregProjectGateway } from "./real-gateways.ts";
+export { RealAregProjectGateway } from "./real-gateways.ts";

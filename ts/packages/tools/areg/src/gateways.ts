@@ -9,54 +9,18 @@ import type {
 } from "@nseng-ai/foundation/skill-lookup";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
-import type {
-	HarnessId,
-	HarnessScope,
-	PathState,
-	TextFileState,
-} from "@nseng-ai/harness-artifacts/api";
-import { z } from "zod";
+import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
+
+import type { AregManifestSkillSourcesInspection } from "./operations/manifest-sources.ts";
 
 // The git methods areg consumes: resolve the repo root and materialize
 // worktree-relative git paths (for example `info/exclude`). A full `GitGateway`
 // is assignable to this narrowed surface.
 export type AregGitGateway = Pick<GitGateway, "optionalRepoRoot" | "gitPath">;
 
-export interface AregErrorInfo extends ErrorInfo {
-	displayCommand?: string;
-}
+export type AregErrorInfo = ErrorInfo;
 
 export type AregOperationResult = Result<undefined, AregErrorInfo>;
-
-export type AregGithubSkillListResult =
-	| { type: "ok"; skillNames: readonly string[] }
-	| { type: "missing"; message: string }
-	| { type: "auth-error"; message: string }
-	| { type: "error"; error: AregErrorInfo };
-
-export type AregGithubSkillFileResult =
-	| { type: "found" }
-	| { type: "missing"; message: string }
-	| { type: "auth-error"; message: string }
-	| { type: "error"; error: AregErrorInfo };
-
-export interface AregGithubGateway {
-	listSkillDirectoryNames(options: {
-		repo: string;
-		ref?: string;
-		env: NodeJS.ProcessEnv;
-	}): Promise<AregGithubSkillListResult>;
-	checkSkillFile(options: {
-		repo: string;
-		path: string;
-		ref?: string;
-		env: NodeJS.ProcessEnv;
-	}): Promise<AregGithubSkillFileResult>;
-}
-
-export interface AregPromptGateway {
-	confirm(request: { message: string; defaultValue: boolean }): Promise<boolean>;
-}
 
 export type { PathState, TextFileState };
 
@@ -111,107 +75,6 @@ export function skillKindDescriptorForSourceType(
 	return descriptor;
 }
 
-export type AregManifestSourceType = "first-party" | "npm-module";
-
-export interface AregManifestSkillSourceProvenance {
-	type: AregManifestSourceType;
-	packageName: string;
-	relativePath: string;
-	version: string;
-}
-
-export interface AregManifestSkillSourceInspection {
-	skillName: string;
-	harness: HarnessId;
-	scope: HarnessScope;
-	manifestPath: string;
-	manifestKey: string;
-	source: AregManifestSkillSourceProvenance;
-	targetRootRelativePath: string;
-	targetSkillRelativePath: string;
-	skillDir: PathState;
-	skillMd: TextFileState;
-}
-
-export const aregManifestSkillSourceViewSchema = z.object({
-	harness: z.string(),
-	scope: z.string(),
-	manifestPath: z.string(),
-	manifestKey: z.string(),
-	sourceType: z.enum(["first-party", "npm-module"]),
-	packageName: z.string(),
-	sourceRelativePath: z.string(),
-	version: z.string(),
-	targetSkillRelativePath: z.string(),
-});
-
-export type AregManifestSkillSourceView = z.infer<typeof aregManifestSkillSourceViewSchema>;
-
-export function toManifestSkillSourceView(
-	source: AregManifestSkillSourceInspection,
-): AregManifestSkillSourceView {
-	return {
-		harness: source.harness,
-		scope: source.scope,
-		manifestPath: source.manifestPath,
-		manifestKey: source.manifestKey,
-		sourceType: source.source.type,
-		packageName: source.source.packageName,
-		sourceRelativePath: source.source.relativePath,
-		version: source.source.version,
-		targetSkillRelativePath: source.targetSkillRelativePath,
-	};
-}
-
-export function groupBySkillName<T extends { skillName: string }>(
-	sources: readonly T[],
-): ReadonlyMap<string, readonly T[]> {
-	const grouped = new Map<string, T[]>();
-	for (const source of sources) {
-		const existing = grouped.get(source.skillName) ?? [];
-		existing.push(source);
-		grouped.set(source.skillName, existing);
-	}
-	return grouped;
-}
-
-export function isSkillKindLookupPath(relativePath: string): boolean {
-	return relativePath.startsWith("skills/") || relativePath.startsWith(".agents/skills/");
-}
-
-export function manifestSkillKindNames(
-	sources: readonly AregManifestSkillSourceInspection[],
-): readonly string[] {
-	return sources
-		.filter(
-			(source) =>
-				source.skillDir.type === "directory" &&
-				source.skillMd.type === "file" &&
-				isSkillKindLookupPath(source.targetSkillRelativePath),
-		)
-		.map((source) => source.skillName);
-}
-
-export type ManifestSkillSourceStatus = "ok" | "target-missing" | "md-missing";
-
-export function classifyManifestSkillSource(
-	source: AregManifestSkillSourceInspection,
-): ManifestSkillSourceStatus {
-	if (source.skillDir.type === "missing") return "target-missing";
-	if (source.skillMd.type === "missing") return "md-missing";
-	return "ok";
-}
-
-export interface AregManifestInspectionError {
-	manifestPath: string;
-	message: string;
-}
-
-export interface AregManifestSkillSourcesInspection {
-	sources: readonly AregManifestSkillSourceInspection[];
-	errors: readonly AregManifestInspectionError[];
-}
-
 export interface AregSkillFindSkillInspection {
 	name: string;
 	root: SkillLookupRoot;
@@ -219,7 +82,6 @@ export interface AregSkillFindSkillInspection {
 	baseRelativePath: string;
 	skillDir: PathState;
 	skillMd: TextFileState;
-	manifestSources?: readonly AregManifestSkillSourceInspection[];
 }
 
 export interface AregSkillFindRootsInspection {
@@ -296,15 +158,12 @@ export type AregSkillKindResolveResult =
 	| { type: "ok"; skillName: string }
 	| { type: "error"; error: AregErrorInfo };
 
-export type AregProjectMutationPolicy = "skill-kind";
-
 export interface AregProjectTextWriteRequest {
 	projectDir: string;
 	relativePath: string;
 	content: string;
 	description: string;
 	createParent: boolean;
-	policy: AregProjectMutationPolicy;
 	env: NodeJS.ProcessEnv;
 }
 
@@ -312,7 +171,6 @@ export interface AregProjectManagedTargetRequest {
 	projectDir: string;
 	relativePath: string;
 	description: string;
-	policy: "skill-kind";
 	env: NodeJS.ProcessEnv;
 }
 
@@ -331,7 +189,7 @@ export type AregProjectRemoveEmptyDirResult =
  * This is intentionally domain-oriented: it exposes named areg project facts and
  * project-scoped safe mutation primitives, not a generic filesystem API. Add new
  * reads here only when they represent stable areg project concepts, and route new
- * writes/deletes through project-scoped primitives with an explicit policy. Do not
+ * writes/deletes through project-scoped primitives. Do not
  * add an unrestricted filesystem gateway to areg as a convenience for operation code.
  */
 export interface AregProjectGateway {

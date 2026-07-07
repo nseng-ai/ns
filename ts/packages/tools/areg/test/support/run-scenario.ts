@@ -9,20 +9,14 @@ import {
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AregCliContext } from "../../src/context.ts";
 import {
-	FakeAregGithubGateway,
-	type FakeAregGithubGatewayOptions,
 	FakeAregProjectGateway,
 	type FakeAregProjectGatewayOptions,
-	FakeAregPromptGateway,
-	type FakeAregPromptGatewayOptions,
 } from "../../src/fake-gateways.ts";
 
 export interface ScenarioRunOptions {
 	context?: AregCliContext;
-	github?: FakeAregGithubGatewayOptions;
 	project?: FakeAregProjectGatewayOptions;
 	git?: InMemoryGitGatewayState;
-	prompt?: FakeAregPromptGatewayOptions;
 	confirmations?: readonly ConfirmationResult[];
 	isInteractive?: boolean;
 	cwd?: string;
@@ -61,10 +55,8 @@ export function runScenario(
 	const context =
 		options.context ??
 		({
-			github: new FakeAregGithubGateway(options.github),
 			project: new FakeAregProjectGateway(options.project),
 			git: new InMemoryGitGateway(options.git),
-			prompt: new FakeAregPromptGateway(options.prompt),
 			interaction: fakeInteraction.interaction,
 			cwd,
 			env,

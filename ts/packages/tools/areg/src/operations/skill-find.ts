@@ -11,11 +11,13 @@ import {
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
+import type { AregSkillFindSkillInspection } from "../gateways.ts";
 import {
 	aregManifestSkillSourceViewSchema,
+	groupBySkillName,
 	toManifestSkillSourceView,
-	type AregSkillFindSkillInspection,
-} from "../gateways.ts";
+	type AregManifestSkillSourceInspection,
+} from "./manifest-sources.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
 import { parseSkillFrontmatterBlock } from "@nseng-ai/harness-artifacts/api";
 import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
@@ -110,13 +112,18 @@ export async function runSkillFind(
 	if (resolved.type === "error") return failure("project-inspection-failed", resolved.message);
 	const projectDir = resolved.projectDir;
 	const inspection = await ctx.project.inspectSkillFindRoots({ projectDir, env: ctx.env });
+	const manifestSources = await ctx.project.inspectManifestSkillSources({
+		projectDir,
+		env: ctx.env,
+	});
+	const manifestSourcesBySkill = groupBySkillName(manifestSources.sources);
 	const searchedRoots = buildSkillFindSearchedRoots(projectDir, request.skill);
 	const exactSkills = inspection.skills
 		.filter((skill) => skill.name === request.skill)
 		.toSorted(compareSkillFindInspection);
 	if (exactSkills.length > 0) {
 		const matches = exactSkills.map((skill, index) =>
-			toSkillFindMatch(projectDir, skill, index === 0),
+			toSkillFindMatch(projectDir, skill, index === 0, manifestSourcesBySkill.get(skill.name)),
 		);
 		const preferred = matches[0];
 		if (preferred === undefined)
@@ -162,6 +169,7 @@ function toSkillFindMatch(
 	projectDir: string,
 	skill: AregSkillFindSkillInspection,
 	isPreferred: boolean,
+	manifestSources: readonly AregManifestSkillSourceInspection[] | undefined,
 ): SkillFindMatch {
 	const skillFileRelativePath = skillLookupFileRelativePath(skill.root, skill.name);
 	const skillFilePath = toProjectPath(projectDir, skillFileRelativePath);
@@ -176,9 +184,9 @@ function toSkillFindMatch(
 		basePath: toProjectPath(projectDir, skill.baseRelativePath),
 		skillFilePath,
 		...frontmatter.fields,
-		...(skill.manifestSources === undefined
+		...(manifestSources === undefined
 			? {}
-			: { manifestSources: skill.manifestSources.map(toManifestSkillSourceView) }),
+			: { manifestSources: manifestSources.map(toManifestSkillSourceView) }),
 		...(frontmatter.warnings.length === 0 ? {} : { warnings: frontmatter.warnings }),
 	};
 }

@@ -11,8 +11,7 @@ import {
 } from "@nseng-ai/harness-artifacts/api";
 import type { InstallManifestEntryData } from "@nseng-ai/harness-artifacts/api";
 
-import { RealAregGithubGateway, RealAregProjectGateway } from "../../src/real-gateways.ts";
-import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
+import { RealAregProjectGateway } from "../../src/real-gateways.ts";
 
 describe("real areg gateways", () => {
 	test("check project inspection resolves relative path, symlink targets, excludes, and prunes pairing traversal", async () => {
@@ -374,7 +373,6 @@ describe("real areg gateways", () => {
 				content: "---\nname: demo\ndisable-model-invocation: true\n---\n",
 				description: "SKILL.md",
 				createParent: false,
-				policy: "skill-kind",
 				env: {},
 			});
 			const secondWrite = await gateway.writeTextFile({
@@ -383,7 +381,6 @@ describe("real areg gateways", () => {
 				content: "policy:\n  allow_implicit_invocation: false\n",
 				description: "Codex openai.yaml",
 				createParent: true,
-				policy: "skill-kind",
 				env: {},
 			});
 			const thirdWrite = await gateway.writeTextFile({
@@ -392,7 +389,6 @@ describe("real areg gateways", () => {
 				content: '{\n  "skills": [\n    "-skills/demo"\n  ]\n}\n',
 				description: "Pi settings",
 				createParent: true,
-				policy: "skill-kind",
 				env: {},
 			});
 			const vendoredWrite = await gateway.writeTextFile({
@@ -401,7 +397,6 @@ describe("real areg gateways", () => {
 				content: "policy:\n  allow_implicit_invocation: false\n",
 				description: "Codex openai.yaml",
 				createParent: true,
-				policy: "skill-kind",
 				env: {},
 			});
 
@@ -422,14 +417,12 @@ describe("real areg gateways", () => {
 				projectDir: project,
 				relativePath: "skills/demo/agents/openai.yaml",
 				description: "Codex openai.yaml",
-				policy: "skill-kind",
 				env: {},
 			});
 			const removed = await gateway.removeEmptyDir({
 				projectDir: project,
 				relativePath: "skills/demo/agents",
 				description: "empty skill agents directory",
-				policy: "skill-kind",
 				env: {},
 			});
 			expect(deleted).toEqual({ ok: true });
@@ -476,7 +469,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: "skills/demo",
 					description: "skill directory",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-refused" } });
@@ -485,7 +477,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: "../outside",
 					description: "outside path",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-refused" } });
@@ -494,7 +485,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: ".agents/skills/missing",
 					description: "agents skill mirror symlink",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-missing" } });
@@ -505,7 +495,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: ".agents/skills/real-dir",
 					description: "agents skill mirror symlink",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-not-symlink" } });
@@ -519,7 +508,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: ".claude/skills/wrong-target",
 					description: "Claude skill mirror symlink",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toMatchObject({ ok: false, error: { code: "skill-kind-delete-symlink-wrong-target" } });
@@ -531,7 +519,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: ".claude/skills/demo",
 					description: "Claude skill mirror symlink",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toEqual({ ok: true });
@@ -540,7 +527,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: ".claude/skills/demo",
 					description: "Claude skill mirror symlink",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toEqual({ ok: true });
@@ -549,7 +535,6 @@ describe("real areg gateways", () => {
 					projectDir: project,
 					relativePath: ".agents/skills/demo",
 					description: "agents skill mirror symlink",
-					policy: "skill-kind",
 					env: {},
 				}),
 			).toEqual({ ok: true });
@@ -593,114 +578,5 @@ describe("real areg gateways", () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
-	});
-
-	test("github gateway parses success and classifies gh failures", async () => {
-		const success = new ScriptedCommandRunner([
-			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
-				stdout: "zeta\nalpha\n",
-			}),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: success.runner }).listSkillDirectoryNames({
-				repo: "owner/repo",
-				env: {},
-			}),
-		).toEqual({
-			type: "ok",
-			skillNames: ["zeta", "alpha"],
-		});
-		success.assertDone();
-
-		const missing = new ScriptedCommandRunner([
-			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
-				exitCode: 1,
-				stderr: "HTTP 404",
-			}),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: missing.runner }).listSkillDirectoryNames({
-				repo: "owner/repo",
-				env: {},
-			}),
-		).toMatchObject({ type: "missing" });
-
-		const auth = new ScriptedCommandRunner([
-			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
-				exitCode: 1,
-				stderr: "HTTP 403",
-			}),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: auth.runner }).listSkillDirectoryNames({
-				repo: "owner/repo",
-				env: {},
-			}),
-		).toMatchObject({ type: "auth-error" });
-
-		const generic = new ScriptedCommandRunner([
-			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
-				exitCode: 2,
-				stderr: "network down",
-			}),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: generic.runner }).listSkillDirectoryNames({
-				repo: "owner/repo",
-				env: {},
-			}),
-		).toMatchObject({
-			type: "error",
-			error: {
-				code: "gh-failed",
-				displayCommand: "gh api repos/owner/repo/contents/skills --jq '.[].name'",
-			},
-		});
-	});
-
-	test("github gateway checks skill files through gh contents API", async () => {
-		const success = new ScriptedCommandRunner([
-			step("gh", ["api", "repos/owner/repo/contents/skills/alpha/SKILL.md", "--jq", ".type"], {
-				stdout: "file\n",
-			}),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: success.runner }).checkSkillFile({
-				repo: "owner/repo",
-				path: "skills/alpha/SKILL.md",
-				env: {},
-			}),
-		).toEqual({ type: "found" });
-		success.assertDone();
-
-		const withRef = new ScriptedCommandRunner([
-			step(
-				"gh",
-				["api", "repos/owner/repo/contents/skills/alpha/SKILL.md?ref=main", "--jq", ".type"],
-				{ stdout: "file\n" },
-			),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: withRef.runner }).checkSkillFile({
-				repo: "owner/repo",
-				path: "/skills/alpha/SKILL.md",
-				ref: "main",
-				env: {},
-			}),
-		).toEqual({ type: "found" });
-
-		const missing = new ScriptedCommandRunner([
-			step("gh", ["api", "repos/owner/repo/contents/skills/missing/SKILL.md", "--jq", ".type"], {
-				exitCode: 1,
-				stderr: "HTTP 404",
-			}),
-		]);
-		expect(
-			await new RealAregGithubGateway({ runner: missing.runner }).checkSkillFile({
-				repo: "owner/repo",
-				path: "skills/missing/SKILL.md",
-				env: {},
-			}),
-		).toMatchObject({ type: "missing" });
 	});
 });

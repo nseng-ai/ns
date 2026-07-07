@@ -3,14 +3,13 @@ import path from "node:path";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
-import type { AregErrorInfo, AregProjectMutationPolicy, TextFileState } from "../gateways.ts";
+import type { AregErrorInfo, TextFileState } from "../gateways.ts";
 import {
 	classifySkillMirrorSymlinkState,
 	expectedMirrorTarget,
 } from "@nseng-ai/harness-artifacts/api";
 import { errorInfo } from "./errors.ts";
 import { inspectPath, isPathAtOrBelow } from "./fs-utils.ts";
-import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
 
 export { inspectPath, isNodeErrorCode } from "./fs-utils.ts";
 
@@ -19,14 +18,12 @@ export function toProjectPath(projectRoot: string, relativePath: string): string
 }
 
 interface ResolveAllowedWriteTargetOptions {
-	policy: AregProjectMutationPolicy;
 	projectRoot: string;
 	relativePath: string;
 	description: string;
 }
 
 interface ValidateTextWriteTargetOptions {
-	policy: AregProjectMutationPolicy;
 	target: string;
 	projectRoot: string;
 	description: string;
@@ -60,14 +57,14 @@ export async function resolveExistingDirectory(
 		return {
 			type: "error",
 			error: errorInfo(
-				"init-symlink",
+				"project-root-symlink",
 				`${description} at ${candidate} is a symlink; refusing to manage it.`,
 			),
 		};
 	if (state.type !== "directory")
 		return {
 			type: "error",
-			error: errorInfo("init-not-directory", `${candidate} exists but is not a directory.`),
+			error: errorInfo("project-root-not-directory", `${candidate} exists but is not a directory.`),
 		};
 	try {
 		return { type: "ok", value: await realpath(candidate) };
@@ -75,7 +72,7 @@ export async function resolveExistingDirectory(
 		return {
 			type: "error",
 			error: errorInfo(
-				"init-realpath-failed",
+				"realpath-failed",
 				`Could not resolve ${description} at ${candidate}: ${formatErrorMessage(error)}`,
 			),
 		};
@@ -85,37 +82,21 @@ export async function resolveExistingDirectory(
 export function resolveAllowedWriteTarget(
 	options: ResolveAllowedWriteTargetOptions,
 ): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
-	const descriptor = getAregProjectMutationPolicyDescriptor(options.policy);
-	if (
-		descriptor.shouldCheckUnsupportedFirst &&
-		!descriptor.isAllowedRelativePath(options.relativePath)
-	) {
-		return {
-			type: "error",
-			error: errorInfo(
-				descriptor.refusedTargetCode,
-				descriptor.unsupportedMessage(options.relativePath, options.description),
-			),
-		};
-	}
 	if (path.isAbsolute(options.relativePath) || options.relativePath.split("/").includes("..")) {
 		return {
 			type: "error",
 			error: errorInfo(
-				descriptor.refusedTargetCode,
-				descriptor.unsafeMessage(options.relativePath, options.description),
+				"skill-kind-target-refused",
+				`Refusing to write ${options.description}: unsafe target ${options.relativePath}.`,
 			),
 		};
 	}
-	if (
-		!descriptor.shouldCheckUnsupportedFirst &&
-		!descriptor.isAllowedRelativePath(options.relativePath)
-	) {
+	if (!isSkillKindWritablePath(options.relativePath)) {
 		return {
 			type: "error",
 			error: errorInfo(
-				descriptor.refusedTargetCode,
-				descriptor.unsupportedMessage(options.relativePath, options.description),
+				"skill-kind-target-refused",
+				`Refusing to write ${options.description}: unsupported target ${options.relativePath}.`,
 			),
 		};
 	}
@@ -125,38 +106,47 @@ export function resolveAllowedWriteTarget(
 		return {
 			type: "error",
 			error: errorInfo(
-				descriptor.refusedTargetCode,
-				descriptor.outsideMessage(options.relativePath, options.description),
+				"skill-kind-target-refused",
+				`Refusing to write ${options.description}: target ${options.relativePath} resolves outside the project.`,
 			),
 		};
 	}
 	return { type: "ok", value: target };
 }
 
+function isSkillKindWritablePath(relativePath: string): boolean {
+	return (
+		/^skills\/[^/]+\/SKILL\.md$/u.test(relativePath) ||
+		/^skills\/[^/]+\/agents(?:\/openai\.yaml)?$/u.test(relativePath) ||
+		/^\.agents\/skills\/[^/]+\/SKILL\.md$/u.test(relativePath) ||
+		/^\.agents\/skills\/[^/]+\/agents(?:\/openai\.yaml)?$/u.test(relativePath) ||
+		relativePath === ".pi/settings.json"
+	);
+}
+
 export async function validateWriteTarget(
 	options: ValidateTextWriteTargetOptions,
 ): Promise<WriteTargetValidationResult> {
-	const descriptor = getAregProjectMutationPolicyDescriptor(options.policy);
 	const targetState = await inspectPath(options.target);
 	if (targetState.type === "symlink")
 		return {
 			ok: false,
 			error: errorInfo(
-				descriptor.symlinkCode,
+				"skill-kind-symlink",
 				`${options.description} at ${options.target} is a symlink; refusing to manage it.`,
 			),
 		};
 	if (targetState.type === "directory" || targetState.type === "other")
 		return {
 			ok: false,
-			error: errorInfo(descriptor.notFileCode, `${options.target} exists but is not a file.`),
+			error: errorInfo("skill-kind-not-file", `${options.target} exists but is not a file.`),
 		};
 	if (targetState.type === "file")
 		return await requirePathAtOrBelow(options.target, options.projectRoot, options.description);
 	const parent = await nearestExistingParent(
 		options.target,
 		options.projectRoot,
-		descriptor.parentMissingCode,
+		"skill-kind-parent-missing",
 	);
 	if (parent.type === "error") return { ok: false, error: parent.error };
 	const parentState = await inspectPath(parent.value);
@@ -164,7 +154,7 @@ export async function validateWriteTarget(
 		return {
 			ok: false,
 			error: errorInfo(
-				descriptor.parentSymlinkCode,
+				"skill-kind-parent-symlink",
 				`Parent directory at ${parent.value} is a symlink; refusing to manage it.`,
 			),
 		};
@@ -172,7 +162,7 @@ export async function validateWriteTarget(
 		return {
 			ok: false,
 			error: errorInfo(
-				descriptor.parentNotDirectoryCode,
+				"skill-kind-parent-not-directory",
 				`${parent.value} exists but is not a directory.`,
 			),
 		};
@@ -186,7 +176,7 @@ export async function validateWriteTarget(
 		return {
 			ok: false,
 			error: errorInfo(
-				descriptor.parentMissingCode,
+				"skill-kind-parent-missing",
 				`Parent directory at ${path.dirname(options.target)} does not exist.`,
 			),
 		};
@@ -304,7 +294,7 @@ async function requirePathAtOrBelow(
 		return {
 			ok: false,
 			error: errorInfo(
-				"init-outside-project",
+				"outside-project",
 				`${description} at ${candidate} resolves outside ${projectRoot}; refusing to manage it.`,
 			),
 		};
@@ -312,7 +302,7 @@ async function requirePathAtOrBelow(
 		return {
 			ok: false,
 			error: errorInfo(
-				"init-realpath-failed",
+				"realpath-failed",
 				`Could not resolve ${description} at ${candidate}: ${formatErrorMessage(error)}`,
 			),
 		};

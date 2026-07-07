@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { FakeAregGithubGateway, FakeAregProjectGateway } from "../../src/fake-gateways.ts";
-import type { AregGithubGateway, AregProjectGateway } from "../../src/gateways.ts";
+import { FakeAregProjectGateway } from "../../src/fake-gateways.ts";
+import type { AregProjectGateway } from "../../src/gateways.ts";
 
 describe("areg gateway fakes", () => {
 	test("project fake copies configured facts and read-only logs", async () => {
@@ -154,7 +154,6 @@ describe("areg gateway fakes", () => {
 				content: "---\nname: demo\ndisable-model-invocation: true\n---\n",
 				description: "SKILL.md",
 				createParent: false,
-				policy: "skill-kind",
 				env: {},
 			}),
 		).toMatchObject({ ok: true });
@@ -180,7 +179,6 @@ describe("areg gateway fakes", () => {
 			content: "---\nname: demo\ndisable-model-invocation: true\n---\n",
 			description: "SKILL.md",
 			createParent: false,
-			policy: "skill-kind",
 		});
 	});
 
@@ -214,7 +212,6 @@ describe("areg gateway fakes", () => {
 			projectDir: "/repo",
 			relativePath,
 			description,
-			policy: "skill-kind" as const,
 			env: {},
 		});
 		expect(await project.deleteSymlink(request("skills/demo", "skill directory"))).toMatchObject({
@@ -328,7 +325,6 @@ describe("areg gateway fakes", () => {
 				content: "demo",
 				description: "SKILL.md",
 				createParent: false,
-				policy: "skill-kind",
 				env: {},
 			}),
 		).toMatchObject({ ok: false, error: { code: "specific-preflight" } });
@@ -337,7 +333,6 @@ describe("areg gateway fakes", () => {
 				projectDir: "/repo",
 				relativePath: ".pi/settings.json",
 				description: "Pi settings",
-				policy: "skill-kind",
 				env: {},
 			}),
 		).toMatchObject({ ok: false, error: { code: "fallback-preflight" } });
@@ -348,62 +343,11 @@ describe("areg gateway fakes", () => {
 				content: "demo",
 				description: "SKILL.md",
 				createParent: false,
-				policy: "skill-kind",
 				env: {},
 			}),
 		).toEqual({ ok: true });
 		expect(
 			(project as FakeAregProjectGateway).operations().map((operation) => operation.type),
 		).toEqual(["preflight-write-text-file", "preflight-delete-file", "write-text-file"]);
-	});
-
-	test("github fake copies configured skill lists and returned lists", async () => {
-		const skillNames = ["alpha"];
-		const github: AregGithubGateway = new FakeAregGithubGateway({
-			repos: { "owner/repo": skillNames },
-		});
-		skillNames.push("mutated-after-construction");
-
-		const first = await github.listSkillDirectoryNames({ repo: "owner/repo", env: {} });
-		expect(first).toEqual({ type: "ok", skillNames: ["alpha"] });
-		if (first.type === "ok") (first.skillNames as string[]).push("mutated-return");
-		expect(
-			await github.listSkillDirectoryNames({ repo: "owner/repo", ref: "main", env: {} }),
-		).toEqual({ type: "ok", skillNames: ["alpha"] });
-		expect(await github.listSkillDirectoryNames({ repo: "missing/repo", env: {} })).toMatchObject({
-			type: "missing",
-		});
-	});
-
-	test("github fake checks configured skill files", async () => {
-		const github: AregGithubGateway = new FakeAregGithubGateway({
-			files: {
-				"owner/repo:skills/alpha/SKILL.md": "found",
-				"owner/repo:skills/missing/SKILL.md": "missing",
-				"owner/private:skills/alpha/SKILL.md@main": "auth-error",
-			},
-		});
-
-		expect(
-			await github.checkSkillFile({ repo: "owner/repo", path: "skills/alpha/SKILL.md", env: {} }),
-		).toEqual({ type: "found" });
-		expect(
-			await github.checkSkillFile({ repo: "owner/repo", path: "skills/missing/SKILL.md", env: {} }),
-		).toMatchObject({ type: "missing" });
-		expect(
-			await github.checkSkillFile({
-				repo: "owner/private",
-				path: "skills/alpha/SKILL.md",
-				ref: "main",
-				env: {},
-			}),
-		).toMatchObject({ type: "auth-error" });
-		expect(
-			await github.checkSkillFile({
-				repo: "unconfigured/repo",
-				path: "skills/ok/SKILL.md",
-				env: {},
-			}),
-		).toEqual({ type: "found" });
 	});
 });
