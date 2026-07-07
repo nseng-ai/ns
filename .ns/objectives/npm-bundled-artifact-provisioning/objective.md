@@ -102,4 +102,21 @@ Risks:
 
 - ~~**npm-module source model.**~~ Resolved (user-confirmed): additive two-variant source union, static `ns.harnessArtifacts` declaration, explicit-name module lookup, schema owned by `@nseng-ai/harness-artifacts`. See update `20260706T191545Z-npm-module-source-model-decision.md`.
 - ~~**`ns update` command-surface placement**~~ Resolved (user-confirmed): this record ships a minimal top-level `ns update` implementing reconcile; the kernel keeps zero artifact knowledge; a future extension-lifecycle surface absorbs it via the same primitive. See update `20260706T194500Z-reconcile-trigger-and-targeting-decisions.md`.
-- **AREG↔manifest inspection depth** — how far AREG's `check`/`doctor` go in verifying shared-manifest-provisioned artifacts (recognize-and-report vs full hash verification) without re-introducing a format-merge goal.
+- ~~**AREG↔manifest inspection depth**~~ Resolved in code: AREG recognizes shared manifests as metadata plus target-presence inspection only; it does not recompute per-file hashes or duplicate `ns update` drift/conflict logic. See update `20260707T001132Z-areg-shared-manifest-inspection.md`.
+
+## Closure
+
+Closed 2026-07-07 as completed.
+
+This Subobjective delivered the bounded npm-module-bundled provisioning follow-on from `skill-management-subsystem`: the shared `@nseng-ai/harness-artifacts` core now represents npm-module source/provenance additively, parses static `ns.harnessArtifacts` declarations without executing module code, discovers extension-root module artifacts, and provisions first-party plus extension-root artifacts through the minimal top-level `ns update` reconcile slice with manifest hashes, idempotence, and clobber protection intact. The existing first-party steelthread path remains additive rather than migrated away.
+
+The folded AREG outcome also completed: `areg init`, `areg update-skills`, and `areg exec skillx ...` / skillx wrapping were intentionally removed along with their npx/skillx gateways and scenario pins, while AREG's retained `check` / `doctor skills` / `skill find|list|show|apply` inspector surface remained green. AREG now treats shared harness manifests as additional read-only provenance and target-presence evidence only; it does not merge `skills-lock.json` with install manifests or duplicate `ns update` hash/conflict logic.
+
+Closure evidence:
+
+- Roadmap rows are all complete, including source-model decision, module declaration discovery, reconcile provisioning, AREG npx-removal, AREG manifest-aware inspection, and umbrella synthesis.
+- Umbrella synthesis is recorded in `skill-management-subsystem` via update `20260707T002013Z-npm-bundled-provisioning-closure-synthesis.md`; the umbrella parked row is now `[x]` and records the proving-consumer finding that the shared core needed additive API changes while the kernel kept zero artifact knowledge and consumers stayed thin.
+- Retired dispositions still hold: no first-party `npx skills` wrapping/replacement, no GitHub acquisition replacement, and no `skills-lock.json` / install-manifest convergence.
+- Full repo validation passed on 2026-07-07: `just` completed `dprint check`, TypeScript style guard (120 tests), dependency check, `oxfmt --check`, `oxlint`, `tsgo -p tsconfig.json`, main Vitest suite (459 files / 4579 tests), and Objective edge sweep `sweep-ok`.
+
+Remaining breadth is intentionally parked with the umbrella: managed-artifacts → kind-overlays vocabulary cleanup, broader extension-lifecycle update/uninstall/staleness/trust/filtering surfaces, marketplace/remote acquisition, and additional harness artifact kinds (`agent`, `extension-bundle`).

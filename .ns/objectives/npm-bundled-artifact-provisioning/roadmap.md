@@ -14,7 +14,7 @@ Source-model decision first (it binds the shared core's API); provisioning and A
 
 - [x] **Keep AREG's inspector green; teach it the shared manifest as a source.** AREG now has a read-only shared-manifest inspection concept backed by `@nseng-ai/harness-artifacts/api`: `areg check` reports invalid manifests and missing manifest skill targets / `SKILL.md`; `areg doctor skills` reports manifest provenance plus missing-target diagnostics; `areg skill find/list/show` expose additive manifest provenance for matching on-disk skills; `areg skill apply` remains scoped to skill-kind root mutations and does not reconcile manifests. Depth is metadata plus target presence only; overlap with `skills-lock.json` / roots is informational. Evidence: `pnpm --dir ts --filter @nseng-ai/areg test -- --run`, `pnpm --dir ts --filter @nseng-ai/areg check`, and Semantic Update `20260707T001132Z-areg-shared-manifest-inspection.md`.
 
-- [ ] **Synthesize closure into the umbrella.** Flip the umbrella's `[~]` row, record whether the source-model widening needed additive core changes (the proving-consumer finding), and confirm the retired npx-acquisition and lockfile/manifest-convergence dispositions still hold. Guards against the fire-and-forget-umbrella failure mode.
+- [x] **Synthesize closure into the umbrella.** Completed in the umbrella record: flipped the umbrella's npm-module-bundled provisioning row to complete, recorded that source-model widening needed additive core changes plus thin command/inspector consumers, and confirmed the retired npx-acquisition and lockfile/manifest-convergence dispositions still hold. Evidence: umbrella Semantic Update `20260707T002013Z-npm-bundled-provisioning-closure-synthesis.md`.
 
 ## Parked
 
