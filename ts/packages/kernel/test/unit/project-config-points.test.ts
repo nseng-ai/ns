@@ -1,11 +1,20 @@
-import { describe, expect, test } from "vitest";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import {
+	computePointCatalog,
+	discoverPointDefinitionsInRoot,
+	loadPointCatalog,
 	loadProjectConfig,
 	parseProjectConfigToml,
 	type PointDefinition,
 	type ProjectConfigGateway,
+	type ProjectConfigPathExistsResult,
 	type ProjectConfigReadResult,
 } from "../../src/project-config/points.ts";
 
@@ -13,6 +22,25 @@ const pointDefinitions = [
 	{ id: "flow.submit.pre", accepts: "hook", semantics: "additive" },
 	{ id: "flow.submit.pr-description", accepts: "prompt", semantics: "override" },
 ] as const satisfies readonly PointDefinition[];
+
+const tempDirs: string[] = [];
+
+async function createTempDir(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "ns-project-config-points-"));
+	tempDirs.push(directory);
+	return directory;
+}
+
+function writeFile(path: string, content: string): void {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, content);
+}
+
+afterEach(() => {
+	for (const directory of tempDirs.splice(0)) {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
 
 describe("project point config", () => {
 	test("loads repo-root ns.toml through one gateway read and validates point installations", () => {
@@ -126,19 +154,155 @@ context_lines = "wide"
 			expect.objectContaining({ code: "settings_table_invalid", path: "roaster.diff" }),
 		]);
 	});
+
+	test("discovers point definitions from ns.points extension manifests", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "flow", "package.json"),
+			JSON.stringify({
+				ns: {
+					group: "flow",
+					points: [
+						{
+							path: ["submit", "pre"],
+							accepts: "hook",
+							semantics: "additive",
+							description: "Runs before submit.",
+						},
+						{
+							path: ["submit", "pr-description"],
+							accepts: "prompt",
+							semantics: "override",
+							default: "./src/pr-description.md",
+						},
+					],
+				},
+			}),
+		);
+
+		const result = discoverPointDefinitionsInRoot(root);
+
+		expect(result.diagnostics).toEqual([]);
+		expect(result.pointDefinitions).toEqual([
+			expect.objectContaining({
+				id: "flow.submit.pre",
+				accepts: "hook",
+				semantics: "additive",
+				description: "Runs before submit.",
+			}),
+			expect.objectContaining({
+				id: "flow.submit.pr-description",
+				accepts: "prompt",
+				semantics: "override",
+				defaultPath: "./src/pr-description.md",
+			}),
+		]);
+	});
+
+	test("reports malformed point manifest entries", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "bad", "package.json"),
+			JSON.stringify({
+				ns: {
+					group: "bad",
+					points: [
+						{ path: [], accepts: "hook", semantics: "additive" },
+						{ path: ["prompt"], accepts: "prompt", semantics: "override", default: "../escape.md" },
+					],
+				},
+			}),
+		);
+
+		const result = discoverPointDefinitionsInRoot(root);
+
+		expect(result.pointDefinitions).toEqual([]);
+		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+			"extension_manifest_point_field_invalid",
+			"extension_manifest_point_default_escapes",
+		]);
+	});
+
+	test("computes the point catalog with config and conventional prompt installations", () => {
+		const gateway = new InMemoryProjectConfigGateway({
+			".ns/prompts/flow.submit.pr-description.md": "Prompt",
+		});
+		const catalog = computePointCatalog({
+			repoRoot: "/repo",
+			gateway,
+			pointDefinitions,
+			config: {
+				points: [{ pointId: "flow.submit.pre", accepts: "hook", commands: ["just"] }],
+				settings: new Map(),
+			},
+		});
+
+		expect(catalog.entries).toEqual([
+			{
+				definition: pointDefinitions[1],
+				installations: [
+					{
+						source: "conventional-prompt",
+						pointId: "flow.submit.pr-description",
+						path: ".ns/prompts/flow.submit.pr-description.md",
+					},
+				],
+			},
+			{
+				definition: pointDefinitions[0],
+				installations: [
+					{
+						source: "ns.toml",
+						installation: { pointId: "flow.submit.pre", accepts: "hook", commands: ["just"] },
+					},
+				],
+			},
+		]);
+		expect(catalog.diagnostics).toEqual([
+			expect.objectContaining({
+				severity: "info",
+				code: "point_override_in_effect",
+				path: "flow.submit.pr-description",
+			}),
+		]);
+	});
+
+	test("catalog carries loader diagnostics for undefined installs and reports uninstalled definitions", () => {
+		const gateway = new InMemoryProjectConfigGateway({
+			"ns.toml": `[points]
+"other.submit.pre" = ["just"]
+`,
+		});
+
+		const catalog = loadPointCatalog({ repoRoot: "/repo", gateway, pointDefinitions });
+
+		expect(catalog.entries.map((entry) => entry.definition.id)).toEqual([
+			"flow.submit.pr-description",
+			"flow.submit.pre",
+		]);
+		expect(catalog.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+			"point_installation_undefined",
+			"point_defined_uninstalled",
+			"point_defined_uninstalled",
+		]);
+	});
 });
 
 class InMemoryProjectConfigGateway implements ProjectConfigGateway {
 	readonly #files: ReadonlyMap<string, string>;
-	readonly reads: { repoRoot: string; relativePath: "ns.toml" }[] = [];
+	readonly reads: { repoRoot: string; relativePath: string }[] = [];
 
 	constructor(files: Record<string, string>) {
 		this.#files = new Map(Object.entries(files));
 	}
 
-	readTextFile(request: { repoRoot: string; relativePath: "ns.toml" }): ProjectConfigReadResult {
+	readTextFile(request: { repoRoot: string; relativePath: string }): ProjectConfigReadResult {
 		this.reads.push(request);
 		const text = this.#files.get(request.relativePath);
 		return text === undefined ? { type: "missing" } : { type: "found", text };
+	}
+
+	pathExists(request: { repoRoot: string; relativePath: string }): ProjectConfigPathExistsResult {
+		return this.#files.has(request.relativePath) ? { type: "present" } : { type: "missing" };
 	}
 }
