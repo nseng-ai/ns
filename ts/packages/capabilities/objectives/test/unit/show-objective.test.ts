@@ -102,7 +102,7 @@ describe("objective show", () => {
 			{
 				objective: "beta",
 				annotation: "Alpha depends on beta.",
-				counterpart: { exists: true, annotation: "Beta feeds alpha." },
+				counterpart: { exists: true, isClosed: false, annotation: "Beta feeds alpha." },
 			},
 		]);
 		const human = plainHuman(data);
@@ -112,6 +112,40 @@ describe("objective show", () => {
 		const markdown = renderShowObjectiveMarkdown(data);
 		expect(markdown).toContain("Alpha depends on beta.");
 		expect(markdown).toContain("Beta feeds alpha.");
+	});
+
+	test("closed active counterpart renders as closed instead of found", async () => {
+		const exit = await runShowObjective(
+			contextWith({
+				fake: {
+					records: [
+						{
+							slug: "alpha",
+							objectiveMd: frontmatter(
+								edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
+							),
+						},
+						{
+							slug: "beta",
+							isClosed: true,
+							objectiveMd: frontmatter(
+								edgeBlock([{ objective: "alpha", annotation: "Beta feeds alpha." }]),
+							),
+						},
+					],
+				},
+			}),
+			{ slug: "alpha" },
+		);
+
+		const data = expectOk(exit);
+		expect(data.edges[0]?.counterpart).toEqual({
+			exists: true,
+			isClosed: true,
+			annotation: "Beta feeds alpha.",
+		});
+		expect(plainHuman(data)).toContain("beta  closed");
+		expect(renderShowObjectiveMarkdown(data)).toContain("### `beta` (closed)");
 	});
 
 	test("missing counterpart yields exists false and a null annotation", async () => {
@@ -132,7 +166,11 @@ describe("objective show", () => {
 		);
 
 		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({ exists: false, annotation: null });
+		expect(data.edges[0]?.counterpart).toEqual({
+			exists: false,
+			isClosed: null,
+			annotation: null,
+		});
 	});
 
 	test("counterpart without a back-edge yields a null annotation", async () => {
@@ -154,7 +192,11 @@ describe("objective show", () => {
 		);
 
 		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({ exists: true, annotation: null });
+		expect(data.edges[0]?.counterpart).toEqual({
+			exists: true,
+			isClosed: false,
+			annotation: null,
+		});
 	});
 
 	test("counterpart with malformed frontmatter yields a null annotation", async () => {
@@ -176,7 +218,11 @@ describe("objective show", () => {
 		);
 
 		const data = expectOk(exit);
-		expect(data.edges[0]?.counterpart).toEqual({ exists: true, annotation: null });
+		expect(data.edges[0]?.counterpart).toEqual({
+			exists: true,
+			isClosed: false,
+			annotation: null,
+		});
 	});
 
 	test("attributes a local branch that touches the record", async () => {
@@ -229,12 +275,12 @@ describe("objective show", () => {
 					{
 						objective: "beta",
 						annotation: "Alpha depends on beta.",
-						counterpart: { exists: true, annotation: "Beta feeds alpha." },
+						counterpart: { exists: true, isClosed: false, annotation: "Beta feeds alpha." },
 					},
 					{
 						objective: "ghost",
 						annotation: "Alpha depends on ghost.",
-						counterpart: { exists: false, annotation: null },
+						counterpart: { exists: false, isClosed: null, annotation: null },
 					},
 				],
 			}),
@@ -272,7 +318,7 @@ describe("objective show", () => {
 						{
 							objective: "beta",
 							annotation: "Alpha depends on beta.",
-							counterpart: { exists: true, annotation: null },
+							counterpart: { exists: true, isClosed: false, annotation: null },
 						},
 					],
 				}),
