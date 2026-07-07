@@ -2,6 +2,7 @@ import { formatErrorMessage, formatZodIssue } from "@nseng-ai/foundation/primiti
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
+import { sortDiagnosticsByKey } from "./diagnostic-sort.ts";
 
 export const MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES = [
 	"module_artifact_package_json_invalid",
@@ -270,16 +271,10 @@ function readNonEmptyString(value: unknown): string | undefined {
 function sortDeclarationDiagnostics(
 	diagnostics: readonly ModuleArtifactDeclarationDiagnostic[],
 ): readonly ModuleArtifactDeclarationDiagnostic[] {
-	return [...diagnostics].sort((left, right) =>
-		declarationDiagnosticSortKey(left).localeCompare(declarationDiagnosticSortKey(right)),
-	);
-}
-
-function declarationDiagnosticSortKey(diagnostic: ModuleArtifactDeclarationDiagnostic): string {
-	return [
-		diagnostic.artifactName ?? "",
-		diagnostic.path ?? "",
+	return sortDiagnosticsByKey(diagnostics, (diagnostic) => [
+		diagnostic.artifactName,
+		diagnostic.path,
 		diagnostic.code,
 		diagnostic.message,
-	].join("\0");
+	]);
 }

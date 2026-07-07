@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { z } from "zod";
 
 import { type SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
 import {
@@ -15,6 +16,7 @@ import {
 } from "./first-party-skill-provisioning.ts";
 import {
 	ALL_HARNESS_IDS,
+	HARNESS_SCOPES,
 	resolveHarnessSkillRoot,
 	type HarnessId,
 	type HarnessPathErrorInfo,
@@ -22,9 +24,9 @@ import {
 } from "./harness-paths.ts";
 import {
 	discoverExtensionModuleHarnessArtifacts,
+	moduleArtifactDiscoveryDiagnosticSchema,
 	nodeHarnessArtifactModuleDiscoveryGateway,
 	type HarnessArtifactModuleDiscoveryGateway,
-	type ModuleArtifactDiscoveryDiagnostic,
 	type ModuleArtifactDiscoveryFileSystemErrorInfo,
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
@@ -68,14 +70,18 @@ export interface ReconcilePair {
 	hasManifestEntry: boolean;
 }
 
-export interface OrphanedManifestEntry {
-	artifactId: string;
-	harness: HarnessId;
-	scope: HarnessScope;
-	targetRoot: string;
-	packageName: string;
-	sourceType: "first-party" | "npm-module";
-}
+const harnessSchema = z.enum(ALL_HARNESS_IDS);
+const scopeSchema = z.enum(HARNESS_SCOPES);
+
+export const orphanedManifestEntrySchema = z.object({
+	artifactId: z.string(),
+	harness: harnessSchema,
+	scope: scopeSchema,
+	targetRoot: z.string(),
+	packageName: z.string(),
+	sourceType: z.enum(["first-party", "npm-module"]),
+});
+export type OrphanedManifestEntry = z.output<typeof orphanedManifestEntrySchema>;
 
 export interface ReconcileCollision {
 	kind: "id" | "target-name";
@@ -177,33 +183,37 @@ export interface RunHarnessArtifactReconcileRequest {
 	firstPartySourceRoot?: string;
 }
 
-export type HarnessSelectionState =
-	| { type: "ns-toml"; harnesses: readonly HarnessId[] }
-	| { type: "missing" };
+export const harnessSelectionStateSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("ns-toml"), harnesses: z.array(harnessSchema) }),
+	z.object({ type: z.literal("missing") }),
+]);
+export type HarnessSelectionState = z.output<typeof harnessSelectionStateSchema>;
 
-export interface ReconcileArtifactOutcome {
-	action: "installed" | "refreshed" | "unchanged" | "conflicted";
-	artifactId: string;
-	skillName: string;
-	harness: HarnessId;
-	scope: HarnessScope;
-	origin: "declared" | "manifest";
-	sourceType: "first-party" | "npm-module";
-	packageName: string;
-	targetArtifactPath: string;
-	manifestPath: string;
-	writtenFiles: readonly string[];
-	conflictingFiles: readonly string[];
-}
+export const reconcileArtifactOutcomeSchema = z.object({
+	action: z.enum(["installed", "refreshed", "unchanged", "conflicted"]),
+	artifactId: z.string(),
+	skillName: z.string(),
+	harness: harnessSchema,
+	scope: scopeSchema,
+	origin: z.enum(["declared", "manifest"]),
+	sourceType: z.enum(["first-party", "npm-module"]),
+	packageName: z.string(),
+	targetArtifactPath: z.string(),
+	manifestPath: z.string(),
+	writtenFiles: z.array(z.string()),
+	conflictingFiles: z.array(z.string()),
+});
+export type ReconcileArtifactOutcome = z.output<typeof reconcileArtifactOutcomeSchema>;
 
-export interface ReconcileReport {
-	mode: "dry-run" | "applied";
-	harnessSelection: HarnessSelectionState;
-	artifacts: readonly ReconcileArtifactOutcome[];
-	orphans: readonly OrphanedManifestEntry[];
-	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
-	needsForce: boolean;
-}
+export const reconcileReportSchema = z.object({
+	mode: z.enum(["dry-run", "applied"]),
+	harnessSelection: harnessSelectionStateSchema,
+	artifacts: z.array(reconcileArtifactOutcomeSchema),
+	orphans: z.array(orphanedManifestEntrySchema),
+	diagnostics: z.array(moduleArtifactDiscoveryDiagnosticSchema),
+	needsForce: z.boolean(),
+});
+export type ReconcileReport = z.output<typeof reconcileReportSchema>;
 
 export type ReconcileErrorInfo =
 	| ReconcilePlanErrorInfo
@@ -313,8 +323,8 @@ export async function runHarnessArtifactReconcile(
 		mode: request.dryRun ? "dry-run" : "applied",
 		harnessSelection: selection.value.state,
 		artifacts,
-		orphans: plan.value.orphans,
-		diagnostics: moduleDiscovery.diagnostics,
+		orphans: [...plan.value.orphans],
+		diagnostics: [...moduleDiscovery.diagnostics],
 		needsForce: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
 }
@@ -436,7 +446,7 @@ function parseHarnessSelection(
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });
 	}
 	return resultOk({
-		state: { type: "ns-toml", harnesses: parsed.harnesses },
+		state: { type: "ns-toml", harnesses: [...parsed.harnesses] },
 		harnessSelection: parsed.harnesses,
 	});
 }
@@ -499,7 +509,7 @@ function reconcileOutcomeFromProvision(input: {
 		packageName: input.pair.desired.artifact.source.packageName,
 		targetArtifactPath: input.provision.plan.targetArtifactPath,
 		manifestPath: input.provision.manifestPath,
-		writtenFiles: input.writtenFiles,
-		conflictingFiles: input.conflictingFiles,
+		writtenFiles: [...input.writtenFiles],
+		conflictingFiles: [...input.conflictingFiles],
 	};
 }
