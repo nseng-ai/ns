@@ -20,10 +20,13 @@
   - Evidence: local branch `point-system-catalog-slice` commit `1e99c38a0` added kernel
     point definition discovery, `loadPointCatalog`/`computePointCatalog`, conventional
     prompt probing, and fake-driven unit coverage for catalog diagnostics.
-- [ ] Migrate `flow.submit.pre` as first consumer: declare the point in the flow extension
+- [x] Migrate `flow.submit.pre` as first consumer: declare the point in the flow extension
       manifest, replace `[flow.hooks].pre_submit` with `[points]."flow.submit.pre"` in the
       loader and this repo's `ns.toml`, update submit-hooks runtime and scenario tests.
-  - Evidence: `ns flow submit` scenario coverage (pass/fail/`--no-hooks`) against the new key.
+  - Evidence: local branch `point-system-flow-submit-pre-W5pCnV` commit `1e89a46a0`
+    declares the hook point, rewires flow submit hooks through the kernel catalog, removes
+    flow's direct `smol-toml` dependency, rejects legacy `[flow.hooks]`, and passes targeted
+    submit hook unit/scenario tests including `--no-hooks`.
 - [ ] Migrate prompt points: `flow.submit.pr-description` (manifest `default` file,
       id-based `.ns/prompts` name, generalized env dev-override reported by the catalog) and
       branch-context `plans-write`.

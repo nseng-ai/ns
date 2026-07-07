@@ -2,6 +2,14 @@
   "ns": {
     "description": "Checkpoint, branch, submit, and land Graphite-backed work.",
     "group": "flow",
+    "points": [
+      {
+        "path": ["submit", "pre"],
+        "accepts": "hook",
+        "semantics": "additive",
+        "description": "Runs before flow submit checkpoints and submits the stack."
+      }
+    ],
     "commands": [
       {
         "name": "changes",

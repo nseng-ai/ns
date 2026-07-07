@@ -60,13 +60,13 @@ const submitSchema = z.object({
 		.boolean()
 		.default(true)
 		.describe(
-			"Run pre-submit hooks from the repo-root ns.toml ([flow.hooks] pre_submit) before checkpointing. Use --no-hooks to skip.",
+			'Run pre-submit hooks installed at [points]."flow.submit.pre" in repo-root ns.toml before checkpointing. Use --no-hooks to skip.',
 		),
 });
 
 const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit hooks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
 
-Pre-submit hooks are consumer config in the repo-root ns.toml ([flow.hooks] pre_submit, an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing hook aborts the submit. Skip them with --no-hooks.
+Pre-submit hooks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing hook aborts the submit. Skip them with --no-hooks.
 
 Environment:
   NS_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to NS_DEV_CHECKPOINT_MODEL.

@@ -11,5 +11,5 @@ exclude = [
 quick = "haiku"
 deep = "sonnet"
 
-[flow.hooks]
-pre_submit = ["just"]
+[points]
+"flow.submit.pre" = ["just"]

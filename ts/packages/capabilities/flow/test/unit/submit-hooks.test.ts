@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,7 +10,7 @@ import {
 	flowSubmitHookFailureExitCode,
 	formatFlowSubmitHookFailure,
 	loadFlowSubmitHooks,
-	parseFlowPreSubmitHooksToml,
+	parseFlowSubmitHookCommands,
 	runFlowSubmitHooks,
 	type FlowSubmitHook,
 } from "../../src/submit/submit-hooks.ts";
@@ -33,14 +33,44 @@ function execResult(result: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function expectConfigError(
+async function createSubmitHooksRepo(nsToml: string): Promise<string> {
+	const repoRoot = await mkdtemp(join(tmpdir(), "ns-submit-hooks-unit-"));
+	tempDirs.push(repoRoot);
+	await mkdir(join(repoRoot, ".ns/extensions/flow"), { recursive: true });
+	await writeFile(
+		join(repoRoot, ".ns/extensions/flow/package.json"),
+		JSON.stringify({
+			ns: {
+				group: "flow",
+				points: [
+					{
+						path: ["submit", "pre"],
+						accepts: "hook",
+						semantics: "additive",
+						description: "Runs before submit.",
+					},
+				],
+			},
+		}),
+		"utf8",
+	);
+	await writeFile(join(repoRoot, "ns.toml"), nsToml, "utf8");
+	return repoRoot;
+}
+
+async function expectConfigError(
 	source: string,
-	code: "invalid-toml" | "invalid-table" | "invalid-pre-submit",
+	code: "invalid-config" | "invalid-pre-submit",
 	message: string,
-): void {
-	const result = parseFlowPreSubmitHooksToml(source, "ns.toml");
-	expect(result.ok).toBe(false);
-	if (!result.ok) {
+): Promise<void> {
+	const repoRoot = await createSubmitHooksRepo(source);
+	const runner: CommandRunner = async (command, args) => {
+		expect([command, ...args]).toEqual(["git", "rev-parse", "--show-toplevel"]);
+		return execResult({ stdout: `${repoRoot}\n` });
+	};
+	const result = await loadFlowSubmitHooks({ cwd: repoRoot, runner });
+	expect(result.kind).toBe("invalid");
+	if (result.kind === "invalid") {
 		expect(result.error.code).toBe(code);
 		expect(result.error.message).toContain(message);
 		expect(result.error.message).toContain("ns.toml");
@@ -48,11 +78,8 @@ function expectConfigError(
 }
 
 describe("flow submit hooks", () => {
-	test("parses flow pre-submit hooks from TOML", () => {
-		const result = parseFlowPreSubmitHooksToml(`
-[flow.hooks]
-pre_submit = ["just", "scripts/pre-submit --fix"]
-`);
+	test("parses flow.submit.pre command strings", () => {
+		const result = parseFlowSubmitHookCommands(["just", "scripts/pre-submit --fix"]);
 
 		expect(result).toEqual({
 			ok: true,
@@ -67,10 +94,26 @@ pre_submit = ["just", "scripts/pre-submit --fix"]
 		});
 	});
 
-	test("treats missing flow hooks as empty", () => {
-		expect(parseFlowPreSubmitHooksToml('[areg]\nagents = ["codex"]\n')).toEqual({
-			ok: true,
-			value: [],
+	test("loads point-system flow submit hooks from ns.toml", async () => {
+		const repoRoot = await createSubmitHooksRepo(`
+[points]
+"flow.submit.pre" = ["just", "scripts/pre-submit --fix"]
+`);
+		const runner: CommandRunner = async (command, args) => {
+			expect([command, ...args]).toEqual(["git", "rev-parse", "--show-toplevel"]);
+			return execResult({ stdout: `${repoRoot}\n` });
+		};
+
+		expect(await loadFlowSubmitHooks({ cwd: repoRoot, runner })).toEqual({
+			kind: "hooks",
+			hooks: [
+				{ display: "just", executable: "just", args: [] },
+				{
+					display: "scripts/pre-submit --fix",
+					executable: "scripts/pre-submit",
+					args: ["--fix"],
+				},
+			],
 		});
 	});
 
@@ -85,19 +128,22 @@ pre_submit = ["just", "scripts/pre-submit --fix"]
 		expect(await loadFlowSubmitHooks({ cwd: repoRoot, runner })).toEqual({ kind: "none" });
 	});
 
-	test("reports invalid hook config cases", () => {
-		expectConfigError("[flow.hooks\n", "invalid-toml", "Invalid TOML");
-		expectConfigError("flow = 1\n", "invalid-table", "[flow] must be a TOML table");
-		expectConfigError("[flow]\nhooks = 1\n", "invalid-table", "[flow.hooks] must be a TOML table");
-		expectConfigError(
-			'[flow.hooks]\npre_submit = "just"\n',
-			"invalid-pre-submit",
-			"must be a TOML array of non-empty strings",
+	test("reports invalid hook config cases", async () => {
+		await expectConfigError("[points\n", "invalid-config", "Invalid TOML");
+		await expectConfigError(
+			'[points]\n"flow.submit.pre" = "just"\n',
+			"invalid-config",
+			"hook point flow.submit.pre must be an array of command strings",
 		);
-		expectConfigError(
-			'[flow.hooks]\npre_submit = ["just", ""]\n',
+		await expectConfigError(
+			'[points]\n"flow.submit.pre" = ["just", ""]\n',
 			"invalid-pre-submit",
 			"must contain only non-empty strings",
+		);
+		await expectConfigError(
+			'[flow.hooks]\npre_submit = ["just"]\n',
+			"invalid-config",
+			'[flow.hooks] is no longer supported; install pre-submit hooks at [points]."flow.submit.pre"',
 		);
 	});
 
