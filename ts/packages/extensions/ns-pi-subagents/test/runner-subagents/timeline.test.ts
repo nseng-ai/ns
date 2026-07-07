@@ -64,6 +64,58 @@ describe("runner subagent timeline", () => {
 			{ kind: "tool", toolName: "bash", state: "running", inputPreview: "npm test" },
 			{ kind: "tool", toolName: "read", state: "error", resultPreview: "missing file" },
 		]);
+		expect(timeline.currentAction).toEqual({
+			kind: "tool",
+			toolName: "bash",
+			inputPreview: "npm test",
+		});
+	});
+
+	test("clears current tool action after matching tool end", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-1", args: "just test" },
+				{ type: "tool_execution_end", toolName: "bash", toolCallId: "tool-1", result: "ok" },
+			]),
+		);
+
+		expect(timeline.currentAction).toEqual({ kind: "idle" });
+	});
+
+	test("captures tool update output for pending current action", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-1", args: "just test" },
+				{
+					type: "tool_execution_update",
+					toolName: "bash",
+					toolCallId: "tool-1",
+					partialResult: "one test passed",
+				},
+			]),
+		);
+
+		expect(timeline.currentAction).toEqual({
+			kind: "tool",
+			toolName: "bash",
+			inputPreview: "just test",
+			outputPreview: "one test passed",
+		});
+	});
+
+	test("chooses the most recently started pending tool for current action", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "read", toolCallId: "tool-1", args: "a.ts" },
+				{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-2", args: "just test" },
+			]),
+		);
+
+		expect(timeline.currentAction).toEqual({
+			kind: "tool",
+			toolName: "bash",
+			inputPreview: "just test",
+		});
 	});
 
 	test("dedupes repeated message_end and turn_end assistant text", () => {

@@ -1,8 +1,12 @@
 import { readFile } from "node:fs/promises";
 
 import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
+import type { Clock } from "@nseng-ai/foundation/clock";
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
+import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import type {
 	CommandContext,
@@ -24,6 +28,7 @@ import {
 } from "../runner-subagents/json-events.ts";
 import { extractRunnerSubagentTimelineFromSessionJsonl } from "../runner-subagents/timeline.ts";
 import type {
+	RunnerSubagentCurrentAction,
 	RunnerSubagentTimeline,
 	RunnerSubagentTimelineEntry,
 } from "../runner-subagents/timeline.ts";
@@ -49,6 +54,7 @@ const PARENT_ENTRY_TITLE = "Parent Pi session";
 
 const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
 const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
+const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
 
 export interface SubagentFleetTaskDetail {
 	title: string;
@@ -62,6 +68,8 @@ export interface SubagentFleetTaskDetail {
 	status: string;
 	timeline: RunnerSubagentTimeline;
 	usage?: RunnerSubagentUsageMetadata;
+	currentAction?: RunnerSubagentCurrentAction;
+	quietMs?: number;
 	message?: string;
 }
 
@@ -112,6 +120,17 @@ interface TaskFleetNavigatorEntry {
 }
 
 type FleetNavigatorEntry = ParentFleetNavigatorEntry | TaskFleetNavigatorEntry;
+
+interface DetailObservationState {
+	key: string;
+	contentSignature: string;
+	lastObservedChangeMs: number;
+}
+
+interface LoadedFleetEntryDetail {
+	detail: SubagentFleetTaskDetail;
+	sessionContentSignature?: string;
+}
 
 export function registerSubagentFleetCommand<TPi extends object>(input: {
 	pi: TPi;
@@ -239,6 +258,9 @@ export interface SubagentFleetNavigatorOptions {
 	done(value: undefined): void;
 	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
 	parentSessionFile?: string;
+	clock?: Clock;
+	timers?: TimerScheduler;
+	detailRefreshIntervalMs?: number;
 }
 
 export class SubagentFleetNavigator implements RenderComponent {
@@ -247,6 +269,9 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private readonly readTextFile: ReadTextFile;
 	private readonly done: (value: undefined) => void;
 	private readonly fallbackParentSessionFile: string | undefined;
+	private readonly clock: Clock;
+	private readonly timers: TimerScheduler;
+	private readonly detailRefreshIntervalMs: number;
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private entries: FleetNavigatorEntry[];
@@ -259,6 +284,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private isReadInFlight = false;
 	private hasQueuedRead = false;
 	private isDisposed = false;
+	private detailPollTimer: ScheduledTimer | undefined;
+	private detailObservation: DetailObservationState | undefined;
 
 	constructor(options: SubagentFleetNavigatorOptions) {
 		this.tui = options.tui;
@@ -266,10 +293,15 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.readTextFile = options.readTextFile;
 		this.done = options.done;
 		this.fallbackParentSessionFile = options.parentSessionFile;
+		this.clock = options.clock ?? systemClock;
+		this.timers = options.timers ?? unrefTimerScheduler;
+		this.detailRefreshIntervalMs =
+			options.detailRefreshIntervalMs ?? DEFAULT_DETAIL_REFRESH_INTERVAL_MS;
 		this.entries = this.readEntries();
 		this.selectedEntryId = defaultSelectionId(this.entries);
 		this.unsubscribe = this.registry.subscribe(() => {
 			this.refreshEntries();
+			this.syncDetailPolling();
 			if (this.mode === "detail") this.scheduleDetailLoad();
 			this.tui.requestRender();
 		});
@@ -308,6 +340,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 	dispose(): void {
 		if (this.isDisposed) return;
 		this.isDisposed = true;
+		this.stopDetailPolling();
+		this.hasQueuedRead = false;
 		this.unsubscribe();
 	}
 
@@ -335,6 +369,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (data === "b") {
 			this.mode = "list";
 			this.detail = undefined;
+			this.detailObservation = undefined;
+			this.stopDetailPolling();
 			this.tui.requestRender();
 			return;
 		}
@@ -384,6 +420,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.detailMaxScroll = 0;
 		this.isFollowing = true;
 		this.isPromptExpanded = false;
+		this.detailObservation = undefined;
+		this.syncDetailPolling();
 		this.scheduleDetailLoad();
 		this.tui.requestRender();
 	}
@@ -400,13 +438,14 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
-		const detail = await loadFleetEntryDetail({
+		const loaded = await loadFleetEntryDetail({
 			entry,
 			readTextFile: this.readTextFile,
 		});
 		this.isReadInFlight = false;
 		if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
-			this.detail = detail;
+			this.detail = this.detailWithLiveObservation(entry, loaded);
+			this.syncDetailPolling();
 			this.tui.requestRender();
 		}
 		if (!this.isDisposed && this.hasQueuedRead) {
@@ -415,7 +454,65 @@ export class SubagentFleetNavigator implements RenderComponent {
 		}
 	}
 
+	private detailWithLiveObservation(
+		entry: FleetNavigatorEntry,
+		loaded: LoadedFleetEntryDetail,
+	): SubagentFleetTaskDetail {
+		if (!isRunningTaskDetailEntry(entry)) {
+			this.detailObservation = undefined;
+			return loaded.detail;
+		}
+		const currentAction = runningCurrentAction(loaded.detail.timeline.currentAction);
+		const quietMs = this.observeDetailQuietMs(entry, loaded.sessionContentSignature);
+		return {
+			...loaded.detail,
+			currentAction,
+			...(quietMs === undefined ? {} : { quietMs }),
+		};
+	}
+
+	private observeDetailQuietMs(
+		entry: FleetNavigatorEntry,
+		contentSignature: string | undefined,
+	): number | undefined {
+		const sessionFile = entrySessionFile(entry);
+		if (sessionFile === undefined || contentSignature === undefined) return undefined;
+		const key = `${entryId(entry) ?? "unknown"}:${sessionFile}`;
+		const nowMs = this.clock.nowMs();
+		if (this.detailObservation?.key !== key) {
+			this.detailObservation = { key, contentSignature, lastObservedChangeMs: nowMs };
+			return 0;
+		}
+		if (this.detailObservation.contentSignature !== contentSignature) {
+			this.detailObservation = { key, contentSignature, lastObservedChangeMs: nowMs };
+			return 0;
+		}
+		return Math.max(0, nowMs - this.detailObservation.lastObservedChangeMs);
+	}
+
+	private syncDetailPolling(): void {
+		if (this.mode !== "detail" || !isRunningTaskDetailEntry(this.selectedEntry())) {
+			this.stopDetailPolling();
+			return;
+		}
+		if (this.detailPollTimer !== undefined) return;
+		this.detailPollTimer = this.timers.setInterval(() => {
+			if (this.isDisposed) return;
+			if (this.mode !== "detail" || !isRunningTaskDetailEntry(this.selectedEntry())) {
+				this.stopDetailPolling();
+				return;
+			}
+			this.scheduleDetailLoad();
+		}, this.detailRefreshIntervalMs);
+	}
+
+	private stopDetailPolling(): void {
+		this.detailPollTimer?.cancel();
+		this.detailPollTimer = undefined;
+	}
+
 	private refreshEntries(): void {
+		const previousSelectedEntryId = this.selectedEntryId;
 		this.entries = this.readEntries();
 		if (
 			this.selectedEntryId !== undefined &&
@@ -424,6 +521,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 			return;
 		}
 		this.selectedEntryId = defaultSelectionId(this.entries);
+		if (this.selectedEntryId !== previousSelectedEntryId) this.detailObservation = undefined;
 	}
 
 	private readEntries(): FleetNavigatorEntry[] {
@@ -529,6 +627,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 			lines.push(detail.message);
 			return lines;
 		}
+		const currentActionLines = renderCurrentActionLines(detail);
+		if (currentActionLines.length > 0) lines.push(...currentActionLines, "");
 		if (detail.timeline.droppedEntryCount > 0) {
 			lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
 		}
@@ -551,26 +651,30 @@ export async function loadFleetTaskDetail(input: {
 	task: SubagentFleetTaskSnapshot;
 	readTextFile: ReadTextFile;
 }): Promise<SubagentFleetTaskDetail> {
-	return loadFleetEntryDetail({
+	const loaded = await loadFleetEntryDetail({
 		entry: { kind: "task", task: input.task },
 		readTextFile: input.readTextFile,
 	});
+	return loaded.detail;
 }
 
 async function loadFleetEntryDetail(input: {
 	entry: FleetNavigatorEntry;
 	readTextFile: ReadTextFile;
-}): Promise<SubagentFleetTaskDetail> {
+}): Promise<LoadedFleetEntryDetail> {
 	const sessionFile = entrySessionFile(input.entry);
-	if (sessionFile === undefined) return placeholderDetail(input.entry, "no session file yet");
+	if (sessionFile === undefined)
+		return { detail: placeholderDetail(input.entry, "no session file yet") };
 	let jsonl: string;
 	try {
 		jsonl = await input.readTextFile(sessionFile);
 	} catch (error) {
-		return placeholderDetail(
-			input.entry,
-			`Could not read session file: ${formatErrorMessage(error)}`,
-		);
+		return {
+			detail: placeholderDetail(
+				input.entry,
+				`Could not read session file: ${formatErrorMessage(error)}`,
+			),
+		};
 	}
 	const parser = createRunnerSubagentJsonEventParser({
 		title: entryTitle(input.entry),
@@ -581,7 +685,10 @@ async function loadFleetEntryDetail(input: {
 	const snapshot = parser.getSnapshot();
 	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
 	const usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, () => jsonl);
-	return detailFromSnapshot({ entry: input.entry, sessionFile, snapshot, timeline, usage });
+	return {
+		detail: detailFromSnapshot({ entry: input.entry, sessionFile, snapshot, timeline, usage }),
+		sessionContentSignature: sessionContentSignature(jsonl),
+	};
 }
 
 function detailFromSnapshot(input: {
@@ -624,7 +731,7 @@ function placeholderDetail(entry: FleetNavigatorEntry, message: string): Subagen
 		elapsedMs: 0,
 		state: task?.state ?? "session",
 		status: task?.finalStatus ?? task?.state ?? "session",
-		timeline: { entries: [], droppedEntryCount: 0 },
+		timeline: { entries: [], droppedEntryCount: 0, currentAction: { kind: "idle" } },
 		message,
 	};
 }
@@ -700,6 +807,25 @@ function entrySessionFile(entry: FleetNavigatorEntry): string | undefined {
 	return entry.kind === "parent" ? entry.sessionFile : entry.task.sessionFile;
 }
 
+function isRunningTaskDetailEntry(
+	entry: FleetNavigatorEntry | undefined,
+): entry is TaskFleetNavigatorEntry {
+	return (
+		entry?.kind === "task" && entry.task.state === "running" && entry.task.sessionFile !== undefined
+	);
+}
+
+function runningCurrentAction(
+	currentAction: RunnerSubagentCurrentAction,
+): RunnerSubagentCurrentAction {
+	return currentAction.kind === "idle" ? { kind: "thinking" } : currentAction;
+}
+
+function sessionContentSignature(jsonl: string): string {
+	const suffix = jsonl.slice(Math.max(0, jsonl.length - 512));
+	return `${jsonl.length}:${suffix}`;
+}
+
 function windowRange(
 	length: number,
 	selectedIndex: number,
@@ -708,6 +834,28 @@ function windowRange(
 	const safeSize = Math.max(1, size);
 	const start = Math.max(0, Math.min(selectedIndex - Math.floor(safeSize / 2), length - safeSize));
 	return { start, end: Math.min(length, start + safeSize) };
+}
+
+function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
+	const action = detail.currentAction;
+	if (action === undefined || action.kind === "idle") return [];
+	const lines: string[] = [];
+	if (action.kind === "thinking") {
+		lines.push("current action: thinking / waiting for model output");
+	} else {
+		const input = action.inputPreview === undefined ? "" : `: ${action.inputPreview}`;
+		lines.push(truncatePlain(`current action: ▶ ${action.toolName}${input}`, 200));
+		if (action.outputPreview !== undefined) {
+			lines.push(truncatePlain(`last output: ${action.outputPreview}`, 200));
+		}
+	}
+	if (detail.quietMs !== undefined)
+		lines.push(`heartbeat: quiet ${formatQuietSeconds(detail.quietMs)}s`);
+	return lines;
+}
+
+function formatQuietSeconds(quietMs: number): number {
+	return Math.max(0, Math.floor(quietMs / 1000));
 }
 
 function renderTimelineEntry(entry: RunnerSubagentTimelineEntry): string {

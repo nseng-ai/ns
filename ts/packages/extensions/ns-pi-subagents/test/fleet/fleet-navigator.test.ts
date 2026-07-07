@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
@@ -251,6 +252,103 @@ describe("subagent fleet navigator", () => {
 		view.handleInput("q");
 		expect(doneCalls).toBe(1);
 		expect(renderRequests).toBeGreaterThan(0);
+	});
+
+	test("auto-refreshes running task detail and tracks observed quiet time", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Live" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/live.jsonl"));
+		let content = sessionJsonl([
+			{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-1", args: "just test" },
+		]);
+		let readCount = 0;
+		const manualClock = createManualClock(0);
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			readTextFile: async () => {
+				readCount += 1;
+				return content;
+			},
+			done: () => {},
+			clock: manualClock.clock,
+			timers: manualTimers.timers,
+			detailRefreshIntervalMs: 1_000,
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(readCount).toBe(1);
+		expect(manualTimers.pendingTimerCount()).toBe(1);
+		expect(view.render(100).join("\n")).toContain("current action: ▶ bash: just test");
+		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 0s");
+
+		manualClock.advanceMs(2_000);
+		manualTimers.advanceMs(1_000);
+		await settleMicrotasks();
+		expect(readCount).toBe(2);
+		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 2s");
+
+		content = sessionJsonl([
+			{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-1", args: "just test" },
+			{
+				type: "tool_execution_update",
+				toolName: "bash",
+				toolCallId: "tool-1",
+				partialResult: "still running",
+			},
+		]);
+		manualClock.advanceMs(500);
+		manualTimers.advanceMs(1_000);
+		await settleMicrotasks();
+		expect(readCount).toBe(3);
+		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 0s");
+		expect(view.render(100).join("\n")).toContain("last output: still running");
+
+		view.handleInput("b");
+		expect(manualTimers.pendingTimerCount()).toBe(0);
+		manualTimers.advanceMs(5_000);
+		await settleMicrotasks();
+		expect(readCount).toBe(3);
+	});
+
+	test("does not poll parent or completed task detail screens", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Done" }], { parentSessionFile: "/tmp/parent.jsonl" });
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markDone(task.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/done.jsonl",
+		});
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			readTextFile: async () => sessionJsonl(),
+			done: () => {},
+			timers: manualTimers.timers,
+		});
+
+		view.handleInput("k");
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(view.render(100).join("\n")).toContain("Parent Pi session");
+		expect(manualTimers.pendingTimerCount()).toBe(0);
+
+		view.handleInput("b");
+		view.handleInput("j");
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(view.render(100).join("\n")).toContain("Done");
+		expect(manualTimers.pendingTimerCount()).toBe(0);
 	});
 
 	test("registers command and falls back to notify without UI", async () => {
