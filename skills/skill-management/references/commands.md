@@ -10,7 +10,7 @@ sections provide.
 
 Install one or more skills. `<source>` can be:
 
-- a GitHub shorthand: `vercel-labs/agent-skills`, `dagster-io/asdl-tools`;
+- a GitHub shorthand: `vercel-labs/agent-skills`, `withgraphite/agent-skills`;
 - a full GitHub URL;
 - a local path: `./skills/skill-management`;
 - a git URL or GitLab URL.
@@ -111,9 +111,9 @@ npx skills check
 
 ### `update`
 
-Updates all skills with remote sources. Avoid this for curated project lockfiles;
-use `areg update-skills` instead so the update is constrained to the exact skills
-already recorded in `skills-lock.json`.
+Updates all skills with remote sources. Avoid broad updates for curated project
+lockfiles. Prefer explicit `npx skills add <source> --skill <name> --agent codex
+claude-code -y` commands for each lockfile entry that should be refreshed.
 
 ### `init [name]`
 

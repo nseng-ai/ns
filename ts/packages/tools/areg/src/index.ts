@@ -7,11 +7,6 @@ export type {
 	AregReplacementInspection,
 	AregGithubGateway,
 	AregGithubSkillListResult,
-	AregHostGateway,
-	AregHostToolName,
-	AregNpxSkillsAddRequest,
-	AregNpxSkillsAddResult,
-	AregNpxSkillsGateway,
 	AregOperationResult,
 	PathState,
 	AregProjectBaseInspection,
@@ -27,22 +22,7 @@ export type {
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
-	AregSkillxInstallRequest,
-	AregSkillxInstallResult,
-	AregSkillxInstalledSkill,
-	AregSkillxWorkspaceCleanupRequest,
-	AregSkillxWorkspaceGateway,
-	AregSkillxWorkspaceInstall,
 	TextFileState,
-	AregToolCheckResult,
 } from "./gateways.ts";
 export { parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
-export { parseSkillInput } from "./operations/skillx.ts";
-export {
-	buildNpxSkillsAddArgs,
-	RealAregGithubGateway,
-	RealAregHostGateway,
-	RealAregNpxSkillsGateway,
-	RealAregProjectGateway,
-	RealAregSkillxWorkspaceGateway,
-} from "./real-gateways.ts";
+export { RealAregGithubGateway, RealAregProjectGateway } from "./real-gateways.ts";

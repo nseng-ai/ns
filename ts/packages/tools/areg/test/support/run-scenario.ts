@@ -11,26 +11,17 @@ import type { AregCliContext } from "../../src/context.ts";
 import {
 	FakeAregGithubGateway,
 	type FakeAregGithubGatewayOptions,
-	FakeAregHostGateway,
-	type FakeAregHostGatewayOptions,
-	FakeAregNpxSkillsGateway,
-	type FakeAregNpxSkillsGatewayOptions,
 	FakeAregProjectGateway,
 	type FakeAregProjectGatewayOptions,
 	FakeAregPromptGateway,
 	type FakeAregPromptGatewayOptions,
-	FakeAregSkillxWorkspaceGateway,
-	type FakeAregSkillxWorkspaceGatewayOptions,
 } from "../../src/fake-gateways.ts";
 
 export interface ScenarioRunOptions {
 	context?: AregCliContext;
-	host?: FakeAregHostGatewayOptions;
 	github?: FakeAregGithubGatewayOptions;
-	skillxWorkspace?: FakeAregSkillxWorkspaceGatewayOptions;
 	project?: FakeAregProjectGatewayOptions;
 	git?: InMemoryGitGatewayState;
-	npxSkills?: FakeAregNpxSkillsGatewayOptions;
 	prompt?: FakeAregPromptGatewayOptions;
 	confirmations?: readonly ConfirmationResult[];
 	isInteractive?: boolean;
@@ -66,17 +57,13 @@ export function runScenario(
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const env = options.env ?? { PATH: "/fake/bin" };
-	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const fakeInteraction = createScenarioFakeClinkrInteraction(options);
 	const context =
 		options.context ??
 		({
-			host: new FakeAregHostGateway(options.host),
 			github: new FakeAregGithubGateway(options.github),
-			skillxWorkspace: new FakeAregSkillxWorkspaceGateway(options.skillxWorkspace),
 			project: new FakeAregProjectGateway(options.project),
 			git: new InMemoryGitGateway(options.git),
-			npxSkills,
 			prompt: new FakeAregPromptGateway(options.prompt),
 			interaction: fakeInteraction.interaction,
 			cwd,

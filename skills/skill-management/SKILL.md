@@ -4,8 +4,6 @@ disable-model-invocation: true
 description: "Manage skills with `npx skills`: add, edit, remove, rename, update, list, or publish skills (local or GitHub). Covers `skills/<name>/` and `.agents/skills/` conventions, the `--agent codex claude-code -y` flag, and `-a`/`--copy` gotchas."
 allowed-tools:
   - "Bash(npx skills *)"
-  - "Bash(areg update-skills *)"
-  - "Bash(node ts/packages/areg/src/cli.ts update-skills *)"
   - "Bash(ln *)"
   - "Bash(rm -rf .agents/skills/*)"
   - "Bash(rm -rf skills/*)"
@@ -222,24 +220,18 @@ Changes propagate through the symlink chain; no install command is needed.
 
 ### 4. Update GitHub-sourced skills
 
-Use the curated lockfile-preserving updater instead of `npx skills update`:
+Use `npx skills add` for targeted GitHub refreshes, and preserve the curated
+lockfile selection manually:
 
 ```bash
-areg update-skills              # refresh every github skill in the lockfile
-areg update-skills --dry-run    # preview which skills would be refreshed
-areg update-skills --skill <name>
-areg update-skills --source <owner>/<repo>
+npx skills add <owner>/<repo> --skill <name> --agent codex claude-code -y
+# Repeat --skill for each installed skill from the source that should be refreshed.
 ```
 
-If `areg` is only available from the checkout, use the TypeScript source CLI:
-`node ts/packages/areg/src/cli.ts update-skills --path . ...`.
-
-The updater walks `skills-lock.json`, preflights every selected GitHub-sourced
-skill file, then calls `npx skills add <source> --skill <name>` once per selected
-entry. Local skills (`sourceType: "local"`) are skipped because they are edited
-in place. The preflight prevents a known-bad source selection from causing a
-partial update; it does not sandbox or roll back `npx skills` mutations after
-they begin.
+Before updating, read `skills-lock.json` and identify the exact GitHub-sourced
+entries to refresh. Do not run a broad source update that installs every skill
+from a repository unless that is the intended lockfile state. Local skills
+(`sourceType: "local"`) are edited in place and do not need an update command.
 
 Invocation-kind metadata is a local overlay managed by `areg skill apply`, not by
 `npx skills`. `areg` manages first-party skills under `skills/<name>/` and
@@ -247,10 +239,9 @@ GitHub-sourced vendored skills under `.agents/skills/<name>/`; use it for
 `disable-model-invocation`, `agents/openai.yaml`, and Pi `-skills/<name>`
 exclusions instead of hand-editing those files.
 
-**Do not use `npx skills update` directly.** The upstream command interprets a
-lockfile source as "install every skill from that repo", which can add skills
-the project never asked for. Use `areg update-skills` until the upstream
-behavior is safe for curated lockfiles.
+`npx skills update` may refresh more than the curated lockfile entries. Prefer
+explicit `npx skills add <source> --skill <name>` commands so the resulting
+diff contains only skills the project intentionally tracks.
 
 ### 5. Remove a skill
 
