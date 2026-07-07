@@ -1,6 +1,7 @@
 import {
 	getProjectConfigSetting,
 	parseProjectConfigToml,
+	primaryProjectConfigDiagnostic,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/kernel/project-config/points";
@@ -105,17 +106,13 @@ function nsTomlErrorFromDiagnostics(
 	diagnostics: readonly ProjectConfigDiagnostic[],
 	pathLabel: string,
 ): NsTomlHarnessesParseResult {
-	const diagnostic =
-		diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
+	const diagnostic = primaryProjectConfigDiagnostic(diagnostics);
 	if (diagnostic?.code === "ns_toml_invalid") {
 		return {
 			type: "error",
 			error: {
 				code: "invalid-toml",
-				message: diagnostic.message.replace(
-					`${pathLabel}: Invalid TOML.\n`,
-					`Invalid TOML in ${pathLabel}: `,
-				),
+				message: formatNsTomlInvalidMessage(diagnostic, pathLabel),
 			},
 		};
 	}
@@ -135,6 +132,16 @@ function nsTomlErrorFromDiagnostics(
 			message: diagnostic?.message ?? `${pathLabel}: invalid ns.toml`,
 		},
 	};
+}
+
+function formatNsTomlInvalidMessage(
+	diagnostic: ProjectConfigDiagnostic,
+	pathLabel: string,
+): string {
+	if (diagnostic.causeMessage !== undefined) {
+		return `Invalid TOML in ${pathLabel}: ${diagnostic.causeMessage}`;
+	}
+	return diagnostic.message;
 }
 
 function parseHarnessesValue(value: readonly string[], _label: string): NsTomlHarnessesParseResult {
