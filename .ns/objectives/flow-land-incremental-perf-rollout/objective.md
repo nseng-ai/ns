@@ -1,8 +1,5 @@
 ---
-blocked: "Further perf slices are gated on flow-land-architecture-deepening: recent bugs showed the land execution architecture is too fragile to absorb risky primitive changes as-is."
 edges:
-  - objective: flow-land-architecture-deepening
-    annotation: Hard gate on resuming risky perf slices; the deepening must land its required candidates (single plan vocabulary, one gateway-set construction, fake-testable maintenance) before this rollout's primitive changes proceed.
   - objective: flow-land-large-stack-performance
     annotation: Successor by consolidation; this rollout inherits its unfinished reconcile row, wall-time baseline question, and parked follow-ups, and replaces its steer-first primitive questions with an incremental dogfooded-slice strategy.
 ---
