@@ -6,12 +6,14 @@
 	"keywords": ["pi-package"],
 	"files": ["src", "README.md"],
 	"exports": {
-		"./extension": "./src/explore/extension.ts",
+		"./extension": "./src/extension.ts",
 		"./explore": "./src/explore/index.ts",
-		"./explore/testing": "./src/explore/testing.ts"
+		"./explore/testing": "./src/explore/testing.ts",
+		"./runner-subagents": "./src/runner-subagents/index.ts",
+		"./runner-subagents/testing": "./src/runner-subagents/testing.ts"
 	},
 	"pi": {
-		"extensions": ["./src/explore/extension.ts"]
+		"extensions": ["./src/extension.ts"]
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

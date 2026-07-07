@@ -3,18 +3,18 @@ import { describe, expect, test, vi } from "vitest";
 import {
 	RunnerSubagentFleetRegistry,
 	type RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 
 import {
-	EXPLORE_FLEET_COMMAND_NAME,
-	EXPLORE_FLEET_SHORTCUTS,
-	ExploreFleetNavigator,
+	SUBAGENT_FLEET_COMMAND_NAME,
+	SUBAGENT_FLEET_SHORTCUTS,
+	SubagentFleetNavigator,
 	loadFleetTaskDetail,
-	registerExploreFleetCommand,
-	registerExploreFleetShortcut,
-	type ExploreFleetNavigatorContext,
-} from "../../src/explore/fleet-navigator.ts";
+	registerSubagentFleetCommand,
+	registerSubagentFleetShortcut,
+	type SubagentFleetNavigatorContext,
+} from "../../src/fleet/navigator.ts";
 
 function jsonl(events: readonly unknown[]): string {
 	return events.map((event) => JSON.stringify(event)).join("\n");
@@ -81,7 +81,7 @@ async function settleMicrotasks(count = 5): Promise<void> {
 const CSI_UP = "\u001b[1;1A";
 const CSI_DOWN = "\u001b[1;1B";
 
-describe("explore fleet navigator", () => {
+describe("subagent fleet navigator", () => {
 	test("loads detail with usage totals from JSONL through the readTextFile seam", async () => {
 		const detail = await loadFleetTaskDetail({
 			task: {
@@ -136,7 +136,7 @@ describe("explore fleet navigator", () => {
 		if (second === undefined || first === undefined) throw new Error("missing task fixtures");
 		registry.markRunning(first.id);
 		registry.markProgress(second.id, updateWithSessionFile("/tmp/two.jsonl"));
-		const view = new ExploreFleetNavigator({
+		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
 			readTextFile: async () => sessionJsonl(),
@@ -167,7 +167,7 @@ describe("explore fleet navigator", () => {
 				message: assistantMessage(`detail line ${index}`),
 			})),
 		);
-		const view = new ExploreFleetNavigator({
+		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {}, terminal: { rows: 9 } },
 			registry,
 			readTextFile: async () => content,
@@ -203,7 +203,7 @@ describe("explore fleet navigator", () => {
 		let content = sessionJsonl();
 		let renderRequests = 0;
 		let doneCalls = 0;
-		const view = new ExploreFleetNavigator({
+		const view = new SubagentFleetNavigator({
 			tui: {
 				requestRender: () => {
 					renderRequests += 1;
@@ -249,7 +249,7 @@ describe("explore fleet navigator", () => {
 		await vi.waitFor(() => expect(view.render(100).join("\n")).toContain("▶ bash: just test"));
 
 		view.handleInput("b");
-		expect(view.render(100).join("\n")).toContain("explore fleet:");
+		expect(view.render(100).join("\n")).toContain("subagent fleet:");
 		view.handleInput("q");
 		expect(doneCalls).toBe(1);
 		expect(renderRequests).toBeGreaterThan(0);
@@ -270,12 +270,12 @@ describe("explore fleet navigator", () => {
 				commands.set(name, command);
 			},
 		};
-		registerExploreFleetCommand({ pi, registry });
+		registerSubagentFleetCommand({ pi, registry });
 
-		expect(commands.has(EXPLORE_FLEET_COMMAND_NAME)).toBe(true);
+		expect(commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
 		const notifications: string[] = [];
-		await commands.get(EXPLORE_FLEET_COMMAND_NAME)!.handler("", noUiCommandContext(notifications));
-		expect(notifications.join("\n")).toContain("explore fleet:");
+		await commands.get(SUBAGENT_FLEET_COMMAND_NAME)!.handler("", noUiCommandContext(notifications));
+		expect(notifications.join("\n")).toContain("subagent fleet:");
 		expect(notifications.join("\n")).toContain("Scout");
 	});
 
@@ -285,7 +285,7 @@ describe("explore fleet navigator", () => {
 			string,
 			{
 				description?: string;
-				handler(ctx: ExploreFleetNavigatorContext): Promise<void> | void;
+				handler(ctx: SubagentFleetNavigatorContext): Promise<void> | void;
 			}
 		>();
 		const pi = {
@@ -293,23 +293,23 @@ describe("explore fleet navigator", () => {
 				shortcut: string,
 				options: {
 					description?: string;
-					handler(ctx: ExploreFleetNavigatorContext): Promise<void> | void;
+					handler(ctx: SubagentFleetNavigatorContext): Promise<void> | void;
 				},
 			) {
 				shortcuts.set(shortcut, options);
 			},
 		};
-		registerExploreFleetShortcut({ pi, registry });
+		registerSubagentFleetShortcut({ pi, registry });
 
-		expect([...shortcuts.keys()]).toEqual([...EXPLORE_FLEET_SHORTCUTS]);
+		expect([...shortcuts.keys()]).toEqual([...SUBAGENT_FLEET_SHORTCUTS]);
 		const notifications: string[] = [];
 		await shortcuts.get("f2")!.handler(noUiCommandContext(notifications));
-		expect(notifications.join("\n")).toContain("No explore fleet tasks");
+		expect(notifications.join("\n")).toContain("No subagent fleet tasks");
 	});
 
 	test("shows the parent Pi session even before any explore run", async () => {
 		const registry = new RunnerSubagentFleetRegistry();
-		const view = new ExploreFleetNavigator({
+		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
 			readTextFile: async () => sessionJsonl(),
@@ -336,7 +336,7 @@ describe("explore fleet navigator", () => {
 		registry.markRunning(child);
 		registry.markProgress(child, updateWithSessionFile("/tmp/child.jsonl"));
 
-		const view = new ExploreFleetNavigator({
+		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
 			readTextFile: async () => sessionJsonl(),

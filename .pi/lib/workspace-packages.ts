@@ -6,7 +6,6 @@ const requireFromTypeScriptWorkspace = createRequire(new URL("../../ts/package.j
 const workspacePackageFallbacks: Record<string, string> = {
 	"@internal/pi-tools/context-profiler/extension": "../../ts/packages/internal/pi-tools/src/context-profiler/extension.ts",
 	"@internal/pi-tools/grill/extension": "../../ts/packages/internal/pi-tools/src/grill/extension.ts",
-	"@internal/pi-tools/runner-subagents/extension": "../../ts/packages/internal/pi-tools/src/runner-subagents/extension.ts",
 	"@internal/pi-tools/slash-command-rerank/extension": "../../ts/packages/internal/pi-tools/src/slash-command-rerank/extension.ts",
 	"@internal/pi-tools/thermo-council/extension": "../../ts/packages/internal/pi-tools/src/thermo-council/extension.ts",
 	"@nseng-ai/ns-pi-subagents/extension": "../../ts/packages/extensions/ns-pi-subagents/src/extension.ts",

@@ -1,65 +1,65 @@
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
+import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
 import {
 	compareFleetTasksForDisplay,
-	setRunnerSubagentWidget,
 	type RunnerSubagentFleetRunSnapshot,
 	type RunnerSubagentFleetTaskSnapshot,
-} from "@internal/pi-tools/runner-subagents";
-import { EXPLORE_FLEET_COMMAND_NAME, EXPLORE_FLEET_SHORTCUT_LABEL } from "./contract.ts";
+} from "../runner-subagents/fleet.ts";
+import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUT_LABEL } from "./contract.ts";
 
-export const EXPLORE_FLEET_WIDGET_KEY = "ns.explore.fleet";
-export const EXPLORE_FLEET_STATUS_KEY = "ns.explore.fleet";
-export const EXPLORE_FLEET_ENTRY_HINT = `${EXPLORE_FLEET_SHORTCUT_LABEL} · /${EXPLORE_FLEET_COMMAND_NAME}`;
+export const SUBAGENT_FLEET_WIDGET_KEY = "ns.subagents.fleet";
+export const SUBAGENT_FLEET_STATUS_KEY = "ns.subagents.fleet";
+export const SUBAGENT_FLEET_ENTRY_HINT = `${SUBAGENT_FLEET_SHORTCUT_LABEL} · /${SUBAGENT_FLEET_COMMAND_NAME}`;
 
-export function syncExploreFleetDisplay(
+export function syncSubagentFleetDisplay(
 	ctx: ToolContext,
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 ): void {
-	const lines = formatExploreFleetWidgetLines(runs);
-	setRunnerSubagentWidget(ctx, EXPLORE_FLEET_WIDGET_KEY, lines.length === 0 ? undefined : lines);
-	setExploreFleetStatus(ctx, formatExploreFleetStatusText(runs));
+	const lines = formatSubagentFleetWidgetLines(runs);
+	setRunnerSubagentWidget(ctx, SUBAGENT_FLEET_WIDGET_KEY, lines.length === 0 ? undefined : lines);
+	setSubagentFleetStatus(ctx, formatSubagentFleetStatusText(runs));
 }
 
 /**
  * Ambient widget: one summary line while explorers are active, nothing once the
  * fleet is idle. Per-task detail lives in the fleet navigator, not the widget.
  */
-export function formatExploreFleetWidgetLines(
+export function formatSubagentFleetWidgetLines(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 ): string[] {
 	const tasks = sortedFleetTasks(runs);
 	if (!hasActiveFleetTasks(tasks)) return [];
 	return [
 		truncatePlain(
-			`explore fleet: ${describeFleetCounts(tasks)} · ${EXPLORE_FLEET_ENTRY_HINT}`,
+			`subagent fleet: ${describeFleetCounts(tasks)} · ${SUBAGENT_FLEET_ENTRY_HINT}`,
 			180,
 		),
 	];
 }
 
-export function formatExploreFleetStatusText(
+export function formatSubagentFleetStatusText(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 ): string | undefined {
 	const tasks = sortedFleetTasks(runs);
 	if (!hasActiveFleetTasks(tasks)) return undefined;
-	return `explore fleet: ${describeFleetCounts(tasks)} · ${EXPLORE_FLEET_SHORTCUT_LABEL}`;
+	return `subagent fleet: ${describeFleetCounts(tasks)} · ${SUBAGENT_FLEET_SHORTCUT_LABEL}`;
 }
 
 /** Multi-line task dump for hosts without an interactive UI. */
-export function formatExploreFleetTaskLines(
+export function formatSubagentFleetTaskLines(
 	runs: readonly RunnerSubagentFleetRunSnapshot[],
 ): string[] {
 	const tasks = sortedFleetTasks(runs);
 	if (tasks.length === 0) return [];
 	const parentSessionFile = latestParentSessionFile(runs);
 	return [
-		`explore fleet: ${describeFleetCounts(tasks)}`,
+		`subagent fleet: ${describeFleetCounts(tasks)}`,
 		...(parentSessionFile === undefined
 			? []
 			: [truncatePlain(`◉ parent session — ${parentSessionFile}`, 180)]),
-		...tasks.map(formatExploreFleetTaskLine),
+		...tasks.map(formatSubagentFleetTaskLine),
 	];
 }
 
@@ -78,16 +78,16 @@ function hasActiveFleetTasks(tasks: readonly RunnerSubagentFleetTaskSnapshot[]):
 	return tasks.some((task) => task.state === "running" || task.state === "queued");
 }
 
-function setExploreFleetStatus(ctx: ToolContext, text: string | undefined): void {
+function setSubagentFleetStatus(ctx: ToolContext, text: string | undefined): void {
 	if (!ctx.hasUI) return;
 	try {
-		ctx.ui.setStatus?.(EXPLORE_FLEET_STATUS_KEY, text);
+		ctx.ui.setStatus?.(SUBAGENT_FLEET_STATUS_KEY, text);
 	} catch {
 		// Status updates are display-only and must not affect subagent execution.
 	}
 }
 
-function formatExploreFleetTaskLine(task: RunnerSubagentFleetTaskSnapshot): string {
+function formatSubagentFleetTaskLine(task: RunnerSubagentFleetTaskSnapshot): string {
 	const icon = taskIcon(task);
 	const status = task.finalStatus ?? task.state;
 	const suffix = task.sessionFile ?? task.latestActivity;

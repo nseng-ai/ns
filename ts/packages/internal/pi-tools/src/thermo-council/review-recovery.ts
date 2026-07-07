@@ -14,7 +14,7 @@ import {
 	resultDiagnostic,
 	type JsonObject,
 	type RunnerSubagentResult,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 
 import {

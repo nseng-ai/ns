@@ -1,7 +1,7 @@
 import {
 	runnerSubagentPrimaryActivityPreview,
 	type RunnerSubagentUpdate,
-} from "@internal/pi-tools/runner-subagents";
+} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 
 import type { ThermoCouncilReviewerOutcome, ThermoCouncilSeatConfig } from "./contract.ts";
 import { summarizeThermoCouncilReviewerOutcome } from "./report.ts";

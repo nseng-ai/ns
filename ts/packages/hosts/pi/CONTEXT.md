@@ -21,7 +21,7 @@ A tested host-resident implementation area under `ts/packages/hosts/pi/src/<doma
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Internal Pi-tool package**:
-A private workspace package under `ts/packages/internal/pi-tools/src/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, `@internal/pi-tools/backing-skill-commands`, `@internal/pi-tools/pr-previews`, or the dispatch-focused `@internal/pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@nseng-ai/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@nseng-ai/pi` import of the tool package.
+A private workspace package for a Pi-native standalone tool extracted from the host, usually under `ts/packages/internal/pi-tools/src/<tool>/` (for example `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, `@internal/pi-tools/backing-skill-commands`, and `@internal/pi-tools/pr-previews`) or, for the subagent tools, under `@nseng-ai/ns-pi-subagents/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@nseng-ai/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@nseng-ai/pi` import of the tool package.
 *Avoid*: Local Pi-tool package, Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
@@ -65,7 +65,7 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Runner subagent**:
-A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool and its shared runtime, process, JSON-event, and presentation helpers live in `@internal/pi-tools/runner-subagents`; the package still consumes neutral `@nseng-ai/pi/...` runtime/tool helper subpaths where it needs Pi host types or agent-definition loading.
+A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool and its shared runtime, process, JSON-event, and presentation helpers live in `@nseng-ai/ns-pi-subagents/runner-subagents`; the package still consumes neutral `@nseng-ai/pi/...` runtime/tool helper subpaths where it needs Pi host types or agent-definition loading.
 *Avoid*: queued slash command, child thread, transcript scrape, forcing `@nseng-ai/pi` to import the extracted dispatch package.
 
 **Terminal helper surface**:

@@ -4,12 +4,12 @@ import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 
-import {
-	createRunnerSubagentJsonEventParser,
-	type RunnerSubagentFleetRegistry,
-	type RunnerSubagentFleetTaskSnapshot,
-} from "@internal/pi-tools/runner-subagents";
-import type { ExploreReadTextFileDependencies } from "./read-text-dependencies.ts";
+import { createRunnerSubagentJsonEventParser } from "../runner-subagents/json-events.ts";
+import type {
+	RunnerSubagentFleetRegistry,
+	RunnerSubagentFleetTaskSnapshot,
+} from "../runner-subagents/fleet.ts";
+import type { ExploreReadTextFileDependencies } from "../explore/read-text-dependencies.ts";
 
 export const EXPLORE_TRANSCRIPT_COMMAND_NAME = "ns:explore:transcript";
 
