@@ -264,6 +264,11 @@
       "sourceType": "local",
       "computedHash": "61cc530cf59b85991e1cee380da3f56b161f21f234059d26919bf0f717561ce8"
     },
+    "objective-create-wayfinding": {
+      "source": "skills/objective-create-wayfinding",
+      "sourceType": "local",
+      "computedHash": "444c6d559faae4322e3bc44064e150130d74736d3bd3eef900719a3ef720b9bd"
+    },
     "objective-critique": {
       "source": "skills/objective-critique",
       "sourceType": "local",

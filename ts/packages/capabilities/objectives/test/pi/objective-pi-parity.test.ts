@@ -6,7 +6,7 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
-import { objectiveCommandSpecs } from "../../src/api/index.ts";
+import { objectiveCommandSpecs, objectiveCreatePatternCommandSpecs } from "../../src/api/index.ts";
 import objectiveExtension, { objectiveParity } from "../../src/pi/extension.ts";
 
 async function collectObjectivePiSurfaces(): Promise<LivePiSurface[]> {
@@ -44,6 +44,20 @@ describe("Objective Pi extension parity metadata", () => {
 				expect.objectContaining({
 					surface: spec.commandName,
 					cli: `ns objective ${spec.cliSubcommand}`,
+				}),
+			);
+		}
+	});
+
+	test("derives pattern-create command names and parity entries from the pattern", () => {
+		for (const spec of objectiveCreatePatternCommandSpecs) {
+			expect(spec.commandName).toBe(`ns:objective:create:${spec.pattern}`);
+			expect(spec.skillName).toBe(`objective-create-${spec.pattern}`);
+			expect(objectiveParity).toContainEqual(
+				expect.objectContaining({
+					surface: spec.commandName,
+					skill: spec.skillName,
+					cli: `${spec.skillName} skill (portable)`,
 				}),
 			);
 		}

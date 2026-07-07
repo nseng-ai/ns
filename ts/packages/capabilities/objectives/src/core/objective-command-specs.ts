@@ -17,12 +17,30 @@ export interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	postSelectionReminder?: string;
 }
 
-export interface ObjectiveCreateCommandSpec {
-	commandName: ObjectiveCreateCommandName;
-	skillName: ObjectiveCreateSkillName;
+export interface ObjectiveCreateSkillSpec {
 	description: string;
 	actionPrompt: string;
 }
+
+export type ObjectiveCreateCommandSpec = ObjectiveCreateSkillSpec & {
+	commandName: ObjectiveCreateCommandName;
+	skillName: ObjectiveCreateSkillName;
+};
+
+export type ObjectiveCreatePattern = "wayfinding";
+export type ObjectiveCreatePatternCommandName = `ns:objective:create:${ObjectiveCreatePattern}`;
+export type ObjectiveCreatePatternSkillName = `objective-create-${ObjectiveCreatePattern}`;
+
+export type ObjectiveCreatePatternCommandSpec = ObjectiveCreateSkillSpec & {
+	commandName: ObjectiveCreatePatternCommandName;
+	skillName: ObjectiveCreatePatternSkillName;
+	pattern: ObjectiveCreatePattern;
+};
+
+/** Any Pi command spec that expands an Objective-creation backing skill. */
+export type AnyObjectiveCreateCommandSpec =
+	| ObjectiveCreateCommandSpec
+	| ObjectiveCreatePatternCommandSpec;
 
 type ObjectiveCommandSpecInput = Omit<ObjectiveCommandSpec, "commandName" | "statusKey">;
 
@@ -32,13 +50,36 @@ function objectiveCommandName(cliSubcommand: ObjectiveCliSubcommand): ObjectiveC
 	return `ns:objective:${cliSubcommand}`;
 }
 
-function defineObjectiveCommandSpec(spec: ObjectiveCommandSpecInput): ObjectiveCommandSpec {
-	const commandName = objectiveCommandName(spec.cliSubcommand);
+function objectiveCreatePatternCommandName(
+	pattern: ObjectiveCreatePattern,
+): ObjectiveCreatePatternCommandName {
+	return `ns:objective:create:${pattern}`;
+}
+
+function objectiveCreatePatternSkillName(
+	pattern: ObjectiveCreatePattern,
+): ObjectiveCreatePatternSkillName {
+	return `objective-create-${pattern}`;
+}
+
+function deriveSpec<TInput extends object, TDerived extends object>(
+	spec: TInput,
+	derive: (spec: TInput) => TDerived,
+): TInput & TDerived {
 	return {
 		...spec,
-		commandName,
-		statusKey: commandName,
+		...derive(spec),
 	};
+}
+
+function defineObjectiveCommandSpec(spec: ObjectiveCommandSpecInput): ObjectiveCommandSpec {
+	return deriveSpec(spec, ({ cliSubcommand }) => {
+		const commandName = objectiveCommandName(cliSubcommand);
+		return {
+			commandName,
+			statusKey: commandName,
+		};
+	});
 }
 
 export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
@@ -48,6 +89,35 @@ export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
 		"Read objective-create backing Markdown to interview for and create a new Objective.",
 	actionPrompt: "Run objective-create with this initial user request:",
 };
+
+type ObjectiveCreatePatternCommandSpecInput = Omit<
+	ObjectiveCreatePatternCommandSpec,
+	"commandName" | "skillName" | "actionPrompt"
+>;
+
+function defineObjectiveCreatePatternCommandSpec(
+	spec: ObjectiveCreatePatternCommandSpecInput,
+): ObjectiveCreatePatternCommandSpec {
+	return deriveSpec(spec, ({ pattern }) => ({
+		commandName: objectiveCreatePatternCommandName(pattern),
+		skillName: objectiveCreatePatternSkillName(pattern),
+		actionPrompt: `Run objective-create-${pattern} with this initial user request:`,
+	}));
+}
+
+export const objectiveCreatePatternCommandSpecs: ObjectiveCreatePatternCommandSpec[] = [
+	defineObjectiveCreatePatternCommandSpec({
+		pattern: "wayfinding",
+		description:
+			"Read objective-create-wayfinding backing Markdown to interview for and create a wayfinding (ideation) Objective charted as Question Rows.",
+	}),
+];
+
+/** Every Pi command spec that expands an Objective-creation backing skill. */
+export const allObjectiveCreateCommandSpecs: AnyObjectiveCreateCommandSpec[] = [
+	objectiveCreateCommandSpec,
+	...objectiveCreatePatternCommandSpecs,
+];
 
 const OBJECTIVE_AUTORUN_PI_TOOL_REMINDER = `
 
