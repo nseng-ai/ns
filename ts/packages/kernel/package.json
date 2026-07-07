@@ -1,6 +1,6 @@
 {
 	"name": "@nseng-ai/kernel",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
 	"type": "module",
 	"exports": {

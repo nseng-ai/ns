@@ -1,6 +1,6 @@
 {
 	"name": "@nseng-ai/areg",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
@@ -29,7 +29,9 @@
 		"group": "areg",
 		"settings": [
 			{
-				"path": ["areg"],
+				"path": [
+					"areg"
+				],
 				"description": "Agent IDs areg should initialize when --agent is not supplied."
 			}
 		]

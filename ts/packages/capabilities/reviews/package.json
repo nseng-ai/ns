@@ -1,58 +1,58 @@
 {
-  "name": "@nseng-ai/reviews",
-  "version": "0.1.1",
-  "type": "module",
-  "exports": {
-    ".": "./src/core/index.ts",
-    "./api": "./src/core/api.ts",
-    "./commands/list": "./src/commands/list.ts",
-    "./commands/ls": "./src/commands/ls.ts",
-    "./commands/log": "./src/commands/log.ts",
-    "./commands/run": "./src/commands/run.ts",
-    "./commands/exec-record-findings": "./src/commands/exec-record-findings.ts",
-    "./commands/exec-publish-findings": "./src/commands/exec-publish-findings.ts",
-    "./skill-reviews": "./src/core/skill-reviews.ts",
-    "./repo-local-ns-extension": "./src/core/repo-local-ns-extension.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/reviews/test",
-    "pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
-    "publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
-  },
-  "dependencies": {
-    "@nseng-ai/capability-kit": "workspace:*",
-    "@nseng-ai/clinkr": "workspace:*",
-    "@nseng-ai/foundation": "workspace:*",
-    "@nseng-ai/kernel": "workspace:*",
-    "@pierre/diffs": "catalog:",
-    "yaml": "catalog:",
-    "zod": "catalog:"
-  },
-  "ns": {
-    "tier": "standalone-tool",
-    "group": "reviews",
-    "settings": [
-      {
-        "path": [
-          "reviews",
-          "diff"
-        ],
-        "description": "Diff input options for Reviews."
-      },
-      {
-        "path": [
-          "reviews",
-          "model_profiles"
-        ],
-        "description": "Model aliases for Reviews quick and deep review profiles."
-      }
-    ]
-  },
-  "publishConfig": {
-    "access": "public"
-  }
+	"name": "@nseng-ai/reviews",
+	"version": "0.1.2",
+	"type": "module",
+	"exports": {
+		".": "./src/core/index.ts",
+		"./api": "./src/core/api.ts",
+		"./commands/list": "./src/commands/list.ts",
+		"./commands/ls": "./src/commands/ls.ts",
+		"./commands/log": "./src/commands/log.ts",
+		"./commands/run": "./src/commands/run.ts",
+		"./commands/exec-record-findings": "./src/commands/exec-record-findings.ts",
+		"./commands/exec-publish-findings": "./src/commands/exec-publish-findings.ts",
+		"./skill-reviews": "./src/core/skill-reviews.ts",
+		"./repo-local-ns-extension": "./src/core/repo-local-ns-extension.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/reviews/test",
+		"pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"@pierre/diffs": "catalog:",
+		"yaml": "catalog:",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "standalone-tool",
+		"group": "reviews",
+		"settings": [
+			{
+				"path": [
+					"reviews",
+					"diff"
+				],
+				"description": "Diff input options for Reviews."
+			},
+			{
+				"path": [
+					"reviews",
+					"model_profiles"
+				],
+				"description": "Model aliases for Reviews quick and deep review profiles."
+			}
+		]
+	},
+	"publishConfig": {
+		"access": "public"
+	}
 }

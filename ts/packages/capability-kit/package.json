@@ -1,6 +1,6 @@
 {
 	"name": "@nseng-ai/capability-kit",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"files": [
 		"src"
 	],
@@ -32,7 +32,6 @@
 		"./github/cli": "./src/github/cli.ts",
 		"./github/graphql-json": "./src/github/graphql-json.ts",
 		"./github/identity": "./src/github/identity.ts",
-		"./github/graphql-json": "./src/github/graphql-json.ts",
 		"./github/pr-feedback": "./src/github/pr-feedback/index.ts",
 		"./github/pr-status": "./src/github/pr-status.ts",
 		"./github/testing": "./src/github/testing.ts",
