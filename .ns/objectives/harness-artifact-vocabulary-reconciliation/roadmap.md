@@ -10,7 +10,8 @@
       **Done 2026-07-07**: `updates/20260707T170500Z-two-channel-layered-positioning.md` — landed as a layered-management story (four-layer stack + overlay-seam invariant for externally sourced skills); includes the minimal `harness-skill-invocation.md` additivity pointer (inventory item C); `commands.md` deliberately unchanged; full `skill-management` rewrite deliberately declined.
 - [x] Sweep residual `skillx` references (`skills/python-fake-driven-test-layout/SKILL.md`, `docs/retros/cli-surface-conformance-audit.md`, pi-tools backing-skill-commands test, areg cli-shape test), preserving deliberately-historical records with clarifying notes only where actively misleading.
       **Done 2026-07-07**: `updates/20260707T165430Z-residual-skillx-sweep.md` — live skill guidance and guard tests now use neutral/fictional names; `docs/retros/cli-surface-conformance-audit.md` preserved as historical evidence with its existing historical-status banner; scoped `rg` clean outside that preserved retro; targeted Vitest suites, tsgo, and dprint passed.
-- [ ] Align affected domain CONTEXT.md files with the harness-artifact vocabulary, including `Avoid` entries for bare "artifact" (where ambiguous) and "platform" (for harness).
+- [x] Align affected domain CONTEXT.md files with the harness-artifact vocabulary, including `Avoid` entries for bare "artifact" (where ambiguous) and "platform" (for harness).
+      **Done 2026-07-07**: `updates/20260707T173213Z-context-vocabulary-alignment.md` — root `CONTEXT.md` now carries the binding harness-artifact vocabulary cluster, and `CONTEXT-MAP.md` reflects **harness overlays** plus the partially settled Skill/agent/resource ambiguity.
 
 ## Parked
 

@@ -122,6 +122,26 @@ The prose-valued `blocked:` key in **Record Frontmatter**: presence means the re
 
 Objective state vocabulary clusters as: open vs. closed is the lifecycle state (the **Closure Marker** decides closed), active vs. archived is a location choice (**Objective Archive Root**), and blocked — the presence of a **Blocked Sentence** — is a sub-state of open, not a third lifecycle state.
 
+**Harness artifact**:
+An ns-owned resource materialized into an assistant **Harness**; current kinds are `skill`, `agent`, and `extension-bundle`. Handoff artifacts and consumer artifacts are separate domain terms, so qualify this term when ambiguity is possible.
+*Avoid*: bare artifact where ambiguous, managed artifact
+
+**Harness**:
+A target assistant environment for a **Harness artifact**, currently `claude-code`, `codex`, or `pi`. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
+*Avoid*: platform
+
+**Provision**:
+The action that materializes a **Harness artifact** into a **Harness** root.
+*Avoid*: install where it means provisioning, deploy
+
+**Skills**:
+The user-facing CLI noun for `ns skills ...`, the current steelthread surface over `skill` **Harness artifact** provisioning.
+*Avoid*: artifacts as the user-facing noun
+
+**Harness overlay**:
+Per-invocation-kind harness integration files reconciled by areg, such as frontmatter flags, Codex sidecars, Pi settings exclusions, and mirror symlinks. Harness overlays are the seam where repo-owned invocation policy layers onto first-party or externally sourced skill content.
+*Avoid*: managed artifacts, kind overlays
+
 ## Architecture Boundaries
 
 These terms are general across the codebase. The canonical definitions are replicated here for discoverability; the `typescript-fake-driven-testing` skill carries the fuller mechanics.
