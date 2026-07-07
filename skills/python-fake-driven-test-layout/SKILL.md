@@ -153,8 +153,8 @@ under each test path. The subdirectory split is purely an organization concern �
 pytest doesn't care.
 
 Inside `unit/`, `integration/`, and `scenario/`, file names mirror the source
-module under test (`test_check.py` exercises `check.py`, `test_skillx.py` exercises
-`skillx.py`); the grouping comes from the parent directory, not the file name. The
+module under test (`test_check.py` exercises `check.py`, `test_catalog.py` exercises
+`catalog.py`); the grouping comes from the parent directory, not the file name. The
 two `tests/gateways/` files keep their fixed `test_*.py` names and are collected
 normally. (Gateway *source* file naming — `gateway.py`/`real.py`/`fake.py` — is
 covered under "Where gateway code lives".)
