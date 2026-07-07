@@ -4,6 +4,8 @@ edges:
     annotation: Subobjective carrying the thread — one real ns-owned skill through `ns skills list/path/install` into the pi/claude-code/codex harness roots with a hashed install manifest; this umbrella coordinates the surrounding ambition and deferred breadth.
   - objective: npm-bundled-artifact-provisioning
     annotation: Subobjective — the first follow-on graduated from parked breadth after the steelthread closure. Generalizes first-party provisioning to any npm-module-bundled harness artifact (extensions are one case) and folds in removing AREG's `npx skills` wrapping, keeping AREG as a standalone whole-project inspector. Merges the former extension-carried-provisioning and AREG-re-platform parked rows.
+  - objective: harness-artifacts-thermo-remediation
+    annotation: Subobjective — quality remediation of the delivered harness-artifacts stack. Fixes the 5 HIGH and 10 MEDIUM findings from the 2026-07-06 thermo-nuclear review (dead AREG gateway seams, homeDir sentinel, conflict-as-outcome reconcile restructure, and related cleanups) before this umbrella's parked breadth graduates further.
 ---
 
 # Reusable Skill Management Subsystem
