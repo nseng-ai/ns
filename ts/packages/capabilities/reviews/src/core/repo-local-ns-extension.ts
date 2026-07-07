@@ -6,9 +6,9 @@ import {
 import { reviewsExecPublishFindingsCommand } from "../commands/exec-publish-findings.ts";
 import { reviewsExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
 import { reviewListCommand } from "../commands/list.ts";
-import { reviewLogCommand } from "../commands/review-log.ts";
+import { reviewLogCommand } from "../commands/log.ts";
 import { reviewLsCommand } from "../commands/ls.ts";
-import { reviewRunCommand } from "../commands/review-run.ts";
+import { reviewRunCommand } from "../commands/run.ts";
 
 export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({
 	group: "reviews",
@@ -24,14 +24,10 @@ export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor(
 		}),
 		repoLocalNsCommandDescriptor({
 			command: reviewLogCommand,
-			manifestName: "review-log",
-			manifestPath: ["review", "log"],
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({
 			command: reviewRunCommand,
-			manifestName: "review-run",
-			manifestPath: ["review", "run"],
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({

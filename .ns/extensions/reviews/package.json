@@ -30,22 +30,14 @@
         "entry": "./src/commands/ls.ts"
       },
       {
-        "name": "review-log",
-        "path": [
-          "review",
-          "log"
-        ],
+        "name": "log",
         "description": "List Reviews review logs for this branch.",
-        "entry": "./src/commands/review-log.ts"
+        "entry": "./src/commands/log.ts"
       },
       {
-        "name": "review-run",
-        "path": [
-          "review",
-          "run"
-        ],
+        "name": "run",
         "description": "Run a configured Reviews review over the current diff.",
-        "entry": "./src/commands/review-run.ts"
+        "entry": "./src/commands/run.ts"
       },
       {
         "name": "exec-record-findings",

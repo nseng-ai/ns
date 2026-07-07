@@ -37,13 +37,14 @@ describe("Reviews ns command face", () => {
 		expect(run.registry.loadLog).toEqual([]);
 	});
 
-	test("group help exposes nested Reviews commands without running backends", async () => {
-		const run = runWithFakeReviewsExtension({ args: ["reviews", "review", "--help"] });
+	test("group help exposes flat Reviews commands without running backends", async () => {
+		const run = runWithFakeReviewsExtension({ args: ["reviews", "--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ns reviews review");
-		expect(help).not.toContain("ls");
+		expect(help).toContain("Usage: ns reviews");
+		expect(help).toContain("list");
+		expect(help).toContain("ls");
 		expect(help).toContain("log");
 		expect(help).toContain("run");
 		expect(help).not.toContain("exec");
@@ -72,7 +73,7 @@ describe("Reviews ns command face", () => {
 
 	test("selected Reviews command publishes its machine schema", async () => {
 		const run = runWithFakeReviewsExtension({
-			args: ["reviews", "review", "log", "--json-schema"],
+			args: ["reviews", "log", "--json-schema"],
 		});
 
 		expect(await run.exit).toBe(0);
@@ -81,7 +82,7 @@ describe("Reviews ns command face", () => {
 		expect(schema).toHaveProperty("outputJsonSchema");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["reviews/review/log"]);
+		expect(run.registry.loadLog).toEqual(["reviews/log"]);
 	});
 
 	test("hidden Reviews publish-findings publishes its machine schema", async () => {
@@ -190,12 +191,12 @@ const fakeReviewsCommandSpecs = [
 		}),
 	},
 	{
-		name: "review-log",
+		name: "log",
 		description: "List Reviews review logs for this branch.",
-		entryPath: "fake://reviews/src/commands/review-log.ts",
-		segments: ["reviews", "review", "log"],
+		entryPath: "fake://reviews/src/commands/log.ts",
+		segments: ["reviews", "log"],
 		command: fakeReviewsCommand({
-			key: "reviews/review/log",
+			key: "reviews/log",
 			name: "log",
 			summary: "List Reviews review logs for this branch.",
 			description: "List fake Reviews review logs for this branch.",
@@ -203,12 +204,12 @@ const fakeReviewsCommandSpecs = [
 		}),
 	},
 	{
-		name: "review-run",
+		name: "run",
 		description: "Run a configured Reviews review over the current diff.",
-		entryPath: "fake://reviews/src/commands/review-run.ts",
-		segments: ["reviews", "review", "run"],
+		entryPath: "fake://reviews/src/commands/run.ts",
+		segments: ["reviews", "run"],
 		command: fakeReviewsCommand({
-			key: "reviews/review/run",
+			key: "reviews/run",
 			name: "run",
 			summary: "Run a configured Reviews review over the current diff.",
 			description: "Run a fake Reviews review over the current diff.",

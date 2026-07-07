@@ -31,7 +31,7 @@ Review only the supplied diff...
 Frontmatter fields:
 
 - `description` — required non-empty string.
-- `model_profile` — optional non-empty string; defaults to `quick`. Current display groups `quick` as a tripwire and other profiles such as `deep` as deep reviews. `ns reviews review run --model-profile ...` can override it for one run.
+- `model_profile` — optional non-empty string; defaults to `quick`. Current display groups `quick` as a tripwire and other profiles such as `deep` as deep reviews. `ns reviews run --model-profile ...` can override it for one run.
 - `local_only` — optional boolean; defaults to `false`. Set `true` only for reviews that must never run in CI. CI discovery uses `ns reviews list --ci`, which excludes `local_only: true` definitions.
 - `applies_to.include` — optional list of repo-relative glob patterns. When present, `ns reviews list --applicable` selects the review only when the diff touches a matching path.
 - `applies_to.exclude` — optional list of repo-relative glob patterns removed from applicability. Use this for vendored skill directories or generated areas.
@@ -61,7 +61,7 @@ ns reviews list --ci --applicable --base-ref main
 Run one review locally:
 
 ```bash
-ns reviews review run <review-key> --base-ref main
+ns reviews run <review-key> --base-ref main
 ```
 
 Useful checks after editing a review definition:
@@ -94,7 +94,7 @@ Review job:
 2. Runs each selected review with:
 
    ```bash
-   ns reviews review run "$REVIEW_KEY" \
+   ns reviews run "$REVIEW_KEY" \
      --base-ref "$BASE_REF" \
      --log-branch "$GITHUB_HEAD_REF" \
      --format json
@@ -107,7 +107,7 @@ Operational notes:
 - CI requires `ANTHROPIC_API_KEY` for review execution and uses `GITHUB_TOKEN` for PR publication.
 - Draft PRs and forked PRs are skipped by the workflow guard.
 - A review definition appears in CI only when `local_only` is omitted or set to `false` and its `applies_to` globs match the current diff when `--applicable` is used.
-- Review logs are written to Branch Memory under the `reviews` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns reviews review log`.
+- Review logs are written to Branch Memory under the `reviews` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns reviews log`.
 
 ## Review convergence: how Reviews avoids repetitive feedback
 
@@ -120,4 +120,4 @@ Without convergence, each push re-runs a stateless whole-diff review, and the mo
 
 GitHub is the durable convergence store. Publishing stamps a machine-readable `reviews-state:v1` block into the marker-keyed Findings summary comment: the last-reviewed head SHA, base ref, base merge-base, and a capped cumulative union of surfaced findings, so a successfully suppressed finding does not disappear from state after one quiet round. Gathering reads that stamped block and hydrates thread resolution through the `pr-feedback` GraphQL surface; it never reconstructs state by parsing rendered comment markdown.
 
-Degradation is safe by construction: `ns reviews review run` stays PR-context-free by default (CI opts in), any gathering failure falls back to a context-free full review — noisy but never silently wrong — and if changed-since status cannot be computed the run degrades to Prior-findings-only convergence.
+Degradation is safe by construction: `ns reviews run` stays PR-context-free by default (CI opts in), any gathering failure falls back to a context-free full review — noisy but never silently wrong — and if changed-since status cannot be computed the run degrades to Prior-findings-only convergence.

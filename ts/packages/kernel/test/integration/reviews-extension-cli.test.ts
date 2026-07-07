@@ -32,14 +32,15 @@ describe("checked-in Reviews ns extension loading", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("real loader preserves Reviews nested and hidden command surfaces", async () => {
+	test("real loader preserves Reviews flat and hidden command surfaces", async () => {
 		const cwd = await createReviewsProject();
-		const groupHelp = runWithRealReviewsExtension({ args: ["reviews", "review", "--help"], cwd });
+		const groupHelp = runWithRealReviewsExtension({ args: ["reviews", "--help"], cwd });
 
 		expect(await groupHelp.exit).toBe(0);
 		const help = groupHelp.stdout.join("");
-		expect(help).toContain("Usage: ns reviews review");
-		expect(help).not.toContain("ls");
+		expect(help).toContain("Usage: ns reviews");
+		expect(help).toContain("list");
+		expect(help).toContain("ls");
 		expect(help).toContain("log");
 		expect(help).toContain("run");
 		expect(help).not.toContain("exec");

@@ -18,7 +18,7 @@ Avoid: putting Reviews domain behavior in the ns kernel, Pi host, or generic inf
 
 ### ns Command Face
 
-The canonical user-facing command surface for Reviews: `ns reviews ...`, including `ns reviews list`, `ns reviews review run <key>`, `ns reviews review log`, `ns reviews list`, and hidden automation leaves under `ns reviews exec ...`.
+The canonical user-facing command surface for Reviews: `ns reviews ...`, including `ns reviews list`, `ns reviews ls`, `ns reviews run <key>`, `ns reviews log`, and hidden automation leaves under `ns reviews exec ...`.
 
 Avoid: teaching the removed standalone `reviews` binary as an active compatibility surface or canonical invocation path.
 

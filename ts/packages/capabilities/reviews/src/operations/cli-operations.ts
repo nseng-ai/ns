@@ -212,10 +212,7 @@ export async function buildReviewListResult(
 				description: item.definition.description,
 				modelProfile: item.definition.modelProfile,
 				localOnly: item.definition.localOnly,
-				reviewSkill: {
-					surface: skillEntry.surface,
-					label: skillEntry.label,
-				},
+				reviewSkill: skillEntry,
 			};
 		});
 	return {
@@ -455,10 +452,10 @@ export async function runReviewLog(
 export function renderReviewLog(result: ReviewLogResult): string {
 	if (result.count === 0) {
 		return result.reviewKey === null
-			? "No reviews review logs found for this branch."
-			: `No reviews review logs found for review key ${result.reviewKey} on this branch.`;
+			? "No review logs found for this branch."
+			: `No review logs found for review key ${result.reviewKey} on this branch.`;
 	}
-	const lines = [`Reviews review logs: ${result.count}`];
+	const lines = [`Review logs: ${result.count}`];
 	for (const entry of result.entries) {
 		lines.push(
 			`- ${entry.ranAt ?? "unknown time"}  ${entry.reviewKey ?? "unknown review"}  ${entry.entryKey}`,

@@ -124,7 +124,7 @@ jobs:
           BASE_MERGE_BASE_SHA=$(git merge-base "origin/$BASE_REF" "$PR_HEAD_SHA")
 
           status=0
-          output=$(node "$GITHUB_WORKSPACE/ts/packages/hosts/ns-cli/src/cli.ts" reviews review run "$REVIEW_KEY" \
+          output=$(node "$GITHUB_WORKSPACE/ts/packages/hosts/ns-cli/src/cli.ts" reviews run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --log-branch "$GITHUB_HEAD_REF" \
             --prior-findings-pr-number "$PR_NUMBER" \

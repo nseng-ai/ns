@@ -13,7 +13,7 @@ import type { ReviewInputCoverage, ReviewRunResult, ReviewUsage } from "../core/
 import { reviewDisplayRole } from "../core/review-display.ts";
 
 export const REVIEW_LOG_NAMESPACE = "reviews";
-const REVIEW_LOG_PREFIX = "reviews";
+const REVIEW_LOG_PREFIX = REVIEW_LOG_NAMESPACE;
 const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.md$/u;
 
 export interface ReviewLogWriteRequest extends ReviewsEnvironmentOptions {
