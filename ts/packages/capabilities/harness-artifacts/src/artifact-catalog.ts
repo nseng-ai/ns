@@ -6,22 +6,24 @@ export interface HarnessArtifactEntryBase {
 	id: string;
 	name: string;
 	description: string;
-	source: HarnessArtifactSource;
 }
 
 export interface SkillHarnessArtifactEntry extends HarnessArtifactEntryBase {
 	kind: "skill";
 	skillName: string;
+	source: HarnessArtifactSource;
 }
 
 export interface AgentHarnessArtifactEntry extends HarnessArtifactEntryBase {
 	kind: "agent";
 	agentName: string;
+	source: FirstPartyHarnessArtifactSource;
 }
 
 export interface ExtensionBundleHarnessArtifactEntry extends HarnessArtifactEntryBase {
 	kind: "extension-bundle";
 	bundleName: string;
+	source: FirstPartyHarnessArtifactSource;
 }
 
 export type HarnessArtifactEntry =

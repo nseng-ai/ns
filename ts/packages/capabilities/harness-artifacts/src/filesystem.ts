@@ -25,8 +25,6 @@ export interface ModuleDiscoveryDirectoryEntry {
 	type: "directory" | "file" | "other";
 }
 
-export type ModuleDiscoveryTextFileState = { type: "missing" } | { type: "file"; text: string };
-
 export type ModuleDiscoveryPathState =
 	| { type: "missing" }
 	| { type: "file" }
@@ -59,7 +57,7 @@ export interface HarnessArtifactModuleDiscoveryGateway {
 	): Promise<Result<ModuleDiscoveryDirectoryState, HarnessArtifactFileSystemErrorInfo>>;
 	readOptionalTextFile(
 		path: string,
-	): Promise<Result<ModuleDiscoveryTextFileState, HarnessArtifactFileSystemErrorInfo>>;
+	): Promise<Result<OptionalTextFileState, HarnessArtifactFileSystemErrorInfo>>;
 	pathState(
 		path: string,
 	): Promise<Result<ModuleDiscoveryPathState, HarnessArtifactFileSystemErrorInfo>>;
@@ -75,12 +73,11 @@ export const nodeHarnessArtifactFileSystemGateway: HarnessArtifactFileSystemGate
 		}
 	},
 	async readOptionalFile(path) {
-		try {
-			return resultOk({ type: "file", bytes: await readFile(path) });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "read", error));
-		}
+		return withMissingAsOk({
+			path,
+			operation: "read",
+			run: async () => ({ type: "file", bytes: await readFile(path) }),
+		});
 	},
 	async writeFile(path, bytes) {
 		try {
@@ -92,54 +89,59 @@ export const nodeHarnessArtifactFileSystemGateway: HarnessArtifactFileSystemGate
 		}
 	},
 	async readOptionalTextFile(path) {
-		try {
-			return resultOk({ type: "file", text: await readFile(path, "utf8") });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "read", error));
-		}
+		const state = await nodeHarnessArtifactFileSystemGateway.readOptionalFile(path);
+		if (!state.ok) return state;
+		if (state.value.type === "missing") return resultOk({ type: "missing" });
+		return resultOk({ type: "file", text: new TextDecoder().decode(state.value.bytes) });
 	},
 	async writeTextFile(path, text) {
-		try {
-			await mkdir(dirname(path), { recursive: true });
-			await writeFile(path, text, "utf8");
-			return resultOk(undefined);
-		} catch (error) {
-			return resultErr(fileSystemError(path, "write", error));
-		}
+		return nodeHarnessArtifactFileSystemGateway.writeFile(path, new TextEncoder().encode(text));
 	},
 	async readDirectory(path) {
-		try {
-			const pathStat = await stat(path);
-			if (pathStat.isFile()) return resultOk({ type: "file" });
-			if (!pathStat.isDirectory()) return resultOk({ type: "file" });
-			const entries = await readdir(path, { withFileTypes: true });
-			return resultOk({
-				type: "directory",
-				entries: entries.map((entry) => ({
-					name: entry.name,
-					type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "other",
-				})),
-			});
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "list", error));
-		}
+		return withMissingAsOk({
+			path,
+			operation: "list",
+			async run() {
+				const pathStat = await stat(path);
+				if (pathStat.isFile()) return { type: "file" } as const;
+				if (!pathStat.isDirectory()) return { type: "file" } as const;
+				const entries = await readdir(path, { withFileTypes: true });
+				return {
+					type: "directory",
+					entries: entries.map((entry) => ({
+						name: entry.name,
+						type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "other",
+					})),
+				} as const;
+			},
+		});
 	},
 	async pathState(path) {
-		try {
-			const pathStat = await stat(path);
-			if (pathStat.isDirectory()) return resultOk({ type: "directory" });
-			if (pathStat.isFile()) return resultOk({ type: "file" });
-			return resultOk({ type: "other" });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "stat", error));
-		}
+		return withMissingAsOk({
+			path,
+			operation: "stat",
+			async run() {
+				const pathStat = await stat(path);
+				if (pathStat.isDirectory()) return { type: "directory" } as const;
+				if (pathStat.isFile()) return { type: "file" } as const;
+				return { type: "other" } as const;
+			},
+		});
 	},
 };
 
-export const nodeHarnessArtifactModuleDiscoveryGateway = nodeHarnessArtifactFileSystemGateway;
+async function withMissingAsOk<T>(options: {
+	path: string;
+	operation: HarnessArtifactFileSystemErrorInfo["details"]["operation"];
+	run: () => Promise<T>;
+}): Promise<Result<T | { type: "missing" }, HarnessArtifactFileSystemErrorInfo>> {
+	try {
+		return resultOk(await options.run());
+	} catch (error) {
+		if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
+		return resultErr(fileSystemError(options.path, options.operation, error));
+	}
+}
 
 export function fileSystemError(
 	path: string,

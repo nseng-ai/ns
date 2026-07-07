@@ -1,10 +1,9 @@
 import { err, type Result } from "@nseng-ai/foundation/result";
 
 import type { AregSkillKindSkillInspection } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
+import { sortStringsLocaleAware } from "../sort.ts";
 import {
-	groupBySkillName,
-	toManifestSkillSourceView,
+	manifestSourceViewsBySkillName,
 	type AregManifestSkillSourceView,
 } from "./manifest-sources.ts";
 import {
@@ -200,7 +199,9 @@ export function buildSkillKindRecords(
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
 	const records: SkillKindRecord[] = [];
-	const manifestSourcesBySkill = groupBySkillName(inspection.manifestSkillSources.sources);
+	const manifestSourcesBySkill = manifestSourceViewsBySkillName(
+		inspection.manifestSkillSources.sources,
+	);
 	for (const skill of sortSkills(inspection.skills)) {
 		const readiness = validateInspectableSkill(skill);
 		if (!readiness.ok) return readiness;
@@ -224,10 +225,9 @@ export function buildSkillKindRecords(
 			hasClaudeMirror: skill.claudePath.type !== "missing",
 			replacement,
 		});
-		const manifestSources = manifestSourcesBySkill.get(skill.name) ?? [];
 		records.push({
 			...record,
-			manifestSources: manifestSources.map(toManifestSkillSourceView),
+			manifestSources: manifestSourcesBySkill.get(skill.name) ?? [],
 		});
 	}
 	return { ok: true, value: records };
@@ -401,7 +401,7 @@ function sortSkills(
 	skills: readonly AregSkillKindSkillInspection[],
 ): readonly AregSkillKindSkillInspection[] {
 	const byName = new Map(skills.map((skill) => [skill.name, skill]));
-	return sortStrings([...byName.keys()])
+	return sortStringsLocaleAware([...byName.keys()])
 		.map((name) => byName.get(name))
 		.filter((skill): skill is AregSkillKindSkillInspection => skill !== undefined);
 }

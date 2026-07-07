@@ -11,7 +11,7 @@ import {
 } from "@nseng-ai/harness-artifacts/api";
 import type { InstallManifestEntryData } from "@nseng-ai/harness-artifacts/api";
 
-import { RealAregProjectGateway } from "../../src/real-gateways.ts";
+import { RealAregProjectGateway } from "../../src/gateways/project-gateway.ts";
 
 describe("real areg gateways", () => {
 	test("check project inspection resolves relative path, symlink targets, excludes, and prunes pairing traversal", async () => {
@@ -142,7 +142,7 @@ describe("real areg gateways", () => {
 					harness: "pi",
 					scope: "project",
 					manifestPath: path.join(targetRoot, INSTALL_MANIFEST_FILE_NAME),
-					source: expect.objectContaining({ packageName: "@example/skills", version: "1.2.3" }),
+					provenance: expect.objectContaining({ packageName: "@example/skills", version: "1.2.3" }),
 					targetSkillRelativePath: path.join(".pi", "skills", "manifest-skill"),
 					skillDir: { type: "directory" },
 					skillMd: { type: "file", text: "---\nname: manifest-skill\n---\n" },

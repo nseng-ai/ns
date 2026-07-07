@@ -2,7 +2,7 @@ import { lstat, readlink } from "node:fs/promises";
 
 import { errorCodeFromUnknown, isPathInside } from "@nseng-ai/foundation/primitives";
 
-import type { PathState } from "../gateways.ts";
+import type { PathState } from "@nseng-ai/harness-artifacts/api";
 
 export async function inspectPath(candidate: string): Promise<PathState> {
 	try {

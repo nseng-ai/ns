@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
@@ -25,7 +26,6 @@ import {
 import {
 	discoverExtensionModuleHarnessArtifacts,
 	moduleArtifactDiscoveryDiagnosticSchema,
-	nodeHarnessArtifactModuleDiscoveryGateway,
 	type HarnessArtifactModuleDiscoveryGateway,
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
@@ -235,10 +235,10 @@ export async function runHarnessArtifactReconcile(
 	request: RunHarnessArtifactReconcileRequest,
 ): Promise<Result<ReconcileReport, ReconcileErrorInfo>> {
 	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
-	const discoveryGateway = request.discoveryGateway ?? nodeHarnessArtifactModuleDiscoveryGateway;
+	const discoveryGateway = request.discoveryGateway ?? nodeHarnessArtifactFileSystemGateway;
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
 		projectRoot: request.projectRoot,
-		...optionalHomeDir(request.homeDir),
+		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
 		gateway: discoveryGateway,
 	});
@@ -257,7 +257,7 @@ export async function runHarnessArtifactReconcile(
 
 	const context = firstPartySkillProvisionPathContext({
 		projectRoot: request.projectRoot,
-		...optionalHomeDir(request.homeDir),
+		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
 	});
 	const manifests = await readProjectManifestSnapshots({ context, fs });
@@ -339,21 +339,20 @@ export async function runHarnessArtifactReconcile(
 	});
 }
 
-function optionalHomeDir(homeDir: string | undefined): { homeDir: string } | {} {
-	return homeDir === undefined ? {} : { homeDir };
-}
-
 function planDesiredCollisionSkips(desired: readonly DesiredHarnessArtifact[]): {
 	provisionableDesired: readonly DesiredHarnessArtifact[];
 	skippedDesired: readonly DesiredHarnessArtifact[];
 	skippedCollisions: readonly SkippedArtifactCollision[];
 } {
-	const skipped = new Set<DesiredHarnessArtifact>();
-	const collisions = [
-		...collisionsForKey(desired, (item) => item.artifact.id, "id", skipped),
-		...collisionsForKey(desired, (item) => item.artifact.skillName, "target-name", skipped),
-	].sort((left, right) =>
-		`${left.kind}\0${left.value}`.localeCompare(`${right.kind}\0${right.value}`),
+	const idCollisions = collisionsForKey(desired, (item) => item.artifact.id, "id");
+	const targetNameCollisions = collisionsForKey(
+		desired,
+		(item) => item.artifact.skillName,
+		"target-name",
+	);
+	const skipped = new Set([...idCollisions.skipped, ...targetNameCollisions.skipped]);
+	const collisions = [...idCollisions.collisions, ...targetNameCollisions.collisions].sort(
+		(left, right) => `${left.kind}\0${left.value}`.localeCompare(`${right.kind}\0${right.value}`),
 	);
 	return {
 		provisionableDesired: desired.filter((item) => !skipped.has(item)),
@@ -366,8 +365,10 @@ function collisionsForKey(
 	desired: readonly DesiredHarnessArtifact[],
 	keyForItem: (item: DesiredHarnessArtifact) => string,
 	kind: SkippedArtifactCollision["kind"],
-	skipped: Set<DesiredHarnessArtifact>,
-): readonly SkippedArtifactCollision[] {
+): {
+	collisions: readonly SkippedArtifactCollision[];
+	skipped: readonly DesiredHarnessArtifact[];
+} {
 	const itemsByKey = new Map<string, DesiredHarnessArtifact[]>();
 	for (const item of desired) {
 		const key = keyForItem(item);
@@ -376,16 +377,17 @@ function collisionsForKey(
 		itemsByKey.set(key, items);
 	}
 	const collisions: SkippedArtifactCollision[] = [];
+	const skipped: DesiredHarnessArtifact[] = [];
 	for (const [value, items] of itemsByKey) {
 		if (items.length < 2) continue;
-		for (const item of items) skipped.add(item);
+		skipped.push(...items);
 		collisions.push({
 			kind,
 			value,
 			packages: sortStrings([...new Set(items.map((item) => item.artifact.source.packageName))]),
 		});
 	}
-	return collisions;
+	return { collisions, skipped };
 }
 
 function desiredManifestIdentityKey(desired: DesiredHarnessArtifact): string {

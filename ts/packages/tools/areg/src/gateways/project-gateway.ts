@@ -19,6 +19,7 @@ import {
 	readInstallManifestAtRoot,
 	resolveHarnessSkillRoot,
 	type InstallManifestEntryData,
+	type TextFileState,
 } from "@nseng-ai/harness-artifacts/api";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
@@ -41,9 +42,8 @@ import type {
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
-	TextFileState,
 } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
+import { sortStringsLocaleAware } from "../sort.ts";
 import { errorInfo } from "./errors.ts";
 import {
 	inspectPath,
@@ -446,7 +446,7 @@ async function listSkillKindNames(projectDir: string): Promise<string[]> {
 }
 
 function collectSortedUniqueNames(namesByRoot: readonly (readonly string[])[]): string[] {
-	return sortStrings([...new Set(namesByRoot.flat())]);
+	return sortStringsLocaleAware([...new Set(namesByRoot.flat())]);
 }
 
 async function listFirstPartySkillKindNames(projectDir: string): Promise<string[]> {
@@ -496,36 +496,43 @@ async function inspectManifestSkillSources(
 	for (const harness of ALL_HARNESS_IDS) {
 		const root = resolveHarnessSkillRoot({ harness, scope: "project", context });
 		if (!root.ok) {
-			errors.push({ manifestPath: harness, message: root.error.message });
+			errors.push({ type: "harness", harness, message: root.error.message });
 			continue;
 		}
 		const manifestPath = path.join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME);
 		const manifest = await readInstallManifestAtRoot({ targetRoot: root.value.rootPath });
 		if (!manifest.ok) {
-			errors.push({ manifestPath, message: manifest.error.message });
+			errors.push({ type: "manifest", manifestPath, message: manifest.error.message });
 			continue;
 		}
 		for (const [manifestKey, entry] of Object.entries(manifest.value.artifacts)) {
 			if (entry.kind !== "skill") continue;
-			sources.push(await inspectManifestSkillSource(projectDir, manifestPath, manifestKey, entry));
+			sources.push(
+				await inspectManifestSkillSource({ projectDir, manifestPath, manifestKey, entry }),
+			);
 		}
 	}
 	return { sources: sortManifestSkillSources(sources), errors };
 }
 
+interface InspectManifestSkillSourceOptions {
+	projectDir: string;
+	manifestPath: string;
+	manifestKey: string;
+	entry: InstallManifestEntryData;
+}
+
 async function inspectManifestSkillSource(
-	projectDir: string,
-	manifestPath: string,
-	manifestKey: string,
-	entry: InstallManifestEntryData,
+	options: InspectManifestSkillSourceOptions,
 ): Promise<AregManifestSkillSourceInspection> {
+	const { projectDir, manifestPath, manifestKey, entry } = options;
 	return {
 		skillName: entry.provisionName,
 		harness: entry.harness,
 		scope: entry.scope,
 		manifestPath,
 		manifestKey,
-		source: { ...entry.source },
+		provenance: { ...entry.source },
 		targetRootRelativePath: path.relative(projectDir, entry.targetRoot),
 		targetSkillRelativePath: path.relative(projectDir, entry.targetArtifactPath),
 		skillDir: await inspectPath(entry.targetArtifactPath),
@@ -787,7 +794,7 @@ async function listChildNames(directory: string): Promise<string[]> {
 		const info = await lstat(directory);
 		if (!info.isDirectory()) return [];
 		const entries = await readdir(directory);
-		return sortStrings(entries.filter((entry) => entry !== ".DS_Store"));
+		return sortStringsLocaleAware(entries.filter((entry) => entry !== ".DS_Store"));
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return [];
 		return [];
@@ -814,7 +821,7 @@ async function readLocallyExcludedSkillNames(options: {
 			if (line.startsWith(prefix)) names.add(line.slice(prefix.length));
 		}
 	}
-	return sortStrings([...names]);
+	return sortStringsLocaleAware([...names]);
 }
 
 async function inspectPairingDirectories(projectDir: string): Promise<AregCheckPairingDirectory[]> {
@@ -844,7 +851,7 @@ async function inspectPairingDirectories(projectDir: string): Promise<AregCheckP
 				...(claude.type === "file" ? { claudeText: claude.text } : {}),
 			});
 		}
-		const subdirs = sortStrings(
+		const subdirs = sortStringsLocaleAware(
 			entries
 				.filter((entry) => entry.isDirectory())
 				.map((entry) => entry.name)

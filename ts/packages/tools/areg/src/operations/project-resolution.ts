@@ -1,5 +1,5 @@
 import type { AregCliContext } from "../context.ts";
-import type { PathState } from "../gateways.ts";
+import type { PathState } from "@nseng-ai/harness-artifacts/api";
 
 export interface ProjectPathInspection {
 	projectDir: string;

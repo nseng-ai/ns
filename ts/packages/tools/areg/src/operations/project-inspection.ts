@@ -1,13 +1,13 @@
+import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
+
 import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
-	PathState,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
-	TextFileState,
 } from "../gateways.ts";
 import {
 	manifestSkillKindNames,

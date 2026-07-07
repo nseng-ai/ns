@@ -27,14 +27,12 @@ export {
 } from "./first-party-catalog.ts";
 export {
 	nodeHarnessArtifactFileSystemGateway,
-	nodeHarnessArtifactModuleDiscoveryGateway,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactModuleDiscoveryGateway,
 	type ModuleDiscoveryDirectoryEntry,
 	type ModuleDiscoveryDirectoryState,
 	type ModuleDiscoveryPathState,
-	type ModuleDiscoveryTextFileState,
 	type OptionalFileState,
 	type OptionalTextFileState,
 } from "./filesystem.ts";

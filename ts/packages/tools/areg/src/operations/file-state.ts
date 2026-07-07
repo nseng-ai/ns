@@ -1,7 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, type Result } from "@nseng-ai/foundation/result";
 
-import type { PathState, TextFileState } from "../gateways.ts";
+import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
 
 type NonUsableTextFileState = Exclude<TextFileState, { type: "file" } | { type: "missing" }>;
 type NonUsableDirectoryState = Exclude<PathState, { type: "directory" } | { type: "missing" }>;

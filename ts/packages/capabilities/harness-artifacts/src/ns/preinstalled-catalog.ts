@@ -1,38 +1,26 @@
-import type { PreinstalledNsCommandCatalogEntry } from "@nseng-ai/kernel/cli";
-import { defineExtension, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
+	repoLocalNsExtensionToPreinstalledCatalog,
+	type PreinstalledNsCommandCatalogEntry,
+} from "@nseng-ai/kernel/cli";
+import { repoLocalNsCommandDescriptor } from "@nseng-ai/kernel/sdk";
 
 import { nsUpdateCommand } from "./commands/update.ts";
-import { skillsInstallNsCommand } from "./commands/install.ts";
-import { skillsListNsCommand } from "./commands/list.ts";
-import { skillsPathNsCommand } from "./commands/path.ts";
+import {
+	HARNESS_ARTIFACT_NS_COMMAND_EXPORT_PREFIX,
+	skillsRepoLocalNsExtension,
+} from "./repo-local-ns-extension.ts";
 
-const SKILLS_GROUP_DESCRIPTION = "List and provision ns-owned skills into assistant harnesses.";
+const nsUpdateCommandDescriptor = repoLocalNsCommandDescriptor({
+	command: nsUpdateCommand,
+	packageExportPrefix: HARNESS_ARTIFACT_NS_COMMAND_EXPORT_PREFIX,
+});
 
 export const skillsPreinstalledNsCommandCatalog = [
-	skillsGroupCatalogEntry(skillsListNsCommand),
-	skillsGroupCatalogEntry(skillsPathNsCommand),
-	skillsGroupCatalogEntry(skillsInstallNsCommand),
-	preinstalledCatalogEntry(nsUpdateCommand),
+	...repoLocalNsExtensionToPreinstalledCatalog(skillsRepoLocalNsExtension),
+	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry(nsUpdateCommandDescriptor),
 ] satisfies readonly PreinstalledNsCommandCatalogEntry[];
 
 export function listSkillsPreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
 	return skillsPreinstalledNsCommandCatalog;
-}
-
-function skillsGroupCatalogEntry(command: NsCommand): PreinstalledNsCommandCatalogEntry {
-	return {
-		group: "skills",
-		groupDescription: SKILLS_GROUP_DESCRIPTION,
-		...preinstalledCatalogEntry(command),
-	};
-}
-
-function preinstalledCatalogEntry(command: NsCommand): PreinstalledNsCommandCatalogEntry {
-	return {
-		name: command.name,
-		description: command.summary,
-		fullDescription: command.description,
-		displayPath: `@nseng-ai/harness-artifacts/ns/commands/${command.name}`,
-		load: () => defineExtension({ commands: [command] }),
-	};
 }

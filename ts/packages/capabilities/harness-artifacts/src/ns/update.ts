@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -23,7 +24,7 @@ export async function runNsUpdate(
 ): Promise<ClinkrExit<NsUpdateResult>> {
 	const baseRequest = {
 		projectRoot: context.projectRoot,
-		...homeDirEntry(context),
+		...optionalEntry("homeDir", context.homeDir),
 		env: context.env,
 		force: request.force,
 	};
@@ -43,10 +44,6 @@ export async function runNsUpdate(
 		return negative("Update skipped colliding harness artifacts.", { data: result.value });
 	}
 	return ok(result.value);
-}
-
-function homeDirEntry(context: SkillsCommandContext): { homeDir: string } | {} {
-	return context.homeDir === undefined ? {} : { homeDir: context.homeDir };
 }
 
 export function renderNsUpdateHuman(result: NsUpdateResult): string {
