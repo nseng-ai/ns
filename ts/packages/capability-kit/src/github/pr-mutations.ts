@@ -28,11 +28,14 @@ export interface RetargetedPullRequest {
 	readonly baseRefName: string;
 }
 
-export type RetargetPullRequestBaseParseResult =
-	| { readonly type: "ok"; readonly pullRequest: RetargetedPullRequest }
+type GraphqlMutationParseFailure =
 	| { readonly type: "invalid-json" }
 	| { readonly type: "graphql-errors"; readonly messages: readonly string[] }
 	| { readonly type: "schema-mismatch" };
+
+export type RetargetPullRequestBaseParseResult =
+	| { readonly type: "ok"; readonly pullRequest: RetargetedPullRequest }
+	| GraphqlMutationParseFailure;
 
 // String variables go through `-f` (raw string) rather than `-F`: `pullRequestId` and `baseRefName`
 // are String/ID scalars, and `-F` would coerce numeric-looking branch names to typed values.
@@ -72,29 +75,14 @@ const retargetPullRequestBaseResponseSchema = z
 export function parseRetargetPullRequestBaseResult(
 	stdout: string,
 ): RetargetPullRequestBaseParseResult {
-	const parsed = parseJsonUnknown(stdout);
-	if (parsed.type === "error") return { type: "invalid-json" };
-
-	const graphqlErrors = parseGraphqlErrors(parsed.value);
-	if (
-		graphqlErrors.type === "ok" &&
-		graphqlErrors.errors !== undefined &&
-		graphqlErrors.errors.length > 0
-	) {
-		return { type: "graphql-errors", messages: extractGraphqlErrorMessages(graphqlErrors.errors) };
-	}
-
-	const result = retargetPullRequestBaseResponseSchema.safeParse(parsed.value);
-	if (!result.success) return { type: "schema-mismatch" };
-	const pullRequest = result.data.data.updatePullRequest.pullRequest;
-	return {
-		type: "ok",
-		pullRequest: {
+	return parseGraphqlMutationResult(stdout, retargetPullRequestBaseResponseSchema, (data) => {
+		const pullRequest = data.data.updatePullRequest.pullRequest;
+		return {
 			id: pullRequest.id,
 			number: pullRequest.number,
 			baseRefName: pullRequest.baseRefName,
-		},
-	};
+		};
+	});
 }
 
 /**
@@ -125,9 +113,7 @@ export interface MergedPullRequest {
 
 export type MergePullRequestParseResult =
 	| { readonly type: "ok"; readonly pullRequest: MergedPullRequest }
-	| { readonly type: "invalid-json" }
-	| { readonly type: "graphql-errors"; readonly messages: readonly string[] }
-	| { readonly type: "schema-mismatch" };
+	| GraphqlMutationParseFailure;
 
 // String/ID scalars go through `-f` (raw string), matching the retarget mutation: `expectedHeadOid`
 // is a `GitObjectID` (SHA string) that `-F` would try to coerce, and `commitHeadline`/`commitBody`
@@ -173,6 +159,24 @@ const mergePullRequestResponseSchema = z
 	.loose();
 
 export function parseMergePullRequestResult(stdout: string): MergePullRequestParseResult {
+	return parseGraphqlMutationResult(stdout, mergePullRequestResponseSchema, (data) => {
+		const pullRequest = data.data.mergePullRequest.pullRequest;
+		return {
+			number: pullRequest.number,
+			state: pullRequest.state,
+			mergedAt: pullRequest.mergedAt,
+			baseRefName: pullRequest.baseRefName,
+			headRefName: pullRequest.headRefName,
+			...(pullRequest.url === undefined ? {} : { url: pullRequest.url }),
+		};
+	});
+}
+
+function parseGraphqlMutationResult<TData, TPullRequest>(
+	stdout: string,
+	schema: z.ZodType<TData>,
+	extractPullRequest: (data: TData) => TPullRequest,
+): { readonly type: "ok"; readonly pullRequest: TPullRequest } | GraphqlMutationParseFailure {
 	const parsed = parseJsonUnknown(stdout);
 	if (parsed.type === "error") return { type: "invalid-json" };
 
@@ -185,18 +189,7 @@ export function parseMergePullRequestResult(stdout: string): MergePullRequestPar
 		return { type: "graphql-errors", messages: extractGraphqlErrorMessages(graphqlErrors.errors) };
 	}
 
-	const result = mergePullRequestResponseSchema.safeParse(parsed.value);
+	const result = schema.safeParse(parsed.value);
 	if (!result.success) return { type: "schema-mismatch" };
-	const pullRequest = result.data.data.mergePullRequest.pullRequest;
-	return {
-		type: "ok",
-		pullRequest: {
-			number: pullRequest.number,
-			state: pullRequest.state,
-			mergedAt: pullRequest.mergedAt,
-			baseRefName: pullRequest.baseRefName,
-			headRefName: pullRequest.headRefName,
-			...(pullRequest.url === undefined ? {} : { url: pullRequest.url }),
-		},
-	};
+	return { type: "ok", pullRequest: extractPullRequest(result.data) };
 }

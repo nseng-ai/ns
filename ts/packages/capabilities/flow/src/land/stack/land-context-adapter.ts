@@ -53,15 +53,15 @@ import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,
 	getDownstackNoCheckoutOperation,
+	isGitPushLeaseRejected,
 	parseGitFetchRefusedCheckedOut,
-	parseGitPushLeaseRejected,
 	restackOperation,
 	submitUpdateOperation,
 	type LandGraphiteCommandChannel,
 	type LandGraphiteOperation,
 } from "./graphite-command-channel.ts";
 import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
-import { copyPullRequestSnapshot } from "./pull-request-snapshot.ts";
+import { copyPullRequestSnapshot, toSquashMergeVerification } from "./pull-request-snapshot.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -275,7 +275,7 @@ async function pushBranchToRemoteWithLease(options: {
 		timeoutMs: GIT_REMOTE_TIMEOUT_MS,
 	});
 	if (result.code === 0) return { type: "pushed" };
-	if (parseGitPushLeaseRejected(result)) return { type: "lease-rejected" };
+	if (isGitPushLeaseRejected(result)) return { type: "lease-rejected" };
 	return { type: "failure", commandDisplay: formatCommand("git", args), result };
 }
 
@@ -876,14 +876,7 @@ async function squashMergePullRequest(options: {
 		return landSuccess({
 			stdout: result.stdout,
 			stderr: result.stderr,
-			verification: {
-				number: parsed.pullRequest.number,
-				state: parsed.pullRequest.state,
-				mergedAt: parsed.pullRequest.mergedAt,
-				baseRefName: parsed.pullRequest.baseRefName,
-				headRefName: parsed.pullRequest.headRefName,
-				...(parsed.pullRequest.url === undefined ? {} : { url: parsed.pullRequest.url }),
-			},
+			verification: toSquashMergeVerification(parsed.pullRequest),
 		});
 	}
 
@@ -913,18 +906,10 @@ async function squashMergePullRequest(options: {
 			displayCommand: commandDisplay,
 		});
 	}
-	const facts = fallback.value;
 	return landSuccess({
 		stdout: result.stdout,
 		stderr: result.stderr,
-		verification: {
-			number: facts.number,
-			state: facts.state,
-			mergedAt: facts.mergedAt ?? null,
-			baseRefName: facts.baseRefName,
-			headRefName: facts.headRefName,
-			...(facts.url === undefined ? {} : { url: facts.url }),
-		},
+		verification: toSquashMergeVerification(fallback.value),
 	});
 }
 

@@ -301,7 +301,7 @@ export interface LandGitGateway {
 	}): Promise<LandPushBranchWithLeaseResult>;
 }
 
-export interface LandGitRanCommand {
+export interface LandRanCommand {
 	readonly commandDisplay: string;
 	readonly result: LandCommandResult;
 }
@@ -309,16 +309,16 @@ export interface LandGitRanCommand {
 export type LandAdvanceBranchResult =
 	| { readonly type: "advanced" }
 	| { readonly type: "checked-out"; readonly branch: string; readonly path: string }
-	| ({ readonly type: "failure" } & LandGitRanCommand);
+	| ({ readonly type: "failure" } & LandRanCommand);
 
 export type LandPushBranchWithLeaseResult =
 	| { readonly type: "pushed" }
 	| { readonly type: "lease-rejected" }
-	| ({ readonly type: "failure" } & LandGitRanCommand);
+	| ({ readonly type: "failure" } & LandRanCommand);
 
 export type LandRetargetPullRequestBaseResult =
 	| { readonly type: "retargeted" }
-	| ({ readonly type: "failure"; readonly message?: string } & LandGitRanCommand);
+	| ({ readonly type: "failure"; readonly message?: string } & LandRanCommand);
 
 export interface WorkingTreeStatus {
 	readonly isClean: boolean;
@@ -394,16 +394,9 @@ export function boundaryFailureDiagnostics(
 	};
 }
 
-export interface LandRanCommand {
-	readonly commandDisplay: string;
-	readonly result: LandCommandResult;
-}
-
-export type LandGraphiteRanCommand = LandRanCommand;
-
 export type LandGraphiteCommandResult =
 	| { readonly type: "success"; readonly result: LandCommandResult }
-	| ({ readonly type: "failure" } & LandGraphiteRanCommand);
+	| ({ readonly type: "failure" } & LandRanCommand);
 
 export type LandGraphiteRefreshBranchResult =
 	| { readonly type: "success"; readonly result: LandCommandResult }
@@ -411,13 +404,13 @@ export type LandGraphiteRefreshBranchResult =
 			readonly type: "checkout-conflict";
 			readonly branch: string;
 			readonly path: string;
-	  } & LandGraphiteRanCommand)
-	| ({ readonly type: "failure" } & LandGraphiteRanCommand);
+	  } & LandRanCommand)
+	| ({ readonly type: "failure" } & LandRanCommand);
 
 export type LandGraphiteDeleteLocalBranchResult =
 	| { readonly type: "deleted" }
 	| { readonly type: "retained"; readonly branch: string; readonly path: string }
-	| ({ readonly type: "failed" } & LandGraphiteRanCommand);
+	| ({ readonly type: "failed" } & LandRanCommand);
 
 export interface SquashMergeVerification {
 	readonly number: number;

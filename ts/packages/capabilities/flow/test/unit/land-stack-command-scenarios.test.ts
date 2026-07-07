@@ -148,6 +148,17 @@ interface ExecCall {
 	options?: { cwd?: string; timeout?: number };
 }
 
+function gtCallsByVerb(pi: FakePi, verb: string): ExecCall[] {
+	return pi.execCalls.filter((call) => call.command === "gt" && call.args[0] === verb);
+}
+
+function expectBranchOnlyRestackCalls(calls: readonly ExecCall[], message?: string): void {
+	expect(
+		calls.every((call) => call.args.includes("--only") && !call.args.includes("--upstack")),
+		message,
+	).toBe(true);
+}
+
 interface ScriptedExec {
 	command: string;
 	args: string[];
@@ -1056,14 +1067,9 @@ describe("land-stack command scenarios", () => {
 			pi.assertDone();
 			expect(confirmations, scenario.name).toEqual([]);
 			expect(notifications.at(-1)?.level, scenario.name).toBe("success");
-			const restackArgs = pi.execCalls
-				.filter((call) => call.command === "gt" && call.args[0] === "restack")
-				.map((call) => call.args);
-			expect(restackArgs, scenario.name).toHaveLength(scenario.size - 1);
-			expect(
-				restackArgs.every((args) => args.includes("--only") && !args.includes("--upstack")),
-				scenario.name,
-			).toBe(true);
+			const restackCalls = gtCallsByVerb(pi, "restack");
+			expect(restackCalls, scenario.name).toHaveLength(scenario.size - 1);
+			expectBranchOnlyRestackCalls(restackCalls, scenario.name);
 			expect(summarizeExternalCallBaseline(telemetry), scenario.name).toEqual(scenario.expected);
 		}
 	});
@@ -1081,20 +1087,15 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("success");
 
-		const gtByVerb = (verb: string) =>
-			pi.execCalls.filter((call) => call.command === "gt" && call.args[0] === verb);
 		// Required next-landing Graphite maintenance is exactly `gt delete` (one per landed PR,
 		// including the terminal) plus branch-only `gt restack` (non-terminal PRs only); the old
 		// `gt get`/`gt submit` maintenance is gone from the linear required path.
-		expect(gtByVerb("delete")).toHaveLength(size);
-		expect(gtByVerb("restack")).toHaveLength(nonTerminal);
-		expect(
-			gtByVerb("restack").every(
-				(call) => call.args.includes("--only") && !call.args.includes("--upstack"),
-			),
-		).toBe(true);
-		expect(gtByVerb("get")).toHaveLength(0);
-		expect(gtByVerb("submit")).toHaveLength(0);
+		expect(gtCallsByVerb(pi, "delete")).toHaveLength(size);
+		const restackCalls = gtCallsByVerb(pi, "restack");
+		expect(restackCalls).toHaveLength(nonTerminal);
+		expectBranchOnlyRestackCalls(restackCalls);
+		expect(gtCallsByVerb(pi, "get")).toHaveLength(0);
+		expect(gtCallsByVerb(pi, "submit")).toHaveLength(0);
 
 		// Three GraphQL requests per landed PR: the pre-merge `gh pr view` gate, the merge mutation,
 		// and the base-retarget mutation (retarget fires only for a non-terminal PR). Batched

@@ -269,24 +269,27 @@ export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boo
 }
 
 export function parseGitCheckedOutElsewhere(result: ExecResult): CheckedOutElsewhere | undefined {
-	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
-	const match = output.match(
+	return parseCheckedOutElsewhere(
+		result,
 		/fatal:\s*['"]([^'"]+)['"] is already checked out at ['"]([^'"]+)['"]/i,
 	);
-	if (!match) return undefined;
-	const branch = match[1];
-	const path = match[2];
-	if (!branch || !path) return undefined;
-	return { branch, path };
 }
 
 export function parseGitFetchRefusedCheckedOut(
 	result: ExecResult,
 ): CheckedOutElsewhere | undefined {
-	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
-	const match = output.match(
+	return parseCheckedOutElsewhere(
+		result,
 		/refusing to fetch into branch ['"]([^'"]+)['"] checked out at ['"]([^'"]+)['"]/i,
 	);
+}
+
+function parseCheckedOutElsewhere(
+	result: ExecResult,
+	pattern: RegExp,
+): CheckedOutElsewhere | undefined {
+	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
+	const match = output.match(pattern);
 	if (!match) return undefined;
 	const branch = match[1];
 	const path = match[2];
@@ -294,7 +297,7 @@ export function parseGitFetchRefusedCheckedOut(
 	return { branch, path };
 }
 
-export function parseGitPushLeaseRejected(result: ExecResult): boolean {
+export function isGitPushLeaseRejected(result: ExecResult): boolean {
 	// `git push --force-with-lease` prints a rejection line carrying both `[rejected]` and
 	// `(stale info)` when the remote moved past the leased expectation; other non-zero exits are
 	// generic failures.

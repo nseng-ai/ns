@@ -7,7 +7,11 @@ import {
 } from "@nseng-ai/capability-kit/github/pr-mutations";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
-import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
+import {
+	BACKUP_REF_NAMESPACE,
+	BACKUP_REF_PREV_NAMESPACE,
+	PR_FIELDS,
+} from "../../src/land/stack/constants.ts";
 import { createLandGraphiteCommandChannel } from "../../src/land/stack/graphite-command-channel.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import {
@@ -55,8 +59,7 @@ function mergeMutationStdout(
 	})}\n`;
 }
 
-const PR_VIEW_FIELDS =
-	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+const PR_VIEW_FIELDS = PR_FIELDS;
 
 function prViewStdout(overrides: { state?: string; mergedAt?: string | null } = {}): string {
 	return `${JSON.stringify({

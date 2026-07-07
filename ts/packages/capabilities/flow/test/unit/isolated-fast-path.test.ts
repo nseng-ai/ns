@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import { runIsolatedFastPathLanding } from "../../src/land/isolated-fast-path.ts";
+import {
+	copyPullRequestSnapshot,
+	toSquashMergeVerification,
+} from "../../src/land/stack/pull-request-snapshot.ts";
 import type {
 	LandGithubPrGateway,
 	LandResult,
@@ -238,20 +242,7 @@ function pullRequestFacts(overrides: Partial<PullRequestFacts> = {}): PullReques
 }
 
 function copyPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
-	return {
-		id: pr.id,
-		number: pr.number,
-		title: pr.title,
-		body: pr.body,
-		state: pr.state,
-		isDraft: pr.isDraft,
-		headRefName: pr.headRefName,
-		baseRefName: pr.baseRefName,
-		headRefOid: pr.headRefOid,
-		...(pr.mergeStateStatus === undefined ? {} : { mergeStateStatus: pr.mergeStateStatus }),
-		...(pr.url === undefined ? {} : { url: pr.url }),
-		...(pr.mergedAt === undefined ? {} : { mergedAt: pr.mergedAt }),
-	};
+	return copyPullRequestSnapshot(pr);
 }
 
 function copyMergeResult(
@@ -269,12 +260,5 @@ function copyMergeResult(
 }
 
 function verificationFromFacts(pr: PullRequestFacts): SquashMergeVerification {
-	return {
-		number: pr.number,
-		state: pr.state,
-		mergedAt: pr.mergedAt ?? null,
-		baseRefName: pr.baseRefName,
-		headRefName: pr.headRefName,
-		...(pr.url === undefined ? {} : { url: pr.url }),
-	};
+	return toSquashMergeVerification(pr);
 }

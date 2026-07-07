@@ -107,17 +107,17 @@ export function guardShaStep(branch: string, sha: string): LandStackScriptedExec
 	});
 }
 
-interface TrunkFetchStepOptions {
+export interface TrunkFetchStepOptions {
 	readonly trunk?: string;
 	readonly result?: Partial<ExecResult>;
 }
 
 export function trunkFetchStep(options: TrunkFetchStepOptions = {}): LandStackScriptedExec {
-	const { trunk = TRUNK, result } = options;
+	const trunk = options.trunk ?? TRUNK;
 	return step(
 		"git",
 		["fetch", "--quiet", "--no-tags", "origin", `refs/heads/${trunk}:refs/heads/${trunk}`],
-		result,
+		options.result,
 	);
 }
 

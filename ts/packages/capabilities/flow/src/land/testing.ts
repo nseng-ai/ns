@@ -24,6 +24,7 @@ import type {
 	WorktreeClassification,
 	WorktreeEntry,
 } from "./types.ts";
+import { toSquashMergeVerification } from "./stack/pull-request-snapshot.ts";
 
 interface FailureState {
 	readonly type: "failure";
@@ -726,14 +727,11 @@ function defaultSquashMergeResult(pr: PullRequestFacts): SquashMergePullRequestR
 	return {
 		stdout: "",
 		stderr: "",
-		verification: {
-			number: pr.number,
+		verification: toSquashMergeVerification({
+			...pr,
 			state: "MERGED",
 			mergedAt: "2026-01-01T00:00:00.000Z",
-			baseRefName: pr.baseRefName,
-			headRefName: pr.headRefName,
-			...(pr.url === undefined ? {} : { url: pr.url }),
-		},
+		}),
 	};
 }
 

@@ -60,6 +60,25 @@ export interface CommandTelemetryInput extends CommandInvocation {
 	result: ExecResult;
 }
 
+interface GraphqlMutationTelemetrySpec {
+	readonly mutationName: string;
+	readonly operation: string;
+	readonly description: string;
+}
+
+const GRAPHQL_MUTATION_TELEMETRY_SPECS: readonly GraphqlMutationTelemetrySpec[] = [
+	{
+		mutationName: MERGE_PULL_REQUEST_MUTATION_NAME,
+		operation: "gh api graphql mergePullRequest",
+		description: "gh api graphql mergePullRequest uses one GraphQL squash-merge mutation",
+	},
+	{
+		mutationName: RETARGET_PULL_REQUEST_BASE_MUTATION_NAME,
+		operation: "gh api graphql updatePullRequest",
+		description: "gh api graphql updatePullRequest uses one GraphQL base-retarget mutation",
+	},
+];
+
 export function commandExternalCallTelemetryEvent(
 	input: CommandTelemetryInput,
 ): FlowLandExternalCallTelemetryEvent {
@@ -148,41 +167,22 @@ function classifyGithubCliInvocation(args: readonly string[]): CommandInvocation
 			},
 		};
 	}
-	if (
-		args[0] === "api" &&
-		args[1] === "graphql" &&
-		hasGraphqlMutation(args, MERGE_PULL_REQUEST_MUTATION_NAME)
-	) {
-		return {
-			category: "github-cli",
-			operation: "gh api graphql mergePullRequest",
-			quota: {
-				kind: "static",
-				provider: "github",
-				graphqlRequests: 1,
-				restRequests: 0,
-				rateLimitCost: 1,
-				description: "gh api graphql mergePullRequest uses one GraphQL squash-merge mutation",
-			},
-		};
-	}
-	if (
-		args[0] === "api" &&
-		args[1] === "graphql" &&
-		hasGraphqlMutation(args, RETARGET_PULL_REQUEST_BASE_MUTATION_NAME)
-	) {
-		return {
-			category: "github-cli",
-			operation: "gh api graphql updatePullRequest",
-			quota: {
-				kind: "static",
-				provider: "github",
-				graphqlRequests: 1,
-				restRequests: 0,
-				rateLimitCost: 1,
-				description: "gh api graphql updatePullRequest uses one GraphQL base-retarget mutation",
-			},
-		};
+	if (args[0] === "api" && args[1] === "graphql") {
+		const mutationSpec = graphqlMutationTelemetrySpec(args);
+		if (mutationSpec !== undefined) {
+			return {
+				category: "github-cli",
+				operation: mutationSpec.operation,
+				quota: {
+					kind: "static",
+					provider: "github",
+					graphqlRequests: 1,
+					restRequests: 0,
+					rateLimitCost: 1,
+					description: mutationSpec.description,
+				},
+			};
+		}
 	}
 	if (args[0] === "api" && args[1] === "graphql") {
 		const branchCount = countGraphqlHeadFieldArguments(args);
@@ -230,6 +230,10 @@ function isGraphqlHeadVariable(value: string | undefined): boolean {
 	return value !== undefined && /^head\d+=/.test(value);
 }
 
-function hasGraphqlMutation(args: readonly string[], mutationName: string): boolean {
-	return args.some((arg) => arg.startsWith("query=") && arg.includes(mutationName));
+function graphqlMutationTelemetrySpec(
+	args: readonly string[],
+): GraphqlMutationTelemetrySpec | undefined {
+	const query = args.find((arg) => arg.startsWith("query="));
+	if (query === undefined) return undefined;
+	return GRAPHQL_MUTATION_TELEMETRY_SPECS.find((spec) => query.includes(spec.mutationName));
 }
