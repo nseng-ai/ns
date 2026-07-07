@@ -3,11 +3,12 @@
 Getting to: every package's boundary and canonical terms are recorded; the map's
 inventory matches the actual workspace.
 
-What you see now — drift, do not trust blindly: the workspace is 25 `@nseng-ai/*`
+What you see now — drift, do not trust blindly: the workspace is 28 `@nseng-ai/*`
 packages under role directories (`@ns/*` scope retired to `@nseng-ai/*` per ADR 0028;
-seven packages renamed per ADR 0029; `local/`→`internal/`). CONTEXT-MAP.md is already
-rebaselined to that world, but several packages still lack a recorded context decision
-and the Planned contexts are unauthored.
+seven packages renamed per ADR 0029; `local/`→`internal/`; new `extensions/` role dir).
+CONTEXT-MAP.md was rebaselined to that world but its Inventory Baseline count (26) now
+lags the actual 28 (`harness-artifacts`, `ns-init`, `ns-pi-subagents` landed since);
+several packages still lack a recorded context decision and the Planned contexts are unauthored.
 
 Operating rule: fix obvious, source-backed drift when it is small, local, and needs no
 new terminology/product decision; report or record broader, ambiguous, or decision-bearing
