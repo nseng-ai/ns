@@ -13,7 +13,7 @@ The package manifest declares:
 }
 ```
 
-In this slice the package is a private workspace package. Pi package setups can register `@nseng-ai/ns-pi-subagents` inside this workspace. For local workspace dogfood, `.pi/extensions/subagents.ts` imports `@nseng-ai/ns-pi-subagents/extension` through the repo workspace resolver.
+In this slice the package is a private workspace package. Pi package setups can register `@nseng-ai/ns-pi-subagents` inside this workspace. For local workspace dogfood, `.pi/extensions/agents.ts` imports `@nseng-ai/ns-pi-subagents/extension` through the repo workspace resolver.
 
 ## Tool
 
@@ -30,9 +30,9 @@ Behavioral guarantees and limits:
 
 ## Subagent fleet widget and transcripts
 
-The extension maintains session-local recent/current subagent fleet state for the current Pi process. It renders a persistent `ns.subagents.fleet` widget with running tasks first and recent completed tasks after them. The widget is intentionally not a durable index: it resets when Pi restarts and does not write XDG or repo-local fleet state.
+The extension maintains session-local recent/current subagent fleet state for the current Pi process. It renders a persistent `ns.agents.fleet` widget with running tasks first and recent completed tasks after them. The widget is intentionally not a durable index: it resets when Pi restarts and does not write XDG or repo-local fleet state.
 
-The `/ns:subagents:fleet` command (also available through F2/alt+e/shift+ctrl+e) opens the subagent fleet navigator for known explore and dispatch child sessions. The `ns:explore:transcript` command opens a read-only transcript view for child session JSONL files known to that session-local fleet. Child Pi JSONL files remain the source of truth; the commands do not mutate transcripts or create a secondary transcript store.
+The `/ns:agents:fleet` command (also available through F2/alt+e/shift+ctrl+e) opens the subagent fleet navigator for known explore and dispatch child sessions. The `ns:agents:transcript` command opens a read-only transcript view for child session JSONL files known to that session-local fleet. Child Pi JSONL files remain the source of truth; the commands do not mutate transcripts or create a secondary transcript store.
 
 ## Public exports
 

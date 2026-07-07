@@ -309,13 +309,13 @@ describe("explore extension", () => {
 		await settleMicrotasks();
 
 		expect(latestWidgetContent(widgetCalls)).toEqual([
-			"subagent fleet: 3 running, 1 queued · F2/alt+e · /ns:subagents:fleet",
+			"subagent fleet: 3 running, 1 queued · F2/alt+e · /ns:agents:fleet",
 		]);
 
 		deferredAt(deferreds, 1).resolve(finalOutcome("second", "/tmp/two.jsonl"));
 		await settleMicrotasks();
 		expect(latestWidgetContent(widgetCalls)).toEqual([
-			"subagent fleet: 3 running · F2/alt+e · /ns:subagents:fleet",
+			"subagent fleet: 3 running · F2/alt+e · /ns:agents:fleet",
 		]);
 
 		deferredAt(deferreds, 0).resolve(finalOutcome("first", "/tmp/one.jsonl"));
@@ -323,8 +323,8 @@ describe("explore extension", () => {
 		deferredAt(deferreds, 3).resolve(finalOutcome("fourth", "/tmp/four.jsonl"));
 		await running;
 
-		expect(widgetCalls.at(-1)).toMatchObject({ key: "ns.subagents.fleet", content: undefined });
-		expect(widgetCalls.every((call) => call.key === "ns.subagents.fleet")).toBe(true);
+		expect(widgetCalls.at(-1)).toMatchObject({ key: "ns.agents.fleet", content: undefined });
+		expect(widgetCalls.every((call) => call.key === "ns.agents.fleet")).toBe(true);
 		expect(
 			widgetCalls
 				.filter((call) => call.content !== undefined)
@@ -349,10 +349,10 @@ describe("explore extension", () => {
 			toolContext({ statusCalls, notifications }),
 		);
 
-		expect(statusCalls.at(-1)).toEqual({ key: "ns.subagents.fleet", value: undefined });
+		expect(statusCalls.at(-1)).toEqual({ key: "ns.agents.fleet", value: undefined });
 		expect(notifications).toEqual([
 			{
-				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:subagents:fleet",
+				message: "explore: 1 of 2 tasks did not finish cleanly — F2/alt+e · /ns:agents:fleet",
 				level: "warning",
 			},
 		]);

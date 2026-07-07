@@ -164,7 +164,7 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
     category: "interaction",
     status: "experimental",
     commandHint: "dispatch_runner_subagent",
-    sourcePath: ".pi/extensions/dispatch-runner-subagent.ts",
+    sourcePath: ".pi/extensions/agents.ts",
   },
   {
     slug: "worktree-status",

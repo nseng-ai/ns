@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { RunnerSubagentFleetTaskSnapshot } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
+	EXPLORE_TRANSCRIPT_COMMAND_NAME,
 	parseExploreTranscript,
 	renderTranscriptMarkdown,
 } from "../../src/fleet/transcript-viewer.ts";
@@ -17,6 +18,10 @@ const task: RunnerSubagentFleetTaskSnapshot = {
 };
 
 describe("explore transcript viewer", () => {
+	test("uses the agents transcript command surface", () => {
+		expect(EXPLORE_TRANSCRIPT_COMMAND_NAME).toBe("ns:agents:transcript");
+	});
+
 	test("parses assistant text and tool summary from child JSONL", () => {
 		const jsonl = [
 			JSON.stringify({ type: "session", file: "/tmp/scout.jsonl" }),

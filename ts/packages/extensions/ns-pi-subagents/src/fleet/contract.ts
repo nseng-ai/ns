@@ -1,4 +1,4 @@
-export const SUBAGENT_FLEET_COMMAND_NAME = "ns:subagents:fleet";
+export const SUBAGENT_FLEET_COMMAND_NAME = "ns:agents:fleet";
 /**
  * All chords open the fleet navigator; terminals differ in which they deliver
  * (F-keys need Fn/standard-function-keys on macOS, alt needs option-as-meta,

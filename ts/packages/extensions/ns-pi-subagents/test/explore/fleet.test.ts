@@ -23,7 +23,7 @@ describe("runner subagent fleet display for explore", () => {
 
 		registry.markRunning(first);
 		expect(formatSubagentFleetWidgetLines(registry.snapshot())).toEqual([
-			"subagent fleet: 1 running, 1 queued · F2/alt+e · /ns:subagents:fleet",
+			"subagent fleet: 1 running, 1 queued · F2/alt+e · /ns:agents:fleet",
 		]);
 
 		registry.markDone(first, { ...makeFinalTextResult("done"), sessionFile: "/tmp/one.jsonl" });
@@ -120,7 +120,7 @@ describe("runner subagent fleet display for explore", () => {
 		registry.markRunning(only);
 		syncSubagentFleetDisplay(ctx, registry.snapshot());
 		expect(widgetCalls.at(-1)?.content).toEqual([
-			"subagent fleet: 1 running · F2/alt+e · /ns:subagents:fleet",
+			"subagent fleet: 1 running · F2/alt+e · /ns:agents:fleet",
 		]);
 		expect(statusCalls.at(-1)?.value).toBe("subagent fleet: 1 running · F2/alt+e");
 

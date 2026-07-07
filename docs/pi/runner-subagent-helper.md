@@ -99,7 +99,7 @@ Do not use `pi.sendMessage(...)` for transient subagent progress: custom message
 
 ## Agent-facing dispatch tool
 
-The project-local shim `.pi/extensions/subagents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `dispatch_runner_subagent` final-text tool plus `/ns:subagents:fleet`.
+The project-local shim `.pi/extensions/agents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `dispatch_runner_subagent` final-text tool plus `/ns:agents:fleet`.
 
 That tool always uses final-text mode. It requires:
 
