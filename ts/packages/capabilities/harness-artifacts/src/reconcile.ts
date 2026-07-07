@@ -1,7 +1,8 @@
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { isUnsupportedNsTomlExtensionSpec } from "@nseng-ai/kernel/project-config/points";
 import { z } from "zod";
 
 import { type SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -32,7 +33,7 @@ import {
 	moduleArtifactDiscoveryDiagnosticSchema,
 	type HarnessArtifactModuleDiscoveryGateway,
 } from "./module-artifact-discovery.ts";
-import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
+import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
 	applyPreparedProvision,
 	conflictingFilesFromDecisions,
@@ -181,6 +182,7 @@ export interface RunHarnessArtifactReconcileRequest {
 	env: Record<string, string | undefined>;
 	isDryRun: boolean;
 	shouldForce: boolean;
+	extensionTarget?: string;
 	fs?: HarnessArtifactFileSystemGateway;
 	discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
 	firstPartySourceRoot?: string;
@@ -225,6 +227,16 @@ export type ReconcileErrorInfo =
 	| HarnessPathErrorInfo
 	| { code: "invalid_ns_toml"; message: string; details: { path: string; error: NsTomlErrorInfo } }
 	| {
+			code: "invalid_extension_target";
+			message: string;
+			details: { target: string; normalizedTarget: string; declaredExtensions: readonly string[] };
+	  }
+	| {
+			code: "unsupported_extension_source";
+			message: string;
+			details: { extension: string };
+	  }
+	| {
 			code: "first_party_source_root_unavailable";
 			message: string;
 			details: { catalogId: string };
@@ -235,24 +247,32 @@ export async function runHarnessArtifactReconcile(
 ): Promise<Result<ReconcileReport, ReconcileErrorInfo>> {
 	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
 	const discoveryGateway = request.discoveryGateway ?? nodeHarnessArtifactFileSystemGateway;
+	const nsTomlPath = join(request.projectRoot, "ns.toml");
+	const nsToml = await fs.readOptionalTextFile(nsTomlPath);
+	if (!nsToml.ok) return nsToml;
+	const selection = parseHarnessSelection(nsToml.value, nsTomlPath);
+	if (!selection.ok) return selection;
+	const extensionSelection = parseExtensionSelection({
+		state: nsToml.value,
+		nsTomlPath,
+		projectRoot: request.projectRoot,
+		...optionalEntry("target", request.extensionTarget),
+	});
+	if (!extensionSelection.ok) return extensionSelection;
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
 		projectRoot: request.projectRoot,
 		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
+		localPackageRoots: extensionSelection.value.localPackageRoots,
 		gateway: discoveryGateway,
 	});
 
 	const desired = desiredHarnessArtifacts({
 		moduleCatalogs: moduleDiscovery.catalogs,
 		firstPartySourceRoot: request.firstPartySourceRoot,
+		includeFirstPartyArtifacts: !extensionSelection.value.isTargeted,
 	});
 	if (!desired.ok) return desired;
-
-	const nsTomlPath = join(request.projectRoot, "ns.toml");
-	const nsToml = await fs.readOptionalTextFile(nsTomlPath);
-	if (!nsToml.ok) return nsToml;
-	const selection = parseHarnessSelection(nsToml.value, nsTomlPath);
-	if (!selection.ok) return selection;
 
 	const context = firstPartySkillProvisionPathContext({
 		projectRoot: request.projectRoot,
@@ -421,21 +441,12 @@ function desiredHarnessArtifacts(input: {
 		artifacts: readonly SkillHarnessArtifactEntry[];
 	}[];
 	firstPartySourceRoot: string | undefined;
+	includeFirstPartyArtifacts: boolean;
 }): Result<readonly DesiredHarnessArtifact[], ReconcileErrorInfo> {
-	const firstPartySourceRoot = input.firstPartySourceRoot ?? resolveFirstPartyCatalogSourceRoot();
-	if (firstPartySourceRoot === undefined) {
-		return resultErr({
-			code: "first_party_source_root_unavailable",
-			message: FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
-			details: { catalogId: NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG.catalogId },
-		});
-	}
+	const firstPartyArtifacts = firstPartyDesiredArtifacts(input);
+	if (!firstPartyArtifacts.ok) return firstPartyArtifacts;
 	return resultOk([
-		...listFirstPartySkillArtifacts().map((artifact) => ({
-			artifact,
-			sourceRoot: firstPartySourceRoot,
-			sourceVersion: FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
-		})),
+		...firstPartyArtifacts.value,
 		...input.moduleCatalogs.flatMap((catalog) =>
 			catalog.artifacts.map((artifact) => ({
 				artifact,
@@ -444,6 +455,28 @@ function desiredHarnessArtifacts(input: {
 			})),
 		),
 	]);
+}
+
+function firstPartyDesiredArtifacts(input: {
+	firstPartySourceRoot: string | undefined;
+	includeFirstPartyArtifacts: boolean;
+}): Result<readonly DesiredHarnessArtifact[], ReconcileErrorInfo> {
+	if (!input.includeFirstPartyArtifacts) return resultOk([]);
+	const firstPartySourceRoot = input.firstPartySourceRoot ?? resolveFirstPartyCatalogSourceRoot();
+	if (firstPartySourceRoot === undefined) {
+		return resultErr({
+			code: "first_party_source_root_unavailable",
+			message: FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
+			details: { catalogId: NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG.catalogId },
+		});
+	}
+	return resultOk(
+		listFirstPartySkillArtifacts().map((artifact) => ({
+			artifact,
+			sourceRoot: firstPartySourceRoot,
+			sourceVersion: FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
+		})),
+	);
 }
 
 function parseHarnessSelection(
@@ -491,6 +524,90 @@ function resolveProjectSkillRoots(
 		});
 	}
 	return resultOk(roots);
+}
+
+function parseExtensionSelection(input: {
+	state: { type: "missing" } | { type: "file"; text: string };
+	nsTomlPath: string;
+	projectRoot: string;
+	target?: string;
+}): Result<{ localPackageRoots: readonly string[]; isTargeted: boolean }, ReconcileErrorInfo> {
+	if (input.state.type === "missing") {
+		if (input.target === undefined) return resultOk({ localPackageRoots: [], isTargeted: false });
+		return invalidTargetResult({
+			target: input.target,
+			projectRoot: input.projectRoot,
+			declaredExtensions: [],
+		});
+	}
+	const parsed = parseNsTomlExtensions(input.state.text, input.nsTomlPath);
+	if (parsed.type === "error") {
+		return resultErr({
+			code: "invalid_ns_toml",
+			message: parsed.error.message,
+			details: { path: input.nsTomlPath, error: parsed.error },
+		});
+	}
+	const declared = parsed.type === "ok" ? parsed.extensions : [];
+	const unsupported = declared.find((extension) => isUnsupportedNsTomlExtensionSpec(extension));
+	if (unsupported !== undefined && input.target === undefined) {
+		return resultErr({
+			code: "unsupported_extension_source",
+			message: `Unsupported ns.toml extension source in this slice: ${unsupported}. Only local filesystem paths are supported.`,
+			details: { extension: unsupported },
+		});
+	}
+	const declaredLocalRoots = declared
+		.filter((extension) => !isUnsupportedNsTomlExtensionSpec(extension))
+		.map((extension) => normalizeExtensionPath(input.projectRoot, extension));
+	const target = input.target;
+	if (target === undefined) {
+		return resultOk({
+			localPackageRoots: uniqueSortedPaths(declaredLocalRoots),
+			isTargeted: false,
+		});
+	}
+	if (isUnsupportedNsTomlExtensionSpec(target)) {
+		return resultErr({
+			code: "unsupported_extension_source",
+			message: `Unsupported ns update --extensions target in this slice: ${target}. Only declared local filesystem paths are supported.`,
+			details: { extension: target },
+		});
+	}
+	const normalizedTarget = normalizeExtensionPath(input.projectRoot, target);
+	if (!declaredLocalRoots.includes(normalizedTarget)) {
+		return invalidTargetResult({
+			target,
+			projectRoot: input.projectRoot,
+			declaredExtensions: declaredLocalRoots,
+		});
+	}
+	return resultOk({ localPackageRoots: [normalizedTarget], isTargeted: true });
+}
+
+function invalidTargetResult(input: {
+	target: string;
+	projectRoot: string;
+	declaredExtensions: readonly string[];
+}): Result<never, ReconcileErrorInfo> {
+	const normalizedTarget = normalizeExtensionPath(input.projectRoot, input.target);
+	return resultErr({
+		code: "invalid_extension_target",
+		message: `Extension target is not declared in ns.toml: ${input.target}. Add it to top-level extensions = [...] before running ns update --extensions ${input.target}.`,
+		details: {
+			target: input.target,
+			normalizedTarget,
+			declaredExtensions: [...input.declaredExtensions],
+		},
+	});
+}
+
+function normalizeExtensionPath(projectRoot: string, value: string): string {
+	return resolve(isAbsolute(value) ? value : join(projectRoot, value));
+}
+
+function uniqueSortedPaths(paths: readonly string[]): readonly string[] {
+	return [...new Set(paths)].sort((left, right) => left.localeCompare(right));
 }
 
 async function readProjectManifestSnapshots(input: {

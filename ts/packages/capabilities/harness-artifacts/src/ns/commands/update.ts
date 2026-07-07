@@ -1,23 +1,27 @@
 import { harnessArtifactsNsCommand } from "../command.ts";
 import {
-	nsUpdateRequestSchema,
+	nsUpdateCliRequestSchema,
 	nsUpdateResultSchema,
 	renderNsUpdateHuman,
-	runNsUpdate,
+	runNsUpdateCli,
 } from "../update.ts";
 
 export const nsUpdateCommand = harnessArtifactsNsCommand({
 	name: "update",
-	summary: "Update ns and extension-managed harness artifacts.",
+	summary: "Update ns self or extension artifacts by explicit mode.",
 	description:
-		"Preview or apply self-updates and extension-managed harness artifact updates selected by ns.toml.",
-	schema: nsUpdateRequestSchema,
+		"Run ns self-update or update extension harness artifacts. Self-update is reserved but not implemented yet; use --extensions to provision artifacts from declared extensions.",
+	schema: nsUpdateCliRequestSchema,
 	options: {
+		extensions: {},
+		self: {},
+		all: {},
 		dryRun: { short: "-n" },
 		force: { short: "-f" },
 	},
+	positionals: { target: { position: 0 } },
 	resultSchema: nsUpdateResultSchema,
-	handler: runNsUpdate,
+	handler: runNsUpdateCli,
 	renderHuman: renderNsUpdateHuman,
 });
 

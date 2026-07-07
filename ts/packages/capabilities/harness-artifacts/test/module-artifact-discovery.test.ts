@@ -106,6 +106,63 @@ describe("descriptor module artifact discovery", () => {
 		}
 	});
 
+	test("discovers declared local package roots directly", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-local-"));
+		try {
+			writeDescriptorExtension(root, "local-ext", {
+				packageName: "@acme/local-ext",
+				version: "3.0.0",
+				bundledArtifacts: [{ kind: "skill", name: "local-skill", path: "skills/local" }],
+			});
+			writeText(join(root, "extensions", "local-ext", "skills", "local", "SKILL.md"), "local\n");
+
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				projectRoot: root,
+				localPackageRoots: [join(root, "extensions", "local-ext")],
+			});
+
+			expect(result.diagnostics).toEqual([]);
+			expect(result.catalogs.map((catalog) => catalog.packageName)).toEqual(["@acme/local-ext"]);
+			expect(result.catalogs[0]?.artifacts.map((artifact) => artifact.id)).toEqual([
+				"@acme/local-ext:local-skill",
+			]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("diagnoses invalid declared local package roots without blocking valid roots", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-local-diagnostics-"));
+		try {
+			writeText(join(root, "not-dir"), "file\n");
+			mkdirSync(join(root, "no-package"), { recursive: true });
+			writeDescriptorExtension(root, "good", {
+				packageName: "@acme/good",
+				bundledArtifacts: [{ kind: "skill", name: "good-skill", path: "skills/good" }],
+			});
+			writeText(join(root, "extensions", "good", "skills", "good", "SKILL.md"), "good\n");
+
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				projectRoot: root,
+				localPackageRoots: [
+					join(root, "missing"),
+					join(root, "not-dir"),
+					join(root, "no-package"),
+					join(root, "extensions", "good"),
+				],
+			});
+
+			expect(result.catalogs.map((catalog) => catalog.packageName)).toEqual(["@acme/good"]);
+			expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+				"module_artifact_local_package_missing",
+				"module_artifact_local_package_missing_package_json",
+				"module_artifact_local_package_not_directory",
+			]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	test("surfaces package parser diagnostics for declared extensions", async () => {
 		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-bad-"));
 		try {

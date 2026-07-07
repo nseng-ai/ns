@@ -62,6 +62,17 @@ export interface SettingsSchema<T = unknown> {
 	invalidMessage?: (context: { pathLabel: string }) => string;
 }
 
+export const nsTomlExtensionsSettingsSchema = {
+	path: ["extensions"] as const,
+	schema: z.array(z.string().min(1)).nonempty(),
+	invalidMessage: ({ pathLabel }) =>
+		`${pathLabel} top-level extensions must be a non-empty string array.`,
+} satisfies SettingsSchema<readonly string[]>;
+
+export function isUnsupportedNsTomlExtensionSpec(value: string): boolean {
+	return value.startsWith("npm:") || value.startsWith("git:");
+}
+
 export interface ProjectConfigGateway {
 	readTextFile: (request: { repoRoot: string; relativePath: string }) => ProjectConfigReadResult;
 	pathExists: (request: {

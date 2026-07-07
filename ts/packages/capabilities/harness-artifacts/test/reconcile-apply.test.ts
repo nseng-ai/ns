@@ -107,6 +107,33 @@ describe("harness artifact reconcile driver", () => {
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
 	});
 
+	test("declared local extension paths provision artifacts and can be targeted", async () => {
+		const fixture = createFixture({
+			nsToml: 'harnesses = ["pi"]\nextensions = ["./local-ext", "./other-ext"]\n',
+			includeModule: false,
+		});
+		fixture.fs.setFile("/repo/local-ext/package.json", packageJsonWithName("@acme/local"));
+		fixture.fs.setFile("/repo/local-ext/skills/module/SKILL.md", "local v1\n");
+		fixture.fs.setFile("/repo/other-ext/package.json", packageJsonWithName("@acme/other"));
+		fixture.fs.setFile("/repo/other-ext/skills/module/SKILL.md", "other v1\n");
+
+		const targeted = await runHarnessArtifactReconcile(
+			fixture.request({ extensionTarget: "./local-ext" }),
+		);
+
+		expect(targeted).toMatchObject({ ok: true });
+		if (!targeted.ok) return;
+		expect(targeted.value.artifacts.map((artifact) => artifact.packageName)).toEqual([
+			"@acme/local",
+		]);
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("local v1\n");
+
+		const undeclared = await runHarnessArtifactReconcile(
+			fixture.request({ extensionTarget: "./undeclared-ext" }),
+		);
+		expect(undeclared).toMatchObject({ ok: false, error: { code: "invalid_extension_target" } });
+	});
+
 	test("missing ns.toml skips new installs while refreshing manifest-tracked entries", async () => {
 		const fixture = createFixture({ nsToml: undefined });
 		fixture.fs.setFile("/repo/.pi/skills/module-skill/SKILL.md", "module v1\n");
@@ -188,13 +215,22 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 	const fs = new InMemoryHarnessFs(files);
 	return {
 		fs,
-		request(overrides: { isDryRun?: boolean; shouldForce?: boolean } = {}) {
+		request(
+			overrides: {
+				isDryRun?: boolean;
+				shouldForce?: boolean;
+				extensionTarget?: string;
+			} = {},
+		) {
 			return {
 				projectRoot: "/repo",
 				homeDir: "/home/alice",
 				env: { XDG_DATA_HOME: "/home/alice/.local/share" },
 				isDryRun: overrides.isDryRun ?? false,
 				shouldForce: overrides.shouldForce ?? false,
+				...(overrides.extensionTarget === undefined
+					? {}
+					: { extensionTarget: overrides.extensionTarget }),
 				fs,
 				discoveryGateway: fs,
 				firstPartySourceRoot: "/first-party",
@@ -222,6 +258,14 @@ function descriptorSource(artifact: { name: string; path: string }): string {
 	return descriptorExtensionSource({
 		description: "Test extension.",
 		bundledArtifacts: [{ kind: "skill", name: artifact.name, path: artifact.path }],
+	});
+}
+
+function packageJsonWithName(name: string): string {
+	return JSON.stringify({
+		name,
+		version: "1.0.0",
+		ns: { harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module" }] },
 	});
 }
 

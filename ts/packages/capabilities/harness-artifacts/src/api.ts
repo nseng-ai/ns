@@ -78,12 +78,14 @@ export {
 } from "./harness-paths.ts";
 export {
 	normalizeHarnessSelection,
+	parseNsTomlExtensions,
 	parseNsTomlHarnesses,
 	planNsTomlHarnessesWrite,
 	renderNsTomlHarnesses,
 	type NsTomlChange,
 	type NsTomlErrorCode,
 	type NsTomlErrorInfo,
+	type NsTomlExtensionsParseResult,
 	type NsTomlHarnessesParseResult,
 	type NsTomlWritePlanResult,
 } from "./ns-toml.ts";
