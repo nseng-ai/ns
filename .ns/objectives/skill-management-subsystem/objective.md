@@ -5,7 +5,7 @@ edges:
   - objective: npm-bundled-artifact-provisioning
     annotation: Subobjective — the first follow-on graduated from parked breadth after the steelthread closure. Generalizes first-party provisioning to any npm-module-bundled harness artifact (extensions are one case) and folds in removing AREG's `npx skills` wrapping, keeping AREG as a standalone whole-project inspector. Merges the former extension-carried-provisioning and AREG-re-platform parked rows.
   - objective: harness-artifacts-thermo-remediation
-    annotation: Subobjective — quality remediation of the delivered harness-artifacts stack. Fixes the 5 HIGH and 10 MEDIUM findings from the 2026-07-06 thermo-nuclear review (dead AREG gateway seams, homeDir sentinel, conflict-as-outcome reconcile restructure, and related cleanups) before this umbrella's parked breadth graduates further.
+    annotation: Subobjective — closed and synthesized quality remediation of the delivered harness-artifacts stack. It fixed the 5 HIGH and 10 MEDIUM thermo-nuclear review findings before further breadth graduation; remaining LOW-tail items are explicitly opportunistic, not blockers.
   - objective: harness-artifact-vocabulary-reconciliation
     annotation: Subobjective — graduated 2026-07-07 from the parked reconciliation-sweep row. Owns the skill-workflow/docs/vocabulary reconciliation sweep and the bare-"artifact" collision cleanup (AREG "managed artifacts" → kind-overlays rename); no provisioning behavior changes.
   - objective: remote-artifact-module-acquisition
@@ -60,6 +60,7 @@ Hard non-goals:
 This Umbrella closes when its Subobjectives are closed or explicitly parked and their outcomes synthesized here:
 
 - The `ns-skills-steelthread` Subobjective is closed with the thread validated end-to-end (its own Closure Gate).
+- The `harness-artifacts-thermo-remediation` Subobjective is closed and synthesized here: its 5 HIGH and 10 MEDIUM findings are fixed, with remaining LOW-tail cleanup explicitly opportunistic.
 - Each parked-breadth row has an explicit disposition: implemented as a follow-on slice, split into its own Subobjective (tracked via an Objective Edge), or deliberately retired with rationale.
 - Cross-child lessons and closure evidence are synthesized into this record (Semantic Updates and `## Closure` prose), so the reusable-subsystem ambition has one durable narrative home.
 - The Pup research report remains checked in under this Objective and is referenced by implementation decisions.
@@ -76,7 +77,7 @@ Assumptions:
 
 Risks:
 
-- The **fire-and-forget umbrella** is this pattern's named failure mode: a parent that only spawns children and stops tracking. Defend by keeping the `[~]` child rows current and synthesizing child outcomes back into this record.
+- The **fire-and-forget umbrella** is this pattern's named failure mode: a parent that only spawns children and stops tracking. Defend by keeping the `[~]` child rows current and synthesizing child outcomes back into this record. The harness-artifacts remediation child has now cleared the HIGH/MEDIUM blocker; remaining LOW-tail cleanup is opportunistic and should not block breadth decisions.
 - Breadth creep materialized once in this record's own history: extension-carried provisioning was pulled forward from parked into main-line scope (2026-07-02) before the 2026-07-06 steelthread reshape moved it back; the thread then split into `ns-skills-steelthread` the same day. Defend by descoping into parked rows or new Subobjectives, not by absorbing breadth into an in-flight thread.
 - The package boundary may be awkward if the subsystem must be consumed by several first-party CLIs and extensions with different runtime/layering constraints; a shared core plus thin per-CLI bindings may be needed. Partially de-risked: `@nseng-ai/harness-artifacts` is seeded at `ts/packages/capabilities/harness-artifacts`, so the residual risk is API shape, not package placement.
 - Resolved: the "skills is too narrow vs resources is too abstract" naming risk is settled by the dual-language decision — user-facing `skills`, domain-term `harness artifact`.
