@@ -3,7 +3,6 @@ import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
-import { findWorkspaceRootByMarkers } from "@nseng-ai/capability-kit/workspace-root";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
 
@@ -21,14 +20,11 @@ export function harnessArtifactsNsCommand<S extends NsCommandSchema, T>(
 		...options,
 		createContext: async (ctx) => {
 			const repoRootResult = await createNsGitGateway(ctx).optionalRepoRoot({ cwd: ctx.cwd });
-			const projectRoot =
-				repoRootResult.type === "found"
-					? repoRootResult.value
-					: (findWorkspaceRootByMarkers({ cwd: ctx.cwd, markers: [".git"] }) ?? ctx.cwd);
+			const projectRoot = repoRootResult.type === "found" ? repoRootResult.value : ctx.cwd;
 			return {
 				cwd: ctx.cwd,
 				projectRoot,
-				...optionalEntry("homeDir", ctx.env.HOME),
+				...optionalEntry("homeDir", ctx.homeDir),
 				env: ctx.env,
 			};
 		},

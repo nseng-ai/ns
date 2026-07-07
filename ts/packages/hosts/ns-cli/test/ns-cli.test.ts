@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { runCommand } from "@nseng-ai/foundation/exec";
+
 import { runNsCli } from "../src/cli.ts";
 
 const tempDirs: string[] = [];
@@ -23,6 +25,13 @@ async function pathExists(path: string): Promise<boolean> {
 		return true;
 	} catch {
 		return false;
+	}
+}
+
+async function initializeGitRepo(projectRoot: string): Promise<void> {
+	const result = await runCommand("git", ["init"], { cwd: projectRoot });
+	if (result.code !== 0) {
+		throw new Error(`git init failed: ${result.stderr || result.stdout}`);
 	}
 }
 
@@ -362,7 +371,7 @@ describe("ns CLI host", () => {
 
 	test("updates module and first-party artifacts from a git-root subdirectory", async () => {
 		const projectRoot = await createEmptyProject();
-		await mkdir(join(projectRoot, ".git"));
+		await initializeGitRepo(projectRoot);
 		await mkdir(join(projectRoot, "nested"), { recursive: true });
 		await writeFile(join(projectRoot, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
 		await writeModuleExtension(projectRoot);

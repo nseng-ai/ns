@@ -26,13 +26,13 @@ export interface RealSkillMaterializerOptions {
 export class RealSkillMaterializer implements SkillMaterializer {
 	private readonly sourceRoot: string | undefined;
 	private readonly sourceVersion: string;
-	private readonly homeDir: string;
+	private readonly homeDir: string | undefined;
 	private readonly env: Record<string, string | undefined>;
 
 	constructor(options: RealSkillMaterializerOptions = {}) {
 		this.sourceRoot = options.sourceRoot ?? resolveFirstPartyCatalogSourceRoot();
 		this.sourceVersion = options.sourceVersion ?? FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION;
-		this.homeDir = options.homeDir ?? options.env?.HOME ?? "";
+		this.homeDir = options.homeDir ?? options.env?.HOME;
 		this.env = { ...(options.env ?? {}) };
 	}
 
@@ -65,7 +65,7 @@ export class RealSkillMaterializer implements SkillMaterializer {
 				scope: "project",
 				context: firstPartySkillProvisionPathContext({
 					projectRoot: params.repoRoot,
-					homeDir: this.homeDir,
+					...homeDirEntry(this.homeDir),
 					env: this.env,
 				}),
 				sourceRoot: this.sourceRoot,
@@ -79,6 +79,10 @@ export class RealSkillMaterializer implements SkillMaterializer {
 
 		return { type: "materialized", installedSkillPaths };
 	}
+}
+
+function homeDirEntry(homeDir: string | undefined): { homeDir: string } | {} {
+	return homeDir === undefined ? {} : { homeDir };
 }
 
 function nsInitErrorFromProvisionError(

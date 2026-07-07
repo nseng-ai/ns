@@ -174,7 +174,7 @@ export function planHarnessArtifactReconcile(input: {
 
 export interface RunHarnessArtifactReconcileRequest {
 	projectRoot: string;
-	homeDir: string;
+	homeDir?: string;
 	env: Record<string, string | undefined>;
 	dryRun: boolean;
 	force: boolean;
@@ -235,7 +235,7 @@ export async function runHarnessArtifactReconcile(
 	const discoveryGateway = request.discoveryGateway ?? nodeHarnessArtifactModuleDiscoveryGateway;
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
 		projectRoot: request.projectRoot,
-		homeDir: request.homeDir,
+		...optionalHomeDir(request.homeDir),
 		env: request.env,
 		gateway: discoveryGateway,
 	});
@@ -254,7 +254,7 @@ export async function runHarnessArtifactReconcile(
 
 	const context = firstPartySkillProvisionPathContext({
 		projectRoot: request.projectRoot,
-		homeDir: request.homeDir,
+		...optionalHomeDir(request.homeDir),
 		env: request.env,
 	});
 	const manifests = await readProjectManifestSnapshots({ context, fs });
@@ -330,6 +330,10 @@ export async function runHarnessArtifactReconcile(
 		diagnostics: [...moduleDiscovery.diagnostics],
 		needsForce: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
+}
+
+function optionalHomeDir(homeDir: string | undefined): { homeDir: string } | {} {
+	return homeDir === undefined ? {} : { homeDir };
 }
 
 function checkDesiredCollisions(

@@ -14,7 +14,7 @@ export interface HarnessPathEnvironment {
 
 export interface HarnessPathContext {
 	projectRoot: string;
-	homeDir: string;
+	homeDir?: string;
 	env?: HarnessPathEnvironment;
 }
 
@@ -58,6 +58,11 @@ export type HarnessPathErrorInfo =
 			code: "unsupported_artifact_kind";
 			message: string;
 			details: { harness: HarnessId; kind: HarnessArtifactKind };
+	  }
+	| {
+			code: "missing_home_directory";
+			message: string;
+			details: { harness: HarnessId; scope: "user" };
 	  };
 
 export const HARNESS_SPECS = [
@@ -133,9 +138,17 @@ export function resolveHarnessSkillRoot(input: {
 }): Result<ResolvedHarnessSkillRoot, HarnessPathErrorInfo> {
 	const spec = resolveHarnessSpec(input.harness);
 	if (!spec.ok) return spec;
+	const basePathSpec = spec.value.skillRoots[input.scope];
+	if (input.scope === "user" && needsHomeDirectory(basePathSpec, input.context)) {
+		return resultErr({
+			code: "missing_home_directory",
+			message: `${spec.value.id} user-scope provisioning requires a home directory. Set HOME or pass NsExtensionApi.homeDir.`,
+			details: { harness: spec.value.id, scope: "user" },
+		});
+	}
 	return resultOk({
 		harness: spec.value.id,
-		rootPath: resolveBasePath(spec.value.skillRoots[input.scope], input.context),
+		rootPath: resolveBasePath(basePathSpec, input.context),
 	});
 }
 
@@ -164,18 +177,35 @@ export function resolveHarnessArtifactPath(input: {
 	});
 }
 
+function needsHomeDirectory(spec: HarnessBasePathSpec, context: HarnessPathContext): boolean {
+	if (context.homeDir !== undefined && context.homeDir.trim() !== "") return false;
+	if (spec.type === "home") return true;
+	if (spec.type !== "env-or-home") return false;
+	const configured = context.env?.[spec.envName];
+	return configured === undefined || configured.trim() === "";
+}
+
 function resolveBasePath(spec: HarnessBasePathSpec, context: HarnessPathContext): string {
 	switch (spec.type) {
 		case "project":
 			return join(context.projectRoot, spec.relativePath);
 		case "home":
-			return join(context.homeDir, spec.relativePath);
+			return join(requiredHomeDir(context), spec.relativePath);
 		case "env-or-home": {
 			const configured = context.env?.[spec.envName];
 			if (configured !== undefined && configured.trim() !== "") {
 				return join(configured, spec.envRelativePath);
 			}
-			return join(context.homeDir, spec.homeRelativePath);
+			return join(requiredHomeDir(context), spec.homeRelativePath);
 		}
 	}
+}
+
+function requiredHomeDir(context: HarnessPathContext): string {
+	if (context.homeDir === undefined || context.homeDir.trim() === "") {
+		throw new Error(
+			"Harness user-scope path resolution reached home fallback without a home directory.",
+		);
+	}
+	return context.homeDir;
 }

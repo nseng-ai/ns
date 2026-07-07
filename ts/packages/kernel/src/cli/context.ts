@@ -26,6 +26,7 @@ export interface NsCliContext {
 export interface RealNsCommandContextOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
+	homeDir?: string;
 }
 
 export function createTextGenerator(): TextGenerator {
@@ -37,6 +38,7 @@ export function createRealNsCommandContext(
 ): NsExtensionApi {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
+	const homeDir = options.homeDir ?? env.HOME;
 	const textGenerator = createTextGenerator();
 	const confirm = createTerminalConfirmPrompt();
 	const stdout = (text: string) => process.stdout.write(text);
@@ -45,6 +47,7 @@ export function createRealNsCommandContext(
 	return {
 		cwd,
 		env,
+		...optionalHomeDir(homeDir),
 		textGenerator,
 		commandIo,
 		progress: noopNsProgress,
@@ -94,6 +97,10 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 		});
 		return result.type === "confirmed";
 	};
+}
+
+function optionalHomeDir(homeDir: string | undefined): { homeDir: string } | {} {
+	return homeDir === undefined ? {} : { homeDir };
 }
 
 function createBaseCliInteractionOptions(stderr: (text: string) => void) {

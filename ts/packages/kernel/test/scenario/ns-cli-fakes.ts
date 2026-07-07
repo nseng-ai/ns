@@ -52,11 +52,13 @@ export interface RunWithFakesDefaults {
 interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
+	homeDir?: string;
 }
 
 export class ScriptedNsTestContext implements NsExtensionApi {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
+	readonly homeDir?: string;
 	readonly execCalls: ExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly commandIo = noopNsCommandIo;
@@ -75,6 +77,8 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	constructor(state: TestState = {}, options: ScriptedNsTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
+		const homeDir = options.homeDir ?? this.env.HOME;
+		if (homeDir !== undefined) this.homeDir = homeDir;
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
@@ -122,6 +126,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	const context = new ScriptedNsTestContext(options.state, {
 		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 		env: { HOME: homeDir, ...(options.env ?? {}) },
+		homeDir,
 		execResponses: defaults.execResponses,
 		textGenerationResults: defaults.textGenerationResults,
 		...(defaults.missingTextGenerationResult === undefined
