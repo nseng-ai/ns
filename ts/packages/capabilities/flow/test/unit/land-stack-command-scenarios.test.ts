@@ -43,6 +43,7 @@ import {
 	prSnapshot,
 	prStdout,
 	submitUpdateStep,
+	trunkFetchStep,
 } from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
@@ -567,15 +568,7 @@ function mergeNumberedBranch(
 		const nextBranch = numberedBranch(options.next);
 		steps.push(
 			guardShaStep(nextBranch, numberedSha(options.next)),
-			step("gt", [
-				"get",
-				nextBranch,
-				"--downstack",
-				"--no-restack",
-				"--no-checkout",
-				"--force",
-				"--no-interactive",
-			]),
+			trunkFetchStep(),
 			childrenRecheckStep(branch, [nextBranch]),
 			step("gt", ["delete", branch, "-f", "-q"]),
 			step("gt", ["restack", "--branch", nextBranch, "--only", "--no-interactive"]),
@@ -851,18 +844,7 @@ function mergeFeatureAThroughDelete(
 	];
 	const refreshTarget = options.refreshTarget === undefined ? "feature-b" : options.refreshTarget;
 	if (refreshTarget) {
-		steps.push(
-			guardShaStep(refreshTarget, SHA_B),
-			step("gt", [
-				"get",
-				refreshTarget,
-				"--downstack",
-				"--no-restack",
-				"--no-checkout",
-				"--force",
-				"--no-interactive",
-			]),
-		);
+		steps.push(guardShaStep(refreshTarget, SHA_B), trunkFetchStep());
 	}
 	steps.push(
 		childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []),
@@ -1045,10 +1027,10 @@ describe("land-stack command scenarios", () => {
 					calls: 140,
 					failures: 0,
 					categories: {
-						graphite: 54,
+						graphite: 44,
 						"github-cli": 45,
 						"github-api": 0,
-						git: 41,
+						git: 51,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 56, restRequests: 0, rateLimitCost: 66 },
@@ -1061,10 +1043,10 @@ describe("land-stack command scenarios", () => {
 					calls: 308,
 					failures: 0,
 					categories: {
-						graphite: 124,
+						graphite: 100,
 						"github-cli": 101,
 						"github-api": 0,
-						git: 83,
+						git: 107,
 						"other-command": 0,
 					},
 					githubQuota: { graphqlRequests: 126, restRequests: 0, rateLimitCost: 150 },
@@ -1383,7 +1365,7 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls
 				.filter((call) => call.command === "gt" && call.args[0] === "get")
 				.map((call) => call.args[1]),
-		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		).toEqual([DESCENDANT, "feature-d"]);
 		expect(
 			pi.execCalls
 				.filter((call) => call.command === "gt" && call.args[0] === "restack")
@@ -1438,7 +1420,7 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls
 				.filter((call) => call.command === "gt" && call.args[0] === "get")
 				.map((call) => call.args[1]),
-		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		).toEqual([DESCENDANT, "feature-d"]);
 		expect(
 			pi.execCalls.some(
 				(call) =>
@@ -1806,25 +1788,21 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 
-	test("required next-landing gt get checkout conflict stops before merging the next target PR", async () => {
-		const getArgs = [
-			"get",
-			"feature-b",
-			"--downstack",
-			"--no-restack",
-			"--no-checkout",
-			"--force",
-			"--no-interactive",
-		];
+	test("required next-landing trunk fetch checkout conflict stops before merging the next target PR", async () => {
+		const fetchStep = trunkFetchStep({
+			trunk: TRUNK,
+			result: {
+				code: 1,
+				stderr:
+					"fatal: refusing to fetch into branch 'refs/heads/main' checked out at '/repo-main'\n",
+			},
+		});
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureA({ includeCleanup: false }),
 			guardShaStep("feature-b", SHA_B),
-			step("gt", getArgs, {
-				code: 1,
-				stderr: "fatal: 'main' is already checked out at '/repo-main'\n",
-			}),
+			fetchStep,
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -1835,10 +1813,15 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
 		expect(streamText).toContain(
-			"Graphite could not refresh next landing branch feature-b: main is checked out at /repo-main.",
+			"local trunk main could not be advanced from origin before maintaining next landing branch feature-b",
 		);
-		expect(streamText).toContain("Suggested next action: Switch/detach /repo-main from main");
-		expect(streamText).toContain(formatCommand("gt", getArgs));
+		expect(streamText).toContain("Suggested next action: Reconcile local trunk main with origin");
+		expect(streamText).toContain(formatCommand(fetchStep.command, fetchStep.args));
+		expect(
+			pi.execCalls.some(
+				(call) => call.command === "gt" && call.args[0] === "get" && call.args[1] === "feature-b",
+			),
+		).toBe(false);
 		expect(
 			pi.execCalls
 				.filter(
@@ -2251,7 +2234,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).not.toContain("Failed at:");
 	});
 
-	test("targets the next open branch for Graphite refresh after merging a downstack PR", async () => {
+	test("targets the next open branch for post-merge maintenance after merging a downstack PR", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
@@ -2275,15 +2258,7 @@ describe("land-stack command scenarios", () => {
 				),
 			}),
 			guardShaStep("feature-b", SHA_B),
-			step("gt", [
-				"get",
-				"feature-b",
-				"--downstack",
-				"--no-restack",
-				"--no-checkout",
-				"--force",
-				"--no-interactive",
-			]),
+			trunkFetchStep(),
 			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
@@ -2320,10 +2295,10 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(
-			pi.execCalls
-				.filter((call) => call.command === "gt" && call.args[0] === "get")
-				.map((call) => call.args[1]),
-		).toEqual(["feature-b"]);
+			pi.execCalls.some(
+				(call) => call.command === "gt" && call.args[0] === "get" && call.args[1] === "feature-b",
+			),
+		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 

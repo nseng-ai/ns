@@ -6,9 +6,9 @@
   - Reference reading: `flow-land-pr-node-id`. Plumbing that later GraphQL slices need; low risk.
   - Policy: implementation is direct execution once the user approves starting this slice.
   - Evidence (2026-07-06): implemented as uncommitted edits on `consolidate-flow-land-perf-objectives`; flow+ccc Vitest (573 tests) and full `just` pass; call counts unchanged (field-only addition). See `updates/20260706T040619Z-pr-node-id-slice-implemented.md`. Under the updated Objective policy, implementation plus validation and unchanged call-count evidence complete this field-only slice.
-- [ ] Derive and land slice: targeted trunk fetches replacing mid-loop Graphite refreshes.
+- [x] Derive and land slice: targeted trunk fetches replacing mid-loop Graphite refreshes.
   - Reference reading: `flow-land-trunk-fetch`. Changes loop behavior but not primitives; medium risk.
-  - Evidence: before/after fake-backed scenario counts on linear-11/linear-25 recorded here and relevant validation passes.
+  - Evidence (2026-07-06): implemented as uncommitted edits on `targeted-trunk-fetch-flow-land`; required next-landing maintenance now uses direct trunk fetch while optional descendants stay on `gt get`; direct fetch failures fail closed with no fallback. Fake-backed counts moved from `linear-11 = 145` / `linear-25 = 313` to `linear-11 = 140` / `linear-25 = 308`; targeted Vitest, targeted integration, `just ts-check`, and final full `just` pass. See `updates/20260706T093143Z-targeted-trunk-fetch-slice.md`.
 - [ ] Design and derive slice(s): lease-based push and GraphQL PR base retarget replacing `gt submit`.
   - Reference reading: `flow-land-lease-push-retarget`. First risky slice; steer-first at design level — decide decomposition (may become multiple slices) and Graphite-metadata validation approach with the user before implementing. Lands only after the preceding slices have required validation/evidence recorded and Objective tracking updated; stays the only risky slice in flight until its own required validation/evidence is recorded.
 - [ ] Design and derive slice: adopt GraphQL `mergePullRequest` with post-merge verification retained.
