@@ -62,7 +62,11 @@ export async function runNsUpdate(
 		...optionalEntry("extensionTarget", request.target),
 	};
 	if (request.dryRun || !request.force) {
-		const preview = await runHarnessArtifactReconcile({ ...baseRequest, isDryRun: true });
+		const preview = await runHarnessArtifactReconcile({
+			...baseRequest,
+			isDryRun: true,
+			acquisitionMode: request.dryRun ? "preview" : "apply",
+		});
 		if (!preview.ok) return reconcileFailureExit(preview.error);
 		if (request.dryRun) return ok(preview.value);
 		if (preview.value.isForceRequired) {
@@ -97,6 +101,12 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 			lines.push(
 				`- ${artifact.action} ${artifact.skillName} (${artifact.harness}) -> ${artifact.targetArtifactPath}`,
 			);
+		}
+	}
+	if (result.diagnostics.length > 0) {
+		lines.push("", "diagnostics:");
+		for (const diagnostic of result.diagnostics) {
+			lines.push(`- ${diagnostic.code}: ${diagnostic.message}`);
 		}
 	}
 	if (result.orphans.length > 0) {

@@ -109,6 +109,7 @@ export {
 	moduleArtifactDiscoveryDiagnosticSchema,
 	type DiscoverExtensionModuleHarnessArtifactsRequest,
 	type DiscoverExtensionModuleHarnessArtifactsResult,
+	type ExtensionDescriptorModuleLoader,
 	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
 	type ModuleArtifactDiscoveryDiagnostic,
 	type ModuleArtifactDiscoveryDiagnosticCode,

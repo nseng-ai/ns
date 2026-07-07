@@ -118,7 +118,7 @@ describe("descriptor module artifact discovery", () => {
 
 			const result = await discoverExtensionModuleHarnessArtifacts({
 				projectRoot: root,
-				localPackageRoots: [join(root, "extensions", "local-ext")],
+				moduleRoots: [join(root, "extensions", "local-ext")],
 			});
 
 			expect(result.diagnostics).toEqual([]);
@@ -144,7 +144,7 @@ describe("descriptor module artifact discovery", () => {
 
 			const result = await discoverExtensionModuleHarnessArtifacts({
 				projectRoot: root,
-				localPackageRoots: [
+				moduleRoots: [
 					join(root, "missing"),
 					join(root, "not-dir"),
 					join(root, "no-package"),

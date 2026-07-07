@@ -29,12 +29,16 @@ import {
 	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
 
+export type ExtensionDescriptorModuleLoader = (descriptorPath: string) => Promise<unknown>;
+
 export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	projectRoot: string;
 	homeDir?: string;
 	env?: Record<string, string | undefined>;
-	localPackageRoots?: readonly string[];
+	moduleRoots?: readonly string[];
+	includeDeclaredExtensions?: boolean;
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
+	descriptorLoader?: ExtensionDescriptorModuleLoader;
 }
 
 export interface ResolvedNpmModuleHarnessArtifactCatalog {
@@ -72,6 +76,12 @@ export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
 	"module_artifact_skill_entry_not_directory",
 	"module_artifact_duplicate_id",
 	"module_artifact_duplicate_target_name",
+	"extension_acquisition_invalid_npm_spec",
+	"extension_acquisition_git_unsupported",
+	"extension_acquisition_npm_project_failed",
+	"extension_acquisition_npm_install_failed",
+	"extension_acquisition_npm_missing_after_install",
+	"extension_acquisition_preview_skipped",
 ] as const;
 
 export type ModuleArtifactDiscoveryDiagnosticCode =
@@ -113,19 +123,31 @@ export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,
 ): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
 	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
-	const rootResolution = await extensionArtifactRoots({
-		projectRoot: request.projectRoot,
-		gateway,
-	});
+	const descriptorLoader = request.descriptorLoader ?? loadNsUserModuleDefault;
+	const rootResolution =
+		request.includeDeclaredExtensions === false
+			? { roots: [], diagnostics: [] }
+			: await extensionArtifactRoots({
+					projectRoot: request.projectRoot,
+					gateway,
+				});
 	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
 	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [...rootResolution.diagnostics];
 	for (const moduleRoot of rootResolution.roots) {
-		const packageCatalog = await discoverExtensionPackage({ moduleRoot, gateway });
+		const packageCatalog = await discoverExtensionPackage({
+			moduleRoot,
+			gateway,
+			descriptorLoader,
+		});
 		if (packageCatalog.type === "catalog") catalogs.push(packageCatalog.catalog);
 		else diagnostics.push(...packageCatalog.diagnostics);
 	}
-	for (const packageRoot of sortStrings(request.localPackageRoots ?? [])) {
-		const packageResult = await discoverLocalExtensionPackage({ moduleRoot: packageRoot, gateway });
+	for (const packageRoot of sortStrings(request.moduleRoots ?? [])) {
+		const packageResult = await discoverLocalExtensionPackage({
+			moduleRoot: packageRoot,
+			gateway,
+			descriptorLoader,
+		});
 		if (packageResult.type === "catalog") catalogs.push(packageResult.catalog);
 		else diagnostics.push(...packageResult.diagnostics);
 	}
@@ -200,6 +222,7 @@ async function readDeclaredExtensionSpecs(request: {
 async function discoverLocalExtensionPackage(options: {
 	moduleRoot: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
+	descriptorLoader: ExtensionDescriptorModuleLoader;
 }): Promise<
 	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
 	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
@@ -237,6 +260,7 @@ async function discoverLocalExtensionPackage(options: {
 async function discoverExtensionPackage(options: {
 	moduleRoot: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
+	descriptorLoader: ExtensionDescriptorModuleLoader;
 	missingPackageJsonIsDiagnostic?: boolean;
 }): Promise<
 	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
@@ -266,6 +290,7 @@ async function discoverExtensionPackage(options: {
 		moduleRoot: options.moduleRoot,
 		packageJsonPath,
 		packageJsonText: packageText.value.text,
+		descriptorLoader: options.descriptorLoader,
 	});
 	if (!parsed.ok) return { type: "diagnostics", diagnostics: parsed.diagnostics };
 	const artifactResults = await validateDiscoveredArtifacts({
@@ -294,6 +319,7 @@ async function parsePackageArtifactDeclarationForDiscovery(options: {
 	moduleRoot: string;
 	packageJsonPath: string;
 	packageJsonText: string;
+	descriptorLoader: ExtensionDescriptorModuleLoader;
 }): Promise<
 	| {
 			ok: true;
@@ -309,6 +335,7 @@ async function parsePackageArtifactDeclarationForDiscovery(options: {
 		? await parseDescriptorModuleArtifactDeclaration({
 				packageJsonText: options.packageJsonText,
 				descriptorPath: descriptorPath.path,
+				descriptorLoader: options.descriptorLoader,
 			})
 		: parsePackageManifestArtifactDeclaration(options.packageJsonText);
 	if (!parsed.ok) {
@@ -330,10 +357,11 @@ async function parsePackageArtifactDeclarationForDiscovery(options: {
 async function parseDescriptorModuleArtifactDeclaration(options: {
 	packageJsonText: string;
 	descriptorPath: string;
+	descriptorLoader: ExtensionDescriptorModuleLoader;
 }): Promise<ParseModuleArtifactDeclarationResult> {
 	let descriptorExport: unknown;
 	try {
-		descriptorExport = await loadNsUserModuleDefault(options.descriptorPath);
+		descriptorExport = await options.descriptorLoader(options.descriptorPath);
 	} catch (error) {
 		return {
 			ok: false,
