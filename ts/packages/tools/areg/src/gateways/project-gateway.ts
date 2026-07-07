@@ -21,7 +21,11 @@ import {
 	type InstallManifestEntryData,
 } from "@nseng-ai/harness-artifacts/api";
 
-import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
+import {
+	AREG_SKILL_KIND_ROOT_DESCRIPTORS,
+	groupBySkillName,
+	skillKindDescriptorForSourceType,
+} from "../gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -554,7 +558,7 @@ async function inspectSkillFindRoots(
 ): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
 	const manifestInspection = await inspectManifestSkillSources(projectDir, env);
-	const manifestSourcesBySkill = groupManifestSourcesBySkill(manifestInspection.sources);
+	const manifestSourcesBySkill = groupBySkillName(manifestInspection.sources);
 	for (const root of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
 		const rootPath = toProjectPath(projectDir, root.root);
 		const entries = await scanSkillRootEntries(rootPath, {
@@ -579,18 +583,6 @@ async function inspectSkillFindRoots(
 		}
 	}
 	return skills;
-}
-
-function groupManifestSourcesBySkill(
-	sources: readonly AregManifestSkillSourceInspection[],
-): ReadonlyMap<string, readonly AregManifestSkillSourceInspection[]> {
-	const grouped = new Map<string, AregManifestSkillSourceInspection[]>();
-	for (const source of sources) {
-		const existing = grouped.get(source.skillName) ?? [];
-		existing.push(source);
-		grouped.set(source.skillName, existing);
-	}
-	return grouped;
 }
 
 interface ScanSkillRootOptions {

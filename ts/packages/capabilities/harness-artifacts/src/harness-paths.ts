@@ -4,7 +4,9 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type { HarnessArtifactKind } from "./artifact-catalog.ts";
 
-export type HarnessScope = "project" | "user";
+export const HARNESS_SCOPES = ["project", "user"] as const;
+
+export type HarnessScope = (typeof HARNESS_SCOPES)[number];
 
 export interface HarnessPathEnvironment {
 	readonly CLAUDE_CONFIG_DIR?: string;
@@ -30,7 +32,12 @@ export interface HarnessScopedPathSpec {
 export type HarnessBasePathSpec =
 	| { type: "project"; relativePath: string }
 	| { type: "home"; relativePath: string }
-	| { type: "env-or-home"; envName: keyof HarnessPathEnvironment; homeRelativePath: string };
+	| {
+			type: "env-or-home";
+			envName: keyof HarnessPathEnvironment;
+			envRelativePath: string;
+			homeRelativePath: string;
+	  };
 
 export interface ResolvedHarnessSkillRoot {
 	harness: HarnessId;
@@ -62,6 +69,7 @@ export const HARNESS_SPECS = [
 			user: {
 				type: "env-or-home",
 				envName: "CLAUDE_CONFIG_DIR",
+				envRelativePath: "skills",
 				homeRelativePath: ".claude/skills",
 			},
 		},
@@ -109,7 +117,13 @@ export function normalizeHarnessId(input: string): Result<HarnessId, HarnessPath
 export function resolveHarnessSpec(input: string): Result<HarnessSpec, HarnessPathErrorInfo> {
 	const harness = normalizeHarnessId(input);
 	if (!harness.ok) return harness;
-	return resultOk(HARNESS_SPEC_BY_ID.get(harness.value)!);
+	const spec = HARNESS_SPEC_BY_ID.get(harness.value);
+	if (spec === undefined) {
+		throw new Error(
+			`Harness spec missing for normalized harness ${JSON.stringify(harness.value)}.`,
+		);
+	}
+	return resultOk(spec);
 }
 
 export function resolveHarnessSkillRoot(input: {
@@ -158,7 +172,9 @@ function resolveBasePath(spec: HarnessBasePathSpec, context: HarnessPathContext)
 			return join(context.homeDir, spec.relativePath);
 		case "env-or-home": {
 			const configured = context.env?.[spec.envName];
-			if (configured !== undefined && configured.trim() !== "") return join(configured, "skills");
+			if (configured !== undefined && configured.trim() !== "") {
+				return join(configured, spec.envRelativePath);
+			}
 			return join(context.homeDir, spec.homeRelativePath);
 		}
 	}

@@ -1,8 +1,11 @@
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
 	ALL_HARNESS_IDS,
+	HARNESS_SCOPES,
+	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
 	runHarnessArtifactReconcile,
 	type ModuleArtifactDiscoveryDiagnostic,
 	type ReconcileErrorInfo,
@@ -16,31 +19,14 @@ export const nsUpdateRequestSchema = z.object({
 });
 
 const harnessSchema = z.enum(ALL_HARNESS_IDS);
-const scopeSchema = z.enum(["project", "user"]);
+const scopeSchema = z.enum(HARNESS_SCOPES);
 
 const harnessSelectionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("ns-toml"), harnesses: z.array(harnessSchema) }),
 	z.object({ type: z.literal("missing") }),
 ]);
 
-const diagnosticCodeSchema = z.enum([
-	"module_artifact_package_json_invalid",
-	"module_artifact_package_name_invalid",
-	"module_artifact_declarations_not_array",
-	"module_artifact_declaration_invalid",
-	"module_artifact_kind_unsupported",
-	"module_artifact_name_invalid",
-	"module_artifact_path_invalid",
-	"module_artifact_duplicate_name",
-	"module_artifact_extension_root_unavailable",
-	"module_artifact_extension_root_not_directory",
-	"module_artifact_extension_root_unreadable",
-	"module_artifact_skill_path_escapes",
-	"module_artifact_skill_entry_missing",
-	"module_artifact_skill_entry_not_directory",
-	"module_artifact_duplicate_id",
-	"module_artifact_duplicate_target_name",
-]);
+const diagnosticCodeSchema = z.enum(MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES);
 
 const diagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> = z
 	.object({
@@ -54,10 +40,10 @@ const diagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> = z
 	.transform((diagnostic) => ({
 		code: diagnostic.code,
 		message: diagnostic.message,
-		...(diagnostic.path === undefined ? {} : { path: diagnostic.path }),
-		...(diagnostic.packageName === undefined ? {} : { packageName: diagnostic.packageName }),
-		...(diagnostic.artifactId === undefined ? {} : { artifactId: diagnostic.artifactId }),
-		...(diagnostic.artifactName === undefined ? {} : { artifactName: diagnostic.artifactName }),
+		...optionalEntry("path", diagnostic.path),
+		...optionalEntry("packageName", diagnostic.packageName),
+		...optionalEntry("artifactId", diagnostic.artifactId),
+		...optionalEntry("artifactName", diagnostic.artifactName),
 	}));
 
 const reconcileArtifactOutcomeSchema = z.object({

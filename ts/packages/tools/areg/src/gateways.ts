@@ -15,6 +15,7 @@ import type {
 	PathState,
 	TextFileState,
 } from "@nseng-ai/harness-artifacts/api";
+import { z } from "zod";
 
 // The git methods areg consumes: resolve the repo root and materialize
 // worktree-relative git paths (for example `info/exclude`). A full `GitGateway`
@@ -130,6 +131,75 @@ export interface AregManifestSkillSourceInspection {
 	targetSkillRelativePath: string;
 	skillDir: PathState;
 	skillMd: TextFileState;
+}
+
+export const aregManifestSkillSourceViewSchema = z.object({
+	harness: z.string(),
+	scope: z.string(),
+	manifestPath: z.string(),
+	manifestKey: z.string(),
+	sourceType: z.enum(["first-party", "npm-module"]),
+	packageName: z.string(),
+	sourceRelativePath: z.string(),
+	version: z.string(),
+	targetSkillRelativePath: z.string(),
+});
+
+export type AregManifestSkillSourceView = z.infer<typeof aregManifestSkillSourceViewSchema>;
+
+export function toManifestSkillSourceView(
+	source: AregManifestSkillSourceInspection,
+): AregManifestSkillSourceView {
+	return {
+		harness: source.harness,
+		scope: source.scope,
+		manifestPath: source.manifestPath,
+		manifestKey: source.manifestKey,
+		sourceType: source.source.type,
+		packageName: source.source.packageName,
+		sourceRelativePath: source.source.relativePath,
+		version: source.source.version,
+		targetSkillRelativePath: source.targetSkillRelativePath,
+	};
+}
+
+export function groupBySkillName<T extends { skillName: string }>(
+	sources: readonly T[],
+): ReadonlyMap<string, readonly T[]> {
+	const grouped = new Map<string, T[]>();
+	for (const source of sources) {
+		const existing = grouped.get(source.skillName) ?? [];
+		existing.push(source);
+		grouped.set(source.skillName, existing);
+	}
+	return grouped;
+}
+
+export function isSkillKindLookupPath(relativePath: string): boolean {
+	return relativePath.startsWith("skills/") || relativePath.startsWith(".agents/skills/");
+}
+
+export function manifestSkillKindNames(
+	sources: readonly AregManifestSkillSourceInspection[],
+): readonly string[] {
+	return sources
+		.filter(
+			(source) =>
+				source.skillDir.type === "directory" &&
+				source.skillMd.type === "file" &&
+				isSkillKindLookupPath(source.targetSkillRelativePath),
+		)
+		.map((source) => source.skillName);
+}
+
+export type ManifestSkillSourceStatus = "ok" | "target-missing" | "md-missing";
+
+export function classifyManifestSkillSource(
+	source: AregManifestSkillSourceInspection,
+): ManifestSkillSourceStatus {
+	if (source.skillDir.type === "missing") return "target-missing";
+	if (source.skillMd.type === "missing") return "md-missing";
+	return "ok";
 }
 
 export interface AregManifestInspectionError {

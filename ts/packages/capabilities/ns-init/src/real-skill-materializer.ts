@@ -6,11 +6,11 @@ import {
 	firstPartySkillProvisionPathContext,
 	resolveFirstPartyCatalogSourceRoot,
 	type HarnessArtifactProvisionErrorInfo,
+	type HarnessId,
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { NsInitErrorInfo } from "./error-info.ts";
 import type {
-	HarnessId,
 	SkillMaterializeParams,
 	SkillMaterializer,
 	SkillMaterializeResult,

@@ -15,7 +15,7 @@ import {
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { AregCliContext } from "../context.ts";
-import { missingCheckSkillInspection } from "../gateways.ts";
+import { classifyManifestSkillSource, missingCheckSkillInspection } from "../gateways.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { isPathStateError } from "./file-state.ts";
@@ -193,7 +193,8 @@ function checkManifestSkillSources(inspection: CheckProjectInspection): CheckIss
 	}
 	for (const source of inspection.manifestSkillSources.sources) {
 		const sourceLabel = `Shared manifest entry ${source.manifestKey} from ${source.source.packageName}@${source.source.version}`;
-		if (source.skillDir.type === "missing") {
+		const sourceStatus = classifyManifestSkillSource(source);
+		if (sourceStatus === "target-missing") {
 			issues.push(
 				issue(
 					source.skillName,
@@ -201,7 +202,7 @@ function checkManifestSkillSources(inspection: CheckProjectInspection): CheckIss
 					`${sourceLabel} targets ${source.targetSkillRelativePath}, but the skill directory is missing`,
 				),
 			);
-		} else if (source.skillMd.type === "missing") {
+		} else if (sourceStatus === "md-missing") {
 			issues.push(
 				issue(
 					source.skillName,

@@ -247,7 +247,7 @@ describe("manifest-driven refuse-to-clobber decisions", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.shouldForce).toBe(false);
+		expect(result.value.needsForce).toBe(false);
 		expect(result.value.files.map((decision) => decision.type)).toEqual([
 			"fresh-write",
 			"fresh-write",
@@ -263,7 +263,7 @@ describe("manifest-driven refuse-to-clobber decisions", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.shouldForce).toBe(false);
+		expect(result.value.needsForce).toBe(false);
 		expect(result.value.files.map((decision) => decision.type)).toEqual(["unchanged", "unchanged"]);
 	});
 
@@ -285,7 +285,7 @@ describe("manifest-driven refuse-to-clobber decisions", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.shouldForce).toBe(false);
+		expect(result.value.needsForce).toBe(false);
 		expect(result.value.files.map((decision) => decision.type)).toEqual([
 			"fresh-write",
 			"fresh-write",
@@ -304,7 +304,7 @@ describe("manifest-driven refuse-to-clobber decisions", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.shouldForce).toBe(true);
+		expect(result.value.needsForce).toBe(true);
 		expect(result.value.files.map((decision) => decision.type)).toEqual([
 			"locally-edited-conflict",
 			"fresh-write",
