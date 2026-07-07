@@ -1,15 +1,21 @@
-import { readFile, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
 
 import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
 import { sortDiagnosticsByKey } from "./diagnostic-sort.ts";
-import type { OptionalTextFileState } from "./provision-apply.ts";
+import {
+	nodeHarnessArtifactModuleDiscoveryGateway,
+	type HarnessArtifactFileSystemErrorInfo,
+	type HarnessArtifactModuleDiscoveryGateway,
+	type ModuleDiscoveryDirectoryEntry,
+	type ModuleDiscoveryDirectoryState,
+	type ModuleDiscoveryPathState,
+	type ModuleDiscoveryTextFileState,
+} from "./filesystem.ts";
 import { sortStrings } from "./sort.ts";
 import {
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
@@ -38,41 +44,14 @@ export interface DiscoverExtensionModuleHarnessArtifactsResult {
 	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 }
 
-export interface HarnessArtifactModuleDiscoveryGateway {
-	readDirectory(
-		path: string,
-	): Promise<Result<ModuleDiscoveryDirectoryState, ModuleArtifactDiscoveryFileSystemErrorInfo>>;
-	readOptionalTextFile(
-		path: string,
-	): Promise<Result<ModuleDiscoveryTextFileState, ModuleArtifactDiscoveryFileSystemErrorInfo>>;
-	pathState(
-		path: string,
-	): Promise<Result<ModuleDiscoveryPathState, ModuleArtifactDiscoveryFileSystemErrorInfo>>;
-}
-
-export interface ModuleDiscoveryDirectoryEntry {
-	name: string;
-	type: "directory" | "file" | "other";
-}
-
-export type ModuleDiscoveryDirectoryState =
-	| { type: "missing" }
-	| { type: "file" }
-	| { type: "directory"; entries: readonly ModuleDiscoveryDirectoryEntry[] };
-
-export type ModuleDiscoveryTextFileState = OptionalTextFileState;
-
-export type ModuleDiscoveryPathState =
-	| { type: "missing" }
-	| { type: "file" }
-	| { type: "directory" }
-	| { type: "other" };
-
-export interface ModuleArtifactDiscoveryFileSystemErrorInfo {
-	code: "filesystem_error";
-	message: string;
-	details: { path: string; operation: "stat" | "list" | "read" };
-}
+export type {
+	HarnessArtifactFileSystemErrorInfo,
+	HarnessArtifactModuleDiscoveryGateway,
+	ModuleDiscoveryDirectoryEntry,
+	ModuleDiscoveryDirectoryState,
+	ModuleDiscoveryPathState,
+	ModuleDiscoveryTextFileState,
+};
 
 export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
 	...MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
@@ -121,45 +100,7 @@ export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDi
 			...optionalEntry("artifactName", diagnostic.artifactName),
 		}));
 
-export const nodeHarnessArtifactModuleDiscoveryGateway: HarnessArtifactModuleDiscoveryGateway = {
-	async readDirectory(path) {
-		try {
-			const pathStat = await stat(path);
-			if (pathStat.isFile()) return resultOk({ type: "file" });
-			if (!pathStat.isDirectory()) return resultOk({ type: "file" });
-			const entries = await readdir(path, { withFileTypes: true });
-			return resultOk({
-				type: "directory",
-				entries: entries.map((entry) => ({
-					name: entry.name,
-					type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "other",
-				})),
-			});
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "list", error));
-		}
-	},
-	async readOptionalTextFile(path) {
-		try {
-			return resultOk({ type: "file", text: await readFile(path, "utf8") });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "read", error));
-		}
-	},
-	async pathState(path) {
-		try {
-			const pathStat = await stat(path);
-			if (pathStat.isDirectory()) return resultOk({ type: "directory" });
-			if (pathStat.isFile()) return resultOk({ type: "file" });
-			return resultOk({ type: "other" });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "stat", error));
-		}
-	},
-};
+export { nodeHarnessArtifactModuleDiscoveryGateway };
 
 export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,
@@ -448,7 +389,7 @@ function declarationDiagnostic(
 }
 
 function discoveryFileSystemDiagnostic(
-	error: ModuleArtifactDiscoveryFileSystemErrorInfo,
+	error: HarnessArtifactFileSystemErrorInfo,
 	artifact?: SkillHarnessArtifactEntry,
 ): ModuleArtifactDiscoveryDiagnostic {
 	return {
@@ -476,20 +417,4 @@ function sortDiscoveryDiagnostics(
 		diagnostic.code,
 		diagnostic.message,
 	]);
-}
-
-function fileSystemError(
-	path: string,
-	operation: ModuleArtifactDiscoveryFileSystemErrorInfo["details"]["operation"],
-	error: unknown,
-): ModuleArtifactDiscoveryFileSystemErrorInfo {
-	return {
-		code: "filesystem_error",
-		message: `Filesystem ${operation} failed for ${path}: ${formatErrorMessage(error)}`,
-		details: { path, operation },
-	};
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

@@ -6,135 +6,9 @@ import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	runHarnessArtifactReconcile,
-	type HarnessArtifactFileSystemGateway,
 	type InstallManifestData,
 } from "../src/index.ts";
-import type {
-	HarnessArtifactModuleDiscoveryGateway,
-	ModuleDiscoveryDirectoryEntry,
-	ModuleDiscoveryPathState,
-} from "../src/module-artifact-discovery.ts";
-
-type FakeNode = { type: "file"; bytes: Uint8Array } | { type: "directory" } | { type: "other" };
-
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-class InMemoryHarnessFs
-	implements HarnessArtifactFileSystemGateway, HarnessArtifactModuleDiscoveryGateway
-{
-	readonly nodes: Map<string, FakeNode>;
-	readonly writtenFiles: string[] = [];
-
-	constructor(files: Record<string, string | FakeNode>) {
-		this.nodes = new Map();
-		for (const [path, value] of Object.entries(files)) {
-			this.nodes.set(
-				path,
-				typeof value === "string" ? { type: "file", bytes: textEncoder.encode(value) } : value,
-			);
-			this.ensureParentDirectories(path);
-		}
-	}
-
-	async listFiles(rootPath: string) {
-		const prefix = `${rootPath}/`;
-		const paths = [...this.nodes.entries()]
-			.filter(([path, node]) => path.startsWith(prefix) && node.type === "file")
-			.map(([path]) => path.slice(prefix.length))
-			.sort((left, right) => left.localeCompare(right));
-		return { ok: true as const, value: paths };
-	}
-
-	async readOptionalFile(path: string) {
-		const node = this.nodes.get(path);
-		if (node?.type === "file") {
-			return { ok: true as const, value: { type: "file" as const, bytes: node.bytes } };
-		}
-		return { ok: true as const, value: { type: "missing" as const } };
-	}
-
-	async writeFile(path: string, bytes: Uint8Array) {
-		this.writeBytes(path, bytes);
-		return { ok: true as const, value: undefined };
-	}
-
-	async readOptionalTextFile(path: string) {
-		const node = this.nodes.get(path);
-		if (node?.type === "file") {
-			return {
-				ok: true as const,
-				value: { type: "file" as const, text: textDecoder.decode(node.bytes) },
-			};
-		}
-		return { ok: true as const, value: { type: "missing" as const } };
-	}
-
-	async writeTextFile(path: string, text: string) {
-		this.writeBytes(path, textEncoder.encode(text));
-		return { ok: true as const, value: undefined };
-	}
-
-	private writeBytes(path: string, bytes: Uint8Array): void {
-		this.nodes.set(path, { type: "file", bytes });
-		this.ensureParentDirectories(path);
-		this.writtenFiles.push(path);
-	}
-
-	async readDirectory(path: string) {
-		const node = this.nodes.get(path);
-		if (node === undefined) return { ok: true as const, value: { type: "missing" as const } };
-		if (node.type !== "directory") return { ok: true as const, value: { type: "file" as const } };
-		return {
-			ok: true as const,
-			value: { type: "directory" as const, entries: this.directoryEntries(path) },
-		};
-	}
-
-	async pathState(path: string) {
-		const node = this.nodes.get(path);
-		if (node === undefined) return { ok: true as const, value: { type: "missing" as const } };
-		return { ok: true as const, value: { type: node.type } satisfies ModuleDiscoveryPathState };
-	}
-
-	setFile(path: string, text: string): void {
-		this.nodes.set(path, { type: "file", bytes: textEncoder.encode(text) });
-		this.ensureParentDirectories(path);
-	}
-
-	readText(path: string): string | undefined {
-		const node = this.nodes.get(path);
-		return node?.type === "file" ? textDecoder.decode(node.bytes) : undefined;
-	}
-
-	clearWrittenFiles(): void {
-		this.writtenFiles.length = 0;
-	}
-
-	private ensureParentDirectories(path: string): void {
-		let current = path;
-		while (current !== "/") {
-			current = current.slice(0, current.lastIndexOf("/")) || "/";
-			if (!this.nodes.has(current)) this.nodes.set(current, { type: "directory" });
-		}
-	}
-
-	private directoryEntries(path: string): readonly ModuleDiscoveryDirectoryEntry[] {
-		const prefix = path === "/" ? "/" : `${path}/`;
-		const names = new Set<string>();
-		for (const nodePath of this.nodes.keys()) {
-			if (!nodePath.startsWith(prefix) || nodePath === path) continue;
-			const name = nodePath.slice(prefix.length).split("/")[0];
-			if (name !== undefined && name !== "") names.add(name);
-		}
-		return [...names]
-			.sort((left, right) => left.localeCompare(right))
-			.map((name) => {
-				const child = this.nodes.get(join(path, name));
-				return { name, type: childType(child) };
-			});
-	}
-}
+import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
 
 describe("harness artifact reconcile driver", () => {
 	test("fresh install writes target files and a manifest with per-file hashes", async () => {
@@ -422,10 +296,4 @@ function manifestEntry(input: {
 			},
 		},
 	};
-}
-
-function childType(node: FakeNode | undefined): ModuleDiscoveryDirectoryEntry["type"] {
-	if (node?.type === "directory") return "directory";
-	if (node?.type === "file") return "file";
-	return "other";
 }

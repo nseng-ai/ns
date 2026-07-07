@@ -13,9 +13,9 @@ import {
 	INSTALL_MANIFEST_FILE_NAME,
 	prepareProvision,
 	previewHarnessArtifactProvision,
-	type HarnessArtifactFileSystemGateway,
 	type InstallManifestData,
 } from "../src/index.ts";
+import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
 
 const skillArtifact = {
 	kind: "skill",
@@ -186,40 +186,11 @@ describe("harness artifact provision apply", () => {
 		const sourceIcon = join(fixture.sourceRoot, "skills/objective-next/assets/icon.bin");
 		const textEncoder = new TextEncoder();
 		const textDecoder = new TextDecoder();
-		const writtenFiles = new Map<string, Uint8Array>();
-		const fakeFs: HarnessArtifactFileSystemGateway = {
-			async listFiles(rootPath) {
-				expect(rootPath).toBe(join(fixture.sourceRoot, "skills/objective-next"));
-				return { ok: true, value: ["SKILL.md", "assets/icon.bin", "references/guide.md"] };
-			},
-			async readOptionalFile(path) {
-				if (path === sourceSkill) {
-					return { ok: true, value: { type: "file", bytes: textEncoder.encode("skill\n") } };
-				}
-				if (path === sourceGuide) {
-					return { ok: true, value: { type: "file", bytes: textEncoder.encode("guide\n") } };
-				}
-				if (path === sourceIcon) {
-					return { ok: true, value: { type: "file", bytes: Uint8Array.from(binaryAssetBytes) } };
-				}
-				const bytes = writtenFiles.get(path);
-				if (bytes !== undefined) return { ok: true, value: { type: "file", bytes } };
-				return { ok: true, value: { type: "missing" } };
-			},
-			async writeFile(path, bytes) {
-				writtenFiles.set(path, bytes);
-				return { ok: true, value: undefined };
-			},
-			async readOptionalTextFile(path) {
-				const bytes = writtenFiles.get(path);
-				if (bytes === undefined) return { ok: true, value: { type: "missing" } };
-				return { ok: true, value: { type: "file", text: textDecoder.decode(bytes) } };
-			},
-			async writeTextFile(path, text) {
-				writtenFiles.set(path, textEncoder.encode(text));
-				return { ok: true, value: undefined };
-			},
-		};
+		const fakeFs = new InMemoryHarnessFs({
+			[sourceSkill]: "skill\n",
+			[sourceGuide]: "guide\n",
+			[sourceIcon]: { type: "file", bytes: Uint8Array.from(binaryAssetBytes) },
+		});
 
 		const result = await applyHarnessArtifactProvision({ ...fixture.request(), fs: fakeFs });
 
@@ -231,14 +202,14 @@ describe("harness artifact provision apply", () => {
 			join(fixture.projectRoot, ".pi/skills/objective-next/references/guide.md"),
 		]);
 		expect(
-			writtenFiles.get(join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md")),
+			fakeFs.readBytes(join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md")),
 		).toEqual(textEncoder.encode("skill\n"));
 		expect(
-			writtenFiles.get(join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin")),
+			fakeFs.readBytes(join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin")),
 		).toEqual(Uint8Array.from(binaryAssetBytes));
 		expect(
 			textDecoder.decode(
-				writtenFiles.get(join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME)),
+				fakeFs.readBytes(join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME)),
 			),
 		).toContain("pi:project:skill:objective-next-skill");
 	});
