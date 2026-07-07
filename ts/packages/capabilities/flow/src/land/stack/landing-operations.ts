@@ -69,7 +69,7 @@ export async function confirmAndFreeManagedSlots(
 	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
 	const { runtime, ctx, plan } = options;
-	const context = runtime.landContext;
+	const landContext = runtime.landContext;
 	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("ns", ["slot", ...freeArgs]);
@@ -95,7 +95,7 @@ export async function confirmAndFreeManagedSlots(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	setStatus(ctx, "freeing landing slots...");
-	const result = await context.worktrees.freeSlots({
+	const result = await landContext.worktrees.freeSlots({
 		repoRoot: plan.repoRoot,
 		slots: plan.managedSlotConflicts.map(toManagedSlotWorktree),
 	});
@@ -242,13 +242,13 @@ export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
 	const { runtime, ctx, plan, landed, warnings, commandStream } = options;
-	const context = runtime.landContext;
+	const landContext = runtime.landContext;
 	const matrix = commandStream.matrix ?? NULL_LAND_MATRIX_PROGRESS_SINK;
 	const { repoRoot, stack } = plan;
 	let state = options.mergeState;
 	if (!state) {
 		const preparedState = await prepareMergeLoopState({
-			git: context.git,
+			git: landContext.git,
 			repoRoot,
 			branches: [...stack.landingBranches, ...stack.descendantBranches],
 			warnings,
@@ -264,9 +264,9 @@ export async function runMergeLoop(
 			branch,
 			column: "gate",
 			op: async () => {
-				const localSha = await context.git.localBranchSha({ repoRoot, branch });
+				const localSha = await landContext.git.localBranchSha({ repoRoot, branch });
 				if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
-				const pr = await context.github.pullRequestFacts({
+				const pr = await landContext.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: branch,
 				});
@@ -290,7 +290,7 @@ export async function runMergeLoop(
 			op: async () => {
 				commandStream.note(`Merging PR #${currentPr.number} ${branch}...`);
 				setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
-				const merge = await context.github.squashMergePullRequest({
+				const merge = await landContext.github.squashMergePullRequest({
 					repoRoot,
 					pullRequest: currentPr,
 				});
@@ -306,7 +306,7 @@ export async function runMergeLoop(
 			column: "verify",
 			op: async () => {
 				setStatus(ctx, `verifying #${currentPr.number}...`);
-				const facts = await context.github.pullRequestFacts({
+				const facts = await landContext.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: String(currentPr.number),
 				});
@@ -358,7 +358,7 @@ export async function runMergeLoop(
 
 		matrix.setCell(branch, "restack", { state: "active" });
 		const maintenance = await performGraphiteMaintenance({
-			landContext: context,
+			landContext,
 			progress: {
 				note: (message) => commandStream.note(message),
 				setStatus: (message) => setStatus(ctx, message),

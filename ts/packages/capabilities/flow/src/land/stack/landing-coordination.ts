@@ -58,7 +58,7 @@ async function preparePlanForMergeCore(
 ): Promise<LandStackResult<LandingPlan>> {
 	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
-	const context = runtime.landContext;
+	const landContext = runtime.landContext;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
@@ -79,7 +79,7 @@ async function preparePlanForMergeCore(
 		return await submitRequiredUpdatesAndRecheckPlan({
 			ctx,
 			plan,
-			landContext: context,
+			landContext,
 			commandStream,
 			preMergeConfirmation,
 		});
@@ -99,19 +99,18 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { ctx, plan, commandStream, preMergeConfirmation } = options;
-	const context = options.landContext;
+	const { ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		ctx,
 		plan,
-		landContext: context,
+		landContext,
 		confirmation: preMergeConfirmation,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
-	const rechecked = await buildLandingPlan(context, ctx.cwd, {
+	const rechecked = await buildLandingPlan(landContext, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
 	});
