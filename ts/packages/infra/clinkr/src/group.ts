@@ -173,6 +173,34 @@ interface BuildCommandOptions<TContext> {
 	isRoot: boolean;
 }
 
+type CommandTextMetadataKey = "description" | "summary" | "helpGroup";
+
+const commandTextMetadataKeys = [
+	"description",
+	"summary",
+	"helpGroup",
+] as const satisfies readonly CommandTextMetadataKey[];
+
+const leafCommandMetadataSetters = [
+	{ key: "description", apply: (command: Command, value: string) => command.description(value) },
+	{ key: "summary", apply: (command: Command, value: string) => command.summary(value) },
+	{ key: "helpGroup", apply: (command: Command, value: string) => command.helpGroup(value) },
+] as const satisfies readonly {
+	key: CommandTextMetadataKey;
+	apply: (command: Command, value: string) => Command;
+}[];
+
+function optionalCommandTextMetadata(
+	metadata: Readonly<Record<CommandTextMetadataKey, string | undefined>>,
+): Partial<Record<CommandTextMetadataKey, string>> {
+	const entries: Partial<Record<CommandTextMetadataKey, string>> = {};
+	for (const key of commandTextMetadataKeys) {
+		const value = metadata[key];
+		if (value !== undefined) entries[key] = value;
+	}
+	return entries;
+}
+
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
@@ -209,9 +237,11 @@ export class ClinkrGroup<TContext> {
 		});
 		this.registeredCommands.push({
 			name: spec.name,
-			...(spec.description === undefined ? {} : { description: spec.description }),
-			...(spec.summary === undefined ? {} : { summary: spec.summary }),
-			...(spec.helpGroup === undefined ? {} : { helpGroup: spec.helpGroup }),
+			...optionalCommandTextMetadata({
+				description: spec.description,
+				summary: spec.summary,
+				helpGroup: spec.helpGroup,
+			}),
 			schema: spec.schema,
 			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
@@ -458,9 +488,10 @@ function emitUsageErrorJson(io: ClinkrIo, message: string, data: unknown): void 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
 	const { registered, io } = options;
 	const command = createContainedCommand(registered.name, io);
-	if (registered.description !== undefined) command.description(registered.description);
-	if (registered.summary !== undefined) command.summary(registered.summary);
-	if (registered.helpGroup !== undefined) command.helpGroup(registered.helpGroup);
+	for (const { key, apply } of leafCommandMetadataSetters) {
+		const value = registered[key];
+		if (value !== undefined) apply(command, value);
+	}
 	configureCommandExecution({ command, ...options });
 	return command;
 }

@@ -233,7 +233,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				description: commandInfo.fullDescription,
 				summary: commandInfo.description,
 				schema,
-				...(commandInfo.helpGroup === undefined ? {} : { helpGroup: commandInfo.helpGroup }),
+				...optionalEntries({ helpGroup: commandInfo.helpGroup }),
 				...(selectedCommand?.positionals === undefined
 					? {}
 					: { positionals: selectedCommand.positionals }),
