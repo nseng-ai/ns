@@ -483,12 +483,12 @@ async function refreshMaintenanceBranch(
 		);
 		return {
 			kind: "skip",
-			warning: optionalDescendantRefreshDeferredWarning(
-				maintenanceBranch,
+			warning: optionalDescendantRefreshDeferredWarning({
+				descendantBranch: maintenanceBranch,
 				landedBranch,
-				refresh.commandDisplay,
-				refresh,
-			),
+				getCommandDisplay: refresh.commandDisplay,
+				checkoutConflict: refresh,
+			}),
 		};
 	}
 
@@ -503,7 +503,6 @@ async function refreshMaintenanceBranch(
 		},
 	};
 }
-
 
 async function checkGraphiteBranchBeforeDelete(
 	options: MaintenanceOperationInput,

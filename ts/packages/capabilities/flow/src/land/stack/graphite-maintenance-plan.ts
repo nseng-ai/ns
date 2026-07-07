@@ -1,4 +1,3 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import type { DescendantMaintenancePlan, LandingPlan, LandGraphiteRestackScope } from "../api.ts";
 import type { UiLandingWarning } from "./types.ts";
@@ -102,6 +101,7 @@ export function skippedDescendantMaintenanceWarning(
 	const maintenance = plan.descendantMaintenance;
 	if (maintenance.type !== "skipped") {
 		return {
+			level: "warning",
 			message: `Descendant restack/update was skipped for ${branch}.`,
 			suggestedAction: "Inspect the stack and update descendant PRs manually if needed.",
 		};
@@ -109,18 +109,24 @@ export function skippedDescendantMaintenanceWarning(
 
 	const conflictText = maintenance.conflicts.map(formatConflict).join("; ");
 	return {
+		level: "warning",
 		message: `Final local Graphite cleanup for ${branch} and descendant restack/update were skipped because ${maintenance.reason}: ${conflictText}.`,
 		suggestedAction: `Detach or free the descendant worktrees, then restack/update ${maintenance.branches.join(", ")} and delete local branch ${branch} manually if appropriate.`,
 		notificationAction: skippedDescendantNotificationAction(maintenance),
 	};
 }
 
+interface OptionalDescendantRefreshDeferredWarningOptions {
+	readonly descendantBranch: string;
+	readonly landedBranch: string;
+	readonly getCommandDisplay: string;
+	readonly checkoutConflict: CheckedOutElsewhere;
+}
+
 export function optionalDescendantRefreshDeferredWarning(
-	descendantBranch: string,
-	landedBranch: string,
-	getCommandDisplay: string,
-	checkoutConflict: CheckedOutElsewhere,
+	options: OptionalDescendantRefreshDeferredWarningOptions,
 ): UiLandingWarning {
+	const { descendantBranch, landedBranch, getCommandDisplay, checkoutConflict } = options;
 	const restackCommandDisplay = formatGraphiteOperation(
 		restackOperation({ branch: descendantBranch, scope: "upstack" }),
 	);
@@ -154,7 +160,7 @@ export function aggregateOptionalDescendantMaintenanceWarnings(options: {
 			? `local branch ${landedBranch} cleanup and descendant restack/update were skipped`
 			: `local branch ${landedBranch} cleanup may already have completed; optional descendant restack/update did not complete`;
 	return {
-		...optionalEntry("level", isOnlyInformational ? ("info" as const) : undefined),
+		level: isOnlyInformational ? "info" : "warning",
 		message: [
 			`All target PRs were merged, but optional descendant maintenance did not complete for ${affectedRoots.join(", ")}; ${cleanupText}.`,
 			...constituentWarnings.map((warning) => `- ${warning.message}`),

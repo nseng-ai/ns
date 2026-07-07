@@ -150,6 +150,7 @@ export interface CommandStreamMessageDetails {
 }
 
 export type UiLandingWarning = LandingWarning;
+
 export interface RetainedLocalBranchCleanup {
 	branch: string;
 	path: string;
