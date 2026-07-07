@@ -1,10 +1,11 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
+import { scanExtensionRoot } from "../extensions/root-discovery.ts";
 import { NS_COMMAND_NAME_PATTERN } from "../sdk/command-name.ts";
 import {
 	nsExtensionManifestPointSchema,
@@ -216,46 +217,16 @@ export function parseProjectConfigToml(
 }
 
 export function discoverPointDefinitionsInRoot(rootDir: string): PointDefinitionDiscoveryResult {
-	if (!existsSync(rootDir)) return { pointDefinitions: [], diagnostics: [] };
-
-	const rootInspection = inspectDirectory(rootDir, "extension root");
-	if (!rootInspection.ok) return { pointDefinitions: [], diagnostics: [rootInspection.diagnostic] };
-	if (!rootInspection.isDirectory) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_root_not_directory",
-					`Extension root must be a directory: ${rootDir}.`,
-					{ path: rootDir },
-				),
-			],
-		};
-	}
-
-	let entries;
-	try {
-		entries = readdirSync(rootDir, { withFileTypes: true });
-	} catch (error) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_root_read_failed",
-					`Could not read extension root ${rootDir}.\n${formatErrorMessage(error)}`,
-					{ path: rootDir },
-				),
-			],
-		};
+	const rootScan = scanExtensionRoot(rootDir);
+	if (rootScan.diagnostics.length > 0) {
+		return { pointDefinitions: [], diagnostics: rootScan.diagnostics };
 	}
 
 	const pointDefinitions: PointDefinition[] = [];
 	const diagnostics: ProjectConfigDiagnostic[] = [];
-	for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-		if (!entry.isDirectory()) continue;
-		const packageJsonPath = join(rootDir, entry.name, "package.json");
-		if (!existsSync(packageJsonPath)) continue;
-		const packageResult = discoverPackagePointDefinitions(packageJsonPath);
+	for (const entry of rootScan.entries) {
+		if (entry.type !== "directory" || entry.packageJsonPath === undefined) continue;
+		const packageResult = discoverPackagePointDefinitions(entry.packageJsonPath);
 		pointDefinitions.push(...packageResult.pointDefinitions);
 		diagnostics.push(...packageResult.diagnostics);
 	}
@@ -841,24 +812,6 @@ function manifestPointFieldDiagnostic(
 		`Extension manifest point ${field} is required and must match the point manifest schema.`,
 		packageJsonPath === undefined ? {} : { path: packageJsonPath },
 	);
-}
-
-function inspectDirectory(
-	path: string,
-	label: string,
-): { ok: true; isDirectory: boolean } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	try {
-		return { ok: true, isDirectory: statSync(path).isDirectory() };
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_root_stat_failed",
-				`Could not inspect ${label} ${path}.\n${formatErrorMessage(error)}`,
-				{ path },
-			),
-		};
-	}
 }
 
 function readManifestNameSegment(value: unknown): string | undefined {

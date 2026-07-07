@@ -20,17 +20,11 @@ export const nsExtensionManifestPointSchema = z.looseObject({
 	description: z.string().optional(),
 });
 
-export const nsExtensionManifestSettingsSchema = z.looseObject({
-	path: z.array(z.string()).optional(),
-	description: z.string().optional(),
-});
-
 export const nsExtensionManifestSchema = z.looseObject({
 	description: z.string().optional(),
 	group: z.string().optional(),
 	commands: z.array(z.unknown()).optional(),
 	points: z.array(z.unknown()).optional(),
-	settings: z.array(z.unknown()).optional(),
 });
 
 export const nsExtensionPackageManifestSchema = z.looseObject({
@@ -40,6 +34,5 @@ export const nsExtensionPackageManifestSchema = z.looseObject({
 
 export type NsExtensionManifestCommand = z.infer<typeof nsExtensionManifestCommandSchema>;
 export type NsExtensionManifestPoint = z.infer<typeof nsExtensionManifestPointSchema>;
-export type NsExtensionManifestSettings = z.infer<typeof nsExtensionManifestSettingsSchema>;
 export type NsExtensionManifest = z.infer<typeof nsExtensionManifestSchema>;
 export type NsExtensionPackageManifest = z.infer<typeof nsExtensionPackageManifestSchema>;
