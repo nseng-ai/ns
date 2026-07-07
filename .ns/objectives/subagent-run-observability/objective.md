@@ -124,7 +124,8 @@ Assumptions (each falsifiable by a future update):
 - The session JSONL tail carries enough to infer the in-flight action: a tool
   start event without a matching completion identifies the current tool, and
   `timeline.ts` already parses assistant and tool events, so current-action
-  derivation is an extension of existing parsing, not a new data source.
+  derivation is an extension of existing parsing, not a new data source. Local
+  branch evidence for PR #3213 confirms this for the current-action slice.
 - Usage events already parsed for the totals line are granular enough to
   compute per-turn deltas without new instrumentation.
 - Run-stop detection (for the post-run flip) is available from the existing
@@ -139,8 +140,10 @@ Risks:
   a baseline at dispatch time, or label the panel honestly as "worktree
   state" rather than "subagent changes". Needs a decision in the diff slice.
 - Polling cost: auto-refresh re-reads session JSONL that can grow large
-  (hundreds of KB); naive full re-parse on an interval could jank the TUI.
-  Tail-reading or size-gated incremental parsing may be needed.
+  (hundreds of KB); the first slice gates heartbeat resets on session content
+  signatures but still re-reads/re-parses the session on an interval. Tail-reading
+  or size-gated incremental parsing may still be needed if real sessions jank the
+  TUI.
 - Commit detection ambiguity for the post-run summary: runner subagents may
   commit during the run; detecting "commit created (if any)" needs a HEAD
   baseline captured at dispatch, and stacked/Graphite operations could

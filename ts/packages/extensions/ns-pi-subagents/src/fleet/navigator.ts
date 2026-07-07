@@ -68,7 +68,7 @@ export interface SubagentFleetTaskDetail {
 	status: string;
 	timeline: RunnerSubagentTimeline;
 	usage?: RunnerSubagentUsageMetadata;
-	currentAction?: RunnerSubagentCurrentAction;
+	liveCurrentAction?: RunnerSubagentCurrentAction;
 	quietMs?: number;
 	message?: string;
 }
@@ -462,11 +462,11 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.detailObservation = undefined;
 			return loaded.detail;
 		}
-		const currentAction = runningCurrentAction(loaded.detail.timeline.currentAction);
+		const liveCurrentAction = assumeThinkingWhileRunning(loaded.detail.timeline.currentAction);
 		const quietMs = this.observeDetailQuietMs(entry, loaded.sessionContentSignature);
 		return {
 			...loaded.detail,
-			currentAction,
+			liveCurrentAction,
 			...(quietMs === undefined ? {} : { quietMs }),
 		};
 	}
@@ -491,19 +491,23 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private syncDetailPolling(): void {
-		if (this.mode !== "detail" || !isRunningTaskDetailEntry(this.selectedEntry())) {
+		if (!this.shouldPollDetail()) {
 			this.stopDetailPolling();
 			return;
 		}
 		if (this.detailPollTimer !== undefined) return;
 		this.detailPollTimer = this.timers.setInterval(() => {
 			if (this.isDisposed) return;
-			if (this.mode !== "detail" || !isRunningTaskDetailEntry(this.selectedEntry())) {
+			if (!this.shouldPollDetail()) {
 				this.stopDetailPolling();
 				return;
 			}
 			this.scheduleDetailLoad();
 		}, this.detailRefreshIntervalMs);
+	}
+
+	private shouldPollDetail(): boolean {
+		return this.mode === "detail" && isRunningTaskDetailEntry(this.selectedEntry());
 	}
 
 	private stopDetailPolling(): void {
@@ -815,7 +819,7 @@ function isRunningTaskDetailEntry(
 	);
 }
 
-function runningCurrentAction(
+function assumeThinkingWhileRunning(
 	currentAction: RunnerSubagentCurrentAction,
 ): RunnerSubagentCurrentAction {
 	return currentAction.kind === "idle" ? { kind: "thinking" } : currentAction;
@@ -837,7 +841,7 @@ function windowRange(
 }
 
 function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
-	const action = detail.currentAction;
+	const action = detail.liveCurrentAction;
 	if (action === undefined || action.kind === "idle") return [];
 	const lines: string[] = [];
 	if (action.kind === "thinking") {

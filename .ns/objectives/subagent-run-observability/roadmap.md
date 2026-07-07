@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Current-action pane with heartbeat/staleness and auto-refresh in the detail view
+- [x] Current-action pane with heartbeat/staleness and auto-refresh in the detail view
       Derive the in-flight action (thinking vs named tool + command/path, elapsed
       time, last output line) from the session JSONL tail as a pure function next
       to `timeline.ts`; add periodic re-read of the session tail while the detail
@@ -10,8 +10,9 @@
       session files (tail-read or size-gate the re-parse).
   - Policy: direct execution after preview; keep the slice inside existing
     session JSONL parsing and navigator refresh behavior.
-  - Evidence: targeted tests for pure current-action/staleness derivation plus
-    manual navigator smoke notes for live refresh behavior.
+  - Evidence: local branch diff `master...HEAD` adds current-action extraction in
+    `timeline.ts`, running-detail polling and heartbeat rendering in `navigator.ts`,
+    and targeted navigator/timeline tests; PR #3213 is open evidence for the slice.
 - [ ] Live worktree/diff summary panel
       `git status --short` plus per-file +N/-N in the detail view, refreshed with
       the same cadence. Handle shared-worktree commingling by labeling the panel as

@@ -1,6 +1,6 @@
 import {
 	assistantVisibleTextFromMessage,
-	previewJsonEventValue,
+	firstMatchingEventPreview,
 	toolInputPreviewFromEvent,
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
@@ -179,14 +179,10 @@ function currentActionFromPendingTools(
 }
 
 function toolOutputPreviewFromEvent(event: JsonRecord): string | undefined {
-	const resultPreview = toolResultPreviewFromEvent(event);
-	if (resultPreview !== undefined) return resultPreview;
-	for (const key of ["partialResult", "output"] as const) {
-		if (Object.prototype.hasOwnProperty.call(event, key)) {
-			return previewJsonEventValue(event[key]);
-		}
-	}
-	return undefined;
+	return (
+		toolResultPreviewFromEvent(event) ??
+		firstMatchingEventPreview(event, ["partialResult", "output"])
+	);
 }
 
 function pushTimelineEntry(
