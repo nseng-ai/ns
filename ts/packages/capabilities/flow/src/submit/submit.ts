@@ -1,4 +1,5 @@
 import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator } from "./index.ts";
@@ -335,7 +336,7 @@ export async function runSubmitCommand(
 				event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
 			options.submitMatrix?.setCell(event.branch, "metadata", {
 				state: event.state,
-				...(text === undefined ? {} : { text }),
+				...optionalEntry("text", text),
 			});
 		},
 	});
