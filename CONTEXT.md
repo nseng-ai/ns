@@ -6,18 +6,18 @@ This context captures project language for durable planning workflows in this re
 
 **ns**:
 The product's proper name. Always lowercase, including at sentence starts; rewrite the sentence rather than capitalizing it. It evokes nonslop, namespace, and Nick Schrock's initials.
-*Avoid*: NS, Ns, ns, JI, Ji, SDL, Source Development Lifecycle
+*Avoid*: NS, Ns, JI, Ji, SDL, Source Development Lifecycle
 
 **Objective**:
 A checked-in documentation workstream for durable multi-session, multi-branch, or multi-PR work.
 *Avoid*: hidden agent state, ticket
 
 **Umbrella Objective**:
-A prose-only **Objective** pattern that coordinates a family of narrower child Objectives while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (renamed from Synthesis Objective per `docs/adr/0030-rename-synthesis-objective-to-umbrella-objective.md`).
+A prose-only **Objective** pattern that coordinates a family of narrower **Subobjectives** while remaining the durable place for cross-child lessons, migration guides, and synthesized closure evidence. The synthesis duty is part of the pattern, not optional (renamed from Synthesis Objective per `docs/adr/0030-rename-synthesis-objective-to-umbrella-objective.md`).
 *Avoid*: Synthesis Objective (retired name), fire-and-forget umbrella, mirrored task tracker, hidden parent state, Objective CLI feature
 
-**Child Objective**:
-A narrower **Objective** created from a parent **Umbrella Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
+**Subobjective**:
+A narrower **Objective** created from a parent **Umbrella Objective** to own one implementation, research, or migration slice; renamed from Child Objective (2026-07-06), which remains a valid synonym. The subobjective remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that it exists and is in progress.
 *Avoid*: Subticket, hidden task, third Objective status
 
 **Autoobjective**:
@@ -51,6 +51,10 @@ The phase exit of an **Ideation Objective**: the **Frontier** empties of **Quest
 **Orienting Objective**:
 A prose-only **Objective** pattern defined by carrying `orientation.md`: a standing, agent-facing rule stating the direction every agent — including agents on unrelated work — must respect while the record is open. The orientation joins the always-load set (`ns objective exec load-orientations`) and leaves it automatically at closure. The name is what it does: it orients agents.
 *Avoid*: Cross-cutting Objective (retired name), orientation-bearing Objective, ambient Objective, orientation registry
+
+**Steelthread Objective**:
+A prose-only **Objective** pattern whose scope is deliberately the thinnest end-to-end slice of a larger ambition — one real task completing through every layer of the real system, with widening explicitly deferred to follow-on work. The thread validated end-to-end is the completion criterion; the pattern names the whole record's scope, not a steelthread milestone row inside a broader Objective.
+*Avoid*: MVP, prototype, spike, proof of concept, walking skeleton, thin slice, tracer bullet
 
 **Durable Narrative Roadmap Record**:
 The role of an **Objective** as human-readable context and ordered work guidance, without owning workflow-control semantics.

@@ -3,7 +3,7 @@ blocked: First external publish is gated on the checkout-free-sdl-distribution h
 edges:
   - objective: checkout-free-sdl-distribution
     annotation: Consumed as a hard dependency; checkout-free npm distribution of `ns` must land before objectives ship externally.
-  - objective: skill-management-subsystem
+  - objective: ns-skills-steelthread
     annotation: Consumed for skill delivery; customer onboarding requires objective skills provisioned into Claude Code, Codex, and Pi harness roots via its `ns skills` surface.
   - objective: cross-harness-parity
     annotation: Consumes its reachability contract (shared CLI + skill, Pi additive); onboarding must reach all three harnesses through that doctrine.
