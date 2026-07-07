@@ -48,7 +48,7 @@ export function parseNsTomlHarnesses(
 	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
 	const harnesses = getProjectConfigSetting(result.config, nsInitHarnessesSettingsSchema);
 	if (harnesses === undefined) return { type: "missing" };
-	return parseHarnessesValue(harnesses, `${pathLabel} top-level harnesses`);
+	return normalizeHarnessSelection(harnesses);
 }
 
 export function renderNsTomlHarnesses(harnesses: readonly HarnessId[]): string {
@@ -142,10 +142,6 @@ function formatNsTomlInvalidMessage(
 		return `Invalid TOML in ${pathLabel}: ${diagnostic.causeMessage}`;
 	}
 	return diagnostic.message;
-}
-
-function parseHarnessesValue(value: readonly string[], _label: string): NsTomlHarnessesParseResult {
-	return normalizeHarnessSelection(value);
 }
 
 function replaceTopLevelHarnessesAssignment(

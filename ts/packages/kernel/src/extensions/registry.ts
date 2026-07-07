@@ -4,8 +4,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
-	NS_COMMAND_NAME_PATTERN,
-	NS_COMMAND_NAME_RULE,
 	commandInfoForLoadedCommand,
 	commandKey,
 	toCommandCliInfo,
@@ -20,6 +18,7 @@ import {
 	type NsCommandSourceInfo,
 	type NsCommandSourceLevel,
 } from "./command-registry.ts";
+import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import {
 	discoverExtensionsInRoot,
 	discoverNsPackageCommands,

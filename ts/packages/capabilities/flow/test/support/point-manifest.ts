@@ -1,12 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export type TestPointManifestPoint = {
+export interface TestPointManifestPoint {
 	path: readonly [string, ...string[]];
 	accepts: "hook" | "prompt";
 	semantics: "additive" | "override";
 	description?: string;
-};
+}
 
 export async function writeTestPointManifest(
 	repoRoot: string,
