@@ -1,3 +1,4 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 
@@ -182,21 +183,6 @@ const leafCommandMetadataSetters = [
 	apply: (command: Command, value: string) => Command;
 }[];
 
-type CommandTextMetadataKey = (typeof leafCommandMetadataSetters)[number]["key"];
-
-const commandTextMetadataKeys = leafCommandMetadataSetters.map((setter) => setter.key);
-
-function optionalCommandTextMetadata(
-	metadata: Readonly<Record<CommandTextMetadataKey, string | undefined>>,
-): Partial<Record<CommandTextMetadataKey, string>> {
-	const entries: Partial<Record<CommandTextMetadataKey, string>> = {};
-	for (const key of commandTextMetadataKeys) {
-		const value = metadata[key];
-		if (value !== undefined) entries[key] = value;
-	}
-	return entries;
-}
-
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
@@ -233,7 +219,7 @@ export class ClinkrGroup<TContext> {
 		});
 		this.registeredCommands.push({
 			name: spec.name,
-			...optionalCommandTextMetadata({
+			...optionalEntries({
 				description: spec.description,
 				summary: spec.summary,
 				helpGroup: spec.helpGroup,
