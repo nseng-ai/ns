@@ -25,6 +25,8 @@ const optionProbeResultSchema = z.object({
 
 const progressProbeSchema = z.object({});
 const progressProbeResultSchema = z.object({ isLive: z.boolean() });
+const homeDirProbeSchema = z.object({});
+const homeDirProbeResultSchema = z.object({ homeDir: z.string().optional() });
 
 const optionProbeCommand = {
 	name: "option-probe",
@@ -40,6 +42,18 @@ const optionProbeCommand = {
 		return { type: "ok", data: { request, outputFormat: ctx.outputFormat ?? "human" } };
 	},
 } satisfies NsCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
+
+const homeDirProbeCommand = {
+	name: "home-dir-probe",
+	summary: "Probe resolved home dir.",
+	description: "Probe resolved home dir.",
+	schema: homeDirProbeSchema,
+	resultSchema: homeDirProbeResultSchema,
+	async run(ctx) {
+		if (ctx.homeDir === undefined) return { type: "ok", data: {} };
+		return { type: "ok", data: { homeDir: ctx.homeDir } };
+	},
+} satisfies NsCommand<typeof homeDirProbeSchema, z.infer<typeof homeDirProbeResultSchema>>;
 
 const progressProbeCommand = {
 	name: "progress-probe",
@@ -68,6 +82,24 @@ describe("extension command option specs", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ status: "ok", data: { isLive: false } });
+	});
+
+	test("runCli passes the kernel-computed home directory to command contexts", async () => {
+		const run = runCliWithFakes(
+			{
+				args: ["home-dir-probe", "--format", "json"],
+				homeDir: "/kernel/home",
+				env: { HOME: undefined },
+				extensionRegistry: commandRegistry(homeDirProbeCommand),
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: { homeDir: "/kernel/home" },
+		});
 	});
 
 	test("extension option specs render in help", async () => {

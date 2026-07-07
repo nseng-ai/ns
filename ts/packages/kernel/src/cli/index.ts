@@ -124,7 +124,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
 		const resolvedCwd = deps.cwd ?? injectedContext?.cwd ?? cwd;
 		const resolvedEnv = deps.env ?? injectedContext?.env ?? env;
-		const homeDir = deps.homeDir ?? resolvedEnv.HOME;
+		const homeDir = deps.homeDir ?? resolvedEnv.HOME ?? injectedContext?.homeDir;
 		const commandCatalog = await (
 			deps.extensionRegistry?.loadCommandCatalog ?? loadNsCommandCatalog
 		)({
@@ -139,6 +139,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				commandCatalog,
 				cwd: resolvedCwd,
 				env: resolvedEnv,
+				...optionalEntry("homeDir", homeDir),
 				stdout: resolvedStdout,
 				stderr: resolvedStderr,
 				...optionalEntries({
@@ -200,6 +201,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			args,
 			cwd: resolvedCwd,
 			env: resolvedEnv,
+			...optionalEntry("homeDir", homeDir),
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
 			...optionalEntries({
@@ -312,6 +314,7 @@ async function handleCompletionResolverInvocation(options: {
 	) => Promise<SelectedNsCommandLoadResult>;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
+	homeDir?: string;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	injectedContext?: NsExtensionApi;
@@ -338,6 +341,7 @@ async function handleCompletionResolverInvocation(options: {
 		args: options.args,
 		cwd: options.cwd,
 		env: options.env,
+		...optionalEntry("homeDir", options.homeDir),
 		stdout: options.stdout,
 		stderr: options.stderr,
 		...optionalEntries({
@@ -402,6 +406,7 @@ async function buildNsCliContext(options: {
 	args: readonly string[];
 	cwd: string;
 	env: NodeJS.ProcessEnv;
+	homeDir?: string;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	injectedContext?: NsExtensionApi;
@@ -411,7 +416,12 @@ async function buildNsCliContext(options: {
 	caps?: Caps;
 }): Promise<NsCliContext> {
 	const baseContext =
-		options.injectedContext ?? createRealNsCommandContext({ cwd: options.cwd, env: options.env });
+		options.injectedContext ??
+		createRealNsCommandContext({
+			cwd: options.cwd,
+			env: options.env,
+			...optionalEntry("homeDir", options.homeDir),
+		});
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
 	const stdin = baseContext.stdin ?? readStdin;
@@ -425,6 +435,7 @@ async function buildNsCliContext(options: {
 	const context: NsExtensionApi = {
 		cwd: options.cwd,
 		env: options.env,
+		...optionalEntry("homeDir", options.homeDir),
 		textGenerator: baseContext.textGenerator,
 		commandIo,
 		progress:

@@ -23,7 +23,7 @@ export async function runNsUpdate(
 ): Promise<ClinkrExit<NsUpdateResult>> {
 	const baseRequest = {
 		projectRoot: context.projectRoot,
-		homeDir: context.homeDir ?? context.env.HOME ?? "",
+		...homeDirEntry(context),
 		env: context.env,
 		force: request.force,
 	};
@@ -40,6 +40,10 @@ export async function runNsUpdate(
 	const result = await runHarnessArtifactReconcile({ ...baseRequest, dryRun: false });
 	if (!result.ok) return reconcileFailureExit(result.error);
 	return ok(result.value);
+}
+
+function homeDirEntry(context: SkillsCommandContext): { homeDir: string } | {} {
+	return context.homeDir === undefined ? {} : { homeDir: context.homeDir };
 }
 
 export function renderNsUpdateHuman(result: NsUpdateResult): string {

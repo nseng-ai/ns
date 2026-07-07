@@ -34,9 +34,13 @@ export const skillsResolvedArtifactLocationSchema = z.object({
 export function harnessResolutionContext(context: SkillsCommandContext) {
 	return firstPartySkillProvisionPathContext({
 		projectRoot: context.projectRoot,
-		homeDir: context.homeDir ?? context.env.HOME ?? "",
+		...homeDirEntry(context),
 		env: context.env,
 	});
+}
+
+function homeDirEntry(context: SkillsCommandContext): { homeDir: string } | {} {
+	return context.homeDir === undefined ? {} : { homeDir: context.homeDir };
 }
 
 export function unknownSkillExit<T>(skill: string): ClinkrExit<T> {
