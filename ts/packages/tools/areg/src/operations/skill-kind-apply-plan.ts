@@ -416,7 +416,7 @@ export function deletionPrompt(plan: SkillKindApplyPlan): string {
 		.filter(isDeletionOperation)
 		.map((operation) => `- ${operation.relativePath}`)
 		.join("\n");
-	return `Apply ${plan.kind} to ${plan.skill} will delete managed artifacts:\n${paths}\nContinue?`;
+	return `Apply ${plan.kind} to ${plan.skill} will delete harness overlays:\n${paths}\nContinue?`;
 }
 
 function isDeletionOperation(operation: PlannedApplyOperation): boolean {
