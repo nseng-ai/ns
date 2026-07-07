@@ -22,8 +22,6 @@ export type AregErrorInfo = ErrorInfo;
 
 export type AregOperationResult = Result<undefined, AregErrorInfo>;
 
-export type { PathState, TextFileState };
-
 export interface AregCheckSkillInspection {
 	name: string;
 	skillsPath: PathState;

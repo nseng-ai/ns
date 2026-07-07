@@ -12,7 +12,6 @@ import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	AregErrorInfo,
-	PathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregProjectDirRequest,
@@ -31,7 +30,6 @@ import type {
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
 	AregSkillKindSourceType,
-	TextFileState,
 } from "./gateways.ts";
 import type {
 	AregManifestSkillSourceInspection,
@@ -41,6 +39,8 @@ import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-class
 import {
 	classifySkillMirrorSymlinkState,
 	parseSkillMirrorRelativePath,
+	type PathState,
+	type TextFileState,
 } from "@nseng-ai/harness-artifacts/api";
 
 export type FakeAregProjectOperation =
@@ -91,7 +91,7 @@ export interface FakeAregManifestSkillSourceOptions {
 	scope?: AregManifestSkillSourceInspection["scope"];
 	manifestPath?: string;
 	manifestKey?: string;
-	source?: Partial<AregManifestSkillSourceInspection["source"]>;
+	provenance?: Partial<AregManifestSkillSourceInspection["provenance"]>;
 	targetRootRelativePath?: string;
 	targetSkillRelativePath?: string;
 	skillDir?: PathState;
@@ -563,11 +563,11 @@ function copyFakeManifestSkillSource(
 		scope: source.scope ?? "project",
 		manifestPath: source.manifestPath ?? "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
 		manifestKey,
-		source: {
-			type: source.source?.type ?? "npm-module",
-			packageName: source.source?.packageName ?? "@example/skills",
-			relativePath: source.source?.relativePath ?? `skills/${source.skillName}`,
-			version: source.source?.version ?? "1.0.0",
+		provenance: {
+			type: source.provenance?.type ?? "npm-module",
+			packageName: source.provenance?.packageName ?? "@example/skills",
+			relativePath: source.provenance?.relativePath ?? `skills/${source.skillName}`,
+			version: source.provenance?.version ?? "1.0.0",
 		},
 		targetRootRelativePath: source.targetRootRelativePath ?? ".pi/skills",
 		targetSkillRelativePath,
@@ -649,7 +649,7 @@ function copyManifestSkillSource(
 ): AregManifestSkillSourceInspection {
 	return {
 		...source,
-		source: { ...source.source },
+		provenance: { ...source.provenance },
 		skillDir: copyPathState(source.skillDir),
 		skillMd: copyTextFileState(source.skillMd),
 	};

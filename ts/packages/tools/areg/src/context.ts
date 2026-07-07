@@ -4,7 +4,7 @@ import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 
 import type { AregGitGateway, AregProjectGateway } from "./gateways.ts";
-import { RealAregProjectGateway } from "./real-gateways.ts";
+import { RealAregProjectGateway } from "./gateways/project-gateway.ts";
 
 export interface AregCliContext {
 	project: AregProjectGateway;

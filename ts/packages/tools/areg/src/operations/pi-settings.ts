@@ -1,7 +1,7 @@
 import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { err, type Result } from "@nseng-ai/foundation/result";
 
-import type { PathState, TextFileState } from "../gateways.ts";
+import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 
 export interface PiSettingsData {

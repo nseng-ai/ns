@@ -8,6 +8,7 @@ import {
 } from "@nseng-ai/clinkr";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import { runCommand } from "@nseng-ai/foundation/exec";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";
@@ -47,7 +48,7 @@ export function createRealNsCommandContext(
 	return {
 		cwd,
 		env,
-		...optionalHomeDir(homeDir),
+		...optionalEntry("homeDir", homeDir),
 		textGenerator,
 		commandIo,
 		progress: noopNsProgress,
@@ -97,10 +98,6 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 		});
 		return result.type === "confirmed";
 	};
-}
-
-function optionalHomeDir(homeDir: string | undefined): { homeDir: string } | {} {
-	return homeDir === undefined ? {} : { homeDir };
 }
 
 function createBaseCliInteractionOptions(stderr: (text: string) => void) {

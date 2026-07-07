@@ -6,7 +6,6 @@ export type {
 	AregErrorInfo,
 	AregReplacementInspection,
 	AregOperationResult,
-	PathState,
 	AregProjectBaseInspection,
 	AregProjectDirRequest,
 	AregProjectGateway,
@@ -18,7 +17,6 @@ export type {
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
-	TextFileState,
 } from "./gateways.ts";
-export { parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
-export { RealAregProjectGateway } from "./real-gateways.ts";
+export { parseSkillFrontmatterText } from "./operations/check.ts";
+export { RealAregProjectGateway } from "./gateways/project-gateway.ts";

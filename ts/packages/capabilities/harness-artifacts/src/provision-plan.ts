@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import { optionalEntry, sha256Digest } from "@nseng-ai/foundation/primitives";
@@ -156,7 +155,7 @@ export function contentHashForText(text: string): string {
 }
 
 export function contentHashForBytes(bytes: Uint8Array): string {
-	return createHash("sha256").update(bytes).digest("hex");
+	return sha256Digest(bytes);
 }
 
 export function buildProvisionPlan(

@@ -3,10 +3,11 @@ import path from "node:path";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
-import type { AregErrorInfo, TextFileState } from "../gateways.ts";
+import type { AregErrorInfo } from "../gateways.ts";
 import {
 	classifySkillMirrorSymlinkState,
 	expectedMirrorTarget,
+	type TextFileState,
 } from "@nseng-ai/harness-artifacts/api";
 import { errorInfo } from "./errors.ts";
 import { inspectPath, isPathAtOrBelow } from "./fs-utils.ts";
@@ -114,14 +115,11 @@ export function resolveAllowedWriteTarget(
 	return { type: "ok", value: target };
 }
 
+const SKILL_KIND_WRITABLE_PATH_RE =
+	/^(?:skills|\.agents\/skills)\/[^/]+\/(?:SKILL\.md|agents(?:\/openai\.yaml)?)$/u;
+
 function isSkillKindWritablePath(relativePath: string): boolean {
-	return (
-		/^skills\/[^/]+\/SKILL\.md$/u.test(relativePath) ||
-		/^skills\/[^/]+\/agents(?:\/openai\.yaml)?$/u.test(relativePath) ||
-		/^\.agents\/skills\/[^/]+\/SKILL\.md$/u.test(relativePath) ||
-		/^\.agents\/skills\/[^/]+\/agents(?:\/openai\.yaml)?$/u.test(relativePath) ||
-		relativePath === ".pi/settings.json"
-	);
+	return SKILL_KIND_WRITABLE_PATH_RE.test(relativePath) || relativePath === ".pi/settings.json";
 }
 
 export async function validateWriteTarget(

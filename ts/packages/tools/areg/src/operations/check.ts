@@ -8,7 +8,6 @@ import {
 	isAgentsSkillMirror,
 	isClaudeSkillMirror,
 	parseInspectedLockfile,
-	parseLockfileData,
 	parseSkillFrontmatterBlock,
 	type LockfileSkill,
 	type SkillsLockfile,
@@ -16,7 +15,7 @@ import {
 
 import type { AregCliContext } from "../context.ts";
 import { missingCheckSkillInspection } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
+import { sortStringsLocaleAware } from "../sort.ts";
 import { manifestSourceFinding } from "./manifest-sources.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { isPathStateError } from "./file-state.ts";
@@ -73,8 +72,6 @@ interface CheckIssue {
 	code: CheckIssueCode;
 	message: string;
 }
-
-export { parseLockfileData };
 
 const checkIssueSchema = z.object({
 	skill: z.string(),
@@ -179,7 +176,7 @@ export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 		grouped.set(issue.skill, existing);
 	}
 	const lines: string[] = [];
-	for (const skill of sortStrings([...grouped.keys()])) {
+	for (const skill of sortStringsLocaleAware([...grouped.keys()])) {
 		lines.push("", `${skill}:`);
 		for (const issue of grouped.get(skill) ?? []) lines.push(`  ${issue.message}`);
 	}
@@ -486,7 +483,7 @@ function checkOrphansAndDangling(
 	const excluded = new Set(inspection.excludedSkillNames);
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
 	const issues: CheckIssue[] = [];
-	for (const name of sortStrings(inspection.skillsDirectoryNames)) {
+	for (const name of sortStringsLocaleAware(inspection.skillsDirectoryNames)) {
 		if (!lockNames.has(name) && !excluded.has(name))
 			issues.push(
 				issue(
@@ -496,7 +493,7 @@ function checkOrphansAndDangling(
 				),
 			);
 	}
-	for (const name of sortStrings(inspection.agentsSkillNames)) {
+	for (const name of sortStringsLocaleAware(inspection.agentsSkillNames)) {
 		if (!lockNames.has(name) && !excluded.has(name))
 			issues.push(
 				issue(
@@ -506,7 +503,7 @@ function checkOrphansAndDangling(
 				),
 			);
 	}
-	for (const name of sortStrings([...lockNames])) {
+	for (const name of sortStringsLocaleAware([...lockNames])) {
 		const inspected = byName.get(name) ?? missingCheckSkillInspection(name);
 		if (
 			inspected.skillsPath.type === "missing" &&

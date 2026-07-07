@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -51,7 +52,7 @@ export async function runSkillsInstall(
 		harness: request.harness,
 		scope: request.scope,
 		projectRoot: context.projectRoot,
-		...(context.homeDir === undefined ? {} : { homeDir: context.homeDir }),
+		...optionalEntry("homeDir", context.homeDir),
 		env: context.env,
 		dryRun: request.dryRun,
 		force: request.force,

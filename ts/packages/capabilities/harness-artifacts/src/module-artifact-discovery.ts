@@ -8,13 +8,12 @@ import { z } from "zod";
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
 import { sortDiagnosticsByKey } from "./diagnostic-sort.ts";
 import {
-	nodeHarnessArtifactModuleDiscoveryGateway,
+	nodeHarnessArtifactFileSystemGateway,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactModuleDiscoveryGateway,
 	type ModuleDiscoveryDirectoryEntry,
 	type ModuleDiscoveryDirectoryState,
 	type ModuleDiscoveryPathState,
-	type ModuleDiscoveryTextFileState,
 } from "./filesystem.ts";
 import { sortStrings } from "./sort.ts";
 import {
@@ -50,7 +49,6 @@ export type {
 	ModuleDiscoveryDirectoryEntry,
 	ModuleDiscoveryDirectoryState,
 	ModuleDiscoveryPathState,
-	ModuleDiscoveryTextFileState,
 };
 
 export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
@@ -100,12 +98,10 @@ export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDi
 			...optionalEntry("artifactName", diagnostic.artifactName),
 		}));
 
-export { nodeHarnessArtifactModuleDiscoveryGateway };
-
 export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,
 ): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
-	const gateway = request.gateway ?? nodeHarnessArtifactModuleDiscoveryGateway;
+	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
 	const rootResolution = extensionArtifactRoots(request);
 	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
 	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [...rootResolution.diagnostics];

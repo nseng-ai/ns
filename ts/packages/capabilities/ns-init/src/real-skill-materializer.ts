@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	provisionFirstPartySkill,
 	type HarnessArtifactProvisionErrorInfo,
@@ -36,7 +37,7 @@ export class RealSkillMaterializer implements SkillMaterializer {
 				harness,
 				scope: "project",
 				projectRoot: params.repoRoot,
-				...(this.homeDir === undefined ? {} : { homeDir: this.homeDir }),
+				...optionalEntry("homeDir", this.homeDir),
 				env: this.env,
 				dryRun: false,
 				force: false,

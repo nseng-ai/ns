@@ -124,8 +124,11 @@ export function isPathInside(parent: string, child: string): boolean {
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
-export function sha256Digest(value: string): string {
-	return createHash("sha256").update(value, "utf8").digest("hex");
+export function sha256Digest(value: string | Uint8Array): string {
+	const hash = createHash("sha256");
+	if (typeof value === "string") hash.update(value, "utf8");
+	else hash.update(value);
+	return hash.digest("hex");
 }
 
 export function truncatedSha256Digest(value: string): string {

@@ -22,7 +22,7 @@ export interface AregManifestSkillSourceInspection {
 	scope: HarnessScope;
 	manifestPath: string;
 	manifestKey: string;
-	source: AregManifestSkillSourceProvenance;
+	provenance: AregManifestSkillSourceProvenance;
 	targetRootRelativePath: string;
 	targetSkillRelativePath: string;
 	skillDir: PathState;
@@ -51,24 +51,43 @@ export function toManifestSkillSourceView(
 		scope: source.scope,
 		manifestPath: source.manifestPath,
 		manifestKey: source.manifestKey,
-		sourceType: source.source.type,
-		packageName: source.source.packageName,
-		sourceRelativePath: source.source.relativePath,
-		version: source.source.version,
+		sourceType: source.provenance.type,
+		packageName: source.provenance.packageName,
+		sourceRelativePath: source.provenance.relativePath,
+		version: source.provenance.version,
 		targetSkillRelativePath: source.targetSkillRelativePath,
 	};
 }
 
-export function groupBySkillName<T extends { skillName: string }>(
-	sources: readonly T[],
-): ReadonlyMap<string, readonly T[]> {
-	const grouped = new Map<string, T[]>();
+export function groupBySkillName(
+	sources: readonly AregManifestSkillSourceInspection[],
+): ReadonlyMap<string, readonly AregManifestSkillSourceInspection[]> {
+	const grouped = new Map<string, AregManifestSkillSourceInspection[]>();
 	for (const source of sources) {
 		const existing = grouped.get(source.skillName) ?? [];
 		existing.push(source);
 		grouped.set(source.skillName, existing);
 	}
 	return grouped;
+}
+
+export function manifestSourceViewsBySkillName(
+	sources: readonly AregManifestSkillSourceInspection[],
+): ReadonlyMap<string, readonly AregManifestSkillSourceView[]> {
+	const grouped = new Map<string, AregManifestSkillSourceView[]>();
+	for (const source of sources) {
+		const existing = grouped.get(source.skillName) ?? [];
+		existing.push(toManifestSkillSourceView(source));
+		grouped.set(source.skillName, existing);
+	}
+	return grouped;
+}
+
+export function manifestSourceViewsForSkill(
+	sources: readonly AregManifestSkillSourceInspection[],
+	skillName: string,
+): readonly AregManifestSkillSourceView[] {
+	return manifestSourceViewsBySkillName(sources).get(skillName) ?? [];
 }
 
 export function isSkillKindLookupPath(relativePath: string): boolean {
@@ -98,22 +117,21 @@ export function classifyManifestSkillSource(
 	return "ok";
 }
 
-export interface AregManifestInspectionError {
-	manifestPath: string;
-	message: string;
-}
+export type AregManifestInspectionError =
+	| { type: "manifest"; manifestPath: string; message: string }
+	| { type: "harness"; harness: HarnessId; message: string };
 
 export interface AregManifestSkillSourcesInspection {
 	sources: readonly AregManifestSkillSourceInspection[];
 	errors: readonly AregManifestInspectionError[];
 }
 
-export type ManifestSourceFinding = {
+export interface ManifestSourceFinding {
 	code: "manifest-skill-target-missing" | "manifest-skill-md-missing";
 	message: string;
 	path: string;
 	remediation: string;
-};
+}
 
 export const MANIFEST_FAILURE_CODE = "invalid-install-manifest";
 export const MANIFEST_FAILURE_REMEDIATION =
@@ -122,7 +140,7 @@ export const MANIFEST_SOURCE_REMEDIATION =
 	"Run ns update to reconcile manifest-tracked harness artifacts, or remove/fix the stale manifest entry through the owning provisioning workflow.";
 
 export function manifestSourceLabel(source: AregManifestSkillSourceInspection): string {
-	return `Shared manifest entry ${source.manifestKey} from ${source.source.packageName}@${source.source.version}`;
+	return `Shared manifest entry ${source.manifestKey} from ${source.provenance.packageName}@${source.provenance.version}`;
 }
 
 export function manifestSourceFinding(

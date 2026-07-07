@@ -4,21 +4,21 @@ import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives"
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
+import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
 import type {
 	AregCheckSkillInspection,
-	PathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
-	TextFileState,
 } from "../gateways.ts";
 import {
 	MANIFEST_FAILURE_CODE,
 	MANIFEST_FAILURE_REMEDIATION,
 	manifestSkillKindNames,
 	manifestSourceFinding,
+	toManifestSkillSourceView,
 	type AregManifestSkillSourcesInspection,
 } from "./manifest-sources.ts";
 import { uniqueSortedStrings } from "../sort.ts";
@@ -220,13 +220,14 @@ async function inspectDoctorSkillsProject(
 		projectDir,
 		env: ctx.env,
 	});
+	const baseSkillNames = allKnownSkillNames(skillInventory, { includeSkillKindNames: true });
 	const skillNames = uniqueSortedStrings([
-		...allKnownSkillNames(skillInventory, { includeSkillKindNames: true }),
+		...baseSkillNames,
 		...manifestSkillSources.sources.map((source) => source.skillName),
 	]);
 	const checkSkills = await collectCheckSkillInspections(ctx, projectDir, skillNames);
 	const skillKindNames = uniqueSortedStrings([
-		...allKnownSkillNames(skillInventory, { includeSkillKindNames: true }),
+		...baseSkillNames,
 		...manifestSkillKindNames(manifestSkillSources.sources),
 	]);
 	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillKindNames);
@@ -313,20 +314,11 @@ function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSk
 			severity: "error",
 			message: error.message,
 			remediation: MANIFEST_FAILURE_REMEDIATION,
-			path: error.manifestPath,
+			path: error.type === "manifest" ? error.manifestPath : error.harness,
 		});
 	}
 	for (const source of inspection.manifestSkillSources.sources) {
-		const evidence = {
-			manifestPath: source.manifestPath,
-			manifestKey: source.manifestKey,
-			harness: source.harness,
-			scope: source.scope,
-			sourceType: source.source.type,
-			packageName: source.source.packageName,
-			version: source.source.version,
-			targetSkillRelativePath: source.targetSkillRelativePath,
-		};
+		const evidence = toManifestSkillSourceView(source);
 		const finding = manifestSourceFinding(source);
 		if (finding !== undefined) {
 			findings.push({
@@ -344,7 +336,7 @@ function manifestFindings(inspection: DoctorSkillsInspection): readonly DoctorSk
 				severity: "info",
 				skill: source.skillName,
 				path: source.targetSkillRelativePath,
-				message: `${source.skillName} is tracked by shared manifest entry ${source.manifestKey} from ${source.source.packageName}@${source.source.version}.`,
+				message: `${source.skillName} is tracked by shared manifest entry ${source.manifestKey} from ${source.provenance.packageName}@${source.provenance.version}.`,
 				remediation: "No action required unless this manifest provenance is stale.",
 				evidence,
 			});
