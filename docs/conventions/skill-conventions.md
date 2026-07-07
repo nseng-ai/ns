@@ -2,9 +2,18 @@
 
 Conventions for authoring, naming, vendoring, and managing skills in this repo. Routed from the root `AGENTS.md` ("Skills" section).
 
-### Managing Skills With `npx skills`
+### Skill Management Channels
 
-All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical ns install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`. **Exception:** `unlisted` skills have no mirrors at all — `areg skill apply unlisted` removes both `.agents/skills/<name>` and `.claude/skills/<name>`, leaving only the canonical `skills/<name>/` source.
+Skill management in this repo is layered. The channels are additive and complementary, not competing:
+
+1. **First-party npm-module-bundled provisioning (`ns skills` / `ns update`).** `@nseng-ai/harness-artifacts` models harness artifacts (kinds `skill`/`agent`/`extension-bundle`) statically declared by npm modules; `ns skills list/path/install` and `ns update` reconcile them into the harness roots (Pi, Claude Code, Codex; project and global scopes). Record: `.ns-harness-artifacts-manifest.json`, a per-file SHA-256 install manifest. This channel has zero `npx skills` dependency.
+2. **Repo-local first-party skills.** Canonical source `skills/<name>/`, mirrored by symlinks (`.agents/skills/<name>` → `../../skills/<name>`; `.claude/skills/<name>` → the `.agents` mirror), keeping the universal-agent directory populated without duplicating content. Recorded in `skills-lock.json` with `sourceType: "local"`.
+3. **Third-party acquisition (`npx skills`).** GitHub-sourced skills are vendored as real directories under `.agents/skills/<name>/` and recorded in `skills-lock.json` with `sourceType: "github"`. Upstream content stays as-shipped (see Vendored Skill Code below).
+4. **`areg` — whole-project inspector and harness-overlay manager.** `areg` inspects both records — `skills-lock.json` and `.ns-harness-artifacts-manifest.json` are complementary by decision, not convergence candidates — and owns invocation-kind management via harness overlays (next section).
+
+Externally sourced skills overlay onto this management rather than escaping it: skill content is upstream's, invocation policy is ours, and the harness overlays are the seam where the two meet.
+
+Procedures for channels 2–3 — adding, editing, removing, updating, listing, and publishing skills with `npx skills` — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical ns install flag is `--agent codex claude-code -y`. **Exception:** `unlisted` skills have no mirrors at all — `areg skill apply unlisted` removes both `.agents/skills/<name>` and `.claude/skills/<name>`, leaving only the canonical `skills/<name>/` source.
 
 ### Auditing and Tightening Skills
 
@@ -24,7 +33,7 @@ The five kinds map onto a 2×2 over two independent questions — *does the mode
 | `command-backed` | no                                            | yes, via a namespaced Pi extension | invoke-only harness overlays + `.pi/settings.json` `-skills/<name>` + a **verified** Pi replacement command                                                                             |
 | `unlisted`       | no — no ambient surface anywhere              | no — no human invocation surface   | invoke-only harness overlays + `.pi/settings.json` `-skills/<name>`, and **both mirror symlinks removed** (`.agents/skills/<name>`, `.claude/skills/<name>`); no Pi replacement command |
 
-For first-party skills, `areg` writes harness overlays under `skills/<name>/`. For vendored GitHub-sourced skills, `areg` writes only the local harness overlay files under `.agents/skills/<name>/` (`SKILL.md` frontmatter and `agents/openai.yaml`) plus `.pi/settings.json`; those local overlays are allowed when the ambient-token decision is repo-specific.
+For first-party skills, `areg` writes harness overlays under `skills/<name>/`. For vendored GitHub-sourced skills, `areg` writes only the local harness overlay files under `.agents/skills/<name>/` (`SKILL.md` frontmatter and `agents/openai.yaml`) plus `.pi/settings.json`; those local overlays are allowed when the ambient-token decision is repo-specific. This is the overlay seam for externally sourced skills: upstream owns the skill content, the repo owns the invocation policy, and `areg skill apply` reconciles the whole overlay bundle so an upstream refresh replaces content while overlays are re-derived rather than hand-merged.
 
 Norms and gotchas this taxonomy makes non-obvious:
 
