@@ -427,7 +427,12 @@ function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
 }
 
 function objectiveListFromRecords(
-	records: Array<{ slug: string; status: string; latestUpdateIso: string | null }>,
+	records: Array<{
+		slug: string;
+		status: string;
+		latestUpdateIso: string | null;
+		isBlocked?: boolean;
+	}>,
 	trunkBranch: string = TRUNK,
 ): string {
 	return JSON.stringify({
@@ -442,6 +447,7 @@ function objectiveListFromRecords(
 				slug: record.slug,
 				status: record.status,
 				latestUpdateIso: record.latestUpdateIso,
+				...(record.isBlocked === true ? { isBlocked: true } : {}),
 				hasOutstandingChanges: false,
 			})),
 		},
@@ -713,6 +719,37 @@ describe("ns:objective:autorun command", () => {
 		});
 	});
 
+	test("empty args hide blocked Objectives from autorun picker menus", async () => {
+		await withAutorunSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveAutorun(
+				"",
+				[
+					step("objective", ["list", "--format", "json"], {
+						stdout: objectiveListFromRecords([
+							{ slug: "alpha", status: "open", latestUpdateIso: "2026-01-01T00:00:00Z" },
+							{
+								slug: "bravo",
+								status: "open",
+								latestUpdateIso: "2026-01-02T00:00:00Z",
+								isBlocked: true,
+							},
+						]),
+					}),
+					diffStep(""),
+					statusStep(""),
+				],
+				{},
+				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+			);
+
+			result.pi.assertDone();
+			expect(result.selections[0]?.items).toEqual([
+				"alpha — open — latest update 2026-01-01T00:00:00Z",
+			]);
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
+		});
+	});
+
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
 		await withAutorunSkill(async ({ skillPath, skillDir }) => {
 			const result = await runObjectiveAutorun(
@@ -860,6 +897,32 @@ describe("objective picker suggestion", () => {
 			"alpha — open — latest update 2026-01-01T00:00:00Z",
 			"bravo — open — latest update 2026-01-02T00:00:00Z",
 		]);
+	});
+
+	test("hides blocked Objectives from objective-next picker menus", async () => {
+		const result = await runObjectiveNext("", [
+			step("objective", ["list", "--format", "json"], {
+				stdout: objectiveListFromRecords([
+					{ slug: "alpha", status: "open", latestUpdateIso: "2026-01-01T00:00:00Z" },
+					{
+						slug: "bravo",
+						status: "open",
+						latestUpdateIso: "2026-01-02T00:00:00Z",
+						isBlocked: true,
+					},
+					{ slug: "charlie", status: "open", latestUpdateIso: "2026-01-03T00:00:00Z" },
+				]),
+			}),
+			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+			statusStep(""),
+		]);
+
+		result.pi.assertDone();
+		expect(result.selections[0]?.items).toEqual([
+			"alpha — open — latest update 2026-01-01T00:00:00Z",
+			"charlie — open — latest update 2026-01-03T00:00:00Z",
+		]);
+		expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 	});
 
 	test("opens a second picker for the other Objectives when requested", async () => {

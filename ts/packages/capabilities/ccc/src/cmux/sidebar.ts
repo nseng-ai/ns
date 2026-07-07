@@ -34,7 +34,7 @@ const SIDEBAR_MODEL_ENV = "NS_CCC_SIDEBAR_MODEL";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for cmux sidebar",
-	shouldCompactDiffSuggestion: true,
+	selectionMode: "compact-diff-suggestion",
 } satisfies ObjectiveSelectionSpec;
 
 interface RestoreState {

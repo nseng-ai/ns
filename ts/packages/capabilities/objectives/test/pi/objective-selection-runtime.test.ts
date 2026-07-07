@@ -66,7 +66,7 @@ describe("objective selection runtime behavior", () => {
 			{
 				statusKey: "objective:test",
 				selectionTitle: "Select an Objective",
-				shouldCompactDiffSuggestion: true,
+				selectionMode: "advancement",
 			},
 		);
 

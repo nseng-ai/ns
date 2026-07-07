@@ -258,6 +258,38 @@ function hasObjectivePicker(ctx: ObjectiveSelectionContext): ctx is ObjectivePic
 	return ctx.hasUI && ctx.ui.select !== undefined;
 }
 
+function objectiveSelectionList(
+	objectiveList: ObjectiveListResult,
+	spec: ObjectiveSelectionSpec,
+): ObjectiveListResult {
+	if (!usesAdvancementSelection(spec)) return objectiveList;
+	return {
+		...objectiveList,
+		records: objectiveList.records.filter((record) => record.isBlocked !== true),
+	};
+}
+
+function objectiveEmptySelectionMessage(
+	unfilteredObjectiveList: ObjectiveListResult,
+	spec: ObjectiveSelectionSpec,
+): string {
+	if (
+		usesAdvancementSelection(spec) &&
+		unfilteredObjectiveList.records.some((record) => record.isBlocked === true)
+	) {
+		return "No unblocked active Objectives. Blocked Objectives are hidden from this selection; use /ns:objective:update to inspect or unblock one.";
+	}
+	return "No active Objectives. Create one with /ns:objective:create.";
+}
+
+function usesAdvancementSelection(spec: ObjectiveSelectionSpec): boolean {
+	return spec.selectionMode === "advancement";
+}
+
+function usesCompactDiffSuggestion(spec: ObjectiveSelectionSpec): boolean {
+	return spec.selectionMode === "compact-diff-suggestion" || usesAdvancementSelection(spec);
+}
+
 async function selectObjectiveSlug(
 	options: SelectObjectiveSlugOptions,
 ): Promise<string | undefined> {
@@ -345,10 +377,10 @@ export async function chooseActiveObjectiveSlug(
 		return undefined;
 	}
 
-	const objectiveList = objectiveListResult.list;
+	const objectiveList = objectiveSelectionList(objectiveListResult.list, spec);
 	if (objectiveList.records.length === 0) {
 		if (hasPicker) {
-			ctx.ui.notify("No active Objectives. Create one with /ns:objective:create.", "info");
+			ctx.ui.notify(objectiveEmptySelectionMessage(objectiveListResult.list, spec), "info");
 		}
 		return undefined;
 	}
@@ -358,7 +390,7 @@ export async function chooseActiveObjectiveSlug(
 	}
 
 	const changedSelection = await changedObjectiveSelection({ host, ctx, objectiveList, spec });
-	if (changedSelection && spec.shouldCompactDiffSuggestion) {
+	if (changedSelection && usesCompactDiffSuggestion(spec)) {
 		return selectChangedObjectivesOrOther({
 			ctx,
 			spec,
