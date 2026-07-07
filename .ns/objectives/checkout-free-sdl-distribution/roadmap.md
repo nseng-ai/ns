@@ -71,6 +71,17 @@
     install from a throwaway foreign git repo ran `ns objective list` plus the hidden
     `ns objective exec tracking-gate` surface without an ns checkout.
   - This is first-publish evidence, not the Objective's final closure state.
+- [x] Set up standalone publish packaging for the runtime package set this Objective
+      intends to publish beyond the bundled `@nseng-ai/ns` CLI.
+  - Evidence: `@nseng-ai/capability-kit` and `@nseng-ai/flow` are no longer private;
+    the runtime package set now has `publishConfig.access=public`, `pack:local`, and
+    `publish:dry-run` scripts backed by a shared generated publish-root script that
+    rewrites `workspace:`/`catalog:` dependency specs and private `@nseng-ai/kernel`
+    dependency edges for npm package manifests.
+  - Verified dry-run package validation for `@nseng-ai/capability-kit`,
+    `@nseng-ai/flow`, `@nseng-ai/foundation`, and the rest of the runtime package set:
+    branch-context, handoffs, objectives, plans, pr-feedback, retros, reviews, slots,
+    brmem, and clinkr.
 - [x] Publish and verify every workspace package intended to be public/standalone.
   - Evidence: the final intended-public package set is recorded, each package in that set
     exists on the npm registry under `@nseng-ai/*` with expected version/bin/exports where

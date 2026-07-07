@@ -51,10 +51,9 @@
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../.. && vitest run --config vitest.config.ts packages/capability-kit/test"
-	},
-	"publishConfig": {
-		"access": "public"
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/capability-kit/test",
+		"pack:local": "node ../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "node ../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
 	},
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
@@ -71,5 +70,8 @@
 			"graphite",
 			"cmux"
 		]
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }
