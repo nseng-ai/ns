@@ -21,6 +21,14 @@ export type SubmitMatrixCellState = MatrixCellState;
 export type SubmitMatrixColumnKey = "metadata" | "submit" | "verify" | "description";
 export type SubmitMatrixGlobalKey = "inventory" | "hooks" | "checkpoint" | "preflight" | "restack";
 export type SubmitMatrixCellUpdate = MatrixCellUpdate;
+export type SubmitMetadataProgressReason =
+	| "existing-pr"
+	| "amendment-not-applicable"
+	| "generating-metadata"
+	| "amending-metadata-commit"
+	| "metadata-prepared"
+	| "metadata-amendment-failed"
+	| "metadata-generation-failed";
 
 export type SubmitMatrixColumnSpec = MatrixColumnSpec<SubmitMatrixColumnKey>;
 
@@ -125,6 +133,25 @@ export const SUBMIT_MATRIX_GLOBAL_ROWS: readonly SubmitMatrixGlobalRowSpec[] = [
 		activeLabel: "running gt restack…",
 	},
 ];
+
+/** Map a branch-level metadata reason to a compact label that fits the 8-column Metadata cell. */
+export function compactSubmitMetadataCellText(reason: SubmitMetadataProgressReason): string {
+	switch (reason) {
+		case "existing-pr":
+			return "exists";
+		case "amendment-not-applicable":
+			return "n/a";
+		case "generating-metadata":
+			return "gen";
+		case "amending-metadata-commit":
+			return "amend";
+		case "metadata-prepared":
+			return "ready";
+		case "metadata-amendment-failed":
+		case "metadata-generation-failed":
+			return "failed";
+	}
+}
 
 export function submitMatrixRowsFromTopology(
 	topology: SubmitStackTopology,

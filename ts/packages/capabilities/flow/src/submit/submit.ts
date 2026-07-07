@@ -1,9 +1,13 @@
 import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
-import type { SubmitMatrixProgressSink } from "./submit-matrix-progress.ts";
+import {
+	compactSubmitMetadataCellText,
+	type SubmitMatrixProgressSink,
+} from "./submit-matrix-progress.ts";
 import {
 	formatSubmitPreflightFailureCause,
 	type CurrentPrVerificationFailureCause,
@@ -327,11 +331,14 @@ export async function runSubmitCommand(
 		textGenerator: options.prDescription.textGenerator,
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
-		onBranchProgress: (event) =>
+		onBranchProgress: (event) => {
+			const text =
+				event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
 			options.submitMatrix?.setCell(event.branch, "metadata", {
 				state: event.state,
-				...(event.message === undefined ? {} : { text: event.message }),
-			}),
+				...optionalEntry("text", text),
+			});
+		},
 	});
 	options.submitMatrix?.setRunningCommands([]);
 	if (prewrite.kind === "failed") {
