@@ -32,17 +32,17 @@ See [Installation](/docs/get-started/installation) for prerequisites and verific
 
 ## Initialize your repository
 
-> **Expected flow — coming with the first release.** `ns init` is designed and decided
-> but not yet shipped; the exact flag surface may be refined before release.
-
 From your repository root, initialize for the harness you use:
 
 ```bash
 ns init --harness claude-code   # or: codex, pi
 ```
 
-The harness is always explicit — `ns init` never guesses — and your choice is persisted
-to `ns.toml` so re-runs don't need the flag. Initialization does three things:
+`ns init` is implemented in the first-release bundle; the remaining gate is publication
+of `@nseng-ai/ns` itself. The harness is always explicit on the first run — `ns init`
+never guesses — and your choice is persisted to `ns.toml` so re-runs don't need the
+flag. Pass `--harness` more than once if the repo should support multiple harnesses.
+Initialization does three things:
 
 1. **Instructs your agents.** Writes a minimal, harness-neutral instruction block into
    `AGENTS.md`, fenced by managed `ns:objectives` `BEGIN`/`END` markers so it is
@@ -50,19 +50,23 @@ to `ns.toml` so re-runs don't need the flag. Initialization does three things:
    Code it also ensures `CLAUDE.md` imports `AGENTS.md` via the `@AGENTS.md` reference.
    The block teaches agents that Objectives exist, to check `ns objective list` before
    non-trivial work, and to use the Objective skills.
-2. **Installs the Objective skills** into your harness's skill root — `.claude/skills/`
-   for Claude Code, `.agents/skills/` for Codex and Pi — by copying them from the
-   installed package. (Note: Codex loads skills into context unconditionally; Claude
-   Code loads them on demand.)
+2. **Installs the Objective skills** into your harness's project skill root —
+   `.claude/skills/` for Claude Code, `.agents/skills/` for Codex and Pi — from the
+   first-party skill catalog bundled with `ns`. (Codex loads skills into context
+   unconditionally; Claude Code loads them on demand.)
 3. **Creates `.ns/objectives/`** and verifies git posture. `ns init` writes files but
    never commits — you review and commit the changes yourself.
 
-Commit the result:
+Commit the files that changed for your selected harness:
 
 ```bash
-git add AGENTS.md CLAUDE.md .ns .claude .agents ns.toml
+git status --short
+git add -A
 git commit -m "Activate ns objectives"
 ```
+
+After the first activation, `ns update` refreshes manifest-tracked ns harness artifacts
+when the bundled Objective skills change.
 
 </Step>
 

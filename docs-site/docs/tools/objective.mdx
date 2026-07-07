@@ -5,11 +5,13 @@ description: "CLI reference for ns objective — list, inspect, validate, and ar
 
 `ns objective` is the deterministic command surface for [Objective](/docs/concepts/objectives)
 records. It reads and maintains the records under `.ns/objectives/` in the current
-repository — listing, showing, structural validation, and archiving.
+repository — listing, showing, structural validation, archiving, and a small set of
+agent-internal `exec` helpers.
 
 The lifecycle mutations — creating an Objective, recommending next work, recording
-progress, closing — are agent workflows driven by the Objective skills in your harness,
-not CLI subcommands. See the [quickstart](/docs/get-started/quickstart) for that loop.
+progress, closing — are agent workflows driven by the Objective skills installed by
+`ns init`, not public CLI subcommands. See the [quickstart](/docs/get-started/quickstart)
+for that loop.
 
 ```bash
 ns objective <command> [options]
@@ -86,3 +88,11 @@ ns objective archive <slug> --unarchive
 
 Both open and closed Objectives can be archived. Closing is separate (and skill-driven);
 archiving only controls whether the record appears in active discovery.
+
+### `ns objective exec …`
+
+`exec` contains deterministic helpers that Objective skills and agents use while doing
+work, such as loading active orientation files, reading Objective records, running
+tracking gates, and managing Objective Runner checkpoints. These commands are documented
+through their own `--help` and `--json-schema` output because they are primarily an agent
+contract rather than the human quickstart path.
