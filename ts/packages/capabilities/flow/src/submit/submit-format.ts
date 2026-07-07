@@ -115,22 +115,17 @@ export function formatPreflightFailureOutput(
 	output: SubmitCommandOutput,
 	submitDryRunCommandDisplay: string,
 ): string {
-	const reason = output.startupError
-		? `${submitDryRunCommandDisplay} could not start: ${output.startupError}. Submission was not attempted.`
-		: output.killed
-			? `${submitDryRunCommandDisplay} timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
-			: `${submitDryRunCommandDisplay} failed with exit code ${output.exitCode}. Submission was not attempted.`;
-
-	return [
-		reason,
-		"",
-		`$ ${submitDryRunCommandDisplay}`,
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+	return formatCommandFailureText({
+		commandDisplay: submitDryRunCommandDisplay,
+		output,
+		reason: {
+			startup: (error) =>
+				`${submitDryRunCommandDisplay} could not start: ${error}. Submission was not attempted.`,
+			killed: `${submitDryRunCommandDisplay} timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`,
+			exit: (exitCode) =>
+				`${submitDryRunCommandDisplay} failed with exit code ${exitCode}. Submission was not attempted.`,
+		},
+	});
 }
 
 export function formatRestackRequiredOutput(): string {
@@ -198,22 +193,17 @@ export function formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay: 
 }
 
 export function formatRestackFailureOutput(output: SubmitCommandOutput): string {
-	const reason = output.startupError
-		? `gt restack --downstack could not start: ${output.startupError}. Submission was not attempted.`
-		: output.killed
-			? `gt restack --downstack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.`
-			: `gt restack --downstack --no-interactive failed with exit code ${output.exitCode}. Submission was not attempted.`;
-
-	return [
-		reason,
-		"",
-		"$ gt restack --downstack --no-interactive",
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+	return formatCommandFailureText({
+		commandDisplay: "gt restack --downstack --no-interactive",
+		output,
+		reason: {
+			startup: (error) =>
+				`gt restack --downstack could not start: ${error}. Submission was not attempted.`,
+			killed: `gt restack --downstack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.`,
+			exit: (exitCode) =>
+				`gt restack --downstack --no-interactive failed with exit code ${exitCode}. Submission was not attempted.`,
+		},
+	});
 }
 
 export function formatPrewriteFailureOutput(
@@ -239,26 +229,21 @@ export function formatSubmitFailureOutput(
 	prewrittenMetadata: readonly PrewrittenPrMetadata[],
 	submitCommandDisplay: string,
 ): string {
-	const reason = output.startupError
-		? `${submitCommandDisplay} could not start: ${output.startupError}.`
-		: output.killed
-			? `${submitCommandDisplay} timed out and was killed.`
-			: `${submitCommandDisplay} failed with exit code ${output.exitCode}.`;
-	return [
-		reason,
-		...(prewrittenMetadata.length === 0
-			? []
-			: [
-					"Local PR metadata commit messages were prepared before submit; rerun ns flow submit after resolving the Graphite failure.",
-				]),
-		"",
-		`$ ${submitCommandDisplay}`,
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+	return formatCommandFailureText({
+		commandDisplay: submitCommandDisplay,
+		output,
+		reason: {
+			startup: (error) => `${submitCommandDisplay} could not start: ${error}.`,
+			killed: `${submitCommandDisplay} timed out and was killed.`,
+			exit: (exitCode) => `${submitCommandDisplay} failed with exit code ${exitCode}.`,
+		},
+		detailLines:
+			prewrittenMetadata.length === 0
+				? []
+				: [
+						"Local PR metadata commit messages were prepared before submit; rerun ns flow submit after resolving the Graphite failure.",
+					],
+	});
 }
 
 export function formatPostSubmitFailureOutput({
@@ -324,6 +309,42 @@ function formatNoCurrentPrRecoveryGuidance(): string[] {
 		"`ns flow submit` checkpoints outstanding worktree changes before submitting.",
 		"If the branch still has no PR, inspect the Graphite output above and rerun `ns flow submit` after resolving the reported issue.",
 	];
+}
+
+interface CommandFailureReasonFormatters {
+	startup: (error: string) => string;
+	killed: string;
+	exit: (exitCode: number) => string;
+}
+
+function formatCommandFailureText({
+	commandDisplay,
+	output,
+	reason,
+	detailLines = [],
+}: {
+	commandDisplay: string;
+	output: SubmitCommandOutput;
+	reason: CommandFailureReasonFormatters;
+	detailLines?: readonly string[];
+}): string {
+	const reasonText = output.startupError
+		? reason.startup(output.startupError)
+		: output.killed
+			? reason.killed
+			: reason.exit(output.exitCode);
+
+	return [
+		reasonText,
+		...detailLines,
+		"",
+		`$ ${commandDisplay}`,
+		"",
+		formatOutputSection("stdout", output.stdout),
+		formatOutputSection("stderr", output.stderr),
+	]
+		.filter(Boolean)
+		.join("\n");
 }
 
 function formatBufferedCommandSection(
