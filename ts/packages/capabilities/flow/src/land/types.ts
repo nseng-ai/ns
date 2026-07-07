@@ -265,6 +265,10 @@ export interface LandingWarning {
 	readonly notificationAction?: string;
 }
 
+export function landingWarning(input: Omit<LandingWarning, "level">): LandingWarning {
+	return { level: "warning", ...input };
+}
+
 export interface LandGitGateway {
 	resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>>;
 	currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>>;

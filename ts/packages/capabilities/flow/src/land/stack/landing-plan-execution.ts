@@ -15,8 +15,8 @@ import {
 	presentLandingSuccess,
 } from "../land-presentation.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
-import type { LandingPlan } from "../types.ts";
-import type { LandingWarning, ParsedArgs } from "./types.ts";
+import type { LandingPlan, LandingWarning } from "../types.ts";
+import type { ParsedArgs } from "./types.ts";
 
 interface ExecuteLandingPlanOptions {
 	runtime: StackLandingRuntime;

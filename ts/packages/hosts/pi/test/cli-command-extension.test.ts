@@ -1532,6 +1532,23 @@ describe("cli command extension helper", () => {
 		expect(pi.commands.size).toBe(0);
 	});
 
+	test("rejects stale Pi command alias keys before registering commands", () => {
+		const pi = new FakePi();
+
+		expect(() => {
+			registerCliCommandExtension(pi, {
+				cliName: "fake-cli",
+				piNamespace: "dev",
+				commands: [{ name: "current", description: "Current command." }],
+				piCommandAliases: { stale: "dev:old" },
+				runCli: () => 0,
+			});
+		}).toThrow(
+			"CLI command extension for fake-cli includes a Pi command alias key stale that does not match any declared command name.",
+		);
+		expect(pi.commands.size).toBe(0);
+	});
+
 	test("rejects duplicate resolved Pi command aliases before registering collisions", () => {
 		const pi = new FakePi();
 

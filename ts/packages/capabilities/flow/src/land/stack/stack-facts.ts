@@ -36,7 +36,7 @@ import {
 	resolveMetadataDbPath,
 	type GraphiteTopology,
 } from "./graphite-topology.ts";
-import type { LandingWarning, StackSnapshot } from "../types.ts";
+import { landingWarning, type LandingWarning, type StackSnapshot } from "../types.ts";
 import type { LandStackExtensionAPI, LandingShape } from "./types.ts";
 
 export async function loadRepoRoot(
@@ -262,10 +262,9 @@ function staleMetadataBranchWarnings(droppedBranches: readonly string[]): Landin
 		.map((branch) => formatGraphiteOperation(untrackLocalBranchOperation(branch)))
 		.join("\n");
 	return [
-		{
-			level: "warning",
+		landingWarning({
 			message: `Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,
-		},
+		}),
 	];
 }
 
@@ -275,16 +274,18 @@ function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): Landing
 		.map(([branch]) => branch);
 	const warnings: LandingWarning[] = [];
 	if (marked.length > 1) {
-		warnings.push({
-			level: "warning",
-			message: `multiple branches are marked as trunk in Graphite metadata: ${marked.join(", ")}`,
-		});
+		warnings.push(
+			landingWarning({
+				message: `multiple branches are marked as trunk in Graphite metadata: ${marked.join(", ")}`,
+			}),
+		);
 	}
 	if (marked.length > 0 && !marked.includes(trunk)) {
-		warnings.push({
-			level: "warning",
-			message: `Graphite metadata marks ${marked.join(", ")} as trunk, but gt trunk is ${trunk}; ${trunk} remains the required merge target`,
-		});
+		warnings.push(
+			landingWarning({
+				message: `Graphite metadata marks ${marked.join(", ")} as trunk, but gt trunk is ${trunk}; ${trunk} remains the required merge target`,
+			}),
+		);
 	}
 	return warnings;
 }

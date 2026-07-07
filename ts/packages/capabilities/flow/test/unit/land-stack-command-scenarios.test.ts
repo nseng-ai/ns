@@ -9,7 +9,7 @@ import {
 	batchedPullRequestFactsGraphqlArgs,
 } from "../../src/land/stack/pr-facts.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
-import { formatLandProgressTitle } from "../../src/ns/commands/land.ts";
+import { formatLandProgressTitle } from "../../src/land/land-matrix-progress.ts";
 import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
 import type {
 	FlowLandExternalCallCategory,

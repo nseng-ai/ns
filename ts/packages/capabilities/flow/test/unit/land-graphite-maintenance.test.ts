@@ -9,6 +9,10 @@ import {
 	type GraphiteMaintenanceProgress,
 } from "../../src/land/stack/graphite-maintenance.ts";
 import type { LandingPlan } from "../../src/land/types.ts";
+import {
+	planGraphiteMaintenanceTargets,
+	refreshTargetsAfterMaintainedBranch,
+} from "../../src/land/stack/graphite-maintenance-plan.ts";
 import type { MergeLoopState } from "../../src/land/stack/types.ts";
 
 const REPO_ROOT = "/repo";
@@ -16,6 +20,69 @@ const METADATA_DB_PATH = `${REPO_ROOT}/.git/.graphite_metadata.db`;
 const FEATURE_A_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const FEATURE_B_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const FEATURE_C_SHA = "cccccccccccccccccccccccccccccccccccccccc";
+
+describe("Graphite maintenance planning", () => {
+	test("selects required next landing before optional descendants", () => {
+		const plan = createLandingPlan({
+			landingBranches: ["feature-a", "feature-b"],
+			descendantBranches: ["feature-c"],
+			descendantMaintenance: {
+				type: "auto",
+				branches: ["feature-c"],
+				targetBranches: ["feature-c"],
+			},
+		});
+
+		const maintenance = planGraphiteMaintenanceTargets(plan, 0);
+
+		expect(maintenance).toMatchObject({
+			mode: "required-next-landing",
+			severity: "fail",
+			branches: ["feature-b"],
+			refreshCheckedOutConflictHandling: "fail",
+			deleteCheckedOutConflictHandling: "fail",
+			isOptionalDescendant: false,
+			shouldHaltOnRefreshFailure: true,
+		});
+		expect(maintenance.skippedScopeText("feature-a")).toBe("local branch feature-a cleanup was");
+	});
+
+	test("selects optional descendant roots after final landing branch", () => {
+		const plan = createLandingPlan({
+			landingBranches: ["feature-a"],
+			descendantBranches: ["feature-c"],
+			descendantMaintenance: {
+				type: "auto",
+				branches: ["feature-c"],
+				targetBranches: ["feature-c"],
+			},
+		});
+
+		const maintenance = planGraphiteMaintenanceTargets(plan, 0);
+
+		expect(maintenance).toMatchObject({
+			mode: "optional-descendants",
+			severity: "warn",
+			branches: ["feature-c"],
+			refreshCheckedOutConflictHandling: "defer",
+			deleteCheckedOutConflictHandling: "fail",
+			isOptionalDescendant: true,
+			shouldHaltOnRefreshFailure: false,
+		});
+		expect(maintenance.skippedScopeText("feature-a")).toBe(
+			"local branch feature-a cleanup and descendant restack/update were",
+		);
+	});
+
+	test("refreshes downstream landing expectations after maintained branch only", () => {
+		const plan = createLandingPlan({
+			landingBranches: ["feature-a", "feature-b", "feature-c"],
+		});
+
+		expect(refreshTargetsAfterMaintainedBranch(plan, "feature-b")).toEqual(["feature-c"]);
+		expect(refreshTargetsAfterMaintainedBranch(plan, "feature-c")).toEqual([]);
+	});
+});
 
 describe("Graphite maintenance over LandContext", () => {
 	test("required next-landing maintenance proceeds through in-memory fakes", async () => {

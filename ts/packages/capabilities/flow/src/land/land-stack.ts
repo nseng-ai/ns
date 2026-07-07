@@ -28,15 +28,16 @@ import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
 import { buildLandingPlan } from "./stack/landing-plan.ts";
 import { presentLandStackFailure, type LandingSession } from "./stack/landing-coordination.ts";
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
-import { landMatrixRowsFromPlan, present, setStatus, usage } from "./land-presentation.ts";
+import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
+import { present, setStatus, usage } from "./land-presentation.ts";
 import { executeLandingPlan } from "./stack/landing-plan-execution.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandedPr,
-	LandingWarning,
 	ParsedArgs,
 } from "./stack/types.ts";
+import type { LandingWarning } from "./types.ts";
 
 export type { LandStackExtensionAPI } from "./stack/types.ts";
 

@@ -18,10 +18,10 @@ import {
 	formatFailure,
 	formatFailureNotification,
 	landFailureKind,
-	landMatrixRowsFromPlan,
 	presentBrief,
 	setStatus,
 } from "../land-presentation.ts";
+import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
@@ -58,7 +58,7 @@ async function preparePlanForMergeCore(
 ): Promise<LandStackResult<LandingPlan>> {
 	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
-	const { landContext } = runtime;
+	const landContext = runtime.landContext;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
@@ -70,7 +70,6 @@ async function preparePlanForMergeCore(
 			runtime,
 			ctx,
 			plan,
-			landContext,
 			confirmation: preMergeConfirmation,
 		});
 		if (slotOutcome.type === "failure") return slotOutcome;

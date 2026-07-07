@@ -2,8 +2,6 @@ import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command"
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import type { LandingWarning, StackSnapshot } from "../types.ts";
 
-export type { LandingWarning };
-
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
 /**

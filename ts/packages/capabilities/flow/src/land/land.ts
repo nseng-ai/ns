@@ -23,8 +23,8 @@ import {
 	renderLandConfirmationDetails,
 	renderLandResultBlockFromMessage,
 	usage,
-	type LandMatrixProgressSink,
 } from "./land-presentation.ts";
+import type { LandMatrixProgressSink } from "./land-matrix-progress.ts";
 import { runLandingDispatch } from "../land/landing-dispatch.ts";
 import type { Caps } from "@nseng-ai/clinkr";
 import type {
