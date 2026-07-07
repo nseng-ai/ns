@@ -43,7 +43,7 @@ describe("Reviews ns command face", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: ns reviews review");
-		expect(help).toContain("ls");
+		expect(help).not.toContain("ls");
 		expect(help).toContain("log");
 		expect(help).toContain("run");
 		expect(help).not.toContain("exec");
@@ -178,12 +178,12 @@ const fakeReviewsCommandSpecs = [
 		}),
 	},
 	{
-		name: "review-ls",
+		name: "ls",
 		description: "Alias for reviews list.",
 		entryPath: "fake://reviews/src/commands/review-ls.ts",
-		segments: ["reviews", "review", "ls"],
+		segments: ["reviews", "ls"],
 		command: fakeReviewsCommand({
-			key: "reviews/review/ls",
+			key: "reviews/ls",
 			name: "ls",
 			summary: "Alias for reviews list.",
 			description: "Alias for the fake Reviews list command.",

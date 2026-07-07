@@ -27,10 +27,6 @@ function reviewSkillSurfaceForDefinition(key: string, role: ReviewDisplayRole): 
 	return `skill:review-${key}`;
 }
 
-export function reviewsRunSurfaceForReviewKey(key: string): string {
-	return `reviews:run:${key}`;
-}
-
 function reviewSkillTitleForDefinition(key: string, role: ReviewDisplayRole): string {
 	const titleKey =
 		role === "tripwire" && key.endsWith("-tripwire") ? key.slice(0, -"-tripwire".length) : key;

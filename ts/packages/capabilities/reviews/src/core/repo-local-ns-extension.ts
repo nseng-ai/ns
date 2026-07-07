@@ -20,8 +20,6 @@ export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor(
 		}),
 		repoLocalNsCommandDescriptor({
 			command: reviewLsCommand,
-			manifestName: "review-ls",
-			manifestPath: ["review", "ls"],
 			packageExportPrefix: "@nseng-ai/reviews/commands",
 		}),
 		repoLocalNsCommandDescriptor({

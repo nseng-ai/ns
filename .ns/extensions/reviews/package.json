@@ -25,11 +25,7 @@
         "entry": "./src/commands/list.ts"
       },
       {
-        "name": "review-ls",
-        "path": [
-          "review",
-          "ls"
-        ],
+        "name": "ls",
         "description": "Alias for reviews list.",
         "entry": "./src/commands/review-ls.ts"
       },

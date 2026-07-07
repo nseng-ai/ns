@@ -39,7 +39,7 @@ describe("checked-in Reviews ns extension loading", () => {
 		expect(await groupHelp.exit).toBe(0);
 		const help = groupHelp.stdout.join("");
 		expect(help).toContain("Usage: ns reviews review");
-		expect(help).toContain("ls");
+		expect(help).not.toContain("ls");
 		expect(help).toContain("log");
 		expect(help).toContain("run");
 		expect(help).not.toContain("exec");
