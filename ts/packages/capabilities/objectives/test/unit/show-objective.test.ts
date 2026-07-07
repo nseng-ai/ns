@@ -43,7 +43,7 @@ describe("objective show", () => {
 	test("plain open record reports no blocked sentence, edges, or branches", async () => {
 		const exit = await runShowObjective(
 			contextWith({ fake: { records: [{ slug: "alpha", objectiveMd: "# alpha\n" }] } }),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -65,7 +65,7 @@ describe("objective show", () => {
 					],
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -94,7 +94,7 @@ describe("objective show", () => {
 					],
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -114,29 +114,23 @@ describe("objective show", () => {
 		expect(markdown).toContain("Beta feeds alpha.");
 	});
 
-	test("closed active counterpart renders as closed instead of found", async () => {
-		const exit = await runShowObjective(
-			contextWith({
-				fake: {
-					records: [
-						{
-							slug: "alpha",
-							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
-							),
-						},
-						{
-							slug: "beta",
-							isClosed: true,
-							objectiveMd: frontmatter(
-								edgeBlock([{ objective: "alpha", annotation: "Beta feeds alpha." }]),
-							),
-						},
-					],
-				},
-			}),
-			{ slug: "alpha" },
-		);
+	test("closed active counterpart is hidden by default", async () => {
+		const exit = await runShowObjective(contextWith({ fake: closedEdgeRecords() }), {
+			slug: "alpha",
+			shouldIncludeClosedEdges: false,
+		});
+
+		const data = expectOk(exit);
+		expect(data.edges).toEqual([]);
+		expect(plainHuman(data)).not.toContain("beta  closed");
+		expect(renderShowObjectiveMarkdown(data)).not.toContain("### `beta` (closed)");
+	});
+
+	test("shouldIncludeClosedEdges renders a closed active counterpart", async () => {
+		const exit = await runShowObjective(contextWith({ fake: closedEdgeRecords() }), {
+			slug: "alpha",
+			shouldIncludeClosedEdges: true,
+		});
 
 		const data = expectOk(exit);
 		expect(data.edges[0]?.counterpart).toEqual({
@@ -162,7 +156,7 @@ describe("objective show", () => {
 					],
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -188,7 +182,7 @@ describe("objective show", () => {
 					],
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -214,7 +208,7 @@ describe("objective show", () => {
 					],
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -236,7 +230,7 @@ describe("objective show", () => {
 					},
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -260,7 +254,7 @@ describe("objective show", () => {
 					},
 				},
 			}),
-			{ slug: "alpha" },
+			{ slug: "alpha", shouldIncludeClosedEdges: false },
 		);
 
 		const data = expectOk(exit);
@@ -353,7 +347,7 @@ describe("objective show", () => {
 	test("unknown slug exits negative with the not-found data", async () => {
 		const exit = await runShowObjective(
 			contextWith({ fake: { records: [{ slug: "alpha", objectiveMd: "# alpha\n" }] } }),
-			{ slug: "missing" },
+			{ slug: "missing", shouldIncludeClosedEdges: false },
 		);
 
 		if (exit.type !== "negative") throw new Error("expected negative exit");
@@ -364,6 +358,26 @@ describe("objective show", () => {
 		expect(exit.message).toContain("missing");
 	});
 });
+
+function closedEdgeRecords(): FakeObjectiveStorageGatewayOptions {
+	return {
+		records: [
+			{
+				slug: "alpha",
+				objectiveMd: frontmatter(
+					edgeBlock([{ objective: "beta", annotation: "Alpha depends on beta." }]),
+				),
+			},
+			{
+				slug: "beta",
+				isClosed: true,
+				objectiveMd: frontmatter(
+					edgeBlock([{ objective: "alpha", annotation: "Beta feeds alpha." }]),
+				),
+			},
+		],
+	};
+}
 
 function contextWith(options: {
 	fake: FakeObjectiveStorageGatewayOptions;
