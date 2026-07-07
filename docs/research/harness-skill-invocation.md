@@ -3,6 +3,7 @@
 **Researched:** 2026-06-13, against live official vendor docs (Claude Code, Codex) and the Pi source at `github.com/badlogic/pi-mono` (`packages/coding-agent`).
 **Why it exists:** input to an `areg` feature for "converting" imperative skills into invoke-only commands across the three harnesses this repo targets — Claude Code, Codex, and Pi — without polluting the model's ambient context. Records exactly how each harness discovers, surfaces, and gates skills/commands/prompts.
 **Staleness warning:** this space moves fast (Codex deprecated custom prompts in Jan 2026; Claude Code merged commands into skills). Treat as a snapshot, not a contract. Re-verify load-bearing facts before building.
+**Since researched:** first-party provisioning (`ns skills` / `ns update`, via `@nseng-ai/harness-artifacts`) now materializes npm-module-bundled skills into the same harness read roots this document describes; the repo's managed taxonomy over these mechanics lives in [Skill Conventions § Skill Invocation Kinds](../conventions/skill-conventions.md#skill-invocation-kinds-areg).
 
 ## The concept that matters
 

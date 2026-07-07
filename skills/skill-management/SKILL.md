@@ -31,6 +31,23 @@ For first-party local skills, **the canonical source is `skills/<name>/`**.
 The installed `.agents/skills/<name>` entry is a symlink back to that source,
 so all agents can discover the skill without duplicating content.
 
+## Positioning: which tool manages what
+
+This skill covers the `npx skills` channels: repo-local first-party skills
+(`skills/<name>/` + the symlink layout + `skills-lock.json`) and third-party
+GitHub-sourced vendored skills. Two adjacent surfaces are out of scope here:
+
+- **First-party npm-module-bundled provisioning** is `ns skills` / `ns update`
+  territory: harness artifacts declared by npm modules are reconciled into the
+  harness roots and recorded in `.ns-harness-artifacts-manifest.json`, with no
+  `npx skills` involvement.
+- **Invocation kinds and harness overlays** (whether a skill is ambient or
+  explicit-only per harness) are managed by `areg skill apply`; `areg` also
+  inspects both records as the whole-project registry.
+
+The channels are additive, and the two records (`skills-lock.json` and the
+install manifest) are complementary by decision — do not try to converge them.
+
 ## Goal
 
 For every skill-management operation, produce an end state with:
