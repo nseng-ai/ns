@@ -1,5 +1,6 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { brmemCheckJson } from "@nseng-ai/capability-kit/brmem-cli/testing";
 import { afterEach, expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -105,6 +106,10 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		const defaultResult = defaultBranchAvailabilityResult(command, args);
+		if (defaultResult !== undefined) {
+			return defaultResult;
+		}
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -156,6 +161,7 @@ export function branchContextExtensionTestOptions(
 ): BranchContextExtensionOptions {
 	return {
 		branchContextOperations: operations,
+		resolveTargetBranchInPreview: true,
 		createBranchContextContext(pi, cwd) {
 			const stdinCapablePi: StdinCapableCommandExecApi = {
 				supportsStdin: true,
@@ -266,6 +272,12 @@ export function branchContextEvidence(
 			`refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${(input.branch ?? PLAN_SLUG).replaceAll("/", "---")}:${input.key ?? PLAN_KEY}`,
 		commit: input.commit ?? "abc123",
 		sourceFile: input.sourceFile ?? "/tmp/plan.md",
+		branchSelection: input.branchSelection ?? {
+			type: "exact",
+			requestedBranch: input.branch ?? PLAN_SLUG,
+			selectedBranch: input.branch ?? PLAN_SLUG,
+			collisions: [],
+		},
 		...(input.summary === undefined ? {} : { summary: input.summary }),
 	};
 }
@@ -343,6 +355,44 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 		code: overrides.code ?? 0,
 		killed: overrides.killed ?? false,
 	};
+}
+
+function defaultBranchAvailabilityResult(command: string, args: string[]): ExecResult | undefined {
+	if (
+		command === "git" &&
+		args.length === 3 &&
+		args[0] === "rev-parse" &&
+		args[1] === "--verify" &&
+		args[2]?.startsWith("refs/heads/") === true
+	) {
+		return execResult({ code: 1, stderr: "fatal: Needed a single revision\n" });
+	}
+	if (
+		command === "git" &&
+		args.length === 3 &&
+		args[0] === "check-ref-format" &&
+		args[1] === "--branch"
+	) {
+		return execResult();
+	}
+	if (
+		command === "git" &&
+		args.length === 3 &&
+		args[0] === "cat-file" &&
+		args[1] === "-e" &&
+		args[2]?.startsWith(`refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/`) === true
+	) {
+		return execResult({ code: 1, stderr: "missing branch memory entry\n" });
+	}
+	if (
+		command === "brmem" &&
+		args[0] === "check" &&
+		args.includes("--format") &&
+		args.at(-1) === "json"
+	) {
+		return execResult({ stdout: brmemCheckJson(false) });
+	}
+	return undefined;
 }
 
 export function step(

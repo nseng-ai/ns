@@ -1,5 +1,6 @@
 import type { BranchContextAttachData } from "./branch-memory.ts";
 import { assertBrmemEntryAbsent, attachBranchContext, AttachBranchContextError } from "./attach.ts";
+import { checkBranchContextEntryPresence, throwBranchContextBrmemError } from "./branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
@@ -25,6 +26,7 @@ export interface CreateBranchContextFromFileParams {
 	slug: string;
 	filePath: string;
 	branchName?: string;
+	branchSelection?: BranchContextBranchSelection;
 	branchCreation?: BranchCreationMethod;
 	summary?: string;
 }
@@ -34,6 +36,22 @@ export interface CreateBranchContextFromFileOptions {
 	context: BranchContextContext;
 	signal?: AbortSignal;
 }
+
+export interface BranchContextBranchSelectionCollision {
+	branch: string;
+	isLocalBranch: boolean;
+	hasAttachedPlan: boolean;
+}
+
+interface BranchContextBranchSelectionBase {
+	requestedBranch: string;
+	selectedBranch: string;
+	collisions: BranchContextBranchSelectionCollision[];
+}
+
+export type BranchContextBranchSelection =
+	| (BranchContextBranchSelectionBase & { type: "exact" })
+	| (BranchContextBranchSelectionBase & { type: "auto-suffixed" });
 
 export interface BranchContextEvidence {
 	slug: string;
@@ -45,6 +63,7 @@ export interface BranchContextEvidence {
 	refName: string;
 	commit: string;
 	sourceFile: string;
+	branchSelection?: BranchContextBranchSelection;
 	summary?: string;
 }
 
@@ -56,6 +75,7 @@ export interface BranchContextCreateOperation {
 	namespace: string;
 	key: string;
 	params: CreateBranchContextFromFileParams;
+	branchSelection: BranchContextBranchSelection;
 	summary?: string;
 }
 
@@ -82,15 +102,26 @@ export async function createBranchContextFromFile(
 	const operation = buildBranchContextCreateOperation(params);
 	const { git, brmem, graphite } = options.context;
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
+	const selectedOperation =
+		params.branchSelection === undefined
+			? await selectBranchContextCreateOperationTarget({
+					cwd: options.cwd,
+					operation,
+					git,
+					brmem,
+					isExplicitTargetBranch: params.branchName !== undefined,
+					...optionalEntry("signal", options.signal),
+				})
+			: withBranchSelection(operation, params.branchSelection);
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
-		rawFilePath: operation.filePath,
+		rawFilePath: selectedOperation.filePath,
 		...optionalEntry("signal", options.signal),
 		git,
 	});
 	return createBranchContextFromResolvedSource({
 		cwd: options.cwd,
-		operation,
+		operation: selectedOperation,
 		sourceFile,
 		git,
 		brmem,
@@ -103,10 +134,7 @@ export async function createBranchContextFromResolvedSource(
 	options: CreateBranchContextFromResolvedSourceOptions,
 ): Promise<BranchContextEvidence> {
 	const startPoint = await resolveStartPoint(options.git, options.cwd, options.signal);
-	await assertLocalBranchAbsent(options.git, options.cwd, options.operation.branch, options.signal);
-	await assertBrmemEntryAbsent(options.brmem, options.operation.branch, options.operation.key, {
-		formatPresentMessage: formatStaleTargetBranchMemoryMessage,
-	});
+	await assertSelectedTargetBranchStillAvailable(options);
 	await createBranchContext(options.git, options.graphite, {
 		cwd: options.cwd,
 		method: options.operation.branchCreation,
@@ -141,6 +169,7 @@ export async function createBranchContextFromResolvedSource(
 		slug: options.operation.slug,
 		branchCreation: options.operation.branchCreation,
 		startPoint,
+		branchSelection: options.operation.branchSelection,
 		summary: options.operation.summary,
 	});
 }
@@ -160,6 +189,9 @@ export function buildBranchContextCreateOperation(
 	if (branch !== slug) {
 		operationParams.branchName = branch;
 	}
+	if (params.branchSelection !== undefined) {
+		operationParams.branchSelection = params.branchSelection;
+	}
 	if (summary !== undefined) {
 		operationParams.summary = summary;
 	}
@@ -172,6 +204,7 @@ export function buildBranchContextCreateOperation(
 		namespace: BRANCH_CONTEXT_NAMESPACE,
 		key: buildBranchContextPlanKey(slug),
 		params: operationParams,
+		branchSelection: exactBranchSelection(branch),
 	};
 	if (summary === undefined) {
 		return operation;
@@ -195,6 +228,7 @@ export function formatBranchContextCreatePreview(
 		"Target:",
 		`Branch: ${operation.branch}`,
 		`Branch creation: ${operation.branchCreation}`,
+		...formatBranchSelectionLines(operation.branchSelection),
 		`Start point: ${context.startPoint}`,
 		`Branch Memory namespace: ${operation.namespace}`,
 		`Branch Memory key: ${operation.key}`,
@@ -233,6 +267,7 @@ export function formatBranchContextEvidence(evidence: BranchContextEvidence): st
 		"Created branch context and attached plan.",
 		`Branch: ${evidence.branch}`,
 		`Branch creation: ${evidence.branchCreation}`,
+		...formatBranchSelectionLines(evidence.branchSelection),
 		`Start point: ${evidence.startPoint}`,
 		`Namespace: ${evidence.namespace}`,
 		`Key: ${evidence.key}`,
@@ -254,6 +289,7 @@ export function formatBranchContextCreateFailure(
 	return [
 		"Failed to create branch context and attach plan.",
 		`Branch: ${operation.branch}`,
+		...formatBranchSelectionLines(operation.branchSelection),
 		`Branch creation: ${operation.branchCreation}`,
 		`Namespace: ${operation.namespace}`,
 		`Key: ${operation.key}`,
@@ -266,6 +302,57 @@ export function formatBranchContextCreateFailure(
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
 	const trimmedBranchName = branchName?.trim();
 	return trimmedBranchName && trimmedBranchName.length > 0 ? trimmedBranchName : slug;
+}
+
+export async function selectBranchContextCreateOperationTarget(options: {
+	cwd: string;
+	operation: BranchContextCreateOperation;
+	git: GitGateway;
+	brmem: BrmemGateway;
+	isExplicitTargetBranch: boolean;
+	signal?: AbortSignal;
+}): Promise<BranchContextCreateOperation> {
+	const maxAttempts = 100;
+	const requestedBranch = options.operation.branch;
+	if (options.isExplicitTargetBranch) {
+		await assertSelectedTargetBranchStillAvailable(options);
+		return withBranchSelection(options.operation, exactBranchSelection(requestedBranch));
+	}
+
+	const collisions: BranchContextBranchSelectionCollision[] = [];
+	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+		const candidate = attempt === 1 ? requestedBranch : `${requestedBranch}-${attempt}`;
+		const occupancy = await checkTargetBranchOccupancy({
+			cwd: options.cwd,
+			git: options.git,
+			brmem: options.brmem,
+			branch: candidate,
+			key: options.operation.key,
+			...optionalEntry("signal", options.signal),
+		});
+		if (!occupancy.isLocalBranch && !occupancy.hasAttachedPlan) {
+			const selection =
+				collisions.length === 0
+					? exactBranchSelection(candidate)
+					: {
+							type: "auto-suffixed" as const,
+							requestedBranch,
+							selectedBranch: candidate,
+							collisions,
+						};
+			return withBranchSelection(options.operation, selection);
+		}
+		collisions.push({ branch: candidate, ...occupancy });
+	}
+
+	throw new Error(
+		[
+			"Could not find an available default target branch for branch context creation.",
+			`Base branch: ${requestedBranch}`,
+			`Attempts: ${maxAttempts}`,
+			`Last attempted branch: ${requestedBranch}-${maxAttempts}`,
+		].join("\n"),
+	);
 }
 
 async function checkBranchRefFormat(
@@ -313,6 +400,81 @@ async function assertLocalBranchAbsent(
 		);
 	}
 	throw new Error(check.error.message);
+}
+
+interface SelectedBranchAvailabilityOptions {
+	cwd: string;
+	operation: BranchContextCreateOperation;
+	git: GitGateway;
+	brmem: BrmemGateway;
+	signal?: AbortSignal;
+}
+
+async function assertSelectedTargetBranchStillAvailable(
+	options: SelectedBranchAvailabilityOptions,
+): Promise<void> {
+	await assertLocalBranchAbsent(options.git, options.cwd, options.operation.branch, options.signal);
+	await assertBrmemEntryAbsent(options.brmem, options.operation.branch, options.operation.key, {
+		formatPresentMessage: formatStaleTargetBranchMemoryMessage,
+	});
+}
+
+async function checkTargetBranchOccupancy(options: {
+	cwd: string;
+	git: GitGateway;
+	brmem: BrmemGateway;
+	branch: string;
+	key: string;
+	signal?: AbortSignal;
+}): Promise<{ isLocalBranch: boolean; hasAttachedPlan: boolean }> {
+	const localBranch = await options.git.localBranchPresence({
+		cwd: options.cwd,
+		branch: options.branch,
+		...optionalEntry("signal", options.signal),
+	});
+	if (localBranch.type === "error") {
+		throw new Error(localBranch.error.message);
+	}
+	const attachedPlan = await checkBranchContextEntryPresence(options.brmem, {
+		branch: options.branch,
+		key: options.key,
+	});
+	if (attachedPlan.type === "error") {
+		throwBranchContextBrmemError(attachedPlan.error);
+	}
+	return {
+		isLocalBranch: localBranch.type === "present",
+		hasAttachedPlan: attachedPlan.type === "present",
+	};
+}
+
+function exactBranchSelection(branch: string): BranchContextBranchSelection {
+	return { type: "exact", requestedBranch: branch, selectedBranch: branch, collisions: [] };
+}
+
+function withBranchSelection(
+	operation: BranchContextCreateOperation,
+	branchSelection: BranchContextBranchSelection,
+): BranchContextCreateOperation {
+	const branch = branchSelection.selectedBranch;
+	const params: CreateBranchContextFromFileParams = {
+		...operation.params,
+		...(branch === operation.slug ? {} : { branchName: branch }),
+	};
+	return { ...operation, branch, params, branchSelection };
+}
+
+export function formatBranchSelectionLines(
+	selection: BranchContextBranchSelection | undefined,
+): string[] {
+	if (selection === undefined || selection.type === "exact") {
+		return [];
+	}
+	return [
+		`Default branch: ${selection.requestedBranch}`,
+		`Selected target branch: ${selection.selectedBranch}`,
+		`Default branch ${selection.requestedBranch} already exists or has an attached plan; selected ${selection.selectedBranch}.`,
+	];
 }
 
 function formatStaleTargetBranchMemoryMessage(context: {
@@ -437,6 +599,7 @@ function buildEvidence(input: {
 	slug: string;
 	branchCreation: BranchCreationMethod;
 	startPoint: string;
+	branchSelection: BranchContextBranchSelection;
 	summary: string | undefined;
 }): BranchContextEvidence {
 	const evidence = {
@@ -449,6 +612,7 @@ function buildEvidence(input: {
 		refName: input.data.refName,
 		commit: input.data.commit,
 		sourceFile: input.data.sourceFile,
+		branchSelection: input.branchSelection,
 	};
 
 	if (input.summary === undefined) {

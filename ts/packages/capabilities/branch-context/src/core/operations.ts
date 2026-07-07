@@ -97,12 +97,24 @@ export type AttachRequest = z.infer<typeof attachRequestSchema>;
 export type ListRequest = z.infer<typeof listRequestSchema>;
 export type KeyRequest = z.infer<typeof keyRequestSchema>;
 
-export type BranchContextData = ReturnType<typeof branchContextJson>;
+export type BranchContextData = z.infer<typeof branchContextResultSchema>;
 export type LoadPlanData = ReturnType<typeof loadedPlanJson>;
 export type AttachData = ReturnType<typeof attachJson>;
 export type ListData = ReturnType<typeof listJson>;
 export type CheckData = ReturnType<typeof checkJson>;
 export type DeleteData = ReturnType<typeof deleteJson>;
+
+const branchSelectionCollisionSchema = z.object({
+	branch: z.string(),
+	isLocalBranch: z.boolean(),
+	hasAttachedPlan: z.boolean(),
+});
+
+const branchSelectionBaseSchema = z.object({
+	requestedBranch: z.string(),
+	selectedBranch: z.string(),
+	collisions: z.array(branchSelectionCollisionSchema),
+});
 
 export const branchContextResultSchema = z.object({
 	slug: z.string(),
@@ -114,6 +126,12 @@ export const branchContextResultSchema = z.object({
 	refName: z.string(),
 	commit: z.string(),
 	sourceFile: z.string(),
+	requestedBranch: z.string(),
+	selectedBranch: z.string(),
+	branchSelection: z.union([
+		branchSelectionBaseSchema.extend({ type: z.literal("exact") }),
+		branchSelectionBaseSchema.extend({ type: z.literal("auto-suffixed") }),
+	]),
 	summary: z.string().optional(),
 });
 
@@ -464,8 +482,17 @@ function branchContextJson(evidence: BranchContextEvidence): {
 	refName: string;
 	commit: string;
 	sourceFile: string;
+	requestedBranch: string;
+	selectedBranch: string;
+	branchSelection: NonNullable<BranchContextEvidence["branchSelection"]>;
 	summary?: string;
 } {
+	const branchSelection = evidence.branchSelection ?? {
+		type: "exact" as const,
+		requestedBranch: evidence.branch,
+		selectedBranch: evidence.branch,
+		collisions: [],
+	};
 	return {
 		slug: evidence.slug,
 		branch: evidence.branch,
@@ -476,6 +503,9 @@ function branchContextJson(evidence: BranchContextEvidence): {
 		refName: evidence.refName,
 		commit: evidence.commit,
 		sourceFile: evidence.sourceFile,
+		requestedBranch: branchSelection.requestedBranch,
+		selectedBranch: branchSelection.selectedBranch,
+		branchSelection,
 		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
 	};
 }

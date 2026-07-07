@@ -69,6 +69,7 @@ export interface BranchContextExtensionOptions {
 	branchContextPrefix?: string;
 	planStoreRoot?: string;
 	branchContextOperations?: BranchContextOperations;
+	resolveTargetBranchInPreview?: boolean;
 	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
 }
 
