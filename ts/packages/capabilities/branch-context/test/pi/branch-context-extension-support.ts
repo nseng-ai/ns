@@ -106,11 +106,11 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.execCalls.push({ command, args: [...args], options });
 		const defaultResult = defaultBranchAvailabilityResult(command, args);
 		if (defaultResult !== undefined) {
 			return defaultResult;
 		}
-		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -355,6 +355,16 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 		code: overrides.code ?? 0,
 		killed: overrides.killed ?? false,
 	};
+}
+
+export function isDefaultBranchAvailabilityProbe(
+	call: Pick<ExecCall, "command" | "args">,
+): boolean {
+	return defaultBranchAvailabilityResult(call.command, call.args) !== undefined;
+}
+
+export function nonAvailabilityExecCalls(calls: readonly ExecCall[]): ExecCall[] {
+	return calls.filter((call) => !isDefaultBranchAvailabilityProbe(call));
 }
 
 function defaultBranchAvailabilityResult(command: string, args: string[]): ExecResult | undefined {

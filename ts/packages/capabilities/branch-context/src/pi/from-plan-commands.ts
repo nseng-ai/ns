@@ -177,6 +177,7 @@ interface CreateBranchContextPreviewBase {
 	targetBranch: string;
 	branchNameForCreation?: string;
 	isExplicitTargetBranch: boolean;
+	/** Display-only preview evidence; creation re-runs core target selection authoritatively. */
 	branchSelection?: BranchContextBranchSelection;
 	slugEvidence: PlanContentSlugEvidence;
 	branchCreation: BranchCreationMethod;
@@ -450,9 +451,9 @@ export async function deriveCreateBranchContextPreview(
 		planKey,
 		requestedBranch: target.targetBranch,
 		targetBranch: selectedOperation.branch,
-		...(selectedOperation.branch === slugEvidence.slug
+		...(target.branchNameForCreation === undefined
 			? {}
-			: { branchNameForCreation: selectedOperation.branch }),
+			: { branchNameForCreation: target.branchNameForCreation }),
 		isExplicitTargetBranch: target.isExplicitTargetBranch,
 		branchSelection: selectedOperation.branchSelection,
 		branchCreation,
@@ -984,14 +985,12 @@ async function createBranchContextFromPreview({
 		slug: string;
 		filePath: string;
 		branchCreation: BranchCreationMethod;
-		branchSelection?: BranchContextBranchSelection;
 		branchName?: string;
 		summary?: string;
 	} = {
 		slug: preview.slug,
 		filePath: preview.filePath,
 		branchCreation: preview.branchCreation,
-		...(preview.branchSelection === undefined ? {} : { branchSelection: preview.branchSelection }),
 	};
 	if (preview.branchNameForCreation !== undefined) {
 		params.branchName = preview.branchNameForCreation;

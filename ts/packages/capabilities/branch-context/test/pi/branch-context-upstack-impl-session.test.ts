@@ -17,6 +17,7 @@ import {
 	gitCheckoutStep,
 	gitCurrentBranchStep,
 	makeNamedPlanFile,
+	nonAvailabilityExecCalls,
 	planSlugExecCall,
 	planSlugStep,
 	branchContextEvidence,
@@ -72,7 +73,12 @@ describe("branch-context-upstack-impl-session", () => {
 			filePath,
 			branchCreation: "graphite",
 		});
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([
 			planSlugExecCall(DEFAULT_PLAN_CONTENT),
 			{ command: "git", args: ["checkout", PLAN_SLUG] },
 		]);
@@ -117,9 +123,12 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.selectPlanCalls).toHaveLength(1);
 		expect(fakes.createBranchCalls).toEqual([]);
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "git", args: ["checkout", IMPL_BRANCH] },
-		]);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([{ command: "git", args: ["checkout", IMPL_BRANCH] }]);
 		expect(pi.execCalls.some((call) => call.command === "pi")).toBe(false);
 		expect(pi.sentMessages[0]?.content).toContain(
 			"Reusing existing branch context and attached plan.",
@@ -180,9 +189,12 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "git", args: ["checkout", explicitBranch] },
-		]);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([{ command: "git", args: ["checkout", explicitBranch] }]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: explicit --branch");
 		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);
 	});
@@ -208,7 +220,12 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([]);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain(
 			"Dry run: no branch would be created, no plan would be attached, no checkout would happen",
@@ -272,7 +289,12 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([
 			{ command: "git", args: ["branch", "--show-current"] },
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
@@ -338,7 +360,12 @@ describe("branch-context-upstack-impl-session", () => {
 		await command?.handler(`--branch ${branch}`, context.ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([]);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("No existing branch context with an attached plan could be reused.");
 		expect(content).toContain("Multiple supported branch-context plan entries exist");
@@ -375,7 +402,12 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([
 			{ command: "git", args: ["branch", "--show-current"] },
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
@@ -504,9 +536,12 @@ describe("branch-context-upstack-impl-session", () => {
 		await command?.handler(`${filePath} --dry-run`, context.ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			planSlugExecCall(DEFAULT_PLAN_CONTENT),
-		]);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([planSlugExecCall(DEFAULT_PLAN_CONTENT)]);
 		expect(pi.sentMessages[0]?.content).toContain("Dry run: no branch would be created");
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 		expect(pi.sentMessages[0]?.content).toContain(`git checkout ${PLAN_SLUG}`);
@@ -536,9 +571,12 @@ describe("branch-context-upstack-impl-session", () => {
 		await command?.handler(`${filePath} --yes`, context.ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			planSlugExecCall(DEFAULT_PLAN_CONTENT),
-		]);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toEqual([planSlugExecCall(DEFAULT_PLAN_CONTENT)]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("Failed to create branch context and attach the plan.");
 		expect(content).toContain(
@@ -565,9 +603,12 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({ branchCreation: "plain-git" });
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual(
-			{ command: "git", args: ["checkout", PLAN_SLUG] },
-		);
+		expect(
+			nonAvailabilityExecCalls(pi.execCalls).map((call) => ({
+				command: call.command,
+				args: call.args,
+			})),
+		).toContainEqual({ command: "git", args: ["checkout", PLAN_SLUG] });
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(context.replacementUserMessages).toEqual([DEFAULT_IMPL_COMMAND]);

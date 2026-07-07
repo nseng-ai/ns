@@ -95,6 +95,7 @@ describe("buildBranchContextCreateOperation", () => {
 			},
 			summary: "Create the branch.",
 		});
+		expect(operation.params).not.toHaveProperty("branchSelection");
 	});
 
 	test("keeps the storage key slug-derived when an explicit branch is supplied", () => {
