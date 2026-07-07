@@ -1,5 +1,6 @@
 import { formatCommandDetails } from "@nseng-ai/foundation/exec";
 
+import type { GitCwdParams, GitOptionalResult } from "./git-contract.ts";
 import type { CommandResult } from "./command-result.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
@@ -9,13 +10,7 @@ export type WorktreeCommandResult = CommandResult;
 export type ExecGit = (args: string[], timeout: number) => Promise<WorktreeCommandResult>;
 
 type OptionalRepoRootGateway = {
-	optionalRepoRoot(params: {
-		cwd: string;
-	}): Promise<
-		| { type: "found"; value: string }
-		| { type: "missing" }
-		| { type: "error"; error: { message: string } }
-	>;
+	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 };
 
 export interface PendingWorktreeSnapshot {
