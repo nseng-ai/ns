@@ -322,7 +322,7 @@ User interview:
 
 Shipped CLI:
 
-- Active-root duplicate detection: `ns objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Archived records should still be checked before reusing a slug.
+- Active-root duplicate detection: `ns objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Check git history before reusing a slug that may have belonged to a deleted record.
 
 Future CLI pushdown candidates:
 
@@ -402,7 +402,7 @@ Future CLI pushdown candidates:
 
 ### Source-control deletion
 
-There is no Objective-specific archive command. If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control. Git history is the recovery mechanism.
+If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control. Git history is the recovery mechanism.
 
 ### `ns objective exec tracking-gate`
 

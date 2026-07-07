@@ -48,7 +48,6 @@ import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 const COMMAND_TIMEOUT_MS = 5_000;
-const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 
 export type ExecResult = PiExecResultLike;
 
@@ -330,8 +329,6 @@ function formatBrmemScopes(entries: readonly BrmemEntry[]): string {
 }
 
 function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: string } | undefined {
-	if (EXCLUDED_BRMEM_NAMESPACES.has(entry.namespace)) return undefined;
-
 	const keyParts = entry.key.split("/").filter((part) => part.length > 0);
 	const topLevelKey = keyParts[0] ?? entry.key;
 	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;

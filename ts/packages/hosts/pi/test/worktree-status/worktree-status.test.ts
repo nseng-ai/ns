@@ -647,7 +647,6 @@ describe("composed local and gh worktree status loading", () => {
 							{ namespace: "handoffs", key: "resume-resource-audit-session.md" },
 							{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
 							{ namespace: "session-artifacts", key: "logs/run-123.md" },
-							{ namespace: "objectives-archive", key: "closed/objective.md" },
 						],
 					},
 				}),

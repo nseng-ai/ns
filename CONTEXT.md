@@ -62,11 +62,11 @@ The role of an **Objective** as human-readable context and ordered work guidance
 
 **Active Objective Root**:
 The checked-in repository directory `.ns/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows. Records leave active checkout state by ordinary source-control deletion.
-*Avoid*: open objectives directory, hidden local cache, archive root, tombstone store
+*Avoid*: open objectives directory, hidden local cache, parking root, tombstone store
 
 **Deleted Objective Record**:
 An **Objective** record removed from `.ns/objectives/` through ordinary source control. It is absent from Objective discovery; git history is the recovery mechanism.
-*Avoid*: archived objective, closed objective, stale update, hidden tombstone
+*Avoid*: parked objective, closed objective, stale update, hidden tombstone
 
 **Objective Slug**:
 The directory name under the **Active Objective Root** that is the stable identity for one **Objective** while the record exists in the checkout.
@@ -90,11 +90,11 @@ The explicit mutation workflow that updates objective tracking by editing durabl
 
 **Objective Close**:
 The explicit mutation workflow that records an objective as complete or intentionally abandoned while preserving its checked-in active-root record and writing a **Closure Marker**.
-*Avoid*: Deletion, archival state machine
+*Avoid*: Deletion, separate parking state machine
 
 **Closure Marker**:
 A lightweight `closed.md` file whose existence lets tools identify closed objectives without language-model interpretation.
-*Avoid*: Hidden status, archive state, deletion
+*Avoid*: Hidden status, parking state, deletion
 
 **Record Frontmatter**:
 An optional YAML block at the top of an **Objective**'s `objective.md` carrying exactly two keys — `blocked` (the **Blocked Sentence**) and `edges` (**Objective Edges**) — and nothing else (ADR 0025). Most records have none; every `objective.md` reader strips or parses the block and behaves identically for records with and without it.

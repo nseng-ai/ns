@@ -30,7 +30,6 @@ describe("checked-in Objective ns extension loading", () => {
 		expect(output).toContain("list");
 		expect(output).toContain("show");
 		expect(output).toContain("check");
-		expect(output).not.toContain("archive");
 		expect(output).not.toContain("read-objective");
 		expect(output).not.toContain("tracking-gate");
 		expect(help.stderr.join("")).toBe("");
@@ -204,7 +203,7 @@ describe("checked-in Objective ns extension loading", () => {
 					{
 						objective: "edge-beta",
 						annotation: "Alpha depends on beta.",
-						counterpart: { state: "active", annotation: "Beta feeds alpha." },
+						counterpart: { annotation: "Beta feeds alpha." },
 					},
 				],
 			},

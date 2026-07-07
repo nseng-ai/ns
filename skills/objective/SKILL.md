@@ -26,7 +26,7 @@ Do not use `docs/objectives/`.
 
 **Slug identity.** The `<slug>` directory name is the durable Objective identity while the record exists in the checkout. Titles, command names, product names, prose, branches, and implementation packages may be renamed without changing the Objective slug. Do not move, delete, or recreate an Objective under a new slug unless the user explicitly asks for an Objective slug migration.
 
-**Deletion is source-controlled.** Closing an Objective does not delete it. If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control and recover it from git history if needed. Do not add tombstones, registries, or an Objective-specific archive location.
+**Deletion is source-controlled.** Closing an Objective does not delete it. If a record should leave active checkout state, delete `.ns/objectives/<slug>/` through ordinary source control and recover it from git history if needed. Do not add tombstones, registries, or a separate parking location.
 
 ## Objective skill family
 

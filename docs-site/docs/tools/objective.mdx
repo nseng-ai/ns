@@ -1,12 +1,11 @@
 ---
 title: "objective"
-description: "CLI reference for ns objective — list, inspect, validate, and archive Objective records."
+description: "CLI reference for ns objective — list, inspect, and validate Objective records."
 ---
 
 `ns objective` is the deterministic command surface for [Objective](/docs/concepts/objectives)
-records. It reads and maintains the records under `.ns/objectives/` in the current
-repository — listing, showing, structural validation, archiving, and a small set of
-agent-internal `exec` helpers.
+records. It reads records under `.ns/objectives/` in the current repository — listing,
+showing, structural validation, and a small set of agent-internal `exec` helpers.
 
 The lifecycle mutations — creating an Objective, recommending next work, recording
 progress, closing — are agent workflows driven by the Objective skills installed by
@@ -70,24 +69,7 @@ ns objective check --all
 
 | Option | Description |
 | --- | --- |
-| `-a, --all` | Sweep every record's frontmatter across the active and archive roots instead of checking one slug. |
-
-### `ns objective archive`
-
-Move an Objective record out of active discovery (or back). Archiving is a location
-move — the record keeps its slug and every file; nothing is deleted.
-
-```bash
-ns objective archive <slug>
-ns objective archive <slug> --unarchive
-```
-
-| Option | Description |
-| --- | --- |
-| `-u, --unarchive` | Move an archived record back to the active set. |
-
-Both open and closed Objectives can be archived. Closing is separate (and skill-driven);
-archiving only controls whether the record appears in active discovery.
+| `-a, --all` | Sweep every active record's frontmatter instead of checking one slug. |
 
 ### `ns objective exec …`
 

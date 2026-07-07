@@ -81,7 +81,7 @@ Primary starting signal: trunk commits that touched the Objective directory:
 git log --oneline <trunk> -- .ns/objectives/<slug>/
 ```
 
-If the record was deleted from the active checkout, inspect git history for `.ns/objectives/<slug>/` rather than using an Objective-specific archive path.
+If the record was deleted from the active checkout, inspect git history for `.ns/objectives/<slug>/` rather than looking for a separate parking path.
 
 Resolve each candidate commit to associated PRs with `gh`. Useful commands include:
 
