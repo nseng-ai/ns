@@ -117,4 +117,3 @@ export interface AregManifestSkillSourcesInspection {
 	sources: readonly AregManifestSkillSourceInspection[];
 	errors: readonly AregManifestInspectionError[];
 }
-
