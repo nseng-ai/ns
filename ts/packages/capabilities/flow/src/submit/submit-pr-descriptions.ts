@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
@@ -20,6 +21,7 @@ import type {
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
+import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
 export type SubmitPrDescriptionGenerationResult =
 	| ({ ok: true } & SubmitPrDescriptionSummary)
@@ -45,7 +47,7 @@ type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbac
 
 export interface SubmitPrDescriptionProgressEvent {
 	prNumber: number;
-	state: "active" | "done" | "skipped" | "failed";
+	state: Exclude<SubmitMatrixCellState, "pending">;
 	message?: string;
 }
 
@@ -140,7 +142,7 @@ export async function generateSubmitPrDescriptions(input: {
 		input.onPrProgress?.({
 			prNumber: number,
 			state: progress.state,
-			...(progress.message === undefined ? {} : { message: progress.message }),
+			...optionalEntry("message", progress.message),
 		});
 		accumulator = collectPrDescriptionResult({
 			result,
