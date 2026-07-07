@@ -1,10 +1,10 @@
 ---
-name: objective-readme-driven-development
-description: Objective-backed README-driven development — create a fresh ns Objective whose canonical reference is a user-facing README, then run the readme-driven-development loop against it.
+name: objective-create-readme-driven-development
 disable-model-invocation: true
+description: Objective-backed README-driven development — create a fresh ns Objective whose canonical reference is a user-facing README, then run the readme-driven-development loop against it.
 ---
 
-# objective-readme-driven-development
+# objective-create-readme-driven-development
 
 Composes the portable `readme-driven-development` loop with ns Objectives, the way `pi-grill-ui` composes `grilling`. Read the `readme-driven-development` skill first; this skill adds only the Objective mechanics.
 

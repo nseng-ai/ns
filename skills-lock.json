@@ -259,6 +259,11 @@
       "sourceType": "local",
       "computedHash": "059e3d47258c0840c43e2d322351b150d4ecf03c36b1e8875a730da7f5c418e5"
     },
+    "objective-create-readme-driven-development": {
+      "source": "skills/objective-create-readme-driven-development",
+      "sourceType": "local",
+      "computedHash": "61cc530cf59b85991e1cee380da3f56b161f21f234059d26919bf0f717561ce8"
+    },
     "objective-critique": {
       "source": "skills/objective-critique",
       "sourceType": "local",
@@ -335,6 +340,11 @@
       "source": "skills/python-fake-driven-testing",
       "sourceType": "local",
       "computedHash": "668da2d7e3596c8759a5521ac88b4c079a13e54ca5effcd956c6bca10ce31788"
+    },
+    "readme-driven-development": {
+      "source": "skills/readme-driven-development",
+      "sourceType": "local",
+      "computedHash": "02c0835e89f4aa4325579fd1ab5f19f9a895dbb5c06343c19efd2682c94f581f"
     },
     "refactor-swarm": {
       "source": "skills/refactor-swarm",
