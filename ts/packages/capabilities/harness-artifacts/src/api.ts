@@ -25,6 +25,19 @@ export {
 	NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG,
 	type FirstPartySkillHarnessArtifact,
 } from "./first-party-catalog.ts";
+export {
+	nodeHarnessArtifactFileSystemGateway,
+	nodeHarnessArtifactModuleDiscoveryGateway,
+	type HarnessArtifactFileSystemErrorInfo,
+	type HarnessArtifactFileSystemGateway,
+	type HarnessArtifactModuleDiscoveryGateway,
+	type ModuleDiscoveryDirectoryEntry,
+	type ModuleDiscoveryDirectoryState,
+	type ModuleDiscoveryPathState,
+	type ModuleDiscoveryTextFileState,
+	type OptionalFileState,
+	type OptionalTextFileState,
+} from "./filesystem.ts";
 export type { PathState, TextFileState } from "./fs-state.ts";
 export {
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
@@ -79,19 +92,12 @@ export {
 } from "./reconcile.ts";
 export {
 	discoverExtensionModuleHarnessArtifacts,
-	nodeHarnessArtifactModuleDiscoveryGateway,
 	moduleArtifactDiscoveryDiagnosticSchema,
 	type DiscoverExtensionModuleHarnessArtifactsRequest,
 	type DiscoverExtensionModuleHarnessArtifactsResult,
-	type HarnessArtifactModuleDiscoveryGateway,
 	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
 	type ModuleArtifactDiscoveryDiagnostic,
 	type ModuleArtifactDiscoveryDiagnosticCode,
-	type ModuleArtifactDiscoveryFileSystemErrorInfo,
-	type ModuleDiscoveryDirectoryEntry,
-	type ModuleDiscoveryDirectoryState,
-	type ModuleDiscoveryPathState,
-	type ModuleDiscoveryTextFileState,
 	type ResolvedNpmModuleHarnessArtifactCatalog,
 } from "./module-artifact-discovery.ts";
 export {
@@ -107,13 +113,10 @@ export {
 	applyPreparedProvision,
 	INSTALL_MANIFEST_FILE_NAME,
 	installManifestPathForPlan,
-	nodeHarnessArtifactFileSystemGateway,
 	prepareProvision,
 	previewHarnessArtifactProvision,
 	readInstallManifestAtRoot,
 	type ApplyPreparedProvisionOptions,
-	type HarnessArtifactFileSystemErrorInfo,
-	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionAppliedOutcome,
 	type HarnessArtifactProvisionApplyOutcome,
 	type HarnessArtifactProvisionApplyResult,
@@ -121,8 +124,6 @@ export {
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionPreview,
 	type HarnessArtifactProvisionRequest,
-	type OptionalFileState,
-	type OptionalTextFileState,
 	type PreparedHarnessArtifactProvision,
 } from "./provision-apply.ts";
 export {

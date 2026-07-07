@@ -1,5 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { formatErrorMessage, formatZodIssue, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
@@ -12,7 +11,14 @@ import {
 	type HarnessPathContext,
 	type HarnessScope,
 } from "./harness-paths.ts";
-import { sortStrings } from "./sort.ts";
+import {
+	fileSystemError,
+	nodeHarnessArtifactFileSystemGateway,
+	type HarnessArtifactFileSystemErrorInfo,
+	type HarnessArtifactFileSystemGateway,
+	type OptionalFileState,
+	type OptionalTextFileState,
+} from "./filesystem.ts";
 import {
 	buildInstallManifestData,
 	buildInstallManifestEntry,
@@ -78,34 +84,12 @@ export type HarnessArtifactProvisionApplyOutcome =
 	| HarnessArtifactProvisionAppliedOutcome
 	| HarnessArtifactProvisionConflictOutcome;
 
-export interface HarnessArtifactFileSystemGateway {
-	listFiles(
-		rootPath: string,
-	): Promise<Result<readonly string[], HarnessArtifactFileSystemErrorInfo>>;
-	readOptionalFile(
-		path: string,
-	): Promise<Result<OptionalFileState, HarnessArtifactFileSystemErrorInfo>>;
-	writeFile(
-		path: string,
-		bytes: Uint8Array,
-	): Promise<Result<void, HarnessArtifactFileSystemErrorInfo>>;
-	readOptionalTextFile(
-		path: string,
-	): Promise<Result<OptionalTextFileState, HarnessArtifactFileSystemErrorInfo>>;
-	writeTextFile(
-		path: string,
-		text: string,
-	): Promise<Result<void, HarnessArtifactFileSystemErrorInfo>>;
-}
-
-export type OptionalFileState = { type: "missing" } | { type: "file"; bytes: Uint8Array };
-export type OptionalTextFileState = { type: "missing" } | { type: "file"; text: string };
-
-export interface HarnessArtifactFileSystemErrorInfo {
-	code: "filesystem_error";
-	message: string;
-	details: { path: string; operation: "list" | "read" | "write" };
-}
+export type {
+	HarnessArtifactFileSystemErrorInfo,
+	HarnessArtifactFileSystemGateway,
+	OptionalFileState,
+	OptionalTextFileState,
+};
 
 export type HarnessArtifactProvisionErrorInfo =
 	| ProvisionPlanErrorInfo
@@ -147,49 +131,7 @@ const installManifestSchema: z.ZodType<InstallManifestData> = z.object({
 	artifacts: z.record(z.string(), installManifestEntrySchema),
 });
 
-export const nodeHarnessArtifactFileSystemGateway: HarnessArtifactFileSystemGateway = {
-	async listFiles(rootPath) {
-		try {
-			return resultOk(await listFiles(rootPath));
-		} catch (error) {
-			return resultErr(fileSystemError(rootPath, "list", error));
-		}
-	},
-	async readOptionalFile(path) {
-		try {
-			return resultOk({ type: "file", bytes: await readFile(path) });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "read", error));
-		}
-	},
-	async writeFile(path, bytes) {
-		try {
-			await mkdir(dirname(path), { recursive: true });
-			await writeFile(path, bytes);
-			return resultOk(undefined);
-		} catch (error) {
-			return resultErr(fileSystemError(path, "write", error));
-		}
-	},
-	async readOptionalTextFile(path) {
-		try {
-			return resultOk({ type: "file", text: await readFile(path, "utf8") });
-		} catch (error) {
-			if (isNodeErrorCode(error, "ENOENT")) return resultOk({ type: "missing" });
-			return resultErr(fileSystemError(path, "read", error));
-		}
-	},
-	async writeTextFile(path, text) {
-		try {
-			await mkdir(dirname(path), { recursive: true });
-			await writeFile(path, text, "utf8");
-			return resultOk(undefined);
-		} catch (error) {
-			return resultErr(fileSystemError(path, "write", error));
-		}
-	},
-};
+export { nodeHarnessArtifactFileSystemGateway };
 
 export async function previewHarnessArtifactProvision(
 	request: HarnessArtifactProvisionRequest,
@@ -405,41 +347,4 @@ function updateManifest(manifest: InstallManifestData, plan: ProvisionPlan): Ins
 		.filter(([key]) => key !== nextKey)
 		.map(([, entry]) => entry);
 	return buildInstallManifestData([...entries, nextEntry]);
-}
-
-async function listFiles(rootPath: string): Promise<readonly string[]> {
-	return sortStrings(await walkFiles(rootPath, ""));
-}
-
-async function walkFiles(rootPath: string, relativePath: string): Promise<readonly string[]> {
-	const directory = relativePath === "" ? rootPath : join(rootPath, relativePath);
-	const entries = await readdir(directory, { withFileTypes: true });
-	const output: string[] = [];
-	for (const entry of entries) {
-		const entryRelativePath = relativePath === "" ? entry.name : join(relativePath, entry.name);
-		if (entry.isDirectory()) {
-			output.push(...(await walkFiles(rootPath, entryRelativePath)));
-		} else if (entry.isFile()) {
-			output.push(entryRelativePath);
-		} else {
-			throw new Error(`Unsupported non-file source path: ${join(rootPath, entryRelativePath)}`);
-		}
-	}
-	return output;
-}
-
-function fileSystemError(
-	path: string,
-	operation: HarnessArtifactFileSystemErrorInfo["details"]["operation"],
-	error: unknown,
-): HarnessArtifactFileSystemErrorInfo {
-	return {
-		code: "filesystem_error",
-		message: `Filesystem ${operation} failed for ${path}: ${formatErrorMessage(error)}`,
-		details: { path, operation },
-	};
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

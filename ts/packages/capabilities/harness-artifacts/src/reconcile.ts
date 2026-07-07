@@ -27,7 +27,6 @@ import {
 	moduleArtifactDiscoveryDiagnosticSchema,
 	nodeHarnessArtifactModuleDiscoveryGateway,
 	type HarnessArtifactModuleDiscoveryGateway,
-	type ModuleArtifactDiscoveryFileSystemErrorInfo,
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
@@ -225,7 +224,6 @@ export type ReconcileErrorInfo =
 	| HarnessArtifactProvisionErrorInfo
 	| HarnessArtifactFileSystemErrorInfo
 	| HarnessPathErrorInfo
-	| ModuleArtifactDiscoveryFileSystemErrorInfo
 	| { code: "invalid_ns_toml"; message: string; details: { path: string; error: NsTomlErrorInfo } }
 	| {
 			code: "first_party_source_root_unavailable";
