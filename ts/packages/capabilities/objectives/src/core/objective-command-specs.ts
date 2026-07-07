@@ -27,7 +27,7 @@ export type ObjectiveCreateCommandSpec = ObjectiveCreateSkillSpec & {
 	skillName: ObjectiveCreateSkillName;
 };
 
-export type ObjectiveCreatePattern = "wayfinding";
+export type ObjectiveCreatePattern = "wayfinding" | "steelthread" | "standing";
 export type ObjectiveCreatePatternCommandName = `ns:objective:create:${ObjectiveCreatePattern}`;
 export type ObjectiveCreatePatternSkillName = `objective-create-${ObjectiveCreatePattern}`;
 
@@ -110,6 +110,16 @@ export const objectiveCreatePatternCommandSpecs: ObjectiveCreatePatternCommandSp
 		pattern: "wayfinding",
 		description:
 			"Read objective-create-wayfinding backing Markdown to interview for and create a wayfinding (ideation) Objective charted as Question Rows.",
+	}),
+	defineObjectiveCreatePatternCommandSpec({
+		pattern: "steelthread",
+		description:
+			"Read objective-create-steelthread backing Markdown to interview for and create a steelthread Objective scoped to the thinnest end-to-end slice.",
+	}),
+	defineObjectiveCreatePatternCommandSpec({
+		pattern: "standing",
+		description:
+			"Read objective-create-standing backing Markdown to interview for and create a standing Objective with retirement-shaped completion criteria.",
 	}),
 ];
 

@@ -264,6 +264,16 @@
       "sourceType": "local",
       "computedHash": "61cc530cf59b85991e1cee380da3f56b161f21f234059d26919bf0f717561ce8"
     },
+    "objective-create-standing": {
+      "source": "skills/objective-create-standing",
+      "sourceType": "local",
+      "computedHash": "18a559682566731607f234bb4a6152de597cda93dd72ac7246a8f1dae4ab8c04"
+    },
+    "objective-create-steelthread": {
+      "source": "skills/objective-create-steelthread",
+      "sourceType": "local",
+      "computedHash": "049355a092eaa516869e8a24b2ab185e09c4dae219085ce896f77e3dd0c492c2"
+    },
     "objective-create-wayfinding": {
       "source": "skills/objective-create-wayfinding",
       "sourceType": "local",
