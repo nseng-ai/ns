@@ -78,15 +78,10 @@ export async function executeStackLanding(
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
-	const createdRuntime = createLandRuntime(
-		pi,
-		commandStream,
-		optionalEntry("gitStateFs", options.gitStateFs),
-	);
-	const runtime: LandRuntime =
-		options.graphite === undefined
-			? createdRuntime
-			: { ...createdRuntime, graphite: options.graphite };
+	const runtime: LandRuntime = createLandRuntime(pi, commandStream, {
+		...optionalEntry("gitStateFs", options.gitStateFs),
+		...optionalEntry("graphite", options.graphite),
+	});
 	try {
 		if (parsedArgs.shouldShowHelp) {
 			present({ ctx, message: usage(), level: "info" });
@@ -94,7 +89,7 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
-		const plan = await buildLandingPlan(runtime, ctx.cwd, {
+		const plan = await buildLandingPlan(runtime.landContext, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 		});
 		if (plan.type === "failure") {
@@ -104,6 +99,7 @@ export async function executeStackLanding(
 		commandStream.matrix?.setRows(landMatrixRowsFromPlan(plan.value));
 		return await executeLandingPlan({
 			runtime,
+			landContext: runtime.landContext,
 			parsedArgs,
 			options,
 			session,

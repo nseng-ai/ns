@@ -14,12 +14,14 @@ import {
 	presentDryRunLanding,
 	presentLandingSuccess,
 } from "./presentation.ts";
-import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
+import type { LandRuntime } from "./land-runtime.ts";
+import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
 import type { LandingWarning, ParsedArgs } from "./types.ts";
 
 interface ExecuteLandingPlanOptions {
 	runtime: LandRuntime;
+	landContext: LandContext;
 	parsedArgs: ParsedArgs;
 	options: {
 		shouldSkipMainConfirmation?: boolean;
@@ -33,7 +35,7 @@ interface ExecuteLandingPlanOptions {
 export async function executeLandingPlan(
 	executionOptions: ExecuteLandingPlanOptions,
 ): Promise<LandStackResult<void>> {
-	const { runtime, parsedArgs, options, session, plan, warnings } = executionOptions;
+	const { runtime, landContext, parsedArgs, options, session, plan, warnings } = executionOptions;
 	const { ctx, commandStream, landed } = session;
 	const planText = formatPlan(plan);
 
@@ -54,6 +56,7 @@ export async function executeLandingPlan(
 	commandStream.note(formatPreparingLandingMilestone(plan));
 	const readyPlan = await preparePlanForMerge({
 		runtime,
+		landContext,
 		session,
 		plan,
 		...(options.preMergeConfirmation === undefined
@@ -62,7 +65,6 @@ export async function executeLandingPlan(
 	});
 	if (readyPlan.type === "failure") return readyPlan;
 
-	const landContext = createRuntimeLandContext(runtime);
 	const mergeOutcome = await runMergeLoop({
 		runtime,
 		landContext,

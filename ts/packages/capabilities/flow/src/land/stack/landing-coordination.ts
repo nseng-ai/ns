@@ -21,7 +21,8 @@ import {
 	presentBrief,
 	setStatus,
 } from "./presentation.ts";
-import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
+import type { LandRuntime } from "./land-runtime.ts";
+import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
 import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
 import type { LandStackCommandContext, LandedPr } from "./types.ts";
@@ -34,6 +35,7 @@ export interface LandingSession {
 
 interface PreparePlanForMergeOptions {
 	runtime: LandRuntime;
+	landContext: LandContext;
 	session: LandingSession;
 	plan: LandingPlan;
 	preMergeConfirmation?: PreMergeConfirmation;
@@ -55,14 +57,9 @@ export async function preparePlanForMerge(
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtime, plan } = options;
+	const { runtime, landContext, plan } = options;
 	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
-	let landContext: ReturnType<typeof createRuntimeLandContext> | undefined;
-	const getLandContext = (): ReturnType<typeof createRuntimeLandContext> => {
-		landContext ??= createRuntimeLandContext(runtime);
-		return landContext;
-	};
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
 		return success(plan);
@@ -73,7 +70,7 @@ async function preparePlanForMergeCore(
 			runtime,
 			ctx,
 			plan,
-			landContext: getLandContext(),
+			landContext,
 			confirmation: preMergeConfirmation,
 		});
 		if (slotOutcome.type === "failure") return slotOutcome;
@@ -81,10 +78,9 @@ async function preparePlanForMergeCore(
 
 	if (plan.prSubmitRequirements.length > 0) {
 		return await submitRequiredUpdatesAndRecheckPlan({
-			runtime,
 			ctx,
 			plan,
-			landContext: getLandContext(),
+			landContext,
 			commandStream,
 			preMergeConfirmation,
 		});
@@ -94,10 +90,9 @@ async function preparePlanForMergeCore(
 }
 
 interface SubmitRequiredUpdatesAndRecheckPlanOptions {
-	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
-	landContext: ReturnType<typeof createRuntimeLandContext>;
+	landContext: LandContext;
 	commandStream: LandStackCommandStream;
 	preMergeConfirmation: PreMergeConfirmation;
 }
@@ -105,7 +100,7 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
+	const { ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		ctx,
 		plan,
@@ -116,7 +111,7 @@ async function submitRequiredUpdatesAndRecheckPlan(
 
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
-	const rechecked = await buildLandingPlan(runtime, ctx.cwd, {
+	const rechecked = await buildLandingPlan(landContext, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
 	});

@@ -16,26 +16,28 @@ export interface LandRuntime {
 	commands: LandStackExtensionAPI;
 	/** Flow-owned Graphite command channel. */
 	graphite: LandGraphiteCommandChannel;
+	/** Gateway set constructed once for the selected runtime adapters. */
+	landContext: LandContext;
 	/** Optional git worktree state filesystem seam for scenario tests. */
 	gitStateFs?: GitWorktreeStateFs;
-}
-
-export function createRuntimeLandContext(runtime: LandRuntime): LandContext {
-	return createLandContext(runtime.commands, {
-		graphite: runtime.graphite,
-		...optionalEntry("gitStateFs", runtime.gitStateFs),
-	});
 }
 
 export function createLandRuntime(
 	pi: LandStackExtensionAPI,
 	commandStream: LandStackCommandStream,
-	options: { gitStateFs?: GitWorktreeStateFs } = {},
+	options: { gitStateFs?: GitWorktreeStateFs; graphite?: LandGraphiteCommandChannel } = {},
 ): LandRuntime {
+	const commands = withCommandStreaming(pi, commandStream);
+	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi, commandStream });
+	const landContext = createLandContext(commands, {
+		graphite,
+		...optionalEntry("gitStateFs", options.gitStateFs),
+	});
 	return {
 		source: pi,
-		commands: withCommandStreaming(pi, commandStream),
-		graphite: createLandGraphiteCommandChannel({ pi, commandStream }),
+		commands,
+		graphite,
+		landContext,
 		...optionalEntry("gitStateFs", options.gitStateFs),
 	};
 }

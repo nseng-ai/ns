@@ -1,7 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { executeStackLanding } from "./land-stack.ts";
 import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
-import { createRuntimeLandContext, type LandRuntime } from "./stack/land-runtime.ts";
+import type { LandRuntime } from "./stack/land-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
 import { presentBrief, presentFailureAndReturn } from "./stack/presentation.ts";
@@ -45,7 +45,7 @@ export async function runLandingDispatch(
 		return presentFailureAndReturn(options.ctx, shape.failure);
 	}
 
-	const landContext = createRuntimeLandContext(runtime);
+	const landContext = runtime.landContext;
 	const cleanupPreview = planPostLandingSlotCleanup({
 		args: options.parsedArgs,
 		shape: shape.value,
