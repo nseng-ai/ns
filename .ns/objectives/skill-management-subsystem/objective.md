@@ -6,6 +6,10 @@ edges:
     annotation: Subobjective — the first follow-on graduated from parked breadth after the steelthread closure. Generalizes first-party provisioning to any npm-module-bundled harness artifact (extensions are one case) and folds in removing AREG's `npx skills` wrapping, keeping AREG as a standalone whole-project inspector. Merges the former extension-carried-provisioning and AREG-re-platform parked rows.
   - objective: harness-artifacts-thermo-remediation
     annotation: Subobjective — quality remediation of the delivered harness-artifacts stack. Fixes the 5 HIGH and 10 MEDIUM findings from the 2026-07-06 thermo-nuclear review (dead AREG gateway seams, homeDir sentinel, conflict-as-outcome reconcile restructure, and related cleanups) before this umbrella's parked breadth graduates further.
+  - objective: harness-artifact-vocabulary-reconciliation
+    annotation: Subobjective — graduated 2026-07-07 from the parked reconciliation-sweep row. Owns the skill-workflow/docs/vocabulary reconciliation sweep and the bare-"artifact" collision cleanup (AREG "managed artifacts" → kind-overlays rename); no provisioning behavior changes.
+  - objective: remote-artifact-module-acquisition
+    annotation: Subobjective — graduated 2026-07-07 from the parked remote-acquisition row (user decision). Owns the first-party fetch path for artifact-bearing npm modules (`ns.toml` artifact-packages, pi-derived spec grammar) plus version-resolution-for-fetched-modules, and carries the retired-trust-gating risk acceptance for re-judgment.
 ---
 
 # Reusable Skill Management Subsystem
@@ -36,8 +40,10 @@ Deferred breadth — parked in the roadmap, not abandoned; each item widens a va
 - **Graduated 2026-07-06** into the Subobjective `npm-bundled-artifact-provisioning`: npm-module-bundled artifact provisioning (static `ns` `package.json` declaration on any resolved npm module — first-party packages, extensions, opt-in packages — provisioned on install/enable), with removing AREG's `npx skills` wrapping folded in and AREG kept as a standalone whole-project inspector. This merged the former "extension-carried provisioning" and "AREG re-platform" parked items. See `updates/20260706T160000Z-npm-bundled-provisioning-and-areg-inspector-reframe.md`.
 - The `ns update` commanded hook and ambient-drift fingerprint nudges (the reconcile primitive slice lands in the graduated Subobjective; the broad command surface stays parked).
 - **Retired 2026-07-06** (same update): wrapping/replacing `npx skills` and any first-party GitHub-acquisition path. First-party support provisions only npm-module-bundled artifacts; the former "`skills-lock.json` / install-manifest convergence on one record format" ambition is dropped — AREG's inspector reads both records as complementary sources rather than merging them.
-- The skill-workflow/vocabulary reconciliation sweep (`skillx`, `@nseng-ai/areg`, `npx skills`, repo skill conventions), including the bare-"artifact" collision cleanup.
-- Stale-after-upgrade detection, rename cleanup, and uninstall — manifest-enabled, not thread work.
+- **Graduated 2026-07-07** into the Subobjective `harness-artifact-vocabulary-reconciliation` (edge-tracked): the skill-workflow/vocabulary reconciliation sweep (`skillx`, `@nseng-ai/areg`, `npx skills`, repo skill conventions), including the bare-"artifact" collision cleanup.
+- **Graduated 2026-07-07** into the Subobjective `remote-artifact-module-acquisition` (edge-tracked): remote acquisition sources for artifact-bearing modules (npm/git/local-path specs), carrying version-resolution-for-fetched-modules.
+- Stale-after-upgrade detection, rename cleanup, and uninstall — manifest-enabled; now a follow-on `## Work` row on the landed minimal `ns update` (disposed 2026-07-07).
+- **Retired 2026-07-07** (see `updates/20260707T150250Z-parked-breadth-dispositions.md`): marketplace/remote catalog discovery; project trust gating for provisioned artifacts (deliberate trusted-repo risk acceptance while ns is private); per-resource filtering/enable-disable (all-or-nothing provisioning is the contract).
 
 Hard non-goals:
 
@@ -84,4 +90,4 @@ Risks:
 
 - Resolved 2026-07-06 (`updates/20260706T160000Z-...`): `skills-lock.json` and the install manifest do **not** converge on one record format — that ambition is retired with the npx-wrapping decision. They remain complementary records that AREG's inspector reads independently.
 - Where the `ns update` command surface lives — kernel/extension-lifecycle vs. this subsystem (now carried by the `npm-bundled-artifact-provisioning` Subobjective; it ships the reconcile/provision slice either way).
-- Which remaining parked rows become Subobjectives vs. follow-on rows (the first follow-on graduated as `npm-bundled-artifact-provisioning`; the reconciliation sweep and the manifest-enabled update/uninstall surfaces are still to be disposed).
+- Resolved 2026-07-07 (`updates/20260707T150250Z-parked-breadth-dispositions.md`): every parked row now has an explicit disposition — the reconciliation sweep and remote acquisition graduate as Subobjectives; uninstall/stale-detection/rename-cleanup is a follow-on row; drift nudge and agent/extension-bundle kinds stay parked with triggers; marketplace, trust gating, and per-resource filtering are retired.
