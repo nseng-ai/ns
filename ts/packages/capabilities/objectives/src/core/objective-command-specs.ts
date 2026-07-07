@@ -92,7 +92,7 @@ export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
 	commandName: OBJECTIVE_CREATE_COMMAND_NAME,
 	skillName: "objective-create",
 	description:
-		"Read objective-create backing Markdown to interview for and create a new Objective.",
+		"Read objective-create backing Markdown to interview for and create a new Objective. Pattern-specific ns:objective:create:<pattern> commands exist for named patterns.",
 	actionPrompt: "Run objective-create with this initial user request:",
 };
 

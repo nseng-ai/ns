@@ -25,17 +25,18 @@ mechanical sync.
 
 Canonical semantics live in exactly one place, with thin hooks elsewhere:
 
-- **Canonical pattern spec**: `skills/objective/references/objective-patterns.md`,
+- **Canonical pattern spec** (recognition-level): `skills/objective/references/objective-patterns.md`,
   "Ideation Objective" section.
 - **Canonical vocabulary**: root `CONTEXT.md` entries — Ideation Objective, Destination,
   Question Row, Frontier, Fog, Crystallization.
+- **Creation facade**: `skills/objective-create-wayfinding/SKILL.md` owns the charting
+  rules (Destination-first, typed Question Rows, Fog held back).
 - **Step-skill hooks** (behavioral one-liners that defer to the pattern spec):
-  `objective-create` charts ideation records; `objective-next` recommends from the
-  Frontier and recognizes Crystallization; `objective-update` resolves Question Rows and
-  graduates Fog.
+  `objective-next` recommends from the Frontier and recognizes Crystallization;
+  `objective-update` resolves Question Rows and graduates Fog.
 
-When flowing upstream changes, edit the canonical spec and vocabulary; touch step-skill
-hooks only if the behavioral consequence for that step changed.
+When flowing upstream changes, edit the canonical spec, vocabulary, and creation facade;
+touch step-skill hooks only if the behavioral consequence for that step changed.
 
 ## What was kept
 
@@ -106,8 +107,9 @@ noticed):
      `edges`). Record notable rejections here so the next sync doesn't relitigate them.
 3. Update this document — the kept/dropped/added tables must describe the *current*
    upstream, or the next sync starts from a stale map.
-4. Re-check the step-skill hooks (`objective-create`, `objective-next`,
-   `objective-update`) only if a flowed change alters what that step does.
+4. Re-check the creation facade (`objective-create-wayfinding`) and the step-skill hooks
+   (`objective-next`, `objective-update`) only if a flowed change alters what that step
+   does.
 5. Never let a dropped concept re-enter as machine state; the promotion path for any
    machine-verified property remains the tag-plus-checkers system named in
    `objective-patterns.md`.
