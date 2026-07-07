@@ -6,7 +6,7 @@ export interface HarnessArtifactEntryBase {
 	id: string;
 	name: string;
 	description: string;
-	source: FirstPartyHarnessArtifactSource;
+	source: HarnessArtifactSource;
 }
 
 export interface SkillHarnessArtifactEntry extends HarnessArtifactEntryBase {
@@ -34,6 +34,16 @@ export interface FirstPartyHarnessArtifactSource {
 	packageName: string;
 	relativePath: string;
 }
+
+export interface NpmModuleHarnessArtifactSource {
+	type: "npm-module";
+	packageName: string;
+	relativePath: string;
+}
+
+export type HarnessArtifactSource =
+	| FirstPartyHarnessArtifactSource
+	| NpmModuleHarnessArtifactSource;
 
 export interface FirstPartyHarnessArtifactCatalog {
 	type: "first-party-catalog";
