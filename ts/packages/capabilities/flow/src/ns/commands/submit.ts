@@ -5,7 +5,7 @@ import process from "node:process";
 import type { Caps } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
+import { runCheckpointIfPending, type CheckpointGateway } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
 	flowStreamDeps,
@@ -46,7 +46,7 @@ import {
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 interface SubmitCheckpointContext {
-	gateway: RealCheckpointGateway;
+	gateway: CheckpointGateway;
 	repoRoot?: string;
 }
 
@@ -103,7 +103,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 			: undefined;
 		const checkpointContext: SubmitCheckpointContext = {
-			gateway: new RealCheckpointGateway({ runner: runtime.commandRunner, git: runtime.git }),
+			gateway: runtime.checkpointGateway,
 			...optionalEntry("repoRoot", repoRoot),
 		};
 		const hooksLoad =

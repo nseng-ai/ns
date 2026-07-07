@@ -10,6 +10,7 @@ import {
 	type SubmitCommandResult,
 	type SubmitFailureTranscript,
 } from "./index.ts";
+import { RealCheckpointGateway, type CheckpointGateway } from "../checkpoint/checkpoint.ts";
 
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
@@ -18,6 +19,7 @@ export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscr
 
 export interface NsSubmitRuntime {
 	commandRunner: CommandRunner;
+	checkpointGateway: CheckpointGateway;
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitMetadataGateway;
 	prDescription: RunSubmitCommandOptions["prDescription"];
@@ -30,6 +32,7 @@ export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 	const git = createNsGitGateway(ctx);
 	return {
 		commandRunner,
+		checkpointGateway: new RealCheckpointGateway({ runner: commandRunner, git }),
 		submitGateway: new RealSubmitGateway(commandRunner),
 		metadataGateway: new RealSubmitMetadataGateway(commandRunner),
 		git,
