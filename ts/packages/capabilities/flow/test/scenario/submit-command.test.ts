@@ -383,6 +383,11 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Submitted ${PR_URL}\n` },
 					},
 					{
+						match:
+							"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
+						result: { stdout: "Updated existing upstack PRs\n" },
+					},
+					{
 						match: "gt branch info --no-interactive",
 						result: { stdout: `Current PR: ${PR_URL}\n` },
 					},
@@ -419,7 +424,11 @@ describe("project-local submit extension", () => {
 				transient("checking clean worktree before metadata amendment"),
 				transient("amending local PR metadata commit for feature/top (1/1)"),
 				transient("prepared pre-submit PR metadata for 1 branch"),
+				{ stream: "stdout", text: "Updated existing upstack PRs\n" },
 			]),
+		);
+		expect(formattedExecCalls(run.context)).toContain(
+			"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
 		);
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gt branch info --no-interactive --branch feature/upstack",

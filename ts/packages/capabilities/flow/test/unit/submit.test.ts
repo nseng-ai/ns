@@ -651,6 +651,7 @@ describe("runSubmitCommand", () => {
 			}),
 			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
 			submitCurrentStack: async () => unexpectedCall("submitCurrentStack"),
+			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => unexpectedCall("verifyCurrentPr"),
 		};
 
@@ -749,6 +750,7 @@ describe("RealSubmitMetadataGateway", () => {
 			ok: true,
 			value: {
 				currentBranch: "feature/demo",
+				hasUpstackBranches: false,
 				branches: [
 					{
 						kind: "existing",
@@ -841,6 +843,7 @@ describe("RealSubmitMetadataGateway", () => {
 			ok: true,
 			value: {
 				currentBranch: "feature/demo",
+				hasUpstackBranches: false,
 				branches: [
 					{
 						kind: "new",
@@ -879,6 +882,7 @@ describe("RealSubmitMetadataGateway", () => {
 			ok: true,
 			value: {
 				currentBranch: "feature/current",
+				hasUpstackBranches: true,
 				branches: [
 					{
 						kind: "existing",
