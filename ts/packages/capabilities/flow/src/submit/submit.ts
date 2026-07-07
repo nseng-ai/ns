@@ -1,7 +1,7 @@
 import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
-import type { GithubPrGateway, TextGenerator } from "./index.ts";
+import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { SubmitMatrixProgressSink } from "./submit-matrix-progress.ts";
 import {
@@ -34,7 +34,10 @@ import {
 	formatPrDescriptionFailureText,
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
-import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
+import {
+	formatStackUpdateCommandDisplay,
+	formatSubmitCommandDisplays,
+} from "./submit-command-spec.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { NsProgressPhaseEvent, NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 
@@ -158,6 +161,7 @@ export interface SubmitGateway {
 	checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult>;
 	restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult>;
 	submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult>;
+	updateStackPrs(params: SubmitCommandParams): Promise<SubmitRunResult>;
 	verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult>;
 }
 
@@ -198,6 +202,7 @@ export async function runSubmitCommand(
 	const { submitCommandDisplay, submitDryRunCommandDisplay } = formatSubmitCommandDisplays({
 		shouldForce: options.force,
 	});
+	const stackUpdateCommandDisplay = formatStackUpdateCommandDisplay({ shouldForce: options.force });
 	const commandParams = submitCommandParams(options);
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "preflight" }, (matrix) =>
 		matrix.setGlobal("preflight", { state: "active" }),
@@ -346,31 +351,33 @@ export async function runSubmitCommand(
 		},
 		(matrix) => matrix.setAllCells("submit", { state: "active", text: submitCommandDisplay }),
 	);
-	options.submitMatrix?.setRunningCommands([submitCommandDisplay]);
-	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
-	options.submitMatrix?.setRunningCommands([]);
-	if (submitted.kind === "failed") {
-		options.submitMatrix?.setAllCells("submit", { state: "failed", text: "submit failed" });
-		const submitPreflightFailure = knownSubmitFailureFor({
-			cause: submitted.cause,
-			output: submitted.output,
-			phase: "submit preflight",
-			transcriptCommandDisplay: submitCommandDisplay,
-		});
-		if (submitPreflightFailure !== undefined) return submitPreflightFailure;
+	const submittedStep = await runSubmitPhaseStep({
+		options,
+		phaseLabel: "submit",
+		commandDisplay: submitCommandDisplay,
+		prepared: prewrite.prepared,
+		knownFailurePhase: "submit preflight",
+		run: (gateway, params) => gateway.submitCurrentStack(params),
+	});
+	if (submittedStep.kind === "failure") return submittedStep.failure;
 
-		return failure(
-			normalizedFailureExitCode(submitted.output),
-			formatSubmitFailureOutput(submitted.output, prewrite.prepared, submitCommandDisplay),
-			{
-				failurePresentation: "unknown",
-				rawFailureTranscript: commandFailureTranscript(
-					"submit",
-					submitCommandDisplay,
-					submitted.output,
-				),
-			},
-		);
+	let combinedSubmitOutcome = submittedStep.result;
+	if (prewrite.hasUpstackBranches) {
+		emitPhase(options, {
+			type: "phase-progress",
+			phaseKey: "submit",
+			label: stackUpdateCommandDisplay,
+		});
+		const stackUpdateStep = await runSubmitPhaseStep({
+			options,
+			phaseLabel: "stack update",
+			commandDisplay: stackUpdateCommandDisplay,
+			prepared: prewrite.prepared,
+			run: (gateway, params) => gateway.updateStackPrs(params),
+		});
+		if (stackUpdateStep.kind === "failure") return stackUpdateStep.failure;
+
+		combinedSubmitOutcome = combineSubmitOutcomes(combinedSubmitOutcome, stackUpdateStep.result);
 	}
 
 	options.submitMatrix?.setAllCells("submit", { state: "done", text: "stack submitted" });
@@ -381,12 +388,12 @@ export async function runSubmitCommand(
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
 	options.submitMatrix?.setRunningCommands([]);
 	if (
-		submitted.semanticFailureCause !== undefined ||
-		shouldFailPostSubmitVerification(submitted, currentPr)
+		combinedSubmitOutcome.semanticFailureCause !== undefined ||
+		shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
 	) {
 		options.submitMatrix?.setAllCells("verify", { state: "failed", text: "verification failed" });
 		const stderr = formatPostSubmitFailureOutput({
-			submitted,
+			submitted: combinedSubmitOutcome,
 			currentPr,
 			submitCommandDisplay,
 		});
@@ -397,7 +404,7 @@ export async function runSubmitCommand(
 			failurePresentation: "unknown",
 			rawFailureTranscript: postSubmitFailureTranscript(
 				stderr,
-				submitted,
+				combinedSubmitOutcome,
 				currentPr,
 				submitCommandDisplay,
 			),
@@ -406,8 +413,8 @@ export async function runSubmitCommand(
 
 	const prLinks =
 		currentPr.kind === "present"
-			? mergePrLinks(submitted.prLinks, currentPr.prLinks)
-			: mergePrLinks(submitted.prLinks, []);
+			? mergePrLinks(combinedSubmitOutcome.prLinks, currentPr.prLinks)
+			: mergePrLinks(combinedSubmitOutcome.prLinks, []);
 	options.submitMatrix?.applyPrLinks(prLinks);
 	if (currentPr.kind === "present" && options.submitMatrixCurrentBranch !== undefined) {
 		options.submitMatrix?.setCell(options.submitMatrixCurrentBranch, "verify", {
@@ -471,7 +478,10 @@ export async function runSubmitCommand(
 	const successText =
 		prLinks.length > 0
 			? formatSubmitSuccessText(prLinks, descriptionResult)
-			: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
+			: formatSubmitSuccessFallbackText(
+					combinedSubmitOutcome.output.stdout,
+					combinedSubmitOutcome.output.stderr,
+				);
 	return success(successText);
 }
 
@@ -572,6 +582,72 @@ async function runRestackBeforeSubmit(
 		);
 	}
 	return undefined;
+}
+
+type SuccessfulSubmitRunResult = Extract<SubmitRunResult, { kind: "success" }>;
+
+type SubmitPhaseStepResult =
+	| { kind: "success"; result: SuccessfulSubmitRunResult }
+	| { kind: "failure"; failure: SubmitCommandResult };
+
+function combineSubmitOutcomes(
+	base: SuccessfulSubmitRunResult,
+	update: SuccessfulSubmitRunResult,
+): SuccessfulSubmitRunResult {
+	return {
+		...base,
+		prLinks: mergePrLinks(base.prLinks, update.prLinks),
+		...(update.semanticFailureCause === undefined
+			? {}
+			: { semanticFailureCause: update.semanticFailureCause }),
+	};
+}
+
+async function runSubmitPhaseStep(input: {
+	options: Pick<RunSubmitCommandOptions, "cwd" | "force" | "gateway" | "onOutput" | "submitMatrix">;
+	phaseLabel: string;
+	commandDisplay: string;
+	prepared: readonly PrewrittenPrMetadata[];
+	knownFailurePhase?: string;
+	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
+}): Promise<SubmitPhaseStepResult> {
+	input.options.submitMatrix?.setRunningCommands([input.commandDisplay]);
+	const result = await input.run(
+		input.options.gateway,
+		submitStreamingCommandParams(input.options),
+	);
+	input.options.submitMatrix?.setRunningCommands([]);
+	if (result.kind === "success") return { kind: "success", result };
+
+	input.options.submitMatrix?.setAllCells("submit", {
+		state: "failed",
+		text: `${input.phaseLabel} failed`,
+	});
+	if (input.knownFailurePhase !== undefined) {
+		const knownFailure = knownSubmitFailureFor({
+			cause: result.cause,
+			output: result.output,
+			phase: input.knownFailurePhase,
+			transcriptCommandDisplay: input.commandDisplay,
+		});
+		if (knownFailure !== undefined) return { kind: "failure", failure: knownFailure };
+	}
+
+	return {
+		kind: "failure",
+		failure: failure(
+			normalizedFailureExitCode(result.output),
+			formatSubmitFailureOutput(result.output, input.prepared, input.commandDisplay),
+			{
+				failurePresentation: "unknown",
+				rawFailureTranscript: commandFailureTranscript(
+					input.phaseLabel,
+					input.commandDisplay,
+					result.output,
+				),
+			},
+		),
+	};
 }
 
 function submitCommandParams(

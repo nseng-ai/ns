@@ -10,7 +10,7 @@ import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 import { detectGitConflictOutput } from "./git-operation-output.ts";
-import { buildSubmitArgs } from "./submit-command-spec.ts";
+import { buildStackUpdateArgs, buildSubmitArgs } from "./submit-command-spec.ts";
 import {
 	detectKnownPreflightFailureCause,
 	detectRestackNeeded,
@@ -112,35 +112,17 @@ export class RealSubmitGateway implements SubmitGateway {
 	}
 
 	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
-		const output = await this.runGt({
-			args: buildSubmitArgs({ isDryRun: false, shouldForce: params.force === true }),
-			cwd: params.cwd,
-			timeoutMs: SUBMIT_TIMEOUT_MS,
-			...optionalOutputListenerParam(params.onOutput),
-		});
-		if (!isSuccessfulOutput(output)) {
-			const joinedOutput = joinOutput(output);
-			const knownFailureCause = await this.resolveKnownPreflightFailureCause(
-				params.cwd,
-				output,
-				joinedOutput,
-			);
-			if (knownFailureCause !== undefined) {
-				return { kind: "failed", output, cause: knownFailureCause };
-			}
-			return { kind: "failed", output };
-		}
+		return await this.runSubmitLikeCommand(
+			buildSubmitArgs({ isDryRun: false, shouldForce: params.force === true }),
+			params,
+		);
+	}
 
-		const semanticFailureCause = detectSubmitSemanticFailureCause(joinOutput(output));
-		const result: SubmitRunResult = {
-			kind: "success",
-			output,
-			prLinks: extractPrLinks(joinOutput(output)),
-		};
-		if (semanticFailureCause !== undefined) {
-			result.semanticFailureCause = semanticFailureCause;
-		}
-		return result;
+	async updateStackPrs(params: SubmitCommandParams): Promise<SubmitRunResult> {
+		return await this.runSubmitLikeCommand(
+			buildStackUpdateArgs({ shouldForce: params.force === true }),
+			params,
+		);
 	}
 
 	async verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult> {
@@ -169,6 +151,41 @@ export class RealSubmitGateway implements SubmitGateway {
 		}
 
 		return { kind: "present", output, prLinks };
+	}
+
+	private async runSubmitLikeCommand(
+		args: string[],
+		params: SubmitCommandParams,
+	): Promise<SubmitRunResult> {
+		const output = await this.runGt({
+			args,
+			cwd: params.cwd,
+			timeoutMs: SUBMIT_TIMEOUT_MS,
+			...optionalOutputListenerParam(params.onOutput),
+		});
+		if (!isSuccessfulOutput(output)) {
+			const joinedOutput = joinOutput(output);
+			const knownFailureCause = await this.resolveKnownPreflightFailureCause(
+				params.cwd,
+				output,
+				joinedOutput,
+			);
+			if (knownFailureCause !== undefined) {
+				return { kind: "failed", output, cause: knownFailureCause };
+			}
+			return { kind: "failed", output };
+		}
+
+		const semanticFailureCause = detectSubmitSemanticFailureCause(joinOutput(output));
+		const result: SubmitRunResult = {
+			kind: "success",
+			output,
+			prLinks: extractPrLinks(joinOutput(output)),
+		};
+		if (semanticFailureCause !== undefined) {
+			result.semanticFailureCause = semanticFailureCause;
+		}
+		return result;
 	}
 
 	private async getConflictedFiles(cwd: string): Promise<string[]> {

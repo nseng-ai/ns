@@ -44,6 +44,7 @@ export interface SubmitMetadataCommandParams {
 export interface SubmitStackInspection {
 	currentBranch: string;
 	branches: readonly SubmitStackBranch[];
+	hasUpstackBranches: boolean;
 }
 
 export type SubmitStackBranch = SubmitStackExistingBranch | SubmitStackNewBranch;
@@ -91,7 +92,7 @@ export interface SubmitMetadataGateway {
 }
 
 export type SubmitPrMetadataPrewriteResult =
-	| { kind: "prepared"; prepared: PrewrittenPrMetadata[] }
+	| { kind: "prepared"; prepared: PrewrittenPrMetadata[]; hasUpstackBranches: boolean }
 	| { kind: "failed"; error: string; exitCode?: number; amendedBranches: string[] };
 
 export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
@@ -165,7 +166,11 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			});
 		}
 
-		return ok({ currentBranch: topology.value.currentBranch, branches });
+		return ok({
+			currentBranch: topology.value.currentBranch,
+			branches,
+			hasUpstackBranches: topology.value.hasUpstackBranches,
+		});
 	}
 
 	async ensureCleanWorktree(params: SubmitMetadataCommandParams): Promise<GatewayResult<void>> {
@@ -215,9 +220,13 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		return ok(undefined);
 	}
 
-	private async inspectSubmitStackTopologyFacts(
-		params: SubmitMetadataCommandParams,
-	): Promise<GatewayResult<{ currentBranch: string; branches: SubmitStackBranchInfo[] }>> {
+	private async inspectSubmitStackTopologyFacts(params: SubmitMetadataCommandParams): Promise<
+		GatewayResult<{
+			currentBranch: string;
+			branches: SubmitStackBranchInfo[];
+			hasUpstackBranches: boolean;
+		}>
+	> {
 		const log = await this.runGt([...GT_LOG_STACK_ARGS], params.cwd, COMMAND_TIMEOUT_MS);
 		const logError = commandError(
 			GRAPHITE_COMMAND_NAME,
@@ -251,7 +260,11 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			trunk.value,
 		);
 		if (!submitBranchInfos.ok) return submitBranchInfos;
-		return ok({ currentBranch: parsedLog.currentBranch, branches: submitBranchInfos.value });
+		return ok({
+			currentBranch: parsedLog.currentBranch,
+			branches: submitBranchInfos.value,
+			hasUpstackBranches: hasBranchesAfterCurrent(parsedLog),
+		});
 	}
 
 	// Submit metadata walks parent branches lazily through `gt branch info` so it can stop at
@@ -387,6 +400,11 @@ export async function prepareSubmitPrMetadata(input: {
 	if (!inspected.ok) {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
 	}
+	const preparedResult = (prepared: PrewrittenPrMetadata[]): SubmitPrMetadataPrewriteResult => ({
+		kind: "prepared",
+		prepared,
+		hasUpstackBranches: inspected.value.hasUpstackBranches,
+	});
 
 	const amendableBranches = await findAmendableBranchNames(inspected.value);
 	if (!amendableBranches.ok) {
@@ -417,7 +435,7 @@ export async function prepareSubmitPrMetadata(input: {
 	);
 	if (newBranches.length === 0) {
 		input.onProgress?.("no pre-submit PR metadata changes needed");
-		return { kind: "prepared", prepared: [] };
+		return preparedResult([]);
 	}
 
 	const generated = await generateMetadataForBranches({
@@ -433,7 +451,7 @@ export async function prepareSubmitPrMetadata(input: {
 		return { ...generated, amendedBranches: [] };
 	}
 	if (generated.prepared.length === 0) {
-		return { kind: "prepared", prepared: [] };
+		return preparedResult([]);
 	}
 
 	input.onProgress?.("checking clean worktree before metadata amendment");
@@ -480,7 +498,7 @@ export async function prepareSubmitPrMetadata(input: {
 	}
 
 	input.onProgress?.(formatPreparedMetadataProgress(generated.prepared.length));
-	return { kind: "prepared", prepared: generated.prepared };
+	return preparedResult(generated.prepared);
 }
 
 async function generateMetadataForBranches(input: {
@@ -661,6 +679,12 @@ export function parseGtLogStack(output: string): ParsedGtLogStack {
 		}
 	}
 	return currentBranch === undefined ? { branches } : { branches, currentBranch };
+}
+
+function hasBranchesAfterCurrent(stack: ParsedGtLogStack): boolean {
+	if (stack.currentBranch === undefined) return false;
+	const currentIndex = stack.branches.indexOf(stack.currentBranch);
+	return currentIndex >= 0 && currentIndex < stack.branches.length - 1;
 }
 
 export function parseParentBranch(output: string): string | undefined {
