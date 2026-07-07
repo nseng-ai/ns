@@ -17,6 +17,24 @@ import {
 
 const tempDirs: string[] = [];
 
+const builtInCandidateKeys = ["extension/point", "extension/points"];
+const builtInCommandInfos = [
+	{
+		segments: ["extension", "point"],
+		groupDescription: "Inspect ns extension metadata.",
+		name: "point",
+		description: "Show one ns point definition and its active source.",
+		fullDescription: "Show one ns point definition and its active source.",
+	},
+	{
+		segments: ["extension", "points"],
+		groupDescription: "Inspect ns extension metadata.",
+		name: "points",
+		description: "List defined ns points and their active sources.",
+		fullDescription: "List defined ns points and their active sources.",
+	},
+] as const;
+
 interface Workspace {
 	cwd: string;
 	homeDir: string;
@@ -85,14 +103,14 @@ afterEach(() => {
 });
 
 describe("extension registry", () => {
-	test("catalog can be empty without built-ins or external extensions", async () => {
+	test("catalog contains only built-ins without external extensions", async () => {
 		const workspace = await createWorkspace();
 
 		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual([]);
-		expect(loaded.commandInfos).toEqual([]);
+		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+		expect(loaded.commandInfos).toEqual(builtInCommandInfos);
 	});
 
 	test("injected preinstalled catalog contributes package commands", async () => {
@@ -392,6 +410,7 @@ describe("extension registry", () => {
 
 		expect(loaded.diagnostics).toEqual([]);
 		expect(loaded.commandInfos).toEqual([
+			...builtInCommandInfos,
 			{
 				name: "hello",
 				description: "hello summary",
@@ -449,6 +468,7 @@ describe("extension registry", () => {
 
 		expect(loaded.diagnostics).toEqual([]);
 		expect(loaded.commandInfos).toEqual([
+			...builtInCommandInfos,
 			{
 				name: "hello",
 				description: "Say hello.",
@@ -483,8 +503,9 @@ describe("extension registry", () => {
 			homeDir: workspace.homeDir,
 		});
 
-		expect([...catalog.candidates.keys()]).toEqual(["handoff/list"]);
+		expect([...catalog.candidates.keys()]).toEqual([...builtInCandidateKeys, "handoff/list"]);
 		expect(catalog.commandInfos).toEqual([
+			...builtInCommandInfos,
 			{
 				group: "handoff",
 				groupDescription: "Coordinate handoff artifacts.",
@@ -516,6 +537,7 @@ describe("extension registry", () => {
 
 		expect(loaded.diagnostics).toEqual([]);
 		expect(loaded.commandInfos).toEqual([
+			...builtInCommandInfos,
 			{
 				group: "handoff",
 				name: "create",
@@ -536,6 +558,7 @@ describe("extension registry", () => {
 		const loaded = await loadListingCommandInfos(catalog);
 
 		expect(loaded.commandInfos).toEqual([
+			...builtInCommandInfos,
 			{
 				name: "hello",
 				description: "Run ns command entry 'hello'.",
@@ -596,7 +619,7 @@ export default defineExtension({
 		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual(["bye", "hello"]);
+		expect([...loaded.candidates.keys()]).toEqual(["bye", ...builtInCandidateKeys, "hello"]);
 		const selected = loaded.candidates.get("bye");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;

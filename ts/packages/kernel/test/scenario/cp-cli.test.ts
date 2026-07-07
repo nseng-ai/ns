@@ -77,8 +77,17 @@ afterEach(() => {
 });
 
 describe("empty ns kernel CLI help and parsing", () => {
-	test("static command metadata is empty", () => {
-		expect(listNsCommands()).toEqual([]);
+	test("static command metadata only includes kernel-owned extension introspection", () => {
+		expect(listNsCommands()).toEqual([
+			{
+				name: "point",
+				description: "Show one ns point definition and its active source.",
+			},
+			{
+				name: "points",
+				description: "List defined ns points and their active sources.",
+			},
+		]);
 	});
 
 	test("top-level help remains available without domain built-ins", async () => {
