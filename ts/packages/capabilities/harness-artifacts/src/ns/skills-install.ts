@@ -25,7 +25,7 @@ export const skillsInstallRequestSchema = skillsTargetRequestSchema.extend({
 export const skillsInstallResultSchema = skillsResolvedArtifactLocationSchema.extend({
 	mode: z.enum(["dry-run", "applied"]),
 	manifestPath: z.string(),
-	needsForce: z.boolean(),
+	isForceRequired: z.boolean(),
 	decisions: z.array(provisionFileDecisionSchema),
 	writtenFiles: z.array(z.string()),
 });
@@ -54,8 +54,8 @@ export async function runSkillsInstall(
 		projectRoot: context.projectRoot,
 		...optionalEntry("homeDir", context.homeDir),
 		env: context.env,
-		dryRun: request.dryRun,
-		force: request.force,
+		isDryRun: request.dryRun,
+		shouldForce: request.force,
 	});
 	switch (outcome.type) {
 		case "catalog-source-unavailable":
@@ -90,7 +90,7 @@ export function renderSkillsInstallHuman(result: SkillsInstallCommandResult): st
 		`scope: ${result.scope}`,
 		`target path: ${result.targetArtifactPath}`,
 		`manifest: ${result.manifestPath}`,
-		`needs force: ${result.needsForce ? "yes" : "no"}`,
+		`requires force: ${result.isForceRequired ? "yes" : "no"}`,
 		"decisions:",
 	];
 	for (const decision of result.decisions) {
@@ -120,7 +120,7 @@ function installResultFromPlan(input: {
 		targetRoot: input.plan.targetRoot,
 		targetArtifactPath: input.plan.targetArtifactPath,
 		manifestPath: input.manifestPath,
-		needsForce: input.decisions.needsForce,
+		isForceRequired: input.decisions.isForceRequired,
 		decisions: [...input.decisions.files],
 		writtenFiles: [...input.writtenFiles],
 	};

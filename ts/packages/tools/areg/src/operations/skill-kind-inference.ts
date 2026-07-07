@@ -199,7 +199,7 @@ export function buildSkillKindRecords(
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
 	const records: SkillKindRecord[] = [];
-	const manifestSourcesBySkill = manifestSourceViewsBySkillName(
+	const manifestSourceViews = manifestSourceViewsBySkillName(
 		inspection.manifestSkillSources.sources,
 	);
 	for (const skill of sortSkills(inspection.skills)) {
@@ -227,7 +227,7 @@ export function buildSkillKindRecords(
 		});
 		records.push({
 			...record,
-			manifestSources: manifestSourcesBySkill.get(skill.name) ?? [],
+			manifestSources: manifestSourceViews.get(skill.name) ?? [],
 		});
 	}
 	return { ok: true, value: records };

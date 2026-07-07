@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliDeps } from "@nseng-ai/kernel/cli";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {
@@ -77,7 +78,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	constructor(state: TestState = {}, options: ScriptedNsTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
-		const homeDir = options.homeDir ?? this.env.HOME;
+		const homeDir = resolveHomeDir(options.homeDir, this.env);
 		if (homeDir !== undefined) this.homeDir = homeDir;
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];

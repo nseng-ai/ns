@@ -41,8 +41,8 @@ export interface ProvisionFirstPartySkillRequest {
 	projectRoot: string;
 	homeDir?: string;
 	env: Record<string, string | undefined>;
-	dryRun: boolean;
-	force: boolean;
+	isDryRun: boolean;
+	shouldForce: boolean;
 	/** Test seam: overrides the resolved first-party catalog source root. */
 	sourceRoot?: string;
 	/** Test seam: overrides the first-party catalog source version. */
@@ -102,7 +102,7 @@ export async function provisionFirstPartySkill(
 		...optionalEntry("fs", request.fs),
 	});
 	if (!prepared.ok) return { type: "error", error: prepared.error };
-	if (request.dryRun) {
+	if (request.isDryRun) {
 		return {
 			type: "provisioned",
 			mode: "dry-run",
@@ -112,7 +112,9 @@ export async function provisionFirstPartySkill(
 			writtenFiles: [],
 		};
 	}
-	const applied = await applyPreparedProvision(prepared.value, { force: request.force });
+	const applied = await applyPreparedProvision(prepared.value, {
+		shouldForce: request.shouldForce,
+	});
 	if (!applied.ok) return { type: "error", error: applied.error };
 	if (applied.value.outcome === "conflicted") {
 		return {

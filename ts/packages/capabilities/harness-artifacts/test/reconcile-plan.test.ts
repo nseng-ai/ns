@@ -42,17 +42,15 @@ describe("harness artifact reconcile planner", () => {
 			manifests: [],
 		});
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
-		expect(result.value.orphans).toEqual([]);
-		expect(result.value.skippedCollisions).toEqual([]);
-		expect(result.value.pairs.map((pair) => pair.key)).toEqual([
+		expect(result.orphans).toEqual([]);
+		expect(result.skippedCollisions).toEqual([]);
+		expect(result.pairs.map((pair) => pair.key)).toEqual([
 			"codex:project:skill:@acme/plans:plan-skill",
 			"codex:project:skill:objective-skill",
 			"pi:project:skill:@acme/plans:plan-skill",
 			"pi:project:skill:objective-skill",
 		]);
-		expect(result.value.pairs.map((pair) => pair.origin)).toEqual([
+		expect(result.pairs.map((pair) => pair.origin)).toEqual([
 			"declared",
 			"declared",
 			"declared",
@@ -67,10 +65,7 @@ describe("harness artifact reconcile planner", () => {
 			manifests: [],
 		});
 
-		expect(result).toEqual({
-			ok: true,
-			value: { pairs: [], orphans: [], skippedDesired: [], skippedCollisions: [] },
-		});
+		expect(result).toEqual({ pairs: [], orphans: [], skippedDesired: [], skippedCollisions: [] });
 	});
 
 	test("manifest-tracked pairs survive without a harness selection", () => {
@@ -80,16 +75,14 @@ describe("harness artifact reconcile planner", () => {
 			manifests: [manifestSnapshot(manifestEntry(modulePlan, "pi"))],
 		});
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
-		expect(result.value.pairs).toMatchObject([
+		expect(result.pairs).toMatchObject([
 			{
 				key: "pi:project:skill:@acme/plans:plan-skill",
 				origin: "manifest",
 				hasManifestEntry: true,
 			},
 		]);
-		expect(result.value.orphans).toEqual([]);
+		expect(result.orphans).toEqual([]);
 	});
 
 	test("dedupes declared and manifest entries by install key", () => {
@@ -99,10 +92,8 @@ describe("harness artifact reconcile planner", () => {
 			manifests: [manifestSnapshot(manifestEntry(modulePlan, "pi"))],
 		});
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
-		expect(result.value.pairs).toHaveLength(1);
-		expect(result.value.pairs[0]).toMatchObject({
+		expect(result.pairs).toHaveLength(1);
+		expect(result.pairs[0]).toMatchObject({
 			key: "pi:project:skill:@acme/plans:plan-skill",
 			origin: "declared",
 			hasManifestEntry: true,
@@ -124,22 +115,19 @@ describe("harness artifact reconcile planner", () => {
 		});
 
 		expect(result).toEqual({
-			ok: true,
-			value: {
-				pairs: [],
-				orphans: [
-					{
-						artifactId: "@gone/ext:old-skill",
-						harness: "pi",
-						scope: "project",
-						targetRoot: "/repo/.pi/skills",
-						packageName: "@gone/ext",
-						sourceType: "npm-module",
-					},
-				],
-				skippedDesired: [],
-				skippedCollisions: [],
-			},
+			pairs: [],
+			orphans: [
+				{
+					artifactId: "@gone/ext:old-skill",
+					harness: "pi",
+					scope: "project",
+					targetRoot: "/repo/.pi/skills",
+					packageName: "@gone/ext",
+					sourceType: "npm-module",
+				},
+			],
+			skippedDesired: [],
+			skippedCollisions: [],
 		});
 	});
 
@@ -178,25 +166,22 @@ describe("harness artifact reconcile planner", () => {
 		});
 
 		expect(result).toEqual({
-			ok: true,
-			value: {
-				pairs: [],
-				orphans: [],
-				skippedDesired: [
-					desired(firstPartyObjective),
-					desired(moduleObjective),
-					desired(duplicateIdLeft),
-					desired(duplicateIdRight),
-				],
-				skippedCollisions: [
-					{ kind: "id", value: "shared-id", packages: ["@acme/left", "@acme/right"] },
-					{
-						kind: "target-name",
-						value: "objective",
-						packages: ["@acme/objective", "@nseng-ai/ns"],
-					},
-				],
-			},
+			pairs: [],
+			orphans: [],
+			skippedDesired: [
+				desired(firstPartyObjective),
+				desired(moduleObjective),
+				desired(duplicateIdLeft),
+				desired(duplicateIdRight),
+			],
+			skippedCollisions: [
+				{ kind: "id", value: "shared-id", packages: ["@acme/left", "@acme/right"] },
+				{
+					kind: "target-name",
+					value: "objective",
+					packages: ["@acme/objective", "@nseng-ai/ns"],
+				},
+			],
 		});
 	});
 });

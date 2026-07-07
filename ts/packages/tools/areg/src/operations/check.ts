@@ -16,7 +16,7 @@ import {
 import type { AregCliContext } from "../context.ts";
 import { missingCheckSkillInspection } from "../gateways.ts";
 import { sortStringsLocaleAware } from "../sort.ts";
-import { manifestSourceFinding } from "./manifest-sources.ts";
+import { manifestSourceFinding } from "./manifest-source-findings.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { isPathStateError } from "./file-state.ts";
 import { verifyPiReplacement } from "./pi-replacement.ts";

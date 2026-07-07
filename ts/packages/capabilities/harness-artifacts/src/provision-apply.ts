@@ -63,7 +63,7 @@ export interface PreparedHarnessArtifactProvision extends HarnessArtifactProvisi
 }
 
 export interface ApplyPreparedProvisionOptions {
-	force: boolean;
+	shouldForce: boolean;
 }
 
 export interface HarnessArtifactProvisionApplyResult extends HarnessArtifactProvisionPreview {
@@ -146,7 +146,7 @@ export async function applyHarnessArtifactProvision(
 ): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
 	const prepared = await prepareProvision(request);
 	if (!prepared.ok) return prepared;
-	return applyPreparedProvision(prepared.value, { force: false });
+	return applyPreparedProvision(prepared.value, { shouldForce: false });
 }
 
 export async function prepareProvision(
@@ -200,7 +200,7 @@ export async function applyPreparedProvision(
 	const conflicts = prepared.decisions.files.filter(
 		(decision) => decision.type === "locally-edited-conflict",
 	);
-	if (conflicts.length > 0 && !options.force) {
+	if (conflicts.length > 0 && !options.shouldForce) {
 		return resultOk({
 			outcome: "conflicted",
 			...previewFromPrepared(prepared),

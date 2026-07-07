@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import {
 	provisionFirstPartySkill,
 	type HarnessArtifactProvisionErrorInfo,
@@ -23,7 +23,7 @@ export class RealSkillMaterializer implements SkillMaterializer {
 	private readonly env: Record<string, string | undefined>;
 
 	constructor(options: RealSkillMaterializerOptions = {}) {
-		this.homeDir = options.homeDir ?? options.env?.HOME;
+		this.homeDir = resolveHomeDir(options.homeDir, options.env ?? {});
 		this.env = { ...(options.env ?? {}) };
 	}
 
@@ -39,8 +39,8 @@ export class RealSkillMaterializer implements SkillMaterializer {
 				projectRoot: params.repoRoot,
 				...optionalEntry("homeDir", this.homeDir),
 				env: this.env,
-				dryRun: false,
-				force: false,
+				isDryRun: false,
+				shouldForce: false,
 			});
 			switch (outcome.type) {
 				case "catalog-source-unavailable":

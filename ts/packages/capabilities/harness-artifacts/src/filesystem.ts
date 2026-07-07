@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import { sortStrings } from "./sort.ts";
@@ -156,7 +156,7 @@ export function fileSystemError(
 }
 
 export function isNodeErrorCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === code;
+	return errorCodeFromUnknown(error) === code;
 }
 
 async function listFiles(rootPath: string): Promise<readonly string[]> {
