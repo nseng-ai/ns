@@ -1,9 +1,6 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { defineExtension, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/kernel/sdk";
 import { commandInfoForLoadedCommand, commandKey } from "../../src/extensions/command-registry.ts";
@@ -15,7 +12,14 @@ import {
 	loadSelectedNsCommand,
 } from "../../src/extensions/registry.ts";
 
-const tempDirs: string[] = [];
+import {
+	createExtensionRegistryWorkspace,
+	writeGlobalExtension,
+	writeLegacyGlobalExtension,
+	writeProjectExtension,
+	writeProjectManifest,
+	writeWorkspaceFile,
+} from "../helpers/extension-workspace.ts";
 
 const builtInCandidateKeys = ["extension/point", "extension/points"];
 const builtInCommandInfos = [
@@ -34,41 +38,6 @@ const builtInCommandInfos = [
 		fullDescription: "List defined ns points and their active sources.",
 	},
 ] as const;
-
-interface Workspace {
-	cwd: string;
-	homeDir: string;
-}
-
-async function createWorkspace(): Promise<Workspace> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-extension-registry-"));
-	tempDirs.push(directory);
-	return { cwd: join(directory, "project"), homeDir: join(directory, "home") };
-}
-
-function writeProjectExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.cwd, ".ns", "extensions", fileName), source);
-}
-
-function writeGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".local", "share", "ns", "extensions", fileName), source);
-}
-
-function writeLegacyGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".ns", "extensions", fileName), source);
-}
-
-function writeProjectManifest(workspace: Workspace, packageName: string, manifest: unknown): void {
-	writeFile(
-		join(workspace.cwd, ".ns", "extensions", packageName, "package.json"),
-		JSON.stringify(manifest),
-	);
-}
-
-function writeFile(path: string, source: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, source);
-}
 
 function commandEntry(name: string, message: string): string {
 	return `
@@ -96,15 +65,9 @@ function preinstalledEntry(group: string, name: string, moduleSpecifier: string)
 	};
 }
 
-afterEach(() => {
-	for (const directory of tempDirs.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
-});
-
 describe("extension registry", () => {
 	test("catalog contains only built-ins without external extensions", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 
 		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
@@ -114,7 +77,7 @@ describe("extension registry", () => {
 	});
 
 	test("injected preinstalled catalog contributes package commands", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
@@ -139,7 +102,7 @@ describe("extension registry", () => {
 	});
 
 	test("thunk-backed preinstalled entries load without package resolution", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
@@ -198,7 +161,7 @@ describe("extension registry", () => {
 	});
 
 	test("source-dev preinstalled discovery yields to injected catalog duplicates", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		const sourceCatalog = await loadNsCommandCatalog({
 			cwd: process.cwd(),
 			homeDir: workspace.homeDir,
@@ -243,7 +206,7 @@ describe("extension registry", () => {
 	});
 
 	test("XDG global commands are loaded and legacy global commands are ignored", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeLegacyGlobalExtension(workspace, "legacy.ts", commandEntry("legacy", "legacy greet"));
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "xdg greet"));
 
@@ -282,7 +245,7 @@ describe("extension registry", () => {
 	});
 
 	test("project overrides global without importing candidates", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeGlobalExtension(workspace, "cp.ts", commandEntry("cp", "global cp"));
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "global greet"));
 		writeProjectExtension(workspace, "greet.ts", commandEntry("greet", "project greet"));
@@ -328,7 +291,7 @@ describe("extension registry", () => {
 	});
 
 	test("project manifest overrides injected preinstalled catalog", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectManifest(workspace, "tools", {
 			ns: {
 				group: "tools",
@@ -342,7 +305,7 @@ describe("extension registry", () => {
 				],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "tools", "src", "scan.ts"),
 			commandEntry("scan", "project scan"),
 		);
@@ -366,7 +329,7 @@ describe("extension registry", () => {
 	});
 
 	test("manifest metadata customizes catalog help without importing command entries", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectManifest(workspace, "pkg", {
 			ns: {
 				commands: [
@@ -379,7 +342,7 @@ describe("extension registry", () => {
 				],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import during discovery');\n",
 		);
@@ -395,7 +358,7 @@ describe("extension registry", () => {
 	});
 
 	test("listing command infos eager-load direct command summaries", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectExtension(
 			workspace,
 			"hello.ts",
@@ -420,7 +383,7 @@ describe("extension registry", () => {
 	});
 
 	test("simple default re-export shims become package module references during discovery", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectExtension(
 			workspace,
 			"list.ts",
@@ -438,7 +401,7 @@ describe("extension registry", () => {
 	});
 
 	test("listing command infos preserve package manifest metadata without importing", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectManifest(workspace, "pkg", {
 			ns: {
 				commands: [
@@ -451,7 +414,7 @@ describe("extension registry", () => {
 				],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import package commands for listing');\n",
 		);
@@ -474,7 +437,7 @@ describe("extension registry", () => {
 	});
 
 	test("catalog carries manifest group metadata", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectManifest(workspace, "handoff", {
 			ns: {
 				description: "Coordinate handoff artifacts.",
@@ -489,7 +452,7 @@ describe("extension registry", () => {
 				],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "handoff", "src", "list.ts"),
 			commandEntry("list", "list"),
 		);
@@ -513,14 +476,14 @@ describe("extension registry", () => {
 	});
 
 	test("listing command infos preserve manifest group metadata without importing modules", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectManifest(workspace, "handoff", {
 			ns: {
 				group: "handoff",
 				commands: [{ name: "create", description: "Create handoffs.", entry: "./src/create.ts" }],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "handoff", "src", "create.ts"),
 			"throw new Error('group manifest entries should not load for listing');\n",
 		);
@@ -544,7 +507,7 @@ describe("extension registry", () => {
 	});
 
 	test("listing command infos keep placeholders and diagnose failed imports", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectExtension(workspace, "hello.ts", "throw new Error('listing boom');\n");
 
 		const catalog = await loadNsCommandCatalog({
@@ -589,7 +552,7 @@ describe("extension registry", () => {
 	});
 
 	test("one ns extension module can contribute multiple manifest-listed commands", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectManifest(workspace, "pkg", {
 			ns: {
 				commands: [
@@ -598,7 +561,7 @@ describe("extension registry", () => {
 				],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "commands.ts"),
 			`
 import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
@@ -644,12 +607,12 @@ export default defineExtension({
 	});
 
 	test("duplicate command names within one source level are errors", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectExtension(workspace, "one.ts", commandEntry("one", "one"));
 		writeProjectManifest(workspace, "pkg", {
 			ns: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "one.ts"),
 			commandEntry("one", "pkg"),
 		);
@@ -663,7 +626,7 @@ export default defineExtension({
 	});
 
 	test("group command names that collide with top-level commands are rejected", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectExtension(workspace, "handoff.ts", commandEntry("handoff", "top"));
 		writeProjectManifest(workspace, "handoff", {
 			ns: {
@@ -671,7 +634,7 @@ export default defineExtension({
 				commands: [{ name: "list", description: "List", entry: "./src/list.ts" }],
 			},
 		});
-		writeFile(
+		writeWorkspaceFile(
 			join(workspace.cwd, ".ns", "extensions", "handoff", "src", "list.ts"),
 			commandEntry("list", "list"),
 		);
@@ -690,7 +653,7 @@ export default defineExtension({
 	});
 
 	test("invalid inferred command names and selected import failures are structured errors", async () => {
-		const workspace = await createWorkspace();
+		const workspace = await createExtensionRegistryWorkspace();
 		writeProjectExtension(workspace, "Bad.ts", commandEntry("Bad", "bad"));
 		writeProjectExtension(workspace, "throws.ts", "throw new Error('boom');\n");
 
