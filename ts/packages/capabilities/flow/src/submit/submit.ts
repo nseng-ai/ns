@@ -1,6 +1,7 @@
 import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
 import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
@@ -341,10 +342,20 @@ export async function runSubmitCommand(
 	});
 	options.submitMatrix?.setRunningCommands([]);
 	if (prewrite.kind === "failed") {
-		const stderr = formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches);
+		const stderr = formatPrewriteFailureOutput({
+			error: prewrite.error,
+			amendedBranches: prewrite.amendedBranches,
+			...(prewrite.diagnostic === undefined ? {} : { diagnostic: prewrite.diagnostic }),
+		});
+		const details =
+			prewrite.diagnostic === undefined ? [] : formatErrorInfoDiagnosticLines(prewrite.diagnostic);
 		return failure(prewrite.exitCode ?? 1, stderr, {
 			failurePresentation: "unknown",
-			rawFailureTranscript: textFailureTranscript("pre-submit metadata", stderr),
+			rawFailureTranscript: textFailureTranscript(
+				"pre-submit metadata",
+				stderr,
+				details.length === 0 ? undefined : { details },
+			),
 		});
 	}
 

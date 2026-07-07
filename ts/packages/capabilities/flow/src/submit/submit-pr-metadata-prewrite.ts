@@ -94,7 +94,13 @@ export interface SubmitMetadataGateway {
 
 export type SubmitPrMetadataPrewriteResult =
 	| { kind: "prepared"; prepared: PrewrittenPrMetadata[]; hasUpstackBranches: boolean }
-	| { kind: "failed"; error: string; exitCode?: number; amendedBranches: string[] };
+	| {
+			kind: "failed";
+			error: string;
+			exitCode?: number;
+			amendedBranches: string[];
+			diagnostic?: ErrorInfo;
+	  };
 
 export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 	private readonly runner: CommandRunner;
@@ -488,6 +494,7 @@ export async function prepareSubmitPrMetadata(input: {
 				kind: "failed",
 				error: `Could not amend local PR metadata for ${metadata.branch}: ${amended.error.message}. Submission was not attempted.${amendedBranches.length === 0 ? "" : " Earlier branches may already have amended commit messages."}`,
 				amendedBranches,
+				diagnostic: amended.error,
 			};
 		}
 		amendedBranches.push(metadata.branch);

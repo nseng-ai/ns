@@ -3,6 +3,10 @@ import {
 	formatOutputSection,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
+import {
+	formatCommandFailureConciseCause,
+	type ErrorInfo,
+} from "@nseng-ai/capability-kit/gateway-result";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
@@ -212,18 +216,21 @@ export function formatRestackFailureOutput(output: SubmitCommandOutput): string 
 	});
 }
 
-export function formatPrewriteFailureOutput(
-	error: string,
-	amendedBranches: readonly string[],
-): string {
+export function formatPrewriteFailureOutput(options: {
+	error: string;
+	amendedBranches: readonly string[];
+	diagnostic?: ErrorInfo;
+}): string {
+	const cause = formatCommandFailureConciseCause(options.diagnostic);
 	return [
-		error,
-		...(amendedBranches.length === 0
+		options.error,
+		...(cause === undefined ? [] : [`Cause: ${cause}`]),
+		...(options.amendedBranches.length === 0
 			? []
 			: [
 					"",
 					"Local PR metadata commit messages were amended before the failure:",
-					...amendedBranches.map((branch) => `- ${branch}`),
+					...options.amendedBranches.map((branch) => `- ${branch}`),
 				]),
 	]
 		.filter(Boolean)
