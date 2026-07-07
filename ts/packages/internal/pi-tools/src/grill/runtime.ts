@@ -1,10 +1,9 @@
 import { GRILL_UI_SKILL_NAME, GRILL_WITH_DOCS_UI_SKILL_NAME } from "@nseng-ai/pi/grill/surfaces";
+import type { NotifyLevel } from "@nseng-ai/pi/runtime/tool-types";
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 
 import { buildGrillUiPrompt, buildGrillWithDocsUiPrompt } from "./prompts.ts";
 import type { ExtensionAPI, GrillUiCommandContext } from "./protocol.ts";
-
-type NotifyLevel = "info" | "warning" | "error";
 
 interface StructuredGrillCommandOptions {
 	skillName: string;

@@ -1,5 +1,4 @@
 import type {
-	RunnerSubagentContext,
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 } from "@internal/pi-tools/runner-subagents";
@@ -9,7 +8,11 @@ import {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 } from "./contract.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
+import {
+	toRunnerSubagentContext,
+	type ThermoCouncilCommandContext,
+	type ThermoCouncilExtensionAPI,
+} from "./host-api.ts";
 import { renderReviewGuidanceBlock } from "./prompt.ts";
 
 const SYNTHESIS_MODEL_ENV = "THERMO_COUNCIL_SYNTHESIS_MODEL";
@@ -48,7 +51,7 @@ export async function synthesizeThermoCouncilFinalReport({
 	}
 
 	const model = synthesisModelFromEnv(process.env);
-	const result = await dispatchRunnerSubagent(pi, runnerContext(ctx), {
+	const result = await dispatchRunnerSubagent(pi, toRunnerSubagentContext(ctx), {
 		title: "Thermo council final synthesis",
 		returnMode: "final-text",
 		prompt: buildFinalSynthesisPrompt({
@@ -70,14 +73,6 @@ export async function synthesizeThermoCouncilFinalReport({
 	}
 
 	return synthesisFailureFromRunnerResult(result);
-}
-
-function runnerContext(ctx: ThermoCouncilCommandContext): RunnerSubagentContext {
-	return {
-		cwd: ctx.cwd,
-		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-		...(ctx.model === undefined ? {} : { model: ctx.model }),
-	};
 }
 
 function synthesisModelFromEnv(env: NodeJS.ProcessEnv): string | undefined {

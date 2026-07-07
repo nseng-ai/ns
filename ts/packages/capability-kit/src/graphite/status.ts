@@ -4,7 +4,7 @@ import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type { LocalBranchRefReadResult } from "../git/local-ref-reader.ts";
 import type { GraphiteMetadataDbAccess } from "./metadata.ts";
 
-const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
+export const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",
 	"read-failed",

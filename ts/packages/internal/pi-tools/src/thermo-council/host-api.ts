@@ -1,4 +1,4 @@
-import type { RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
+import type { RunnerSubagentContext, RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 export interface ExecResult {
@@ -36,6 +36,14 @@ export interface ThermoCouncilCommandContext {
 		setStatus?(key: string, value: string | undefined): void;
 	};
 	waitForIdle?(): Promise<void>;
+}
+
+export function toRunnerSubagentContext(ctx: ThermoCouncilCommandContext): RunnerSubagentContext {
+	return {
+		cwd: ctx.cwd,
+		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
+		...(ctx.model === undefined ? {} : { model: ctx.model }),
+	};
 }
 
 export interface CustomMessage {

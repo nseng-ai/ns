@@ -24,16 +24,23 @@ import {
 	renderThermoCouncilReport,
 } from "./report.ts";
 import { collectThermoCouncilScope } from "./scope.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
-import { parseThermoCouncilSeats, type EnvReader } from "./seats.ts";
+import {
+	toRunnerSubagentContext,
+	type ThermoCouncilCommandContext,
+	type ThermoCouncilExtensionAPI,
+} from "./host-api.ts";
+import {
+	parseThermoCouncilMaxConcurrency,
+	parseThermoCouncilSeats,
+	type EnvReader,
+} from "./seats.ts";
 import {
 	createCouncilProgressTracker,
-	parseThermoCouncilMaxConcurrency,
 	renderFinalSynthesisStatus,
 	seatLabels,
 	type CouncilProgressTracker,
 } from "./progress.ts";
-import { reviewerOutcomeFromRunnerResult, reviewerRunnerContext } from "./review-recovery.ts";
+import { reviewerOutcomeFromRunnerResult } from "./review-recovery.ts";
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 interface LaunchThermoCouncilReviewerOptions {
@@ -134,7 +141,7 @@ async function launchThermoCouncilReviewer({
 	reviewGuidance,
 	onProgress,
 }: LaunchThermoCouncilReviewerOptions): Promise<ThermoCouncilReviewerOutcome> {
-	const runnerCtx = reviewerRunnerContext(ctx);
+	const runnerCtx = toRunnerSubagentContext(ctx);
 	const prompt =
 		reviewGuidance === undefined
 			? buildReviewerPrompt(scope, seat)

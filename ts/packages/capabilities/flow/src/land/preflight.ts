@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import type {
@@ -345,13 +347,8 @@ export function validateInitialPrPreflight(
 	for (let index = 0; index < branchPlans.length; index += 1) {
 		const branchPlan = branchPlans[index];
 		if (branchPlan === undefined) continue;
-		const expectedBaseRefName = index === 0 ? trunk : undefined;
-		const mismatches = prExpectationMismatches({
-			branch: branchPlan.branch,
-			localSha: branchPlan.localSha,
-			pr: branchPlan.pr,
-			...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
-		});
+		const expectedBaseRefName = expectedBaseRefNameForBranchPlan(index, trunk);
+		const mismatches = prExpectationMismatchesForBranchPlan(branchPlan, expectedBaseRefName);
 		const basics = validateOpenPrBasicsFromMismatches(
 			{
 				branch: branchPlan.branch,
@@ -377,12 +374,17 @@ export function validateInitialPrPreflight(
 	return landCompleted();
 }
 
-export function validateStrictMergeGate(input: {
+interface PrCheckSubject {
 	readonly branch: string;
 	readonly localSha: string;
 	readonly pr: PullRequestFacts;
-	readonly trunk: string;
-}): LandOutcome {
+}
+
+export function validateStrictMergeGate(
+	input: PrCheckSubject & {
+		readonly trunk: string;
+	},
+): LandOutcome {
 	const mismatches = prExpectationMismatches({
 		branch: input.branch,
 		localSha: input.localSha,
@@ -406,12 +408,11 @@ export function validateStrictMergeGate(input: {
 	return landCompleted();
 }
 
-export function validateOpenPrBasics(input: {
-	readonly branch: string;
-	readonly localSha: string;
-	readonly pr: PullRequestFacts;
-	readonly allowHeadShaMismatch?: boolean;
-}): LandOutcome {
+export function validateOpenPrBasics(
+	input: PrCheckSubject & {
+		readonly allowHeadShaMismatch?: boolean;
+	},
+): LandOutcome {
 	return validateOpenPrBasicsFromMismatches(input, prExpectationMismatches(input));
 }
 
@@ -423,12 +424,11 @@ interface PrExpectationMismatches {
 	readonly hasExpectedBaseMismatch: boolean;
 }
 
-function prExpectationMismatches(input: {
-	readonly branch: string;
-	readonly localSha: string;
-	readonly pr: PullRequestFacts;
-	readonly expectedBaseRefName?: string;
-}): PrExpectationMismatches {
+function prExpectationMismatches(
+	input: PrCheckSubject & {
+		readonly expectedBaseRefName?: string;
+	},
+): PrExpectationMismatches {
 	return {
 		isNotOpen: input.pr.state !== "OPEN",
 		isDraft: input.pr.isDraft,
@@ -439,11 +439,24 @@ function prExpectationMismatches(input: {
 	};
 }
 
+function expectedBaseRefNameForBranchPlan(index: number, trunk: string): string | undefined {
+	return index === 0 ? trunk : undefined;
+}
+
+function prExpectationMismatchesForBranchPlan(
+	branchPlan: BranchLandingPlan,
+	expectedBaseRefName: string | undefined,
+): PrExpectationMismatches {
+	return prExpectationMismatches({
+		branch: branchPlan.branch,
+		localSha: branchPlan.localSha,
+		pr: branchPlan.pr,
+		...optionalEntry("expectedBaseRefName", expectedBaseRefName),
+	});
+}
+
 function validateOpenPrBasicsFromMismatches(
-	input: {
-		readonly branch: string;
-		readonly localSha: string;
-		readonly pr: PullRequestFacts;
+	input: PrCheckSubject & {
 		readonly allowHeadShaMismatch?: boolean;
 	},
 	mismatches: PrExpectationMismatches,
@@ -505,13 +518,8 @@ export function collectPrSubmitRequirements(
 	for (let index = 0; index < branchPlans.length; index += 1) {
 		const branchPlan = branchPlans[index];
 		if (branchPlan === undefined) continue;
-		const expectedBaseRefName = index === 0 ? trunk : undefined;
-		const mismatches = prExpectationMismatches({
-			branch: branchPlan.branch,
-			localSha: branchPlan.localSha,
-			pr: branchPlan.pr,
-			...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
-		});
+		const expectedBaseRefName = expectedBaseRefNameForBranchPlan(index, trunk);
+		const mismatches = prExpectationMismatchesForBranchPlan(branchPlan, expectedBaseRefName);
 		const reasons: string[] = [];
 		if (mismatches.hasHeadShaMismatch) {
 			reasons.push(
@@ -528,7 +536,7 @@ export function collectPrSubmitRequirements(
 				localSha: branchPlan.localSha,
 				prHeadSha: branchPlan.pr.headRefOid,
 				baseRefName: branchPlan.pr.baseRefName,
-				...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
+				...optionalEntry("expectedBaseRefName", expectedBaseRefName),
 				reasons,
 			});
 		}

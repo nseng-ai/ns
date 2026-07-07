@@ -18,6 +18,9 @@ interface ModelOverrideOptions {
 	readonly label: string;
 }
 
+const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;
+const THERMO_COUNCIL_MAX_CONCURRENCY_ENV = "THERMO_COUNCIL_MAX_CONCURRENCY";
+
 const DEFAULT_SEATS = [
 	{
 		id: "anthropic-fable",
@@ -38,6 +41,16 @@ const DEFAULT_SEATS = [
 		envVar: "THERMO_COUNCIL_GEMINI_MODEL",
 	},
 ] as const satisfies readonly DefaultSeat[];
+
+export function parseThermoCouncilMaxConcurrency(env: EnvReader): number {
+	const raw = env.get(THERMO_COUNCIL_MAX_CONCURRENCY_ENV);
+	if (raw === undefined) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
+	const trimmed = raw.trim();
+	if (!/^\d+$/.test(trimmed)) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
+	const parsed = Number(trimmed);
+	if (!Number.isSafeInteger(parsed) || parsed < 1) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
+	return parsed;
+}
 
 export function parseThermoCouncilSeats(env: EnvReader): readonly ThermoCouncilSeatConfig[] {
 	const positionalModels = parsePositionalModels(env.get("THERMO_COUNCIL_MODELS"));

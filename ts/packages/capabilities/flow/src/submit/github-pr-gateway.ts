@@ -34,8 +34,8 @@ interface CheckedCommandFailure {
 	message: string;
 }
 
-interface CheckedCommandRun {
-	result: ExecResult;
+interface CheckedGhCommandRun {
+	execResult: ExecResult;
 	checked: GatewayResult<ExecResult>;
 }
 
@@ -155,7 +155,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 
 	async getPrDiff(params: PrDiffLocator): Promise<GatewayResult<string>> {
 		const args = ["pr", "diff", String(params.number)];
-		const run = await this.runCheckedGhWithResult({
+		const run = await this.runCheckedGhWithExecResult({
 			args,
 			cwd: params.cwd,
 			timeoutMs: DIFF_TIMEOUT_MS,
@@ -169,7 +169,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (
 			params.baseRefName !== undefined &&
 			params.headRefName !== undefined &&
-			isGithubDiffTooLarge(run.result)
+			isGithubDiffTooLarge(run.execResult)
 		) {
 			return await this.getLocalPrDiff({
 				cwd: params.cwd,
@@ -300,28 +300,22 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		timeoutMs: number;
 		failure: CheckedCommandFailure;
 	}): Promise<GatewayResult<ExecResult>> {
-		const result = await this.runGh(params.args, params.cwd, params.timeoutMs);
-		return checkedCommandResult({
-			command: "gh",
-			args: params.args,
-			result,
-			failure: params.failure,
-		});
+		return (await this.runCheckedGhWithExecResult(params)).checked;
 	}
 
-	private async runCheckedGhWithResult(params: {
+	private async runCheckedGhWithExecResult(params: {
 		args: readonly string[];
 		cwd: string;
 		timeoutMs: number;
 		failure: CheckedCommandFailure;
-	}): Promise<CheckedCommandRun> {
-		const result = await this.runGh(params.args, params.cwd, params.timeoutMs);
+	}): Promise<CheckedGhCommandRun> {
+		const execResult = await this.runGh(params.args, params.cwd, params.timeoutMs);
 		return {
-			result,
+			execResult,
 			checked: checkedCommandResult({
 				command: "gh",
 				args: params.args,
-				result,
+				result: execResult,
 				failure: params.failure,
 			}),
 		};

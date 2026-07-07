@@ -5,10 +5,6 @@ import {
 
 import type { ThermoCouncilReviewerOutcome, ThermoCouncilSeatConfig } from "./contract.ts";
 import { summarizeThermoCouncilReviewerOutcome } from "./report.ts";
-import type { EnvReader } from "./seats.ts";
-
-const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;
-const THERMO_COUNCIL_MAX_CONCURRENCY_ENV = "THERMO_COUNCIL_MAX_CONCURRENCY";
 
 interface CouncilSeatRunState {
 	readonly seat: ThermoCouncilSeatConfig;
@@ -19,16 +15,6 @@ interface CouncilSeatRunState {
 export interface CouncilProgressTracker {
 	recordProgress(seat: ThermoCouncilSeatConfig, update: RunnerSubagentUpdate): void;
 	recordOutcome(seat: ThermoCouncilSeatConfig, outcome: ThermoCouncilReviewerOutcome): void;
-}
-
-export function parseThermoCouncilMaxConcurrency(env: EnvReader): number {
-	const raw = env.get(THERMO_COUNCIL_MAX_CONCURRENCY_ENV);
-	if (raw === undefined) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
-	const trimmed = raw.trim();
-	if (!/^\d+$/.test(trimmed)) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
-	const parsed = Number(trimmed);
-	if (!Number.isSafeInteger(parsed) || parsed < 1) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
-	return parsed;
 }
 
 export function createCouncilProgressTracker(input: {

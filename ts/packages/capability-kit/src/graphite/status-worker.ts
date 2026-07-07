@@ -5,30 +5,20 @@ import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 
 import { loadGraphiteMetadataStatus } from "./status-loader.ts";
-import type {
-	GraphiteMetadataLookupInput,
-	GraphiteMetadataStatus,
-	GraphiteMetadataUnavailableReason,
-	GraphiteMetadataWorkerDiagnostic,
-	GraphiteMetadataWorkerFactory,
-	GraphiteMetadataWorkerHandle,
-	GraphiteMetadataWorkerRequest,
-	GraphiteMetadataWorkerResponse,
-	LoadGraphiteMetadataStatusInWorkerOptions,
+import {
+	GRAPHITE_METADATA_UNAVAILABLE_REASONS,
+	type GraphiteMetadataLookupInput,
+	type GraphiteMetadataStatus,
+	type GraphiteMetadataUnavailableReason,
+	type GraphiteMetadataWorkerDiagnostic,
+	type GraphiteMetadataWorkerFactory,
+	type GraphiteMetadataWorkerHandle,
+	type GraphiteMetadataWorkerRequest,
+	type GraphiteMetadataWorkerResponse,
+	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "./status.ts";
 
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
-
-const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
-	"missing-db",
-	"sqlite-unavailable",
-	"read-failed",
-	"read-timeout",
-	"schema-mismatch",
-	"not-a-git-repo",
-	"no-current-branch",
-	"branch-ref-read-failed",
-] as const satisfies readonly GraphiteMetadataUnavailableReason[];
 
 interface CachedGraphiteMetadataWorker {
 	worker: GraphiteMetadataWorkerHandle;
