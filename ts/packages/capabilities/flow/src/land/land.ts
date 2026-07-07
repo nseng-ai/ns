@@ -17,14 +17,8 @@ import type {
 	FlowLandExternalCallTelemetrySink,
 } from "./stack/external-call-telemetry.ts";
 import { createLandRuntime } from "./stack/land-runtime.ts";
-import { completed, failure, type LandStackOutcome } from "./stack/errors.ts";
-import {
-	formatFailureNotification,
-	landFailureKind,
-	notifyPrintAware,
-	presentBrief,
-	usage,
-} from "./stack/presentation.ts";
+import { completed, type LandStackOutcome } from "./stack/errors.ts";
+import { notifyPrintAware, presentFailureAndReturn, usage } from "./stack/presentation.ts";
 import {
 	renderLandConfirmationDetails,
 	renderLandResultBlockFromMessage,
@@ -108,14 +102,7 @@ async function runLandCommand(
 	const progressIo = options.progressIo;
 	const args = parseArgs(rawArgs);
 	if (args.type === "failure") {
-		presentBrief({
-			ctx,
-			fullMessage: args.failure.message,
-			level: args.failure.level,
-			uiMessage: formatFailureNotification(args.failure),
-			kind: landFailureKind(args.failure),
-		});
-		return failure(args.failure);
+		return presentFailureAndReturn(ctx, args.failure);
 	}
 	if (args.value.shouldShowHelp) {
 		notifyPrintAware({ ctx, message: usage(), level: "info" });

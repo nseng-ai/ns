@@ -8,7 +8,13 @@ import { shortSha } from "../../commit-display/index.ts";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
-import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
+import {
+	emptyResult,
+	failure,
+	type LandStackFailure,
+	type LandStackOutcome,
+	type LandStackResult,
+} from "./errors.ts";
 import { landUsageOptionRows, landUsageTokens } from "./flags.ts";
 import {
 	formatGraphiteOperation,
@@ -366,10 +372,10 @@ export function formatFailureNotification(failure: LandStackFailure): string {
 	return `land stopped: ${detail}`;
 }
 
-export function presentFailureOutcome(
+export function presentFailureAndReturn<T = void>(
 	ctx: PrintAwareLandStackCommandContext,
 	landFailure: LandStackFailure,
-): LandStackOutcome {
+): LandStackResult<T> {
 	presentBrief({
 		ctx,
 		fullMessage: formatFailure(landFailure, []),
@@ -378,6 +384,13 @@ export function presentFailureOutcome(
 		kind: landFailureKind(landFailure),
 	});
 	return failure(landFailure);
+}
+
+export function presentFailureOutcome(
+	ctx: PrintAwareLandStackCommandContext,
+	landFailure: LandStackFailure,
+): LandStackOutcome {
+	return presentFailureAndReturn(ctx, landFailure);
 }
 
 /**
