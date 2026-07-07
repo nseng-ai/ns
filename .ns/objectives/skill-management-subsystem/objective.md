@@ -12,6 +12,8 @@ edges:
     annotation: Subobjective — graduated 2026-07-07 from the parked remote-acquisition row (user decision). Owns the first-party fetch path for artifact-bearing npm modules (`ns.toml` artifact-packages, pi-derived spec grammar) plus version-resolution-for-fetched-modules, and carries the retired-trust-gating risk acceptance for re-judgment.
   - objective: harness-artifacts-post-review-cleanup
     annotation: Subobjective — finishes the remaining post-review harness-artifacts cleanup after the API re-export / force-required naming slice, resolving home-dir ownership, provision/reconcile design, schema/source cleanup, and review-thread disposition before parked breadth graduates further.
+  - objective: ship-objectives-to-customers
+    annotation: Upstream provider for that downstream customer-shipping Objective; this umbrella owns the reusable `ns skills`/harness-artifact provisioning surface that Objective consumes for cross-harness skill delivery.
 ---
 
 # Reusable Skill Management Subsystem
