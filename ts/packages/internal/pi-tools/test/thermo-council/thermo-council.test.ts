@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { SubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/api";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type JsonObject,
@@ -428,13 +429,14 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("No branches were created");
 	});
 
-	test("surfaces live reviewer progress instead of staying on launch status", async () => {
+	test("surfaces reviewer and final synthesis progress in the shared agents fleet", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
 		const pi = new FakePi({
 			execResults: successfulScopeExecResults(),
 			runnerDependencies: runner.dependencies,
 		});
-		thermoCouncilExtension(pi);
+		const fleetRegistry = new SubagentFleetRegistry();
+		thermoCouncilExtension(pi, { fleetRegistry });
 		const ctx = fakeContext();
 
 		const running = pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", ctx);
@@ -451,13 +453,19 @@ describe("thermo council extension", () => {
 			}),
 		);
 
-		expect(
-			ctx.ui.statuses.some(
-				(status) =>
-					status.includes("council 0/3 done") &&
-					status.includes("Anthropic Fable running: Inspecting changed files."),
-			),
-		).toBe(true);
+		const firstSeatTask = fleetRegistry
+			.snapshot()
+			.flatMap((run) => run.tasks)
+			.find((task) => task.title === "Thermo council: Anthropic Fable");
+		expect(firstSeatTask).toEqual(
+			expect.objectContaining({
+				state: "running",
+				latestActivity: "Inspecting changed files.",
+			}),
+		);
+		expect(ctx.ui.statuses.some((status) => status.includes("subagent fleet: 3 running"))).toBe(
+			true,
+		);
 
 		for (const call of runner.calls.slice(0, 3)) call.process.close(0);
 		await waitForSpawnCount(runner.calls, 4);
@@ -466,6 +474,13 @@ describe("thermo council extension", () => {
 		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
 		runner.calls[3]?.process.close(0);
 		await running;
+
+		expect(
+			fleetRegistry
+				.snapshot()
+				.flatMap((run) => run.tasks)
+				.find((task) => task.title === "Thermo council final synthesis"),
+		).toEqual(expect.objectContaining({ state: "done", finalStatus: "final-text" }));
 	});
 
 	test("honors a lower thermo council concurrency override", async () => {

@@ -6,6 +6,7 @@
 	"keywords": ["pi-package"],
 	"files": ["src", "README.md"],
 	"exports": {
+		"./api": "./src/api/index.ts",
 		"./extension": "./src/extension.ts",
 		"./runner-subagents": "./src/runner-subagents/index.ts",
 		"./runner-subagents/testing": "./src/runner-subagents/testing.ts"
@@ -27,6 +28,8 @@
 		"@internal/pi-tools": "workspace:*"
 	},
 	"ns": {
-		"tier": "internal-pi-tool"
+		"tier": "internal-pi-tool",
+		"subpackages": ["api"],
+		"remainder": true
 	}
 }

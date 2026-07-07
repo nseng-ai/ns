@@ -1,35 +1,21 @@
 import {
-	dispatchRunnerSubagent,
-	type RunnerSubagentContext,
-	type RunnerSubagentOptions,
-	type RunnerSubagentPi,
-	type RunnerSubagentResult,
-} from "../runner-subagents/index.ts";
+	createFunctionSubagentRuntime,
+	createSubprocessSubagentRuntime,
+	type SubagentRuntime,
+	type SubagentRuntimeDispatchFunction,
+	type SubagentRuntimeDispatchInput,
+} from "../runtime/seam.ts";
 
-export interface ExplorerRuntimeDispatchInput {
-	pi: RunnerSubagentPi;
-	ctx: RunnerSubagentContext;
-	options: RunnerSubagentOptions;
-}
-
-export interface ExplorerRuntime {
-	dispatch(input: ExplorerRuntimeDispatchInput): Promise<RunnerSubagentResult>;
-}
-
-export type ExplorerRuntimeDispatchFunction = (
-	input: ExplorerRuntimeDispatchInput,
-) => Promise<RunnerSubagentResult>;
+export type ExplorerRuntimeDispatchInput = SubagentRuntimeDispatchInput;
+export type ExplorerRuntime = SubagentRuntime;
+export type ExplorerRuntimeDispatchFunction = SubagentRuntimeDispatchFunction;
 
 export function createSubprocessExplorerRuntime(): ExplorerRuntime {
-	return {
-		dispatch(input) {
-			return dispatchRunnerSubagent(input.pi, input.ctx, input.options);
-		},
-	};
+	return createSubprocessSubagentRuntime();
 }
 
 export function createFunctionExplorerRuntime(
 	dispatch: ExplorerRuntimeDispatchFunction,
 ): ExplorerRuntime {
-	return { dispatch };
+	return createFunctionSubagentRuntime(dispatch);
 }

@@ -1,6 +1,8 @@
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 import { THERMO_COUNCIL_COMMAND_NAME } from "./contract.ts";
+import type { SubagentFleetRegistry, SubagentRuntime } from "@nseng-ai/ns-pi-subagents/api";
+
 import type { ThermoCouncilExtensionAPI } from "./host-api.ts";
 import { runThermoCouncilCommand } from "./orchestrator.ts";
 
@@ -21,14 +23,22 @@ export const thermoCouncilParity = definePiSurfaceParity([
 	},
 ] as const);
 
-export default function thermoCouncilExtension(pi: ThermoCouncilExtensionAPI): void {
+export interface ThermoCouncilExtensionOptions {
+	readonly runtime?: SubagentRuntime;
+	readonly fleetRegistry?: SubagentFleetRegistry;
+}
+
+export default function thermoCouncilExtension(
+	pi: ThermoCouncilExtensionAPI,
+	options: ThermoCouncilExtensionOptions = {},
+): void {
 	pi.registerCommand(THERMO_COUNCIL_COMMAND_NAME, {
 		description:
 			"Run a multi-model thermonuclear review council over inferred checkout scope and present one session-local report",
 		argumentHint: "[review guidance]",
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle?.();
-			await runThermoCouncilCommand(pi, ctx, args);
+			await runThermoCouncilCommand(pi, ctx, args, options);
 		},
 	});
 }

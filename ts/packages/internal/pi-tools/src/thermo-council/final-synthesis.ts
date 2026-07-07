@@ -1,11 +1,9 @@
-import type {
-	RunnerSubagentResult,
-	RunnerSubagentUpdate,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
 import {
-	dispatchRunnerSubagent,
 	resultDiagnostic,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+	type RunnerSubagentResult,
+	type RunnerSubagentUpdate,
+	type SubagentRuntime,
+} from "@nseng-ai/ns-pi-subagents/api";
 import {
 	SAFETY_NOTE,
 	type ThermoCouncilReviewerOutcome,
@@ -24,11 +22,13 @@ const MAX_SYNTHESIS_SOURCE_CHARS = 120_000;
 export interface SynthesizeThermoCouncilFinalReportOptions {
 	readonly pi: ThermoCouncilExtensionAPI;
 	readonly ctx: ThermoCouncilCommandContext;
+	readonly runtime: SubagentRuntime;
 	readonly scope: ThermoCouncilScope;
 	readonly outcomes: readonly ThermoCouncilReviewerOutcome[];
 	readonly deterministicReport: string;
 	readonly reviewGuidance?: string;
 	readonly onProgress?: (update: RunnerSubagentUpdate) => void;
+	readonly onRunnerResult?: (result: RunnerSubagentResult) => void;
 }
 
 export type FinalSynthesisResult =
@@ -43,30 +43,37 @@ export type FinalSynthesisResult =
 export async function synthesizeThermoCouncilFinalReport({
 	pi,
 	ctx,
+	runtime,
 	scope,
 	outcomes,
 	deterministicReport,
 	reviewGuidance,
 	onProgress,
+	onRunnerResult,
 }: SynthesizeThermoCouncilFinalReportOptions): Promise<FinalSynthesisResult> {
 	if (!outcomes.some((outcome) => outcome.type === "completed")) {
 		return { type: "completed", report: deterministicReport };
 	}
 
 	const model = synthesisModelFromEnv(process.env);
-	const result = await dispatchRunnerSubagent(pi, toRunnerSubagentContext(ctx), {
-		title: "Thermo council final synthesis",
-		returnMode: "final-text",
-		prompt: buildFinalSynthesisPrompt({
-			scope,
-			outcomes,
-			deterministicReport,
-			...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-		}),
-		tools: [],
-		...(model === undefined ? {} : { model }),
-		...(onProgress === undefined ? {} : { onProgress }),
+	const result = await runtime.dispatch({
+		pi,
+		ctx: toRunnerSubagentContext(ctx),
+		options: {
+			title: "Thermo council final synthesis",
+			returnMode: "final-text",
+			prompt: buildFinalSynthesisPrompt({
+				scope,
+				outcomes,
+				deterministicReport,
+				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+			}),
+			tools: [],
+			...(model === undefined ? {} : { model }),
+			...(onProgress === undefined ? {} : { onProgress }),
+		},
 	});
+	onRunnerResult?.(result);
 
 	if (result.status === "final-text" && result.finalText.trim().length > 0) {
 		return {

@@ -1,7 +1,4 @@
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
-
-import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
 import {
 	compareFleetTasksForDisplay,
 	type SubagentFleetRunSnapshot,
@@ -13,12 +10,24 @@ export const SUBAGENT_FLEET_WIDGET_KEY = "ns.agents.fleet";
 export const SUBAGENT_FLEET_STATUS_KEY = SUBAGENT_FLEET_WIDGET_KEY;
 export const SUBAGENT_FLEET_ENTRY_HINT = `${SUBAGENT_FLEET_SHORTCUT_LABEL} · /${SUBAGENT_FLEET_COMMAND_NAME}`;
 
+export interface SubagentFleetDisplayContext {
+	readonly hasUI?: boolean;
+	readonly ui?: {
+		setStatus?(key: string, value: string | undefined): void;
+		setWidget?(
+			key: string,
+			lines: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
+	};
+}
+
 export function syncSubagentFleetDisplay(
-	ctx: ToolContext,
+	ctx: SubagentFleetDisplayContext,
 	runs: readonly SubagentFleetRunSnapshot[],
 ): void {
 	const lines = formatSubagentFleetWidgetLines(runs);
-	setRunnerSubagentWidget(ctx, SUBAGENT_FLEET_WIDGET_KEY, lines.length === 0 ? undefined : lines);
+	setSubagentFleetWidget(ctx, lines.length === 0 ? undefined : lines);
 	setSubagentFleetStatus(ctx, formatSubagentFleetStatusText(runs));
 }
 
@@ -76,10 +85,22 @@ function hasActiveFleetTasks(tasks: readonly SubagentFleetTaskSnapshot[]): boole
 	return tasks.some((task) => task.state === "running" || task.state === "queued");
 }
 
-function setSubagentFleetStatus(ctx: ToolContext, text: string | undefined): void {
-	if (!ctx.hasUI) return;
+function setSubagentFleetWidget(
+	ctx: SubagentFleetDisplayContext,
+	lines: string[] | undefined,
+): void {
+	if (ctx.hasUI === false) return;
 	try {
-		ctx.ui.setStatus?.(SUBAGENT_FLEET_STATUS_KEY, text);
+		ctx.ui?.setWidget?.(SUBAGENT_FLEET_WIDGET_KEY, lines, { placement: "aboveEditor" });
+	} catch {
+		// Widget updates are display-only and must not affect subagent execution.
+	}
+}
+
+function setSubagentFleetStatus(ctx: SubagentFleetDisplayContext, text: string | undefined): void {
+	if (ctx.hasUI === false) return;
+	try {
+		ctx.ui?.setStatus?.(SUBAGENT_FLEET_STATUS_KEY, text);
 	} catch {
 		// Status updates are display-only and must not affect subagent execution.
 	}

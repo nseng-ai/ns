@@ -36,6 +36,7 @@ The `/ns:agents:fleet` command (also available through F2/alt+e/shift+ctrl+e) op
 
 ## Public exports
 
+- `@nseng-ai/ns-pi-subagents/api` — curated cross-package surface for other first-party Pi extensions that need shared subagent fleet monitoring, runtime injection, runner result/update types, and transcript/session helpers. New runtime/fleet consumers should prefer this surface over lower-level runner exports.
 - `@nseng-ai/ns-pi-subagents/extension` — default Pi extension entrypoint, exported from `src/extension.ts`.
-- `@nseng-ai/ns-pi-subagents/runner-subagents` — runner-subagent dispatch/runtime helpers and the `dispatch_runner_subagent` tool implementation.
+- `@nseng-ai/ns-pi-subagents/runner-subagents` — lower-level runner-subagent dispatch/runtime helpers and the `dispatch_runner_subagent` tool implementation. This remains exported for existing direct consumers.
 - `@nseng-ai/ns-pi-subagents/runner-subagents/testing` — runner-subagent test helpers for package tests and consumers.
