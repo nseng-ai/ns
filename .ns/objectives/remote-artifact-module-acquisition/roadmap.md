@@ -4,7 +4,8 @@
 
 Design decisions (steer-first; record each as a Semantic Update before implementing):
 
-- [ ] Decide the source-spec grammar and first-slice source kinds (starting point: pi's `npm:pkg@ver` / `git:host/user/repo@ref` / local-path grammar and pinning semantics; npm-only first is the lean candidate).
+- [x] Decide the source-spec grammar and first-slice source kinds.
+      **Decided 2026-07-07** (see `updates/20260707T182049Z-source-spec-grammar-decision.md`): adopt pi's grammar shape verbatim as the durable grammar (`npm:pkg[@ver]` / `git:host/user/repo@ref` / local path); slice one ships **npm-only**, with git and local-path reserved until the storage and gateway decisions land. Pinning semantics adopted with the grammar: versioned npm specs pinned/skipped, unversioned reconciled, git refs reconciled-not-advanced. Malformed/unknown specs are per-entry diagnostics. The local-path acquisition-vs-pointer question stays open.
 - [ ] Decide the fetched-module storage location and its explicit, inspectable record (git-native; no hidden database), plus how discovery reads it.
 - [ ] Decide fetch mechanics and the acquisition gateway seam (registry access, git transport, fake-driven tests; no real network in tests).
 - [ ] Decide how acquisition composes with `ns update` (inside unconditionally, flagged, or a separate composed verb) and the per-source update/pinning semantics (pinned skipped; unpinned reconciled to spec).
