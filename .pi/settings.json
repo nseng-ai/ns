@@ -67,6 +67,7 @@
     "-skills/objective-create-steelthread",
     "-skills/objective-create-standing",
     "-skills/objective-create-umbrella",
-    "-skills/objective-create-autoobjective"
+    "-skills/objective-create-autoobjective",
+    "-skills/objective-create-readme-driven-development"
   ]
 }
