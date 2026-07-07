@@ -9,12 +9,13 @@ import {
 } from "./stack/errors.ts";
 import { toLandStackFailure } from "./stack/landing-plan.ts";
 import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./stack/presentation.ts";
+import type { LandingShape, PrintAwareLandStackCommandContext } from "./stack/types.ts";
 import type {
-	LandingShape,
-	PrintAwareLandStackCommandContext,
+	LandGithubPrGateway,
+	LandingFailure,
+	PullRequestFacts,
 	StackSnapshot,
-} from "./stack/types.ts";
-import type { LandGithubPrGateway, LandingFailure, PullRequestFacts } from "./types.ts";
+} from "./types.ts";
 
 export interface ValidPullRequestView {
 	number: number;

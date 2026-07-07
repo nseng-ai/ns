@@ -1,6 +1,8 @@
 import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
-import type { PullRequestFacts } from "../types.ts";
+import type { LandingWarning, StackSnapshot } from "../types.ts";
+
+export type { LandingWarning };
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -112,19 +114,6 @@ export interface ParsedArgs {
 	shouldStreamVerboseOutput: boolean;
 }
 
-export interface StackSnapshot {
-	trunk: string;
-	/** Actual branch checked out in this worktree when landing started. */
-	current: string;
-	actualCurrentBranch: string;
-	landingTargetBranch: string;
-	landingBranches: string[];
-	remainingLandingBranches: string[];
-	descendantBranches: string[];
-	descendantRootBranches: string[];
-	warnings: string[];
-}
-
 export interface LandingShape {
 	repoRoot: string;
 	current: string;
@@ -133,60 +122,9 @@ export interface LandingShape {
 	stack: StackSnapshot;
 }
 
-export type PullRequestSnapshot = PullRequestFacts;
-
-export interface BranchPlan {
-	branch: string;
-	localSha: string;
-	pr: PullRequestSnapshot;
-}
-
-export interface PrSubmitRequirement {
-	branch: string;
-	prNumber: number;
-	localSha: string;
-	prHeadSha: string;
-	baseRefName: string;
-	expectedBaseRefName?: string;
-	reasons: string[];
-}
-
-export interface RestackRequirement {
-	branch: string;
-	parent: string;
-}
-
-export interface WorktreeConflict {
-	branch: string;
-	path: string;
-	kind: "current" | "managed-slot" | "manual-worktree";
-}
-
-export type DescendantMaintenancePlan =
-	| { kind: "none"; branches: [] }
-	| { kind: "auto"; branches: string[]; targetBranches: string[] }
-	| {
-			kind: "skipped";
-			branches: string[];
-			targetBranches: string[];
-			conflicts: WorktreeConflict[];
-			reason: string;
-	  };
-
 export interface WorktreeEntry {
 	path: string;
 	branch?: string;
-}
-
-export interface FlowLandingPlan {
-	repoRoot: string;
-	metadataDbPath: string;
-	stack: StackSnapshot;
-	branchPlans: BranchPlan[];
-	prSubmitRequirements: PrSubmitRequirement[];
-	submitRestackRequirements: RestackRequirement[];
-	managedSlotConflicts: WorktreeConflict[];
-	descendantMaintenance: DescendantMaintenancePlan;
 }
 
 export interface LandedPr {
@@ -209,15 +147,6 @@ export interface CommandInvocation {
 
 export interface CommandStreamMessageDetails {
 	prLinks: CommandStreamPrLink[];
-}
-
-export interface LandingWarning {
-	level?: "warning" | "info";
-	message: string;
-	commandDisplay?: string;
-	result?: ExecResult;
-	suggestedAction?: string;
-	notificationAction?: string;
 }
 
 export interface RetainedLocalBranchCleanup {

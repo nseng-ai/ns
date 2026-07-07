@@ -259,11 +259,10 @@ export interface RetainedLocalBranchCleanup {
 export interface LandingWarning {
 	readonly level: "warning" | "info";
 	readonly message: string;
+	readonly commandDisplay?: string;
+	readonly result?: LandCommandResult;
 	readonly suggestedAction?: string;
-}
-
-export function toWarningNotifications(messages: readonly string[]): LandingWarning[] {
-	return messages.map((message) => ({ level: "warning", message }));
+	readonly notificationAction?: string;
 }
 
 export interface LandGitGateway {

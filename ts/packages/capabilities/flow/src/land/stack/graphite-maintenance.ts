@@ -1,5 +1,4 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
@@ -20,15 +19,14 @@ import { validateOpenPrBasics } from "../api.ts";
 import { loadPr } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
-import type { LandContext, LandGraphiteRestackScope } from "../api.ts";
 import type {
 	DescendantMaintenancePlan,
-	LandStackCommandContext,
-	FlowLandingPlan,
-	LandingWarning,
-	MergeLoopState,
-	PullRequestSnapshot,
-} from "./types.ts";
+	LandContext,
+	LandingPlan,
+	LandGraphiteRestackScope,
+	PullRequestFacts,
+} from "../api.ts";
+import type { LandStackCommandContext, LandingWarning, MergeLoopState } from "./types.ts";
 import { formatConflict, slotNameFromPath } from "./worktrees.ts";
 
 export interface GraphiteMaintenanceOptions {
@@ -129,7 +127,7 @@ interface PerformGraphiteMaintenanceOptions {
 	landContext: LandContext;
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
-	plan: FlowLandingPlan;
+	plan: LandingPlan;
 	step: GraphiteMaintenanceStep;
 }
 
@@ -138,7 +136,7 @@ interface MaintenanceOperationContext {
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	repoRoot: string;
-	plan: FlowLandingPlan;
+	plan: LandingPlan;
 	prNumber: number;
 	landedBranch: string;
 	state: MergeLoopState;
@@ -224,6 +222,7 @@ async function checkSubmitMaintenanceBranch(
 				},
 			),
 			warning: {
+				level: "warning",
 				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be re-read after optional descendant restack; submit/update for ${maintenanceBranch} was skipped.`,
 				suggestedAction: `Inspect local branch ${maintenanceBranch}, update that PR manually if needed, and delete local branch ${landedBranch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
@@ -241,6 +240,7 @@ async function checkSubmitMaintenanceBranch(
 				},
 			),
 			warning: {
+				level: "warning",
 				message: `All target PRs were merged, but PR metadata for ${maintenanceBranch} could not be verified after optional descendant restack; submit/update for ${maintenanceBranch} was skipped.`,
 				suggestedAction: `Inspect PR metadata for ${maintenanceBranch} and update that PR manually if needed.`,
 			},
@@ -258,7 +258,7 @@ async function checkSubmitMaintenanceBranch(
 }
 
 function isPrMetadataCurrentForMaintenance(options: {
-	pr: PullRequestSnapshot;
+	pr: PullRequestFacts;
 	branch: string;
 	localSha: string;
 	trunk: string;
@@ -315,6 +315,7 @@ async function submitMaintenanceBranch(
 			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
 		}),
 		warning: {
+			level: "warning",
 			message: formatSubmitFailureMessage(prNumber, maintenanceBranch, false),
 			commandDisplay: submitted.commandDisplay,
 			result: submitted.result,
@@ -452,6 +453,7 @@ async function guardMaintenanceBranch(
 				},
 			),
 			warning: {
+				level: "warning",
 				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be verified before optional descendant maintenance; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
 				suggestedAction: `Inspect local branch ${maintenanceBranch}, then restack/update it and delete local branch ${landedBranch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
@@ -468,6 +470,7 @@ async function guardMaintenanceBranch(
 			suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 		}),
 		warning: {
+			level: "warning",
 			message: `All target PRs were merged, but ${movedMessage}; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
 			suggestedAction: `Inspect local branch ${maintenanceBranch}, then restack/update it and delete local branch ${landedBranch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
@@ -526,6 +529,7 @@ async function refreshMaintenanceBranch(
 	return {
 		kind: "skip",
 		warning: {
+			level: "warning",
 			message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenanceBranch} failed; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
 			commandDisplay: refresh.commandDisplay,
 			result: refresh.result,
@@ -553,7 +557,7 @@ function aggregateOptionalDescendantMaintenanceWarnings(options: {
 			? `local branch ${landedBranch} cleanup and descendant restack/update were skipped`
 			: `local branch ${landedBranch} cleanup may already have completed; optional descendant restack/update did not complete`;
 	return {
-		...optionalEntry("level", isOnlyInformational ? ("info" as const) : undefined),
+		level: isOnlyInformational ? "info" : "warning",
 		message: [
 			`All target PRs were merged, but optional descendant maintenance did not complete for ${affectedRoots.join(", ")}; ${cleanupText}.`,
 			...constituentWarnings.map((warning) => `- ${warning.message}`),
@@ -586,6 +590,7 @@ async function checkGraphiteBranchBeforeDelete(
 		return {
 			kind: "skip",
 			warning: {
+				level: "warning",
 				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${children.failure.message}`,
 				suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
@@ -607,6 +612,7 @@ async function checkGraphiteBranchBeforeDelete(
 			},
 		),
 		warning: {
+			level: "warning",
 			message: `All target PRs were merged, but ${branch} now has unexpected Graphite children (${unexpectedChildren.join(", ")}); ${skippedScope} skipped.`,
 			suggestedAction: `Inspect the unexpected children, then delete local branch ${branch} and restack descendants manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
@@ -676,6 +682,7 @@ async function restackMaintenanceBranch(
 			suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
 		}),
 		warning: {
+			level: "warning",
 			message: formatRestackFailureMessage(prNumber, maintenanceBranch, false),
 			commandDisplay: restacked.commandDisplay,
 			result: restacked.result,
@@ -708,10 +715,7 @@ function formatCheckedOutElsewhere(checkoutConflict: CheckedOutElsewhere): strin
 	return `${checkoutConflict.branch} is checked out at ${checkoutConflict.path}`;
 }
 
-function planGraphiteMaintenanceTargets(
-	plan: FlowLandingPlan,
-	index: number,
-): MaintenanceTargetPlan {
+function planGraphiteMaintenanceTargets(plan: LandingPlan, index: number): MaintenanceTargetPlan {
 	const nextLandingBranch = plan.stack.landingBranches[index + 1];
 	if (nextLandingBranch !== undefined) {
 		return buildMaintenanceTargetPlan("required-next-landing", [nextLandingBranch]);
@@ -726,13 +730,13 @@ function planGraphiteMaintenanceTargets(
 		return buildMaintenanceTargetPlan("required-next-landing", [nextFutureLandingBranch]);
 	}
 
-	if (plan.descendantMaintenance.kind === "auto") {
+	if (plan.descendantMaintenance.type === "auto") {
 		return buildMaintenanceTargetPlan(
 			"optional-descendants",
 			plan.descendantMaintenance.targetBranches,
 		);
 	}
-	if (plan.descendantMaintenance.kind === "skipped") {
+	if (plan.descendantMaintenance.type === "skipped") {
 		return buildMaintenanceTargetPlan("skip-descendant", []);
 	}
 	return buildMaintenanceTargetPlan("none", []);
@@ -809,7 +813,7 @@ function buildMaintenanceTargetPlan(
 }
 
 function refreshTargetsAfterMaintainedBranch(
-	plan: FlowLandingPlan,
+	plan: LandingPlan,
 	maintainedBranch: string,
 ): readonly string[] {
 	const refreshOrder = refreshTargetOrder(plan);
@@ -830,30 +834,28 @@ function refreshTargetsAfterMaintainedBranch(
 	return [next];
 }
 
-function isDescendantMaintenanceRoot(plan: FlowLandingPlan, branch: string): boolean {
+function isDescendantMaintenanceRoot(plan: LandingPlan, branch: string): boolean {
 	return (
-		plan.descendantMaintenance.kind === "auto" &&
+		plan.descendantMaintenance.type === "auto" &&
 		plan.descendantMaintenance.targetBranches.includes(branch)
 	);
 }
 
-function refreshTargetOrder(plan: FlowLandingPlan): readonly string[] {
+function refreshTargetOrder(plan: LandingPlan): readonly string[] {
 	return [
 		...plan.stack.landingBranches,
 		...plan.stack.remainingLandingBranches,
-		...(plan.descendantMaintenance.kind === "auto"
+		...(plan.descendantMaintenance.type === "auto"
 			? plan.descendantMaintenance.targetBranches
 			: []),
 	];
 }
 
-function skippedDescendantMaintenanceWarning(
-	plan: FlowLandingPlan,
-	branch: string,
-): LandingWarning {
+function skippedDescendantMaintenanceWarning(plan: LandingPlan, branch: string): LandingWarning {
 	const maintenance = plan.descendantMaintenance;
-	if (maintenance.kind !== "skipped") {
+	if (maintenance.type !== "skipped") {
 		return {
+			level: "warning",
 			message: `Descendant restack/update was skipped for ${branch}.`,
 			suggestedAction: "Inspect the stack and update descendant PRs manually if needed.",
 		};
@@ -861,6 +863,7 @@ function skippedDescendantMaintenanceWarning(
 
 	const conflictText = maintenance.conflicts.map(formatConflict).join("; ");
 	return {
+		level: "warning",
 		message: `Final local Graphite cleanup for ${branch} and descendant restack/update were skipped because ${maintenance.reason}: ${conflictText}.`,
 		suggestedAction: `Detach or free the descendant worktrees, then restack/update ${maintenance.branches.join(", ")} and delete local branch ${branch} manually if appropriate.`,
 		notificationAction: skippedDescendantNotificationAction(maintenance),
@@ -868,7 +871,7 @@ function skippedDescendantMaintenanceWarning(
 }
 
 function skippedDescendantNotificationAction(
-	maintenance: Extract<DescendantMaintenancePlan, { kind: "skipped" }>,
+	maintenance: Extract<DescendantMaintenancePlan, { type: "skipped" }>,
 ): string {
 	const branches = maintenance.branches.join(", ");
 	const conflict = maintenance.conflicts[0];
@@ -880,7 +883,7 @@ function skippedDescendantNotificationAction(
 		return `Free/detach ${maintenance.conflicts.length} descendant worktrees; then restack/update ${branches}.`;
 	}
 
-	if (conflict.kind === "managed-slot") {
+	if (conflict.type === "managed-slot") {
 		const slot = slotNameFromPath(conflict.path) ?? conflict.path;
 		return `Free ${slot} for ${conflict.branch}; then restack/update ${branches}.`;
 	}
@@ -910,6 +913,7 @@ function localBranchDeletionFailurePair(options: LocalBranchDeletionFailurePairO
 			suggestedAction: details.failureSuggestedAction,
 		}),
 		warning: {
+			level: "warning",
 			message: details.warningMessage,
 			commandDisplay: options.commandDisplay,
 			result: options.result,

@@ -41,7 +41,7 @@ export {
 	validateStrictMergeGate,
 } from "./preflight.ts";
 
-export { boundaryFailureDiagnostics, toWarningNotifications } from "./types.ts";
+export { boundaryFailureDiagnostics } from "./types.ts";
 
 export {
 	isLandFailure,

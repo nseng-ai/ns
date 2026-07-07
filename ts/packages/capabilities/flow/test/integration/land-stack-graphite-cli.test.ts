@@ -74,9 +74,13 @@ describe("land stack real Graphite CLI integration", () => {
 				if (snapshot.type !== "success") throw new Error(snapshot.failure.message);
 				expect(snapshot.value.landingBranches).toEqual(["feature-a"]);
 				expect(snapshot.value.descendantBranches).toEqual([]);
-				expect(snapshot.value.warnings.some((warning) => warning.includes("feature-b"))).toBe(true);
 				expect(
-					snapshot.value.warnings.some((warning) => warning.includes("gt untrack feature-b")),
+					snapshot.value.warnings.some((warning) => warning.message.includes("feature-b")),
+				).toBe(true);
+				expect(
+					snapshot.value.warnings.some((warning) =>
+						warning.message.includes("gt untrack feature-b"),
+					),
 				).toBe(true);
 			});
 		},

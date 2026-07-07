@@ -673,7 +673,12 @@ function copyWarning(warning: LandingWarning): LandingWarning {
 	return {
 		level: warning.level,
 		message: warning.message,
+		...(warning.commandDisplay === undefined ? {} : { commandDisplay: warning.commandDisplay }),
+		...(warning.result === undefined ? {} : { result: warning.result }),
 		...(warning.suggestedAction === undefined ? {} : { suggestedAction: warning.suggestedAction }),
+		...(warning.notificationAction === undefined
+			? {}
+			: { notificationAction: warning.notificationAction }),
 	};
 }
 

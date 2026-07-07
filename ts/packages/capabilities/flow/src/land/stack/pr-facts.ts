@@ -4,7 +4,8 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
-import type { LandStackExtensionAPI, PullRequestSnapshot } from "./types.ts";
+import type { PullRequestFacts } from "../types.ts";
+import type { LandStackExtensionAPI } from "./types.ts";
 
 interface GitHubRepositoryName {
 	readonly owner: string;
@@ -12,7 +13,7 @@ interface GitHubRepositoryName {
 }
 
 interface BatchedPullRequestParseResult {
-	readonly prs: ReadonlyMap<string, PullRequestSnapshot>;
+	readonly prs: ReadonlyMap<string, PullRequestFacts>;
 }
 
 interface GhJsonRequest<T> {
@@ -51,7 +52,7 @@ export async function loadPr(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branchOrNumber: string,
-): Promise<LandStackResult<PullRequestSnapshot>> {
+): Promise<LandStackResult<PullRequestFacts>> {
 	const args = ["pr", "view", branchOrNumber, "--json", PR_FIELDS];
 	return await execAndParseJson({
 		pi,
@@ -61,7 +62,7 @@ export async function loadPr(
 		parseFailureMessage: (error) =>
 			`Failed to parse gh pr view output for ${branchOrNumber}: ${formatErrorMessage(error)}.`,
 		validationFailureMessage: `gh pr view for ${branchOrNumber} did not return required PR fields.`,
-		parse: parsePullRequestSnapshot,
+		parse: parsePullRequestFacts,
 	});
 }
 
@@ -69,7 +70,7 @@ export async function loadPrsByBranch(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branches: readonly string[],
-): Promise<LandStackResult<ReadonlyMap<string, PullRequestSnapshot>>> {
+): Promise<LandStackResult<ReadonlyMap<string, PullRequestFacts>>> {
 	if (branches.length === 0) return success(new Map());
 	if (branches.length < BATCHED_PULL_REQUEST_FACTS_MIN_BRANCHES) {
 		return await loadPrsByBranchSequentially(pi, repoRoot, branches);
@@ -113,8 +114,8 @@ async function loadPrsByBranchSequentially(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branches: readonly string[],
-): Promise<LandStackResult<ReadonlyMap<string, PullRequestSnapshot>>> {
-	const prs = new Map<string, PullRequestSnapshot>();
+): Promise<LandStackResult<ReadonlyMap<string, PullRequestFacts>>> {
+	const prs = new Map<string, PullRequestFacts>();
 	for (const branch of branches) {
 		const pr = await loadPr(pi, repoRoot, branch);
 		if (pr.type === "failure") return pr;
@@ -185,7 +186,7 @@ function parseBatchedPullRequestFacts(
 		return undefined;
 	}
 
-	const prs = new Map<string, PullRequestSnapshot>();
+	const prs = new Map<string, PullRequestFacts>();
 	for (let index = 0; index < branches.length; index += 1) {
 		const branch = branches[index];
 		if (branch === undefined) return undefined;
@@ -198,14 +199,14 @@ function parseBatchedPullRequestFacts(
 			return undefined;
 		}
 		const [node] = connection.nodes;
-		const pr = parsePullRequestSnapshot(node);
+		const pr = parsePullRequestFacts(node);
 		if (pr === undefined) return undefined;
 		prs.set(branch, pr);
 	}
 	return { prs };
 }
 
-function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefined {
+function parsePullRequestFacts(value: unknown): PullRequestFacts | undefined {
 	if (!isRecord(value)) return undefined;
 
 	const body = value.body;

@@ -17,15 +17,13 @@ import { formatGraphiteOperation } from "./graphite-command-channel.ts";
 import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
+import type { LandingPlan, PullRequestFacts, WorktreeConflict } from "../types.ts";
 import type {
 	LandStackCommandContext,
 	LandedPr,
-	FlowLandingPlan,
 	LandingWarning,
 	MergeLoopState,
-	PullRequestSnapshot,
 	RemainingCleanup,
-	WorktreeConflict,
 } from "./types.ts";
 import {
 	detectWorktreeConflicts,
@@ -46,7 +44,7 @@ import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
 import { toLandStackFailure } from "./landing-plan.ts";
 import type { LandContext, LandGitGateway, LandingFailure, ManagedSlotWorktree } from "../api.ts";
 
-function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): string {
+function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflict[]): string {
 	return [
 		"Landing branches are checked out in managed slots after submit/update.",
 		"No PRs were landed.",
@@ -55,7 +53,7 @@ function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): str
 	].join("\n");
 }
 
-export function residualPreMergeFailure(plan: FlowLandingPlan): LandStackFailure | undefined {
+export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
 			suggestedAction: `Run ${formatCommand("ns", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ns:flow:land.`,
@@ -122,7 +120,7 @@ export async function confirmAndFreeManagedSlots(
 		plan.stack.landingBranches,
 	);
 	if (conflicts.type === "failure") return conflicts;
-	const remaining = conflicts.value.filter((conflict) => conflict.kind !== "current");
+	const remaining = conflicts.value.filter((conflict) => conflict.type !== "current");
 	if (remaining.length > 0) {
 		return failure(
 			landStackFailure(
@@ -160,7 +158,7 @@ function preMergeSlotFailure(landFailureValue: LandingFailure): LandStackFailure
 
 function stackMergeRejectedFailure(
 	landFailureValue: LandingFailure,
-	pr: PullRequestSnapshot,
+	pr: PullRequestFacts,
 	branch: string,
 ): LandStackFailure {
 	const { displayCommand, execResult } = boundaryFailureDiagnostics(landFailureValue);
@@ -204,7 +202,7 @@ export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	runtime: LandRuntime;
 	landContext: LandContext;
 	ctx: LandStackCommandContext;
-	plan: FlowLandingPlan;
+	plan: LandingPlan;
 	landed: LandedPr[];
 	warnings: LandingWarning[];
 }

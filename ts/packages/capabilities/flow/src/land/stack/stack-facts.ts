@@ -36,7 +36,8 @@ import {
 	resolveMetadataDbPath,
 	type GraphiteTopology,
 } from "./graphite-topology.ts";
-import type { LandStackExtensionAPI, LandingShape, StackSnapshot } from "./types.ts";
+import type { LandingWarning, StackSnapshot } from "../types.ts";
+import type { LandStackExtensionAPI, LandingShape } from "./types.ts";
 
 export async function loadRepoRoot(
 	pi: LandStackExtensionAPI,
@@ -255,30 +256,35 @@ function loadLiveLocalBranchNames(options: {
 // A dangling child (a metadata row/child pointer for a branch deleted in git but
 // never `gt untrack`ed) is stale state, not a broken stack: land proceeds and
 // surfaces a single non-fatal warning so the user can clean it up.
-function staleMetadataBranchWarnings(droppedBranches: readonly string[]): string[] {
+function staleMetadataBranchWarnings(droppedBranches: readonly string[]): LandingWarning[] {
 	if (droppedBranches.length === 0) return [];
 	const cleanup = droppedBranches
 		.map((branch) => formatGraphiteOperation(untrackLocalBranchOperation(branch)))
 		.join("\n");
 	return [
-		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,
+		{
+			level: "warning",
+			message: `Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,
+		},
 	];
 }
 
-function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): string[] {
+function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): LandingWarning[] {
 	const marked = [...topology.entries()]
 		.filter(([, entry]) => entry.isTrunkMarked)
 		.map(([branch]) => branch);
-	const warnings: string[] = [];
+	const warnings: LandingWarning[] = [];
 	if (marked.length > 1) {
-		warnings.push(
-			`multiple branches are marked as trunk in Graphite metadata: ${marked.join(", ")}`,
-		);
+		warnings.push({
+			level: "warning",
+			message: `multiple branches are marked as trunk in Graphite metadata: ${marked.join(", ")}`,
+		});
 	}
 	if (marked.length > 0 && !marked.includes(trunk)) {
-		warnings.push(
-			`Graphite metadata marks ${marked.join(", ")} as trunk, but gt trunk is ${trunk}; ${trunk} remains the required merge target`,
-		);
+		warnings.push({
+			level: "warning",
+			message: `Graphite metadata marks ${marked.join(", ")} as trunk, but gt trunk is ${trunk}; ${trunk} remains the required merge target`,
+		});
 	}
 	return warnings;
 }

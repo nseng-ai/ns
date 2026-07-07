@@ -1,6 +1,6 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
-import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
+import type { PullRequestFacts } from "../../src/land/api.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
 
 const TRUNK = "main";
@@ -191,7 +191,7 @@ export function prSnapshot(overrides: {
 	state?: string;
 	isDraft?: boolean;
 	mergedAt?: string | null;
-}): PullRequestSnapshot {
+}): PullRequestFacts {
 	return {
 		id: `PR_node_${overrides.number}`,
 		number: overrides.number,
@@ -208,7 +208,7 @@ export function prSnapshot(overrides: {
 	};
 }
 
-export function prStdout(pr: PullRequestSnapshot): string {
+export function prStdout(pr: PullRequestFacts): string {
 	return `${JSON.stringify(pr)}\n`;
 }
 

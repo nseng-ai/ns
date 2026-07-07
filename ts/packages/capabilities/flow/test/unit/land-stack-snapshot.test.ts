@@ -2,9 +2,10 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import type { StackSnapshot } from "../../src/land/api.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
-import type { LandStackExtensionAPI, StackSnapshot } from "../../src/land/stack/types.ts";
+import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -162,8 +163,8 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		expect(
 			snapshot.warnings.some(
 				(warning) =>
-					warning.includes("phantom;touch-owned") &&
-					warning.includes("gt untrack 'phantom;touch-owned'"),
+					warning.message.includes("phantom;touch-owned") &&
+					warning.message.includes("gt untrack 'phantom;touch-owned'"),
 			),
 		).toBe(true);
 	});
@@ -178,7 +179,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		const snapshot = expectSuccess(await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b"]));
 
 		expect(snapshot.landingBranches).toEqual(["feature-a", "feature-b"]);
-		expect(snapshot.warnings.some((warning) => warning.includes("phantom"))).toBe(true);
+		expect(snapshot.warnings.some((warning) => warning.message.includes("phantom"))).toBe(true);
 	});
 
 	test("still fires the fork gate on two live siblings", async () => {

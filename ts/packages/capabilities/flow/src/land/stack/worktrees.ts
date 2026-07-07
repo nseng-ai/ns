@@ -5,8 +5,9 @@ import { formatCommand } from "@nseng-ai/foundation/command";
 import { parseGitWorktreePorcelain } from "@nseng-ai/capability-kit/git";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
+import type { WorktreeConflict } from "../types.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
-import type { LandStackExtensionAPI, WorktreeConflict, WorktreeEntry } from "./types.ts";
+import type { LandStackExtensionAPI, WorktreeEntry } from "./types.ts";
 
 export interface DetectWorktreeConflictsOptions {
 	normalizePath?: (path: string) => string;
@@ -16,7 +17,7 @@ export async function detectWorktreeConflicts(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	currentBranch: string,
-	relevantBranches: string[],
+	relevantBranches: readonly string[],
 	options: DetectWorktreeConflictsOptions = {},
 ): Promise<LandStackResult<WorktreeConflict[]>> {
 	const normalizePath = options.normalizePath ?? normalizeExistingPath;
@@ -31,13 +32,13 @@ export async function detectWorktreeConflicts(
 		if (!worktree.branch || !relevant.has(worktree.branch)) continue;
 		const worktreePath = normalizePath(worktree.path);
 		if (worktree.branch === currentBranch && worktreePath === currentPath) {
-			conflicts.push({ branch: worktree.branch, path: worktree.path, kind: "current" });
+			conflicts.push({ branch: worktree.branch, path: worktree.path, type: "current" });
 			continue;
 		}
 		conflicts.push({
 			branch: worktree.branch,
 			path: worktree.path,
-			kind: isManagedSlotPath(worktree.path) ? "managed-slot" : "manual-worktree",
+			type: isManagedSlotPath(worktree.path) ? "managed-slot" : "manual-worktree",
 		});
 	}
 
@@ -115,7 +116,7 @@ export function normalizeExistingPath(path: string): string {
 	}
 }
 
-export function formatManualWorktreeConflict(conflicts: WorktreeConflict[]): string {
+export function formatManualWorktreeConflict(conflicts: readonly WorktreeConflict[]): string {
 	if (conflicts.length === 1) {
 		const conflict = conflicts[0];
 		return `Branch ${conflict?.branch ?? "unknown"} is checked out in non-slot worktree ${conflict?.path ?? "unknown"}; detach it manually and rerun.`;
@@ -134,6 +135,6 @@ export function formatSlotConflict(conflict: WorktreeConflict): string {
 }
 
 export function formatConflict(conflict: WorktreeConflict): string {
-	if (conflict.kind === "managed-slot") return formatSlotConflict(conflict);
-	return `${conflict.branch} ${conflict.path} (${conflict.kind})`;
+	if (conflict.type === "managed-slot") return formatSlotConflict(conflict);
+	return `${conflict.branch} ${conflict.path} (${conflict.type})`;
 }

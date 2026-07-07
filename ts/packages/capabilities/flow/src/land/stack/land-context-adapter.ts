@@ -5,13 +5,7 @@ import {
 	type GitWorktreeStateFs,
 } from "@nseng-ai/capability-kit/git";
 import { formatCommandForDisplay } from "./command-stream.ts";
-import {
-	landCompleted,
-	landFailure,
-	landOutcomeFailure,
-	landSuccess,
-	toWarningNotifications,
-} from "../api.ts";
+import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../api.ts";
 import type {
 	LandContext,
 	LandGraphiteCommandResult,
@@ -47,7 +41,6 @@ import {
 	type LandGraphiteOperation,
 } from "./graphite-command-channel.ts";
 import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
-import { copyPullRequestSnapshot } from "./pull-request-snapshot.ts";
 import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
@@ -58,7 +51,7 @@ import {
 	loadStackSnapshot,
 	loadTrunk,
 } from "./stack-facts.ts";
-import type { LandStackExtensionAPI, PullRequestSnapshot } from "./types.ts";
+import type { LandStackExtensionAPI } from "./types.ts";
 import {
 	isManagedSlotPath,
 	loadWorktrees,
@@ -69,10 +62,6 @@ import {
 import type { LandStackFailure } from "./errors.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
-
-function toApiPullRequestFacts(pr: PullRequestSnapshot): PullRequestFacts {
-	return copyPullRequestSnapshot(pr);
-}
 
 export function createLandContext(
 	pi: LandStackExtensionAPI,
@@ -112,10 +101,7 @@ export function createLandContext(
 					liveLocalBranches: request.liveLocalBranches,
 				});
 				if (stack.type === "failure") return toLandResult(stack, "graphite", "stack-shape");
-				return landSuccess({
-					...stack.value,
-					warnings: toWarningNotifications(stack.value.warnings),
-				});
+				return landSuccess(stack.value);
 			},
 			prepareSubmitUpdate: async ({ repoRoot, branch }) =>
 				prepareSubmitUpdate({ graphite, repoRoot, branch }),
@@ -144,14 +130,12 @@ export function createLandContext(
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
 				const pr = await loadPr(pi, repoRoot, branchOrNumber);
 				if (pr.type === "failure") return toLandResult(pr, "github", "preflight");
-				return landSuccess(toApiPullRequestFacts(pr.value));
+				return landSuccess(pr.value);
 			},
 			pullRequestFactsByBranch: async ({ repoRoot, branches }) => {
 				const prs = await loadPrsByBranch(pi, repoRoot, branches);
 				if (prs.type === "failure") return toLandResult(prs, "github", "preflight");
-				return landSuccess(
-					new Map([...prs.value].map(([branch, pr]) => [branch, toApiPullRequestFacts(pr)])),
-				);
+				return landSuccess(prs.value);
 			},
 			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
 				const mergeArgs = squashMergeArgs(pullRequest);
