@@ -5,8 +5,8 @@
 - [x] **Rebaseline live review feedback and branch context.**
       Done 2026-07-07 (see `updates/20260707T230504Z-live-review-feedback-rebaseline.md`): relevant merged harness-artifacts PRs were mapped, unresolved review threads were bucketed into home-dir/harness-path ownership, provision/reconcile design seams, and schema/source-of-truth duplication, and stale thread candidates were identified. No GitHub thread mutation was performed.
 
-- [ ] **Resolve home-dir and harness-path ownership.**
-      Decide and implement the smallest coherent ownership model for effective home/env fallback and harness-relative path helpers across harness-artifacts, kernel, ns-init, and tests. Evidence: duplicated fallback paths removed or justified, package boundaries respected, and relevant tests/checks pass.
+- [x] **Resolve home-dir and harness-path ownership.**
+      Done 2026-07-07 (see `updates/20260707T234420Z-home-dir-harness-path-ownership.md`): kernel CLI now resolves a single command-context object and adapts it to explicit XDG catalog discovery, harness path ownership remains in `HarnessPathContext`, ns-init adapts SDK context into `SkillMaterializationContext`, and targeted package checks/tests plus formatting passed.
 
 - [ ] **Clean up provision/reconcile design seams.**
       Reduce duplicated outcome construction and conflict plumbing around reconcile/preview/apply, including conflict-file extraction, conflict action classification, skipped-collision handling, and refusal-message ownership. Evidence: the reconcile flow reads as one clear domain pipeline with thin CLI adapters.

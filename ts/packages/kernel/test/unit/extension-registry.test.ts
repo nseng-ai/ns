@@ -69,7 +69,10 @@ describe("extension registry", () => {
 	test("catalog contains only built-ins without external extensions", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
@@ -80,7 +83,7 @@ describe("extension registry", () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 			preinstalledCommandCatalog: () => [
 				preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
 				preinstalledEntry("tools", "doctor", "@example/tools/ns/commands/doctor"),
@@ -105,7 +108,7 @@ describe("extension registry", () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 			preinstalledCommandCatalog: () => [
 				{
 					group: "tools",
@@ -164,7 +167,7 @@ describe("extension registry", () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const sourceCatalog = await loadNsCommandCatalog({
 			cwd: process.cwd(),
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const sourceCandidate = [...sourceCatalog.candidates.values()].find(
 			(candidate) =>
@@ -177,7 +180,7 @@ describe("extension registry", () => {
 
 		const loaded = await loadNsCommandCatalog({
 			cwd: process.cwd(),
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 			preinstalledCommandCatalog: () => [
 				{
 					...(sourceCandidate.group === undefined ? {} : { group: sourceCandidate.group }),
@@ -210,7 +213,10 @@ describe("extension registry", () => {
 		writeLegacyGlobalExtension(workspace, "legacy.ts", commandEntry("legacy", "legacy greet"));
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "xdg greet"));
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(
@@ -250,7 +256,10 @@ describe("extension registry", () => {
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "global greet"));
 		writeProjectExtension(workspace, "greet.ts", commandEntry("greet", "project greet"));
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(
@@ -312,7 +321,7 @@ describe("extension registry", () => {
 
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 			preinstalledCommandCatalog: () => [
 				preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
 			],
@@ -347,7 +356,10 @@ describe("extension registry", () => {
 			"throw new Error('should not import during discovery');\n",
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(loaded.commandInfos.find((info) => info.name === "hello")).toEqual({
@@ -367,7 +379,7 @@ describe("extension registry", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const loaded = await loadListingCommandInfos(catalog);
 
@@ -392,7 +404,7 @@ describe("extension registry", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const candidate = catalog.candidates.get("list");
 		expect(candidate).toMatchObject({
@@ -421,7 +433,7 @@ describe("extension registry", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const loaded = await loadListingCommandInfos(catalog);
 
@@ -459,7 +471,7 @@ describe("extension registry", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 
 		expect([...catalog.candidates.keys()]).toEqual([...builtInCandidateKeys, "handoff/list"]);
@@ -490,7 +502,7 @@ describe("extension registry", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const loaded = await loadListingCommandInfos(catalog);
 
@@ -512,7 +524,7 @@ describe("extension registry", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const loaded = await loadListingCommandInfos(catalog);
 
@@ -575,7 +587,10 @@ export default defineExtension({
 `,
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual(["bye", ...builtInCandidateKeys, "hello"]);
@@ -617,7 +632,10 @@ export default defineExtension({
 			commandEntry("one", "pkg"),
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(
@@ -639,7 +657,10 @@ export default defineExtension({
 			commandEntry("list", "list"),
 		);
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(
@@ -657,7 +678,10 @@ export default defineExtension({
 		writeProjectExtension(workspace, "Bad.ts", commandEntry("Bad", "bad"));
 		writeProjectExtension(workspace, "throws.ts", "throw new Error('boom');\n");
 
-		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(

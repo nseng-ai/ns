@@ -469,6 +469,8 @@ The capabilities a command receives as the first argument to `run`. ns owns the 
 interface NsExtensionApi {
   cwd: string;
   env: Record<string, string | undefined>;
+  /** Compatibility ingress; adapt into domain-specific contexts before use. */
+  homeDir?: string;
   exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
   textGenerator: TextGenerator;
   commandIo: NsCommandIo;
@@ -488,6 +490,7 @@ interface NsExtensionApi {
 
 - `cwd` — repository working directory for the command's execution.
 - `env` — environment visible to the command and to shell execution.
+- `homeDir?` — compatibility ingress for a host-resolved user home. Command packages should convert it into their own domain contexts; it is not the owner of harness path semantics or XDG discovery policy.
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.

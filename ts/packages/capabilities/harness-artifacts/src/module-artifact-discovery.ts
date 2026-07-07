@@ -131,11 +131,10 @@ function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifacts
 	roots: readonly string[];
 	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 } {
-	const env = {
-		...process.env,
-		...(request.env ?? {}),
-		...(request.homeDir === undefined ? {} : { HOME: request.homeDir }),
-	};
+	const env = xdgExtensionArtifactDiscoveryEnv({
+		...(request.env === undefined ? {} : { env: request.env }),
+		...(request.homeDir === undefined ? {} : { xdgHomeDir: request.homeDir }),
+	});
 	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
 	const roots = [join(request.projectRoot, ".ns", "extensions")];
 	try {
@@ -147,6 +146,17 @@ function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifacts
 		});
 	}
 	return { roots: sortStrings(roots), diagnostics };
+}
+
+function xdgExtensionArtifactDiscoveryEnv(options: {
+	env?: Record<string, string | undefined>;
+	xdgHomeDir?: string;
+}): Record<string, string | undefined> {
+	return {
+		...process.env,
+		...(options.env ?? {}),
+		...(options.xdgHomeDir === undefined ? {} : { HOME: options.xdgHomeDir }),
+	};
 }
 
 async function discoverExtensionRoot(options: {

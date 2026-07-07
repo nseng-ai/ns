@@ -31,7 +31,9 @@ afterEach(async () => {
 describe("RealSkillMaterializer", () => {
 	test("materializes the catalog objective skill through harness-artifacts provisioning", async () => {
 		const fixture = await createFixture();
-		const materializer = new RealSkillMaterializer({ homeDir: fixture.homeDir });
+		const materializer = new RealSkillMaterializer({
+			context: { userHomeDir: fixture.homeDir, env: {} },
+		});
 
 		const result = await materializer.materializeObjectiveSkills({
 			repoRoot: fixture.repoRoot,
@@ -66,7 +68,9 @@ describe("RealSkillMaterializer", () => {
 		const fixture = await createFixture();
 		const targetSkill = join(fixture.repoRoot, ".pi/skills/objective/SKILL.md");
 		await writeTextFile(targetSkill, "local edit\n");
-		const materializer = new RealSkillMaterializer({ homeDir: fixture.homeDir });
+		const materializer = new RealSkillMaterializer({
+			context: { userHomeDir: fixture.homeDir, env: {} },
+		});
 
 		const result = await materializer.materializeObjectiveSkills({
 			repoRoot: fixture.repoRoot,

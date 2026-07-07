@@ -1,5 +1,5 @@
 import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { ObjectiveActivationContext } from "../activation-context.ts";
@@ -14,8 +14,15 @@ export function createNsInitContext(
 		git: createNsGitGateway(ctx),
 		files: new RealActivationFilesGateway(),
 		skills: new RealSkillMaterializer({
-			...optionalEntry("homeDir", ctx.homeDir),
-			env: ctx.env,
+			context: skillMaterializationContext(ctx),
 		}),
+	};
+}
+
+function skillMaterializationContext(ctx: NsExtensionApi) {
+	const userHomeDir = resolveHomeDir(ctx.homeDir, ctx.env);
+	return {
+		env: ctx.env,
+		...optionalEntry("userHomeDir", userHomeDir),
 	};
 }

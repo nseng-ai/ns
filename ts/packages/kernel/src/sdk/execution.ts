@@ -35,7 +35,11 @@ export interface NsExtensionApi {
 	cwd: string;
 	/** Environment visible to ns commands and shell execution. */
 	env: Record<string, string | undefined>;
-	/** Kernel-resolved user home directory for user-scope operations, when available. */
+	/**
+	 * Compatibility ingress for a host-resolved user home, when available.
+	 * Command packages should adapt this into domain-specific contexts instead of treating it as the
+	 * owner of harness path or XDG discovery semantics.
+	 */
 	homeDir?: string;
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
 	exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;

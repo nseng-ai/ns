@@ -17,7 +17,7 @@ describe("extension registry shim loading", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
+			xdgHomeDir: workspace.homeDir,
 		});
 		const candidate = catalog.candidates.get("list");
 		if (candidate === undefined || !("moduleReference" in candidate)) {
