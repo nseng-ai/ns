@@ -94,7 +94,7 @@ describe("RealSkillMaterializer", () => {
 		expect(result).toMatchObject({
 			type: "error",
 			error: {
-				code: "locally_edited_conflict",
+				code: "locally-edited-conflict",
 				details: { harness: "pi", conflictingFiles: [targetSkill] },
 			},
 		});

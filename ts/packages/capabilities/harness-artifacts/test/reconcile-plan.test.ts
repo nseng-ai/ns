@@ -45,6 +45,7 @@ describe("harness artifact reconcile planner", () => {
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
 		expect(result.value.orphans).toEqual([]);
+		expect(result.value.skippedCollisions).toEqual([]);
 		expect(result.value.pairs.map((pair) => pair.key)).toEqual([
 			"codex:project:skill:@acme/plans:plan-skill",
 			"codex:project:skill:objective-skill",
@@ -66,7 +67,10 @@ describe("harness artifact reconcile planner", () => {
 			manifests: [],
 		});
 
-		expect(result).toEqual({ ok: true, value: { pairs: [], orphans: [] } });
+		expect(result).toEqual({
+			ok: true,
+			value: { pairs: [], orphans: [], skippedDesired: [], skippedCollisions: [] },
+		});
 	});
 
 	test("manifest-tracked pairs survive without a harness selection", () => {
@@ -133,6 +137,8 @@ describe("harness artifact reconcile planner", () => {
 						sourceType: "npm-module",
 					},
 				],
+				skippedDesired: [],
+				skippedCollisions: [],
 			},
 		});
 	});
@@ -172,20 +178,24 @@ describe("harness artifact reconcile planner", () => {
 		});
 
 		expect(result).toEqual({
-			ok: false,
-			error: {
-				code: "artifact_collision",
-				message: "Desired harness artifacts contain duplicate ids or target names.",
-				details: {
-					collisions: [
-						{ kind: "id", value: "shared-id", packages: ["@acme/left", "@acme/right"] },
-						{
-							kind: "target-name",
-							value: "objective",
-							packages: ["@acme/objective", "@nseng-ai/ns"],
-						},
-					],
-				},
+			ok: true,
+			value: {
+				pairs: [],
+				orphans: [],
+				skippedDesired: [
+					desired(firstPartyObjective),
+					desired(moduleObjective),
+					desired(duplicateIdLeft),
+					desired(duplicateIdRight),
+				],
+				skippedCollisions: [
+					{ kind: "id", value: "shared-id", packages: ["@acme/left", "@acme/right"] },
+					{
+						kind: "target-name",
+						value: "objective",
+						packages: ["@acme/objective", "@nseng-ai/ns"],
+					},
+				],
 			},
 		});
 	});

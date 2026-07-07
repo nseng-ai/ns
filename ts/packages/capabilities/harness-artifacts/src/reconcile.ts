@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
@@ -31,10 +31,10 @@ import {
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
-	applyHarnessArtifactProvision,
+	applyPreparedProvision,
 	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
-	previewHarnessArtifactProvision,
+	prepareProvision,
 	readInstallManifestAtRoot,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
@@ -83,29 +83,31 @@ export const orphanedManifestEntrySchema = z.object({
 });
 export type OrphanedManifestEntry = z.output<typeof orphanedManifestEntrySchema>;
 
-export interface ReconcileCollision {
-	kind: "id" | "target-name";
-	value: string;
-	packages: readonly string[];
-}
-
-export interface ReconcilePlanErrorInfo {
-	code: "artifact_collision";
-	message: string;
-	details: { collisions: readonly ReconcileCollision[] };
-}
+export const skippedArtifactCollisionSchema = z.object({
+	kind: z.enum(["id", "target-name"]),
+	value: z.string(),
+	packages: z.array(z.string()),
+});
+export type SkippedArtifactCollision = z.output<typeof skippedArtifactCollisionSchema>;
 
 export function planHarnessArtifactReconcile(input: {
 	desired: readonly DesiredHarnessArtifact[];
 	harnessSelection: readonly HarnessId[] | undefined;
 	manifests: readonly HarnessManifestSnapshot[];
 }): Result<
-	{ pairs: readonly ReconcilePair[]; orphans: readonly OrphanedManifestEntry[] },
-	ReconcilePlanErrorInfo
+	{
+		pairs: readonly ReconcilePair[];
+		orphans: readonly OrphanedManifestEntry[];
+		skippedDesired: readonly DesiredHarnessArtifact[];
+		skippedCollisions: readonly SkippedArtifactCollision[];
+	},
+	never
 > {
-	const collisionCheck = checkDesiredCollisions(input.desired);
-	if (!collisionCheck.ok) return collisionCheck;
+	const collisionPlan = planDesiredCollisionSkips(input.desired);
 
+	const skippedDesiredIdentities = new Set(
+		collisionPlan.skippedDesired.map((desired) => desiredManifestIdentityKey(desired)),
+	);
 	const desiredByManifestIdentity = new Map<string, DesiredHarnessArtifact>();
 	for (const desired of input.desired) {
 		desiredByManifestIdentity.set(desiredManifestIdentityKey(desired), desired);
@@ -113,7 +115,7 @@ export function planHarnessArtifactReconcile(input: {
 
 	const pairsByKey = new Map<string, ReconcilePair>();
 	if (input.harnessSelection !== undefined) {
-		for (const desired of input.desired) {
+		for (const desired of collisionPlan.provisionableDesired) {
 			for (const harness of input.harnessSelection) {
 				const key = reconcilePairKey({
 					harness,
@@ -147,6 +149,7 @@ export function planHarnessArtifactReconcile(input: {
 				});
 				continue;
 			}
+			if (skippedDesiredIdentities.has(manifestEntryDesiredIdentityKey(entry))) continue;
 			const key = reconcilePairKey({
 				harness: entry.harness,
 				scope: entry.scope,
@@ -169,6 +172,8 @@ export function planHarnessArtifactReconcile(input: {
 		orphans: orphans.sort((left, right) =>
 			`${left.harness}\0${left.artifactId}`.localeCompare(`${right.harness}\0${right.artifactId}`),
 		),
+		skippedDesired: collisionPlan.skippedDesired,
+		skippedCollisions: collisionPlan.skippedCollisions,
 	});
 }
 
@@ -190,7 +195,7 @@ export const harnessSelectionStateSchema = z.discriminatedUnion("type", [
 export type HarnessSelectionState = z.output<typeof harnessSelectionStateSchema>;
 
 export const reconcileArtifactOutcomeSchema = z.object({
-	action: z.enum(["installed", "refreshed", "unchanged", "conflicted"]),
+	action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "skipped"]),
 	artifactId: z.string(),
 	skillName: z.string(),
 	harness: harnessSchema,
@@ -211,12 +216,12 @@ export const reconcileReportSchema = z.object({
 	artifacts: z.array(reconcileArtifactOutcomeSchema),
 	orphans: z.array(orphanedManifestEntrySchema),
 	diagnostics: z.array(moduleArtifactDiscoveryDiagnosticSchema),
+	skippedCollisions: z.array(skippedArtifactCollisionSchema),
 	needsForce: z.boolean(),
 });
 export type ReconcileReport = z.output<typeof reconcileReportSchema>;
 
 export type ReconcileErrorInfo =
-	| ReconcilePlanErrorInfo
 	| HarnessArtifactProvisionErrorInfo
 	| HarnessArtifactFileSystemErrorInfo
 	| HarnessPathErrorInfo
@@ -268,8 +273,17 @@ export async function runHarnessArtifactReconcile(
 	if (!plan.ok) return plan;
 
 	const artifacts: ReconcileArtifactOutcome[] = [];
+	for (const desired of plan.value.skippedDesired) {
+		artifacts.push(
+			...skippedCollisionOutcomes({
+				desired,
+				context,
+				harnesses: selection.value.harnessSelection,
+			}),
+		);
+	}
 	for (const pair of plan.value.pairs) {
-		const provisionRequest = {
+		const prepared = await prepareProvision({
 			artifact: pair.desired.artifact,
 			harness: pair.harness,
 			scope: pair.scope,
@@ -277,17 +291,16 @@ export async function runHarnessArtifactReconcile(
 			sourceRoot: pair.desired.sourceRoot,
 			sourceVersion: pair.desired.sourceVersion,
 			fs,
-		};
+		});
+		if (!prepared.ok) return prepared;
 		if (request.dryRun) {
-			const preview = await previewHarnessArtifactProvision(provisionRequest);
-			if (!preview.ok) return preview;
 			artifacts.push(
 				reconcileOutcomeFromProvision({
 					pair,
-					provision: preview.value,
-					...(preview.value.decisions.needsForce ? { action: "conflicted" as const } : {}),
+					provision: prepared.value,
+					...(prepared.value.decisions.needsForce ? { action: "conflicted" as const } : {}),
 					writtenFiles: [],
-					conflictingFiles: preview.value.decisions.files
+					conflictingFiles: prepared.value.decisions.files
 						.filter((decision) => decision.type === "locally-edited-conflict")
 						.map((decision) => decision.file.targetPath),
 				}),
@@ -295,22 +308,17 @@ export async function runHarnessArtifactReconcile(
 			continue;
 		}
 
-		const applied = await applyHarnessArtifactProvision({
-			...provisionRequest,
-			shouldForce: request.force,
-		});
-		if (!applied.ok) {
-			if (applied.error.code === "locally_edited_conflict") {
-				artifacts.push(
-					reconcileConflictedOutcome({
-						pair,
-						manifestPath: applied.error.details.manifestPath,
-						conflictingFiles: applied.error.details.conflictingFiles,
-					}),
-				);
-				continue;
-			}
-			return applied;
+		const applied = await applyPreparedProvision(prepared.value, { force: request.force });
+		if (!applied.ok) return applied;
+		if (applied.value.outcome === "conflicted") {
+			artifacts.push(
+				reconcileConflictedOutcome({
+					pair,
+					provision: applied.value,
+					conflictingFiles: applied.value.conflictingFiles,
+				}),
+			);
+			continue;
 		}
 		artifacts.push(
 			reconcileOutcomeFromProvision({
@@ -328,6 +336,7 @@ export async function runHarnessArtifactReconcile(
 		artifacts,
 		orphans: [...plan.value.orphans],
 		diagnostics: [...moduleDiscovery.diagnostics],
+		skippedCollisions: [...plan.value.skippedCollisions],
 		needsForce: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
 }
@@ -336,41 +345,47 @@ function optionalHomeDir(homeDir: string | undefined): { homeDir: string } | {} 
 	return homeDir === undefined ? {} : { homeDir };
 }
 
-function checkDesiredCollisions(
-	desired: readonly DesiredHarnessArtifact[],
-): Result<void, ReconcilePlanErrorInfo> {
+function planDesiredCollisionSkips(desired: readonly DesiredHarnessArtifact[]): {
+	provisionableDesired: readonly DesiredHarnessArtifact[];
+	skippedDesired: readonly DesiredHarnessArtifact[];
+	skippedCollisions: readonly SkippedArtifactCollision[];
+} {
+	const skipped = new Set<DesiredHarnessArtifact>();
 	const collisions = [
-		...collisionsForKey(desired, (item) => item.artifact.id, "id"),
-		...collisionsForKey(desired, (item) => item.artifact.skillName, "target-name"),
-	];
-	if (collisions.length === 0) return resultOk(undefined);
-	return resultErr({
-		code: "artifact_collision",
-		message: "Desired harness artifacts contain duplicate ids or target names.",
-		details: {
-			collisions: collisions.sort((left, right) =>
-				`${left.kind}\0${left.value}`.localeCompare(`${right.kind}\0${right.value}`),
-			),
-		},
-	});
+		...collisionsForKey(desired, (item) => item.artifact.id, "id", skipped),
+		...collisionsForKey(desired, (item) => item.artifact.skillName, "target-name", skipped),
+	].sort((left, right) =>
+		`${left.kind}\0${left.value}`.localeCompare(`${right.kind}\0${right.value}`),
+	);
+	return {
+		provisionableDesired: desired.filter((item) => !skipped.has(item)),
+		skippedDesired: desired.filter((item) => skipped.has(item)),
+		skippedCollisions: collisions,
+	};
 }
 
 function collisionsForKey(
 	desired: readonly DesiredHarnessArtifact[],
 	keyForItem: (item: DesiredHarnessArtifact) => string,
-	kind: ReconcileCollision["kind"],
-): readonly ReconcileCollision[] {
-	const packagesByKey = new Map<string, string[]>();
+	kind: SkippedArtifactCollision["kind"],
+	skipped: Set<DesiredHarnessArtifact>,
+): readonly SkippedArtifactCollision[] {
+	const itemsByKey = new Map<string, DesiredHarnessArtifact[]>();
 	for (const item of desired) {
 		const key = keyForItem(item);
-		const packages = packagesByKey.get(key) ?? [];
-		packages.push(item.artifact.source.packageName);
-		packagesByKey.set(key, packages);
+		const items = itemsByKey.get(key) ?? [];
+		items.push(item);
+		itemsByKey.set(key, items);
 	}
-	const collisions: ReconcileCollision[] = [];
-	for (const [value, packages] of packagesByKey) {
-		if (packages.length < 2) continue;
-		collisions.push({ kind, value, packages: sortStrings([...new Set(packages)]) });
+	const collisions: SkippedArtifactCollision[] = [];
+	for (const [value, items] of itemsByKey) {
+		if (items.length < 2) continue;
+		for (const item of items) skipped.add(item);
+		collisions.push({
+			kind,
+			value,
+			packages: sortStrings([...new Set(items.map((item) => item.artifact.source.packageName))]),
+		});
 	}
 	return collisions;
 }
@@ -491,9 +506,36 @@ function classifyReconcileAction(input: {
 	return "installed";
 }
 
+function skippedCollisionOutcomes(input: {
+	desired: DesiredHarnessArtifact;
+	context: ReturnType<typeof firstPartySkillProvisionPathContext>;
+	harnesses: readonly HarnessId[] | undefined;
+}): readonly ReconcileArtifactOutcome[] {
+	const harnesses = input.harnesses ?? [];
+	return harnesses.map((harness) => {
+		const root = resolveHarnessSkillRoot({ harness, scope: "project", context: input.context });
+		if (!root.ok) throw new Error(root.error.message);
+		const targetArtifactPath = join(root.value.rootPath, input.desired.artifact.skillName);
+		return {
+			action: "skipped",
+			artifactId: input.desired.artifact.id,
+			skillName: input.desired.artifact.skillName,
+			harness,
+			scope: "project",
+			origin: "declared",
+			sourceType: input.desired.artifact.source.type,
+			packageName: input.desired.artifact.source.packageName,
+			targetArtifactPath,
+			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
+			writtenFiles: [],
+			conflictingFiles: [],
+		};
+	});
+}
+
 function reconcileConflictedOutcome(input: {
 	pair: ReconcilePair;
-	manifestPath: string;
+	provision: HarnessArtifactProvisionPreview;
 	conflictingFiles: readonly string[];
 }): ReconcileArtifactOutcome {
 	return {
@@ -505,8 +547,8 @@ function reconcileConflictedOutcome(input: {
 		origin: input.pair.origin,
 		sourceType: input.pair.desired.artifact.source.type,
 		packageName: input.pair.desired.artifact.source.packageName,
-		targetArtifactPath: join(dirname(input.manifestPath), input.pair.desired.artifact.skillName),
-		manifestPath: input.manifestPath,
+		targetArtifactPath: input.provision.plan.targetArtifactPath,
+		manifestPath: input.provision.manifestPath,
 		writtenFiles: [],
 		conflictingFiles: [...input.conflictingFiles],
 	};

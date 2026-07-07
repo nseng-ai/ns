@@ -71,11 +71,10 @@ export {
 	type HarnessSelectionState,
 	type OrphanedManifestEntry,
 	type ReconcileArtifactOutcome,
-	type ReconcileCollision,
 	type ReconcileErrorInfo,
 	type ReconcilePair,
-	type ReconcilePlanErrorInfo,
 	type ReconcileReport,
+	type SkippedArtifactCollision,
 	type RunHarnessArtifactReconcileRequest,
 } from "./reconcile.ts";
 export {
@@ -105,20 +104,26 @@ export {
 } from "./module-artifact-declaration.ts";
 export {
 	applyHarnessArtifactProvision,
+	applyPreparedProvision,
 	INSTALL_MANIFEST_FILE_NAME,
 	installManifestPathForPlan,
 	nodeHarnessArtifactFileSystemGateway,
+	prepareProvision,
 	previewHarnessArtifactProvision,
 	readInstallManifestAtRoot,
-	type ApplyHarnessArtifactProvisionRequest,
+	type ApplyPreparedProvisionOptions,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
+	type HarnessArtifactProvisionAppliedOutcome,
+	type HarnessArtifactProvisionApplyOutcome,
 	type HarnessArtifactProvisionApplyResult,
+	type HarnessArtifactProvisionConflictOutcome,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionPreview,
 	type HarnessArtifactProvisionRequest,
 	type OptionalFileState,
 	type OptionalTextFileState,
+	type PreparedHarnessArtifactProvision,
 } from "./provision-apply.ts";
 export {
 	buildInstallManifestData,

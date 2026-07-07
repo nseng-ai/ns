@@ -5,6 +5,7 @@ import {
 	findFirstPartySkillArtifact,
 	firstPartySkillProvisionPathContext,
 	resolveFirstPartyCatalogSourceRoot,
+	type HarnessArtifactProvisionConflictOutcome,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessId,
 } from "@nseng-ai/harness-artifacts/api";
@@ -74,6 +75,9 @@ export class RealSkillMaterializer implements SkillMaterializer {
 			if (!applied.ok) {
 				return { type: "error", error: nsInitErrorFromProvisionError(harness, applied.error) };
 			}
+			if (applied.value.outcome === "conflicted") {
+				return { type: "error", error: nsInitErrorFromProvisionConflict(harness, applied.value) };
+			}
 			installedSkillPaths.push(applied.value.plan.targetArtifactPath);
 		}
 
@@ -93,5 +97,20 @@ function nsInitErrorFromProvisionError(
 		code: error.code,
 		message: `Failed to materialize objective skills for ${harness}: ${error.message}`,
 		details: { harness, ...error.details },
+	};
+}
+
+function nsInitErrorFromProvisionConflict(
+	harness: HarnessId,
+	conflict: HarnessArtifactProvisionConflictOutcome,
+): NsInitErrorInfo {
+	return {
+		code: "locally-edited-conflict",
+		message: `Failed to materialize objective skills for ${harness}: ${conflict.conflictingFiles.length} target file(s) have local edits.`,
+		details: {
+			harness,
+			manifestPath: conflict.manifestPath,
+			conflictingFiles: [...conflict.conflictingFiles],
+		},
 	};
 }
