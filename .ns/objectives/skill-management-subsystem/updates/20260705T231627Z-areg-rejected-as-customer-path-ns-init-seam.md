@@ -1,5 +1,9 @@
 # areg is not the customer provisioning path; first consumer seam landed in `@nseng-ai/ns-init`
 
+## Summary
+
+While scaffolding `@nseng-ai/ns-init`, this update recorded that areg's existing skill management machinery is not the customer provisioning path: customers need bundled skills copied into harness roots with no bootstrap clone or `npx skills` dependency. The reusable subsystem should keep areg's useful patterns and bind through the `@nseng-ai/ns-init` `SkillMaterializer` seam.
+
 ## Context
 
 While scaffolding `@nseng-ai/ns-init` (the `ns init` capability package for
@@ -50,3 +54,14 @@ bundled inside the published package is host knowledge, injected at wiring time)
 None of this forecloses areg reuse *inside* this Objective — re-platforming AREG onto
 the shared core remains the roadmap's proving-second-consumer row; the seam only fixes
 the customer-facing contract (copy, not symlink; no bootstrap clone; no `npx skills`).
+
+## Objective Impact
+
+- Confirms that customer-facing provisioning belongs to the harness-artifact subsystem, not areg's development-facing symlink and `npx skills` machinery.
+- Identifies `@nseng-ai/ns-init`'s `SkillMaterializer` as the first concrete consumer seam for copy-based bundled skill materialization.
+- Keeps areg reuse open as a later shared-core/re-platforming question, scoped away from the initial customer contract.
+
+## Follow-Ups
+
+- Wire the real `SkillMaterializer` to the harness-artifact provisioning surface once the shared provisioner exists.
+- Revisit areg reuse only through a shared-core slice, not by making areg the customer provisioning path.

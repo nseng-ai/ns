@@ -17,7 +17,7 @@ A late feedback-remediation refactor introduced two Closure-Gate breaks that the
 1. **Kernel SDK has two export sync points, not one.** `@nseng-ai/kernel/sdk` is mirrored by a hand-maintained virtual module in `runtime/module-loader.ts` (for jiti-loaded extension command entries). Any symbol added to the SDK barrel must be added to that mirror too, or `sdk-module-loader.test.ts` fails. Future shared-core work that touches the SDK surface must update both.
 2. **A helper returning an `extensions` registry type belongs in `extensions`, never `sdk`.** Placing `repoLocalNsExtensionToPreinstalledCatalog` in the `sdk` circle forced an upward `sdk -> extensions` import, closing a non-deferred subpackage-topology cycle (`deferredTopologyCircleCycles` is intentionally empty). The fix: keep it in `extensions` and surface it through `@nseng-ai/kernel/cli` (where the sibling `PreinstalledNsCommandCatalogEntry` type already lives). Binding guidance for the AREG re-platforming row, which will add more shared-core exports.
 
-## Follow-Ups (parked-row dispositions unchanged)
+## Follow-Ups
 
 - The **"Re-platform AREG onto the shared core"** parked row is now unblocked by this closure — it is the first-declared follow-on and the natural next Subobjective (converge `skills-lock.json` with the install manifest on one hash/record format; replace areg's `npx skills` materialization with the shared provisioner). Graduate it when prioritized.
 - Remaining parked rows keep their dispositions; the "decide disposition of each parked row after the steelthread validates" work row is now actionable.
