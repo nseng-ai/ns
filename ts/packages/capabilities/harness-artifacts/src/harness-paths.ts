@@ -32,6 +32,11 @@ export type HarnessBasePathSpec =
 	| { type: "home"; relativePath: string }
 	| { type: "env-or-home"; envName: keyof HarnessPathEnvironment; homeRelativePath: string };
 
+export interface ResolvedHarnessSkillRoot {
+	harness: HarnessId;
+	rootPath: string;
+}
+
 export interface ResolvedHarnessArtifactPath {
 	harness: HarnessId;
 	scope: HarnessScope;
@@ -107,6 +112,19 @@ export function resolveHarnessSpec(input: string): Result<HarnessSpec, HarnessPa
 	return resultOk(HARNESS_SPEC_BY_ID.get(harness.value)!);
 }
 
+export function resolveHarnessSkillRoot(input: {
+	harness: string;
+	scope: HarnessScope;
+	context: HarnessPathContext;
+}): Result<ResolvedHarnessSkillRoot, HarnessPathErrorInfo> {
+	const spec = resolveHarnessSpec(input.harness);
+	if (!spec.ok) return spec;
+	return resultOk({
+		harness: spec.value.id,
+		rootPath: resolveBasePath(spec.value.skillRoots[input.scope], input.context),
+	});
+}
+
 export function resolveHarnessArtifactPath(input: {
 	harness: string;
 	scope: HarnessScope;
@@ -114,22 +132,21 @@ export function resolveHarnessArtifactPath(input: {
 	artifactName: string;
 	context: HarnessPathContext;
 }): Result<ResolvedHarnessArtifactPath, HarnessPathErrorInfo> {
-	const spec = resolveHarnessSpec(input.harness);
-	if (!spec.ok) return spec;
+	const root = resolveHarnessSkillRoot(input);
+	if (!root.ok) return root;
 	if (input.kind !== "skill") {
 		return resultErr({
 			code: "unsupported_artifact_kind",
-			message: `${spec.value.id} does not support provisioning ${input.kind} artifacts in the steelthread path table yet.`,
-			details: { harness: spec.value.id, kind: input.kind },
+			message: `${root.value.harness} does not support provisioning ${input.kind} artifacts in the steelthread path table yet.`,
+			details: { harness: root.value.harness, kind: input.kind },
 		});
 	}
-	const rootPath = resolveBasePath(spec.value.skillRoots[input.scope], input.context);
 	return resultOk({
-		harness: spec.value.id,
+		harness: root.value.harness,
 		scope: input.scope,
 		kind: "skill",
-		rootPath,
-		artifactPath: join(rootPath, input.artifactName),
+		rootPath: root.value.rootPath,
+		artifactPath: join(root.value.rootPath, input.artifactName),
 	});
 }
 

@@ -1,20 +1,18 @@
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok, usageError } from "@nseng-ai/clinkr";
+import {
+	ALL_HARNESS_IDS,
+	normalizeHarnessSelection,
+	parseNsTomlHarnesses,
+	planNsTomlHarnessesWrite,
+	type HarnessId,
+	type NsTomlChange,
+} from "@nseng-ai/harness-artifacts/api";
 import { z } from "zod";
 
 import { activateObjectives, resolveActivationRepository } from "./activate-objectives.ts";
 import type { ObjectiveActivationContext } from "./activation-context.ts";
-import {
-	normalizeHarnessSelection,
-	parseNsTomlHarnesses,
-	planNsTomlHarnessesWrite,
-	type NsTomlChange,
-} from "./ns-toml.ts";
-import {
-	ALL_HARNESS_IDS,
-	type HarnessId,
-	type SkillMaterializeResult,
-} from "./skill-materializer.ts";
+import type { SkillMaterializeResult } from "./skill-materializer.ts";
 
 export const initObjectivesRequestSchema = z.object({
 	harness: z

@@ -4,7 +4,7 @@ import {
 	parseNsTomlHarnesses,
 	planNsTomlHarnessesWrite,
 	renderNsTomlHarnesses,
-} from "../src/ns-toml.ts";
+} from "../src/api.ts";
 
 describe("ns.toml harnesses", () => {
 	it("parses top-level harnesses", () => {
