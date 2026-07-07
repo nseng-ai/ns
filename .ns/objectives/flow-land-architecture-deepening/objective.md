@@ -1,9 +1,3 @@
----
-edges:
-  - objective: flow-land-incremental-perf-rollout
-    annotation: Gates the perf rollout; risky perf slices wait until this deepening lands its required candidates so primitive changes sit on a fake-testable, single-vocabulary land core.
----
-
 # Flow Land Architecture Deepening
 
 ## Thesis
