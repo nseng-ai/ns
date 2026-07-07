@@ -11,24 +11,27 @@ const tempRoot = await mkdtemp(join(tmpdir(), "ns-cli-checkout-free-"));
 try {
 	const pack = await run("pnpm", ["run", "pack:local"], { cwd: packageRoot });
 	const tarball = resolveTarball(pack.stdout);
-	await writeFile(join(tempRoot, "package.json"), "{\"private\":true,\"type\":\"module\"}\n");
+	await writeFile(join(tempRoot, "package.json"), '{"private":true,"type":"module"}\n');
 	await run("git", ["init"], { cwd: tempRoot });
 	await run("npm", ["install", "--silent", tarball], { cwd: tempRoot });
 
-	const nsBin = join(tempRoot, "node_modules", ".bin", process.platform === "win32" ? "ns.cmd" : "ns");
+	const nsBin = join(
+		tempRoot,
+		"node_modules",
+		".bin",
+		process.platform === "win32" ? "ns.cmd" : "ns",
+	);
 	const installedPackageRoot = join(tempRoot, "node_modules", "@nseng-ai", "ns");
 	const installedCli = join(installedPackageRoot, "bin", "ns.js");
 	await assertInstalledPackageBoundary(nsBin, installedCli);
 
-	const help = await run(nsBin, ["objective", "list", "--help"], { cwd: tempRoot });
-	if (!help.stdout.includes("Usage: ns objective list")) {
-		throw new Error("Packed ns CLI did not render Objective list help.");
+	const help = await run(nsBin, ["init", "--help"], { cwd: tempRoot });
+	if (!help.stdout.includes("Usage: ns init")) {
+		throw new Error("Packed ns CLI did not render init help.");
 	}
-	const list = await run(nsBin, ["objective", "list", "--format", "md"], {
-		cwd: tempRoot,
-	});
-	if (!list.stdout.includes("# Objective records in this checkout")) {
-		throw new Error("Packed ns CLI did not run Objective list from the foreign repo.");
+	const rootHelp = await run(nsBin, ["--help"], { cwd: tempRoot });
+	if (rootHelp.stdout.includes("Usage: ns objective list")) {
+		throw new Error("Packed ns CLI unexpectedly ships Objective commands by default.");
 	}
 	const kernelSdkImport = await run(
 		"node",

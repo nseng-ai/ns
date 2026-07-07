@@ -92,12 +92,12 @@ describe("ns CLI host", () => {
 		}
 	});
 
-	test("injects Objective preinstalled command metadata", async () => {
+	test("does not inject Objective preinstalled command metadata", async () => {
 		const cwd = await createEmptyProject();
 		const stdout: string[] = [];
 		const stderr: string[] = [];
 
-		const exit = await runNsCli(["objective", "list", "--help"], {
+		const exit = await runNsCli(["--help"], {
 			cwd,
 			homeDir: join(cwd, ".home"),
 			env: { HOME: join(cwd, ".home") },
@@ -106,8 +106,8 @@ describe("ns CLI host", () => {
 		});
 
 		expect(exit).toBe(0);
-		expect(stdout.join("")).toContain("Usage: ns objective list");
-		expect(stdout.join("")).toContain("List Objective records in the current checkout.");
+		expect(stdout.join("")).not.toContain("objective");
+		expect(stdout.join("")).not.toContain("Usage: ns objective list");
 		expect(stderr.join("")).toBe("");
 	});
 
