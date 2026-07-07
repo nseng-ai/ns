@@ -1,3 +1,4 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 
@@ -38,6 +39,8 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Parent help section heading for this command. */
+	helpGroup?: string;
 	schema: S;
 	handler: ClinkrHandler<TContext, S, T>;
 	/** Source of `output_json_schema` for `--json-schema`; `{}` when absent. */
@@ -68,6 +71,8 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Parent help section heading for this command. */
+	helpGroup?: string;
 	schema: S;
 	isRawExit: true;
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
@@ -126,6 +131,7 @@ interface RegisteredCommand<TContext> {
 	name: string;
 	description?: string;
 	summary?: string;
+	helpGroup?: string;
 	schema: z.ZodObject;
 	schemaDocument?: () => JsonSchemaDocument;
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
@@ -168,6 +174,15 @@ interface BuildCommandOptions<TContext> {
 	isRoot: boolean;
 }
 
+const leafCommandMetadataSetters = [
+	{ key: "description", apply: (command: Command, value: string) => command.description(value) },
+	{ key: "summary", apply: (command: Command, value: string) => command.summary(value) },
+	{ key: "helpGroup", apply: (command: Command, value: string) => command.helpGroup(value) },
+] as const satisfies readonly {
+	key: string;
+	apply: (command: Command, value: string) => Command;
+}[];
+
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
@@ -204,8 +219,11 @@ export class ClinkrGroup<TContext> {
 		});
 		this.registeredCommands.push({
 			name: spec.name,
-			...(spec.description === undefined ? {} : { description: spec.description }),
-			...(spec.summary === undefined ? {} : { summary: spec.summary }),
+			...optionalEntries({
+				description: spec.description,
+				summary: spec.summary,
+				helpGroup: spec.helpGroup,
+			}),
 			schema: spec.schema,
 			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
@@ -452,8 +470,10 @@ function emitUsageErrorJson(io: ClinkrIo, message: string, data: unknown): void 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
 	const { registered, io } = options;
 	const command = createContainedCommand(registered.name, io);
-	if (registered.description !== undefined) command.description(registered.description);
-	if (registered.summary !== undefined) command.summary(registered.summary);
+	for (const { key, apply } of leafCommandMetadataSetters) {
+		const value = registered[key];
+		if (value !== undefined) apply(command, value);
+	}
 	configureCommandExecution({ command, ...options });
 	return command;
 }

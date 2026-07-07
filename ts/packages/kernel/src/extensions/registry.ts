@@ -91,6 +91,7 @@ export type PreinstalledNsCommandCatalogEntry =
 export interface PreinstalledNsCommandCatalogEntryBase {
 	readonly group?: string;
 	readonly groupDescription?: string;
+	readonly helpGroup?: string;
 	readonly name: string;
 	readonly description: string;
 	readonly fullDescription: string;

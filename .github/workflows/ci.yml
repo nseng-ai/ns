@@ -42,6 +42,7 @@ jobs:
       - uses: ./.github/actions/setup-typescript
       - name: Install integration test system dependencies
         run: |
+          sudo find /etc/apt/sources.list.d -maxdepth 1 \( -name 'azure-cli*' -o -name 'microsoft-prod*' \) -delete
           sudo apt-get update
           sudo apt-get install -y sqlite3
       - name: Run TypeScript integration tests

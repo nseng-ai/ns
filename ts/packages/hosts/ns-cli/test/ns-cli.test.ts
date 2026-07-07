@@ -111,6 +111,30 @@ describe("ns CLI host", () => {
 		expect(stderr.join("")).toBe("");
 	});
 
+	test("groups root built-in commands together in top-level help", async () => {
+		const cwd = await createEmptyProject();
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+
+		const exit = await runNsCli(["--help"], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+
+		const help = stdout.join("");
+		expect(exit).toBe(0);
+		expect(help).toContain("Built-ins:");
+		expect(help).toContain("  shell");
+		expect(help).toContain("  completion");
+		expect(help).toContain("  init");
+		expect(help).toContain("  update");
+		expect(help).not.toContain("\nCommands:\n");
+		expect(stderr.join("")).toBe("");
+	});
+
 	test("injects ns init preinstalled command metadata", async () => {
 		const cwd = await createEmptyProject();
 		const stdout: string[] = [];
@@ -126,9 +150,7 @@ describe("ns CLI host", () => {
 
 		expect(exit).toBe(0);
 		expect(stdout.join("")).toContain("Usage: ns init");
-		expect(stdout.join("")).toContain(
-			"Activate ns Objectives in this repository by writing ns.toml",
-		);
+		expect(stdout.join("")).toContain("Activate ns in this repository by writing ns.toml");
 		expect(stderr.join("")).toBe("");
 	});
 
@@ -252,7 +274,7 @@ describe("ns CLI host", () => {
 
 		expect(exit).toBe(0);
 		expect(stdout.join("")).toContain("Usage: ns update");
-		expect(stdout.join("")).toContain("Preview or apply updates");
+		expect(stdout.join("")).toContain("Preview or apply self-updates");
 		expect(stdout.join("")).toContain("-n");
 		expect(stdout.join("")).toContain("-f");
 		expect(stderr.join("")).toBe("");

@@ -10,9 +10,9 @@ import {
 
 export const nsUpdateCommand = harnessArtifactsNsCommand({
 	name: "update",
-	summary: "Update ns harness artifacts from selected harnesses.",
+	summary: "Update ns and extension-managed harness artifacts.",
 	description:
-		"Preview or apply updates for manifest-tracked ns harness artifacts and artifacts selected by ns.toml.",
+		"Preview or apply self-updates and extension-managed harness artifact updates selected by ns.toml.",
 	schema: nsUpdateRequestSchema,
 	options: {
 		dryRun: { short: "-n" },

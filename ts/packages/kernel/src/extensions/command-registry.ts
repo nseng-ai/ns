@@ -35,6 +35,7 @@ export interface NsCommandInfo extends NsCommandPath {
 export interface NsCommandCliInfo extends NsCommandInfo {
 	fullDescription: string;
 	groupDescription?: string;
+	helpGroup?: string;
 }
 
 export interface NsCommandCandidate extends NsCommandCliInfo {
@@ -138,13 +139,15 @@ export function listStaticNsCommandInfos(): NsCommandCliInfo[] {
 }
 
 export function toCommandCliInfo(
-	candidate: NsCommandPath & Pick<NsCommandCliInfo, "description" | "fullDescription">,
+	candidate: NsCommandPath &
+		Pick<NsCommandCliInfo, "description" | "fullDescription" | "helpGroup">,
 ): NsCommandCliInfo {
 	return {
 		...optionalEntries({
 			group: candidate.group,
 			segments: candidate.segments,
 			groupDescription: candidate.groupDescription,
+			helpGroup: candidate.helpGroup,
 		}),
 		name: candidate.name,
 		description: candidate.description,

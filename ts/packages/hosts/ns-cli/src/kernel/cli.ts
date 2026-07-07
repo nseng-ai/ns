@@ -1,6 +1,7 @@
 export {
 	buildCli,
 	listNsCommands,
+	NS_BUILT_IN_HELP_GROUP,
 	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
 	repoLocalNsExtensionToPreinstalledCatalog,
 	runCli,

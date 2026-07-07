@@ -233,6 +233,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				description: commandInfo.fullDescription,
 				summary: commandInfo.description,
 				schema,
+				...optionalEntries({ helpGroup: commandInfo.helpGroup }),
 				...(selectedCommand?.positionals === undefined
 					? {}
 					: { positionals: selectedCommand.positionals }),
@@ -495,7 +496,7 @@ function requestedCommandKey(
 }
 
 const NS_EXEC_GROUP_NAME = "exec";
-const NS_BUILT_IN_HELP_GROUP = "Built-in Commands:";
+export const NS_BUILT_IN_HELP_GROUP = "Built-ins:";
 const NS_EXTENSION_HELP_GROUP = "Extensions:";
 // Dynamic ns extensions are one group deep today. A grouped command named
 // `exec-<name>` is mounted as hidden `ns <group> exec <name>` so agent-only

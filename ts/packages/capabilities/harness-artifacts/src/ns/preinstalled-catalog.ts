@@ -1,4 +1,5 @@
 import {
+	NS_BUILT_IN_HELP_GROUP,
 	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
 	repoLocalNsExtensionToPreinstalledCatalog,
 	type PreinstalledNsCommandCatalogEntry,
@@ -18,7 +19,10 @@ const nsUpdateCommandDescriptor = repoLocalNsCommandDescriptor({
 
 export const skillsPreinstalledNsCommandCatalog = [
 	...repoLocalNsExtensionToPreinstalledCatalog(skillsRepoLocalNsExtension),
-	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry(nsUpdateCommandDescriptor),
+	{
+		...repoLocalNsCommandDescriptorToPreinstalledCatalogEntry(nsUpdateCommandDescriptor),
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
+	},
 ] satisfies readonly PreinstalledNsCommandCatalogEntry[];
 
 export function listSkillsPreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
