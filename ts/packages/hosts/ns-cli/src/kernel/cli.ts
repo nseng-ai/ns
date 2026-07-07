@@ -1,4 +1,10 @@
-export { buildCli, listNsCommands, runCli, VERSION } from "@nseng-ai/kernel/cli";
+export {
+	buildCli,
+	listNsCommands,
+	repoLocalNsExtensionToPreinstalledCatalog,
+	runCli,
+	VERSION,
+} from "@nseng-ai/kernel/cli";
 export type {
 	BuildNsCliOptions,
 	NsCliDeps,

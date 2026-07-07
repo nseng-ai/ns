@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { sha256Digest } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, sha256Digest } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import {
@@ -115,7 +115,7 @@ export interface ProvisionFileDecision {
 
 export interface ProvisionDecisionSet {
 	files: readonly ProvisionFileDecision[];
-	needsForce: boolean;
+	shouldForce: boolean;
 }
 
 export type ProvisionDecisionErrorInfo =
@@ -202,7 +202,7 @@ export function buildProvisionPlan(
 }
 
 export function installManifestKey(plan: ProvisionPlan): string {
-	return `${plan.harness}:${plan.scope}:${plan.kind}:${plan.artifactId}`;
+	return provisionIdentityKey(plan);
 }
 
 export function buildInstallManifestEntry(plan: ProvisionPlan): InstallManifestEntryData {
@@ -284,7 +284,7 @@ export function classifyProvisionDecisions(input: {
 
 	return resultOk({
 		files: decisions,
-		needsForce: decisions.some((decision) => decision.type === "locally-edited-conflict"),
+		shouldForce: decisions.some((decision) => decision.type === "locally-edited-conflict"),
 	});
 }
 
@@ -301,7 +301,13 @@ function sourceProvenance(
 }
 
 function manifestEntryKey(entry: InstallManifestEntryData): string {
-	return `${entry.harness}:${entry.scope}:${entry.kind}:${entry.artifactId}`;
+	return provisionIdentityKey(entry);
+}
+
+function provisionIdentityKey(
+	identity: Pick<ProvisionPlan, "artifactId" | "harness" | "kind" | "scope">,
+): string {
+	return `${identity.harness}:${identity.scope}:${identity.kind}:${identity.artifactId}`;
 }
 
 function manifestEntryMatchesPlan(entry: InstallManifestEntryData, plan: ProvisionPlan): boolean {
@@ -323,12 +329,12 @@ function classifyProvisionFile(input: {
 }): ProvisionFileDecision {
 	if (input.fact.type === "missing") return { type: "fresh-write", file: input.file };
 	if (input.fact.contentHash === input.file.contentHash) {
-		return {
+		return provisionFileDecisionWithHash({
 			type: "unchanged",
 			file: input.file,
 			currentHash: input.fact.contentHash,
-			...(input.manifestHash === undefined ? {} : { manifestHash: input.manifestHash }),
-		};
+			manifestHash: input.manifestHash,
+		});
 	}
 	if (input.manifestHash !== undefined && input.fact.contentHash === input.manifestHash) {
 		return {
@@ -338,10 +344,24 @@ function classifyProvisionFile(input: {
 			manifestHash: input.manifestHash,
 		};
 	}
-	return {
+	return provisionFileDecisionWithHash({
 		type: "locally-edited-conflict",
 		file: input.file,
 		currentHash: input.fact.contentHash,
-		...(input.manifestHash === undefined ? {} : { manifestHash: input.manifestHash }),
+		manifestHash: input.manifestHash,
+	});
+}
+
+function provisionFileDecisionWithHash(input: {
+	type: Extract<ProvisionFileDecisionType, "unchanged" | "locally-edited-conflict">;
+	file: ProvisionPlanFile;
+	currentHash: string;
+	manifestHash: string | undefined;
+}): ProvisionFileDecision {
+	return {
+		type: input.type,
+		file: input.file,
+		currentHash: input.currentHash,
+		...optionalEntry("manifestHash", input.manifestHash),
 	};
 }

@@ -6,7 +6,7 @@ import {
 	runSkillsInstall,
 	skillsInstallCommandResultSchema,
 	skillsInstallRequestSchema,
-} from "../skills-operations.ts";
+} from "../skills-install.ts";
 
 export const skillsInstallNsCommand = harnessArtifactsNsCommand({
 	name: "install",

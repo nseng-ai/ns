@@ -6,7 +6,7 @@ import {
 	runSkillsList,
 	skillsListRequestSchema,
 	skillsListResultSchema,
-} from "../skills-operations.ts";
+} from "../skills-list.ts";
 
 export const skillsListNsCommand = harnessArtifactsNsCommand({
 	name: "list",

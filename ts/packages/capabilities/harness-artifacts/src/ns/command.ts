@@ -2,9 +2,10 @@ import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
 
-import type { SkillsCommandContext } from "./skills-operations.ts";
+import type { SkillsCommandContext } from "./skills-shared.ts";
 
 type HarnessArtifactsNsCommandOptions<S extends NsCommandSchema, T> = Omit<
 	NsDomainCommandOptions<S, T, SkillsCommandContext>,
@@ -18,7 +19,7 @@ export function harnessArtifactsNsCommand<S extends NsCommandSchema, T>(
 		...options,
 		createContext: (ctx) => ({
 			cwd: ctx.cwd,
-			...(ctx.env.HOME === undefined ? {} : { homeDir: ctx.env.HOME }),
+			...optionalEntry("homeDir", ctx.env.HOME),
 			env: ctx.env,
 		}),
 	});

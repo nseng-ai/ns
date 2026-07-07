@@ -10,6 +10,7 @@ import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	previewHarnessArtifactProvision,
+	type HarnessArtifactFileSystemGateway,
 	type InstallManifestData,
 } from "../src/index.ts";
 
@@ -140,7 +141,7 @@ describe("harness artifact provision apply", () => {
 		const targetSkill = join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md");
 		await writeTextFile(targetSkill, "local edit\n");
 
-		const result = await applyHarnessArtifactProvision({ ...fixture.request(), force: true });
+		const result = await applyHarnessArtifactProvision({ ...fixture.request(), shouldForce: true });
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
@@ -159,6 +160,46 @@ describe("harness artifact provision apply", () => {
 		expect(
 			manifest.artifacts["pi:project:skill:objective-next-skill"]?.files["SKILL.md"],
 		).toMatchObject({ contentHash: contentHashForText("skill instructions\n") });
+	});
+
+	test("applies through an injected fake filesystem gateway", async () => {
+		const fixture = await createFixture();
+		const sourceSkill = join(fixture.sourceRoot, "skills/objective-next/SKILL.md");
+		const sourceGuide = join(fixture.sourceRoot, "skills/objective-next/references/guide.md");
+		const writtenFiles = new Map<string, string>();
+		const fakeFs: HarnessArtifactFileSystemGateway = {
+			async listTextFiles(rootPath) {
+				expect(rootPath).toBe(join(fixture.sourceRoot, "skills/objective-next"));
+				return { ok: true, value: ["SKILL.md", "references/guide.md"] };
+			},
+			async readOptionalTextFile(path) {
+				if (path === sourceSkill) return { ok: true, value: { type: "file", text: "skill\n" } };
+				if (path === sourceGuide) return { ok: true, value: { type: "file", text: "guide\n" } };
+				if (writtenFiles.has(path)) {
+					return { ok: true, value: { type: "file", text: writtenFiles.get(path)! } };
+				}
+				return { ok: true, value: { type: "missing" } };
+			},
+			async writeTextFile(path, text) {
+				writtenFiles.set(path, text);
+				return { ok: true, value: undefined };
+			},
+		};
+
+		const result = await applyHarnessArtifactProvision({ ...fixture.request(), fs: fakeFs });
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.value.writtenFiles).toEqual([
+			join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
+			join(fixture.projectRoot, ".pi/skills/objective-next/references/guide.md"),
+		]);
+		expect(writtenFiles.get(join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"))).toBe(
+			"skill\n",
+		);
+		expect(
+			writtenFiles.get(join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME)),
+		).toContain("pi:project:skill:objective-next-skill");
 	});
 
 	test("preview returns the plan and classifications without writing", async () => {

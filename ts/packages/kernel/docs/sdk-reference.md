@@ -131,6 +131,8 @@ const routeEncodedDescriptor = repoLocalNsCommandDescriptor({
 
 Declares the package-owned descriptor that parity tests compare against a checked-in repo-local extension manifest. It returns its argument unchanged.
 
+The companion `repoLocalNsExtensionToPreinstalledCatalog()` helper — which converts a repo-local descriptor into preinstalled-command catalog entries — lives in the `@nseng-ai/kernel/cli` internal workspace surface, not this public author API, because it depends on the extension registry's catalog types.
+
 ---
 
 ## Commands

@@ -40,7 +40,7 @@ export interface HarnessArtifactProvisionRequest {
 }
 
 export interface ApplyHarnessArtifactProvisionRequest extends HarnessArtifactProvisionRequest {
-	force?: boolean;
+	shouldForce?: boolean;
 }
 
 export interface HarnessArtifactProvisionPreview {
@@ -170,7 +170,7 @@ export async function applyHarnessArtifactProvision(
 	const conflicts = prepared.value.decisions.files.filter(
 		(decision) => decision.type === "locally-edited-conflict",
 	);
-	if (conflicts.length > 0 && request.force !== true) {
+	if (conflicts.length > 0 && request.shouldForce !== true) {
 		const conflictingFiles = conflicts.map((decision) => decision.file.targetPath);
 		return resultErr({
 			code: "locally_edited_conflict",
@@ -183,12 +183,9 @@ export async function applyHarnessArtifactProvision(
 	for (const decision of prepared.value.decisions.files) {
 		if (decision.type === "unchanged") continue;
 		const sourcePath = join(request.sourceRoot, decision.file.sourcePath);
-		const source = await fs.readOptionalTextFile(sourcePath);
+		const source = await readRequiredTextFile(fs, sourcePath);
 		if (!source.ok) return source;
-		if (source.value.type === "missing") {
-			return resultErr(fileSystemError(sourcePath, "read", new Error("Source file is missing.")));
-		}
-		const write = await fs.writeTextFile(decision.file.targetPath, source.value.text);
+		const write = await fs.writeTextFile(decision.file.targetPath, source.value);
 		if (!write.ok) return write;
 		writtenFiles.push(decision.file.targetPath);
 	}
@@ -273,14 +270,23 @@ async function collectSourceFiles(input: {
 	const sourceFiles: ProvisionSourceFile[] = [];
 	for (const relativePath of relativePaths.value) {
 		const sourcePath = join(sourceDirectory, relativePath);
-		const source = await input.fs.readOptionalTextFile(sourcePath);
+		const source = await readRequiredTextFile(input.fs, sourcePath);
 		if (!source.ok) return source;
-		if (source.value.type === "missing") {
-			return resultErr(fileSystemError(sourcePath, "read", new Error("Source file is missing.")));
-		}
-		sourceFiles.push({ relativePath, contentHash: contentHashForText(source.value.text) });
+		sourceFiles.push({ relativePath, contentHash: contentHashForText(source.value) });
 	}
 	return resultOk(sourceFiles);
+}
+
+async function readRequiredTextFile(
+	fs: HarnessArtifactFileSystemGateway,
+	path: string,
+): Promise<Result<string, HarnessArtifactProvisionErrorInfo>> {
+	const source = await fs.readOptionalTextFile(path);
+	if (!source.ok) return source;
+	if (source.value.type === "missing") {
+		return resultErr(fileSystemError(path, "read", new Error("Source file is missing.")));
+	}
+	return resultOk(source.value.text);
 }
 
 async function collectTargetHashFacts(input: {
