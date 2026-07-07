@@ -52,3 +52,8 @@ row a matter of moving remaining callers rather than forking formats.
 - `objective.md`: the package-name open question is resolved and removed.
 - `roadmap.md`: the vocabulary row completes (`[x]` — terms decided earlier, package name
   now confirmed and landed); the design row gains a pointer to the seeded package.
+
+## Follow-Ups
+
+- Continue from the seeded `@nseng-ai/harness-artifacts` boundary into the artifact model, harness path table, install manifest, and reconcile design row.
+- Keep areg importing the pushed-down convention code from the package API while deferring remaining areg re-platforming until a proving second-consumer slice.
