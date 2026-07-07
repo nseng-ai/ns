@@ -28,6 +28,21 @@ export {
 	type ResolvedHarnessArtifactPath,
 } from "./harness-paths.ts";
 export {
+	applyHarnessArtifactProvision,
+	INSTALL_MANIFEST_FILE_NAME,
+	installManifestPathForPlan,
+	nodeHarnessArtifactFileSystemGateway,
+	previewHarnessArtifactProvision,
+	type ApplyHarnessArtifactProvisionRequest,
+	type HarnessArtifactFileSystemErrorInfo,
+	type HarnessArtifactFileSystemGateway,
+	type HarnessArtifactProvisionApplyResult,
+	type HarnessArtifactProvisionErrorInfo,
+	type HarnessArtifactProvisionPreview,
+	type HarnessArtifactProvisionRequest,
+	type OptionalTextFileState,
+} from "./provision-apply.ts";
+export {
 	buildInstallManifestData,
 	buildInstallManifestEntry,
 	buildProvisionPlan,
