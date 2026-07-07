@@ -19,6 +19,7 @@ import {
 } from "./fleet/navigator.ts";
 import type { ReadTextFileDependencies } from "./fleet/read-text-dependencies.ts";
 import { createGitReadWorktreeState } from "./fleet/worktree-state.ts";
+import { createGitReadHead } from "./fleet/git-head.ts";
 
 export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI &
 	DispatchRunnerSubagentExtensionAPI & {
@@ -36,6 +37,7 @@ export default function nsPiSubagentsExtension(
 	options: NsPiSubagentsExtensionOptions = {},
 ): void {
 	const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
+	const readGitHead = options.readGitHead ?? createGitReadHead({ exec: pi });
 	const fleetNavigatorDependencies = resolveFleetNavigatorDependencies(pi, options);
 	const fleetCommandInput = {
 		pi,
@@ -44,8 +46,8 @@ export default function nsPiSubagentsExtension(
 	};
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
-	registerExploreTool(pi, { ...options, fleetRegistry });
-	registerDispatchRunnerSubagentTool(pi, { ...options, fleetRegistry });
+	registerExploreTool(pi, { ...options, fleetRegistry, readGitHead });
+	registerDispatchRunnerSubagentTool(pi, { ...options, fleetRegistry, readGitHead });
 }
 
 function resolveFleetNavigatorDependencies(

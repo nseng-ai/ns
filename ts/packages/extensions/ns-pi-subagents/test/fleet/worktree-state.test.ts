@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { createGitReadHead } from "../../src/fleet/git-head.ts";
 import { createGitReadWorktreeState, parseWorktreeState } from "../../src/fleet/worktree-state.ts";
 
 describe("worktree state", () => {
@@ -55,6 +56,36 @@ describe("worktree state", () => {
 		await expect(readWorktreeState({ cwd: "/repo" })).resolves.toEqual({
 			status: "unavailable",
 			reason: "git status --short failed noisily",
+		});
+	});
+
+	test("reads HEAD through a read-only git adapter", async () => {
+		const readHead = createGitReadHead({
+			exec: {
+				async exec() {
+					return { stdout: "abcdef123456\n", stderr: "", code: 0, killed: false };
+				},
+			},
+		});
+
+		await expect(readHead({ cwd: "/repo" })).resolves.toEqual({
+			status: "available",
+			oid: "abcdef123456",
+		});
+	});
+
+	test("turns HEAD read failures into unavailable snapshots", async () => {
+		const readHead = createGitReadHead({
+			exec: {
+				async exec() {
+					return { stdout: "", stderr: "fatal: not a git repo", code: 128, killed: false };
+				},
+			},
+		});
+
+		await expect(readHead({ cwd: "/repo" })).resolves.toEqual({
+			status: "unavailable",
+			reason: "fatal: not a git repo",
 		});
 	});
 });

@@ -46,6 +46,7 @@ import {
 	taskIcon,
 } from "./display.ts";
 import type { ReadTextFile, ReadTextFileDependencies } from "./read-text-dependencies.ts";
+import type { GitHeadSnapshot } from "./git-head.ts";
 import type { ReadWorktreeState, WorktreeStateSnapshot } from "./worktree-state.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
@@ -62,6 +63,18 @@ export interface SubagentFleetTaskLiveActivity {
 	quietMs?: number;
 }
 
+export interface SubagentFleetPostRunSummary {
+	status: string;
+	lastDiagnostic?: string;
+	commit: SubagentFleetPostRunCommitSummary;
+	worktreeState?: WorktreeStateSnapshot;
+}
+
+export type SubagentFleetPostRunCommitSummary =
+	| { status: "changed"; from: string; to: string }
+	| { status: "unchanged"; head: string }
+	| { status: "unavailable"; reason: string };
+
 export interface SubagentFleetTaskDetail {
 	title: string;
 	prompt?: string;
@@ -76,6 +89,7 @@ export interface SubagentFleetTaskDetail {
 	usage?: RunnerSubagentUsageMetadata;
 	liveActivity?: SubagentFleetTaskLiveActivity;
 	worktreeState?: WorktreeStateSnapshot;
+	postRunSummary?: SubagentFleetPostRunSummary;
 	message?: string;
 }
 
@@ -649,10 +663,15 @@ export class SubagentFleetNavigator implements RenderComponent {
 			lines.push(detail.message);
 			return lines;
 		}
-		const currentActionLines = renderCurrentActionLines(detail);
-		if (currentActionLines.length > 0) lines.push(...currentActionLines, "");
-		const worktreeStateLines = renderWorktreeStateLines(detail);
-		if (worktreeStateLines.length > 0) lines.push(...worktreeStateLines, "");
+		const postRunSummaryLines = renderPostRunSummaryLines(detail.postRunSummary);
+		if (postRunSummaryLines.length > 0) {
+			lines.push(...postRunSummaryLines, "");
+		} else {
+			const currentActionLines = renderCurrentActionLines(detail);
+			if (currentActionLines.length > 0) lines.push(...currentActionLines, "");
+			const worktreeStateLines = renderWorktreeStateLines(detail);
+			if (worktreeStateLines.length > 0) lines.push(...worktreeStateLines, "");
+		}
 		if (detail.timeline.droppedEntryCount > 0) {
 			lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
 		}
@@ -739,6 +758,17 @@ function detailFromSnapshot(input: {
 	worktreeState?: WorktreeStateSnapshot;
 }): SubagentFleetTaskDetail {
 	const task = entryTask(input.entry);
+	const status =
+		task?.finalStatus ?? input.snapshot.stopReason ?? task?.state ?? input.snapshot.progress.state;
+	const postRunSummary =
+		task?.state === "done"
+			? buildPostRunSummary({
+					task,
+					snapshot: input.snapshot,
+					status,
+					...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
+				})
+			: undefined;
 	return {
 		title: entryTitle(input.entry),
 		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
@@ -748,14 +778,11 @@ function detailFromSnapshot(input: {
 		toolCount: input.snapshot.progress.toolCount,
 		elapsedMs: input.snapshot.progress.elapsedMs,
 		state: input.snapshot.progress.state,
-		status:
-			task?.finalStatus ??
-			input.snapshot.stopReason ??
-			task?.state ??
-			input.snapshot.progress.state,
+		status,
 		timeline: input.timeline,
 		usage: input.usage,
 		...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
+		...(postRunSummary === undefined ? {} : { postRunSummary }),
 	};
 }
 
@@ -896,6 +923,101 @@ function windowRange(
 }
 
 const MAX_WORKTREE_STATE_FILES = 10;
+
+function buildPostRunSummary(input: {
+	task: SubagentFleetTaskSnapshot;
+	snapshot: RunnerSubagentJsonEventParserSnapshot;
+	status: string;
+	worktreeState?: WorktreeStateSnapshot;
+}): SubagentFleetPostRunSummary {
+	const lastDiagnostic = postRunDiagnostic(input.snapshot, input.status);
+	return {
+		status: input.status,
+		...(lastDiagnostic === undefined ? {} : { lastDiagnostic }),
+		commit: summarizeHeadChange(input.task.headBaseline, input.task.finalHead),
+		...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
+	};
+}
+
+function postRunDiagnostic(
+	snapshot: RunnerSubagentJsonEventParserSnapshot,
+	status: string,
+): string | undefined {
+	if (snapshot.terminalExecutionError !== undefined) return snapshot.terminalExecutionError.message;
+	if (snapshot.protocolError !== undefined) return snapshot.protocolError.message;
+	if (snapshot.errorMessage !== undefined) return snapshot.errorMessage;
+	if (snapshot.error !== undefined) return snapshot.error.message;
+	if (status !== "final-text" && status !== "completed")
+		return `unavailable; final status ${status}`;
+	return undefined;
+}
+
+function summarizeHeadChange(
+	baseline: GitHeadSnapshot | undefined,
+	finalHead: GitHeadSnapshot | undefined,
+): SubagentFleetPostRunCommitSummary {
+	if (baseline === undefined) return { status: "unavailable", reason: "missing baseline HEAD" };
+	if (baseline.status === "unavailable") {
+		return { status: "unavailable", reason: `baseline HEAD unavailable: ${baseline.reason}` };
+	}
+	if (finalHead === undefined) return { status: "unavailable", reason: "missing final HEAD" };
+	if (finalHead.status === "unavailable") {
+		return { status: "unavailable", reason: `final HEAD unavailable: ${finalHead.reason}` };
+	}
+	if (baseline.oid === finalHead.oid) return { status: "unchanged", head: baseline.oid };
+	return { status: "changed", from: baseline.oid, to: finalHead.oid };
+}
+
+function renderPostRunSummaryLines(summary: SubagentFleetPostRunSummary | undefined): string[] {
+	if (summary === undefined) return [];
+	const lines = ["post-run summary:", `  status: ${summary.status}`];
+	if (summary.lastDiagnostic !== undefined) {
+		lines.push(truncatePlain(`  last diagnostic: ${summary.lastDiagnostic}`, 200));
+	}
+	lines.push(`  commit: ${formatCommitSummary(summary.commit)}`);
+	lines.push(...renderSharedWorktreeSummaryLines(summary.worktreeState));
+	return lines;
+}
+
+function formatCommitSummary(commit: SubagentFleetPostRunCommitSummary): string {
+	switch (commit.status) {
+		case "changed":
+			return `HEAD changed ${shortOid(commit.from)} → ${shortOid(commit.to)}`;
+		case "unchanged":
+			return `none detected (HEAD unchanged ${shortOid(commit.head)})`;
+		case "unavailable":
+			return `unavailable (${commit.reason})`;
+		default: {
+			const exhaustive: never = commit;
+			return exhaustive;
+		}
+	}
+}
+
+function shortOid(oid: string): string {
+	return oid.slice(0, 7);
+}
+
+function renderSharedWorktreeSummaryLines(
+	worktreeState: WorktreeStateSnapshot | undefined,
+): string[] {
+	if (worktreeState === undefined) return ["  shared worktree: unavailable (not read)"];
+	if (worktreeState.status === "unavailable") {
+		return [truncatePlain(`  shared worktree: unavailable (${worktreeState.reason})`, 200)];
+	}
+	if (worktreeState.files.length === 0) return ["  shared worktree: clean"];
+	const visibleFiles = worktreeState.files.slice(0, MAX_WORKTREE_STATE_FILES);
+	const lines = [`  shared worktree: ${worktreeState.files.length} changed files`];
+	for (const file of visibleFiles) {
+		const status = file.status === undefined ? "" : `${file.status} `;
+		const stat = formatWorktreeStateStat(file);
+		const suffix = stat.length === 0 ? "" : ` ${stat}`;
+		lines.push(truncatePlain(`    ${status}${file.path}${suffix}`, 200));
+	}
+	const remaining = worktreeState.files.length - visibleFiles.length;
+	if (remaining > 0) lines.push(`    … ${remaining} more`);
+	return lines;
+}
 
 function renderWorktreeStateLines(detail: SubagentFleetTaskDetail): string[] {
 	const worktreeState = detail.worktreeState;

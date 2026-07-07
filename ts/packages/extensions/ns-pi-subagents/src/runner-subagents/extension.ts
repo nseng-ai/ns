@@ -144,11 +144,14 @@ export function registerDispatchRunnerSubagentTool(
 				return configurationErrorResult(input.title, configuration.diagnostic);
 			}
 
+			const cwd = options.cwd ?? ctx.cwd;
 			const fleetTracking = trackSubagentFleetRun({
 				registry: options.fleetRegistry,
 				ctx,
 				tasks: [{ title: input.title, prompt: input.prompt }],
 				parentSessionFile: ctx.sessionManager?.getSessionFile?.(),
+				cwd,
+				...optionalEntry("readGitHead", options.readGitHead),
 			});
 
 			try {
