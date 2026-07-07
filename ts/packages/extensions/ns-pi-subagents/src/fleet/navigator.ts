@@ -56,6 +56,11 @@ const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
 const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
 const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
 
+export interface SubagentFleetTaskLiveActivity {
+	currentAction: RunnerSubagentCurrentAction;
+	quietMs?: number;
+}
+
 export interface SubagentFleetTaskDetail {
 	title: string;
 	prompt?: string;
@@ -68,8 +73,7 @@ export interface SubagentFleetTaskDetail {
 	status: string;
 	timeline: RunnerSubagentTimeline;
 	usage?: RunnerSubagentUsageMetadata;
-	liveCurrentAction?: RunnerSubagentCurrentAction;
-	quietMs?: number;
+	liveActivity?: SubagentFleetTaskLiveActivity;
 	message?: string;
 }
 
@@ -462,12 +466,14 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.detailObservation = undefined;
 			return loaded.detail;
 		}
-		const liveCurrentAction = assumeThinkingWhileRunning(loaded.detail.timeline.currentAction);
+		const currentAction = assumeThinkingWhileRunning(loaded.detail.timeline.currentAction);
 		const quietMs = this.observeDetailQuietMs(entry, loaded.sessionContentSignature);
 		return {
 			...loaded.detail,
-			liveCurrentAction,
-			...(quietMs === undefined ? {} : { quietMs }),
+			liveActivity: {
+				currentAction,
+				...(quietMs === undefined ? {} : { quietMs }),
+			},
 		};
 	}
 
@@ -479,11 +485,10 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (sessionFile === undefined || contentSignature === undefined) return undefined;
 		const key = `${entryId(entry) ?? "unknown"}:${sessionFile}`;
 		const nowMs = this.clock.nowMs();
-		if (this.detailObservation?.key !== key) {
-			this.detailObservation = { key, contentSignature, lastObservedChangeMs: nowMs };
-			return 0;
-		}
-		if (this.detailObservation.contentSignature !== contentSignature) {
+		if (
+			this.detailObservation?.key !== key ||
+			this.detailObservation.contentSignature !== contentSignature
+		) {
 			this.detailObservation = { key, contentSignature, lastObservedChangeMs: nowMs };
 			return 0;
 		}
@@ -841,8 +846,9 @@ function windowRange(
 }
 
 function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
-	const action = detail.liveCurrentAction;
-	if (action === undefined || action.kind === "idle") return [];
+	const liveActivity = detail.liveActivity;
+	if (liveActivity === undefined || liveActivity.currentAction.kind === "idle") return [];
+	const action = liveActivity.currentAction;
 	const lines: string[] = [];
 	if (action.kind === "thinking") {
 		lines.push("current action: thinking / waiting for model output");
@@ -853,8 +859,8 @@ function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
 			lines.push(truncatePlain(`last output: ${action.outputPreview}`, 200));
 		}
 	}
-	if (detail.quietMs !== undefined)
-		lines.push(`heartbeat: quiet ${formatQuietSeconds(detail.quietMs)}s`);
+	if (liveActivity.quietMs !== undefined)
+		lines.push(`heartbeat: quiet ${formatQuietSeconds(liveActivity.quietMs)}s`);
 	return lines;
 }
 

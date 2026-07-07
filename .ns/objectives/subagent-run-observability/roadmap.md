@@ -48,10 +48,12 @@
 - [ ] Structured prompt panel (Assignment/Constraints/Inputs)
       Only viable where dispatch produces structured prompts (objective runner
       steps); freeform prompts would require fragile parsing.
-- [ ] Kill/abort control from the detail screen
-      Turns the screen from observer into actuator; abort plumbing exists
-      (`runner-subagents/abort-signals.ts`) but confirm/recover semantics need a
-      deliberate slice of their own.
+- [ ] Cancel controls for one agent or the whole subagent fleet
+      Add an explicit, confirmed actuator path that can cancel an individual
+      subagent from its detail screen and cancel all currently running subagents
+      from the fleet view. Abort plumbing exists (`runner-subagents/abort-signals.ts`),
+      but confirmation, parent recovery/checkpoint semantics, and post-cancel
+      status reporting need a deliberate slice of their own.
 - [ ] Runner-emitted semantic events (validation passed, checkpoint written, commit created)
       Requires a protocol change on the emit side; UI-side inference from prose
       is explicitly rejected. Upgrade to Work only with a real protocol design.
