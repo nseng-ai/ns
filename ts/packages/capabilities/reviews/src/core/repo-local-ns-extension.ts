@@ -7,7 +7,7 @@ import { reviewsExecPublishFindingsCommand } from "../commands/exec-publish-find
 import { reviewsExecRecordFindingsCommand } from "../commands/exec-record-findings.ts";
 import { reviewListCommand } from "../commands/list.ts";
 import { reviewLogCommand } from "../commands/review-log.ts";
-import { reviewLsCommand } from "../commands/review-ls.ts";
+import { reviewLsCommand } from "../commands/ls.ts";
 import { reviewRunCommand } from "../commands/review-run.ts";
 
 export const reviewsRepoLocalNsExtension = defineRepoLocalNsExtensionDescriptor({

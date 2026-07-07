@@ -180,7 +180,7 @@ const fakeReviewsCommandSpecs = [
 	{
 		name: "ls",
 		description: "Alias for reviews list.",
-		entryPath: "fake://reviews/src/commands/review-ls.ts",
+		entryPath: "fake://reviews/src/commands/ls.ts",
 		segments: ["reviews", "ls"],
 		command: fakeReviewsCommand({
 			key: "reviews/ls",

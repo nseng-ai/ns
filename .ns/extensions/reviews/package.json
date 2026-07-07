@@ -27,7 +27,7 @@
       {
         "name": "ls",
         "description": "Alias for reviews list.",
-        "entry": "./src/commands/review-ls.ts"
+        "entry": "./src/commands/ls.ts"
       },
       {
         "name": "review-log",

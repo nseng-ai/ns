@@ -6,7 +6,7 @@
     ".": "./src/core/index.ts",
     "./api": "./src/core/api.ts",
     "./commands/list": "./src/commands/list.ts",
-    "./commands/review-ls": "./src/commands/review-ls.ts",
+    "./commands/ls": "./src/commands/ls.ts",
     "./commands/review-log": "./src/commands/review-log.ts",
     "./commands/review-run": "./src/commands/review-run.ts",
     "./commands/exec-record-findings": "./src/commands/exec-record-findings.ts",
