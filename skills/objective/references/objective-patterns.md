@@ -1,10 +1,15 @@
 # Objective Patterns
 
 Load this reference when the user says objective pattern, umbrella Objective, synthesis
-Objective, subobjective, child Objective, autoobjective, ideation Objective, orienting
-Objective (formerly cross-cutting), steelthread Objective, or asks which shape an
-Objective should take. (For standing / no-natural-finish-line
-Objectives, `references/standing-objectives.md` remains the deeper reference.)
+Objective, subobjective, child Objective, autoobjective, ideation Objective, wayfinding
+Objective, orienting Objective (formerly cross-cutting), steelthread Objective,
+readme-driven-development Objective, or asks which shape an Objective should take. (For
+standing / no-natural-finish-line Objectives, `references/standing-objectives.md`
+remains the deeper reference.)
+
+This catalog is recognition-level. Each pattern's creation procedure lives in its
+`objective-create-<pattern>` facade skill, named per entry below — orienting is the one
+exception: a layerable property with no facade, owned by `objective-create` itself.
 
 ## What a pattern is
 
@@ -35,20 +40,18 @@ A parent that coordinates a family of narrower **Subobjectives** (renamed from C
 Objective, 2026-07-06; Child Objective remains a valid synonym) via Objective Edges
 while remaining the durable home for cross-child lessons, migration guides, and
 synthesized closure evidence. The synthesis duty is part of the pattern (renamed from
-Synthesis Objective; ADR 0001 substance, ADR 0030 name). Parent roadmap may use `[~]` to
-show a child exists and is in progress; the parent closes only after children are closed
-or explicitly parked and synthesized.
-
-- Use when: a thread is too big for one record and children should own their slices.
-- Failure mode: the **fire-and-forget umbrella** — a parent that only spawns children
-  and stops tracking. That is not this pattern.
+Synthesis Objective; ADR 0001 substance, ADR 0030 name). Recognize it by: a thread too
+big for one record, children owning their slices, and completion criteria that include
+synthesizing child outcomes. Composes with orienting and standing; a steelthread child
+split is a natural first Subobjective. Creation: `objective-create-umbrella`.
 
 ### Standing Objective
 
 An Objective whose horizon has no natural goal-met finish line; `## Completion Criteria`
 describes retirement/closure criteria instead. Standing is the horizon-axis value, not a
-status — `active`/`closed` remains enough. Deep guidance:
-`references/standing-objectives.md`.
+status — `active`/`closed` remains enough. Composes with orienting and autoobjective;
+never with steelthread. Deep guidance: `references/standing-objectives.md`. Creation:
+`objective-create-standing`.
 
 ### Autoobjective
 
@@ -56,7 +59,9 @@ An Objective whose roadmap and runner policy are intentionally shaped for repeat
 Objective Runner steps with parent-LM checkpoints between committed slices (ADR 0022).
 Colloquial shorthand for autonomous-pursuit design — do not formalize as schema, type,
 or required wording. Product hook: `ns objective exec runner-step <slug>`, which refuses
-records that do not satisfy its preconditions.
+records that do not satisfy its preconditions. Composes with either horizon; a
+steelthread autoobjective is a common combination. Creation:
+`objective-create-autoobjective`.
 
 ### Orienting Objective
 
@@ -71,32 +76,24 @@ remains fine as plain description of *why* a record is orienting.
 
 An Objective deliberately held in the formation phase: the **Destination** (thesis,
 completion criteria) is settled first, but the way there is not yet known, so the
-roadmap is a **Frontier** of open questions rather than executable slices. The
-vocabulary below (Destination, Question Row, Frontier, Fog, Crystallization) is
+roadmap is a **Frontier** of open, unblocked, typed **Question Rows** (grilling /
+research / prototype / task, with explicit blocked-by references, unordered beyond
+blocking) rather than executable slices. Questions too coarse to state precisely stay as
+**Fog** — a marked cluster under `## Open Questions`, never pre-sliced into rows.
+Resolving a Question Row records the decision and graduates Fog the answer made
+specifiable into new rows. **Crystallization** is the phase exit: the Frontier empties
+and what remains is ordinary PR-shaped execution work — ideation is a phase every
+Objective passes through; this pattern names deliberately staying there while the way is
+found. The vocabulary (Destination, Question Row, Frontier, Fog, Crystallization) is
 canonical in the root `CONTEXT.md`. The pattern is an ns-native adaptation of the
 vendored `wayfinder` skill; lineage, deliberate drops, and the upstream-sync process
 live in `docs/agents/wayfinder-objective-adaptation.md`.
 
-- Roadmap rows are typed **Question Rows** — grilling / research / prototype / task —
-  with explicit blocked-by references to other rows; beyond blocking, they are
-  unordered. The Frontier is the open, unblocked Question Rows.
-- Name the Destination first — it shapes what every question asks. Then chart
-  breadth-first: fan out across the whole space to surface the open questions, rather
-  than going deep on any one thread.
-- Questions too coarse to state precisely stay as **Fog** (a marked cluster under
-  `## Open Questions`), not pre-sliced into rows. The test: can you state the question
-  precisely now — not answer it? Precisely stateable → Question Row; otherwise → Fog.
-- Resolving a Question Row produces a resolved decision (Semantic Update and/or a
-  Resolved Decisions entry) and graduates Fog the answer made specifiable into new
-  rows; it may invalidate other rows.
-- **Crystallization** is the phase exit: the Frontier empties of Question Rows and what
-  remains is ordinary PR-shaped execution work. Ideation is a phase every Objective
-  passes through; this pattern names deliberately staying there while the way is found.
-- Size Question Rows to one agent session, and resolve one per session.
-
-Skill support: `objective-create` charts ideation records Destination-first with typed
-Question Rows and Fog; `objective-next` recommends from the Frontier and recognizes
-Crystallization; `objective-update` resolves Question Rows and graduates Fog.
+Skill support: `objective-next` recommends from the Frontier and recognizes
+Crystallization; `objective-update` resolves Question Rows and graduates Fog. Composes
+with orienting and autoobjective (wayfinding dominant until Crystallization); its
+natural first execution shape after Crystallization is a steelthread. Creation:
+`objective-create-wayfinding` (the facade takes the vendored method skill's name).
 
 ### Steelthread Objective
 
@@ -104,35 +101,21 @@ An Objective whose scope is deliberately the thinnest end-to-end slice of a larg
 ambition: one real task completing through every layer of the real system, with
 widening explicitly out of scope. The seams between layers are where the surprises
 live; the thread de-risks integration while the design is still cheap to change.
-`## Completion Criteria` is the thread validated end-to-end; `## Non-Goals` names the
-deferred breadth, which belongs to follow-on Objectives (often making the steelthread
-the first Subobjective under an Umbrella) or to a deliberate scope rebaseline after
-closure.
+Recognize it by: `## Completion Criteria` is the thread validated end-to-end,
+`## Non-Goals` names the deferred breadth, and `## Parked` holds already-decided
+follow-on work. The pattern names the whole record's scope — a steelthread roadmap row
+inside a broader Objective is a milestone, not a Steelthread Objective. Composes well
+with autoobjective (a bounded, slice-shaped thread is a natural autorun target) and
+often becomes the first Subobjective under an Umbrella; never composes with standing — a
+steelthread is always bounded. It is the natural first execution shape after an Ideation
+Objective's Crystallization. Creation: `objective-create-steelthread`.
 
-- Use when: an architecture, workflow, or product surface needs its layers proven
-  connected before breadth is built. It is the natural first execution shape after an
-  Ideation Objective's Crystallization.
-- `## Parked` in a steelthread record commonly holds work that is already figured out —
-  decided designs, resolved hook points, named follow-on slices — deliberately
-  sequenced post-thread. Parking defers only the implementation, not the thinking: the
-  decisions stand (as Semantic Updates and design-orientation prose), and the thread
-  must not preclude them.
-- Two equivalent shapings: reshape the record itself so its scope is the thread
-  (breadth moves to `## Parked`), or split the thread into a Subobjective and promote
-  the original record to an Umbrella holding
-  the overall ambition. Prefer the child split when the parked breadth is substantial
-  enough to need its own coordination.
-- Composes well with Autoobjective: the thread is bounded, concrete, and slice-shaped,
-  which makes it a natural autorun target — a steelthread autoobjective is a common
-  combination.
-- The pattern names the whole record's scope. A steelthread roadmap row inside a
-  broader Objective is a milestone, not a Steelthread Objective.
-- Horizon note: a steelthread is always bounded — standing and steelthread do not
-  compose.
-- A **throwaway steelthread** variant is legitimate when the thing being validated is
-  a design rather than a durable skeleton (standalone scratch code, no reusable
-  infra); the record's `## Scope` must say so explicitly.
-- Failure modes: **breadth creep** — the thread quietly widening into feature work
-  mid-flight; defend by descoping, not by absorbing. And the **cardboard thread** —
-  stubbing so many layers that completing the one task validates nothing about the
-  real system.
+### Readme-Driven-Development Objective (experimental)
+
+**Experimental pattern.** A fresh Objective whose canonical reference is a user-facing
+README draft at `references/README-draft.md`, developed via the readme-driven-development
+loop: the README is the design contract where decisions settle, `roadmap.md` carries
+execution state, and other `references/` files support the README without overriding it.
+Every run creates a new Objective — never reuse or attach to an existing one. Method:
+the portable `readme-driven-development` skill. Creation:
+`objective-create-readme-driven-development`.
