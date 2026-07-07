@@ -70,6 +70,11 @@ describe("parseRoasterProjectConfigToml", () => {
 			"pathspecs",
 			"invalid-exclude",
 		],
+		[
+			'[roaster.model_profiles]\nfast = "haiku"\n',
+			"unknown profile key(s): fast",
+			"invalid-model-profiles",
+		],
 		['roaster = "not a table"\n', "[roaster] must be a TOML table", "invalid-table"],
 		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid-table"],
 		["[roaster\n", "Invalid TOML", "invalid-toml"],

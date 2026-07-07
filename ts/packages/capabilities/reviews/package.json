@@ -30,12 +30,22 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@pierre/diffs": "catalog:",
-		"smol-toml": "catalog:",
 		"yaml": "catalog:",
 		"zod": "catalog:"
 	},
 	"ns": {
-		"tier": "standalone-tool"
+		"tier": "standalone-tool",
+		"group": "roaster",
+		"settings": [
+			{
+				"path": ["roaster", "diff"],
+				"description": "Diff input options for Roaster reviews."
+			},
+			{
+				"path": ["roaster", "model_profiles"],
+				"description": "Model aliases for Roaster quick and deep review profiles."
+			}
+		]
 	},
 	"publishConfig": {
 		"access": "public"

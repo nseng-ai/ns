@@ -43,7 +43,10 @@
   - Landed: local branch `point-system-settings-loader-Pa0ixh` commit `a56987991`
     migrates `areg` `[areg].agents` onto the kernel loader with a declared settings schema
     and removes areg's direct `smol-toml` dependency.
-  - Remaining before `[x]`: roaster `diff`/`model_profiles` and ns-init `harnesses`.
+  - Landed: local branch `point-system-roaster-settings-loader-ZdmM9j` commit `d9a13235f`
+    migrates roaster `[roaster.diff]` and `[roaster.model_profiles]` onto the kernel loader
+    with declared settings schemas and removes reviews' direct `smol-toml` dependency.
+  - Remaining before `[x]`: ns-init `harnesses`.
 - [ ] CLI: `ns extension points` (catalog) and `ns extension point <id>` (detail) under
       the `ns extension` group, per `skills/ns-cli-design` conventions.
   - Evidence: CLI scenario tests including `--format` machine output.
