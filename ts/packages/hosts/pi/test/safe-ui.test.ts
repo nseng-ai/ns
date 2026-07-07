@@ -1,17 +1,17 @@
 import { describe, expect, test } from "vitest";
 
-import { withSafePiUi, withSafePiUiValue } from "../src/kit/shared/safe-ui.ts";
+import { withSafePiUi, withSafePiUiAsync, withSafePiUiValue } from "../src/kit/shared/safe-ui.ts";
 
 describe("withSafePiUi", () => {
 	test("returns ok when the UI action succeeds", () => {
-		let called = false;
+		let hasCalled = false;
 
 		const result = withSafePiUi(() => {
-			called = true;
+			hasCalled = true;
 		});
 
 		expect(result).toEqual({ type: "ok" });
-		expect(called).toBe(true);
+		expect(hasCalled).toBe(true);
 	});
 
 	test("returns stale-context for Pi stale extension context errors", () => {
@@ -31,6 +31,38 @@ describe("withSafePiUi", () => {
 				throw new Error("widget renderer failed");
 			});
 		}).toThrow("widget renderer failed");
+	});
+});
+
+describe("withSafePiUiAsync", () => {
+	test("returns ok when the async UI action succeeds", async () => {
+		let hasCalled = false;
+
+		const result = await withSafePiUiAsync(async () => {
+			hasCalled = true;
+		});
+
+		expect(result).toEqual({ type: "ok" });
+		expect(hasCalled).toBe(true);
+	});
+
+	test("returns stale-context for Pi stale extension context errors", async () => {
+		const result = await withSafePiUiAsync(async () => {
+			throw new Error("This extension ctx is stale after session replacement or reload.");
+		});
+
+		expect(result).toEqual({
+			type: "stale-context",
+			message: "This extension ctx is stale after session replacement or reload.",
+		});
+	});
+
+	test("rethrows non-stale UI errors", async () => {
+		await expect(
+			withSafePiUiAsync(async () => {
+				throw new Error("widget renderer failed");
+			}),
+		).rejects.toThrow("widget renderer failed");
 	});
 });
 

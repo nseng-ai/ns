@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
+import { getOrCreateSubagentFleetRegistry } from "../../src/fleet/provider.ts";
 import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import {
 	SUBAGENT_FLEET_STATUS_KEY,
@@ -15,6 +16,13 @@ import { trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
 import { makeErrorResult, makeFinalTextResult } from "../helpers/explore-testing.ts";
 
 describe("runner subagent fleet display for explore", () => {
+	test("reuses one registry for the same Pi host", () => {
+		const pi = {};
+		const first = getOrCreateSubagentFleetRegistry(pi, { recentTaskCap: 1 });
+		const second = getOrCreateSubagentFleetRegistry(pi, { recentTaskCap: 20 });
+		expect(second).toBe(first);
+	});
+
 	test("renders one active widget line and clears once the fleet is idle", () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout files" }, { title: "Scout tests" }]);

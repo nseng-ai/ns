@@ -8,7 +8,7 @@ import {
 	landMatrixRowsFromPlan,
 	renderLandMatrixProgressFrame,
 	type LandMatrixRowSpec,
-} from "../../src/land/land-matrix-progress.ts";
+} from "../../src/land/land-presentation.ts";
 import type { LandingPlan } from "../../src/land/api.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 

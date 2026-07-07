@@ -1,6 +1,8 @@
 const STALE_EXTENSION_CONTEXT_MESSAGE = "This extension ctx is stale";
 
-export type SafePiUiResult = { type: "ok" } | { type: "stale-context"; message: string };
+type SafePiUiStaleContextResult = { type: "stale-context"; message: string };
+
+export type SafePiUiResult = { type: "ok" } | SafePiUiStaleContextResult;
 
 export type SafePiUiValueResult<T> =
 	| { type: "ok"; value: T }
@@ -15,8 +17,16 @@ export function withSafePiUi(action: () => void): SafePiUiResult {
 		action();
 		return { type: "ok" };
 	} catch (error) {
-		if (!isStaleExtensionContextError(error)) throw error;
-		return { type: "stale-context", message: error.message };
+		return staleContextResult(error);
+	}
+}
+
+export async function withSafePiUiAsync(action: () => Promise<void>): Promise<SafePiUiResult> {
+	try {
+		await action();
+		return { type: "ok" };
+	} catch (error) {
+		return staleContextResult(error);
 	}
 }
 
@@ -24,7 +34,11 @@ export function withSafePiUiValue<T>(action: () => T): SafePiUiValueResult<T> {
 	try {
 		return { type: "ok", value: action() };
 	} catch (error) {
-		if (!isStaleExtensionContextError(error)) throw error;
-		return { type: "stale-context", message: error.message };
+		return staleContextResult(error);
 	}
+}
+
+function staleContextResult(error: unknown): SafePiUiStaleContextResult {
+	if (!isStaleExtensionContextError(error)) throw error;
+	return { type: "stale-context", message: error.message };
 }

@@ -18,13 +18,13 @@ import {
 	formatFailure,
 	formatFailureNotification,
 	landFailureKind,
+	landMatrixRowsFromPlan,
 	presentBrief,
 	setStatus,
-} from "./presentation.ts";
+} from "../land-presentation.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandContext } from "../api.ts";
 import type { LandingPlan } from "../types.ts";
-import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
 import type { LandStackCommandContext, LandedPr } from "./types.ts";
 
 export interface LandingSession {

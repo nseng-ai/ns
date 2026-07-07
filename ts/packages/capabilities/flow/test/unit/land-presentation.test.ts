@@ -7,7 +7,7 @@ import {
 	renderLandConfirmationDetails,
 	renderLandResultBlock,
 	renderPlainLandConfirmationDetails,
-} from "../../src/land/stack/land-presentation.ts";
+} from "../../src/land/land-presentation.ts";
 import type { LandConfirmationPreview } from "../../src/land/stack/types.ts";
 
 const DIM = "\x1b[2m";

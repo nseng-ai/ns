@@ -1189,6 +1189,33 @@ describe("cli command extension helper", () => {
 		}
 	});
 
+	test("suppresses stale command-context errors after session replacement", async () => {
+		let hasRunBeenCalled = false;
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: () => {
+				hasRunBeenCalled = true;
+				return 0;
+			},
+		});
+		const base = createContext();
+		const ctx = {
+			cwd: base.ctx.cwd,
+			hasUI: true,
+			ui: base.ctx.ui,
+			async waitForIdle() {
+				throw new Error(
+					"This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession().",
+				);
+			},
+		} satisfies CommandContext;
+
+		await expect(commandFor(pi, "dev:preview-status").handler("", ctx)).resolves.toBeUndefined();
+
+		expect(hasRunBeenCalled).toBe(false);
+		expect(pi.sentMessages).toEqual([]);
+	});
+
 	test("stops live progress when the Pi command context becomes stale", async () => {
 		let isStale = false;
 		const pi = new FakePi();

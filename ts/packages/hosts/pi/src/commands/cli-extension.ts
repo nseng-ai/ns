@@ -7,7 +7,7 @@ import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { LiveCommandProgress } from "./cli-command-live-progress.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
-import { withSafePiUi } from "../kit/shared/safe-ui.ts";
+import { withSafePiUi, withSafePiUiAsync } from "../kit/shared/safe-ui.ts";
 import {
 	customMessageText,
 	truncateDisplayLine,
@@ -206,14 +206,22 @@ export function registerCliCommandExtension(
 					? {}
 					: { getArgumentCompletions: command.getArgumentCompletions }),
 				handler: async (rawArgs, ctx) => {
-					await runRegisteredCliCommand({
-						pi,
-						spec,
-						command,
-						piCommandName,
-						rawArgs,
-						ctx,
+					const result = await withSafePiUiAsync(async () => {
+						await runRegisteredCliCommand({
+							pi,
+							spec,
+							command,
+							piCommandName,
+							rawArgs,
+							ctx,
+						});
 					});
+					if (result.type === "stale-context") {
+						traceCliCommand("command_stale_context", {
+							commandName: command.name,
+							piCommandName,
+						});
+					}
 				},
 			},
 			// CLI-backed commands render their own live progress block above the editor.
