@@ -329,7 +329,6 @@ async function runSubmitWithMatrix(input: {
 			onPhase,
 			onOutput,
 			submitMatrix: matrix,
-			submitMatrixCurrentBranch: topology.value.currentBranch,
 		});
 		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		const isFailed = interpretedResult.exitCode !== 0;

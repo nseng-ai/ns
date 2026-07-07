@@ -18,8 +18,15 @@ import { CHECKPOINT_PHASES, SUBMIT_PHASES } from "../phase-stream/phase-stream-s
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
-export type SubmitMatrixColumnKey = "metadata" | "submit" | "verify" | "description";
-export type SubmitMatrixGlobalKey = "inventory" | "hooks" | "checkpoint" | "preflight" | "restack";
+export type SubmitMatrixColumnKey = "metadata" | "description";
+export type SubmitMatrixGlobalKey =
+	| "inventory"
+	| "hooks"
+	| "checkpoint"
+	| "preflight"
+	| "restack"
+	| "submit"
+	| "verify";
 export type SubmitMatrixCellUpdate = MatrixCellUpdate;
 export type SubmitMetadataProgressReason =
 	| "existing-pr"
@@ -63,7 +70,13 @@ export interface SubmitMatrixProgressSink {
 		update: SubmitMatrixCellUpdate,
 	): void;
 	setCell(branch: string, column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
+	setCellByPrNumber(
+		prNumber: number,
+		column: SubmitMatrixColumnKey,
+		update: SubmitMatrixCellUpdate,
+	): void;
 	setAllCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
+	setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void;
 	setAllOtherCells(
 		column: SubmitMatrixColumnKey,
 		branch: string,
@@ -90,8 +103,6 @@ export interface SubmitMatrixRowView {
 
 export const SUBMIT_MATRIX_COLUMNS: readonly SubmitMatrixColumnSpec[] = [
 	{ key: "metadata", label: "Metadata", width: 8 },
-	{ key: "submit", label: "Submit", width: 6 },
-	{ key: "verify", label: "Verify", width: 6 },
 	{ key: "description", label: "Description", width: 11 },
 ];
 
@@ -131,6 +142,18 @@ export const SUBMIT_MATRIX_GLOBAL_ROWS: readonly SubmitMatrixGlobalRowSpec[] = [
 		label: "Restack",
 		detail: "not required",
 		activeLabel: "running gt restack…",
+	},
+	{
+		key: "submit",
+		label: "Submit",
+		detail: "stack submitted",
+		activeLabel: "running gt submit…",
+	},
+	{
+		key: "verify",
+		label: "Verify",
+		detail: "current PR verified",
+		activeLabel: "checking current PR…",
 	},
 ];
 
@@ -219,6 +242,30 @@ export function createSubmitMatrixProgressController(options: {
 		});
 	}
 
+	function setCellByPrNumber(
+		prNumber: number,
+		column: SubmitMatrixColumnKey,
+		update: SubmitMatrixCellUpdate,
+	): void {
+		controller.updateRows((rows) => {
+			const row = rows.filter(isSubmitMatrixRowView).find((item) => {
+				const number = item.pr === undefined ? undefined : prNumberFromLink(item.pr);
+				return number === String(prNumber);
+			});
+			if (row === undefined) return;
+			row.cells[column] = update;
+		});
+	}
+
+	function setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void {
+		controller.updateRows((rows) => {
+			for (const row of rows) {
+				if (row.cells[column].state !== "pending") continue;
+				row.cells[column] = update;
+			}
+		});
+	}
+
 	return {
 		begin: controller.begin,
 		setRows: (rows) => controller.setRows(rowsWithKey(rows, (row) => row.branch)),
@@ -226,7 +273,9 @@ export function createSubmitMatrixProgressController(options: {
 		setGlobal: controller.setGlobal,
 		setGlobalSubstep: controller.setGlobalSubstep,
 		setCell: controller.setCell,
+		setCellByPrNumber,
 		setAllCells: controller.setAllCells,
+		setPendingCells,
 		setAllOtherCells: controller.setAllOtherCells,
 		applyGlobalPhaseEvent,
 		applyPrLinks,

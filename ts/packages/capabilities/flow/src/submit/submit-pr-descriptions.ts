@@ -43,12 +43,22 @@ interface PrDescriptionAccumulator {
 
 type PrDescriptionLinkBucketName = "generated" | "prewritten" | "prewriteFallbacks";
 
+export interface SubmitPrDescriptionProgressEvent {
+	prNumber: number;
+	branch?: string;
+	state: "active" | "done" | "skipped" | "failed";
+	message?: string;
+}
+
+export type SubmitPrDescriptionProgressListener = (event: SubmitPrDescriptionProgressEvent) => void;
+
 export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	onProgress?: (message: string) => void;
+	onPrProgress?: SubmitPrDescriptionProgressListener;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
 	const prewrittenByBranch = new Map(
@@ -70,8 +80,18 @@ export async function generateSubmitPrDescriptions(input: {
 		if (number === undefined) continue;
 
 		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
+		input.onPrProgress?.({
+			prNumber: number,
+			state: "active",
+			message: "loading PR metadata",
+		});
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
+			input.onPrProgress?.({
+				prNumber: number,
+				state: "failed",
+				message: firstNonEmptyLine(viewed.error.message) ?? "metadata load failed",
+			});
 			accumulator = collectPrDescriptionFailure(accumulator, {
 				link,
 				number,
@@ -90,6 +110,12 @@ export async function generateSubmitPrDescriptions(input: {
 				git: input.prDescription.git,
 			});
 			if (!resolvedGeneration.ok) {
+				input.onPrProgress?.({
+					prNumber: number,
+					branch: viewed.value.headRefName,
+					state: "failed",
+					message: firstNonEmptyLine(resolvedGeneration.error) ?? "generation setup failed",
+				});
 				accumulator = collectPrDescriptionFailure(accumulator, {
 					link,
 					number,
@@ -112,6 +138,13 @@ export async function generateSubmitPrDescriptions(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
+		const progressMessage = prProgressMessageForResult(result);
+		input.onPrProgress?.({
+			prNumber: number,
+			branch: viewed.value.headRefName,
+			state: prProgressStateForResult(result),
+			...(progressMessage === undefined ? {} : { message: progressMessage }),
+		});
 		accumulator = collectPrDescriptionResult({
 			result,
 			link,
@@ -143,6 +176,36 @@ function createPrDescriptionAccumulator(): PrDescriptionAccumulator {
 		previews: [],
 		failures: [],
 	};
+}
+
+function prProgressStateForResult(
+	result: PrDescriptionOrchestrationResult,
+): SubmitPrDescriptionProgressEvent["state"] {
+	switch (result.type) {
+		case "skipped":
+			return "skipped";
+		case "matched_prewritten":
+		case "updated":
+		case "generated":
+			return "done";
+		case "failed":
+			return "failed";
+	}
+}
+
+function prProgressMessageForResult(result: PrDescriptionOrchestrationResult): string | undefined {
+	switch (result.type) {
+		case "skipped":
+			return "skipped (unchanged)";
+		case "matched_prewritten":
+			return "prewritten";
+		case "updated":
+			return "updated";
+		case "generated":
+			return "generated";
+		case "failed":
+			return firstNonEmptyLine(result.reason) ?? "description failed";
+	}
 }
 
 function collectPrDescriptionResult(input: {
