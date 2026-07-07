@@ -41,7 +41,7 @@ Uncommitted Objective edits are input, not a stop: worktree content, committed p
 
 Write invariants, in addition to the never-commit absolute:
 
-- Edit only the selected Objective directories.
+- Edit only the selected Objective directories — with one sanctioned exception: closing a slug inline (step 10) or re-judging Blocked Sentences around a verified closure may edit an edge counterpart's `objective.md` frontmatter block, and nothing else in that counterpart record, per the umbrella skill's mirrored-frontmatter exception.
 - For `updates/`, follow the `objective` umbrella skill's immutable Semantic Update rule: refreshes may add new update files, not change old ones.
 - Never move, delete, rename, or recreate an Objective slug directory.
 - Never edit archived Objectives unless explicitly asked.
@@ -62,10 +62,12 @@ Per slug:
 4. **Verify the contract** claim by claim, per Verify claims below.
 5. **Classify**: `verified` (contract supported, or weakened into assumptions/open questions), `stale-rebaselined` (a false claim was corrected, parked, or narrowed), or `skipped-unverified` (important claims remain unverifiable and unsafe to rewrite without the user).
 6. **Rewrite `objective.md` from scratch** when the verified contract changes durable narrative, scope, criteria, assumptions/risks, or open questions, or shows existing prose stale. Never preserve old wording by inertia.
+   - **Blocked Sentence is in scope.** When the record's `blocked:` sentence gates on a condition the verified contract shows resolved — most commonly a named Objective that is verifiably closed (`ns objective check <slug>` flags this case as a warning) — clear or reword the sentence as part of the rewrite and carry the decisive evidence into the Semantic Update. Leave it verbatim only when the evidence is ambiguous, and then say so explicitly in the report instead of silently deferring. Edges stay in place either way.
 7. **Rewrite `roadmap.md` from scratch** when active work shape changes: ordered guidance, checkbox state (`[ ]`, `[~]`, `[x]` only), row notes, completion evidence, parked work.
 8. **Contract-diff.** Compare the rewrite against the extracted contract line by line: every verified purpose, boundary, progress fact, roadmap item, assumption, open question, and parked item is present or intentionally omitted with a stated reason, and the umbrella's required headings survive. Dropped or softened meaning is a bug — fix it before moving on.
 9. **Re-derive `orientation.md`** when one exists, per the umbrella's re-derivation rule; add one when the verified contract shows the Objective became orienting (its direction now binds unrelated agents). Never drop one.
 10. **Close when finished.** If the verified contract shows the completion criteria met and no material open work, close inline per `objective-close` semantics: record `## Closure` in `objective.md` (outcome, rationale, closure-relevant PR evidence) and write the minimal `closed.md` marker. The closure evidence goes in the Semantic Update below. Report `closure-ready` without closing only when the Objective explicitly requires a final evidence-gathering step this refresh has not run.
+    - **Closing inline carries `objective-close`'s frontmatter re-judgment, not just its file mechanics.** Remove the closing record's own `blocked:` sentence, and for each entry under its `edges:` read the counterpart's frontmatter: when a counterpart's `blocked:` sentence rests on the Objective being closed, clear or reword it now (editing only that counterpart's frontmatter block — the sanctioned exception above), or state in the report why it deliberately stays. Do not remove `edges:` entries on either side. After any frontmatter edit, run `ns objective check` for each touched slug; its blocked/closed-counterpart warning is the backstop for a missed re-judgment.
 11. **Append at most one timestamped Semantic Update** when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, closure, or rebaseline — carrying the decisive evidence and the provenance breadcrumb:
 
     ```text
@@ -95,6 +97,6 @@ A claim that cannot be verified cheaply never stays as fact: convert it to an ex
 
 ## Report
 
-Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
+Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `closed`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; any counterpart records whose frontmatter was edited under the closure exception, and any Blocked Sentence cleared, reworded, or deliberately left with the reason; slugs that were already dirty; confirmation that the never-commit absolute and all write invariants held, and that any `closure-ready` (rather than `closed`) cites the Objective's explicit final evidence-gathering requirement.
 
 Done when an immediate rerun would modify nothing — every refreshed record already matches its verified contract.

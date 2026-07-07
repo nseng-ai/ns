@@ -162,6 +162,41 @@ describe("objectiveEdgeLintChecks", () => {
 		expect(labels(violations)).toEqual(["objective.md edge beta is mirrored"]);
 		expect(violations[0]?.detail).toBe("counterpart Record Frontmatter is malformed");
 	});
+
+	test("blocked record with a closed edge counterpart gets a non-failing warning", async () => {
+		const storage = storageWith([{ ...MIRRORED_BETA, isClosed: true }]);
+		const content = recordContent([
+			"blocked: Gated on beta landing first.",
+			...edgeLines("beta", "Consumed as a hard dependency."),
+		]);
+		const violations = await lint(storage, "alpha", content);
+		expect(labels(violations)).toEqual([
+			"objective.md Blocked Sentence has no closed edge counterparts",
+		]);
+		expect(violations[0]?.severity).toBe("warning");
+		expect(violations[0]?.detail).toBe(
+			"blocked while edge counterpart(s) closed: beta — re-judge the Blocked Sentence",
+		);
+	});
+
+	test("blocked record with a closed archived counterpart still gets the warning", async () => {
+		const storage = storageWith([{ ...MIRRORED_BETA, isArchived: true, isClosed: true }]);
+		const content = recordContent([
+			"blocked: Gated on beta landing first.",
+			...edgeLines("beta", "Consumed as a hard dependency."),
+		]);
+		const violations = await lint(storage, "alpha", content);
+		expect(labels(violations)).toEqual([
+			"objective.md Blocked Sentence has no closed edge counterparts",
+		]);
+		expect(violations[0]?.severity).toBe("warning");
+	});
+
+	test("unblocked record with a closed edge counterpart gets no warning", async () => {
+		const storage = storageWith([{ ...MIRRORED_BETA, isClosed: true }]);
+		const content = recordContent(edgeLines("beta", "Consumed as a hard dependency."));
+		expect(await lint(storage, "alpha", content)).toEqual([]);
+	});
 });
 
 describe("sweepObjectiveEdgeLint", () => {
@@ -206,5 +241,24 @@ describe("sweepObjectiveEdgeLint", () => {
 		expect(result.value.recordCount).toBe(1);
 		expect(labels(result.value.violations)).toEqual(["objective.md is readable Markdown"]);
 		expect(result.value.violations[0]?.detail).toBe("permission denied");
+	});
+
+	test("sweep carries the blocked/closed-counterpart warning alongside errors", async () => {
+		const storage = storageWith([
+			{
+				slug: "alpha",
+				objectiveMd: recordContent([
+					"blocked: Gated on beta landing first.",
+					...edgeLines("beta", "Depends on beta."),
+				]),
+			},
+			{ ...MIRRORED_BETA, isClosed: true },
+		]);
+		const result = await sweepObjectiveEdgeLint(storage);
+		if (!result.ok) throw new Error(result.error.message);
+		expect(labels(result.value.violations)).toEqual([
+			"objective.md Blocked Sentence has no closed edge counterparts",
+		]);
+		expect(result.value.violations[0]?.severity).toBe("warning");
 	});
 });

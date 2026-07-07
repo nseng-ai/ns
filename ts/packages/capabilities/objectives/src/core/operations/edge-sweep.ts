@@ -14,7 +14,7 @@ import {
 	archiveRootRelativePath,
 	type ObjectiveStorage,
 } from "../storage.ts";
-import { objectiveCheckItemSchema } from "./check-items.ts";
+import { countIssues, objectiveCheckItemSchema } from "./check-items.ts";
 import { removeOneTrailingNewline } from "./format.ts";
 import { sweepObjectiveEdgeLint } from "./edge-lint.ts";
 
@@ -26,6 +26,7 @@ const objectiveEdgeSweepBaseResultSchema = z.object({
 	recordCount: z.number().int(),
 	violations: z.array(objectiveCheckItemSchema),
 	errorCount: z.number().int(),
+	warningCount: z.number().int(),
 });
 
 export const objectiveEdgeSweepOkResultSchema = objectiveEdgeSweepBaseResultSchema.extend({
@@ -58,12 +59,15 @@ export async function runEdgeSweep(
 		hasRoot: rootPresence.value,
 		recordCount: sweep.value.recordCount,
 		violations: [...sweep.value.violations],
-		errorCount: sweep.value.violations.length,
+		errorCount: countIssues(sweep.value.violations, "error"),
+		warningCount: countIssues(sweep.value.violations, "warning"),
 	};
+	// Warnings (for example a Blocked Sentence whose edge counterpart is closed) are
+	// advisory: they list in the violations table but never fail the sweep.
 	if (base.errorCount > 0) {
 		const data = { ...base, status: "sweep-failed" as const, error: "sweep-failed" as const };
 		return negative(
-			`Objective edge sweep failed: ${base.errorCount} violation(s) across ${base.recordCount} record(s).`,
+			`Objective edge sweep failed: ${base.errorCount} error(s), ${base.warningCount} warning(s) across ${base.recordCount} record(s).`,
 			{
 				data,
 				human: renderEdgeSweep(data, { canEmitAnsi: true }),
@@ -84,7 +88,11 @@ export function renderEdgeSweep(
 		kv(renderCaps, "Root", `${result.rootPath} (${result.hasRoot ? "present" : "missing"})`),
 		kv(renderCaps, "Archive", result.archiveRootPath),
 		kv(renderCaps, "Records", String(result.recordCount)),
-		kv(renderCaps, "Result", `${result.status} (${result.errorCount} violation(s))`),
+		kv(
+			renderCaps,
+			"Result",
+			`${result.status} (${result.errorCount} error(s), ${result.warningCount} warning(s))`,
+		),
 	];
 	if (result.violations.length > 0) {
 		lines.push(
@@ -92,11 +100,13 @@ export function renderEdgeSweep(
 			...renderTable({
 				caps: renderCaps,
 				columns: [
+					{ header: "SEVERITY", width: "auto" },
 					{ header: "PATH", width: "auto" },
 					{ header: "CHECK", width: "auto" },
 					{ header: "DETAIL", width: "fill", min: "DETAIL".length },
 				],
 				rows: result.violations.map((item) => [
+					cell(item.severity),
 					cell(item.path),
 					cell(item.label),
 					cell(item.detail),

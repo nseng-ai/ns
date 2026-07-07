@@ -8,6 +8,7 @@ import {
 	type ObjectiveStorageResult,
 } from "../storage.ts";
 import {
+	checkItem,
 	objectiveMdExistsCheck,
 	objectiveMdReadableCheck,
 	type ObjectiveCheckItem,
@@ -23,6 +24,12 @@ import {
  *
  * Mirror lookups resolve counterpart slugs in BOTH the active root and the
  * archive root: archiving an endpoint does not break an edge.
+ *
+ * One non-failing advisory rides along: a record carrying a Blocked Sentence
+ * while at least one of its edge counterparts is closed gets a warning-severity
+ * item naming the closed counterpart(s). This is deterministic marker state
+ * (blocked-present plus counterpart closed.md), never prose interpretation —
+ * disposing of the Blocked Sentence stays skill judgment.
  */
 
 export interface ObjectiveEdgeLintOptions {
@@ -237,7 +244,8 @@ async function lintObjectiveRecordFrontmatterState(
 
 	const violations: ObjectiveCheckItem[] = [];
 	const frontmatter = options.state.frontmatter;
-	if (frontmatter.blocked !== null && frontmatter.blocked.trim() === "") {
+	const blockedSentence = frontmatter.blocked?.trim() ?? null;
+	if (blockedSentence === "") {
 		violations.push(
 			violation(
 				options.state.path,
@@ -247,6 +255,8 @@ async function lintObjectiveRecordFrontmatterState(
 		);
 	}
 
+	const isBlocked = blockedSentence !== null && blockedSentence !== "";
+	const closedCounterparts: string[] = [];
 	const seenEndpoints = new Set<string>();
 	for (const edge of frontmatter.edges) {
 		const endpoint = edge.objective;
@@ -291,41 +301,71 @@ async function lintObjectiveRecordFrontmatterState(
 		}
 		seenEndpoints.add(endpoint);
 
-		const mirror = await mirrorViolation({
+		const mirror = await mirrorFacts({
 			storage: options.storage,
 			slug: options.slug,
 			path: options.state.path,
 			endpoint,
 		});
 		if (!mirror.ok) return mirror;
-		if (mirror.value !== null) violations.push(mirror.value);
+		if (mirror.value.violation !== null) violations.push(mirror.value.violation);
+		if (mirror.value.isCounterpartClosed) closedCounterparts.push(endpoint);
+	}
+	if (isBlocked && closedCounterparts.length > 0) {
+		violations.push(
+			checkItem({
+				path: options.state.path,
+				label: "objective.md Blocked Sentence has no closed edge counterparts",
+				isPassed: false,
+				severity: "warning",
+				passDetail: "safe",
+				failDetail: `blocked while edge counterpart(s) closed: ${closedCounterparts.join(", ")} — re-judge the Blocked Sentence`,
+			}),
+		);
 	}
 	return { ok: true, value: violations };
 }
 
-interface MirrorViolationOptions {
+interface MirrorFactsOptions {
 	storage: ObjectiveStorage;
 	slug: string;
 	path: string;
 	endpoint: string;
 }
 
-async function mirrorViolation(
-	options: MirrorViolationOptions,
-): Promise<ObjectiveStorageResult<ObjectiveCheckItem | null>> {
+interface MirrorFacts {
+	violation: ObjectiveCheckItem | null;
+	/** Counterpart closed.md presence; false when the endpoint is dangling. */
+	isCounterpartClosed: boolean;
+}
+
+async function mirrorFacts(
+	options: MirrorFactsOptions,
+): Promise<ObjectiveStorageResult<MirrorFacts>> {
 	const { storage, slug, path, endpoint } = options;
 	const counterpartPath = await storage.resolveRecordRelativePath(endpoint);
 	if (!counterpartPath.ok) return counterpartPath;
 	if (counterpartPath.value === null) {
 		return {
 			ok: true,
-			value: violation(
-				path,
-				`objective.md edge ${endpoint} endpoint exists`,
-				"no record in the active or archive root",
-			),
+			value: {
+				violation: violation(
+					path,
+					`objective.md edge ${endpoint} endpoint exists`,
+					"no record in the active or archive root",
+				),
+				isCounterpartClosed: false,
+			},
 		};
 	}
+
+	const counterpartFiles = await storage.filePresence(counterpartPath.value);
+	if (!counterpartFiles.ok) return counterpartFiles;
+	const isCounterpartClosed = counterpartFiles.value.closedMd;
+	const asFacts = (violation: ObjectiveCheckItem | null): ObjectiveStorageResult<MirrorFacts> => ({
+		ok: true,
+		value: { violation, isCounterpartClosed },
+	});
 
 	const label = `objective.md edge ${endpoint} is mirrored`;
 	const counterpart = await readObjectiveRecordFrontmatterState({
@@ -334,38 +374,28 @@ async function mirrorViolation(
 	});
 	if (!counterpart.ok) return counterpart;
 	if (counterpart.value.type === "missing") {
-		return { ok: true, value: violation(path, label, "counterpart objective.md is missing") };
+		return asFacts(violation(path, label, "counterpart objective.md is missing"));
 	}
 	if (counterpart.value.type === "unreadable") {
-		return {
-			ok: true,
-			value: violation(
+		return asFacts(
+			violation(
 				path,
 				label,
 				`counterpart objective.md is unreadable: ${counterpart.value.message}`,
 			),
-		};
+		);
 	}
 	if (counterpart.value.type === "absent") {
-		return {
-			ok: true,
-			value: violation(path, label, "counterpart has no Record Frontmatter"),
-		};
+		return asFacts(violation(path, label, "counterpart has no Record Frontmatter"));
 	}
 	if (counterpart.value.type === "malformed") {
-		return {
-			ok: true,
-			value: violation(path, label, "counterpart Record Frontmatter is malformed"),
-		};
+		return asFacts(violation(path, label, "counterpart Record Frontmatter is malformed"));
 	}
 	const hasMirror = findObjectiveEdgeAnnotation(counterpart.value.frontmatter, slug) !== null;
 	if (!hasMirror) {
-		return {
-			ok: true,
-			value: violation(path, label, "counterpart does not declare the mirror edge"),
-		};
+		return asFacts(violation(path, label, "counterpart does not declare the mirror edge"));
 	}
-	return { ok: true, value: null };
+	return asFacts(null);
 }
 
 type RecordFrontmatterClassification =
