@@ -148,8 +148,8 @@ function makeExploreTool(
 		fleetRegistry: new SubagentFleetRegistry(),
 	});
 	const tool = pi.tools.get(EXPLORE_TOOL_NAME);
-	expect(tool).toBeDefined();
-	return tool!;
+	if (tool === undefined) throw new Error("Expected explore tool registration.");
+	return tool;
 }
 
 function finalOutcome(text: string, sessionFile: string): ExplorerDispatchOutcome {

@@ -31,7 +31,7 @@ import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-optio
 import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 import { emitExploreProgress } from "./progress.ts";
-import type { ExplorerRuntime } from "./runtime.ts";
+import type { SubagentRuntime } from "../runtime/seam.ts";
 import {
 	checkAgentDefinitionConfiguration,
 	type AgentDefinitionConfigurationCheck,
@@ -58,7 +58,7 @@ export type ExploreExtensionAPI = RunnerSubagentPi & {
 
 export interface ExploreExtensionOptions extends SubagentToolOptions {
 	dispatchExplorer?: ExploreDispatchFunction;
-	explorerRuntime?: ExplorerRuntime;
+	explorerRuntime?: SubagentRuntime;
 	timers?: TimerScheduler;
 }
 

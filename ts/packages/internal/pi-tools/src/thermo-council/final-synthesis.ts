@@ -2,31 +2,22 @@ import {
 	resultDiagnostic,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-	type SubagentRuntime,
 } from "@nseng-ai/ns-pi-subagents/api";
 import {
 	SAFETY_NOTE,
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 } from "./contract.ts";
-import {
-	toRunnerSubagentContext,
-	type ThermoCouncilCommandContext,
-	type ThermoCouncilExtensionAPI,
-} from "./host-api.ts";
+import { toRunnerSubagentContext } from "./host-api.ts";
 import { renderReviewGuidanceBlock } from "./prompt.ts";
+import type { ThermoCouncilRunContext } from "./run-context.ts";
 
 const SYNTHESIS_MODEL_ENV = "THERMO_COUNCIL_SYNTHESIS_MODEL";
 const MAX_SYNTHESIS_SOURCE_CHARS = 120_000;
 
-export interface SynthesizeThermoCouncilFinalReportOptions {
-	readonly pi: ThermoCouncilExtensionAPI;
-	readonly ctx: ThermoCouncilCommandContext;
-	readonly runtime: SubagentRuntime;
-	readonly scope: ThermoCouncilScope;
+export interface SynthesizeThermoCouncilFinalReportOptions extends ThermoCouncilRunContext {
 	readonly outcomes: readonly ThermoCouncilReviewerOutcome[];
 	readonly deterministicReport: string;
-	readonly reviewGuidance?: string;
 	readonly onProgress?: (update: RunnerSubagentUpdate) => void;
 	readonly onRunnerResult?: (result: RunnerSubagentResult) => void;
 }

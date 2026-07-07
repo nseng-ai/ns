@@ -27,7 +27,7 @@ export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI &
 
 export type NsPiSubagentsExtensionOptions = ExploreExtensionOptions &
 	DispatchRunnerSubagentExtensionOptions & {
-		transcriptViewer?: ReadTextFileDependencies;
+		fleetNavigatorDependencies?: ReadTextFileDependencies;
 	};
 
 export default function nsPiSubagentsExtension(
@@ -38,7 +38,7 @@ export default function nsPiSubagentsExtension(
 	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,
-		...optionalEntry("dependencies", options.transcriptViewer),
+		...optionalEntry("dependencies", options.fleetNavigatorDependencies),
 	};
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
