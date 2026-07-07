@@ -15,12 +15,16 @@ import {
 	GIT_TIMEOUT_MS,
 	PR_FEEDBACK_WATCH_COMMAND_NAME,
 	PR_FEEDBACK_WATCH_MESSAGE_TYPE,
-	PR_FEEDBACK_WATCH_STATE_TYPE,
 	REST_FAILURES_BEFORE_HEAVY_FALLBACK,
 	REST_FAILURE_STATUS,
 	STATUS_REFRESH_INTERVAL_MS,
 } from "./constants.ts";
-import { parseWatchEventEntry } from "./events.ts";
+import {
+	appendWatchEvent,
+	eventFieldsFromSnapshot,
+	restoreWatchEventSets,
+	type WatchEventAppendInput,
+} from "./event-journal.ts";
 import {
 	feedbackItemKeyFromDownload,
 	feedbackItemKeysFromFingerprint,
@@ -46,21 +50,18 @@ import type {
 
 import { buildDetectedFeedbackPrompt } from "./prompt.ts";
 import { isWorkingTreeDirty, notify } from "./runtime.ts";
-import { defaultStatusLine, initialWatchStatus, shouldRefreshStatusAge } from "./status.ts";
+import {
+	defaultStatusLine,
+	initialWatchStatus,
+	restingState,
+	shouldRefreshStatusAge,
+} from "./status.ts";
 import type {
 	ActiveSession,
 	ExtensionAPI,
 	ExtensionContext,
 	PrFeedbackWatchExtensionOptions,
 } from "./types.ts";
-
-interface WatchEventAppendInput {
-	branch?: string;
-	prNumber?: number;
-	headRefOid?: string;
-	itemKeys?: string[];
-	details?: Record<string, unknown>;
-}
 
 export class PrFeedbackWatchController {
 	private readonly pi: ExtensionAPI;
@@ -241,7 +242,7 @@ export class PrFeedbackWatchController {
 		this.baseline(snapshot.snapshot);
 		this.state = {
 			...this.state,
-			state: this.state.isEnabled ? "active" : "stopped",
+			state: restingState(this.state.isEnabled),
 			queuedCount: 0,
 		};
 		this.renderStatus();
@@ -385,7 +386,7 @@ export class PrFeedbackWatchController {
 		this.markRestFingerprintSuccess(result.fingerprint);
 		await this.refreshCheckSummary(session, identity.number);
 		if (result.fingerprint.key === this.lastRestFingerprintKey) {
-			this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped" };
+			this.state = { ...this.state, state: restingState(this.state.isEnabled) };
 			this.renderStatus();
 			if (!this.state.isEnabled) notify(session.ctx, "No new PR feedback detected.", "info");
 			return;
@@ -421,7 +422,7 @@ export class PrFeedbackWatchController {
 			this.updateContextFromSnapshot(snapshot);
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
-			this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped" };
+			this.state = { ...this.state, state: restingState(this.state.isEnabled) };
 			this.renderStatus();
 			notify(session.ctx, "PR head changed; refreshed feedback baseline.", "info");
 			return;
@@ -463,7 +464,7 @@ export class PrFeedbackWatchController {
 		if (newItems.length === 0) {
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
-			this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped" };
+			this.state = { ...this.state, state: restingState(this.state.isEnabled) };
 			this.renderStatus();
 			if (!this.state.isEnabled) notify(session.ctx, "No new PR feedback detected.", "info");
 			return;
@@ -743,34 +744,13 @@ export class PrFeedbackWatchController {
 	}
 
 	private restoreState(ctx: ExtensionContext): void {
-		const entries = ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [];
-		this.seenKeys = new Set<string>();
-		this.attemptedKeys = new Set<string>();
-		for (const entry of entries) {
-			if (entry.type !== "custom" || entry.customType !== PR_FEEDBACK_WATCH_STATE_TYPE) continue;
-			const event = parseWatchEventEntry(entry.data);
-			if (event === undefined || event.itemKeys === undefined) continue;
-			if (event.type === "baseline" || event.type === "ignored") {
-				for (const key of event.itemKeys) this.seenKeys.add(key);
-			}
-			if (event.type === "dispatched") {
-				for (const key of event.itemKeys) {
-					this.seenKeys.add(key);
-					this.attemptedKeys.add(key);
-				}
-			}
-		}
+		const restored = restoreWatchEventSets(ctx);
+		this.seenKeys = restored.seenKeys;
+		this.attemptedKeys = restored.attemptedKeys;
 	}
 
 	private appendEvent(type: WatchEventEntry["type"], overrides: WatchEventAppendInput = {}): void {
-		this.pi.appendEntry?.(PR_FEEDBACK_WATCH_STATE_TYPE, {
-			version: 1,
-			type,
-			...(this.state.branch === undefined ? {} : { branch: this.state.branch }),
-			...(this.state.prNumber === undefined ? {} : { prNumber: this.state.prNumber }),
-			createdAt: new Date().toISOString(),
-			...overrides,
-		} satisfies WatchEventEntry);
+		appendWatchEvent(this.pi, this.state, type, overrides);
 	}
 
 	private recordError(message: string): void {
@@ -808,14 +788,4 @@ function currentUserLoginOptions(currentUserLogin: string | undefined): {
 	currentUserLogin?: string;
 } {
 	return currentUserLogin === undefined ? {} : { currentUserLogin };
-}
-
-function eventFieldsFromSnapshot(snapshot: FeedbackSnapshot): WatchEventAppendInput {
-	const branch = snapshot.data.target.branch ?? undefined;
-	const prNumber = snapshot.data.target.pr_number;
-	return {
-		...(branch === undefined ? {} : { branch }),
-		...(prNumber === undefined || prNumber === null ? {} : { prNumber }),
-		...(snapshot.headRefOid === undefined ? {} : { headRefOid: snapshot.headRefOid }),
-	};
 }
