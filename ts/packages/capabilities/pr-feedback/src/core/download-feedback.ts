@@ -181,8 +181,12 @@ function buildMissingPrResult(
 		target,
 		counts,
 		bodyMarkdown,
-		markdown: ["# PR feedback report", "", bodyMarkdown].join("\n"),
+		markdown: wrapDownloadFeedbackReport(bodyMarkdown),
 	};
+}
+
+function wrapDownloadFeedbackReport(bodyMarkdown: string): string {
+	return ["# PR feedback report", "", bodyMarkdown].join("\n");
 }
 
 function buildDownloadFeedbackMarkdown(options: {
@@ -217,7 +221,7 @@ function buildDownloadFeedbackMarkdown(options: {
 	].join("\n");
 	return {
 		bodyMarkdown,
-		markdown: ["# PR feedback report", "", bodyMarkdown].join("\n"),
+		markdown: wrapDownloadFeedbackReport(bodyMarkdown),
 	};
 }
 
