@@ -24,11 +24,11 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
 6. Re-judge Record Frontmatter (defined in the `objective` umbrella skill) around the closure:
    - **Edge counterparts' Blocked Sentences.** For each entry under the closing record's `edges:`, read the counterpart record's frontmatter. You are closing the thing their annotation may say gates them: when a counterpart's `blocked:` sentence rests on this Objective, re-judge it — clear it if this closure removes the gate, or reword it if a narrower gate remains. This is skill judgment, never a machine auto-flip, and editing the counterpart's `objective.md` frontmatter block (and nothing else in that record) is the sanctioned mirrored exception.
    - **The record's own Blocked Sentence.** Blocked is a sub-state of open, so a closing record should not keep a live `blocked:` sentence; re-judge and normally remove it as part of closure.
-   - **Leave edges in place.** Closing or archiving an endpoint does not break an edge; do not remove `edges:` entries (on either side) as part of close.
+   - **Leave edges in place.** Closing an endpoint does not break an edge; do not remove `edges:` entries (on either side) as part of close.
    - After any frontmatter edit, run `ns objective check <slug>` for each touched record, or `ns objective check --all`; structural violations are errors. `check` also warns (non-failing) when a record stays blocked while an edge counterpart is closed — treat a warning naming this closure as a re-judgment you missed, not noise.
 7. If the Objective has an `orientation.md`, consult `roadmap.md`'s completion section and the durable `Direction`/`Getting to` lines of `orientation.md`. If a durable rule should survive the initiative, note it in `## Closure` (or to the user) as a candidate to graduate into AGENTS.md "Architecture rules". Do not delete `orientation.md`: writing `closed.md` drops it from the always-load set automatically.
 8. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-9. Leave `.ns/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `ns objective archive <slug>` after or instead of closure, depending on intent.
+9. Leave `.ns/objectives/<slug>/` in place. Do not delete the record as part of close or implement a reopen workflow. If the user explicitly wants removal from active checkout state, delete it separately through source control.
 
 ## Closure timing
 
@@ -43,7 +43,7 @@ Do not create a duplicate Semantic Update solely for closure. Create one only wh
 - The closure outcome or rationale is unclear.
 - The record is an Umbrella Objective with Subobjectives still open that the user has not explicitly parked and synthesized.
 - The Objective is already closed and the user did not ask to amend closure context.
-- The user asks to delete, move, or reopen the Objective as part of close; for retirement from active discovery, redirect per the Workflow's archive rule (step 9).
+- The user asks to delete, move, or reopen the Objective as part of close; for removal from active checkout state, redirect per the Workflow's source-control deletion rule (step 9).
 
 ## Verify
 

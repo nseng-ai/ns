@@ -5,12 +5,6 @@ import {
 	ObjectiveStorage,
 	activeRecordRelativePath,
 	activeRootRelativePath,
-	archiveDestinationRelativePath,
-	archiveEmptyDestinationRelativePath,
-	archiveEmptySourceRelativePath,
-	archiveRootRelativePath,
-	archiveSourceRelativePath,
-	archivedRecordRelativePath,
 	isValidObjectiveSlug,
 	objectiveSlugFromActivePath,
 	renderFilePresence,
@@ -23,7 +17,7 @@ function storage(fake: FakeObjectiveStorageGateway): ObjectiveStorage {
 describe("Objective storage", () => {
 	test("validates single-slug Objective identities", () => {
 		expect(isValidObjectiveSlug("alpha")).toBe(true);
-		expect(isValidObjectiveSlug("objective-archive-move-command")).toBe(true);
+		expect(isValidObjectiveSlug("objective-deletion-cleanup")).toBe(true);
 		expect(isValidObjectiveSlug("foo.bar")).toBe(true);
 		for (const slug of ["", ".", "..", "foo/bar", ".ns/objectives/foo", "foo\\bar"]) {
 			expect(isValidObjectiveSlug(slug)).toBe(false);
@@ -33,23 +27,11 @@ describe("Objective storage", () => {
 	test("constructs checked-in storage paths", () => {
 		expect(activeRootRelativePath()).toBe(".ns/objectives");
 		expect(activeRecordRelativePath("alpha")).toBe(".ns/objectives/alpha");
-		expect(archiveRootRelativePath()).toBe(".ns/objective-archive");
-		expect(archivedRecordRelativePath("alpha")).toBe(".ns/objective-archive/alpha");
-		expect(archiveSourceRelativePath("alpha", "archive")).toBe(".ns/objectives/alpha");
-		expect(archiveDestinationRelativePath("alpha", "archive")).toBe(".ns/objective-archive/alpha");
-		expect(archiveSourceRelativePath("alpha", "unarchive")).toBe(".ns/objective-archive/alpha");
-		expect(archiveDestinationRelativePath("alpha", "unarchive")).toBe(".ns/objectives/alpha");
-		expect(archiveEmptySourceRelativePath("archive")).toBe(".ns/objectives");
-		expect(archiveEmptyDestinationRelativePath("archive")).toBe(".ns/objective-archive");
 	});
 
 	test("checkout inventory includes direct child directories sorted and detects direct closed marker", async () => {
 		const fake = new FakeObjectiveStorageGateway({
-			directories: [
-				".ns/objectives/zeta",
-				".ns/objectives/alpha",
-				".ns/objective-archive/archived",
-			],
+			directories: [".ns/objectives/zeta", ".ns/objectives/alpha", ".ns/not-objectives/ignored"],
 			files: {
 				".ns/objectives/alpha/closed.md": "closed\n",
 				".ns/objectives/zeta/updates/closed.md": "not a marker\n",
@@ -118,20 +100,14 @@ describe("Objective storage", () => {
 		});
 	});
 
-	test("resolves active, archived, and absent record-relative paths", async () => {
+	test("resolves active and absent record-relative paths", async () => {
 		const objectiveStorage = storage(
-			new FakeObjectiveStorageGateway({
-				records: [{ slug: "active" }, { slug: "archived", isArchived: true, isClosed: true }],
-			}),
+			new FakeObjectiveStorageGateway({ records: [{ slug: "active" }] }),
 		);
 
 		await expect(objectiveStorage.resolveRecordRelativePath("active")).resolves.toEqual({
 			ok: true,
 			value: ".ns/objectives/active",
-		});
-		await expect(objectiveStorage.resolveRecordRelativePath("archived")).resolves.toEqual({
-			ok: true,
-			value: ".ns/objective-archive/archived",
 		});
 		await expect(objectiveStorage.resolveRecordRelativePath("missing")).resolves.toEqual({
 			ok: true,
@@ -156,56 +132,6 @@ describe("Objective storage", () => {
 		});
 		await expect(objectiveStorage.readMarkdownFile("directory")).resolves.toEqual({
 			type: "missing",
-		});
-	});
-
-	test("moves Objective record directories and creates destination parent", async () => {
-		const fake = new FakeObjectiveStorageGateway({ records: [{ slug: "alpha" }] });
-		const objectiveStorage = storage(fake);
-		const paths = objectiveStorage.movePaths("alpha", "archive");
-
-		await expect(objectiveStorage.moveRecord(paths)).resolves.toEqual({
-			ok: true,
-			value: undefined,
-		});
-		await expect(fake.pathKind(".ns/objectives/alpha")).resolves.toEqual({
-			ok: true,
-			value: "missing",
-		});
-		await expect(fake.pathKind(".ns/objective-archive")).resolves.toEqual({
-			ok: true,
-			value: "directory",
-		});
-		await expect(fake.pathKind(".ns/objective-archive/alpha")).resolves.toEqual({
-			ok: true,
-			value: "directory",
-		});
-		await expect(fake.readTextFile(".ns/objective-archive/alpha/objective.md")).resolves.toEqual({
-			type: "ok",
-			content: "# alpha\n",
-		});
-	});
-
-	test("fake move refuses destination collisions without merging", async () => {
-		const fake = new FakeObjectiveStorageGateway({
-			records: [{ slug: "alpha" }],
-			files: {
-				".ns/objectives/alpha/objective.md": "active sentinel\n",
-				".ns/objective-archive/alpha/objective.md": "archived sentinel\n",
-			},
-		});
-		const objectiveStorage = storage(fake);
-
-		const moved = await objectiveStorage.moveRecord(objectiveStorage.movePaths("alpha", "archive"));
-
-		expect(moved.ok).toBe(false);
-		await expect(fake.readTextFile(".ns/objectives/alpha/objective.md")).resolves.toEqual({
-			type: "ok",
-			content: "active sentinel\n",
-		});
-		await expect(fake.readTextFile(".ns/objective-archive/alpha/objective.md")).resolves.toEqual({
-			type: "ok",
-			content: "archived sentinel\n",
 		});
 	});
 
@@ -271,7 +197,7 @@ describe("Objective storage", () => {
 			".ns/objectives/alpha",
 			".ns/objectives/../objective.md",
 			".ns/objectives//objective.md",
-			".ns/objective-archive/alpha/objective.md",
+			".ns/not-objectives/alpha/objective.md",
 			"README.md",
 		]) {
 			expect(objectiveSlugFromActivePath(path)).toBeNull();

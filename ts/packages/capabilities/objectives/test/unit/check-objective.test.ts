@@ -199,26 +199,6 @@ describe("objective check with Record Frontmatter", () => {
 		expect(warning?.label).toBe("objective.md Blocked Sentence has no closed edge counterparts");
 		expect(warning?.detail).toContain("checkout-free-sdl-distribution");
 	});
-
-	test("per-slug mirror lookup resolves an archived counterpart", async () => {
-		const exit = await runCheckObjective(
-			contextWithFakeStorage({
-				records: [
-					{
-						slug: "alpha",
-						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
-						roadmapMd: ROADMAP_MD,
-					},
-					{ ...MIRROR_COUNTERPART, isClosed: true, isArchived: true },
-				],
-			}),
-			{ slug: "alpha" },
-		);
-
-		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("ok");
-		expect(exit.data.errorCount).toBe(0);
-	});
 });
 
 describe("objective check --all edge sweep", () => {
@@ -279,7 +259,7 @@ describe("objective check --all edge sweep", () => {
 		expect(exit.data.violations.map((item) => item.severity)).toEqual(["warning"]);
 	});
 
-	test("sweep covers archived records and aggregates violations", async () => {
+	test("sweep covers active records and aggregates violations", async () => {
 		const exit = await runObjectiveCheckCommand(
 			contextWithFakeStorage({
 				records: [
@@ -289,7 +269,7 @@ describe("objective check --all edge sweep", () => {
 						roadmapMd: ROADMAP_MD,
 					},
 					{
-						slug: "archived-dangler",
+						slug: "active-dangler",
 						objectiveMd: [
 							"---",
 							"edges:",
@@ -300,8 +280,6 @@ describe("objective check --all edge sweep", () => {
 							COMPLETE_OBJECTIVE_MD,
 						].join("\n"),
 						roadmapMd: ROADMAP_MD,
-						isClosed: true,
-						isArchived: true,
 					},
 				],
 			}),
@@ -313,8 +291,8 @@ describe("objective check --all edge sweep", () => {
 		if (exit.data?.status !== "sweep-failed") throw new Error("expected sweep-failed result");
 		expect(exit.data.recordCount).toBe(2);
 		expect(exit.data.violations.map((item) => item.label)).toEqual([
-			"objective.md edge checkout-free-sdl-distribution endpoint exists",
 			"objective.md edge no-such-record endpoint exists",
+			"objective.md edge checkout-free-sdl-distribution endpoint exists",
 		]);
 	});
 });

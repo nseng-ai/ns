@@ -30,7 +30,6 @@ describe("checked-in Objective ns extension loading", () => {
 		expect(output).toContain("list");
 		expect(output).toContain("show");
 		expect(output).toContain("check");
-		expect(output).toContain("archive");
 		expect(output).not.toContain("read-objective");
 		expect(output).not.toContain("tracking-gate");
 		expect(help.stderr.join("")).toBe("");
@@ -53,13 +52,6 @@ describe("checked-in Objective ns extension loading", () => {
 		});
 		expect(await checkHelp.exit).toBe(0);
 		expect(checkHelp.stdout.join("")).toContain("Usage: ns objective check [options] [slug]");
-
-		const archiveHelp = runWithRealObjectiveExtension({
-			args: ["objective", "archive", "--help"],
-			cwd,
-		});
-		expect(await archiveHelp.exit).toBe(0);
-		expect(archiveHelp.stdout.join("")).toContain("--unarchive");
 	});
 
 	test("hidden exec command help is invocable under the ns exec convention", async () => {
@@ -211,7 +203,7 @@ describe("checked-in Objective ns extension loading", () => {
 					{
 						objective: "edge-beta",
 						annotation: "Alpha depends on beta.",
-						counterpart: { state: "active", annotation: "Beta feeds alpha." },
+						counterpart: { annotation: "Beta feeds alpha." },
 					},
 				],
 			},

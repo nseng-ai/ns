@@ -13,10 +13,10 @@ import {
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective list-candidates operation", () => {
-	test("selects active open checkout records without archive records or git facts", async () => {
+	test("selects active open checkout records without non-active records or git facts", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
-			directories: [".ns/objective-archive/archived"],
+			directories: [".ns/not-objectives/ignored"],
 		});
 
 		const exit = await runListCandidates(ctx, {});

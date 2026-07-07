@@ -1,7 +1,6 @@
 import type { ObjectiveRecordDocument, ObjectiveRecordFrontmatter } from "../record-frontmatter.ts";
 import {
 	activeRecordRelativePath,
-	archivedRecordRelativePath,
 	isValidObjectiveSlug,
 	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveStorage,
@@ -22,8 +21,8 @@ import {
  * violations are reported, so a record whose frontmatter is structurally valid
  * checks identically to one with no frontmatter at all.
  *
- * Mirror lookups resolve counterpart slugs in BOTH the active root and the
- * archive root: archiving an endpoint does not break an edge.
+ * Mirror lookups resolve counterpart slugs in the active root only. Deleted
+ * counterpart records are reported as missing edge endpoints.
  *
  * One non-failing advisory rides along: a record carrying a Blocked Sentence
  * while at least one of its edge counterparts is closed gets a warning-severity
@@ -58,27 +57,19 @@ export interface ObjectiveEdgeSweepReport {
 }
 
 /**
- * Repo-wide edge/blocked sweep: lints every record's Record Frontmatter across
- * the active root and the archive root, reporting only violations.
+ * Repo-wide edge/blocked sweep: lints every active record's Record Frontmatter,
+ * reporting only violations.
  */
 export async function sweepObjectiveEdgeLint(
 	storage: ObjectiveStorage,
 ): Promise<ObjectiveStorageResult<ObjectiveEdgeSweepReport>> {
 	const inventory = await storage.checkoutInventory();
 	if (!inventory.ok) return inventory;
-	const archivedSlugs = await storage.archivedRecordSlugs();
-	if (!archivedSlugs.ok) return archivedSlugs;
 
-	const targets = [
-		...inventory.value.records.map((record) => ({
-			slug: record.slug,
-			recordRelativePath: activeRecordRelativePath(record.slug),
-		})),
-		...archivedSlugs.value.map((slug) => ({
-			slug,
-			recordRelativePath: archivedRecordRelativePath(slug),
-		})),
-	];
+	const targets = inventory.value.records.map((record) => ({
+		slug: record.slug,
+		recordRelativePath: activeRecordRelativePath(record.slug),
+	}));
 
 	const violations: ObjectiveCheckItem[] = [];
 	for (const target of targets) {
@@ -352,7 +343,7 @@ async function mirrorFacts(
 				violation: violation(
 					path,
 					`objective.md edge ${endpoint} endpoint exists`,
-					"no record in the active or archive root",
+					"no record in the active root",
 				),
 				isCounterpartClosed: false,
 			},

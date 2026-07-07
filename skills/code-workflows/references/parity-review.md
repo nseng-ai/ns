@@ -127,7 +127,7 @@ Never edit existing files under `updates/`; create a new update. If the Objectiv
 Stop before editing when:
 
 - requested edits would touch multiple Objective slugs;
-- the Objective is archived/closed or the table location is ambiguous;
+- the Objective is closed, deleted from the active checkout, or the table location is ambiguous;
 - live evidence and requested interpretation are materially ambiguous;
 - a finding would require write-capable external actions beyond review/documentation;
 - the user asks for a machine-checkable CI gate or manifest in this slice.

@@ -23,7 +23,7 @@ export const objectiveCheckCommandRequestSchema = checkObjectiveRequestSchema.ex
 		.boolean()
 		.optional()
 		.describe(
-			"Sweep every record's Record Frontmatter (edges and blocked sentence) across the active and archive roots instead of checking one slug.",
+			"Sweep every active record's Record Frontmatter (edges and blocked sentence) instead of checking one slug.",
 		),
 });
 
@@ -62,7 +62,7 @@ export const objectiveCheckNsCommand = objectiveNsCommand({
 	name: "check",
 	summary: "Check one Objective record, or sweep all record edges with --all.",
 	description:
-		"Check one Objective record for required files, Markdown headings, and Record Frontmatter edge/blocked structure. With --all, sweep every record's Record Frontmatter across the active and archive roots and report structural edge/blocked violations.",
+		"Check one Objective record for required files, Markdown headings, and Record Frontmatter edge/blocked structure. With --all, sweep every active record's Record Frontmatter and report structural edge/blocked violations.",
 	schema: objectiveCheckCommandRequestSchema,
 	resultSchema: objectiveCheckCommandResultSchema,
 	positionals: { slug: { position: 0 } },

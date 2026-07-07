@@ -102,7 +102,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
-- The selected path is under `.ns/objective-archive/`; ask whether to unarchive before recommending next work.
+- The selected path is outside `.ns/objectives/<slug>/`; ask for an active Objective slug or path before recommending next work.
 - The selected Objective is closed.
 - The Tracking Gate finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.

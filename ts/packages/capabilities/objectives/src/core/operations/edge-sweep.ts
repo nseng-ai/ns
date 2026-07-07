@@ -9,11 +9,7 @@ import {
 import { cell, kv, renderTable } from "@nseng-ai/foundation/cli-theme";
 import { z } from "zod";
 
-import {
-	activeRootRelativePath,
-	archiveRootRelativePath,
-	type ObjectiveStorage,
-} from "../storage.ts";
+import { activeRootRelativePath, type ObjectiveStorage } from "../storage.ts";
 import { countIssues, objectiveCheckItemSchema } from "./check-items.ts";
 import { removeOneTrailingNewline } from "./format.ts";
 import { sweepObjectiveEdgeLint } from "./edge-lint.ts";
@@ -21,7 +17,6 @@ import { sweepObjectiveEdgeLint } from "./edge-lint.ts";
 const objectiveEdgeSweepBaseResultSchema = z.object({
 	error: z.string().nullable(),
 	rootPath: z.string(),
-	archiveRootPath: z.string(),
 	hasRoot: z.boolean(),
 	recordCount: z.number().int(),
 	violations: z.array(objectiveCheckItemSchema),
@@ -55,7 +50,6 @@ export async function runEdgeSweep(
 	if (!sweep.ok) return failure(sweep.error.code, sweep.error.message);
 	const base = {
 		rootPath: activeRootRelativePath(),
-		archiveRootPath: archiveRootRelativePath(),
 		hasRoot: rootPresence.value,
 		recordCount: sweep.value.recordCount,
 		violations: [...sweep.value.violations],
@@ -86,7 +80,6 @@ export function renderEdgeSweep(
 		"Objective edge sweep",
 		"",
 		kv(renderCaps, "Root", `${result.rootPath} (${result.hasRoot ? "present" : "missing"})`),
-		kv(renderCaps, "Archive", result.archiveRootPath),
 		kv(renderCaps, "Records", String(result.recordCount)),
 		kv(
 			renderCaps,

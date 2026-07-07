@@ -18,7 +18,7 @@ Closure is the default when done: when the verified contract shows the completio
 
 Selection is mechanical — never ask a scope question:
 
-- **Explicit slug(s) or path(s)** → refresh exactly those. Stop if one is archived unless the user explicitly asked for archive work. On a feature branch, a named slug with no branch evidence is reported `not-owned` rather than silently rebaselined against trunk state — unless the user clearly asked for a trunk-style rebaseline of that slug.
+- **Explicit slug(s) or path(s)** → refresh exactly those. Paths must resolve under `.ns/objectives/<slug>/`. On a feature branch, a named slug with no branch evidence is reported `not-owned` rather than silently rebaselined against trunk state — unless the user clearly asked for a trunk-style rebaseline of that slug.
 - **No slug, feature branch** → the union of slugs with committed or uncommitted Objective evidence:
 
   ```bash
@@ -44,7 +44,6 @@ Write invariants, in addition to the never-commit absolute:
 - Edit only the selected Objective directories — with one sanctioned exception: closing a slug inline (step 10) or re-judging Blocked Sentences around a verified closure may edit an edge counterpart's `objective.md` frontmatter block, and nothing else in that counterpart record, per the umbrella skill's mirrored-frontmatter exception.
 - For `updates/`, follow the `objective` umbrella skill's immutable Semantic Update rule: refreshes may add new update files, not change old ones.
 - Never move, delete, rename, or recreate an Objective slug directory.
-- Never edit archived Objectives unless explicitly asked.
 
 Per slug:
 

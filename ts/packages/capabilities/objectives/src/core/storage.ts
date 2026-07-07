@@ -8,10 +8,8 @@ import {
 } from "./record-frontmatter.ts";
 
 export const ACTIVE_OBJECTIVE_ROOT = ".ns/objectives";
-export const OBJECTIVE_ARCHIVE_ROOT = ".ns/objective-archive";
 
 export type ObjectiveRecordStatus = "open" | "closed";
-export type ObjectiveArchiveDirection = "archive" | "unarchive";
 
 export interface ObjectiveFiles {
 	objectiveMd: boolean;
@@ -44,11 +42,6 @@ export interface ObjectiveCheckoutRecord {
 
 export interface ObjectiveCheckoutInventory {
 	records: readonly ObjectiveCheckoutRecord[];
-}
-
-export interface ObjectiveRecordMovePaths {
-	relativeSource: string;
-	relativeDestination: string;
 }
 
 export type ObjectivePathKind = "missing" | "file" | "directory" | "other";
@@ -88,10 +81,6 @@ export interface ObjectiveStorageGateway {
 		relativePath: string,
 	): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>>;
 	readTextFile(relativePath: string): Promise<ObjectiveMarkdownReadResult>;
-	moveDirectory(
-		sourceRelativePath: string,
-		destinationRelativePath: string,
-	): Promise<ObjectiveStorageResult<void>>;
 }
 
 export class ObjectiveStorage {
@@ -115,10 +104,6 @@ export class ObjectiveStorage {
 		return await this.recordDirectoryExists(activeRecordRelativePath(slug));
 	}
 
-	async archivedRecordExists(slug: string): Promise<ObjectiveStorageResult<boolean>> {
-		return await this.recordDirectoryExists(archivedRecordRelativePath(slug));
-	}
-
 	private async recordDirectoryExists(
 		relativePath: string,
 	): Promise<ObjectiveStorageResult<boolean>> {
@@ -131,27 +116,7 @@ export class ObjectiveStorage {
 		const active = await this.activeRecordExists(slug);
 		if (!active.ok) return active;
 		if (active.value) return { ok: true, value: activeRecordRelativePath(slug) };
-		const archived = await this.archivedRecordExists(slug);
-		if (!archived.ok) return archived;
-		if (archived.value) return { ok: true, value: archivedRecordRelativePath(slug) };
 		return { ok: true, value: null };
-	}
-
-	/** Sorted slugs of archived records; empty when the archive root is absent. */
-	async archivedRecordSlugs(): Promise<ObjectiveStorageResult<readonly string[]>> {
-		const rootKind = await this.gateway.pathKind(archiveRootRelativePath());
-		if (!rootKind.ok) return rootKind;
-		if (rootKind.value !== "directory") return { ok: true, value: [] };
-
-		const listed = await this.gateway.listDirectory(archiveRootRelativePath());
-		if (!listed.ok) return listed;
-		return {
-			ok: true,
-			value: listed.value
-				.filter((entry) => entry.kind === "directory")
-				.map((entry) => entry.name)
-				.sort((left, right) => left.localeCompare(right)),
-		};
 	}
 
 	async checkoutInventory(): Promise<ObjectiveStorageResult<ObjectiveCheckoutInventory>> {
@@ -258,20 +223,6 @@ export class ObjectiveStorage {
 			document: splitObjectiveRecordDocument(read.content),
 		};
 	}
-
-	movePaths(slug: string, direction: ObjectiveArchiveDirection): ObjectiveRecordMovePaths {
-		return {
-			relativeSource: archiveSourceRelativePath(slug, direction),
-			relativeDestination: archiveDestinationRelativePath(slug, direction),
-		};
-	}
-
-	async moveRecord(movePaths: ObjectiveRecordMovePaths): Promise<ObjectiveStorageResult<void>> {
-		return await this.gateway.moveDirectory(
-			movePaths.relativeSource,
-			movePaths.relativeDestination,
-		);
-	}
 }
 
 export function isValidObjectiveSlug(slug: string): boolean {
@@ -284,60 +235,8 @@ export function activeRootRelativePath(): string {
 	return ACTIVE_OBJECTIVE_ROOT;
 }
 
-export function archiveRootRelativePath(): string {
-	return OBJECTIVE_ARCHIVE_ROOT;
-}
-
 export function activeRecordRelativePath(slug: string): string {
 	return posixJoin(activeRootRelativePath(), slug);
-}
-
-export function archivedRecordRelativePath(slug: string): string {
-	return posixJoin(archiveRootRelativePath(), slug);
-}
-
-interface ObjectiveArchivePathRules {
-	sourceRecord(slug: string): string;
-	destinationRecord(slug: string): string;
-	sourceRoot(): string;
-	destinationRoot(): string;
-}
-
-const objectiveArchivePathRules = {
-	archive: {
-		sourceRecord: activeRecordRelativePath,
-		destinationRecord: archivedRecordRelativePath,
-		sourceRoot: activeRootRelativePath,
-		destinationRoot: archiveRootRelativePath,
-	},
-	unarchive: {
-		sourceRecord: archivedRecordRelativePath,
-		destinationRecord: activeRecordRelativePath,
-		sourceRoot: archiveRootRelativePath,
-		destinationRoot: activeRootRelativePath,
-	},
-} satisfies Record<ObjectiveArchiveDirection, ObjectiveArchivePathRules>;
-
-export function archiveSourceRelativePath(
-	slug: string,
-	direction: ObjectiveArchiveDirection,
-): string {
-	return objectiveArchivePathRules[direction].sourceRecord(slug);
-}
-
-export function archiveDestinationRelativePath(
-	slug: string,
-	direction: ObjectiveArchiveDirection,
-): string {
-	return objectiveArchivePathRules[direction].destinationRecord(slug);
-}
-
-export function archiveEmptySourceRelativePath(direction: ObjectiveArchiveDirection): string {
-	return objectiveArchivePathRules[direction].sourceRoot();
-}
-
-export function archiveEmptyDestinationRelativePath(direction: ObjectiveArchiveDirection): string {
-	return objectiveArchivePathRules[direction].destinationRoot();
 }
 
 export function emptyObjectiveFiles(): ObjectiveFiles {

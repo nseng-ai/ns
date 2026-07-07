@@ -21,9 +21,9 @@ describe("objective load-orientations operation", () => {
 				{ slug: "charlie" },
 				{ slug: "delta", orientationMd: "delta direction" },
 			],
-			directories: [".ns/objective-archive/archived"],
+			directories: [".ns/not-objectives/ignored"],
 			files: {
-				".ns/objective-archive/archived/orientation.md": "archived direction\n",
+				".ns/not-objectives/ignored/orientation.md": "ignored direction\n",
 			},
 		});
 

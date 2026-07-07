@@ -41,7 +41,7 @@ A public Pi command whose user-facing namespace remains outside `ns:ccc` while C
 *Avoid*: compatibility alias, evidence that namespace alone determines domain ownership, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
-The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/archive semantics remain lower capabilities.
+The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/delete semantics remain lower capabilities.
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:ccc:*` alias for stack implementation.
 
 **Autobranch compatibility flow**:
