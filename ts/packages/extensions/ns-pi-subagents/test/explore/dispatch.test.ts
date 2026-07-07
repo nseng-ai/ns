@@ -23,7 +23,7 @@ import {
 	makeStoppedWithoutUsefulTextResult,
 	stoppedProgress,
 	waitForSpawn,
-} from "../../src/explore/testing.ts";
+} from "../helpers/explore-testing.ts";
 import {
 	READ_ONLY_SUBAGENT_TOOLS,
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,

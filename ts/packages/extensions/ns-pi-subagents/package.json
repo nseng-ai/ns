@@ -8,7 +8,6 @@
 	"exports": {
 		"./extension": "./src/extension.ts",
 		"./explore": "./src/explore/index.ts",
-		"./explore/testing": "./src/explore/testing.ts",
 		"./runner-subagents": "./src/runner-subagents/index.ts",
 		"./runner-subagents/testing": "./src/runner-subagents/testing.ts"
 	},

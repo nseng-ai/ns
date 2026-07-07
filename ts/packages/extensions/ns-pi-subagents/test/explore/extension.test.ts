@@ -24,7 +24,7 @@ import {
 	makeErrorResult,
 	makeExplorerAgentDefinition,
 	makeFinalTextResult,
-} from "../../src/explore/testing.ts";
+} from "../helpers/explore-testing.ts";
 import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
 
 const ROOT = "/repo";
