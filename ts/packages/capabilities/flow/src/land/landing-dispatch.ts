@@ -4,7 +4,7 @@ import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./stack/land-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
-import { presentBrief, presentFailureOutcome } from "./stack/presentation.ts";
+import { presentBrief, presentFailureAndReturn } from "./stack/presentation.ts";
 import { loadLandingShape } from "./stack/stack-facts.ts";
 import type {
 	LandingShape,
@@ -42,7 +42,7 @@ export async function runLandingDispatch(
 		graphite: runtime.graphite,
 	});
 	if (shape.type === "failure") {
-		return presentFailureOutcome(options.ctx, shape.failure);
+		return presentFailureAndReturn(options.ctx, shape.failure);
 	}
 
 	const landContext = createRuntimeLandContext(runtime);
@@ -198,7 +198,7 @@ async function confirmStackModeIfNeeded(
 		nonInteractiveMessage:
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
 		defaultAnswer: "yes",
-		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
+		onFailure: (landFailure) => presentFailureAndReturn(ctx, landFailure),
 	});
 	const cleanupConfirmation: PreMergeConfirmation | undefined =
 		outcome.type === "success" && options.cleanupPreview !== undefined && shouldPrompt

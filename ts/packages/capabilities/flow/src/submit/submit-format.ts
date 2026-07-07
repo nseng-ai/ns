@@ -1,3 +1,8 @@
+import {
+	formatCommandFailure,
+	formatOutputSection,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
@@ -21,6 +26,7 @@ const CURRENT_PR_TIMEOUT_MS = 60_000;
 const RESTACK_TIMEOUT_MS = 600_000;
 const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
 const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
+const SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS = { maxChars: 4_000, maxLines: 80 };
 
 export function formatItemCount(count: number, singular: string, plural: string): string {
 	return `${count} ${count === 1 ? singular : plural}`;
@@ -154,8 +160,8 @@ export function formatRestackConfirmationPrompt(
 			"",
 			`$ ${commands.submitDryRunCommandDisplay}`,
 			"",
-			formatOutputSection("stdout", output.stdout),
-			formatOutputSection("stderr", output.stderr),
+			formatOutputSection("stdout", output.stdout, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
+			formatOutputSection("stderr", output.stderr, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
 		]
 			.filter(Boolean)
 			.join("\n"),
@@ -260,8 +266,8 @@ export function formatPostSubmitFailureOutput({
 		"",
 		`$ ${submitCommandDisplay}`,
 		"",
-		formatOutputSection("stdout", submitted.output.stdout),
-		formatOutputSection("stderr", submitted.output.stderr),
+		formatOutputSection("stdout", submitted.output.stdout, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
+		formatOutputSection("stderr", submitted.output.stderr, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
 		formatBufferedCommandSection(
 			"$ gt branch info --no-interactive",
 			currentPr.output,
@@ -311,10 +317,21 @@ function formatNoCurrentPrRecoveryGuidance(): string[] {
 	];
 }
 
+type SubmitCommandOutcome =
+	| { type: "startup"; error: string }
+	| { type: "killed" }
+	| { type: "exit"; exitCode: number };
+
 interface CommandFailureReasonFormatters {
 	startup: (error: string) => string;
 	killed: string;
 	exit: (exitCode: number) => string;
+}
+
+function classifySubmitCommandOutcome(output: SubmitCommandOutput): SubmitCommandOutcome {
+	if (output.startupError !== undefined) return { type: "startup", error: output.startupError };
+	if (output.killed) return { type: "killed" };
+	return { type: "exit", exitCode: output.exitCode };
 }
 
 function formatCommandFailureText({
@@ -328,23 +345,19 @@ function formatCommandFailureText({
 	reason: CommandFailureReasonFormatters;
 	detailLines?: readonly string[];
 }): string {
-	const reasonText = output.startupError
-		? reason.startup(output.startupError)
-		: output.killed
-			? reason.killed
-			: reason.exit(output.exitCode);
+	const outcome = classifySubmitCommandOutcome(output);
+	const title = [formatSubmitCommandOutcome(outcome, reason), ...detailLines].join("\n");
+	return formatCommandFailure(title, commandDisplay, submitCommandOutputToExecResult(output));
+}
 
-	return [
-		reasonText,
-		...detailLines,
-		"",
-		`$ ${commandDisplay}`,
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+function submitCommandOutputToExecResult(output: SubmitCommandOutput): ExecResult {
+	return {
+		stdout: output.stdout,
+		stderr: output.stderr,
+		code: output.exitCode,
+		killed: Boolean(output.killed),
+		...(output.startupError === undefined ? {} : { startupError: output.startupError }),
+	};
 }
 
 function formatBufferedCommandSection(
@@ -352,20 +365,39 @@ function formatBufferedCommandSection(
 	output: SubmitCommandOutput,
 	timeoutMs: number,
 ): string {
-	const status = output.startupError
-		? `startup error: ${output.startupError}`
-		: output.killed
-			? `timed out after ${timeoutMs / 1000}s`
-			: `exit code ${output.exitCode}`;
+	const status = formatBufferedSubmitCommandOutcome(
+		classifySubmitCommandOutcome(output),
+		timeoutMs,
+	);
 	return [
 		`${commandDisplay} (${status})`,
 		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
+		formatOutputSection("stdout", output.stdout, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
+		formatOutputSection("stderr", output.stderr, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
 	].join("\n");
 }
 
-function formatOutputSection(name: "stdout" | "stderr", output: string): string {
-	const body = output.length > 0 ? output.replace(/\r/g, "\n") : "(empty)\n";
-	return `----- ${name} -----\n${body}${body.endsWith("\n") ? "" : "\n"}`;
+function formatSubmitCommandOutcome(
+	outcome: SubmitCommandOutcome,
+	reason: CommandFailureReasonFormatters,
+): string {
+	switch (outcome.type) {
+		case "startup":
+			return reason.startup(outcome.error);
+		case "killed":
+			return reason.killed;
+		case "exit":
+			return reason.exit(outcome.exitCode);
+	}
+}
+
+function formatBufferedSubmitCommandOutcome(
+	outcome: SubmitCommandOutcome,
+	timeoutMs: number,
+): string {
+	return formatSubmitCommandOutcome(outcome, {
+		startup: (error) => `startup error: ${error}`,
+		killed: `timed out after ${timeoutMs / 1000}s`,
+		exit: (exitCode) => `exit code ${exitCode}`,
+	});
 }

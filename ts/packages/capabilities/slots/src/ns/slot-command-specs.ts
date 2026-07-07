@@ -1,4 +1,5 @@
 import type { ClinkrCommandSpec, ClinkrExit, RenderCapabilities } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -100,6 +101,21 @@ interface TypedSlotCommandSpec<S extends z.ZodObject, T> extends Omit<
 	completionKind?: SlotCompletionKind;
 }
 
+export function slotCommandBaseSpec(spec: SlotCommandSpec) {
+	return {
+		name: spec.name,
+		summary: spec.summary,
+		description: spec.description,
+		schema: spec.schema,
+		...optionalEntry("positionals", spec.positionals),
+		...optionalEntry("options", spec.options),
+		resultSchema: spec.resultSchema,
+		handler: spec.handler,
+		...optionalEntry("renderHuman", spec.renderHuman),
+		...optionalEntry("renderMarkdown", spec.renderMarkdown),
+	};
+}
+
 function slotCommandSpec<S extends z.ZodObject, T>(
 	spec: TypedSlotCommandSpec<S, T>,
 ): SlotCommandSpec {
@@ -109,9 +125,9 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 		summary: spec.summary,
 		description: spec.description,
 		schema: spec.schema,
-		...(spec.positionals === undefined ? {} : { positionals: spec.positionals }),
-		...(spec.options === undefined ? {} : { options: spec.options }),
-		...(spec.completionKind === undefined ? {} : { completionKind: spec.completionKind }),
+		...optionalEntry("positionals", spec.positionals),
+		...optionalEntry("options", spec.options),
+		...optionalEntry("completionKind", spec.completionKind),
 		resultSchema: spec.resultSchema,
 		handler: async (
 			ctx: SlotCliContext,

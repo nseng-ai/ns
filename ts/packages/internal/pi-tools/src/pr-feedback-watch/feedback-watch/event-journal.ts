@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { PR_FEEDBACK_WATCH_STATE_TYPE } from "./constants.ts";
 import { parseWatchEventEntry } from "./events.ts";
 import type { FeedbackSnapshot, WatchEventEntry, WatchStatus } from "./model.ts";
@@ -37,17 +39,18 @@ export function restoreWatchEventSets(ctx: ExtensionContext): RestoredWatchEvent
 	return { seenKeys, attemptedKeys };
 }
 
-export function appendWatchEvent(
-	pi: ExtensionAPI,
-	status: WatchStatus,
-	type: WatchEventEntry["type"],
-	overrides: WatchEventAppendInput = {},
-): void {
+export function appendWatchEvent(options: {
+	pi: ExtensionAPI;
+	status: WatchStatus;
+	type: WatchEventEntry["type"];
+	overrides?: WatchEventAppendInput;
+}): void {
+	const { pi, status, type, overrides = {} } = options;
 	pi.appendEntry?.(PR_FEEDBACK_WATCH_STATE_TYPE, {
 		version: 1,
 		type,
-		...(status.branch === undefined ? {} : { branch: status.branch }),
-		...(status.prNumber === undefined ? {} : { prNumber: status.prNumber }),
+		...optionalEntry("branch", status.branch),
+		...optionalEntry("prNumber", status.prNumber),
 		createdAt: new Date().toISOString(),
 		...overrides,
 	} satisfies WatchEventEntry);
@@ -57,8 +60,8 @@ export function eventFieldsFromSnapshot(snapshot: FeedbackSnapshot): WatchEventA
 	const branch = snapshot.data.target.branch ?? undefined;
 	const prNumber = snapshot.data.target.pr_number;
 	return {
-		...(branch === undefined ? {} : { branch }),
-		...(prNumber === undefined || prNumber === null ? {} : { prNumber }),
-		...(snapshot.headRefOid === undefined ? {} : { headRefOid: snapshot.headRefOid }),
+		...optionalEntry("branch", branch),
+		...optionalEntry("prNumber", prNumber ?? undefined),
+		...optionalEntry("headRefOid", snapshot.headRefOid),
 	};
 }

@@ -53,8 +53,8 @@ import { isWorkingTreeDirty, notify } from "./runtime.ts";
 import {
 	defaultStatusLine,
 	initialWatchStatus,
-	restingState,
 	shouldRefreshStatusAge,
+	steadyState,
 } from "./status.ts";
 import type {
 	ActiveSession,
@@ -242,7 +242,7 @@ export class PrFeedbackWatchController {
 		this.baseline(snapshot.snapshot);
 		this.state = {
 			...this.state,
-			state: restingState(this.state.isEnabled),
+			state: steadyState(this.state.isEnabled),
 			queuedCount: 0,
 		};
 		this.renderStatus();
@@ -386,8 +386,7 @@ export class PrFeedbackWatchController {
 		this.markRestFingerprintSuccess(result.fingerprint);
 		await this.refreshCheckSummary(session, identity.number);
 		if (result.fingerprint.key === this.lastRestFingerprintKey) {
-			this.state = { ...this.state, state: restingState(this.state.isEnabled) };
-			this.renderStatus();
+			this.settleToSteadyState();
 			if (!this.state.isEnabled) notify(session.ctx, "No new PR feedback detected.", "info");
 			return;
 		}
@@ -422,8 +421,7 @@ export class PrFeedbackWatchController {
 			this.updateContextFromSnapshot(snapshot);
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
-			this.state = { ...this.state, state: restingState(this.state.isEnabled) };
-			this.renderStatus();
+			this.settleToSteadyState();
 			notify(session.ctx, "PR head changed; refreshed feedback baseline.", "info");
 			return;
 		}
@@ -464,8 +462,7 @@ export class PrFeedbackWatchController {
 		if (newItems.length === 0) {
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
-			this.state = { ...this.state, state: restingState(this.state.isEnabled) };
-			this.renderStatus();
+			this.settleToSteadyState();
 			if (!this.state.isEnabled) notify(session.ctx, "No new PR feedback detected.", "info");
 			return;
 		}
@@ -750,7 +747,12 @@ export class PrFeedbackWatchController {
 	}
 
 	private appendEvent(type: WatchEventEntry["type"], overrides: WatchEventAppendInput = {}): void {
-		appendWatchEvent(this.pi, this.state, type, overrides);
+		appendWatchEvent({ pi: this.pi, status: this.state, type, overrides });
+	}
+
+	private settleToSteadyState(): void {
+		this.state = { ...this.state, state: steadyState(this.state.isEnabled) };
+		this.renderStatus();
 	}
 
 	private recordError(message: string): void {

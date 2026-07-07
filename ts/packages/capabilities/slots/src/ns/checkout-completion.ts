@@ -4,6 +4,22 @@ export interface CheckoutBranchCompletionContext {
 	listLocalBranches(): Promise<readonly string[]>;
 }
 
+export type CheckoutBranchesCompletionProvider<TContext> = (
+	ctx: TContext,
+	request: ClinkrDynamicCompletionRequest,
+) => Promise<{ candidates: { value: string; type: "positional-value" }[] }>;
+
+export function checkoutBranchesCompletionProviderFor<TContext>(options: {
+	completionKind: "checkout-branches" | undefined;
+	gitFromContext: (
+		ctx: TContext,
+	) => CheckoutBranchCompletionContext | Promise<CheckoutBranchCompletionContext>;
+}): CheckoutBranchesCompletionProvider<TContext> | undefined {
+	if (options.completionKind !== "checkout-branches") return undefined;
+	return async (ctx, request) =>
+		await completeCheckoutBranchesFromGit(await options.gitFromContext(ctx), request);
+}
+
 export async function completeCheckoutBranchesFromGit(
 	git: CheckoutBranchCompletionContext,
 	request: ClinkrDynamicCompletionRequest,

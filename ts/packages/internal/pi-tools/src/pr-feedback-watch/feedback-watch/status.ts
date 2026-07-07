@@ -7,7 +7,7 @@ import {
 } from "./constants.ts";
 import type { PrCheckSummary, WatchMode, WatchStatus } from "./model.ts";
 
-export type WatchRestingState = Extract<WatchStatus["state"], "active" | "stopped">;
+export type WatchSteadyState = Extract<WatchStatus["state"], "active" | "stopped">;
 
 export function initialWatchStatus(): WatchStatus {
 	return {
@@ -22,7 +22,7 @@ export function initialWatchStatus(): WatchStatus {
 	};
 }
 
-export function restingState(isEnabled: boolean): WatchRestingState {
+export function steadyState(isEnabled: boolean): WatchSteadyState {
 	return isEnabled ? "active" : "stopped";
 }
 

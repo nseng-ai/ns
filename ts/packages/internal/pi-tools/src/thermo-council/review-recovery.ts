@@ -13,7 +13,6 @@ import {
 	dispatchRunnerSubagent,
 	resultDiagnostic,
 	type JsonObject,
-	type RunnerSubagentContext,
 	type RunnerSubagentResult,
 } from "@internal/pi-tools/runner-subagents";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
@@ -26,8 +25,11 @@ import {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilSeatConfig,
 } from "./contract.ts";
-import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";
-
+import {
+	toRunnerSubagentContext,
+	type ThermoCouncilCommandContext,
+	type ThermoCouncilExtensionAPI,
+} from "./host-api.ts";
 interface ReviewerRecoveryContext {
 	readonly pi: ThermoCouncilExtensionAPI;
 	readonly ctx: ThermoCouncilCommandContext;
@@ -35,14 +37,6 @@ interface ReviewerRecoveryContext {
 
 interface ReviewParseRecovery {
 	readonly review: ThermoCouncilReview;
-}
-
-export function reviewerRunnerContext(ctx: ThermoCouncilCommandContext): RunnerSubagentContext {
-	return {
-		cwd: ctx.cwd,
-		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-		...(ctx.model === undefined ? {} : { model: ctx.model }),
-	};
 }
 
 export async function reviewerOutcomeFromRunnerResult(
@@ -180,6 +174,7 @@ async function recoverReviewFromSessionFile(
 	try {
 		raw = await readFile(sessionFile, "utf8");
 	} catch {
+		// Missing or unreadable runner sessions mean there is no transcript to recover from.
 		return undefined;
 	}
 	const payloads = extractRunnerSubagentToolCallPayloadsFromSessionJsonl(
@@ -236,7 +231,7 @@ async function generateReviewRepairText(input: {
 }): Promise<TextGenerationResult> {
 	const result = await dispatchRunnerSubagent(
 		input.recoveryContext.pi,
-		reviewerRunnerContext(input.recoveryContext.ctx),
+		toRunnerSubagentContext(input.recoveryContext.ctx),
 		{
 			title: "Thermo council payload repair",
 			returnMode: "final-text",

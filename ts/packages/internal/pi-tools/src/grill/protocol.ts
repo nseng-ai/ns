@@ -1,7 +1,9 @@
+import type { NotifyLevel } from "@nseng-ai/pi/runtime/tool-types";
+
 import type { GrillAskOutcome } from "./controller.ts";
 import type { GrillAskDetails } from "./result.ts";
 
-type NotifyLevel = "info" | "warning" | "error";
+export type { NotifyLevel };
 
 interface TextContent {
 	type: "text";
@@ -77,7 +79,7 @@ export interface GrillAskCustomComponent {
 	render(width: number): string[];
 	handleInput?(data: string): void;
 	invalidate(): void;
-	focused?: boolean;
+	isFocused?: boolean;
 	dispose?(): void;
 }
 

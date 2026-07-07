@@ -8,7 +8,7 @@ import {
 	type LandStackResult,
 } from "./stack/errors.ts";
 import { toLandStackFailure } from "./stack/landing-plan.ts";
-import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
+import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./stack/presentation.ts";
 import type {
 	LandingShape,
 	PrintAwareLandStackCommandContext,
@@ -170,7 +170,7 @@ function presentLandingFailure(
 	ctx: PrintAwareLandStackCommandContext,
 	landingFailure: LandingFailure,
 ): LandStackOutcome {
-	return presentFailureOutcome(ctx, toLandStackFailure(landingFailure));
+	return presentFailureAndReturn(ctx, toLandStackFailure(landingFailure));
 }
 
 function mergedVerificationFailure(options: {

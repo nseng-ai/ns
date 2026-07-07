@@ -17,7 +17,7 @@ import {
 	type PrPreviewChecksViewModel,
 	type PrPreviewStatusColor,
 } from "./preview-checks-model.ts";
-import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
+import { clamp, fitToWidth } from "@nseng-ai/pi/terminal/layout";
 import { parseCheckLogSummaryMarkdownLine } from "./preview-view-utilities.ts";
 import { PreviewModalChrome } from "./preview-modal-chrome.ts";
 
@@ -73,7 +73,6 @@ export class PrPreviewChecksView implements Component {
 	private readonly logLoadTimeoutMs: number;
 	private focusedPane: PreviewFocusedPane;
 	private selectedTargetIndex: number;
-	private stackScroll: number;
 	private readonly chrome: PreviewModalChrome<PreviewThemeColor>;
 	private readonly logCache: Map<PrPreviewCheck, CheckLogCacheEntry>;
 
@@ -85,7 +84,6 @@ export class PrPreviewChecksView implements Component {
 		this.logLoadTimeoutMs = options.logLoadTimeoutMs ?? DEFAULT_LOG_LOAD_TIMEOUT_MS;
 		this.focusedPane = previewChecksStackEntries(options.model).length > 1 ? "stack" : "checks";
 		this.selectedTargetIndex = initialTargetIndex(options.model);
-		this.stackScroll = 0;
 		this.chrome = new PreviewModalChrome({ tui: options.tui, theme: options.theme });
 		this.logCache = new Map();
 	}
@@ -152,10 +150,6 @@ export class PrPreviewChecksView implements Component {
 		this.selectedTargetIndex = clamp(this.selectedTargetIndex, 0, entries.length - 1);
 		const selectedEntry = entries[this.selectedTargetIndex];
 		if (selectedEntry === undefined) return this.renderEmptyBody(width, rows);
-		this.chrome.setSelected(
-			clamp(this.chrome.selected(), 0, Math.max(0, selectedEntry.checks.length - 1)),
-		);
-
 		const shouldRenderStack = entries.length > 1;
 		const stackRows = shouldRenderStack
 			? stackListRows({ totalRows: rows, stackCount: entries.length })
@@ -165,12 +159,6 @@ export class PrPreviewChecksView implements Component {
 			selectedEntry.checks.length === 0
 				? 1
 				: checkListRows({ totalRows: rowsAfterStack, checkCount: selectedEntry.checks.length });
-		this.stackScroll = reconcileScroll({
-			scroll: this.stackScroll,
-			anchor: this.selectedTargetIndex,
-			areaHeight: Math.max(1, stackRows),
-			totalLines: entries.length,
-		});
 		return [
 			...(shouldRenderStack
 				? [
@@ -198,11 +186,13 @@ export class PrPreviewChecksView implements Component {
 		width: number,
 		rows: number,
 	): string[] {
-		const visibleEntries = entries.slice(this.stackScroll, this.stackScroll + rows);
-		return Array.from({ length: rows }, (_unused, row) => {
-			const entry = visibleEntries[row];
-			if (entry === undefined) return "";
-			return this.renderStackRow(entry, this.stackScroll + row, width);
+		return this.chrome.renderScrollingList({
+			items: entries,
+			width,
+			rows,
+			anchor: this.selectedTargetIndex,
+			renderRow: (entry, actualIndex, rowWidth) =>
+				this.renderStackRow(entry, actualIndex, rowWidth),
 		});
 	}
 
@@ -339,8 +329,7 @@ export class PrPreviewChecksView implements Component {
 		const next = moveIndex(this.selectedTargetIndex, delta, entries.length - 1);
 		if (next === null) return;
 		this.selectedTargetIndex = next;
-		this.chrome.setSelected(0);
-		this.chrome.resetListAndDetailScroll();
+		this.chrome.resetForNewList();
 		this.tui.requestRender();
 	}
 

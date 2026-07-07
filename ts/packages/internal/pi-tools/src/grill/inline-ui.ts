@@ -170,11 +170,11 @@ class GrillAskInlineUi implements GrillAskCustomComponent {
 		};
 	}
 
-	get focused(): boolean {
+	get isFocused(): boolean {
 		return this.focusedValue;
 	}
 
-	set focused(value: boolean) {
+	set isFocused(value: boolean) {
 		this.focusedValue = value;
 		this.editor.focused = value;
 	}

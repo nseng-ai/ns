@@ -28,6 +28,14 @@ export interface PreviewListDetailBodyOptions<TItem> {
 	emptyListLines?: readonly string[];
 }
 
+export interface PreviewScrollingListOptions<TItem> {
+	items: readonly TItem[];
+	width: number;
+	rows: number;
+	anchor: number;
+	renderRow: (item: TItem, actualIndex: number, width: number) => string;
+}
+
 type PreviewChromeColor<TColor extends ThemeColor> = TColor | "border" | "dim" | "muted";
 type PreviewChromeBackground = Parameters<Theme["bg"]>[0];
 
@@ -35,6 +43,7 @@ export class PreviewModalChrome<TColor extends ThemeColor> {
 	private readonly tui: TUI;
 	private readonly theme: Theme;
 	private listScroll: number;
+	private auxiliaryListScroll: number;
 	private detailScroll: number;
 	private selectedIndex: number;
 
@@ -42,6 +51,7 @@ export class PreviewModalChrome<TColor extends ThemeColor> {
 		this.tui = options.tui;
 		this.theme = options.theme;
 		this.listScroll = 0;
+		this.auxiliaryListScroll = 0;
 		this.detailScroll = 0;
 		this.selectedIndex = 0;
 	}
@@ -57,6 +67,11 @@ export class PreviewModalChrome<TColor extends ThemeColor> {
 	resetListAndDetailScroll(): void {
 		this.listScroll = 0;
 		this.detailScroll = 0;
+	}
+
+	resetForNewList(): void {
+		this.selectedIndex = 0;
+		this.resetListAndDetailScroll();
 	}
 
 	resetDetailScroll(): void {
@@ -83,6 +98,24 @@ export class PreviewModalChrome<TColor extends ThemeColor> {
 		return Array.from({ length: rows }, (_unused, index) =>
 			fitToWidth(wrappedLines[index] ?? "", width),
 		);
+	}
+
+	renderScrollingList<TItem>(options: PreviewScrollingListOptions<TItem>): string[] {
+		this.auxiliaryListScroll = reconcileScroll({
+			scroll: this.auxiliaryListScroll,
+			anchor: options.anchor,
+			areaHeight: Math.max(1, options.rows),
+			totalLines: options.items.length,
+		});
+		const visibleItems = options.items.slice(
+			this.auxiliaryListScroll,
+			this.auxiliaryListScroll + options.rows,
+		);
+		return Array.from({ length: options.rows }, (_unused, row) => {
+			const item = visibleItems[row];
+			if (item === undefined) return "";
+			return options.renderRow(item, this.auxiliaryListScroll + row, options.width);
+		});
 	}
 
 	renderListDetailBody<TItem>(options: PreviewListDetailBodyOptions<TItem>): string[] {

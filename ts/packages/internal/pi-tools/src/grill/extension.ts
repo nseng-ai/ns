@@ -6,12 +6,12 @@ import {
 } from "@nseng-ai/pi/grill/surfaces";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
-import { executeGrillAsk } from "./legacy-execution.ts";
+import { executeGrillAsk } from "./execution.ts";
 import type { ExtensionAPI } from "./protocol.ts";
 import { handleGrillUiCommand, handleGrillWithDocsUiCommand } from "./runtime.ts";
 import { GRILL_ASK_PARAMETERS } from "./validate.ts";
 
-export { executeGrillAsk } from "./legacy-execution.ts";
+export { executeGrillAsk } from "./execution.ts";
 export {
 	FALLBACK_GRILL_UI_SKILL_BLOCK,
 	FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK,
