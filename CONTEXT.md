@@ -132,7 +132,31 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the pure utility library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/kernel` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not **Neutral Infra**: their first-party seams, fakes, and real adapters now live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/git`, `@nseng-ai/capability-kit/github`, `@nseng-ai/capability-kit/graphite`, and `@nseng-ai/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. Intrinsic host services expose author-facing interfaces through `@nseng-ai/kernel/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred). The SDK boundary is permeable downward only to concepts that prove general worth. These terms name its parts.
+The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the pure utility library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/kernel` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not **Neutral Infra**: their first-party seams, fakes, and real adapters now live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/git`, `@nseng-ai/capability-kit/github`, `@nseng-ai/capability-kit/graphite`, and `@nseng-ai/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. Intrinsic host services expose author-facing interfaces through `@nseng-ai/kernel/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred). The SDK boundary is permeable downward only to concepts that prove general worth. ADR 0031 holds the point-system decision. These terms name its parts.
+
+**Point**:
+A named place an **Extension** defines where consumer config alters platform behavior. A point may be used at an SDLC lifecycle moment, but the mechanism is lifecycle-agnostic; "lifecycle point" is prose framing, not a separate concept.
+*Avoid*: unqualified extension point, hook point, event, moment, slot, phase, step, stage, checkpoint, seam
+
+**Hook**:
+A script command installed at a **Point** and run by the owning workflow.
+*Avoid*: prompt, shell snippet, LM instruction
+
+**Prompt**:
+Pure LM content installed at a **Point** and resolved by the platform for the defining workflow to consume. The point system never executes prompts.
+*Avoid*: hook, script, agent task
+
+**Define**:
+The extension-author action of declaring a **Point**.
+*Avoid*: consumer defines a point, installs a point
+
+**Install**:
+The consumer action of configuring a **Hook** or **Prompt** at a **Point**.
+*Avoid*: define, register, enable extension code
+
+**Point catalog**:
+The kernel-computed view that joins point definitions with consumer installations and diagnostics. Catalog is the point-system word; **Registry** remains areg vocabulary.
+*Avoid*: registry, hook registry, prompt registry
 **Neutral Infra**:
 The pure floor below the SDK — **Pure Utility** libraries plus other non-domain packages/subpackages with no real-world I/O (`@nseng-ai/foundation`, `@nseng-ai/foundation/cli-theme`, `@nseng-ai/clinkr`) that depend only on other Neutral Infra. It excludes gateways: a gateway's seam, fake, and real adapter are **Kit Gateway** material owned by **Capability Kit** subpackages, not Neutral Infra. A gateway *contract* — pure interface types with no I/O — may live here as a **Pure Utility** only when it has proven broadly neutral.
 *Avoid*: neutral-infra gateway (a gateway is a Kit Gateway, never Neutral Infra)

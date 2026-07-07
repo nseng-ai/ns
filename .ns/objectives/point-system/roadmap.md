@@ -52,9 +52,12 @@
     adds read-only built-in Clinkr commands with typed result schemas, human/JSON output,
     detail lookup, diagnostics/source reporting, help/runtime/version/json-schema scenario
     coverage, and a successful smoke run against this repo's configuration.
-- [ ] Graduate `brief.md`: author the ADR, add CONTEXT.md vocabulary (point, hook, prompt,
+- [x] Graduate `brief.md`: author the ADR, add CONTEXT.md vocabulary (point, hook, prompt,
       install, define, point catalog), re-derive or retire this objective's `orientation.md`.
-  - Policy: steer first — ADR/CONTEXT edits are decision-bearing; confirm wording with the user.
+  - Evidence: `docs/adr/0031-point-system.md`, root `CONTEXT.md`, and
+    `ts/packages/kernel/CONTEXT.md` now carry durable point-system decision/vocabulary;
+    the temporary `brief.md` and active `orientation.md` were deleted; validation recorded
+    in `updates/2026-07-06-point-system-doc-graduation.md`.
 
 ## Parked
 
