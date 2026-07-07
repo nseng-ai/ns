@@ -47,3 +47,18 @@ The four review candidates, sequenced so the earlier ones make the later ones me
 
 - Resolved during Candidate 3: executable maintenance orchestration stays under `stack/` for this pass, re-expressed over `LandContext` plus a narrow progress interface rather than moved wholesale into the Land Domain Core.
 - Whether candidate 4 is worth doing at all once 1–3 have reshaped the module map; closure accepts a recorded decision either way.
+
+## Closure
+
+Outcome: completed. All four review candidates landed as structural refactors with behavior preserved:
+
+1. Dual landing-plan vocabulary collapsed — shadow `FlowLandingPlan` and its mappers deleted; `stack/` consumes the domain Stack Landing Plan directly.
+2. `LandContext` built once at dispatch and threaded through landing phases; the five `createRuntimeLandContext` call sites retired.
+3. Graphite maintenance re-expressed over `LandContext` plus a narrow progress seam, with maintenance tests on in-memory fakes; executable orchestration deliberately stayed under `stack/` for this pass.
+4. Presentation consolidated: `stack/presentation.ts`, `stack/land-presentation.ts`, and `land-matrix-progress.ts` folded into the single root module `src/land/land-presentation.ts` (820 lines) with stable exported symbols; the split modules deleted with a clean stale-import sweep.
+
+Key evidence: per-candidate roadmap rows with stale-symbol/import sweeps; `just ts-check` and `pnpm --dir ts --filter @nseng-ai/flow test` green at every step (final: 54 files, 485 tests) with zero scenario/expectation edits, so command shapes, telemetry-facing output, and progress rendering were preserved throughout. PR evidence: #3178 (Candidate 3, Graphite maintenance over `LandContext`) and #3184 (Candidate 4, presentation consolidation) close out the sequence. The perf-rollout handback completed earlier: the mirrored hard-gate edge was removed and `flow-land-incremental-perf-rollout`'s Blocked Sentence cleared once Candidates 1–3 were verified.
+
+Remaining assumptions/risks: the fake-backed scenario counts (linear-11 = 145 calls, linear-25 = 313) remain the perf rollout's measurement backbone; Candidate 4 touched only presentation seams, so those baselines stay valid. The consolidated 820-line presentation module is accepted as one seam; splitting it again should require new evidence, not drift.
+
+Follow-ups: none owned here. Performance work resumes under `flow-land-incremental-perf-rollout` on the deepened substrate.
