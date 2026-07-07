@@ -7,9 +7,11 @@ import { afterEach, describe, expect, test } from "vitest";
 import type { SkillHarnessArtifactEntry } from "../src/artifact-catalog.ts";
 import {
 	applyHarnessArtifactProvision,
+	applyPreparedProvision,
 	contentHashForBytes,
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
+	prepareProvision,
 	previewHarnessArtifactProvision,
 	type HarnessArtifactFileSystemGateway,
 	type InstallManifestData,
@@ -42,8 +44,8 @@ describe("harness artifact provision apply", () => {
 
 		const result = await applyHarnessArtifactProvision(fixture.request());
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
+		expect(result).toMatchObject({ ok: true, value: { outcome: "applied" } });
+		if (!result.ok || result.value.outcome !== "applied") return;
 		expect(result.value.writtenFiles).toEqual([
 			join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
 			join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),
@@ -113,8 +115,8 @@ describe("harness artifact provision apply", () => {
 
 		const second = await applyHarnessArtifactProvision(fixture.request());
 
-		expect(second).toMatchObject({ ok: true });
-		if (!second.ok) return;
+		expect(second).toMatchObject({ ok: true, value: { outcome: "applied" } });
+		if (!second.ok || second.value.outcome !== "applied") return;
 		expect(second.value.decisions.files.map((decision) => decision.type)).toEqual([
 			"unchanged",
 			"unchanged",
@@ -137,11 +139,8 @@ describe("harness artifact provision apply", () => {
 		const result = await applyHarnessArtifactProvision(fixture.request());
 
 		expect(result).toMatchObject({
-			ok: false,
-			error: {
-				code: "locally_edited_conflict",
-				details: { conflictingFiles: [targetSkill] },
-			},
+			ok: true,
+			value: { outcome: "conflicted", conflictingFiles: [targetSkill] },
 		});
 		await expect(readFile(targetSkill, "utf8")).resolves.toBe("local edit\n");
 		await expect(readFile(missingTarget, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
@@ -153,10 +152,14 @@ describe("harness artifact provision apply", () => {
 		const targetSkill = join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md");
 		await writeTextFile(targetSkill, "local edit\n");
 
-		const result = await applyHarnessArtifactProvision({ ...fixture.request(), shouldForce: true });
+		const prepared = await prepareProvision(fixture.request());
+		expect(prepared).toMatchObject({ ok: true });
+		if (!prepared.ok) return;
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
+		const result = await applyPreparedProvision(prepared.value, { force: true });
+
+		expect(result).toMatchObject({ ok: true, value: { outcome: "applied" } });
+		if (!result.ok || result.value.outcome !== "applied") return;
 		expect(result.value.decisions.files.map((decision) => decision.type)).toEqual([
 			"locally-edited-conflict",
 			"fresh-write",
@@ -220,8 +223,8 @@ describe("harness artifact provision apply", () => {
 
 		const result = await applyHarnessArtifactProvision({ ...fixture.request(), fs: fakeFs });
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
+		expect(result).toMatchObject({ ok: true, value: { outcome: "applied" } });
+		if (!result.ok || result.value.outcome !== "applied") return;
 		expect(result.value.writtenFiles).toEqual([
 			join(fixture.projectRoot, ".pi/skills/objective-next/SKILL.md"),
 			join(fixture.projectRoot, ".pi/skills/objective-next/assets/icon.bin"),

@@ -261,6 +261,33 @@ describe("harness artifact reconcile driver", () => {
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBeUndefined();
 	});
 
+	test("skips colliding artifacts while provisioning non-colliding artifacts", async () => {
+		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
+		fixture.fs.setFile("/repo/.ns/extensions/collision/package.json", duplicateModulePackageJson());
+		fixture.fs.setFile("/repo/.ns/extensions/collision/skills/duplicate/SKILL.md", "duplicate\n");
+
+		const result = await runHarnessArtifactReconcile(fixture.request());
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.value.skippedCollisions).toEqual([
+			{
+				kind: "target-name",
+				value: "module-skill",
+				packages: ["@acme/collision", "@acme/module"],
+			},
+		]);
+		expect(result.value.artifacts.map((artifact) => [artifact.skillName, artifact.action])).toEqual(
+			[
+				["module-skill", "skipped"],
+				["module-skill", "skipped"],
+				["objective", "installed"],
+			],
+		);
+		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBeUndefined();
+	});
+
 	test("reports orphans without touching their files and invalid ns.toml is an error", async () => {
 		const orphanFixture = createFixture({ nsToml: undefined, includeModule: false });
 		orphanFixture.fs.setFile("/repo/.pi/skills/old/SKILL.md", "local orphan\n");
@@ -323,6 +350,16 @@ function packageJson(): string {
 		name: "@acme/module",
 		version: "1.0.0",
 		ns: { harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module" }] },
+	});
+}
+
+function duplicateModulePackageJson(): string {
+	return JSON.stringify({
+		name: "@acme/collision",
+		version: "1.0.0",
+		ns: {
+			harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/duplicate" }],
+		},
 	});
 }
 

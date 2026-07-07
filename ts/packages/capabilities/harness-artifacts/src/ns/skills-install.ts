@@ -3,13 +3,13 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	applyHarnessArtifactProvision,
+	applyPreparedProvision,
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
 	findFirstPartySkillArtifact,
-	previewHarnessArtifactProvision,
+	prepareProvision,
 	resolveFirstPartyCatalogSourceRoot,
-	type HarnessArtifactProvisionErrorInfo,
+	type HarnessArtifactProvisionConflictOutcome,
 	type ProvisionDecisionSet,
 	type ProvisionPlan,
 } from "../api.ts";
@@ -83,24 +83,22 @@ export async function runSkillsInstall(
 		sourceRoot,
 		sourceVersion: FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
 	};
+	const prepared = await prepareProvision(baseRequest);
+	if (!prepared.ok) return provisionErrorExit(prepared.error);
 	if (request.dryRun) {
-		const preview = await previewHarnessArtifactProvision(baseRequest);
-		if (!preview.ok) return provisionErrorExit(preview.error);
 		return ok(
 			installResultFromPlan({
 				mode: "dry-run",
-				plan: preview.value.plan,
-				decisions: preview.value.decisions,
-				manifestPath: preview.value.manifestPath,
+				plan: prepared.value.plan,
+				decisions: prepared.value.decisions,
+				manifestPath: prepared.value.manifestPath,
 				writtenFiles: [],
 			}),
 		);
 	}
-	const applied = await applyHarnessArtifactProvision({
-		...baseRequest,
-		shouldForce: request.force,
-	});
-	if (!applied.ok) return installProvisionErrorExit(applied.error);
+	const applied = await applyPreparedProvision(prepared.value, { force: request.force });
+	if (!applied.ok) return provisionErrorExit(applied.error);
+	if (applied.value.outcome === "conflicted") return installProvisionConflictExit(applied.value);
 	return ok(
 		installResultFromPlan({
 			mode: "applied",
@@ -164,13 +162,16 @@ function installResultFromPlan(input: {
 	};
 }
 
-function installProvisionErrorExit(
-	error: HarnessArtifactProvisionErrorInfo,
+function installProvisionConflictExit(
+	outcome: HarnessArtifactProvisionConflictOutcome,
 ): ClinkrExit<SkillsInstallCommandResult> {
-	if (error.code === "locally_edited_conflict") {
-		return negative(error.message, {
-			data: { ...error.details, conflictingFiles: [...error.details.conflictingFiles] },
-		});
-	}
-	return provisionErrorExit(error);
+	return negative(
+		`Provision refused: ${outcome.conflictingFiles.length} locally edited target file(s). Re-run with --force to overwrite them.`,
+		{
+			data: {
+				manifestPath: outcome.manifestPath,
+				conflictingFiles: [...outcome.conflictingFiles],
+			},
+		},
+	);
 }

@@ -39,6 +39,9 @@ export async function runNsUpdate(
 	}
 	const result = await runHarnessArtifactReconcile({ ...baseRequest, dryRun: false });
 	if (!result.ok) return reconcileFailureExit(result.error);
+	if (result.value.skippedCollisions.length > 0) {
+		return negative("Update skipped colliding harness artifacts.", { data: result.value });
+	}
 	return ok(result.value);
 }
 
@@ -72,24 +75,22 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 			);
 		}
 	}
+	if (result.skippedCollisions.length > 0) {
+		lines.push("", "skipped collisions:");
+		for (const collision of result.skippedCollisions) {
+			lines.push(`- ${collision.kind} ${collision.value}: ${collision.packages.join(", ")}`);
+		}
+	}
 	if (result.needsForce) lines.push("", "Conflicts found; re-run with --force to overwrite.");
 	lines.push(
 		"",
-		`summary: ${countArtifacts(result, "installed")} installed, ${countArtifacts(result, "refreshed")} refreshed, ${countArtifacts(result, "unchanged")} unchanged, ${countArtifacts(result, "conflicted")} conflicted, ${result.orphans.length} orphaned, ${result.diagnostics.length} diagnostic(s)`,
+		`summary: ${countArtifacts(result, "installed")} installed, ${countArtifacts(result, "refreshed")} refreshed, ${countArtifacts(result, "unchanged")} unchanged, ${countArtifacts(result, "conflicted")} conflicted, ${countArtifacts(result, "skipped")} skipped, ${result.orphans.length} orphaned, ${result.diagnostics.length} diagnostic(s)`,
 		"",
 	);
 	return lines.join("\n");
 }
 
 function reconcileFailureExit<T>(error: ReconcileErrorInfo): ClinkrExit<T> {
-	if (error.code === "artifact_collision") {
-		return failure("artifact-collision", error.message, {
-			collisions: error.details.collisions.map((collision) => ({
-				...collision,
-				packages: [...collision.packages],
-			})),
-		});
-	}
 	return failure(error.code.replaceAll("_", "-"), error.message, error.details);
 }
 

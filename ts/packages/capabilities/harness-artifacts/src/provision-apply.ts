@@ -44,20 +44,39 @@ export interface HarnessArtifactProvisionRequest {
 	fs?: HarnessArtifactFileSystemGateway;
 }
 
-export interface ApplyHarnessArtifactProvisionRequest extends HarnessArtifactProvisionRequest {
-	shouldForce?: boolean;
-}
-
 export interface HarnessArtifactProvisionPreview {
 	plan: ProvisionPlan;
 	decisions: ProvisionDecisionSet;
 	manifestPath: string;
 }
 
+export interface PreparedHarnessArtifactProvision extends HarnessArtifactProvisionPreview {
+	manifest: InstallManifestData;
+	sourceRoot: string;
+	fs: HarnessArtifactFileSystemGateway;
+}
+
+export interface ApplyPreparedProvisionOptions {
+	force: boolean;
+}
+
 export interface HarnessArtifactProvisionApplyResult extends HarnessArtifactProvisionPreview {
 	manifest: InstallManifestData;
 	writtenFiles: readonly string[];
 }
+
+export interface HarnessArtifactProvisionAppliedOutcome extends HarnessArtifactProvisionApplyResult {
+	outcome: "applied";
+}
+
+export interface HarnessArtifactProvisionConflictOutcome extends HarnessArtifactProvisionPreview {
+	outcome: "conflicted";
+	conflictingFiles: readonly string[];
+}
+
+export type HarnessArtifactProvisionApplyOutcome =
+	| HarnessArtifactProvisionAppliedOutcome
+	| HarnessArtifactProvisionConflictOutcome;
 
 export interface HarnessArtifactFileSystemGateway {
 	listFiles(
@@ -96,11 +115,6 @@ export type HarnessArtifactProvisionErrorInfo =
 			code: "invalid_install_manifest";
 			message: string;
 			details: { manifestPath: string };
-	  }
-	| {
-			code: "locally_edited_conflict";
-			message: string;
-			details: { manifestPath: string; conflictingFiles: readonly string[] };
 	  };
 
 const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.object({
@@ -180,85 +194,23 @@ export const nodeHarnessArtifactFileSystemGateway: HarnessArtifactFileSystemGate
 export async function previewHarnessArtifactProvision(
 	request: HarnessArtifactProvisionRequest,
 ): Promise<Result<HarnessArtifactProvisionPreview, HarnessArtifactProvisionErrorInfo>> {
-	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
-	const prepared = await prepareProvision(request, fs);
+	const prepared = await prepareProvision(request);
 	if (!prepared.ok) return prepared;
-	return resultOk({
-		plan: prepared.value.plan,
-		decisions: prepared.value.decisions,
-		manifestPath: prepared.value.manifestPath,
-	});
+	return resultOk(previewFromPrepared(prepared.value));
 }
 
 export async function applyHarnessArtifactProvision(
-	request: ApplyHarnessArtifactProvisionRequest,
-): Promise<Result<HarnessArtifactProvisionApplyResult, HarnessArtifactProvisionErrorInfo>> {
-	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
-	const prepared = await prepareProvision(request, fs);
-	if (!prepared.ok) return prepared;
-
-	const conflicts = prepared.value.decisions.files.filter(
-		(decision) => decision.type === "locally-edited-conflict",
-	);
-	if (conflicts.length > 0 && request.shouldForce !== true) {
-		const conflictingFiles = conflicts.map((decision) => decision.file.targetPath);
-		return resultErr({
-			code: "locally_edited_conflict",
-			message: `Refusing to provision ${prepared.value.plan.artifactId}; ${conflictingFiles.length} target file(s) have local edits. Re-run with force to overwrite them.`,
-			details: { manifestPath: prepared.value.manifestPath, conflictingFiles },
-		});
-	}
-
-	const writtenFiles: string[] = [];
-	for (const decision of prepared.value.decisions.files) {
-		if (decision.type === "unchanged") continue;
-		const sourcePath = join(request.sourceRoot, decision.file.sourcePath);
-		const source = await readRequiredFile(fs, sourcePath);
-		if (!source.ok) return source;
-		const write = await fs.writeFile(decision.file.targetPath, source.value);
-		if (!write.ok) return write;
-		writtenFiles.push(decision.file.targetPath);
-	}
-
-	const manifest = updateManifest(prepared.value.manifest, prepared.value.plan);
-	const writeManifest = await fs.writeTextFile(
-		prepared.value.manifestPath,
-		`${JSON.stringify(manifest, null, 2)}\n`,
-	);
-	if (!writeManifest.ok) return writeManifest;
-
-	return resultOk({
-		plan: prepared.value.plan,
-		decisions: prepared.value.decisions,
-		manifestPath: prepared.value.manifestPath,
-		manifest,
-		writtenFiles,
-	});
-}
-
-export function installManifestPathForPlan(plan: ProvisionPlan): string {
-	return join(plan.targetRoot, INSTALL_MANIFEST_FILE_NAME);
-}
-
-export async function readInstallManifestAtRoot(options: {
-	targetRoot: string;
-	fs?: HarnessArtifactFileSystemGateway;
-}): Promise<Result<InstallManifestData, HarnessArtifactProvisionErrorInfo>> {
-	const fs = options.fs ?? nodeHarnessArtifactFileSystemGateway;
-	return readInstallManifest(fs, join(options.targetRoot, INSTALL_MANIFEST_FILE_NAME));
-}
-
-interface PreparedProvision {
-	plan: ProvisionPlan;
-	decisions: ProvisionDecisionSet;
-	manifestPath: string;
-	manifest: InstallManifestData;
-}
-
-async function prepareProvision(
 	request: HarnessArtifactProvisionRequest,
-	fs: HarnessArtifactFileSystemGateway,
-): Promise<Result<PreparedProvision, HarnessArtifactProvisionErrorInfo>> {
+): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
+	const prepared = await prepareProvision(request);
+	if (!prepared.ok) return prepared;
+	return applyPreparedProvision(prepared.value, { force: false });
+}
+
+export async function prepareProvision(
+	request: HarnessArtifactProvisionRequest,
+): Promise<Result<PreparedHarnessArtifactProvision, HarnessArtifactProvisionErrorInfo>> {
+	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
 	const sourceFiles = await collectSourceFiles({
 		fs,
 		sourceRoot: request.sourceRoot,
@@ -294,7 +246,74 @@ async function prepareProvision(
 		decisions: decisions.value,
 		manifestPath,
 		manifest: manifest.value,
+		sourceRoot: request.sourceRoot,
+		fs,
 	});
+}
+
+export async function applyPreparedProvision(
+	prepared: PreparedHarnessArtifactProvision,
+	options: ApplyPreparedProvisionOptions,
+): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
+	const conflicts = prepared.decisions.files.filter(
+		(decision) => decision.type === "locally-edited-conflict",
+	);
+	if (conflicts.length > 0 && !options.force) {
+		return resultOk({
+			outcome: "conflicted",
+			...previewFromPrepared(prepared),
+			conflictingFiles: conflicts.map((decision) => decision.file.targetPath),
+		});
+	}
+
+	const writtenFiles: string[] = [];
+	for (const decision of prepared.decisions.files) {
+		if (decision.type === "unchanged") continue;
+		const sourcePath = join(prepared.sourceRoot, decision.file.sourcePath);
+		const source = await readRequiredFile(prepared.fs, sourcePath);
+		if (!source.ok) return source;
+		const write = await prepared.fs.writeFile(decision.file.targetPath, source.value);
+		if (!write.ok) return write;
+		writtenFiles.push(decision.file.targetPath);
+	}
+
+	const manifest = updateManifest(prepared.manifest, prepared.plan);
+	const writeManifest = await prepared.fs.writeTextFile(
+		prepared.manifestPath,
+		`${JSON.stringify(manifest, null, 2)}\n`,
+	);
+	if (!writeManifest.ok) return writeManifest;
+
+	return resultOk({
+		outcome: "applied",
+		plan: prepared.plan,
+		decisions: prepared.decisions,
+		manifestPath: prepared.manifestPath,
+		manifest,
+		writtenFiles,
+	});
+}
+
+export function installManifestPathForPlan(plan: ProvisionPlan): string {
+	return join(plan.targetRoot, INSTALL_MANIFEST_FILE_NAME);
+}
+
+export async function readInstallManifestAtRoot(options: {
+	targetRoot: string;
+	fs?: HarnessArtifactFileSystemGateway;
+}): Promise<Result<InstallManifestData, HarnessArtifactProvisionErrorInfo>> {
+	const fs = options.fs ?? nodeHarnessArtifactFileSystemGateway;
+	return readInstallManifest(fs, join(options.targetRoot, INSTALL_MANIFEST_FILE_NAME));
+}
+
+function previewFromPrepared(
+	prepared: PreparedHarnessArtifactProvision,
+): HarnessArtifactProvisionPreview {
+	return {
+		plan: prepared.plan,
+		decisions: prepared.decisions,
+		manifestPath: prepared.manifestPath,
+	};
 }
 
 async function collectSourceFiles(input: {
