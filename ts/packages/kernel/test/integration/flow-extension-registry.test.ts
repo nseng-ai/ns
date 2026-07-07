@@ -31,8 +31,8 @@ describe("checked-in flow ns extension registry loading", () => {
 		});
 
 		expect(catalog.diagnostics).toEqual([]);
-		const flowCandidates = [...catalog.candidates].filter(([_key, candidate]) =>
-			candidate.source.level === "project"
+		const flowCandidates = [...catalog.candidates].filter(
+			([_key, candidate]) => candidate.source.level === "project",
 		);
 		expect(flowCandidates.map(([key]) => key)).toEqual([
 			"flow/autobranch",
