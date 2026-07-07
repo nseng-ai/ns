@@ -10,9 +10,9 @@ import { nsInitCommand } from "../command.ts";
 
 export const nsInitNsCommand = nsInitCommand({
 	name: "init",
-	summary: "Activate ns Objectives in this repository.",
+	summary: "Activate ns in this repository.",
 	description:
-		"Activate ns Objectives in this repository by writing ns.toml harness selection, managed instruction files, and .ns/objectives scaffolding.",
+		"Activate ns in this repository by writing ns.toml harness selection, managed instruction files, and .ns/objectives scaffolding.",
 	schema: initObjectivesRequestSchema,
 	options: { harness: { short: "-H" } },
 	resultSchema: initObjectivesResultSchema,

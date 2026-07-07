@@ -38,6 +38,8 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Parent help section heading for this command. */
+	helpGroup?: string;
 	schema: S;
 	handler: ClinkrHandler<TContext, S, T>;
 	/** Source of `output_json_schema` for `--json-schema`; `{}` when absent. */
@@ -68,6 +70,8 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	description?: string;
 	/** Short summary for parent help lists; omitted from leaf command help body. */
 	summary?: string;
+	/** Parent help section heading for this command. */
+	helpGroup?: string;
 	schema: S;
 	isRawExit: true;
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
@@ -126,6 +130,7 @@ interface RegisteredCommand<TContext> {
 	name: string;
 	description?: string;
 	summary?: string;
+	helpGroup?: string;
 	schema: z.ZodObject;
 	schemaDocument?: () => JsonSchemaDocument;
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
@@ -206,6 +211,7 @@ export class ClinkrGroup<TContext> {
 			name: spec.name,
 			...(spec.description === undefined ? {} : { description: spec.description }),
 			...(spec.summary === undefined ? {} : { summary: spec.summary }),
+			...(spec.helpGroup === undefined ? {} : { helpGroup: spec.helpGroup }),
 			schema: spec.schema,
 			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
@@ -454,6 +460,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	const command = createContainedCommand(registered.name, io);
 	if (registered.description !== undefined) command.description(registered.description);
 	if (registered.summary !== undefined) command.summary(registered.summary);
+	if (registered.helpGroup !== undefined) command.helpGroup(registered.helpGroup);
 	configureCommandExecution({ command, ...options });
 	return command;
 }

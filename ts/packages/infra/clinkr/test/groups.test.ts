@@ -220,6 +220,24 @@ describe("nested groups", () => {
 		expect(run.stdout).toContain("Extensions:\n  extension");
 		expect(run.stderr).toBe("");
 	});
+
+	test("commands can render under a custom parent help section", async () => {
+		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		root.command({
+			name: "init",
+			summary: "Activate root.",
+			helpGroup: "Built-ins:",
+			schema: z.object({}),
+			handler: async () => ok({}),
+		});
+
+		const run = await runForTest(root, ["--help"], { context: { calls: [] } });
+
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toContain("Built-ins:\n  init");
+		expect(run.stdout).not.toContain("\nCommands:\n  init");
+		expect(run.stderr).toBe("");
+	});
 });
 
 describe("hidden subgroups", () => {
