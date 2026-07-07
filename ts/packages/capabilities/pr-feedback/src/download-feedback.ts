@@ -26,7 +26,7 @@ export const downloadFeedbackOperation = defineExecOperation({
 	resultSchema: downloadFeedbackResultSchema,
 	spec: {
 		name: "download-feedback",
-		description: "Download current PR feedback as an LM-ready Markdown triage prompt.",
+		description: "Download current PR feedback as a Markdown report.",
 		schema: downloadFeedbackParseSchema,
 		handler: runDownloadFeedbackOperation,
 	},

@@ -46,16 +46,13 @@ describe("collectDownloadFeedback", () => {
 				excludedAutomationComments: 1,
 			},
 		});
-		expect(result.feedback.markdown).toContain("# PR feedback triage request");
-		expect(result.feedback.markdown).toContain("## Instructions before responding");
-		expect(result.feedback.markdown).toContain(
+		expect(result.feedback.markdown).toContain("# PR feedback report");
+		expect(result.feedback.markdown).not.toContain("# PR feedback triage request");
+		expect(result.feedback.markdown).not.toContain("## Instructions before responding");
+		expect(result.feedback.markdown).not.toContain(
 			"ns address exec close-review-threads --thread-ids-json",
 		);
-		expect(result.feedback.markdown).toContain("include `--body <BODY>` when a reply is useful");
-		expect(result.feedback.markdown).toContain("resubmit the PR with `ns flow submit`");
-		expect(result.feedback.markdown).toContain(
-			"do not use raw `gh api graphql` for review-thread resolve/reply mutations",
-		);
+		expect(result.feedback.markdown).not.toContain("resubmit the PR with `ns flow submit`");
 		expect(result.feedback.markdown).toContain("RT_open");
 		expect(result.feedback.markdown).not.toContain("RT_resolved");
 		expect(result.feedback.markdown).toContain("Please explain the migration path.");
@@ -140,8 +137,7 @@ describe("collectDownloadFeedback", () => {
 				},
 				counts: zeroCounts(),
 				bodyMarkdown,
-				instructionsMarkdown: "",
-				markdown: ["# PR feedback triage request", "", bodyMarkdown].join("\n"),
+				markdown: ["# PR feedback report", "", bodyMarkdown].join("\n"),
 			},
 		});
 		expect(result.type).toBe("miss");
@@ -274,7 +270,7 @@ describe("collectDownloadFeedback", () => {
 		expect(result.feedback.markdown).toContain("No unresolved/human feedback was found");
 		expect(result.feedback.markdown).toContain("## Summary");
 		expect(result.feedback.markdown).toContain("Downloaded feedback for PR #7: Quiet PR");
-		expect(result.feedback.markdown).toContain("## Instructions before responding");
+		expect(result.feedback.markdown).not.toContain("## Instructions before responding");
 	});
 });
 

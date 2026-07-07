@@ -1,12 +1,12 @@
 # Address command collection
 
-Address provides LM-ready feedback download plus shared PR feedback primitives through `ns address exec ...`. The old addressing workflow engine is retired; the current primitive commands are not retired.
+Address provides feedback report download plus shared PR feedback primitives through `ns address exec ...`. The old addressing workflow engine is retired; the current primitive commands are not retired.
 
 ## Download / stack plumbing
 
 ### `download-feedback`
 
-Download one PR's current feedback as Markdown for agent triage.
+Download one PR's current feedback as a Markdown report.
 
 ```bash
 ns address exec download-feedback --pr-number <pr-number> --format json
@@ -18,7 +18,7 @@ If the current branch has an open PR, callers may omit `--pr-number`:
 ns address exec download-feedback --format json
 ```
 
-The result includes `markdown` for editor/session prefill plus target/count metadata. The Markdown is initial triage context only: it does not start an addressing run, authorize edits, or mutate GitHub.
+The result includes `markdown` for editor/session viewing plus target/count metadata. The Markdown is a report: it does not start an addressing run, authorize edits, or mutate GitHub.
 
 ### `map-branch-prs`
 

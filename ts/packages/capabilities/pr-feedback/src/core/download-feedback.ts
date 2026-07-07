@@ -7,7 +7,6 @@ import type {
 	GithubPrSummary,
 } from "../api.ts";
 
-import { readPromptMarkdown, renderPromptTemplate } from "./download-feedback-prompts.ts";
 import {
 	fetchFeedbackSnapshot,
 	reviewsForRequest,
@@ -24,10 +23,6 @@ import { buildDownloadFeedbackTargetPayload, type PrTargetPayload } from "./pr-t
 
 type DownloadFeedbackTargetPayload = PrTargetPayload;
 
-const DOWNLOAD_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
-	readPromptMarkdown("./download-feedback-instructions.md", import.meta.url),
-);
-
 export interface DownloadFeedbackCountsPayload {
 	includedReviewThreads: number;
 	includedReviews: number;
@@ -42,13 +37,11 @@ export interface DownloadFeedbackPayload {
 	target: DownloadFeedbackTargetPayload;
 	counts: DownloadFeedbackCountsPayload;
 	bodyMarkdown: string;
-	instructionsMarkdown: string;
 	markdown: string;
 }
 
 interface DownloadFeedbackMarkdownParts {
 	bodyMarkdown: string;
-	instructionsMarkdown: string;
 	markdown: string;
 }
 
@@ -188,8 +181,7 @@ function buildMissingPrResult(
 		target,
 		counts,
 		bodyMarkdown,
-		instructionsMarkdown: "",
-		markdown: ["# PR feedback triage request", "", bodyMarkdown].join("\n"),
+		markdown: ["# PR feedback report", "", bodyMarkdown].join("\n"),
 	};
 }
 
@@ -199,7 +191,7 @@ function buildDownloadFeedbackMarkdown(options: {
 	readonly feedback: IncludedFeedback;
 }): DownloadFeedbackMarkdownParts {
 	const bodyMarkdown = [
-		"Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.",
+		"Downloaded PR feedback is below.",
 		"",
 		"## Target PR",
 		`- PR: ${formatNullableNumber(options.target.pr_number)}`,
@@ -225,14 +217,7 @@ function buildDownloadFeedbackMarkdown(options: {
 	].join("\n");
 	return {
 		bodyMarkdown,
-		instructionsMarkdown: DOWNLOAD_FEEDBACK_INSTRUCTIONS,
-		markdown: [
-			"# PR feedback triage request",
-			"",
-			bodyMarkdown,
-			"",
-			DOWNLOAD_FEEDBACK_INSTRUCTIONS,
-		].join("\n"),
+		markdown: ["# PR feedback report", "", bodyMarkdown].join("\n"),
 	};
 }
 

@@ -1,10 +1,6 @@
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import {
-	readPromptMarkdown,
-	renderPromptTemplate,
-} from "@nseng-ai/pr-feedback/download-feedback-prompts";
 import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -25,10 +21,6 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
-const STACK_FEEDBACK_INSTRUCTIONS = renderPromptTemplate(
-	readPromptMarkdown("./pr-stack-feedback-instructions.md", import.meta.url),
-);
-
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
 });
@@ -64,7 +56,7 @@ export const prExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
 		surface: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
-		workflow: "Download current PR feedback into the Pi editor as a triage prompt",
+		workflow: "Download current PR feedback into the Pi editor as a report",
 		parity: "FULL",
 		cli: "ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
@@ -76,7 +68,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		kind: "command",
 		surface: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 		workflow:
-			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one triage prompt",
+			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one report",
 		parity: "FULL",
 		cli: "ns slot gt exec stack-branches --downstack + ns address exec map-branch-prs + ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
@@ -148,7 +140,7 @@ export default function prExtension(pi: ExtensionAPI): void {
 		host: pi,
 		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		commandDefinition: {
-			description: "Download current PR feedback into the editor as a triage prompt.",
+			description: "Download current PR feedback into the editor as a report.",
 			handler: async (rawArgs, ctx) => {
 				await runPrDownloadFeedbackCommand(pi, rawArgs, ctx);
 			},
@@ -159,7 +151,7 @@ export default function prExtension(pi: ExtensionAPI): void {
 		commandName: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 		commandDefinition: {
 			description:
-				"Download feedback from every PR in the current Graphite downstack into the editor as a triage prompt.",
+				"Download feedback from every PR in the current Graphite downstack into the editor as a report.",
 			handler: async (rawArgs, ctx) => {
 				await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
 			},
@@ -410,9 +402,9 @@ function buildStackDownloadFeedbackMarkdown(
 ): string {
 	const missingBranches = options.missingBranches ?? [];
 	return [
-		"# PR stack feedback triage request",
+		"# PR stack feedback report",
 		"",
-		"Downloaded PR feedback for the current Graphite downstack is below. Review the summary and instructions at the bottom before responding.",
+		"Downloaded PR feedback for the current Graphite downstack is below.",
 		"",
 		"## Stack PRs",
 		...downloads.map(
@@ -431,8 +423,6 @@ function buildStackDownloadFeedbackMarkdown(
 		]),
 		"",
 		...renderStackDownloadFeedbackSummary(downloads, missingBranches),
-		"",
-		...renderStackInstructions(),
 	].join("\n");
 }
 
@@ -499,10 +489,6 @@ function sumDownloadFeedbackCounts(
 			excludedAutomationComments: 0,
 		},
 	);
-}
-
-function renderStackInstructions(): string[] {
-	return STACK_FEEDBACK_INSTRUCTIONS.split(/\r\n|\r|\n/u);
 }
 
 function demoteMarkdownHeadings(markdown: string): string {

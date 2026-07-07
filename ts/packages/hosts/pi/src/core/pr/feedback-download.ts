@@ -40,7 +40,6 @@ export const prFeedbackDownloadDataSchema = z.looseObject({
 	target: prFeedbackDownloadTargetSchema,
 	counts: prFeedbackDownloadCountsSchema,
 	bodyMarkdown: z.string(),
-	instructionsMarkdown: z.string(),
 	markdown: z.string(),
 });
 

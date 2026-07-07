@@ -125,16 +125,13 @@ function downloadFeedbackData(
 	overrides: {
 		markdown?: string;
 		bodyMarkdown?: string;
-		instructionsMarkdown?: string;
 		found?: boolean;
 		prNumber?: number | null;
 		targetOverrides?: object;
 		countsOverrides?: object;
 	} = {},
 ): object {
-	const bodyMarkdown = overrides.bodyMarkdown ?? overrides.markdown ?? "Prompt body";
-	const instructionsMarkdown =
-		overrides.instructionsMarkdown ?? "## Instructions before responding";
+	const bodyMarkdown = overrides.bodyMarkdown ?? overrides.markdown ?? "Report body";
 	return {
 		found: overrides.found ?? true,
 		target: {
@@ -149,10 +146,7 @@ function downloadFeedbackData(
 		},
 		counts: overrides.countsOverrides ?? counts(),
 		bodyMarkdown,
-		instructionsMarkdown,
-		markdown:
-			overrides.markdown ??
-			["# PR feedback triage request", "", bodyMarkdown, "", instructionsMarkdown].join("\n"),
+		markdown: overrides.markdown ?? ["# PR feedback report", "", bodyMarkdown].join("\n"),
 	};
 }
 
@@ -202,7 +196,7 @@ describe("/pr:download-feedback", () => {
 	});
 
 	test("downloads feedback and pre-fills the editor without sending a user message", async () => {
-		const markdown = "# PR feedback triage request\n\nDo not edit files yet.";
+		const markdown = "# PR feedback report\n\nThread 1";
 		const pi = new FakePi(execResult({ stdout: envelope(downloadFeedbackData({ markdown })) }));
 
 		const ctx = await runCommand(pi);
@@ -238,7 +232,7 @@ describe("/pr:download-feedback", () => {
 	});
 
 	test("prefills returned markdown for a negative no-PR envelope", async () => {
-		const markdown = "# PR feedback triage request\n\nNo PR found.";
+		const markdown = "# PR feedback report\n\nNo PR found.";
 		const pi = new FakePi(
 			execResult({
 				stdout: negativeEnvelope(
@@ -305,19 +299,18 @@ describe("/pr:download-feedback", () => {
 });
 
 describe("/pr:download-stack-feedback", () => {
-	test("discovers stack branches, downloads each PR, and pre-fills one stack prompt", async () => {
+	test("discovers stack branches, downloads each PR, and pre-fills one stack report", async () => {
 		const pr101BodyMarkdown =
 			"## Target PR\n- PR: 101\n\n## Unresolved review threads\n\nThread 101";
 		const pr101Markdown = [
-			"# PR feedback triage request",
+			"# PR feedback report",
 			"",
 			pr101BodyMarkdown,
 			"",
-			"## Instructions before responding",
-			"Single-PR immediate PR instructions should not leak into stack prompts.",
+			"Single-PR report footer should not leak into stack reports.",
 		].join("\n");
 		const pr102BodyMarkdown = "## Target PR\n- PR: 102\n\n## Discussion comments\n\nComment 102";
-		const pr102Markdown = ["# PR feedback triage request", "", pr102BodyMarkdown].join("\n");
+		const pr102Markdown = ["# PR feedback report", "", pr102BodyMarkdown].join("\n");
 		const pi = new FakePi([
 			execResult({ stdout: envelope({ branches: ["branch-one", "branch-two"] }) }),
 			execResult({
@@ -398,76 +391,32 @@ describe("/pr:download-stack-feedback", () => {
 			},
 		]);
 		expect(ctx.editorTexts).toHaveLength(1);
-		const prompt = ctx.editorTexts[0] ?? "";
-		expect(prompt).toContain("# PR stack feedback triage request");
-		expect(prompt).toContain(
-			"Downloaded PR feedback for the current Graphite downstack is below. Review the summary and instructions at the bottom before responding.",
-		);
-		expect(prompt).toContain("## Stack PRs");
-		expect(prompt).toContain("- #101 branch-one: First (https://example.test/pull/101)");
-		expect(prompt).toContain("## Feedback by PR");
-		expect(prompt).toContain("## PR #101: First");
-		expect(prompt).toContain("### Target PR");
-		expect(prompt).toContain("Thread 101");
-		expect(prompt).toContain("Comment 102");
-		expect(prompt.indexOf("## Summary")).toBeGreaterThan(prompt.indexOf("Comment 102"));
-		expect(prompt).toContain("Downloaded feedback for 2 PRs in the current Graphite downstack.");
-		expect(prompt).toContain(
+		const report = ctx.editorTexts[0] ?? "";
+		expect(report).toContain("# PR stack feedback report");
+		expect(report).toContain("Downloaded PR feedback for the current Graphite downstack is below.");
+		expect(report).toContain("## Stack PRs");
+		expect(report).toContain("- #101 branch-one: First (https://example.test/pull/101)");
+		expect(report).toContain("## Feedback by PR");
+		expect(report).toContain("## PR #101: First");
+		expect(report).toContain("### Target PR");
+		expect(report).toContain("Thread 101");
+		expect(report).toContain("Comment 102");
+		expect(report.indexOf("## Summary")).toBeGreaterThan(report.indexOf("Comment 102"));
+		expect(report).toContain("Downloaded feedback for 2 PRs in the current Graphite downstack.");
+		expect(report).toContain(
 			"Stack PRs:\n- #101 branch-one: First (https://example.test/pull/101)\n- #102 branch-two: Second (https://example.test/pull/102)",
 		);
-		expect(prompt).toContain("- Unresolved review threads included: 1");
-		expect(prompt).toContain("- PR-level review bodies included: 1");
-		expect(prompt).toContain("- Discussion comments included: 3");
-		expect(prompt).toContain("- Resolved review threads excluded: 2");
-		expect(prompt).toContain("- Empty PR-level reviews excluded: 1");
-		expect(prompt).toContain("- Automation-like discussion comments excluded: 4");
-		expect(prompt.indexOf("## Instructions before responding")).toBeGreaterThan(
-			prompt.indexOf("## Summary"),
-		);
-		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
-		expect(prompt).toContain("Default stack feedback policies:");
-		expect(prompt).toContain("Inspect the current repository state before acting");
-		expect(prompt).toContain("Automatically address straightforward feedback");
-		expect(prompt).toContain("bounded, reviewable fix without a product/design decision");
-		expect(prompt).toContain("classify feedback groups as AUTO, STEER, or DEFER");
-		expect(prompt).toContain("AUTO may include multi-file edits");
-		expect(prompt).toContain("dependency additions that satisfy repo layering/package policy");
-		expect(prompt).toContain("schema/type source-of-truth consolidation");
-		expect(prompt).toContain("localized control-flow refactors");
-		expect(prompt).toContain("already fixed or stale against the current repo state");
-		expect(prompt).toContain("STEER is required when the change would alter user-visible behavior");
-		expect(prompt).toContain("uncertain or failed dependency/layering check");
-		expect(prompt).toContain("Grouping feedback is for triage clarity");
-		expect(prompt).toContain(
-			"do not convert many small comments into a surprisingly broad refactor",
-		);
-		expect(prompt).toContain("If the AUTO plan becomes broad");
-		expect(prompt).toContain("unless the user explicitly asked for hands-off execution");
-		expect(prompt).toContain("new single omnibus follow-up PR stacked on the current branch");
-		expect(prompt).toContain("create or check out a dedicated Graphite child branch");
-		expect(prompt).toContain(
-			"Plan against the current remaining state, not stale original comments",
-		);
-		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
-		expect(prompt).toContain("remediation can happen in the new omnibus follow-up PR");
-		expect(prompt).toContain("Close review threads only for feedback directly addressed");
-		expect(prompt).toContain("already fixed/stale against the current repo state");
-		expect(prompt).toContain(
-			"Do not close threads merely because a broad related refactor might have made them stale",
-		);
-		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
-		expect(prompt).toContain("include `--body <BODY>` when a reply is useful");
-		expect(prompt).toContain("all downloaded stack feedback was handled by AUTO fixes");
-		expect(prompt).toContain("submit the new omnibus follow-up PR with `ns flow submit`");
-		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
-		expect(prompt).toContain("Present remaining ambiguous, complex");
-		expect(prompt).toContain("summarize completed fixes, validation, GitHub thread actions");
-		expect(prompt).toContain(
-			"do not use raw `gh api graphql` for review-thread resolve/reply mutations",
-		);
-		expect(prompt).not.toContain("Do not edit files yet");
-		expect(prompt).not.toContain("wait for human confirmation");
-		expect(prompt).not.toContain("Single-PR immediate PR instructions should not leak");
+		expect(report).toContain("- Unresolved review threads included: 1");
+		expect(report).toContain("- PR-level review bodies included: 1");
+		expect(report).toContain("- Discussion comments included: 3");
+		expect(report).toContain("- Resolved review threads excluded: 2");
+		expect(report).toContain("- Empty PR-level reviews excluded: 1");
+		expect(report).toContain("- Automation-like discussion comments excluded: 4");
+		expect(report).not.toContain("## Instructions before responding");
+		expect(report).not.toContain("classify feedback groups as AUTO, STEER, or DEFER");
+		expect(report).not.toContain("ns address exec close-review-threads --thread-ids-json");
+		expect(report).not.toContain("ns flow submit");
+		expect(report).not.toContain("Single-PR report footer should not leak");
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
 			level: "info",
@@ -484,7 +433,7 @@ describe("/pr:download-stack-feedback", () => {
 	});
 
 	test("continues when the current downstack branch has no open PR", async () => {
-		const pr101Markdown = "# PR feedback triage request\n\n## Target PR\n- PR: 101";
+		const pr101Markdown = "# PR feedback report\n\n## Target PR\n- PR: 101";
 		const pi = new FakePi([
 			execResult({ stdout: envelope({ branches: ["branch-one", "autorun-feedback"] }) }),
 			execResult({
@@ -519,9 +468,9 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls.map((call) => call.args[0])).toEqual(["slot", "address", "address"]);
 		expect(ctx.editorTexts).toHaveLength(1);
-		const prompt = ctx.editorTexts[0] ?? "";
-		expect(prompt).toContain("- #101 branch-one: First (https://example.test/pull/101)");
-		expect(prompt).toContain("Branches without open PRs:\n- autorun-feedback");
+		const report = ctx.editorTexts[0] ?? "";
+		expect(report).toContain("- #101 branch-one: First (https://example.test/pull/101)");
+		expect(report).toContain("Branches without open PRs:\n- autorun-feedback");
 		expect(ctx.notifications.at(-1)).toEqual({
 			message:
 				"Downloaded PR stack feedback for 1 PR into the editor; skipped 1 branch without an open PR: autorun-feedback. Review/edit, then press Enter.",
