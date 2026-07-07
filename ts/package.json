@@ -25,6 +25,7 @@
 		"test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
 	},
 	"devDependencies": {
+		"@internal/ns-dev": "workspace:*",
 		"@internal/pi-tools": "workspace:*",
 		"@nseng-ai/ns-pi-subagents": "workspace:*",
 		"@nseng-ai/pr-feedback": "workspace:*",
