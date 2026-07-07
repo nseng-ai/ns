@@ -156,7 +156,6 @@ export {
 	type ProvisionableHarnessArtifactEntry,
 	type TargetFileHashFact,
 } from "./provision-plan.ts";
-export { sortStrings } from "./sort.ts";
 export {
 	parseSkillFrontmatterBlock,
 	parseSkillFrontmatterTopLevelLine,
