@@ -1,6 +1,6 @@
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 
-import type { NormalizedGrillAskInput } from "./extension.ts";
+import type { NormalizedGrillAskInput } from "./protocol.ts";
 import {
 	buildGrillAskRows,
 	defaultGrillAskRowIndex,

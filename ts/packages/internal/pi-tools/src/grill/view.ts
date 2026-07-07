@@ -1,4 +1,4 @@
-import type { GrillAskOption, NormalizedGrillAskInput } from "./extension.ts";
+import type { GrillAskOption, NormalizedGrillAskInput } from "./protocol.ts";
 
 export type GrillAskMode = "choices" | "freeform";
 

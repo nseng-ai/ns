@@ -2,7 +2,7 @@ import type {
 	GrillAskOption,
 	GrillAskRemainingEstimate,
 	NormalizedGrillAskInput,
-} from "./extension.ts";
+} from "./protocol.ts";
 
 export const RESERVED_GRILL_ASK_VALUES = new Set([
 	"__freeform__",

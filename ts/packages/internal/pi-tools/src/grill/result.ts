@@ -1,4 +1,4 @@
-import type { GrillAskRemainingEstimate, ToolResult } from "./extension.ts";
+import type { GrillAskRemainingEstimate, ToolResult } from "./protocol.ts";
 import {
 	formatRemainingEstimate,
 	type GrillAskProgress,
