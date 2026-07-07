@@ -191,9 +191,6 @@ objective-check: _ts-workspace-ready _objective-check
 _objective-check:
     node {{justfile_directory()}}/ts/packages/hosts/ns-cli/src/cli.ts objective check --all
 
-refresh-skills: _ts-workspace-ready
-    node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}
-
 # Render the architecture topology report (raw inventory) and open it. No agent
 # in the loop — extracts the package graph and renders from a synthesized spec.
 # Pass --no-open to print the path only, or any extract-graph flag (--root, --kit, ...).
