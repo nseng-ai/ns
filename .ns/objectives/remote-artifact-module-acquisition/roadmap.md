@@ -16,3 +16,7 @@ Implementation (after the decisions above):
 - [ ] Acquisition slice one: fetch + resolve declared specs of the first-slice source kind(s) into the decided storage root behind the gateway, with per-module failure diagnostics that do not block provisioning of present modules.
 - [ ] Wire acquired modules into existing static-declaration discovery and the `ns update` reconcile flow; prove idempotence on unchanged specs and reconcile-to-spec on changed specs.
 - [ ] End-to-end evidence: one real remote module declared, fetched, and provisioned into `pi`/`claude-code`/`codex` roots with manifest hashes; existing arrival paths verified unchanged; full `just` green.
+
+## Parked
+
+- (none)

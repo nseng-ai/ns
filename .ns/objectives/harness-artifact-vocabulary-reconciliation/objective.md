@@ -75,4 +75,4 @@ Risks:
 ## Open Questions
 
 - Final replacement term for AREG's overlay sense ("kind overlays" is the working candidate; confirm against `CONTEXT.md` conventions before the rename pass).
-- Whether the `skill-management` skill (vendored under `.agents/skills/`) is edited in place or its positioning note lives in first-party docs only, given the vendored-code review boundary.
+- ~~Whether the `skill-management` skill (vendored under `.agents/skills/`) is edited in place or its positioning note lives in first-party docs only, given the vendored-code review boundary.~~ **Resolved 2026-07-07** (inventory update `20260707T161121Z`): `skill-management` is a first-party skill with canonical source `skills/skill-management/` (`.agents/skills/skill-management` is a symlink), so it is edited in place; the vendored-code boundary is not implicated.
