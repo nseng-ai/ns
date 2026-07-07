@@ -16,7 +16,7 @@ import type {
 	FlowLandExternalCallTelemetryEvent,
 	FlowLandExternalCallTelemetrySink,
 } from "./stack/external-call-telemetry.ts";
-import { createLandRuntime } from "./stack/land-runtime.ts";
+import { createStackLandingRuntime } from "./stack/stack-landing-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { notifyPrintAware, presentFailureAndReturn, usage } from "./stack/presentation.ts";
 import {
@@ -116,7 +116,7 @@ async function runLandCommand(
 		shouldMirrorFinishedCommandsToNonUi: false,
 		...landCommandStreamObservabilityOptions(options),
 	});
-	const runtime = createLandRuntime(pi, commandStream);
+	const runtime = createStackLandingRuntime(pi, commandStream);
 	return await runLandingDispatch({
 		runtime,
 		ctx,

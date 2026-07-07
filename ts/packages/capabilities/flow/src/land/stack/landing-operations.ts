@@ -16,7 +16,7 @@ import {
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
 import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandingPlan, PullRequestFacts, WorktreeConflict } from "../types.ts";
 import type {
 	LandStackCommandContext,
@@ -199,8 +199,7 @@ export async function prepareMergeLoopState(
 }
 
 export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
-	runtime: LandRuntime;
-	landContext: LandContext;
+	runtime: StackLandingRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	landed: LandedPr[];
@@ -235,11 +234,12 @@ export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
 	const { runtime, ctx, plan, landed, warnings } = options;
+	const { landContext } = runtime;
 	const { repoRoot, stack } = plan;
 	let state = options.mergeState;
 	if (!state) {
 		const preparedState = await prepareMergeLoopState({
-			git: options.landContext.git,
+			git: landContext.git,
 			repoRoot,
 			branches: [...stack.landingBranches, ...stack.descendantBranches],
 			warnings,
@@ -255,9 +255,9 @@ export async function runMergeLoop(
 			branch,
 			column: "gate",
 			op: async () => {
-				const localSha = await options.landContext.git.localBranchSha({ repoRoot, branch });
+				const localSha = await landContext.git.localBranchSha({ repoRoot, branch });
 				if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
-				const pr = await options.landContext.github.pullRequestFacts({
+				const pr = await landContext.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: branch,
 				});
@@ -281,7 +281,7 @@ export async function runMergeLoop(
 			op: async () => {
 				options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
 				setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
-				const merge = await options.landContext.github.squashMergePullRequest({
+				const merge = await landContext.github.squashMergePullRequest({
 					repoRoot,
 					pullRequest: currentPr,
 				});
@@ -297,7 +297,7 @@ export async function runMergeLoop(
 			column: "verify",
 			op: async () => {
 				setStatus(ctx, `verifying #${currentPr.number}...`);
-				const facts = await options.landContext.github.pullRequestFacts({
+				const facts = await landContext.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: String(currentPr.number),
 				});
@@ -350,7 +350,7 @@ export async function runMergeLoop(
 
 		options.commandStream?.matrix?.setCell(branch, "restack", { state: "active" });
 		const maintenance = await performGraphiteMaintenance({
-			landContext: options.landContext,
+			landContext,
 			runtime,
 			ctx,
 			plan,

@@ -12,7 +12,10 @@ import {
 import type { FlowLandExternalCallTelemetrySink } from "./stack/external-call-telemetry.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./stack/constants.ts";
 import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
-import { createLandRuntime, type LandRuntime } from "./stack/land-runtime.ts";
+import {
+	createStackLandingRuntime,
+	type StackLandingRuntime,
+} from "./stack/stack-landing-runtime.ts";
 import {
 	completed,
 	failure,
@@ -78,15 +81,10 @@ export async function executeStackLanding(
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
-	const createdRuntime = createLandRuntime(
-		pi,
-		commandStream,
-		optionalEntry("gitStateFs", options.gitStateFs),
-	);
-	const runtime: LandRuntime =
-		options.graphite === undefined
-			? createdRuntime
-			: { ...createdRuntime, graphite: options.graphite };
+	const runtime: StackLandingRuntime = createStackLandingRuntime(pi, commandStream, {
+		...optionalEntry("gitStateFs", options.gitStateFs),
+		...optionalEntry("graphite", options.graphite),
+	});
 	try {
 		if (parsedArgs.shouldShowHelp) {
 			present({ ctx, message: usage(), level: "info" });
@@ -94,7 +92,7 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
-		const plan = await buildLandingPlan(runtime, ctx.cwd, {
+		const plan = await buildLandingPlan(runtime.landContext, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 		});
 		if (plan.type === "failure") {

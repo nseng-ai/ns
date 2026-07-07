@@ -18,7 +18,7 @@ import {
 import { validateOpenPrBasics } from "../api.ts";
 import { loadPr } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandContext,
@@ -125,7 +125,7 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 
 interface PerformGraphiteMaintenanceOptions {
 	landContext: LandContext;
-	runtime: LandRuntime;
+	runtime: StackLandingRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	step: GraphiteMaintenanceStep;
@@ -133,7 +133,7 @@ interface PerformGraphiteMaintenanceOptions {
 
 interface MaintenanceOperationContext {
 	landContext: LandContext;
-	runtime: LandRuntime;
+	runtime: StackLandingRuntime;
 	ctx: LandStackCommandContext;
 	repoRoot: string;
 	plan: LandingPlan;

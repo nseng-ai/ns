@@ -1,5 +1,5 @@
 import { buildStackLandingPlan } from "../api.ts";
-import type { LandingFailure, LandingPlan, PrSubmitRequirement } from "../api.ts";
+import type { LandContext, LandingFailure, LandingPlan, PrSubmitRequirement } from "../api.ts";
 import {
 	failure,
 	landStackFailure,
@@ -7,17 +7,16 @@ import {
 	type LandStackFailure,
 	type LandStackResult,
 } from "./errors.ts";
-import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
 
 export async function buildLandingPlan(
-	runtime: LandRuntime,
+	landContext: LandContext,
 	cwd: string,
 	options: {
 		shouldAllowSubmitRequiredState?: boolean;
 		landingBranchLimit?: number;
 	} = {},
 ): Promise<LandStackResult<LandingPlan>> {
-	const landPlan = await buildStackLandingPlan(createRuntimeLandContext(runtime), cwd, {
+	const landPlan = await buildStackLandingPlan(landContext, cwd, {
 		shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
 		...(options.landingBranchLimit === undefined
 			? {}

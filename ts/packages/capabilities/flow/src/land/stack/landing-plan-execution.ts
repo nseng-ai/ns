@@ -14,12 +14,12 @@ import {
 	presentDryRunLanding,
 	presentLandingSuccess,
 } from "./presentation.ts";
-import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
+import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandingPlan } from "../types.ts";
 import type { LandingWarning, ParsedArgs } from "./types.ts";
 
 interface ExecuteLandingPlanOptions {
-	runtime: LandRuntime;
+	runtime: StackLandingRuntime;
 	parsedArgs: ParsedArgs;
 	options: {
 		shouldSkipMainConfirmation?: boolean;
@@ -62,10 +62,8 @@ export async function executeLandingPlan(
 	});
 	if (readyPlan.type === "failure") return readyPlan;
 
-	const landContext = createRuntimeLandContext(runtime);
 	const mergeOutcome = await runMergeLoop({
 		runtime,
-		landContext,
 		ctx,
 		plan: readyPlan.value,
 		landed,
