@@ -1,6 +1,6 @@
 # @nseng-ai/pr-feedback
 
-TypeScript package for the Address Capability API and `ns address exec ...` command face: LM-ready PR feedback download plus shared PR feedback primitives.
+TypeScript package for the Address Capability API and `ns address exec ...` command face: PR feedback report download plus shared PR feedback primitives.
 
 The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, batch mutation orchestration, checkpoints, finalization, and detail lookup — is retired and deleted from the current CLI.
 
@@ -8,13 +8,13 @@ The old addressing workflow engine — payload sessions, classification, plannin
 
 The retained foundation is:
 
-- `ns address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
+- `ns address exec download-feedback [--pr-number <number>] --format json` for a Markdown feedback report.
 - `ns address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
 - `ns address exec branch-pr-checks --branches-json '{"branches":[...]}' --format json` as batched branch-to-PR-checks plumbing for `/pr:preview-checks`: one GitHub GraphQL request resolves every branch's open PR and its normalized checks.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
 - Mutation primitives: `reply-review-thread`, `resolve-review-thread`, and `close-review-threads`.
 
-The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub. After human direction, current-state inspection, implementation or verification, and appropriate validation, review-thread mutations should use the primitive commands instead of raw `gh api graphql`.
+The `download-feedback` result includes Markdown intended for session/editor viewing. Downloading feedback must not mutate GitHub. After human direction, current-state inspection, implementation or verification, and appropriate validation, review-thread mutations should use the primitive commands instead of raw `gh api graphql`.
 
 ## Capability API
 

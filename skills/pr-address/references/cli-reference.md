@@ -43,7 +43,7 @@ For multiple confirmed thread IDs, use `close-review-threads` rather than shell 
 
 ## Safety policy
 
-Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback` for initial triage, inspect the downloaded Markdown, ask for confirmation before code changes, and avoid resolving or replying during the initial triage prompt.
+Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback` to view downloaded Markdown reports, ask for confirmation before code changes, and avoid resolving or replying during the initial download step.
 
 After the human asks the agent to address feedback, current repo state has been inspected, fixes are implemented or verified, and appropriate validation has passed, use the mutation primitives above for review-thread replies/resolutions rather than raw `gh api graphql`.
 

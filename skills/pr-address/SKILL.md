@@ -5,7 +5,7 @@ description: "Use when downloading GitHub PR feedback or using ns address exec P
 
 # pr-address
 
-Address is the repo-owned PR feedback surface: LM-ready feedback download plus shared `ns address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations. The skill slug remains `pr-address` for discoverability.
+Address is the repo-owned PR feedback surface: feedback report download plus shared `ns address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations. The skill slug remains `pr-address` for discoverability.
 
 ## Initial feedback download
 
@@ -20,7 +20,7 @@ Manual CLI fallback:
 ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session prefill. The generated prompt's automatic-triage rules are sourced from `ts/packages/capabilities/pr-feedback/src/core/download-feedback-common-policy.md`, which includes the authored `download-feedback-auto-triage-policy.md` fragment; follow that source-of-truth policy rather than restating it here. Single-PR downloads should fix the immediate PR/current checkout; stack downloads should put policy-eligible straightforward stack-wide fixes in a new single omnibus follow-up PR stacked on the current branch unless the human explicitly asks for downstack surgery.
+The JSON result includes a `markdown` field intended for editor/session viewing. It is a report, not an automatic triage or implementation prompt; inspect it and ask the human how to proceed before editing or mutating GitHub.
 
 ## Current primitive surface
 

@@ -5,7 +5,7 @@
 		"commands": [
 			{
 				"name": "exec-download-feedback",
-				"description": "Download current PR feedback as an LM-ready Markdown triage prompt.",
+				"description": "Download current PR feedback as a Markdown report.",
 				"entry": "./src/commands/exec-download-feedback.ts"
 			},
 			{

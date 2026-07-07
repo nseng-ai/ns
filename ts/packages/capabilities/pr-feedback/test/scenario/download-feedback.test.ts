@@ -94,7 +94,7 @@ function defaultPrFeedback(): InMemoryGithubPrFeedbackGateway {
 }
 
 describe("ns address exec download-feedback", () => {
-	test("downloads current-branch PR feedback as a Markdown triage prompt", async () => {
+	test("downloads current-branch PR feedback as a Markdown report", async () => {
 		const run = runScenario(["exec", "download-feedback", "--format", "json"], {
 			git: new InMemoryGitGateway({ currentBranch: "feature/demo" }),
 			prFeedback: defaultPrFeedback(),
@@ -119,56 +119,17 @@ describe("ns address exec download-feedback", () => {
 		});
 		const markdown = data.markdown;
 		if (typeof markdown !== "string") throw new Error("expected markdown string");
-		expect(markdown).toContain("# PR feedback triage request");
-		expect(markdown).toContain(
-			"Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.",
-		);
-		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(
-			markdown.indexOf("## Instructions before responding"),
-		);
+		expect(markdown).toContain("# PR feedback report");
+		expect(markdown).toContain("Downloaded PR feedback is below.");
 		expect(markdown.indexOf("## Summary")).toBeGreaterThan(
 			markdown.indexOf("## Discussion comments"),
 		);
-		expect(markdown.indexOf("## Instructions before responding")).toBeGreaterThan(
-			markdown.indexOf("## Summary"),
-		);
-		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(
-			markdown.indexOf("## Summary"),
-		);
-		expect(markdown.indexOf("Triage and group the feedback below")).toBe(-1);
-		expect(markdown).toContain("Default single-PR feedback policies:");
-		expect(markdown).toContain("Inspect the current repository state before acting");
-		expect(markdown).toContain("Automatically address straightforward feedback");
-		expect(markdown).toContain("bounded, reviewable fix without a product/design decision");
-		expect(markdown).toContain("classify feedback groups as AUTO, STEER, or DEFER");
-		expect(markdown).toContain("AUTO may include multi-file edits");
-		expect(markdown).toContain("dependency additions that satisfy repo layering/package policy");
-		expect(markdown).toContain("schema/type source-of-truth consolidation");
-		expect(markdown).toContain("localized control-flow refactors");
-		expect(markdown).toContain("already fixed or stale against the current repo state");
-		expect(markdown).toContain(
-			"STEER is required when the change would alter user-visible behavior",
-		);
-		expect(markdown).toContain("uncertain or failed dependency/layering check");
-		expect(markdown).toContain("Grouping feedback is for triage clarity");
-		expect(markdown).toContain(
-			"do not convert many small comments into a surprisingly broad refactor",
-		);
-		expect(markdown).toContain("If the AUTO plan becomes broad");
-		expect(markdown).toContain("unless the user explicitly asked for hands-off execution");
-		expect(markdown).toContain("directly on the immediate PR branch/current checkout");
-		expect(markdown).toContain("do not create an omnibus follow-up branch for single-PR feedback");
-		expect(markdown).toContain("ns address exec close-review-threads --thread-ids-json");
-		expect(markdown).toContain("include `--body <BODY>` when a reply is useful");
-		expect(markdown).toContain("all downloaded feedback was handled by AUTO fixes");
-		expect(markdown).toContain("resubmit the PR with `ns flow submit`");
-		expect(markdown).toContain(
-			"do not use raw `gh api graphql` for review-thread resolve/reply mutations",
-		);
-		expect(markdown).toContain("Present remaining ambiguous, complex");
-		expect(markdown).not.toContain("Do not edit files yet");
-		expect(markdown).not.toContain("wait for human confirmation");
-		expect(markdown.trim()).toMatch(/report that failure\.$/u);
+		expect(markdown).not.toContain("# PR feedback triage request");
+		expect(markdown).not.toContain("## Instructions before responding");
+		expect(markdown).not.toContain("Triage and group the feedback above");
+		expect(markdown).not.toContain("classify feedback groups as AUTO, STEER, or DEFER");
+		expect(markdown).not.toContain("ns address exec close-review-threads --thread-ids-json");
+		expect(markdown).not.toContain("ns flow submit");
 		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");
 		expect(markdown).toContain("- URL: https://example.test/pr/42");
 		expect(markdown).toContain("- Branch: feature/demo");
@@ -267,6 +228,6 @@ describe("ns address exec download-feedback", () => {
 		expect(data.markdown).toContain("## Summary");
 		expect(data.markdown).toContain("Downloaded feedback for PR #7: Quiet PR");
 		expect(data.markdown).toContain("- Unresolved review threads included: 0");
-		expect(data.markdown).toContain("## Instructions before responding");
+		expect(data.markdown).not.toContain("## Instructions before responding");
 	});
 });
