@@ -19,15 +19,18 @@ import {
 } from "./preview-checks-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
 import { parseCheckLogSummaryMarkdownLine } from "./preview-view-utilities.ts";
-import { overlayRenderLayout, renderOverlayFrame } from "../overlay-kit/frame.ts";
-import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
+import { PreviewModalChrome } from "./preview-modal-chrome.ts";
 
 const DEFAULT_LOG_LOAD_TIMEOUT_MS = 90_000;
 
 type PreviewThemeColor =
 	| PrPreviewStatusColor
 	| "text"
+	| "muted"
 	| "accent"
+	| "warning"
+	| "error"
+	| "dim"
 	| "border"
 	| "mdHeading"
 	| "mdCode";
@@ -62,7 +65,6 @@ export interface PrPreviewChecksViewOptions {
 
 export class PrPreviewChecksView implements Component {
 	private readonly tui: TUI;
-	private readonly theme: Theme;
 	private readonly model: PrPreviewChecksViewModel;
 	private readonly onClose: () => void;
 	private readonly onLoadLogs:
@@ -71,43 +73,31 @@ export class PrPreviewChecksView implements Component {
 	private readonly logLoadTimeoutMs: number;
 	private focusedPane: PreviewFocusedPane;
 	private selectedTargetIndex: number;
-	private selectedCheckIndex: number;
 	private stackScroll: number;
-	private listScroll: number;
-	private detailScroll: number;
+	private readonly chrome: PreviewModalChrome<PreviewThemeColor>;
 	private readonly logCache: Map<PrPreviewCheck, CheckLogCacheEntry>;
 
 	constructor(options: PrPreviewChecksViewOptions) {
 		this.tui = options.tui;
-		this.theme = options.theme;
 		this.model = options.model;
 		this.onClose = options.onClose;
 		this.onLoadLogs = options.onLoadLogs;
 		this.logLoadTimeoutMs = options.logLoadTimeoutMs ?? DEFAULT_LOG_LOAD_TIMEOUT_MS;
 		this.focusedPane = previewChecksStackEntries(options.model).length > 1 ? "stack" : "checks";
 		this.selectedTargetIndex = initialTargetIndex(options.model);
-		this.selectedCheckIndex = 0;
 		this.stackScroll = 0;
-		this.listScroll = 0;
-		this.detailScroll = 0;
+		this.chrome = new PreviewModalChrome({ tui: options.tui, theme: options.theme });
 		this.logCache = new Map();
 	}
 
 	render(width: number): string[] {
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color("dim", this.footerText());
-		const { innerWidth, bodyRows } = overlayRenderLayout({
+		return this.chrome.renderFrame({
 			width,
-			terminalRows: this.tui.terminal.rows,
-			headerLength: header.length,
-		});
-		const body = this.renderBody(innerWidth, bodyRows);
-		return renderOverlayFrame({
 			header,
-			body,
 			footer,
-			width,
-			colorizeBorder: (text) => this.color("border", text),
+			renderBody: (innerWidth, bodyRows) => this.renderBody(innerWidth, bodyRows),
 		});
 	}
 
@@ -162,10 +152,8 @@ export class PrPreviewChecksView implements Component {
 		this.selectedTargetIndex = clamp(this.selectedTargetIndex, 0, entries.length - 1);
 		const selectedEntry = entries[this.selectedTargetIndex];
 		if (selectedEntry === undefined) return this.renderEmptyBody(width, rows);
-		this.selectedCheckIndex = clamp(
-			this.selectedCheckIndex,
-			0,
-			Math.max(0, selectedEntry.checks.length - 1),
+		this.chrome.setSelected(
+			clamp(this.chrome.selected(), 0, Math.max(0, selectedEntry.checks.length - 1)),
 		);
 
 		const shouldRenderStack = entries.length > 1;
@@ -177,18 +165,11 @@ export class PrPreviewChecksView implements Component {
 			selectedEntry.checks.length === 0
 				? 1
 				: checkListRows({ totalRows: rowsAfterStack, checkCount: selectedEntry.checks.length });
-		const detailRows = Math.max(1, rowsAfterStack - listRows - 2);
 		this.stackScroll = reconcileScroll({
 			scroll: this.stackScroll,
 			anchor: this.selectedTargetIndex,
 			areaHeight: Math.max(1, stackRows),
 			totalLines: entries.length,
-		});
-		this.listScroll = reconcileScroll({
-			scroll: this.listScroll,
-			anchor: this.selectedCheckIndex,
-			areaHeight: listRows,
-			totalLines: selectedEntry.checks.length,
 		});
 		return [
 			...(shouldRenderStack
@@ -198,10 +179,17 @@ export class PrPreviewChecksView implements Component {
 						this.color("muted", "Selected stack PR checks"),
 					]
 				: []),
-			...this.renderCheckListLines(selectedEntry, width, listRows),
-			this.color("dim", "─".repeat(Math.max(1, width))),
-			this.color("muted", "Selected check details"),
-			...this.renderSelectedCheckDetailLines(selectedEntry, width, detailRows),
+			...this.chrome.renderListDetailBody({
+				items: selectedEntry.checks,
+				width,
+				rows: rowsAfterStack,
+				listRows,
+				renderRow: (check, actualIndex, rowWidth) =>
+					this.renderCheckRow(check, actualIndex, rowWidth),
+				renderDetailLines: (check) => this.renderDetailLines(check),
+				detailLabel: "Selected check details",
+				emptyListLines: [this.color("muted", "  No checks returned for this stack PR.")],
+			}),
 		];
 	}
 
@@ -218,42 +206,8 @@ export class PrPreviewChecksView implements Component {
 		});
 	}
 
-	private renderCheckListLines(
-		entry: PrPreviewChecksStackEntry,
-		width: number,
-		rows: number,
-	): string[] {
-		if (entry.checks.length === 0)
-			return [this.color("muted", "  No checks returned for this stack PR.")];
-		const visibleChecks = entry.checks.slice(this.listScroll, this.listScroll + rows);
-		return Array.from({ length: rows }, (_unused, row) => {
-			const check = visibleChecks[row];
-			if (check === undefined) return "";
-			return this.renderCheckRow(check, this.listScroll + row, width);
-		});
-	}
-
-	private renderSelectedCheckDetailLines(
-		entry: PrPreviewChecksStackEntry,
-		width: number,
-		rows: number,
-	): string[] {
-		const detailLines = this.renderDetailLines(entry.checks[this.selectedCheckIndex]);
-		const viewport = sliceWrappedDetailLinesForViewport({
-			lines: detailLines,
-			width,
-			rows,
-			scroll: this.detailScroll,
-		});
-		this.detailScroll = viewport.scroll;
-		return Array.from({ length: rows }, (_unused, row) =>
-			fitToWidth(viewport.lines[row] ?? "", width),
-		);
-	}
-
 	private renderEmptyBody(width: number, rows: number): string[] {
-		const lines = wrapDetailLines(buildEmptyStateLines(this.model), width);
-		return Array.from({ length: rows }, (_unused, index) => fitToWidth(lines[index] ?? "", width));
+		return this.chrome.renderEmptyBody(buildEmptyStateLines(this.model), width, rows);
 	}
 
 	private renderDetailLines(check: PrPreviewCheck | undefined): string[] {
@@ -280,7 +234,7 @@ export class PrPreviewChecksView implements Component {
 			.map((segment) => {
 				switch (segment.kind) {
 					case "bold":
-						return this.theme.bold(this.color("mdHeading", segment.text));
+						return this.chrome.bold(this.color("mdHeading", segment.text));
 					case "code":
 						return this.color("mdCode", segment.text);
 					case "plain":
@@ -321,19 +275,23 @@ export class PrPreviewChecksView implements Component {
 		const row = fitToWidth(`${prefix}${buildStackEntryRowLabel(entry)}`, width);
 		if (actualIndex !== this.selectedTargetIndex) return this.color("muted", row);
 		const highlighted = this.color("accent", row);
-		return this.focusedPane === "stack" ? this.theme.bg("selectedBg", highlighted) : highlighted;
+		return this.focusedPane === "stack"
+			? this.chrome.background("selectedBg", highlighted)
+			: highlighted;
 	}
 
 	private renderCheckRow(check: PrPreviewCheck, actualIndex: number, width: number): string {
-		const prefix = actualIndex === this.selectedCheckIndex ? "> " : "  ";
+		const prefix = actualIndex === this.chrome.selected() ? "> " : "  ";
 		const row = fitToWidth(`${prefix}${buildCheckRowLabel(check)}`, width);
-		if (actualIndex !== this.selectedCheckIndex) {
+		if (actualIndex !== this.chrome.selected()) {
 			const presentation = bucketPresentation(check.bucket);
 			const colored = this.color(presentation.color, row);
-			return presentation.bold ? this.theme.bold(colored) : colored;
+			return presentation.bold ? this.chrome.bold(colored) : colored;
 		}
 		const highlighted = this.color("accent", row);
-		return this.focusedPane === "checks" ? this.theme.bg("selectedBg", highlighted) : highlighted;
+		return this.focusedPane === "checks"
+			? this.chrome.background("selectedBg", highlighted)
+			: highlighted;
 	}
 
 	private hasStackPane(): boolean {
@@ -381,40 +339,34 @@ export class PrPreviewChecksView implements Component {
 		const next = moveIndex(this.selectedTargetIndex, delta, entries.length - 1);
 		if (next === null) return;
 		this.selectedTargetIndex = next;
-		this.selectedCheckIndex = 0;
-		this.listScroll = 0;
-		this.detailScroll = 0;
+		this.chrome.setSelected(0);
+		this.chrome.resetListAndDetailScroll();
 		this.tui.requestRender();
 	}
 
 	private moveCheckSelection(delta: number): void {
 		const entry = previewChecksStackEntries(this.model)[this.selectedTargetIndex];
 		if (entry === undefined) return;
-		const next = moveIndex(this.selectedCheckIndex, delta, entry.checks.length - 1);
-		if (next === null) return;
-		this.selectedCheckIndex = next;
-		this.detailScroll = 0;
-		this.tui.requestRender();
+		this.chrome.moveSelection(entry.checks.length, delta);
 	}
 
 	private scrollDetails(delta: number): void {
-		this.detailScroll = Math.max(0, this.detailScroll + delta);
-		this.tui.requestRender();
+		this.chrome.scrollDetails(delta);
 	}
 
 	private async loadSelectedCheckLogs(): Promise<void> {
 		const entry = previewChecksStackEntries(this.model)[this.selectedTargetIndex];
-		const check = entry?.checks[this.selectedCheckIndex];
+		const check = entry?.checks[this.chrome.selected()];
 		if (check === undefined || this.onLoadLogs === undefined) return;
 		const cached = this.logCache.get(check);
 		if (cached?.type === "loading") return;
 		if (cached?.type === "loaded") {
-			this.detailScroll = 0;
+			this.chrome.resetDetailScroll();
 			this.tui.requestRender();
 			return;
 		}
 		this.logCache.set(check, { type: "loading" });
-		this.detailScroll = 0;
+		this.chrome.resetDetailScroll();
 		this.tui.requestRender();
 		const signal = createLogLoadSignal(this.logLoadTimeoutMs);
 		try {
@@ -432,7 +384,7 @@ export class PrPreviewChecksView implements Component {
 	}
 
 	private color(color: PreviewThemeColor, value: string): string {
-		return this.theme.fg(color, value);
+		return this.chrome.color(color, value);
 	}
 }
 
