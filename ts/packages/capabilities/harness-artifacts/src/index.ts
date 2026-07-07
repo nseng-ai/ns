@@ -10,6 +10,12 @@ export {
 	type HarnessArtifactKind,
 	type SkillHarnessArtifactEntry,
 } from "./artifact-catalog.ts";
+export {
+	findFirstPartySkillArtifact,
+	listFirstPartySkillArtifacts,
+	NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG,
+	type FirstPartySkillHarnessArtifact,
+} from "./first-party-catalog.ts";
 export type { PathState, TextFileState } from "./fs-state.ts";
 export {
 	ALL_HARNESS_IDS,
