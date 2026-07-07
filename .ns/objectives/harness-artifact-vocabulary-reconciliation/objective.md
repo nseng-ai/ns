@@ -10,7 +10,7 @@ edges:
 
 The harness-artifact subsystem (`@nseng-ai/harness-artifacts`, `ns skills`, `ns update`, the install manifest) landed on top of an ecosystem that already had skill workflows and vocabulary: the `npx skills` third-party toolchain and its canonical in-repo reference skill, `docs/conventions/skill-conventions.md`, the `@nseng-ai/areg` inspector's own "managed artifacts" term, residual `skillx` references, and domain `CONTEXT.md` files that predate the **harness artifact** vocabulary decision. This Subobjective reconciles them: every doc, skill, and code-facing name should tell one coherent story in which the new CLI behavior is *additive* — first-party npm-module-bundled provisioning via `ns` alongside third-party acquisition via `npx skills` — and the decided vocabulary (harness artifact / skills / provision / harness) is used consistently.
 
-It includes the **bare-"artifact" collision cleanup**, a documented umbrella risk: "artifact" is used by three domains — handoff artifacts (`@nseng-ai/handoffs`), consumer artifacts (`docs/conventions/platform-and-consumer.md`), and AREG's "managed artifacts" for invocation-kind overlay files. The first two stay owned by their domains; AREG's overlay sense is renamed (working candidate: **kind overlays**), and "harness artifact" is the canonical qualified term wherever ambiguity exists.
+It includes the **bare-"artifact" collision cleanup**, a documented umbrella risk: "artifact" is used by three domains — handoff artifacts (`@nseng-ai/handoffs`), consumer artifacts (`docs/conventions/platform-and-consumer.md`), and AREG's "managed artifacts" for invocation-kind overlay files. The first two stay owned by their domains; AREG's overlay sense is renamed to **harness overlays**, and "harness artifact" is the canonical qualified term wherever ambiguity exists.
 
 This is a **bounded execution Subobjective** under the `skill-management-subsystem` umbrella — documentation-, vocabulary-, and rename-heavy, with small mechanical code renames but no provisioning behavior change.
 
@@ -26,7 +26,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 ## Scope
 
 - **Inventory the overlap surface** first: every doc, skill, CONTEXT.md, and code identifier where the old and new skill/artifact vocabularies or workflows meet. The inventory bounds the sweep; record it as a Semantic Update before renaming.
-- **Rename AREG's "managed artifacts" overlay sense** (e.g. to "kind overlays") across operations, tests, and user-facing strings; flag any machine-facing name changes explicitly.
+- **Rename AREG's "managed artifacts" overlay sense** to **harness overlays** across operations, tests, and user-facing strings; flag any machine-facing name changes explicitly.
 - **Update `docs/conventions/skill-conventions.md`** and the `skill-management` skill so they position the two channels accurately: `ns skills` / `ns update` for first-party npm-module-bundled provisioning; `npx skills` for third-party acquisition; AREG as the whole-project inspector over both records.
 - **Sweep residual `skillx` references** in skills, retros, and tests to reflect its deletion.
 - **Align domain `CONTEXT.md` files** (per `CONTEXT-MAP.md` routing) with the harness-artifact vocabulary, including `Avoid` entries for the retired/colliding terms (bare "artifact" where ambiguous, "platform" for harness).
@@ -69,10 +69,10 @@ Assumptions:
 Risks:
 
 - **Sweep creep:** vocabulary sweeps invite unbounded editing. Defend with the inventory-first rule; anything outside the inventory needs a recorded reason.
-- **Terminology churn:** picking "kind overlays" hastily could force a second rename. Settle the term (with the domain-modeling conventions) before the mechanical pass.
+- **Terminology churn:** the replacement term could force a second rename if chosen hastily. The 2026-07-07 term decision settled **harness overlays** before the mechanical pass.
 - **Stale-doc whack-a-mole:** docs drift again after the sweep. Mitigate by putting the vocabulary in CONTEXT.md `Avoid` lists, which agents are bound to honor.
 
 ## Open Questions
 
-- Final replacement term for AREG's overlay sense ("kind overlays" is the working candidate; confirm against `CONTEXT.md` conventions before the rename pass).
+- ~~Final replacement term for AREG's overlay sense ("kind overlays" is the working candidate; confirm against `CONTEXT.md` conventions before the rename pass).~~ **Resolved 2026-07-07** (update `20260707T163033Z-harness-overlays-term-decision.md`): final term is **harness overlays** because harnesses define the files and the term remains axis-agnostic beyond invocation.
 - ~~Whether the `skill-management` skill (vendored under `.agents/skills/`) is edited in place or its positioning note lives in first-party docs only, given the vendored-code review boundary.~~ **Resolved 2026-07-07** (inventory update `20260707T161121Z`): `skill-management` is a first-party skill with canonical source `skills/skill-management/` (`.agents/skills/skill-management` is a symlink), so it is edited in place; the vendored-code boundary is not implicated.

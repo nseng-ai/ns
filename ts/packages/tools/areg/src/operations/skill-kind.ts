@@ -131,7 +131,7 @@ export const skillKindApplyRequestSchema = z.object({
 		.default(".")
 		.describe("Project directory or subdirectory to mutate (default: current directory)."),
 	dryRun: z.boolean().default(false).describe("Show planned edits without writing files."),
-	yes: z.boolean().default(false).describe("Approve deletion prompts for managed artifacts."),
+	yes: z.boolean().default(false).describe("Approve deletion prompts for harness overlays."),
 	kind: z.enum(SKILL_INVOCATION_KINDS).describe("Desired skill invocation kind."),
 	skills: z.array(z.string()).min(1).describe("Installed skill names or path-like skill specs."),
 });
@@ -197,7 +197,7 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	skillGroup.command({
 		name: "apply",
 		description:
-			"Apply the managed artifacts for a skill invocation kind. This reconciles managed artifacts to the requested kind. The unlisted kind additionally deletes the .agents/skills and .claude/skills mirror symlinks so the skill disappears from every harness typeahead. It is not a historical undo system; use git to roll back exact previous file contents.",
+			"Apply the harness overlays for a skill invocation kind. This reconciles harness overlays to the requested kind. The unlisted kind additionally deletes the .agents/skills and .claude/skills mirror symlinks so the skill disappears from every harness typeahead. It is not a historical undo system; use git to roll back exact previous file contents.",
 		schema: skillKindApplyRequestSchema,
 		positionals: { kind: { position: 0 }, skills: { position: 1 } },
 		options: { yes: { short: "-y" } },

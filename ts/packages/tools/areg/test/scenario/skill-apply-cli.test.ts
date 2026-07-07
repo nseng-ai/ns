@@ -129,7 +129,7 @@ describe("areg skill apply CLI", () => {
 		expect(run.stdout.join("")).toBe("");
 	});
 
-	test("normal requires confirmation before deleting managed artifacts", async () => {
+	test("normal requires confirmation before deleting harness overlays", async () => {
 		const managed = "---\nname: demo\ndisable-model-invocation: true\n---\n";
 		const declined = runScenario(["skill", "apply", "normal", "demo"], {
 			project: {
