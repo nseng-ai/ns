@@ -1,8 +1,7 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -13,6 +12,7 @@ import {
 	loadProjectConfig,
 	parseProjectConfigToml,
 	primaryProjectConfigDiagnostic,
+	projectConfigErrorFromDiagnostics,
 	resolvePromptPointSource,
 	type PointDefinition,
 	type ProjectConfigGateway,
@@ -25,23 +25,15 @@ const pointDefinitions = [
 	{ id: "flow.submit.pr-description", accepts: "prompt", semantics: "override" },
 ] as const satisfies readonly PointDefinition[];
 
-const tempDirs: string[] = [];
-
-async function createTempDir(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-project-config-points-"));
-	tempDirs.push(directory);
-	return directory;
-}
+const tempDirs = createTempDirTracker();
 
 function writeFile(path: string, content: string): void {
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, content);
 }
 
-afterEach(() => {
-	for (const directory of tempDirs.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
+afterEach(async () => {
+	await tempDirs.cleanup();
 });
 
 describe("project point config", () => {
@@ -87,11 +79,48 @@ describe("project point config", () => {
 		expect(result.diagnostics).toEqual([
 			expect.objectContaining({
 				code: "ns_toml_invalid",
-				pathLabel: "ns.toml",
 				causeMessage: expect.any(String),
 				message: expect.stringContaining("ns.toml: Invalid TOML.\n"),
 			}),
 		]);
+	});
+
+	test("maps project config diagnostics to consumer error codes", () => {
+		const invalidToml = projectConfigErrorFromDiagnostics(
+			[
+				{
+					severity: "error",
+					code: "ns_toml_invalid",
+					message: "ns.toml: Invalid TOML.",
+					causeMessage: "Expected key",
+				},
+			],
+			{ invalidToml: "invalid-toml", defaultCode: "invalid-table", pathLabel: "ns.toml" },
+		);
+		expect(invalidToml).toMatchObject({
+			code: "invalid-toml",
+			message: "Invalid TOML in ns.toml: Expected key",
+		});
+
+		const invalidSettings = projectConfigErrorFromDiagnostics(
+			[
+				{
+					severity: "error",
+					code: "settings_table_invalid",
+					path: "roaster.diff",
+					message: "ns.toml: [roaster.diff] must be a TOML table.",
+				},
+			],
+			{
+				invalidToml: "invalid-toml",
+				invalidSettingsByPath: { "roaster.diff": "invalid-table" },
+				defaultCode: "invalid-toml",
+			},
+		);
+		expect(invalidSettings).toMatchObject({
+			code: "invalid-table",
+			message: "ns.toml: [roaster.diff] must be a TOML table.",
+		});
 	});
 
 	test("selects the first error diagnostic as the primary project config diagnostic", () => {
@@ -203,7 +232,7 @@ context_lines = "wide"
 	});
 
 	test("discovers point definitions from ns.points extension manifests", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-project-config-points-");
 		writeFile(
 			join(root, "flow", "package.json"),
 			JSON.stringify({
@@ -247,7 +276,7 @@ context_lines = "wide"
 	});
 
 	test("reports malformed point manifest entries", async () => {
-		const root = await createTempDir();
+		const root = await tempDirs.makeTempDir("ns-project-config-points-");
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({

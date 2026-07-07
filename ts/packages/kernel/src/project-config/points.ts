@@ -5,6 +5,7 @@ import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/found
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
+import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
 import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
 import { NS_COMMAND_NAME_PATTERN } from "../sdk/command-name.ts";
 import {
@@ -51,14 +52,78 @@ export interface ProjectConfigDiagnostic {
 	code: string;
 	message: string;
 	path?: string;
-	pathLabel?: string;
 	causeMessage?: string;
+}
+
+export interface ProjectConfigDiagnosticErrorMapping<TCode extends string> {
+	invalidToml: TCode;
+	invalidSettingsByPath?: ReadonlyMap<string, TCode> | Readonly<Record<string, TCode>>;
+	defaultCode: TCode;
+	defaultMessage?: string;
+	pathLabel?: string;
+}
+
+export interface ProjectConfigMappedError<TCode extends string> {
+	code: TCode;
+	message: string;
+	diagnostic?: ProjectConfigDiagnostic;
 }
 
 export function primaryProjectConfigDiagnostic(
 	diagnostics: readonly ProjectConfigDiagnostic[],
 ): ProjectConfigDiagnostic | undefined {
 	return diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
+}
+
+export function projectConfigErrorFromDiagnostics<TCode extends string>(
+	diagnostics: readonly ProjectConfigDiagnostic[],
+	mapping: ProjectConfigDiagnosticErrorMapping<TCode>,
+): ProjectConfigMappedError<TCode> {
+	const diagnostic = primaryProjectConfigDiagnostic(diagnostics);
+	if (diagnostic?.code === "ns_toml_invalid") {
+		return {
+			code: mapping.invalidToml,
+			message: formatProjectConfigInvalidTomlMessage(diagnostic, mapping.pathLabel),
+			diagnostic,
+		};
+	}
+	if (diagnostic?.code === "settings_table_invalid" && diagnostic.path !== undefined) {
+		const settingsCode = projectConfigSettingsCode(mapping.invalidSettingsByPath, diagnostic.path);
+		return {
+			code: settingsCode ?? mapping.defaultCode,
+			message: diagnostic.message,
+			diagnostic,
+		};
+	}
+	return {
+		code: mapping.defaultCode,
+		message: diagnostic?.message ?? mapping.defaultMessage ?? "invalid ns.toml",
+		...(diagnostic === undefined ? {} : { diagnostic }),
+	};
+}
+
+function projectConfigSettingsCode<TCode extends string>(
+	codes: ProjectConfigDiagnosticErrorMapping<TCode>["invalidSettingsByPath"],
+	path: string,
+): TCode | undefined {
+	if (codes === undefined) return undefined;
+	if (isReadonlyStringMap(codes)) return codes.get(path);
+	return codes[path];
+}
+
+function isReadonlyStringMap<TValue>(
+	value: ReadonlyMap<string, TValue> | Readonly<Record<string, TValue>>,
+): value is ReadonlyMap<string, TValue> {
+	return typeof (value as { get?: unknown }).get === "function";
+}
+
+function formatProjectConfigInvalidTomlMessage(
+	diagnostic: ProjectConfigDiagnostic,
+	pathLabel: string | undefined,
+): string {
+	if (diagnostic.causeMessage === undefined) return diagnostic.message;
+	if (pathLabel !== undefined) return `Invalid TOML in ${pathLabel}: ${diagnostic.causeMessage}`;
+	return `Invalid TOML.\n${diagnostic.causeMessage}`;
 }
 
 export type ProjectPointInstallation =
@@ -198,7 +263,6 @@ export function parseProjectConfigToml(
 			ok: false,
 			diagnostics: [
 				diagnostic("ns_toml_invalid", `${pathLabel}: Invalid TOML.\n${causeMessage}`, {
-					pathLabel,
 					causeMessage,
 				}),
 			],
@@ -210,9 +274,7 @@ export function parseProjectConfigToml(
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("ns_toml_invalid", `${pathLabel}: top-level TOML document must be a table.`, {
-					pathLabel,
-				}),
+				diagnostic("ns_toml_invalid", `${pathLabel}: top-level TOML document must be a table.`),
 			],
 		};
 	}
@@ -839,19 +901,18 @@ function diagnostic(
 	message: string,
 	options: {
 		path?: string;
-		pathLabel?: string;
 		causeMessage?: string;
 		severity?: ProjectConfigDiagnostic["severity"];
 	} = {},
 ): ProjectConfigDiagnostic {
-	return {
-		severity: options.severity ?? "error",
+	const request = {
 		code,
 		message,
 		...optionalEntry("path", options.path),
-		...optionalEntry("pathLabel", options.pathLabel),
-		...optionalEntry("causeMessage", options.causeMessage),
+		extra: optionalEntry("causeMessage", options.causeMessage),
 	};
+	if (options.severity === "info") return makeKernelDiagnostic({ ...request, severity: "info" });
+	return makeKernelDiagnostic(request);
 }
 
 function isNodeFileNotFound(error: unknown): boolean {

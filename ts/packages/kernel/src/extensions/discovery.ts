@@ -1,12 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import {
-	isPathInside,
-	optionalEntries,
-	optionalEntry,
-	type ZodIssueLike,
-} from "@nseng-ai/foundation/primitives";
+import { isPathInside, optionalEntry, type ZodIssueLike } from "@nseng-ai/foundation/primitives";
 import {
 	nsExtensionManifestCommandSchema,
 	nsExtensionPackageManifestSchema,
@@ -21,6 +16,7 @@ import {
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import type { NsCommandModuleReference } from "./module-reference.ts";
+import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
 import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
 import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
@@ -739,10 +735,10 @@ function diagnostic(
 	message: string,
 	options: { path?: string; commandName?: string } = {},
 ): ExtensionDiscoveryDiagnostic {
-	return {
-		severity: "error",
+	return makeKernelDiagnostic({
 		code,
 		message,
-		...optionalEntries({ path: options.path, commandName: options.commandName }),
-	};
+		...optionalEntry("path", options.path),
+		extra: optionalEntry("commandName", options.commandName),
+	});
 }
