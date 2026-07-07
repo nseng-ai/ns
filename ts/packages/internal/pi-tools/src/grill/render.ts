@@ -1,4 +1,4 @@
-import type { GrillAskRemainingEstimate, NormalizedGrillAskInput } from "./extension.ts";
+import type { GrillAskRemainingEstimate, NormalizedGrillAskInput } from "./protocol.ts";
 import type { GrillAskProgress } from "./progress.ts";
 import {
 	choiceDetailLines,

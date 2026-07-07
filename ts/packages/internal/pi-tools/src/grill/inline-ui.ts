@@ -2,7 +2,7 @@ import type {
 	GrillAskCustomComponent,
 	GrillAskToolContext,
 	NormalizedGrillAskInput,
-} from "./extension.ts";
+} from "./protocol.ts";
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
 import { readGrillAskProgress } from "./progress.ts";
 import {
