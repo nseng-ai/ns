@@ -27,15 +27,16 @@
     declares the hook point, rewires flow submit hooks through the kernel catalog, removes
     flow's direct `smol-toml` dependency, rejects legacy `[flow.hooks]`, and passes targeted
     submit hook unit/scenario tests including `--no-hooks`.
-- [~] Migrate prompt points: `flow.submit.pr-description` (manifest `default` file,
-  id-based `.ns/prompts` name, generalized env dev-override reported by the catalog) and
-  branch-context `plans-write`.
+- [x] Migrate prompt points: `flow.submit.pr-description` (manifest `default` file,
+      id-based `.ns/prompts` name, generalized env dev-override reported by the catalog) and
+      branch-context `plans-write`.
   - Landed: local branch `point-system-prompt-points-FRHJRE` commit `efa6745a2`
     declares both override prompt points, moves default prompt bodies into manifest markdown
     files, renames the checked-in plans-write prompt to `.ns/prompts/branch-context.plans-write.md`,
     and routes both readers through the kernel point catalog.
-  - Remaining before `[x]`: generalize/report the PR-description dev env override through
-    the catalog instead of preserving the old `NS_DEV_PR_DESCRIPTION_PROMPT` special case.
+  - Completed: branch `point-system-prompt-env-catalog-zAmaUa` routes the legacy
+    `NS_DEV_PR_DESCRIPTION_PROMPT` override through the kernel catalog as prompt env override
+    source info with diagnostics while preserving behavior.
   - Policy: each rename cuts over reader and file in the same slice.
 - [ ] Migrate declared settings: roaster (`diff`, `model_profiles`), areg (`agents`),
       ns-init (`harnesses`) onto the shared loader; delete all four ad-hoc smol-toml parsers.

@@ -291,5 +291,15 @@ describe("PR description helpers", () => {
 			text: "repo prompt",
 			source: { type: "repo" },
 		});
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: { [PR_DESCRIPTION_PROMPT_ENV]: envPath },
+				cwd: root,
+			}),
+		).resolves.toMatchObject({
+			ok: true,
+			text: "env prompt",
+			source: { type: "env" },
+		});
 	});
 });

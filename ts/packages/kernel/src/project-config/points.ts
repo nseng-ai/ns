@@ -71,8 +71,14 @@ export type PointDefinitionDiscoveryResult = {
 };
 
 export type PointCatalogInstallation =
+	| { source: "env-prompt"; pointId: string; envVar: string; path: string }
 	| { source: "ns.toml"; installation: ProjectPointInstallation }
 	| { source: "conventional-prompt"; pointId: string; path: string };
+
+export type PromptPointEnvOverride = {
+	pointId: string;
+	envVar: string;
+};
 
 export type PointCatalogEntry = {
 	definition: PointDefinition;
@@ -85,6 +91,7 @@ export type PointCatalog = {
 };
 
 export type PromptPointSource =
+	| { type: "env"; pointId: string; envVar: string; path: string }
 	| { type: "ns.toml"; pointId: string; path: string }
 	| { type: "conventional"; pointId: string; path: string }
 	| { type: "default"; pointId: string; path: string; manifestPath: string }
@@ -250,6 +257,8 @@ export function loadPointCatalog(request: {
 	pointDefinitions?: readonly PointDefinition[];
 	extensionRoot?: string;
 	settingsSchemas?: readonly SettingsSchema[];
+	promptEnvOverrides?: readonly PromptPointEnvOverride[];
+	env?: Record<string, string | undefined>;
 }): PointCatalog {
 	const definitionResult =
 		request.pointDefinitions === undefined
@@ -269,6 +278,8 @@ export function loadPointCatalog(request: {
 		pointDefinitions: definitionResult.pointDefinitions,
 		config: configResult.config ?? { points: [], settings: new Map() },
 		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
+		promptEnvOverrides: request.promptEnvOverrides ?? [],
+		env: request.env ?? {},
 	});
 }
 
@@ -279,6 +290,18 @@ export function resolvePromptPointSource(
 	const entry = catalog.entries.find((catalogEntry) => catalogEntry.definition.id === pointId);
 	if (entry === undefined || entry.definition.accepts !== "prompt")
 		return { type: "missing", pointId };
+
+	const envOverride = entry.installations.find(
+		(installation) => installation.source === "env-prompt",
+	);
+	if (envOverride?.source === "env-prompt") {
+		return {
+			type: "env",
+			pointId,
+			envVar: envOverride.envVar,
+			path: envOverride.path,
+		};
+	}
 
 	const configured = entry.installations.find(
 		(installation) =>
@@ -313,6 +336,8 @@ export function computePointCatalog(request: {
 	pointDefinitions: readonly PointDefinition[];
 	config: LoadedProjectConfig;
 	diagnostics?: readonly ProjectConfigDiagnostic[];
+	promptEnvOverrides?: readonly PromptPointEnvOverride[];
+	env?: Record<string, string | undefined>;
 }): PointCatalog {
 	const diagnostics: ProjectConfigDiagnostic[] = [...(request.diagnostics ?? [])];
 	const installationsByPoint = new Map<string, PointCatalogInstallation[]>();
@@ -329,6 +354,23 @@ export function computePointCatalog(request: {
 		left.id.localeCompare(right.id),
 	)) {
 		let installations = installationsByPoint.get(definition.id) ?? [];
+		if (definition.accepts === "prompt") {
+			const envOverride = findPromptEnvOverride({
+				pointId: definition.id,
+				env: request.env ?? {},
+				overrides: request.promptEnvOverrides ?? [],
+			});
+			if (envOverride !== undefined) {
+				installations = [{ source: "env-prompt", ...envOverride }, ...installations];
+				diagnostics.push(
+					infoDiagnostic(
+						"point_prompt_env_override_in_effect",
+						`Prompt point ${definition.id} is overridden by env var ${envOverride.envVar}.`,
+						{ path: definition.id },
+					),
+				);
+			}
+		}
 		if (definition.accepts === "prompt" && installations.length === 0) {
 			const conventionalPath = `.ns/prompts/${definition.id}.md`;
 			const existsResult = request.gateway.pathExists?.({
@@ -372,6 +414,18 @@ export function computePointCatalog(request: {
 	}
 
 	return { entries, diagnostics };
+}
+
+function findPromptEnvOverride(request: {
+	pointId: string;
+	env: Record<string, string | undefined>;
+	overrides: readonly PromptPointEnvOverride[];
+}): { pointId: string; envVar: string; path: string } | undefined {
+	const override = request.overrides.find((candidate) => candidate.pointId === request.pointId);
+	if (override === undefined) return undefined;
+	const path = request.env[override.envVar]?.trim();
+	if (!path) return undefined;
+	return { pointId: request.pointId, envVar: override.envVar, path };
 }
 
 function parsePointsTable(request: {

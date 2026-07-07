@@ -23,9 +23,11 @@ import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
+	computePointCatalog,
 	loadPointCatalog,
 	nodeProjectConfigGateway,
 	resolvePromptPointSource,
+	type PointCatalog,
 	type PromptPointSource,
 } from "@nseng-ai/kernel/project-config/points";
 
@@ -246,41 +248,77 @@ export async function resolvePrDescriptionPrompt(input: {
 	repoRoot?: string;
 	cwd?: string;
 }): Promise<PromptResolutionResult> {
-	const envPath = input.env[PR_DESCRIPTION_PROMPT_ENV]?.trim();
-	if (envPath) {
-		const path = resolvePromptPath(envPath, input.repoRoot, input.cwd);
-		try {
-			return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
-		} catch (error) {
-			return {
-				ok: false,
-				error: `Could not read ${PR_DESCRIPTION_PROMPT_ENV} prompt file at ${path}: ${formatErrorMessage(error)}`,
-				source: { type: "env", path },
-			};
-		}
-	}
-
-	if (input.repoRoot !== undefined) {
-		const catalog = loadPointCatalog({
-			repoRoot: input.repoRoot,
-			gateway: nodeProjectConfigGateway,
-		});
-		const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
-		const prompt = await readPrDescriptionPointSource(input.repoRoot, pointSource);
-		if (prompt !== undefined) return prompt;
-	}
+	const catalog = loadPrDescriptionPointCatalog({
+		...(input.repoRoot === undefined ? {} : { repoRoot: input.repoRoot }),
+		env: input.env,
+	});
+	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
+	const prompt = await readPrDescriptionPointSource({
+		...(input.repoRoot === undefined ? {} : { repoRoot: input.repoRoot }),
+		...(input.cwd === undefined ? {} : { cwd: input.cwd }),
+		pointSource,
+	});
+	if (prompt !== undefined) return prompt;
 
 	return { ok: true, text: DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT, source: { type: "builtin" } };
 }
 
-async function readPrDescriptionPointSource(
-	repoRoot: string,
-	pointSource: PromptPointSource,
-): Promise<PromptResolutionResult | undefined> {
-	switch (pointSource.type) {
+function loadPrDescriptionPointCatalog(request: {
+	repoRoot?: string;
+	env: Record<string, string | undefined>;
+}): PointCatalog {
+	const promptEnvOverrides = [
+		{ pointId: FLOW_PR_DESCRIPTION_POINT_ID, envVar: PR_DESCRIPTION_PROMPT_ENV },
+	];
+	if (request.repoRoot !== undefined) {
+		const catalog = loadPointCatalog({
+			repoRoot: request.repoRoot,
+			gateway: nodeProjectConfigGateway,
+			promptEnvOverrides,
+			env: request.env,
+		});
+		if (resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID).type !== "missing") {
+			return catalog;
+		}
+	}
+	return computePointCatalog({
+		repoRoot: request.repoRoot ?? process.cwd(),
+		gateway: { pathExists: () => ({ type: "missing" }) },
+		pointDefinitions: [
+			{
+				id: FLOW_PR_DESCRIPTION_POINT_ID,
+				accepts: "prompt",
+				semantics: "override",
+			},
+		],
+		config: { points: [], settings: new Map() },
+		promptEnvOverrides,
+		env: request.env,
+	});
+}
+
+async function readPrDescriptionPointSource(request: {
+	repoRoot?: string;
+	cwd?: string;
+	pointSource: PromptPointSource;
+}): Promise<PromptResolutionResult | undefined> {
+	switch (request.pointSource.type) {
+		case "env": {
+			const path = resolvePromptPath(request.pointSource.path, request.repoRoot, request.cwd);
+			try {
+				return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
+			} catch (error) {
+				return {
+					ok: false,
+					error: `Could not read ${request.pointSource.envVar} prompt file at ${path}: ${formatErrorMessage(error)}`,
+					source: { type: "env", path },
+				};
+			}
+		}
 		case "ns.toml":
 		case "conventional": {
-			const repoPath = join(repoRoot, pointSource.path);
+			if (request.repoRoot === undefined) return undefined;
+			const repoPath = join(request.repoRoot, request.pointSource.path);
 			if (!(await isReadableFile(repoPath))) return undefined;
 			return {
 				ok: true,
@@ -289,7 +327,7 @@ async function readPrDescriptionPointSource(
 			};
 		}
 		case "default": {
-			const defaultPath = join(dirname(pointSource.manifestPath), pointSource.path);
+			const defaultPath = join(dirname(request.pointSource.manifestPath), request.pointSource.path);
 			return {
 				ok: true,
 				text: (await readFile(defaultPath, "utf8")).trimEnd(),
