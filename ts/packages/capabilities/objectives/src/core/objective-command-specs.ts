@@ -32,7 +32,8 @@ export type ObjectiveCreatePattern =
 	| "steelthread"
 	| "standing"
 	| "umbrella"
-	| "autoobjective";
+	| "autoobjective"
+	| "readme-driven-development";
 export type ObjectiveCreatePatternCommandName = `ns:objective:create:${ObjectiveCreatePattern}`;
 export type ObjectiveCreatePatternSkillName = `objective-create-${ObjectiveCreatePattern}`;
 
@@ -135,6 +136,11 @@ export const objectiveCreatePatternCommandSpecs: ObjectiveCreatePatternCommandSp
 		pattern: "autoobjective",
 		description:
 			"Read objective-create-autoobjective backing Markdown to interview for and create an autoobjective shaped for autonomous Objective Runner steps.",
+	}),
+	defineObjectiveCreatePatternCommandSpec({
+		pattern: "readme-driven-development",
+		description:
+			"Read objective-create-readme-driven-development backing Markdown to create a fresh Objective whose canonical reference is a user-facing README draft (references/README-draft.md), then run the experimental readme-driven-development loop against it.",
 	}),
 ];
 
