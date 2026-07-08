@@ -84,6 +84,33 @@ export type ProvisionFirstPartySkillFailure =
 			conflictingFiles: readonly string[];
 	  };
 
+export interface ProvisionFirstPartySkillFailureHandlers<T> {
+	catalogSourceUnavailable: (
+		failure: Extract<ProvisionFirstPartySkillFailure, { code: "catalog-source-unavailable" }>,
+	) => T;
+	unknownSkill: (failure: Extract<ProvisionFirstPartySkillFailure, { code: "unknown-skill" }>) => T;
+	provisionError: (
+		failure: Extract<ProvisionFirstPartySkillFailure, { code: "provision-error" }>,
+	) => T;
+	conflicted: (failure: Extract<ProvisionFirstPartySkillFailure, { code: "conflicted" }>) => T;
+}
+
+export function matchProvisionFirstPartySkillFailure<T>(
+	failure: ProvisionFirstPartySkillFailure,
+	handlers: ProvisionFirstPartySkillFailureHandlers<T>,
+): T {
+	switch (failure.code) {
+		case "catalog-source-unavailable":
+			return handlers.catalogSourceUnavailable(failure);
+		case "unknown-skill":
+			return handlers.unknownSkill(failure);
+		case "provision-error":
+			return handlers.provisionError(failure);
+		case "conflicted":
+			return handlers.conflicted(failure);
+	}
+}
+
 export type SplitProvisionFirstPartySkillOutcome =
 	| { type: "success"; outcome: Extract<ProvisionFirstPartySkillOutcome, { type: "provisioned" }> }
 	| { type: "failure"; failure: ProvisionFirstPartySkillFailure };

@@ -66,4 +66,6 @@ The Objective delivered home-dir/harness-path ownership cleanup across kernel, h
 
 Final review-thread disposition refreshed PRs #3121, #3137, #3140, #3158, #3159, #3161, and #3162. Direct fixed or stale threads were replied/resolved with `ns address exec close-review-threads`; the AREG-tail thread `PRRT_kwDOR4YhMs6O67Wa` was replied to but intentionally left unresolved because it is outside this child Objective's scope. The result was synthesized into the `skill-management-subsystem` umbrella in `updates/20260708T104546Z-harness-artifacts-post-review-cleanup-synthesis.md`.
 
+Post-submit addendum: a top follow-up branch addressed additional unresolved downstack review feedback from PRs #3222, #3226, and #3229 after the closure PR was submitted. The follow-up kept downstack commits intact and recorded evidence in `updates/20260708T130343Z-post-submit-downstack-feedback-followup.md`.
+
 Known caveat: `ns objective check harness-artifacts-post-review-cleanup` still reports the pre-existing immutable-update heading issue in `updates/20260707T234420Z-home-dir-harness-path-ownership.md`; this closure does not silently repair historical provenance.

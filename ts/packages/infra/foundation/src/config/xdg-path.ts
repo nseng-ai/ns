@@ -1,5 +1,6 @@
 import { isAbsolute, join } from "node:path";
 
+import { optionalEntry, type ExplicitUndefined } from "../primitives/primitives.ts";
 import { err, ok, type Result } from "../primitives/result.ts";
 
 export type XdgDirectoryKind = "config" | "data" | "state" | "cache";
@@ -16,6 +17,12 @@ export interface XdgPathOptions {
 	overrideEnv?: string;
 }
 
+export interface MergeXdgHomeEnvOptions {
+	baseEnv: Record<string, string | undefined>;
+	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
+	xdgHomeDir?: string;
+}
+
 const XDG_ENV_BY_KIND = {
 	config: "XDG_CONFIG_HOME",
 	data: "XDG_DATA_HOME",
@@ -29,6 +36,16 @@ const XDG_DEFAULT_SEGMENTS_BY_KIND = {
 	state: [".local", "state"],
 	cache: [".cache"],
 } as const satisfies Record<XdgDirectoryKind, readonly string[]>;
+
+export function mergeXdgHomeEnv(
+	options: MergeXdgHomeEnvOptions,
+): Record<string, string | undefined> {
+	return {
+		...options.baseEnv,
+		...(options.env ?? {}),
+		...optionalEntry("HOME", options.xdgHomeDir),
+	};
+}
 
 export function resolveXdgHome(
 	kind: XdgDirectoryKind,

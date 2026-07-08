@@ -126,12 +126,14 @@ interface NsCliRuntimeContext {
 	catalogDiscovery: LoadNsCommandCatalogOptions;
 }
 
-function resolveNsCliRuntimeContext(options: {
+interface NsCliRawContextInputs {
 	deps: NsCliDeps;
 	injectedContext?: NsExtensionApi;
 	cwd: string;
 	env: Record<string, string | undefined>;
-}): NsCliRuntimeContext {
+}
+
+function resolveNsCliRuntimeContext(options: NsCliRawContextInputs): NsCliRuntimeContext {
 	const command = resolveNsCliCommandContextInput(options);
 	return {
 		command,
@@ -139,12 +141,7 @@ function resolveNsCliRuntimeContext(options: {
 	};
 }
 
-function resolveNsCliCommandContextInput(options: {
-	deps: NsCliDeps;
-	injectedContext?: NsExtensionApi;
-	cwd: string;
-	env: Record<string, string | undefined>;
-}): NsCliCommandContextInput {
+function resolveNsCliCommandContextInput(options: NsCliRawContextInputs): NsCliCommandContextInput {
 	const cwd = options.deps.cwd ?? options.injectedContext?.cwd ?? options.cwd;
 	const env = options.deps.env ?? options.injectedContext?.env ?? options.env;
 	const homeDir = resolveHomeDir(options.deps.homeDir, env) ?? options.injectedContext?.homeDir;

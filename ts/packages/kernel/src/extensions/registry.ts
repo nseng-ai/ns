@@ -34,8 +34,12 @@ import {
 	type NsCommandModuleLoader,
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
-import { isPathInside, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
+import {
+	isPathInside,
+	optionalEntry,
+	type ExplicitUndefined,
+} from "@nseng-ai/foundation/primitives";
+import { mergeXdgHomeEnv, requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import type { NsCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;
@@ -652,25 +656,11 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 }
 
 function catalogEnv(options: LoadNsCommandCatalogOptions): Record<string, string | undefined> {
-	return xdgExtensionCatalogEnv({
-		...(options.env === undefined ? {} : { env: options.env }),
-		...optionalXdgHomeDir(options.xdgHomeDir),
+	return mergeXdgHomeEnv({
+		baseEnv: process.env,
+		...optionalEntry("env", options.env),
+		...optionalEntry("xdgHomeDir", options.xdgHomeDir),
 	});
-}
-
-function xdgExtensionCatalogEnv(options: {
-	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
-	xdgHomeDir?: string;
-}): Record<string, string | undefined> {
-	return {
-		...process.env,
-		...(options.env ?? {}),
-		...(options.xdgHomeDir === undefined ? {} : { HOME: options.xdgHomeDir }),
-	};
-}
-
-function optionalXdgHomeDir(xdgHomeDir: string | undefined): { xdgHomeDir?: string } {
-	return xdgHomeDir === undefined ? {} : { xdgHomeDir };
 }
 
 function uniquePaths(paths: readonly string[]): readonly string[] {
