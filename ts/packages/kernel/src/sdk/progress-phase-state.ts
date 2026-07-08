@@ -1,4 +1,8 @@
-import type { NsProgressPhaseEvent, NsProgressPhaseInfo } from "./services.ts";
+import {
+	isMatrixProgressEvent,
+	type NsProgressPhaseEvent,
+	type NsProgressPhaseInfo,
+} from "./services.ts";
 
 export type ProgressPhaseState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -62,6 +66,8 @@ export function createProgressPhaseStateStore(
 	}
 
 	function apply(event: NsProgressPhaseEvent): ProgressPhaseView | undefined {
+		// Matrix events carry no phase state; hosts with matrix support consume them separately.
+		if (isMatrixProgressEvent(event)) return undefined;
 		switch (event.type) {
 			case "phases-declared":
 				currentTitle = event.title;

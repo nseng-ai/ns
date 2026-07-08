@@ -54,12 +54,26 @@ export type {
 } from "@nseng-ai/foundation/text-truncation";
 export { failed, ok } from "./result.ts";
 export type { NsResult } from "./result.ts";
-export { noopNsCommandIo, noopNsProgress } from "./services.ts";
+export {
+	centerMatrixProgressText,
+	clampMatrixProgressLabelWidthChars,
+	isMatrixProgressEvent,
+	matrixProgressDisplayWidthChars,
+	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,
+	MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
+	noopNsCommandIo,
+	noopNsProgress,
+	padMatrixProgressTextEnd,
+} from "./services.ts";
 export type {
 	NsCommandIo,
 	NsCommandMessageOptions,
 	NsNotifyLevel,
 	NsProgress,
+	NsProgressMatrixCellState,
+	NsProgressMatrixColumnInfo,
+	NsProgressMatrixEvent,
+	NsProgressMatrixRowInfo,
 	NsProgressPhaseEvent,
 	NsProgressPhaseInfo,
 	NsProgressPhaseListener,

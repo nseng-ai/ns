@@ -3,7 +3,7 @@ import {
 	type ProgressPhaseSpec,
 	type ProgressPhaseView,
 } from "@nseng-ai/kernel/progress-phase-state";
-import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { PhaseState, StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
 import type { PhaseSpec, PhaseSubstepSpec } from "./phase-stream-specs.ts";
@@ -38,7 +38,11 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 
 	function apply(event: NsProgressPhaseEvent): PhaseTransition {
 		const affectedView = store.apply(event);
-		if (event.type === "phases-declared" || event.type === "title-changed") {
+		if (
+			event.type === "phases-declared" ||
+			event.type === "title-changed" ||
+			isMatrixProgressEvent(event)
+		) {
 			return { type: "ignored" };
 		}
 		if (affectedView === undefined) return { type: "ignored" };

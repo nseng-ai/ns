@@ -40,6 +40,34 @@ describe("createProgressPhaseStateStore", () => {
 		expect(store.title()).toBe("updated");
 	});
 
+	test("ignores matrix events without mutating phase state", () => {
+		const store = createProgressPhaseStateStore({ phases: PHASES, unknownKeyPolicy: "append" });
+		store.apply({ type: "phase-started", phaseKey: "a" });
+		const before = store.views();
+
+		expect(
+			store.apply({
+				type: "matrix-declared",
+				columns: [{ key: "merge", label: "Merge", width: 6 }],
+				labelHeader: "Branch / PR",
+			}),
+		).toBeUndefined();
+		expect(
+			store.apply({ type: "matrix-rows", rows: [{ rowKey: "feature-a", label: "feature-a" }] }),
+		).toBeUndefined();
+		expect(
+			store.apply({
+				type: "matrix-cell",
+				rowKey: "feature-a",
+				columnKey: "merge",
+				state: "active",
+			}),
+		).toBeUndefined();
+		expect(store.apply({ type: "matrix-running", commands: ["gh pr merge 1"] })).toBeUndefined();
+
+		expect(store.views()).toEqual(before);
+	});
+
 	test("ignores unknown phase keys by default", () => {
 		const store = createProgressPhaseStateStore({ phases: PHASES });
 

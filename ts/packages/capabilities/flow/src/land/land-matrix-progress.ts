@@ -45,6 +45,9 @@ export interface LandLiveProgressState {
 
 export const BASE_LAND_TITLE = "ns flow land";
 
+/** Row-label header for the land matrix; sent on the wire so hosts need no land vocabulary. */
+export const LAND_MATRIX_LABEL_HEADER = "Branch / PR";
+
 export const LAND_MATRIX_COLUMNS: readonly MatrixColumnSpec<LandMatrixColumnKey>[] = [
 	{ key: "gate", label: "Gate", width: 5 },
 	{ key: "merge", label: "Merge", width: 6 },

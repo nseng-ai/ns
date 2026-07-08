@@ -96,6 +96,17 @@ const progress: NsProgress = { isLive: true, phase: () => {} };
 function acceptsExtensionApi(api: NsExtensionApi): string {
 	api.commandIo.phase("checking");
 	api.progress.phase({ type: "phase-done", phaseKey: "checking" });
+	api.progress.phase({
+		type: "matrix-declared",
+		columns: [{ key: "merge", label: "Merge", width: 6 }],
+	});
+	api.progress.phase({ type: "matrix-rows", rows: [{ rowKey: "feature-a", label: "feature-a" }] });
+	api.progress.phase({
+		type: "matrix-cell",
+		rowKey: "feature-a",
+		columnKey: "merge",
+		state: "done",
+	});
 	return api.cwd;
 }
 

@@ -1,3 +1,5 @@
+import { displayWidth } from "@nseng-ai/foundation/text-table";
+
 export type NsNotifyLevel = "info" | "warning" | "error";
 
 export interface NsCommandMessageOptions {
@@ -46,13 +48,91 @@ export interface NsProgressPhaseInfo {
 	detail?: string;
 }
 
+/** Lifecycle state of a single matrix cell. */
+export type NsProgressMatrixCellState = "pending" | "active" | "done" | "skipped" | "failed";
+
+/** Presentation metadata for a declared matrix column. */
+export interface NsProgressMatrixColumnInfo {
+	key: string;
+	label: string;
+	/** Preferred display width hint in cells; hosts may ignore. */
+	width?: number;
+}
+
+/** Presentation metadata for a declared matrix row. */
+export interface NsProgressMatrixRowInfo {
+	rowKey: string;
+	label: string;
+}
+
+/**
+ * Optional per-row × per-column progress-grid events streamed alongside the
+ * phase checklist. Hosts without matrix rendering ignore them.
+ */
+export type NsProgressMatrixEvent =
+	| {
+			type: "matrix-declared";
+			columns: readonly NsProgressMatrixColumnInfo[];
+			labelHeader?: string;
+	  }
+	| { type: "matrix-rows"; rows: readonly NsProgressMatrixRowInfo[] }
+	| {
+			type: "matrix-cell";
+			rowKey: string;
+			columnKey: string;
+			state: NsProgressMatrixCellState;
+			/** Compact cell text; hosts render it only when it fits the column. */
+			text?: string;
+	  }
+	| { type: "matrix-running"; commands: readonly string[] };
+
 export type NsProgressPhaseEvent =
 	| { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
 	| { type: "title-changed"; title: string }
 	| { type: "phase-started"; phaseKey: string; label?: string }
 	| { type: "phase-progress"; phaseKey: string; label: string }
 	| { type: "phase-done"; phaseKey: string; detail?: string }
-	| { type: "phase-failed"; phaseKey: string; detail: string };
+	| { type: "phase-failed"; phaseKey: string; detail: string }
+	| NsProgressMatrixEvent;
+
+export const MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS = 18;
+export const MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS = 36;
+
+export function matrixProgressDisplayWidthChars(value: string): number {
+	return displayWidth(value);
+}
+
+export function clampMatrixProgressLabelWidthChars(preferredWidthChars: number): number {
+	return Math.max(
+		MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
+		Math.min(MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS, preferredWidthChars),
+	);
+}
+
+export function centerMatrixProgressText(text: string, widthChars: number): string {
+	const padChars = Math.max(0, widthChars - matrixProgressDisplayWidthChars(text));
+	const leftPadChars = Math.floor(padChars / 2);
+	return `${" ".repeat(leftPadChars)}${text}${" ".repeat(padChars - leftPadChars)}`;
+}
+
+export function padMatrixProgressTextEnd(text: string, widthChars: number): string {
+	const padChars = Math.max(0, widthChars - matrixProgressDisplayWidthChars(text));
+	return `${text}${" ".repeat(padChars)}`;
+}
+
+// `satisfies Record<..., true>` keeps this membership list two-way exhaustive
+// against NsProgressMatrixEvent: adding or removing a variant fails to compile
+// until the guard is updated.
+const MATRIX_EVENT_TYPES = {
+	"matrix-declared": true,
+	"matrix-rows": true,
+	"matrix-cell": true,
+	"matrix-running": true,
+} satisfies Record<NsProgressMatrixEvent["type"], true>;
+
+export function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is NsProgressMatrixEvent {
+	return event.type in MATRIX_EVENT_TYPES;
+}
 
 export type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 

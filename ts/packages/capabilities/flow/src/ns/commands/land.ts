@@ -3,8 +3,10 @@ import {
 	BASE_LAND_TITLE,
 	createLandMatrixProgressController,
 	formatLandProgressTitle,
+	LAND_MATRIX_COLUMNS,
+	LAND_MATRIX_LABEL_HEADER,
 	type LandLiveProgressState,
-	type LandMatrixProgressController,
+	type LandMatrixProgressSink,
 } from "../../land/land-matrix-progress.ts";
 export { formatLandProgressTitle } from "../../land/land-matrix-progress.ts";
 import type {
@@ -29,12 +31,14 @@ import {
 	type NsCommandIo,
 	type NsExtensionApi,
 	type NsNotifyLevel,
+	type NsProgress,
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 import { systemClock } from "@nseng-ai/foundation/time";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
+import { createMatrixProgressForwarder } from "../../phase-stream/matrix-progress-forwarder.ts";
 import {
 	createPhaseStreamController,
 	flowStreamDeps,
@@ -105,7 +109,7 @@ export default defineExtension({
 interface LandCliProgress {
 	io: NsCommandIo;
 	liveProgress: LandLiveProgressSink;
-	landMatrix?: LandMatrixProgressController;
+	landMatrix?: LandMatrixProgressSink;
 	finish(exitCode: number): Promise<void>;
 	flushFailureDetails(exitCode: number): void;
 	stop(): Promise<void>;
@@ -167,7 +171,7 @@ function createLandMatrixCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliPr
 	};
 }
 
-function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress {
+export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress {
 	// Land receives generic phase signals from command-stream text, so the stream starts lazily only
 	// after the first phase-worthy message. Structured Flow live-progress events drive the title.
 	// The shared controller owns lifecycle mechanics; this adapter owns only land-specific routing.
@@ -273,6 +277,10 @@ function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress
 		}
 	}
 
+	// Matrix cell data rides the same ctx.progress wire as the phase checklist, so live hosts
+	// (the Pi widget) can render the branch/PR grid; non-live runs forward nothing.
+	const landMatrix = ctx.progress.isLive ? createLandMatrixEventForwarder(ctx.progress) : undefined;
+
 	return {
 		io: createCommandIo({
 			phaseTransient: routePhase,
@@ -284,6 +292,7 @@ function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress
 			},
 		}),
 		liveProgress: recordLiveProgress,
+		...(landMatrix === undefined ? {} : { landMatrix }),
 		finish: async (exitCode) => {
 			await progress.finish({ isFailed: exitCode !== 0 });
 		},
@@ -292,5 +301,23 @@ function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliProgress
 			ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
 		},
 		stop: progress.stop,
+	};
+}
+
+export function createLandMatrixEventForwarder(progress: NsProgress): LandMatrixProgressSink {
+	const forwarder = createMatrixProgressForwarder({
+		progress,
+		columns: LAND_MATRIX_COLUMNS,
+		labelHeader: LAND_MATRIX_LABEL_HEADER,
+	});
+	return {
+		setRows: (rows) =>
+			forwarder.setRows(rows.map((row) => ({ rowKey: row.branch, label: row.label }))),
+		setRunningCommands: forwarder.setRunningCommands,
+		setCell: forwarder.setCell,
+		setAllCells: forwarder.setAllCells,
+		setAllOtherCells: forwarder.setAllOtherCells,
+		// The live title already counts merged PRs via recordLiveProgress in this path.
+		recordMergedPr: () => {},
 	};
 }

@@ -1,9 +1,15 @@
 import { createJiti } from "jiti/static";
 
 import {
+	centerMatrixProgressText,
+	clampMatrixProgressLabelWidthChars,
 	defineExtension,
 	defineRepoLocalNsExtensionDescriptor,
 	failed,
+	isMatrixProgressEvent,
+	matrixProgressDisplayWidthChars,
+	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,
+	MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
 	noopNsCommandIo,
 	repoLocalNsCommandDescriptor,
 	noopNsProgress,
@@ -12,6 +18,7 @@ import {
 	nsExtensionManifestCommandSchema,
 	nsExtensionManifestSchema,
 	nsExtensionPackageManifestSchema,
+	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
@@ -25,9 +32,15 @@ const SDK_SPECIFIER = "@nseng-ai/kernel/sdk";
 // Keep this object in sync with all runtime value exports from @nseng-ai/kernel/sdk; type-only exports are erased.
 // Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
 const nsSdkVirtualModule = {
+	centerMatrixProgressText,
+	clampMatrixProgressLabelWidthChars,
 	defineExtension,
 	defineRepoLocalNsExtensionDescriptor,
 	failed,
+	isMatrixProgressEvent,
+	matrixProgressDisplayWidthChars,
+	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,
+	MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
 	noopNsCommandIo,
 	repoLocalNsCommandDescriptor,
 	noopNsProgress,
@@ -36,6 +49,7 @@ const nsSdkVirtualModule = {
 	nsExtensionManifestCommandSchema,
 	nsExtensionManifestSchema,
 	nsExtensionPackageManifestSchema,
+	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
