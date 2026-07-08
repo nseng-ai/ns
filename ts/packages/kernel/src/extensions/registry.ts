@@ -250,24 +250,29 @@ export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promis
 	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionErrorDiagnostic[];
 }> {
-	const loadedInfos = await Promise.all(
-		[...catalog.candidates.values()].map(async (candidate) => {
-			if (isBuiltInCandidate(candidate)) {
-				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
-			}
-			if (candidate.moduleReference.type === "package" || candidate.hasStaticCommandInfo) {
-				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
-			}
-			const loaded = await loadSelectedNsCommand(candidate);
-			if (!loaded.ok) {
-				return { commandInfo: toCommandCliInfo(candidate), diagnostic: loaded.diagnostic };
-			}
-			return {
-				commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path),
-				diagnostic: undefined,
-			};
-		}),
-	);
+	const loadedInfos: Array<{
+		commandInfo: NsCommandCliInfo;
+		diagnostic: ExtensionErrorDiagnostic | undefined;
+	}> = [];
+	for (const candidate of catalog.candidates.values()) {
+		if (isBuiltInCandidate(candidate)) {
+			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: undefined });
+			continue;
+		}
+		if (candidate.moduleReference.type === "package" || candidate.hasStaticCommandInfo) {
+			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: undefined });
+			continue;
+		}
+		const loaded = await loadSelectedNsCommand(candidate);
+		if (!loaded.ok) {
+			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: loaded.diagnostic });
+			continue;
+		}
+		loadedInfos.push({
+			commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path),
+			diagnostic: undefined,
+		});
+	}
 	return {
 		commandInfos: loadedInfos.map((loaded) => loaded.commandInfo),
 		diagnostics: loadedInfos.flatMap((loaded) =>

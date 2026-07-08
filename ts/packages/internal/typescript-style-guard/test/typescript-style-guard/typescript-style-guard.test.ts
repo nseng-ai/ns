@@ -12,6 +12,7 @@ import {
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
+	BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_INTERNAL_SPACE_ADMISSION,
 	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
@@ -192,6 +193,18 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "ordinary first-party named import is allowed",
 			code: 'import { Foo } from "@nseng-ai/foundation/primitives";',
+			expectedRules: [],
+		},
+		{
+			name: "ns-extension descriptor implementation import is rejected",
+			code: 'import { defineExtension } from "@nseng-ai/kernel/sdk";\nimport { makeCommand } from "./command.ts";',
+			path: "ts/packages/capabilities/pr-feedback/src/ns-extension.ts",
+			expectedRules: [BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT],
+		},
+		{
+			name: "ns extension descriptor allows sdk value imports and local type imports",
+			code: 'import { defineExtension, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";\nimport type { CommandConfig } from "./command.ts";\nimport { type LocalDescriptorFact } from "./facts.ts";',
+			path: "ts/packages/capabilities/slots/src/ns/ns-extension.ts",
 			expectedRules: [],
 		},
 		{
