@@ -16,7 +16,6 @@ import {
 	trackSubagentFleetRun,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-	type SingleSubagentFleetRunTracking,
 	type SubagentFleetRegistry,
 	type SubagentFleetRunTracking,
 	type SubagentFleetTaskInput,
@@ -112,7 +111,7 @@ export async function runThermoCouncilCommand(
 			title: "Thermo council final synthesis",
 			parentSessionFile: undefined,
 		});
-		const synthesisResult = await runWithSingleFleetTracking(synthesisTracking, async () => {
+		const synthesisResult = await withDisposal(synthesisTracking, async () => {
 			synthesisTracking.onStart();
 			return await synthesizeThermoCouncilFinalReport({
 				pi,
@@ -228,10 +227,7 @@ async function runCouncilSeatsWithConcurrencyLimit({
 	});
 }
 
-async function runWithSingleFleetTracking<T>(
-	tracking: SingleSubagentFleetRunTracking,
-	run: () => Promise<T>,
-): Promise<T> {
+async function withDisposal<T>(tracking: { dispose(): void }, run: () => Promise<T>): Promise<T> {
 	try {
 		return await run();
 	} finally {
@@ -251,11 +247,7 @@ async function withFleetTracking<T>(input: {
 		tasks: input.tasks,
 		parentSessionFile: undefined,
 	});
-	try {
-		return await input.run(tracking);
-	} finally {
-		tracking.dispose();
-	}
+	return await withDisposal(tracking, async () => await input.run(tracking));
 }
 
 function normalizeReviewGuidance(args: string): string | undefined {
