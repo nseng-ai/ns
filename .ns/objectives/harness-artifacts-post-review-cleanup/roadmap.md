@@ -8,8 +8,8 @@
 - [x] **Resolve home-dir and harness-path ownership.**
       Done 2026-07-07 (see `updates/20260707T234420Z-home-dir-harness-path-ownership.md`): kernel CLI now resolves a single command-context object and adapts it to explicit XDG catalog discovery, harness path ownership remains in `HarnessPathContext`, ns-init adapts SDK context into `SkillMaterializationContext`, and targeted package checks/tests plus formatting passed.
 
-- [ ] **Clean up provision/reconcile design seams.**
-      Reduce duplicated outcome construction and conflict plumbing around reconcile/preview/apply, including conflict-file extraction, conflict action classification, skipped-collision handling, and refusal-message ownership. Evidence: the reconcile flow reads as one clear domain pipeline with thin CLI adapters.
+- [x] **Clean up provision/reconcile design seams.**
+      Done 2026-07-08 (see `updates/20260708T004545Z-provision-reconcile-seam-cleanup.md`): single reconcile outcome builder with conflict-aware action classification, shared conflict-file extraction, roots-once resolution without bare throws, prepare/apply-only public provision API with `previewFromPrepared`, composed provisioning outcome shape, shared conflict core sentence, and a success/failure splitter consumed by thin `ns skills install` and ns-init adapters.
 
 - [ ] **Clean up schema and source-of-truth duplication.**
       Consolidate repeated harness/scope schemas, duplicated schema/interface definitions, diagnostic transforms, and readonly-array choices where the shared source of truth is clear. Evidence: stale duplicate definitions are removed or explicitly retained at true boundary seams.
