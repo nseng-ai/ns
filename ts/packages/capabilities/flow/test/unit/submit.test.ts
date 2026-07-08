@@ -768,7 +768,8 @@ describe("runSubmitCommand", () => {
 			[
 				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 				"",
-				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `ns flow submit`.",
+				"Likely cause: your local trunk checkout has diverged from its remote (for example, local-only commits or an in-progress operation on trunk), so Graphite could not fast-forward it.",
+				"Fix: run `gt sync` to update trunk (move any local-only trunk commits onto a feature branch first), then rerun `ns flow submit`.",
 				"",
 			].join("\n"),
 		);

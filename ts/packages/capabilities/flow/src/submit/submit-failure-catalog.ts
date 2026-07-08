@@ -1,5 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
+import { nonEmptyLines } from "@nseng-ai/foundation/text-normalization";
 
 import {
 	defineFailureCatalog,
@@ -54,12 +55,7 @@ const submitPreflightFailureCatalog = defineFailureCatalog<
 		message: (failure) => formatEmptyBranchFailure(failure.branchName),
 	},
 	trunk_out_of_date: {
-		message: () =>
-			[
-				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
-				"",
-				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `ns flow submit`.",
-			].join("\n"),
+		message: (_failure, context) => formatTrunkOutOfDate(context.output),
 	},
 	merged_pr_not_in_trunk: {
 		message: (_failure, context) => formatMergedPrNotInTrunk(context.output),
@@ -122,6 +118,36 @@ export function formatCurrentPrVerificationFailureCause(
 	failure: SubmitCurrentPrVerificationFailure,
 ): string {
 	return formatFailureCatalogEntry(currentPrVerificationFailureCatalog, failure, undefined);
+}
+
+const TRUNK_OUT_OF_DATE_REPORT_LINE_LIMIT = 8;
+
+function formatTrunkOutOfDate(output: SubmitFailureOutput): string {
+	const reportedLines = extractGraphiteReportLines(output);
+	return [
+		"Graphite could not update your local trunk before submitting. Nothing was submitted.",
+		...(reportedLines.length === 0
+			? []
+			: ["", "Graphite reported:", ...reportedLines.map((line) => `  ${line}`)]),
+		"",
+		"Likely cause: your local trunk checkout has diverged from its remote (for example, local-only commits or an in-progress operation on trunk), so Graphite could not fast-forward it.",
+		"Fix: run `gt sync` to update trunk (move any local-only trunk commits onto a feature branch first), then rerun `ns flow submit`.",
+	].join("\n");
+}
+
+function extractGraphiteReportLines(output: SubmitFailureOutput): string[] {
+	const lines = uniqueNonEmptyLines(`${output.stderr}\n${output.stdout}`).filter(
+		(line) => !/^Running submit in 'dry-run' mode/i.test(line),
+	);
+	if (lines.length <= TRUNK_OUT_OF_DATE_REPORT_LINE_LIMIT) return lines;
+	return [
+		...lines.slice(0, TRUNK_OUT_OF_DATE_REPORT_LINE_LIMIT),
+		`… ${formatItemCount(lines.length - TRUNK_OUT_OF_DATE_REPORT_LINE_LIMIT, "more line", "more lines")} (see the raw log below)`,
+	];
+}
+
+function uniqueNonEmptyLines(text: string): string[] {
+	return [...new Set(nonEmptyLines(text))];
 }
 
 function formatEmptyBranchFailure(branchName: string | undefined): string {

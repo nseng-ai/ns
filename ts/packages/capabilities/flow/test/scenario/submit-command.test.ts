@@ -928,10 +928,14 @@ describe("project-local submit extension", () => {
 		expect(error).toContain(
 			"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 		);
-		expect(error).toContain("Fix: update or repair your local trunk checkout");
+		expect(error).toContain("Graphite reported:");
+		expect(error).toContain(
+			"ERROR: Aborting submit because trunk branch is out of date and could not be updated.",
+		);
+		expect(error).toContain("Fix: run `gt sync` to update trunk");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("----- stdout -----");
-		expect(error).not.toContain("ERROR: Aborting submit because trunk branch is out of date");
+		expect(error).not.toContain("Running submit in 'dry-run' mode");
 		expect(run.context.textGeneratorCalls).toHaveLength(0);
 	});
 
