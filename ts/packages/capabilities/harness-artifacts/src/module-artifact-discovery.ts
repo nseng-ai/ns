@@ -3,6 +3,8 @@ import process from "node:process";
 
 import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { mergeXdgHomeEnv, requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
+import { validateExtensionDescriptor, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
+import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -19,7 +21,9 @@ import { sortStrings } from "./sort.ts";
 import {
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
 	parseModuleArtifactDeclaration,
+	parseModuleArtifactDeclarations,
 	type ModuleArtifactDeclarationDiagnostic,
+	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
 
 export interface DiscoverExtensionModuleHarnessArtifactsRequest {
@@ -215,15 +219,12 @@ async function discoverExtensionPackage(options: {
 		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(packageText.error)] };
 	}
 	if (packageText.value.type === "missing") return { type: "diagnostics", diagnostics: [] };
-	const parsed = parseModuleArtifactDeclaration(packageText.value.text);
-	if (!parsed.ok) {
-		return {
-			type: "diagnostics",
-			diagnostics: parsed.diagnostics.map((diagnostic) =>
-				declarationDiagnostic(diagnostic, packageJsonPath),
-			),
-		};
-	}
+	const parsed = await parseModuleArtifactDeclarationForDiscovery({
+		moduleRoot: options.moduleRoot,
+		packageJsonPath,
+		packageJsonText: packageText.value.text,
+	});
+	if (!parsed.ok) return { type: "diagnostics", diagnostics: parsed.diagnostics };
 	const artifactResults = await validateDiscoveredArtifacts({
 		moduleRoot: options.moduleRoot,
 		packageName: parsed.packageName,
@@ -239,13 +240,122 @@ async function discoverExtensionPackage(options: {
 			version: parsed.version,
 			artifacts: artifactResults.artifacts,
 			diagnostics: sortDiscoveryDiagnostics([
-				...parsed.diagnostics.map((diagnostic) =>
-					declarationDiagnostic(diagnostic, packageJsonPath),
-				),
+				...parsed.diagnostics,
 				...artifactResults.diagnostics,
 			]),
 		},
 	};
+}
+
+async function parseModuleArtifactDeclarationForDiscovery(options: {
+	moduleRoot: string;
+	packageJsonPath: string;
+	packageJsonText: string;
+}): Promise<
+	| {
+			ok: true;
+			packageName: string;
+			version: string;
+			artifacts: readonly SkillHarnessArtifactEntry[];
+			diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
+	  }
+	| { ok: false; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
+> {
+	const descriptorPath = descriptorExportPath(options.moduleRoot, options.packageJsonText);
+	const parsed = descriptorPath.ok
+		? await parseDescriptorModuleArtifactDeclaration({
+				packageJsonText: options.packageJsonText,
+				descriptorPath: descriptorPath.path,
+			})
+		: parseModuleArtifactDeclaration(options.packageJsonText);
+	if (!parsed.ok) {
+		return {
+			ok: false,
+			diagnostics: parsed.diagnostics.map((diagnostic) =>
+				declarationDiagnostic(diagnostic, options.packageJsonPath),
+			),
+		};
+	}
+	return {
+		...parsed,
+		diagnostics: parsed.diagnostics.map((diagnostic) =>
+			declarationDiagnostic(diagnostic, options.packageJsonPath),
+		),
+	};
+}
+
+async function parseDescriptorModuleArtifactDeclaration(options: {
+	packageJsonText: string;
+	descriptorPath: string;
+}): Promise<ParseModuleArtifactDeclarationResult> {
+	let descriptorExport: unknown;
+	try {
+		descriptorExport = await loadNsUserModuleDefault(options.descriptorPath);
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostics: [
+				{
+					code: "module_artifact_descriptor_import_failed",
+					message: `Failed to load ns extension descriptor ${options.descriptorPath}: ${formatErrorMessage(error)}`,
+					path: options.descriptorPath,
+				},
+			],
+		};
+	}
+	const descriptor = validateExtensionDescriptor(descriptorExport, options.descriptorPath);
+	if (!descriptor.ok) {
+		return {
+			ok: false,
+			diagnostics: [
+				{
+					code: "module_artifact_descriptor_invalid",
+					message: descriptor.message,
+					path: options.descriptorPath,
+				},
+			],
+		};
+	}
+	return parseModuleArtifactDeclarations(
+		options.packageJsonText,
+		descriptorArtifactDeclarations(descriptor.descriptor),
+	);
+}
+
+function descriptorArtifactDeclarations(descriptor: ExtensionDescriptor): readonly unknown[] {
+	return descriptor.bundledArtifacts ?? [];
+}
+
+function descriptorExportPath(
+	moduleRoot: string,
+	packageJsonText: string,
+): { ok: true; path: string } | { ok: false } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(packageJsonText);
+	} catch {
+		return { ok: false };
+	}
+	const target = descriptorExportTarget(parsed);
+	if (target === undefined || target.startsWith("/") || target.includes("\\")) return { ok: false };
+	const path = resolve(moduleRoot, target);
+	if (!isPathInside(moduleRoot, path)) return { ok: false };
+	return { ok: true, path };
+}
+
+function descriptorExportTarget(manifest: unknown): string | undefined {
+	const manifestResult = z.record(z.string(), z.unknown()).safeParse(manifest);
+	if (!manifestResult.success) return undefined;
+	const exportsResult = z.record(z.string(), z.unknown()).safeParse(manifestResult.data["exports"]);
+	if (!exportsResult.success) return undefined;
+	const nsExtensionExport = exportsResult.data["./ns-extension"];
+	if (typeof nsExtensionExport === "string") return nsExtensionExport;
+	const nsExtensionExportResult = z.record(z.string(), z.unknown()).safeParse(nsExtensionExport);
+	if (!nsExtensionExportResult.success) return undefined;
+	const importTarget = nsExtensionExportResult.data["import"];
+	if (typeof importTarget === "string") return importTarget;
+	const defaultTarget = nsExtensionExportResult.data["default"];
+	return typeof defaultTarget === "string" ? defaultTarget : undefined;
 }
 
 async function validateDiscoveredArtifacts(options: {

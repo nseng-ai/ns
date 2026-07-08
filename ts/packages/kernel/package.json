@@ -10,6 +10,7 @@
 		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
 		"./progress-phase-state": "./src/sdk/progress-phase-state.ts",
 		"./project-config/points": "./src/project-config/points.ts",
+		"./runtime/module-loader": "./src/runtime/module-loader.ts",
 		"./sdk": "./src/sdk/index.ts"
 	},
 	"ns": {
@@ -30,7 +31,8 @@
 			"./context",
 			"./pi-text-generation",
 			"./progress-phase-state",
-			"./project-config/points"
+			"./project-config/points",
+		"./runtime/module-loader"
 		]
 	},
 	"bin": {

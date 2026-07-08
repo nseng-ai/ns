@@ -7,6 +7,8 @@ import { sortDiagnosticsByKey } from "./diagnostic-sort.ts";
 export const MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES = [
 	"module_artifact_package_json_invalid",
 	"module_artifact_package_name_invalid",
+	"module_artifact_descriptor_import_failed",
+	"module_artifact_descriptor_invalid",
 	"module_artifact_declarations_not_array",
 	"module_artifact_declaration_invalid",
 	"module_artifact_kind_unsupported",
@@ -61,6 +63,46 @@ const declarationObjectSchema = z.looseObject({
 export function parseModuleArtifactDeclaration(
 	packageJsonText: string,
 ): ParseModuleArtifactDeclarationResult {
+	const packageInfo = parsePackageInfo(packageJsonText);
+	if (!packageInfo.ok) return packageInfo;
+	const packageName = packageInfo.packageName;
+	const version = packageInfo.version;
+	const declarations = packageInfo.data.ns?.harnessArtifacts;
+	if (declarations === undefined) return emptyCatalog(packageName, version);
+	if (!Array.isArray(declarations)) {
+		return emptyCatalog(packageName, version, [
+			{
+				code: "module_artifact_declarations_not_array",
+				message: "Package manifest ns.harnessArtifacts must be an array.",
+			},
+		]);
+	}
+
+	return parseDeclarations({
+		packageName,
+		version,
+		declarations,
+	});
+}
+
+export function parseModuleArtifactDeclarations(
+	packageJsonText: string,
+	declarations: readonly unknown[],
+): ParseModuleArtifactDeclarationResult {
+	const packageInfo = parsePackageInfo(packageJsonText);
+	if (!packageInfo.ok) return packageInfo;
+	return parseDeclarations({
+		packageName: packageInfo.packageName,
+		version: packageInfo.version,
+		declarations,
+	});
+}
+
+function parsePackageInfo(
+	packageJsonText: string,
+):
+	| { ok: true; data: z.infer<typeof packageJsonSchema>; packageName: string; version: string }
+	| { ok: false; diagnostics: readonly ModuleArtifactDeclarationDiagnostic[] } {
 	let data: unknown;
 	try {
 		data = JSON.parse(packageJsonText);
@@ -97,25 +139,12 @@ export function parseModuleArtifactDeclaration(
 			],
 		};
 	}
-
-	const packageName = packageJson.data.name;
-	const version = packageJson.data.version ?? "unversioned";
-	const declarations = packageJson.data.ns?.harnessArtifacts;
-	if (declarations === undefined) return emptyCatalog(packageName, version);
-	if (!Array.isArray(declarations)) {
-		return emptyCatalog(packageName, version, [
-			{
-				code: "module_artifact_declarations_not_array",
-				message: "Package manifest ns.harnessArtifacts must be an array.",
-			},
-		]);
-	}
-
-	return parseDeclarations({
-		packageName,
-		version,
-		declarations,
-	});
+	return {
+		ok: true,
+		data: packageJson.data,
+		packageName: packageJson.data.name,
+		version: packageJson.data.version ?? "unversioned",
+	};
 }
 
 function emptyCatalog(
