@@ -1,6 +1,5 @@
 ---
 name: objective
-disable-model-invocation: true
 description: "Conceptual questions about ns Objectives, Objective patterns (umbrella, orienting, ideation, standing, steelthread), ns objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
 ---
 

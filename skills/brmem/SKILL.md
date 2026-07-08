@@ -1,6 +1,5 @@
 ---
 name: brmem
-disable-model-invocation: true
 description: "Branch-scoped durable memory via the `brmem` CLI: store, read, list, check, delete, or copy text context tied to a git branch, or resolve `.ns/prompts/...` or XDG global prompt plugins. Use when the user mentions brmem, Branch Memory, stashing branch-scoped notes/context, carrying scratch state across sessions, or how an agent should call `brmem`."
 allowed-tools:
   - "Bash(brmem *)"

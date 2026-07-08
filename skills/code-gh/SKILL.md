@@ -1,6 +1,5 @@
 ---
 name: code-gh
-disable-model-invocation: true
 description: "Use when working with the GitHub CLI (gh): pull requests, issues, releases, repos, automation, or GitHub REST/GraphQL API access. Routes to detailed gh command and API references."
 metadata:
   internal: true

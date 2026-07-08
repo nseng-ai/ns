@@ -1,6 +1,5 @@
 ---
 name: project-setup
-disable-model-invocation: true
 description: "Bootstrap and scaffold new projects and their tooling: create a Python package, a Python `-dev` CLI, or a Bun-centric TypeScript project; set up dprint formatting, GitHub Actions CI for dprint or for Python (uv + just), PyPI publishing with uv, or agentic Graphite (gt). Use when the user wants to scaffold a repo, initialize project structure, or add one of these one-shot tooling setups to a project."
 ---
 

@@ -1,6 +1,5 @@
 ---
 name: ns-typescript
-disable-model-invocation: true
 description: "TypeScript overlay for ns. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
 references:
   - references/internal-import-alternatives

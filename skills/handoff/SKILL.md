@@ -1,6 +1,5 @@
 ---
 name: handoff
-disable-model-invocation: true
 description: "Explicit handoff work: handoff artifact, continuation focus, create/pick up a handoff, handoff namespace, copy/move/delete handoff, handoff gc, /ns:handoff:create, /ns:handoff:pickup, /ns:handoff:list. For create execution use handoff-create; for pickup/list/summary use handoff-pickup."
 ---
 
