@@ -75,8 +75,8 @@ export function describeProvisionConflict(conflictingFiles: readonly string[]): 
 
 export type ProvisionFirstPartySkillFailure =
 	| { code: "catalog-source-unavailable"; message: string }
-	| { code: "unknown-skill"; message: string; skill: string }
-	| { code: "provision-error"; message: string; error: HarnessArtifactProvisionErrorInfo }
+	| { code: "unknown-skill"; skill: string }
+	| { code: "provision-error"; error: HarnessArtifactProvisionErrorInfo }
 	| {
 			code: "conflicted";
 			message: string;
@@ -84,42 +84,15 @@ export type ProvisionFirstPartySkillFailure =
 			conflictingFiles: readonly string[];
 	  };
 
-export interface ProvisionFirstPartySkillFailureHandlers<T> {
-	catalogSourceUnavailable: (
-		failure: Extract<ProvisionFirstPartySkillFailure, { code: "catalog-source-unavailable" }>,
-	) => T;
-	unknownSkill: (failure: Extract<ProvisionFirstPartySkillFailure, { code: "unknown-skill" }>) => T;
-	provisionError: (
-		failure: Extract<ProvisionFirstPartySkillFailure, { code: "provision-error" }>,
-	) => T;
-	conflicted: (failure: Extract<ProvisionFirstPartySkillFailure, { code: "conflicted" }>) => T;
-}
-
-export function matchProvisionFirstPartySkillFailure<T>(
-	failure: ProvisionFirstPartySkillFailure,
-	handlers: ProvisionFirstPartySkillFailureHandlers<T>,
-): T {
-	switch (failure.code) {
-		case "catalog-source-unavailable":
-			return handlers.catalogSourceUnavailable(failure);
-		case "unknown-skill":
-			return handlers.unknownSkill(failure);
-		case "provision-error":
-			return handlers.provisionError(failure);
-		case "conflicted":
-			return handlers.conflicted(failure);
-	}
-}
-
 export type SplitProvisionFirstPartySkillOutcome =
 	| { type: "success"; outcome: Extract<ProvisionFirstPartySkillOutcome, { type: "provisioned" }> }
 	| { type: "failure"; failure: ProvisionFirstPartySkillFailure };
 
 /**
  * Splits a provisioning outcome into success vs failure so thin adapters can
- * do one two-way branch and then map the stable failure descriptor onto their
- * own surface (exit codes, remedies, per-harness framing). The descriptor
- * carries only domain facts; it never learns CLI flags or adapter phrasing.
+ * do one two-way branch and then map stable failure facts onto their own
+ * surface (exit codes, remedies, per-harness framing). The failure facts never
+ * learn CLI flags or adapter phrasing.
  */
 export function splitProvisionFirstPartySkillOutcome(
 	outcome: ProvisionFirstPartySkillOutcome,
@@ -135,16 +108,12 @@ export function splitProvisionFirstPartySkillOutcome(
 		case "unknown-skill":
 			return {
 				type: "failure",
-				failure: {
-					code: "unknown-skill",
-					message: `Unknown first-party ns skill ${JSON.stringify(outcome.skill)}.`,
-					skill: outcome.skill,
-				},
+				failure: { code: "unknown-skill", skill: outcome.skill },
 			};
 		case "error":
 			return {
 				type: "failure",
-				failure: { code: "provision-error", message: outcome.error.message, error: outcome.error },
+				failure: { code: "provision-error", error: outcome.error },
 			};
 		case "conflicted":
 			return {

@@ -13,9 +13,7 @@ export function createNsInitContext(
 		cwd: ctx.cwd,
 		git: createNsGitGateway(ctx),
 		files: new RealActivationFilesGateway(),
-		skills: new RealSkillMaterializer({
-			context: skillMaterializationContext(ctx),
-		}),
+		skills: new RealSkillMaterializer(skillMaterializationContext(ctx)),
 	};
 }
 

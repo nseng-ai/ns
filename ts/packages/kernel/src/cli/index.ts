@@ -121,11 +121,6 @@ interface NsCliCommandContextInput {
 	homeDir?: string;
 }
 
-interface NsCliRuntimeContext {
-	command: NsCliCommandContextInput;
-	catalogDiscovery: LoadNsCommandCatalogOptions;
-}
-
 interface NsCliRawContextInputs {
 	deps: NsCliDeps;
 	injectedContext?: NsExtensionApi;
@@ -133,27 +128,11 @@ interface NsCliRawContextInputs {
 	env: Record<string, string | undefined>;
 }
 
-function resolveNsCliRuntimeContext(options: NsCliRawContextInputs): NsCliRuntimeContext {
-	const command = resolveNsCliCommandContextInput(options);
-	return {
-		command,
-		catalogDiscovery: catalogDiscoveryContext(command),
-	};
-}
-
 function resolveNsCliCommandContextInput(options: NsCliRawContextInputs): NsCliCommandContextInput {
 	const cwd = options.deps.cwd ?? options.injectedContext?.cwd ?? options.cwd;
 	const env = options.deps.env ?? options.injectedContext?.env ?? options.env;
 	const homeDir = resolveHomeDir(options.deps.homeDir, env) ?? options.injectedContext?.homeDir;
 	return { cwd, env, ...optionalEntry("homeDir", homeDir) };
-}
-
-function catalogDiscoveryContext(command: NsCliCommandContextInput): LoadNsCommandCatalogOptions {
-	return {
-		cwd: command.cwd,
-		env: command.env,
-		...optionalEntry("xdgHomeDir", command.homeDir),
-	};
 }
 
 const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
@@ -164,7 +143,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 		const injectedContext = deps.context;
 		const resolvedStdout = deps.stdout ?? injectedContext?.stdout ?? stdout;
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
-		const runtimeContext = resolveNsCliRuntimeContext({
+		const commandContext = resolveNsCliCommandContextInput({
 			deps,
 			...(injectedContext === undefined ? {} : { injectedContext }),
 			cwd,
@@ -173,14 +152,16 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 		const commandCatalog = await (
 			deps.extensionRegistry?.loadCommandCatalog ?? loadNsCommandCatalog
 		)({
-			...runtimeContext.catalogDiscovery,
+			cwd: commandContext.cwd,
+			env: commandContext.env,
+			...optionalEntry("xdgHomeDir", commandContext.homeDir),
 			...optionalEntry("preinstalledCommandCatalog", deps.preinstalledCommandCatalog),
 		});
 		if (isCompletionResolverInvocation(args)) {
 			return await handleCompletionResolverInvocation({
 				args,
 				commandCatalog,
-				commandContext: runtimeContext.command,
+				commandContext,
 				stdout: resolvedStdout,
 				stderr: resolvedStderr,
 				...optionalEntries({
@@ -240,7 +221,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 
 		const contextWithIO = await buildNsCliContext({
 			args,
-			commandContext: runtimeContext.command,
+			commandContext,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
 			...optionalEntries({

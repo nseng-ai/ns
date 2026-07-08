@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import {
 	describeProvisionConflict,
-	matchProvisionFirstPartySkillFailure,
 	provisionFileDecisionSchema,
 	provisionFirstPartySkill,
 	splitProvisionFirstPartySkillOutcome,
@@ -123,20 +122,22 @@ function installResultFromPlan(input: {
 function installFailureExit(
 	outcomeFailure: ProvisionFirstPartySkillFailure,
 ): ClinkrExit<SkillsInstallCommandResult> {
-	return matchProvisionFirstPartySkillFailure(outcomeFailure, {
-		catalogSourceUnavailable: (failureInfo) =>
-			failure("catalog-source-unavailable", failureInfo.message),
-		unknownSkill: (failureInfo) => unknownSkillExit(failureInfo.skill),
-		provisionError: (failureInfo) => provisionErrorExit(failureInfo.error),
-		conflicted: (failureInfo) =>
-			negative(
-				`Provision refused: ${failureInfo.message}. Re-run with --force to overwrite them.`,
+	switch (outcomeFailure.code) {
+		case "catalog-source-unavailable":
+			return failure("catalog-source-unavailable", outcomeFailure.message);
+		case "unknown-skill":
+			return unknownSkillExit(outcomeFailure.skill);
+		case "provision-error":
+			return provisionErrorExit(outcomeFailure.error);
+		case "conflicted":
+			return negative(
+				`Provision refused: ${outcomeFailure.message}. Re-run with --force to overwrite them.`,
 				{
 					data: {
-						manifestPath: failureInfo.manifestPath,
-						conflictingFiles: failureInfo.conflictingFiles,
+						manifestPath: outcomeFailure.manifestPath,
+						conflictingFiles: outcomeFailure.conflictingFiles,
 					},
 				},
-			),
-	});
+			);
+	}
 }
