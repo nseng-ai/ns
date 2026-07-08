@@ -630,6 +630,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 			entryTitle(entry),
 			`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatRunnerSubagentElapsed(detail.elapsedMs)}`,
 			usageLine(detail),
+			...usageTrendLines(detail),
 			`session: ${detail.sessionFile ?? "no session file yet"}`,
 		];
 	}
@@ -829,6 +830,22 @@ function usageLine(detail: SubagentFleetTaskDetail): string {
 	const totals = usage.totals;
 	const cached = totals.cacheRead + totals.cacheWrite;
 	return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+}
+
+function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {
+	const usage = detail.usage;
+	if (usage === undefined || usage.status === "unavailable" || usage.trend === undefined) return [];
+	const latest = usage.trend.latestTurn;
+	const latestText = `latest +${formatTokenCount(latest.input)} in/+${formatTokenCount(latest.output)} out`;
+	const contextText =
+		usage.trend.contextWindow === undefined
+			? `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}`
+			: `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}/${formatTokenCount(usage.trend.contextWindow)} (${formatContextPercent(usage.trend.peakPromptTokens, usage.trend.contextWindow)})`;
+	return [`trend: ${latestText} · ${contextText}`];
+}
+
+function formatContextPercent(promptTokens: number, contextWindow: number): string {
+	return `${((promptTokens / contextWindow) * 100).toFixed(1)}%`;
 }
 
 function formatTokenCount(count: number): string {

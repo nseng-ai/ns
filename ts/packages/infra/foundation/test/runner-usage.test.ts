@@ -48,6 +48,40 @@ describe("runner subagent usage parsing", () => {
 		});
 	});
 
+	test("extracts context window from direct and nested fields", () => {
+		const result = parseRunnerSubagentUsageJsonl(
+			jsonl(
+				{
+					message: {
+						role: "assistant",
+						usage: { input: 10, contextWindow: 200_000 },
+					},
+				},
+				{
+					message: {
+						role: "assistant",
+						usage: { input: 20 },
+						model_info: { context_window: 128_000 },
+					},
+				},
+				{
+					message: {
+						role: "assistant",
+						usage: { input: 30, contextWindow: 0 },
+					},
+				},
+			),
+		);
+
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		expect(result.records.map((record) => record.contextWindow)).toEqual([
+			200_000,
+			128_000,
+			undefined,
+		]);
+	});
+
 	test("extracts model references from direct and nested fields", () => {
 		const result = parseRunnerSubagentUsageJsonl(
 			jsonl(
