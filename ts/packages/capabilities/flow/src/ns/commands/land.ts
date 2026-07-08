@@ -4,6 +4,7 @@ import {
 	createLandMatrixProgressController,
 	formatLandProgressTitle,
 	LAND_MATRIX_COLUMNS,
+	LAND_MATRIX_LABEL_HEADER,
 	type LandLiveProgressState,
 	type LandMatrixProgressSink,
 } from "../../land/land-matrix-progress.ts";
@@ -304,7 +305,11 @@ export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliP
 }
 
 export function createLandMatrixEventForwarder(progress: NsProgress): LandMatrixProgressSink {
-	const forwarder = createMatrixProgressForwarder({ progress, columns: LAND_MATRIX_COLUMNS });
+	const forwarder = createMatrixProgressForwarder({
+		progress,
+		columns: LAND_MATRIX_COLUMNS,
+		labelHeader: LAND_MATRIX_LABEL_HEADER,
+	});
 	return {
 		setRows: (rows) =>
 			forwarder.setRows(rows.map((row) => ({ rowKey: row.branch, label: row.label }))),

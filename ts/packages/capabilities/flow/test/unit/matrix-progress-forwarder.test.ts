@@ -130,16 +130,12 @@ describe("createMatrixProgressForwarder", () => {
 		expect(progress.events).toEqual([]);
 	});
 
-	test("setRunningCommands and note map onto matrix-running and matrix-note", () => {
+	test("setRunningCommands maps onto matrix-running", () => {
 		const progress = recordingProgress();
 		const forwarder = createMatrixProgressForwarder({ progress: progress.sink, columns: COLUMNS });
 
 		forwarder.setRunningCommands(["gh pr merge 1"]);
-		forwarder.note("merging…");
 
-		expect(progress.events).toEqual([
-			{ type: "matrix-running", commands: ["gh pr merge 1"] },
-			{ type: "matrix-note", text: "merging…" },
-		]);
+		expect(progress.events).toEqual([{ type: "matrix-running", commands: ["gh pr merge 1"] }]);
 	});
 });

@@ -63,13 +63,11 @@ export interface NsProgressMatrixRowInfo {
 	label: string;
 }
 
-export type NsProgressPhaseEvent =
-	| { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
-	| { type: "title-changed"; title: string }
-	| { type: "phase-started"; phaseKey: string; label?: string }
-	| { type: "phase-progress"; phaseKey: string; label: string }
-	| { type: "phase-done"; phaseKey: string; detail?: string }
-	| { type: "phase-failed"; phaseKey: string; detail: string }
+/**
+ * Optional per-row × per-column progress-grid events streamed alongside the
+ * phase checklist. Hosts without matrix rendering ignore them.
+ */
+export type NsProgressMatrixEvent =
 	| {
 			type: "matrix-declared";
 			columns: readonly NsProgressMatrixColumnInfo[];
@@ -84,8 +82,30 @@ export type NsProgressPhaseEvent =
 			/** Compact cell text; hosts render it only when it fits the column. */
 			text?: string;
 	  }
-	| { type: "matrix-note"; text: string }
 	| { type: "matrix-running"; commands: readonly string[] };
+
+export type NsProgressPhaseEvent =
+	| { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
+	| { type: "title-changed"; title: string }
+	| { type: "phase-started"; phaseKey: string; label?: string }
+	| { type: "phase-progress"; phaseKey: string; label: string }
+	| { type: "phase-done"; phaseKey: string; detail?: string }
+	| { type: "phase-failed"; phaseKey: string; detail: string }
+	| NsProgressMatrixEvent;
+
+// `satisfies Record<..., true>` keeps this membership list two-way exhaustive
+// against NsProgressMatrixEvent: adding or removing a variant fails to compile
+// until the guard is updated.
+const MATRIX_EVENT_TYPES = {
+	"matrix-declared": true,
+	"matrix-rows": true,
+	"matrix-cell": true,
+	"matrix-running": true,
+} satisfies Record<NsProgressMatrixEvent["type"], true>;
+
+export function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is NsProgressMatrixEvent {
+	return event.type in MATRIX_EVENT_TYPES;
+}
 
 export type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 

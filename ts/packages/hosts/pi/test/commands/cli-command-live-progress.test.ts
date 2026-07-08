@@ -41,10 +41,9 @@ describe("MatrixWidgetState", () => {
 		const state = declaredWithRows(3);
 
 		const lines = state.lines();
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toMatch(/^Branch \/ PR\s+Gate\s+Merge\s+Verify\s+Restack\s*$/);
-		expect(lines).toHaveLength(5);
-		for (const row of lines.slice(2)) {
+		expect(lines[0]).toMatch(/^Branch \/ PR\s+Gate\s+Merge\s+Verify\s+Restack\s*$/);
+		expect(lines).toHaveLength(4);
+		for (const row of lines.slice(1)) {
 			expect(row).toMatch(/^feature-\d \(#\d\)\s+(·\s+){3}·\s*$/);
 		}
 	});
@@ -66,7 +65,7 @@ describe("MatrixWidgetState", () => {
 			state: "failed",
 		});
 
-		const [, , rowOne, rowTwo] = state.lines();
+		const [, rowOne, rowTwo] = state.lines();
 		expect(rowOne).toMatch(/^feature-1 \(#1\)\s+✓\s+▸\s+·\s+·\s*$/);
 		expect(rowTwo).toMatch(/^feature-2 \(#2\)\s+·\s+–\s+✗\s+·\s*$/);
 	});
@@ -88,7 +87,7 @@ describe("MatrixWidgetState", () => {
 			text: "too wide for gate",
 		});
 
-		const row = state.lines()[2];
+		const row = state.lines()[1];
 		expect(row).toContain("retry");
 		expect(row).not.toContain("too wide for gate");
 		expect(row).toMatch(/▸/);
@@ -111,8 +110,8 @@ describe("MatrixWidgetState", () => {
 		});
 
 		const lines = state.lines();
-		expect(lines).toHaveLength(4);
-		expect(lines[2]).toMatch(/^feature-2 \(#2\)\s+(·\s+){3}·\s*$/);
+		expect(lines).toHaveLength(3);
+		expect(lines[1]).toMatch(/^feature-2 \(#2\)\s+(·\s+){3}·\s*$/);
 	});
 
 	test("honors a custom label header and long labels truncate at the label column", () => {
@@ -126,22 +125,18 @@ describe("MatrixWidgetState", () => {
 		state.apply({ type: "matrix-rows", rows: [{ rowKey: "long", label: longLabel }] });
 
 		const lines = state.lines();
-		expect(lines[1]?.startsWith("PR")).toBe(true);
-		expect(lines[2]).toContain("…");
-		expect(lines[2]?.startsWith(longLabel.slice(0, 35))).toBe(true);
+		expect(lines[0]?.startsWith("PR")).toBe(true);
+		expect(lines[1]).toContain("…");
+		expect(lines[1]?.startsWith(longLabel.slice(0, 35))).toBe(true);
 	});
 
-	test("renders running commands and note lines when present", () => {
+	test("renders a running-commands line when present", () => {
 		const state = declaredWithRows(1);
 		state.apply({ type: "matrix-running", commands: ["gh pr merge 1", "gt restack"] });
-		state.apply({ type: "matrix-note", text: "merging feature-1" });
 
-		const lines = state.lines();
-		expect(lines.at(-2)).toBe("Running: gh pr merge 1; gt restack");
-		expect(lines.at(-1)).toBe("merging feature-1");
+		expect(state.lines().at(-1)).toBe("Running: gh pr merge 1; gt restack");
 
 		state.apply({ type: "matrix-running", commands: [] });
-		expect(state.lines().at(-1)).toBe("merging feature-1");
 		expect(state.lines().some((line) => line.startsWith("Running:"))).toBe(false);
 	});
 });
@@ -237,7 +232,7 @@ describe("LiveCommandProgress matrix rendering", () => {
 		const { progress, latestWidget } = createWidgetHarness();
 		try {
 			for (const event of MATRIX_EVENTS) progress.applyPhaseEvent(event);
-			progress.applyPhaseEvent({ type: "matrix-note", text: "x".repeat(200) });
+			progress.applyPhaseEvent({ type: "matrix-running", commands: ["x".repeat(200)] });
 
 			const lines = latestWidget();
 			expect(lines?.at(-1)).toHaveLength(100);

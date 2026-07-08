@@ -3,7 +3,12 @@ import {
 	type ProgressPhaseState,
 	type ProgressPhaseView,
 } from "@nseng-ai/kernel/progress-phase-state";
-import type { NsProgressMatrixCellState, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import {
+	isMatrixProgressEvent,
+	type NsProgressMatrixCellState,
+	type NsProgressMatrixEvent,
+	type NsProgressPhaseEvent,
+} from "@nseng-ai/kernel/sdk";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
@@ -60,30 +65,19 @@ class StructuredPhaseWidget {
 		this.store.apply(event);
 	}
 
-	lines(input: {
-		cliName: string;
-		argv: readonly string[];
-		piCommandName: string;
-		elapsed: string;
-		matrixLines: readonly string[];
-		latestOutput: LiveOutputLine | undefined;
-	}): string[] {
+	phaseLines(): string[] {
 		const phases = this.store.views();
-		const lines = [this.headerLine(input)];
+		const lines: string[] = [];
 		const nameWidth = Math.max(0, ...phases.map((phase) => phase.name.length));
 		for (const phase of phases) {
 			const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(nameWidth)}`;
 			const text = textForWidgetPhase(phase);
 			lines.push(text === undefined ? prefix : `${prefix}  ${text}`);
 		}
-		lines.push(...input.matrixLines);
-		if (input.latestOutput !== undefined) {
-			lines.push(`  ${formatLiveOutputLine(input.latestOutput)}`);
-		}
-		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
+		return lines;
 	}
 
-	private headerLine(input: {
+	headerLine(input: {
 		cliName: string;
 		argv: readonly string[];
 		piCommandName: string;
@@ -99,21 +93,6 @@ class StructuredPhaseWidget {
 function textForWidgetPhase(phase: ProgressPhaseView): string | undefined {
 	if (phase.state === "done" || phase.state === "skipped") return phase.detail ?? phase.label;
 	return phase.label;
-}
-
-type MatrixProgressEvent = Extract<
-	NsProgressPhaseEvent,
-	{ type: "matrix-declared" | "matrix-rows" | "matrix-cell" | "matrix-note" | "matrix-running" }
->;
-
-function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is MatrixProgressEvent {
-	return (
-		event.type === "matrix-declared" ||
-		event.type === "matrix-rows" ||
-		event.type === "matrix-cell" ||
-		event.type === "matrix-note" ||
-		event.type === "matrix-running"
-	);
 }
 
 const MATRIX_DEFAULT_LABEL_HEADER = "Branch / PR";
@@ -142,14 +121,13 @@ export class MatrixWidgetState {
 	private rows: { rowKey: string; label: string }[] = [];
 	private cellsByRow = new Map<string, Map<string, MatrixWidgetCell>>();
 	private runningCommands: readonly string[] = [];
-	private note: string | undefined;
 	private hasDeclared = false;
 
 	get isActive(): boolean {
 		return this.hasDeclared;
 	}
 
-	apply(event: MatrixProgressEvent): void {
+	apply(event: NsProgressMatrixEvent): void {
 		switch (event.type) {
 			case "matrix-declared":
 				this.hasDeclared = true;
@@ -177,21 +155,18 @@ export class MatrixWidgetState {
 				});
 				return;
 			}
-			case "matrix-note":
-				this.note = event.text;
-				return;
 			case "matrix-running":
 				this.runningCommands = [...event.commands];
 				return;
 		}
 	}
 
-	/** Rendered matrix block (leading blank separator included); empty until declared. */
+	/** Rendered matrix block; empty until declared. */
 	lines(): string[] {
 		if (!this.hasDeclared) return [];
 		const labelWidth = this.labelWidth();
 		const header = this.columns.map((column) => column.label.padEnd(column.width)).join("  ");
-		const lines = ["", `${this.labelHeader.padEnd(labelWidth)}  ${header}`];
+		const lines = [`${this.labelHeader.padEnd(labelWidth)}  ${header}`];
 		for (const row of this.rows) {
 			const label = truncateDisplayLine(row.label, labelWidth).padEnd(labelWidth);
 			const cells = this.columns
@@ -202,7 +177,6 @@ export class MatrixWidgetState {
 		if (this.runningCommands.length > 0) {
 			lines.push(`Running: ${this.runningCommands.join("; ")}`);
 		}
-		if (this.note !== undefined) lines.push(this.note);
 		return lines;
 	}
 
@@ -367,14 +341,21 @@ export class LiveCommandProgress {
 
 	private widgetLines(elapsed: string): string[] {
 		if (this.structuredWidget.isActive || this.matrixWidget.isActive) {
-			return this.structuredWidget.lines({
-				cliName: this.options.cliName,
-				argv: this.options.argv,
-				piCommandName: this.options.piCommandName,
-				elapsed,
-				matrixLines: this.matrixWidget.lines(),
-				latestOutput: this.recentOutputLines().at(-1),
-			});
+			const lines = [
+				this.structuredWidget.headerLine({
+					cliName: this.options.cliName,
+					argv: this.options.argv,
+					piCommandName: this.options.piCommandName,
+					elapsed,
+				}),
+				...this.structuredWidget.phaseLines(),
+				...(this.matrixWidget.isActive ? ["", ...this.matrixWidget.lines()] : []),
+			];
+			const latestOutput = this.recentOutputLines().at(-1);
+			if (latestOutput !== undefined) {
+				lines.push(`  ${formatLiveOutputLine(latestOutput)}`);
+			}
+			return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
 		}
 
 		const lines = [

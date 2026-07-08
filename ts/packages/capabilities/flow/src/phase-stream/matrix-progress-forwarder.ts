@@ -21,7 +21,6 @@ export interface MatrixProgressForwarder<ColumnKey extends string> {
 	setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void;
 	setAllCells(column: ColumnKey, update: MatrixCellUpdate): void;
 	setAllOtherCells(column: ColumnKey, rowKey: string, update: MatrixCellUpdate): void;
-	note(text: string): void;
 }
 
 export function createMatrixProgressForwarder<ColumnKey extends string>(
@@ -77,9 +76,6 @@ export function createMatrixProgressForwarder<ColumnKey extends string>(
 			for (const otherKey of rowKeys) {
 				if (otherKey !== rowKey) setCell(otherKey, column, update);
 			}
-		},
-		note: (text) => {
-			emit({ type: "matrix-note", text });
 		},
 	};
 }

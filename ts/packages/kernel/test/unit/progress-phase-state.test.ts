@@ -63,7 +63,6 @@ describe("createProgressPhaseStateStore", () => {
 				state: "active",
 			}),
 		).toBeUndefined();
-		expect(store.apply({ type: "matrix-note", text: "merging…" })).toBeUndefined();
 		expect(store.apply({ type: "matrix-running", commands: ["gh pr merge 1"] })).toBeUndefined();
 
 		expect(store.views()).toEqual(before);

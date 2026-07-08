@@ -567,6 +567,12 @@ interface NsProgressMatrixRowInfo {
   label: string;
 }
 
+type NsProgressMatrixEvent =
+  | { type: "matrix-declared"; columns: readonly NsProgressMatrixColumnInfo[]; labelHeader?: string }
+  | { type: "matrix-rows"; rows: readonly NsProgressMatrixRowInfo[] }
+  | { type: "matrix-cell"; rowKey: string; columnKey: string; state: NsProgressMatrixCellState; text?: string }
+  | { type: "matrix-running"; commands: readonly string[] };
+
 type NsProgressPhaseEvent =
   | { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
   | { type: "title-changed"; title: string }
@@ -574,11 +580,9 @@ type NsProgressPhaseEvent =
   | { type: "phase-progress"; phaseKey: string; label: string }
   | { type: "phase-done"; phaseKey: string; detail?: string }
   | { type: "phase-failed"; phaseKey: string; detail: string }
-  | { type: "matrix-declared"; columns: readonly NsProgressMatrixColumnInfo[]; labelHeader?: string }
-  | { type: "matrix-rows"; rows: readonly NsProgressMatrixRowInfo[] }
-  | { type: "matrix-cell"; rowKey: string; columnKey: string; state: NsProgressMatrixCellState; text?: string }
-  | { type: "matrix-note"; text: string }
-  | { type: "matrix-running"; commands: readonly string[] };
+  | NsProgressMatrixEvent;
+
+function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is NsProgressMatrixEvent;
 
 type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 
@@ -590,7 +594,7 @@ interface NsProgress {
 
 `NsProgressPhaseInfo` is presentation metadata for a declared phase checklist.
 
-The `matrix-*` variants stream an optional per-row × per-column progress grid alongside the phase checklist (for example flow land's branch × Gate/Merge/Verify/Restack matrix). `matrix-declared` announces the column set (and optional row-label header) once; `matrix-rows` replaces the full row set; `matrix-cell` updates one cell's `NsProgressMatrixCellState` with optional compact `text` that hosts render only when it fits the column; `matrix-note` and `matrix-running` carry transient context lines. Hosts without matrix rendering (including `createProgressPhaseStateStore`) ignore matrix variants; listeners must tolerate them.
+The `NsProgressMatrixEvent` sub-union streams an optional per-row × per-column progress grid alongside the phase checklist (for example flow land's branch × Gate/Merge/Verify/Restack matrix). `matrix-declared` announces the column set (and optional row-label header) once; `matrix-rows` replaces the full row set; `matrix-cell` updates one cell's `NsProgressMatrixCellState` with optional compact `text` that hosts render only when it fits the column; `matrix-running` carries a transient in-flight-commands line. Hosts without matrix rendering (including `createProgressPhaseStateStore`) ignore matrix variants; listeners must tolerate them. Hosts with matrix rendering use the exported `isMatrixProgressEvent` guard to split matrix events off the phase wire.
 
 Low-level `stdout`, `stderr`, and `onOutput` hooks remain compatibility primitives for durable stream output and transient live-output bridges. `ctx.commandIo` and `ctx.progress` are the preferred SDK services for command-authored human output and typed progress.
 

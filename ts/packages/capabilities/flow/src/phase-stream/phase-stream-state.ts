@@ -3,7 +3,7 @@ import {
 	type ProgressPhaseSpec,
 	type ProgressPhaseView,
 } from "@nseng-ai/kernel/progress-phase-state";
-import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { PhaseState, StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
 import type { PhaseSpec, PhaseSubstepSpec } from "./phase-stream-specs.ts";
@@ -41,11 +41,7 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		if (
 			event.type === "phases-declared" ||
 			event.type === "title-changed" ||
-			event.type === "matrix-declared" ||
-			event.type === "matrix-rows" ||
-			event.type === "matrix-cell" ||
-			event.type === "matrix-note" ||
-			event.type === "matrix-running"
+			isMatrixProgressEvent(event)
 		) {
 			return { type: "ignored" };
 		}
