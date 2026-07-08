@@ -33,7 +33,7 @@ The settled end-state an **Ideation Objective** is finding its way to — its th
 *Avoid*: vision statement, moving target, roadmap row
 
 **Question Row**:
-A roadmap row in an **Ideation Objective** that is an open decision or investigation rather than executable work, typed as one of grilling, research, prototype, or task, carrying explicit blocked-by references to other rows, and sized to one agent session.
+A roadmap row in an **Ideation Objective** that is an open decision or investigation rather than executable work, typed as one of grilling, research, prototype, or task, carrying explicit blocked-by references to other rows, and sized to one agent session. Grilling and prototype rows resolve only through live exchange with the user; research rows are agent-alone; task rows may be either — prose guidance, not machine state.
 *Avoid*: ticket, task-tracker item, execution row, subissue
 
 **Frontier**:
@@ -41,7 +41,7 @@ The open, unblocked **Question Rows** of an **Ideation Objective** — the quest
 *Avoid*: backlog, task queue, next-up list
 
 **Fog**:
-The deliberately coarse view of decisions an **Ideation Objective** can tell are coming but cannot yet phrase sharply, held as a marked cluster under `## Open Questions` and never pre-sliced into rows. The test against a **Question Row**: can the question be stated precisely now — not answered.
+The deliberately coarse view of decisions an **Ideation Objective** can tell are coming but cannot yet phrase sharply, held as a marked cluster under `## Open Questions` and never pre-sliced into rows. The test against a **Question Row**: can the question be stated precisely now — not answered. Fog gathers only toward the **Destination**: work ruled beyond it is not Fog and never graduates — it belongs in non-goals prose.
 *Avoid*: sharp open question, hidden backlog, placeholder rows
 
 **Crystallization**:

@@ -79,9 +79,18 @@ completion criteria) is settled first, but the way there is not yet known, so th
 roadmap is a **Frontier** of open, unblocked, typed **Question Rows** (grilling /
 research / prototype / task, with explicit blocked-by references, unordered beyond
 blocking) rather than executable slices. Questions too coarse to state precisely stay as
-**Fog** — a marked cluster under `## Open Questions`, never pre-sliced into rows.
-Resolving a Question Row records the decision and graduates Fog the answer made
-specifiable into new rows. **Crystallization** is the phase exit: the Frontier empties
+**Fog** — a marked cluster under `## Open Questions`, never pre-sliced into rows. Fog
+gathers only toward the Destination: work ruled beyond it is not Fog and never
+graduates — it belongs in the record's non-goals prose, and a Question Row exposed as
+out of scope is dropped with a recorded decision rather than resolved. The pattern is
+planning by default — a Question Row resolves a decision, not a deliverable; only
+`task` rows do rather than decide, and they earn their place by unblocking a decision.
+Rows are worked human-in-the-loop or agent-alone as prose guidance, not machine state:
+grilling and prototype rows resolve only through live exchange with the user (an agent
+that answers its own grill questions has broken the row), research rows are agent-only,
+and task rows may be either. Resolving a Question Row records the decision and graduates
+Fog the answer made specifiable into new rows. The pull to just execute the work is
+usually the signal the record has crystallized. **Crystallization** is the phase exit: the Frontier empties
 and what remains is ordinary PR-shaped execution work — ideation is a phase every
 Objective passes through; this pattern names deliberately staying there while the way is
 found. The vocabulary (Destination, Question Row, Frontier, Fog, Crystallization) is
