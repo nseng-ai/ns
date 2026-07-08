@@ -4,7 +4,11 @@ import {
 	type ProgressPhaseView,
 } from "@nseng-ai/kernel/progress-phase-state";
 import {
+	centerMatrixProgressText,
+	clampMatrixProgressLabelWidthChars,
 	isMatrixProgressEvent,
+	matrixProgressDisplayWidthChars,
+	padMatrixProgressTextEnd,
 	type NsProgressMatrixCellState,
 	type NsProgressMatrixEvent,
 	type NsProgressPhaseEvent,
@@ -96,8 +100,6 @@ function textForWidgetPhase(phase: ProgressPhaseView): string | undefined {
 }
 
 const MATRIX_DEFAULT_LABEL_HEADER = "Branch / PR";
-const MATRIX_MIN_LABEL_WIDTH = 18;
-const MATRIX_MAX_LABEL_WIDTH = 36;
 
 interface MatrixWidgetColumn {
 	key: string;
@@ -134,14 +136,14 @@ export class MatrixWidgetState {
 				this.columns = event.columns.map((column) => ({
 					key: column.key,
 					label: column.label,
-					width: Math.max(column.width ?? 0, column.label.length),
+					width: Math.max(column.width ?? 0, matrixProgressDisplayWidthChars(column.label)),
 				}));
 				if (event.labelHeader !== undefined) this.labelHeader = event.labelHeader;
 				return;
 			case "matrix-rows": {
 				this.rows = event.rows.map((row) => ({ rowKey: row.rowKey, label: row.label }));
 				const rowKeys = new Set(this.rows.map((row) => row.rowKey));
-				for (const rowKey of [...this.cellsByRow.keys()]) {
+				for (const rowKey of this.cellsByRow.keys()) {
 					if (!rowKeys.has(rowKey)) this.cellsByRow.delete(rowKey);
 				}
 				return;
@@ -165,12 +167,17 @@ export class MatrixWidgetState {
 	lines(): string[] {
 		if (!this.hasDeclared) return [];
 		const labelWidth = this.labelWidth();
-		const header = this.columns.map((column) => column.label.padEnd(column.width)).join("  ");
-		const lines = [`${this.labelHeader.padEnd(labelWidth)}  ${header}`];
+		const header = this.columns
+			.map((column) => padMatrixProgressTextEnd(column.label, column.width))
+			.join("  ");
+		const lines = [`${padMatrixProgressTextEnd(this.labelHeader, labelWidth)}  ${header}`];
 		for (const row of this.rows) {
-			const label = truncateDisplayLine(row.label, labelWidth).padEnd(labelWidth);
+			const label = padMatrixProgressTextEnd(
+				truncateDisplayLine(row.label, labelWidth),
+				labelWidth,
+			);
 			const cells = this.columns
-				.map((column) => centerMatrixCell(this.cellText(row.rowKey, column), column.width))
+				.map((column) => centerMatrixProgressText(this.cellText(row.rowKey, column), column.width))
 				.join("  ");
 			lines.push(`${label}  ${cells}`);
 		}
@@ -184,20 +191,19 @@ export class MatrixWidgetState {
 		const cell = this.cellsByRow.get(rowKey)?.get(column.key);
 		// Compact text renders only when it fits the column (mirrors the CLI matrix);
 		// otherwise the state glyph keeps narrow columns scannable.
-		if (cell?.text !== undefined && cell.text.length <= column.width) return cell.text;
+		if (cell?.text !== undefined && matrixProgressDisplayWidthChars(cell.text) <= column.width) {
+			return cell.text;
+		}
 		return phaseGlyph(cell?.state ?? "pending");
 	}
 
 	private labelWidth(): number {
-		const longest = Math.max(this.labelHeader.length, ...this.rows.map((row) => row.label.length));
-		return Math.max(MATRIX_MIN_LABEL_WIDTH, Math.min(MATRIX_MAX_LABEL_WIDTH, longest));
+		const longest = Math.max(
+			matrixProgressDisplayWidthChars(this.labelHeader),
+			...this.rows.map((row) => matrixProgressDisplayWidthChars(row.label)),
+		);
+		return clampMatrixProgressLabelWidthChars(longest);
 	}
-}
-
-function centerMatrixCell(text: string, width: number): string {
-	const pad = Math.max(0, width - text.length);
-	const left = Math.floor(pad / 2);
-	return `${" ".repeat(left)}${text}${" ".repeat(pad - left)}`;
 }
 
 export class LiveCommandProgress {

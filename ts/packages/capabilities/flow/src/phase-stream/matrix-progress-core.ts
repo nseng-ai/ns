@@ -7,7 +7,6 @@ import {
 } from "@nseng-ai/clinkr/stream";
 import {
 	bold,
-	centerCell,
 	dim,
 	ellipsisFor,
 	padPlain,
@@ -15,9 +14,14 @@ import {
 	spinnerFrame,
 	statusLine,
 	truncatePlain,
-	visibleWidth,
 } from "@nseng-ai/foundation/cli-theme";
-import type { NsProgress, NsProgressPhaseInfo } from "@nseng-ai/kernel/sdk";
+import {
+	centerMatrixProgressText,
+	clampMatrixProgressLabelWidthChars,
+	matrixProgressDisplayWidthChars,
+	type NsProgress,
+	type NsProgressPhaseInfo,
+} from "@nseng-ai/kernel/sdk";
 
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";
 import type { PhaseSpec } from "./phase-stream-specs.ts";
@@ -496,7 +500,7 @@ function renderMatrixRow<ColumnKey extends string>(
 	);
 	const cells = columns
 		.map((column) =>
-			centerCell(
+			centerMatrixProgressText(
 				renderCell({ caps, cell: row.cells[column.key], tick, width: column.width }),
 				column.width,
 			),
@@ -514,7 +518,8 @@ function renderCell(options: {
 	// Compact text renders only when it fits the column; longer text (for example full
 	// command displays) falls back to the legacy symbols so narrow columns stay scannable.
 	const text =
-		options.cell.text !== undefined && visibleWidth(options.cell.text) <= options.width
+		options.cell.text !== undefined &&
+		matrixProgressDisplayWidthChars(options.cell.text) <= options.width
 			? options.cell.text
 			: undefined;
 	switch (options.cell.state) {
@@ -532,7 +537,7 @@ function renderCell(options: {
 }
 
 function labelWidth(caps: Caps): number {
-	return Math.max(18, Math.min(36, caps.columns - 44));
+	return clampMatrixProgressLabelWidthChars(caps.columns - 44);
 }
 
 function matrixCellFromUpdate(update: MatrixCellUpdate): MatrixCellView {

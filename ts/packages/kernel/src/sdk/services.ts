@@ -1,3 +1,5 @@
+import { displayWidth } from "@nseng-ai/foundation/text-table";
+
 export type NsNotifyLevel = "info" | "warning" | "error";
 
 export interface NsCommandMessageOptions {
@@ -92,6 +94,31 @@ export type NsProgressPhaseEvent =
 	| { type: "phase-done"; phaseKey: string; detail?: string }
 	| { type: "phase-failed"; phaseKey: string; detail: string }
 	| NsProgressMatrixEvent;
+
+export const MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS = 18;
+export const MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS = 36;
+
+export function matrixProgressDisplayWidthChars(value: string): number {
+	return displayWidth(value);
+}
+
+export function clampMatrixProgressLabelWidthChars(preferredWidthChars: number): number {
+	return Math.max(
+		MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
+		Math.min(MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS, preferredWidthChars),
+	);
+}
+
+export function centerMatrixProgressText(text: string, widthChars: number): string {
+	const padChars = Math.max(0, widthChars - matrixProgressDisplayWidthChars(text));
+	const leftPadChars = Math.floor(padChars / 2);
+	return `${" ".repeat(leftPadChars)}${text}${" ".repeat(padChars - leftPadChars)}`;
+}
+
+export function padMatrixProgressTextEnd(text: string, widthChars: number): string {
+	const padChars = Math.max(0, widthChars - matrixProgressDisplayWidthChars(text));
+	return `${text}${" ".repeat(padChars)}`;
+}
 
 // `satisfies Record<..., true>` keeps this membership list two-way exhaustive
 // against NsProgressMatrixEvent: adding or removing a variant fails to compile

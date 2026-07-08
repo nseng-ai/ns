@@ -582,7 +582,14 @@ type NsProgressPhaseEvent =
   | { type: "phase-failed"; phaseKey: string; detail: string }
   | NsProgressMatrixEvent;
 
+const MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS = 18;
+const MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS = 36;
+
 function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is NsProgressMatrixEvent;
+function matrixProgressDisplayWidthChars(value: string): number;
+function clampMatrixProgressLabelWidthChars(preferredWidthChars: number): number;
+function centerMatrixProgressText(text: string, widthChars: number): string;
+function padMatrixProgressTextEnd(text: string, widthChars: number): string;
 
 type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 
@@ -594,7 +601,7 @@ interface NsProgress {
 
 `NsProgressPhaseInfo` is presentation metadata for a declared phase checklist.
 
-The `NsProgressMatrixEvent` sub-union streams an optional per-row × per-column progress grid alongside the phase checklist (for example flow land's branch × Gate/Merge/Verify/Restack matrix). `matrix-declared` announces the column set (and optional row-label header) once; `matrix-rows` replaces the full row set; `matrix-cell` updates one cell's `NsProgressMatrixCellState` with optional compact `text` that hosts render only when it fits the column; `matrix-running` carries a transient in-flight-commands line. Hosts without matrix rendering (including `createProgressPhaseStateStore`) ignore matrix variants; listeners must tolerate them. Hosts with matrix rendering use the exported `isMatrixProgressEvent` guard to split matrix events off the phase wire.
+The `NsProgressMatrixEvent` sub-union streams an optional per-row × per-column progress grid alongside the phase checklist (for example flow land's branch × Gate/Merge/Verify/Restack matrix). `matrix-declared` announces the column set (and optional row-label header) once; `matrix-rows` replaces the full row set; `matrix-cell` updates one cell's `NsProgressMatrixCellState` with optional compact `text` that hosts render only when it fits the column; `matrix-running` carries a transient in-flight-commands line. Hosts without matrix rendering (including `createProgressPhaseStateStore`) ignore matrix variants; listeners must tolerate them. Hosts with matrix rendering use the exported `isMatrixProgressEvent` guard to split matrix events off the phase wire, and the exported matrix text-layout helpers for shared display-width-aware label clamps, cell centering, and right padding.
 
 Low-level `stdout`, `stderr`, and `onOutput` hooks remain compatibility primitives for durable stream output and transient live-output bridges. `ctx.commandIo` and `ctx.progress` are the preferred SDK services for command-authored human output and typed progress.
 
