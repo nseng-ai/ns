@@ -4,7 +4,7 @@
 
 This guide explains how ns imports and adapts skills from `mattpocock/skills` without overwriting ns-native agent workflows.
 
-Implementation-time upstream source: `mattpocock/skills` at commit `6eeb81b5fcfeeb5bd531dd47ab2f9f2bbea27461` (package version 1.0.1).
+Implementation-time upstream source: `mattpocock/skills` at commit `d574778f94cf620fcc8ce741584093bc650a61d3` (package version 1.1.0).
 
 ## Current relationship
 

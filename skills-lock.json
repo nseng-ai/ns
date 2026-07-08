@@ -127,6 +127,12 @@
       "sourceType": "local",
       "computedHash": "a1d58290263dcbee8b86f5305a0846708048dea8ca47e81595aa77390aaa6eb0"
     },
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "computedHash": "1a993ce9b2aaa653ee441c8d7efb7f27de03493c722be6dfb8137bcb8db1bc72"
+    },
     "dignified-python": {
       "source": "skills/dignified-python",
       "sourceType": "local",
@@ -181,7 +187,7 @@
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/productivity/grilling/SKILL.md",
-      "computedHash": "ef685a6fa0bbe73b05bbd8dc1ec97258191587f07c6aa7dbc9006675ceb8f90f"
+      "computedHash": "1de9e777a60b184b29412fadacb7bbde8c14bb7037e5c4d9d086c941281d1742"
     },
     "handoff": {
       "source": "skills/handoff",
@@ -335,10 +341,16 @@
       "sourceType": "local",
       "computedHash": "7b15d37ad8eb54b314d1c3716dd858c069278dcbd9aaf76c28bbf5c5888e806f"
     },
+    "pocock-resolving-merge-conflicts": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/resolving-merge-conflicts/SKILL.md",
+      "computedHash": "bff6e06cec85897477759ed052410450aa91057644f5b70d888e26bc8b348847"
+    },
     "pocock-review": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "skills/in-progress/review/SKILL.md",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
       "computedHash": "a6c596036b399698ec5526aed60bddc134923832582e21ab140bb27f2fc4fff9"
     },
     "pr-address": {
@@ -350,6 +362,12 @@
       "source": "skills/project-setup",
       "sourceType": "local",
       "computedHash": "a781e47a6e08b7c8de4f67c319189ee323c42741426c6cbc5528d3d20dd086f8"
+    },
+    "prototype": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/prototype/SKILL.md",
+      "computedHash": "e70c8933d30153a4da47865829d356824b2a830367275e3b00c7b431a1544a79"
     },
     "pytest": {
       "source": "skills/pytest",
@@ -380,6 +398,12 @@
       "source": "skills/reinvented-abstractions-tripwire",
       "sourceType": "local",
       "computedHash": "d77ac7b897d91771beee4904ce38a457c13e94df99749c89fb8f4da3b2e39b5d"
+    },
+    "research": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/research/SKILL.md",
+      "computedHash": "87d17f5103899fbe179b552a85485d50f2316ca5b3128f5716af7d88817533e1"
     },
     "review-dry-but-not-too-dry": {
       "source": "skills/review-dry-but-not-too-dry",
@@ -446,7 +470,7 @@
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/tdd/SKILL.md",
-      "computedHash": "d5ca5c8ae0615f343f1cfd71591f4a586046d77b1f36e8d67b8f643bad51043e"
+      "computedHash": "c9326b88419cfba1d54dd713b7ddb23020e6a93f4b0d13aea58cebba58cda2ee"
     },
     "thermo-nuclear-code-quality-review": {
       "source": "cursor/plugins",
@@ -474,14 +498,14 @@
     "wayfinder": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "skills/in-progress/wayfinder/SKILL.md",
-      "computedHash": "23ff2252da9ae676ba4ef4190fb768e06ce7cfe91a697f7f0a8eeb7866d23c40"
+      "skillPath": "skills/engineering/wayfinder/SKILL.md",
+      "computedHash": "3eb72cd9abdfaa00e10fa69f0b4410ff8639a6cf4eb9e5d187b289c3aa9be2fc"
     },
     "writing-great-skills": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/productivity/writing-great-skills/SKILL.md",
-      "computedHash": "581f78b50b3d81b095de86b5c18a4d9fa932fbe414cc82bd26d627d4da518f07"
+      "computedHash": "42fe94c64d7b9acda9ce7d6495a3476893a1b18615986528f55f7162a29789d4"
     }
   }
 }
