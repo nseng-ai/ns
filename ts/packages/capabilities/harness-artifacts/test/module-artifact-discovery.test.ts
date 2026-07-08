@@ -118,6 +118,7 @@ describe("extension-root module artifact discovery", () => {
 	test("reports an invalid global extension root environment as a diagnostic", async () => {
 		const result = await discoverExtensionModuleHarnessArtifacts({
 			projectRoot: "/repo",
+			homeDir: undefined,
 			env: { HOME: undefined, XDG_DATA_HOME: undefined },
 			gateway: createFakeGateway({}),
 		});
