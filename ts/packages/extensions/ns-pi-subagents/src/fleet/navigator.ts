@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
@@ -153,6 +153,12 @@ interface LoadedFleetEntryDetail {
 	sessionContentSignature?: string;
 }
 
+interface FleetDetailContext {
+	readTextFile: ReadTextFile;
+	readWorktreeState: ReadWorktreeState;
+	cwd: string;
+}
+
 export function registerSubagentFleetCommand<TPi extends object>(input: {
 	pi: TPi;
 	registry: SubagentFleetRegistry;
@@ -221,11 +227,13 @@ export async function openSubagentFleetNavigator(input: {
 			new SubagentFleetNavigator({
 				tui,
 				registry: input.registry,
-				readTextFile,
-				readWorktreeState: input.dependencies?.readWorktreeState ?? readWorktreeStateUnavailable,
-				cwd: input.ctx.cwd,
+				detailContext: {
+					readTextFile,
+					readWorktreeState: input.dependencies?.readWorktreeState ?? readWorktreeStateUnavailable,
+					cwd: input.ctx.cwd,
+				},
 				done,
-				...(parentSessionFile === undefined ? {} : { parentSessionFile }),
+				...optionalEntry("parentSessionFile", parentSessionFile),
 			}),
 		overlayHostOptions(),
 	);
@@ -277,9 +285,10 @@ async function formatNoUiTaskSummary(input: {
 export interface SubagentFleetNavigatorOptions {
 	tui: Pick<TuiHandle, "requestRender"> & { readonly terminal?: { readonly rows?: number } };
 	registry: SubagentFleetRegistry;
-	readTextFile: ReadTextFile;
+	detailContext?: FleetDetailContext;
+	readTextFile?: ReadTextFile;
 	readWorktreeState?: ReadWorktreeState;
-	cwd: string;
+	cwd?: string;
 	done(value: undefined): void;
 	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
 	parentSessionFile?: string;
@@ -288,12 +297,22 @@ export interface SubagentFleetNavigatorOptions {
 	detailRefreshIntervalMs?: number;
 }
 
+function detailContextFromOptions(options: SubagentFleetNavigatorOptions): FleetDetailContext {
+	if (options.detailContext !== undefined) return options.detailContext;
+	if (options.readTextFile === undefined) {
+		throw new Error("SubagentFleetNavigator requires detailContext or readTextFile.");
+	}
+	return {
+		readTextFile: options.readTextFile,
+		readWorktreeState: options.readWorktreeState ?? readWorktreeStateUnavailable,
+		cwd: options.cwd ?? process.cwd(),
+	};
+}
+
 export class SubagentFleetNavigator implements RenderComponent {
 	private readonly tui: Pick<TuiHandle, "requestRender">;
 	private readonly registry: SubagentFleetRegistry;
-	private readonly readTextFile: ReadTextFile;
-	private readonly readWorktreeState: ReadWorktreeState;
-	private readonly cwd: string;
+	private readonly detailContext: FleetDetailContext;
 	private readonly done: (value: undefined) => void;
 	private readonly fallbackParentSessionFile: string | undefined;
 	private readonly clock: Clock;
@@ -317,9 +336,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	constructor(options: SubagentFleetNavigatorOptions) {
 		this.tui = options.tui;
 		this.registry = options.registry;
-		this.readTextFile = options.readTextFile;
-		this.readWorktreeState = options.readWorktreeState ?? readWorktreeStateUnavailable;
-		this.cwd = options.cwd;
+		this.detailContext = detailContextFromOptions(options);
 		this.done = options.done;
 		this.fallbackParentSessionFile = options.parentSessionFile;
 		this.clock = options.clock ?? systemClock;
@@ -467,12 +484,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
-		const loaded = await loadFleetEntryDetail({
-			entry,
-			readTextFile: this.readTextFile,
-			readWorktreeState: this.readWorktreeState,
-			cwd: this.cwd,
-		});
+		const loaded = await loadFleetEntryDetail({ entry, context: this.detailContext });
 		this.isReadInFlight = false;
 		if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
 			this.detail = this.detailWithLiveObservation(entry, loaded);
@@ -499,7 +511,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 			...loaded.detail,
 			liveActivity: {
 				currentAction,
-				...(quietMs === undefined ? {} : { quietMs }),
+				...optionalEntry("quietMs", quietMs),
 			},
 		};
 	}
@@ -699,26 +711,26 @@ export async function loadFleetTaskDetail(input: {
 }): Promise<SubagentFleetTaskDetail> {
 	const loaded = await loadFleetEntryDetail({
 		entry: { kind: "task", task: input.task },
-		readTextFile: input.readTextFile,
-		readWorktreeState: input.readWorktreeState ?? readWorktreeStateUnavailable,
-		cwd: input.cwd ?? process.cwd(),
+		context: {
+			readTextFile: input.readTextFile,
+			readWorktreeState: input.readWorktreeState ?? readWorktreeStateUnavailable,
+			cwd: input.cwd ?? process.cwd(),
+		},
 	});
 	return loaded.detail;
 }
 
 async function loadFleetEntryDetail(input: {
 	entry: FleetNavigatorEntry;
-	readTextFile: ReadTextFile;
-	readWorktreeState: ReadWorktreeState;
-	cwd: string;
+	context: FleetDetailContext;
 }): Promise<LoadedFleetEntryDetail> {
-	const worktreeState = await loadEntryWorktreeState(input);
+	const worktreeState = await loadEntryWorktreeState(input.entry, input.context);
 	const sessionFile = entrySessionFile(input.entry);
 	if (sessionFile === undefined)
 		return { detail: placeholderDetail(input.entry, "no session file yet", worktreeState) };
 	let jsonl: string;
 	try {
-		jsonl = await input.readTextFile(sessionFile);
+		jsonl = await input.context.readTextFile(sessionFile);
 	} catch (error) {
 		return {
 			detail: placeholderDetail(
@@ -744,7 +756,7 @@ async function loadFleetEntryDetail(input: {
 			snapshot,
 			timeline,
 			usage,
-			...(worktreeState === undefined ? {} : { worktreeState }),
+			...optionalEntry("worktreeState", worktreeState),
 		}),
 		sessionContentSignature: sessionContentSignature(jsonl),
 	};
@@ -767,7 +779,7 @@ function detailFromSnapshot(input: {
 					task,
 					snapshot: input.snapshot,
 					status,
-					...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
+					...optionalEntry("worktreeState", input.worktreeState),
 				})
 			: undefined;
 	return {
@@ -782,8 +794,8 @@ function detailFromSnapshot(input: {
 		status,
 		timeline: input.timeline,
 		usage: input.usage,
-		...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
-		...(postRunSummary === undefined ? {} : { postRunSummary }),
+		...optionalEntry("worktreeState", input.worktreeState),
+		...optionalEntry("postRunSummary", postRunSummary),
 	};
 }
 
@@ -805,18 +817,17 @@ function placeholderDetail(
 		state: task?.state ?? "session",
 		status: task?.finalStatus ?? task?.state ?? "session",
 		timeline: { entries: [], droppedEntryCount: 0, currentAction: { kind: "idle" } },
-		...(worktreeState === undefined ? {} : { worktreeState }),
+		...optionalEntry("worktreeState", worktreeState),
 		message,
 	};
 }
 
-async function loadEntryWorktreeState(input: {
-	entry: FleetNavigatorEntry;
-	readWorktreeState: ReadWorktreeState;
-	cwd: string;
-}): Promise<WorktreeStateSnapshot | undefined> {
-	if (input.entry.kind !== "task") return undefined;
-	return input.readWorktreeState({ cwd: input.cwd });
+async function loadEntryWorktreeState(
+	entry: FleetNavigatorEntry,
+	context: FleetDetailContext,
+): Promise<WorktreeStateSnapshot | undefined> {
+	if (entry.kind !== "task") return undefined;
+	return context.readWorktreeState({ cwd: context.cwd });
 }
 
 function readWorktreeStateUnavailable(): Promise<WorktreeStateSnapshot> {
@@ -950,9 +961,9 @@ function buildPostRunSummary(input: {
 	const lastDiagnostic = postRunDiagnostic(input.snapshot, input.status);
 	return {
 		status: input.status,
-		...(lastDiagnostic === undefined ? {} : { lastDiagnostic }),
+		...optionalEntry("lastDiagnostic", lastDiagnostic),
 		commit: summarizeHeadChange(input.task.headBaseline, input.task.finalHead),
-		...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
+		...optionalEntry("worktreeState", input.worktreeState),
 	};
 }
 
@@ -1018,41 +1029,52 @@ function shortOid(oid: string): string {
 function renderSharedWorktreeSummaryLines(
 	worktreeState: WorktreeStateSnapshot | undefined,
 ): string[] {
-	if (worktreeState === undefined) return ["  shared worktree: unavailable (not read)"];
-	if (worktreeState.status === "unavailable") {
-		return [truncatePlain(`  shared worktree: unavailable (${worktreeState.reason})`, 200)];
-	}
-	if (worktreeState.files.length === 0) return ["  shared worktree: clean"];
-	const visibleFiles = worktreeState.files.slice(0, MAX_WORKTREE_STATE_FILES);
-	const lines = [`  shared worktree: ${worktreeState.files.length} changed files`];
-	for (const file of visibleFiles) {
-		const status = file.status === undefined ? "" : `${file.status} `;
-		const stat = formatWorktreeStateStat(file);
-		const suffix = stat.length === 0 ? "" : ` ${stat}`;
-		lines.push(truncatePlain(`    ${status}${file.path}${suffix}`, 200));
-	}
-	const remaining = worktreeState.files.length - visibleFiles.length;
-	if (remaining > 0) lines.push(`    … ${remaining} more`);
-	return lines;
+	return renderWorktreeStateSnapshotLines(worktreeState, {
+		missingLines: ["  shared worktree: unavailable (not read)"],
+		label: "shared worktree",
+		indent: "  ",
+		fileIndent: "    ",
+	});
 }
 
 function renderWorktreeStateLines(detail: SubagentFleetTaskDetail): string[] {
-	const worktreeState = detail.worktreeState;
-	if (worktreeState === undefined) return [];
+	return renderWorktreeStateSnapshotLines(detail.worktreeState, {
+		missingLines: [],
+		label: "worktree state",
+		indent: "",
+		fileIndent: "  ",
+	});
+}
+
+function renderWorktreeStateSnapshotLines(
+	worktreeState: WorktreeStateSnapshot | undefined,
+	options: {
+		missingLines: readonly string[];
+		label: string;
+		indent: string;
+		fileIndent: string;
+	},
+): string[] {
+	if (worktreeState === undefined) return [...options.missingLines];
 	if (worktreeState.status === "unavailable") {
-		return [truncatePlain(`worktree state: unavailable (${worktreeState.reason})`, 200)];
+		return [
+			truncatePlain(
+				`${options.indent}${options.label}: unavailable (${worktreeState.reason})`,
+				200,
+			),
+		];
 	}
-	if (worktreeState.files.length === 0) return ["worktree state: clean"];
+	if (worktreeState.files.length === 0) return [`${options.indent}${options.label}: clean`];
 	const visibleFiles = worktreeState.files.slice(0, MAX_WORKTREE_STATE_FILES);
-	const lines = [`worktree state: ${worktreeState.files.length} changed files`];
+	const lines = [`${options.indent}${options.label}: ${worktreeState.files.length} changed files`];
 	for (const file of visibleFiles) {
 		const status = file.status === undefined ? "" : `${file.status} `;
 		const stat = formatWorktreeStateStat(file);
 		const suffix = stat.length === 0 ? "" : ` ${stat}`;
-		lines.push(truncatePlain(`  ${status}${file.path}${suffix}`, 200));
+		lines.push(truncatePlain(`${options.fileIndent}${status}${file.path}${suffix}`, 200));
 	}
 	const remaining = worktreeState.files.length - visibleFiles.length;
-	if (remaining > 0) lines.push(`  … ${remaining} more`);
+	if (remaining > 0) lines.push(`${options.fileIndent}… ${remaining} more`);
 	return lines;
 }
 
@@ -1076,8 +1098,8 @@ function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
 	} else {
 		const input = action.inputPreview === undefined ? "" : `: ${action.inputPreview}`;
 		lines.push(truncatePlain(`current action: ▶ ${action.toolName}${input}`, 200));
-		if (action.outputPreview !== undefined) {
-			lines.push(truncatePlain(`last output: ${action.outputPreview}`, 200));
+		if (action.resultPreview !== undefined) {
+			lines.push(truncatePlain(`last output: ${action.resultPreview}`, 200));
 		}
 	}
 	if (liveActivity.quietMs !== undefined)

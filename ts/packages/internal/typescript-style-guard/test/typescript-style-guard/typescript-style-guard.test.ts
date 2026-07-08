@@ -672,6 +672,11 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
+			name: "internal pi tool to capability kit is allowed",
+			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/capability-kit" }],
+			expectedViolation: false,
+		},
+		{
 			name: "internal pi tool to internal pi tool is allowed",
 			edges: [
 				{ from: "@internal/pi-tools/grill", to: "@nseng-ai/ns-pi-subagents/runner-subagents" },
@@ -679,14 +684,23 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
-			name: "internal pi tool to standalone tool is rejected",
+			name: "internal pi tool to standalone tool is allowed",
 			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/areg" }],
-			expectedTextIncludes: "internal-pi-tool-must-not-depend-on-standalone-tool",
+			expectedViolation: false,
 		},
 		{
 			name: "standalone tool to internal pi tool is rejected",
 			edges: [{ from: "@nseng-ai/areg", to: "@internal/pi-tools/grill" }],
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-pi-tool",
+		},
+		{
+			name: "internal tool to capability is allowed",
+			edges: [{ from: "@nseng-ai/ns-pi-subagents/runner-subagents", to: "@nseng-ai/handoffs" }],
+			tiers: new Map([
+				...baseTiers,
+				["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-tool"],
+			]),
+			expectedViolation: false,
 		},
 		{
 			name: "capability to capability kit is allowed",

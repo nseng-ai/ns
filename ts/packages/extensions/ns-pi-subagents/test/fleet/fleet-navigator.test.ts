@@ -15,6 +15,7 @@ import {
 	type SubagentFleetNavigatorContext,
 } from "../../src/fleet/navigator.ts";
 import type { WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
+import { settleMicrotasks } from "../helpers/explore-testing.ts";
 
 function jsonl(events: readonly unknown[]): string {
 	return events.map((event) => JSON.stringify(event)).join("\n");
@@ -72,10 +73,6 @@ function noUiCommandContext(notifications: string[]): CommandContext {
 		},
 		waitForIdle: async () => {},
 	} as CommandContext;
-}
-
-async function settleMicrotasks(count = 20): Promise<void> {
-	for (let index = 0; index < count; index += 1) await Promise.resolve();
 }
 
 const CSI_UP = "\u001b[1;1A";

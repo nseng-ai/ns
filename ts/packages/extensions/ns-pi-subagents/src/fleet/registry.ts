@@ -37,7 +37,6 @@ export interface SubagentFleetRunSnapshot {
 
 export interface SubagentFleetStartRunOptions {
 	parentSessionFile?: string;
-	headBaseline?: GitHeadSnapshot;
 }
 
 interface MutableSubagentFleetTask {
@@ -87,7 +86,6 @@ export class SubagentFleetRegistry {
 			...(options.parentSessionFile === undefined
 				? {}
 				: { parentSessionFile: options.parentSessionFile }),
-			...(options.headBaseline === undefined ? {} : { headBaseline: options.headBaseline }),
 			tasks: tasks.map((task, index) => ({
 				id: `subagents-${this.nextRunNumber}-${index + 1}`,
 				runId: `subagents-${this.nextRunNumber}`,

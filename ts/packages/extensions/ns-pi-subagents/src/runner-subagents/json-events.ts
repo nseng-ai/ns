@@ -10,7 +10,9 @@ import {
 	emptyRunnerSubagentActivity,
 	extractMessageToolCalls,
 	extractMessageToolResult,
+	toolCallEventRecord,
 	toolInputPreviewFromEvent,
+	toolResultEventRecord,
 	toolResultPreviewFromEvent,
 	type MessageToolCallDescriptor,
 	type MessageToolResultDescriptor,
@@ -651,23 +653,6 @@ function hasToolInputValue(event: JsonRecord): boolean {
 	return ["args", "arguments", "input"].some((key) =>
 		Object.prototype.hasOwnProperty.call(event, key),
 	);
-}
-
-function toolCallEventRecord(toolCall: MessageToolCallDescriptor): JsonRecord {
-	return {
-		toolName: toolCall.toolName,
-		...(toolCall.toolCallId === undefined ? {} : { toolCallId: toolCall.toolCallId }),
-		...(toolCall.input === undefined ? {} : { input: toolCall.input }),
-	};
-}
-
-function toolResultEventRecord(toolResult: MessageToolResultDescriptor): JsonRecord {
-	return {
-		...(toolResult.toolName === undefined ? {} : { toolName: toolResult.toolName }),
-		...(toolResult.toolCallId === undefined ? {} : { toolCallId: toolResult.toolCallId }),
-		...(toolResult.result === undefined ? {} : { result: toolResult.result }),
-		isError: toolResult.isError,
-	};
 }
 
 function isUsefulAssistantMessage(

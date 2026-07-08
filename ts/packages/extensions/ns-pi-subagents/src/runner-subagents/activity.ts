@@ -139,6 +139,25 @@ export function extractMessageToolResult(
 	};
 }
 
+export function toolCallEventRecord(toolCall: MessageToolCallDescriptor): Record<string, unknown> {
+	return {
+		toolName: toolCall.toolName,
+		...(toolCall.toolCallId === undefined ? {} : { toolCallId: toolCall.toolCallId }),
+		...(toolCall.input === undefined ? {} : { input: toolCall.input }),
+	};
+}
+
+export function toolResultEventRecord(
+	toolResult: MessageToolResultDescriptor,
+): Record<string, unknown> {
+	return {
+		...(toolResult.toolName === undefined ? {} : { toolName: toolResult.toolName }),
+		...(toolResult.toolCallId === undefined ? {} : { toolCallId: toolResult.toolCallId }),
+		...(toolResult.result === undefined ? {} : { result: toolResult.result }),
+		isError: toolResult.isError,
+	};
+}
+
 function rawAssistantVisibleTextFromMessage(message: unknown): string | undefined {
 	if (!isRecord(message) || message.role !== "assistant") return undefined;
 	if (!Array.isArray(message.content)) return undefined;

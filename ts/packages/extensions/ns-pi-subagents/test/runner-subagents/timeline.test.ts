@@ -99,7 +99,7 @@ describe("runner subagent timeline", () => {
 			kind: "tool",
 			toolName: "bash",
 			inputPreview: "just test",
-			outputPreview: "one test passed",
+			resultPreview: "one test passed",
 		});
 	});
 

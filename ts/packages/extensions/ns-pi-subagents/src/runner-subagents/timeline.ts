@@ -1,9 +1,13 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import {
 	assistantVisibleTextFromMessage,
 	extractMessageToolCalls,
 	extractMessageToolResult,
 	firstMatchingEventPreview,
+	toolCallEventRecord,
 	toolInputPreviewFromEvent,
+	toolResultEventRecord,
 	toolResultPreviewFromEvent,
 	type MessageToolCallDescriptor,
 	type MessageToolResultDescriptor,
@@ -36,7 +40,7 @@ export type RunnerSubagentCurrentAction =
 			kind: "tool";
 			toolName: string;
 			inputPreview?: string;
-			outputPreview?: string;
+			resultPreview?: string;
 	  }
 	| { kind: "thinking" }
 	| { kind: "idle" };
@@ -143,7 +147,7 @@ function captureToolStart(accumulator: TimelineAccumulator, event: JsonRecord): 
 		kind: "tool",
 		toolName,
 		state: "running",
-		...(inputPreview === undefined ? {} : { inputPreview }),
+		...optionalEntry("inputPreview", inputPreview),
 	};
 	pushTimelineEntry(accumulator, entry);
 	accumulator.pendingTools.set(key, entry);
@@ -162,9 +166,9 @@ function captureToolUpdate(accumulator: TimelineAccumulator, event: JsonRecord):
 	const pending = accumulator.pendingTools.get(toolKey(event, toolName));
 	if (pending === undefined) return;
 	const inputPreview = toolInputPreviewFromEvent(event);
-	const outputPreview = toolOutputPreviewFromEvent(event);
+	const resultPreview = toolOutputPreviewFromEvent(event);
 	if (inputPreview !== undefined) pending.inputPreview = inputPreview;
-	if (outputPreview !== undefined) pending.resultPreview = outputPreview;
+	if (resultPreview !== undefined) pending.resultPreview = resultPreview;
 }
 
 function captureMessageToolResult(
@@ -200,7 +204,7 @@ function captureToolEnd(accumulator: TimelineAccumulator, event: JsonRecord): vo
 		kind: "tool",
 		toolName,
 		state,
-		...(resultPreview === undefined ? {} : { resultPreview }),
+		...optionalEntry("resultPreview", resultPreview),
 	});
 }
 
@@ -212,29 +216,8 @@ function currentActionFromPendingTools(
 	return {
 		kind: "tool",
 		toolName: latestPendingTool.toolName,
-		...(latestPendingTool.inputPreview === undefined
-			? {}
-			: { inputPreview: latestPendingTool.inputPreview }),
-		...(latestPendingTool.resultPreview === undefined
-			? {}
-			: { outputPreview: latestPendingTool.resultPreview }),
-	};
-}
-
-function toolCallEventRecord(toolCall: MessageToolCallDescriptor): JsonRecord {
-	return {
-		toolName: toolCall.toolName,
-		...(toolCall.toolCallId === undefined ? {} : { toolCallId: toolCall.toolCallId }),
-		...(toolCall.input === undefined ? {} : { input: toolCall.input }),
-	};
-}
-
-function toolResultEventRecord(toolResult: MessageToolResultDescriptor): JsonRecord {
-	return {
-		...(toolResult.toolName === undefined ? {} : { toolName: toolResult.toolName }),
-		...(toolResult.toolCallId === undefined ? {} : { toolCallId: toolResult.toolCallId }),
-		...(toolResult.result === undefined ? {} : { result: toolResult.result }),
-		isError: toolResult.isError,
+		...optionalEntry("inputPreview", latestPendingTool.inputPreview),
+		...optionalEntry("resultPreview", latestPendingTool.resultPreview),
 	};
 }
 

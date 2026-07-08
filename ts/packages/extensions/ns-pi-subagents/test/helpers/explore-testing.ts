@@ -28,6 +28,10 @@ export {
 	waitForSpawn,
 } from "../../src/runner-subagents/testing.ts";
 
+export async function settleMicrotasks(count = 20): Promise<void> {
+	for (let index = 0; index < count; index += 1) await Promise.resolve();
+}
+
 export function makeExplorerAgentDefinition(
 	overrides: Partial<PiAgentDefinition> = {},
 ): PiAgentDefinition {

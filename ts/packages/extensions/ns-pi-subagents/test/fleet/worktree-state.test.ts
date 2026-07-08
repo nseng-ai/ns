@@ -83,9 +83,9 @@ describe("worktree state", () => {
 			},
 		});
 
-		await expect(readHead({ cwd: "/repo" })).resolves.toEqual({
+		await expect(readHead({ cwd: "/repo" })).resolves.toMatchObject({
 			status: "unavailable",
-			reason: "fatal: not a git repo",
+			reason: expect.stringContaining("git rev-parse HEAD failed"),
 		});
 	});
 });

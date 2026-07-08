@@ -7,7 +7,7 @@ import {
 	type RuntimeRunnerSubagentUsageTotals,
 } from "@nseng-ai/foundation/runner-usage";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageUnavailableReason,
@@ -83,7 +83,6 @@ function usageMetadataFromSessionJsonl(
 		assistantMessageCount: parsed.records.length,
 		totals: { ...tokens, cost },
 		trend,
-		...(trend.contextWindow === undefined ? {} : { contextWindow: trend.contextWindow }),
 	};
 }
 
@@ -104,7 +103,7 @@ function trendFromUsageRecords(records: readonly RunnerSubagentUsageRecord[]) {
 		latestTurn: { ...latest.tokens, cost: latest.cost },
 		peakPromptTokens,
 		peakTotalTokens,
-		...(contextWindow === undefined ? {} : { contextWindow }),
+		...optionalEntry("contextWindow", contextWindow),
 	};
 }
 
