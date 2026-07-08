@@ -54,6 +54,16 @@ Risks:
 
 ## Open Questions
 
-- Which cleanup bucket should be tackled first after the current API/root and `requiresForce` slice lands: home-dir ownership, provision/reconcile design, or schema/source-of-truth cleanup?
-- Which review threads remain live after the latest stack submit and PR description regeneration complete?
-- Does any cleanup decision need to be parked back to the umbrella as future breadth rather than implemented in this bounded Objective?
+- Resolved by execution order: home-dir ownership landed first, followed by provision/reconcile design cleanup, schema/source-of-truth cleanup, and final review-thread disposition.
+- Resolved by final refresh: after disposition, the only remaining unresolved reviewed thread from the inventory is AREG-tail `PRRT_kwDOR4YhMs6O67Wa`, replied to and intentionally parked out-of-scope.
+- Resolved by synthesis: AREG-tail cleanup is parked outside this child; broader umbrella work remains in `skill-management-subsystem`.
+
+## Closure
+
+Closed 2026-07-08 after completing all three cleanup buckets and the final review-thread disposition/synthesis row.
+
+The Objective delivered home-dir/harness-path ownership cleanup across kernel, harness-artifacts, and ns-init; provision/reconcile design-seam cleanup in `@nseng-ai/harness-artifacts` and thin consumers; and schema/source-of-truth cleanup carried by PR #3229. Completed-slice updates record the package checks/tests and formatting validation for each implementation bucket.
+
+Final review-thread disposition refreshed PRs #3121, #3137, #3140, #3158, #3159, #3161, and #3162. Direct fixed or stale threads were replied/resolved with `ns address exec close-review-threads`; the AREG-tail thread `PRRT_kwDOR4YhMs6O67Wa` was replied to but intentionally left unresolved because it is outside this child Objective's scope. The result was synthesized into the `skill-management-subsystem` umbrella in `updates/20260708T104546Z-harness-artifacts-post-review-cleanup-synthesis.md`.
+
+Known caveat: `ns objective check harness-artifacts-post-review-cleanup` still reports the pre-existing immutable-update heading issue in `updates/20260707T234420Z-home-dir-harness-path-ownership.md`; this closure does not silently repair historical provenance.
