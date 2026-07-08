@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
 import process from "node:process";
 
-import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitives";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import { z } from "zod";
 
@@ -80,24 +80,39 @@ const moduleArtifactDiscoveryDiagnosticCodeSchema = z.enum(
 	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
 );
 
+const moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas = {
+	path: z.string().optional(),
+	packageName: z.string().optional(),
+	artifactId: z.string().optional(),
+	artifactName: z.string().optional(),
+};
+
+const moduleArtifactDiscoveryDiagnosticOptionalFieldNames = Object.keys(
+	moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas,
+) as (keyof typeof moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas)[];
+
+const moduleArtifactDiscoveryDiagnosticSchemaBase = z.object({
+	code: moduleArtifactDiscoveryDiagnosticCodeSchema,
+	message: z.string(),
+	...moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas,
+});
+
 export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> =
-	z
-		.object({
-			code: moduleArtifactDiscoveryDiagnosticCodeSchema,
-			message: z.string(),
-			path: z.string().optional(),
-			packageName: z.string().optional(),
-			artifactId: z.string().optional(),
-			artifactName: z.string().optional(),
-		})
-		.transform((diagnostic) => ({
-			code: diagnostic.code,
-			message: diagnostic.message,
-			...optionalEntry("path", diagnostic.path),
-			...optionalEntry("packageName", diagnostic.packageName),
-			...optionalEntry("artifactId", diagnostic.artifactId),
-			...optionalEntry("artifactName", diagnostic.artifactName),
-		}));
+	moduleArtifactDiscoveryDiagnosticSchemaBase.transform(normalizeModuleArtifactDiscoveryDiagnostic);
+
+function normalizeModuleArtifactDiscoveryDiagnostic(
+	diagnostic: z.output<typeof moduleArtifactDiscoveryDiagnosticSchemaBase>,
+): ModuleArtifactDiscoveryDiagnostic {
+	const normalized: ModuleArtifactDiscoveryDiagnostic = {
+		code: diagnostic.code,
+		message: diagnostic.message,
+	};
+	for (const fieldName of moduleArtifactDiscoveryDiagnosticOptionalFieldNames) {
+		const fieldValue = diagnostic[fieldName];
+		if (fieldValue !== undefined) normalized[fieldName] = fieldValue;
+	}
+	return normalized;
+}
 
 export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,

@@ -8,6 +8,7 @@
 export {
 	artifactProvisionName,
 	HARNESS_ARTIFACT_KINDS,
+	HARNESS_ARTIFACT_SOURCE_TYPES,
 	type AgentHarnessArtifactEntry,
 	type ExtensionBundleHarnessArtifactEntry,
 	type FirstPartyHarnessArtifactCatalog,
@@ -16,6 +17,7 @@ export {
 	type HarnessArtifactEntryBase,
 	type HarnessArtifactKind,
 	type HarnessArtifactSource,
+	type HarnessArtifactSourceType,
 	type NpmModuleHarnessArtifactSource,
 	type SkillHarnessArtifactEntry,
 } from "./artifact-catalog.ts";
@@ -25,6 +27,11 @@ export {
 	NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG,
 	type FirstPartySkillHarnessArtifact,
 } from "./first-party-catalog.ts";
+export {
+	harnessArtifactSourceTypeSchema,
+	harnessIdSchema,
+	harnessScopeSchema,
+} from "./harness-artifact-schemas.ts";
 export {
 	nodeHarnessArtifactFileSystemGateway,
 	type HarnessArtifactFileSystemErrorInfo,
@@ -139,6 +146,7 @@ export {
 	contentHashForBytes,
 	contentHashForText,
 	installManifestKey,
+	PROVISION_FILE_DECISION_TYPES,
 	provisionFileDecisionSchema,
 	provisionPlanFileSchema,
 	type BuildProvisionPlanInput,

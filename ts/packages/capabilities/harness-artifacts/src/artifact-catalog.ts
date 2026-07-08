@@ -2,6 +2,10 @@ export const HARNESS_ARTIFACT_KINDS = ["skill", "agent", "extension-bundle"] as 
 
 export type HarnessArtifactKind = (typeof HARNESS_ARTIFACT_KINDS)[number];
 
+export const HARNESS_ARTIFACT_SOURCE_TYPES = ["first-party", "npm-module"] as const;
+
+export type HarnessArtifactSourceType = (typeof HARNESS_ARTIFACT_SOURCE_TYPES)[number];
+
 export interface HarnessArtifactEntryBase {
 	id: string;
 	name: string;

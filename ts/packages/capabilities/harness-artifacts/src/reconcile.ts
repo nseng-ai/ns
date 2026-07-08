@@ -16,8 +16,12 @@ import {
 	resolveFirstPartyCatalogSourceRoot,
 } from "./first-party-skill-provisioning.ts";
 import {
+	harnessArtifactSourceTypeSchema,
+	harnessIdSchema,
+	harnessScopeSchema,
+} from "./harness-artifact-schemas.ts";
+import {
 	ALL_HARNESS_IDS,
-	HARNESS_SCOPES,
 	resolveHarnessSkillRoot,
 	type HarnessId,
 	type HarnessPathErrorInfo,
@@ -70,23 +74,20 @@ export interface ReconcilePair {
 	hasManifestEntry: boolean;
 }
 
-const harnessSchema = z.enum(ALL_HARNESS_IDS);
-const scopeSchema = z.enum(HARNESS_SCOPES);
-
 export const orphanedManifestEntrySchema = z.object({
 	artifactId: z.string(),
-	harness: harnessSchema,
-	scope: scopeSchema,
+	harness: harnessIdSchema,
+	scope: harnessScopeSchema,
 	targetRoot: z.string(),
 	packageName: z.string(),
-	sourceType: z.enum(["first-party", "npm-module"]),
+	sourceType: harnessArtifactSourceTypeSchema,
 });
 export type OrphanedManifestEntry = z.output<typeof orphanedManifestEntrySchema>;
 
 export const skippedArtifactCollisionSchema = z.object({
 	kind: z.enum(["id", "target-name"]),
 	value: z.string(),
-	packages: z.array(z.string()),
+	packages: z.array(z.string()).readonly(),
 });
 export type SkippedArtifactCollision = z.output<typeof skippedArtifactCollisionSchema>;
 
@@ -186,7 +187,7 @@ export interface RunHarnessArtifactReconcileRequest {
 }
 
 export const harnessSelectionStateSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("ns-toml"), harnesses: z.array(harnessSchema) }),
+	z.object({ type: z.literal("ns-toml"), harnesses: z.array(harnessIdSchema).readonly() }),
 	z.object({ type: z.literal("missing") }),
 ]);
 export type HarnessSelectionState = z.output<typeof harnessSelectionStateSchema>;
@@ -195,25 +196,25 @@ export const reconcileArtifactOutcomeSchema = z.object({
 	action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "skipped"]),
 	artifactId: z.string(),
 	skillName: z.string(),
-	harness: harnessSchema,
-	scope: scopeSchema,
+	harness: harnessIdSchema,
+	scope: harnessScopeSchema,
 	origin: z.enum(["declared", "manifest"]),
-	sourceType: z.enum(["first-party", "npm-module"]),
+	sourceType: harnessArtifactSourceTypeSchema,
 	packageName: z.string(),
 	targetArtifactPath: z.string(),
 	manifestPath: z.string(),
-	writtenFiles: z.array(z.string()),
-	conflictingFiles: z.array(z.string()),
+	writtenFiles: z.array(z.string()).readonly(),
+	conflictingFiles: z.array(z.string()).readonly(),
 });
 export type ReconcileArtifactOutcome = z.output<typeof reconcileArtifactOutcomeSchema>;
 
 export const reconcileReportSchema = z.object({
 	mode: z.enum(["dry-run", "applied"]),
 	harnessSelection: harnessSelectionStateSchema,
-	artifacts: z.array(reconcileArtifactOutcomeSchema),
-	orphans: z.array(orphanedManifestEntrySchema),
-	diagnostics: z.array(moduleArtifactDiscoveryDiagnosticSchema),
-	skippedCollisions: z.array(skippedArtifactCollisionSchema),
+	artifacts: z.array(reconcileArtifactOutcomeSchema).readonly(),
+	orphans: z.array(orphanedManifestEntrySchema).readonly(),
+	diagnostics: z.array(moduleArtifactDiscoveryDiagnosticSchema).readonly(),
+	skippedCollisions: z.array(skippedArtifactCollisionSchema).readonly(),
 	isForceRequired: z.boolean(),
 });
 export type ReconcileReport = z.output<typeof reconcileReportSchema>;
@@ -331,9 +332,9 @@ export async function runHarnessArtifactReconcile(
 		mode: request.isDryRun ? "dry-run" : "applied",
 		harnessSelection: selection.value.state,
 		artifacts,
-		orphans: [...plan.orphans],
-		diagnostics: [...moduleDiscovery.diagnostics],
-		skippedCollisions: [...plan.skippedCollisions],
+		orphans: plan.orphans,
+		diagnostics: moduleDiscovery.diagnostics,
+		skippedCollisions: plan.skippedCollisions,
 		isForceRequired: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
 }
