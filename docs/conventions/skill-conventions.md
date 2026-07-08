@@ -73,7 +73,7 @@ When a skill body references model tiers or per-dispatch model selection, keep t
 
 ### Vendored Skill Code
 
-See [Matt Pocock Skills Upstream Adaptation Guide](../agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, ns overlays, and future upstream update checklist.
+When upstream content is *melded* into ns-owned surfaces rather than just vendored, the process — single-source pin, melded-surfaces registry, lineage blocks, rename-on-import, minimal forks, update procedure — lives in [upstream-skill-melding.md](upstream-skill-melding.md). Each upstream repo with melded content has an instance doc; see [Matt Pocock Skills](../agents/matt-pocock-skills.md) for the Matt-sourced vendored skill set, renames, recorded forks, and its melded-surfaces registry.
 
 - `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party ns work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.
