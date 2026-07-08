@@ -94,6 +94,13 @@ export interface RunnerSubagentUsageTotals {
 	};
 }
 
+export interface RunnerSubagentUsageTrend {
+	latestTurn: RunnerSubagentUsageTotals;
+	peakPromptTokens: number;
+	peakTotalTokens: number;
+	contextWindow?: number;
+}
+
 export type RunnerSubagentUsageUnavailableReason =
 	| "missing-session-file"
 	| "session-read-error"
@@ -107,6 +114,7 @@ export type RunnerSubagentUsageMetadata =
 			sessionFile: string;
 			assistantMessageCount: number;
 			totals: RunnerSubagentUsageTotals;
+			trend?: RunnerSubagentUsageTrend;
 			contextWindow?: number;
 	  }
 	| {

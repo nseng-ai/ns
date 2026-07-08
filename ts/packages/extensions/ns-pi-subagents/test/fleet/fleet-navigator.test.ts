@@ -104,7 +104,22 @@ describe("subagent fleet navigator", () => {
 								cacheRead: 41_000,
 								cacheWrite: 0,
 								totalTokens: 42_500,
+								contextWindow: 200_000,
 								cost: { input: 0.01, output: 0.02, cacheRead: 0.005, cacheWrite: 0, total: 0.035 },
+							},
+						},
+					},
+					{
+						type: "message",
+						message: {
+							role: "assistant",
+							usage: {
+								input: 400,
+								output: 8,
+								cacheRead: 0,
+								cacheWrite: 0,
+								totalTokens: 408,
+								cost: { input: 0.002, output: 0.004, cacheRead: 0, cacheWrite: 0, total: 0.006 },
 							},
 						},
 					},
@@ -123,9 +138,60 @@ describe("subagent fleet navigator", () => {
 			resultPreview: "contents",
 		});
 		if (detail.usage?.status !== "available") throw new Error("expected available usage");
-		expect(detail.usage.totals.input).toBe(1200);
-		expect(detail.usage.totals.output).toBe(300);
-		expect(detail.usage.totals.cost.total).toBeCloseTo(0.035);
+		expect(detail.usage.totals.input).toBe(1600);
+		expect(detail.usage.totals.output).toBe(308);
+		expect(detail.usage.totals.cost.total).toBeCloseTo(0.041);
+		expect(detail.usage.trend).toEqual({
+			latestTurn: {
+				input: 400,
+				output: 8,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 408,
+				cost: { input: 0.002, output: 0.004, cacheRead: 0, cacheWrite: 0, total: 0.006 },
+			},
+			peakPromptTokens: 42_200,
+			peakTotalTokens: 42_500,
+			contextWindow: 200_000,
+		});
+	});
+
+	test("renders usage trend with peak prompt fallback in detail header", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Usage trend" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/usage-trend.jsonl"));
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			cwd: "/repo",
+			readTextFile: async () =>
+				sessionJsonl([
+					{
+						type: "message",
+						message: {
+							role: "assistant",
+							usage: { input: 1000, output: 20, cacheRead: 200, totalTokens: 1220 },
+						},
+					},
+					{
+						type: "message",
+						message: {
+							role: "assistant",
+							usage: { input: 400, output: 8, cacheRead: 0, totalTokens: 408 },
+						},
+					},
+				]),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		const detail = view.render(140).join("\n");
+		expect(detail).toContain("tokens: 1.4k in · 28 out · 200 cached · $0.000");
+		expect(detail).toContain("trend: latest +400 in/+8 out · peak prompt 1.2k");
 	});
 
 	test("moves the list selection with CSI arrows while preserving vim keys", () => {

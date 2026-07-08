@@ -28,6 +28,7 @@ export interface RunnerSubagentUsageRecord {
 	model: RunnerSubagentUsageModelRef;
 	peakTotalTokens: number;
 	peakPromptTokens: number;
+	contextWindow?: number;
 }
 
 export type ParseRunnerSubagentUsageJsonlResult =
@@ -103,12 +104,14 @@ function usageFromRecord(record: unknown): RunnerSubagentUsageRecord | null {
 	if (usage === null || !hasUsableTokenUsage(usage)) return null;
 
 	const tokens = tokensFromUsage(usage);
+	const contextWindow = contextWindowFromRecord(record, message, usage);
 	return {
 		tokens,
 		cost: costFromUsage(usage),
 		model: modelRefFromRecord(record, message, usage),
 		peakTotalTokens: tokens.totalTokens,
 		peakPromptTokens: tokens.input + tokens.cacheRead + tokens.cacheWrite,
+		...(contextWindow === undefined ? {} : { contextWindow }),
 	};
 }
 
@@ -143,6 +146,33 @@ function modelRefFromRecord(
 		api: firstStringField({ record, message, usage, key: "api" }),
 		model: firstStringField({ record, message, usage, key: "model" }),
 	};
+}
+
+function contextWindowFromRecord(
+	record: JsonRecord,
+	message: JsonRecord,
+	usage: JsonRecord,
+): number | undefined {
+	const direct =
+		positiveNumberField(usage, "contextWindow") ??
+		positiveNumberField(usage, "context_window") ??
+		positiveNumberField(message, "contextWindow") ??
+		positiveNumberField(message, "context_window") ??
+		positiveNumberField(record, "contextWindow") ??
+		positiveNumberField(record, "context_window");
+	if (direct !== undefined) return direct;
+
+	for (const container of [message, record, usage]) {
+		for (const nestedKey of ["modelInfo", "model_info", "modelRef", "model_ref"]) {
+			const nested = mappingField(container, nestedKey);
+			if (nested === null) continue;
+			const nestedValue =
+				positiveNumberField(nested, "contextWindow") ??
+				positiveNumberField(nested, "context_window");
+			if (nestedValue !== undefined) return nestedValue;
+		}
+	}
+	return undefined;
 }
 
 function firstStringField(options: StringFieldSearchOptions): string | null {
@@ -183,6 +213,12 @@ function stringField(data: JsonRecord, key: string): string | null {
 
 function numberField(data: JsonRecord, key: string): number {
 	return finiteNumberField(data, key) ?? 0;
+}
+
+function positiveNumberField(data: JsonRecord, key: string): number | undefined {
+	const value = finiteNumberField(data, key);
+	if (value === undefined || value <= 0) return undefined;
+	return value;
 }
 
 function jsonParseErrorMessage(error: unknown): string {

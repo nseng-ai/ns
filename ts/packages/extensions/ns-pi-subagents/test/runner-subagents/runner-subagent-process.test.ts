@@ -815,6 +815,18 @@ describe("runner subagent process dispatcher", () => {
 					total: 0.0648,
 				},
 			},
+			trend: {
+				latestTurn: {
+					input: 1_600,
+					output: 4,
+					cacheRead: 2_300,
+					cacheWrite: 0,
+					totalTokens: 3_904,
+					cost: { input: 0.02, output: 0.01, cacheRead: 0.0018, cacheWrite: 0, total: 0.0318 },
+				},
+				peakPromptTokens: 19_000,
+				peakTotalTokens: 19_040,
+			},
 		});
 	});
 

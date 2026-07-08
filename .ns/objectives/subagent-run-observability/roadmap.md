@@ -38,14 +38,20 @@
     summary with final status, last diagnostic, commit movement, and shared
     worktree state in `navigator.ts`, and adds targeted fleet navigator/tracking
     tests. Manual navigator smoke remains unrecorded.
-- [ ] Token/context trend
+- [x] Token/context trend
       Per-turn token delta and context-use trend alongside the existing totals
       line, derived from the usage events already parsed today.
   - Policy: direct execution after preview; use existing usage events, and if
     they prove insufficient, record the limitation as Objective evidence rather
     than adding instrumentation in this Objective.
-  - Evidence: targeted Vitest coverage for token/context trend derivation and
-    relevant package checks passed.
+  - Evidence: local branch diff adds context-window extraction to foundation
+    runner usage parsing, derives latest-turn/peak prompt trend metadata in
+    `ns-pi-subagents`, and renders a compact detail-header trend line. Targeted
+    validation passed: `pnpm --dir ts --filter @nseng-ai/foundation test --
+    runner-usage`, `pnpm --dir ts --filter @nseng-ai/ns-pi-subagents test`,
+    `pnpm --dir ts --filter @nseng-ai/ns-pi-subagents check`, plus workspace
+    `pnpm --dir ts run fmt:check`, `pnpm --dir ts run lint`, and
+    `pnpm --dir ts run check`.
 
 ## Parked
 

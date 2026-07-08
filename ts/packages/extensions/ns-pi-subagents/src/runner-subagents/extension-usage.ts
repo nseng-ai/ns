@@ -2,6 +2,7 @@ import {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,
 	parseRunnerSubagentUsageJsonl,
+	type RunnerSubagentUsageRecord,
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RuntimeRunnerSubagentUsageTotals,
 } from "@nseng-ai/foundation/runner-usage";
@@ -74,12 +75,36 @@ function usageMetadataFromSessionJsonl(
 		cost = addRuntimeRunnerSubagentUsageCostTotals(cost, record.cost);
 	}
 
+	const trend = trendFromUsageRecords(parsed.records);
 	return {
 		status: "available",
 		source: "child-session-file",
 		sessionFile: options.sessionFile ?? "(unknown)",
 		assistantMessageCount: parsed.records.length,
 		totals: { ...tokens, cost },
+		trend,
+		...(trend.contextWindow === undefined ? {} : { contextWindow: trend.contextWindow }),
+	};
+}
+
+function trendFromUsageRecords(records: readonly RunnerSubagentUsageRecord[]) {
+	const latest = records.at(-1);
+	if (latest === undefined) throw new Error("usage trend requires at least one usage record");
+	let peakPromptTokens = 0;
+	let peakTotalTokens = 0;
+	let contextWindow: number | undefined;
+	for (const record of records) {
+		peakPromptTokens = Math.max(peakPromptTokens, record.peakPromptTokens);
+		peakTotalTokens = Math.max(peakTotalTokens, record.peakTotalTokens);
+		if (record.contextWindow !== undefined) {
+			contextWindow = Math.max(contextWindow ?? 0, record.contextWindow);
+		}
+	}
+	return {
+		latestTurn: { ...latest.tokens, cost: latest.cost },
+		peakPromptTokens,
+		peakTotalTokens,
+		...(contextWindow === undefined ? {} : { contextWindow }),
 	};
 }
 
