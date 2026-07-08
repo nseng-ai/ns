@@ -67,9 +67,17 @@ export interface SubagentFleetTaskDetail {
 	message?: string;
 }
 
+export interface FleetEntrySessionParseCache {
+	signature: string;
+	snapshot: RunnerSubagentJsonEventParserSnapshot;
+	timeline: RunnerSubagentTimeline;
+	usage: RunnerSubagentUsageMetadata;
+}
+
 export interface LoadedFleetEntryDetail {
 	detail: SubagentFleetTaskDetail;
 	sessionContentSignature?: string;
+	sessionParseCache?: FleetEntrySessionParseCache;
 }
 
 export interface FleetDetailContext {
@@ -98,6 +106,7 @@ export async function loadFleetTaskDetail(input: {
 export async function loadFleetEntryDetail(input: {
 	entry: FleetNavigatorEntry;
 	context: FleetDetailContext;
+	previous?: FleetEntrySessionParseCache;
 }): Promise<LoadedFleetEntryDetail> {
 	const worktreeState = await loadEntryWorktreeState(input.entry, input.context);
 	const sessionFile = entrySessionFile(input.entry);
@@ -115,25 +124,47 @@ export async function loadFleetEntryDetail(input: {
 			),
 		};
 	}
-	const parser = createRunnerSubagentJsonEventParser({
-		title: entryTitle(input.entry),
-		sessionFile,
-	});
-	parser.pushChunk(jsonl);
-	parser.finish();
-	const snapshot = parser.getSnapshot();
-	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
-	const usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, () => jsonl);
+	const signature = sessionContentSignature(jsonl);
+	const parsed =
+		input.previous?.signature === signature
+			? input.previous
+			: await parseFleetEntrySession({
+					sessionFile,
+					title: entryTitle(input.entry),
+					jsonl,
+					signature,
+				});
 	return {
 		detail: detailFromSnapshot({
 			entry: input.entry,
 			sessionFile,
-			snapshot,
-			timeline,
-			usage,
+			snapshot: parsed.snapshot,
+			timeline: parsed.timeline,
+			usage: parsed.usage,
 			...optionalEntry("worktreeState", worktreeState),
 		}),
-		sessionContentSignature: sessionContentSignature(jsonl),
+		sessionContentSignature: signature,
+		sessionParseCache: parsed,
+	};
+}
+
+async function parseFleetEntrySession(input: {
+	sessionFile: string;
+	title: string;
+	jsonl: string;
+	signature: string;
+}): Promise<FleetEntrySessionParseCache> {
+	const parser = createRunnerSubagentJsonEventParser({
+		title: input.title,
+		sessionFile: input.sessionFile,
+	});
+	parser.pushChunk(input.jsonl);
+	parser.finish();
+	return {
+		signature: input.signature,
+		snapshot: parser.getSnapshot(),
+		timeline: extractRunnerSubagentTimelineFromSessionJsonl(input.jsonl),
+		usage: await readRunnerSubagentUsageFromSessionFile(input.sessionFile, () => input.jsonl),
 	};
 }
 

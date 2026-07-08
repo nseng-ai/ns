@@ -14,7 +14,12 @@ import {
 	registerSubagentFleetShortcut,
 	type SubagentFleetNavigatorContext,
 } from "../../src/fleet/navigator.ts";
-import type { FleetDetailContext } from "../../src/fleet/detail.ts";
+import {
+	loadFleetEntryDetail,
+	sessionContentSignature,
+	type FleetDetailContext,
+	type FleetEntrySessionParseCache,
+} from "../../src/fleet/detail.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
 import type { ReadWorktreeState, WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
 import { settleMicrotasks } from "../helpers/explore-testing.ts";
@@ -516,6 +521,115 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		expect(worktreeReadCount).toBe(2);
 		expect(view.render(120).join("\n")).toContain("A b.ts +4/-0");
+	});
+
+	test("reuses cached session parses while recomposing fresh task and worktree state", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Cached done" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/cached.jsonl"));
+		let sessionReadCount = 0;
+		let worktreeState: WorktreeStateSnapshot = {
+			status: "available",
+			files: [{ path: "before.ts", status: "M", additions: 1, deletions: 0 }],
+		};
+		let worktreeReadCount = 0;
+		const content = sessionJsonl();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({
+				readTextFile: async () => {
+					sessionReadCount += 1;
+					return content;
+				},
+				readWorktreeState: async () => {
+					worktreeReadCount += 1;
+					return worktreeState;
+				},
+			}),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(sessionReadCount).toBe(1);
+		expect(worktreeReadCount).toBe(1);
+		expect(view.render(120).join("\n")).toContain("stopped · running");
+		expect(view.render(120).join("\n")).toContain("M before.ts +1/-0");
+
+		worktreeState = {
+			status: "available",
+			files: [{ path: "after.ts", status: "A", additions: 3, deletions: 0 }],
+		};
+		registry.markDone(task.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/cached.jsonl",
+		});
+		await settleMicrotasks();
+
+		const detail = view.render(120).join("\n");
+		expect(sessionReadCount).toBe(2);
+		expect(worktreeReadCount).toBe(2);
+		expect(detail).toContain("stopped · final-text");
+		expect(detail).toContain("post-run summary:");
+		expect(detail).toContain("commit: unavailable (missing baseline HEAD)");
+		expect(detail).toContain("A after.ts +3/-0");
+		expect(detail).toContain("✓ read");
+	});
+
+	test("loadFleetEntryDetail skips parsing when previous session signature matches", async () => {
+		const content = sessionJsonl();
+		const previous: FleetEntrySessionParseCache = {
+			signature: sessionContentSignature(content),
+			snapshot: {
+				progress: { state: "running", toolCount: 7, turnCount: 3, elapsedMs: 42 },
+				activity: {},
+				terminalAttempted: false,
+				hasTerminalSucceeded: false,
+			},
+			timeline: {
+				entries: [{ kind: "assistant", text: "cached timeline" }],
+				droppedEntryCount: 0,
+				currentAction: { kind: "thinking" },
+			},
+			usage: {
+				status: "unavailable",
+				source: "child-session-file",
+				sessionFile: "/tmp/cached.jsonl",
+				reason: "no-assistant-usage",
+				diagnostic: "cached usage",
+			},
+		};
+
+		const loaded = await loadFleetEntryDetail({
+			entry: {
+				kind: "task",
+				task: {
+					id: "task-1",
+					runId: "run-1",
+					index: 0,
+					title: "Cached",
+					state: "running",
+					sessionFile: "/tmp/cached.jsonl",
+				},
+			},
+			context: testDetailContext({ readTextFile: async () => content }),
+			previous,
+		});
+
+		expect(loaded.sessionParseCache).toBe(previous);
+		expect(loaded.detail.toolCount).toBe(7);
+		expect(loaded.detail.turnCount).toBe(3);
+		expect(loaded.detail.timeline.entries).toEqual([
+			{ kind: "assistant", text: "cached timeline" },
+		]);
+		expect(loaded.detail.usage).toMatchObject({ diagnostic: "cached usage" });
 	});
 
 	test("renders rejected worktree reads without hiding timeline", async () => {
