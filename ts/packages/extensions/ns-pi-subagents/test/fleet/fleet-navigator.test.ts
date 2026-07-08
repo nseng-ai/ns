@@ -15,6 +15,7 @@ import {
 	type SubagentFleetNavigatorContext,
 } from "../../src/fleet/navigator.ts";
 import type { WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
+import { settleMicrotasks } from "../helpers/explore-testing.ts";
 
 function jsonl(events: readonly unknown[]): string {
 	return events.map((event) => JSON.stringify(event)).join("\n");
@@ -72,10 +73,6 @@ function noUiCommandContext(notifications: string[]): CommandContext {
 		},
 		waitForIdle: async () => {},
 	} as CommandContext;
-}
-
-async function settleMicrotasks(count = 20): Promise<void> {
-	for (let index = 0; index < count; index += 1) await Promise.resolve();
 }
 
 const CSI_UP = "\u001b[1;1A";
@@ -154,6 +151,55 @@ describe("subagent fleet navigator", () => {
 			peakTotalTokens: 42_500,
 			contextWindow: 200_000,
 		});
+	});
+
+	test("loads detail activity from top-level message-only JSONL", async () => {
+		const detail = await loadFleetTaskDetail({
+			task: {
+				id: "task-1",
+				runId: "run-1",
+				index: 0,
+				title: "Scout one",
+				state: "running",
+				sessionFile: "/tmp/message-only.jsonl",
+			},
+			readTextFile: async () =>
+				jsonl([
+					{ type: "session", file: "/tmp/message-only.jsonl" },
+					{
+						type: "message",
+						message: {
+							role: "assistant",
+							content: [
+								{ type: "text", text: "Reading files" },
+								{ type: "toolCall", id: "tool-1", name: "read", input: { path: "README.md" } },
+							],
+						},
+					},
+					{
+						type: "message",
+						message: {
+							role: "toolResult",
+							toolCallId: "tool-1",
+							content: [{ type: "text", text: "file contents" }],
+						},
+					},
+				]),
+		});
+
+		expect(detail.turnCount).toBe(1);
+		expect(detail.toolCount).toBe(1);
+		expect(detail.timeline.entries).toEqual([
+			{ kind: "assistant", text: "Reading files" },
+			{
+				kind: "tool",
+				toolName: "read",
+				state: "ok",
+				inputPreview: '{"path":"README.md"}',
+				resultPreview: "file contents",
+			},
+		]);
+		expect(detail.timeline.currentAction).toEqual({ kind: "idle" });
 	});
 
 	test("renders usage trend with peak prompt fallback in detail header", async () => {

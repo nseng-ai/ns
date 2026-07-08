@@ -1,4 +1,4 @@
-import { finiteNumberField, isRecord } from "../primitives/primitives.ts";
+import { finiteNumberField, isRecord, optionalEntry } from "../primitives/primitives.ts";
 
 export interface RuntimeRunnerSubagentUsageTotals {
 	input: number;
@@ -37,11 +37,12 @@ export type ParseRunnerSubagentUsageJsonlResult =
 
 type JsonRecord = Record<string, unknown>;
 
-interface StringFieldSearchOptions {
+interface FieldSearchOptions<T> {
 	record: JsonRecord;
 	message: JsonRecord;
 	usage: JsonRecord;
-	key: string;
+	keys: readonly string[];
+	extract(data: JsonRecord, key: string): T | undefined;
 }
 
 const TOKEN_FIELDS = ["input", "output", "cacheRead", "cacheWrite", "totalTokens"] as const;
@@ -111,7 +112,7 @@ function usageFromRecord(record: unknown): RunnerSubagentUsageRecord | null {
 		model: modelRefFromRecord(record, message, usage),
 		peakTotalTokens: tokens.totalTokens,
 		peakPromptTokens: tokens.input + tokens.cacheRead + tokens.cacheWrite,
-		...(contextWindow === undefined ? {} : { contextWindow }),
+		...optionalEntry("contextWindow", contextWindow),
 	};
 }
 
@@ -142,9 +143,9 @@ function modelRefFromRecord(
 	usage: JsonRecord,
 ): RunnerSubagentUsageModelRef {
 	return {
-		provider: firstStringField({ record, message, usage, key: "provider" }),
-		api: firstStringField({ record, message, usage, key: "api" }),
-		model: firstStringField({ record, message, usage, key: "model" }),
+		provider: firstStringField({ record, message, usage, keys: ["provider"] }),
+		api: firstStringField({ record, message, usage, keys: ["api"] }),
+		model: firstStringField({ record, message, usage, keys: ["model"] }),
 	};
 }
 
@@ -153,44 +154,43 @@ function contextWindowFromRecord(
 	message: JsonRecord,
 	usage: JsonRecord,
 ): number | undefined {
-	const direct =
-		positiveNumberField(usage, "contextWindow") ??
-		positiveNumberField(usage, "context_window") ??
-		positiveNumberField(message, "contextWindow") ??
-		positiveNumberField(message, "context_window") ??
-		positiveNumberField(record, "contextWindow") ??
-		positiveNumberField(record, "context_window");
-	if (direct !== undefined) return direct;
-
-	for (const container of [message, record, usage]) {
-		for (const nestedKey of ["modelInfo", "model_info", "modelRef", "model_ref"]) {
-			const nested = mappingField(container, nestedKey);
-			if (nested === null) continue;
-			const nestedValue =
-				positiveNumberField(nested, "contextWindow") ??
-				positiveNumberField(nested, "context_window");
-			if (nestedValue !== undefined) return nestedValue;
-		}
-	}
-	return undefined;
+	return firstField({
+		record,
+		message,
+		usage,
+		keys: ["contextWindow", "context_window"],
+		extract: positiveNumberField,
+	});
 }
 
-function firstStringField(options: StringFieldSearchOptions): string | null {
-	const direct =
-		stringField(options.message, options.key) ??
-		stringField(options.record, options.key) ??
-		stringField(options.usage, options.key);
-	if (direct !== null) return direct;
+function firstStringField(options: {
+	record: JsonRecord;
+	message: JsonRecord;
+	usage: JsonRecord;
+	keys: readonly string[];
+}): string | null {
+	return firstField({ ...options, extract: stringField }) ?? null;
+}
+
+function firstField<T>(options: FieldSearchOptions<T>): T | undefined {
+	for (const container of [options.message, options.record, options.usage]) {
+		for (const key of options.keys) {
+			const value = options.extract(container, key);
+			if (value !== undefined) return value;
+		}
+	}
 
 	for (const container of [options.message, options.record, options.usage]) {
 		for (const nestedKey of ["modelInfo", "model_info", "modelRef", "model_ref"]) {
 			const nested = mappingField(container, nestedKey);
 			if (nested === null) continue;
-			const nestedValue = stringField(nested, options.key);
-			if (nestedValue !== null) return nestedValue;
+			for (const key of options.keys) {
+				const value = options.extract(nested, key);
+				if (value !== undefined) return value;
+			}
 		}
 	}
-	return null;
+	return undefined;
 }
 
 function hasUsableTokenUsage(usage: JsonRecord): boolean {
@@ -205,10 +205,10 @@ function mappingField(data: JsonRecord, key: string): JsonRecord | null {
 	return value;
 }
 
-function stringField(data: JsonRecord, key: string): string | null {
+function stringField(data: JsonRecord, key: string): string | undefined {
 	const value = data[key];
 	if (typeof value === "string" && value.trim() !== "") return value;
-	return null;
+	return undefined;
 }
 
 function numberField(data: JsonRecord, key: string): number {

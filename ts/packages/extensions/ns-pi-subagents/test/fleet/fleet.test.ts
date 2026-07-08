@@ -13,12 +13,12 @@ import {
 	syncSubagentFleetDisplay,
 } from "../../src/fleet/display.ts";
 import { trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
-import { makeErrorResult, makeFinalTextResult } from "../helpers/explore-testing.ts";
+import {
+	makeErrorResult,
+	makeFinalTextResult,
+	settleMicrotasks,
+} from "../helpers/explore-testing.ts";
 import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
-
-async function settleMicrotasks(count = 10): Promise<void> {
-	for (let index = 0; index < count; index += 1) await Promise.resolve();
-}
 
 describe("runner subagent fleet display for explore", () => {
 	test("reuses one registry for the same Pi host", () => {

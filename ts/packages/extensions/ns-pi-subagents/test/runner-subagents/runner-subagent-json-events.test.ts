@@ -313,6 +313,96 @@ describe("runner subagent JSON event parser", () => {
 		);
 	});
 
+	test("tracks top-level message-only assistant tool activity", () => {
+		const manualClock = createManualClock(1_000);
+		const parser = createRunnerSubagentJsonEventParser({ clock: manualClock.clock });
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message",
+				message: {
+					role: "assistant",
+					content: [
+						{ type: "text", text: "Reading files" },
+						{ type: "thinking", text: "private reasoning" },
+						{ type: "toolCall", id: "tool-1", name: "read", arguments: { path: "README.md" } },
+					],
+				},
+			}),
+		);
+
+		let snapshot = parser.getSnapshot();
+		expect(snapshot.progress).toEqual({
+			state: "running",
+			currentTool: "read",
+			toolCount: 0,
+			turnCount: 1,
+			elapsedMs: 0,
+		});
+		expect(snapshot.activity.assistantPreview).toBe("Reading files");
+		expect(snapshot.activity.currentToolInputPreview).toBe('{"path":"README.md"}');
+
+		parser.pushChunk(
+			jsonLine({
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolCallId: "tool-1",
+					content: [{ type: "text", text: "file contents" }],
+				},
+			}),
+		);
+
+		snapshot = parser.getSnapshot();
+		expect(snapshot.progress).toEqual({
+			state: "running",
+			toolCount: 1,
+			turnCount: 1,
+			elapsedMs: 0,
+		});
+		expect(snapshot.activity.currentToolInputPreview).toBeUndefined();
+		expect(snapshot.activity.lastToolName).toBe("read");
+		expect(snapshot.activity.lastToolResultPreview).toBe("file contents");
+		expect(snapshot.activity.lastToolResultIsError).toBe(false);
+	});
+
+	test("does not double-count top-level messages when explicit events cover the same work", () => {
+		const parser = createRunnerSubagentJsonEventParser();
+
+		parser.pushChunk(jsonLine({ type: "turn_start" }));
+		parser.pushChunk(
+			jsonLine({
+				type: "message",
+				message: {
+					role: "assistant",
+					id: "message-1",
+					content: [
+						{ type: "text", text: "Reading files" },
+						{ type: "toolCall", id: "tool-1", name: "read", input: { path: "README.md" } },
+					],
+				},
+			}),
+		);
+		parser.pushChunk(
+			jsonLine({
+				type: "message",
+				message: { role: "toolResult", toolCallId: "tool-1", result: "file contents" },
+			}),
+		);
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_end",
+				toolName: "read",
+				toolCallId: "tool-1",
+				result: "file contents",
+			}),
+		);
+
+		const snapshot = parser.getSnapshot();
+		expect(snapshot.progress.turnCount).toBe(1);
+		expect(snapshot.progress.toolCount).toBe(1);
+	});
+
 	test("treats malformed JSONL as an error", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 

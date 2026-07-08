@@ -115,7 +115,6 @@ export type RunnerSubagentUsageMetadata =
 			assistantMessageCount: number;
 			totals: RunnerSubagentUsageTotals;
 			trend?: RunnerSubagentUsageTrend;
-			contextWindow?: number;
 	  }
 	| {
 			status: "unavailable";

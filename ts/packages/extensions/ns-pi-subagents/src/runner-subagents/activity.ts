@@ -15,6 +15,19 @@ export interface RunnerSubagentUpdate {
 	activity: RunnerSubagentActivity;
 }
 
+export interface MessageToolCallDescriptor {
+	toolName: string;
+	toolCallId?: string;
+	input?: unknown;
+}
+
+export interface MessageToolResultDescriptor {
+	toolCallId?: string;
+	toolName?: string;
+	result?: unknown;
+	isError: boolean;
+}
+
 export function emptyRunnerSubagentActivity(): RunnerSubagentActivity {
 	return {};
 }
@@ -86,6 +99,65 @@ export function toolResultPreviewFromEvent(event: Record<string, unknown>): stri
 	return previewJsonEventValue(result);
 }
 
+export function extractMessageToolCalls(message: unknown): MessageToolCallDescriptor[] {
+	if (!isRecord(message) || message.role !== "assistant" || !Array.isArray(message.content)) {
+		return [];
+	}
+	const toolCalls: MessageToolCallDescriptor[] = [];
+	for (const block of message.content) {
+		if (!isRecord(block) || block.type !== "toolCall" || typeof block.name !== "string") {
+			continue;
+		}
+		const toolCallId = firstStringField(block, ["id", "toolCallId", "tool_call_id"]);
+		const input = firstOwnFieldValue(block, ["arguments", "input", "args"]);
+		toolCalls.push({
+			toolName: block.name,
+			...(toolCallId === undefined ? {} : { toolCallId }),
+			...(input === undefined ? {} : { input }),
+		});
+	}
+	return toolCalls;
+}
+
+export function extractMessageToolResult(
+	message: unknown,
+): MessageToolResultDescriptor | undefined {
+	if (!isRecord(message) || message.role !== "toolResult") return undefined;
+	const toolCallId = firstStringField(message, ["toolCallId", "tool_call_id", "id"]);
+	const toolName = firstStringField(message, ["toolName", "name"]);
+	const blockResult = firstToolResultContentBlock(message.content);
+	const result =
+		firstOwnFieldValue(message, ["result", "output"]) ??
+		blockResult ??
+		(Array.isArray(message.content) ? { content: message.content } : message.content);
+	const isError = message.isError === true || message.error === true || message.status === "error";
+	return {
+		...(toolCallId === undefined ? {} : { toolCallId }),
+		...(toolName === undefined ? {} : { toolName }),
+		...(result === undefined ? {} : { result }),
+		isError,
+	};
+}
+
+export function toolCallEventRecord(toolCall: MessageToolCallDescriptor): Record<string, unknown> {
+	return {
+		toolName: toolCall.toolName,
+		...(toolCall.toolCallId === undefined ? {} : { toolCallId: toolCall.toolCallId }),
+		...(toolCall.input === undefined ? {} : { input: toolCall.input }),
+	};
+}
+
+export function toolResultEventRecord(
+	toolResult: MessageToolResultDescriptor,
+): Record<string, unknown> {
+	return {
+		...(toolResult.toolName === undefined ? {} : { toolName: toolResult.toolName }),
+		...(toolResult.toolCallId === undefined ? {} : { toolCallId: toolResult.toolCallId }),
+		...(toolResult.result === undefined ? {} : { result: toolResult.result }),
+		isError: toolResult.isError,
+	};
+}
+
 function rawAssistantVisibleTextFromMessage(message: unknown): string | undefined {
 	if (!isRecord(message) || message.role !== "assistant") return undefined;
 	if (!Array.isArray(message.content)) return undefined;
@@ -106,6 +178,34 @@ function toolResultTextContent(value: unknown): string | undefined {
 		textBlocks.push(block.text);
 	}
 	return textBlocks.length === 0 ? undefined : textBlocks.join("\n\n");
+}
+
+function firstToolResultContentBlock(content: unknown): unknown {
+	if (!Array.isArray(content)) return undefined;
+	for (const block of content) {
+		if (!isRecord(block)) continue;
+		const result = firstOwnFieldValue(block, ["result", "output"]);
+		if (result !== undefined) return result;
+	}
+	return undefined;
+}
+
+function firstStringField(
+	record: Record<string, unknown>,
+	keys: readonly string[],
+): string | undefined {
+	for (const key of keys) {
+		const value = record[key];
+		if (typeof value === "string" && value.length > 0) return value;
+	}
+	return undefined;
+}
+
+function firstOwnFieldValue(record: Record<string, unknown>, keys: readonly string[]): unknown {
+	for (const key of keys) {
+		if (Object.prototype.hasOwnProperty.call(record, key)) return record[key];
+	}
+	return undefined;
 }
 
 function nonEmptyCompactPreview(

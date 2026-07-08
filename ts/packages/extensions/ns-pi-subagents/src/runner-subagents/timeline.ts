@@ -1,8 +1,16 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import {
 	assistantVisibleTextFromMessage,
+	extractMessageToolCalls,
+	extractMessageToolResult,
 	firstMatchingEventPreview,
+	toolCallEventRecord,
 	toolInputPreviewFromEvent,
+	toolResultEventRecord,
 	toolResultPreviewFromEvent,
+	type MessageToolCallDescriptor,
+	type MessageToolResultDescriptor,
 } from "./activity.ts";
 import {
 	visitRunnerSubagentSessionJsonlEvents,
@@ -32,7 +40,7 @@ export type RunnerSubagentCurrentAction =
 			kind: "tool";
 			toolName: string;
 			inputPreview?: string;
-			outputPreview?: string;
+			resultPreview?: string;
 	  }
 	| { kind: "thinking" }
 	| { kind: "idle" };
@@ -77,6 +85,9 @@ export function extractRunnerSubagentTimelineFromSessionJsonl(
 
 function captureTimelineEvent(accumulator: TimelineAccumulator, event: JsonEvent): void {
 	switch (event.type) {
+		case "message":
+			captureMessageEvent(accumulator, event.message);
+			return;
 		case "message_end":
 		case "turn_end":
 			captureAssistantEntry(accumulator, event.message);
@@ -98,6 +109,15 @@ function captureTimelineEvent(accumulator: TimelineAccumulator, event: JsonEvent
 	}
 }
 
+function captureMessageEvent(accumulator: TimelineAccumulator, message: unknown): void {
+	captureAssistantEntry(accumulator, message);
+	for (const toolCall of extractMessageToolCalls(message)) {
+		captureMessageToolCall(accumulator, toolCall);
+	}
+	const toolResult = extractMessageToolResult(message);
+	if (toolResult !== undefined) captureMessageToolResult(accumulator, toolResult);
+}
+
 function captureAgentEndAssistantEntries(
 	accumulator: TimelineAccumulator,
 	messages: unknown,
@@ -116,15 +136,29 @@ function captureAssistantEntry(accumulator: TimelineAccumulator, message: unknow
 
 function captureToolStart(accumulator: TimelineAccumulator, event: JsonRecord): void {
 	const toolName = eventToolName(event);
+	const key = toolKey(event, toolName);
 	const inputPreview = toolInputPreviewFromEvent(event);
+	const pending = accumulator.pendingTools.get(key);
+	if (pending !== undefined) {
+		if (inputPreview !== undefined) pending.inputPreview = inputPreview;
+		return;
+	}
 	const entry: RunnerSubagentTimelineToolEntry = {
 		kind: "tool",
 		toolName,
 		state: "running",
-		...(inputPreview === undefined ? {} : { inputPreview }),
+		...optionalEntry("inputPreview", inputPreview),
 	};
 	pushTimelineEntry(accumulator, entry);
-	accumulator.pendingTools.set(toolKey(event, toolName), entry);
+	accumulator.pendingTools.set(key, entry);
+}
+
+function captureMessageToolCall(
+	accumulator: TimelineAccumulator,
+	toolCall: MessageToolCallDescriptor,
+): void {
+	const event = toolCallEventRecord(toolCall);
+	captureToolStart(accumulator, event);
 }
 
 function captureToolUpdate(accumulator: TimelineAccumulator, event: JsonRecord): void {
@@ -132,9 +166,22 @@ function captureToolUpdate(accumulator: TimelineAccumulator, event: JsonRecord):
 	const pending = accumulator.pendingTools.get(toolKey(event, toolName));
 	if (pending === undefined) return;
 	const inputPreview = toolInputPreviewFromEvent(event);
-	const outputPreview = toolOutputPreviewFromEvent(event);
+	const resultPreview = toolOutputPreviewFromEvent(event);
 	if (inputPreview !== undefined) pending.inputPreview = inputPreview;
-	if (outputPreview !== undefined) pending.resultPreview = outputPreview;
+	if (resultPreview !== undefined) pending.resultPreview = resultPreview;
+}
+
+function captureMessageToolResult(
+	accumulator: TimelineAccumulator,
+	toolResult: MessageToolResultDescriptor,
+): void {
+	const event = toolResultEventRecord(toolResult);
+	const pendingKey = pendingToolResultKey(accumulator.pendingTools, event);
+	if (pendingKey === undefined) {
+		captureToolEnd(accumulator, event);
+		return;
+	}
+	completePendingTool(accumulator, pendingKey, event);
 }
 
 function captureToolEnd(accumulator: TimelineAccumulator, event: JsonRecord): void {
@@ -157,7 +204,7 @@ function captureToolEnd(accumulator: TimelineAccumulator, event: JsonRecord): vo
 		kind: "tool",
 		toolName,
 		state,
-		...(resultPreview === undefined ? {} : { resultPreview }),
+		...optionalEntry("resultPreview", resultPreview),
 	});
 }
 
@@ -169,13 +216,42 @@ function currentActionFromPendingTools(
 	return {
 		kind: "tool",
 		toolName: latestPendingTool.toolName,
-		...(latestPendingTool.inputPreview === undefined
-			? {}
-			: { inputPreview: latestPendingTool.inputPreview }),
-		...(latestPendingTool.resultPreview === undefined
-			? {}
-			: { outputPreview: latestPendingTool.resultPreview }),
+		...optionalEntry("inputPreview", latestPendingTool.inputPreview),
+		...optionalEntry("resultPreview", latestPendingTool.resultPreview),
 	};
+}
+
+function pendingToolResultKey(
+	pendingTools: ReadonlyMap<string, RunnerSubagentTimelineToolEntry>,
+	event: JsonRecord,
+): string | undefined {
+	if (typeof event.toolCallId === "string") {
+		const idKey = `id:${event.toolCallId}`;
+		if (pendingTools.has(idKey)) return idKey;
+	}
+	const toolName = typeof event.toolName === "string" ? event.toolName : undefined;
+	if (toolName !== undefined) {
+		const nameKey = `name:${toolName}`;
+		if (pendingTools.has(nameKey)) return nameKey;
+	}
+	return Array.from(pendingTools.keys()).at(-1);
+}
+
+function completePendingTool(
+	accumulator: TimelineAccumulator,
+	pendingKey: string,
+	event: JsonRecord,
+): void {
+	const pending = accumulator.pendingTools.get(pendingKey);
+	if (pending === undefined) return;
+	pending.state = event.isError === true ? "error" : "ok";
+	const resultPreview = toolResultPreviewFromEvent(event);
+	if (resultPreview === undefined) {
+		delete pending.resultPreview;
+	} else {
+		pending.resultPreview = resultPreview;
+	}
+	accumulator.pendingTools.delete(pendingKey);
 }
 
 function toolOutputPreviewFromEvent(event: JsonRecord): string | undefined {
