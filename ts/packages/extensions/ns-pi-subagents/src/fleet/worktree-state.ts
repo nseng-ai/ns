@@ -50,20 +50,19 @@ export function parseWorktreeState(input: ParseWorktreeStateInput): WorktreeStat
 export function createGitReadWorktreeState(input: { exec: PiExecApiLike }): ReadWorktreeState {
 	return async ({ cwd }) => {
 		try {
-			const [statusPorcelain, unstagedNumstat, stagedNumstat] = await Promise.all([
+			const results = await Promise.all([
 				runGit(input.exec, cwd, ["status", "--porcelain", "-z"]),
 				runGit(input.exec, cwd, ["diff", "--numstat", "--no-renames", "--"]),
 				runGit(input.exec, cwd, ["diff", "--cached", "--numstat", "--no-renames", "--"]),
 			]);
-			if (statusPorcelain.status === "failed") {
-				return { status: "unavailable", reason: statusPorcelain.reason };
+			const failureReason = firstGitReadFailureReason(results);
+			if (failureReason !== undefined) {
+				return { status: "unavailable", reason: failureReason };
 			}
-			if (unstagedNumstat.status === "failed") {
-				return { status: "unavailable", reason: unstagedNumstat.reason };
+			if (!allGitReadsSucceeded(results)) {
+				return { status: "unavailable", reason: "git read results were incomplete" };
 			}
-			if (stagedNumstat.status === "failed") {
-				return { status: "unavailable", reason: stagedNumstat.reason };
-			}
+			const [statusPorcelain, unstagedNumstat, stagedNumstat] = results;
 			return parseWorktreeState({
 				statusPorcelain: statusPorcelain.stdout,
 				unstagedNumstat: unstagedNumstat.stdout,
@@ -128,7 +127,18 @@ function compareWorktreeStateFiles(left: WorktreeStateFile, right: WorktreeState
 	return left.path.localeCompare(right.path);
 }
 
-type GitReadResult = { status: "ok"; stdout: string } | { status: "failed"; reason: string };
+type GitReadSuccess = { status: "ok"; stdout: string };
+type GitReadResult = GitReadSuccess | { status: "failed"; reason: string };
+
+function firstGitReadFailureReason(results: readonly GitReadResult[]): string | undefined {
+	return results.find((result) => result.status === "failed")?.reason;
+}
+
+function allGitReadsSucceeded(
+	results: readonly GitReadResult[],
+): results is [GitReadSuccess, GitReadSuccess, GitReadSuccess] {
+	return results.length === 3 && results.every((result) => result.status === "ok");
+}
 
 async function runGit(
 	exec: PiExecApiLike,

@@ -114,7 +114,7 @@ export type RunnerSubagentUsageMetadata =
 			sessionFile: string;
 			assistantMessageCount: number;
 			totals: RunnerSubagentUsageTotals;
-			trend?: RunnerSubagentUsageTrend;
+			trend: RunnerSubagentUsageTrend;
 	  }
 	| {
 			status: "unavailable";

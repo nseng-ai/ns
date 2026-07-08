@@ -77,6 +77,10 @@ interface DetailSessionParseCacheState {
 	cache: FleetEntrySessionParseCache;
 }
 
+type DetailLoadResult =
+	| { status: "loaded"; cacheKey: string; loaded: LoadedFleetEntryDetail }
+	| { status: "failed"; detail: SubagentFleetTaskDetail };
+
 export interface SubagentFleetNavigatorContext {
 	cwd: string;
 	hasUI: boolean;
@@ -351,8 +355,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (data === "b") {
 			this.mode = "list";
 			this.detail = undefined;
-			this.detailObservation = undefined;
-			this.detailSessionParseCache = undefined;
+			this.resetDetailSessionState();
 			this.stopDetailPolling();
 			this.tui.requestRender();
 			return;
@@ -403,8 +406,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.detailMaxScroll = 0;
 		this.isFollowing = true;
 		this.isPromptExpanded = false;
-		this.detailObservation = undefined;
-		this.detailSessionParseCache = undefined;
+		this.resetDetailSessionState();
 		this.syncDetailPolling();
 		this.scheduleDetailLoad();
 		this.tui.requestRender();
@@ -423,31 +425,36 @@ export class SubagentFleetNavigator implements RenderComponent {
 
 	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
 		try {
-			const cacheKey = detailCacheKey(entry);
-			const previous =
-				this.detailSessionParseCache?.key === cacheKey
-					? this.detailSessionParseCache.cache
-					: undefined;
-			const loaded = await loadFleetEntryDetail({
-				entry,
-				context: this.detailContext,
-				...optionalEntry("previous", previous),
-			});
-			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
-				this.detailSessionParseCache =
-					loaded.sessionParseCache === undefined
-						? undefined
-						: { key: cacheKey, cache: loaded.sessionParseCache };
-				this.detail = this.detailWithLiveObservation(entry, loaded);
-				this.syncDetailPolling();
-				this.tui.requestRender();
-			}
-		} catch (error) {
-			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
-				this.detail = placeholderDetail(
+			let result: DetailLoadResult;
+			try {
+				const cacheKey = entrySessionIdentityKey(entry);
+				const previous =
+					this.detailSessionParseCache?.key === cacheKey
+						? this.detailSessionParseCache.cache
+						: undefined;
+				const loaded = await loadFleetEntryDetail({
 					entry,
-					`Could not load detail: ${formatErrorMessage(error)}`,
-				);
+					context: this.detailContext,
+					...optionalEntry("previous", previous),
+				});
+				result = { status: "loaded", cacheKey, loaded };
+			} catch (error) {
+				result = {
+					status: "failed",
+					detail: placeholderDetail(entry, `Could not load detail: ${formatErrorMessage(error)}`),
+				};
+			}
+
+			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
+				if (result.status === "loaded") {
+					this.detailSessionParseCache =
+						result.loaded.sessionParseCache === undefined
+							? undefined
+							: { key: result.cacheKey, cache: result.loaded.sessionParseCache };
+					this.detail = this.detailWithLiveObservation(entry, result.loaded);
+				} else {
+					this.detail = result.detail;
+				}
 				this.syncDetailPolling();
 				this.tui.requestRender();
 			}
@@ -485,7 +492,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	): number | undefined {
 		const sessionFile = entrySessionFile(entry);
 		if (sessionFile === undefined || contentSignature === undefined) return undefined;
-		const key = `${entryId(entry) ?? "unknown"}:${sessionFile}`;
+		const key = entrySessionIdentityKey(entry);
 		const nowMs = this.clock.nowMs();
 		if (
 			this.detailObservation?.key !== key ||
@@ -533,9 +540,13 @@ export class SubagentFleetNavigator implements RenderComponent {
 		}
 		this.selectedEntryId = defaultSelectionId(this.entries);
 		if (this.selectedEntryId !== previousSelectedEntryId) {
-			this.detailObservation = undefined;
-			this.detailSessionParseCache = undefined;
+			this.resetDetailSessionState();
 		}
+	}
+
+	private resetDetailSessionState(): void {
+		this.detailObservation = undefined;
+		this.detailSessionParseCache = undefined;
 	}
 
 	private readEntries(): FleetNavigatorEntry[] {
@@ -627,7 +638,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 }
 
-function detailCacheKey(entry: FleetNavigatorEntry): string {
+function entrySessionIdentityKey(entry: FleetNavigatorEntry): string {
 	return `${entryId(entry) ?? "unknown"}:${entrySessionFile(entry) ?? "no-session-file"}`;
 }
 
