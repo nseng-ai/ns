@@ -13,6 +13,8 @@ import {
 	type ExtensionDescriptor,
 } from "../sdk/descriptor.ts";
 import {
+	declaredExtensionSpecsErrorInfo,
+	descriptorExportPathErrorInfo,
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
@@ -350,15 +352,10 @@ function readDeclaredExtensionSpecs(
 	}
 	const parsed = parseDeclaredExtensionSpecsToml(readResult.text);
 	if (parsed.ok) return parsed;
+	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
 	return {
 		ok: false,
-		diagnostic: diagnostic(
-			parsed.reason === "invalid-toml" ? "ns_toml_invalid" : "ns_toml_extensions_invalid",
-			parsed.reason === "invalid-toml"
-				? `ns.toml: Invalid TOML.\n${parsed.message}`
-				: parsed.message,
-			{ path: parsed.reason === "invalid-toml" ? "ns.toml" : "extensions" },
-		),
+		diagnostic: diagnostic(errorInfo.code, errorInfo.message, { path: errorInfo.path }),
 	};
 }
 
@@ -444,27 +441,10 @@ function descriptorExportDiagnostic(
 	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
 	packageJsonPath: string,
 ): { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	if (result.reason === "missing") {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_descriptor_export_missing",
-				`Extension package must expose exports["./ns-extension"]: ${packageJsonPath}.`,
-				{ path: packageJsonPath },
-			),
-		};
-	}
+	const errorInfo = descriptorExportPathErrorInfo(result, packageJsonPath);
 	return {
 		ok: false,
-		diagnostic: diagnostic(
-			result.reason === "invalid"
-				? "extension_descriptor_export_invalid"
-				: "extension_descriptor_export_escapes",
-			result.reason === "invalid"
-				? `Extension descriptor export must be a relative POSIX path: ${result.target}.`
-				: `Extension descriptor export must stay inside the package: ${result.target}.`,
-			{ path: packageJsonPath },
-		),
+		diagnostic: diagnostic(errorInfo.code, errorInfo.message, { path: packageJsonPath }),
 	};
 }
 

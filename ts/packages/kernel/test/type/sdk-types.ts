@@ -8,7 +8,7 @@ import {
 } from "@nseng-ai/kernel/sdk";
 import type {
 	ExtensionDescriptor,
-	KernelCommand,
+	RawArgvCommand,
 	MachineEnvelope,
 	NsCommandIo,
 	NsExtensionApi,
@@ -71,7 +71,7 @@ const descriptor = defineExtension({
 });
 
 const descriptorCheck: ExtensionDescriptor = descriptor;
-const rawCommandCheck: KernelCommand = rawCommand;
+const rawCommandCheck: RawArgvCommand = rawCommand;
 const envelope: MachineEnvelope = { status: "failure", exitCode: 2, errorType: "x", message: "x" };
 const failureExit = failure("wrapped", "wrapped failure");
 

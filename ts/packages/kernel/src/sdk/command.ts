@@ -29,7 +29,7 @@ export type {
 export type NsCommandSchema = z.ZodObject;
 export type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;
 
-export interface KernelCommandInvocation {
+export interface RawArgvCommandInvocation {
 	/** Raw argv tail after ns has routed through the command path. */
 	readonly argv: readonly string[];
 	/** Display path segments after `ns`, used by adapters for help text only. */
@@ -61,13 +61,13 @@ export interface ParsedKernelCommandSpec<S extends NsCommandSchema = NsCommandSc
 
 const parsedKernelCommandSpec = Symbol("ns.parsed-kernel-command-spec");
 
-export interface KernelCommand<T = unknown> {
+export interface RawArgvCommand<T = unknown> {
 	readonly name: string;
 	readonly summary: string;
 	readonly description: string;
 	run(
 		ctx: NsExtensionApi,
-		invocation: KernelCommandInvocation,
+		invocation: RawArgvCommandInvocation,
 	): Promise<CommandExit<T>> | CommandExit<T>;
 	complete?: ExplicitUndefined<"public-api-compatibility", KernelCommandCompletionProvider>;
 	readonly nsParsedCommandSpec?: unknown;
@@ -91,15 +91,15 @@ export interface DefineCommandSpec<S extends NsCommandSchema, T> {
 	readonly completionProvider?: KernelCommandCompletionProvider;
 }
 
-export type KernelCommandSpec<T = unknown> = KernelCommand<T>;
+export type RawArgvCommandSpec<T = unknown> = RawArgvCommand<T>;
 
-export function defineRawCommand<T>(command: KernelCommandSpec<T>): KernelCommand<T> {
+export function defineRawCommand<T>(command: RawArgvCommandSpec<T>): RawArgvCommand<T> {
 	return command;
 }
 
 export function defineCommand<S extends NsCommandSchema, T>(
 	spec: DefineCommandSpec<S, T>,
-): KernelCommand<T> {
+): RawArgvCommand<T> {
 	const parsedSpec = parsedSpecForDefinedCommand(spec);
 	return {
 		name: spec.name,
@@ -116,7 +116,7 @@ export function defineCommand<S extends NsCommandSchema, T>(
 }
 
 export type NsCommandCompletionProvider = KernelCommandCompletionProvider;
-export type NsCommand<_S extends NsCommandSchema = z.ZodObject, T = unknown> = KernelCommand<T>;
+export type NsCommand<_S extends NsCommandSchema = z.ZodObject, T = unknown> = RawArgvCommand<T>;
 
 export function defineExtension<const TDescriptor extends ExtensionDescriptor>(
 	extension: TDescriptor,
@@ -126,7 +126,7 @@ export function defineExtension<const TDescriptor extends ExtensionDescriptor>(
 
 async function runDefinedCommand<S extends NsCommandSchema, T>(
 	ctx: NsExtensionApi,
-	invocation: KernelCommandInvocation,
+	invocation: RawArgvCommandInvocation,
 	spec: DefineCommandSpec<S, T>,
 ): Promise<CommandExit<T>> {
 	let capturedExit: CommandExit<T> | undefined;
@@ -171,7 +171,7 @@ async function completeDefinedCommand<S extends NsCommandSchema, T>(
 }
 
 function buildDefinedCommandCli<S extends NsCommandSchema, T>(
-	invocation: KernelCommandInvocation,
+	invocation: RawArgvCommandInvocation,
 	spec: DefineCommandSpec<S, T>,
 	onExit: (exit: CommandExit<T>) => CommandExit<T>,
 ): ClinkrGroup<NsExtensionApi> {
@@ -198,7 +198,7 @@ function buildDefinedCommandCli<S extends NsCommandSchema, T>(
 }
 
 export function parsedSpecForCommand(
-	command: KernelCommand,
+	command: RawArgvCommand,
 ): ParsedKernelCommandSpec<NsCommandSchema, unknown> | undefined {
 	const spec = command[parsedKernelCommandSpec];
 	if (spec === undefined) return undefined;
@@ -220,9 +220,9 @@ export function defineParsedCommand<S extends NsCommandSchema, T>(options: {
 		ctx: NsExtensionApi,
 		request: z.output<S>,
 	) => Promise<CommandExit<T>> | CommandExit<T>;
-}): KernelCommand<T> {
+}): RawArgvCommand<T> {
 	const completionProvider = options.completionProvider;
-	const command: KernelCommand<T> = {
+	const command: RawArgvCommand<T> = {
 		name: options.name,
 		summary: options.summary,
 		description: options.description,
@@ -270,7 +270,7 @@ function parsedSpecForDefinedCommand<S extends NsCommandSchema, T>(
 
 async function runParsedCommand<S extends NsCommandSchema, T>(
 	ctx: NsExtensionApi,
-	invocation: KernelCommandInvocation,
+	invocation: RawArgvCommandInvocation,
 	options: {
 		readonly name: string;
 		readonly summary: string;
@@ -313,7 +313,7 @@ async function runParsedCommand<S extends NsCommandSchema, T>(
 }
 
 function buildParsedCommandCli<S extends NsCommandSchema, T>(
-	invocation: KernelCommandInvocation,
+	invocation: RawArgvCommandInvocation,
 	options: {
 		readonly name: string;
 		readonly summary: string;

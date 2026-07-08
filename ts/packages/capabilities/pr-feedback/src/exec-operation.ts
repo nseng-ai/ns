@@ -33,6 +33,17 @@ export interface ExecOperation {
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
 }
 
+export function findOperationByName(
+	operations: readonly ExecOperation[],
+	operationName: string,
+	label: string,
+): ExecOperation {
+	const operation = operations.find((candidate) => candidate.name === operationName);
+	if (operation === undefined)
+		throw new Error(`Unknown Address ${label} operation: ${operationName}`);
+	return operation;
+}
+
 export function gatewayOptions(ctx: PrAddressExecContext): GatewayOptions {
 	return { cwd: ctx.cwd, env: ctx.env };
 }

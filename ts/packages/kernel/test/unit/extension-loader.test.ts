@@ -6,21 +6,11 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
-import type { ExtensionCommandEntry } from "../../src/sdk/descriptor.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
 import { parsedSpecForCommand } from "../../src/sdk/command.ts";
 import { z } from "@nseng-ai/kernel/sdk";
 
 const tempDirs: string[] = [];
-
-function testCommandEntry(name: string): ExtensionCommandEntry {
-	return {
-		name,
-		load: () => {
-			throw new Error("test command entries do not load through validation");
-		},
-	};
-}
 
 async function createModule(source: string): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-extension-loader-"));
@@ -58,7 +48,7 @@ export default {
 		if (!loaded.ok) return;
 		const validation = validateDescriptorCommandContribution(
 			loaded.defaultExport,
-			testCommandEntry("greet"),
+			{ name: "greet" },
 			modulePath,
 		);
 		expect(validation.ok).toBe(true);
@@ -78,7 +68,7 @@ export default {
 		if (!loaded.ok) return;
 		const validation = validateDescriptorCommandContribution(
 			loaded.defaultExport,
-			testCommandEntry("list"),
+			{ name: "list" },
 			"@nseng-ai/objectives/ns/commands/list",
 		);
 		expect(validation.ok).toBe(true);
@@ -104,7 +94,7 @@ export default {
 		if (!loaded.ok) return;
 		const validation = validateDescriptorCommandContribution(
 			loaded.defaultExport,
-			testCommandEntry("list"),
+			{ name: "list" },
 			modulePath,
 		);
 		expect(validation.ok).toBe(true);
@@ -120,11 +110,7 @@ export default {
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
 		expect(
-			validateDescriptorCommandContribution(
-				loaded.defaultExport,
-				testCommandEntry("greet"),
-				modulePath,
-			),
+			validateDescriptorCommandContribution(loaded.defaultExport, { name: "greet" }, modulePath),
 		).toMatchObject({
 			ok: false,
 			message: expect.stringContaining("command summary must be a string"),

@@ -87,9 +87,7 @@ describe("extension descriptor SDK", () => {
 			run: () => ok({}),
 		});
 
-		expect(
-			validateLoadedCommandName({ name: "expected", load: () => ({ default: command }) }, command),
-		).toEqual({
+		expect(validateLoadedCommandName({ name: "expected" }, command)).toEqual({
 			ok: false,
 			message: 'Loaded command name mismatch: descriptor entry "expected" loaded command "actual".',
 		});

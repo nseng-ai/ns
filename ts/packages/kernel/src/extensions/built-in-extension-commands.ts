@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { failure, negative, ok, usageError } from "@nseng-ai/clinkr";
@@ -21,6 +21,8 @@ import {
 	type NsTomlExtensionsAppendResult,
 } from "../project-config/ns-toml-extensions-edit.ts";
 import {
+	directoryExists,
+	fileExists,
 	managedDescriptorPackageRoot,
 	managedExtensionsNpmProjectRoot,
 	resolveDescriptorExportPath,
@@ -530,22 +532,6 @@ function execResultData(result: ExecResult): Record<string, unknown> {
 		killed: result.killed,
 		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
 	};
-}
-
-function directoryExists(path: string): boolean {
-	try {
-		return statSync(path).isDirectory();
-	} catch {
-		return false;
-	}
-}
-
-function fileExists(path: string): boolean {
-	try {
-		return statSync(path).isFile();
-	} catch {
-		return false;
-	}
 }
 
 function renderInstallHuman(result: z.infer<typeof installResultSchema>): string {

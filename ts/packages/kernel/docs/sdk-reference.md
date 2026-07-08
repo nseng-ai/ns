@@ -33,7 +33,7 @@ Declares an ns extension. The default export of every ns extension module is a c
 function defineExtension<const TDescriptor extends ExtensionDescriptor>(extension: TDescriptor): TDescriptor;
 ```
 
-**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve the typed descriptor shape. Command implementation modules default-export `KernelCommand` objects directly.
+**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve the typed descriptor shape. Command implementation modules default-export `RawArgvCommand` objects directly.
 
 **Parameters.**
 
@@ -71,12 +71,12 @@ Descriptor-level contributions include `entries` for commands, `points` for poin
 
 ## Commands
 
-### `KernelCommand`
+### `RawArgvCommand`
 
-`KernelCommand` is the one command object contract loaded by the kernel. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
+`RawArgvCommand` is the one command object contract loaded by the kernel. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
 
 ```ts
-interface KernelCommand<T = unknown> {
+interface RawArgvCommand<T = unknown> {
   name: string;
   summary: string;
   description: string;
@@ -85,7 +85,7 @@ interface KernelCommand<T = unknown> {
 }
 ```
 
-`defineCommand()` is the structured convenience adapter. It accepts a schema/handler spec, builds the Clinkr surface internally, and returns a neutral `KernelCommand`. The returned command's `run(ctx, { argv })` parses `argv`, handles `-h`/`--help`, `--json-schema`, and `--format human|json|markdown`, invokes the typed handler with `z.output<S>`, and returns standard command exits. `--format json` is always the standard ns machine envelope; `--json-schema` publishes the schema-backed input/output document.
+`defineCommand()` is the structured convenience adapter. It accepts a schema/handler spec, builds the Clinkr surface internally, and returns a neutral `RawArgvCommand`. The returned command's `run(ctx, { argv })` parses `argv`, handles `-h`/`--help`, `--json-schema`, and `--format human|json|markdown`, invokes the typed handler with `z.output<S>`, and returns standard command exits. `--format json` is always the standard ns machine envelope; `--json-schema` publishes the schema-backed input/output document.
 
 **Example.** Use `defineCommand()` so `request` is inferred from `schema` while the exported command remains neutral:
 

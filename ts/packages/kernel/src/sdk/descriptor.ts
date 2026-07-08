@@ -1,17 +1,16 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { KernelCommand } from "./command.ts";
+import type { RawArgvCommand } from "./command.ts";
 
-export type DescriptorCommand = KernelCommand;
+export type DescriptorCommand = RawArgvCommand;
 
-export interface KernelCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
+export interface RawArgvCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly default: TCommand;
 }
 
-export type KernelCommandLoad<TCommand extends DescriptorCommand = DescriptorCommand> = () =>
-	| Promise<KernelCommandModule<TCommand>>
-	| KernelCommandModule<TCommand>;
+export type RawArgvCommandLoad<TCommand extends DescriptorCommand = DescriptorCommand> = () =>
+	| Promise<RawArgvCommandModule<TCommand>>
+	| RawArgvCommandModule<TCommand>;
 
 export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly name: string;
@@ -21,7 +20,7 @@ export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = Desc
 	 * lexically while parsing, even inside callbacks. Computed specifiers such as
 	 * `import(commandPath)` are opaque to bundlers and break bundled descriptors.
 	 */
-	readonly load: KernelCommandLoad<TCommand>;
+	readonly load: RawArgvCommandLoad<TCommand>;
 }
 
 export interface ExtensionGroupEntry {
@@ -67,9 +66,21 @@ export type LoadedCommandNameValidationResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly message: string };
 
+type DefinedOptionalEntries<T extends Record<string, unknown>> = {
+	readonly [Key in keyof T]?: Exclude<T[Key], undefined>;
+};
+
+function definedOptionalEntries<T extends Record<string, unknown>>(
+	entries: T,
+): DefinedOptionalEntries<T> {
+	return Object.fromEntries(
+		Object.entries(entries).filter(([, value]) => value !== undefined),
+	) as DefinedOptionalEntries<T>;
+}
+
 const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z.strictObject({
 	name: z.string().min(1),
-	load: z.custom<KernelCommandLoad>((value) => typeof value === "function"),
+	load: z.custom<RawArgvCommandLoad>((value) => typeof value === "function"),
 });
 
 const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
@@ -84,7 +95,7 @@ const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
 			(entry): ExtensionGroupEntry => ({
 				group: entry.group,
 				description: entry.description,
-				...optionalEntry("hidden", entry.hidden),
+				...definedOptionalEntries({ hidden: entry.hidden }),
 				entries: entry.entries,
 			}),
 		),
@@ -108,8 +119,7 @@ export const extensionPointDefinitionSchema: z.ZodType<ExtensionPointDefinition>
 			id: point.id,
 			accepts: point.accepts,
 			cardinality: point.cardinality,
-			...optionalEntry("description", point.description),
-			...optionalEntry("default", point.default),
+			...definedOptionalEntries({ description: point.description, default: point.default }),
 		}),
 	);
 
@@ -125,7 +135,7 @@ export const bundledArtifactDefinitionSchema: z.ZodType<BundledArtifactDefinitio
 			kind: artifact.kind,
 			name: artifact.name,
 			path: artifact.path,
-			...optionalEntry("description", artifact.description),
+			...definedOptionalEntries({ description: artifact.description }),
 		}),
 	);
 
@@ -139,11 +149,13 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 	})
 	.transform(
 		(descriptor): ExtensionDescriptor => ({
-			...optionalEntry("group", descriptor.group),
+			...definedOptionalEntries({ group: descriptor.group }),
 			description: descriptor.description,
-			...optionalEntry("entries", descriptor.entries),
-			...optionalEntry("points", descriptor.points),
-			...optionalEntry("bundledArtifacts", descriptor.bundledArtifacts),
+			...definedOptionalEntries({
+				entries: descriptor.entries,
+				points: descriptor.points,
+				bundledArtifacts: descriptor.bundledArtifacts,
+			}),
 		}),
 	);
 
@@ -160,7 +172,7 @@ export function validateExtensionDescriptor(
 }
 
 export function validateLoadedCommandName(
-	entry: ExtensionCommandEntry,
+	entry: Pick<ExtensionCommandEntry, "name">,
 	command: Pick<DescriptorCommand, "name">,
 ): LoadedCommandNameValidationResult {
 	if (entry.name === command.name) return { ok: true };

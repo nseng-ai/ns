@@ -12,7 +12,7 @@ export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 	description?: string;
 	summary?: string;
 	schema: S;
-	passThrough?: true;
+	shouldPassThrough?: true;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
 	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;

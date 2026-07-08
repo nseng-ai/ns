@@ -54,9 +54,7 @@ describe("descriptor package acquisition", () => {
 		writePackageJson(managedRoot, "@acme/tools");
 
 		expect(resolveAcquiredDescriptorPackageRoot({ repoRoot, spec: "./extensions/tools" })).toEqual({
-			declaredRoot: sourceRoot,
 			packageRoot: managedRoot,
-			isManaged: true,
 		});
 	});
 
@@ -66,9 +64,7 @@ describe("descriptor package acquisition", () => {
 		writePackageJson(sourceRoot, "tools");
 
 		expect(resolveAcquiredDescriptorPackageRoot({ repoRoot, spec: "./extensions/tools" })).toEqual({
-			declaredRoot: sourceRoot,
 			packageRoot: sourceRoot,
-			isManaged: false,
 		});
 	});
 });

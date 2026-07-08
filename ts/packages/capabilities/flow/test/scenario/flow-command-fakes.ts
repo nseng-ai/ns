@@ -9,8 +9,9 @@ import { flowCpCommand } from "../../src/ns/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
-import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
 
 import {
 	ScriptedNsTestContext,
@@ -466,25 +467,10 @@ async function runFlowCommand(input: {
 	stderr: (text: string) => void;
 }): Promise<{ exitCode: number; result: CommandExit }> {
 	const result = await input.command.run(input.context, {
-		argv: requestObjectToArgv(input.request),
+		argv: requestObjectToArgv(input.request, { negatedBooleanKeys: ["restack"] }),
 	});
 	writeCommandExitOutput(result, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
-}
-
-function requestObjectToArgv(request: unknown): readonly string[] {
-	if (typeof request !== "object" || request === null || Array.isArray(request)) return [];
-	return Object.entries(request).flatMap(([key, value]) => requestEntryToArgv(key, value));
-}
-
-function requestEntryToArgv(key: string, value: unknown): readonly string[] {
-	const kebab = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-	const flag = `--${kebab}`;
-	if (value === true) return [flag];
-	if (value === false) return key === "restack" ? [`--no-${kebab}`] : [];
-	if (value === undefined) return [];
-	if (Array.isArray(value)) return value.flatMap((entry) => [flag, String(entry)]);
-	return [flag, String(value)];
 }
 
 function exitCodeForCommandExit(result: CommandExit): number {

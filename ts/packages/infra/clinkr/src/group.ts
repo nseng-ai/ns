@@ -76,7 +76,7 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	schema: S;
 	isRawExit: true;
 	/** Pass all tokens through to the raw handler, including framework-looking options. */
-	passThrough?: true;
+	shouldPassThrough?: true;
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
@@ -139,7 +139,7 @@ interface RegisteredCommand<TContext> {
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
 	plan: SurfacePlan;
 	completionProvider: ClinkrDynamicCompletionProvider<TContext> | undefined;
-	passThrough: boolean;
+	shouldPassThrough: boolean;
 }
 
 interface RenderedExecution<TContext> {
@@ -232,7 +232,7 @@ export class ClinkrGroup<TContext> {
 			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
-			passThrough: spec.isRawExit === true && spec.passThrough === true,
+			shouldPassThrough: shouldPassThroughOf(spec),
 		});
 		return this;
 	}
@@ -257,7 +257,7 @@ export class ClinkrGroup<TContext> {
 			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
-			passThrough: spec.isRawExit === true && spec.passThrough === true,
+			shouldPassThrough: shouldPassThroughOf(spec),
 		};
 		return this;
 	}
@@ -396,6 +396,16 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 	};
 }
 
+function shouldPassThroughOf<TContext, S extends z.ZodObject, T>(
+	spec:
+		| ClinkrCommandSpec<TContext, S, T>
+		| RawCommandSpec<TContext, S>
+		| DefaultCommandSpec<TContext, S, T>
+		| DefaultRawCommandSpec<TContext, S>,
+): boolean {
+	return spec.isRawExit === true && spec.shouldPassThrough === true;
+}
+
 function completionCommandPlan<TContext>(
 	registered: RegisteredCommand<TContext>,
 ): ClinkrCompletionCommandPlan<TContext> {
@@ -416,7 +426,7 @@ function completionCommandPlan<TContext>(
 		...(registered.completionProvider === undefined
 			? {}
 			: { completionProvider: registered.completionProvider }),
-		...(registered.passThrough ? { passThrough: true } : {}),
+		...(registered.shouldPassThrough ? { shouldPassThrough: true } : {}),
 	};
 }
 
@@ -488,7 +498,7 @@ function configureCommandExecution<TContext>(
 	options: ConfigureCommandExecutionOptions<TContext>,
 ): void {
 	const { command, registered, context, io, state } = options;
-	if (registered.passThrough) {
+	if (registered.shouldPassThrough) {
 		command.helpOption(false);
 		command.allowUnknownOption(true);
 	}
@@ -505,14 +515,14 @@ function configureCommandExecution<TContext>(
 	for (const optionPlan of registered.plan.options) {
 		command.addOption(buildCommanderOption(optionPlan));
 	}
-	if (!registered.passThrough && registered.execution.type === "rendered") {
+	if (!registered.shouldPassThrough && registered.execution.type === "rendered") {
 		command.addOption(
 			new Option("--format <format>", "Output format.")
 				.choices(["human", "json", "markdown", "md"])
 				.default("human"),
 		);
 	}
-	if (!registered.passThrough) {
+	if (!registered.shouldPassThrough) {
 		command.addOption(
 			new Option(
 				"--json-schema",

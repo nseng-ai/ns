@@ -3,7 +3,11 @@ import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
-import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
+import {
+	findOperationByName,
+	type ExecOperation,
+	type PrAddressExecContext,
+} from "./exec-operation.ts";
 
 export function prAddressNsCommand(operationName: string) {
 	const operation = findOperation(operationName);
@@ -22,9 +26,5 @@ function createExecContext(ctx: NsExtensionApi): PrAddressExecContext {
 }
 
 function findOperation(operationName: string): ExecOperation {
-	const operation = EXEC_OPERATIONS.find((candidate) => candidate.name === operationName);
-	if (operation === undefined) {
-		throw new Error(`Unknown Address exec operation: ${operationName}`);
-	}
-	return operation;
+	return findOperationByName(EXEC_OPERATIONS, operationName, "exec");
 }

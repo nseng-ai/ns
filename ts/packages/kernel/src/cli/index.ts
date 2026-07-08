@@ -311,7 +311,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 						: {
 								schema: passthroughSchema,
 								positionals: { argv: { position: 0 } },
-								passThrough: true as const,
+								shouldPassThrough: true,
 							}),
 					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
 					...(command?.complete === undefined

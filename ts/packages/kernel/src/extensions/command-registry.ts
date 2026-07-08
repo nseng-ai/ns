@@ -195,7 +195,7 @@ export function commandInfoForLoadedCommand(
 
 export function validateDescriptorCommandContribution(
 	contribution: unknown,
-	entry: ExtensionCommandEntry,
+	entry: Pick<ExtensionCommandEntry, "name">,
 	sourceLabel: string,
 ): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
 	const parsed = descriptorCommandSchema.safeParse(contribution);

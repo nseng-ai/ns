@@ -41,6 +41,8 @@ import {
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
 import {
+	declaredExtensionSpecsErrorInfo,
+	descriptorExportPathErrorInfo,
 	descriptorExportTarget,
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
@@ -220,7 +222,7 @@ export async function loadSelectedNsCommand(
 	}
 	const validation = validateDescriptorCommandContribution(
 		loaded.defaultExport,
-		candidate.descriptorEntry ?? commandEntryForCandidate(candidate),
+		candidate.descriptorEntry ?? { name: commandLeafName(candidate) },
 		formatSource(candidate.source),
 	);
 	if (!validation.ok) {
@@ -398,15 +400,10 @@ function readDeclaredExtensionSpecs(
 	if (!existsSync(nsTomlPath)) return { ok: true, specs: [] };
 	const parsed = parseDeclaredExtensionSpecsToml(readFileSync(nsTomlPath, "utf8"));
 	if (parsed.ok) return parsed;
+	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
 	return {
 		ok: false,
-		diagnostic: projectErrorDiagnostic(
-			parsed.reason === "invalid-toml" ? "ns_toml_invalid" : "ns_toml_extensions_invalid",
-			parsed.reason === "invalid-toml"
-				? `ns.toml: Invalid TOML.\n${parsed.message}`
-				: parsed.message,
-			nsTomlPath,
-		),
+		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, nsTomlPath),
 	};
 }
 
@@ -504,27 +501,10 @@ function descriptorExportErrorDiagnostic(
 	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
 	packageJsonPath: string,
 ): { ok: false; diagnostic: ExtensionErrorDiagnostic } {
-	if (result.reason === "missing") {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_export_missing",
-				`Extension package must expose exports["./ns-extension"]: ${packageJsonPath}.`,
-				packageJsonPath,
-			),
-		};
-	}
+	const errorInfo = descriptorExportPathErrorInfo(result, packageJsonPath);
 	return {
 		ok: false,
-		diagnostic: projectErrorDiagnostic(
-			result.reason === "invalid"
-				? "extension_descriptor_export_invalid"
-				: "extension_descriptor_export_escapes",
-			result.reason === "invalid"
-				? `Extension descriptor export must be a relative POSIX path: ${result.target}.`
-				: `Extension descriptor export must stay inside the package: ${result.target}.`,
-			packageJsonPath,
-		),
+		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, packageJsonPath),
 	};
 }
 
@@ -970,15 +950,6 @@ function fromLoadDiagnostic(
 	commandName: string,
 ): ExtensionErrorDiagnostic {
 	return { ...diagnostic, sourceLevel, commandName };
-}
-
-function commandEntryForCandidate(candidate: ExternalNsCommandCandidate): ExtensionCommandEntry {
-	return {
-		name: commandLeafName(candidate),
-		load: () => {
-			throw new Error("Catalog candidates do not load through synthetic entries.");
-		},
-	};
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {
