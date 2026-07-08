@@ -162,10 +162,16 @@ export function renderCurrentActionLines(detail: SubagentFleetTaskDetail): strin
 	if (action.kind === "thinking") {
 		lines.push("current action: thinking / waiting for model output");
 	} else {
-		const input = action.inputPreview === undefined ? "" : `: ${action.inputPreview}`;
-		lines.push(truncatePlain(`current action: ▶ ${action.toolName}${input}`, 200));
+		const summary = formatToolPreview(action.inputPreview);
+		const suffix = summary === undefined ? "" : ` · ${summary}`;
+		lines.push(truncatePlain(`current action: ▶ ${action.toolName}${suffix}`, 200));
 		if (action.resultPreview !== undefined) {
-			lines.push(truncatePlain(`last output: ${action.resultPreview}`, 200));
+			lines.push(
+				truncatePlain(
+					`  ↳ ${formatToolPreview(action.resultPreview) ?? action.resultPreview}`,
+					200,
+				),
+			);
 		}
 	}
 	if (liveActivity.quietMs !== undefined)
@@ -178,11 +184,18 @@ export function formatQuietSeconds(quietMs: number): number {
 }
 
 export function renderTimelineEntry(entry: RunnerSubagentTimelineEntry): string {
-	if (entry.kind === "assistant") return `● assistant: ${entry.text}`;
+	return renderTimelineEntryLines(entry)[0] ?? "";
+}
+
+export function renderTimelineEntryLines(entry: RunnerSubagentTimelineEntry): string[] {
+	if (entry.kind === "assistant") return [`● assistant: ${entry.text}`];
 	const icon = entry.state === "running" ? "▶" : entry.state === "error" ? "✗" : "✓";
-	const input = entry.inputPreview === undefined ? "" : `: ${entry.inputPreview}`;
-	const result = entry.resultPreview === undefined ? "" : ` → ${entry.resultPreview}`;
-	return `${icon} ${entry.toolName}${input}${result}`;
+	const input = formatToolPreview(entry.inputPreview);
+	const suffix = input === undefined ? "" : ` · ${input}`;
+	const lines = [truncatePlain(`${icon} ${entry.toolName}${suffix}`, 200)];
+	const result = formatToolPreview(entry.resultPreview);
+	if (result !== undefined) lines.push(truncatePlain(`  ↳ ${result}`, 200));
+	return lines;
 }
 
 export function renderFleetDetailHeaderLines(input: {
@@ -240,7 +253,7 @@ export function renderFleetDetailContentLines(input: {
 		lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
 	}
 	for (const entry of detail.timeline.entries) {
-		lines.push(renderTimelineEntry(entry));
+		lines.push(...renderTimelineEntryLines(entry));
 	}
 	if (detail.timeline.entries.length === 0) {
 		lines.push("No timeline events yet.");
@@ -251,4 +264,79 @@ export function renderFleetDetailContentLines(input: {
 function promptPreview(prompt: string): string {
 	const firstLine = prompt.split("\n", 1)[0] ?? "";
 	return firstLine;
+}
+
+function formatToolPreview(preview: string | undefined): string | undefined {
+	if (preview === undefined) return undefined;
+	const parsed = parseJsonPreview(preview);
+	if (parsed === undefined) return compactPlain(preview);
+	return formatPreviewValue(parsed);
+}
+
+function parseJsonPreview(preview: string): unknown {
+	const trimmed = preview.trim();
+	if (!looksLikeJson(trimmed)) return undefined;
+	try {
+		return JSON.parse(trimmed);
+	} catch {
+		return undefined;
+	}
+}
+
+function looksLikeJson(value: string): boolean {
+	return (
+		value.startsWith("{") ||
+		value.startsWith("[") ||
+		value.startsWith('"') ||
+		value === "null" ||
+		value === "true" ||
+		value === "false" ||
+		/^-?\d/.test(value)
+	);
+}
+
+function formatPreviewValue(value: unknown): string | undefined {
+	if (Array.isArray(value)) return formatArrayPreview(value);
+	if (isRecord(value)) return formatRecordPreview(value);
+	return compactPlain(formatScalarPreview(value));
+}
+
+function formatRecordPreview(value: Record<string, unknown>): string | undefined {
+	const entries = Object.entries(value);
+	if (entries.length === 0) return "{}";
+	const visibleEntries = entries.slice(0, 6).map(([key, fieldValue]) => {
+		return `${key}: ${formatFieldValue(fieldValue)}`;
+	});
+	const remaining = entries.length - visibleEntries.length;
+	if (remaining > 0) visibleEntries.push(`+${remaining} more`);
+	return compactPlain(visibleEntries.join(" · "));
+}
+
+function formatArrayPreview(value: readonly unknown[]): string {
+	if (value.length === 0) return "[]";
+	const scalarItems = value.filter((item) => !Array.isArray(item) && !isRecord(item));
+	if (scalarItems.length === value.length && value.length <= 4) {
+		return compactPlain(value.map((item) => formatScalarPreview(item)).join(", "));
+	}
+	return `${value.length} items`;
+}
+
+function formatFieldValue(value: unknown): string {
+	if (Array.isArray(value)) return formatArrayPreview(value);
+	if (isRecord(value)) return compactPlain(JSON.stringify(value));
+	return formatScalarPreview(value);
+}
+
+function formatScalarPreview(value: unknown): string {
+	if (typeof value === "string") return compactPlain(value);
+	if (value === null) return "null";
+	return compactPlain(String(value));
+}
+
+function compactPlain(value: string): string {
+	return value.replace(/\s+/g, " ").trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
