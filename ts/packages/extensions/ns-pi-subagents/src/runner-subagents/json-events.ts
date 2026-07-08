@@ -271,10 +271,7 @@ export class RunnerSubagentJsonEventParser {
 				this.captureFinalAssistantTextFromMessage(event.message);
 				return;
 			case "tool_execution_start":
-				this.state = "running";
-				this.captureCurrentTool(event);
-				this.captureCurrentToolInput(event, { resetOnMissing: true });
-				this.recordToolStart(event);
+				this.applyToolStart(event);
 				return;
 			case "tool_execution_update":
 				this.state = "running";
@@ -282,11 +279,7 @@ export class RunnerSubagentJsonEventParser {
 				this.captureCurrentToolInput(event, { resetOnMissing: false });
 				return;
 			case "tool_execution_end":
-				this.state = "running";
-				if (this.shouldCountCompletedTool(event)) this.executedToolCount += 1;
-				this.recordToolEnd(event);
-				this.captureLastToolResult(event);
-				this.clearCurrentTool(event);
+				this.applyToolEnd(event);
 				return;
 			default:
 				return;
@@ -357,22 +350,32 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private captureMessageToolCall(toolCall: MessageToolCallDescriptor): void {
-		const event = toolCallEventRecord(toolCall);
+		this.applyToolStart(toolCallEventRecord(toolCall));
+	}
+
+	private captureMessageToolResult(toolResult: MessageToolResultDescriptor): void {
+		const event = toolResultEventRecord(toolResult);
+		this.applyToolEnd(this.withCurrentToolFallback(event));
+	}
+
+	private applyToolStart(event: JsonRecord): void {
+		this.state = "running";
 		this.captureCurrentTool(event);
 		this.captureCurrentToolInput(event, { resetOnMissing: true });
 		this.recordToolStart(event);
 	}
 
-	private captureMessageToolResult(toolResult: MessageToolResultDescriptor): void {
-		const event = toolResultEventRecord(toolResult);
-		const eventWithCurrentTool =
-			typeof event.toolName === "string" || this.currentTool === undefined
-				? event
-				: { ...event, toolName: this.currentTool };
-		if (this.shouldCountCompletedTool(eventWithCurrentTool)) this.executedToolCount += 1;
-		this.recordToolEnd(eventWithCurrentTool);
-		this.captureLastToolResult(eventWithCurrentTool);
-		this.clearCurrentTool(eventWithCurrentTool);
+	private applyToolEnd(event: JsonRecord): void {
+		this.state = "running";
+		if (this.shouldCountCompletedTool(event)) this.executedToolCount += 1;
+		this.recordToolEnd(event);
+		this.captureLastToolResult(event);
+		this.clearCurrentTool(event);
+	}
+
+	private withCurrentToolFallback(event: JsonRecord): JsonRecord {
+		if (typeof event.toolName === "string" || this.currentTool === undefined) return event;
+		return { ...event, toolName: this.currentTool };
 	}
 
 	private shouldCountCompletedTool(event: JsonRecord): boolean {

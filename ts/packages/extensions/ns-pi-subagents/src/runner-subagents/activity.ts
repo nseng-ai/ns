@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import type { RunnerSubagentProgress } from "./extension-api.ts";
 
 export const RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS = 240;
@@ -112,8 +114,8 @@ export function extractMessageToolCalls(message: unknown): MessageToolCallDescri
 		const input = firstOwnFieldValue(block, ["arguments", "input", "args"]);
 		toolCalls.push({
 			toolName: block.name,
-			...(toolCallId === undefined ? {} : { toolCallId }),
-			...(input === undefined ? {} : { input }),
+			...optionalEntry("toolCallId", toolCallId),
+			...optionalEntry("input", input),
 		});
 	}
 	return toolCalls;
@@ -132,9 +134,9 @@ export function extractMessageToolResult(
 		(Array.isArray(message.content) ? { content: message.content } : message.content);
 	const isError = message.isError === true || message.error === true || message.status === "error";
 	return {
-		...(toolCallId === undefined ? {} : { toolCallId }),
-		...(toolName === undefined ? {} : { toolName }),
-		...(result === undefined ? {} : { result }),
+		...optionalEntry("toolCallId", toolCallId),
+		...optionalEntry("toolName", toolName),
+		...optionalEntry("result", result),
 		isError,
 	};
 }
@@ -142,8 +144,8 @@ export function extractMessageToolResult(
 export function toolCallEventRecord(toolCall: MessageToolCallDescriptor): Record<string, unknown> {
 	return {
 		toolName: toolCall.toolName,
-		...(toolCall.toolCallId === undefined ? {} : { toolCallId: toolCall.toolCallId }),
-		...(toolCall.input === undefined ? {} : { input: toolCall.input }),
+		...optionalEntry("toolCallId", toolCall.toolCallId),
+		...optionalEntry("input", toolCall.input),
 	};
 }
 
@@ -151,9 +153,9 @@ export function toolResultEventRecord(
 	toolResult: MessageToolResultDescriptor,
 ): Record<string, unknown> {
 	return {
-		...(toolResult.toolName === undefined ? {} : { toolName: toolResult.toolName }),
-		...(toolResult.toolCallId === undefined ? {} : { toolCallId: toolResult.toolCallId }),
-		...(toolResult.result === undefined ? {} : { result: toolResult.result }),
+		...optionalEntry("toolName", toolResult.toolName),
+		...optionalEntry("toolCallId", toolResult.toolCallId),
+		...optionalEntry("result", toolResult.result),
 		isError: toolResult.isError,
 	};
 }

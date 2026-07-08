@@ -12,9 +12,11 @@ import {
 	loadFleetTaskDetail,
 	registerSubagentFleetCommand,
 	registerSubagentFleetShortcut,
+	type FleetDetailContext,
 	type SubagentFleetNavigatorContext,
 } from "../../src/fleet/navigator.ts";
-import type { WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
+import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
+import type { ReadWorktreeState, WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
 import { settleMicrotasks } from "../helpers/explore-testing.ts";
 
 function jsonl(events: readonly unknown[]): string {
@@ -57,6 +59,21 @@ function updateWithSessionFile(sessionFile: string): RunnerSubagentUpdate {
 			sessionFile,
 		},
 		activity: {},
+	};
+}
+
+function testDetailContext(
+	input: {
+		readTextFile?: ReadTextFile;
+		readWorktreeState?: ReadWorktreeState;
+	} = {},
+): FleetDetailContext {
+	return {
+		cwd: "/repo",
+		readTextFile: input.readTextFile ?? (() => Promise.resolve(sessionJsonl())),
+		readWorktreeState:
+			input.readWorktreeState ??
+			(() => Promise.resolve({ status: "unavailable", reason: "not read" })),
 	};
 }
 
@@ -212,24 +229,25 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () =>
-				sessionJsonl([
-					{
-						type: "message",
-						message: {
-							role: "assistant",
-							usage: { input: 1000, output: 20, cacheRead: 200, totalTokens: 1220 },
+			detailContext: testDetailContext({
+				readTextFile: async () =>
+					sessionJsonl([
+						{
+							type: "message",
+							message: {
+								role: "assistant",
+								usage: { input: 1000, output: 20, cacheRead: 200, totalTokens: 1220 },
+							},
 						},
-					},
-					{
-						type: "message",
-						message: {
-							role: "assistant",
-							usage: { input: 400, output: 8, cacheRead: 0, totalTokens: 408 },
+						{
+							type: "message",
+							message: {
+								role: "assistant",
+								usage: { input: 400, output: 8, cacheRead: 0, totalTokens: 408 },
+							},
 						},
-					},
-				]),
+					]),
+			}),
 			done: () => {},
 		});
 
@@ -251,8 +269,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
+			detailContext: testDetailContext(),
 			done: () => {},
 		});
 
@@ -283,8 +300,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {}, terminal: { rows: 9 } },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => content,
+			detailContext: testDetailContext({ readTextFile: async () => content }),
 			done: () => {},
 		});
 
@@ -324,8 +340,7 @@ describe("subagent fleet navigator", () => {
 				},
 			},
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => content,
+			detailContext: testDetailContext({ readTextFile: async () => content }),
 			done: () => {
 				doneCalls += 1;
 			},
@@ -387,11 +402,11 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
-			readWorktreeState: async () => ({
-				status: "available",
-				files: [{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 }],
+			detailContext: testDetailContext({
+				readWorktreeState: async () => ({
+					status: "available",
+					files: [{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 }],
+				}),
 			}),
 			done: () => {},
 		});
@@ -440,14 +455,14 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
-			readWorktreeState: async () => ({
-				status: "available",
-				files: [
-					{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 },
-					{ path: "notes.md", status: "??" },
-				],
+			detailContext: testDetailContext({
+				readWorktreeState: async () => ({
+					status: "available",
+					files: [
+						{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 },
+						{ path: "notes.md", status: "??" },
+					],
+				}),
 			}),
 			done: () => {},
 		});
@@ -477,12 +492,12 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
-			readWorktreeState: async () => {
-				worktreeReadCount += 1;
-				return worktreeState;
-			},
+			detailContext: testDetailContext({
+				readWorktreeState: async () => {
+					worktreeReadCount += 1;
+					return worktreeState;
+				},
+			}),
 			done: () => {},
 			timers: manualTimers.timers,
 			detailRefreshIntervalMs: 1_000,
@@ -513,9 +528,9 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
-			readWorktreeState: async () => ({ status: "unavailable", reason: "not a git repo" }),
+			detailContext: testDetailContext({
+				readWorktreeState: async () => ({ status: "unavailable", reason: "not a git repo" }),
+			}),
 			done: () => {},
 		});
 
@@ -542,11 +557,12 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => {
-				readCount += 1;
-				return content;
-			},
+			detailContext: testDetailContext({
+				readTextFile: async () => {
+					readCount += 1;
+					return content;
+				},
+			}),
 			done: () => {},
 			clock: manualClock.clock,
 			timers: manualTimers.timers,
@@ -605,8 +621,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
+			detailContext: testDetailContext(),
 			done: () => {},
 			timers: manualTimers.timers,
 		});
@@ -698,8 +713,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
+			detailContext: testDetailContext(),
 			done: () => {},
 			parentSessionFile: "/tmp/parent.jsonl",
 		});
@@ -726,8 +740,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			cwd: "/repo",
-			readTextFile: async () => sessionJsonl(),
+			detailContext: testDetailContext(),
 			done: () => {},
 		});
 
