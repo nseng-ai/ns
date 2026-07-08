@@ -12,6 +12,7 @@ import {
 	createSubprocessSubagentRuntime,
 	getOrCreateSubagentFleetRegistry,
 	mapWithConcurrency,
+	trackSingleSubagentFleetRun,
 	trackSubagentFleetRun,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
@@ -104,26 +105,27 @@ export async function runThermoCouncilCommand(
 			return;
 		}
 		setStatus(ctx, "running final thermo council synthesis…");
-		const synthesisResult = await withFleetTracking({
+		const synthesisTracking = trackSingleSubagentFleetRun({
 			registry: fleetRegistry,
 			ctx,
-			tasks: [{ title: "Thermo council final synthesis" }],
-			run: async (tracking) => {
-				tracking.markRunning(0);
-				return await synthesizeThermoCouncilFinalReport({
-					pi,
-					ctx,
-					runtime,
-					scope: scopeResult.scope,
-					outcomes,
-					deterministicReport,
-					...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-					onProgress: (update) => {
-						tracking.markProgress(0, update);
-					},
-					onRunnerResult: (result) => tracking.markDone(0, result),
-				});
-			},
+			title: "Thermo council final synthesis",
+			parentSessionFile: undefined,
+		});
+		const synthesisResult = await withDisposal(synthesisTracking, async () => {
+			synthesisTracking.onStart();
+			return await synthesizeThermoCouncilFinalReport({
+				pi,
+				ctx,
+				runtime,
+				scope: scopeResult.scope,
+				outcomes,
+				deterministicReport,
+				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+				onProgress: (update) => {
+					synthesisTracking.onProgress(update);
+				},
+				onRunnerResult: (result) => synthesisTracking.onDone(result),
+			});
 		});
 		const report =
 			synthesisResult.type === "completed"
@@ -225,6 +227,14 @@ async function runCouncilSeatsWithConcurrencyLimit({
 	});
 }
 
+async function withDisposal<T>(tracking: { dispose(): void }, run: () => Promise<T>): Promise<T> {
+	try {
+		return await run();
+	} finally {
+		tracking.dispose();
+	}
+}
+
 async function withFleetTracking<T>(input: {
 	readonly registry: SubagentFleetRegistry;
 	readonly ctx: ThermoCouncilCommandContext;
@@ -237,11 +247,7 @@ async function withFleetTracking<T>(input: {
 		tasks: input.tasks,
 		parentSessionFile: undefined,
 	});
-	try {
-		return await input.run(tracking);
-	} finally {
-		tracking.dispose();
-	}
+	return await withDisposal(tracking, async () => await input.run(tracking));
 }
 
 function normalizeReviewGuidance(args: string): string | undefined {
