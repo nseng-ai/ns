@@ -12,7 +12,7 @@ import {
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
 } from "../../src/fleet/display.ts";
-import { trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
+import { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
 import { makeErrorResult, makeFinalTextResult } from "../helpers/explore-testing.ts";
 
 describe("runner subagent fleet display for explore", () => {
@@ -131,6 +131,56 @@ describe("runner subagent fleet display for explore", () => {
 		expect(tasks.map((task) => [task.title, task.state, task.finalStatus])).toEqual([
 			["Started", "done", "error"],
 			["Queued", "done", "error"],
+		]);
+	});
+
+	test("single-subagent tracking binds lifecycle updates to the only fleet task", () => {
+		const registry = new SubagentFleetRegistry();
+		const ctx: ToolContext = {
+			cwd: "/repo",
+			hasUI: true,
+			mode: "tui",
+			ui: {
+				notify: () => {},
+				setWidget: () => {},
+				setStatus: () => {},
+			},
+		};
+		const tracking = trackSingleSubagentFleetRun({
+			registry,
+			ctx,
+			title: "One runner",
+			prompt: "Run once",
+			parentSessionFile: "/tmp/parent.jsonl",
+		});
+
+		tracking.onStart();
+		tracking.onProgress({
+			progress: {
+				state: "running",
+				toolCount: 1,
+				turnCount: 2,
+				elapsedMs: 10,
+				sessionFile: "/tmp/child-progress.jsonl",
+			},
+			activity: {
+				assistantPreview: "editing",
+			},
+		});
+		tracking.onDone({ ...makeFinalTextResult("done"), sessionFile: "/tmp/child-final.jsonl" });
+		tracking.dispose();
+
+		const [run] = registry.snapshot();
+		expect(run?.parentSessionFile).toBe("/tmp/parent.jsonl");
+		expect(run?.tasks).toMatchObject([
+			{
+				title: "One runner",
+				prompt: "Run once",
+				state: "done",
+				latestActivity: "editing",
+				finalStatus: "final-text",
+				sessionFile: "/tmp/child-final.jsonl",
+			},
 		]);
 	});
 

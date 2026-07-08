@@ -12,9 +12,11 @@ import {
 	createSubprocessSubagentRuntime,
 	getOrCreateSubagentFleetRegistry,
 	mapWithConcurrency,
+	trackSingleSubagentFleetRun,
 	trackSubagentFleetRun,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
+	type SingleSubagentFleetRunTracking,
 	type SubagentFleetRegistry,
 	type SubagentFleetRunTracking,
 	type SubagentFleetTaskInput,
@@ -104,26 +106,27 @@ export async function runThermoCouncilCommand(
 			return;
 		}
 		setStatus(ctx, "running final thermo council synthesis…");
-		const synthesisResult = await withFleetTracking({
+		const synthesisTracking = trackSingleSubagentFleetRun({
 			registry: fleetRegistry,
 			ctx,
-			tasks: [{ title: "Thermo council final synthesis" }],
-			run: async (tracking) => {
-				tracking.markRunning(0);
-				return await synthesizeThermoCouncilFinalReport({
-					pi,
-					ctx,
-					runtime,
-					scope: scopeResult.scope,
-					outcomes,
-					deterministicReport,
-					...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-					onProgress: (update) => {
-						tracking.markProgress(0, update);
-					},
-					onRunnerResult: (result) => tracking.markDone(0, result),
-				});
-			},
+			title: "Thermo council final synthesis",
+			parentSessionFile: undefined,
+		});
+		const synthesisResult = await runWithSingleFleetTracking(synthesisTracking, async () => {
+			synthesisTracking.onStart();
+			return await synthesizeThermoCouncilFinalReport({
+				pi,
+				ctx,
+				runtime,
+				scope: scopeResult.scope,
+				outcomes,
+				deterministicReport,
+				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+				onProgress: (update) => {
+					synthesisTracking.onProgress(update);
+				},
+				onRunnerResult: (result) => synthesisTracking.onDone(result),
+			});
 		});
 		const report =
 			synthesisResult.type === "completed"
@@ -223,6 +226,17 @@ async function runCouncilSeatsWithConcurrencyLimit({
 			});
 		},
 	});
+}
+
+async function runWithSingleFleetTracking<T>(
+	tracking: SingleSubagentFleetRunTracking,
+	run: () => Promise<T>,
+): Promise<T> {
+	try {
+		return await run();
+	} finally {
+		tracking.dispose();
+	}
 }
 
 async function withFleetTracking<T>(input: {
