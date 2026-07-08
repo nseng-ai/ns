@@ -10,7 +10,7 @@ metadata:
 
 This is the Pi structured-UI complement to portable `grilling` plus `domain-modeling`. It must remain self-contained because `/pi:grill-with-docs` fallback prompts still need to work when skill expansion is unavailable.
 
-Interview me relentlessly about every aspect of this plan or design until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer.
+Interview me relentlessly about every aspect of this plan or design until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer. Do not enact the plan until the user confirms shared understanding has been reached.
 
 If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.
 
@@ -27,7 +27,7 @@ Before the first user-facing question, do a bounded exploration pass:
 3. Check relevant ADRs under `docs/adr/`, including nested context ADR directories when the map or plan points to them.
 4. Inspect code only when the plan names a concrete area, or when a user claim or documented claim needs verification.
 
-Explore the codebase instead of asking when the answer is discoverable. Create documentation lazily only when there is something specific to write.
+If a *fact* can be found by exploring the codebase, look it up instead of asking. Decisions belong to the user — put each one through `grill_ask` and wait for the answer. Create documentation lazily only when there is something specific to write.
 
 Do not ask routine validation-scope or test-coverage questions such as which package checks should be mandatory before keeping implementation changes. That is an implementation-agent responsibility governed by project policy and changed-file judgment. Only ask about validation when it is itself a product/design requirement, an externally imposed release gate, or a user-visible compatibility promise. Otherwise, record validation guidance as: run relevant targeted validation, broaden when shared wrappers/workspace config are touched, and document commands run plus unrelated blockers.
 

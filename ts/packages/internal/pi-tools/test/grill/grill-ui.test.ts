@@ -156,6 +156,13 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
 		expect(prompt).toContain('If grill_ask returns action: "status-request"');
+		expect(prompt).toContain(
+			"If a fact can be found by exploring the codebase, look it up instead of asking",
+		);
+		expect(prompt).toContain("Decisions belong to the user");
+		expect(prompt).toContain(
+			"Do not enact the plan until the user confirms shared understanding has been reached",
+		);
 	});
 
 	test("includes fallback grill instructions when no skill block is available", () => {
@@ -169,6 +176,13 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("status-request handling");
 		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Fallback target");
+		expect(prompt).toContain(
+			"If a fact can be found by exploring the codebase, look it up instead of asking",
+		);
+		expect(prompt).toContain("Decisions belong to the user");
+		expect(prompt).toContain(
+			"Do not enact the plan until the user confirms shared understanding has been reached",
+		);
 		expect(prompt).toContain('If grill_ask returns action: "end-grill"');
 		expect(prompt).toContain("Show current grill status");
 	});
@@ -203,6 +217,13 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Documentation updates");
 		expect(prompt).toContain("Fallback docs target");
+		expect(prompt).toContain(
+			"If a fact can be found by exploring the codebase, look it up instead of asking",
+		);
+		expect(prompt).toContain("Decisions belong to the user");
+		expect(prompt).toContain(
+			"Do not enact the plan until the user confirms shared understanding has been reached",
+		);
 	});
 });
 
@@ -744,6 +765,7 @@ describe("grill_ask execution", () => {
 		});
 		expect(text(result)).toContain("Stop asking questions");
 		expect(text(result)).toContain("summarize resolved decisions");
+		expect(text(result)).toContain("await the user's confirmation before enacting the plan");
 		expect(result.terminate).toBeUndefined();
 	});
 
