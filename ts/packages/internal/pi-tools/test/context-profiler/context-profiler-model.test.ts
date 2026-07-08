@@ -59,7 +59,6 @@ function skillPromptChars(skill: Skill): number {
 		name: skill.name,
 		description: skill.description,
 		filePath: skill.filePath,
-		disabled: skill.disableModelInvocation,
 	}).length;
 }
 
@@ -81,10 +80,9 @@ function knownCharsOf(options: BuildSystemPromptOptions): number {
 		(total, file) => total + file.content.length,
 		0,
 	);
-	const skillChars = (options.skills ?? []).reduce(
-		(total, skill) => total + skillPromptChars(skill),
-		0,
-	);
+	const skillChars = (options.skills ?? [])
+		.filter((skill) => !skill.disableModelInvocation)
+		.reduce((total, skill) => total + skillPromptChars(skill), 0);
 	const toolChars = (options.selectedTools ?? []).reduce(
 		(total, tool) => total + tool.length + (options.toolSnippets?.[tool]?.length ?? 0),
 		0,
@@ -184,8 +182,9 @@ describe("buildBaseRegions", () => {
 		expect(files?.members[0]?.content).toBe("0123456789");
 
 		const skills = regions[2];
+		expect(skills?.label).toBe("model-invokable skills");
 		expect(skills?.members[0]?.tokens.value).toBe(Math.ceil(skillPromptChars(makeSkill()) / 4));
-		expect(skills?.members[0]?.note).toContain("reconstructed");
+		expect(skills?.members[0]?.note).toContain("prompt-visible skill fields");
 
 		const tools = regions[3];
 		expect(tools?.members.map((member) => member.name)).toEqual(["read", "bash"]);
@@ -199,6 +198,30 @@ describe("buildBaseRegions", () => {
 			...region.members.map((member) => member.tokens),
 		]);
 		expect(allCounts.every((count) => count.provenance === "estimated")).toBe(true);
+	});
+
+	test("excludes invoke-only skills from the prompt-visible skills region", () => {
+		const enabled = makeSkill({ name: "enabled", description: "visible skill" });
+		const disabled = makeSkill({
+			name: "disabled",
+			description: "invoke-only skill",
+			disableModelInvocation: true,
+		});
+		const options: BuildSystemPromptOptions = {
+			cwd: "/repo",
+			skills: [enabled, disabled],
+		};
+		const regions = buildBaseRegions(options, "");
+		const skills = regions.find((region) => region.id === "base-skills");
+
+		expect(skills?.label).toBe("model-invokable skills");
+		expect(skills?.tokens.value).toBe(Math.ceil(skillPromptChars(enabled) / 4));
+		expect(skills?.members).toHaveLength(1);
+		expect(skills?.members[0]?.name).toBe("enabled");
+		expect(skills?.members[0]?.content).toContain("visible skill");
+		expect(skills?.members[0]?.content).not.toContain("disabled");
+		expect(skills?.members.map((member) => member.name)).not.toContain("disabled");
+		expect(skills?.members[0]?.note).toContain("invoke-only skills are excluded");
 	});
 
 	test("clamps scaffold chars at zero when known parts exceed the assembled prompt", () => {

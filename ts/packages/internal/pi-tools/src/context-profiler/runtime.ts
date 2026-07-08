@@ -97,6 +97,10 @@ export function handleContext(event: ContextEvent, state: ProfilerState): Profil
  * pinned 0.79.1 extension surface, so it is probed at runtime: when the
  * running Pi provides it, options re-capture works; otherwise the last
  * `before_agent_start` capture stands and only the assembled prompt refreshes.
+ *
+ * This diagnostic stops at extension-context methods: raw prompt options can be
+ * broader than the rendered prompt, but production profiling must not import Pi
+ * private `AgentSession` fields or installed `dist/` internals to prove that.
  */
 export function capturePromptState(ctx: ExtensionContext, state: ProfilerState): ProfilerState {
 	const options = probeSystemPromptOptions(ctx);
