@@ -17,6 +17,9 @@
 - [x] **Disposition PR review threads and synthesize to the umbrella.**
       Done 2026-07-08 (see `updates/20260708T104546Z-review-thread-disposition-and-umbrella-synthesis.md`): refreshed PR review-thread state for PRs #3121, #3137, #3140, #3158, #3159, #3161, and #3162; replied/resolved direct fixed/stale threads with `ns address exec`; left AREG-tail thread `PRRT_kwDOR4YhMs6O67Wa` replied but intentionally unresolved as out-of-scope; synthesized the outcome to `skill-management-subsystem`.
 
+- [x] **Post-submit downstack feedback follow-up.**
+      Done 2026-07-08 (see `updates/20260708T130343Z-post-submit-downstack-feedback-followup.md`): refreshed PR review-thread state for PRs #3222, #3226, and #3229; fixed the remaining XDG HOME/env merge, raw context input, failure matcher, and diagnostic normalization feedback in top follow-up PR #3243 without rewriting downstack commits; replied/resolved the directly fixed threads with `ns address exec`, and final refresh showed zero unresolved threads across those PRs.
+
 ## Parked
 
 - [ ] Umbrella breadth intentionally out of this Objective: marketplace/remote catalog discovery, update/uninstall/version-resolution surfaces, trust gating, per-resource filtering, and provisioning additional artifact kinds.

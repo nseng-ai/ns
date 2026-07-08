@@ -1,8 +1,8 @@
 import { join, resolve } from "node:path";
 import process from "node:process";
 
-import { formatErrorMessage, isPathInside } from "@nseng-ai/foundation/primitives";
-import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
+import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { mergeXdgHomeEnv, requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -24,8 +24,12 @@ import {
 
 export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	projectRoot: string;
-	/** Required-present so callers choose the XDG HOME value deliberately; use undefined to clear HOME. */
+	/**
+	 * Required-present so callers deliberately choose whether to override HOME for XDG lookup.
+	 * Undefined means no explicit override; inherited/caller HOME is preserved.
+	 */
 	homeDir: string | undefined;
+	/** Required-present so callers deliberately choose the environment used for XDG lookup. */
 	env: Record<string, string | undefined>;
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
 }
@@ -87,10 +91,6 @@ const moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas = {
 	artifactName: z.string().optional(),
 };
 
-const moduleArtifactDiscoveryDiagnosticOptionalFieldNames = Object.keys(
-	moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas,
-) as (keyof typeof moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas)[];
-
 const moduleArtifactDiscoveryDiagnosticSchemaBase = z.object({
 	code: moduleArtifactDiscoveryDiagnosticCodeSchema,
 	message: z.string(),
@@ -103,15 +103,14 @@ export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDi
 function normalizeModuleArtifactDiscoveryDiagnostic(
 	diagnostic: z.output<typeof moduleArtifactDiscoveryDiagnosticSchemaBase>,
 ): ModuleArtifactDiscoveryDiagnostic {
-	const normalized: ModuleArtifactDiscoveryDiagnostic = {
+	return {
 		code: diagnostic.code,
 		message: diagnostic.message,
+		...optionalEntry("path", diagnostic.path),
+		...optionalEntry("packageName", diagnostic.packageName),
+		...optionalEntry("artifactId", diagnostic.artifactId),
+		...optionalEntry("artifactName", diagnostic.artifactName),
 	};
-	for (const fieldName of moduleArtifactDiscoveryDiagnosticOptionalFieldNames) {
-		const fieldValue = diagnostic[fieldName];
-		if (fieldValue !== undefined) normalized[fieldName] = fieldValue;
-	}
-	return normalized;
 }
 
 export async function discoverExtensionModuleHarnessArtifacts(
@@ -147,9 +146,10 @@ function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifacts
 	roots: readonly string[];
 	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 } {
-	const env = xdgExtensionArtifactDiscoveryEnv({
+	const env = mergeXdgHomeEnv({
+		baseEnv: process.env,
 		env: request.env,
-		xdgHomeDir: request.homeDir,
+		...optionalEntry("xdgHomeDir", request.homeDir),
 	});
 	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
 	const roots = [join(request.projectRoot, ".ns", "extensions")];
@@ -162,17 +162,6 @@ function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifacts
 		});
 	}
 	return { roots: sortStrings(roots), diagnostics };
-}
-
-function xdgExtensionArtifactDiscoveryEnv(options: {
-	env: Record<string, string | undefined>;
-	xdgHomeDir: string | undefined;
-}): Record<string, string | undefined> {
-	return {
-		...process.env,
-		...options.env,
-		HOME: options.xdgHomeDir,
-	};
 }
 
 async function discoverExtensionRoot(options: {

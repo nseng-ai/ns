@@ -1,5 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
+	matchProvisionFirstPartySkillFailure,
 	provisionFirstPartySkill,
 	splitProvisionFirstPartySkillOutcome,
 	type HarnessArtifactProvisionErrorInfo,
@@ -61,36 +62,35 @@ function materializeFailureResult(
 	harness: HarnessId,
 	outcomeFailure: ProvisionFirstPartySkillFailure,
 ): SkillMaterializeResult {
-	switch (outcomeFailure.code) {
-		case "catalog-source-unavailable":
-			return { type: "unavailable", reason: outcomeFailure.message };
-		case "unknown-skill":
-			return {
-				type: "error",
-				error: {
-					code: "objective-skill-catalog-missing",
-					message: "The first-party objective skill is missing from the harness artifact catalog.",
+	return matchProvisionFirstPartySkillFailure<SkillMaterializeResult>(outcomeFailure, {
+		catalogSourceUnavailable: (failureInfo) => ({
+			type: "unavailable",
+			reason: failureInfo.message,
+		}),
+		unknownSkill: () => ({
+			type: "error",
+			error: {
+				code: "objective-skill-catalog-missing",
+				message: "The first-party objective skill is missing from the harness artifact catalog.",
+			},
+		}),
+		provisionError: (failureInfo) => ({
+			type: "error",
+			error: nsInitErrorFromProvisionError(harness, failureInfo.error),
+		}),
+		conflicted: (failureInfo) => ({
+			type: "error",
+			error: {
+				code: "locally-edited-conflict",
+				message: `Failed to materialize objective skills for ${harness}: ${failureInfo.message}.`,
+				details: {
+					harness,
+					manifestPath: failureInfo.manifestPath,
+					conflictingFiles: [...failureInfo.conflictingFiles],
 				},
-			};
-		case "provision-error":
-			return {
-				type: "error",
-				error: nsInitErrorFromProvisionError(harness, outcomeFailure.error),
-			};
-		case "conflicted":
-			return {
-				type: "error",
-				error: {
-					code: "locally-edited-conflict",
-					message: `Failed to materialize objective skills for ${harness}: ${outcomeFailure.message}.`,
-					details: {
-						harness,
-						manifestPath: outcomeFailure.manifestPath,
-						conflictingFiles: [...outcomeFailure.conflictingFiles],
-					},
-				},
-			};
-	}
+			},
+		}),
+	});
 }
 
 function nsInitErrorFromProvisionError(

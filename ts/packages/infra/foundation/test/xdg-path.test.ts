@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	mergeXdgHomeEnv,
 	requireNsStatePath,
 	requireXdgPath,
 	resolvePathOverride,
@@ -9,6 +10,34 @@ import {
 } from "@nseng-ai/foundation/xdg-path";
 
 describe("XDG path helpers", () => {
+	test("mergeXdgHomeEnv preserves base HOME when no override is provided", () => {
+		expect(
+			mergeXdgHomeEnv({
+				baseEnv: { HOME: "/base/home", PATH: "/bin" },
+				env: { FEATURE_FLAG: "1" },
+			}),
+		).toEqual({ HOME: "/base/home", PATH: "/bin", FEATURE_FLAG: "1" });
+	});
+
+	test("mergeXdgHomeEnv lets caller env HOME override base HOME without an XDG override", () => {
+		expect(
+			mergeXdgHomeEnv({
+				baseEnv: { HOME: "/base/home", PATH: "/bin" },
+				env: { HOME: "/caller/home", FEATURE_FLAG: "1" },
+			}),
+		).toEqual({ HOME: "/caller/home", PATH: "/bin", FEATURE_FLAG: "1" });
+	});
+
+	test("mergeXdgHomeEnv applies XDG HOME override after base and caller env", () => {
+		expect(
+			mergeXdgHomeEnv({
+				baseEnv: { HOME: "/base/home", PATH: "/bin" },
+				env: { HOME: "/caller/home", FEATURE_FLAG: "1" },
+				xdgHomeDir: "/xdg/home",
+			}),
+		).toEqual({ HOME: "/xdg/home", PATH: "/bin", FEATURE_FLAG: "1" });
+	});
+
 	test("resolveXdgHome uses default HOME locations for unset and empty XDG values", () => {
 		const env = {
 			HOME: "/home/tester",
