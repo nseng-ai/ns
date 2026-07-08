@@ -193,18 +193,22 @@ export async function prepareProvision(
 	});
 }
 
+export function conflictingFilesFromDecisions(decisions: ProvisionDecisionSet): readonly string[] {
+	return decisions.files
+		.filter((decision) => decision.type === "locally-edited-conflict")
+		.map((decision) => decision.file.targetPath);
+}
+
 export async function applyPreparedProvision(
 	prepared: PreparedHarnessArtifactProvision,
 	options: ApplyPreparedProvisionOptions,
 ): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
-	const conflicts = prepared.decisions.files.filter(
-		(decision) => decision.type === "locally-edited-conflict",
-	);
-	if (conflicts.length > 0 && !options.shouldForce) {
+	const conflictingFiles = conflictingFilesFromDecisions(prepared.decisions);
+	if (conflictingFiles.length > 0 && !options.shouldForce) {
 		return resultOk({
 			outcome: "conflicted",
 			...previewFromPrepared(prepared),
-			conflictingFiles: conflicts.map((decision) => decision.file.targetPath),
+			conflictingFiles,
 		});
 	}
 

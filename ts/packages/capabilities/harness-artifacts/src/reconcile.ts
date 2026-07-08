@@ -31,6 +31,7 @@ import {
 import { parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
 	applyPreparedProvision,
+	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
 	prepareProvision,
@@ -257,7 +258,9 @@ export async function runHarnessArtifactReconcile(
 		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
 	});
-	const manifests = await readProjectManifestSnapshots({ context, fs });
+	const skillRoots = resolveProjectSkillRoots(context);
+	if (!skillRoots.ok) return skillRoots;
+	const manifests = await readProjectManifestSnapshots({ skillRoots: skillRoots.value, fs });
 	if (!manifests.ok) return manifests;
 
 	const plan = planHarnessArtifactReconcile({
@@ -271,7 +274,7 @@ export async function runHarnessArtifactReconcile(
 		artifacts.push(
 			...skippedCollisionOutcomes({
 				desired,
-				context,
+				skillRoots: skillRoots.value,
 				harnesses: selection.value.harnessSelection,
 			}),
 		);
@@ -292,11 +295,8 @@ export async function runHarnessArtifactReconcile(
 				reconcileOutcomeFromProvision({
 					pair,
 					provision: prepared.value,
-					...(prepared.value.decisions.isForceRequired ? { action: "conflicted" as const } : {}),
 					writtenFiles: [],
-					conflictingFiles: prepared.value.decisions.files
-						.filter((decision) => decision.type === "locally-edited-conflict")
-						.map((decision) => decision.file.targetPath),
+					conflictingFiles: conflictingFilesFromDecisions(prepared.value.decisions),
 				}),
 			);
 			continue;
@@ -308,9 +308,10 @@ export async function runHarnessArtifactReconcile(
 		if (!applied.ok) return applied;
 		if (applied.value.outcome === "conflicted") {
 			artifacts.push(
-				reconcileConflictedOutcome({
+				reconcileOutcomeFromProvision({
 					pair,
 					provision: applied.value,
+					writtenFiles: [],
 					conflictingFiles: applied.value.conflictingFiles,
 				}),
 			);
@@ -471,24 +472,42 @@ function parseHarnessSelection(
 	});
 }
 
+interface ResolvedProjectSkillRoot {
+	rootPath: string;
+	manifestPath: string;
+}
+
+function resolveProjectSkillRoots(
+	context: ReturnType<typeof firstPartySkillProvisionPathContext>,
+): Result<ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>, ReconcileErrorInfo> {
+	const roots = new Map<HarnessId, ResolvedProjectSkillRoot>();
+	for (const harness of ALL_HARNESS_IDS) {
+		const root = resolveHarnessSkillRoot({ harness, scope: "project", context });
+		if (!root.ok) return root;
+		roots.set(harness, {
+			rootPath: root.value.rootPath,
+			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
+		});
+	}
+	return resultOk(roots);
+}
+
 async function readProjectManifestSnapshots(input: {
-	context: ReturnType<typeof firstPartySkillProvisionPathContext>;
+	skillRoots: ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>;
 	fs: HarnessArtifactFileSystemGateway;
 }): Promise<Result<readonly HarnessManifestSnapshot[], ReconcileErrorInfo>> {
 	const snapshots: HarnessManifestSnapshot[] = [];
-	for (const harness of ALL_HARNESS_IDS) {
-		const root = resolveHarnessSkillRoot({ harness, scope: "project", context: input.context });
-		if (!root.ok) return root;
+	for (const [harness, root] of input.skillRoots) {
 		const manifest = await readInstallManifestAtRoot({
-			targetRoot: root.value.rootPath,
+			targetRoot: root.rootPath,
 			fs: input.fs,
 		});
 		if (!manifest.ok) return manifest;
 		if (Object.keys(manifest.value.artifacts).length === 0) continue;
 		snapshots.push({
 			harness,
-			targetRoot: root.value.rootPath,
-			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
+			targetRoot: root.rootPath,
+			manifestPath: root.manifestPath,
 			manifest: manifest.value,
 		});
 	}
@@ -496,9 +515,11 @@ async function readProjectManifestSnapshots(input: {
 }
 
 function classifyReconcileAction(input: {
+	conflictingFiles: readonly string[];
 	decisionsAreUnchanged: boolean;
 	hasManifestEntry: boolean;
 }): ReconcileArtifactOutcome["action"] {
+	if (input.conflictingFiles.length > 0) return "conflicted";
 	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
 	if (input.hasManifestEntry) return "refreshed";
 	return "installed";
@@ -506,68 +527,45 @@ function classifyReconcileAction(input: {
 
 function skippedCollisionOutcomes(input: {
 	desired: DesiredHarnessArtifact;
-	context: ReturnType<typeof firstPartySkillProvisionPathContext>;
+	skillRoots: ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>;
 	harnesses: readonly HarnessId[] | undefined;
 }): readonly ReconcileArtifactOutcome[] {
 	const harnesses = input.harnesses ?? [];
-	return harnesses.map((harness) => {
-		const root = resolveHarnessSkillRoot({ harness, scope: "project", context: input.context });
-		if (!root.ok) throw new Error(root.error.message);
-		const targetArtifactPath = join(root.value.rootPath, input.desired.artifact.skillName);
-		return {
-			action: "skipped",
+	return harnesses.flatMap((harness) => {
+		const root = input.skillRoots.get(harness);
+		if (root === undefined) return [];
+		const targetArtifactPath = join(root.rootPath, input.desired.artifact.skillName);
+		return [{
+			action: "skipped" as const,
 			artifactId: input.desired.artifact.id,
 			skillName: input.desired.artifact.skillName,
 			harness,
-			scope: "project",
-			origin: "declared",
+			scope: "project" as const,
+			origin: "declared" as const,
 			sourceType: input.desired.artifact.source.type,
 			packageName: input.desired.artifact.source.packageName,
 			targetArtifactPath,
-			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
+			manifestPath: root.manifestPath,
 			writtenFiles: [],
 			conflictingFiles: [],
-		};
+		}];
 	});
-}
-
-function reconcileConflictedOutcome(input: {
-	pair: ReconcilePair;
-	provision: HarnessArtifactProvisionPreview;
-	conflictingFiles: readonly string[];
-}): ReconcileArtifactOutcome {
-	return {
-		action: "conflicted",
-		artifactId: input.pair.desired.artifact.id,
-		skillName: input.pair.desired.artifact.skillName,
-		harness: input.pair.harness,
-		scope: input.pair.scope,
-		origin: input.pair.origin,
-		sourceType: input.pair.desired.artifact.source.type,
-		packageName: input.pair.desired.artifact.source.packageName,
-		targetArtifactPath: input.provision.plan.targetArtifactPath,
-		manifestPath: input.provision.manifestPath,
-		writtenFiles: [],
-		conflictingFiles: [...input.conflictingFiles],
-	};
 }
 
 function reconcileOutcomeFromProvision(input: {
 	pair: ReconcilePair;
 	provision: HarnessArtifactProvisionPreview;
-	action?: ReconcileArtifactOutcome["action"];
 	writtenFiles: readonly string[];
 	conflictingFiles: readonly string[];
 }): ReconcileArtifactOutcome {
 	return {
-		action:
-			input.action ??
-			classifyReconcileAction({
-				decisionsAreUnchanged: input.provision.decisions.files.every(
-					(decision) => decision.type === "unchanged",
-				),
-				hasManifestEntry: input.pair.hasManifestEntry,
-			}),
+		action: classifyReconcileAction({
+			conflictingFiles: input.conflictingFiles,
+			decisionsAreUnchanged: input.provision.decisions.files.every(
+				(decision) => decision.type === "unchanged",
+			),
+			hasManifestEntry: input.pair.hasManifestEntry,
+		}),
 		artifactId: input.pair.desired.artifact.id,
 		skillName: input.pair.desired.artifact.skillName,
 		harness: input.pair.harness,
