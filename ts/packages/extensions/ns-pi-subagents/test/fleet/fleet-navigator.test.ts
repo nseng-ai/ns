@@ -14,6 +14,7 @@ import {
 	registerSubagentFleetShortcut,
 	type SubagentFleetNavigatorContext,
 } from "../../src/fleet/navigator.ts";
+import type { WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
 
 function jsonl(events: readonly unknown[]): string {
 	return events.map((event) => JSON.stringify(event)).join("\n");
@@ -73,7 +74,7 @@ function noUiCommandContext(notifications: string[]): CommandContext {
 	} as CommandContext;
 }
 
-async function settleMicrotasks(count = 5): Promise<void> {
+async function settleMicrotasks(count = 20): Promise<void> {
 	for (let index = 0; index < count; index += 1) await Promise.resolve();
 }
 
@@ -138,6 +139,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => sessionJsonl(),
 			done: () => {},
 		});
@@ -169,6 +171,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {}, terminal: { rows: 9 } },
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => content,
 			done: () => {},
 		});
@@ -209,6 +212,7 @@ describe("subagent fleet navigator", () => {
 				},
 			},
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => content,
 			done: () => {
 				doneCalls += 1;
@@ -254,6 +258,102 @@ describe("subagent fleet navigator", () => {
 		expect(renderRequests).toBeGreaterThan(0);
 	});
 
+	test("renders shared worktree state on task details", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Dirty" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/dirty.jsonl"));
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			cwd: "/repo",
+			readTextFile: async () => sessionJsonl(),
+			readWorktreeState: async () => ({
+				status: "available",
+				files: [
+					{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 },
+					{ path: "notes.md", status: "??" },
+				],
+			}),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		const detail = view.render(120).join("\n");
+		expect(detail).toContain("worktree state: 2 changed files");
+		expect(detail).toContain("M src/fleet/navigator.ts +12/-3");
+		expect(detail).toContain("?? notes.md");
+		expect(detail).toContain("✓ read");
+	});
+
+	test("auto-refreshes running task worktree state with existing detail polling", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Live dirty" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/live-dirty.jsonl"));
+		let worktreeState: WorktreeStateSnapshot = {
+			status: "available",
+			files: [{ path: "a.ts", status: "M", additions: 1, deletions: 0 }],
+		};
+		let worktreeReadCount = 0;
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			cwd: "/repo",
+			readTextFile: async () => sessionJsonl(),
+			readWorktreeState: async () => {
+				worktreeReadCount += 1;
+				return worktreeState;
+			},
+			done: () => {},
+			timers: manualTimers.timers,
+			detailRefreshIntervalMs: 1_000,
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(worktreeReadCount).toBe(1);
+		expect(view.render(120).join("\n")).toContain("M a.ts +1/-0");
+
+		worktreeState = {
+			status: "available",
+			files: [{ path: "b.ts", status: "A", additions: 4, deletions: 0 }],
+		};
+		manualTimers.advanceMs(1_000);
+		await settleMicrotasks();
+		expect(worktreeReadCount).toBe(2);
+		expect(view.render(120).join("\n")).toContain("A b.ts +4/-0");
+	});
+
+	test("renders worktree read failures without hiding timeline", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Failure" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/failure.jsonl"));
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			cwd: "/repo",
+			readTextFile: async () => sessionJsonl(),
+			readWorktreeState: async () => ({ status: "unavailable", reason: "not a git repo" }),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		const detail = view.render(120).join("\n");
+		expect(detail).toContain("worktree state: unavailable (not a git repo)");
+		expect(detail).toContain("✓ read");
+	});
+
 	test("auto-refreshes running task detail and tracks observed quiet time", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Live" }]);
@@ -270,6 +370,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => {
 				readCount += 1;
 				return content;
@@ -332,6 +433,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => sessionJsonl(),
 			done: () => {},
 			timers: manualTimers.timers,
@@ -424,6 +526,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => sessionJsonl(),
 			done: () => {},
 			parentSessionFile: "/tmp/parent.jsonl",
@@ -451,6 +554,7 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
+			cwd: "/repo",
 			readTextFile: async () => sessionJsonl(),
 			done: () => {},
 		});
@@ -467,6 +571,7 @@ describe("subagent fleet navigator", () => {
 		expect(detail).toContain("Parent Pi session");
 		expect(detail).toContain("stopped · stopped");
 		expect(detail).not.toContain("running · running");
+		expect(detail).not.toContain("worktree state");
 		expect(detail).toContain("openai-codex/gpt-5.4");
 	});
 });

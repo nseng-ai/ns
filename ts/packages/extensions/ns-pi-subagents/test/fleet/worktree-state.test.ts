@@ -1,0 +1,60 @@
+import { describe, expect, test } from "vitest";
+
+import { createGitReadWorktreeState, parseWorktreeState } from "../../src/fleet/worktree-state.ts";
+
+describe("worktree state", () => {
+	test("merges status and numstat entries", () => {
+		const snapshot = parseWorktreeState({
+			statusShort: " M src/fleet/navigator.ts\n?? notes.md\n",
+			unstagedNumstat: "12\t3\tsrc/fleet/navigator.ts\n",
+			stagedNumstat: "",
+		});
+
+		expect(snapshot).toEqual({
+			status: "available",
+			files: [
+				{ path: "notes.md", status: "??" },
+				{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 },
+			],
+		});
+	});
+
+	test("reports clean state when git outputs are empty", () => {
+		expect(parseWorktreeState({ statusShort: "", unstagedNumstat: "", stagedNumstat: "" })).toEqual(
+			{ status: "available", files: [] },
+		);
+	});
+
+	test("keeps binary numstat distinct from zero-line changes", () => {
+		const snapshot = parseWorktreeState({
+			statusShort: " M image.png\n",
+			unstagedNumstat: "-\t-\timage.png\n",
+			stagedNumstat: "",
+		});
+
+		expect(snapshot).toEqual({
+			status: "available",
+			files: [{ path: "image.png", status: "M", isBinary: true }],
+		});
+	});
+
+	test("turns git command failures into unavailable snapshots", async () => {
+		const readWorktreeState = createGitReadWorktreeState({
+			exec: {
+				async exec(command, args) {
+					return {
+						stdout: "",
+						stderr: `${command} ${args.join(" ")} failed noisily`,
+						code: 1,
+						killed: false,
+					};
+				},
+			},
+		});
+
+		await expect(readWorktreeState({ cwd: "/repo" })).resolves.toEqual({
+			status: "unavailable",
+			reason: "git status --short failed noisily",
+		});
+	});
+});

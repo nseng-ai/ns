@@ -46,6 +46,7 @@ import {
 	taskIcon,
 } from "./display.ts";
 import type { ReadTextFile, ReadTextFileDependencies } from "./read-text-dependencies.ts";
+import type { ReadWorktreeState, WorktreeStateSnapshot } from "./worktree-state.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
 
@@ -74,6 +75,7 @@ export interface SubagentFleetTaskDetail {
 	timeline: RunnerSubagentTimeline;
 	usage?: RunnerSubagentUsageMetadata;
 	liveActivity?: SubagentFleetTaskLiveActivity;
+	worktreeState?: WorktreeStateSnapshot;
 	message?: string;
 }
 
@@ -82,6 +84,7 @@ export interface SubagentFleetTaskDetail {
  * satisfied both by `CommandContext` and by the host's shortcut-handler context.
  */
 export interface SubagentFleetNavigatorContext {
+	cwd: string;
 	hasUI: boolean;
 	sessionManager?: { getSessionFile?(): string | undefined };
 	ui: Pick<CommandContext["ui"], "notify" | "custom">;
@@ -205,6 +208,8 @@ export async function openSubagentFleetNavigator(input: {
 				tui,
 				registry: input.registry,
 				readTextFile,
+				readWorktreeState: input.dependencies?.readWorktreeState ?? readWorktreeStateUnavailable,
+				cwd: input.ctx.cwd,
 				done,
 				...(parentSessionFile === undefined ? {} : { parentSessionFile }),
 			}),
@@ -259,6 +264,8 @@ export interface SubagentFleetNavigatorOptions {
 	tui: Pick<TuiHandle, "requestRender"> & { readonly terminal?: { readonly rows?: number } };
 	registry: SubagentFleetRegistry;
 	readTextFile: ReadTextFile;
+	readWorktreeState?: ReadWorktreeState;
+	cwd: string;
 	done(value: undefined): void;
 	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
 	parentSessionFile?: string;
@@ -271,6 +278,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private readonly tui: Pick<TuiHandle, "requestRender">;
 	private readonly registry: SubagentFleetRegistry;
 	private readonly readTextFile: ReadTextFile;
+	private readonly readWorktreeState: ReadWorktreeState;
+	private readonly cwd: string;
 	private readonly done: (value: undefined) => void;
 	private readonly fallbackParentSessionFile: string | undefined;
 	private readonly clock: Clock;
@@ -295,6 +304,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.tui = options.tui;
 		this.registry = options.registry;
 		this.readTextFile = options.readTextFile;
+		this.readWorktreeState = options.readWorktreeState ?? readWorktreeStateUnavailable;
+		this.cwd = options.cwd;
 		this.done = options.done;
 		this.fallbackParentSessionFile = options.parentSessionFile;
 		this.clock = options.clock ?? systemClock;
@@ -445,6 +456,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 		const loaded = await loadFleetEntryDetail({
 			entry,
 			readTextFile: this.readTextFile,
+			readWorktreeState: this.readWorktreeState,
+			cwd: this.cwd,
 		});
 		this.isReadInFlight = false;
 		if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
@@ -638,6 +651,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 		}
 		const currentActionLines = renderCurrentActionLines(detail);
 		if (currentActionLines.length > 0) lines.push(...currentActionLines, "");
+		const worktreeStateLines = renderWorktreeStateLines(detail);
+		if (worktreeStateLines.length > 0) lines.push(...worktreeStateLines, "");
 		if (detail.timeline.droppedEntryCount > 0) {
 			lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
 		}
@@ -659,10 +674,14 @@ export class SubagentFleetNavigator implements RenderComponent {
 export async function loadFleetTaskDetail(input: {
 	task: SubagentFleetTaskSnapshot;
 	readTextFile: ReadTextFile;
+	readWorktreeState?: ReadWorktreeState;
+	cwd?: string;
 }): Promise<SubagentFleetTaskDetail> {
 	const loaded = await loadFleetEntryDetail({
 		entry: { kind: "task", task: input.task },
 		readTextFile: input.readTextFile,
+		readWorktreeState: input.readWorktreeState ?? readWorktreeStateUnavailable,
+		cwd: input.cwd ?? process.cwd(),
 	});
 	return loaded.detail;
 }
@@ -670,10 +689,13 @@ export async function loadFleetTaskDetail(input: {
 async function loadFleetEntryDetail(input: {
 	entry: FleetNavigatorEntry;
 	readTextFile: ReadTextFile;
+	readWorktreeState: ReadWorktreeState;
+	cwd: string;
 }): Promise<LoadedFleetEntryDetail> {
+	const worktreeState = await loadEntryWorktreeState(input);
 	const sessionFile = entrySessionFile(input.entry);
 	if (sessionFile === undefined)
-		return { detail: placeholderDetail(input.entry, "no session file yet") };
+		return { detail: placeholderDetail(input.entry, "no session file yet", worktreeState) };
 	let jsonl: string;
 	try {
 		jsonl = await input.readTextFile(sessionFile);
@@ -682,6 +704,7 @@ async function loadFleetEntryDetail(input: {
 			detail: placeholderDetail(
 				input.entry,
 				`Could not read session file: ${formatErrorMessage(error)}`,
+				worktreeState,
 			),
 		};
 	}
@@ -695,7 +718,14 @@ async function loadFleetEntryDetail(input: {
 	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
 	const usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, () => jsonl);
 	return {
-		detail: detailFromSnapshot({ entry: input.entry, sessionFile, snapshot, timeline, usage }),
+		detail: detailFromSnapshot({
+			entry: input.entry,
+			sessionFile,
+			snapshot,
+			timeline,
+			usage,
+			...(worktreeState === undefined ? {} : { worktreeState }),
+		}),
 		sessionContentSignature: sessionContentSignature(jsonl),
 	};
 }
@@ -706,6 +736,7 @@ function detailFromSnapshot(input: {
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	timeline: RunnerSubagentTimeline;
 	usage: RunnerSubagentUsageMetadata;
+	worktreeState?: WorktreeStateSnapshot;
 }): SubagentFleetTaskDetail {
 	const task = entryTask(input.entry);
 	return {
@@ -724,10 +755,15 @@ function detailFromSnapshot(input: {
 			input.snapshot.progress.state,
 		timeline: input.timeline,
 		usage: input.usage,
+		...(input.worktreeState === undefined ? {} : { worktreeState: input.worktreeState }),
 	};
 }
 
-function placeholderDetail(entry: FleetNavigatorEntry, message: string): SubagentFleetTaskDetail {
+function placeholderDetail(
+	entry: FleetNavigatorEntry,
+	message: string,
+	worktreeState?: WorktreeStateSnapshot,
+): SubagentFleetTaskDetail {
 	const task = entryTask(entry);
 	const sessionFile = entrySessionFile(entry);
 	return {
@@ -741,8 +777,22 @@ function placeholderDetail(entry: FleetNavigatorEntry, message: string): Subagen
 		state: task?.state ?? "session",
 		status: task?.finalStatus ?? task?.state ?? "session",
 		timeline: { entries: [], droppedEntryCount: 0, currentAction: { kind: "idle" } },
+		...(worktreeState === undefined ? {} : { worktreeState }),
 		message,
 	};
+}
+
+async function loadEntryWorktreeState(input: {
+	entry: FleetNavigatorEntry;
+	readWorktreeState: ReadWorktreeState;
+	cwd: string;
+}): Promise<WorktreeStateSnapshot | undefined> {
+	if (input.entry.kind !== "task") return undefined;
+	return input.readWorktreeState({ cwd: input.cwd });
+}
+
+function readWorktreeStateUnavailable(): Promise<WorktreeStateSnapshot> {
+	return Promise.resolve({ status: "unavailable", reason: "git reader unavailable" });
 }
 
 function usageLine(detail: SubagentFleetTaskDetail): string {
@@ -843,6 +893,38 @@ function windowRange(
 	const safeSize = Math.max(1, size);
 	const start = Math.max(0, Math.min(selectedIndex - Math.floor(safeSize / 2), length - safeSize));
 	return { start, end: Math.min(length, start + safeSize) };
+}
+
+const MAX_WORKTREE_STATE_FILES = 10;
+
+function renderWorktreeStateLines(detail: SubagentFleetTaskDetail): string[] {
+	const worktreeState = detail.worktreeState;
+	if (worktreeState === undefined) return [];
+	if (worktreeState.status === "unavailable") {
+		return [truncatePlain(`worktree state: unavailable (${worktreeState.reason})`, 200)];
+	}
+	if (worktreeState.files.length === 0) return ["worktree state: clean"];
+	const visibleFiles = worktreeState.files.slice(0, MAX_WORKTREE_STATE_FILES);
+	const lines = [`worktree state: ${worktreeState.files.length} changed files`];
+	for (const file of visibleFiles) {
+		const status = file.status === undefined ? "" : `${file.status} `;
+		const stat = formatWorktreeStateStat(file);
+		const suffix = stat.length === 0 ? "" : ` ${stat}`;
+		lines.push(truncatePlain(`  ${status}${file.path}${suffix}`, 200));
+	}
+	const remaining = worktreeState.files.length - visibleFiles.length;
+	if (remaining > 0) lines.push(`  … ${remaining} more`);
+	return lines;
+}
+
+function formatWorktreeStateStat(file: {
+	additions?: number;
+	deletions?: number;
+	isBinary?: boolean;
+}): string {
+	if (file.isBinary === true) return "binary";
+	if (file.additions === undefined && file.deletions === undefined) return "";
+	return `+${file.additions ?? 0}/-${file.deletions ?? 0}`;
 }
 
 function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
