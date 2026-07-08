@@ -20,25 +20,30 @@ import {
 	renderOverlayFrame,
 	sliceWrappedDetailLinesForViewport,
 } from "@internal/pi-tools/overlay-kit";
-import { readRunnerSubagentUsageFromSessionFile } from "../runner-subagents/extension-usage.ts";
-import { formatRunnerSubagentElapsed } from "../runner-subagents/presentation.ts";
-import {
-	createRunnerSubagentJsonEventParser,
-	type RunnerSubagentJsonEventParserSnapshot,
-} from "../runner-subagents/json-events.ts";
-import { extractRunnerSubagentTimelineFromSessionJsonl } from "../runner-subagents/timeline.ts";
-import type {
-	RunnerSubagentCurrentAction,
-	RunnerSubagentTimeline,
-	RunnerSubagentTimelineEntry,
-} from "../runner-subagents/timeline.ts";
 import type {
 	SubagentFleetRegistry,
 	SubagentFleetRunSnapshot,
 	SubagentFleetTaskSnapshot,
 } from "./registry.ts";
-import type { RunnerSubagentUsageMetadata } from "../runner-subagents/extension-api.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
+import {
+	SUBAGENT_FLEET_PARENT_ENTRY_ID,
+	assumeThinkingWhileRunning,
+	entryId,
+	entrySessionFile,
+	entryTask,
+	isRunningTaskDetailEntry,
+	loadFleetEntryDetail,
+	loadFleetTaskDetail,
+	placeholderDetail,
+	readWorktreeStateUnavailable,
+	type FleetDetailContext,
+	type FleetNavigatorEntry,
+	type LoadedFleetEntryDetail,
+	type ParentFleetNavigatorEntry,
+	type SubagentFleetTaskDetail,
+} from "./detail.ts";
+import { renderFleetDetailContentLines, renderFleetDetailHeaderLines } from "./detail-render.ts";
 import {
 	formatSubagentFleetTaskLines,
 	latestParentSessionFile,
@@ -46,57 +51,26 @@ import {
 	taskIcon,
 } from "./display.ts";
 import type { ReadTextFile, ReadTextFileDependencies } from "./read-text-dependencies.ts";
-import type { GitHeadSnapshot } from "./git-head.ts";
-import type { ReadWorktreeState, WorktreeStateSnapshot } from "./worktree-state.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
+export { SUBAGENT_FLEET_PARENT_ENTRY_ID, loadFleetTaskDetail } from "./detail.ts";
 
-export const SUBAGENT_FLEET_PARENT_ENTRY_ID = "parent-session";
 const PARENT_ENTRY_TITLE = "Parent Pi session";
 
 const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
 const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
 const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
 
-export interface SubagentFleetTaskLiveActivity {
-	currentAction: RunnerSubagentCurrentAction;
-	quietMs?: number;
-}
-
-export interface SubagentFleetPostRunSummary {
-	status: string;
-	lastDiagnostic?: string;
-	commit: SubagentFleetPostRunCommitSummary;
-	worktreeState?: WorktreeStateSnapshot;
-}
-
-export type SubagentFleetPostRunCommitSummary =
-	| { status: "changed"; from: string; to: string }
-	| { status: "unchanged"; head: string }
-	| { status: "unavailable"; reason: string };
-
-export interface SubagentFleetTaskDetail {
-	title: string;
-	prompt?: string;
-	sessionFile?: string;
-	modelText: string;
-	turnCount: number;
-	toolCount: number;
-	elapsedMs: number;
-	state: string;
-	status: string;
-	timeline: RunnerSubagentTimeline;
-	usage?: RunnerSubagentUsageMetadata;
-	liveActivity?: SubagentFleetTaskLiveActivity;
-	worktreeState?: WorktreeStateSnapshot;
-	postRunSummary?: SubagentFleetPostRunSummary;
-	message?: string;
-}
-
 /**
  * The slice of the command/shortcut context the navigator needs. Structurally
  * satisfied both by `CommandContext` and by the host's shortcut-handler context.
  */
+interface DetailObservationState {
+	key: string;
+	contentSignature: string;
+	lastObservedChangeMs: number;
+}
+
 export interface SubagentFleetNavigatorContext {
 	cwd: string;
 	hasUI: boolean;
@@ -126,37 +100,6 @@ interface CommandRegistrarHost {
 
 interface ShortcutRegistrarHost {
 	registerShortcut: RegisterShortcutFunction;
-}
-
-interface ParentFleetNavigatorEntry {
-	kind: "parent";
-	id: typeof SUBAGENT_FLEET_PARENT_ENTRY_ID;
-	title: string;
-	sessionFile: string;
-}
-
-interface TaskFleetNavigatorEntry {
-	kind: "task";
-	task: SubagentFleetTaskSnapshot;
-}
-
-type FleetNavigatorEntry = ParentFleetNavigatorEntry | TaskFleetNavigatorEntry;
-
-interface DetailObservationState {
-	key: string;
-	contentSignature: string;
-	lastObservedChangeMs: number;
-}
-
-interface LoadedFleetEntryDetail {
-	detail: SubagentFleetTaskDetail;
-	sessionContentSignature?: string;
-}
-
-export interface FleetDetailContext {
-	readTextFile: ReadTextFile;
-	readWorktreeState: ReadWorktreeState;
-	cwd: string;
 }
 
 export function registerSubagentFleetCommand<TPi extends object>(input: {
@@ -624,24 +567,10 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private detailHeader(): string[] {
-		const entry = this.selectedEntry();
-		if (entry === undefined) return ["No selected subagent task."];
-		const detail = this.detail;
-		if (detail === undefined) {
-			return [
-				entryTitle(entry),
-				"loading session…",
-				"",
-				`session: ${entrySessionFile(entry) ?? "—"}`,
-			];
-		}
-		return [
-			entryTitle(entry),
-			`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatRunnerSubagentElapsed(detail.elapsedMs)}`,
-			usageLine(detail),
-			...usageTrendLines(detail),
-			`session: ${detail.sessionFile ?? "no session file yet"}`,
-		];
+		return renderFleetDetailHeaderLines({
+			entry: this.selectedEntry(),
+			detail: this.detail,
+		});
 	}
 
 	private detailBody(innerWidth: number, bodyRows: number): string[] {
@@ -660,230 +589,16 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private detailContentLines(detail: SubagentFleetTaskDetail): string[] {
-		const lines: string[] = [];
-		const prompt = detail.prompt;
-		if (prompt !== undefined) {
-			if (this.isPromptExpanded) {
-				lines.push("prompt:", ...prompt.split("\n"), "");
-			} else {
-				lines.push(truncatePlain(`prompt: ${promptPreview(prompt)} (p to expand)`, 200), "");
-			}
-		}
-		if (detail.message !== undefined) {
-			lines.push(detail.message);
-			return lines;
-		}
-		const postRunSummaryLines = renderPostRunSummaryLines(detail.postRunSummary);
-		if (postRunSummaryLines.length > 0) {
-			lines.push(...postRunSummaryLines, "");
-		} else {
-			const currentActionLines = renderCurrentActionLines(detail);
-			if (currentActionLines.length > 0) lines.push(...currentActionLines, "");
-			const worktreeStateLines = renderWorktreeStateLines(detail);
-			if (worktreeStateLines.length > 0) lines.push(...worktreeStateLines, "");
-		}
-		if (detail.timeline.droppedEntryCount > 0) {
-			lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
-		}
-		for (const entry of detail.timeline.entries) {
-			lines.push(renderTimelineEntry(entry));
-		}
-		if (detail.timeline.entries.length === 0) {
-			lines.push("No timeline events yet.");
-		}
-		return lines;
+		return renderFleetDetailContentLines({
+			detail,
+			isPromptExpanded: this.isPromptExpanded,
+		});
 	}
 
 	private close(): void {
 		this.dispose();
 		this.done(undefined);
 	}
-}
-
-export async function loadFleetTaskDetail(input: {
-	task: SubagentFleetTaskSnapshot;
-	readTextFile: ReadTextFile;
-	readWorktreeState?: ReadWorktreeState;
-	cwd?: string;
-}): Promise<SubagentFleetTaskDetail> {
-	const loaded = await loadFleetEntryDetail({
-		entry: { kind: "task", task: input.task },
-		context: {
-			readTextFile: input.readTextFile,
-			readWorktreeState: input.readWorktreeState ?? readWorktreeStateUnavailable,
-			cwd: input.cwd ?? process.cwd(),
-		},
-	});
-	return loaded.detail;
-}
-
-async function loadFleetEntryDetail(input: {
-	entry: FleetNavigatorEntry;
-	context: FleetDetailContext;
-}): Promise<LoadedFleetEntryDetail> {
-	const worktreeState = await loadEntryWorktreeState(input.entry, input.context);
-	const sessionFile = entrySessionFile(input.entry);
-	if (sessionFile === undefined)
-		return { detail: placeholderDetail(input.entry, "no session file yet", worktreeState) };
-	let jsonl: string;
-	try {
-		jsonl = await input.context.readTextFile(sessionFile);
-	} catch (error) {
-		return {
-			detail: placeholderDetail(
-				input.entry,
-				`Could not read session file: ${formatErrorMessage(error)}`,
-				worktreeState,
-			),
-		};
-	}
-	const parser = createRunnerSubagentJsonEventParser({
-		title: entryTitle(input.entry),
-		sessionFile,
-	});
-	parser.pushChunk(jsonl);
-	parser.finish();
-	const snapshot = parser.getSnapshot();
-	const timeline = extractRunnerSubagentTimelineFromSessionJsonl(jsonl);
-	const usage = await readRunnerSubagentUsageFromSessionFile(sessionFile, () => jsonl);
-	return {
-		detail: detailFromSnapshot({
-			entry: input.entry,
-			sessionFile,
-			snapshot,
-			timeline,
-			usage,
-			...optionalEntry("worktreeState", worktreeState),
-		}),
-		sessionContentSignature: sessionContentSignature(jsonl),
-	};
-}
-
-function detailFromSnapshot(input: {
-	entry: FleetNavigatorEntry;
-	sessionFile: string;
-	snapshot: RunnerSubagentJsonEventParserSnapshot;
-	timeline: RunnerSubagentTimeline;
-	usage: RunnerSubagentUsageMetadata;
-	worktreeState?: WorktreeStateSnapshot;
-}): SubagentFleetTaskDetail {
-	const task = entryTask(input.entry);
-	const status =
-		task?.finalStatus ?? input.snapshot.stopReason ?? task?.state ?? input.snapshot.progress.state;
-	const postRunSummary =
-		task?.state === "done"
-			? buildPostRunSummary({
-					task,
-					snapshot: input.snapshot,
-					status,
-					...optionalEntry("worktreeState", input.worktreeState),
-				})
-			: undefined;
-	return {
-		title: entryTitle(input.entry),
-		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
-		sessionFile: input.sessionFile,
-		modelText: modelText(input.snapshot),
-		turnCount: input.snapshot.progress.turnCount,
-		toolCount: input.snapshot.progress.toolCount,
-		elapsedMs: input.snapshot.progress.elapsedMs,
-		state: input.snapshot.progress.state,
-		status,
-		timeline: input.timeline,
-		usage: input.usage,
-		...optionalEntry("worktreeState", input.worktreeState),
-		...optionalEntry("postRunSummary", postRunSummary),
-	};
-}
-
-function placeholderDetail(
-	entry: FleetNavigatorEntry,
-	message: string,
-	worktreeState?: WorktreeStateSnapshot,
-): SubagentFleetTaskDetail {
-	const task = entryTask(entry);
-	const sessionFile = entrySessionFile(entry);
-	return {
-		title: entryTitle(entry),
-		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
-		...(sessionFile === undefined ? {} : { sessionFile }),
-		modelText: "model unknown",
-		turnCount: 0,
-		toolCount: 0,
-		elapsedMs: 0,
-		state: task?.state ?? "session",
-		status: task?.finalStatus ?? task?.state ?? "session",
-		timeline: { entries: [], droppedEntryCount: 0, currentAction: { kind: "idle" } },
-		...optionalEntry("worktreeState", worktreeState),
-		message,
-	};
-}
-
-async function loadEntryWorktreeState(
-	entry: FleetNavigatorEntry,
-	context: FleetDetailContext,
-): Promise<WorktreeStateSnapshot | undefined> {
-	if (entry.kind !== "task") return undefined;
-	try {
-		return await context.readWorktreeState({ cwd: context.cwd });
-	} catch (error) {
-		return { status: "unavailable", reason: formatErrorMessage(error) };
-	}
-}
-
-function readWorktreeStateUnavailable(): Promise<WorktreeStateSnapshot> {
-	return Promise.resolve({ status: "unavailable", reason: "git reader unavailable" });
-}
-
-type AvailableRunnerSubagentUsageMetadata = Extract<
-	RunnerSubagentUsageMetadata,
-	{ status: "available" }
->;
-
-function usageLine(detail: SubagentFleetTaskDetail): string {
-	switch (detail.usage?.status) {
-		case "available": {
-			const totals = detail.usage.totals;
-			const cached = totals.cacheRead + totals.cacheWrite;
-			return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
-		}
-		case "unavailable":
-			return `tokens: unavailable (${detail.usage.reason})`;
-		default:
-			return "tokens: unavailable";
-	}
-}
-
-function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {
-	const usage = availableUsage(detail);
-	if (usage?.trend === undefined) return [];
-	const latest = usage.trend.latestTurn;
-	const latestText = `latest +${formatTokenCount(latest.input)} in/+${formatTokenCount(latest.output)} out`;
-	const contextText =
-		usage.trend.contextWindow === undefined
-			? `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}`
-			: `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}/${formatTokenCount(usage.trend.contextWindow)} (${formatContextPercent(usage.trend.peakPromptTokens, usage.trend.contextWindow)})`;
-	return [`trend: ${latestText} · ${contextText}`];
-}
-
-function availableUsage(
-	detail: SubagentFleetTaskDetail,
-): AvailableRunnerSubagentUsageMetadata | undefined {
-	return detail.usage?.status === "available" ? detail.usage : undefined;
-}
-
-function formatContextPercent(promptTokens: number, contextWindow: number): string {
-	return `${((promptTokens / contextWindow) * 100).toFixed(1)}%`;
-}
-
-function formatTokenCount(count: number): string {
-	if (count < 1000) return String(count);
-	return `${(count / 1000).toFixed(1)}k`;
-}
-
-function promptPreview(prompt: string): string {
-	const firstLine = prompt.split("\n", 1)[0] ?? "";
-	return firstLine;
 }
 
 function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
@@ -921,42 +636,6 @@ function defaultSelectionId(entries: readonly FleetNavigatorEntry[]): string | u
 	return entryId(entries.find((entry) => entry.kind === "task") ?? entries[0]);
 }
 
-function entryId(entry: FleetNavigatorEntry | undefined): string | undefined {
-	if (entry === undefined) return undefined;
-	return entry.kind === "parent" ? entry.id : entry.task.id;
-}
-
-function entryTitle(entry: FleetNavigatorEntry): string {
-	return entry.kind === "parent" ? entry.title : entry.task.title;
-}
-
-function entryTask(entry: FleetNavigatorEntry): SubagentFleetTaskSnapshot | undefined {
-	return entry.kind === "task" ? entry.task : undefined;
-}
-
-function entrySessionFile(entry: FleetNavigatorEntry): string | undefined {
-	return entry.kind === "parent" ? entry.sessionFile : entry.task.sessionFile;
-}
-
-function isRunningTaskDetailEntry(
-	entry: FleetNavigatorEntry | undefined,
-): entry is TaskFleetNavigatorEntry {
-	return (
-		entry?.kind === "task" && entry.task.state === "running" && entry.task.sessionFile !== undefined
-	);
-}
-
-function assumeThinkingWhileRunning(
-	currentAction: RunnerSubagentCurrentAction,
-): RunnerSubagentCurrentAction {
-	return currentAction.kind === "idle" ? { kind: "thinking" } : currentAction;
-}
-
-function sessionContentSignature(jsonl: string): string {
-	const suffix = jsonl.slice(Math.max(0, jsonl.length - 512));
-	return `${jsonl.length}:${suffix}`;
-}
-
 function windowRange(
 	length: number,
 	selectedIndex: number,
@@ -965,180 +644,6 @@ function windowRange(
 	const safeSize = Math.max(1, size);
 	const start = Math.max(0, Math.min(selectedIndex - Math.floor(safeSize / 2), length - safeSize));
 	return { start, end: Math.min(length, start + safeSize) };
-}
-
-const MAX_WORKTREE_STATE_FILES = 10;
-
-function buildPostRunSummary(input: {
-	task: SubagentFleetTaskSnapshot;
-	snapshot: RunnerSubagentJsonEventParserSnapshot;
-	status: string;
-	worktreeState?: WorktreeStateSnapshot;
-}): SubagentFleetPostRunSummary {
-	const lastDiagnostic = postRunDiagnostic(input.snapshot, input.status);
-	return {
-		status: input.status,
-		...optionalEntry("lastDiagnostic", lastDiagnostic),
-		commit: summarizeHeadChange(input.task.headBaseline, input.task.finalHead),
-		...optionalEntry("worktreeState", input.worktreeState),
-	};
-}
-
-function postRunDiagnostic(
-	snapshot: RunnerSubagentJsonEventParserSnapshot,
-	status: string,
-): string | undefined {
-	if (snapshot.terminalExecutionError !== undefined) return snapshot.terminalExecutionError.message;
-	if (snapshot.protocolError !== undefined) return snapshot.protocolError.message;
-	if (snapshot.errorMessage !== undefined) return snapshot.errorMessage;
-	if (snapshot.error !== undefined) return snapshot.error.message;
-	if (status !== "final-text" && status !== "completed")
-		return `unavailable; final status ${status}`;
-	return undefined;
-}
-
-function summarizeHeadChange(
-	baseline: GitHeadSnapshot | undefined,
-	finalHead: GitHeadSnapshot | undefined,
-): SubagentFleetPostRunCommitSummary {
-	if (baseline === undefined) return { status: "unavailable", reason: "missing baseline HEAD" };
-	if (baseline.status === "unavailable") {
-		return { status: "unavailable", reason: `baseline HEAD unavailable: ${baseline.reason}` };
-	}
-	if (finalHead === undefined) return { status: "unavailable", reason: "missing final HEAD" };
-	if (finalHead.status === "unavailable") {
-		return { status: "unavailable", reason: `final HEAD unavailable: ${finalHead.reason}` };
-	}
-	if (baseline.oid === finalHead.oid) return { status: "unchanged", head: baseline.oid };
-	return { status: "changed", from: baseline.oid, to: finalHead.oid };
-}
-
-function renderPostRunSummaryLines(summary: SubagentFleetPostRunSummary | undefined): string[] {
-	if (summary === undefined) return [];
-	const lines = ["post-run summary:", `  status: ${summary.status}`];
-	if (summary.lastDiagnostic !== undefined) {
-		lines.push(truncatePlain(`  last diagnostic: ${summary.lastDiagnostic}`, 200));
-	}
-	lines.push(`  commit: ${formatCommitSummary(summary.commit)}`);
-	lines.push(...renderSharedWorktreeSummaryLines(summary.worktreeState));
-	return lines;
-}
-
-function formatCommitSummary(commit: SubagentFleetPostRunCommitSummary): string {
-	switch (commit.status) {
-		case "changed":
-			return `HEAD changed ${shortOid(commit.from)} → ${shortOid(commit.to)}`;
-		case "unchanged":
-			return `none detected (HEAD unchanged ${shortOid(commit.head)})`;
-		case "unavailable":
-			return `unavailable (${commit.reason})`;
-		default: {
-			const exhaustive: never = commit;
-			return exhaustive;
-		}
-	}
-}
-
-function shortOid(oid: string): string {
-	return oid.slice(0, 7);
-}
-
-function renderSharedWorktreeSummaryLines(
-	worktreeState: WorktreeStateSnapshot | undefined,
-): string[] {
-	return renderWorktreeStateSnapshotLines(worktreeState, {
-		missingLines: ["  shared worktree: unavailable (not read)"],
-		label: "shared worktree",
-		indent: "  ",
-		fileIndent: "    ",
-	});
-}
-
-function renderWorktreeStateLines(detail: SubagentFleetTaskDetail): string[] {
-	return renderWorktreeStateSnapshotLines(detail.worktreeState, {
-		missingLines: [],
-		label: "worktree state",
-		indent: "",
-		fileIndent: "  ",
-	});
-}
-
-function renderWorktreeStateSnapshotLines(
-	worktreeState: WorktreeStateSnapshot | undefined,
-	options: {
-		missingLines: readonly string[];
-		label: string;
-		indent: string;
-		fileIndent: string;
-	},
-): string[] {
-	if (worktreeState === undefined) return [...options.missingLines];
-	if (worktreeState.status === "unavailable") {
-		return [
-			truncatePlain(
-				`${options.indent}${options.label}: unavailable (${worktreeState.reason})`,
-				200,
-			),
-		];
-	}
-	if (worktreeState.files.length === 0) return [`${options.indent}${options.label}: clean`];
-	const visibleFiles = worktreeState.files.slice(0, MAX_WORKTREE_STATE_FILES);
-	const lines = [`${options.indent}${options.label}: ${worktreeState.files.length} changed files`];
-	for (const file of visibleFiles) {
-		const status = file.status === undefined ? "" : `${file.status} `;
-		const stat = formatWorktreeStateStat(file);
-		const suffix = stat.length === 0 ? "" : ` ${stat}`;
-		lines.push(truncatePlain(`${options.fileIndent}${status}${file.path}${suffix}`, 200));
-	}
-	const remaining = worktreeState.files.length - visibleFiles.length;
-	if (remaining > 0) lines.push(`${options.fileIndent}… ${remaining} more`);
-	return lines;
-}
-
-function formatWorktreeStateStat(file: {
-	additions?: number;
-	deletions?: number;
-	isBinary?: boolean;
-}): string {
-	if (file.isBinary === true) return "binary";
-	if (file.additions === undefined && file.deletions === undefined) return "";
-	return `+${file.additions ?? 0}/-${file.deletions ?? 0}`;
-}
-
-function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
-	const liveActivity = detail.liveActivity;
-	if (liveActivity === undefined || liveActivity.currentAction.kind === "idle") return [];
-	const action = liveActivity.currentAction;
-	const lines: string[] = [];
-	if (action.kind === "thinking") {
-		lines.push("current action: thinking / waiting for model output");
-	} else {
-		const input = action.inputPreview === undefined ? "" : `: ${action.inputPreview}`;
-		lines.push(truncatePlain(`current action: ▶ ${action.toolName}${input}`, 200));
-		if (action.resultPreview !== undefined) {
-			lines.push(truncatePlain(`last output: ${action.resultPreview}`, 200));
-		}
-	}
-	if (liveActivity.quietMs !== undefined)
-		lines.push(`heartbeat: quiet ${formatQuietSeconds(liveActivity.quietMs)}s`);
-	return lines;
-}
-
-function formatQuietSeconds(quietMs: number): number {
-	return Math.max(0, Math.floor(quietMs / 1000));
-}
-
-function renderTimelineEntry(entry: RunnerSubagentTimelineEntry): string {
-	if (entry.kind === "assistant") return `● assistant: ${entry.text}`;
-	const icon = entry.state === "running" ? "▶" : entry.state === "error" ? "✗" : "✓";
-	const input = entry.inputPreview === undefined ? "" : `: ${entry.inputPreview}`;
-	const result = entry.resultPreview === undefined ? "" : ` → ${entry.resultPreview}`;
-	return `${icon} ${entry.toolName}${input}${result}`;
-}
-
-function modelText(snapshot: RunnerSubagentJsonEventParserSnapshot): string {
-	const model = snapshot.progress.launch?.model;
-	return model === undefined ? "model unknown" : `${model.provider}/${model.id}`;
 }
 
 function padRows(lines: readonly string[], rows: number): string[] {
