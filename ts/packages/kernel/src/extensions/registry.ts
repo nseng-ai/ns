@@ -114,7 +114,8 @@ export type PreinstalledNsCommandCatalogLoader = () =>
 
 export interface LoadNsCommandCatalogOptions {
 	cwd: string;
-	homeDir?: string;
+	/** User home used only as HOME while resolving XDG-shaped global extension roots. */
+	xdgHomeDir?: string;
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 }
@@ -651,11 +652,25 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 }
 
 function catalogEnv(options: LoadNsCommandCatalogOptions): Record<string, string | undefined> {
+	return xdgExtensionCatalogEnv({
+		...(options.env === undefined ? {} : { env: options.env }),
+		...optionalXdgHomeDir(options.xdgHomeDir),
+	});
+}
+
+function xdgExtensionCatalogEnv(options: {
+	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
+	xdgHomeDir?: string;
+}): Record<string, string | undefined> {
 	return {
 		...process.env,
 		...(options.env ?? {}),
-		...(options.homeDir === undefined ? {} : { HOME: options.homeDir }),
+		...(options.xdgHomeDir === undefined ? {} : { HOME: options.xdgHomeDir }),
 	};
+}
+
+function optionalXdgHomeDir(xdgHomeDir: string | undefined): { xdgHomeDir?: string } {
+	return xdgHomeDir === undefined ? {} : { xdgHomeDir };
 }
 
 function uniquePaths(paths: readonly string[]): readonly string[] {

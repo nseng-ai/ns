@@ -21,7 +21,7 @@ describe("skills path command", () => {
 			type: "failure",
 			errorType: "missing-home-directory",
 			message:
-				"pi user-scope provisioning requires a home directory. Set HOME or pass NsExtensionApi.homeDir.",
+				"pi user-scope provisioning requires a user home in the harness path context. Set HOME for host CLI contexts or pass a domain context homeDir.",
 		});
 	});
 

@@ -1,4 +1,4 @@
-import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	provisionFirstPartySkill,
 	type HarnessArtifactProvisionErrorInfo,
@@ -13,18 +13,24 @@ import type {
 	SkillMaterializeResult,
 } from "./skill-materializer.ts";
 
+export interface SkillMaterializationContext {
+	/** User home already adapted by the ns-init command/API layer, when materialization needs user scope. */
+	userHomeDir?: string;
+	env: Record<string, string | undefined>;
+}
+
 export interface RealSkillMaterializerOptions {
-	homeDir?: string;
-	env?: Record<string, string | undefined>;
+	context?: SkillMaterializationContext;
 }
 
 export class RealSkillMaterializer implements SkillMaterializer {
-	private readonly homeDir: string | undefined;
-	private readonly env: Record<string, string | undefined>;
+	private readonly context: SkillMaterializationContext;
 
 	constructor(options: RealSkillMaterializerOptions = {}) {
-		this.homeDir = resolveHomeDir(options.homeDir, options.env ?? {});
-		this.env = { ...(options.env ?? {}) };
+		this.context = {
+			env: { ...(options.context?.env ?? {}) },
+			...optionalEntry("userHomeDir", options.context?.userHomeDir),
+		};
 	}
 
 	async materializeObjectiveSkills(
@@ -37,8 +43,8 @@ export class RealSkillMaterializer implements SkillMaterializer {
 				harness,
 				scope: "project",
 				projectRoot: params.repoRoot,
-				...optionalEntry("homeDir", this.homeDir),
-				env: this.env,
+				...optionalEntry("homeDir", this.context.userHomeDir),
+				env: this.context.env,
 				isDryRun: false,
 				shouldForce: false,
 			});

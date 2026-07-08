@@ -140,7 +140,7 @@ export function resolveHarnessSkillRoot(input: {
 	if (input.scope === "user" && needsHomeDirectory(basePathSpec, input.context)) {
 		return resultErr({
 			code: "missing_home_directory",
-			message: `${spec.value.id} user-scope provisioning requires a home directory. Set HOME or pass NsExtensionApi.homeDir.`,
+			message: `${spec.value.id} user-scope provisioning requires a user home in the harness path context. Set HOME for host CLI contexts or pass a domain context homeDir.`,
 			details: { harness: spec.value.id, scope: "user" },
 		});
 	}

@@ -24,8 +24,9 @@ import {
 
 export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	projectRoot: string;
-	homeDir?: string;
-	env?: Record<string, string | undefined>;
+	/** Required-present so callers choose the XDG HOME value deliberately; use undefined to clear HOME. */
+	homeDir: string | undefined;
+	env: Record<string, string | undefined>;
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
 }
 
@@ -131,11 +132,10 @@ function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifacts
 	roots: readonly string[];
 	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 } {
-	const env = {
-		...process.env,
-		...(request.env ?? {}),
-		...(request.homeDir === undefined ? {} : { HOME: request.homeDir }),
-	};
+	const env = xdgExtensionArtifactDiscoveryEnv({
+		env: request.env,
+		xdgHomeDir: request.homeDir,
+	});
 	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
 	const roots = [join(request.projectRoot, ".ns", "extensions")];
 	try {
@@ -147,6 +147,17 @@ function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifacts
 		});
 	}
 	return { roots: sortStrings(roots), diagnostics };
+}
+
+function xdgExtensionArtifactDiscoveryEnv(options: {
+	env: Record<string, string | undefined>;
+	xdgHomeDir: string | undefined;
+}): Record<string, string | undefined> {
+	return {
+		...process.env,
+		...options.env,
+		HOME: options.xdgHomeDir,
+	};
 }
 
 async function discoverExtensionRoot(options: {
