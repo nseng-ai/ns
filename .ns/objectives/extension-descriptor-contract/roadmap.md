@@ -15,7 +15,11 @@
     definitions use `id` + `cardinality` (supersedes JSON field parity); `bundledArtifacts`
     field name; flat quick-start layout (`src/extension.ts` + `src/commands/`; export map is the
     only contract).
-- [ ] Kernel SDK: descriptor types, define helpers, neutral command contract, and validation.
+- [x] Kernel SDK: descriptor types, define helpers, neutral command contract, and validation.
+  - Evidence: landed in the descriptor SDK stack under `ts/packages/kernel/src/sdk/` with
+    descriptor/command/result/runtime exports, neutral `defineCommand` / `defineRawCommand`,
+    thunk-only descriptor typing, validation diagnostics, and the first-party descriptor import
+    guard (`NS_TS_BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT`).
   - Guidance: new module under `ts/packages/kernel/src/sdk/` per the settled README. Define the
     neutral kernel command interface (name, summary, description, run → machine envelope +
     result schema) and move/define envelope schemas at that neutral layer; the neutral
@@ -33,7 +37,7 @@
     `bundledArtifacts`. Zod-validate descriptor objects at load boundaries; load-time
     name-match diagnostics. Unit tests cover valid descriptors, malformed field diagnostics,
     nested group entries, and thunk typing.
-- [ ] Kernel discovery/registry: load descriptors for ns.toml-declared package directories.
+- [x] Kernel discovery/registry: load descriptors for ns.toml-declared package directories.
   - Guidance: for each `extensions = [...]` local package dir, read package.json (standard fields
     only), resolve `exports["./ns-extension"]`, jiti-import it (`loadNsUserModuleDefault`),
     validate, and mint candidates via `loadedModuleReference` with per-extension error
@@ -44,7 +48,11 @@
     command against the descriptor entry. Fake/fixture-driven tests in
     `ts/packages/kernel/test/unit/` plus a scenario test proving `ns <group> <cmd>` routes through
     a descriptor fixture.
-- [ ] Points migration: point catalog reads descriptors.
+  - Evidence: current kernel registry/discovery uses descriptor package resolution and descriptor
+    catalog helpers (`ts/packages/kernel/src/extensions/{registry,descriptor-catalog,loader}.ts`),
+    and `ns objective --help` / completion were measured through the descriptor-backed path in the
+    PR6 latency update.
+- [x] Points migration: point catalog reads descriptors.
   - Guidance: `loadPointCatalog` (`ts/packages/kernel/src/project-config/points.ts`) sources point
     definitions from descriptor `points` instead of package.json `ns.points`, adopting the
     modernized shape: `id: "submit.pre"` dotted strings (adapter may split internally where the
@@ -52,14 +60,20 @@
     `semantics: "additive" | "override"`; `ns extension point(s)` built-ins keep their envelope
     structure with renamed fields as needed. Update `extension-points-cli` scenario fixtures to
     descriptor form.
-- [ ] Bundled-artifacts migration: module artifact discovery reads descriptors.
+  - Evidence: `ts/packages/kernel/src/project-config/points.ts` now imports descriptor point
+    definitions via the descriptor package path, and descriptor-form point CLI fixtures/tests landed
+    with the stack.
+- [x] Bundled-artifacts migration: module artifact discovery reads descriptors.
   - Guidance: `parseModuleArtifactDeclaration` /
     `discoverExtensionModuleHarnessArtifacts` consume the descriptor `bundledArtifacts` field
     (`{ kind: "skill", name, path, description? }` entries; author-facing field rename only —
     the harness-artifacts subsystem keeps its internal name) from acquired module roots and
     declared dirs, executing descriptors via the kernel loader; per-module failure isolation
     preserved. Update reconcile tests.
-- [ ] Convert every first-party package to a descriptor; unify catalogs.
+  - Evidence: harness-artifact module discovery now consumes descriptor `bundledArtifacts` through
+    `ts/packages/capabilities/harness-artifacts/src/module-artifact-declaration.ts`, with reconcile
+    tests moved to descriptor package fixtures.
+- [x] Convert every first-party package to a descriptor; unify catalogs.
   - Guidance: add `src/ns/extension.ts` + `exports["./ns-extension"]` to address/pr-feedback,
     branch-context, flow, handoffs, objectives, retros, reviews, harness-artifacts, ns-init;
     delete each `repo-local-ns-extension.ts` and `preinstalled-catalog.ts`; migrate any
@@ -69,23 +83,35 @@
     `ts/packages/hosts/ns-cli/src/cli.ts` to import bundled descriptors; source-dev workspace
     discovery reads descriptors. Self-hosting invariant: every previously available command group
     still works in this checkout after this row.
-- [ ] Deletion slice: remove the legacy declaration surfaces.
+  - Evidence: first-party capabilities now expose `src/ns/extension.ts` descriptors and package
+    `exports["./ns-extension"]`; `ts/packages/hosts/ns-cli/src/cli.ts` imports bundled descriptors;
+    the scratch-project transcript demonstrates the packaged CLI plus installed objectives
+    descriptor can run `npx ns objective list` against real Objective records.
+- [x] Deletion slice: remove the legacy declaration surfaces.
   - Guidance: delete `.ns/extensions/*` command dirs in this repo, `discoverExtensionsInRoot` and
     the project/global root-scan paths, the JSON manifest schemas and readers
     (`nsExtensionManifestSchema` command/point reads, `ns.commands`/`ns.points`/
     `ns.harnessArtifacts` consumers), and sweep the repo (tests, skills, docs, CONTEXT files) for
     references to the deleted surfaces.
-  - Evidence: full `just` green; before/after `ns --help`, `ns <group> --help` (eager
-    module-load path for module-owned summaries), and completion-resolve latency in this
-    checkout recorded in a Semantic Update (escalation-trigger evidence for the cheapness
-    policy and the eager-help decision).
-- [ ] Record the trust-posture Semantic Update in remote-artifact-module-acquisition.
+  - Evidence: legacy `.ns/extensions` command shims and root-scan/JSON extension readers are gone;
+    `just` passed on 2026-07-08 after `just dprint-fix`; before/after `ns --help`,
+    `ns objective --help`, and completion-resolve latency was recorded in
+    `updates/20260708T171326Z-pr6-latency-and-install-closure-evidence.md` as escalation-trigger
+    evidence for the cheapness policy and eager-help decision.
+- [x] Record the trust-posture Semantic Update in remote-artifact-module-acquisition.
   - Guidance: new update under
     `.ns/objectives/remote-artifact-module-acquisition/updates/` noting that catalog build now
     executes descriptor code under the standing trusted-repo posture, superseding the
     "static manifests = no execution" separation; reference this objective. The one sanctioned
     cross-objective edit.
-- [ ] `ns install <local-package-dir>`: managed install plus ns.toml source-spec recording.
+  - Evidence: recorded
+    `.ns/objectives/remote-artifact-module-acquisition/updates/20260708T171326Z-descriptor-catalog-execution-trust-posture.md`.
+- [x] `ns install <local-package-dir>`: managed install plus ns.toml source-spec recording.
+  - Evidence: `ts/packages/kernel/test/scenario/install-cli.test.ts` covers the command behavior;
+    PR6 scratch-project evidence built `@nseng-ai/ns` from `dist/publish`, installed the local
+    objectives package, verified `ns.toml`, verified the managed root, ran `npx ns objective list`
+    against real records, and confirmed idempotent re-run output in
+    `updates/20260708T171326Z-pr6-latency-and-install-closure-evidence.md`.
   - Guidance: kernel built-in Clinkr command per ns-cli-design (schema-first, `resultSchema`,
     `renderHuman`, kebab-case `errorType` values). Validate the source dir (package.json
     name/version + `./ns-extension` export); install into
