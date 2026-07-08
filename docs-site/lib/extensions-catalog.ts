@@ -160,7 +160,7 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
     name: "Runner subagents",
     summary: "Delegate focused investigation or implementation slices to separate Pi sessions.",
     details:
-      "Registers explore and dispatch_runner_subagent for bounded child-session work plus the ns:agents:* fleet/transcript UI.",
+      "Registers explore and forked_pi_agent for bounded child-session work plus the ns:agents:* fleet/transcript UI.",
     category: "interaction",
     status: "experimental",
     commandHint: "/ns:agents:fleet",

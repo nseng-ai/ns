@@ -411,7 +411,7 @@ describe("delegation helpers", () => {
 	test("infers delegations from the validated tool-name pattern and caps results", () => {
 		const turns = [
 			makeTurnWithTools(1, ["read"]),
-			makeTurnWithTools(2, ["dispatch_runner_subagent"]),
+			makeTurnWithTools(2, ["forked_pi_agent"]),
 			makeTurnWithTools(3, ["task"]),
 			makeTurnWithTools(4, ["spawn_agent"]),
 			makeTurnWithTools(5, ["bash"]),
@@ -421,7 +421,7 @@ describe("delegation helpers", () => {
 			),
 		];
 		expect(inferredDelegations(turns)).toEqual([
-			{ turn: 2, label: "dispatch_runner_subagent", confidence: "inferred" },
+			{ turn: 2, label: "forked_pi_agent", confidence: "inferred" },
 			{ turn: 3, label: "task", confidence: "inferred" },
 			{ turn: 4, label: "spawn_agent", confidence: "inferred" },
 			{ turn: 6, label: "taskmaster", confidence: "inferred" },

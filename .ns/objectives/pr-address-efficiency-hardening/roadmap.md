@@ -8,7 +8,7 @@
 
 - [x] Add cost-aware classifier model routing.
   - Policy: Use a cheap/fast runner model pattern only for ordinary bounded classification, and require deterministic validation plus escalation to a stronger/default model for schema failures, omissions, ambiguity, or complex cross-file reasoning.
-  - Evidence: Pi `dispatch_runner_subagent` accepts an optional model pattern, passes it to child Pi as `--model`, and reports `requestedModel` without claiming the resolved model. Runner tests, TypeScript checks, and dprint checks covered the model option path; the public `pr-address` skill and classifier references document the routing policy.
+  - Evidence: Pi `forked_pi_agent` accepts an optional model pattern, passes it to child Pi as `--model`, and reports `requestedModel` without claiming the resolved model. Runner tests, TypeScript checks, and dprint checks covered the model option path; the public `pr-address` skill and classifier references document the routing policy.
 
 - [x] Design the managed run-state boundary for `pr-address` orchestration.
   - Policy: Keep raw feedback payloads, selected-detail artifacts, classification packets, validation wrappers, and GitHub mutation payloads clearly scoped; avoid normal ad-hoc `/tmp/pr-address-*.json` state.

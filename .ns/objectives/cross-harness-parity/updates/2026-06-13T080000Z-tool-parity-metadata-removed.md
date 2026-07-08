@@ -8,7 +8,7 @@ Removed the typed `kind: "tool"` parity records from `@asdl/pi-extensions` packa
 
 ## Objective Impact
 
-This narrows the machine-checkable v1 parity contract from command/tool accounting to command accounting. The durable parity question remains workflow reachability: commands that expose user workflows still need FULL/PARTIAL/NONE/WAIVED records, but model-visible tools such as `grill_ask`, `dispatch_runner_subagent`, `handoff_tab_launch`, and `write_saved_plan_file` do not require their own rows.
+This narrows the machine-checkable v1 parity contract from command/tool accounting to command accounting. The durable parity question remains workflow reachability: commands that expose user workflows still need FULL/PARTIAL/NONE/WAIVED records, but model-visible tools such as `grill_ask`, `forked_pi_agent`, `handoff_tab_launch`, and `write_saved_plan_file` do not require their own rows.
 
 ## Follow-Ups
 

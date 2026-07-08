@@ -1,8 +1,8 @@
 import { getOrCreateSubagentFleetRegistry } from "./fleet/provider.ts";
 import {
-	registerDispatchRunnerSubagentTool,
-	type DispatchRunnerSubagentExtensionAPI,
-	type DispatchRunnerSubagentExtensionOptions,
+	registerForkedPiAgentTool,
+	type ForkedPiAgentExtensionAPI,
+	type ForkedPiAgentExtensionOptions,
 } from "./runner-subagents/extension.ts";
 import {
 	registerExploreTool,
@@ -20,13 +20,13 @@ import { createGitReadWorktreeState } from "./fleet/worktree-state.ts";
 import { createGitReadHead } from "./fleet/git-head.ts";
 
 export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI &
-	DispatchRunnerSubagentExtensionAPI & {
+	ForkedPiAgentExtensionAPI & {
 		registerCommand?: CommandRegistrar;
 		registerShortcut?: RegisterShortcutFunction;
 	};
 
 export type NsPiSubagentsExtensionOptions = ExploreExtensionOptions &
-	DispatchRunnerSubagentExtensionOptions & {
+	ForkedPiAgentExtensionOptions & {
 		fleetNavigatorDependencies?: ReadTextFileDependencies;
 	};
 
@@ -45,7 +45,7 @@ export default function nsPiSubagentsExtension(
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
 	registerExploreTool(pi, { ...options, fleetRegistry, readGitHead });
-	registerDispatchRunnerSubagentTool(pi, { ...options, fleetRegistry, readGitHead });
+	registerForkedPiAgentTool(pi, { ...options, fleetRegistry, readGitHead });
 }
 
 function resolveFleetNavigatorDependencies(

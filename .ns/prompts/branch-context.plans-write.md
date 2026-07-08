@@ -90,7 +90,7 @@ Implementation checkpoint guidance:
 Subagent model routing:
 
 - For implementation/editing subagents:
-  - Do not set `dispatch_runner_subagent.model` to a cheap/review model.
+  - Do not set `forked_pi_agent.model` to a cheap/review model.
   - Prefer omitting the `model` field so the harness/current session default is used.
   - Only set an explicit model for editing work if the user or command explicitly provides one.
 - For review-only subagents:

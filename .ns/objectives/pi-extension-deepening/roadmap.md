@@ -38,7 +38,7 @@
 - [x] Candidate 9 — decide and implement runner subagent contract cleanup.
   - Preserved the deep runner subagent helper and public `dispatchRunnerSubagent(...)` API while clarifying the parent-facing contract.
   - Updated docs to distinguish terminal-capture mode from final-text mode, include `stopped-without-useful-text`, label `runChildSession(...)` as historical terminology, and keep Objective-stack guidance on runner subagents.
-  - Added `runner-subagent/presentation.ts` as a narrow pure helper for elapsed formatting, title/session extraction, and generic progress widget lines; migrated `dispatch_runner_subagent` and `/runner-subagent-demo` to it while keeping domain payload rendering local.
+  - Added `runner-subagent/presentation.ts` as a narrow pure helper for elapsed formatting, title/session extraction, and generic progress widget lines; migrated `forked_pi_agent` and `/runner-subagent-demo` to it while keeping domain payload rendering local.
   - Added focused tests for the helper and strengthened non-`final-text` diagnostic expectations.
   - Evidence: local working diff against Graphite parent `clinkr-machine-envelope-parser`; `bun run --cwd ts check` and `bun run --cwd ts test` passed.
 - [x] Candidate 5 — decide and implement skill expansion and prompt handoff.

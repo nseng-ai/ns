@@ -2,7 +2,7 @@
 
 ## Summary
 
-Pi runner subagent dispatch now supports optional per-dispatch model selection. The `dispatch_runner_subagent` tool accepts a `model` string, rejects blank values, trims valid values, passes the model pattern through to child Pi as `--model`, and records it as `requestedModel` in tool details without claiming it is the resolved actual model.
+Pi runner subagent dispatch now supports optional per-dispatch model selection. The `forked_pi_agent` tool accepts a `model` string, rejects blank values, trims valid values, passes the model pattern through to child Pi as `--model`, and records it as `requestedModel` in tool details without claiming it is the resolved actual model.
 
 The public `pr-address` workflow now routes ordinary bounded feedback classification through a configured cheap/fast Pi model pattern when available. The classifier guidance keeps deterministic `classification-template` scaffolding, strict JSON packet output, `validate-feedback-classification`, and validator-driven escalation to a stronger/default model for validation failures, omissions, ambiguous feedback, or complex cross-file code-context reasoning.
 

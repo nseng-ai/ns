@@ -19,12 +19,12 @@ describe("Pi agent definitions", () => {
 		expect(parsed).toEqual({
 			schema: "ns.pi-agent.v1",
 			name: "runner",
-			toolName: "dispatch_runner_subagent",
+			toolName: "forked_pi_agent",
 			label: "Dispatch Forked Pi Session",
 			description: "Launch a focused forked Pi process.",
 			promptSnippet: "Launch a focused forked Pi process",
 			promptGuidelines: [
-				"Use dispatch_runner_subagent for focused delegated tasks.",
+				"Use forked_pi_agent for focused delegated tasks.",
 				"Inspect the returned status.",
 			],
 			body: "Body before\n{{prompt}}\nBody after\n",
@@ -67,7 +67,7 @@ describe("Pi agent definitions", () => {
 			"---",
 			"schema: ns.pi-agent.v1",
 			"name: runner",
-			"toolName: dispatch_runner_subagent",
+			"toolName: forked_pi_agent",
 			"description: Launch a focused forked Pi process.",
 			"---",
 			"Body",
@@ -160,7 +160,7 @@ function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 		options.promptGuidelinesBlock ??
 		[
 			"promptGuidelines:",
-			"  - Use dispatch_runner_subagent for focused delegated tasks.",
+			"  - Use forked_pi_agent for focused delegated tasks.",
 			"  - Inspect the returned status.",
 		].join("\n") + "\n";
 
@@ -169,7 +169,7 @@ function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 			"---",
 			`schema: ${options.schema ?? "ns.pi-agent.v1"}`,
 			`name: ${options.name ?? "runner"}`,
-			`toolName: ${options.toolName ?? "dispatch_runner_subagent"}`,
+			`toolName: ${options.toolName ?? "forked_pi_agent"}`,
 			`label: ${options.label ?? "Dispatch Forked Pi Session"}`,
 			`description: ${options.description ?? "Launch a focused forked Pi process."}`,
 			`promptSnippet: ${options.promptSnippet ?? "Launch a focused forked Pi process"}`,
