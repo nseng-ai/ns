@@ -525,6 +525,7 @@ function knownSubmitFailureFor(input: {
 	output: SubmitCommandOutput;
 	phase: string;
 	transcriptCommandDisplay: string;
+	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 }): SubmitCommandResult | undefined {
 	if (input.cause === undefined) return undefined;
 
@@ -535,6 +536,7 @@ function knownSubmitFailureFor(input: {
 		stderr: formatPreflightCauseOutput({
 			cause: input.cause,
 			output: input.output,
+			prewrittenMetadata: input.prewrittenMetadata ?? [],
 		}),
 	});
 }
@@ -542,8 +544,15 @@ function knownSubmitFailureFor(input: {
 function formatPreflightCauseOutput(input: {
 	cause: SubmitPreflightFailureCause;
 	output: SubmitCommandOutput;
+	prewrittenMetadata: readonly PrewrittenPrMetadata[];
 }): string {
-	return formatSubmitPreflightFailureCause(input.cause, input.output);
+	const message = formatSubmitPreflightFailureCause(input.cause, input.output);
+	if (input.prewrittenMetadata.length === 0) return message;
+	return [
+		message,
+		"",
+		"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
+	].join("\n");
 }
 
 async function shouldRunRestack(
@@ -643,6 +652,7 @@ async function runSubmitPhaseStep(input: {
 			output: result.output,
 			phase: input.knownFailurePhase,
 			transcriptCommandDisplay: input.commandDisplay,
+			prewrittenMetadata: input.prepared,
 		});
 		if (knownFailure !== undefined) return { kind: "failure", failure: knownFailure };
 	}

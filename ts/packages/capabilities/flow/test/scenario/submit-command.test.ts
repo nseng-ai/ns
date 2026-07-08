@@ -1107,6 +1107,87 @@ describe("project-local submit extension", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("phase: submit preflight");
 	});
 
+	test("Graphite PR-info lookup submit failure gives deterministic manual recovery guidance", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
+		tempDirs.push(logRoot);
+		const submitCommand =
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
+		const run = runWithFakes({
+			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match: `${submitCommand} --dry-run`,
+						result: { stdout: "ready\n" },
+					},
+					{
+						match: "gt log --stack --reverse --no-interactive",
+						result: { stdout: "◯ main\n◯ feature/base\n◉ feature/top (current)\n" },
+					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+					{
+						match: "gt branch info --no-interactive --branch feature/base",
+						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+					},
+					{
+						match: "gt branch info --no-interactive --branch feature/top",
+						result: { stdout: "Parent: feature/base\n" },
+					},
+					{
+						match: "git log --format=%B%x00 feature/base..feature/top",
+						result: { stdout: "Add top branch\0" },
+					},
+					{
+						match: "git diff feature/base..feature/top",
+						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
+					},
+					{ match: "git status --porcelain", result: { stdout: "" } },
+					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
+					{
+						match: submitCommand,
+						result: {
+							code: 1,
+							stdout:
+								"Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.\n\n🥞 Validating that this Graphite stack is ready to submit...\n",
+							stderr: "ERROR: Failed to get pull request info. Please try again.\n",
+						},
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Graphite failed while looking up pull request info during submit.");
+		expect(error).toContain("suspected Graphite CLI edge case");
+		expect(error).toContain(
+			"run `gt submit` manually, then verify the current branch has a PR with `gt pr` or `gh pr view <branch>`",
+		);
+		expect(error).toContain(
+			"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
+		);
+		expect(error).toContain("Raw log:");
+		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
+		expect(error).not.toContain(`${submitCommand} failed with exit code 1.`);
+		const calls = formattedExecCalls(run.context);
+		expect(calls.filter((call) => call === submitCommand)).toHaveLength(1);
+		expect(calls).not.toContain("gt submit");
+		expect(run.context.textGeneratorCalls.map((call) => call.modelRef)).not.toContain(
+			"openai-codex/submit-summary",
+		);
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		const rawLog = await readFile(rawPath ?? "", "utf8");
+		expect(rawLog).toContain("phase: submit preflight");
+		expect(rawLog).toContain(submitCommand);
+		expect(rawLog).toContain("exit code: 1");
+		expect(rawLog).toContain(
+			"Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.",
+		);
+		expect(rawLog).toContain("ERROR: Failed to get pull request info. Please try again.");
+	});
+
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
 		const run = runWithFakes({
