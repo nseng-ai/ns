@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./ns-extension": "./src/ns/extension.ts",
 		"./ns/commands/init": "./src/ns/commands/init.ts",
 		"./ns/preinstalled-catalog": "./src/ns/preinstalled-catalog.ts",
 		"./testing": "./src/testing/index.ts"

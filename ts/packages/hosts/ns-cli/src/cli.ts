@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
-import { listSkillsPreinstalledNsCommandCatalogEntries } from "@nseng-ai/harness-artifacts/ns/preinstalled-catalog";
+import harnessArtifactsExtension from "@nseng-ai/harness-artifacts/ns-extension";
 import {
+	extensionDescriptorToPreinstalledCatalog,
 	runCli,
 	type PreinstalledNsCommandCatalogEntry,
 	type NsCliDeps,
+	NS_BUILT_IN_HELP_GROUP,
 } from "@nseng-ai/kernel/cli";
-import { listNsInitPreinstalledNsCommandCatalogEntries } from "@nseng-ai/ns-init/ns/preinstalled-catalog";
+import nsInitExtension from "@nseng-ai/ns-init/ns-extension";
 
 export async function runNsCli(args: readonly string[], deps: NsCliDeps = {}): Promise<number> {
 	return await runCli(args, {
@@ -17,9 +19,22 @@ export async function runNsCli(args: readonly string[], deps: NsCliDeps = {}): P
 
 function listPreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
 	return [
-		...listNsInitPreinstalledNsCommandCatalogEntries(),
-		...listSkillsPreinstalledNsCommandCatalogEntries(),
+		...extensionDescriptorToPreinstalledCatalog(nsInitExtension, {
+			displayPath: "@nseng-ai/ns-init/ns-extension",
+			helpGroup: NS_BUILT_IN_HELP_GROUP,
+		}),
+		...harnessArtifactsPreinstalledEntries(),
 	];
+}
+
+function harnessArtifactsPreinstalledEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
+	return extensionDescriptorToPreinstalledCatalog(harnessArtifactsExtension, {
+		displayPath: "@nseng-ai/harness-artifacts/ns-extension",
+		entryHelpGroup: (entry, segments) =>
+			"load" in entry && entry.name === "update" && segments.length === 1
+				? NS_BUILT_IN_HELP_GROUP
+				: undefined,
+	});
 }
 
 if (import.meta.main) {

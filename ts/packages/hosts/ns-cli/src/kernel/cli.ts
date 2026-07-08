@@ -1,5 +1,6 @@
 export {
 	buildCli,
+	extensionDescriptorToPreinstalledCatalog,
 	listNsCommands,
 	NS_BUILT_IN_HELP_GROUP,
 	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
