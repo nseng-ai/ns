@@ -17,7 +17,6 @@ export type {
 	SkillMaterializer,
 	SkillMaterializeResult,
 } from "./skill-materializer.ts";
-export type { RealSkillMaterializerOptions } from "./real-skill-materializer.ts";
 export { RealSkillMaterializer } from "./real-skill-materializer.ts";
 export type {
 	ApplyObjectiveInstructionBlockResult,
