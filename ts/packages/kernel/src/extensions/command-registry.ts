@@ -20,6 +20,7 @@ export interface NsCommandPath {
 	name: string;
 	segments?: readonly string[];
 	groupDescription?: string;
+	hiddenSegments?: readonly string[];
 }
 
 export interface NsCommandSourceInfo {
@@ -147,6 +148,7 @@ export function toCommandCliInfo(
 			group: candidate.group,
 			segments: candidate.segments,
 			groupDescription: candidate.groupDescription,
+			hiddenSegments: candidate.hiddenSegments,
 			helpGroup: candidate.helpGroup,
 		}),
 		name: candidate.name,
