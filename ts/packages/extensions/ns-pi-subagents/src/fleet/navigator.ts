@@ -51,7 +51,7 @@ import {
 	sortedFleetTasks,
 	taskIcon,
 } from "./display.ts";
-import type { ReadTextFile, ReadTextFileDependencies } from "./read-text-dependencies.ts";
+import type { ReadTextFileDependencies } from "./read-text-dependencies.ts";
 
 export { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
 export { SUBAGENT_FLEET_PARENT_ENTRY_ID, loadFleetTaskDetail } from "./detail.ts";
@@ -159,10 +159,15 @@ export async function openSubagentFleetNavigator(input: {
 	const parentSessionFile = input.ctx.sessionManager?.getSessionFile?.();
 	const readTextFile =
 		input.dependencies?.readTextFile ?? ((path: string) => readFile(path, "utf8"));
+	const detailContext: FleetDetailContext = {
+		readTextFile,
+		readWorktreeState: input.dependencies?.readWorktreeState ?? readWorktreeStateUnavailable,
+		cwd: input.ctx.cwd,
+	};
 	if (!input.ctx.hasUI || input.ctx.ui.custom === undefined) {
 		const lines = await formatNoUiSubagentFleetLines({
 			registry: input.registry,
-			readTextFile,
+			detailContext,
 			parentSessionFile,
 		});
 		input.ctx.ui.notify(
@@ -176,11 +181,7 @@ export async function openSubagentFleetNavigator(input: {
 			new SubagentFleetNavigator({
 				tui,
 				registry: input.registry,
-				detailContext: {
-					readTextFile,
-					readWorktreeState: input.dependencies?.readWorktreeState ?? readWorktreeStateUnavailable,
-					cwd: input.ctx.cwd,
-				},
+				detailContext,
 				done,
 				...optionalEntry("parentSessionFile", parentSessionFile),
 			}),
@@ -190,7 +191,7 @@ export async function openSubagentFleetNavigator(input: {
 
 async function formatNoUiSubagentFleetLines(input: {
 	registry: SubagentFleetRegistry;
-	readTextFile: ReadTextFile;
+	detailContext: FleetDetailContext;
 	parentSessionFile: string | undefined;
 }): Promise<string[]> {
 	const lines = formatSubagentFleetTaskLines(input.registry.snapshot());
@@ -202,14 +203,14 @@ async function formatNoUiSubagentFleetLines(input: {
 	}
 	const tasks = input.registry.tasksWithSessionFiles().slice(0, 3);
 	for (const task of tasks) {
-		lines.push(...(await formatNoUiTaskSummary({ task, readTextFile: input.readTextFile })));
+		lines.push(...(await formatNoUiTaskSummary({ task, context: input.detailContext })));
 	}
 	return lines;
 }
 
 async function formatNoUiTaskSummary(input: {
 	task: SubagentFleetTaskSnapshot;
-	readTextFile: ReadTextFile;
+	context: FleetDetailContext;
 }): Promise<string[]> {
 	try {
 		const detail = await loadFleetTaskDetail(input);

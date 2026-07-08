@@ -16,6 +16,7 @@ import {
 } from "../../src/fleet/navigator.ts";
 import {
 	loadFleetEntryDetail,
+	postRunDiagnostic,
 	sessionContentSignature,
 	type FleetDetailContext,
 	type FleetEntrySessionParseCache,
@@ -111,38 +112,46 @@ describe("subagent fleet navigator", () => {
 				state: "running",
 				sessionFile: "/tmp/one.jsonl",
 			},
-			readTextFile: async () =>
-				sessionJsonl([
-					{
-						type: "message",
-						message: {
-							role: "assistant",
-							usage: {
-								input: 1200,
-								output: 300,
-								cacheRead: 41_000,
-								cacheWrite: 0,
-								totalTokens: 42_500,
-								contextWindow: 200_000,
-								cost: { input: 0.01, output: 0.02, cacheRead: 0.005, cacheWrite: 0, total: 0.035 },
+			context: testDetailContext({
+				readTextFile: async () =>
+					sessionJsonl([
+						{
+							type: "message",
+							message: {
+								role: "assistant",
+								usage: {
+									input: 1200,
+									output: 300,
+									cacheRead: 41_000,
+									cacheWrite: 0,
+									totalTokens: 42_500,
+									contextWindow: 200_000,
+									cost: {
+										input: 0.01,
+										output: 0.02,
+										cacheRead: 0.005,
+										cacheWrite: 0,
+										total: 0.035,
+									},
+								},
 							},
 						},
-					},
-					{
-						type: "message",
-						message: {
-							role: "assistant",
-							usage: {
-								input: 400,
-								output: 8,
-								cacheRead: 0,
-								cacheWrite: 0,
-								totalTokens: 408,
-								cost: { input: 0.002, output: 0.004, cacheRead: 0, cacheWrite: 0, total: 0.006 },
+						{
+							type: "message",
+							message: {
+								role: "assistant",
+								usage: {
+									input: 400,
+									output: 8,
+									cacheRead: 0,
+									cacheWrite: 0,
+									totalTokens: 408,
+									cost: { input: 0.002, output: 0.004, cacheRead: 0, cacheWrite: 0, total: 0.006 },
+								},
 							},
 						},
-					},
-				]),
+					]),
+			}),
 		});
 
 		expect(detail.modelText).toBe("openai-codex/gpt-5.4");
@@ -185,28 +194,30 @@ describe("subagent fleet navigator", () => {
 				state: "running",
 				sessionFile: "/tmp/message-only.jsonl",
 			},
-			readTextFile: async () =>
-				jsonl([
-					{ type: "session", file: "/tmp/message-only.jsonl" },
-					{
-						type: "message",
-						message: {
-							role: "assistant",
-							content: [
-								{ type: "text", text: "Reading files" },
-								{ type: "toolCall", id: "tool-1", name: "read", input: { path: "README.md" } },
-							],
+			context: testDetailContext({
+				readTextFile: async () =>
+					jsonl([
+						{ type: "session", file: "/tmp/message-only.jsonl" },
+						{
+							type: "message",
+							message: {
+								role: "assistant",
+								content: [
+									{ type: "text", text: "Reading files" },
+									{ type: "toolCall", id: "tool-1", name: "read", input: { path: "README.md" } },
+								],
+							},
 						},
-					},
-					{
-						type: "message",
-						message: {
-							role: "toolResult",
-							toolCallId: "tool-1",
-							content: [{ type: "text", text: "file contents" }],
+						{
+							type: "message",
+							message: {
+								role: "toolResult",
+								toolCallId: "tool-1",
+								content: [{ type: "text", text: "file contents" }],
+							},
 						},
-					},
-				]),
+					]),
+			}),
 		});
 
 		expect(detail.turnCount).toBe(1);
@@ -440,7 +451,7 @@ describe("subagent fleet navigator", () => {
 				finalStatus: "error",
 				sessionFile: "/tmp/no-head.jsonl",
 			},
-			readTextFile: async () => sessionJsonl(),
+			context: testDetailContext({ readTextFile: async () => sessionJsonl() }),
 		});
 
 		expect(detail.postRunSummary?.commit).toEqual({
@@ -448,6 +459,20 @@ describe("subagent fleet navigator", () => {
 			reason: "missing baseline HEAD",
 		});
 		expect(detail.postRunSummary?.lastDiagnostic).toBe("unavailable; final status error");
+	});
+
+	test("reports unavailable diagnostics for non-success typed final statuses", () => {
+		expect(
+			postRunDiagnostic(
+				{
+					progress: { state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
+					activity: {},
+					terminalAttempted: false,
+					hasTerminalSucceeded: false,
+				},
+				"blocked",
+			),
+		).toBe("unavailable; final status blocked");
 	});
 
 	test("renders shared worktree state on task details", async () => {
