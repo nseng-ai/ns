@@ -164,15 +164,12 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "skill:audit-improved",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "skill-creator", surface: "skill:creator", kind: "generic-backing-skill" },
 	{ skillName: "skill-management", surface: "skill:management", kind: "generic-backing-skill" },
 	{
 		skillName: "thermo-nuclear-code-quality-review",
 		surface: "thermo:nuclear-code-quality-review",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "ts-morph-analyze", surface: "ts:morph-analyze", kind: "generic-backing-skill" },
-	{ skillName: "ts-morph-refactor", surface: "ts:morph-refactor", kind: "generic-backing-skill" },
 	{
 		skillName: "writing-great-skills",
 		surface: "writing:great-skills",
