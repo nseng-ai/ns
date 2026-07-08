@@ -38,6 +38,7 @@ import {
 	placeholderDetail,
 	readWorktreeStateUnavailable,
 	type FleetDetailContext,
+	type FleetEntrySessionParseCache,
 	type FleetNavigatorEntry,
 	type LoadedFleetEntryDetail,
 	type ParentFleetNavigatorEntry,
@@ -69,6 +70,11 @@ interface DetailObservationState {
 	key: string;
 	contentSignature: string;
 	lastObservedChangeMs: number;
+}
+
+interface DetailSessionParseCacheState {
+	key: string;
+	cache: FleetEntrySessionParseCache;
 }
 
 export interface SubagentFleetNavigatorContext {
@@ -260,6 +266,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private isDisposed = false;
 	private detailPollTimer: ScheduledTimer | undefined;
 	private detailObservation: DetailObservationState | undefined;
+	private detailSessionParseCache: DetailSessionParseCacheState | undefined;
 
 	constructor(options: SubagentFleetNavigatorOptions) {
 		this.tui = options.tui;
@@ -344,6 +351,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.mode = "list";
 			this.detail = undefined;
 			this.detailObservation = undefined;
+			this.detailSessionParseCache = undefined;
 			this.stopDetailPolling();
 			this.tui.requestRender();
 			return;
@@ -395,6 +403,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.isFollowing = true;
 		this.isPromptExpanded = false;
 		this.detailObservation = undefined;
+		this.detailSessionParseCache = undefined;
 		this.syncDetailPolling();
 		this.scheduleDetailLoad();
 		this.tui.requestRender();
@@ -413,8 +422,21 @@ export class SubagentFleetNavigator implements RenderComponent {
 
 	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
 		try {
-			const loaded = await loadFleetEntryDetail({ entry, context: this.detailContext });
+			const cacheKey = detailCacheKey(entry);
+			const previous =
+				this.detailSessionParseCache?.key === cacheKey
+					? this.detailSessionParseCache.cache
+					: undefined;
+			const loaded = await loadFleetEntryDetail({
+				entry,
+				context: this.detailContext,
+				...optionalEntry("previous", previous),
+			});
 			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
+				this.detailSessionParseCache =
+					loaded.sessionParseCache === undefined
+						? undefined
+						: { key: cacheKey, cache: loaded.sessionParseCache };
 				this.detail = this.detailWithLiveObservation(entry, loaded);
 				this.syncDetailPolling();
 				this.tui.requestRender();
@@ -509,7 +531,10 @@ export class SubagentFleetNavigator implements RenderComponent {
 			return;
 		}
 		this.selectedEntryId = defaultSelectionId(this.entries);
-		if (this.selectedEntryId !== previousSelectedEntryId) this.detailObservation = undefined;
+		if (this.selectedEntryId !== previousSelectedEntryId) {
+			this.detailObservation = undefined;
+			this.detailSessionParseCache = undefined;
+		}
 	}
 
 	private readEntries(): FleetNavigatorEntry[] {
@@ -599,6 +624,10 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.dispose();
 		this.done(undefined);
 	}
+}
+
+function detailCacheKey(entry: FleetNavigatorEntry): string {
+	return `${entryId(entry) ?? "unknown"}:${entrySessionFile(entry) ?? "no-session-file"}`;
 }
 
 function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
