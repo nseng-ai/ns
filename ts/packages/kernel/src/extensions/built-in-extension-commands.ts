@@ -3,7 +3,7 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	loadPointCatalog,
+	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
 	resolvePromptPointSource,
 	type PointCatalog,
@@ -87,7 +87,7 @@ export const extensionPointsCommand: NsCommand<
 	description: "List defined ns points and their active sources.",
 	schema: extensionPointsRequestSchema,
 	resultSchema: extensionPointsResultSchema,
-	run: (ctx) => ok(toPointsResult(loadCatalog(ctx.cwd, ctx.env))),
+	run: async (ctx) => ok(toPointsResult(await loadCatalog(ctx.cwd, ctx.env))),
 	renderHuman: (data) => renderPointsHuman(extensionPointsResultSchema.parse(data)),
 };
 
@@ -101,8 +101,8 @@ export const extensionPointCommand: NsCommand<
 	schema: extensionPointDetailRequestSchema,
 	positionals: { id: { position: 0 } },
 	resultSchema: extensionPointResultSchema,
-	run: (ctx, request) => {
-		const catalog = loadCatalog(ctx.cwd, ctx.env);
+	run: async (ctx, request) => {
+		const catalog = await loadCatalog(ctx.cwd, ctx.env);
 		const entry = catalog.entries.find((candidate) => candidate.definition.id === request.id);
 		if (entry === undefined) {
 			const data = missingPointDataSchema.parse({
@@ -117,8 +117,11 @@ export const extensionPointCommand: NsCommand<
 	renderHuman: (data) => renderPointDetailHuman(extensionPointDetailResultSchema.parse(data)),
 };
 
-function loadCatalog(cwd: string, env: Record<string, string | undefined>): PointCatalog {
-	return loadPointCatalog({
+async function loadCatalog(
+	cwd: string,
+	env: Record<string, string | undefined>,
+): Promise<PointCatalog> {
+	return await loadPointCatalogWithDescriptors({
 		repoRoot: cwd,
 		gateway: nodeProjectConfigGateway,
 		env,

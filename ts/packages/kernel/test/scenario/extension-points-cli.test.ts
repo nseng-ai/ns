@@ -76,6 +76,42 @@ describe("ns extension point introspection", () => {
 		}
 	});
 
+	test("lists descriptor-declared point definitions from ns.toml extensions", async () => {
+		const cwd = await createDescriptorPointProject();
+		try {
+			const run = runCli(["extension", "points", "--format", "json"], cwd);
+
+			expect(await run.exit).toBe(0);
+			const envelope = parseJsonOutput(run);
+			expect(envelope.status).toBe("ok");
+			const data = envelope.data as {
+				points: Array<{
+					id: string;
+					semantics: string;
+					activeSource: unknown;
+					manifestPath?: string;
+				}>;
+			};
+			expect(data.points).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						id: "descriptor.scan.pre",
+						semantics: "additive",
+						activeSource: { source: "repo-hook", commands: ["just descriptor"] },
+					}),
+					expect.objectContaining({
+						id: "descriptor.prompt",
+						semantics: "override",
+						activeSource: expect.objectContaining({ source: "default" }),
+					}),
+				]),
+			);
+			expect(run.stderr.join("")).toBe("");
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
 	test("shows one point detail", async () => {
 		const cwd = await createPointProject();
 		try {
@@ -148,6 +184,46 @@ function runCli(args: readonly string[], cwd: string) {
 		},
 		fakeDefaults,
 	);
+}
+
+async function createDescriptorPointProject(): Promise<string> {
+	const cwd = await mkdtemp(join(tmpdir(), "ns-descriptor-points-cli-"));
+	writeJson(join(cwd, "extensions", "tools", "package.json"), {
+		name: "tools",
+		version: "1.0.0",
+		exports: { "./ns-extension": "./src/ns/extension.ts" },
+	});
+	writeText(
+		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
+		`
+import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	group: "tools",
+	description: "Descriptor tools.",
+	points: [
+		{
+			id: "descriptor.scan.pre",
+			accepts: "hook",
+			cardinality: "many",
+			description: "Runs before descriptor scan.",
+		},
+		{
+			id: "descriptor.prompt",
+			accepts: "prompt",
+			cardinality: "one",
+			default: "./prompts/descriptor.md",
+			description: "Descriptor prompt.",
+		},
+	],
+});
+`,
+	);
+	writeText(
+		join(cwd, "ns.toml"),
+		'extensions = ["./extensions/tools"]\n\n[points]\n"descriptor.scan.pre" = ["just descriptor"]\n',
+	);
+	return cwd;
 }
 
 async function createPointProject(): Promise<string> {
