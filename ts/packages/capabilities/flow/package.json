@@ -7,6 +7,7 @@
 	"type": "module",
 	"exports": {
 		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts",
 		"./commands/changes": "./src/ns/commands/changes.ts",
 		"./commands/cp": "./src/ns/commands/cp.ts",
 		"./commands/autobranch": "./src/ns/commands/autobranch.ts",

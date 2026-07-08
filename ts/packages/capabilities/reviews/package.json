@@ -5,6 +5,7 @@
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/core/api.ts",
+		"./ns-extension": "./src/ns-extension.ts",
 		"./commands/list": "./src/commands/list.ts",
 		"./commands/ls": "./src/commands/ls.ts",
 		"./commands/log": "./src/commands/log.ts",
