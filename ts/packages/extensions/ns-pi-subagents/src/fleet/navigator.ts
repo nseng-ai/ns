@@ -469,16 +469,28 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
-		const loaded = await loadFleetEntryDetail({ entry, context: this.detailContext });
-		this.isReadInFlight = false;
-		if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
-			this.detail = this.detailWithLiveObservation(entry, loaded);
-			this.syncDetailPolling();
-			this.tui.requestRender();
-		}
-		if (!this.isDisposed && this.hasQueuedRead) {
-			this.hasQueuedRead = false;
-			this.scheduleDetailLoad();
+		try {
+			const loaded = await loadFleetEntryDetail({ entry, context: this.detailContext });
+			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
+				this.detail = this.detailWithLiveObservation(entry, loaded);
+				this.syncDetailPolling();
+				this.tui.requestRender();
+			}
+		} catch (error) {
+			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
+				this.detail = placeholderDetail(
+					entry,
+					`Could not load detail: ${formatErrorMessage(error)}`,
+				);
+				this.syncDetailPolling();
+				this.tui.requestRender();
+			}
+		} finally {
+			this.isReadInFlight = false;
+			if (!this.isDisposed && this.hasQueuedRead) {
+				this.hasQueuedRead = false;
+				this.scheduleDetailLoad();
+			}
 		}
 	}
 
@@ -812,7 +824,11 @@ async function loadEntryWorktreeState(
 	context: FleetDetailContext,
 ): Promise<WorktreeStateSnapshot | undefined> {
 	if (entry.kind !== "task") return undefined;
-	return context.readWorktreeState({ cwd: context.cwd });
+	try {
+		return await context.readWorktreeState({ cwd: context.cwd });
+	} catch (error) {
+		return { status: "unavailable", reason: formatErrorMessage(error) };
+	}
 }
 
 function readWorktreeStateUnavailable(): Promise<WorktreeStateSnapshot> {

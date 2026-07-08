@@ -518,7 +518,7 @@ describe("subagent fleet navigator", () => {
 		expect(view.render(120).join("\n")).toContain("A b.ts +4/-0");
 	});
 
-	test("renders worktree read failures without hiding timeline", async () => {
+	test("renders rejected worktree reads without hiding timeline", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Failure" }]);
 		const task = run.tasks[0];
@@ -529,7 +529,9 @@ describe("subagent fleet navigator", () => {
 			tui: { requestRender: () => {} },
 			registry,
 			detailContext: testDetailContext({
-				readWorktreeState: async () => ({ status: "unavailable", reason: "not a git repo" }),
+				readWorktreeState: async () => {
+					throw new Error("not a git repo");
+				},
 			}),
 			done: () => {},
 		});
@@ -539,6 +541,40 @@ describe("subagent fleet navigator", () => {
 		const detail = view.render(120).join("\n");
 		expect(detail).toContain("worktree state: unavailable (not a git repo)");
 		expect(detail).toContain("✓ read");
+	});
+
+	test("manual reload recovers after a synchronous first detail read failure", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Flaky" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/flaky.jsonl"));
+		let readCount = 0;
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({
+				readTextFile: () => {
+					readCount += 1;
+					if (readCount === 1) throw new Error("first read failed");
+					return Promise.resolve(sessionJsonl());
+				},
+			}),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("Could not read session file: first read failed");
+
+		view.handleInput("r");
+		await settleMicrotasks();
+		const detail = view.render(120).join("\n");
+		expect(readCount).toBe(2);
+		expect(detail).toContain("openai-codex/gpt-5.4");
+		expect(detail).toContain("✓ read");
+		expect(detail).not.toContain("first read failed");
 	});
 
 	test("auto-refreshes running task detail and tracks observed quiet time", async () => {
