@@ -46,13 +46,46 @@ export interface NsProgressPhaseInfo {
 	detail?: string;
 }
 
+/** Lifecycle state of a single matrix cell. */
+export type NsProgressMatrixCellState = "pending" | "active" | "done" | "skipped" | "failed";
+
+/** Presentation metadata for a declared matrix column. */
+export interface NsProgressMatrixColumnInfo {
+	key: string;
+	label: string;
+	/** Preferred display width hint in cells; hosts may ignore. */
+	width?: number;
+}
+
+/** Presentation metadata for a declared matrix row. */
+export interface NsProgressMatrixRowInfo {
+	rowKey: string;
+	label: string;
+}
+
 export type NsProgressPhaseEvent =
 	| { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
 	| { type: "title-changed"; title: string }
 	| { type: "phase-started"; phaseKey: string; label?: string }
 	| { type: "phase-progress"; phaseKey: string; label: string }
 	| { type: "phase-done"; phaseKey: string; detail?: string }
-	| { type: "phase-failed"; phaseKey: string; detail: string };
+	| { type: "phase-failed"; phaseKey: string; detail: string }
+	| {
+			type: "matrix-declared";
+			columns: readonly NsProgressMatrixColumnInfo[];
+			labelHeader?: string;
+	  }
+	| { type: "matrix-rows"; rows: readonly NsProgressMatrixRowInfo[] }
+	| {
+			type: "matrix-cell";
+			rowKey: string;
+			columnKey: string;
+			state: NsProgressMatrixCellState;
+			/** Compact cell text; hosts render it only when it fits the column. */
+			text?: string;
+	  }
+	| { type: "matrix-note"; text: string }
+	| { type: "matrix-running"; commands: readonly string[] };
 
 export type NsProgressPhaseListener = (event: NsProgressPhaseEvent) => void;
 

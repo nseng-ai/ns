@@ -80,6 +80,13 @@ export function createProgressPhaseStateStore(
 				return applyDone(event.phaseKey, event.detail);
 			case "phase-failed":
 				return applyFailed(event.phaseKey, event.detail);
+			case "matrix-declared":
+			case "matrix-rows":
+			case "matrix-cell":
+			case "matrix-note":
+			case "matrix-running":
+				// Matrix events carry no phase state; hosts with matrix support consume them separately.
+				return undefined;
 		}
 	}
 

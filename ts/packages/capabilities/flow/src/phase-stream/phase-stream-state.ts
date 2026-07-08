@@ -38,7 +38,15 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 
 	function apply(event: NsProgressPhaseEvent): PhaseTransition {
 		const affectedView = store.apply(event);
-		if (event.type === "phases-declared" || event.type === "title-changed") {
+		if (
+			event.type === "phases-declared" ||
+			event.type === "title-changed" ||
+			event.type === "matrix-declared" ||
+			event.type === "matrix-rows" ||
+			event.type === "matrix-cell" ||
+			event.type === "matrix-note" ||
+			event.type === "matrix-running"
+		) {
 			return { type: "ignored" };
 		}
 		if (affectedView === undefined) return { type: "ignored" };

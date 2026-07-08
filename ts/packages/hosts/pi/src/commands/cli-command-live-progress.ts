@@ -3,7 +3,7 @@ import {
 	type ProgressPhaseState,
 	type ProgressPhaseView,
 } from "@nseng-ai/kernel/progress-phase-state";
-import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { NsProgressMatrixCellState, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
@@ -65,6 +65,7 @@ class StructuredPhaseWidget {
 		argv: readonly string[];
 		piCommandName: string;
 		elapsed: string;
+		matrixLines: readonly string[];
 		latestOutput: LiveOutputLine | undefined;
 	}): string[] {
 		const phases = this.store.views();
@@ -75,6 +76,7 @@ class StructuredPhaseWidget {
 			const text = textForWidgetPhase(phase);
 			lines.push(text === undefined ? prefix : `${prefix}  ${text}`);
 		}
+		lines.push(...input.matrixLines);
 		if (input.latestOutput !== undefined) {
 			lines.push(`  ${formatLiveOutputLine(input.latestOutput)}`);
 		}
@@ -99,6 +101,131 @@ function textForWidgetPhase(phase: ProgressPhaseView): string | undefined {
 	return phase.label;
 }
 
+type MatrixProgressEvent = Extract<
+	NsProgressPhaseEvent,
+	{ type: "matrix-declared" | "matrix-rows" | "matrix-cell" | "matrix-note" | "matrix-running" }
+>;
+
+function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is MatrixProgressEvent {
+	return (
+		event.type === "matrix-declared" ||
+		event.type === "matrix-rows" ||
+		event.type === "matrix-cell" ||
+		event.type === "matrix-note" ||
+		event.type === "matrix-running"
+	);
+}
+
+const MATRIX_DEFAULT_LABEL_HEADER = "Branch / PR";
+const MATRIX_MIN_LABEL_WIDTH = 18;
+const MATRIX_MAX_LABEL_WIDTH = 36;
+
+interface MatrixWidgetColumn {
+	key: string;
+	label: string;
+	width: number;
+}
+
+interface MatrixWidgetCell {
+	state: NsProgressMatrixCellState;
+	text?: string;
+}
+
+/**
+ * Plain-text state for the matrix-* progress events: a per-row × per-column
+ * grid rendered below the phase checklist. The widget seam accepts only string
+ * lines, so cells render with the same glyph set as the checklist.
+ */
+export class MatrixWidgetState {
+	private columns: MatrixWidgetColumn[] = [];
+	private labelHeader = MATRIX_DEFAULT_LABEL_HEADER;
+	private rows: { rowKey: string; label: string }[] = [];
+	private cellsByRow = new Map<string, Map<string, MatrixWidgetCell>>();
+	private runningCommands: readonly string[] = [];
+	private note: string | undefined;
+	private hasDeclared = false;
+
+	get isActive(): boolean {
+		return this.hasDeclared;
+	}
+
+	apply(event: MatrixProgressEvent): void {
+		switch (event.type) {
+			case "matrix-declared":
+				this.hasDeclared = true;
+				this.columns = event.columns.map((column) => ({
+					key: column.key,
+					label: column.label,
+					width: Math.max(column.width ?? 0, column.label.length),
+				}));
+				if (event.labelHeader !== undefined) this.labelHeader = event.labelHeader;
+				return;
+			case "matrix-rows": {
+				this.rows = event.rows.map((row) => ({ rowKey: row.rowKey, label: row.label }));
+				const rowKeys = new Set(this.rows.map((row) => row.rowKey));
+				for (const rowKey of [...this.cellsByRow.keys()]) {
+					if (!rowKeys.has(rowKey)) this.cellsByRow.delete(rowKey);
+				}
+				return;
+			}
+			case "matrix-cell": {
+				const cells = this.cellsByRow.get(event.rowKey) ?? new Map<string, MatrixWidgetCell>();
+				this.cellsByRow.set(event.rowKey, cells);
+				cells.set(event.columnKey, {
+					state: event.state,
+					...(event.text === undefined ? {} : { text: event.text }),
+				});
+				return;
+			}
+			case "matrix-note":
+				this.note = event.text;
+				return;
+			case "matrix-running":
+				this.runningCommands = [...event.commands];
+				return;
+		}
+	}
+
+	/** Rendered matrix block (leading blank separator included); empty until declared. */
+	lines(): string[] {
+		if (!this.hasDeclared) return [];
+		const labelWidth = this.labelWidth();
+		const header = this.columns.map((column) => column.label.padEnd(column.width)).join("  ");
+		const lines = ["", `${this.labelHeader.padEnd(labelWidth)}  ${header}`];
+		for (const row of this.rows) {
+			const label = truncateDisplayLine(row.label, labelWidth).padEnd(labelWidth);
+			const cells = this.columns
+				.map((column) => centerMatrixCell(this.cellText(row.rowKey, column), column.width))
+				.join("  ");
+			lines.push(`${label}  ${cells}`);
+		}
+		if (this.runningCommands.length > 0) {
+			lines.push(`Running: ${this.runningCommands.join("; ")}`);
+		}
+		if (this.note !== undefined) lines.push(this.note);
+		return lines;
+	}
+
+	private cellText(rowKey: string, column: MatrixWidgetColumn): string {
+		const cell = this.cellsByRow.get(rowKey)?.get(column.key);
+		// Compact text renders only when it fits the column (mirrors the CLI matrix);
+		// otherwise the state glyph keeps narrow columns scannable.
+		if (cell?.text !== undefined && cell.text.length <= column.width) return cell.text;
+		return phaseGlyph(cell?.state ?? "pending");
+	}
+
+	private labelWidth(): number {
+		const longest = Math.max(this.labelHeader.length, ...this.rows.map((row) => row.label.length));
+		return Math.max(MATRIX_MIN_LABEL_WIDTH, Math.min(MATRIX_MAX_LABEL_WIDTH, longest));
+	}
+}
+
+function centerMatrixCell(text: string, width: number): string {
+	const pad = Math.max(0, width - text.length);
+	const left = Math.floor(pad / 2);
+	return `${" ".repeat(left)}${text}${" ".repeat(pad - left)}`;
+}
+
 export class LiveCommandProgress {
 	private readonly ctx: LiveCommandProgressContext;
 	private readonly options: LiveCommandProgressOptions;
@@ -111,6 +238,7 @@ export class LiveCommandProgress {
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
 	private readonly structuredWidget = new StructuredPhaseWidget();
+	private readonly matrixWidget = new MatrixWidgetState();
 	private lastStatusValue: string | undefined;
 	private timer: ScheduledTimer | undefined;
 	private isClosed = false;
@@ -162,7 +290,12 @@ export class LiveCommandProgress {
 	}
 
 	applyPhaseEvent(event: NsProgressPhaseEvent): void {
-		this.structuredWidget.applyPhaseEvent(event);
+		// Matrix events have no phaseKey; keep them out of the phase checklist store.
+		if (isMatrixProgressEvent(event)) {
+			this.matrixWidget.apply(event);
+		} else {
+			this.structuredWidget.applyPhaseEvent(event);
+		}
 		this.render();
 	}
 
@@ -233,12 +366,13 @@ export class LiveCommandProgress {
 	}
 
 	private widgetLines(elapsed: string): string[] {
-		if (this.structuredWidget.isActive) {
+		if (this.structuredWidget.isActive || this.matrixWidget.isActive) {
 			return this.structuredWidget.lines({
 				cliName: this.options.cliName,
 				argv: this.options.argv,
 				piCommandName: this.options.piCommandName,
 				elapsed,
+				matrixLines: this.matrixWidget.lines(),
 				latestOutput: this.recentOutputLines().at(-1),
 			});
 		}

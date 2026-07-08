@@ -11,6 +11,9 @@ import type {
 	NsExtensionApi,
 	NsNotifyLevel,
 	NsProgress,
+	NsProgressMatrixCellState,
+	NsProgressMatrixColumnInfo,
+	NsProgressMatrixRowInfo,
 	NsProgressPhaseEvent,
 	NsProgressPhaseListener,
 	NsResult,
@@ -96,6 +99,17 @@ const commandIo: NsCommandIo = {
 	clearPhase: () => {},
 };
 const progressEvent: NsProgressPhaseEvent = { type: "phase-started", phaseKey: "test" };
+const matrixCellState: NsProgressMatrixCellState = "active";
+const matrixColumn: NsProgressMatrixColumnInfo = { key: "merge", label: "Merge", width: 6 };
+const matrixRow: NsProgressMatrixRowInfo = { rowKey: "feature-a", label: "feature-a (#1)" };
+const matrixEvents: NsProgressPhaseEvent[] = [
+	{ type: "matrix-declared", columns: [matrixColumn], labelHeader: "Branch / PR" },
+	{ type: "matrix-rows", rows: [matrixRow] },
+	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: matrixCellState },
+	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: "done", text: "ok" },
+	{ type: "matrix-note", text: "merging…" },
+	{ type: "matrix-running", commands: ["gh pr merge 1"] },
+];
 const progressListener: NsProgressPhaseListener = (_event) => {};
 const progress: NsProgress = { isLive: true, phase: progressListener };
 
@@ -117,5 +131,6 @@ void successfulResult;
 void failedResult;
 void messageOptions;
 void commandIo;
+void matrixEvents;
 void progress;
 void acceptsExtensionApi;
