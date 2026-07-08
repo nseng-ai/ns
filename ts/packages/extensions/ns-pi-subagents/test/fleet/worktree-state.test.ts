@@ -6,7 +6,7 @@ import { createGitReadWorktreeState, parseWorktreeState } from "../../src/fleet/
 describe("worktree state", () => {
 	test("merges status and numstat entries", () => {
 		const snapshot = parseWorktreeState({
-			statusShort: " M src/fleet/navigator.ts\n?? notes.md\n",
+			statusPorcelain: " M src/fleet/navigator.ts\0?? notes.md\0",
 			unstagedNumstat: "12\t3\tsrc/fleet/navigator.ts\n",
 			stagedNumstat: "",
 		});
@@ -21,14 +21,14 @@ describe("worktree state", () => {
 	});
 
 	test("reports clean state when git outputs are empty", () => {
-		expect(parseWorktreeState({ statusShort: "", unstagedNumstat: "", stagedNumstat: "" })).toEqual(
-			{ status: "available", files: [] },
-		);
+		expect(
+			parseWorktreeState({ statusPorcelain: "", unstagedNumstat: "", stagedNumstat: "" }),
+		).toEqual({ status: "available", files: [] });
 	});
 
 	test("keeps binary numstat distinct from zero-line changes", () => {
 		const snapshot = parseWorktreeState({
-			statusShort: " M image.png\n",
+			statusPorcelain: " M image.png\0",
 			unstagedNumstat: "-\t-\timage.png\n",
 			stagedNumstat: "",
 		});
@@ -37,6 +37,57 @@ describe("worktree state", () => {
 			status: "available",
 			files: [{ path: "image.png", status: "M", isBinary: true }],
 		});
+	});
+
+	test("parses staged renames by new path and leaves no-renames delete numstat entries separate", () => {
+		const snapshot = parseWorktreeState({
+			statusPorcelain: "R  renamed file ü.ts\0old file ü.ts\0",
+			unstagedNumstat: "",
+			stagedNumstat: "0\t10\told file ü.ts\n10\t0\trenamed file ü.ts\n",
+		});
+
+		expect(snapshot).toEqual({
+			status: "available",
+			files: [
+				{ path: "old file ü.ts", deletions: 10, additions: 0 },
+				{ path: "renamed file ü.ts", status: "R", additions: 10, deletions: 0 },
+			],
+		});
+	});
+
+	test("parses paths with spaces and non-ASCII without C-quoting", () => {
+		const snapshot = parseWorktreeState({
+			statusPorcelain: " M docs/über fleet note.md\0",
+			unstagedNumstat: "2\t1\tdocs/über fleet note.md\n",
+			stagedNumstat: "",
+		});
+
+		expect(snapshot).toEqual({
+			status: "available",
+			files: [{ path: "docs/über fleet note.md", status: "M", additions: 2, deletions: 1 }],
+		});
+	});
+
+	test("runs porcelain z status and no-renames numstat commands", async () => {
+		const calls: string[] = [];
+		const readWorktreeState = createGitReadWorktreeState({
+			exec: {
+				async exec(command, args) {
+					calls.push([command, ...args].join(" "));
+					return { stdout: "", stderr: "", code: 0, killed: false };
+				},
+			},
+		});
+
+		await expect(readWorktreeState({ cwd: "/repo" })).resolves.toEqual({
+			status: "available",
+			files: [],
+		});
+		expect(calls).toEqual([
+			"git status --porcelain -z",
+			"git diff --numstat --no-renames --",
+			"git diff --cached --numstat --no-renames --",
+		]);
 	});
 
 	test("turns git command failures into unavailable snapshots", async () => {
@@ -55,7 +106,7 @@ describe("worktree state", () => {
 
 		await expect(readWorktreeState({ cwd: "/repo" })).resolves.toEqual({
 			status: "unavailable",
-			reason: "git status --short failed noisily",
+			reason: "git status --porcelain -z failed noisily",
 		});
 	});
 

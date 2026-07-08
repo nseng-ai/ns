@@ -27,14 +27,14 @@ interface GitNumstatEntry {
 }
 
 export interface ParseWorktreeStateInput {
-	statusShort: string;
+	statusPorcelain: string;
 	unstagedNumstat: string;
 	stagedNumstat: string;
 }
 
 export function parseWorktreeState(input: ParseWorktreeStateInput): WorktreeStateSnapshot {
 	const byPath = new Map<string, WorktreeStateFile>();
-	for (const file of parseStatusShort(input.statusShort)) {
+	for (const file of parseStatusPorcelain(input.statusPorcelain)) {
 		byPath.set(file.path, file);
 	}
 	for (const stat of [
@@ -50,13 +50,13 @@ export function parseWorktreeState(input: ParseWorktreeStateInput): WorktreeStat
 export function createGitReadWorktreeState(input: { exec: PiExecApiLike }): ReadWorktreeState {
 	return async ({ cwd }) => {
 		try {
-			const [statusShort, unstagedNumstat, stagedNumstat] = await Promise.all([
-				runGit(input.exec, cwd, ["status", "--short"]),
-				runGit(input.exec, cwd, ["diff", "--numstat", "--"]),
-				runGit(input.exec, cwd, ["diff", "--cached", "--numstat", "--"]),
+			const [statusPorcelain, unstagedNumstat, stagedNumstat] = await Promise.all([
+				runGit(input.exec, cwd, ["status", "--porcelain", "-z"]),
+				runGit(input.exec, cwd, ["diff", "--numstat", "--no-renames", "--"]),
+				runGit(input.exec, cwd, ["diff", "--cached", "--numstat", "--no-renames", "--"]),
 			]);
-			if (statusShort.status === "failed") {
-				return { status: "unavailable", reason: statusShort.reason };
+			if (statusPorcelain.status === "failed") {
+				return { status: "unavailable", reason: statusPorcelain.reason };
 			}
 			if (unstagedNumstat.status === "failed") {
 				return { status: "unavailable", reason: unstagedNumstat.reason };
@@ -65,7 +65,7 @@ export function createGitReadWorktreeState(input: { exec: PiExecApiLike }): Read
 				return { status: "unavailable", reason: stagedNumstat.reason };
 			}
 			return parseWorktreeState({
-				statusShort: statusShort.stdout,
+				statusPorcelain: statusPorcelain.stdout,
 				unstagedNumstat: unstagedNumstat.stdout,
 				stagedNumstat: stagedNumstat.stdout,
 			});
@@ -75,16 +75,19 @@ export function createGitReadWorktreeState(input: { exec: PiExecApiLike }): Read
 	};
 }
 
-function parseStatusShort(output: string): WorktreeStateFile[] {
+function parseStatusPorcelain(output: string): WorktreeStateFile[] {
 	const files: WorktreeStateFile[] = [];
-	for (const rawLine of output.split("\n")) {
-		const line = rawLine.trimEnd();
-		if (line.length === 0) continue;
-		const rawStatus = line.slice(0, 2);
+	const records = output.split("\0");
+	for (let index = 0; index < records.length; index += 1) {
+		const record = records[index] ?? "";
+		if (record.length === 0) continue;
+		if (record.length < 4 || record[2] !== " ") continue;
+		const rawStatus = record.slice(0, 2);
 		const status = rawStatus.trim().length === 0 ? rawStatus : rawStatus.trim();
-		const path = line.length > 3 ? line.slice(3) : line.slice(2).trimStart();
+		const path = record.slice(3);
 		if (path.length === 0) continue;
 		files.push({ path, ...(status.length === 0 ? {} : { status }) });
+		if (rawStatus.includes("R") || rawStatus.includes("C")) index += 1;
 	}
 	return files;
 }
