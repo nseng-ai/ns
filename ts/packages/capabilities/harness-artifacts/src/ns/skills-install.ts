@@ -3,10 +3,12 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
+	describeProvisionConflict,
 	provisionFileDecisionSchema,
 	provisionFirstPartySkill,
+	splitProvisionFirstPartySkillOutcome,
 	type ProvisionDecisionSet,
-	type ProvisionFirstPartySkillOutcome,
+	type ProvisionFirstPartySkillFailure,
 	type ProvisionPlan,
 } from "../api.ts";
 import {
@@ -57,31 +59,22 @@ export async function runSkillsInstall(
 		isDryRun: request.dryRun,
 		shouldForce: request.force,
 	});
-	switch (outcome.type) {
-		case "catalog-source-unavailable":
-			return failure("catalog-source-unavailable", outcome.message);
-		case "unknown-skill":
-			return unknownSkillExit(outcome.skill);
-		case "error":
-			return provisionErrorExit(outcome.error);
-		case "conflicted":
-			return installProvisionConflictExit(outcome);
-		case "provisioned":
-			return ok(
-				installResultFromPlan({
-					mode: outcome.mode,
-					plan: outcome.plan,
-					decisions: outcome.decisions,
-					manifestPath: outcome.manifestPath,
-					writtenFiles: outcome.writtenFiles,
-				}),
-			);
-	}
+	const split = splitProvisionFirstPartySkillOutcome(outcome);
+	if (split.type === "failure") return installFailureExit(split.failure);
+	return ok(
+		installResultFromPlan({
+			mode: split.outcome.mode,
+			plan: split.outcome.plan,
+			decisions: split.outcome.decisions,
+			manifestPath: split.outcome.manifestPath,
+			writtenFiles: split.outcome.writtenFiles,
+		}),
+	);
 }
 
 export function renderSkillsInstallHuman(result: SkillsInstallCommandResult): string {
 	if (!("mode" in result)) {
-		return `Provision refused: ${result.conflictingFiles.length} locally edited target file(s).\n`;
+		return `Provision refused: ${describeProvisionConflict(result.conflictingFiles)}.\n`;
 	}
 	const lines = [
 		result.mode === "dry-run" ? "Provision preview" : "Provision applied",
@@ -126,16 +119,25 @@ function installResultFromPlan(input: {
 	};
 }
 
-function installProvisionConflictExit(
-	outcome: Extract<ProvisionFirstPartySkillOutcome, { type: "conflicted" }>,
+function installFailureExit(
+	outcomeFailure: ProvisionFirstPartySkillFailure,
 ): ClinkrExit<SkillsInstallCommandResult> {
-	return negative(
-		`Provision refused: ${outcome.conflictingFiles.length} locally edited target file(s). Re-run with --force to overwrite them.`,
-		{
-			data: {
-				manifestPath: outcome.manifestPath,
-				conflictingFiles: [...outcome.conflictingFiles],
-			},
-		},
-	);
+	switch (outcomeFailure.code) {
+		case "catalog-source-unavailable":
+			return failure("catalog-source-unavailable", outcomeFailure.message);
+		case "unknown-skill":
+			return unknownSkillExit(outcomeFailure.skill);
+		case "provision-error":
+			return provisionErrorExit(outcomeFailure.error);
+		case "conflicted":
+			return negative(
+				`Provision refused: ${outcomeFailure.message}. Re-run with --force to overwrite them.`,
+				{
+					data: {
+						manifestPath: outcomeFailure.manifestPath,
+						conflictingFiles: [...outcomeFailure.conflictingFiles],
+					},
+				},
+			);
+	}
 }

@@ -535,20 +535,22 @@ function skippedCollisionOutcomes(input: {
 		const root = input.skillRoots.get(harness);
 		if (root === undefined) return [];
 		const targetArtifactPath = join(root.rootPath, input.desired.artifact.skillName);
-		return [{
-			action: "skipped" as const,
-			artifactId: input.desired.artifact.id,
-			skillName: input.desired.artifact.skillName,
-			harness,
-			scope: "project" as const,
-			origin: "declared" as const,
-			sourceType: input.desired.artifact.source.type,
-			packageName: input.desired.artifact.source.packageName,
-			targetArtifactPath,
-			manifestPath: root.manifestPath,
-			writtenFiles: [],
-			conflictingFiles: [],
-		}];
+		return [
+			{
+				action: "skipped" as const,
+				artifactId: input.desired.artifact.id,
+				skillName: input.desired.artifact.skillName,
+				harness,
+				scope: "project" as const,
+				origin: "declared" as const,
+				sourceType: input.desired.artifact.source.type,
+				packageName: input.desired.artifact.source.packageName,
+				targetArtifactPath,
+				manifestPath: root.manifestPath,
+				writtenFiles: [],
+				conflictingFiles: [],
+			},
+		];
 	});
 }
 

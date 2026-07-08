@@ -1,9 +1,10 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	provisionFirstPartySkill,
+	splitProvisionFirstPartySkillOutcome,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessId,
-	type ProvisionFirstPartySkillOutcome,
+	type ProvisionFirstPartySkillFailure,
 } from "@nseng-ai/harness-artifacts/api";
 
 import type { NsInitErrorInfo } from "./error-info.ts";
@@ -48,30 +49,47 @@ export class RealSkillMaterializer implements SkillMaterializer {
 				isDryRun: false,
 				shouldForce: false,
 			});
-			switch (outcome.type) {
-				case "catalog-source-unavailable":
-					return { type: "unavailable", reason: outcome.message };
-				case "unknown-skill":
-					return {
-						type: "error",
-						error: {
-							code: "objective-skill-catalog-missing",
-							message:
-								"The first-party objective skill is missing from the harness artifact catalog.",
-						},
-					};
-				case "error":
-					return { type: "error", error: nsInitErrorFromProvisionError(harness, outcome.error) };
-				case "conflicted":
-					return {
-						type: "error",
-						error: nsInitErrorFromProvisionConflict(harness, outcome),
-					};
-				case "provisioned":
-					installedSkillPaths.push(outcome.plan.targetArtifactPath);
-			}
+			const split = splitProvisionFirstPartySkillOutcome(outcome);
+			if (split.type === "failure") return materializeFailureResult(harness, split.failure);
+			installedSkillPaths.push(split.outcome.plan.targetArtifactPath);
 		}
 		return { type: "materialized", installedSkillPaths };
+	}
+}
+
+function materializeFailureResult(
+	harness: HarnessId,
+	outcomeFailure: ProvisionFirstPartySkillFailure,
+): SkillMaterializeResult {
+	switch (outcomeFailure.code) {
+		case "catalog-source-unavailable":
+			return { type: "unavailable", reason: outcomeFailure.message };
+		case "unknown-skill":
+			return {
+				type: "error",
+				error: {
+					code: "objective-skill-catalog-missing",
+					message: "The first-party objective skill is missing from the harness artifact catalog.",
+				},
+			};
+		case "provision-error":
+			return {
+				type: "error",
+				error: nsInitErrorFromProvisionError(harness, outcomeFailure.error),
+			};
+		case "conflicted":
+			return {
+				type: "error",
+				error: {
+					code: "locally-edited-conflict",
+					message: `Failed to materialize objective skills for ${harness}: ${outcomeFailure.message}.`,
+					details: {
+						harness,
+						manifestPath: outcomeFailure.manifestPath,
+						conflictingFiles: [...outcomeFailure.conflictingFiles],
+					},
+				},
+			};
 	}
 }
 
@@ -83,20 +101,5 @@ function nsInitErrorFromProvisionError(
 		code: error.code,
 		message: `Failed to materialize objective skills for ${harness}: ${error.message}`,
 		details: { harness, ...error.details },
-	};
-}
-
-function nsInitErrorFromProvisionConflict(
-	harness: HarnessId,
-	conflict: Extract<ProvisionFirstPartySkillOutcome, { type: "conflicted" }>,
-): NsInitErrorInfo {
-	return {
-		code: "locally-edited-conflict",
-		message: `Failed to materialize objective skills for ${harness}: ${conflict.conflictingFiles.length} target file(s) have local edits.`,
-		details: {
-			harness,
-			manifestPath: conflict.manifestPath,
-			conflictingFiles: [...conflict.conflictingFiles],
-		},
 	};
 }
