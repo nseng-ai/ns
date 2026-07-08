@@ -1,5 +1,3 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-
 import { getOrCreateSubagentFleetRegistry } from "./fleet/provider.ts";
 import {
 	registerDispatchRunnerSubagentTool,
@@ -42,7 +40,7 @@ export default function nsPiSubagentsExtension(
 	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,
-		...optionalEntry("dependencies", fleetNavigatorDependencies),
+		dependencies: fleetNavigatorDependencies,
 	};
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
@@ -53,7 +51,7 @@ export default function nsPiSubagentsExtension(
 function resolveFleetNavigatorDependencies(
 	pi: NsPiSubagentsExtensionAPI,
 	options: NsPiSubagentsExtensionOptions,
-): ReadTextFileDependencies | undefined {
+): ReadTextFileDependencies {
 	const explicit = options.fleetNavigatorDependencies;
 	if (explicit?.readWorktreeState !== undefined) return explicit;
 	return {

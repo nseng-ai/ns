@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, stringField } from "@nseng-ai/foundation/primitives";
 
 import type { RunnerSubagentProgress } from "./extension-api.ts";
 
@@ -197,8 +197,8 @@ function firstStringField(
 	keys: readonly string[],
 ): string | undefined {
 	for (const key of keys) {
-		const value = record[key];
-		if (typeof value === "string" && value.length > 0) return value;
+		const value = stringField(record, key);
+		if (value !== undefined) return value;
 	}
 	return undefined;
 }

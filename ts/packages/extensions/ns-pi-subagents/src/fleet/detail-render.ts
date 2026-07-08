@@ -33,7 +33,7 @@ export function usageLine(detail: SubagentFleetTaskDetail): string {
 
 export function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {
 	const usage = availableUsage(detail);
-	if (usage?.trend === undefined) return [];
+	if (usage === undefined) return [];
 	const latest = usage.trend.latestTurn;
 	const latestText = `latest +${formatTokenCount(latest.input)} in/+${formatTokenCount(latest.output)} out`;
 	const contextText =

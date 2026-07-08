@@ -8,6 +8,7 @@ import type { RunnerSubagentActivity } from "./activity.ts";
 import {
 	assistantVisibleTextFromMessage,
 	emptyRunnerSubagentActivity,
+	extractMessageToolCalls,
 	toolInputPreviewFromEvent,
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
@@ -225,6 +226,7 @@ export class RunnerSubagentJsonEventParser {
 
 	private captureRawMessageHooks(event: JsonEvent): void {
 		if (event.type !== "message") return;
+		if (isUsefulAssistantMessage(event.message)) return;
 		this.captureAssistantPreviewFromMessage(event.message);
 		this.captureStopReasonFromMessage(event.message);
 		this.captureFinalAssistantTextFromMessage(event.message);
@@ -537,6 +539,13 @@ export function assistantTextFromContent(content: unknown): string | undefined {
 	}
 	const text = textBlocks.join("\n\n").trim();
 	return text.length > 0 ? text : undefined;
+}
+
+function isUsefulAssistantMessage(message: unknown): boolean {
+	return (
+		assistantVisibleTextFromMessage(message) !== undefined ||
+		extractMessageToolCalls(message).length > 0
+	);
 }
 
 function chunkToString(chunk: string | Uint8Array): string {
