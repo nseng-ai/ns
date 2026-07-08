@@ -194,6 +194,7 @@ export interface ProviderPayloadSummary {
 	inputCount: number | null;
 	hasSystemInstructions: boolean;
 	systemInstructionFields: string[];
+	hasSystemRoleMessage: boolean;
 }
 
 export interface TurnCapInfo {
@@ -240,6 +241,7 @@ export function summarizeProviderPayload(payload: unknown): ProviderPayloadSumma
 	const topLevelKind = providerPayloadTopLevelKind(payload);
 	const record = isPlainRecord(payload) ? payload : null;
 	const systemInstructionFields = record === null ? [] : providerSystemInstructionFields(record);
+	const hasSystemRoleMessage = record !== null && providerHasSystemRoleMessage(record);
 	return {
 		serializedBytes: serialized === null ? null : Buffer.byteLength(serialized, "utf8"),
 		topLevelKind,
@@ -248,8 +250,9 @@ export function summarizeProviderPayload(payload: unknown): ProviderPayloadSumma
 		messageCount:
 			record === null || !Array.isArray(record.messages) ? null : record.messages.length,
 		inputCount: record === null ? null : providerInputCount(record.input),
-		hasSystemInstructions: systemInstructionFields.length > 0,
+		hasSystemInstructions: systemInstructionFields.length > 0 || hasSystemRoleMessage,
 		systemInstructionFields,
+		hasSystemRoleMessage,
 	};
 }
 
@@ -284,14 +287,12 @@ function providerInputCount(input: unknown): number | null {
 }
 
 function providerSystemInstructionFields(payload: Record<string, unknown>): string[] {
-	const fields = SYSTEM_INSTRUCTION_FIELDS.filter((field) => payload[field] !== undefined);
-	if (hasSystemRoleMessage(payload.messages)) return [...fields, "messages.role=system"];
-	return [...fields];
+	return SYSTEM_INSTRUCTION_FIELDS.filter((field) => payload[field] !== undefined);
 }
 
-function hasSystemRoleMessage(messages: unknown): boolean {
-	if (!Array.isArray(messages)) return false;
-	return messages.some((message) => isRecord(message) && message.role === "system");
+function providerHasSystemRoleMessage(payload: Record<string, unknown>): boolean {
+	if (!Array.isArray(payload.messages)) return false;
+	return payload.messages.some((message) => isRecord(message) && message.role === "system");
 }
 
 export function buildBaseRegions(

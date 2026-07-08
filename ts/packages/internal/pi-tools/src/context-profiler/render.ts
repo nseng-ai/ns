@@ -298,7 +298,11 @@ export function providerPayloadSummaryLine(summary: ProviderPayloadSummary | nul
 	if (summary.inputCount !== null) parts.push(`input=${summary.inputCount.toLocaleString()}`);
 	if (summary.topLevelKeys.length > 0) parts.push(`keys=${summary.topLevelKeys.join(",")}`);
 	if (summary.hasSystemInstructions) {
-		parts.push(`system=${summary.systemInstructionFields.join(",")}`);
+		const systemSignals = [
+			...summary.systemInstructionFields.map((field) => `field:${field}`),
+			...(summary.hasSystemRoleMessage ? ["message-role:system"] : []),
+		];
+		parts.push(`system=${systemSignals.join(",")}`);
 	}
 	if (summary.serializedBytes !== null) parts.push(formatByteSize(summary.serializedBytes));
 	return parts.join(" · ");

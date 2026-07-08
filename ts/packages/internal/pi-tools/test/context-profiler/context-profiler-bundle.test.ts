@@ -147,7 +147,8 @@ describe("context-profiler bundle", () => {
 				messageCount: 2,
 				inputCount: null,
 				hasSystemInstructions: true,
-				systemInstructionFields: ["messages.role=system"],
+				systemInstructionFields: [],
+				hasSystemRoleMessage: true,
 			},
 		});
 
@@ -155,7 +156,8 @@ describe("context-profiler bundle", () => {
 		if (!result.ok) return;
 		expect(result.value.manifest.providerPayloadSummary).toMatchObject({
 			messageCount: 2,
-			systemInstructionFields: ["messages.role=system"],
+			systemInstructionFields: [],
+			hasSystemRoleMessage: true,
 		});
 		const manifestJson = JSON.stringify(result.value.manifest);
 		expect(manifestJson).toContain("providerPayloadSummary");
@@ -203,7 +205,8 @@ describe("context-profiler bundle", () => {
 		expect(profile.providerPayloadSummary).toMatchObject({
 			messageCount: 1,
 			hasSystemInstructions: true,
-			systemInstructionFields: ["messages.role=system"],
+			systemInstructionFields: [],
+			hasSystemRoleMessage: true,
 		});
 		expect(JSON.stringify(profile.providerPayloadSummary)).not.toContain("SECRET");
 	});

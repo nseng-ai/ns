@@ -161,7 +161,8 @@ describe("summarizeProviderPayload", () => {
 			messageCount: 2,
 			inputCount: null,
 			hasSystemInstructions: true,
-			systemInstructionFields: ["messages.role=system"],
+			systemInstructionFields: [],
+			hasSystemRoleMessage: true,
 		});
 		expect(summary.serializedBytes).toBeGreaterThan(0);
 		const serializedSummary = JSON.stringify(summary);
@@ -186,6 +187,7 @@ describe("summarizeProviderPayload", () => {
 			inputCount: 2,
 			hasSystemInstructions: true,
 			systemInstructionFields: ["instructions"],
+			hasSystemRoleMessage: false,
 		});
 		expect(JSON.stringify(summary)).not.toContain("SECRET_INSTRUCTIONS");
 	});
