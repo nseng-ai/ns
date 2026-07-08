@@ -133,22 +133,6 @@ const installManifestSchema: z.ZodType<InstallManifestData> = z.object({
 
 export { nodeHarnessArtifactFileSystemGateway };
 
-export async function previewHarnessArtifactProvision(
-	request: HarnessArtifactProvisionRequest,
-): Promise<Result<HarnessArtifactProvisionPreview, HarnessArtifactProvisionErrorInfo>> {
-	const prepared = await prepareProvision(request);
-	if (!prepared.ok) return prepared;
-	return resultOk(previewFromPrepared(prepared.value));
-}
-
-export async function applyHarnessArtifactProvision(
-	request: HarnessArtifactProvisionRequest,
-): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
-	const prepared = await prepareProvision(request);
-	if (!prepared.ok) return prepared;
-	return applyPreparedProvision(prepared.value, { shouldForce: false });
-}
-
 export async function prepareProvision(
 	request: HarnessArtifactProvisionRequest,
 ): Promise<Result<PreparedHarnessArtifactProvision, HarnessArtifactProvisionErrorInfo>> {
@@ -252,7 +236,7 @@ export async function readInstallManifestAtRoot(options: {
 	return readInstallManifest(fs, join(options.targetRoot, INSTALL_MANIFEST_FILE_NAME));
 }
 
-function previewFromPrepared(
+export function previewFromPrepared(
 	prepared: PreparedHarnessArtifactProvision,
 ): HarnessArtifactProvisionPreview {
 	return {

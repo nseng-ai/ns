@@ -110,12 +110,12 @@ export {
 	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
 export {
-	applyHarnessArtifactProvision,
 	applyPreparedProvision,
+	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	installManifestPathForPlan,
 	prepareProvision,
-	previewHarnessArtifactProvision,
+	previewFromPrepared,
 	readInstallManifestAtRoot,
 	type ApplyPreparedProvisionOptions,
 	type HarnessArtifactProvisionAppliedOutcome,

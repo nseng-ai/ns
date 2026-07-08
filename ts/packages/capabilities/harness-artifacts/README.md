@@ -38,8 +38,8 @@ Provisioning follows one deterministic path:
 1. Catalog lookup selects a first-party harness artifact entry.
 2. The harness path table resolves the target root and artifact path for the selected harness and scope.
 3. `buildProvisionPlan` creates a sorted, file-level copy plan from source file hashes. Plan output records the artifact id, kind, provision name, harness, scope, target root, target artifact path, source provenance, and per-file source/target paths with content hashes.
-4. `previewHarnessArtifactProvision` builds the same plan and file decisions without writing anything.
-5. `applyHarnessArtifactProvision` applies the plan by copying source text files, then writes the install manifest at `<targetRoot>/.ns-harness-artifacts-manifest.json`.
+4. `prepareProvision` builds the plan, file decisions, and manifest snapshot once; `previewFromPrepared` projects that prepared provision into the preview shape without writing anything.
+5. `applyPreparedProvision` applies the prepared plan by copying source text files, then writes the install manifest at `<targetRoot>/.ns-harness-artifacts-manifest.json`.
 6. Manifest entries are keyed as `<harness>:<scope>:<kind>:<artifactId>` and record per-file content hashes for later LBYL decisions.
 
 The apply layer refuses to clobber target files classified as `locally-edited-conflict` unless the caller passes `force: true` (`ns skills install --force`). Previously managed files whose current hash still matches the manifest can be overwritten by a newer plan; files already matching the source are `unchanged`.
