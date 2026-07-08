@@ -15,7 +15,7 @@ function runUnavailableChangesCli(args: readonly string[]) {
 }
 
 describe("ns flow changes CLI availability", () => {
-	test("static ns command metadata only includes kernel-owned extension introspection", async () => {
+	test("static ns command metadata only includes kernel-owned built-ins", async () => {
 		expect(listNsCommands()).toEqual([
 			{
 				name: "point",
@@ -24,6 +24,10 @@ describe("ns flow changes CLI availability", () => {
 			{
 				name: "points",
 				description: "List defined ns points and their active sources.",
+			},
+			{
+				name: "install",
+				description: "Install a local ns extension package.",
 			},
 		]);
 

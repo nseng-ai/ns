@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
@@ -14,6 +14,7 @@ import {
 } from "../sdk/descriptor.ts";
 import {
 	parseDeclaredExtensionSpecsToml,
+	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
 } from "./descriptor-package.ts";
 
@@ -365,7 +366,11 @@ async function loadDescriptorPointDefinitions(request: {
 	repoRoot: string;
 	spec: string;
 }): Promise<PointDefinitionDiscoveryResult> {
-	const packageDir = resolve(request.repoRoot, request.spec);
+	const acquisition = resolveAcquiredDescriptorPackageRoot({
+		repoRoot: request.repoRoot,
+		spec: request.spec,
+	});
+	const packageDir = acquisition.packageRoot;
 	const packageJsonPath = join(packageDir, "package.json");
 	const descriptorPath = resolveDescriptorExport(packageDir, packageJsonPath);
 	if (!descriptorPath.ok) return { pointDefinitions: [], diagnostics: [descriptorPath.diagnostic] };

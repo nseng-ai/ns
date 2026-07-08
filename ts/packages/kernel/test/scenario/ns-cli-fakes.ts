@@ -168,6 +168,7 @@ export function execResult(result: Partial<ExecResult> = {}): ExecResult {
 		stdout: result.stdout ?? "",
 		stderr: result.stderr ?? "",
 		killed: result.killed ?? false,
+		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
 	};
 }
 

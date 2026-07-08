@@ -58,7 +58,7 @@ afterEach(() => {
 });
 
 describe("empty ns kernel CLI help and parsing", () => {
-	test("static command metadata only includes kernel-owned extension introspection", () => {
+	test("static command metadata only includes kernel-owned built-ins", () => {
 		expect(listNsCommands()).toEqual([
 			{
 				name: "point",
@@ -67,6 +67,10 @@ describe("empty ns kernel CLI help and parsing", () => {
 			{
 				name: "points",
 				description: "List defined ns points and their active sources.",
+			},
+			{
+				name: "install",
+				description: "Install a local ns extension package.",
 			},
 		]);
 	});
