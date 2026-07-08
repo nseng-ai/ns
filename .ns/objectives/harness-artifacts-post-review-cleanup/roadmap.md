@@ -14,8 +14,8 @@
 - [x] **Clean up schema and source-of-truth duplication.**
       Done 2026-07-08 (see `updates/20260708T041129Z-schema-source-of-truth-cleanup.md`): shared harness/source-type schemas now back reconcile and install-manifest parsing, provision decision/file types derive from schemas, diagnostics share optional-field schema metadata for exact-optional normalization, and readonly Zod arrays remove defensive result spreads while preserving JSON output shape.
 
-- [ ] **Disposition PR review threads and synthesize to the umbrella.**
-      After fixes and validation, close or reply to relevant review threads only with direct evidence, leave blocked/stale-unverified threads open, and update `skill-management-subsystem` with the completed/parked disposition of this cleanup Objective.
+- [x] **Disposition PR review threads and synthesize to the umbrella.**
+      Done 2026-07-08 (see `updates/20260708T104546Z-review-thread-disposition-and-umbrella-synthesis.md`): refreshed PR review-thread state for PRs #3121, #3137, #3140, #3158, #3159, #3161, and #3162; replied/resolved direct fixed/stale threads with `ns address exec`; left AREG-tail thread `PRRT_kwDOR4YhMs6O67Wa` replied but intentionally unresolved as out-of-scope; synthesized the outcome to `skill-management-subsystem`.
 
 ## Parked
 
