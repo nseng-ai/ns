@@ -493,6 +493,8 @@ async function loadDescriptorPackage(options: { cwd: string; spec: string }): Pr
 			packageDir,
 			descriptorPath: descriptorPath.path,
 			descriptor: validation.descriptor,
+			sourceLevel: "project",
+			sourceLabel: `ns.toml descriptor ${options.spec}`,
 		}),
 	};
 }
@@ -582,6 +584,8 @@ function descriptorCommandCandidates(options: {
 	packageDir: string;
 	descriptorPath: string;
 	descriptor: ExtensionDescriptor;
+	sourceLevel: ExtensionSourceLevel;
+	sourceLabel: string;
 }): readonly ExtensionCommandCandidate[] {
 	const entries = options.descriptor.entries ?? [];
 	return entries.flatMap((entry) =>
@@ -601,6 +605,8 @@ function descriptorEntryCommandCandidates(options: {
 	packageDir: string;
 	descriptorPath: string;
 	descriptor: ExtensionDescriptor;
+	sourceLevel: ExtensionSourceLevel;
+	sourceLabel: string;
 	entry: ExtensionEntry;
 	segments: readonly string[];
 	hiddenSegments: readonly string[];
@@ -628,8 +634,8 @@ function descriptorEntryCommandCandidates(options: {
 				hasStaticCommandInfo: false,
 				entryPath: options.descriptorPath,
 				source: {
-					level: "project",
-					label: `ns.toml descriptor ${options.spec}`,
+					level: options.sourceLevel,
+					label: options.sourceLabel,
 					path: options.descriptorPath,
 				},
 			},
@@ -662,7 +668,7 @@ async function loadPreinstalledCandidates(
 }> {
 	const catalogEntries = catalogLoader === undefined ? [] : await catalogLoader();
 	const catalogCandidates = catalogEntries.map(preinstalledCandidateForCatalogEntry);
-	const sourceDevCandidates = loadSourceDevPreinstalledCandidates(
+	const sourceDevCandidates = await loadSourceDevPreinstalledCandidates(
 		cwd,
 		new Set(catalogCandidates.map((candidate) => commandKey(candidate))),
 	);
@@ -672,19 +678,25 @@ async function loadPreinstalledCandidates(
 	};
 }
 
-function loadSourceDevPreinstalledCandidates(
+async function loadSourceDevPreinstalledCandidates(
 	cwd: string,
 	catalogKeys: ReadonlySet<string>,
-): {
+): Promise<{
 	diagnostics: readonly ExtensionDiagnostic[];
 	candidates: readonly ExtensionCommandCandidate[];
-} {
+}> {
 	const packagesRoot = sourceDevWorkspacePackagesRoot(cwd);
 	if (packagesRoot === undefined) return { diagnostics: [], candidates: [] };
 	const packageDirs = discoverWorkspacePackageDirs(packagesRoot);
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const candidates: ExtensionCommandCandidate[] = [];
 	for (const packageDir of packageDirs) {
+		const descriptor = await loadSourceDevDescriptorCandidates({ cwd, packagesRoot, packageDir });
+		diagnostics.push(...descriptor.diagnostics);
+		candidates.push(
+			...descriptor.candidates.filter((candidate) => !catalogKeys.has(commandKey(candidate))),
+		);
+		if (descriptor.candidates.length > 0) continue;
 		const discovered = discoverNsPackageCommands(packagesRoot, packageDir);
 		diagnostics.push(
 			...discovered.diagnostics.map((diagnostic) =>
@@ -698,6 +710,77 @@ function loadSourceDevPreinstalledCandidates(
 		);
 	}
 	return { diagnostics, candidates };
+}
+
+async function loadSourceDevDescriptorCandidates(options: {
+	cwd: string;
+	packagesRoot: string;
+	packageDir: string;
+}): Promise<{
+	diagnostics: readonly ExtensionDiagnostic[];
+	candidates: readonly ExtensionCommandCandidate[];
+}> {
+	const packageJsonPath = join(options.packageDir, "package.json");
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+	} catch {
+		// Source-dev descriptor discovery is opportunistic; invalid manifests fall back to legacy package discovery below.
+		return { diagnostics: [], candidates: [] };
+	}
+	if (descriptorExportTarget(parsed) === undefined) return { diagnostics: [], candidates: [] };
+	const descriptorPath = resolveDescriptorExport(options.packageDir, packageJsonPath);
+	if (!descriptorPath.ok) {
+		return {
+			diagnostics: [{ ...descriptorPath.diagnostic, sourceLevel: "preinstalled" }],
+			candidates: [],
+		};
+	}
+	let descriptorExport: unknown;
+	try {
+		descriptorExport = await loadNsUserModuleDefault(descriptorPath.path);
+	} catch (error) {
+		return {
+			diagnostics: [
+				{
+					severity: "error",
+					code: "extension_descriptor_import_failed",
+					message: `Failed to load source-dev ns extension descriptor ${descriptorPath.path}.\n${formatUnknownError(error)}`,
+					path: descriptorPath.path,
+					sourceLevel: "preinstalled",
+				},
+			],
+			candidates: [],
+		};
+	}
+	const validation = validateExtensionDescriptor(descriptorExport, descriptorPath.path);
+	if (!validation.ok) {
+		return {
+			diagnostics: [
+				{
+					severity: "error",
+					code: "extension_descriptor_invalid",
+					message: validation.message,
+					path: descriptorPath.path,
+					sourceLevel: "preinstalled",
+				},
+			],
+			candidates: [],
+		};
+	}
+	const spec = relativeDisplayPath(options.packagesRoot, options.packageDir);
+	return {
+		diagnostics: [],
+		candidates: descriptorCommandCandidates({
+			cwd: options.cwd,
+			spec,
+			packageDir: options.packageDir,
+			descriptorPath: descriptorPath.path,
+			descriptor: validation.descriptor,
+			sourceLevel: "preinstalled",
+			sourceLabel: `source-dev descriptor ${spec}`,
+		}),
+	};
 }
 
 function sourceDevWorkspacePackagesRoot(cwd: string): string | undefined {
