@@ -55,6 +55,7 @@ import {
 } from "../extensions/registry.ts";
 import type {
 	RenderCapabilities,
+	CommandExit,
 	DescriptorCommand,
 	NsConfirmPrompt,
 	NsExtensionApi,
@@ -68,9 +69,9 @@ import {
 	commandPathMatches,
 	commandSegments,
 	executeNsCommand,
+	extensionCommandFailedExit,
 	formatUnknownError,
 	listStaticNsCommandInfos,
-	toCommandCliInfo,
 	validateCommandExit,
 	type NsCommandInfo,
 	type NsCommandCliInfo,
@@ -530,11 +531,11 @@ const NS_EXTENSION_HELP_GROUP = "Extensions:";
 // operations keep the same nested exec contract as preinstalled Clinkr groups.
 const NS_EXEC_COMMAND_PREFIX = "exec-";
 
-function isGroupedExecCommand(commandInfo: NsCommandCliInfo): boolean {
+function isGroupedExecCommand(commandInfo: NsCommandPath): boolean {
 	return commandInfo.group !== undefined && commandInfo.name.startsWith(NS_EXEC_COMMAND_PREFIX);
 }
 
-function cliLeafCommandName(commandInfo: NsCommandCliInfo): string {
+function cliLeafCommandName(commandInfo: NsCommandPath): string {
 	if (commandInfo.segments !== undefined) return commandLeafName(commandInfo);
 	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
 	return commandInfo.name.slice(NS_EXEC_COMMAND_PREFIX.length);
@@ -574,7 +575,7 @@ function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	return completion;
 }
 
-function displaySegmentsForCommand(commandInfo: NsCommandCliInfo): readonly string[] {
+function displaySegmentsForCommand(commandInfo: NsCommandPath): readonly string[] {
 	if (commandInfo.segments !== undefined) return commandInfo.segments;
 	if (!isGroupedExecCommand(commandInfo)) return commandSegments(commandInfo);
 	return [commandInfo.group ?? "", NS_EXEC_GROUP_NAME, cliLeafCommandName(commandInfo)].filter(
@@ -688,41 +689,27 @@ async function executeRawSelectedCommand(options: {
 	command: DescriptorCommand;
 	path: NsCommandPath;
 }): Promise<number> {
+	const emit = (exit: CommandExit) =>
+		emitExit(exit, { format: clinkrFormatFromArgs(options.args), io: options.context });
 	if (!isRawKernelCommand(options.command)) {
-		return emitExit(
+		return emit(
 			failure("invalid-command-shape", `Command ${options.command.name} is not a raw command.`, {
 				command: options.command.name,
 			}),
-			{ format: clinkrFormatFromArgs(options.args), io: options.context },
 		);
 	}
 	try {
 		const result = await options.command.run(options.context.context, {
 			argv: rawArgvTail(options.args, options.path),
 		});
-		return emitExit(validateCommandExit(result, options.command.name), {
-			format: clinkrFormatFromArgs(options.args),
-			io: options.context,
-		});
+		return emit(validateCommandExit(result, options.command.name));
 	} catch (error) {
-		return emitExit(
-			failure(
-				"extension-command-failed",
-				`Command ${options.command.name} failed.\n${formatUnknownError(error)}`,
-				{
-					command: options.command.name,
-				},
-			),
-			{ format: clinkrFormatFromArgs(options.args), io: options.context },
-		);
+		return emit(extensionCommandFailedExit(options.command.name, error));
 	}
 }
 
 function rawArgvTail(args: readonly string[], path: NsCommandPath): readonly string[] {
-	const displaySegments = displaySegmentsForCommand(
-		toCommandCliInfo({ ...path, description: "", fullDescription: "" }),
-	);
-	return args.slice(displaySegments.length);
+	return args.slice(displaySegmentsForCommand(path).length);
 }
 
 export const VERSION = entry.version;

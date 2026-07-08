@@ -1004,12 +1004,12 @@ function validateDescriptorCommandContribution(
 	return { ok: true, command: validation.command };
 }
 
-export function isStructuredNsCommand(command: DescriptorCommand): command is NsCommand {
-	return !isDefinedRawCommand(command);
+export function isRawKernelCommand(command: DescriptorCommand): command is KernelCommand {
+	return isDefinedRawCommand(command);
 }
 
-export function isRawKernelCommand(command: DescriptorCommand): command is KernelCommand {
-	return !isStructuredNsCommand(command);
+export function isStructuredNsCommand(command: DescriptorCommand): command is NsCommand {
+	return !isRawKernelCommand(command);
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

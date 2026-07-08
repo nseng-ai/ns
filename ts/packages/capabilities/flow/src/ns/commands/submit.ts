@@ -44,6 +44,7 @@ import {
 	type NsExtensionApi,
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/kernel/sdk";
+import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
@@ -111,7 +112,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 		const hooksLoad =
 			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
 		if (hooksLoad.kind === "invalid") {
-			return failure("flow-command-failed", hooksLoad.error.message);
+			return failure(FLOW_COMMAND_FAILED, hooksLoad.error.message);
 		}
 		const caps = resolveFlowStreamCaps(ctx);
 		if (caps.isTty) {
@@ -437,9 +438,7 @@ async function phaseFailureResult(
 }
 
 function submitFailureExit(result: SubmitCommandResult): CommandExit {
-	const message = resultFailureMessage(result);
-	if (result.exitCode === 1) return negative(message, { data: { exitCode: result.exitCode } });
-	return failure("flow-command-failed", message, { exitCode: result.exitCode });
+	return exitCodeToFlowCommandExit(result.exitCode, resultFailureMessage(result));
 }
 
 function resultFailureMessage(result: SubmitCommandResult): string {

@@ -12,6 +12,7 @@ import {
 	type NsCommand,
 	type NsExtensionApi,
 } from "@nseng-ai/kernel/sdk";
+import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const execReadGraphiteBranchMetadataSchema = z.object({
 	dbPath: z.string().describe("Absolute path to Graphite's .graphite_metadata.db file."),
@@ -48,7 +49,7 @@ async function runExecReadGraphiteBranchMetadata(
 		]
 			.filter((line): line is string => line !== undefined)
 			.join("\n");
-		return failure("flow-command-failed", details);
+		return failure(FLOW_COMMAND_FAILED, details);
 	}
 	return ok(result.stdout.trim() === "" ? "[]" : result.stdout.trim());
 }
