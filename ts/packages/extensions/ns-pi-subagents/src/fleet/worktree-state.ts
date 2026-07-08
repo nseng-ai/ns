@@ -1,6 +1,8 @@
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { ExecOptions, PiExecApiLike } from "@nseng-ai/foundation/exec";
 
+import { conciseGitFailureReason } from "./git-output.ts";
+
 const GIT_WORKTREE_STATE_TIMEOUT_MS = 2_000;
 
 export interface WorktreeStateFile {
@@ -68,7 +70,7 @@ export function createGitReadWorktreeState(input: { exec: PiExecApiLike }): Read
 				stagedNumstat: stagedNumstat.stdout,
 			});
 		} catch (error) {
-			return { status: "unavailable", reason: conciseReason(formatErrorMessage(error)) };
+			return { status: "unavailable", reason: conciseGitFailureReason(formatErrorMessage(error)) };
 		}
 	};
 }
@@ -134,15 +136,9 @@ async function runGit(
 	if (result.code === 0) return { status: "ok", stdout: result.stdout ?? "" };
 	const output =
 		result.stderr ?? result.stdout ?? result.startupError ?? `git exited ${result.code}`;
-	return { status: "failed", reason: conciseReason(output) };
+	return { status: "failed", reason: conciseGitFailureReason(output) };
 }
 
 function gitExecOptions(cwd: string): ExecOptions {
 	return { cwd, timeout: GIT_WORKTREE_STATE_TIMEOUT_MS };
-}
-
-function conciseReason(reason: string): string {
-	const compact = reason.replace(/\s+/gu, " ").trim();
-	if (compact.length === 0) return "git command failed";
-	return compact.length > 120 ? `${compact.slice(0, 117)}…` : compact;
 }

@@ -153,7 +153,7 @@ interface LoadedFleetEntryDetail {
 	sessionContentSignature?: string;
 }
 
-interface FleetDetailContext {
+export interface FleetDetailContext {
 	readTextFile: ReadTextFile;
 	readWorktreeState: ReadWorktreeState;
 	cwd: string;
@@ -285,28 +285,13 @@ async function formatNoUiTaskSummary(input: {
 export interface SubagentFleetNavigatorOptions {
 	tui: Pick<TuiHandle, "requestRender"> & { readonly terminal?: { readonly rows?: number } };
 	registry: SubagentFleetRegistry;
-	detailContext?: FleetDetailContext;
-	readTextFile?: ReadTextFile;
-	readWorktreeState?: ReadWorktreeState;
-	cwd?: string;
+	detailContext: FleetDetailContext;
 	done(value: undefined): void;
 	/** Parent Pi session file resolved at open time; keeps the parent entry present before any run. */
 	parentSessionFile?: string;
 	clock?: Clock;
 	timers?: TimerScheduler;
 	detailRefreshIntervalMs?: number;
-}
-
-function detailContextFromOptions(options: SubagentFleetNavigatorOptions): FleetDetailContext {
-	if (options.detailContext !== undefined) return options.detailContext;
-	if (options.readTextFile === undefined) {
-		throw new Error("SubagentFleetNavigator requires detailContext or readTextFile.");
-	}
-	return {
-		readTextFile: options.readTextFile,
-		readWorktreeState: options.readWorktreeState ?? readWorktreeStateUnavailable,
-		cwd: options.cwd ?? process.cwd(),
-	};
 }
 
 export class SubagentFleetNavigator implements RenderComponent {
@@ -336,7 +321,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	constructor(options: SubagentFleetNavigatorOptions) {
 		this.tui = options.tui;
 		this.registry = options.registry;
-		this.detailContext = detailContextFromOptions(options);
+		this.detailContext = options.detailContext;
 		this.done = options.done;
 		this.fallbackParentSessionFile = options.parentSessionFile;
 		this.clock = options.clock ?? systemClock;
@@ -834,18 +819,25 @@ function readWorktreeStateUnavailable(): Promise<WorktreeStateSnapshot> {
 	return Promise.resolve({ status: "unavailable", reason: "git reader unavailable" });
 }
 
+type AvailableRunnerSubagentUsageMetadata = Extract<
+	RunnerSubagentUsageMetadata,
+	{ status: "available" }
+>;
+
 function usageLine(detail: SubagentFleetTaskDetail): string {
-	const usage = detail.usage;
-	if (usage === undefined) return "tokens: unavailable";
-	if (usage.status === "unavailable") return `tokens: unavailable (${usage.reason})`;
-	const totals = usage.totals;
-	const cached = totals.cacheRead + totals.cacheWrite;
-	return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+	const usage = availableUsage(detail);
+	if (usage !== undefined) {
+		const totals = usage.totals;
+		const cached = totals.cacheRead + totals.cacheWrite;
+		return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+	}
+	if (detail.usage?.status === "unavailable") return `tokens: unavailable (${detail.usage.reason})`;
+	return "tokens: unavailable";
 }
 
 function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {
-	const usage = detail.usage;
-	if (usage === undefined || usage.status === "unavailable" || usage.trend === undefined) return [];
+	const usage = availableUsage(detail);
+	if (usage?.trend === undefined) return [];
 	const latest = usage.trend.latestTurn;
 	const latestText = `latest +${formatTokenCount(latest.input)} in/+${formatTokenCount(latest.output)} out`;
 	const contextText =
@@ -853,6 +845,12 @@ function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {
 			? `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}`
 			: `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}/${formatTokenCount(usage.trend.contextWindow)} (${formatContextPercent(usage.trend.peakPromptTokens, usage.trend.contextWindow)})`;
 	return [`trend: ${latestText} · ${contextText}`];
+}
+
+function availableUsage(
+	detail: SubagentFleetTaskDetail,
+): AvailableRunnerSubagentUsageMetadata | undefined {
+	return detail.usage?.status === "available" ? detail.usage : undefined;
 }
 
 function formatContextPercent(promptTokens: number, contextWindow: number): string {
