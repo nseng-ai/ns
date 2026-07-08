@@ -1,6 +1,6 @@
-# @ns/kernel
+# @nseng-ai/kernel
 
-`@ns/kernel` owns the `ns` CLI host and the `@ns/kernel/sdk` author API for command-contributing extensions. It owns command discovery, precedence, selected-command loading, argument/schema parsing, rendering glue, completion plumbing, shell integration, and execution-context construction. It does not own concrete workflow policy or capability command surfaces; those belong to the extension or capability package that contributes them.
+`@nseng-ai/kernel` owns the `ns` CLI host and the `@nseng-ai/kernel/sdk` author API for command-contributing extensions. It owns command discovery, precedence, selected-command loading, argument/schema parsing, rendering glue, completion plumbing, shell integration, and execution-context construction. It does not own concrete workflow policy or capability command surfaces; those belong to the extension or capability package that contributes them.
 
 ## Command catalog
 
@@ -14,10 +14,10 @@ Built-in commands are kernel-owned host commands. Preinstalled descriptor catalo
 
 ## Descriptor modules
 
-An extension descriptor is a cheap typed module that default-exports `defineExtension({ ... })` from `@ns/kernel/sdk`. The descriptor contains metadata plus lazy command-module thunks:
+An extension descriptor is a cheap typed module that default-exports `defineExtension({ ... })` from `@nseng-ai/kernel/sdk`. The descriptor contains metadata plus lazy command-module thunks:
 
 ```ts
-import { defineExtension } from "@ns/kernel/sdk";
+import { defineExtension } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	group: "greet",
@@ -26,7 +26,7 @@ export default defineExtension({
 });
 ```
 
-Descriptor modules must stay side-effect-light and should import only `@ns/kernel/sdk` at top level. Command implementation modules own domain behavior and are loaded only when their command is selected.
+Descriptor modules must stay side-effect-light and should import only `@nseng-ai/kernel/sdk` at top level. Command implementation modules own domain behavior and are loaded only when their command is selected.
 
 ## Preinstalled descriptor catalog
 
@@ -77,10 +77,10 @@ Limitations:
 
 ## Extension authoring API
 
-Descriptor modules default-export a descriptor object created with `defineExtension()` from `@ns/kernel/sdk`. Command modules default-export a command object, usually created with `defineCommand()`:
+Start with the extension-author guide, [Writing an ns extension](./docs/writing-an-ns-extension.md). Descriptor modules default-export a descriptor object created with `defineExtension()` from `@nseng-ai/kernel/sdk`. Command modules default-export a command object, usually created with `defineCommand()`:
 
 ```ts
-import { defineCommand, ok, z } from "@ns/kernel/sdk";
+import { defineCommand, ok, z } from "@nseng-ai/kernel/sdk";
 
 export default defineCommand({
 	name: "hello",
@@ -94,9 +94,9 @@ export default defineCommand({
 });
 ```
 
-`@ns/kernel/sdk` is the public author API for extensions. `@ns/kernel` is the host/kernel container that loads extensions. The authoritative SDK export reference lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). Extension authors should import SDK vocabulary from `@ns/kernel/sdk` rather than kernel implementation modules or lower packages unless another package explicitly documents a public API for that dependency.
+`@nseng-ai/kernel/sdk` is the public author API for extensions. `@nseng-ai/kernel` is the host/kernel container that loads extensions. The authoritative SDK export reference lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). Extension authors should import SDK vocabulary from `@nseng-ai/kernel/sdk` rather than kernel implementation modules or lower packages unless another package explicitly documents a public API for that dependency.
 
-Descriptor modules are leaf authoring surfaces, not shared libraries. If reusable behavior proves out inside one descriptor or command module, move or copy the contract into an owning package and expose it deliberately through `@ns/kernel/sdk` or another documented package export.
+Descriptor modules are leaf authoring surfaces, not shared libraries. If reusable behavior proves out inside one descriptor or command module, move or copy the contract into an owning package and expose it deliberately through `@nseng-ai/kernel/sdk` or another documented package export.
 
 ## Boundary checklist
 

@@ -4,8 +4,9 @@
 
 - [x] Settle the extension-author README as the canonical descriptor contract.
   - Settled at creation (2026-07-07) via structured grilling, then revised the same day by a
-    second structured grilling session; all decisions folded into `references/README-draft.md`
-    (see its "Settled contract decisions" section). Final contract: neutral kernel command
+    second structured grilling session; decisions were first folded into
+    `references/README-draft.md` and later promoted to
+    `ts/packages/kernel/docs/writing-an-ns-extension.md`. Final contract: neutral kernel command
     interface with mandatory machine envelope (clinkr convenient, not required —
     `defineCommand(clinkrSpec)` adapts to the neutral object at authoring time; low-level helper
     for direct construction; legacy `NsResult` deleted); recursive `entries` array (command |
@@ -100,11 +101,10 @@
     envelopes) plus scratch-project transcript outside this repo: install `@nseng-ai/ns` from
     `dist/publish`, `npx ns install <ns-worktree>/ts/packages/capabilities/objectives`,
     `npx ns objective list` returns real records. Closing end-to-end evidence for the Objective.
-- [ ] Promote the settled README to its durable user-facing home.
-  - Guidance: once the contract has shipped, move/adapt `references/README-draft.md` to the real
-    documentation location (candidate: a kernel-owned extension-authoring doc or
-    `ts/packages/hosts/ns-cli/README.md` section); the objective reference then points at the
-    promoted doc.
+- [x] Promote the settled README to its durable user-facing home.
+  - Promoted to `ts/packages/kernel/docs/writing-an-ns-extension.md`; the package README,
+    SDK reference, and top-level docs index link to it. `references/README-draft.md` is now a
+    resolvable stub pointing at the promoted doc.
 
 ## Parked
 
