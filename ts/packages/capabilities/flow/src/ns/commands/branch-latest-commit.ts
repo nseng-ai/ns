@@ -4,7 +4,14 @@ import {
 } from "../../autobranch/latest-commit.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
-import { defineExtension, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineExtension,
+	negative,
+	ok,
+	z,
+	type NsCommand,
+} from "@nseng-ai/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
@@ -30,79 +37,81 @@ const branchLatestCommitRequestSchema = z.object({
 
 type BranchLatestCommitRequest = z.output<typeof branchLatestCommitRequestSchema>;
 
-export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitRequestSchema> = {
-	name: "branch-latest-commit",
-	summary: "Move the latest eligible commit to a new Graphite branch.",
-	description: BRANCH_LATEST_COMMIT_DESCRIPTION,
-	schema: branchLatestCommitRequestSchema,
-	options: { slug: { short: "-s" } },
-	async run(ctx, request: BranchLatestCommitRequest) {
-		const caps = resolveFlowStreamCaps(ctx);
-		const args: LatestCommitAutobranchInput["args"] =
-			request.slug === undefined ? {} : { slug: request.slug };
+export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitRequestSchema> =
+	defineCommand({
+		name: "branch-latest-commit",
+		summary: "Move the latest eligible commit to a new Graphite branch.",
+		description: BRANCH_LATEST_COMMIT_DESCRIPTION,
+		schema: branchLatestCommitRequestSchema,
+		resultSchema: z.string(),
+		options: { slug: { short: "-s" } },
+		handler: async (ctx, request: BranchLatestCommitRequest) => {
+			const caps = resolveFlowStreamCaps(ctx);
+			const args: LatestCommitAutobranchInput["args"] =
+				request.slug === undefined ? {} : { slug: request.slug };
 
-		const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
-		if (!loaded.ok) {
-			return negative(
-				renderPendingWorktreeFailure(caps, {
-					error: loaded.error,
-					cwd: ctx.cwd,
-					commandLabel: "`ns flow branch-latest-commit`",
-				}),
-			);
-		}
+			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
+			if (!loaded.ok) {
+				return negative(
+					renderPendingWorktreeFailure(caps, {
+						error: loaded.error,
+						cwd: ctx.cwd,
+						commandLabel: "`ns flow branch-latest-commit`",
+					}),
+				);
+			}
 
-		const snapshot = loaded.snapshot;
-		if (!snapshot.clean) {
-			return negative(
-				renderGitResultBlock(caps, {
-					kind: "refusal",
-					headline: "`ns flow branch-latest-commit` requires a clean worktree and did not run.",
-					command: "git status --porcelain=v1",
-					cwd: snapshot.root,
-					detail: snapshot.status,
-					guidance:
-						"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
-				}),
-			);
-		}
+			const snapshot = loaded.snapshot;
+			if (!snapshot.clean) {
+				return negative(
+					renderGitResultBlock(caps, {
+						kind: "refusal",
+						headline: "`ns flow branch-latest-commit` requires a clean worktree and did not run.",
+						command: "git status --porcelain=v1",
+						cwd: snapshot.root,
+						detail: snapshot.status,
+						guidance:
+							"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
+					}),
+				);
+			}
 
-		const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
-		const result = await createLatestCommitAutobranchFlow({
-			cwd: snapshot.root,
-			args,
-			snapshot,
-			exec,
-			git,
-		});
-		if (!result.ok) {
-			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
-			// is a first-class warn refusal, not a red failure (house-style §7.3).
-			return negative(
-				renderAutobranchFailureResultBlock({
-					caps,
-					outcome: result.outcome,
-					cwd: snapshot.root,
-					error: result.error,
-					refusalHeadline: "Did not move the latest commit to a new Graphite branch.",
-					failureHeadline: "Could not move the latest commit to a new Graphite branch.",
-				}),
-			);
-		}
-
-		for (const warning of result.warnings) {
-			ctx.stderr?.(`${warning.trimEnd()}\n`);
-		}
-		return ok(
-			renderResultBlock(caps, {
-				kind: "success",
-				headline: "Moved the latest commit to a new Graphite branch.",
+			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
+			const result = await createLatestCommitAutobranchFlow({
 				cwd: snapshot.root,
-				body: result.summary.trimEnd(),
-			}),
-		);
-	},
-};
+				args,
+				snapshot,
+				exec,
+				git,
+			});
+			if (!result.ok) {
+				// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
+				// is a first-class warn refusal, not a red failure (house-style §7.3).
+				return negative(
+					renderAutobranchFailureResultBlock({
+						caps,
+						outcome: result.outcome,
+						cwd: snapshot.root,
+						error: result.error,
+						refusalHeadline: "Did not move the latest commit to a new Graphite branch.",
+						failureHeadline: "Could not move the latest commit to a new Graphite branch.",
+					}),
+				);
+			}
+
+			for (const warning of result.warnings) {
+				ctx.stderr?.(`${warning.trimEnd()}\n`);
+			}
+			return ok(
+				renderResultBlock(caps, {
+					kind: "success",
+					headline: "Moved the latest commit to a new Graphite branch.",
+					cwd: snapshot.root,
+					body: result.summary.trimEnd(),
+				}),
+			);
+		},
+	});
 
 export default defineExtension({
 	commands: [flowBranchLatestCommitCommand],

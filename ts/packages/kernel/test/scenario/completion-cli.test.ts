@@ -9,7 +9,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import { ok, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineCommand, ok, type DefineCommandSpec, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
@@ -224,7 +224,7 @@ describe("ns completion CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("fast\n");
-		expect(run.stderr.join("")).toContain("provider boom");
+		expect(run.stderr.join("")).toBe("");
 		expect(registry.loadLog).toEqual(["hello"]);
 	});
 
@@ -349,14 +349,14 @@ function commandCandidate(
 	};
 }
 
-function helloCommand(options: Partial<NsCommand> = {}): NsCommand {
-	return {
+function helloCommand(options: Partial<DefineCommandSpec<z.ZodObject, string>> = {}): NsCommand {
+	return defineCommand({
 		name: "hello",
 		summary: "Hello",
 		description: "Hello",
-		async run() {
-			return ok("hello");
-		},
+		schema: z.object({}),
+		resultSchema: z.string(),
+		handler: async () => ok("hello"),
 		...options,
-	};
+	});
 }

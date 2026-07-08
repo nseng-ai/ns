@@ -4,6 +4,7 @@ import {
 	graphiteBranchMetadataReadonlyJsonArgs,
 } from "@nseng-ai/capability-kit/graphite/metadata";
 import {
+	defineCommand,
 	defineExtension,
 	failure,
 	ok,
@@ -22,14 +23,15 @@ type ExecReadGraphiteBranchMetadataRequest = z.output<typeof execReadGraphiteBra
 
 export const flowExecReadGraphiteBranchMetadataCommand: NsCommand<
 	typeof execReadGraphiteBranchMetadataSchema
-> = {
+> = defineCommand({
 	name: "exec-read-graphite-branch-metadata",
 	summary: "Read Graphite branch metadata for flow internals.",
 	description:
 		"Internal flow exec operation. Reads Graphite branch metadata through a controlled sqlite3 query and prints the raw JSON row array.",
 	schema: execReadGraphiteBranchMetadataSchema,
-	run: async (ctx, request) => await runExecReadGraphiteBranchMetadata(ctx, request),
-};
+	resultSchema: z.string(),
+	handler: async (ctx, request) => await runExecReadGraphiteBranchMetadata(ctx, request),
+});
 
 async function runExecReadGraphiteBranchMetadata(
 	ctx: NsExtensionApi,

@@ -1,5 +1,12 @@
 import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
-import { defineExtension, negative, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineExtension,
+	negative,
+	ok,
+	z,
+	type NsCommand,
+} from "@nseng-ai/kernel/sdk";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { type GitErrorInfo, type GitGateway } from "@nseng-ai/capability-kit/git";
 
@@ -18,14 +25,14 @@ The command first runs git status --porcelain and requires a clean worktree befo
 
 This command does not update Graphite metadata. Do not use it for Graphite-tracked PR branches, because moving the remote PR branch outside Graphite can make later gt submit / ns flow submit runs fail until local Graphite state is synced with gt get or gt sync. Use \`ns flow submit\` / \`/ns:flow:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
 
-export const flowPushCommand: NsCommand = {
+export const flowPushCommand: NsCommand = defineCommand({
 	name: "push",
 	summary: PUSH_COMMAND_SUMMARY,
 	description: PUSH_COMMAND_DESCRIPTION,
-	async run(ctx) {
-		return await runPush(ctx);
-	},
-};
+	schema: z.object({}),
+	resultSchema: z.string(),
+	handler: async (ctx) => await runPush(ctx),
+});
 
 export default defineExtension({
 	commands: [flowPushCommand],

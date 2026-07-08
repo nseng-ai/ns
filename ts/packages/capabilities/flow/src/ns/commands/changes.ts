@@ -1,7 +1,14 @@
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
-import { defineExtension, failure, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineExtension,
+	failure,
+	ok,
+	z,
+	type NsCommand,
+} from "@nseng-ai/kernel/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
@@ -43,11 +50,13 @@ Environment:
 
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`;
 
-export const flowChangesCommand: NsCommand = {
+export const flowChangesCommand: NsCommand = defineCommand({
 	name: "changes",
 	summary: "Summarize outstanding worktree changes without committing.",
 	description: CHANGES_COMMAND_DESCRIPTION,
-	async run(ctx) {
+	schema: z.object({}),
+	resultSchema: z.string(),
+	handler: async (ctx) => {
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
 			io.phase("Inspecting worktree…");
@@ -71,7 +80,7 @@ export const flowChangesCommand: NsCommand = {
 			return ok(formatOutstandingChangesMessage(caps, snapshot, summary.summaryText));
 		});
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowChangesCommand],

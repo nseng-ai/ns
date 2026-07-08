@@ -8,7 +8,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
-import type { NsCommand, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import { defineCommand, type NsCommand, type NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),
@@ -28,7 +28,7 @@ const progressProbeResultSchema = z.object({ isLive: z.boolean() });
 const homeDirProbeSchema = z.object({});
 const homeDirProbeResultSchema = z.object({ homeDir: z.string().optional() });
 
-const optionProbeCommand = {
+const optionProbeCommand = defineCommand({
 	name: "option-probe",
 	summary: "Probe extension option specs.",
 	description: "Probe extension option specs.",
@@ -38,34 +38,35 @@ const optionProbeCommand = {
 		clipboard: { short: "-C" },
 	},
 	resultSchema: optionProbeResultSchema,
-	async run(ctx, request) {
-		return { type: "ok", data: { request, outputFormat: ctx.outputFormat ?? "human" } };
-	},
-} satisfies NsCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
+	handler: async (ctx, request) => ({
+		type: "ok",
+		data: { request, outputFormat: ctx.outputFormat ?? "human" },
+	}),
+}) satisfies NsCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
 
-const homeDirProbeCommand = {
+const homeDirProbeCommand = defineCommand({
 	name: "home-dir-probe",
 	summary: "Probe resolved home dir.",
 	description: "Probe resolved home dir.",
 	schema: homeDirProbeSchema,
 	resultSchema: homeDirProbeResultSchema,
-	async run(ctx) {
+	handler: async (ctx) => {
 		if (ctx.homeDir === undefined) return { type: "ok", data: {} };
 		return { type: "ok", data: { homeDir: ctx.homeDir } };
 	},
-} satisfies NsCommand<typeof homeDirProbeSchema, z.infer<typeof homeDirProbeResultSchema>>;
+}) satisfies NsCommand<typeof homeDirProbeSchema, z.infer<typeof homeDirProbeResultSchema>>;
 
-const progressProbeCommand = {
+const progressProbeCommand = defineCommand({
 	name: "progress-probe",
 	summary: "Probe progress deps.",
 	description: "Probe progress deps.",
 	schema: progressProbeSchema,
 	resultSchema: progressProbeResultSchema,
-	async run(ctx) {
+	handler: async (ctx) => {
 		ctx.progress.phase({ type: "phase-started", phaseKey: "x" });
 		return { type: "ok", data: { isLive: ctx.progress.isLive } };
 	},
-} satisfies NsCommand<typeof progressProbeSchema, z.infer<typeof progressProbeResultSchema>>;
+}) satisfies NsCommand<typeof progressProbeSchema, z.infer<typeof progressProbeResultSchema>>;
 
 describe("extension command option specs", () => {
 	test("runCli provides a live progress sink when onProgress is injected", async () => {

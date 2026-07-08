@@ -1,6 +1,13 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import { defineExtension, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineExtension,
+	negative,
+	ok,
+	z,
+	type NsCommand,
+} from "@nseng-ai/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
@@ -9,12 +16,13 @@ import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const pullTrunkSchema = z.object({});
 
-export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = {
+export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCommand({
 	name: "pull-trunk",
 	summary: "Pull the configured Graphite trunk branch without running full gt sync.",
 	description: "Pull the configured Graphite trunk branch without running full gt sync.",
 	schema: pullTrunkSchema,
-	run: async (ctx) => {
+	resultSchema: z.string(),
+	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const result = await runFlowCliOperation({
 			ctx,
@@ -23,7 +31,7 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = {
 		const block = renderTrunkPullBlock(caps, result);
 		return result.outcome.kind === "success" ? ok(block) : negative(block);
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowPullTrunkCommand],

@@ -3,6 +3,7 @@ import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import {
+	defineCommand,
 	defineExtension,
 	negative,
 	ok,
@@ -43,13 +44,14 @@ const regeneratePrSchema = z.object({
 
 type RegeneratePrRequest = z.output<typeof regeneratePrSchema>;
 
-export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
+export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = defineCommand({
 	name: "regenerate-pr",
 	summary: "Regenerate the PR title and ns-managed body region.",
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
+	resultSchema: z.string(),
 	options: { force: { short: "-f" } },
-	async run(ctx: NsExtensionApi, request: RegeneratePrRequest) {
+	handler: async (ctx: NsExtensionApi, request: RegeneratePrRequest) => {
 		return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
 			// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
 			// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
@@ -168,7 +170,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
 			);
 		});
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowRegeneratePrCommand],

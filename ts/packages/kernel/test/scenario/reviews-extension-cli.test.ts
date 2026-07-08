@@ -8,7 +8,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import type { NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 function runWithFakeReviewsExtension(options: RunWithFakesOptions) {
 	const registry = fakeReviewsRegistry();
@@ -310,7 +310,7 @@ function fakeReviewsCommand(options: {
 	description: string;
 	schema?: z.ZodObject;
 }): NsCommand {
-	return {
+	return defineCommand({
 		name: options.name,
 		summary: options.summary,
 		description: options.description,
@@ -321,18 +321,16 @@ function fakeReviewsCommand(options: {
 			request: z.record(z.string(), z.unknown()),
 			stdin: z.string(),
 		}),
-		async run(ctx, request) {
-			return {
-				type: "ok",
-				data: {
-					commandKey: options.key,
-					cwd: ctx.cwd,
-					request,
-					stdin: await readStdin(ctx),
-				},
-			};
-		},
-	};
+		handler: async (ctx, request) => ({
+			type: "ok",
+			data: {
+				commandKey: options.key,
+				cwd: ctx.cwd,
+				request,
+				stdin: await readStdin(ctx),
+			},
+		}),
+	});
 }
 
 async function readStdin(ctx: NsExtensionApi): Promise<string> {

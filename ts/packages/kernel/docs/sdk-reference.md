@@ -31,7 +31,7 @@ Declares an ns extension. The default export of every ns extension module is a c
 function defineExtension(extension: NsExtension): NsExtension;
 ```
 
-**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its job is entirely at the type level: a family of overloads preserves per-command schema inference (so each command's `run` sees the request type implied by its own `schema`) for up to four explicit commands plus a rest tuple. You do not interact with the overloads directly; pass an extension object and TypeScript infers the rest.
+**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve a descriptor or command-list shape while keeping command modules on the neutral `KernelCommand` contract.
 
 **Parameters.**
 
@@ -42,7 +42,7 @@ function defineExtension(extension: NsExtension): NsExtension;
 **Notes.**
 
 - Use as the module's default export: `export default defineExtension({ ... })`.
-- Single-file extensions under `.ns/extensions/` are leaf modules. Workspace packages must never import from them.
+- Extension packages expose a typed descriptor module through `exports["./ns-extension"]`; descriptor modules should import only this SDK at top level.
 
 **Example.**
 
@@ -66,7 +66,7 @@ export default defineExtension({
 The shape of an ns extension.
 
 ```ts
-interface NsExtension<TCommands extends readonly NsCommand[] = readonly NsCommand[]> {
+interface NsExtension<TCommands extends readonly KernelCommand[] = readonly KernelCommand[]> {
   commands?: TCommands | undefined;
 }
 ```
@@ -96,9 +96,9 @@ Descriptor-level contributions include `entries` for commands, `points` for poin
 
 ## Commands
 
-### Raw `KernelCommand` and structured `NsCommand`
+### `KernelCommand`
 
-`defineRawCommand()` constructs the neutral low-level command contract. Raw commands have only `name`, `summary`, `description`, and `run(ctx, { argv })`; `argv` is the post-route argument tail. They do not declare `resultSchema` and do not expose Clinkr result types.
+`KernelCommand` is the one command object contract loaded by the kernel. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
 
 ```ts
 interface KernelCommand<T = unknown> {
@@ -106,50 +106,35 @@ interface KernelCommand<T = unknown> {
   summary: string;
   description: string;
   run(ctx: NsExtensionApi, invocation: { readonly argv: readonly string[] }): Promise<CommandExit<T>> | CommandExit<T>;
+  complete?: KernelCommandCompletionProvider | undefined;
 }
 ```
 
-`defineCommand()` is the structured convenience API. It parses a Zod schema, supports positionals/options/completion/renderers, requires `resultSchema`, and returns an `NsCommand` that the kernel can render as human, markdown, JSON, or JSON Schema.
+`defineCommand()` is the structured convenience adapter. It accepts a schema/handler spec, builds the Clinkr surface internally, and returns a neutral `KernelCommand`. The returned command's `run(ctx, { argv })` parses `argv`, handles `-h`/`--help`, `--json-schema`, and `--format human|json|markdown`, invokes the typed handler with `z.output<S>`, and returns standard command exits. `--format json` is always the standard ns machine envelope; `--json-schema` publishes the schema-backed input/output document.
+
+**Example.** Use `defineCommand()` so `request` is inferred from `schema` while the exported command remains neutral:
 
 ```ts
-interface NsCommand<S extends NsCommandSchema = z.ZodObject, T = unknown> {
-  name: string;
-  summary: string;
-  description: string;
-  schema?: S | undefined;
-  positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
-  resultSchema?: z.ZodType<T> | undefined;
-  renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
-  renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
-  completionProvider?: NsCommandCompletionProvider | undefined;
-  run(ctx: NsExtensionApi, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
-}
-```
-
-Both command styles return the kernel-owned command-exit constructors documented below. `--format json` is always the standard ns machine envelope. Structured commands publish a schema-backed envelope through `--json-schema`; raw commands own their own argument parsing and help surface.
-
-**Example.** Declared inline so `request` is inferred from `schema`:
-
-```ts
-import { defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineCommand, defineExtension, ok, z } from "@ns/kernel/sdk";
 
 export default defineExtension({
   commands: [
-    {
+    defineCommand({
       name: "greet",
       summary: "Greet someone.",
       description: "Greet someone with a configurable name.",
       schema: z.object({ name: z.string().default("world") }),
-      run: (ctx, request) => ok(`hello ${request.name}`),
-    },
+      resultSchema: z.string(),
+      handler: (ctx, request) => ok(`hello ${request.name}`),
+    }),
   ],
 });
 ```
 
-### `NsCommandCompletionProvider`
+### `KernelCommandCompletionProvider` / `NsCommandCompletionProvider`
 
 ```ts
-type NsCommandCompletionProvider = (
+type KernelCommandCompletionProvider = (
   ctx: NsExtensionApi,
   request: ClinkrDynamicCompletionRequest,
 ) =>
@@ -158,27 +143,28 @@ type NsCommandCompletionProvider = (
   | readonly ClinkrCompletionCandidate[];
 ```
 
-Provides dynamic completion candidates for the selected command without invoking `run`. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
+Provides dynamic completion candidates for the selected command without invoking `run`. `NsCommandCompletionProvider` is a compatibility alias. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
 
 **Boundaries.**
 
 - The provider runs only on the async completion path for the selected command; it is never invoked for unrelated commands and does not eager-load other extensions.
 - Provider candidates are appended to the static command/option/enum candidates and deduped; the provider augments rather than replaces static completion.
 - Keep it cheap and read-only: do not mutate state, prompt, or perform expensive work. It runs on every completion keystroke for the selected command.
-- Provider failures are captured by the host: static candidates are still returned, resolver stdout stays candidate-only, and the resolver keeps exit code `0`. Errors may be reported concisely on stderr.
+- Provider failures are captured by the command adapter: static candidates are still returned, resolver stdout stays candidate-only, and the resolver keeps exit code `0`.
 
 **Example.** Complete local branch names for a positional argument:
 
 ```ts
-import { defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineCommand, defineExtension, ok, z } from "@ns/kernel/sdk";
 
 export default defineExtension({
   commands: [
-    {
+    defineCommand({
       name: "checkout",
       summary: "Check out a branch.",
       description: "Check out an existing local branch.",
       schema: z.object({ branch: z.string().optional() }),
+      resultSchema: z.string(),
       positionals: { branch: { position: 0 } },
       async completionProvider(ctx) {
         const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
@@ -187,10 +173,10 @@ export default defineExtension({
           .split("\n")
           .map((line) => line.trim())
           .filter((line) => line.length > 0)
-          .map((value) => ({ value }));
+          .map((value) => ({ value, type: "positional-value" }));
       },
-      run: (ctx, request) => ok(request.branch ?? "(current)"),
-    },
+      handler: (ctx, request) => ok(request.branch ?? "(current)"),
+    }),
   ],
 });
 ```
@@ -220,7 +206,7 @@ const schema: NsCommandSchema = z.object({ force: z.boolean().default(false) });
 type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;
 ```
 
-The parsed-request type derived from a command's schema — the type `run` receives as its second argument. Useful when `run` is a named function declared apart from the command object.
+The parsed-request type derived from a `defineCommand()` schema — the type `handler` receives as its second argument. Useful when the handler is a named function declared apart from the command spec.
 
 **Example.**
 

@@ -1,4 +1,4 @@
-import { defineExtension, failure, ok, z } from "@nseng-ai/kernel/sdk";
+import { defineCommand, defineExtension, failure, ok, z } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
@@ -44,13 +44,14 @@ const missingNameRequest: CommandRequest = { retries: 1 };
 
 const extension = defineExtension({
 	commands: [
-		{
+		defineCommand({
 			name: "greet",
 			summary: "Greet someone.",
 			description: "Greet someone with retry metadata.",
 			schema: commandSchema,
+			resultSchema: z.string(),
 			positionals: { name: positionalSpec },
-			run(_ctx, request) {
+			handler(_ctx, request) {
 				type Request = typeof request;
 				const checks: [
 					Assert<IsAny<Request> extends false ? true : false>,
@@ -61,7 +62,7 @@ const extension = defineExtension({
 				void request.missing;
 				return ok(`${request.name}:${request.retries}`);
 			},
-		},
+		}),
 	],
 });
 

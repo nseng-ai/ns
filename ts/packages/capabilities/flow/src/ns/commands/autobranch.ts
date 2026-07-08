@@ -9,6 +9,7 @@ import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/kernel/command-io";
 import {
+	defineCommand,
 	defineExtension,
 	negative,
 	ok,
@@ -53,13 +54,14 @@ const autobranchRequestSchema = z.object({
 
 type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
 
-export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = {
+export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = defineCommand({
 	name: "autobranch",
 	summary: "Create a Graphite branch from dirty worktree changes.",
 	description: AUTOBRANCH_DESCRIPTION,
 	schema: autobranchRequestSchema,
+	resultSchema: z.string(),
 	options: { slug: { short: "-s" } },
-	async run(ctx, request: AutobranchRequest) {
+	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
 		const io = commandIoFromNsExtensionApi(ctx);
@@ -116,7 +118,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 			);
 		});
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowAutobranchCommand],

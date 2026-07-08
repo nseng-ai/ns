@@ -16,7 +16,6 @@ import {
 	loadListingCommandInfos,
 	loadNsCommandCatalog,
 	loadSelectedNsCommand,
-	isRawKernelCommand,
 } from "../../src/extensions/registry.ts";
 
 import {
@@ -359,7 +358,6 @@ export default defineExtension({
 		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
-		if (isRawKernelCommand(command.command)) throw new Error("expected structured command");
 		const result = await command.command.run(
 			{
 				cwd: workspace.cwd,
@@ -376,7 +374,7 @@ export default defineExtension({
 					},
 				},
 			},
-			{},
+			{ argv: [] },
 		);
 		expect(result).toEqual({ type: "ok", data: "thunk scan", human: "thunk scan" });
 	});

@@ -25,6 +25,7 @@ import {
 } from "../../land/stack/flags.ts";
 import { createCommandIo } from "@nseng-ai/kernel/command-io";
 import {
+	defineCommand,
 	defineExtension,
 	z,
 	type NsCommand,
@@ -48,13 +49,14 @@ import {
 
 const landSchema = z.object(landCommandSchemaShape(z));
 
-export const flowLandCommand: NsCommand<typeof landSchema> = {
+export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 	name: "land",
 	summary: "Land the current PR or Graphite stack into trunk.",
 	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
+	resultSchema: z.string(),
 	options: landCommandOptionSpecs(),
-	run: async (ctx, request) => {
+	handler: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
 		// path is never given caps and stays ANSI-free.
@@ -100,7 +102,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = {
 			await progress.stop();
 		}
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowLandCommand],

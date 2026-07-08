@@ -1,6 +1,14 @@
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import { defineExtension, failure, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineExtension,
+	failure,
+	negative,
+	ok,
+	z,
+	type NsCommand,
+} from "@nseng-ai/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,
@@ -39,13 +47,14 @@ const cpRequestSchema = z.object({
 
 type CpRequest = z.output<typeof cpRequestSchema>;
 
-export const flowCpCommand: NsCommand<typeof cpRequestSchema> = {
+export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 	name: "cp",
 	summary: "Create a checkpoint commit for the current diff.",
 	description: CP_COMMAND_DESCRIPTION,
 	schema: cpRequestSchema,
+	resultSchema: z.string(),
 	options: { dryRun: { short: "-n" } },
-	async run(ctx, request: CpRequest) {
+	handler: async (ctx, request: CpRequest) => {
 		const runtime = createNsCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
@@ -80,7 +89,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = {
 			},
 		});
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowCpCommand],
