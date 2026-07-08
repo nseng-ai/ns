@@ -30,7 +30,7 @@ import {
 	type AgentDefinitionConfigurationCheck,
 } from "../agent-configuration.ts";
 import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
-import { trackSubagentFleetRun } from "../fleet/tracking.ts";
+import { trackSingleSubagentFleetRun } from "../fleet/tracking.ts";
 export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
@@ -144,10 +144,11 @@ export function registerDispatchRunnerSubagentTool(
 				return configurationErrorResult(input.title, configuration.diagnostic);
 			}
 
-			const fleetTracking = trackSubagentFleetRun({
+			const fleetTracking = trackSingleSubagentFleetRun({
 				registry: options.fleetRegistry,
 				ctx,
-				tasks: [{ title: input.title, prompt: input.prompt }],
+				title: input.title,
+				prompt: input.prompt,
 				parentSessionFile: ctx.sessionManager?.getSessionFile?.(),
 			});
 
@@ -161,7 +162,7 @@ export function registerDispatchRunnerSubagentTool(
 					widgetKey: WIDGET_KEY,
 					...optionalEntries({ model: input.model, signal }),
 					onStart: (start) => {
-						fleetTracking.markRunning(0);
+						fleetTracking.onStart();
 						onUpdate?.({
 							content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
 							details: {
@@ -173,7 +174,7 @@ export function registerDispatchRunnerSubagentTool(
 						});
 					},
 					onProgress: (update) => {
-						fleetTracking.markProgress(0, update);
+						fleetTracking.onProgress(update);
 						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
 						onUpdate?.({
 							content: [{ type: "text", text: progressText }],
@@ -185,7 +186,7 @@ export function registerDispatchRunnerSubagentTool(
 						});
 					},
 				});
-				fleetTracking.markDone(0, result);
+				fleetTracking.onDone(result);
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],

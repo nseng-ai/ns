@@ -16,8 +16,9 @@ import type { z as ZodNamespace } from "zod";
 // `.pi/lib/workspace-packages.ts` fallback map + parity test).
 //
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
-// package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
-// rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
+// package exports are not resolvable without the ts workspace's node_modules ancestry. Static imports
+// mostly reach into the ts workspace by relative path; public package exports that need package
+// resolution are loaded through requireFromPiTools below so the direct Node import smoke still works.
 import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/core/objective-runner-rules.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
@@ -25,11 +26,7 @@ import type {
 	ToolDefinition,
 	ToolResult,
 } from "../../ts/packages/hosts/pi/src/runtime/tool-types.ts";
-import {
-	getOrCreateSubagentFleetRegistry,
-	trackSubagentFleetRun,
-	type SubagentFleetRunTracking,
-} from "../../ts/packages/extensions/ns-pi-subagents/src/api/index.ts";
+import type { SingleSubagentFleetRunTracking } from "@nseng-ai/ns-pi-subagents/api";
 import {
 	dispatchRunnerSubagent,
 	isRecord,
@@ -58,6 +55,9 @@ const requireFromPiTools = createRequire(
 	new URL("../../ts/packages/extensions/ns-pi-subagents/package.json", import.meta.url),
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
+const { getOrCreateSubagentFleetRegistry, trackSingleSubagentFleetRun } = (await import(
+	requireFromPiTools.resolve("@nseng-ai/ns-pi-subagents/api")
+)) as typeof import("@nseng-ai/ns-pi-subagents/api");
 
 const TOOL_NAME = "objective_runner_step";
 const WIDGET_KEY = "objective-runner-step";
@@ -182,7 +182,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 
 	const stepNumber = (stepCountsBySlug.get(slug) ?? 0) + 1;
 	stepCountsBySlug.set(slug, stepNumber);
-	let fleetTracking: SubagentFleetRunTracking | undefined;
+	let fleetTracking: SingleSubagentFleetRunTracking | undefined;
 
 	// Scratch dir per runner-subagents convention: fresh per call, so every attempt — including
 	// every recovery attempt — automatically satisfies runner-begin's fresh-report-path rule.
@@ -257,15 +257,16 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 
 		const subagentTitle = input.title ?? `objective ${slug} step ${stepNumber}`;
 		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
-		fleetTracking = trackSubagentFleetRun({
+		fleetTracking = trackSingleSubagentFleetRun({
 			registry: fleetRegistry,
 			ctx,
-			tasks: [{ title: subagentTitle, prompt }],
+			title: subagentTitle,
+			prompt,
 			parentSessionFile: ctx.sessionManager?.getSessionFile?.(),
 		});
 
 		pushWidget("subagent");
-		fleetTracking.markRunning(0);
+		fleetTracking.onStart();
 		const subagent = await dispatchRunnerSubagent(
 			pi,
 			{ cwd: ctx.cwd, ...optionalEntry("signal", signal) },
@@ -276,11 +277,11 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 				...optionalEntry("model", input.model),
 				onProgress: (update) => {
 					pushWidget("subagent", update);
-					fleetTracking?.markProgress(0, update);
+					fleetTracking?.onProgress(update);
 				},
 			},
 		);
-		fleetTracking.markDone(0, subagent);
+		fleetTracking.onDone(subagent);
 		if (subagent.status === "cancelled" || signal?.aborted === true) {
 			return stepToolResult({
 				text: `Runner step cancelled between runner-begin and runner-finish for objective ${slug}. runner-finish was NOT run, so no checkpoint was judged and the worktree may hold uncommitted subagent changes. Inspect the worktree, then recover by calling ${TOOL_NAME} again with recover: true and sharpened guidance.`,
