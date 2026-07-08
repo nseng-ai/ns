@@ -230,7 +230,8 @@ export function buildBaseRegions(
 	}
 
 	const contextFiles = options.contextFiles ?? [];
-	const skills = options.skills ?? [];
+	const loadedSkills = options.skills ?? [];
+	const skills = promptVisibleSkills(loadedSkills);
 	const toolSnippets = options.toolSnippets ?? {};
 	const tools = options.selectedTools ?? Object.keys(toolSnippets);
 	const guidelines = options.promptGuidelines ?? [];
@@ -245,7 +246,7 @@ export function buildBaseRegions(
 		name: skill.name,
 		tokens: estimateTokensFromChars(skillPromptChars(skill)),
 		content: skillContentText(skill),
-		note: "reconstructed from the skill's prompt fields (name / description / path)",
+		note: "reconstructed from prompt-visible skill fields (name / description / path); invoke-only skills are excluded by Pi's prompt renderer",
 	}));
 	const toolMembers: BaseMember[] = tools.map((tool) => {
 		const snippet = toolSnippets[tool];
@@ -325,7 +326,7 @@ export function buildBaseRegions(
 		},
 		{
 			id: "base-skills",
-			label: "loaded skills",
+			label: "model-invokable skills",
 			tokens: estimateTokensFromChars(skillChars),
 			members: skillMembers,
 		},
@@ -338,19 +339,21 @@ export function buildBaseRegions(
 	];
 }
 
+function promptVisibleSkills(skills: readonly Skill[]): Skill[] {
+	return skills.filter((skill) => !skill.disableModelInvocation);
+}
+
 function skillPromptChars(skill: Skill): number {
 	return stableJsonLength({
 		name: skill.name,
 		description: skill.description,
 		filePath: skill.filePath,
-		disabled: skill.disableModelInvocation,
 	});
 }
 
 function skillContentText(skill: Skill): string {
 	const path = skill.filePath.length === 0 ? "" : `\n\n${skill.filePath}`;
-	const disabled = skill.disableModelInvocation ? "\n(model invocation disabled)" : "";
-	return `${skill.name}\n${skill.description}${path}${disabled}`;
+	return `${skill.name}\n${skill.description}${path}`;
 }
 
 export interface LiveTurnsInput {
