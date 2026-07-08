@@ -2,17 +2,21 @@
 
 ## Work
 
-- [x] Current-action pane with heartbeat/staleness and auto-refresh in the detail view
-      Derive the in-flight action (thinking vs named tool + command/path, elapsed
-      time, last output line) from the session JSONL tail as a pure function next
-      to `timeline.ts`; add periodic re-read of the session tail while the detail
-      view is open so "quiet Nm" staleness is honest. Watch polling cost on large
-      session files (tail-read or size-gate the re-parse).
+- [~] Current-action pane with heartbeat/staleness and auto-refresh in the detail view
+  Derive the in-flight action (thinking vs named tool + command/path, elapsed
+  time, last output line) from the session JSONL tail as a pure function next
+  to `timeline.ts`; add periodic re-read of the session tail while the detail
+  view is open so "quiet Nm" staleness is honest. Watch polling cost on large
+  session files (tail-read or size-gate the re-parse).
   - Policy: direct execution after preview; keep the slice inside existing
     session JSONL parsing and navigator refresh behavior.
   - Evidence: local branch diff `master...HEAD` adds current-action extraction in
     `timeline.ts`, running-detail polling and heartbeat rendering in `navigator.ts`,
     and targeted navigator/timeline tests; PR #3213 is open evidence for the slice.
+    Manual smoke against a real explorer subagent session showed the UI still reports
+    `0 turns / 0 tools` and `No timeline events yet` for top-level `message` events
+    containing `toolCall` content and `toolResult` messages, so this criterion is
+    only partially satisfied until the actual Pi session JSONL shape is parsed.
 - [x] Live worktree/diff summary panel
       `git status --short` plus per-file +N/-N in the detail view, refreshed with
       the same cadence. Handle shared-worktree commingling by labeling the panel as
@@ -52,6 +56,19 @@
     `pnpm --dir ts --filter @nseng-ai/ns-pi-subagents check`, plus workspace
     `pnpm --dir ts run fmt:check`, `pnpm --dir ts run lint`, and
     `pnpm --dir ts run check`.
+- [ ] Parse actual top-level Pi session message events in the detail timeline
+      Manual smoke showed explorer subagent sessions emit top-level `message` events
+      whose assistant content contains `toolCall` blocks, followed by `message.role =
+      "toolResult"` records. The current timeline/current-action and JSON-event
+      progress parsing recognize `message_end` / `turn_end` / `agent_end` and
+      `tool_execution_*` shapes, so real sessions can show token totals while still
+      displaying `0 turns / 0 tools` and `No timeline events yet`.
+  - Policy: direct execution after preview; treat this as supporting an existing Pi
+    session JSONL shape, not a new event protocol. Stay inside existing session JSONL
+    parsing, navigator rendering, and targeted tests.
+  - Evidence to add: sanitized fixture/test for assistant `toolCall`, tool-result,
+    assistant text, and thinking content; detail header counts and timeline entries
+    show actual tool/message activity for the real shape.
 
 ## Parked
 
