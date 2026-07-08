@@ -5,7 +5,12 @@ import {
 	trimOuterBlankLines,
 } from "@nseng-ai/foundation/text-normalization";
 
-import { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
+import {
+	defineCommand,
+	defineExtension,
+	defineParsedCommand,
+	defineRawCommand,
+} from "./command.ts";
 import {
 	bundledArtifactDefinitionSchema,
 	extensionDescriptorSchema,
@@ -48,6 +53,7 @@ export const nsSdkRuntimeExports = {
 	clampMatrixProgressLabelWidthChars,
 	defineCommand,
 	defineExtension,
+	defineParsedCommand,
 	defineRawCommand,
 	extensionDescriptorSchema,
 	extensionPointAcceptsValues,

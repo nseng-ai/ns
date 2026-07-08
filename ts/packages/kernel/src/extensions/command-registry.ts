@@ -1,7 +1,15 @@
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { failure, type CommandExit, type DescriptorCommand } from "../sdk/index.ts";
+import {
+	defineParsedCommand,
+	failure,
+	type CommandExit,
+	type DescriptorCommand,
+	type OptionSpec,
+	type PositionalSpec,
+	type RenderCapabilities,
+} from "../sdk/index.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
@@ -72,6 +80,23 @@ const nsCommandSchema = z
 			.optional(),
 	})
 	.passthrough();
+
+interface ParsedDescriptorCommandContribution {
+	readonly name: string;
+	readonly summary: string;
+	readonly description: string;
+	readonly schema: z.ZodObject;
+	readonly resultSchema?: z.ZodType;
+	readonly positionals?: Partial<Record<string, PositionalSpec>>;
+	readonly options?: Partial<Record<string, OptionSpec>>;
+	readonly renderHuman?: (data: unknown, caps: RenderCapabilities) => string;
+	readonly renderMarkdown?: (data: unknown, caps: RenderCapabilities) => string;
+	readonly completionProvider?: DescriptorCommand["complete"];
+	run(
+		ctx: Parameters<DescriptorCommand["run"]>[0],
+		request: unknown,
+	): ReturnType<DescriptorCommand["run"]>;
+}
 
 const nsExtensionSchema = z.object({
 	commands: z.array(nsCommandSchema).optional().default([]),
@@ -185,8 +210,10 @@ export function validateNsExtensionContribution(
 			message: `Invalid ${contributionLabel} ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
 		};
 	}
+	const parsedCommand = adaptParsedDescriptorCommand(command, contributionLabel, sourceLabel);
+	if (!parsedCommand.ok) return parsedCommand;
 
-	return { ok: true, command };
+	return { ok: true, command: parsedCommand.command };
 }
 
 export function extensionCommandFailedExit(
@@ -218,6 +245,105 @@ function findCommandEntry(
 	expectedName: string,
 ): DescriptorCommand | undefined {
 	return extension.commands.find((command) => command.name === expectedName);
+}
+
+function adaptParsedDescriptorCommand(
+	command: DescriptorCommand,
+	contributionLabel: string,
+	sourceLabel: string,
+): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
+	if (!isRecord(command) || !("schema" in command)) return { ok: true, command };
+	const parsed = parseParsedDescriptorCommand(command);
+	if (!parsed.ok) {
+		return {
+			ok: false,
+			message: `Invalid ${contributionLabel} ${sourceLabel}: ${parsed.message}`,
+		};
+	}
+	return {
+		ok: true,
+		command: defineParsedCommand({
+			name: parsed.command.name,
+			summary: parsed.command.summary,
+			description: parsed.command.description,
+			schema: parsed.command.schema,
+			...(parsed.command.resultSchema === undefined
+				? {}
+				: { resultSchema: parsed.command.resultSchema }),
+			...(parsed.command.positionals === undefined
+				? {}
+				: { positionals: parsed.command.positionals }),
+			...(parsed.command.options === undefined ? {} : { options: parsed.command.options }),
+			...(parsed.command.renderHuman === undefined
+				? {}
+				: { renderHuman: parsed.command.renderHuman }),
+			...(parsed.command.renderMarkdown === undefined
+				? {}
+				: { renderMarkdown: parsed.command.renderMarkdown }),
+			...(parsed.command.completionProvider === undefined
+				? {}
+				: { completionProvider: parsed.command.completionProvider }),
+			run: parsed.command.run,
+		}),
+	};
+}
+
+function parseParsedDescriptorCommand(
+	command: DescriptorCommand,
+): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false; message: string } {
+	if (!isRecord(command)) return { ok: false, message: "command must be an object." };
+	if (!(command.schema instanceof z.ZodObject)) {
+		return {
+			ok: false,
+			message: "command schema must be a Zod object schema from @nseng-ai/kernel/sdk.",
+		};
+	}
+	return {
+		ok: true,
+		command: {
+			name: command.name,
+			summary: command.summary,
+			description: command.description,
+			schema: command.schema,
+			...(command.resultSchema instanceof z.ZodType ? { resultSchema: command.resultSchema } : {}),
+			...(isPositionals(command.positionals) ? { positionals: command.positionals } : {}),
+			...(isOptions(command.options) ? { options: command.options } : {}),
+			...(isRenderFunction(command.renderHuman) ? { renderHuman: command.renderHuman } : {}),
+			...(isRenderFunction(command.renderMarkdown)
+				? { renderMarkdown: command.renderMarkdown }
+				: {}),
+			...(isCompletionProvider(command.completionProvider)
+				? { completionProvider: command.completionProvider }
+				: {}),
+			run: command.run as ParsedDescriptorCommandContribution["run"],
+		},
+	};
+}
+
+function isCompletionProvider(value: unknown): value is DescriptorCommand["complete"] {
+	return typeof value === "function";
+}
+
+function isRenderFunction(
+	value: unknown,
+): value is (data: unknown, caps: RenderCapabilities) => string {
+	return typeof value === "function";
+}
+
+function isPositionals(value: unknown): value is Partial<Record<string, PositionalSpec>> {
+	if (!isRecord(value)) return false;
+	return Object.values(value).every(
+		(entry) => isRecord(entry) && typeof entry.position === "number",
+	);
+}
+
+function isOptions(value: unknown): value is Partial<Record<string, OptionSpec>> {
+	if (!isRecord(value)) return false;
+	return Object.values(value).every(
+		(entry) =>
+			isRecord(entry) &&
+			(!("short" in entry) || entry.short === undefined || typeof entry.short === "string"),
+	);
 }
 
 const nsExtensionCommandEntryIssueFields = [

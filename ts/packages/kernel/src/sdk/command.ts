@@ -48,6 +48,19 @@ export type KernelCommandCompletionProvider = (
 	| KernelCommandCompletionResult
 	| readonly KernelCommandCompletionCandidate[];
 
+export interface ParsedKernelCommandSpec<S extends NsCommandSchema = NsCommandSchema, T = unknown> {
+	readonly schema: S;
+	readonly resultSchema?: z.ZodType<T>;
+	readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+	readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
+	readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+	readonly completionProvider?: KernelCommandCompletionProvider;
+	run(ctx: NsExtensionApi, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
+}
+
+const parsedKernelCommandSpec = Symbol("ns.parsed-kernel-command-spec");
+
 export interface KernelCommand<T = unknown> {
 	readonly name: string;
 	readonly summary: string;
@@ -57,6 +70,7 @@ export interface KernelCommand<T = unknown> {
 		invocation: KernelCommandInvocation,
 	): Promise<CommandExit<T>> | CommandExit<T>;
 	complete?: ExplicitUndefined<"public-api-compatibility", KernelCommandCompletionProvider>;
+	readonly [parsedKernelCommandSpec]?: unknown;
 }
 
 export interface DefineCommandSpec<S extends NsCommandSchema, T> {
@@ -89,6 +103,7 @@ export function defineCommand<S extends NsCommandSchema, T>(
 		name: spec.name,
 		summary: spec.summary,
 		description: spec.description,
+		[parsedKernelCommandSpec]: parsedSpecForDefinedCommand(spec),
 		async run(ctx, invocation) {
 			return await runDefinedCommand(ctx, invocation, spec);
 		},
@@ -169,9 +184,10 @@ function buildDefinedCommandCli<S extends NsCommandSchema, T>(
 ): ClinkrGroup<NsExtensionApi> {
 	const commandPath = invocation.commandPath ?? [spec.name];
 	const parentPath = commandPath.slice(0, -1);
+	const leafName = commandPath.at(-1) ?? spec.name;
 	const cli = new ClinkrGroup<NsExtensionApi>({ name: ["ns", ...parentPath].join(" ") });
 	cli.command({
-		name: spec.name,
+		name: leafName,
 		description: spec.description,
 		summary: spec.summary,
 		schema: spec.schema,
@@ -188,16 +204,174 @@ function buildDefinedCommandCli<S extends NsCommandSchema, T>(
 	return cli;
 }
 
+export function parsedSpecForCommand(
+	command: KernelCommand,
+): ParsedKernelCommandSpec<NsCommandSchema, unknown> | undefined {
+	const spec = command[parsedKernelCommandSpec];
+	if (spec === undefined) return undefined;
+	return spec as ParsedKernelCommandSpec<NsCommandSchema, unknown>;
+}
+
+export function defineParsedCommand<S extends NsCommandSchema, T>(options: {
+	readonly name: string;
+	readonly summary: string;
+	readonly description: string;
+	readonly schema: S;
+	readonly resultSchema?: z.ZodType<T>;
+	readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+	readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
+	readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+	readonly completionProvider?: KernelCommandCompletionProvider;
+	readonly run: (
+		ctx: NsExtensionApi,
+		request: z.output<S>,
+	) => Promise<CommandExit<T>> | CommandExit<T>;
+}): KernelCommand<T> {
+	const completionProvider = options.completionProvider;
+	const command: KernelCommand<T> = {
+		name: options.name,
+		summary: options.summary,
+		description: options.description,
+		[parsedKernelCommandSpec]: {
+			schema: options.schema,
+			...(options.resultSchema === undefined ? {} : { resultSchema: options.resultSchema }),
+			...(options.positionals === undefined ? {} : { positionals: options.positionals }),
+			...(options.options === undefined ? {} : { options: options.options }),
+			...(options.renderHuman === undefined ? {} : { renderHuman: options.renderHuman }),
+			...(options.renderMarkdown === undefined ? {} : { renderMarkdown: options.renderMarkdown }),
+			...(options.completionProvider === undefined
+				? {}
+				: { completionProvider: options.completionProvider }),
+			run: options.run,
+		},
+		async run(ctx, invocation) {
+			return await runParsedCommand(ctx, invocation, options);
+		},
+		...(completionProvider === undefined
+			? {}
+			: {
+					complete: async (ctx: NsExtensionApi, request: KernelCommandCompletionRequest) =>
+						await completionProvider(ctx, request),
+				}),
+	};
+	return command;
+}
+
+function parsedSpecForDefinedCommand<S extends NsCommandSchema, T>(
+	spec: DefineCommandSpec<S, T>,
+): ParsedKernelCommandSpec<NsCommandSchema, T> {
+	return {
+		schema: spec.schema,
+		resultSchema: spec.resultSchema,
+		...(spec.positionals === undefined ? {} : { positionals: spec.positionals }),
+		...(spec.options === undefined ? {} : { options: spec.options }),
+		...(spec.renderHuman === undefined ? {} : { renderHuman: spec.renderHuman }),
+		...(spec.renderMarkdown === undefined ? {} : { renderMarkdown: spec.renderMarkdown }),
+		...(spec.completionProvider === undefined
+			? {}
+			: { completionProvider: spec.completionProvider }),
+		run: spec.handler,
+	};
+}
+
+async function runParsedCommand<S extends NsCommandSchema, T>(
+	ctx: NsExtensionApi,
+	invocation: KernelCommandInvocation,
+	options: {
+		readonly name: string;
+		readonly summary: string;
+		readonly description: string;
+		readonly schema: S;
+		readonly resultSchema?: z.ZodType<T>;
+		readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+		readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+		readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
+		readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+		readonly completionProvider?: KernelCommandCompletionProvider;
+		readonly run: (
+			ctx: NsExtensionApi,
+			request: z.output<S>,
+		) => Promise<CommandExit<T>> | CommandExit<T>;
+	},
+): Promise<CommandExit<T>> {
+	let capturedExit: CommandExit<T> | undefined;
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const cli = buildParsedCommandCli(invocation, options, (exit) => {
+		capturedExit = withRenderOverrides(exit, options, ctx.renderCapabilities);
+		return capturedExit;
+	});
+	const exitCode = await cli.run([options.name, ...invocation.argv], {
+		context: ctx,
+		io: captureIo(ctx, stdout, stderr),
+	});
+	if (capturedExit !== undefined) return capturedExit;
+	const stdoutText = stdout.join("").trimEnd();
+	const stderrText = stderr.join("").trimEnd();
+	if (exitCode === 0) {
+		if (isJsonSchemaInvocation(invocation.argv)) return jsonSchemaExit<T>(stdoutText);
+		return ok(stdoutText, { human: stdoutText, markdown: stdoutText }) as CommandExit<T>;
+	}
+	return usageError(
+		stderrText === "" ? `Invalid invocation for command ${options.name}.` : stderrText,
+		{ command: options.name },
+	);
+}
+
+function buildParsedCommandCli<S extends NsCommandSchema, T>(
+	invocation: KernelCommandInvocation,
+	options: {
+		readonly name: string;
+		readonly summary: string;
+		readonly description: string;
+		readonly schema: S;
+		readonly resultSchema?: z.ZodType<T>;
+		readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+		readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+		readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
+		readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+		readonly completionProvider?: KernelCommandCompletionProvider;
+		readonly run: (
+			ctx: NsExtensionApi,
+			request: z.output<S>,
+		) => Promise<CommandExit<T>> | CommandExit<T>;
+	},
+	onExit: (exit: CommandExit<T>) => CommandExit<T>,
+): ClinkrGroup<NsExtensionApi> {
+	const commandPath = invocation.commandPath ?? [options.name];
+	const parentPath = commandPath.slice(0, -1);
+	const leafName = commandPath.at(-1) ?? options.name;
+	const cli = new ClinkrGroup<NsExtensionApi>({ name: ["ns", ...parentPath].join(" ") });
+	cli.command({
+		name: leafName,
+		description: options.description,
+		summary: options.summary,
+		schema: options.schema,
+		...(options.resultSchema === undefined ? {} : { resultSchema: options.resultSchema }),
+		...(options.positionals === undefined ? {} : { positionals: options.positionals }),
+		...(options.options === undefined ? {} : { options: options.options }),
+		...(options.renderHuman === undefined ? {} : { renderHuman: options.renderHuman }),
+		...(options.renderMarkdown === undefined ? {} : { renderMarkdown: options.renderMarkdown }),
+		...(options.completionProvider === undefined
+			? {}
+			: { completionProvider: options.completionProvider }),
+		handler: async (ctx, request) => onExit(await options.run(ctx, request)),
+	});
+	return cli;
+}
+
 function withRenderOverrides<T>(
 	exit: CommandExit<T>,
-	spec: Pick<
-		DefineCommandSpec<NsCommandSchema, T>,
-		"resultSchema" | "renderHuman" | "renderMarkdown"
-	>,
+	spec: {
+		readonly resultSchema?: z.ZodType<T>;
+		readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
+		readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+	},
 	caps: RenderCapabilities,
 ): CommandExit<T> {
 	if (exit.type !== "ok") return exit;
-	const data = spec.resultSchema.parse(exit.data);
+	const data = spec.resultSchema === undefined ? exit.data : spec.resultSchema.parse(exit.data);
 	return {
 		type: "ok",
 		data,

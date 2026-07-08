@@ -69,13 +69,13 @@ import {
 	commandPathMatches,
 	commandSegments,
 	extensionCommandFailedExit,
-	formatUnknownError,
 	listStaticNsCommandInfos,
 	validateCommandExit,
 	type NsCommandInfo,
 	type NsCommandCliInfo,
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
+import { parsedSpecForCommand } from "../sdk/command.ts";
 
 export type { NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
@@ -259,14 +259,60 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? undefined
 					: selectedCommand;
+			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
+			if (command !== undefined && parsedCommandSpec !== undefined) {
+				parent.command({
+					name: cliLeafCommandName(commandInfo),
+					description: commandInfo.fullDescription,
+					summary: commandInfo.description,
+					schema: parsedCommandSpec.schema,
+					...(parsedCommandSpec.resultSchema === undefined
+						? {}
+						: { resultSchema: parsedCommandSpec.resultSchema }),
+					...(parsedCommandSpec.positionals === undefined
+						? {}
+						: { positionals: parsedCommandSpec.positionals }),
+					...(parsedCommandSpec.options === undefined
+						? {}
+						: { options: parsedCommandSpec.options }),
+					...(parsedCommandSpec.renderHuman === undefined
+						? {}
+						: { renderHuman: parsedCommandSpec.renderHuman }),
+					...(parsedCommandSpec.renderMarkdown === undefined
+						? {}
+						: { renderMarkdown: parsedCommandSpec.renderMarkdown }),
+					...(parsedCommandSpec.completionProvider === undefined
+						? {}
+						: {
+								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
+									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
+							}),
+					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
+					handler: async (ctx, request) => {
+						try {
+							return validateCommandExit(
+								await parsedCommandSpec.run(ctx.context, request),
+								command.name,
+							);
+						} catch (error) {
+							return extensionCommandFailedExit(command.name, error);
+						}
+					},
+				});
+				continue;
+			}
 			parent.command(
 				rawCommand({
 					name: cliLeafCommandName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
-					schema: passthroughSchema,
-					positionals: { argv: { position: 0 } },
-					passThrough: true,
+					...(command === undefined
+						? { schema: placeholderSchema }
+						: {
+								schema: passthroughSchema,
+								positionals: { argv: { position: 0 } },
+								passThrough: true as const,
+							}),
 					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
 					...(command?.complete === undefined
 						? {}
@@ -275,14 +321,20 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 									command.complete?.(ctx.context, request) ?? [],
 							}),
 					run: async (ctx, request) => {
-						const result =
-							command === undefined
-								? failure(
-										"unknown-command",
-										`Unknown ns command: ${commandDisplayName(commandInfo)}`,
-										{ command: commandDisplayName(commandInfo) },
-									)
-								: await runPassthroughCommand(ctx, command, request.argv, commandInfo);
+						if (command === undefined) {
+							const result = failure(
+								"unknown-command",
+								`Unknown ns command: ${commandDisplayName(commandInfo)}`,
+								{ command: commandDisplayName(commandInfo) },
+							);
+							return emitExit(result, { format: ctx.context.outputFormat ?? "human", io: ctx });
+						}
+						const result = await runPassthroughCommand(
+							ctx,
+							command,
+							passthroughSchema.parse(request).argv,
+							commandInfo,
+						);
 						return emitExit(result, { format: ctx.context.outputFormat ?? "human", io: ctx });
 					},
 				}),
@@ -361,9 +413,7 @@ async function handleCompletionResolverInvocation(options: {
 		{ words },
 		{
 			context,
-			onDynamicCompletionError: (error) => {
-				options.stderr(`completion provider failed: ${formatUnknownError(error)}\n`);
-			},
+			onDynamicCompletionError: () => {},
 		},
 	);
 	options.stdout(renderCompletionCandidatesNewline(candidates));
@@ -492,6 +542,7 @@ function requestedCommandKey(
 }
 
 const passthroughSchema = z.object({ argv: z.array(z.string()).default([]) });
+const placeholderSchema = z.object({});
 
 function requestedGroupSegments(
 	args: readonly string[],
