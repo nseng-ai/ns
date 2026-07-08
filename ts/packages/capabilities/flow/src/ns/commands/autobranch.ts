@@ -10,7 +10,6 @@ import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/mod
 import { commandIoFromNsExtensionApi } from "@nseng-ai/kernel/command-io";
 import {
 	defineCommand,
-	defineExtension,
 	negative,
 	ok,
 	z,
@@ -120,9 +119,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	},
 });
 
-export default defineExtension({
-	commands: [flowAutobranchCommand],
-});
+export default flowAutobranchCommand;
 
 type AutobranchCheckpointResult =
 	| { ok: true; root: string; summary: string; warnings: string[] }

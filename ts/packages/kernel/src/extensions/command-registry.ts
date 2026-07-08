@@ -10,6 +10,7 @@ import {
 	type PositionalSpec,
 	type RenderCapabilities,
 } from "../sdk/index.ts";
+import { validateLoadedCommandName, type ExtensionCommandEntry } from "../sdk/descriptor.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
@@ -69,7 +70,9 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 	},
 };
 
-const nsCommandSchema = z
+const NS_EXEC_COMMAND_PREFIX = "exec-";
+
+const descriptorCommandSchema = z
 	.object({
 		name: z.string(),
 		summary: z.string(),
@@ -97,10 +100,6 @@ interface ParsedDescriptorCommandContribution {
 		request: unknown,
 	): ReturnType<DescriptorCommand["run"]>;
 }
-
-const nsExtensionSchema = z.object({
-	commands: z.array(nsCommandSchema).optional().default([]),
-});
 
 export function commandSegments(path: NsCommandPath): readonly string[] {
 	if (path.segments !== undefined) return path.segments;
@@ -183,37 +182,26 @@ export function commandInfoForLoadedCommand(
 	});
 }
 
-export function validateNsExtensionContribution(
+export function validateDescriptorCommandContribution(
 	contribution: unknown,
-	expectedPath: NsCommandPath | string,
+	entry: ExtensionCommandEntry,
 	sourceLabel: string,
-	contributionLabel = "ns extension contribution",
 ): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
-	const expectedName =
-		typeof expectedPath === "string" ? expectedPath : commandLeafName(expectedPath);
-	const parsed = nsExtensionSchema.safeParse(contribution);
+	const parsed = descriptorCommandSchema.safeParse(contribution);
 	if (!parsed.success) {
 		return {
 			ok: false,
-			message: `Invalid ${contributionLabel} ${sourceLabel}: ${formatNsExtensionIssue(parsed.error.issues[0])}`,
+			message: `Invalid ns descriptor command ${sourceLabel}: ${formatNsCommandIssue(parsed.error.issues[0])}`,
 		};
 	}
-
-	const originalCommands =
-		isRecord(contribution) && Array.isArray(contribution.commands)
-			? (contribution.commands as readonly DescriptorCommand[])
-			: parsed.data.commands;
-	const command = findCommandEntry({ commands: originalCommands }, expectedName);
-	if (command === undefined) {
+	const nameValidation = validateLoadedCommandName(entry, parsed.data);
+	if (!nameValidation.ok && parsed.data.name !== `${NS_EXEC_COMMAND_PREFIX}${entry.name}`) {
 		return {
 			ok: false,
-			message: `Invalid ${contributionLabel} ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
+			message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
 		};
 	}
-	const parsedCommand = adaptParsedDescriptorCommand(command, contributionLabel, sourceLabel);
-	if (!parsedCommand.ok) return parsedCommand;
-
-	return { ok: true, command: parsedCommand.command };
+	return adaptParsedDescriptorCommand(contribution as DescriptorCommand, sourceLabel);
 }
 
 export function extensionCommandFailedExit(
@@ -240,16 +228,8 @@ export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function findCommandEntry(
-	extension: { commands: readonly DescriptorCommand[] },
-	expectedName: string,
-): DescriptorCommand | undefined {
-	return extension.commands.find((command) => command.name === expectedName);
-}
-
 function adaptParsedDescriptorCommand(
 	command: DescriptorCommand,
-	contributionLabel: string,
 	sourceLabel: string,
 ): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
 	if (!isRecord(command) || !("schema" in command)) return { ok: true, command };
@@ -257,7 +237,7 @@ function adaptParsedDescriptorCommand(
 	if (!parsed.ok) {
 		return {
 			ok: false,
-			message: `Invalid ${contributionLabel} ${sourceLabel}: ${parsed.message}`,
+			message: `Invalid ns descriptor command ${sourceLabel}: ${parsed.message}`,
 		};
 	}
 	return {
@@ -292,6 +272,8 @@ function parseParsedDescriptorCommand(
 	command: DescriptorCommand,
 ): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false; message: string } {
 	if (!isRecord(command)) return { ok: false, message: "command must be an object." };
+	const bridgedSpec = parseBridgedParsedCommandSpec(command);
+	if (bridgedSpec.ok) return bridgedSpec;
 	if (!(command.schema instanceof z.ZodObject)) {
 		return {
 			ok: false,
@@ -320,6 +302,39 @@ function parseParsedDescriptorCommand(
 	};
 }
 
+function parseBridgedParsedCommandSpec(
+	command: DescriptorCommand,
+): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false } {
+	if (!isRecord(command)) return { ok: false };
+	const spec = command["nsParsedCommandSpec"];
+	if (!isRecord(spec)) return { ok: false };
+	if (!isZodObjectLike(spec.schema) || typeof spec.run !== "function") {
+		return { ok: false };
+	}
+	return {
+		ok: true,
+		command: {
+			name: command.name,
+			summary: command.summary,
+			description: command.description,
+			schema: spec.schema,
+			...(spec.resultSchema instanceof z.ZodType ? { resultSchema: spec.resultSchema } : {}),
+			...(isPositionals(spec.positionals) ? { positionals: spec.positionals } : {}),
+			...(isOptions(spec.options) ? { options: spec.options } : {}),
+			...(isRenderFunction(spec.renderHuman) ? { renderHuman: spec.renderHuman } : {}),
+			...(isRenderFunction(spec.renderMarkdown) ? { renderMarkdown: spec.renderMarkdown } : {}),
+			...(isCompletionProvider(spec.completionProvider)
+				? { completionProvider: spec.completionProvider }
+				: {}),
+			run: spec.run as ParsedDescriptorCommandContribution["run"],
+		},
+	};
+}
+
+function isZodObjectLike(value: unknown): value is z.ZodObject {
+	return isRecord(value) && typeof value.safeParse === "function";
+}
+
 function isCompletionProvider(value: unknown): value is DescriptorCommand["complete"] {
 	return typeof value === "function";
 }
@@ -346,7 +361,7 @@ function isOptions(value: unknown): value is Partial<Record<string, OptionSpec>>
 	);
 }
 
-const nsExtensionCommandEntryIssueFields = [
+const nsCommandEntryIssueFields = [
 	{ field: "name", message: "command name must be a string" },
 	{ field: "summary", message: "command summary must be a string" },
 	{ field: "description", message: "command description must be a string" },
@@ -354,43 +369,32 @@ const nsExtensionCommandEntryIssueFields = [
 	{ field: "run", message: "command run must be a function" },
 ] as const satisfies readonly { field: string; message: string }[];
 
-type NsExtensionCommandEntryIssueField =
-	(typeof nsExtensionCommandEntryIssueFields)[number]["field"];
+type NsCommandEntryIssueField = (typeof nsCommandEntryIssueFields)[number]["field"];
 
-type NsExtensionIssueKind =
-	| "invalid-extension"
-	| "commands-not-array"
-	| NsExtensionCommandEntryIssueField
-	| "entry-other";
+type NsCommandIssueKind = "invalid-command" | NsCommandEntryIssueField | "entry-other";
 
-const nsExtensionIssueRules: readonly ZodIssuePathRule<NsExtensionIssueKind>[] = [
-	{ pattern: ["commands"], match: "exact", value: "commands-not-array" },
-	...nsExtensionCommandEntryIssueFields.map(
+const nsCommandIssueRules: readonly ZodIssuePathRule<NsCommandIssueKind>[] =
+	nsCommandEntryIssueFields.map(
 		({ field }) =>
 			({
-				pattern: ["commands", { type: "number" }, field],
+				pattern: [field],
 				match: "exact",
 				value: field,
-			}) satisfies ZodIssuePathRule<NsExtensionIssueKind>,
-	),
-	{ pattern: ["commands"], match: "prefix", value: "entry-other" },
-];
+			}) satisfies ZodIssuePathRule<NsCommandIssueKind>,
+	);
 
-function formatNsExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
-	const kind = classifyZodIssuePath(issue, nsExtensionIssueRules, "invalid-extension");
-	if (kind === "invalid-extension") {
-		return "default export must be an extension object created with defineExtension().";
+function formatNsCommandIssue(issue: z.core.$ZodIssue | undefined): string {
+	const kind = classifyZodIssuePath(issue, nsCommandIssueRules, "invalid-command");
+	if (kind === "invalid-command") {
+		return "default export must be a command object.";
 	}
-	if (kind === "commands-not-array") {
-		return "ns extension commands must be an array of command entries.";
-	}
-	return `Invalid ns command entry in extension: ${formatNsCommandEntryIssueKind(kind)}.`;
+	return `Invalid ns descriptor command: ${formatNsCommandEntryIssueKind(kind)}.`;
 }
 
 function formatNsCommandEntryIssueKind(
-	kind: Exclude<NsExtensionIssueKind, "invalid-extension" | "commands-not-array">,
+	kind: Exclude<NsCommandIssueKind, "invalid-command">,
 ): string {
-	const entry = nsExtensionCommandEntryIssueFields.find((field) => field.field === kind);
+	const entry = nsCommandEntryIssueFields.find((field) => field.field === kind);
 	if (entry !== undefined) return entry.message;
 	return "command entry must include name, summary, description, and run";
 }

@@ -1,12 +1,5 @@
 import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
-import {
-	defineCommand,
-	defineExtension,
-	negative,
-	ok,
-	z,
-	type NsCommand,
-} from "@nseng-ai/kernel/sdk";
+import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { type GitErrorInfo, type GitGateway } from "@nseng-ai/capability-kit/git";
 
@@ -34,9 +27,7 @@ export const flowPushCommand: NsCommand = defineCommand({
 	handler: async (ctx) => await runPush(ctx),
 });
 
-export default defineExtension({
-	commands: [flowPushCommand],
-});
+export default flowPushCommand;
 
 export type RunPushCoreResult =
 	| { type: "dirty" }

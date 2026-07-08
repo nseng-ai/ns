@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { checkResultSchema, handleCheck, keyRequestSchema } from "../../core/operations.ts";
 
@@ -13,6 +11,4 @@ export const branchContextCheckNsCommand = branchContextCommand({
 	handler: handleCheck,
 });
 
-export default defineExtension({
-	commands: [branchContextCheckNsCommand],
-});
+export default branchContextCheckNsCommand;

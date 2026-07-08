@@ -1,5 +1,5 @@
 import { createNsCwdEnvStdinContext } from "@nseng-ai/capability-kit/ns-context";
-import { defineExtension, type NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
@@ -12,10 +12,6 @@ export function prAddressNsCommand(operationName: string) {
 
 export function prAddressOperationNsCommand(operation: ExecOperation) {
 	return operation.toNsCommand(createExecContext);
-}
-
-export function prAddressNsExtension(operationName: string) {
-	return defineExtension({ commands: [prAddressNsCommand(operationName)] });
 }
 
 function createExecContext(ctx: NsExtensionApi): PrAddressExecContext {

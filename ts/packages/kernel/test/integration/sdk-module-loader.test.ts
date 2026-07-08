@@ -41,11 +41,9 @@ test("repo-local extensions can import package subpaths without source aliases",
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
 	const addressDownloadFeedbackModule = await jiti.import<{
-		default: { commands?: readonly { name: string }[] };
+		default: { name: string };
 	}>("@nseng-ai/pr-feedback/ns/commands/exec-download-feedback");
-	expect(addressDownloadFeedbackModule.default.commands?.map((command) => command.name)).toEqual([
-		"exec-download-feedback",
-	]);
+	expect(addressDownloadFeedbackModule.default.name).toBe("exec-download-feedback");
 
 	const retrosCollectEvidenceModule = await jiti.import<{
 		retrosExecCollectEvidenceNsCommand: { name: string };
@@ -55,11 +53,9 @@ test("repo-local extensions can import package subpaths without source aliases",
 	);
 
 	const branchContextFromPlanModule = await jiti.import<{
-		default: { commands?: readonly { name: string }[] };
+		default: { name: string };
 	}>("@nseng-ai/branch-context/ns/commands/from-plan");
-	expect(branchContextFromPlanModule.default.commands?.map((command) => command.name)).toEqual([
-		"from-plan",
-	]);
+	expect(branchContextFromPlanModule.default.name).toBe("from-plan");
 
 	const handoffListModule = await jiti.import<{
 		handoffListNsCommand: { name: string };

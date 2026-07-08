@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { handoffNsCommand } from "../command.ts";
 import {
 	deleteRequestSchema,
@@ -20,6 +18,4 @@ export const handoffDeleteNsCommand = handoffNsCommand({
 	renderHuman: renderDelete,
 });
 
-export default defineExtension({
-	commands: [handoffDeleteNsCommand],
-});
+export default handoffDeleteNsCommand;

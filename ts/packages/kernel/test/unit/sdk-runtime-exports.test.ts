@@ -92,7 +92,7 @@ describe("@nseng-ai/kernel/sdk runtime exports", () => {
 	});
 
 	test("defineExtension preserves the extension object at runtime", () => {
-		const extension = {};
+		const extension = { description: "Runtime descriptor." };
 		expect(defineExtension(extension)).toBe(extension);
 	});
 });

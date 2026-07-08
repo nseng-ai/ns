@@ -26,7 +26,6 @@ export type {
 	NsCommandCompletionProvider,
 	NsCommandRequest,
 	NsCommandSchema,
-	NsExtension,
 	OptionSpec,
 } from "./command.ts";
 export type {

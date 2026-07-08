@@ -5,12 +5,8 @@ function slotCommandEntry(commandName: string): ExtensionEntry {
 }
 
 async function loadSlotCommand(commandName: string): Promise<{ readonly default: NsCommand }> {
-	const slotExtension = (await import("./extension.ts")).default;
-	const command = slotExtension.commands?.find((candidate) => candidate.name === commandName);
-	if (command === undefined) {
-		throw new Error(`Missing Slot ns command ${commandName}.`);
-	}
-	return { default: command };
+	const { loadSlotNsCommand } = await import("./slot-ns-command.ts");
+	return { default: loadSlotNsCommand(commandName) };
 }
 
 export default defineExtension({

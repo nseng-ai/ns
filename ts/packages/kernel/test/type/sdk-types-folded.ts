@@ -42,31 +42,32 @@ const positionalSpec: PositionalSpec = { position: 0 };
 // @ts-expect-error name is required by the command schema output
 const missingNameRequest: CommandRequest = { retries: 1 };
 
-const extension = defineExtension({
-	commands: [
-		defineCommand({
-			name: "greet",
-			summary: "Greet someone.",
-			description: "Greet someone with retry metadata.",
-			schema: commandSchema,
-			resultSchema: z.string(),
-			positionals: { name: positionalSpec },
-			handler(_ctx, request) {
-				type Request = typeof request;
-				const checks: [
-					Assert<IsAny<Request> extends false ? true : false>,
-					Assert<IsEqual<Request, { name: string; retries: number }>>,
-				] = [true, true];
-				void checks;
-				// @ts-expect-error missing is not part of the command schema
-				void request.missing;
-				return ok(`${request.name}:${request.retries}`);
-			},
-		}),
-	],
+const greetCommand = defineCommand({
+	name: "greet",
+	summary: "Greet someone.",
+	description: "Greet someone with retry metadata.",
+	schema: commandSchema,
+	resultSchema: z.string(),
+	positionals: { name: positionalSpec },
+	handler(_ctx, request) {
+		type Request = typeof request;
+		const checks: [
+			Assert<IsAny<Request> extends false ? true : false>,
+			Assert<IsEqual<Request, { name: string; retries: number }>>,
+		] = [true, true];
+		void checks;
+		// @ts-expect-error missing is not part of the command schema
+		void request.missing;
+		return ok(`${request.name}:${request.retries}`);
+	},
 });
 
-const commandlessExtension = defineExtension({});
+const extension = defineExtension({
+	description: "Greet extension.",
+	entries: [{ name: "greet", load: () => ({ default: greetCommand }) }],
+});
+
+const commandlessExtension = defineExtension({ description: "Commandless descriptor." });
 
 const textGenerator: TextGenerator = {
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {

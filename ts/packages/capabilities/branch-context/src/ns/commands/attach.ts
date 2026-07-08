@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { attachRequestSchema, attachResultSchema, handleAttach } from "../../core/operations.ts";
 
@@ -14,6 +12,4 @@ export const branchContextAttachNsCommand = branchContextCommand({
 	handler: handleAttach,
 });
 
-export default defineExtension({
-	commands: [branchContextAttachNsCommand],
-});
+export default branchContextAttachNsCommand;

@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { harnessArtifactsNsCommand } from "../command.ts";
 import {
 	nsUpdateRequestSchema,
@@ -23,6 +21,4 @@ export const nsUpdateCommand = harnessArtifactsNsCommand({
 	renderHuman: renderNsUpdateHuman,
 });
 
-export default defineExtension({
-	commands: [nsUpdateCommand],
-});
+export default nsUpdateCommand;

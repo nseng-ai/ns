@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { handleLoad, loadPlanResultSchema, loadRequestSchema } from "../../core/operations.ts";
 
@@ -14,6 +12,4 @@ export const branchContextLoadNsCommand = branchContextCommand({
 	handler: handleLoad,
 });
 
-export default defineExtension({
-	commands: [branchContextLoadNsCommand],
-});
+export default branchContextLoadNsCommand;

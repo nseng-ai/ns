@@ -1,6 +1,4 @@
 import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	renderShowObjectiveHuman,
@@ -23,6 +21,4 @@ export const objectiveShowNsCommand = objectiveNsCommand({
 	renderMarkdown: renderShowObjectiveMarkdown,
 });
 
-export default defineExtension({
-	commands: [objectiveShowNsCommand],
-});
+export default objectiveShowNsCommand;

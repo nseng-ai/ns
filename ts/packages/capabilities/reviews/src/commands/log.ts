@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import {
 	renderReviewLog,
 	reviewLogRequestSchema,
@@ -24,8 +22,6 @@ export const reviewLogCommand = reviewsNsCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [reviewLogCommand],
-});
+export default reviewLogCommand;
 
 export type ReviewLogCommandRequest = ReviewLogRequest;

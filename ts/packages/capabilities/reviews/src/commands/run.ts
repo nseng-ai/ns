@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { reviewRunResultSchema } from "../core/models.ts";
 import {
 	renderReviewRun,
@@ -34,8 +32,6 @@ export const reviewRunCommand = reviewsNsCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [reviewRunCommand],
-});
+export default reviewRunCommand;
 
 export type ReviewRunCommandRequest = ReviewRunRequest;

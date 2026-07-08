@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import {
 	initObjectives,
 	initObjectivesRequestSchema,
@@ -20,6 +18,4 @@ export const nsInitNsCommand = nsInitCommand({
 	renderHuman: renderInitObjectivesHuman,
 });
 
-export default defineExtension({
-	commands: [nsInitNsCommand],
-});
+export default nsInitNsCommand;

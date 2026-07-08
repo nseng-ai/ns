@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	readObjectiveRequestSchema,
@@ -20,6 +18,4 @@ export const objectiveExecReadObjectiveNsCommand = objectiveNsCommand({
 	renderMarkdown: renderReadObjective,
 });
 
-export default defineExtension({
-	commands: [objectiveExecReadObjectiveNsCommand],
-});
+export default objectiveExecReadObjectiveNsCommand;

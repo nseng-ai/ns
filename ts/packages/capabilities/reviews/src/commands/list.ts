@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import {
 	renderReviewList,
 	reviewListRequestSchema,
@@ -42,8 +40,6 @@ export const reviewListCommand = createReviewListCommand({
 	description: REVIEW_LIST_DESCRIPTION,
 });
 
-export default defineExtension({
-	commands: [reviewListCommand],
-});
+export default reviewListCommand;
 
 export type ReviewListCommandRequest = ReviewListRequest;

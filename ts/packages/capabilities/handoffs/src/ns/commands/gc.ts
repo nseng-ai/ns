@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { handoffNsCommand } from "../command.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../../core/operations/gc.ts";
 
@@ -14,6 +12,4 @@ export const handoffGcNsCommand = handoffNsCommand({
 	renderHuman: renderGc,
 });
 
-export default defineExtension({
-	commands: [handoffGcNsCommand],
-});
+export default handoffGcNsCommand;

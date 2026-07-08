@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	loadOrientationsRequestSchema,
@@ -19,6 +17,4 @@ export const objectiveExecLoadOrientationsNsCommand = objectiveNsCommand({
 	renderMarkdown: renderLoadOrientationsMarkdown,
 });
 
-export default defineExtension({
-	commands: [objectiveExecLoadOrientationsNsCommand],
-});
+export default objectiveExecLoadOrientationsNsCommand;

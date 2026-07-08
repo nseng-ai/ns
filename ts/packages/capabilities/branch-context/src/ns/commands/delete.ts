@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { deleteResultSchema, handleDelete, keyRequestSchema } from "../../core/operations.ts";
 
@@ -13,6 +11,4 @@ export const branchContextDeleteNsCommand = branchContextCommand({
 	handler: handleDelete,
 });
 
-export default defineExtension({
-	commands: [branchContextDeleteNsCommand],
-});
+export default branchContextDeleteNsCommand;

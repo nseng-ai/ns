@@ -28,16 +28,16 @@ The exports are grouped by the role they play when authoring a command: you **de
 Declares an ns extension. The default export of every ns extension module is a call to `defineExtension()`.
 
 ```ts
-function defineExtension(extension: NsExtension): NsExtension;
+function defineExtension<const TDescriptor extends ExtensionDescriptor>(extension: TDescriptor): TDescriptor;
 ```
 
-**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve a descriptor or command-list shape while keeping command modules on the neutral `KernelCommand` contract.
+**Description.** At runtime `defineExtension()` returns its argument unchanged — it is an identity function. Its type-level job is to preserve the typed descriptor shape. Command implementation modules default-export `KernelCommand` objects directly.
 
 **Parameters.**
 
-- `extension: NsExtension` — the extension to declare. Commands are optional; `defineExtension({})` is a valid commandless extension.
+- `extension: ExtensionDescriptor` — the descriptor to declare. A commandless descriptor still needs `description` and can omit `entries`.
 
-**Returns.** The same `NsExtension`, with command types preserved.
+**Returns.** The same descriptor, with literal types preserved.
 
 **Notes.**
 
@@ -47,40 +47,13 @@ function defineExtension(extension: NsExtension): NsExtension;
 **Example.**
 
 ```ts
-import { defineExtension, ok } from "@ns/kernel/sdk";
+import { defineExtension } from "@ns/kernel/sdk";
 
 export default defineExtension({
-  commands: [
-    {
-      name: "greet",
-      summary: "Say hello.",
-      description: "Say hello with details.",
-      run: () => ok("hello"),
-    },
-  ],
+  group: "greet",
+  description: "Greeting commands.",
+  entries: [{ name: "hello", load: () => import("./commands/hello.ts") }],
 });
-```
-
-### `NsExtension`
-
-The shape of an ns extension.
-
-```ts
-interface NsExtension<TCommands extends readonly KernelCommand[] = readonly KernelCommand[]> {
-  commands?: TCommands | undefined;
-}
-```
-
-**Fields.**
-
-- `commands?` — the extension's command contributions. Omit it for an extension that contributes no commands to the current ns surface.
-
-**Example.**
-
-```ts
-// A commandless extension is valid — it simply contributes nothing to the
-// current ns surface.
-export default defineExtension({});
 ```
 
 ---
@@ -88,7 +61,7 @@ export default defineExtension({});
 ## Extension descriptors
 
 An extension package exposes its descriptor module through `package.json` `exports["./ns-extension"]`.
-The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in repo-root `ns.toml` `extensions`; it does not scan `.ns/extensions` roots or parse `package.json` `ns.commands`, `ns.points`, or `ns.harnessArtifacts` shims.
+The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in repo-root `ns.toml` `extensions`; legacy extension roots and package JSON contribution shims are not discovery inputs.
 
 Descriptor-level contributions include `entries` for commands, `points` for point definitions, and `bundledArtifacts` for harness artifacts.
 
@@ -115,19 +88,15 @@ interface KernelCommand<T = unknown> {
 **Example.** Use `defineCommand()` so `request` is inferred from `schema` while the exported command remains neutral:
 
 ```ts
-import { defineCommand, defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineCommand, ok, z } from "@ns/kernel/sdk";
 
-export default defineExtension({
-  commands: [
-    defineCommand({
-      name: "greet",
-      summary: "Greet someone.",
-      description: "Greet someone with a configurable name.",
-      schema: z.object({ name: z.string().default("world") }),
-      resultSchema: z.string(),
-      handler: (ctx, request) => ok(`hello ${request.name}`),
-    }),
-  ],
+export default defineCommand({
+  name: "greet",
+  summary: "Greet someone.",
+  description: "Greet someone with a configurable name.",
+  schema: z.object({ name: z.string().default("world") }),
+  resultSchema: z.string(),
+  handler: (ctx, request) => ok(`hello ${request.name}`),
 });
 ```
 
@@ -155,29 +124,25 @@ Provides dynamic completion candidates for the selected command without invoking
 **Example.** Complete local branch names for a positional argument:
 
 ```ts
-import { defineCommand, defineExtension, ok, z } from "@ns/kernel/sdk";
+import { defineCommand, ok, z } from "@ns/kernel/sdk";
 
-export default defineExtension({
-  commands: [
-    defineCommand({
-      name: "checkout",
-      summary: "Check out a branch.",
-      description: "Check out an existing local branch.",
-      schema: z.object({ branch: z.string().optional() }),
-      resultSchema: z.string(),
-      positionals: { branch: { position: 0 } },
-      async completionProvider(ctx) {
-        const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
-        if (result.code !== 0 || result.killed) return [];
-        return result.stdout
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0)
-          .map((value) => ({ value, type: "positional-value" }));
-      },
-      handler: (ctx, request) => ok(request.branch ?? "(current)"),
-    }),
-  ],
+export default defineCommand({
+  name: "checkout",
+  summary: "Check out a branch.",
+  description: "Check out an existing local branch.",
+  schema: z.object({ branch: z.string().optional() }),
+  resultSchema: z.string(),
+  positionals: { branch: { position: 0 } },
+  async completionProvider(ctx) {
+    const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
+    if (result.code !== 0 || result.killed) return [];
+    return result.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((value) => ({ value, type: "positional-value" }));
+  },
+  handler: (ctx, request) => ok(request.branch ?? "(current)"),
 });
 ```
 
