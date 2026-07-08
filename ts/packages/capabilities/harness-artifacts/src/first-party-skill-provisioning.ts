@@ -12,10 +12,11 @@ import type { HarnessPathContext, HarnessPathEnvironment, HarnessScope } from ".
 import {
 	applyPreparedProvision,
 	prepareProvision,
+	previewFromPrepared,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionErrorInfo,
+	type HarnessArtifactProvisionPreview,
 } from "./provision-apply.ts";
-import type { ProvisionDecisionSet, ProvisionPlan } from "./provision-plan.ts";
 
 export const FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION = "static-catalog-v1";
 export const FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE =
@@ -51,24 +52,85 @@ export interface ProvisionFirstPartySkillRequest {
 }
 
 export type ProvisionFirstPartySkillOutcome =
-	| {
+	| (HarnessArtifactProvisionPreview & {
 			type: "provisioned";
 			mode: "dry-run" | "applied";
-			plan: ProvisionPlan;
-			decisions: ProvisionDecisionSet;
-			manifestPath: string;
 			writtenFiles: readonly string[];
-	  }
-	| {
+	  })
+	| (HarnessArtifactProvisionPreview & {
 			type: "conflicted";
-			plan: ProvisionPlan;
-			decisions: ProvisionDecisionSet;
-			manifestPath: string;
 			conflictingFiles: readonly string[];
-	  }
+	  })
 	| { type: "unknown-skill"; skill: string }
 	| { type: "catalog-source-unavailable"; message: string }
 	| { type: "error"; error: HarnessArtifactProvisionErrorInfo };
+
+/**
+ * Canonical core sentence for a provision conflict. Adapters add their own
+ * surface framing (CLI remedies, ns-init materialization context) around it.
+ */
+export function describeProvisionConflict(conflictingFiles: readonly string[]): string {
+	return `${conflictingFiles.length} locally edited target file(s)`;
+}
+
+export type ProvisionFirstPartySkillFailure =
+	| { code: "catalog-source-unavailable"; message: string }
+	| { code: "unknown-skill"; message: string; skill: string }
+	| { code: "provision-error"; message: string; error: HarnessArtifactProvisionErrorInfo }
+	| {
+			code: "conflicted";
+			message: string;
+			manifestPath: string;
+			conflictingFiles: readonly string[];
+	  };
+
+export type SplitProvisionFirstPartySkillOutcome =
+	| { type: "success"; outcome: Extract<ProvisionFirstPartySkillOutcome, { type: "provisioned" }> }
+	| { type: "failure"; failure: ProvisionFirstPartySkillFailure };
+
+/**
+ * Splits a provisioning outcome into success vs failure so thin adapters can
+ * do one two-way branch and then map the stable failure descriptor onto their
+ * own surface (exit codes, remedies, per-harness framing). The descriptor
+ * carries only domain facts; it never learns CLI flags or adapter phrasing.
+ */
+export function splitProvisionFirstPartySkillOutcome(
+	outcome: ProvisionFirstPartySkillOutcome,
+): SplitProvisionFirstPartySkillOutcome {
+	switch (outcome.type) {
+		case "provisioned":
+			return { type: "success", outcome };
+		case "catalog-source-unavailable":
+			return {
+				type: "failure",
+				failure: { code: "catalog-source-unavailable", message: outcome.message },
+			};
+		case "unknown-skill":
+			return {
+				type: "failure",
+				failure: {
+					code: "unknown-skill",
+					message: `Unknown first-party ns skill ${JSON.stringify(outcome.skill)}.`,
+					skill: outcome.skill,
+				},
+			};
+		case "error":
+			return {
+				type: "failure",
+				failure: { code: "provision-error", message: outcome.error.message, error: outcome.error },
+			};
+		case "conflicted":
+			return {
+				type: "failure",
+				failure: {
+					code: "conflicted",
+					message: describeProvisionConflict(outcome.conflictingFiles),
+					manifestPath: outcome.manifestPath,
+					conflictingFiles: outcome.conflictingFiles,
+				},
+			};
+	}
+}
 
 /**
  * Deep first-party skill provisioning operation: resolves the catalog source
@@ -106,9 +168,7 @@ export async function provisionFirstPartySkill(
 		return {
 			type: "provisioned",
 			mode: "dry-run",
-			plan: prepared.value.plan,
-			decisions: prepared.value.decisions,
-			manifestPath: prepared.value.manifestPath,
+			...previewFromPrepared(prepared.value),
 			writtenFiles: [],
 		};
 	}
@@ -119,18 +179,14 @@ export async function provisionFirstPartySkill(
 	if (applied.value.outcome === "conflicted") {
 		return {
 			type: "conflicted",
-			plan: applied.value.plan,
-			decisions: applied.value.decisions,
-			manifestPath: applied.value.manifestPath,
+			...previewFromPrepared(prepared.value),
 			conflictingFiles: applied.value.conflictingFiles,
 		};
 	}
 	return {
 		type: "provisioned",
 		mode: "applied",
-		plan: applied.value.plan,
-		decisions: applied.value.decisions,
-		manifestPath: applied.value.manifestPath,
+		...previewFromPrepared(prepared.value),
 		writtenFiles: applied.value.writtenFiles,
 	};
 }

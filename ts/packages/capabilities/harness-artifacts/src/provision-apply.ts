@@ -133,22 +133,6 @@ const installManifestSchema: z.ZodType<InstallManifestData> = z.object({
 
 export { nodeHarnessArtifactFileSystemGateway };
 
-export async function previewHarnessArtifactProvision(
-	request: HarnessArtifactProvisionRequest,
-): Promise<Result<HarnessArtifactProvisionPreview, HarnessArtifactProvisionErrorInfo>> {
-	const prepared = await prepareProvision(request);
-	if (!prepared.ok) return prepared;
-	return resultOk(previewFromPrepared(prepared.value));
-}
-
-export async function applyHarnessArtifactProvision(
-	request: HarnessArtifactProvisionRequest,
-): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
-	const prepared = await prepareProvision(request);
-	if (!prepared.ok) return prepared;
-	return applyPreparedProvision(prepared.value, { shouldForce: false });
-}
-
 export async function prepareProvision(
 	request: HarnessArtifactProvisionRequest,
 ): Promise<Result<PreparedHarnessArtifactProvision, HarnessArtifactProvisionErrorInfo>> {
@@ -193,18 +177,22 @@ export async function prepareProvision(
 	});
 }
 
+export function conflictingFilesFromDecisions(decisions: ProvisionDecisionSet): readonly string[] {
+	return decisions.files
+		.filter((decision) => decision.type === "locally-edited-conflict")
+		.map((decision) => decision.file.targetPath);
+}
+
 export async function applyPreparedProvision(
 	prepared: PreparedHarnessArtifactProvision,
 	options: ApplyPreparedProvisionOptions,
 ): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
-	const conflicts = prepared.decisions.files.filter(
-		(decision) => decision.type === "locally-edited-conflict",
-	);
-	if (conflicts.length > 0 && !options.shouldForce) {
+	const conflictingFiles = conflictingFilesFromDecisions(prepared.decisions);
+	if (conflictingFiles.length > 0 && !options.shouldForce) {
 		return resultOk({
 			outcome: "conflicted",
 			...previewFromPrepared(prepared),
-			conflictingFiles: conflicts.map((decision) => decision.file.targetPath),
+			conflictingFiles,
 		});
 	}
 
@@ -248,7 +236,7 @@ export async function readInstallManifestAtRoot(options: {
 	return readInstallManifest(fs, join(options.targetRoot, INSTALL_MANIFEST_FILE_NAME));
 }
 
-function previewFromPrepared(
+export function previewFromPrepared(
 	prepared: PreparedHarnessArtifactProvision,
 ): HarnessArtifactProvisionPreview {
 	return {

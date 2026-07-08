@@ -6,13 +6,13 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import type { SkillHarnessArtifactEntry } from "../src/artifact-catalog.ts";
 import {
-	applyHarnessArtifactProvision,
 	applyPreparedProvision,
 	contentHashForBytes,
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	prepareProvision,
-	previewHarnessArtifactProvision,
+	previewFromPrepared,
+	type HarnessArtifactProvisionRequest,
 	type InstallManifestData,
 } from "../src/index.ts";
 import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
@@ -42,7 +42,7 @@ describe("harness artifact provision apply", () => {
 	test("fresh install copies skill files and writes the install manifest", async () => {
 		const fixture = await createFixture();
 
-		const result = await applyHarnessArtifactProvision(fixture.request());
+		const result = await prepareAndApplyProvision(fixture.request());
 
 		expect(result).toMatchObject({ ok: true, value: { outcome: "applied" } });
 		if (!result.ok || result.value.outcome !== "applied") return;
@@ -108,12 +108,12 @@ describe("harness artifact provision apply", () => {
 
 	test("re-apply unchanged is idempotent", async () => {
 		const fixture = await createFixture();
-		const first = await applyHarnessArtifactProvision(fixture.request());
+		const first = await prepareAndApplyProvision(fixture.request());
 		expect(first).toMatchObject({ ok: true });
 		const manifestPath = join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME);
 		const firstManifestText = await readFile(manifestPath, "utf8");
 
-		const second = await applyHarnessArtifactProvision(fixture.request());
+		const second = await prepareAndApplyProvision(fixture.request());
 
 		expect(second).toMatchObject({ ok: true, value: { outcome: "applied" } });
 		if (!second.ok || second.value.outcome !== "applied") return;
@@ -136,7 +136,7 @@ describe("harness artifact provision apply", () => {
 		);
 		const manifestPath = join(fixture.projectRoot, ".pi/skills", INSTALL_MANIFEST_FILE_NAME);
 
-		const result = await applyHarnessArtifactProvision(fixture.request());
+		const result = await prepareAndApplyProvision(fixture.request());
 
 		expect(result).toMatchObject({
 			ok: true,
@@ -192,7 +192,7 @@ describe("harness artifact provision apply", () => {
 			[sourceIcon]: { type: "file", bytes: Uint8Array.from(binaryAssetBytes) },
 		});
 
-		const result = await applyHarnessArtifactProvision({ ...fixture.request(), fs: fakeFs });
+		const result = await prepareAndApplyProvision({ ...fixture.request(), fs: fakeFs });
 
 		expect(result).toMatchObject({ ok: true, value: { outcome: "applied" } });
 		if (!result.ok || result.value.outcome !== "applied") return;
@@ -217,12 +217,13 @@ describe("harness artifact provision apply", () => {
 	test("preview returns the plan and classifications without writing", async () => {
 		const fixture = await createFixture();
 
-		const result = await previewHarnessArtifactProvision(fixture.request());
+		const prepared = await prepareProvision(fixture.request());
 
-		expect(result).toMatchObject({ ok: true });
-		if (!result.ok) return;
-		expect(result.value.plan.targetRoot).toBe(join(fixture.projectRoot, ".pi/skills"));
-		expect(result.value.decisions.files.map((decision) => decision.type)).toEqual([
+		expect(prepared).toMatchObject({ ok: true });
+		if (!prepared.ok) return;
+		const preview = previewFromPrepared(prepared.value);
+		expect(preview.plan.targetRoot).toBe(join(fixture.projectRoot, ".pi/skills"));
+		expect(preview.decisions.files.map((decision) => decision.type)).toEqual([
 			"fresh-write",
 			"fresh-write",
 			"fresh-write",
@@ -235,6 +236,12 @@ describe("harness artifact provision apply", () => {
 		).rejects.toMatchObject({ code: "ENOENT" });
 	});
 });
+
+async function prepareAndApplyProvision(request: HarnessArtifactProvisionRequest) {
+	const prepared = await prepareProvision(request);
+	if (!prepared.ok) return prepared;
+	return applyPreparedProvision(prepared.value, { shouldForce: false });
+}
 
 async function createFixture() {
 	const root = await mkdtemp(join(tmpdir(), "harness-artifacts-"));

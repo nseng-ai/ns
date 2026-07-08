@@ -38,13 +38,17 @@ export {
 } from "./filesystem.ts";
 export type { PathState, TextFileState } from "./fs-state.ts";
 export {
+	describeProvisionConflict,
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_UNAVAILABLE_MESSAGE,
 	FIRST_PARTY_SKILL_CATALOG_SOURCE_VERSION,
 	firstPartySkillProvisionPathContext,
 	provisionFirstPartySkill,
 	resolveFirstPartyCatalogSourceRoot,
+	splitProvisionFirstPartySkillOutcome,
+	type ProvisionFirstPartySkillFailure,
 	type ProvisionFirstPartySkillOutcome,
 	type ProvisionFirstPartySkillRequest,
+	type SplitProvisionFirstPartySkillOutcome,
 } from "./first-party-skill-provisioning.ts";
 export {
 	ALL_HARNESS_IDS,
@@ -110,12 +114,12 @@ export {
 	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
 export {
-	applyHarnessArtifactProvision,
 	applyPreparedProvision,
+	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	installManifestPathForPlan,
 	prepareProvision,
-	previewHarnessArtifactProvision,
+	previewFromPrepared,
 	readInstallManifestAtRoot,
 	type ApplyPreparedProvisionOptions,
 	type HarnessArtifactProvisionAppliedOutcome,
