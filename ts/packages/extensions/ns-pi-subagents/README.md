@@ -77,6 +77,11 @@ const submitAuditTool: RunnerSubagentTerminalToolDefinition<AuditSubmission> = {
 pi.registerTool({
 	name: "audit_file",
 	// ...label, description, parameters...
+	promptSnippet: "Delegate a single-file audit to a focused subagent.",
+	promptGuidelines: [
+		"Use audit_file when asked to audit one file; read directly for quick spot checks.",
+		"Treat a non-completed audit_file result as a failure to investigate, not as an empty audit.",
+	],
 	async execute(input, ctx) {
 		const registry = getOrCreateSubagentFleetRegistry(pi);
 		const tracking = trackSingleSubagentFleetRun({
@@ -162,6 +167,14 @@ Custom subagent tools must report into the shared fleet — the single per-proce
 
 Widget and status rendering, task icons, recent-task eviction, and cleanup of tasks left unfinished at `dispose()` are all automatic once tracking is open. Fleet display is the supported progress surface; per-tool widgets beyond it are currently a lower-level concern (see Open questions).
 
+### Steering the parent agent
+
+A subagent tool is only useful if the parent agent knows when to reach for it. Pi renders every registered tool's `promptSnippet` (a one-line system-prompt snippet) and `promptGuidelines` (guideline bullets) into the parent session's system prompt — this is the designed steering channel, and custom subagent tools must provide both. State when to reach for the tool, when to do the work directly instead, and how to treat its results. A tool without parent-facing guidelines ships silent and gets under-used or misused.
+
+For the built-in tools, this steering text lives in the agent definition files (`.ns/pi/agents/explorer.md`, `.ns/pi/agents/runner.md`) — editable and validated at registration (every explore guideline must mention "explore"), with a fallback that swaps in an "unavailable" guideline when a definition is broken.
+
+Cross-tool delegation doctrine — when to delegate at all and how to choose between subagent tools — currently lives in the consumer repo's `AGENTS.md` ("Subagent delegation" section, one subsection per subagent type). The designed promotion path is for this extension to inject that doctrine itself via Pi's `before_agent_start` hook: a static, hardcoded, package-tested section appended once to the system prompt, conditional on which built-in tools registered healthy, so consumer repos no longer copy doctrine by hand. This injection is proposed, not yet implemented.
+
 ### Fan-out
 
 `mapWithConcurrency` runs a batch of dispatches with a concurrency cap and shared abort handling — the same primitive the `explore` tool uses for its task fan-out.
@@ -196,10 +209,12 @@ interface SubagentRuntime {
 ## Open questions
 
 - Per-tool progress widgets: `setRunnerSubagentWidget` is exported from `/runner-subagents`, but the line formatter it pairs with is not yet on a public surface. Until that is settled, treat fleet tracking as the supported progress display for custom tools.
+- Delegation-doctrine injection: the `before_agent_start` promotion path described under "Steering the parent agent" is a settled direction but unbuilt; until it lands, doctrine reaches agents only in repos whose `AGENTS.md` carries the section.
 
 ## Further reading
 
 - `docs/pi/runner-subagent-helper.md` — the full dispatch protocol contract: child launch shape, progress rules, result taxonomy, runner agent definition format.
 - `docs/adr/0023-build-pi-explore-subagents-on-runner-subagent-substrate.md` — why explore fan-out is a thin layer over the same dispatch primitive.
 - `docs/patterns/subagent-pushdown.md` — when to push work into a subagent.
+- `.ns/prompts/subagent-launch.md` — cross-harness launch policy: constructing self-contained launch prompts, passing paths/locators, validating results.
 - In-repo consumer examples: `ts/packages/internal/pi-tools/src/thermo-council/` (terminal tools, runtime seam, batch fleet tracking) and `.pi/extensions/objective-autorun.ts` (final-text mode, single-run tracking).
