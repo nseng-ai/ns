@@ -1,5 +1,6 @@
 ---
 name: cli-push-down
+disable-model-invocation: true
 description: "Move deterministic prompt work into tested CLI commands. Use for long procedural skills, embedded shell/jq, repeated data gathering, or token-heavy mechanical workflows."
 ---
 

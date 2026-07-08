@@ -1,5 +1,6 @@
 ---
 name: pr-address
+disable-model-invocation: true
 description: "Use when downloading GitHub PR feedback or using ns address exec PR feedback primitives for agent triage, PR lookup, review-thread inspection, or confirmed review-thread reply/resolution."
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: typescript-style
+disable-model-invocation: true
 description: "TypeScript style guide for strict TS: erasable syntax, Zod boundary schemas, function declarations for module logic, discriminated unions, errors-as-values, minimal-core architecture, backend neutrality, terse review."
 references:
   - core-rules
