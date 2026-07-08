@@ -40,12 +40,14 @@ export interface ProvisionSourceProvenance {
 	version: string;
 }
 
-export interface ProvisionPlanFile {
-	relativePath: string;
-	sourcePath: string;
-	targetPath: string;
-	contentHash: string;
-}
+export const provisionPlanFileSchema = z.object({
+	relativePath: z.string(),
+	sourcePath: z.string(),
+	targetPath: z.string(),
+	contentHash: z.string(),
+});
+
+export type ProvisionPlanFile = z.output<typeof provisionPlanFileSchema>;
 
 export interface ProvisionPlan {
 	artifactId: string;
@@ -105,33 +107,27 @@ export type TargetFileHashFact =
 	| { type: "missing"; targetPath: string }
 	| { type: "file"; targetPath: string; contentHash: string };
 
-export type ProvisionFileDecisionType = "fresh-write" | "unchanged" | "locally-edited-conflict";
+export const PROVISION_FILE_DECISION_TYPES = [
+	"fresh-write",
+	"unchanged",
+	"locally-edited-conflict",
+] as const;
 
-export interface ProvisionFileDecision {
-	type: ProvisionFileDecisionType;
-	file: ProvisionPlanFile;
-	currentHash?: string;
-	manifestHash?: string;
-}
+export type ProvisionFileDecisionType = (typeof PROVISION_FILE_DECISION_TYPES)[number];
+
+export const provisionFileDecisionSchema = z.object({
+	type: z.enum(PROVISION_FILE_DECISION_TYPES),
+	file: provisionPlanFileSchema,
+	currentHash: z.string().optional(),
+	manifestHash: z.string().optional(),
+});
+
+export type ProvisionFileDecision = z.output<typeof provisionFileDecisionSchema>;
 
 export interface ProvisionDecisionSet {
 	files: readonly ProvisionFileDecision[];
 	isForceRequired: boolean;
 }
-
-export const provisionPlanFileSchema = z.object({
-	relativePath: z.string(),
-	sourcePath: z.string(),
-	targetPath: z.string(),
-	contentHash: z.string(),
-});
-
-export const provisionFileDecisionSchema = z.object({
-	type: z.enum(["fresh-write", "unchanged", "locally-edited-conflict"]),
-	file: provisionPlanFileSchema,
-	currentHash: z.string().optional(),
-	manifestHash: z.string().optional(),
-});
 
 export type ProvisionDecisionErrorInfo =
 	| {

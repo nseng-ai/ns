@@ -6,11 +6,11 @@ import { z } from "zod";
 
 import type { HarnessArtifactEntry } from "./artifact-catalog.ts";
 import {
-	ALL_HARNESS_IDS,
-	HARNESS_SCOPES,
-	type HarnessPathContext,
-	type HarnessScope,
-} from "./harness-paths.ts";
+	harnessArtifactSourceTypeSchema,
+	harnessIdSchema,
+	harnessScopeSchema,
+} from "./harness-artifact-schemas.ts";
+import { type HarnessPathContext, type HarnessScope } from "./harness-paths.ts";
 import {
 	fileSystemError,
 	nodeHarnessArtifactFileSystemGateway,
@@ -102,7 +102,7 @@ export type HarnessArtifactProvisionErrorInfo =
 	  };
 
 const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.object({
-	type: z.enum(["first-party", "npm-module"]),
+	type: harnessArtifactSourceTypeSchema,
 	packageName: z.string(),
 	relativePath: z.string(),
 	version: z.string(),
@@ -118,8 +118,8 @@ const installManifestEntrySchema: z.ZodType<InstallManifestEntryData> = z.object
 	artifactId: z.string(),
 	kind: z.literal("skill"),
 	provisionName: z.string(),
-	harness: z.enum(ALL_HARNESS_IDS),
-	scope: z.enum(HARNESS_SCOPES),
+	harness: harnessIdSchema,
+	scope: harnessScopeSchema,
 	targetRoot: z.string(),
 	targetArtifactPath: z.string(),
 	source: installManifestSourceSchema,

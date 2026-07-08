@@ -11,8 +11,8 @@
 - [x] **Clean up provision/reconcile design seams.**
       Done 2026-07-08 (see `updates/20260708T004545Z-provision-reconcile-seam-cleanup.md`): single reconcile outcome builder with conflict-aware action classification, shared conflict-file extraction, roots-once resolution without bare throws, prepare/apply-only public provision API with `previewFromPrepared`, composed provisioning outcome shape, shared conflict core sentence, and a success/failure splitter consumed by thin `ns skills install` and ns-init adapters.
 
-- [ ] **Clean up schema and source-of-truth duplication.**
-      Consolidate repeated harness/scope schemas, duplicated schema/interface definitions, diagnostic transforms, and readonly-array choices where the shared source of truth is clear. Evidence: stale duplicate definitions are removed or explicitly retained at true boundary seams.
+- [x] **Clean up schema and source-of-truth duplication.**
+      Done 2026-07-08 (see `updates/20260708T041129Z-schema-source-of-truth-cleanup.md`): shared harness/source-type schemas now back reconcile and install-manifest parsing, provision decision/file types derive from schemas, diagnostics share optional-field schema metadata for exact-optional normalization, and readonly Zod arrays remove defensive result spreads while preserving JSON output shape.
 
 - [ ] **Disposition PR review threads and synthesize to the umbrella.**
       After fixes and validation, close or reply to relevant review threads only with direct evidence, leave blocked/stale-unverified threads open, and update `skill-management-subsystem` with the completed/parked disposition of this cleanup Objective.

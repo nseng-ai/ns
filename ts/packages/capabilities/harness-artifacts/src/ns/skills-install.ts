@@ -28,14 +28,14 @@ export const skillsInstallResultSchema = skillsResolvedArtifactLocationSchema.ex
 	mode: z.enum(["dry-run", "applied"]),
 	manifestPath: z.string(),
 	isForceRequired: z.boolean(),
-	decisions: z.array(provisionFileDecisionSchema),
-	writtenFiles: z.array(z.string()),
+	decisions: z.array(provisionFileDecisionSchema).readonly(),
+	writtenFiles: z.array(z.string()).readonly(),
 });
 export type SkillsInstallResult = z.infer<typeof skillsInstallResultSchema>;
 
 export const skillsInstallConflictResultSchema = z.object({
 	manifestPath: z.string(),
-	conflictingFiles: z.array(z.string()),
+	conflictingFiles: z.array(z.string()).readonly(),
 });
 export type SkillsInstallConflictResult = z.infer<typeof skillsInstallConflictResultSchema>;
 
@@ -114,8 +114,8 @@ function installResultFromPlan(input: {
 		targetArtifactPath: input.plan.targetArtifactPath,
 		manifestPath: input.manifestPath,
 		isForceRequired: input.decisions.isForceRequired,
-		decisions: [...input.decisions.files],
-		writtenFiles: [...input.writtenFiles],
+		decisions: input.decisions.files,
+		writtenFiles: input.writtenFiles,
 	};
 }
 
@@ -135,7 +135,7 @@ function installFailureExit(
 				{
 					data: {
 						manifestPath: outcomeFailure.manifestPath,
-						conflictingFiles: [...outcomeFailure.conflictingFiles],
+						conflictingFiles: outcomeFailure.conflictingFiles,
 					},
 				},
 			);
