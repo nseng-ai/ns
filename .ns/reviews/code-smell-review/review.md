@@ -55,7 +55,12 @@ Only emit findings that match one of these smells:
 - **Primitive Obsession** — a primitive or string stands in for a domain concept
   that deserves its own type. Give the concept its own small type.
 - **Repeated Switches** — the same `switch`/`if` cascade on the same type recurs
-  across the change. Replace with polymorphism, or one map both sites share.
+  across the change in a way that encodes one shared policy in multiple places.
+  Flag this only when the repetition is systematic: usually three or more
+  sites, or two sites whose cases duplicate the same decisions, derived facts,
+  labels, metadata, validation, or behavioral policy. Replace real repeated
+  switches with polymorphism, or one table/helper both
+  sites share.
 - **Shotgun Surgery** — one logical change forces scattered edits across many
   files in the diff. Gather what changes together into one module.
 - **Divergent Change** — one file or module is edited for several unrelated
@@ -76,9 +81,12 @@ Only emit findings that match one of these smells:
 2. Read enough nearby context to confirm whether the suspected smell is real.
 3. Suppress anything that is merely a style preference, formatting issue, missing
    test, spec gap, or tooling-enforced concern.
-4. Prefer a smaller number of high-conviction smell findings over a long list of
+4. For a Repeated Switches finding, first state the shared policy being repeated.
+   If the only commonality is "both sites exhaustively handle the same union"
+   and the outputs are adapter-specific, suppress the finding.
+5. Prefer a smaller number of high-conviction smell findings over a long list of
    weak jokes.
-5. For each finding, provide the smallest concrete refactor that would remove or
+6. For each finding, provide the smallest concrete refactor that would remove or
    reduce the smell.
 
 ## Output expectations
