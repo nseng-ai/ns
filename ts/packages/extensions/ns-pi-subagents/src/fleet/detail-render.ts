@@ -1,0 +1,254 @@
+import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
+
+import type { RunnerSubagentUsageMetadata } from "../runner-subagents/extension-api.ts";
+import { formatRunnerSubagentElapsed } from "../runner-subagents/presentation.ts";
+import type { RunnerSubagentTimelineEntry } from "../runner-subagents/timeline.ts";
+import { entrySessionFile, entryTitle } from "./detail.ts";
+import type {
+	FleetNavigatorEntry,
+	SubagentFleetPostRunCommitSummary,
+	SubagentFleetPostRunSummary,
+	SubagentFleetTaskDetail,
+} from "./detail.ts";
+import type { WorktreeStateSnapshot } from "./worktree-state.ts";
+
+type AvailableRunnerSubagentUsageMetadata = Extract<
+	RunnerSubagentUsageMetadata,
+	{ status: "available" }
+>;
+
+export function usageLine(detail: SubagentFleetTaskDetail): string {
+	switch (detail.usage?.status) {
+		case "available": {
+			const totals = detail.usage.totals;
+			const cached = totals.cacheRead + totals.cacheWrite;
+			return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+		}
+		case "unavailable":
+			return `tokens: unavailable (${detail.usage.reason})`;
+		default:
+			return "tokens: unavailable";
+	}
+}
+
+export function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {
+	const usage = availableUsage(detail);
+	if (usage?.trend === undefined) return [];
+	const latest = usage.trend.latestTurn;
+	const latestText = `latest +${formatTokenCount(latest.input)} in/+${formatTokenCount(latest.output)} out`;
+	const contextText =
+		usage.trend.contextWindow === undefined
+			? `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}`
+			: `peak prompt ${formatTokenCount(usage.trend.peakPromptTokens)}/${formatTokenCount(usage.trend.contextWindow)} (${formatContextPercent(usage.trend.peakPromptTokens, usage.trend.contextWindow)})`;
+	return [`trend: ${latestText} · ${contextText}`];
+}
+
+export function availableUsage(
+	detail: SubagentFleetTaskDetail,
+): AvailableRunnerSubagentUsageMetadata | undefined {
+	return detail.usage?.status === "available" ? detail.usage : undefined;
+}
+
+export function formatContextPercent(promptTokens: number, contextWindow: number): string {
+	return `${((promptTokens / contextWindow) * 100).toFixed(1)}%`;
+}
+
+export function formatTokenCount(count: number): string {
+	if (count < 1000) return String(count);
+	return `${(count / 1000).toFixed(1)}k`;
+}
+
+export const MAX_WORKTREE_STATE_FILES = 10;
+
+export function renderPostRunSummaryLines(
+	summary: SubagentFleetPostRunSummary | undefined,
+): string[] {
+	if (summary === undefined) return [];
+	const lines = ["post-run summary:", `  status: ${summary.status}`];
+	if (summary.lastDiagnostic !== undefined) {
+		lines.push(truncatePlain(`  last diagnostic: ${summary.lastDiagnostic}`, 200));
+	}
+	lines.push(`  commit: ${formatCommitSummary(summary.commit)}`);
+	lines.push(...renderSharedWorktreeSummaryLines(summary.worktreeState));
+	return lines;
+}
+
+export function formatCommitSummary(commit: SubagentFleetPostRunCommitSummary): string {
+	switch (commit.status) {
+		case "changed":
+			return `HEAD changed ${shortOid(commit.from)} → ${shortOid(commit.to)}`;
+		case "unchanged":
+			return `none detected (HEAD unchanged ${shortOid(commit.head)})`;
+		case "unavailable":
+			return `unavailable (${commit.reason})`;
+		default: {
+			const exhaustive: never = commit;
+			return exhaustive;
+		}
+	}
+}
+
+export function shortOid(oid: string): string {
+	return oid.slice(0, 7);
+}
+
+export function renderSharedWorktreeSummaryLines(
+	worktreeState: WorktreeStateSnapshot | undefined,
+): string[] {
+	return renderWorktreeStateSnapshotLines(worktreeState, {
+		missingLines: ["  shared worktree: unavailable (not read)"],
+		label: "shared worktree",
+		indent: "  ",
+		fileIndent: "    ",
+	});
+}
+
+export function renderWorktreeStateLines(detail: SubagentFleetTaskDetail): string[] {
+	return renderWorktreeStateSnapshotLines(detail.worktreeState, {
+		missingLines: [],
+		label: "worktree state",
+		indent: "",
+		fileIndent: "  ",
+	});
+}
+
+export function renderWorktreeStateSnapshotLines(
+	worktreeState: WorktreeStateSnapshot | undefined,
+	options: {
+		missingLines: readonly string[];
+		label: string;
+		indent: string;
+		fileIndent: string;
+	},
+): string[] {
+	if (worktreeState === undefined) return [...options.missingLines];
+	if (worktreeState.status === "unavailable") {
+		return [
+			truncatePlain(
+				`${options.indent}${options.label}: unavailable (${worktreeState.reason})`,
+				200,
+			),
+		];
+	}
+	if (worktreeState.files.length === 0) return [`${options.indent}${options.label}: clean`];
+	const visibleFiles = worktreeState.files.slice(0, MAX_WORKTREE_STATE_FILES);
+	const lines = [`${options.indent}${options.label}: ${worktreeState.files.length} changed files`];
+	for (const file of visibleFiles) {
+		const status = file.status === undefined ? "" : `${file.status} `;
+		const stat = formatWorktreeStateStat(file);
+		const suffix = stat.length === 0 ? "" : ` ${stat}`;
+		lines.push(truncatePlain(`${options.fileIndent}${status}${file.path}${suffix}`, 200));
+	}
+	const remaining = worktreeState.files.length - visibleFiles.length;
+	if (remaining > 0) lines.push(`${options.fileIndent}… ${remaining} more`);
+	return lines;
+}
+
+export function formatWorktreeStateStat(file: {
+	additions?: number;
+	deletions?: number;
+	isBinary?: boolean;
+}): string {
+	if (file.isBinary === true) return "binary";
+	if (file.additions === undefined && file.deletions === undefined) return "";
+	return `+${file.additions ?? 0}/-${file.deletions ?? 0}`;
+}
+
+export function renderCurrentActionLines(detail: SubagentFleetTaskDetail): string[] {
+	const liveActivity = detail.liveActivity;
+	if (liveActivity === undefined || liveActivity.currentAction.kind === "idle") return [];
+	const action = liveActivity.currentAction;
+	const lines: string[] = [];
+	if (action.kind === "thinking") {
+		lines.push("current action: thinking / waiting for model output");
+	} else {
+		const input = action.inputPreview === undefined ? "" : `: ${action.inputPreview}`;
+		lines.push(truncatePlain(`current action: ▶ ${action.toolName}${input}`, 200));
+		if (action.resultPreview !== undefined) {
+			lines.push(truncatePlain(`last output: ${action.resultPreview}`, 200));
+		}
+	}
+	if (liveActivity.quietMs !== undefined)
+		lines.push(`heartbeat: quiet ${formatQuietSeconds(liveActivity.quietMs)}s`);
+	return lines;
+}
+
+export function formatQuietSeconds(quietMs: number): number {
+	return Math.max(0, Math.floor(quietMs / 1000));
+}
+
+export function renderTimelineEntry(entry: RunnerSubagentTimelineEntry): string {
+	if (entry.kind === "assistant") return `● assistant: ${entry.text}`;
+	const icon = entry.state === "running" ? "▶" : entry.state === "error" ? "✗" : "✓";
+	const input = entry.inputPreview === undefined ? "" : `: ${entry.inputPreview}`;
+	const result = entry.resultPreview === undefined ? "" : ` → ${entry.resultPreview}`;
+	return `${icon} ${entry.toolName}${input}${result}`;
+}
+
+export function renderFleetDetailHeaderLines(input: {
+	entry: FleetNavigatorEntry | undefined;
+	detail: SubagentFleetTaskDetail | undefined;
+}): string[] {
+	const entry = input.entry;
+	if (entry === undefined) return ["No selected subagent task."];
+	const detail = input.detail;
+	if (detail === undefined) {
+		return [
+			entryTitle(entry),
+			"loading session…",
+			"",
+			`session: ${entrySessionFile(entry) ?? "—"}`,
+		];
+	}
+	return [
+		entryTitle(entry),
+		`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatRunnerSubagentElapsed(detail.elapsedMs)}`,
+		usageLine(detail),
+		...usageTrendLines(detail),
+		`session: ${detail.sessionFile ?? "no session file yet"}`,
+	];
+}
+
+export function renderFleetDetailContentLines(input: {
+	detail: SubagentFleetTaskDetail;
+	isPromptExpanded: boolean;
+}): string[] {
+	const detail = input.detail;
+	const lines: string[] = [];
+	const prompt = detail.prompt;
+	if (prompt !== undefined) {
+		if (input.isPromptExpanded) {
+			lines.push("prompt:", ...prompt.split("\n"), "");
+		} else {
+			lines.push(truncatePlain(`prompt: ${promptPreview(prompt)} (p to expand)`, 200), "");
+		}
+	}
+	if (detail.message !== undefined) {
+		lines.push(detail.message);
+		return lines;
+	}
+	const postRunSummaryLines = renderPostRunSummaryLines(detail.postRunSummary);
+	if (postRunSummaryLines.length > 0) {
+		lines.push(...postRunSummaryLines, "");
+	} else {
+		const currentActionLines = renderCurrentActionLines(detail);
+		if (currentActionLines.length > 0) lines.push(...currentActionLines, "");
+		const worktreeStateLines = renderWorktreeStateLines(detail);
+		if (worktreeStateLines.length > 0) lines.push(...worktreeStateLines, "");
+	}
+	if (detail.timeline.droppedEntryCount > 0) {
+		lines.push(`… ${detail.timeline.droppedEntryCount} earlier events dropped`);
+	}
+	for (const entry of detail.timeline.entries) {
+		lines.push(renderTimelineEntry(entry));
+	}
+	if (detail.timeline.entries.length === 0) {
+		lines.push("No timeline events yet.");
+	}
+	return lines;
+}
+
+function promptPreview(prompt: string): string {
+	const firstLine = prompt.split("\n", 1)[0] ?? "";
+	return firstLine;
+}

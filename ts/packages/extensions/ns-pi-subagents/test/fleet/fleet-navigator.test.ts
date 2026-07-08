@@ -12,9 +12,9 @@ import {
 	loadFleetTaskDetail,
 	registerSubagentFleetCommand,
 	registerSubagentFleetShortcut,
-	type FleetDetailContext,
 	type SubagentFleetNavigatorContext,
 } from "../../src/fleet/navigator.ts";
+import type { FleetDetailContext } from "../../src/fleet/detail.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
 import type { ReadWorktreeState, WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
 import { settleMicrotasks } from "../helpers/explore-testing.ts";
