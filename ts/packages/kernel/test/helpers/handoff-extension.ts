@@ -1,13 +1,11 @@
-import { cpSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { installDescriptorExtension } from "./extension-descriptor-install.ts";
+
 export const HANDOFF_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.ns/extensions/handoff", import.meta.url),
+	new URL("../../../capabilities/handoffs", import.meta.url),
 );
 
 export function installCheckedInHandoffExtension(projectRoot: string): void {
-	const destination = join(projectRoot, ".ns", "extensions", "handoff");
-	mkdirSync(dirname(destination), { recursive: true });
-	cpSync(HANDOFF_EXTENSION_SOURCE, destination, { recursive: true });
+	installDescriptorExtension(projectRoot, HANDOFF_EXTENSION_SOURCE);
 }

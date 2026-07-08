@@ -3,8 +3,6 @@ export {
 	extensionDescriptorToPreinstalledCatalog,
 	listNsCommands,
 	NS_BUILT_IN_HELP_GROUP,
-	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
-	repoLocalNsExtensionToPreinstalledCatalog,
 	runCli,
 	VERSION,
 } from "@nseng-ai/kernel/cli";

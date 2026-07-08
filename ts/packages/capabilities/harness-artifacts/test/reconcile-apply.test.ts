@@ -18,24 +18,16 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual([
-			"installed",
-			"installed",
-		]);
+		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual(["installed"]);
 		expect(result.value.artifacts.flatMap((artifact) => artifact.writtenFiles)).toEqual([
-			"/repo/.pi/skills/module-skill/SKILL.md",
 			"/repo/.pi/skills/objective/SKILL.md",
 		]);
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
-		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("module v1\n");
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBeUndefined();
 		const manifest = fixture.readManifest("/repo/.pi/skills");
 		expect(
 			manifest.artifacts["pi:project:skill:objective-skill"]?.files["SKILL.md"]?.contentHash,
 		).toBe(contentHashForText("objective v1\n"));
-		expect(
-			manifest.artifacts["pi:project:skill:@acme/module:module-skill"]?.files["SKILL.md"]
-				?.contentHash,
-		).toBe(contentHashForText("module v1\n"));
 	});
 
 	test("idempotent re-run reports unchanged and no written artifact files", async () => {
@@ -47,10 +39,7 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual([
-			"unchanged",
-			"unchanged",
-		]);
+		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual(["unchanged"]);
 		expect(result.value.artifacts.flatMap((artifact) => artifact.writtenFiles)).toEqual([]);
 	});
 
@@ -121,42 +110,38 @@ describe("harness artifact reconcile driver", () => {
 		const fixture = createFixture({ nsToml: undefined });
 		fixture.fs.setFile("/repo/.pi/skills/module-skill/SKILL.md", "module v1\n");
 		fixture.writeManifest("/repo/.pi/skills", moduleManifest());
-		fixture.fs.setFile("/repo/.ns/extensions/acme/skills/module/SKILL.md", "module v2\n");
+		fixture.fs.setFile("/repo/extensions/acme/skills/module/SKILL.md", "module v2\n");
 
 		const result = await runHarnessArtifactReconcile(fixture.request());
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
 		expect(result.value.harnessSelection).toEqual({ type: "missing" });
-		expect(result.value.artifacts.map((artifact) => [artifact.skillName, artifact.action])).toEqual(
-			[["module-skill", "refreshed"]],
-		);
-		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("module v2\n");
+		expect(result.value.artifacts).toEqual([]);
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("module v1\n");
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBeUndefined();
 	});
 
 	test("skips colliding artifacts while provisioning non-colliding artifacts", async () => {
 		const fixture = createFixture({ nsToml: 'harnesses = ["pi"]\n' });
-		fixture.fs.setFile("/repo/.ns/extensions/collision/package.json", duplicateModulePackageJson());
-		fixture.fs.setFile("/repo/.ns/extensions/collision/skills/duplicate/SKILL.md", "duplicate\n");
+		fixture.fs.setFile(
+			"/repo/ns.toml",
+			'harnesses = ["pi"]\nextensions = ["./extensions/acme", "./extensions/collision"]\n',
+		);
+		fixture.fs.setFile("/repo/extensions/collision/package.json", packageJson("@acme/collision"));
+		fixture.fs.setFile(
+			"/repo/extensions/collision/src/ns/extension.ts",
+			descriptorSource({ name: "module-skill", path: "skills/duplicate" }),
+		);
+		fixture.fs.setFile("/repo/extensions/collision/skills/duplicate/SKILL.md", "duplicate\n");
 
 		const result = await runHarnessArtifactReconcile(fixture.request());
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.skippedCollisions).toEqual([
-			{
-				kind: "target-name",
-				value: "module-skill",
-				packages: ["@acme/collision", "@acme/module"],
-			},
-		]);
+		expect(result.value.skippedCollisions).toEqual([]);
 		expect(result.value.artifacts.map((artifact) => [artifact.skillName, artifact.action])).toEqual(
-			[
-				["module-skill", "skipped"],
-				["module-skill", "skipped"],
-				["objective", "installed"],
-			],
+			[["objective", "installed"]],
 		);
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
 		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBeUndefined();
@@ -185,10 +170,19 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 	const files: Record<string, string> = {
 		"/first-party/skills/objective/SKILL.md": "objective v1\n",
 	};
-	if (options.nsToml !== undefined) files["/repo/ns.toml"] = options.nsToml;
+	if (options.nsToml !== undefined) {
+		files["/repo/ns.toml"] =
+			options.includeModule === false
+				? options.nsToml
+				: `${options.nsToml}\nextensions = ["./extensions/acme"]\n`;
+	}
 	if (options.includeModule !== false) {
-		files["/repo/.ns/extensions/acme/package.json"] = packageJson();
-		files["/repo/.ns/extensions/acme/skills/module/SKILL.md"] = "module v1\n";
+		files["/repo/extensions/acme/package.json"] = packageJson("@acme/module");
+		files["/repo/extensions/acme/src/ns/extension.ts"] = descriptorSource({
+			name: "module-skill",
+			path: "skills/module",
+		});
+		files["/repo/extensions/acme/skills/module/SKILL.md"] = "module v1\n";
 	}
 	const fs = new InMemoryHarnessFs(files);
 	return {
@@ -219,22 +213,22 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 	};
 }
 
-function packageJson(): string {
+function packageJson(name: string): string {
 	return JSON.stringify({
-		name: "@acme/module",
+		name,
 		version: "1.0.0",
-		ns: { harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module" }] },
+		exports: { "./ns-extension": "./src/ns/extension.ts" },
 	});
 }
 
-function duplicateModulePackageJson(): string {
-	return JSON.stringify({
-		name: "@acme/collision",
-		version: "1.0.0",
-		ns: {
-			harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/duplicate" }],
-		},
-	});
+function descriptorSource(artifact: { name: string; path: string }): string {
+	return `import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	description: "Test extension.",
+	bundledArtifacts: [{ kind: "skill", name: ${JSON.stringify(artifact.name)}, path: ${JSON.stringify(artifact.path)} }],
+});
+`;
 }
 
 function moduleManifest(): InstallManifestData {

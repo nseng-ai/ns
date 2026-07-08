@@ -1,10 +1,9 @@
 import { join, resolve } from "node:path";
-import process from "node:process";
 
 import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { mergeXdgHomeEnv, requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import { validateExtensionDescriptor, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
 import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
+import { parse } from "smol-toml";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -28,13 +27,8 @@ import {
 
 export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	projectRoot: string;
-	/**
-	 * Required-present so callers deliberately choose whether to override HOME for XDG lookup.
-	 * Undefined means no explicit override; inherited/caller HOME is preserved.
-	 */
-	homeDir: string | undefined;
-	/** Required-present so callers deliberately choose the environment used for XDG lookup. */
-	env: Record<string, string | undefined>;
+	homeDir?: string;
+	env?: Record<string, string | undefined>;
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
 }
 
@@ -88,46 +82,39 @@ const moduleArtifactDiscoveryDiagnosticCodeSchema = z.enum(
 	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
 );
 
-const moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas = {
-	path: z.string().optional(),
-	packageName: z.string().optional(),
-	artifactId: z.string().optional(),
-	artifactName: z.string().optional(),
-};
-
-const moduleArtifactDiscoveryDiagnosticSchemaBase = z.object({
-	code: moduleArtifactDiscoveryDiagnosticCodeSchema,
-	message: z.string(),
-	...moduleArtifactDiscoveryDiagnosticOptionalFieldSchemas,
-});
-
 export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDiscoveryDiagnostic> =
-	moduleArtifactDiscoveryDiagnosticSchemaBase.transform(normalizeModuleArtifactDiscoveryDiagnostic);
-
-function normalizeModuleArtifactDiscoveryDiagnostic(
-	diagnostic: z.output<typeof moduleArtifactDiscoveryDiagnosticSchemaBase>,
-): ModuleArtifactDiscoveryDiagnostic {
-	return {
-		code: diagnostic.code,
-		message: diagnostic.message,
-		...optionalEntry("path", diagnostic.path),
-		...optionalEntry("packageName", diagnostic.packageName),
-		...optionalEntry("artifactId", diagnostic.artifactId),
-		...optionalEntry("artifactName", diagnostic.artifactName),
-	};
-}
+	z
+		.object({
+			code: moduleArtifactDiscoveryDiagnosticCodeSchema,
+			message: z.string(),
+			path: z.string().optional(),
+			packageName: z.string().optional(),
+			artifactId: z.string().optional(),
+			artifactName: z.string().optional(),
+		})
+		.transform((diagnostic) => ({
+			code: diagnostic.code,
+			message: diagnostic.message,
+			...optionalEntry("path", diagnostic.path),
+			...optionalEntry("packageName", diagnostic.packageName),
+			...optionalEntry("artifactId", diagnostic.artifactId),
+			...optionalEntry("artifactName", diagnostic.artifactName),
+		}));
 
 export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,
 ): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
 	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
-	const rootResolution = extensionArtifactRoots(request);
+	const rootResolution = await extensionArtifactRoots({
+		projectRoot: request.projectRoot,
+		gateway,
+	});
 	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
 	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [...rootResolution.diagnostics];
-	for (const root of rootResolution.roots) {
-		const rootResult = await discoverExtensionRoot({ root, gateway });
-		catalogs.push(...rootResult.catalogs);
-		diagnostics.push(...rootResult.diagnostics);
+	for (const moduleRoot of rootResolution.roots) {
+		const packageCatalog = await discoverExtensionPackage({ moduleRoot, gateway });
+		if (packageCatalog.type === "catalog") catalogs.push(packageCatalog.catalog);
+		else diagnostics.push(...packageCatalog.diagnostics);
 	}
 	const duplicateDiagnostics = duplicateArtifactDiagnostics(catalogs);
 	const catalogsWithDuplicateDiagnostics = catalogs.map((catalog) => ({
@@ -146,64 +133,62 @@ export async function discoverExtensionModuleHarnessArtifacts(
 	};
 }
 
-function extensionArtifactRoots(request: DiscoverExtensionModuleHarnessArtifactsRequest): {
+async function extensionArtifactRoots(request: {
+	projectRoot: string;
+	gateway: HarnessArtifactModuleDiscoveryGateway;
+}): Promise<{
 	roots: readonly string[];
 	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
-} {
-	const env = mergeXdgHomeEnv({
-		baseEnv: process.env,
-		env: request.env,
-		...optionalEntry("xdgHomeDir", request.homeDir),
-	});
-	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
-	const roots = [join(request.projectRoot, ".ns", "extensions")];
-	try {
-		roots.push(requireXdgPath(resolveNsXdgPath({ kind: "data", env, segments: ["extensions"] })));
-	} catch (error) {
-		diagnostics.push({
-			code: "module_artifact_extension_root_unavailable",
-			message: `Could not resolve global extension root for harness artifact discovery: ${formatErrorMessage(error)}`,
-		});
-	}
-	return { roots: sortStrings(roots), diagnostics };
+}> {
+	const declared = await readDeclaredExtensionSpecs(request);
+	if (!declared.ok) return { roots: [], diagnostics: [declared.diagnostic] };
+	return {
+		roots: sortStrings(declared.specs.map((spec) => resolve(request.projectRoot, spec))),
+		diagnostics: [],
+	};
 }
 
-async function discoverExtensionRoot(options: {
-	root: string;
+async function readDeclaredExtensionSpecs(request: {
+	projectRoot: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
-}): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
-	const root = await options.gateway.readDirectory(options.root);
-	if (!root.ok) {
+}): Promise<
+	| { ok: true; specs: readonly string[] }
+	| { ok: false; diagnostic: ModuleArtifactDiscoveryDiagnostic }
+> {
+	const nsTomlPath = join(request.projectRoot, "ns.toml");
+	const text = await request.gateway.readOptionalTextFile(nsTomlPath);
+	if (!text.ok) {
+		return { ok: false, diagnostic: discoveryFileSystemDiagnostic(text.error) };
+	}
+	if (text.value.type === "missing") return { ok: true, specs: [] };
+	let parsed: unknown;
+	try {
+		parsed = parse(text.value.text);
+	} catch (error) {
 		return {
-			catalogs: [],
-			diagnostics: [discoveryFileSystemDiagnostic(root.error)],
+			ok: false,
+			diagnostic: {
+				code: "module_artifact_extension_root_unavailable",
+				message: `Could not parse ns.toml for harness artifact discovery: ${formatErrorMessage(error)}`,
+				path: nsTomlPath,
+			},
 		};
 	}
-	if (root.value.type === "missing") return { catalogs: [], diagnostics: [] };
-	if (root.value.type !== "directory") {
+	const documentResult = z.record(z.string(), z.unknown()).safeParse(parsed);
+	if (!documentResult.success) return { ok: true, specs: [] };
+	const value = documentResult.data["extensions"];
+	if (value === undefined) return { ok: true, specs: [] };
+	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
 		return {
-			catalogs: [],
-			diagnostics: [
-				{
-					code: "module_artifact_extension_root_not_directory",
-					message: `Extension root must be a directory for harness artifact discovery: ${options.root}.`,
-					path: options.root,
-				},
-			],
+			ok: false,
+			diagnostic: {
+				code: "module_artifact_extension_root_unavailable",
+				message: "ns.toml extensions must be an array of package-directory strings.",
+				path: nsTomlPath,
+			},
 		};
 	}
-	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
-	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
-	for (const entry of [...root.value.entries].sort((left, right) =>
-		left.name.localeCompare(right.name),
-	)) {
-		if (entry.type !== "directory") continue;
-		const moduleRoot = join(options.root, entry.name);
-		const packageCatalog = await discoverExtensionPackage({ moduleRoot, gateway: options.gateway });
-		if (packageCatalog.type === "catalog") catalogs.push(packageCatalog.catalog);
-		else diagnostics.push(...packageCatalog.diagnostics);
-	}
-	return { catalogs, diagnostics: sortDiscoveryDiagnostics(diagnostics) };
+	return { ok: true, specs: value };
 }
 
 async function discoverExtensionPackage(options: {

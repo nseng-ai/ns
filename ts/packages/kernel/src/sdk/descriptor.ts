@@ -33,10 +33,13 @@ export interface ExtensionGroupEntry {
 
 export type ExtensionEntry = ExtensionCommandEntry | ExtensionGroupEntry;
 
+export const extensionPointAcceptsValues = ["hook", "prompt"] as const;
+export const extensionPointCardinalityValues = ["many", "one"] as const;
+
 export interface ExtensionPointDefinition {
 	readonly id: string;
-	readonly accepts: "hook" | "prompt";
-	readonly cardinality: "many" | "one";
+	readonly accepts: (typeof extensionPointAcceptsValues)[number];
+	readonly cardinality: (typeof extensionPointCardinalityValues)[number];
 	readonly description?: string;
 	readonly default?: string;
 }
@@ -95,8 +98,8 @@ const extensionEntrySchema: z.ZodType<ExtensionEntry> = z.union([
 export const extensionPointDefinitionSchema: z.ZodType<ExtensionPointDefinition> = z
 	.strictObject({
 		id: z.string().min(1),
-		accepts: z.union([z.literal("hook"), z.literal("prompt")]),
-		cardinality: z.union([z.literal("many"), z.literal("one")]),
+		accepts: z.enum(extensionPointAcceptsValues),
+		cardinality: z.enum(extensionPointCardinalityValues),
 		description: z.string().optional(),
 		default: z.string().optional(),
 	})

@@ -50,7 +50,6 @@ interface RawSkillDeclaration {
 const packageJsonSchema = z.looseObject({
 	name: z.string(),
 	version: z.string().optional(),
-	ns: z.looseObject({ harnessArtifacts: z.unknown().optional() }).optional(),
 });
 
 const declarationObjectSchema = z.looseObject({
@@ -65,24 +64,7 @@ export function parseModuleArtifactDeclaration(
 ): ParseModuleArtifactDeclarationResult {
 	const packageInfo = parsePackageInfo(packageJsonText);
 	if (!packageInfo.ok) return packageInfo;
-	const packageName = packageInfo.packageName;
-	const version = packageInfo.version;
-	const declarations = packageInfo.data.ns?.harnessArtifacts;
-	if (declarations === undefined) return emptyCatalog(packageName, version);
-	if (!Array.isArray(declarations)) {
-		return emptyCatalog(packageName, version, [
-			{
-				code: "module_artifact_declarations_not_array",
-				message: "Package manifest ns.harnessArtifacts must be an array.",
-			},
-		]);
-	}
-
-	return parseDeclarations({
-		packageName,
-		version,
-		declarations,
-	});
+	return emptyCatalog(packageInfo.packageName, packageInfo.version);
 }
 
 export function parseModuleArtifactDeclarations(

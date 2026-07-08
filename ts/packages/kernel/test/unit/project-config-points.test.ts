@@ -1,13 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-
-import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import {
 	buildPointCatalog,
-	discoverPointDefinitionsInRoot,
 	loadPointCatalog,
 	loadProjectConfig,
 	parseProjectConfigToml,
@@ -24,17 +19,6 @@ const pointDefinitions = [
 	{ id: "flow.submit.pre", accepts: "hook", semantics: "additive" },
 	{ id: "flow.submit.pr-description", accepts: "prompt", semantics: "override" },
 ] as const satisfies readonly PointDefinition[];
-
-const tempDirs = createTempDirTracker();
-
-function writeFile(path: string, content: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, content);
-}
-
-afterEach(async () => {
-	await tempDirs.cleanup();
-});
 
 describe("project point config", () => {
 	test("loads repo-root ns.toml through one gateway read and validates point installations", () => {
@@ -231,74 +215,6 @@ context_lines = "wide"
 		expect(result.ok).toBe(false);
 		expect(result.diagnostics).toEqual([
 			expect.objectContaining({ code: "settings_table_invalid", path: "reviews.diff" }),
-		]);
-	});
-
-	test("discovers point definitions from ns.points extension manifests", async () => {
-		const root = await tempDirs.makeTempDir("ns-project-config-points-");
-		writeFile(
-			join(root, "flow", "package.json"),
-			JSON.stringify({
-				ns: {
-					group: "flow",
-					points: [
-						{
-							path: ["submit", "pre"],
-							accepts: "hook",
-							semantics: "additive",
-							description: "Runs before submit.",
-						},
-						{
-							path: ["submit", "pr-description"],
-							accepts: "prompt",
-							semantics: "override",
-							default: "./src/pr-description.md",
-						},
-					],
-				},
-			}),
-		);
-
-		const result = discoverPointDefinitionsInRoot(root);
-
-		expect(result.diagnostics).toEqual([]);
-		expect(result.pointDefinitions).toEqual([
-			expect.objectContaining({
-				id: "flow.submit.pre",
-				accepts: "hook",
-				semantics: "additive",
-				description: "Runs before submit.",
-			}),
-			expect.objectContaining({
-				id: "flow.submit.pr-description",
-				accepts: "prompt",
-				semantics: "override",
-				defaultPath: "./src/pr-description.md",
-			}),
-		]);
-	});
-
-	test("reports malformed point manifest entries", async () => {
-		const root = await tempDirs.makeTempDir("ns-project-config-points-");
-		writeFile(
-			join(root, "bad", "package.json"),
-			JSON.stringify({
-				ns: {
-					group: "bad",
-					points: [
-						{ path: [], accepts: "hook", semantics: "additive" },
-						{ path: ["prompt"], accepts: "prompt", semantics: "override", default: "../escape.md" },
-					],
-				},
-			}),
-		);
-
-		const result = discoverPointDefinitionsInRoot(root);
-
-		expect(result.pointDefinitions).toEqual([]);
-		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
-			"extension_manifest_point_field_invalid",
-			"extension_manifest_point_default_escapes",
 		]);
 	});
 

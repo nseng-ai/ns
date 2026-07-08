@@ -1,13 +1,11 @@
-import { cpSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { installDescriptorExtension } from "./extension-descriptor-install.ts";
+
 export const REVIEWS_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.ns/extensions/reviews", import.meta.url),
+	new URL("../../../capabilities/reviews", import.meta.url),
 );
 
 export function installCheckedInReviewsExtension(projectRoot: string): void {
-	const destination = join(projectRoot, ".ns", "extensions", "reviews");
-	mkdirSync(dirname(destination), { recursive: true });
-	cpSync(REVIEWS_EXTENSION_SOURCE, destination, { recursive: true });
+	installDescriptorExtension(projectRoot, REVIEWS_EXTENSION_SOURCE);
 }

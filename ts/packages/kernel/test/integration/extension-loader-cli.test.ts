@@ -32,15 +32,14 @@ async function createEmptyProject(): Promise<string> {
 	return directory;
 }
 
-async function createExtensionProject(
-	extensionFileName: string,
-	extensionSource: string,
+async function createDescriptorProject(
+	commandName: string,
+	commandSource: string,
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".ns", "extensions", extensionFileName);
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	writeFileSync(extensionPath, extensionSource);
+	writeDescriptorPackage(directory, [commandName]);
+	writeDescriptorCommand(directory, commandName, commandSource);
 	return directory;
 }
 
@@ -69,19 +68,16 @@ describe("ns extension loader CLI integration", () => {
 	});
 
 	test("direct command summary appears in top-level help after importing the module", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
+		const cwd = await createDescriptorProject(
+			"hello",
+			`import { ok } from "@nseng-ai/kernel/sdk";
 
-export default defineExtension({
-	commands: [{
-		name: "hello",
-		summary: "Say hello from help.",
-		description: "Say hello with details.",
-		run() { return ok("hello"); },
-	}],
-});
+export default {
+	name: "hello",
+	summary: "Say hello from help.",
+	description: "Say hello with details.",
+	run() { return ok("hello"); },
+};
 `,
 		);
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
@@ -95,33 +91,30 @@ export default defineExtension({
 	});
 
 	test("throwing direct command keeps placeholder in top-level help and warns", async () => {
-		const cwd = await createExtensionProject("hello.ts", "throw new Error('module boom');\n");
+		const cwd = await createDescriptorProject("hello", "throw new Error('module boom');\n");
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("hello");
-		expect(help).toContain("Run ns command entry 'hello'.");
+		expect(help).toContain("Load ns descriptor command hello.");
 		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("module boom");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
 	test("project-local command help uses selected command metadata and schema", async () => {
-		const cwd = await createExtensionProject(
-			"sample.ts",
-			`
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+		const cwd = await createDescriptorProject(
+			"sample",
+			`import { ok, z } from "@nseng-ai/kernel/sdk";
 
-export default defineExtension({
-	commands: [{
+export default {
 	name: "sample",
 	summary: "Project sample command.",
 	description: "Project sample command with options.",
 	schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the sample command.") }),
 	run() { return ok("unused"); },
-}],
-});
+};
 `,
 		);
 		const run = runWithFakes({ args: ["sample", "--help"], state: { exec: [] }, cwd });
@@ -139,13 +132,11 @@ export default defineExtension({
 	});
 
 	test("project-only ns command entry runs when invoked", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
+		const cwd = await createDescriptorProject(
+			"hello",
+			`import { ok } from "@nseng-ai/kernel/sdk";
 
-export default defineExtension({
-	commands: [{
+export default {
 	name: "hello",
 	summary: "Say hello.",
 	description: "Say hello",
@@ -153,8 +144,7 @@ export default defineExtension({
 		const result = await ctx.exec("echo", ["hello"]);
 		return ok(result.stdout.trim());
 	},
-}],
-});
+};
 `,
 		);
 		const run = runWithFakes({
@@ -170,13 +160,11 @@ export default defineExtension({
 	});
 
 	test("selected ns command entry help schema and invocation use the loaded request schema", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+		const cwd = await createDescriptorProject(
+			"hello",
+			`import { ok, z } from "@nseng-ai/kernel/sdk";
 
-export default defineExtension({
-	commands: [{
+export default {
 	name: "hello",
 	summary: "Say hello.",
 	description: "Say hello with options.",
@@ -184,8 +172,7 @@ export default defineExtension({
 	run(_ctx, request) {
 		return ok(request.loud ? "HELLO" : "hello");
 	},
-}],
-});
+};
 `,
 		);
 
@@ -205,7 +192,7 @@ export default defineExtension({
 	});
 
 	test("selected extension load failure fails only when that command is selected", async () => {
-		const cwd = await createExtensionProject("hello.ts", "throw new Error('module boom');\n");
+		const cwd = await createDescriptorProject("hello", "throw new Error('module boom');\n");
 
 		const helpRun = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 		expect(await helpRun.exit).toBe(0);
@@ -220,50 +207,97 @@ export default defineExtension({
 		expect(selectedRun.context.execCalls).toEqual([]);
 	});
 
-	test("malformed unrelated extension warns without breaking a valid project command", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
-export default defineExtension({
-	commands: [{ name: "hello", summary: "Hello", description: "Hello", run() { return ok("hello"); } }],
-});
+	test("malformed unrelated descriptor warns without breaking a valid project command", async () => {
+		const cwd = await createDescriptorProject(
+			"hello",
+			`import { ok } from "@nseng-ai/kernel/sdk";
+export default { name: "hello", summary: "Hello", description: "Hello", run() { return ok("hello"); } };
 `,
 		);
-		writeFileSyncWithParents(join(cwd, ".ns", "extensions", "Bad.ts"), "export default {};\n");
+		writeBadDescriptorPackage(cwd);
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("hello\n");
 		expect(run.stderr.join("")).toContain("Warning:");
-		expect(run.stderr.join("")).toContain("command entry name inferred");
+		expect(run.stderr.join("")).toContain("Invalid ");
+		expect(run.stderr.join("")).toContain("description Invalid input");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
 	test("ns command entry schema must be a Zod object", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
-export default defineExtension({
-	commands: [{
-		name: "hello",
-		summary: "Hello",
-		description: "Hello",
-		schema: { safeParse() { return { success: true, data: {} }; } },
-		run() { return { ok: true, message: "hello" }; },
-	}],
-});
+		const cwd = await createDescriptorProject(
+			"hello",
+			`export default {
+	name: "hello",
+	summary: "Hello",
+	description: "Hello",
+	schema: { safeParse() { return { success: true, data: {} }; } },
+	run() { return { ok: true, message: "hello" }; },
+};
 `,
 		);
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Invalid ns extension contribution extensions/hello.ts");
+		expect(run.stderr.join("")).toContain(
+			"Invalid ns descriptor command ns.toml descriptor ./extensions/tools",
+		);
 		expect(run.stderr.join("")).toContain(
 			"command schema must be a Zod object schema from @nseng-ai/kernel/sdk",
 		);
 		expect(run.context.execCalls).toEqual([]);
 	});
 });
+
+function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): void {
+	writeFileSyncWithParents(join(cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
+	writePackageManifest(cwd, "tools");
+	const entries = commandNames
+		.map(
+			(name) =>
+				`{ name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
+		)
+		.join(",\n\t\t");
+	writeFileSyncWithParents(
+		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
+		`import { defineExtension } from "@nseng-ai/kernel/sdk";
+export default defineExtension({
+	description: "Project test tools.",
+	entries: [
+		${entries},
+	],
+});
+`,
+	);
+}
+
+function writeDescriptorCommand(cwd: string, commandName: string, source: string): void {
+	writeFileSyncWithParents(
+		join(cwd, "extensions", "tools", "src", "commands", `${commandName}.ts`),
+		source,
+	);
+}
+
+function writeBadDescriptorPackage(cwd: string): void {
+	writeFileSyncWithParents(
+		join(cwd, "ns.toml"),
+		'extensions = ["./extensions/bad", "./extensions/tools"]\n',
+	);
+	writePackageManifest(cwd, "bad");
+	writeFileSyncWithParents(
+		join(cwd, "extensions", "bad", "src", "ns", "extension.ts"),
+		"export default {};\n",
+	);
+}
+
+function writePackageManifest(cwd: string, packageName: string): void {
+	writeFileSyncWithParents(
+		join(cwd, "extensions", packageName, "package.json"),
+		JSON.stringify({
+			name: packageName,
+			type: "module",
+			exports: { "./ns-extension": "./src/ns/extension.ts" },
+		}),
+	);
+}

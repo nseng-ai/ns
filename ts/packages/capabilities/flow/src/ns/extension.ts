@@ -3,6 +3,20 @@ import { defineExtension } from "@nseng-ai/kernel/sdk";
 export default defineExtension({
 	group: "flow",
 	description: "Checkpoint, branch, submit, and land Graphite-backed work.",
+	points: [
+		{
+			id: "flow.submit.pre",
+			accepts: "hook",
+			cardinality: "many",
+			description: "Commands to run before flow submit checkpointing.",
+		},
+		{
+			id: "flow.submit.pr-description",
+			accepts: "prompt",
+			cardinality: "one",
+			description: "Prompt for generating pull request descriptions during flow submit.",
+		},
+	],
 	entries: [
 		{
 			name: "changes",

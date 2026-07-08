@@ -19,7 +19,6 @@
 		"./commands/land": "./src/ns/commands/land.ts",
 		"./commands/pull-trunk": "./src/ns/commands/pull-trunk.ts",
 		"./commands/exec-read-graphite-branch-metadata": "./src/ns/commands/exec-read-graphite-branch-metadata.ts",
-		"./repo-local-ns-extension": "./src/ns/repo-local-ns-extension.ts",
 		"./land/api": "./src/land/api.ts",
 		"./land/testing": "./src/land/testing.ts",
 		"./pi": "./src/pi/index.ts",

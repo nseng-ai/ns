@@ -3,6 +3,15 @@ import { defineExtension } from "@nseng-ai/kernel/sdk";
 export default defineExtension({
 	group: "branch-context",
 	description: "Create and load branch-scoped implementation context.",
+	points: [
+		{
+			id: "branch-context.plans-write",
+			accepts: "prompt",
+			cardinality: "one",
+			description: "Custom prompt body for saved-plan authoring.",
+			default: "../pi/prompts/plans-write-default.md",
+		},
+	],
 	entries: [
 		{
 			group: "exec",

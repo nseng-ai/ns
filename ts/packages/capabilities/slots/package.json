@@ -9,7 +9,8 @@
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
 		"./command-face": "./src/ns/command-face.ts",
-		"./extension": "./src/ns/extension.ts"
+		"./extension": "./src/ns/extension.ts",
+		"./ns-extension": "./src/ns/ns-extension.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

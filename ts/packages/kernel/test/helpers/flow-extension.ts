@@ -1,13 +1,11 @@
-import { cpSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { installDescriptorExtension } from "./extension-descriptor-install.ts";
+
 export const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.ns/extensions/flow", import.meta.url),
+	new URL("../../../capabilities/flow", import.meta.url),
 );
 
 export function installCheckedInFlowExtension(projectRoot: string): void {
-	const destination = join(projectRoot, ".ns", "extensions", "flow");
-	mkdirSync(dirname(destination), { recursive: true });
-	cpSync(FLOW_EXTENSION_SOURCE, destination, { recursive: true });
+	installDescriptorExtension(projectRoot, FLOW_EXTENSION_SOURCE);
 }

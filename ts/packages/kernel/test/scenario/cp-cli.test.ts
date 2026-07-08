@@ -51,25 +51,6 @@ async function createLegacyCommandProject(
 	return directory;
 }
 
-async function createManifestProject(
-	manifest: unknown,
-	files: Record<string, string>,
-): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
-	tempDirs.push(directory);
-	const packageDir = join(directory, ".ns", "extensions", "pkg");
-	writeFileSyncWithParents(join(packageDir, "package.json"), JSON.stringify(manifest));
-	for (const [relativePath, source] of Object.entries(files)) {
-		writeFileSyncWithParents(join(packageDir, relativePath), source);
-	}
-	return directory;
-}
-
-function writeFileSyncWithParents(path: string, source: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, source);
-}
-
 afterEach(() => {
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
@@ -148,86 +129,6 @@ describe("empty ns kernel CLI help and parsing", () => {
 });
 
 describe("ns extension discovery without dynamic imports", () => {
-	test("manifest metadata appears in top-level help without importing the entry", async () => {
-		const cwd = await createManifestProject(
-			{
-				ns: {
-					commands: [
-						{
-							name: "hello",
-							description: "Say hello.",
-							fullDescription: "Say hello with details.",
-							entry: "./src/hello.ts",
-						},
-					],
-				},
-			},
-			{ "src/hello.ts": "throw new Error('should not import during help');\n" },
-		);
-		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(0);
-		const help = run.stdout.join("");
-		expect(help).toContain("hello");
-		expect(help).toContain("Say hello.");
-		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("invalid inferred ns command entry name warns during top-level help", async () => {
-		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
-		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: ns");
-		expect(run.stderr.join("")).toContain("Warning:");
-		expect(run.stderr.join("")).toContain("command entry name inferred");
-		expect(run.stderr.join("")).toContain("[a-z][a-z0-9-]*");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("malformed unrelated extension warns without breaking static version output", async () => {
-		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
-		const run = runWithFakes({ args: ["--version"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(`${VERSION}\n`);
-		expect(run.stderr.join("")).toContain("Warning:");
-		expect(run.stderr.join("")).toContain("command entry name inferred");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("malformed selected manifest command exits with its discovery diagnostic", async () => {
-		const cwd = await createManifestProject(
-			{ ns: { commands: [{ name: "hello", description: "Say hello.", entry: "./missing.ts" }] } },
-			{},
-		);
-		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain(
-			"Extension manifest command entry does not exist: ./missing.ts",
-		);
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("malformed selected project command fails instead of falling back to a removed built-in", async () => {
-		const cwd = await createManifestProject(
-			{ ns: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
-			{},
-		);
-		const run = runWithFakes({ args: ["flow", "cp"], cwd });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain(
-			"Extension manifest command entry does not exist: ./missing.ts",
-		);
-		expect(run.context.execCalls).toEqual([]);
-		expect(run.context.textGeneratorCalls).toEqual([]);
-	});
-
 	test("declaration extension files are ignored", async () => {
 		const cwd = await createExtensionProject("types.d.ts", "export interface Ignored {}\n");
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });

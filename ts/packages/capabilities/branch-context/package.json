@@ -14,7 +14,6 @@
 		"./ns/commands/list": "./src/ns/commands/list.ts",
 		"./ns/commands/load": "./src/ns/commands/load.ts",
 		"./testing": "./src/testing/index.ts",
-		"./repo-local-ns-extension": "./src/ns/repo-local-ns-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},

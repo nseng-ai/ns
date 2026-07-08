@@ -101,46 +101,47 @@ Prompt resolution ladder (first match wins):
 
 ## For extension authors: defining points
 
-Points are declared as static metadata in the extension's `package.json`
-manifest, under `ns.points`, beside `ns.commands`:
+Points are declared as static metadata in the extension descriptor module
+exported from `exports["./ns-extension"]` and created with `defineExtension()`:
 
-```jsonc
-{
-	"ns": {
-		"group": "flow",
-		"points": [
-			{
-				"path": ["submit", "pre"],
-				"accepts": "hook",
-				"semantics": "additive",
-				"description": "Runs before flow submit checkpoints and submits the stack."
-			},
-			{
-				"path": ["submit", "pr-description"],
-				"accepts": "prompt",
-				"semantics": "override",
-				"default": "./prompts/pr-description-default.md",
-				"description": "System prompt for the PR title and managed body."
-			}
-		]
-	}
-}
+```ts
+import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	group: "flow",
+	points: [
+		{
+			id: "flow.submit.pre",
+			accepts: "hook",
+			cardinality: "many",
+			description: "Runs before flow submit checkpoints and submits the stack.",
+		},
+		{
+			id: "flow.submit.pr-description",
+			accepts: "prompt",
+			cardinality: "one",
+			default: "./prompts/pr-description-default.md",
+			description: "System prompt for the PR title and managed body.",
+		},
+	],
+});
 ```
 
 Field reference:
 
 | Field         | Required | Meaning                                                                                                                                      |
 | ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`        | yes      | Path segments after the group. Full id becomes `<group>.<path...>`. First-party convention: `<group>.<workflow>.<leaf>`.                     |
+| `id`          | yes      | Full point id. First-party convention: `<group>.<workflow>.<leaf>`.                                                                          |
 | `accepts`     | yes      | `"hook"` or `"prompt"`.                                                                                                                      |
-| `semantics`   | yes      | `"additive"` or `"override"`.                                                                                                                |
+| `cardinality` | yes      | `"many"` for additive hook-style points or `"one"` for override prompt-style points.                                                         |
 | `default`     | no       | Override prompt points only: a package-relative POSIX `.md` path that must not escape the package directory. Used when nothing is installed. |
 | `description` | no       | Shown in `ns extension points` output.                                                                                                       |
 
 Author-side guidance:
 
-- Point definitions are discovered from the manifest **without loading command
-  code**, so keep them static.
+- Point definitions are discovered from descriptor modules declared in
+  `ns.toml` `extensions`; production no longer scans `.ns/extensions` roots or
+  parses `package.json` `ns.points`.
 - Your workflow reads the catalog to act on installations: hook commands via
   the catalog's hook resolution, prompt content via the active prompt source.
   The platform resolves prompt content; your workflow performs any LM

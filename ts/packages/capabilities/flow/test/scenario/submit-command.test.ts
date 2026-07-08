@@ -164,7 +164,7 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
+		`extensions = ["./extensions/flow"]\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;

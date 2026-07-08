@@ -2,9 +2,6 @@ import { defineExtension, failed, ok, z } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
-	NsExtensionManifest,
-	NsExtensionManifestCommand,
-	NsExtensionPackageManifest,
 	NsCommandIo,
 	NsCommandMessageOptions,
 	NsCommandRequest,
@@ -41,17 +38,6 @@ type CommandRequestChecks = [
 
 const commandRequestChecks: CommandRequestChecks = [true, true];
 const positionalSpec: PositionalSpec = { position: 0 };
-const manifestCommand: NsExtensionManifestCommand = {
-	name: "changes",
-	path: ["flow", "changes"],
-	description: "Show changes.",
-	entry: "./src/changes.ts",
-};
-const manifest: NsExtensionManifest = { group: "flow", commands: [manifestCommand] };
-const packageManifest: NsExtensionPackageManifest = {
-	description: "Flow commands.",
-	ns: manifest,
-};
 
 // @ts-expect-error name is required by the command schema output
 const missingNameRequest: CommandRequest = { retries: 1 };
@@ -121,8 +107,6 @@ function acceptsExtensionApi(api: NsExtensionApi): string {
 }
 
 void commandRequestChecks;
-void manifestCommand;
-void packageManifest;
 void missingNameRequest;
 void extension;
 void commandlessExtension;

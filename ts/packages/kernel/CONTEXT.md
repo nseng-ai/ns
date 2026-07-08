@@ -61,11 +61,11 @@ An `@ns/kernel` subpath shared across first-party workspace packages for kernel-
 *Avoid*: plugin API, public SDK, command-author import path, capability domain home.
 
 **Point definition**:
-Static manifest metadata under `ns.points` declaring a point's path, accepted installation kind, semantics, description, and optional prompt default. Point definitions are discovered without selected-command loading.
-*Avoid*: command entry, setting, runtime registration
+Static extension descriptor metadata declaring a point's id, accepted installation kind, cardinality, description, and optional prompt default. Point definitions are discovered from `ns.toml` extension package descriptors without selected-command loading.
+*Avoid*: command entry, setting, runtime registration, package.json `ns.points`
 
 **Point id**:
-The full point identifier `<group>.<path...>`, where the extension group is the namespace root. First-party ids usually follow `<group>.<workflow>.<leaf>`, but the kernel enforces the group root rather than a workflow taxonomy.
+The full point identifier. First-party ids usually follow `<group>.<workflow>.<leaf>`, but the kernel treats the descriptor-provided id as the canonical identifier.
 *Avoid*: path-only id, consumer-defined id, lifecycle id
 
 **Point installation**:
@@ -73,7 +73,7 @@ Consumer project config for a point. Hook installations come from `[points]`; pr
 *Avoid*: point definition, extension manifest, global install tier
 
 **Kernel project-config loader**:
-The single parse/validation path for repo-root `ns.toml`, including the `[points]` table and manifest-declared settings schemas. Extension-rooted settings tables stay settings; they do not become points.
+The single parse/validation path for repo-root `ns.toml`, including the `[points]` table and descriptor-declared point metadata. Extension-rooted settings tables stay settings; they do not become points.
 *Avoid*: per-capability TOML parser, prompt-resolution ladder, settings-as-points
 
 **Point catalog**:

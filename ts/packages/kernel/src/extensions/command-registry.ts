@@ -13,7 +13,7 @@ import {
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
-export type NsCommandSourceLevel = "built-in" | "preinstalled" | "global" | "project";
+export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
 
 export interface NsCommandPath {
 	group?: string;
@@ -182,6 +182,7 @@ export function validateNsExtensionContribution(
 	contribution: unknown,
 	expectedPath: NsCommandPath | string,
 	sourceLabel: string,
+	contributionLabel = "ns extension contribution",
 ): { ok: true; command: NsCommand } | { ok: false; message: string } {
 	const expectedName =
 		typeof expectedPath === "string" ? expectedPath : commandLeafName(expectedPath);
@@ -189,7 +190,7 @@ export function validateNsExtensionContribution(
 	if (!parsed.success) {
 		return {
 			ok: false,
-			message: `Invalid ns extension contribution ${sourceLabel}: ${formatNsExtensionIssue(parsed.error.issues[0])}`,
+			message: `Invalid ${contributionLabel} ${sourceLabel}: ${formatNsExtensionIssue(parsed.error.issues[0])}`,
 		};
 	}
 
@@ -197,7 +198,7 @@ export function validateNsExtensionContribution(
 	if (command === undefined) {
 		return {
 			ok: false,
-			message: `Invalid ns extension contribution ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
+			message: `Invalid ${contributionLabel} ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
 		};
 	}
 
