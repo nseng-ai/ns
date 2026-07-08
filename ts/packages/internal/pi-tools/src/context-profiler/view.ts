@@ -57,6 +57,7 @@ import {
 	listRowSegments,
 	liveSectionHeader,
 	overviewRowSegments,
+	providerPayloadSummaryLine,
 	scrollNote,
 	segmentationStatusText,
 	turnListClaim,
@@ -512,6 +513,17 @@ export class ProfilerView implements Component {
 			this.theme.fg(
 				"dim",
 				truncateToWidth(bundlePersistenceLine(this.persistence), innerWidth, "…", true),
+			),
+		);
+		lines.push(
+			this.theme.fg(
+				"dim",
+				truncateToWidth(
+					providerPayloadSummaryLine(this.profile.providerPayloadSummary),
+					innerWidth,
+					"…",
+					true,
+				),
 			),
 		);
 		lines.push("");

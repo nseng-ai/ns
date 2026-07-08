@@ -20,6 +20,7 @@ import {
 	MAX_DELEGATIONS,
 	normalizeMessage,
 	renderNormalizedMessageText,
+	summarizeProviderPayload,
 	type LiveTurn,
 	type NormalizedMessage,
 } from "../../src/context-profiler/model.ts";
@@ -140,6 +141,65 @@ describe("estimateTokensFromChars", () => {
 		expect(estimateTokensFromChars(4)).toEqual({ value: 1, provenance: "estimated" });
 		expect(estimateTokensFromChars(5)).toEqual({ value: 2, provenance: "estimated" });
 		expect(estimateTokensFromChars(-10)).toEqual({ value: 0, provenance: "estimated" });
+	});
+});
+
+describe("summarizeProviderPayload", () => {
+	test("summarizes an OpenAI-ish messages payload without copying message content", () => {
+		const summary = summarizeProviderPayload({
+			model: "m",
+			messages: [
+				{ role: "system", content: "SECRET_SYSTEM" },
+				{ role: "user", content: "SECRET_USER" },
+			],
+			tools: [{ name: "read", description: "SECRET_TOOL" }],
+		});
+
+		expect(summary).toMatchObject({
+			topLevelKind: "record",
+			topLevelKeys: ["model", "messages", "tools"],
+			messageCount: 2,
+			inputCount: null,
+			hasSystemInstructions: true,
+			systemInstructionFields: ["messages.role=system"],
+		});
+		expect(summary.serializedBytes).toBeGreaterThan(0);
+		const serializedSummary = JSON.stringify(summary);
+		expect(serializedSummary).not.toContain("SECRET_SYSTEM");
+		expect(serializedSummary).not.toContain("SECRET_USER");
+		expect(serializedSummary).not.toContain("SECRET_TOOL");
+	});
+
+	test("detects shallow responses-style instructions and input count", () => {
+		const summary = summarizeProviderPayload({
+			instructions: "SECRET_INSTRUCTIONS",
+			input: [
+				{ role: "user", content: "one" },
+				{ role: "user", content: "two" },
+			],
+		});
+
+		expect(summary).toMatchObject({
+			topLevelKind: "record",
+			topLevelKeys: ["instructions", "input"],
+			messageCount: null,
+			inputCount: 2,
+			hasSystemInstructions: true,
+			systemInstructionFields: ["instructions"],
+		});
+		expect(JSON.stringify(summary)).not.toContain("SECRET_INSTRUCTIONS");
+	});
+
+	test("does not throw for circular payloads", () => {
+		const circular: Record<string, unknown> = { messages: [] };
+		circular.self = circular;
+
+		expect(summarizeProviderPayload(circular)).toMatchObject({
+			serializedBytes: null,
+			topLevelKind: "record",
+			topLevelKeys: ["messages", "self"],
+			messageCount: 0,
+		});
 	});
 });
 

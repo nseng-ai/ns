@@ -5,6 +5,7 @@
  * imports from pi-coding-agent are the boundary.
  */
 
+import { Buffer } from "node:buffer";
 import type {
 	BuildSystemPromptOptions,
 	ContextUsage,
@@ -176,6 +177,25 @@ export interface CapturedContext {
 	source: CapturedContextSource;
 }
 
+export type ProviderPayloadTopLevelKind =
+	| "record"
+	| "array"
+	| "string"
+	| "number"
+	| "boolean"
+	| "null"
+	| "unknown";
+
+export interface ProviderPayloadSummary {
+	serializedBytes: number | null;
+	topLevelKind: ProviderPayloadTopLevelKind;
+	topLevelKeys: string[];
+	messageCount: number | null;
+	inputCount: number | null;
+	hasSystemInstructions: boolean;
+	systemInstructionFields: string[];
+}
+
 export interface TurnCapInfo {
 	originalCount: number;
 	includedCount: number;
@@ -190,6 +210,7 @@ export interface ProfileSnapshot {
 	liveTurns: LiveTurn[];
 	liveRegions: LiveRegion[];
 	liveSource: LiveSource;
+	providerPayloadSummary: ProviderPayloadSummary | null;
 	cap: TurnCapInfo;
 	openedAt: string;
 }
@@ -197,6 +218,13 @@ export interface ProfileSnapshot {
 export const CAP_FIRST_TURNS = 16;
 export const CAP_LAST_TURNS = 64;
 const EXCERPT_MAX_CHARS = 120;
+const PROVIDER_PAYLOAD_TOP_LEVEL_KEY_LIMIT = 32;
+const SYSTEM_INSTRUCTION_FIELDS = [
+	"system",
+	"instructions",
+	"system_prompt",
+	"systemPrompt",
+] as const;
 
 /** The single token estimation function. All estimated counts go through here. */
 export function estimateTokensFromChars(chars: number): TokenCount {
@@ -205,6 +233,65 @@ export function estimateTokensFromChars(chars: number): TokenCount {
 
 export function sumTurnTokens(turns: readonly LiveTurn[]): number {
 	return turns.reduce((total, turn) => total + turn.tokens.value, 0);
+}
+
+export function summarizeProviderPayload(payload: unknown): ProviderPayloadSummary {
+	const serialized = serializedPayload(payload);
+	const topLevelKind = providerPayloadTopLevelKind(payload);
+	const record = isPlainRecord(payload) ? payload : null;
+	const systemInstructionFields = record === null ? [] : providerSystemInstructionFields(record);
+	return {
+		serializedBytes: serialized === null ? null : Buffer.byteLength(serialized, "utf8"),
+		topLevelKind,
+		topLevelKeys:
+			record === null ? [] : Object.keys(record).slice(0, PROVIDER_PAYLOAD_TOP_LEVEL_KEY_LIMIT),
+		messageCount:
+			record === null || !Array.isArray(record.messages) ? null : record.messages.length,
+		inputCount: record === null ? null : providerInputCount(record.input),
+		hasSystemInstructions: systemInstructionFields.length > 0,
+		systemInstructionFields,
+	};
+}
+
+function serializedPayload(payload: unknown): string | null {
+	try {
+		return JSON.stringify(payload) ?? null;
+	} catch {
+		return null;
+	}
+}
+
+function providerPayloadTopLevelKind(payload: unknown): ProviderPayloadTopLevelKind {
+	if (payload === null) return "null";
+	if (Array.isArray(payload)) return "array";
+	if (isPlainRecord(payload)) return "record";
+	switch (typeof payload) {
+		case "string":
+			return "string";
+		case "number":
+			return "number";
+		case "boolean":
+			return "boolean";
+		default:
+			return "unknown";
+	}
+}
+
+function providerInputCount(input: unknown): number | null {
+	if (Array.isArray(input)) return input.length;
+	if (typeof input === "string" || isRecord(input)) return 1;
+	return null;
+}
+
+function providerSystemInstructionFields(payload: Record<string, unknown>): string[] {
+	const fields = SYSTEM_INSTRUCTION_FIELDS.filter((field) => payload[field] !== undefined);
+	if (hasSystemRoleMessage(payload.messages)) return [...fields, "messages.role=system"];
+	return [...fields];
+}
+
+function hasSystemRoleMessage(messages: unknown): boolean {
+	if (!Array.isArray(messages)) return false;
+	return messages.some((message) => isRecord(message) && message.role === "system");
 }
 
 export function buildBaseRegions(
@@ -710,6 +797,10 @@ function stableJsonLength(value: unknown): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+	return isRecord(value) && !Array.isArray(value);
 }
 
 function stringField(value: Record<string, unknown>, key: string): string | null {

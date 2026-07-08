@@ -14,6 +14,7 @@
 import {
 	buildSessionContext,
 	type BeforeAgentStartEvent,
+	type BeforeProviderRequestEvent,
 	type BuildSystemPromptOptions,
 	type ContextEvent,
 	type ExtensionCommandContext,
@@ -34,10 +35,12 @@ import {
 	buildLiveRegions,
 	capTurns,
 	deriveLiveTurns,
+	summarizeProviderPayload,
 	type CapturedContext,
 	type DelegationClaim,
 	type EpisodeAnnotation,
 	type ProfileSnapshot,
+	type ProviderPayloadSummary,
 } from "./model.ts";
 import {
 	buildSegmentationPayload,
@@ -62,6 +65,7 @@ export interface ProfilerState {
 	lastPromptOptions: BuildSystemPromptOptions | null;
 	lastSystemPrompt: string | null;
 	latestContext: CapturedContext | null;
+	lastProviderPayloadSummary: ProviderPayloadSummary | null;
 }
 
 export function createProfilerState(): ProfilerState {
@@ -69,6 +73,7 @@ export function createProfilerState(): ProfilerState {
 		lastPromptOptions: null,
 		lastSystemPrompt: null,
 		latestContext: null,
+		lastProviderPayloadSummary: null,
 	};
 }
 
@@ -87,6 +92,16 @@ export function handleContext(event: ContextEvent, state: ProfilerState): Profil
 	return {
 		...state,
 		latestContext: { messages: [...event.messages], source: "context-event" },
+	};
+}
+
+export function handleBeforeProviderRequest(
+	event: BeforeProviderRequestEvent,
+	state: ProfilerState,
+): ProfilerState {
+	return {
+		...state,
+		lastProviderPayloadSummary: summarizeProviderPayload(event.payload),
 	};
 }
 
@@ -149,6 +164,7 @@ export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState)
 		liveTurns: capped.turns,
 		liveRegions: buildLiveRegions(capped.turns),
 		liveSource: live.source,
+		providerPayloadSummary: state.lastProviderPayloadSummary,
 		cap: capped.cap,
 		openedAt: new Date().toLocaleTimeString(),
 	};
@@ -175,6 +191,7 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 		model: options.profile.model,
 		usage: options.profile.usage,
 		liveSource: options.profile.liveSource,
+		providerPayloadSummary: options.state.lastProviderPayloadSummary,
 	});
 	if (!snapshot.ok) {
 		const skipped: BundlePersistenceState =

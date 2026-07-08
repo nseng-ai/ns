@@ -61,6 +61,7 @@ export function makeProfile(
 		liveTurns: [...turns],
 		liveRegions: [],
 		liveSource: "context-event",
+		providerPayloadSummary: null,
 		cap: {
 			originalCount,
 			includedCount: turns.length,

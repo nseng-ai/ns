@@ -28,6 +28,7 @@ function snapshot(content: string) {
 		model: "p/m",
 		usage: undefined,
 		liveSource: "context-event",
+		providerPayloadSummary: null,
 		capturedAt: new Date("2026-01-02T03:04:05.000Z"),
 	});
 	if (!result.ok) throw new Error("snapshot failed");

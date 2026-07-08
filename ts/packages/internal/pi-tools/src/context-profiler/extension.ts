@@ -12,6 +12,7 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import type {
 	BeforeAgentStartEvent,
+	BeforeProviderRequestEvent,
 	ContextEvent,
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -35,6 +36,7 @@ import {
 	createProfilerState,
 	createSegmentationCacheCell,
 	handleBeforeAgentStart,
+	handleBeforeProviderRequest,
 	handleContext,
 	startProfilerWork,
 	type ProfilerState,
@@ -91,6 +93,7 @@ export function registerContextProfilerExtension(pi: ExtensionAPI): void {
 
 	pi.on("before_agent_start", (event, _ctx) => runtime.handleBeforeAgentStart(event));
 	pi.on("context", (event, _ctx) => runtime.handleContext(event));
+	pi.on("before_provider_request", (event, _ctx) => runtime.handleBeforeProviderRequest(event));
 	pi.on("session_shutdown", (_event, ctx) => closeProfiler(ctx, sessions));
 }
 
@@ -116,6 +119,10 @@ class ProfilerRuntimeStore {
 
 	handleContext(event: ContextEvent): void {
 		this.state = handleContext(event, this.state);
+	}
+
+	handleBeforeProviderRequest(event: BeforeProviderRequestEvent): void {
+		this.state = handleBeforeProviderRequest(event, this.state);
 	}
 
 	captureCurrentState(ctx: ExtensionContext): ProfilerState {

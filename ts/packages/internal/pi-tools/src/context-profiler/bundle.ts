@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { BuildSystemPromptOptions, ContextUsage } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
-import type { DelegationClaim, EpisodeAnnotation } from "./model.ts";
+import type { DelegationClaim, EpisodeAnnotation, ProviderPayloadSummary } from "./model.ts";
 import type { SegmentationBatchOutcome } from "./segmentation.ts";
 
 export const BUNDLE_MANIFEST_VERSION = 1;
@@ -22,6 +22,7 @@ export interface BundleManifest {
 	contentHash: string;
 	turnCount: number;
 	promptOptions: BuildSystemPromptOptions | null;
+	providerPayloadSummary: ProviderPayloadSummary | null;
 }
 
 export interface BundleSnapshot {
@@ -43,6 +44,7 @@ export interface BuildBundleSnapshotOptions {
 	model: string;
 	usage: ContextUsage | undefined;
 	liveSource: string;
+	providerPayloadSummary: ProviderPayloadSummary | null;
 	capturedAt?: Date;
 }
 
@@ -85,6 +87,7 @@ export function buildBundleSnapshot(
 				contentHash,
 				turnCount: options.messages.length,
 				promptOptions: options.promptOptions,
+				providerPayloadSummary: options.providerPayloadSummary,
 			},
 		},
 	};

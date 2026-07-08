@@ -6,9 +6,11 @@ import {
 	computeBundleContentHash,
 } from "../../src/context-profiler/bundle.ts";
 import {
+	buildProfile,
 	captureCurrentState,
 	createProfilerState,
 	createSegmentationCacheCell,
+	handleBeforeProviderRequest,
 	startBundlePersist,
 	startProfilerWork,
 	type ProfilerState,
@@ -62,6 +64,7 @@ describe("context-profiler bundle", () => {
 			model: "p/m",
 			usage: undefined,
 			liveSource: "branch-fallback",
+			providerPayloadSummary: null,
 		});
 
 		expect(result).toEqual({
@@ -80,6 +83,7 @@ describe("context-profiler bundle", () => {
 			model: "p/m",
 			usage: undefined,
 			liveSource: "session-context",
+			providerPayloadSummary: null,
 		});
 
 		expect(result).toEqual({
@@ -102,6 +106,7 @@ describe("context-profiler bundle", () => {
 			model: "p/m",
 			usage: undefined,
 			liveSource: "context-event",
+			providerPayloadSummary: null,
 			capturedAt: new Date("2026-01-02T03:04:05.000Z"),
 		});
 
@@ -125,6 +130,39 @@ describe("context-profiler bundle", () => {
 		);
 	});
 
+	test("persists only the redacted provider payload summary in the manifest", () => {
+		const result = buildBundleSnapshot({
+			messages: [{ role: "user", content: "hello" }],
+			systemPrompt: "system",
+			promptOptions: null,
+			sessionId: "sid",
+			cwd: "/repo",
+			model: "p/m",
+			usage: undefined,
+			liveSource: "context-event",
+			providerPayloadSummary: {
+				serializedBytes: 123,
+				topLevelKind: "record",
+				topLevelKeys: ["messages", "model"],
+				messageCount: 2,
+				inputCount: null,
+				hasSystemInstructions: true,
+				systemInstructionFields: ["messages.role=system"],
+			},
+		});
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.manifest.providerPayloadSummary).toMatchObject({
+			messageCount: 2,
+			systemInstructionFields: ["messages.role=system"],
+		});
+		const manifestJson = JSON.stringify(result.value.manifest);
+		expect(manifestJson).toContain("providerPayloadSummary");
+		expect(manifestJson).not.toContain("SECRET_SYSTEM");
+		expect(manifestJson).not.toContain("SECRET_USER");
+	});
+
 	test("fails the whole bundle when a message is unserializable", () => {
 		const circular: Record<string, unknown> = {};
 		circular.self = circular;
@@ -137,11 +175,37 @@ describe("context-profiler bundle", () => {
 			model: "p/m",
 			usage: undefined,
 			liveSource: "context-event",
+			providerPayloadSummary: null,
 		});
 
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.code).toBe("unserializable-message");
+	});
+
+	test("provider request summaries are exposed on profile snapshots", () => {
+		const state = handleBeforeProviderRequest(
+			{
+				type: "before_provider_request",
+				payload: { messages: [{ role: "system", content: "SECRET" }] },
+			},
+			createProfilerState(),
+		);
+		const ctx = {
+			cwd: "/repo",
+			model: { provider: "p", id: "m" },
+			getContextUsage: () => undefined,
+			sessionManager: { getBranch: () => [] },
+		} as never;
+
+		const profile = buildProfile(ctx, state);
+
+		expect(profile.providerPayloadSummary).toMatchObject({
+			messageCount: 1,
+			hasSystemInstructions: true,
+			systemInstructionFields: ["messages.role=system"],
+		});
+		expect(JSON.stringify(profile.providerPayloadSummary)).not.toContain("SECRET");
 	});
 
 	test("captures session context so reload can persist a bundle before the next provider event", async () => {

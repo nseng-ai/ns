@@ -16,6 +16,7 @@ import type {
 	EpisodeOutcome,
 	LiveRegion,
 	LiveTurn,
+	ProviderPayloadSummary,
 	RelevanceVerdict,
 	TokenCount,
 	TurnCapInfo,
@@ -287,6 +288,20 @@ export function bundlePersistenceLine(state: BundlePersistenceState): string {
 			return `bundle: #${state.ordinal} · ${formatByteSize(state.byteSize)} · session ${formatByteSize(state.sessionTotalBytes)}${reuseLabel}`;
 		}
 	}
+}
+
+export function providerPayloadSummaryLine(summary: ProviderPayloadSummary | null): string {
+	if (summary === null) return "provider payload: pending";
+	const parts = [`provider payload: ${summary.topLevelKind}`];
+	if (summary.messageCount !== null)
+		parts.push(`messages=${summary.messageCount.toLocaleString()}`);
+	if (summary.inputCount !== null) parts.push(`input=${summary.inputCount.toLocaleString()}`);
+	if (summary.topLevelKeys.length > 0) parts.push(`keys=${summary.topLevelKeys.join(",")}`);
+	if (summary.hasSystemInstructions) {
+		parts.push(`system=${summary.systemInstructionFields.join(",")}`);
+	}
+	if (summary.serializedBytes !== null) parts.push(formatByteSize(summary.serializedBytes));
+	return parts.join(" · ");
 }
 
 export function bundleStatusBarText(state: BundlePersistenceState): string {
