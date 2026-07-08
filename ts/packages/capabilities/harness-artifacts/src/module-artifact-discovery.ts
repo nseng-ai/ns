@@ -2,8 +2,11 @@ import { join, resolve } from "node:path";
 
 import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { validateExtensionDescriptor, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
+import {
+	parseDeclaredExtensionSpecsToml,
+	resolveDescriptorExportPath,
+} from "@nseng-ai/kernel/project-config/descriptor-package";
 import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
-import { parse } from "smol-toml";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -19,8 +22,8 @@ import {
 import { sortStrings } from "./sort.ts";
 import {
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
-	parseModuleArtifactDeclaration,
-	parseModuleArtifactDeclarations,
+	parseDescriptorArtifactDeclarations,
+	parsePackageManifestArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
 	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
@@ -161,34 +164,19 @@ async function readDeclaredExtensionSpecs(request: {
 		return { ok: false, diagnostic: discoveryFileSystemDiagnostic(text.error) };
 	}
 	if (text.value.type === "missing") return { ok: true, specs: [] };
-	let parsed: unknown;
-	try {
-		parsed = parse(text.value.text);
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: {
-				code: "module_artifact_extension_root_unavailable",
-				message: `Could not parse ns.toml for harness artifact discovery: ${formatErrorMessage(error)}`,
-				path: nsTomlPath,
-			},
-		};
-	}
-	const documentResult = z.record(z.string(), z.unknown()).safeParse(parsed);
-	if (!documentResult.success) return { ok: true, specs: [] };
-	const value = documentResult.data["extensions"];
-	if (value === undefined) return { ok: true, specs: [] };
-	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-		return {
-			ok: false,
-			diagnostic: {
-				code: "module_artifact_extension_root_unavailable",
-				message: "ns.toml extensions must be an array of package-directory strings.",
-				path: nsTomlPath,
-			},
-		};
-	}
-	return { ok: true, specs: value };
+	const parsed = parseDeclaredExtensionSpecsToml(text.value.text);
+	if (parsed.ok) return parsed;
+	return {
+		ok: false,
+		diagnostic: {
+			code: "module_artifact_extension_root_unavailable",
+			message:
+				parsed.reason === "invalid-toml"
+					? `Could not parse ns.toml for harness artifact discovery: ${parsed.message}`
+					: parsed.message,
+			path: nsTomlPath,
+		},
+	};
 }
 
 async function discoverExtensionPackage(options: {
@@ -204,7 +192,7 @@ async function discoverExtensionPackage(options: {
 		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(packageText.error)] };
 	}
 	if (packageText.value.type === "missing") return { type: "diagnostics", diagnostics: [] };
-	const parsed = await parseModuleArtifactDeclarationForDiscovery({
+	const parsed = await parsePackageArtifactDeclarationForDiscovery({
 		moduleRoot: options.moduleRoot,
 		packageJsonPath,
 		packageJsonText: packageText.value.text,
@@ -232,7 +220,7 @@ async function discoverExtensionPackage(options: {
 	};
 }
 
-async function parseModuleArtifactDeclarationForDiscovery(options: {
+async function parsePackageArtifactDeclarationForDiscovery(options: {
 	moduleRoot: string;
 	packageJsonPath: string;
 	packageJsonText: string;
@@ -252,7 +240,7 @@ async function parseModuleArtifactDeclarationForDiscovery(options: {
 				packageJsonText: options.packageJsonText,
 				descriptorPath: descriptorPath.path,
 			})
-		: parseModuleArtifactDeclaration(options.packageJsonText);
+		: parsePackageManifestArtifactDeclaration(options.packageJsonText);
 	if (!parsed.ok) {
 		return {
 			ok: false,
@@ -301,7 +289,7 @@ async function parseDescriptorModuleArtifactDeclaration(options: {
 			],
 		};
 	}
-	return parseModuleArtifactDeclarations(
+	return parseDescriptorArtifactDeclarations(
 		options.packageJsonText,
 		descriptorArtifactDeclarations(descriptor.descriptor),
 	);
@@ -321,26 +309,8 @@ function descriptorExportPath(
 	} catch {
 		return { ok: false };
 	}
-	const target = descriptorExportTarget(parsed);
-	if (target === undefined || target.startsWith("/") || target.includes("\\")) return { ok: false };
-	const path = resolve(moduleRoot, target);
-	if (!isPathInside(moduleRoot, path)) return { ok: false };
-	return { ok: true, path };
-}
-
-function descriptorExportTarget(manifest: unknown): string | undefined {
-	const manifestResult = z.record(z.string(), z.unknown()).safeParse(manifest);
-	if (!manifestResult.success) return undefined;
-	const exportsResult = z.record(z.string(), z.unknown()).safeParse(manifestResult.data["exports"]);
-	if (!exportsResult.success) return undefined;
-	const nsExtensionExport = exportsResult.data["./ns-extension"];
-	if (typeof nsExtensionExport === "string") return nsExtensionExport;
-	const nsExtensionExportResult = z.record(z.string(), z.unknown()).safeParse(nsExtensionExport);
-	if (!nsExtensionExportResult.success) return undefined;
-	const importTarget = nsExtensionExportResult.data["import"];
-	if (typeof importTarget === "string") return importTarget;
-	const defaultTarget = nsExtensionExportResult.data["default"];
-	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+	const path = resolveDescriptorExportPath(moduleRoot, parsed);
+	return path.ok ? { ok: true, path: path.path } : { ok: false };
 }
 
 async function validateDiscoveredArtifacts(options: {

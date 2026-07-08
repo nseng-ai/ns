@@ -56,6 +56,7 @@ export type {
 	HeadTextTruncationOptions,
 	KernelCommand,
 	KernelCommandInvocation,
+	KernelCommandSpec,
 	KernelCommandLoad,
 	KernelCommandModule,
 	MachineEnvelope,

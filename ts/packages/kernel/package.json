@@ -6,6 +6,7 @@
 	"exports": {
 		"./cli": "./src/cli/index.ts",
 		"./command-io": "./src/runtime/command-io.ts",
+		"./project-config/descriptor-package": "./src/project-config/descriptor-package.ts",
 		"./context": "./src/cli/context.ts",
 		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
 		"./progress-phase-state": "./src/sdk/progress-phase-state.ts",
@@ -29,10 +30,11 @@
 			"./cli",
 			"./command-io",
 			"./context",
+			"./project-config/descriptor-package",
 			"./pi-text-generation",
 			"./progress-phase-state",
 			"./project-config/points",
-		"./runtime/module-loader"
+			"./runtime/module-loader"
 		]
 	},
 	"bin": {

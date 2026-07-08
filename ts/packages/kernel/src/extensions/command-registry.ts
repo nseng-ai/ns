@@ -71,6 +71,7 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 
 const nsCommandSchema = z
 	.object({
+		kind: z.literal("raw").optional(),
 		name: z.string(),
 		summary: z.string(),
 		description: z.string(),
