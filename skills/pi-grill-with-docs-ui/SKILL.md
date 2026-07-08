@@ -10,6 +10,8 @@ metadata:
 
 This is the Pi structured-UI complement to portable `grilling` plus `domain-modeling`. It must remain self-contained because `/pi:grill-with-docs` fallback prompts still need to work when skill expansion is unavailable.
 
+Lineage: semantically melded from the upstream `grilling` and `domain-modeling` skills (`mattpocock/skills`, upstream paths `skills/productivity/grilling/` and `skills/engineering/domain-modeling/`), re-expressed in Pi's structured `grill_ask` vocabulary. The canonical upstream pin and the melded-surfaces registry live in `docs/agents/matt-pocock-skills.md`; when those vendored skills are refreshed, semantically merge behavior changes here rather than copying text.
+
 Interview me relentlessly about every aspect of this plan or design until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer. Do not enact the plan until the user confirms shared understanding has been reached.
 
 If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.

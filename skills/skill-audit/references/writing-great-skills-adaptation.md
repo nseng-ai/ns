@@ -1,6 +1,6 @@
 # Writing-Great-Skills Adaptation
 
-Adapted from Matt Pocock's vendored `writing-great-skills` skill. Use this as ns's operational audit lens; the upstream skill remains provenance and broader reference.
+Adapted from Matt Pocock's vendored `writing-great-skills` skill (`mattpocock/skills`, upstream path `skills/productivity/writing-great-skills/`; canonical pin and melded-surfaces registry in `docs/agents/matt-pocock-skills.md`). Use this as ns's operational audit lens; the upstream skill remains provenance and broader reference. Upstream's glossary groups its terms into four axes — **Invocation** (how a skill is reached), **Information Hierarchy** (how content is arranged), **Steering** (how runtime behavior is shaped), and **Pruning** (how the skill is kept lean) — all serving Predictability; the sections below keep ns's operational ordering.
 
 ## Predictability
 
@@ -37,6 +37,7 @@ Completion criteria prevent premature completion. Before splitting a workflow, f
 - **Sprawl**: the skill is long enough that live content needs progressive disclosure or a split.
 - **No-op**: a line does not change agent behavior versus the default.
 - **Premature completion**: a step's done condition is vague enough that the agent rushes ahead.
+- **Negation**: steering by prohibition drags the forbidden behavior into context and makes it more available ("don't think of an elephant"). Prefer stating the positive target behavior; keep a prohibition only as a hard guardrail that cannot be phrased positively, and pair it with what to do instead.
 
 ## Leading words
 

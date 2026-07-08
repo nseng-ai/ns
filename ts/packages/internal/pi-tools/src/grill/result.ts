@@ -62,6 +62,9 @@ export function freeformAnswerResult(
 	});
 }
 
+// Lineage: the end-path instruction carries the upstream `grilling` skill's
+// confirmation gate (summarize, then await user confirmation before enacting);
+// see docs/agents/matt-pocock-skills.md for the melded-surfaces registry.
 export function endGrillResult(question: string): ToolResult<GrillAskDetails> {
 	return textResult(
 		"User chose to end the grilling session. Stop asking questions and summarize resolved decisions, unresolved branches, and your final recommendation, then await the user's confirmation before enacting the plan.",

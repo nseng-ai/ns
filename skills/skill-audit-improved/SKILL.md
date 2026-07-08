@@ -9,6 +9,8 @@ description: "Self-contained skill for auditing and tightening agent skills — 
 <!--
   LINEAGE: each section is tagged with an HTML comment naming its dominant source.
     src: pocock       = Matt Pocock's writing-great-skills (vocabulary, failure modes, leading words)
+                        (upstream: mattpocock/skills, path skills/productivity/writing-great-skills/;
+                        canonical pin + melded-surfaces registry: docs/agents/matt-pocock-skills.md)
     src: skill-audit  = the original ns skill-audit (operational checklists)
     src: ns         = ns overlay / authored for this merge
   Installed as an invoke-only support skill via areg. Keep invocation artifacts

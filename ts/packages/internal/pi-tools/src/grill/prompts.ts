@@ -3,6 +3,15 @@ import { GRILL_UI_SKILL_NAME, GRILL_WITH_DOCS_UI_SKILL_NAME } from "@nseng-ai/pi
 import { formatGrillAskProgressLine, type GrillAskProgress } from "./progress.ts";
 import type { NormalizedGrillAskInput } from "./protocol.ts";
 
+// Lineage: the fallback skill blocks and GRILL_UI_CONTRACT below are semantically
+// melded from the upstream `grilling` skill (mattpocock/skills, upstream path
+// skills/productivity/grilling/), re-expressed in Pi's structured grill_ask
+// vocabulary. They are deliberately self-contained duplicates of the
+// pi-grill-ui / pi-grill-with-docs-ui backend skills so fallback prompts work
+// without skill expansion. Canonical pin + melded-surfaces registry:
+// docs/agents/matt-pocock-skills.md. Merge upstream grilling changes
+// semantically; do not copy text.
+
 export const FALLBACK_GRILL_UI_SKILL_BLOCK = `<skill name="${GRILL_UI_SKILL_NAME}" fallback="true">
 This fallback is the Pi structured-UI complement to the portable grilling loop. It is self-contained; do not rely on a separate /grilling skill expansion for core behavior.
 

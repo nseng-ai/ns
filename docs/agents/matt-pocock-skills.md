@@ -24,6 +24,41 @@ ns first-party adaptations live under `skills/<name>/`. Their `.agents/skills/<n
 - `writing-great-skills`: upstream skill-authoring reference; ns audit behavior is folded into first-party `skill-audit`.
 - `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/in-progress/`, vendored from a post-1.0.1 upstream state). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Expects a "Wayfinding operations" section in `docs/agents/issue-tracker.md` and falls back to a local-markdown tracker when that doc is absent; references upstream `/prototype`, which is not imported. The Objective system's ideation pattern is an ns-native adaptation of this skill's model; the concept mapping, deliberate drops, and LM-driven sync process live in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md).
 
+## Melded surfaces registry
+
+Beyond exact vendoring, upstream content has been *melded* into ns-owned surfaces.
+Every melded surface carries a standardized prose lineage block naming its upstream
+skill path and pointing back at this document; this table is the other end of that
+contract. On every upstream refresh, walk this table and apply each row's sync action.
+Rows never duplicate the commit hash — the pin at the top of this document is the
+single source of commit-level provenance.
+
+| Upstream skill                              | ns surface                                                                                                                                                                                                    | Nature of melding                                                                                          | Sync action                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `grilling`                                  | `skills/pi-grill-ui/SKILL.md`                                                                                                                                                                                 | Interview loop re-expressed in Pi structured `grill_ask` vocabulary                                        | Semantic merge on refresh                                                          |
+| `grilling`                                  | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                       | Same, composed with docs-aware behavior                                                                    | Semantic merge on refresh                                                          |
+| `grilling`                                  | `ts/packages/internal/pi-tools/src/grill/prompts.ts` (fallback blocks + `GRILL_UI_CONTRACT`), `.../grill/result.ts` (end-grill result)                                                                        | Deliberately self-contained fallback duplicates of the backend skills                                      | Semantic merge on refresh; pin new behaviors in `test/grill/grill-ui.test.ts`      |
+| `grilling`                                  | `skills/readme-driven-development/SKILL.md` (Grill step)                                                                                                                                                      | Adapted interview-loop step                                                                                | Review on upstream `grilling` change                                               |
+| `domain-modeling`                           | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                       | Glossary challenge, `CONTEXT.md` discipline, sparing ADRs in Pi vocabulary                                 | Semantic merge on refresh                                                          |
+| `code-review` (upstream rename of `review`) | `.ns/reviews/code-smell-review/review.md`                                                                                                                                                                     | NS-local review prompt derived from the Fowler smell baseline                                              | Manually re-derive the smell baseline on refresh                                   |
+| `writing-great-skills`                      | `skills/skill-audit/references/writing-great-skills-adaptation.md`                                                                                                                                            | Adapted audit concepts                                                                                     | Update adapted concepts when upstream vocabulary changes                           |
+| `writing-great-skills`                      | `skills/skill-audit-improved/`                                                                                                                                                                                | Bundled vocabulary with inline `src: pocock` markers (permitted finer-grained supplement to this registry) | Re-derive `src: pocock`-marked content on refresh                                  |
+| `wayfinder`                                 | Objective ideation pattern: `skills/objective/references/objective-patterns.md`, root `CONTEXT.md` vocabulary, `skills/objective-create-wayfinding/`, step-skill hooks in `objective-next`/`objective-update` | LM-driven conceptual adaptation                                                                            | LM sync per [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md) |
+| `grill-me`                                  | `skills/objective-create/SKILL.md` (interview step)                                                                                                                                                           | Inspired-by, credited inline                                                                               | None (credit only)                                                                 |
+| `wayfinder`                                 | `docs/objective-system.md` (ideation pattern mention)                                                                                                                                                         | Inspired-by via the Objective ideation pattern                                                             | None (credit only)                                                                 |
+
+Standing policy inherited by every row: wherever Pocock skills use tickets or an issue
+tracker for durable state, ns uses Objectives.
+
+Dismissed near-misses from the last semantic sweep (v1.1 refresh) — references by name
+or independent vocabulary, not embeddings: `skills/objective-next/references/confirmed-execution.md`
+(names grilling as a steering step), `skills/objective-create-readme-driven-development/SKILL.md`
+(routes to grilling/pi-grill-ui by name), the `.ns/reviews/` definitions other than
+`code-smell-review` (structurally independent of the two-axis review), "seam"
+vocabulary in first-party testing docs (dependency-injection sense, not upstream tdd's
+seam-first testing), and generic duplication/progressive-disclosure wording outside the
+skill-audit family.
+
 ## ns-owned overlays
 
 - `skills/pi-grill-ui` and `skills/pi-grill-with-docs-ui` are Pi structured grill UI backend skills. They must stay self-contained because fallback prompts must work even when skill expansion fails.

@@ -21,12 +21,12 @@ This review is an NS-local review prompt derived from the **code-smell baseline*
 in the vendored Matt Pocock `pocock-review` skill:
 `.agents/skills/pocock-review/SKILL.md`.
 
-Upstream source of truth for that vendored skill is `mattpocock/skills`; NS's
-current import provenance is documented in `docs/agents/matt-pocock-skills.md`
-(currently `mattpocock/skills` commit
-`6eeb81b5fcfeeb5bd531dd47ab2f9f2bbea27461`, package version `1.0.1`). When
-refreshing Matt-sourced skills, compare upstream `pocock-review`'s smell
-baseline and apply relevant changes here manually. Preserve this review's
+Upstream source of truth for that vendored skill is `mattpocock/skills`, where
+the skill is named `code-review` (renamed upstream from `review`; path
+`skills/engineering/code-review/`). The single canonical commit-level pin lives
+in `docs/agents/matt-pocock-skills.md`; do not duplicate the hash here. When
+refreshing Matt-sourced skills, compare the upstream smell baseline and apply
+relevant changes here manually. Preserve this review's
 NS-local adaptations: code-smell-only scope, review tone, `.ns/reviews`
 frontmatter, and explicit exclusions for spec/standards/tests/formatting.
 

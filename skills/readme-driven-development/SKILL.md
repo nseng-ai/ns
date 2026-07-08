@@ -8,6 +8,8 @@ description: Develop a feature or system README-first — draft, grill, and sett
 
 Write the README before the software. The README is the canonical, exclusively user-facing contract: it describes the system as if it already exists — what a user sees, runs, and reads — never internal tasks or agent notes.
 
+Lineage: the **Grill** step is melded from the upstream `grilling` skill (`mattpocock/skills`, upstream path `skills/productivity/grilling/`) — one question at a time, recommended answers, facts looked up in the codebase. The canonical upstream pin and the melded-surfaces registry live in `docs/agents/matt-pocock-skills.md`.
+
 ## Loop
 
 1. **Draft or read.** Locate the canonical README; draft one if missing. Write it as the finished product's documentation.
