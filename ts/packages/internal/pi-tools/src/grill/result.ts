@@ -64,7 +64,7 @@ export function freeformAnswerResult(
 
 export function endGrillResult(question: string): ToolResult<GrillAskDetails> {
 	return textResult(
-		"User chose to end the grilling session. Stop asking questions and summarize resolved decisions, unresolved branches, and your final recommendation.",
+		"User chose to end the grilling session. Stop asking questions and summarize resolved decisions, unresolved branches, and your final recommendation, then await the user's confirmation before enacting the plan.",
 		{ action: "end-grill", question },
 	);
 }
