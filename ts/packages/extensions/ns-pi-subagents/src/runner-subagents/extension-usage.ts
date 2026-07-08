@@ -53,7 +53,7 @@ function usageMetadataFromSessionJsonl(
 	const parsed = parseRunnerSubagentUsageJsonl(jsonl);
 	if (parsed.type === "invalid-json") {
 		return unavailableUsage({
-			...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
+			...optionalEntry("sessionFile", options.sessionFile),
 			reason: "malformed-session-jsonl",
 			diagnostic: `Forked Pi session JSONL is malformed on line ${parsed.line}: ${parsed.message}`,
 		});
@@ -61,7 +61,7 @@ function usageMetadataFromSessionJsonl(
 
 	if (parsed.records.length === 0) {
 		return unavailableUsage({
-			...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
+			...optionalEntry("sessionFile", options.sessionFile),
 			reason: "no-assistant-usage",
 			diagnostic:
 				"Forked Pi session did not contain assistant messages with usable usage metadata.",
@@ -115,7 +115,7 @@ function unavailableUsage(input: {
 	return {
 		status: "unavailable",
 		source: "child-session-file",
-		...(input.sessionFile === undefined ? {} : { sessionFile: input.sessionFile }),
+		...optionalEntry("sessionFile", input.sessionFile),
 		reason: input.reason,
 		diagnostic: input.diagnostic,
 	};

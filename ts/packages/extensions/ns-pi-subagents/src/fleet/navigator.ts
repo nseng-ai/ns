@@ -825,14 +825,17 @@ type AvailableRunnerSubagentUsageMetadata = Extract<
 >;
 
 function usageLine(detail: SubagentFleetTaskDetail): string {
-	const usage = availableUsage(detail);
-	if (usage !== undefined) {
-		const totals = usage.totals;
-		const cached = totals.cacheRead + totals.cacheWrite;
-		return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+	switch (detail.usage?.status) {
+		case "available": {
+			const totals = detail.usage.totals;
+			const cached = totals.cacheRead + totals.cacheWrite;
+			return `tokens: ${formatTokenCount(totals.input)} in · ${formatTokenCount(totals.output)} out · ${formatTokenCount(cached)} cached · $${totals.cost.total.toFixed(3)}`;
+		}
+		case "unavailable":
+			return `tokens: unavailable (${detail.usage.reason})`;
+		default:
+			return "tokens: unavailable";
 	}
-	if (detail.usage?.status === "unavailable") return `tokens: unavailable (${detail.usage.reason})`;
-	return "tokens: unavailable";
 }
 
 function usageTrendLines(detail: SubagentFleetTaskDetail): string[] {

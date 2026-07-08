@@ -191,13 +191,7 @@ function captureToolEnd(accumulator: TimelineAccumulator, event: JsonRecord): vo
 	const key = toolKey(event, toolName);
 	const pending = accumulator.pendingTools.get(key);
 	if (pending !== undefined) {
-		pending.state = state;
-		if (resultPreview === undefined) {
-			delete pending.resultPreview;
-		} else {
-			pending.resultPreview = resultPreview;
-		}
-		accumulator.pendingTools.delete(key);
+		completePendingTool(accumulator, key, event);
 		return;
 	}
 	pushTimelineEntry(accumulator, {
@@ -244,14 +238,26 @@ function completePendingTool(
 ): void {
 	const pending = accumulator.pendingTools.get(pendingKey);
 	if (pending === undefined) return;
-	pending.state = event.isError === true ? "error" : "ok";
-	const resultPreview = toolResultPreviewFromEvent(event);
-	if (resultPreview === undefined) {
-		delete pending.resultPreview;
-	} else {
-		pending.resultPreview = resultPreview;
-	}
-	accumulator.pendingTools.delete(pendingKey);
+	const finished = finishPendingTool({ pending, event });
+	const entries = accumulator.entries;
+	const pendingTools = accumulator.pendingTools;
+	const entryIndex = entries.indexOf(pending);
+	if (entryIndex >= 0) entries[entryIndex] = finished;
+	pendingTools.delete(pendingKey);
+}
+
+function finishPendingTool(input: {
+	pending: RunnerSubagentTimelineToolEntry;
+	event: JsonRecord;
+}): RunnerSubagentTimelineToolEntry {
+	const resultPreview = toolResultPreviewFromEvent(input.event);
+	return {
+		kind: "tool",
+		toolName: input.pending.toolName,
+		state: input.event.isError === true ? "error" : "ok",
+		...optionalEntry("inputPreview", input.pending.inputPreview),
+		...optionalEntry("resultPreview", resultPreview),
+	};
 }
 
 function toolOutputPreviewFromEvent(event: JsonRecord): string | undefined {
