@@ -59,13 +59,20 @@ export function assistantVisibleTextFromMessage(message: unknown): string | unde
 	return text === undefined ? undefined : nonEmptyCompactPreview(text);
 }
 
-export function toolInputPreviewFromEvent(event: Record<string, unknown>): string | undefined {
-	for (const key of ["args", "arguments", "input"] as const) {
+export function firstMatchingEventPreview(
+	event: Record<string, unknown>,
+	keys: readonly string[],
+): string | undefined {
+	for (const key of keys) {
 		if (Object.prototype.hasOwnProperty.call(event, key)) {
 			return previewJsonEventValue(event[key]);
 		}
 	}
 	return undefined;
+}
+
+export function toolInputPreviewFromEvent(event: Record<string, unknown>): string | undefined {
+	return firstMatchingEventPreview(event, ["args", "arguments", "input"]);
 }
 
 export function toolResultPreviewFromEvent(event: Record<string, unknown>): string | undefined {

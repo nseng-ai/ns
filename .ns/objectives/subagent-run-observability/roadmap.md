@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Current-action pane with heartbeat/staleness and auto-refresh in the detail view
+- [x] Current-action pane with heartbeat/staleness and auto-refresh in the detail view
       Derive the in-flight action (thinking vs named tool + command/path, elapsed
       time, last output line) from the session JSONL tail as a pure function next
       to `timeline.ts`; add periodic re-read of the session tail while the detail
@@ -10,8 +10,9 @@
       session files (tail-read or size-gate the re-parse).
   - Policy: direct execution after preview; keep the slice inside existing
     session JSONL parsing and navigator refresh behavior.
-  - Evidence: targeted tests for pure current-action/staleness derivation plus
-    manual navigator smoke notes for live refresh behavior.
+  - Evidence: local branch diff `master...HEAD` adds current-action extraction in
+    `timeline.ts`, running-detail polling and heartbeat rendering in `navigator.ts`,
+    and targeted navigator/timeline tests; PR #3213 is open evidence for the slice.
 - [ ] Live worktree/diff summary panel
       `git status --short` plus per-file +N/-N in the detail view, refreshed with
       the same cadence. Handle shared-worktree commingling by labeling the panel as
@@ -47,10 +48,12 @@
 - [ ] Structured prompt panel (Assignment/Constraints/Inputs)
       Only viable where dispatch produces structured prompts (objective runner
       steps); freeform prompts would require fragile parsing.
-- [ ] Kill/abort control from the detail screen
-      Turns the screen from observer into actuator; abort plumbing exists
-      (`runner-subagents/abort-signals.ts`) but confirm/recover semantics need a
-      deliberate slice of their own.
+- [ ] Cancel controls for one agent or the whole subagent fleet
+      Add an explicit, confirmed actuator path that can cancel an individual
+      subagent from its detail screen and cancel all currently running subagents
+      from the fleet view. Abort plumbing exists (`runner-subagents/abort-signals.ts`),
+      but confirmation, parent recovery/checkpoint semantics, and post-cancel
+      status reporting need a deliberate slice of their own.
 - [ ] Runner-emitted semantic events (validation passed, checkpoint written, commit created)
       Requires a protocol change on the emit side; UI-side inference from prose
       is explicitly rejected. Upgrade to Work only with a real protocol design.
