@@ -36,6 +36,7 @@ import type { SubagentRuntime } from "../runtime/seam.ts";
 import {
 	checkAgentDefinitionConfiguration,
 	type AgentDefinitionConfigurationCheck,
+	type SubagentToolRegistration,
 } from "../agent-configuration.ts";
 import {
 	abortReasonDiagnostic,
@@ -121,7 +122,7 @@ const FALLBACK_EXPLORER_TOOL_METADATA = {
 export function registerExploreTool(
 	pi: ExploreExtensionAPI,
 	options: WithFleetRegistry<ExploreExtensionOptions>,
-): void {
+): SubagentToolRegistration {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const timers = options.timers ?? unrefTimerScheduler;
 	const registrationCheck = checkExplorerConfiguration(
@@ -182,6 +183,8 @@ export function registerExploreTool(
 			}
 		},
 	});
+
+	return { isHealthy: registrationCheck.ok };
 }
 
 function validateExploreInput(params: unknown): ExploreInput {

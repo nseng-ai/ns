@@ -20,6 +20,11 @@ import {
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "../../src/explore/contract.ts";
+import {
+	FORKED_PI_AGENT_TOOL_NAME,
+	RUNNER_AGENT_NAME,
+	RUNNER_AGENT_REPO_RELATIVE_PATH,
+} from "../../src/runner-subagents/extension.ts";
 export {
 	createFakeRunnerSubagentDispatcher,
 	FakeSpawnedChildProcess,
@@ -53,6 +58,32 @@ export function makeExplorerAgentDefinition(
 		].join("\n"),
 		filePath: `/fake/${EXPLORER_AGENT_REPO_RELATIVE_PATH}`,
 		...overrides,
+	};
+}
+
+export function makeRunnerAgentDefinition(
+	overrides: Partial<PiAgentDefinition> = {},
+): PiAgentDefinition {
+	return {
+		schema: PI_AGENT_DEFINITION_SCHEMA,
+		name: RUNNER_AGENT_NAME,
+		toolName: FORKED_PI_AGENT_TOOL_NAME,
+		label: "Forked Pi subagent",
+		description: "Fake runner agent definition for tests.",
+		promptGuidelines: ["Use forked_pi_agent for focused delegated work."],
+		body: ["You are a fake runner.", "", "## Delegated task", "", "{{prompt}}"].join("\n"),
+		filePath: `/fake/${RUNNER_AGENT_REPO_RELATIVE_PATH}`,
+		...overrides,
+	};
+}
+
+export function makePerAgentDefinitionLoader(
+	definitions: ReadonlyMap<string, PiAgentDefinition>,
+): (agentName: string) => PiAgentDefinition {
+	return (agentName) => {
+		const definition = definitions.get(agentName);
+		if (definition === undefined) throw new Error(`No fake definition for ${agentName}.`);
+		return definition;
 	};
 }
 

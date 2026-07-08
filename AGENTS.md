@@ -70,21 +70,6 @@ objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 - Before creating, editing, installing, renaming, publishing skills, or touching `skills/` or `.agents/skills/`, read `docs/conventions/skill-conventions.md`.
 - Review boundary: real directories under `.agents/skills/` are vendored third-party code. Review agents ignore embedded upstream code for normal lint/type/cleanup expectations and flag only integration-boundary issues unless explicitly asked to review the vendored dependency itself.
 
-## Subagent delegation (Pi sessions)
-
-Pi sessions in this repo provide a subagent system from `@nseng-ai/ns-pi-subagents` (see that package's README). The tool names below exist only in Pi; agents in other harnesses use their own delegation tools and should ignore this section.
-
-### `explore` — parallel read-only scouts
-
-- When a question spans several files, directories, or subsystems, fan out `explore` with parallel focused tasks instead of serial read/grep — delegate the reading, keep the conclusion.
-- Batch independent explore tasks into one call so they run concurrently.
-- Work directly when you already know the exact file or symbol, or the task is trivial.
-
-### `forked_pi_agent` — focused forked Pi process
-
-- Use it for a self-contained delegated task; the prompt must carry complete context — the child starts cold.
-- Act on the returned status and findings; open the child session file only when you need depth.
-
 ## TypeScript and CLI work
 
 - Procedural rules for editing under `ts/` (tsgo typecheck, Vitest suite, Bun ban, format/lint autofixers) and for authoring CLI commands live in `ts/AGENTS.md`. Read it before editing any `.ts` file or designing a CLI surface.
