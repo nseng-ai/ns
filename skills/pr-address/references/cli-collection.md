@@ -18,7 +18,7 @@ If the current branch has an open PR, callers may omit `--pr-number`:
 ns address exec download-feedback --format json
 ```
 
-The result includes `markdown` for editor/session viewing plus target/count metadata. The Markdown is a report: it does not start an addressing run, authorize edits, or mutate GitHub.
+The result includes `markdown` for editor/session viewing plus target/count metadata. The Markdown is a report: it does not start an addressing run or mutate GitHub by itself. Once the human asks the agent to address feedback, default to editing as needed and closing the review threads directly addressed by the implemented and validated change unless the human says otherwise.
 
 ### `map-branch-prs`
 
@@ -58,7 +58,7 @@ ns address exec pr-discussion-comments --pr-number <pr-number> --format json
 
 ## Mutation primitives
 
-Replies and resolutions are GitHub mutations. Use them only after the human has asked the agent to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed.
+Replies and resolutions are GitHub mutations. Use them after the human has asked the agent to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed. Do not ask for a second confirmation before closing addressed threads unless the feedback is ambiguous, broad, or outside the requested scope.
 
 ```bash
 ns address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
@@ -67,7 +67,7 @@ ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_I
 printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | ns address exec close-review-threads --format json
 ```
 
-For multiple confirmed thread IDs, use `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.
+For multiple addressed thread IDs, default to `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.
 
 Do not use raw `gh api graphql` for review-thread resolve/reply mutations when these primitives cover the operation.
 
