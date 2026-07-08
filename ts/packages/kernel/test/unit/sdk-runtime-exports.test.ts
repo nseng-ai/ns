@@ -2,13 +2,22 @@ import { describe, expect, test } from "vitest";
 import { z as zod } from "zod";
 
 import {
+	bundledArtifactDefinitionSchema,
+	defineCommand,
 	defineExtension,
+	defineRawCommand,
 	defineRepoLocalNsExtensionDescriptor,
+	extensionDescriptorSchema,
+	extensionPointDefinitionSchema,
 	failed,
+	failure,
+	machineEnvelopeSchema,
+	negative,
 	noopNsCommandIo,
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
+	okExit,
 	repoLocalNsCommandDescriptor,
 	nsExtensionManifestCommandSchema,
 	nsExtensionManifestSchema,
@@ -17,19 +26,31 @@ import {
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
+	usageError,
+	validateExtensionDescriptor,
+	validateLoadedCommandName,
 	z,
 	type NsCommand,
 } from "@nseng-ai/kernel/sdk";
 
 const runtimeExports = {
+	bundledArtifactDefinitionSchema,
+	defineCommand,
 	defineExtension,
+	defineRawCommand,
 	defineRepoLocalNsExtensionDescriptor,
+	extensionDescriptorSchema,
+	extensionPointDefinitionSchema,
 	failed,
+	failure,
+	machineEnvelopeSchema,
+	negative,
 	noopNsCommandIo,
 	noopNsProgress,
 	normalizeTextOutput,
 	repoLocalNsCommandDescriptor,
 	ok,
+	okExit,
 	nsExtensionManifestCommandSchema,
 	nsExtensionManifestSchema,
 	nsExtensionPackageManifestSchema,
@@ -37,18 +58,30 @@ const runtimeExports = {
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
+	usageError,
+	validateExtensionDescriptor,
+	validateLoadedCommandName,
 	z,
 } satisfies Record<string, unknown>;
 
 const EXPECTED_RUNTIME_EXPORTS = [
+	"bundledArtifactDefinitionSchema",
+	"defineCommand",
 	"defineExtension",
+	"defineRawCommand",
 	"defineRepoLocalNsExtensionDescriptor",
+	"extensionDescriptorSchema",
+	"extensionPointDefinitionSchema",
 	"failed",
+	"failure",
+	"machineEnvelopeSchema",
+	"negative",
 	"noopNsCommandIo",
 	"noopNsProgress",
 	"normalizeTextOutput",
 	"repoLocalNsCommandDescriptor",
 	"ok",
+	"okExit",
 	"nsExtensionManifestCommandSchema",
 	"nsExtensionManifestSchema",
 	"nsExtensionPackageManifestSchema",
@@ -56,6 +89,9 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"trimOuterBlankLines",
 	"truncateTextHead",
 	"truncateTextHeadTail",
+	"usageError",
+	"validateExtensionDescriptor",
+	"validateLoadedCommandName",
 	"z",
 ] as const;
 
@@ -66,6 +102,7 @@ describe("@nseng-ai/kernel/sdk runtime exports", () => {
 
 	test("provides result helpers, noop services, and the shared schema builder", () => {
 		expect(ok("done")).toEqual({ ok: true, message: "done" });
+		expect(okExit({ done: true })).toEqual({ type: "ok", data: { done: true } });
 		expect(failed("nope", 3)).toEqual({ ok: false, exitCode: 3, message: "nope" });
 		expect(() => noopNsCommandIo.phase("working")).not.toThrow();
 		expect(() => noopNsProgress.phase({ type: "phase-started", phaseKey: "test" })).not.toThrow();

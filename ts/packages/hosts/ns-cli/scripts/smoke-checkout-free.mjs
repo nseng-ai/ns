@@ -38,7 +38,7 @@ try {
 		[
 			"--input-type=module",
 			"--eval",
-			'import { defineExtension, ok, z } from "@nseng-ai/ns/kernel/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).ok !== true || typeof z.object !== "function") throw new Error("bad kernel sdk export");',
+			'import { defineExtension, ok, z } from "@nseng-ai/ns/kernel/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).type !== "ok" || typeof z.object !== "function") throw new Error("bad kernel sdk export");',
 		],
 		{ cwd: tempRoot },
 	);

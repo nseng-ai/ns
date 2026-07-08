@@ -1,6 +1,6 @@
 // Public author API for ns extensions.
 // Keep ts/packages/kernel/docs/sdk-reference.md in sync when changing these exports.
-export { defineExtension } from "./command.ts";
+export { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
 export {
 	defineRepoLocalNsExtensionDescriptor,
 	repoLocalNsCommandDescriptor,
@@ -23,6 +23,9 @@ export type {
 	ClinkrFormat,
 	PositionalSpec,
 	RenderCapabilities,
+	DefineCommandSpec,
+	KernelCommand,
+	KernelCommandInvocation,
 	NsCommand,
 	NsCommandCompletionProvider,
 	NsCommandRequest,
@@ -52,7 +55,33 @@ export type {
 	HeadTailTextTruncationOptions,
 	HeadTextTruncationOptions,
 } from "@nseng-ai/foundation/text-truncation";
-export { failed, ok } from "./result.ts";
+export {
+	buildMachineEnvelopeSchema,
+	failure,
+	machineEnvelopeSchema,
+	negative,
+	usageError,
+} from "@nseng-ai/clinkr";
+export type { MachineEnvelope } from "@nseng-ai/clinkr";
+export {
+	bundledArtifactDefinitionSchema,
+	extensionDescriptorSchema,
+	extensionPointDefinitionSchema,
+	validateExtensionDescriptor,
+	validateLoadedCommandName,
+} from "./descriptor.ts";
+export type {
+	BundledArtifactDefinition,
+	ExtensionCommandEntry,
+	ExtensionDescriptor,
+	ExtensionDescriptorValidationResult,
+	ExtensionEntry,
+	ExtensionGroupEntry,
+	ExtensionPointDefinition,
+	KernelCommandLoad,
+	KernelCommandModule,
+} from "./descriptor.ts";
+export { failed, ok, okExit } from "./result.ts";
 export type { NsResult } from "./result.ts";
 export {
 	centerMatrixProgressText,

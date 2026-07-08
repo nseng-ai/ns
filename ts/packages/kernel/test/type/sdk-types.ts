@@ -1,5 +1,16 @@
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineExtension,
+	defineRawCommand,
+	failure,
+	ok,
+	okExit,
+	z,
+} from "@nseng-ai/kernel/sdk";
 import type {
+	ExtensionDescriptor,
+	KernelCommand,
+	MachineEnvelope,
 	NsCommandIo,
 	NsExtensionApi,
 	NsProgress,
@@ -80,6 +91,55 @@ const extension = defineExtension({
 
 const commandlessExtension = defineExtension({});
 
+const rawCommand = defineRawCommand({
+	name: "legacy",
+	summary: "Legacy wrapper.",
+	description: "Legacy wrapper command.",
+	resultSchema: z.object({ argv: z.array(z.string()) }),
+	run(_ctx, invocation) {
+		type InvocationArgv = typeof invocation.argv;
+		const checks: [
+			Assert<IsAny<InvocationArgv> extends false ? true : false>,
+			Assert<IsEqual<InvocationArgv, readonly string[]>>,
+		] = [true, true];
+		void checks;
+		return { type: "ok", data: { argv: [...invocation.argv] } };
+	},
+});
+
+const adaptedCommand = defineCommand({
+	name: "hello",
+	summary: "Say hello.",
+	description: "Say hello.",
+	schema: z.object({ name: z.string() }),
+	positionals: { name: { position: 0 } },
+	resultSchema: z.object({ greeting: z.string() }),
+	async handler(_ctx, request) {
+		return okExit({ greeting: request.name });
+	},
+});
+
+const descriptor = defineExtension({
+	group: "hello",
+	description: "Hello extension.",
+	entries: [
+		{ name: "legacy", load: () => ({ default: rawCommand }) },
+		{
+			group: "exec",
+			hidden: true,
+			description: "Agent-only commands.",
+			entries: [{ name: "hello", load: () => ({ default: adaptedCommand }) }],
+		},
+	],
+	points: [{ id: "submit.pre", accepts: "hook", cardinality: "many" }],
+	bundledArtifacts: [{ kind: "skill", name: "hello", path: "./skills/hello" }],
+});
+
+const descriptorCheck: ExtensionDescriptor = descriptor;
+const rawCommandCheck: KernelCommand = rawCommand;
+const envelope: MachineEnvelope = { status: "failure", exitCode: 2, errorType: "x", message: "x" };
+const failureExit = failure("wrapped", "wrapped failure");
+
 const textGenerator: TextGenerator = {
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
 		return { ok: true, text: request.prompt };
@@ -122,6 +182,10 @@ const commandOk: boolean = commandResult.code === 0 && !commandResult.killed;
 
 void extension;
 void commandlessExtension;
+void descriptorCheck;
+void rawCommandCheck;
+void envelope;
+void failureExit;
 void textGenerator;
 void commandIo;
 void progress;
