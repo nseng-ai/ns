@@ -118,6 +118,86 @@ describe("runner subagent timeline", () => {
 		});
 	});
 
+	test("captures top-level assistant tool calls and tool result messages", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "message",
+					message: {
+						role: "assistant",
+						content: [
+							{ type: "text", text: "Reading files" },
+							{ type: "thinking", text: "private reasoning" },
+							{ type: "toolCall", id: "tool-1", name: "read", arguments: { path: "src/index.ts" } },
+						],
+					},
+				},
+				{
+					type: "message",
+					message: {
+						role: "toolResult",
+						toolCallId: "tool-1",
+						content: [{ type: "text", text: "file contents" }],
+					},
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{ kind: "assistant", text: "Reading files" },
+			{
+				kind: "tool",
+				toolName: "read",
+				state: "ok",
+				inputPreview: '{"path":"src/index.ts"}',
+				resultPreview: "file contents",
+			},
+		]);
+		expect(timeline.currentAction).toEqual({ kind: "idle" });
+	});
+
+	test("keeps top-level assistant tool call pending as the current action", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "message",
+					message: {
+						role: "assistant",
+						content: [{ type: "toolCall", id: "tool-1", name: "bash", input: "just test" }],
+					},
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{ kind: "tool", toolName: "bash", state: "running", inputPreview: "just test" },
+		]);
+		expect(timeline.currentAction).toEqual({
+			kind: "tool",
+			toolName: "bash",
+			inputPreview: "just test",
+		});
+	});
+
+	test("captures unmatched top-level tool result messages as best-effort completed entries", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "message",
+					message: {
+						role: "toolResult",
+						isError: true,
+						result: "missing file",
+					},
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{ kind: "tool", toolName: "unknown", state: "error", resultPreview: "missing file" },
+		]);
+	});
+
 	test("dedupes repeated message_end and turn_end assistant text", () => {
 		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
 			jsonl([

@@ -8,8 +8,12 @@ import type { RunnerSubagentActivity } from "./activity.ts";
 import {
 	assistantVisibleTextFromMessage,
 	emptyRunnerSubagentActivity,
+	extractMessageToolCalls,
+	extractMessageToolResult,
 	toolInputPreviewFromEvent,
 	toolResultPreviewFromEvent,
+	type MessageToolCallDescriptor,
+	type MessageToolResultDescriptor,
 } from "./activity.ts";
 
 export interface RunnerSubagentJsonEventParserOptions {
@@ -108,6 +112,9 @@ export class RunnerSubagentJsonEventParser {
 	private protocolError: RunnerSubagentJsonProtocolError | undefined;
 	private terminalExecutionError: RunnerSubagentJsonTerminalExecutionError | undefined;
 	private currentTurnToolStarts: Array<{ toolName: string; toolCallId?: string }> = [];
+	private hasExplicitTurnEvents = false;
+	private syntheticAssistantMessageKeys = new Set<string>();
+	private completedToolCallIds = new Set<string>();
 
 	constructor(options: RunnerSubagentJsonEventParserOptions = {}) {
 		this.title = options.title;
@@ -228,6 +235,9 @@ export class RunnerSubagentJsonEventParser {
 			case "agent_start":
 				this.state = "running";
 				return;
+			case "message":
+				this.captureTopLevelMessage(event.message);
+				return;
 			case "agent_end":
 				this.captureAssistantPreviewFromMessages(event.messages);
 				this.captureStopReasonFromMessages(event.messages);
@@ -236,6 +246,7 @@ export class RunnerSubagentJsonEventParser {
 				return;
 			case "turn_start":
 				this.state = "running";
+				this.hasExplicitTurnEvents = true;
 				this.turnCount += 1;
 				this.currentTurnToolStarts = [];
 				return;
@@ -270,7 +281,7 @@ export class RunnerSubagentJsonEventParser {
 				return;
 			case "tool_execution_end":
 				this.state = "running";
-				this.executedToolCount += 1;
+				if (this.shouldCountCompletedTool(event)) this.executedToolCount += 1;
 				this.recordToolEnd(event);
 				this.captureLastToolResult(event);
 				this.clearCurrentTool(event);
@@ -313,6 +324,60 @@ export class RunnerSubagentJsonEventParser {
 
 	private currentLaunchMetadata(): RunnerSubagentLaunchMetadata {
 		return this.launch ?? { thinkingLevel: "off", hasModelArg: false, hasThinkingArg: false };
+	}
+
+	private captureTopLevelMessage(message: unknown): void {
+		this.captureAssistantPreviewFromMessage(message);
+		this.captureStopReasonFromMessage(message);
+		this.captureFinalAssistantTextFromMessage(message);
+		const toolCalls = extractMessageToolCalls(message);
+		const toolResult = extractMessageToolResult(message);
+		if (!isUsefulAssistantMessage(message, toolCalls) && toolResult === undefined) return;
+
+		this.state = "running";
+		this.captureSyntheticTurnFromMessage(message, toolCalls);
+		for (const toolCall of toolCalls) this.captureMessageToolCall(toolCall);
+		if (toolResult !== undefined) this.captureMessageToolResult(toolResult);
+	}
+
+	private captureSyntheticTurnFromMessage(
+		message: unknown,
+		toolCalls: readonly MessageToolCallDescriptor[],
+	): void {
+		if (this.hasExplicitTurnEvents || !isUsefulAssistantMessage(message, toolCalls)) return;
+		const key = syntheticAssistantMessageKey(message);
+		if (key !== undefined) {
+			if (this.syntheticAssistantMessageKeys.has(key)) return;
+			this.syntheticAssistantMessageKeys.add(key);
+		}
+		this.turnCount += 1;
+		this.currentTurnToolStarts = [];
+	}
+
+	private captureMessageToolCall(toolCall: MessageToolCallDescriptor): void {
+		const event = toolCallEventRecord(toolCall);
+		this.captureCurrentTool(event);
+		this.captureCurrentToolInput(event, { resetOnMissing: true });
+		this.recordToolStart(event);
+	}
+
+	private captureMessageToolResult(toolResult: MessageToolResultDescriptor): void {
+		const event = toolResultEventRecord(toolResult);
+		const eventWithCurrentTool =
+			typeof event.toolName === "string" || this.currentTool === undefined
+				? event
+				: { ...event, toolName: this.currentTool };
+		if (this.shouldCountCompletedTool(eventWithCurrentTool)) this.executedToolCount += 1;
+		this.recordToolEnd(eventWithCurrentTool);
+		this.captureLastToolResult(eventWithCurrentTool);
+		this.clearCurrentTool(eventWithCurrentTool);
+	}
+
+	private shouldCountCompletedTool(event: JsonRecord): boolean {
+		if (typeof event.toolCallId !== "string") return true;
+		if (this.completedToolCallIds.has(event.toolCallId)) return false;
+		this.completedToolCallIds.add(event.toolCallId);
+		return true;
 	}
 
 	private captureCurrentTool(event: JsonRecord): void {
@@ -362,6 +427,12 @@ export class RunnerSubagentJsonEventParser {
 	private recordToolStart(event: JsonRecord): void {
 		if (typeof event.toolName !== "string") return;
 		const toolCallId = typeof event.toolCallId === "string" ? event.toolCallId : undefined;
+		if (
+			toolCallId !== undefined &&
+			this.currentTurnToolStarts.some((start) => start.toolCallId === toolCallId)
+		) {
+			return;
+		}
 		const start = {
 			toolName: event.toolName,
 			...(toolCallId === undefined ? {} : { toolCallId }),
@@ -580,4 +651,37 @@ function hasToolInputValue(event: JsonRecord): boolean {
 	return ["args", "arguments", "input"].some((key) =>
 		Object.prototype.hasOwnProperty.call(event, key),
 	);
+}
+
+function toolCallEventRecord(toolCall: MessageToolCallDescriptor): JsonRecord {
+	return {
+		toolName: toolCall.toolName,
+		...(toolCall.toolCallId === undefined ? {} : { toolCallId: toolCall.toolCallId }),
+		...(toolCall.input === undefined ? {} : { input: toolCall.input }),
+	};
+}
+
+function toolResultEventRecord(toolResult: MessageToolResultDescriptor): JsonRecord {
+	return {
+		...(toolResult.toolName === undefined ? {} : { toolName: toolResult.toolName }),
+		...(toolResult.toolCallId === undefined ? {} : { toolCallId: toolResult.toolCallId }),
+		...(toolResult.result === undefined ? {} : { result: toolResult.result }),
+		isError: toolResult.isError,
+	};
+}
+
+function isUsefulAssistantMessage(
+	message: unknown,
+	toolCalls: readonly MessageToolCallDescriptor[],
+): boolean {
+	return assistantVisibleTextFromMessage(message) !== undefined || toolCalls.length > 0;
+}
+
+function syntheticAssistantMessageKey(message: unknown): string | undefined {
+	if (!isRecord(message)) return undefined;
+	for (const key of ["id", "messageId", "message_id"] as const) {
+		const value = message[key];
+		if (typeof value === "string" && value.length > 0) return `${key}:${value}`;
+	}
+	return undefined;
 }

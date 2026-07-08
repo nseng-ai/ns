@@ -121,12 +121,12 @@ steps with parent-LM checkpoints between committed slices.
 
 Assumptions (each falsifiable by a future update):
 
-- The session JSONL tail carries enough to infer the in-flight action, but the
-  parser support is incomplete for actual Pi explorer sessions observed in manual
-  smoke. PR #3213 confirms the approach for `tool_execution_*` / `message_end`
-  shapes; a real session also emits top-level `message` events with assistant
-  `toolCall` content and `message.role = "toolResult"`, which must be parsed before
-  the current-action/timeline criterion is complete for real subagent sessions.
+- The session JSONL tail carries enough to infer the in-flight action. PR #3213
+  confirmed the approach for `tool_execution_*` / `message_end` shapes, and the
+  follow-up top-level `message` parser support now covers the actual Pi explorer
+  session shape observed in manual smoke: assistant `toolCall` content followed by
+  `message.role = "toolResult"` records. Manual navigator re-smoke remains useful
+  before closure, but the parser gap itself is de-risked by targeted tests.
 - Usage events already parsed for the totals line are granular enough to
   compute per-turn deltas without new instrumentation.
 - Run-stop detection (for the post-run flip) is available from the existing
@@ -159,9 +159,9 @@ Risks:
 - Agent narration stream: should the runner emit lightweight progress notes
   separate from final answer text? Deliberately not parked — the intended path is
   still to derive narration from existing assistant-text and tool-call session
-  messages, not to add a new protocol. Manual smoke showed the current parser misses
-  the actual top-level `message` event shape, so the immediate follow-up is parser
-  support for that existing shape rather than runner-emitted semantic events.
+  messages, not to add a new protocol. The top-level `message` event parser support
+  covers the immediate shape gap observed in manual smoke; revisit runner-emitted
+  narration only if existing messages still prove insufficient after re-smoke.
 - Multi-pane layout with pane switching and timeline filtering: likely
   over-designed for a TUI overlay; a single scrolling column with a couple
   of toggles may be enough. Revisit only if the single column proves
