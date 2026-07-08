@@ -29,6 +29,11 @@ export const packageTierIds = [
 
 export type PackageTierId = (typeof packageTierIds)[number];
 
+/**
+ * Layering policy is rank-derived: a tier may depend on itself and every tier below it in
+ * this list. This supersedes the old hand-curated per-tier target lists, which were
+ * strictly tighter for host, internal-tool, internal-pi-tool, and standalone-tool.
+ */
 export const tierRank = [
 	"internal-pi-tool",
 	"internal-tool",
@@ -105,6 +110,10 @@ export const packageTierDefinitions: readonly PackageTierDefinition[] = packageT
 	}),
 );
 
+/**
+ * Returns the tier itself plus every lower-ranked target, implementing the rank-derived
+ * layering policy instead of the old hand-curated per-tier target lists.
+ */
 function downwardTierTargets(tier: PackageTierId): readonly PackageTierId[] {
 	const tierIndex = tierRank.indexOf(tier);
 	return tierRank.slice(tierIndex);
