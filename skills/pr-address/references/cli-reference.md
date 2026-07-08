@@ -39,13 +39,13 @@ ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_I
 printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | ns address exec close-review-threads --format json
 ```
 
-For multiple confirmed thread IDs, use `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.
+For multiple addressed thread IDs, default to `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.
 
 ## Safety policy
 
-Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback` to view downloaded Markdown reports, ask for confirmation before code changes, and avoid resolving or replying during the initial download step.
+Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback` to view downloaded Markdown reports. The download step alone does not mutate GitHub and should not be treated as an addressing run.
 
-After the human asks the agent to address feedback, current repo state has been inspected, fixes are implemented or verified, and appropriate validation has passed, use the mutation primitives above for review-thread replies/resolutions rather than raw `gh api graphql`.
+After the human asks the agent to address feedback, current repo state has been inspected, fixes are implemented or verified, and appropriate validation has passed, default to using the mutation primitives above for review-thread replies/resolutions rather than raw `gh api graphql`. Do not ask for a second confirmation before closing addressed threads unless the feedback is ambiguous, broad, or outside the requested scope.
 
 ## Retired operation families
 

@@ -20,7 +20,7 @@ Manual CLI fallback:
 ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session viewing. It is a report, not an automatic triage or implementation prompt; inspect it and ask the human how to proceed before editing or mutating GitHub.
+The JSON result includes a `markdown` field intended for editor/session viewing. It is a report, not an automatic triage or implementation prompt by itself; inspect it before acting. If the human asks you to address feedback, that instruction includes the normal authorization to edit and to resolve or reply to review threads directly addressed by the implemented and validated change, unless the human says otherwise.
 
 ## Current primitive surface
 
@@ -45,7 +45,7 @@ Mutation primitives:
 - `resolve-review-thread --thread-id <id>`
 - `close-review-threads --thread-ids-json '{"threadIds":["<id>"]}' [--body <body>]`
 
-After current repo state has been inspected, a fix is implemented or verified, and appropriate validation has passed, use `ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json` for confirmed bulk review-thread closure. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
+After current repo state has been inspected, a fix is implemented or verified, and appropriate validation has passed, default to closing the addressed or confidently stale review threads with `ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json`. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
 
 For one-off mutations, use `ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `ns address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
 
