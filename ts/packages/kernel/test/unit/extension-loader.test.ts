@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { validateNsExtensionContribution } from "../../src/extensions/command-registry.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
-import { z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { z } from "@nseng-ai/kernel/sdk";
 
 const tempDirs: string[] = [];
 
@@ -49,9 +49,9 @@ export default defineExtension({
 		const validation = validateNsExtensionContribution(loaded.defaultExport, "greet", modulePath);
 		expect(validation.ok).toBe(true);
 		if (!validation.ok) return;
-		const command: NsCommand | undefined = validation.command;
-		expect(command?.name).toBe("greet");
-		expect(command?.schema).toBeInstanceOf(z.ZodObject);
+		const command = validation.command;
+		expect(command.name).toBe("greet");
+		expect("schema" in command ? command.schema : undefined).toBeInstanceOf(z.ZodObject);
 	});
 
 	test("loads package-specifier references through host package resolution", async () => {

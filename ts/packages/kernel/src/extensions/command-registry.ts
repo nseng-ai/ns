@@ -2,12 +2,13 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	failed,
-	type ClinkrExit,
+	failure,
+	usageError,
+	type CommandExit,
+	type DescriptorCommand,
 	type NsCommand,
 	type NsCommandSchema,
 	type NsExtensionApi,
-	type NsResult,
 } from "../sdk/index.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
@@ -68,34 +69,31 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 	},
 };
 
-const nsCommandSchema = z.object({
-	name: z.string(),
-	summary: z.string(),
-	description: z.string(),
-	schema: z.custom<NsCommandSchema>(isZodObjectSchema).optional(),
-	positionals: z.custom<NsCommand["positionals"]>(isRecord).optional(),
-	options: z.custom<NsCommand["options"]>(isRecord).optional(),
-	resultSchema: z.custom<NsCommand["resultSchema"]>(isZodSchema).optional(),
-	renderHuman: z
-		.custom<NsCommand["renderHuman"]>((value) => typeof value === "function")
-		.optional(),
-	renderMarkdown: z
-		.custom<NsCommand["renderMarkdown"]>((value) => typeof value === "function")
-		.optional(),
-	completionProvider: z
-		.custom<NsCommand["completionProvider"]>((value) => typeof value === "function")
-		.optional(),
-	run: z.custom<NsCommand["run"]>((value) => typeof value === "function"),
-});
+const nsCommandSchema = z
+	.object({
+		name: z.string(),
+		summary: z.string(),
+		description: z.string(),
+		schema: z.custom<NsCommandSchema>(isZodObjectSchema).optional(),
+		positionals: z.custom<NsCommand["positionals"]>(isRecord).optional(),
+		options: z.custom<NsCommand["options"]>(isRecord).optional(),
+		resultSchema: z.custom<NsCommand["resultSchema"]>(isZodSchema).optional(),
+		renderHuman: z
+			.custom<NsCommand["renderHuman"]>((value) => typeof value === "function")
+			.optional(),
+		renderMarkdown: z
+			.custom<NsCommand["renderMarkdown"]>((value) => typeof value === "function")
+			.optional(),
+		completionProvider: z
+			.custom<NsCommand["completionProvider"]>((value) => typeof value === "function")
+			.optional(),
+		run: z.custom<NsCommand["run"]>((value) => typeof value === "function"),
+	})
+	.passthrough();
 
 const nsExtensionSchema = z.object({
 	commands: z.array(nsCommandSchema).optional().default([]),
 });
-
-const nsResultSchema = z.discriminatedUnion("ok", [
-	z.object({ ok: z.literal(true), message: z.string() }),
-	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
-]);
 
 export function commandSegments(path: NsCommandPath): readonly string[] {
 	if (path.segments !== undefined) return path.segments;
@@ -158,7 +156,7 @@ export function toCommandCliInfo(
 }
 
 export function commandInfoForLoadedCommand(
-	command: NsCommand,
+	command: DescriptorCommand,
 	sourceLevel: NsCommandSourceLevel,
 	path: NsCommandPath,
 ): NsCommandCliInfo {
@@ -183,7 +181,7 @@ export function validateNsExtensionContribution(
 	expectedPath: NsCommandPath | string,
 	sourceLabel: string,
 	contributionLabel = "ns extension contribution",
-): { ok: true; command: NsCommand } | { ok: false; message: string } {
+): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
 	const expectedName =
 		typeof expectedPath === "string" ? expectedPath : commandLeafName(expectedPath);
 	const parsed = nsExtensionSchema.safeParse(contribution);
@@ -194,7 +192,11 @@ export function validateNsExtensionContribution(
 		};
 	}
 
-	const command = findCommandEntry(parsed.data, expectedName);
+	const originalCommands =
+		isRecord(contribution) && Array.isArray(contribution.commands)
+			? (contribution.commands as readonly DescriptorCommand[])
+			: parsed.data.commands;
+	const command = findCommandEntry({ commands: originalCommands }, expectedName);
 	if (command === undefined) {
 		return {
 			ok: false,
@@ -209,42 +211,34 @@ export async function executeNsCommand(
 	ctx: NsExtensionApi,
 	command: NsCommand,
 	request: unknown,
-): Promise<NsResult> {
+): Promise<CommandExit> {
 	const parsedRequest = (command.schema ?? z.object({})).safeParse(request);
 	if (!parsedRequest.success) {
-		return failed(
+		return usageError(
 			`Invalid request for command ${command.name}: ${parsedRequest.error.issues[0]?.message ?? "request did not match command schema"}`,
-			2,
+			{ command: command.name },
 		);
 	}
 
 	try {
 		const result = await command.run(ctx, parsedRequest.data);
-		return validateNsResult(result, command.name);
+		return validateCommandExit(result, command.name);
 	} catch (error) {
-		return failed(`Command ${command.name} failed.\n${formatUnknownError(error)}`, 2);
+		return failure(
+			"extension-command-failed",
+			`Command ${command.name} failed.\n${formatUnknownError(error)}`,
+			{ command: command.name },
+		);
 	}
 }
 
-export function validateNsResult(result: unknown, commandName: string): NsResult {
-	const parsed = nsResultSchema.safeParse(result);
-	if (parsed.success) {
-		return parsed.data;
-	}
-
-	if (hasInvalidFailureExitCode(parsed.error.issues)) {
-		return failed(`Command ${commandName} returned an invalid failure result.`, 2);
-	}
-	return failed(`Command ${commandName} returned an invalid result.`, 2);
-}
-
-export function validateNsClinkrExit(result: unknown, commandName: string): ClinkrExit<unknown> {
-	if (isNsClinkrExit(result)) return result;
-	return {
-		type: "failure",
-		errorType: "invalid-extension-result",
-		message: `Command ${commandName} returned an invalid rendered result.`,
-	};
+export function validateCommandExit(result: unknown, commandName: string): CommandExit {
+	if (isCommandExit(result)) return result;
+	return failure(
+		"invalid-extension-result",
+		`Command ${commandName} returned an invalid command exit.`,
+		{ command: commandName },
+	);
 }
 
 export function formatUnknownError(error: unknown): string {
@@ -252,9 +246,9 @@ export function formatUnknownError(error: unknown): string {
 }
 
 function findCommandEntry(
-	extension: { commands: readonly NsCommand[] },
+	extension: { commands: readonly DescriptorCommand[] },
 	expectedName: string,
-): NsCommand | undefined {
+): DescriptorCommand | undefined {
 	return extension.commands.find((command) => command.name === expectedName);
 }
 
@@ -326,7 +320,7 @@ function isZodSchema(value: unknown): value is z.ZodType {
 	return typeof candidate.safeParse === "function" && candidate._zod?.def !== undefined;
 }
 
-function isNsClinkrExit(value: unknown): value is ClinkrExit<unknown> {
+function isCommandExit(value: unknown): value is CommandExit {
 	if (!isRecord(value)) return false;
 	if (value.type === "ok") return "data" in value;
 	if (value.type === "negative") return typeof value.message === "string";
@@ -341,8 +335,4 @@ function isNsClinkrExit(value: unknown): value is ClinkrExit<unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function hasInvalidFailureExitCode(issues: readonly z.core.$ZodIssue[]): boolean {
-	return issues.some((issue) => issue.path.length === 1 && issue.path[0] === "exitCode");
 }

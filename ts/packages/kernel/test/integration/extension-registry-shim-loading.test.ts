@@ -29,12 +29,11 @@ export default defineExtension({
 		);
 		writeWorkspaceFile(
 			workspace.cwd + "/extensions/tools/src/commands/list.ts",
-			`import { defineRawCommand, ok, z } from "@nseng-ai/kernel/sdk";
+			`import { defineRawCommand, ok } from "@nseng-ai/kernel/sdk";
 export default defineRawCommand({
 	name: "list",
 	summary: "List project tools.",
 	description: "List project tools.",
-	resultSchema: z.object({}),
 	run: () => ok({}),
 });
 `,

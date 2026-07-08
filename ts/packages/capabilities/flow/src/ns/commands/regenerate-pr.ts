@@ -4,7 +4,7 @@ import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/found
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import {
 	defineExtension,
-	failed,
+	negative,
 	ok,
 	z,
 	type NsCommand,
@@ -73,13 +73,12 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
 				// PR lookup / diff / prompt / generation failure: the domain string already leads with a
 				// summary sentence, so route its first line to the bold headline and the rest to the body
 				// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
-				return failed(
+				return negative(
 					renderResultBlockFromMessage(caps, {
 						kind: "failure",
 						message: prepared.reason === "" ? "Could not regenerate the PR." : prepared.reason,
 						cwd: ctx.cwd,
 					}),
-					prepared.exitCode ?? 1,
 				);
 			}
 
@@ -118,24 +117,22 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
 					},
 				);
 				if ("errorType" in confirmation) {
-					return failed(
+					return negative(
 						renderResultBlock(caps, {
 							kind: "refusal",
 							headline: confirmation.message,
 							cwd: ctx.cwd,
 						}),
-						2,
 					);
 				}
 				if (confirmation.type !== "confirmed") {
 					// Declined/aborted confirmation is a warn refusal: GitHub stays untouched.
-					return failed(
+					return negative(
 						renderResultBlock(caps, {
 							kind: "refusal",
 							headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
 							cwd: ctx.cwd,
 						}),
-						1,
 					);
 				}
 			}
@@ -147,14 +144,13 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
 				update: prepared,
 			});
 			if (!edited.ok) {
-				return failed(
+				return negative(
 					renderResultBlock(caps, {
 						kind: "failure",
 						headline: `Generated a PR description, but failed to update PR #${prepared.pr.number}.`,
 						cwd: ctx.cwd,
 						body: edited.reason.trimEnd(),
 					}),
-					1,
 				);
 			}
 

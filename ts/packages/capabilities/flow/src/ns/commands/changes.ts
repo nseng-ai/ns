@@ -1,7 +1,7 @@
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
-import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, failure, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
@@ -52,7 +52,7 @@ export const flowChangesCommand: NsCommand = {
 			io.phase("Inspecting worktree…");
 			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 			if (!loaded.ok) {
-				return failed(formatPendingWorktreeError(loaded.error), 2);
+				return failure("flow-command-failed", formatPendingWorktreeError(loaded.error));
 			}
 
 			const snapshot = loaded.snapshot;
@@ -63,7 +63,7 @@ export const flowChangesCommand: NsCommand = {
 			io.phase("Generating changes summary…");
 			const summary = await prepareFlowChangesSummary(ctx, snapshot);
 			if (!summary.ok) {
-				return failed(summary.error, 2);
+				return failure("flow-command-failed", summary.error);
 			}
 
 			const caps = resolveFlowStreamCaps(ctx);

@@ -4,8 +4,8 @@
 Import the SDK's own surface from the package itself:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
-import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
+import { defineExtension, failure, ok, usageError, z } from "@ns/kernel/sdk";
+import type { CommandExit, NsExtensionApi } from "@ns/kernel/sdk";
 ```
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ns host.
@@ -96,9 +96,20 @@ Descriptor-level contributions include `entries` for commands, `points` for poin
 
 ## Commands
 
-### `NsCommand`
+### Raw `KernelCommand` and structured `NsCommand`
 
-One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `ns <name>`; manifest-grouped packages can present the same flat command name under a group such as `ns flow <name>`.
+`defineRawCommand()` constructs the neutral low-level command contract. Raw commands have only `name`, `summary`, `description`, and `run(ctx, { argv })`; `argv` is the post-route argument tail. They do not declare `resultSchema` and do not expose Clinkr result types.
+
+```ts
+interface KernelCommand<T = unknown> {
+  name: string;
+  summary: string;
+  description: string;
+  run(ctx: NsExtensionApi, invocation: { readonly argv: readonly string[] }): Promise<CommandExit<T>> | CommandExit<T>;
+}
+```
+
+`defineCommand()` is the structured convenience API. It parses a Zod schema, supports positionals/options/completion/renderers, requires `resultSchema`, and returns an `NsCommand` that the kernel can render as human, markdown, JSON, or JSON Schema.
 
 ```ts
 interface NsCommand<S extends NsCommandSchema = z.ZodObject, T = unknown> {
@@ -111,21 +122,11 @@ interface NsCommand<S extends NsCommandSchema = z.ZodObject, T = unknown> {
   renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
   renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
   completionProvider?: NsCommandCompletionProvider | undefined;
-  run(ctx: NsExtensionApi, request: z.output<S>): Promise<NsResult | ClinkrExit<T>> | NsResult | ClinkrExit<T>;
+  run(ctx: NsExtensionApi, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
 }
 ```
 
-**Fields.**
-
-- `name` — the flat command name. Must match `[a-z][a-z0-9-]*`: no nested groups, slashes, colons, spaces, or uppercase.
-- `summary` — required one-line text shown in `ns --help`.
-- `description` — full help text shown in `ns <cmd> --help`.
-- `schema?` — a Zod object schema (`NsCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
-- `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
-- `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
-- `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the ns kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
-- `completionProvider?` — optional shell-completion hook for dynamic values. It receives the `NsExtensionApi` and a Clinkr completion request (`current`, `previous`, command `args`, and `positionalIndex`). Its candidates are appended to static command/option/enum candidates and deduped. Completion stdout remains candidate-only; provider failures are omitted from stdout, keep resolver exit code `0`, and may be reported concisely on stderr.
-- `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `NsResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
+Both command styles return the kernel-owned command-exit constructors documented below. `--format json` is always the standard ns machine envelope. Structured commands publish a schema-backed envelope through `--json-schema`; raw commands own their own argument parsing and help surface.
 
 **Example.** Declared inline so `request` is inferred from `schema`:
 
@@ -224,12 +225,12 @@ The parsed-request type derived from a command's schema — the type `run` recei
 **Example.**
 
 ```ts
-import { z } from "@ns/kernel/sdk";
-import type { NsCommandRequest, NsExtensionApi, NsResult } from "@ns/kernel/sdk";
+import { ok, z } from "@ns/kernel/sdk";
+import type { CommandExit, NsCommandRequest, NsExtensionApi } from "@ns/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
-function runAutobranch(ctx: NsExtensionApi, request: NsCommandRequest<typeof schema>): NsResult {
+function runAutobranch(ctx: NsExtensionApi, request: NsCommandRequest<typeof schema>): CommandExit<string> {
   return ok(request.slug ?? "(auto)"); // request is { slug?: string }
 }
 ```
@@ -324,61 +325,38 @@ const excerpt = truncateTextHeadTail({
 
 ## Results
 
-### `NsResult`
+### `CommandExit` and `MachineEnvelope`
 
-The value a command's `run` returns.
+Commands return `CommandExit<T>`. The CLI serializes command exits as the standard machine envelope for `--format json`:
 
 ```ts
-type NsResult =
-  | { ok: true; message: string }
-  | { ok: false; exitCode: number; message: string };
+type MachineEnvelope =
+  | { status: "ok"; exitCode: 0; data: unknown }
+  | { status: "negative"; exitCode: 1; message: string; data?: unknown }
+  | { status: "failure"; exitCode: 2; errorType: string; message: string; data?: unknown }
+  | { status: "usageError"; exitCode: 2; errorType: "usageError"; message: string; data?: unknown };
 ```
 
-A discriminated union on `ok`. Construct values with `ok()` and `failed()` rather than building the literal by hand.
+Use constructors rather than building exits by hand:
+
+- `ok(data, overrides?)` — success (`exitCode: 0`).
+- `negative(message, { data?, human? }?)` — expected semantic non-success (`exitCode: 1`).
+- `failure(errorType, message, data?)` — command/system failure (`exitCode: 2`).
+- `usageError(message, data?)` — invalid invocation (`exitCode: 2`).
+
+`machineEnvelopeSchema`, `buildSuccessMachineEnvelopeSchema`, `buildFailureMachineEnvelopeSchema`, and `buildMachineEnvelopeSchema` are exported for consumers that need to validate or publish the envelope shape.
 
 **Example.**
 
 ```ts
-import type { NsExtensionApi, NsResult } from "@ns/kernel/sdk";
+import { failure, ok, usageError } from "@ns/kernel/sdk";
+import type { CommandExit, NsExtensionApi } from "@ns/kernel/sdk";
 
-function run(ctx: NsExtensionApi): NsResult {
-  return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
+function run(ctx: NsExtensionApi): CommandExit<{ pushed: boolean }> {
+  if (ctx.cwd === "") return usageError("cwd is required", { field: "cwd" });
+  if (ctx.env["DRY_RUN"] === "1") return ok({ pushed: false });
+  return failure("push-failed", "git push failed", { command: "git push" });
 }
-```
-
-### `ok()`
-
-Builds a success result.
-
-```ts
-function ok(message: string): NsResult;
-```
-
-**Parameters.** `message` — the success message printed to the user.
-
-**Example.**
-
-```ts
-return ok("Pushed the current branch.");
-```
-
-### `failed()`
-
-Builds a failure result.
-
-```ts
-function failed(message: string, exitCode?: number): NsResult;
-```
-
-**Parameters.**
-
-- `message` — the failure message printed to the user.
-- `exitCode?` — process exit code; defaults to `1`.
-
-**Example.**
-
-```ts
-return failed("Working tree is dirty; commit or stash first.", 2);
 ```
 
 ---
@@ -434,7 +412,7 @@ async run(ctx: NsExtensionApi) {
   const root = await ctx.exec("git", ["rev-parse", "--show-toplevel"], {
     timeoutMs: 30_000,
   });
-  if (root.code !== 0 || root.killed) return failed("Not inside a git repository.", 2);
+  if (root.code !== 0 || root.killed) return failure("git-root-failed", "Not inside a git repository.");
   return ok(root.stdout.trim());
 }
 ```
@@ -612,7 +590,7 @@ const drafted = await ctx.textGenerator.generateText({
   reasoning: "low",
   operation: "checkpoint-message",
 });
-if (!drafted.ok) return failed(drafted.error);
+if (!drafted.ok) return failure("draft-failed", drafted.error);
 return ok(drafted.text);
 ```
 
@@ -660,7 +638,7 @@ A discriminated union on `ok`: either the generated `text` plus optional token `
 ```ts
 const result = await ctx.textGenerator.generateText(request);
 if (!result.ok) {
-  return failed(`Generation failed: ${result.error}`);
+  return failure("generation-failed", `Generation failed: ${result.error}`);
 }
 ctx.stdout?.(result.text);
 ```

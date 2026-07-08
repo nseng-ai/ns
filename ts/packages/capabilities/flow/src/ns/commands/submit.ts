@@ -35,9 +35,11 @@ import {
 import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
 	defineExtension,
-	failed,
+	failure,
+	negative,
 	ok,
 	z,
+	type CommandExit,
 	type NsCommand,
 	type NsExtensionApi,
 	type NsProgressPhaseEvent,
@@ -109,7 +111,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 		const hooksLoad =
 			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
 		if (hooksLoad.kind === "invalid") {
-			return failed(hooksLoad.error.message, 2);
+			return failure("flow-command-failed", hooksLoad.error.message);
 		}
 		const caps = resolveFlowStreamCaps(ctx);
 		if (caps.isTty) {
@@ -194,9 +196,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 				const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 				const isFailed = interpretedResult.exitCode !== 0;
 				return {
-					result: isFailed
-						? failed(resultFailureMessage(interpretedResult), interpretedResult.exitCode)
-						: ok(""),
+					result: isFailed ? submitFailureExit(interpretedResult) : ok(""),
 					isFailed,
 					afterFinish: () => {
 						if (checkpoint.kind === "checkpointed") {
@@ -261,9 +261,8 @@ async function runSubmitWithMatrix(input: {
 		if (!topology.ok) {
 			matrix.setGlobal("inventory", { state: "failed", text: "inventory failed" });
 			await matrix.finish({ isFailed: true });
-			return failed(
+			return negative(
 				`Could not inspect submit stack inventory before checkpoint. Submission was not attempted; pending work was not checkpointed.\n\n${topology.error.message}`,
-				1,
 			);
 		}
 		matrix.setRows(submitMatrixRowsFromTopology(topology.value));
@@ -340,9 +339,7 @@ async function runSubmitWithMatrix(input: {
 			isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
 			ctx,
 		);
-		return isFailed
-			? failed(resultFailureMessage(interpretedResult), interpretedResult.exitCode)
-			: ok("");
+		return isFailed ? submitFailureExit(interpretedResult) : ok("");
 	} finally {
 		await matrix.stop();
 	}
@@ -401,7 +398,7 @@ async function matrixPhaseFailureResult(
 		exitCode: number;
 		failurePresentation?: SubmitCommandResult["failurePresentation"];
 	},
-): Promise<ReturnType<typeof failed>> {
+): Promise<CommandExit> {
 	matrix.setGlobal(failure.key, { state: "failed", text: failure.failedText });
 	const interpreted = await maybeFormatSubmitFailureWithModel(
 		{
@@ -413,7 +410,7 @@ async function matrixPhaseFailureResult(
 		ctx,
 	);
 	await matrix.finish({ isFailed: true });
-	return failed(resultFailureMessage(interpreted), interpreted.exitCode);
+	return submitFailureExit(interpreted);
 }
 
 async function phaseFailureResult(
@@ -423,7 +420,7 @@ async function phaseFailureResult(
 		exitCode: number;
 		failurePresentation?: SubmitCommandResult["failurePresentation"];
 	},
-): Promise<{ result: ReturnType<typeof failed>; isFailed: true }> {
+): Promise<{ result: CommandExit; isFailed: true }> {
 	const interpreted = await maybeFormatSubmitFailureWithModel(
 		{
 			stdout: "",
@@ -434,9 +431,15 @@ async function phaseFailureResult(
 		ctx,
 	);
 	return {
-		result: failed(resultFailureMessage(interpreted), interpreted.exitCode),
+		result: submitFailureExit(interpreted),
 		isFailed: true,
 	};
+}
+
+function submitFailureExit(result: SubmitCommandResult): CommandExit {
+	const message = resultFailureMessage(result);
+	if (result.exitCode === 1) return negative(message, { data: { exitCode: result.exitCode } });
+	return failure("flow-command-failed", message, { exitCode: result.exitCode });
 }
 
 function resultFailureMessage(result: SubmitCommandResult): string {

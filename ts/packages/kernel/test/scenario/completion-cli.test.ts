@@ -9,7 +9,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import type { NsCommand } from "@nseng-ai/kernel/sdk";
+import { ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
@@ -355,7 +355,7 @@ function helloCommand(options: Partial<NsCommand> = {}): NsCommand {
 		summary: "Hello",
 		description: "Hello",
 		async run() {
-			return { ok: true, message: "hello" };
+			return ok("hello");
 		},
 		...options,
 	};

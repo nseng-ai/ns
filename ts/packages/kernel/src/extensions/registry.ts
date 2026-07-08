@@ -20,7 +20,6 @@ import {
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
-import { descriptorCommandAsNsCommand } from "./repo-local-catalog.ts";
 import {
 	loadedModuleReference,
 	moduleReferenceDisplay,
@@ -42,7 +41,8 @@ import {
 	type ExtensionDescriptor,
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
-import type { NsCommand } from "../sdk/index.ts";
+import { isDefinedRawCommand } from "../sdk/command.ts";
+import type { DescriptorCommand, KernelCommand, NsCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;
 export type ExtensionSourceInfo = NsCommandSourceInfo;
@@ -83,7 +83,7 @@ export interface ExtensionOverrideDiagnostic {
 }
 
 export type SelectedNsCommandLoadResult =
-	| { ok: true; command: NsCommand; source: ExtensionSourceInfo; path: NsCommandPath }
+	| { ok: true; command: DescriptorCommand; source: ExtensionSourceInfo; path: NsCommandPath }
 	| { ok: false; diagnostic: ExtensionErrorDiagnostic };
 
 export interface DiagnosticClassification {
@@ -274,7 +274,9 @@ export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promis
 
 export function commandInfosForSelectedCommand(
 	commandInfos: readonly NsCommandCliInfo[],
-	loaded: { command: NsCommand; source: ExtensionSourceInfo; path: NsCommandPath } | undefined,
+	loaded:
+		| { command: DescriptorCommand; source: ExtensionSourceInfo; path: NsCommandPath }
+		| undefined,
 ): readonly NsCommandCliInfo[] {
 	if (loaded === undefined) return commandInfos;
 	const loadedInfo = commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path);
@@ -981,7 +983,7 @@ function validateDescriptorCommandContribution(
 	contribution: unknown,
 	entry: ExtensionCommandEntry,
 	sourceLabel: string,
-): { ok: true; command: NsCommand } | { ok: false; message: string } {
+): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
 	if (
 		isRecord(contribution) &&
 		typeof contribution.name === "string" &&
@@ -999,7 +1001,15 @@ function validateDescriptorCommandContribution(
 		"ns descriptor command",
 	);
 	if (!validation.ok) return validation;
-	return { ok: true, command: descriptorCommandAsNsCommand(validation.command) };
+	return { ok: true, command: validation.command };
+}
+
+export function isStructuredNsCommand(command: DescriptorCommand): command is NsCommand {
+	return !isDefinedRawCommand(command);
+}
+
+export function isRawKernelCommand(command: DescriptorCommand): command is KernelCommand {
+	return !isStructuredNsCommand(command);
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

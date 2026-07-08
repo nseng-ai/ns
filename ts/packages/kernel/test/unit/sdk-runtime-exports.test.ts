@@ -8,7 +8,6 @@ import {
 	defineRawCommand,
 	extensionDescriptorSchema,
 	extensionPointDefinitionSchema,
-	failed,
 	failure,
 	machineEnvelopeSchema,
 	negative,
@@ -16,7 +15,6 @@ import {
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	okExit,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
@@ -34,7 +32,6 @@ const runtimeExports = {
 	defineRawCommand,
 	extensionDescriptorSchema,
 	extensionPointDefinitionSchema,
-	failed,
 	failure,
 	machineEnvelopeSchema,
 	negative,
@@ -42,7 +39,6 @@ const runtimeExports = {
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	okExit,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
@@ -60,7 +56,6 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"defineRawCommand",
 	"extensionDescriptorSchema",
 	"extensionPointDefinitionSchema",
-	"failed",
 	"failure",
 	"machineEnvelopeSchema",
 	"negative",
@@ -68,7 +63,6 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"noopNsProgress",
 	"normalizeTextOutput",
 	"ok",
-	"okExit",
 	"stripOuterCodeFence",
 	"trimOuterBlankLines",
 	"truncateTextHead",
@@ -85,9 +79,13 @@ describe("@nseng-ai/kernel/sdk runtime exports", () => {
 	});
 
 	test("provides result helpers, noop services, and the shared schema builder", () => {
-		expect(ok("done")).toEqual({ ok: true, message: "done" });
-		expect(okExit({ done: true })).toEqual({ type: "ok", data: { done: true } });
-		expect(failed("nope", 3)).toEqual({ ok: false, exitCode: 3, message: "nope" });
+		expect(ok("done")).toEqual({ type: "ok", data: "done", human: "done" });
+		expect(ok({ done: true })).toEqual({ type: "ok", data: { done: true } });
+		expect(failure("test-failed", "nope")).toEqual({
+			type: "failure",
+			errorType: "test-failed",
+			message: "nope",
+		});
 		expect(() => noopNsCommandIo.phase("working")).not.toThrow();
 		expect(() => noopNsProgress.phase({ type: "phase-started", phaseKey: "test" })).not.toThrow();
 		expect(z).toBe(zod);

@@ -1,5 +1,5 @@
 import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
-import { defineExtension, failed, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, negative, ok, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { type GitErrorInfo, type GitGateway } from "@nseng-ai/capability-kit/git";
 
@@ -60,7 +60,7 @@ async function runPush(ctx: NsExtensionApi) {
 
 	const status = await readNsGitPorcelainStatus(ctx);
 	if (!status.ok) {
-		return failed(
+		return negative(
 			renderGitResultBlock(caps, {
 				kind: "failure",
 				headline: "Could not inspect the worktree status. `ns flow push` did not run `git push`.",
@@ -74,7 +74,7 @@ async function runPush(ctx: NsExtensionApi) {
 	}
 
 	if (!status.isClean) {
-		return failed(
+		return negative(
 			renderGitResultBlock(caps, {
 				kind: "refusal",
 				headline: "`ns flow push` requires a clean worktree and did not run `git push`.",
@@ -102,7 +102,7 @@ async function runPush(ctx: NsExtensionApi) {
 		);
 	}
 
-	return failed(
+	return negative(
 		renderGitResultBlock(caps, {
 			kind: "failure",
 			headline:

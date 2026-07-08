@@ -151,7 +151,7 @@ describe("project-local changes extension behavior", () => {
 			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
 		});
 		expect(await failed.exit).toBe(2);
-		expect(failed.stderr.join("")).toBe("auth failed\n");
+		expect(failed.stderr.join("")).toBe("error: auth failed\n");
 		expect(
 			formattedExecCalls(failed.context).some((call) =>
 				/git (add|commit|stash)|^gt |^gh /.test(call),
@@ -172,7 +172,7 @@ describe("project-local changes extension behavior", () => {
 		});
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe(
-			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
+			"error: Not inside a git repository.\nexit 128: fatal: not a git repository\n",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
@@ -187,7 +187,7 @@ describe("project-local changes extension behavior", () => {
 		});
 		expect(await statusFailed.exit).toBe(2);
 		expect(statusFailed.stderr.join("")).toBe(
-			"Could not inspect git status.\nexit 1: index locked\n",
+			"error: Could not inspect git status.\nexit 1: index locked\n",
 		);
 		expect(statusFailed.context.textGeneratorCalls).toEqual([]);
 	});

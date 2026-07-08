@@ -10,7 +10,7 @@ import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/mod
 import { commandIoFromNsExtensionApi } from "@nseng-ai/kernel/command-io";
 import {
 	defineExtension,
-	failed,
+	negative,
 	ok,
 	z,
 	type NsCommand,
@@ -80,20 +80,19 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 			}
 
 			if (result.reason === "pending_worktree") {
-				return failed(
+				return negative(
 					renderPendingWorktreeFailure(caps, {
 						error: result.error,
 						cwd: ctx.cwd,
 						commandLabel: "`ns flow autobranch`",
 					}),
-					1,
 				);
 			}
 
 			if (result.reason === "clean_worktree") {
 				// A clean worktree is a declined guardrail (warn refusal, house-style §7.3), not a failure;
 				// point the user at the command that handles a clean worktree.
-				return failed(
+				return negative(
 					renderResultBlock(caps, {
 						kind: "refusal",
 						headline: "`ns flow autobranch` requires pending worktree changes and did not run.",
@@ -102,11 +101,10 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 						guidance:
 							"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
 					}),
-					1,
 				);
 			}
 
-			return failed(
+			return negative(
 				renderAutobranchFailureResultBlock({
 					caps,
 					outcome: result.outcome,
@@ -115,7 +113,6 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 					refusalHeadline: "Did not create a Graphite branch from dirty worktree changes.",
 					failureHeadline: "Could not create a Graphite branch from dirty worktree changes.",
 				}),
-				1,
 			);
 		});
 	},

@@ -4,7 +4,7 @@ import {
 } from "../../autobranch/latest-commit.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
-import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
@@ -43,7 +43,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 
 		const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 		if (!loaded.ok) {
-			return failed(
+			return negative(
 				renderPendingWorktreeFailure(caps, {
 					error: loaded.error,
 					cwd: ctx.cwd,
@@ -54,7 +54,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 
 		const snapshot = loaded.snapshot;
 		if (!snapshot.clean) {
-			return failed(
+			return negative(
 				renderGitResultBlock(caps, {
 					kind: "refusal",
 					headline: "`ns flow branch-latest-commit` requires a clean worktree and did not run.",
@@ -78,7 +78,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 		if (!result.ok) {
 			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
 			// is a first-class warn refusal, not a red failure (house-style §7.3).
-			return failed(
+			return negative(
 				renderAutobranchFailureResultBlock({
 					caps,
 					outcome: result.outcome,

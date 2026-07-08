@@ -10,8 +10,8 @@ import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
-import type { NsCommand, NsExtensionApi, NsResult } from "@nseng-ai/kernel/sdk";
-import { failed } from "@nseng-ai/kernel/sdk";
+import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import { usageError } from "@nseng-ai/kernel/sdk";
 
 import {
 	ScriptedNsTestContext,
@@ -465,40 +465,43 @@ async function runFlowCommand(input: {
 	request: unknown;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-}): Promise<{ exitCode: number; result: NsResult }> {
+}): Promise<{ exitCode: number; result: CommandExit }> {
 	const parsedRequest = input.command.schema?.safeParse(input.request) ?? {
 		success: true,
 		data: {},
 	};
 	if (!parsedRequest.success) {
 		const issue = parsedRequest.error.issues[0]?.message ?? "request did not match command schema";
-		const result = failed(`Invalid request for command ${input.command.name}: ${issue}`, 2);
-		writeNsResultOutput(result, input);
+		const result = usageError(`Invalid request for command ${input.command.name}: ${issue}`, {
+			command: input.command.name,
+		});
+		writeCommandExitOutput(result, input);
 		return { exitCode: 2, result };
 	}
 	const result = await input.command.run(input.context, parsedRequest.data);
-	if (!isNsResult(result)) {
-		throw new Error(`Flow test command ${input.command.name} returned a rendered result.`);
-	}
-	writeNsResultOutput(result, input);
-	return { exitCode: result.ok ? 0 : result.exitCode, result };
+	writeCommandExitOutput(result, input);
+	return { exitCode: exitCodeForCommandExit(result), result };
 }
 
-function isNsResult(result: unknown): result is NsResult {
-	return typeof result === "object" && result !== null && "ok" in result;
+function exitCodeForCommandExit(result: CommandExit): number {
+	if (result.type === "ok") return 0;
+	if (result.type === "negative") return 1;
+	return 2;
 }
 
-function writeNsResultOutput(
-	result: NsResult,
+function writeCommandExitOutput(
+	result: CommandExit,
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
-	if (result.message === "") return;
-	const output = `${result.message}\n`;
-	if (result.ok) {
-		deps.stdout(output);
+	if (result.type === "ok") {
+		if (result.data !== "") deps.stdout(`${String(result.data)}\n`);
 		return;
 	}
-	deps.stderr(output);
+	if (result.type === "negative") {
+		if (result.message !== "") deps.stderr(`${result.human ?? result.message}\n`);
+		return;
+	}
+	deps.stderr(`error: ${result.message}\n`);
 }
 
 function dirtyChangesExecResponses(): ScriptedExecResponse[] {

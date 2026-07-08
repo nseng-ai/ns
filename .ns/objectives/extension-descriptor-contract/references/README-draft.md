@@ -172,17 +172,16 @@ literal is opaque to bundlers and will not survive bundling.
 
 A command module default-exports exactly one command object satisfying the **kernel command
 contract**: a neutral interface carrying the command's `name`, help metadata (`summary`,
-`description`), and a run function that returns the standard ns machine envelope
-(`ok` / `negative` / `failure` / `usage-error` plus a result schema). The kernel knows only this
-interface; how you build the object is up to you.
+`description`), and a run function that returns the standard ns command exit / machine-envelope shape
+(`ok` / `negative` / `failure` / `usageError`). The kernel knows only this interface; how you build
+the object is up to you.
 
 The convenient way — and the one this guide teaches — is `defineCommand({...})`, which adapts a
 [clinkr](../../../../ts/packages/infra/clinkr) command spec into the kernel contract: `name`,
 `summary` (one-line help text), `description` (full help text), a Zod `schema` for arguments,
 optional `positionals`/`options` (short flags), a `resultSchema` for the stable machine envelope,
-`handler`, and optional `renderHuman`/`renderMarkdown`. Handlers return clinkr's exit constructors
-(`ok`, `negative`, `failure`, `usageError`); argument parsing, help rendering, `--format json`,
-and `--json-schema` come for free.
+`handler`, and optional `renderHuman`/`renderMarkdown`. Handlers return the SDK's command-exit constructors (`ok`, `negative`, `failure`, `usageError`);
+argument parsing, help rendering, `--format json`, and `--json-schema` come for free.
 
 Clinkr is convenient, not required. The adaptation happens inside `defineCommand`, at authoring
 time — the kernel never sees clinkr. For full control, construct the kernel command object

@@ -204,7 +204,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 			state: { exec: successfulReadOnlyRegeneratePrResponses() },
 		});
 
-		expect(await run.exit).toBe(2);
+		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const rawStderr = run.stderr.join("");
 		// Missing confirmation is a usage-style guardrail (warn), not a red subprocess failure.
@@ -348,7 +348,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
 		});
 
-		expect(await run.exit).toBe(2);
+		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain("Could not read NS_DEV_PR_DESCRIPTION_PROMPT");
 	});
 });

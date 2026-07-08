@@ -1,4 +1,4 @@
-import { defineExtension, failed, ok, z } from "@nseng-ai/kernel/sdk";
+import { defineExtension, failure, ok, z } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
@@ -14,7 +14,7 @@ import type {
 	NsProgressMatrixRowInfo,
 	NsProgressPhaseEvent,
 	NsProgressPhaseListener,
-	NsResult,
+	CommandExit,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
@@ -75,8 +75,8 @@ const textGenerator: TextGenerator = {
 
 const execResult: ExecResult = { code: 0, stdout: "ok", stderr: "", killed: false };
 const commandOk: boolean = execResult.code === 0 && !execResult.killed;
-const successfulResult: NsResult = ok("done");
-const failedResult: NsResult = failed("nope", 2);
+const successfulResult: CommandExit = ok("done");
+const failedResult: CommandExit = failure("test-failed", "nope");
 const notifyLevel: NsNotifyLevel = "info";
 const messageOptions: NsCommandMessageOptions = { level: notifyLevel, details: { ok: true } };
 const commandIo: NsCommandIo = {
