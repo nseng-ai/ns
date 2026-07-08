@@ -25,7 +25,7 @@
     tests. Validation run: `pnpm --dir ts --filter @nseng-ai/ns-pi-subagents test`,
     `pnpm --dir ts --filter @nseng-ai/ns-pi-subagents check`, `pnpm --dir ts run lint`,
     and `pnpm --dir ts run fmt:check`.
-- [ ] Post-run summary state
+- [x] Post-run summary state
       When the run stops, flip the detail view from watch to judge: diff stat,
       commit created (if any, via HEAD baseline captured in extension-local
       fleet/run tracking), exit status, last error. Supports the
@@ -33,8 +33,11 @@
   - Policy: direct execution after preview; keep HEAD-baseline capture local to
     the extension and do not change runner dispatch semantics or external
     Git/Graphite behavior.
-  - Evidence: targeted tests for post-run summary derivation plus manual smoke
-    against a completed runner subagent session.
+  - Evidence: current PR #3220 / local branch diff from `live-worktree-diff-summary-panel...HEAD`
+    adds read-only HEAD snapshot capture in fleet tracking, renders a completed-run
+    summary with final status, last diagnostic, commit movement, and shared
+    worktree state in `navigator.ts`, and adds targeted fleet navigator/tracking
+    tests. Manual navigator smoke remains unrecorded.
 - [ ] Token/context trend
       Per-turn token delta and context-use trend alongside the existing totals
       line, derived from the usage events already parsed today.

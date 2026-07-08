@@ -3,6 +3,7 @@ import type {
 	RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
 import { runnerSubagentPrimaryActivityPreview } from "../runner-subagents/activity.ts";
+import type { GitHeadSnapshot } from "./git-head.ts";
 
 export const SUBAGENT_FLEET_RECENT_TASK_CAP = 20;
 
@@ -23,16 +24,20 @@ export interface SubagentFleetTaskSnapshot {
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
 	sessionFile?: string;
+	headBaseline?: GitHeadSnapshot;
+	finalHead?: GitHeadSnapshot;
 }
 
 export interface SubagentFleetRunSnapshot {
 	id: string;
 	parentSessionFile?: string;
+	headBaseline?: GitHeadSnapshot;
 	tasks: readonly SubagentFleetTaskSnapshot[];
 }
 
 export interface SubagentFleetStartRunOptions {
 	parentSessionFile?: string;
+	headBaseline?: GitHeadSnapshot;
 }
 
 interface MutableSubagentFleetTask {
@@ -45,12 +50,15 @@ interface MutableSubagentFleetTask {
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
 	sessionFile?: string;
+	headBaseline?: GitHeadSnapshot;
+	finalHead?: GitHeadSnapshot;
 	sequence: number;
 }
 
 interface MutableSubagentFleetRun {
 	id: string;
 	parentSessionFile?: string;
+	headBaseline?: GitHeadSnapshot;
 	tasks: MutableSubagentFleetTask[];
 }
 
@@ -79,6 +87,7 @@ export class SubagentFleetRegistry {
 			...(options.parentSessionFile === undefined
 				? {}
 				: { parentSessionFile: options.parentSessionFile }),
+			...(options.headBaseline === undefined ? {} : { headBaseline: options.headBaseline }),
 			tasks: tasks.map((task, index) => ({
 				id: `subagents-${this.nextRunNumber}-${index + 1}`,
 				runId: `subagents-${this.nextRunNumber}`,
@@ -108,6 +117,27 @@ export class SubagentFleetRegistry {
 			const activity = activityDescription(update);
 			if (activity !== undefined) task.latestActivity = activity;
 			if (update.progress.sessionFile !== undefined) task.sessionFile = update.progress.sessionFile;
+			task.sequence = this.sequence++;
+		});
+	}
+
+	markRunHeadBaseline(runId: string, head: GitHeadSnapshot): void {
+		const run = this.findRun(runId);
+		if (run === undefined) return;
+		run.headBaseline = head;
+		this.emit();
+	}
+
+	markTaskHeadBaseline(taskId: string, head: GitHeadSnapshot): void {
+		this.updateTask(taskId, (task) => {
+			task.headBaseline = head;
+			task.sequence = this.sequence++;
+		});
+	}
+
+	markTaskFinalHead(taskId: string, head: GitHeadSnapshot): void {
+		this.updateTask(taskId, (task) => {
+			task.finalHead = head;
 			task.sequence = this.sequence++;
 		});
 	}
@@ -153,6 +183,10 @@ export class SubagentFleetRegistry {
 		return undefined;
 	}
 
+	private findRun(runId: string): MutableSubagentFleetRun | undefined {
+		return this.runs.find((run) => run.id === runId);
+	}
+
 	private evictCompletedOverflow(): void {
 		const completed = this.runs
 			.flatMap((run) => run.tasks)
@@ -190,11 +224,16 @@ function snapshotRun(run: MutableSubagentFleetRun): SubagentFleetRunSnapshot {
 	return {
 		id: run.id,
 		...(run.parentSessionFile === undefined ? {} : { parentSessionFile: run.parentSessionFile }),
-		tasks: run.tasks.map(snapshotTask),
+		...(run.headBaseline === undefined ? {} : { headBaseline: run.headBaseline }),
+		tasks: run.tasks.map((task) => snapshotTask(task, run.headBaseline)),
 	};
 }
 
-function snapshotTask(task: MutableSubagentFleetTask): SubagentFleetTaskSnapshot {
+function snapshotTask(
+	task: MutableSubagentFleetTask,
+	runHeadBaseline: GitHeadSnapshot | undefined,
+): SubagentFleetTaskSnapshot {
+	const headBaseline = task.headBaseline ?? runHeadBaseline;
 	return {
 		id: task.id,
 		runId: task.runId,
@@ -205,6 +244,8 @@ function snapshotTask(task: MutableSubagentFleetTask): SubagentFleetTaskSnapshot
 		...(task.latestActivity === undefined ? {} : { latestActivity: task.latestActivity }),
 		...(task.finalStatus === undefined ? {} : { finalStatus: task.finalStatus }),
 		...(task.sessionFile === undefined ? {} : { sessionFile: task.sessionFile }),
+		...(headBaseline === undefined ? {} : { headBaseline }),
+		...(task.finalHead === undefined ? {} : { finalHead: task.finalHead }),
 	};
 }
 

@@ -14,6 +14,11 @@ import {
 } from "../../src/fleet/display.ts";
 import { trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
 import { makeErrorResult, makeFinalTextResult } from "../helpers/explore-testing.ts";
+import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
+
+async function settleMicrotasks(count = 10): Promise<void> {
+	for (let index = 0; index < count; index += 1) await Promise.resolve();
+}
 
 describe("runner subagent fleet display for explore", () => {
 	test("reuses one registry for the same Pi host", () => {
@@ -102,6 +107,41 @@ describe("runner subagent fleet display for explore", () => {
 
 		registry.markDone(second, makeErrorResult("failed"));
 		expect(formatSubagentFleetStatusText(registry.snapshot())).toBeUndefined();
+	});
+
+	test("tracking records HEAD baseline and final HEAD without blocking completion", async () => {
+		const registry = new SubagentFleetRegistry();
+		const ctx: ToolContext = {
+			cwd: "/repo",
+			hasUI: false,
+			mode: "json",
+			ui: { notify: () => {}, setStatus: () => {} },
+		};
+		const heads: GitHeadSnapshot[] = [
+			{ status: "available", oid: "run-start" },
+			{ status: "available", oid: "task-start" },
+			{ status: "available", oid: "task-done" },
+		];
+		const tracking = trackSubagentFleetRun({
+			registry,
+			ctx,
+			tasks: [{ title: "Committer" }],
+			parentSessionFile: undefined,
+			cwd: "/repo",
+			readGitHead: async () => {
+				const head = heads.shift();
+				if (head === undefined) return { status: "unavailable", reason: "unexpected read" };
+				return head;
+			},
+		});
+
+		tracking.markRunning(0);
+		tracking.markDone(0, makeFinalTextResult("done"));
+		await settleMicrotasks();
+
+		const task = registry.snapshot()[0]?.tasks[0];
+		expect(task?.headBaseline).toEqual({ status: "available", oid: "task-start" });
+		expect(task?.finalHead).toEqual({ status: "available", oid: "task-done" });
 	});
 
 	test("tracking dispose marks unfinished tasks terminal", () => {

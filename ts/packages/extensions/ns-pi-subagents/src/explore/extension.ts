@@ -1,4 +1,4 @@
-import { formatErrorMessage, formatZodError } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { loadPiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
@@ -29,6 +29,7 @@ import {
 import { SUBAGENT_FLEET_ENTRY_HINT } from "../fleet/display.ts";
 import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
 import type { SubagentFleetRegistry } from "../fleet/registry.ts";
+import type { ReadGitHead } from "../fleet/git-head.ts";
 import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 import { emitExploreProgress } from "./progress.ts";
 import type { SubagentRuntime } from "../runtime/seam.ts";
@@ -173,6 +174,7 @@ export function registerExploreTool(
 					dispatchExplorer,
 					onUpdate,
 					fleetRegistry,
+					...optionalEntry("readGitHead", options.readGitHead),
 				});
 				return exploreToolResult(request, outcomes);
 			} finally {
@@ -252,6 +254,7 @@ async function runExploreTasks(request: {
 	dispatchExplorer: ExploreDispatchFunction;
 	onUpdate: ((update: Partial<ToolResult>) => void) | undefined;
 	fleetRegistry: SubagentFleetRegistry;
+	readGitHead?: ReadGitHead;
 }): Promise<ExploreTaskOutcome[]> {
 	const states: ExploreTaskState[] = request.exploreInput.tasks.map((task) => ({
 		input: task,
@@ -267,6 +270,8 @@ async function runExploreTasks(request: {
 		ctx: request.ctx,
 		tasks: request.exploreInput.tasks,
 		parentSessionFile: request.ctx.sessionManager?.getSessionFile?.(),
+		cwd: request.cwd,
+		...optionalEntry("readGitHead", request.readGitHead),
 	});
 
 	function emitProgress(): void {

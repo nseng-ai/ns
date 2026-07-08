@@ -1,6 +1,7 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { errorResult } from "../explore/result.ts";
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
+import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
@@ -19,6 +20,8 @@ export function trackSubagentFleetRun(input: {
 	ctx: SubagentFleetDisplayContext;
 	tasks: readonly SubagentFleetTaskInput[];
 	parentSessionFile: string | undefined;
+	cwd?: string;
+	readGitHead?: ReadGitHead;
 }): SubagentFleetRunTracking {
 	const registry = input.registry;
 
@@ -31,6 +34,7 @@ export function trackSubagentFleetRun(input: {
 	const doneIndexes = new Set<number>();
 	let isDisposed = false;
 	syncSubagentFleetDisplay(input.ctx, registry.snapshot());
+	readHead((head) => registry.markRunHeadBaseline(run.id, head));
 
 	function requireTaskId(index: number): string {
 		const taskId = run.tasks[index]?.id;
@@ -40,16 +44,27 @@ export function trackSubagentFleetRun(input: {
 		return taskId;
 	}
 
+	function readHead(apply: (head: GitHeadSnapshot) => void): void {
+		if (input.readGitHead === undefined || input.cwd === undefined) return;
+		void input.readGitHead({ cwd: input.cwd }).then(apply, (error: unknown) => {
+			apply({ status: "unavailable", reason: formatErrorMessage(error) });
+		});
+	}
+
 	return {
 		markRunning(index) {
-			registry.markRunning(requireTaskId(index));
+			const taskId = requireTaskId(index);
+			registry.markRunning(taskId);
+			readHead((head) => registry.markTaskHeadBaseline(taskId, head));
 		},
 		markProgress(index, update) {
 			registry.markProgress(requireTaskId(index), update);
 		},
 		markDone(index, result) {
+			const taskId = requireTaskId(index);
 			doneIndexes.add(index);
-			registry.markDone(requireTaskId(index), result);
+			registry.markDone(taskId, result);
+			readHead((head) => registry.markTaskFinalHead(taskId, head));
 		},
 		dispose() {
 			if (isDisposed) return;

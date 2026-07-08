@@ -144,10 +144,11 @@ Risks:
   signatures but still re-reads/re-parses the session on an interval. Tail-reading
   or size-gated incremental parsing may still be needed if real sessions jank the
   TUI.
-- Commit detection ambiguity for the post-run summary: runner subagents may
-  commit during the run; detecting "commit created (if any)" needs a HEAD
-  baseline captured at dispatch, and stacked/Graphite operations could
-  complicate naive HEAD comparison.
+- Commit detection ambiguity for the post-run summary is partly de-risked by
+  PR #3220 / local branch evidence: the extension captures baseline and final
+  HEAD snapshots in fleet/run tracking and reports HEAD movement as commit
+  state, without changing runner dispatch semantics or trying to infer
+  Graphite stack ownership beyond local OID comparison.
 - Navigator size: `navigator.ts` is already ~766 lines; adding four features
   without decomposition risks an unmaintainable component. Keep derivation
   pure and out of the render code.

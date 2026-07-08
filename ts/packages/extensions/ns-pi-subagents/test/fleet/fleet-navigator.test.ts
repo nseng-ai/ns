@@ -258,6 +258,66 @@ describe("subagent fleet navigator", () => {
 		expect(renderRequests).toBeGreaterThan(0);
 	});
 
+	test("renders post-run summary for completed task details", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Done" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markTaskHeadBaseline(task.id, { status: "available", oid: "abcdef123456" });
+		registry.markDone(task.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/done.jsonl",
+		});
+		registry.markTaskFinalHead(task.id, { status: "available", oid: "fedcba654321" });
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			cwd: "/repo",
+			readTextFile: async () => sessionJsonl(),
+			readWorktreeState: async () => ({
+				status: "available",
+				files: [{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 }],
+			}),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		const detail = view.render(120).join("\n");
+		expect(detail).toContain("post-run summary:");
+		expect(detail).toContain("status: final-text");
+		expect(detail).toContain("commit: HEAD changed abcdef1 → fedcba6");
+		expect(detail).toContain("shared worktree: 1 changed files");
+		expect(detail).toContain("M src/fleet/navigator.ts +12/-3");
+		expect(detail).toContain("✓ read");
+		expect(detail).not.toContain("current action:");
+		expect(detail).not.toContain("worktree state:");
+	});
+
+	test("renders unavailable post-run commit status gracefully", async () => {
+		const detail = await loadFleetTaskDetail({
+			task: {
+				id: "task-1",
+				runId: "run-1",
+				index: 0,
+				title: "No head",
+				state: "done",
+				finalStatus: "error",
+				sessionFile: "/tmp/no-head.jsonl",
+			},
+			readTextFile: async () => sessionJsonl(),
+		});
+
+		expect(detail.postRunSummary?.commit).toEqual({
+			status: "unavailable",
+			reason: "missing baseline HEAD",
+		});
+		expect(detail.postRunSummary?.lastDiagnostic).toBe("unavailable; final status error");
+	});
+
 	test("renders shared worktree state on task details", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Dirty" }]);
