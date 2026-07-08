@@ -599,6 +599,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@nseng-ai/handoffs",
 		"@nseng-ai/example-pi",
 		"@nseng-ai/pi",
+		"@nseng-ai/ns",
 		"@nseng-ai/kernel",
 		"@nseng-ai/slots",
 	]);
@@ -612,6 +613,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@nseng-ai/handoffs", "capability"],
 		["@nseng-ai/example-pi", "capability-pi"],
 		["@nseng-ai/pi", "host"],
+		["@nseng-ai/ns", "host"],
 		["@nseng-ai/kernel", "sdk"],
 		["@nseng-ai/slots", "capability"],
 	]);
@@ -667,6 +669,16 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
+			name: "standalone tool to capability pi is deliberately allowed by rank policy",
+			edges: [{ from: "@nseng-ai/areg", to: "@nseng-ai/example-pi" }],
+			expectedViolation: false,
+		},
+		{
+			name: "host to host is deliberately allowed by rank policy",
+			edges: [{ from: "@nseng-ai/pi", to: "@nseng-ai/ns" }],
+			expectedViolation: false,
+		},
+		{
 			name: "internal pi tool to host is allowed",
 			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/pi" }],
 			expectedViolation: false,
@@ -696,6 +708,20 @@ describe("TypeScript style guard package tier layering rules", () => {
 		{
 			name: "internal tool to capability is allowed",
 			edges: [{ from: "@nseng-ai/ns-pi-subagents/runner-subagents", to: "@nseng-ai/handoffs" }],
+			tiers: new Map([
+				...baseTiers,
+				["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-tool"],
+			]),
+			expectedViolation: false,
+		},
+		{
+			name: "internal tool to capability kit is deliberately allowed by rank policy",
+			edges: [
+				{
+					from: "@nseng-ai/ns-pi-subagents/runner-subagents",
+					to: "@nseng-ai/capability-kit",
+				},
+			],
 			tiers: new Map([
 				...baseTiers,
 				["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-tool"],
