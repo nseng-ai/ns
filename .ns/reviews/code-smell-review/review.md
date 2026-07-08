@@ -58,11 +58,8 @@ Only emit findings that match one of these smells:
   across the change in a way that encodes one shared policy in multiple places.
   Flag this only when the repetition is systematic: usually three or more
   sites, or two sites whose cases duplicate the same decisions, derived facts,
-  labels, metadata, validation, or behavioral policy. Do not flag merely
-  because two adapter boundaries both exhaustively switch over the same
-  discriminated union to produce different surface-specific outputs; that is
-  often the honest boundary shape after removing a speculative dispatcher.
-  Replace real repeated switches with polymorphism, or one table/helper both
+  labels, metadata, validation, or behavioral policy. Replace real repeated
+  switches with polymorphism, or one table/helper both
   sites share.
 - **Shotgun Surgery** — one logical change forces scattered edits across many
   files in the diff. Gather what changes together into one module.
