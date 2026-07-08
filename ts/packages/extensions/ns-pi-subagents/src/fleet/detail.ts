@@ -1,7 +1,10 @@
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { readRunnerSubagentUsageFromSessionFile } from "../runner-subagents/extension-usage.ts";
-import type { RunnerSubagentUsageMetadata } from "../runner-subagents/extension-api.ts";
+import type {
+	RunnerSubagentResult,
+	RunnerSubagentUsageMetadata,
+} from "../runner-subagents/extension-api.ts";
 import {
 	createRunnerSubagentJsonEventParser,
 	type RunnerSubagentJsonEventParserSnapshot,
@@ -88,17 +91,11 @@ export interface FleetDetailContext {
 
 export async function loadFleetTaskDetail(input: {
 	task: SubagentFleetTaskSnapshot;
-	readTextFile: ReadTextFile;
-	readWorktreeState?: ReadWorktreeState;
-	cwd?: string;
+	context: FleetDetailContext;
 }): Promise<SubagentFleetTaskDetail> {
 	const loaded = await loadFleetEntryDetail({
 		entry: { kind: "task", task: input.task },
-		context: {
-			readTextFile: input.readTextFile,
-			readWorktreeState: input.readWorktreeState ?? readWorktreeStateUnavailable,
-			cwd: input.cwd ?? process.cwd(),
-		},
+		context: input.context,
 	});
 	return loaded.detail;
 }
@@ -180,11 +177,11 @@ export function detailFromSnapshot(input: {
 	const status =
 		task?.finalStatus ?? input.snapshot.stopReason ?? task?.state ?? input.snapshot.progress.state;
 	const postRunSummary =
-		task?.state === "done"
+		task?.state === "done" && task.finalStatus !== undefined
 			? buildPostRunSummary({
 					task,
 					snapshot: input.snapshot,
-					status,
+					status: task.finalStatus,
 					...optionalEntry("worktreeState", input.worktreeState),
 				})
 			: undefined;
@@ -283,7 +280,7 @@ export function sessionContentSignature(jsonl: string): string {
 export function buildPostRunSummary(input: {
 	task: SubagentFleetTaskSnapshot;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
-	status: string;
+	status: RunnerSubagentResult["status"];
 	worktreeState?: WorktreeStateSnapshot;
 }): SubagentFleetPostRunSummary {
 	const lastDiagnostic = postRunDiagnostic(input.snapshot, input.status);
@@ -297,15 +294,33 @@ export function buildPostRunSummary(input: {
 
 export function postRunDiagnostic(
 	snapshot: RunnerSubagentJsonEventParserSnapshot,
-	status: string,
+	status: RunnerSubagentResult["status"],
 ): string | undefined {
 	if (snapshot.terminalExecutionError !== undefined) return snapshot.terminalExecutionError.message;
 	if (snapshot.protocolError !== undefined) return snapshot.protocolError.message;
 	if (snapshot.errorMessage !== undefined) return snapshot.errorMessage;
 	if (snapshot.error !== undefined) return snapshot.error.message;
-	if (status !== "final-text" && status !== "completed")
-		return `unavailable; final status ${status}`;
+	if (!isSuccessfulPostRunStatus(status)) return `unavailable; final status ${status}`;
 	return undefined;
+}
+
+function isSuccessfulPostRunStatus(status: RunnerSubagentResult["status"]): boolean {
+	switch (status) {
+		case "completed":
+		case "final-text":
+			return true;
+		case "blocked":
+		case "stopped-without-terminal":
+		case "stopped-without-useful-text":
+		case "cancelled":
+		case "error":
+		case "protocol-error":
+			return false;
+		default: {
+			const exhaustive: never = status;
+			return exhaustive;
+		}
+	}
 }
 
 export function summarizeHeadChange(
