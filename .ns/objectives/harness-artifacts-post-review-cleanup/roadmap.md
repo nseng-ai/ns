@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] **Rebaseline live review feedback and branch context.**
-      Re-download unresolved feedback for the harness-artifacts stack when GitHub rate limits allow it, map live comments to the three cleanup buckets, and identify stale comments created by already-landed stack changes. Evidence: feedback/thread inventory captured in a Semantic Update or in the implementation report before thread mutation.
+- [x] **Rebaseline live review feedback and branch context.**
+      Done 2026-07-07 (see `updates/20260707T230504Z-live-review-feedback-rebaseline.md`): relevant merged harness-artifacts PRs were mapped, unresolved review threads were bucketed into home-dir/harness-path ownership, provision/reconcile design seams, and schema/source-of-truth duplication, and stale thread candidates were identified. No GitHub thread mutation was performed.
 
 - [ ] **Resolve home-dir and harness-path ownership.**
       Decide and implement the smallest coherent ownership model for effective home/env fallback and harness-relative path helpers across harness-artifacts, kernel, ns-init, and tests. Evidence: duplicated fallback paths removed or justified, package boundaries respected, and relevant tests/checks pass.
