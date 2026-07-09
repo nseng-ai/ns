@@ -1,4 +1,6 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
+// Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
+// Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
 export type PiModelAuth =
