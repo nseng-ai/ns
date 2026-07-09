@@ -73,8 +73,8 @@ describe("renderPlainSnapshot", () => {
 		const snapshot = renderPlainSnapshot(model());
 		const lines = snapshot.split("\n");
 
-		expect(lines.some((line) => line.startsWith("* #102 Mid change"))).toBe(true);
-		expect(lines.some((line) => line.startsWith("- #103 Top change"))).toBe(true);
+		expect(lines.some((line) => line.startsWith("* #102 mid-feature"))).toBe(true);
+		expect(lines.some((line) => line.startsWith("- #103 top-feature"))).toBe(true);
 	});
 
 	test("includes per-row meta (threads, checks, status)", () => {
