@@ -8,9 +8,9 @@ function usage() {
   console.log(`Usage:
   node scripts/create-local-ns-install-smoke.mjs --ns-worktree <path> [options]
 
-Creates a fresh throwaway git repo, installs the local prepared @nseng-ai/ns package
-from <ns-worktree>/ts/packages/hosts/ns-cli/dist/publish as a project-local dev
-package, makes an initial commit, and verifies npx ns can run.
+Creates a fresh throwaway git repo, rebuilds the local @nseng-ai/ns publish package
+from <ns-worktree>, installs it as a project-local dev package, makes an initial
+commit, and verifies npx ns can run.
 
 Options:
   --ns-worktree <path>   Path to the ns repo/worktree to install from. Required.
@@ -19,6 +19,7 @@ Options:
   --name <name>          New repo folder name. Default: ns-local-install-<timestamp>
   --force                Remove the destination directory first if it already exists.
   --skip-verify          Do not run npx ns smoke commands after install.
+                         The local @nseng-ai/ns package is always rebuilt before install.
   -h, --help             Show this help.
 
 Example:
@@ -117,17 +118,35 @@ function readJson(filePath) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const publishDir = path.join(options.nsWorktree, "ts", "packages", "hosts", "ns-cli", "dist", "publish");
+const nsPackageRoot = path.join(options.nsWorktree, "ts", "packages", "hosts", "ns-cli");
+const sourcePackageJson = path.join(nsPackageRoot, "package.json");
+const publishDir = path.join(nsPackageRoot, "dist", "publish");
 const publishPackageJson = path.join(publishDir, "package.json");
 const destination = path.join(options.parent, options.name);
 
+if (!existsSync(sourcePackageJson)) {
+  fail(`@nseng-ai/ns source package not found at ${sourcePackageJson}. Check --ns-worktree.`);
+}
+
+const sourcePackageInfo = readJson(sourcePackageJson);
+if (sourcePackageInfo.name !== "@nseng-ai/ns") {
+  fail(`Expected ${sourcePackageJson} to be @nseng-ai/ns, found ${sourcePackageInfo.name ?? "<missing>"}.`);
+}
+
+run("pnpm", ["--dir", path.join(options.nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"], {
+  cwd: options.nsWorktree,
+});
+
 if (!existsSync(publishPackageJson)) {
-  fail(`Prepared local package not found at ${publishPackageJson}. Run this first in the ns worktree: pnpm --dir ts --filter @nseng-ai/ns run pack:local`);
+  fail(`Fresh local package was not generated at ${publishPackageJson}.`);
 }
 
 const packageInfo = readJson(publishPackageJson);
 if (packageInfo.name !== "@nseng-ai/ns") {
   fail(`Expected ${publishPackageJson} to be @nseng-ai/ns, found ${packageInfo.name ?? "<missing>"}.`);
+}
+if (packageInfo.version !== sourcePackageInfo.version) {
+  fail(`Fresh package version mismatch: source ${sourcePackageInfo.version ?? "<missing>"}, publish ${packageInfo.version ?? "<missing>"}.`);
 }
 
 if (existsSync(destination)) {
@@ -149,9 +168,9 @@ run("git", ["commit", "-m", "Initial commit"], { cwd: destination });
 
 if (!options.skipVerify) {
   run("npx", ["ns", "--help"], { cwd: destination });
-  run("npx", ["ns", "objective", "list"], { cwd: destination });
   run("npx", ["ns", "init", "--help"], { cwd: destination });
   run("npx", ["ns", "skills", "list"], { cwd: destination });
+  run("npx", ["ns", "extension", "points"], { cwd: destination });
 }
 
 console.log(`\nReady: ${destination}`);
