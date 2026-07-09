@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	parseModuleArtifactDeclaration,
-	parseModuleArtifactDeclarations,
+	parseDescriptorArtifactDeclarations,
+	parsePackageManifestArtifactDeclaration,
 } from "../src/module-artifact-declaration.ts";
 
 function parsePackageJson(value: unknown) {
-	return parseModuleArtifactDeclaration(JSON.stringify(value));
+	return parsePackageManifestArtifactDeclaration(JSON.stringify(value));
 }
 
 function parseDescriptorArtifacts(packageJson: unknown, declarations: readonly unknown[]) {
-	return parseModuleArtifactDeclarations(JSON.stringify(packageJson), declarations);
+	return parseDescriptorArtifactDeclarations(JSON.stringify(packageJson), declarations);
 }
 
 describe("module artifact declaration parser", () => {
@@ -66,7 +66,7 @@ describe("module artifact declaration parser", () => {
 	});
 
 	test("returns a diagnostic for invalid JSON", () => {
-		const result = parseModuleArtifactDeclaration("{");
+		const result = parsePackageManifestArtifactDeclaration("{");
 
 		expect(result).toMatchObject({
 			ok: false,

@@ -59,7 +59,7 @@ const declarationObjectSchema = z.looseObject({
 	description: z.unknown().optional(),
 });
 
-export function parseModuleArtifactDeclaration(
+export function parsePackageManifestArtifactDeclaration(
 	packageJsonText: string,
 ): ParseModuleArtifactDeclarationResult {
 	const packageInfo = parsePackageInfo(packageJsonText);
@@ -67,7 +67,7 @@ export function parseModuleArtifactDeclaration(
 	return emptyCatalog(packageInfo.packageName, packageInfo.version);
 }
 
-export function parseModuleArtifactDeclarations(
+export function parseDescriptorArtifactDeclarations(
 	packageJsonText: string,
 	declarations: readonly unknown[],
 ): ParseModuleArtifactDeclarationResult {

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
@@ -12,6 +12,10 @@ import {
 	validateExtensionDescriptor,
 	type ExtensionDescriptor,
 } from "../sdk/descriptor.ts";
+import {
+	parseDeclaredExtensionSpecsToml,
+	resolveDescriptorExportPath,
+} from "./descriptor-package.ts";
 
 export { extensionPointAcceptsValues };
 export const pointSemanticsValues = ["additive", "override"] as const;
@@ -343,36 +347,18 @@ function readDeclaredExtensionSpecs(
 			diagnostic: diagnostic("ns_toml_read_failed", readResult.message, { path: "ns.toml" }),
 		};
 	}
-	let parsed: unknown;
-	try {
-		parsed = parse(readResult.text);
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"ns_toml_invalid",
-				`ns.toml: Invalid TOML.\n${formatErrorMessage(error)}`,
-				{
-					path: "ns.toml",
-				},
-			),
-		};
-	}
-	const documentResult = recordSchema.safeParse(parsed);
-	if (!documentResult.success) return { ok: true, specs: [] };
-	const value = documentResult.data["extensions"];
-	if (value === undefined) return { ok: true, specs: [] };
-	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"ns_toml_extensions_invalid",
-				"ns.toml extensions must be an array of package-directory strings.",
-				{ path: "extensions" },
-			),
-		};
-	}
-	return { ok: true, specs: value };
+	const parsed = parseDeclaredExtensionSpecsToml(readResult.text);
+	if (parsed.ok) return parsed;
+	return {
+		ok: false,
+		diagnostic: diagnostic(
+			parsed.reason === "invalid-toml" ? "ns_toml_invalid" : "ns_toml_extensions_invalid",
+			parsed.reason === "invalid-toml"
+				? `ns.toml: Invalid TOML.\n${parsed.message}`
+				: parsed.message,
+			{ path: parsed.reason === "invalid-toml" ? "ns.toml" : "extensions" },
+		),
+	};
 }
 
 async function loadDescriptorPointDefinitions(request: {
@@ -432,8 +418,28 @@ function resolveDescriptorExport(
 			),
 		};
 	}
-	const exportTarget = descriptorExportTarget(parsed);
-	if (exportTarget === undefined) {
+	const exportPath = resolveDescriptorExportPath(packageDir, parsed);
+	if (!exportPath.ok) return descriptorExportDiagnostic(exportPath, packageJsonPath);
+	try {
+		if (!statSync(exportPath.path).isFile()) throw new Error("not a file");
+	} catch {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"extension_descriptor_export_missing_file",
+				`Extension descriptor export does not resolve to a file: ${exportPath.target}.`,
+				{ path: packageJsonPath },
+			),
+		};
+	}
+	return { ok: true, path: exportPath.path };
+}
+
+function descriptorExportDiagnostic(
+	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
+	packageJsonPath: string,
+): { ok: false; diagnostic: ProjectConfigDiagnostic } {
+	if (result.reason === "missing") {
 		return {
 			ok: false,
 			diagnostic: diagnostic(
@@ -443,55 +449,18 @@ function resolveDescriptorExport(
 			),
 		};
 	}
-	if (exportTarget.startsWith("/") || exportTarget.includes("\\")) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_descriptor_export_invalid",
-				`Extension descriptor export must be a relative POSIX path: ${exportTarget}.`,
-				{ path: packageJsonPath },
-			),
-		};
-	}
-	const resolvedPath = resolve(packageDir, exportTarget);
-	if (!isPathInside(packageDir, resolvedPath)) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_descriptor_export_escapes",
-				`Extension descriptor export must stay inside the package: ${exportTarget}.`,
-				{ path: packageJsonPath },
-			),
-		};
-	}
-	try {
-		if (!statSync(resolvedPath).isFile()) throw new Error("not a file");
-	} catch {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_descriptor_export_missing_file",
-				`Extension descriptor export does not resolve to a file: ${exportTarget}.`,
-				{ path: packageJsonPath },
-			),
-		};
-	}
-	return { ok: true, path: resolvedPath };
-}
-
-function descriptorExportTarget(manifest: unknown): string | undefined {
-	const manifestResult = recordSchema.safeParse(manifest);
-	if (!manifestResult.success) return undefined;
-	const exportsResult = recordSchema.safeParse(manifestResult.data["exports"]);
-	if (!exportsResult.success) return undefined;
-	const nsExtensionExport = exportsResult.data["./ns-extension"];
-	if (typeof nsExtensionExport === "string") return nsExtensionExport;
-	const nsExtensionExportResult = recordSchema.safeParse(nsExtensionExport);
-	if (!nsExtensionExportResult.success) return undefined;
-	const importTarget = nsExtensionExportResult.data["import"];
-	if (typeof importTarget === "string") return importTarget;
-	const defaultTarget = nsExtensionExportResult.data["default"];
-	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+	return {
+		ok: false,
+		diagnostic: diagnostic(
+			result.reason === "invalid"
+				? "extension_descriptor_export_invalid"
+				: "extension_descriptor_export_escapes",
+			result.reason === "invalid"
+				? `Extension descriptor export must be a relative POSIX path: ${result.target}.`
+				: `Extension descriptor export must stay inside the package: ${result.target}.`,
+			{ path: packageJsonPath },
+		),
+	};
 }
 
 function pointDefinitionsForDescriptor(

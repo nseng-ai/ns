@@ -26,7 +26,7 @@ export type {
 export type NsCommandSchema = z.ZodObject;
 export type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;
 
-const RAW_COMMAND_MARKER = "__nsRawCommand";
+const RAW_COMMAND_KIND = "raw";
 
 export interface KernelCommandInvocation {
 	/** Raw argv tail after ns has routed through the command path. */
@@ -34,6 +34,7 @@ export interface KernelCommandInvocation {
 }
 
 export interface KernelCommand<T = unknown> {
+	readonly kind: typeof RAW_COMMAND_KIND;
 	readonly name: string;
 	readonly summary: string;
 	readonly description: string;
@@ -60,17 +61,16 @@ export interface DefineCommandSpec<S extends NsCommandSchema, T> {
 	readonly completionProvider?: NsCommandCompletionProvider;
 }
 
-export function defineRawCommand<T>(command: KernelCommand<T>): KernelCommand<T> {
-	Object.defineProperty(command, RAW_COMMAND_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false,
-	});
-	return command;
+export type KernelCommandSpec<T = unknown> = Omit<KernelCommand<T>, "kind"> & {
+	readonly kind?: typeof RAW_COMMAND_KIND;
+};
+
+export function defineRawCommand<T>(command: KernelCommandSpec<T>): KernelCommand<T> {
+	return { ...command, kind: RAW_COMMAND_KIND };
 }
 
 export function isDefinedRawCommand(command: KernelCommand | NsCommand): command is KernelCommand {
-	return Object.getOwnPropertyDescriptor(command, RAW_COMMAND_MARKER)?.value === true;
+	return "kind" in command && command.kind === RAW_COMMAND_KIND;
 }
 
 export function defineCommand<S extends NsCommandSchema, T>(

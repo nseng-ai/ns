@@ -11,6 +11,7 @@ export type {
 	DefineCommandSpec,
 	KernelCommand,
 	KernelCommandInvocation,
+	KernelCommandSpec,
 	NsCommand,
 	NsCommandCompletionProvider,
 	NsCommandRequest,

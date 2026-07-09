@@ -234,16 +234,17 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				caps: io.caps,
 			}),
 		});
+		const { selectedCommand, selectedCommandPath } = selectedCommandResolution.resolution;
 		if (
-			selectedCommandResolution.resolution.selectedCommand !== undefined &&
-			selectedCommandResolution.resolution.selectedCommandPath !== undefined &&
-			isRawKernelCommand(selectedCommandResolution.resolution.selectedCommand)
+			selectedCommand !== undefined &&
+			selectedCommandPath !== undefined &&
+			isRawKernelCommand(selectedCommand)
 		) {
 			const exitCode = await executeRawSelectedCommand({
 				args,
 				context: contextWithIO,
-				command: selectedCommandResolution.resolution.selectedCommand,
-				path: selectedCommandResolution.resolution.selectedCommandPath,
+				command: selectedCommand,
+				path: selectedCommandPath,
 			});
 			return { type: "handled", exitCode };
 		}
@@ -665,12 +666,16 @@ function groupForCommand(
 }
 
 function isHiddenCommandGroup(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
-	if (segments.at(-1) === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) return true;
+	if (isExecGroupNode(segments, commandInfo)) return true;
 	return commandInfo.hiddenSegments?.some((hidden) => hidden === segments.join("/")) ?? false;
 }
 
+function isExecGroupNode(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
+	return segments.at(-1) === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo);
+}
+
 function groupDescription(segments: readonly string[], commandInfo: NsCommandCliInfo): string {
-	if (segments.at(-1) === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) {
+	if (isExecGroupNode(segments, commandInfo)) {
 		return `Skill-invoked NS ${segments[0] ?? "extension"} operations.`;
 	}
 	if (segments.length === 1 && commandInfo.groupDescription !== undefined) {

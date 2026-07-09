@@ -29,19 +29,23 @@ import {
 } from "./module-reference.ts";
 import {
 	isPathInside,
-	isRecord,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
-import { parse } from "smol-toml";
 import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 import {
 	validateExtensionDescriptor,
+	validateLoadedCommandName,
 	type ExtensionCommandEntry,
 	type ExtensionDescriptor,
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
 import { isDefinedRawCommand } from "../sdk/command.ts";
+import {
+	descriptorExportTarget,
+	parseDeclaredExtensionSpecsToml,
+	resolveDescriptorExportPath,
+} from "../project-config/descriptor-package.ts";
 import type { DescriptorCommand, KernelCommand, NsCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;
@@ -377,33 +381,18 @@ function readDeclaredExtensionSpecs(
 ): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
 	const nsTomlPath = join(cwd, "ns.toml");
 	if (!existsSync(nsTomlPath)) return { ok: true, specs: [] };
-	let parsed: unknown;
-	try {
-		parsed = parse(readFileSync(nsTomlPath, "utf8"));
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"ns_toml_invalid",
-				`ns.toml: Invalid TOML.\n${formatUnknownError(error)}`,
-				nsTomlPath,
-			),
-		};
-	}
-	if (!isRecord(parsed)) return { ok: true, specs: [] };
-	const value = parsed["extensions"];
-	if (value === undefined) return { ok: true, specs: [] };
-	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"ns_toml_extensions_invalid",
-				"ns.toml extensions must be an array of package-directory strings.",
-				nsTomlPath,
-			),
-		};
-	}
-	return { ok: true, specs: value };
+	const parsed = parseDeclaredExtensionSpecsToml(readFileSync(nsTomlPath, "utf8"));
+	if (parsed.ok) return parsed;
+	return {
+		ok: false,
+		diagnostic: projectErrorDiagnostic(
+			parsed.reason === "invalid-toml" ? "ns_toml_invalid" : "ns_toml_extensions_invalid",
+			parsed.reason === "invalid-toml"
+				? `ns.toml: Invalid TOML.\n${parsed.message}`
+				: parsed.message,
+			nsTomlPath,
+		),
+	};
 }
 
 async function loadDescriptorPackage(options: { cwd: string; spec: string }): Promise<{
@@ -473,8 +462,30 @@ function resolveDescriptorExport(
 			),
 		};
 	}
-	const exportTarget = descriptorExportTarget(parsed);
-	if (exportTarget === undefined) {
+	const exportPath = resolveDescriptorExportPath(packageDir, parsed);
+	if (!exportPath.ok) return descriptorExportErrorDiagnostic(exportPath, packageJsonPath);
+	try {
+		if (!statSync(exportPath.path).isFile()) {
+			throw new Error("not a file");
+		}
+	} catch {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"extension_descriptor_export_missing_file",
+				`Extension descriptor export does not resolve to a file: ${exportPath.target}.`,
+				packageJsonPath,
+			),
+		};
+	}
+	return { ok: true, path: exportPath.path };
+}
+
+function descriptorExportErrorDiagnostic(
+	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
+	packageJsonPath: string,
+): { ok: false; diagnostic: ExtensionErrorDiagnostic } {
+	if (result.reason === "missing") {
 		return {
 			ok: false,
 			diagnostic: projectErrorDiagnostic(
@@ -484,55 +495,18 @@ function resolveDescriptorExport(
 			),
 		};
 	}
-	if (exportTarget.startsWith("/") || exportTarget.includes("\\")) {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_export_invalid",
-				`Extension descriptor export must be a relative POSIX path: ${exportTarget}.`,
-				packageJsonPath,
-			),
-		};
-	}
-	const resolvedPath = resolve(packageDir, exportTarget);
-	if (!isPathInside(packageDir, resolvedPath)) {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_export_escapes",
-				`Extension descriptor export must stay inside the package: ${exportTarget}.`,
-				packageJsonPath,
-			),
-		};
-	}
-	try {
-		if (!statSync(resolvedPath).isFile()) {
-			throw new Error("not a file");
-		}
-	} catch {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_export_missing_file",
-				`Extension descriptor export does not resolve to a file: ${exportTarget}.`,
-				packageJsonPath,
-			),
-		};
-	}
-	return { ok: true, path: resolvedPath };
-}
-
-function descriptorExportTarget(manifest: unknown): string | undefined {
-	if (!isRecord(manifest)) return undefined;
-	const exportsValue = manifest["exports"];
-	if (!isRecord(exportsValue)) return undefined;
-	const nsExtensionExport = exportsValue["./ns-extension"];
-	if (typeof nsExtensionExport === "string") return nsExtensionExport;
-	if (!isRecord(nsExtensionExport)) return undefined;
-	const importTarget = nsExtensionExport["import"];
-	if (typeof importTarget === "string") return importTarget;
-	const defaultTarget = nsExtensionExport["default"];
-	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+	return {
+		ok: false,
+		diagnostic: projectErrorDiagnostic(
+			result.reason === "invalid"
+				? "extension_descriptor_export_invalid"
+				: "extension_descriptor_export_escapes",
+			result.reason === "invalid"
+				? `Extension descriptor export must be a relative POSIX path: ${result.target}.`
+				: `Extension descriptor export must stay inside the package: ${result.target}.`,
+			packageJsonPath,
+		),
+	};
 }
 
 function descriptorCommandCandidates(options: {
@@ -984,15 +958,22 @@ function validateDescriptorCommandContribution(
 	entry: ExtensionCommandEntry,
 	sourceLabel: string,
 ): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
-	if (
-		isRecord(contribution) &&
-		typeof contribution.name === "string" &&
-		entry.name !== contribution.name
-	) {
-		return {
-			ok: false,
-			message: `Invalid ns descriptor command ${sourceLabel}: Loaded command name mismatch: descriptor entry "${entry.name}" loaded command "${contribution.name}".`,
-		};
+	if (typeof contribution === "object" && contribution !== null && "name" in contribution) {
+		const name = contribution.name;
+		if (typeof name !== "string")
+			return validateNsExtensionContribution(
+				{ commands: [contribution] },
+				entry,
+				sourceLabel,
+				"ns descriptor command",
+			);
+		const nameValidation = validateLoadedCommandName(entry, { name });
+		if (!nameValidation.ok) {
+			return {
+				ok: false,
+				message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
+			};
+		}
 	}
 	const validation = validateNsExtensionContribution(
 		{ commands: [contribution] },

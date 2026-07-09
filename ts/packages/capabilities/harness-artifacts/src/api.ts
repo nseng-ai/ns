@@ -115,7 +115,7 @@ export {
 export {
 	isValidModuleArtifactRelativePath,
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
-	parseModuleArtifactDeclaration,
+	parsePackageManifestArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
 	type ModuleArtifactDeclarationDiagnosticCode,
 	type ParseModuleArtifactDeclarationResult,
