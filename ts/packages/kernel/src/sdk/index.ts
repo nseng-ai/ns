@@ -67,6 +67,7 @@ export {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
+	hiddenExecGroup,
 	validateExtensionDescriptor,
 	validateLoadedCommandName,
 } from "./descriptor.ts";

@@ -1,4 +1,9 @@
-import { defineExtension, type ExtensionEntry, type NsCommand } from "@nseng-ai/kernel/sdk";
+import {
+	defineExtension,
+	hiddenExecGroup,
+	type ExtensionEntry,
+	type NsCommand,
+} from "@nseng-ai/kernel/sdk";
 
 function slotCommandEntry(commandName: string): ExtensionEntry {
 	return { name: commandName, load: () => loadSlotCommand(commandName) };
@@ -31,16 +36,11 @@ export default defineExtension({
 				slotCommandEntry("up"),
 				slotCommandEntry("down"),
 				slotCommandEntry("free-stack"),
-				{
-					group: "exec",
-					description: "Skill-invoked Slot Graphite operations.",
-					hidden: true,
-					entries: [
-						slotCommandEntry("stack-branches"),
-						slotCommandEntry("stack-map-branches"),
-						slotCommandEntry("quiescence"),
-					],
-				},
+				hiddenExecGroup("Skill-invoked Slot Graphite operations.", [
+					slotCommandEntry("stack-branches"),
+					slotCommandEntry("stack-map-branches"),
+					slotCommandEntry("quiescence"),
+				]),
 			],
 		},
 		{

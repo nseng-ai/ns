@@ -59,6 +59,13 @@ export interface ExtensionDescriptor {
 	readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
 }
 
+export function hiddenExecGroup(
+	description: string,
+	entries: readonly ExtensionEntry[],
+): ExtensionGroupEntry {
+	return { group: "exec", hidden: true, description, entries };
+}
+
 export function nsExtensionExportTarget(exportsField: unknown): string | undefined {
 	const exportsResult = z.record(z.string(), z.unknown()).safeParse(exportsField);
 	if (!exportsResult.success) return undefined;

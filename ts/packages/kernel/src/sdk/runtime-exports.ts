@@ -12,6 +12,7 @@ import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
+	hiddenExecGroup,
 	validateExtensionDescriptor,
 	validateLoadedCommandName,
 } from "./descriptor.ts";
@@ -54,6 +55,7 @@ export const nsSdkRuntimeExports = {
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
 	failure,
+	hiddenExecGroup,
 	isMatrixProgressEvent,
 	machineEnvelopeSchema,
 	matrixProgressDisplayWidthChars,

@@ -6,7 +6,7 @@ For an end-to-end package layout and extension authoring walkthrough, start with
 Import the SDK's own surface from the package itself:
 
 ```ts
-import { defineExtension, failure, ok, usageError, z } from "@nseng-ai/kernel/sdk";
+import { defineExtension, failure, hiddenExecGroup, ok, usageError, z } from "@nseng-ai/kernel/sdk";
 import type { CommandExit, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 ```
 
@@ -66,6 +66,32 @@ An extension package exposes its descriptor module through `package.json` `expor
 The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in repo-root `ns.toml` `extensions`; legacy extension roots and package JSON contribution shims are not discovery inputs.
 
 Descriptor-level contributions include `entries` for commands, `points` for point definitions, and `bundledArtifacts` for harness artifacts.
+
+### `hiddenExecGroup()`
+
+Constructs the standard hidden `exec` group for agent/skill-only commands.
+
+```ts
+function hiddenExecGroup(description: string, entries: readonly ExtensionEntry[]): ExtensionGroupEntry;
+```
+
+Use this helper instead of hand-writing `{ group: "exec", hidden: true, ... }` in extension descriptors.
+
+**Example.**
+
+```ts
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+  group: "sample",
+  description: "Sample commands.",
+  entries: [
+    hiddenExecGroup("Agent-only sample operations.", [
+      { name: "inspect", load: () => import("./commands/inspect.ts") },
+    ]),
+  ],
+});
+```
 
 ---
 

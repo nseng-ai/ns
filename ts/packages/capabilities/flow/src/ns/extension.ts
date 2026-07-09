@@ -1,4 +1,4 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	group: "flow",
@@ -66,19 +66,14 @@ export default defineExtension({
 				default: (await import("./commands/pull-trunk.ts")).flowPullTrunkCommand,
 			}),
 		},
-		{
-			group: "exec",
-			hidden: true,
-			description: "Agent-only flow operations.",
-			entries: [
-				{
-					name: "read-graphite-branch-metadata",
-					load: async () => ({
-						default: (await import("./commands/exec-read-graphite-branch-metadata.ts"))
-							.flowExecReadGraphiteBranchMetadataCommand,
-					}),
-				},
-			],
-		},
+		hiddenExecGroup("Agent-only flow operations.", [
+			{
+				name: "read-graphite-branch-metadata",
+				load: async () => ({
+					default: (await import("./commands/exec-read-graphite-branch-metadata.ts"))
+						.flowExecReadGraphiteBranchMetadataCommand,
+				}),
+			},
+		]),
 	],
 });
