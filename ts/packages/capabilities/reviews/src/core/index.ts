@@ -12,11 +12,19 @@ export {
 export {
 	ClaudeCodeProcessReviewRunner,
 	FakeReviewRunnerGateway,
+	RoutingReviewRunner,
 	type ClaudeCodeProcessReviewRunnerOptions,
 	type FakeReviewRunnerGatewayOptions,
+	type ReviewHarnessRunner,
 	type ReviewRunnerGateway,
+	type RoutingReviewRunnerOptions,
 	type RunReviewOptions,
 } from "../gateways/review-runner.ts";
+export {
+	resolveReviewsModelReference,
+	type ResolvedReviewsModelReference,
+	type ReviewsHarness,
+} from "./review-model-reference.ts";
 export {
 	createFindingsReview,
 	createLocalDiff,
