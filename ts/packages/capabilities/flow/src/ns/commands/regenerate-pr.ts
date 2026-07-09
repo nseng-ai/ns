@@ -1,6 +1,7 @@
 import { createNsClinkrInteraction } from "@nseng-ai/capability-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
+import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import {
 	defineExtension,
 	failed,
@@ -49,121 +50,127 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = {
 	schema: regeneratePrSchema,
 	options: { force: { short: "-f" } },
 	async run(ctx: NsExtensionApi, request: RegeneratePrRequest) {
-		// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
-		// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
-		// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
-		// result block (success / failure / refusal), the same house-style block
-		// `branch-latest-commit` uses — there is no per-step journey to stream and no subprocess
-		// transcript to mine for cause markers. Spec: `.ns/objectives/cli-ux-north-star/house-style.md`.
-		const caps = resolveFlowStreamCaps(ctx);
-		const runtime = createNsPrDescriptionRuntime(ctx);
-		const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			githubPr: runtime.githubPr,
-			git: runtime.git,
-			textGenerator: ctx.textGenerator,
-			fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
-		});
-		if (prepared.type === "failed") {
-			// PR lookup / diff / prompt / generation failure: the domain string already leads with a
-			// summary sentence, so route its first line to the bold headline and the rest to the body
-			// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
-			return failed(
-				renderResultBlockFromMessage(caps, {
-					kind: "failure",
-					message: prepared.reason === "" ? "Could not regenerate the PR." : prepared.reason,
-					cwd: ctx.cwd,
-				}),
-				prepared.exitCode ?? 1,
-			);
-		}
-
-		if (prepared.type === "skipped") {
-			return ok(
-				renderResultBlock(caps, {
-					kind: "success",
-					headline: "PR title and description are already current.",
-					cwd: ctx.cwd,
-					body: [
-						`PR: #${prepared.pr.number} ${prepared.pr.url}`,
-						`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
-					].join("\n"),
-				}),
-			);
-		}
-
-		if (!request.force) {
-			const confirmationMessage = formatConfirmationMessage({ generated: prepared });
-			const confirmation = await confirmInteractiveOrUsageError(
-				createNsClinkrInteraction(ctx, {
-					title: "Regenerate PR metadata?",
-					formatMessage: () => confirmationMessage,
-				}),
-				{
-					nonInteractive: {
-						message: "Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
-						missingFlag: "--force",
-						howToSupply: "Pass --force to regenerate and edit GitHub without prompting.",
-					},
-					confirmation: {
-						message: confirmationMessage,
-						defaultAnswer: "no",
-					},
-				},
-			);
-			if ("errorType" in confirmation) {
+		return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
+			// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
+			// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
+			// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
+			// result block (success / failure / refusal), the same house-style block
+			// `branch-latest-commit` uses. It still emits coarse transient phase text so the user is not
+			// left staring at a blank terminal while GitHub/model work happens before confirmation.
+			const caps = resolveFlowStreamCaps(ctx);
+			const runtime = createNsPrDescriptionRuntime(ctx);
+			io.phase("Preparing PR metadata update…");
+			const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({
+				cwd: ctx.cwd,
+				env: ctx.env,
+				githubPr: runtime.githubPr,
+				git: runtime.git,
+				textGenerator: ctx.textGenerator,
+				fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
+				onProgress: (message) => io.phase(message),
+			});
+			if (prepared.type === "failed") {
+				// PR lookup / diff / prompt / generation failure: the domain string already leads with a
+				// summary sentence, so route its first line to the bold headline and the rest to the body
+				// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
 				return failed(
-					renderResultBlock(caps, {
-						kind: "refusal",
-						headline: confirmation.message,
+					renderResultBlockFromMessage(caps, {
+						kind: "failure",
+						message: prepared.reason === "" ? "Could not regenerate the PR." : prepared.reason,
 						cwd: ctx.cwd,
 					}),
-					2,
+					prepared.exitCode ?? 1,
 				);
 			}
-			if (confirmation.type !== "confirmed") {
-				// Declined/aborted confirmation is a warn refusal: GitHub stays untouched.
+
+			if (prepared.type === "skipped") {
+				return ok(
+					renderResultBlock(caps, {
+						kind: "success",
+						headline: "PR title and description are already current.",
+						cwd: ctx.cwd,
+						body: [
+							`PR: #${prepared.pr.number} ${prepared.pr.url}`,
+							`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
+						].join("\n"),
+					}),
+				);
+			}
+
+			if (!request.force) {
+				const confirmationMessage = formatConfirmationMessage({ generated: prepared });
+				const confirmation = await confirmInteractiveOrUsageError(
+					createNsClinkrInteraction(ctx, {
+						title: "Regenerate PR metadata?",
+						formatMessage: () => confirmationMessage,
+					}),
+					{
+						nonInteractive: {
+							message:
+								"Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
+							missingFlag: "--force",
+							howToSupply: "Pass --force to regenerate and edit GitHub without prompting.",
+						},
+						confirmation: {
+							message: confirmationMessage,
+							defaultAnswer: "yes",
+						},
+					},
+				);
+				if ("errorType" in confirmation) {
+					return failed(
+						renderResultBlock(caps, {
+							kind: "refusal",
+							headline: confirmation.message,
+							cwd: ctx.cwd,
+						}),
+						2,
+					);
+				}
+				if (confirmation.type !== "confirmed") {
+					// Declined/aborted confirmation is a warn refusal: GitHub stays untouched.
+					return failed(
+						renderResultBlock(caps, {
+							kind: "refusal",
+							headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
+							cwd: ctx.cwd,
+						}),
+						1,
+					);
+				}
+			}
+
+			io.phase(`Updating PR #${prepared.pr.number} metadata on GitHub…`);
+			const edited = await applyPreparedPrDescriptionUpdate({
+				cwd: ctx.cwd,
+				githubPr: runtime.githubPr,
+				update: prepared,
+			});
+			if (!edited.ok) {
 				return failed(
 					renderResultBlock(caps, {
-						kind: "refusal",
-						headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
+						kind: "failure",
+						headline: `Generated a PR description, but failed to update PR #${prepared.pr.number}.`,
 						cwd: ctx.cwd,
+						body: edited.reason.trimEnd(),
 					}),
 					1,
 				);
 			}
-		}
 
-		const edited = await applyPreparedPrDescriptionUpdate({
-			cwd: ctx.cwd,
-			githubPr: runtime.githubPr,
-			update: prepared,
-		});
-		if (!edited.ok) {
-			return failed(
+			return ok(
 				renderResultBlock(caps, {
-					kind: "failure",
-					headline: `Generated a PR description, but failed to update PR #${prepared.pr.number}.`,
+					kind: "success",
+					headline: "Regenerated PR title and description.",
 					cwd: ctx.cwd,
-					body: edited.reason.trimEnd(),
+					body: [
+						`PR: #${prepared.pr.number} ${prepared.pr.url}`,
+						`Title: ${prepared.title}`,
+						`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
+					].join("\n"),
 				}),
-				1,
 			);
-		}
-
-		return ok(
-			renderResultBlock(caps, {
-				kind: "success",
-				headline: "Regenerated PR title and description.",
-				cwd: ctx.cwd,
-				body: [
-					`PR: #${prepared.pr.number} ${prepared.pr.url}`,
-					`Title: ${prepared.title}`,
-					`Prompt: ${formatPromptSourceLabel(prepared.promptSource)}`,
-				].join("\n"),
-			}),
-		);
+		});
 	},
 };
 

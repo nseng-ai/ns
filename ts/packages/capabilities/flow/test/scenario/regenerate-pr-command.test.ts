@@ -150,6 +150,17 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(stdout).not.toContain("Exit:");
 		expect(stdout).not.toContain("stdout:");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.liveOutput).toEqual([
+			{ stream: "stderr", text: "Preparing PR metadata update…\n" },
+			{ stream: "stderr", text: "checking PR #123 description fingerprint\n" },
+			{
+				stream: "stderr",
+				text: "recomputing PR #123 description (no generated fingerprint found)\n",
+			},
+			{ stream: "stderr", text: "generating PR metadata (attempt 1/2)\n" },
+			{ stream: "stderr", text: "PR metadata generated (token usage unavailable)\n" },
+			{ stream: "stderr", text: "Updating PR #123 metadata on GitHub…\n" },
+		]);
 		expect(formattedExecCalls(run.context)).toEqual(
 			expect.arrayContaining([
 				"gh pr view --json number,url,title,body,headRefName,baseRefName",
