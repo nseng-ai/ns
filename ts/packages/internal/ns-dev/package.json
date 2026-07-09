@@ -1,0 +1,21 @@
+{
+	"name": "@internal/ns-dev",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"ns-dev": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/internal/ns-dev/test"
+	},
+	"dependencies": {
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "internal-pi-tool"
+	}
+}
