@@ -271,7 +271,7 @@ function formatToolPreview(preview: string | undefined): string | undefined {
 	if (preview === undefined) return undefined;
 	const parsed = parseJsonPreview(preview);
 	if (parsed === undefined) return compactPlain(preview);
-	return formatPreviewValue(parsed);
+	return formatValuePreview(parsed, 0);
 }
 
 function parseJsonPreview(preview: string): unknown {
@@ -298,10 +298,6 @@ function looksLikeJson(value: string): boolean {
 
 const MAX_PREVIEW_RECORD_FIELDS = 6;
 const MAX_PREVIEW_DEPTH = 2;
-
-function formatPreviewValue(value: unknown): string {
-	return formatValuePreview(value, 0);
-}
 
 function formatValuePreview(value: unknown, depth: number): string {
 	if (Array.isArray(value)) return formatArrayPreview(value, depth);
