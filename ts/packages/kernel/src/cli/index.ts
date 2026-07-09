@@ -565,20 +565,6 @@ function commandPathArgs(args: readonly string[]): readonly string[] {
 const NS_EXEC_GROUP_NAME = "exec";
 export const NS_BUILT_IN_HELP_GROUP = "Built-ins:";
 const NS_EXTENSION_HELP_GROUP = "Extensions:";
-// Dynamic ns extensions are one group deep today. A grouped command named
-// `exec-<name>` is mounted as hidden `ns <group> exec <name>` so agent-only
-// operations keep the same nested exec contract as preinstalled Clinkr groups.
-const NS_EXEC_COMMAND_PREFIX = "exec-";
-
-function isGroupedExecCommand(commandInfo: NsCommandPath): boolean {
-	return commandInfo.group !== undefined && commandInfo.name.startsWith(NS_EXEC_COMMAND_PREFIX);
-}
-
-function cliLeafCommandName(commandInfo: NsCommandPath): string {
-	if (commandInfo.segments !== undefined) return commandLeafName(commandInfo);
-	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
-	return commandInfo.name.slice(NS_EXEC_COMMAND_PREFIX.length);
-}
 
 function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	const completion = new ClinkrGroup<NsCliContext>({
@@ -614,12 +600,12 @@ function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	return completion;
 }
 
+function cliLeafCommandName(commandInfo: NsCommandPath): string {
+	return commandLeafName(commandInfo);
+}
+
 function displaySegmentsForCommand(commandInfo: NsCommandPath): readonly string[] {
-	if (commandInfo.segments !== undefined) return commandInfo.segments;
-	if (!isGroupedExecCommand(commandInfo)) return commandSegments(commandInfo);
-	return [commandInfo.group ?? "", NS_EXEC_GROUP_NAME, cliLeafCommandName(commandInfo)].filter(
-		(segment) => segment !== "",
-	);
+	return commandSegments(commandInfo);
 }
 
 function pathPrefixMatches(args: readonly string[], path: readonly string[]): boolean {
@@ -706,11 +692,14 @@ function groupForCommand(
 
 function isHiddenCommandGroup(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
 	if (isExecGroupNode(segments, commandInfo)) return true;
-	return commandInfo.hiddenSegments?.some((hidden) => hidden === segments.join("/")) ?? false;
+	return commandInfo.hiddenAncestorKeys?.some((hidden) => hidden === segments.join("/")) ?? false;
 }
 
 function isExecGroupNode(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
-	return segments.at(-1) === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo);
+	return (
+		segments.at(-1) === NS_EXEC_GROUP_NAME &&
+		commandInfo.hiddenAncestorKeys?.includes(segments.join("/")) === true
+	);
 }
 
 function groupDescription(segments: readonly string[], commandInfo: NsCommandCliInfo): string {

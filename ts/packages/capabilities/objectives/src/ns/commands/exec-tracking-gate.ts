@@ -7,7 +7,7 @@ import {
 } from "../../core/operations/tracking-gate.ts";
 
 export const objectiveExecTrackingGateNsCommand = objectiveNsCommand({
-	name: "exec-tracking-gate",
+	name: "tracking-gate",
 	summary: "Collect deterministic Objective tracking gate evidence for one slug.",
 	description: "Collect deterministic Objective tracking gate evidence for one slug.",
 	schema: trackingGateRequestSchema,

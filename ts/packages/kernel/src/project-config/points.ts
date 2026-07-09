@@ -505,7 +505,10 @@ export async function loadPointCatalogWithDescriptors(request: {
 			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
 	const pointDefinitions =
 		request.pointDefinitions === undefined
-			? [...builtInPointDefinitions, ...descriptorDefinitionResult.pointDefinitions]
+			? mergePointDefinitions({
+					fallbackDefinitions: builtInPointDefinitions,
+					preferredDefinitions: descriptorDefinitionResult.pointDefinitions,
+				})
 			: descriptorDefinitionResult.pointDefinitions;
 	const configResult = loadProjectConfig({
 		repoRoot: request.repoRoot,
@@ -522,6 +525,17 @@ export async function loadPointCatalogWithDescriptors(request: {
 		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
+}
+
+function mergePointDefinitions(request: {
+	fallbackDefinitions: readonly PointDefinition[];
+	preferredDefinitions: readonly PointDefinition[];
+}): readonly PointDefinition[] {
+	const preferredIds = new Set(request.preferredDefinitions.map((definition) => definition.id));
+	return [
+		...request.fallbackDefinitions.filter((definition) => !preferredIds.has(definition.id)),
+		...request.preferredDefinitions,
+	];
 }
 
 export function resolvePromptPointSource(

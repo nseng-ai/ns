@@ -5,6 +5,8 @@ import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z } from "zod";
 
+import { nsExtensionExportTarget } from "../sdk/descriptor.ts";
+
 export type DeclaredExtensionSpecsParseResult =
 	| { readonly ok: true; readonly specs: readonly string[] }
 	| {
@@ -66,17 +68,9 @@ export function declaredExtensionSpecsErrorInfo(
 
 export function descriptorExportTarget(manifest: unknown): string | undefined {
 	const manifestResult = z.record(z.string(), z.unknown()).safeParse(manifest);
-	if (!manifestResult.success) return undefined;
-	const exportsResult = z.record(z.string(), z.unknown()).safeParse(manifestResult.data["exports"]);
-	if (!exportsResult.success) return undefined;
-	const nsExtensionExport = exportsResult.data["./ns-extension"];
-	if (typeof nsExtensionExport === "string") return nsExtensionExport;
-	const nsExtensionExportResult = z.record(z.string(), z.unknown()).safeParse(nsExtensionExport);
-	if (!nsExtensionExportResult.success) return undefined;
-	const importTarget = nsExtensionExportResult.data["import"];
-	if (typeof importTarget === "string") return importTarget;
-	const defaultTarget = nsExtensionExportResult.data["default"];
-	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+	return manifestResult.success
+		? nsExtensionExportTarget(manifestResult.data["exports"])
+		: undefined;
 }
 
 export type DescriptorExportPathResult =

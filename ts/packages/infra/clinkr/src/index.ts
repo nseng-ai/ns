@@ -85,6 +85,7 @@ export {
 	clinkrFormatFromArgs,
 	clinkrFormatFromOption,
 	isClinkrHumanOutputInvocation,
+	isJsonSchemaFlag,
 } from "./format.ts";
 export { createProcessIo, resolveIo } from "./io.ts";
 export type { ClinkrIo, ClinkrIoOverrides } from "./io.ts";

@@ -7,7 +7,7 @@ import {
 } from "../../core/operations/runner-subagent-usage.ts";
 
 export const objectiveExecRunnerSubagentUsageNsCommand = objectiveNsCommand({
-	name: "exec-runner-subagent-usage",
+	name: "runner-subagent-usage",
 	summary: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 	description: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 	schema: runnerSubagentUsageRequestSchema,

@@ -53,7 +53,7 @@ describe("ns install", () => {
 					"tools",
 				),
 				nsTomlPath: join(workspace.cwd, "ns.toml"),
-				wasRecorded: true,
+				isRecorded: true,
 			},
 		});
 		expect(readFileSync(join(workspace.cwd, "ns.toml"), "utf8")).toBe(
@@ -73,7 +73,7 @@ describe("ns install", () => {
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			status: "ok",
-			data: { wasRecorded: false },
+			data: { isRecorded: false },
 		});
 		expect(readFileSync(join(workspace.cwd, "ns.toml"), "utf8")).toBe(
 			'extensions = ["./extensions/tools"]\n',

@@ -22,7 +22,7 @@ export const objectiveExecRunnerFinishNsCommand: NsCommand<
 	typeof runnerFinishRequestSchema,
 	RunnerFinishResult
 > = createNsDomainCommand({
-	name: "exec-runner-finish",
+	name: "runner-finish",
 	summary: RUNNER_FINISH_DESCRIPTION,
 	description: RUNNER_FINISH_DESCRIPTION,
 	schema: runnerFinishRequestSchema,

@@ -389,6 +389,34 @@ describe("TypeScript style guard source rules", () => {
 		expect([...actualRules].sort()).toEqual([...testCase.expectedRules].sort());
 	});
 
+	test("ns-extension descriptor guard recognizes conditional export targets", () => {
+		const metadataByName = new Map(packageMetadataByName);
+		metadataByName.set("@acme/conditional", {
+			name: "@acme/conditional",
+			packageDir: "ts/packages/capabilities/conditional",
+			packageJsonPath: "ts/packages/capabilities/conditional/package.json",
+			manifest: {
+				name: "@acme/conditional",
+				exports: { "./ns-extension": { import: "./src/ns/extension.ts" } },
+				ns: { tier: "capability" },
+			},
+			manifestContent: "",
+			nsTier: "capability",
+			rawNsTier: "capability",
+			nsSubpackages: [],
+			nsRemainder: false,
+			exportSubpaths: new Set(["./ns-extension"]),
+		} satisfies PackageMetadata);
+
+		const actualRules = collectViolations(
+			'import { defineExtension } from "@nseng-ai/kernel/sdk";\nimport { makeCommand } from "./command.ts";',
+			"ts/packages/capabilities/conditional/src/ns/extension.ts",
+			metadataByName,
+		).map((violation) => violation.rule);
+
+		expect(actualRules).toEqual([BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT]);
+	});
+
 	const repoSourcePaths = collectTypeScriptSourcePaths(REPO_ROOT);
 
 	test("real repo TypeScript source shards cover every source exactly once", () => {

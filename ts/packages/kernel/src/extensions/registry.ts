@@ -6,7 +6,6 @@ import {
 	commandInfoForLoadedCommand,
 	commandKey,
 	commandLeafName,
-	formatUnknownError,
 	toCommandCliInfo,
 	commandPathMatches,
 	commandSegments,
@@ -29,6 +28,7 @@ import {
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
 import {
+	formatErrorMessage,
 	isPathInside,
 	optionalEntry,
 	type ExplicitUndefined,
@@ -109,7 +109,7 @@ export interface PreinstalledNsCommandCatalogEntryBase {
 	readonly description: string;
 	readonly fullDescription: string;
 	readonly path?: readonly string[];
-	readonly hiddenSegments?: readonly string[];
+	readonly hiddenAncestorKeys?: readonly string[];
 	readonly hasStaticCommandInfo?: boolean;
 }
 
@@ -427,7 +427,7 @@ async function loadDescriptorPackage(options: { cwd: string; spec: string }): Pr
 			diagnostics: [
 				projectErrorDiagnostic(
 					"extension_descriptor_import_failed",
-					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatUnknownError(error)}`,
+					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
 					descriptorPath.path,
 				),
 			],
@@ -473,7 +473,7 @@ function resolveDescriptorExport(
 			ok: false,
 			diagnostic: projectErrorDiagnostic(
 				"extension_descriptor_package_json_read_failed",
-				`Could not read extension package manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+				`Could not read extension package manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
 				packageJsonPath,
 			),
 		};
@@ -523,7 +523,7 @@ function descriptorCommandCandidates(options: {
 			...options,
 			entry,
 			segments: options.descriptor.group === undefined ? [] : [options.descriptor.group],
-			hiddenSegments: [],
+			hiddenAncestorKeys: [],
 			rootGroupDescription: options.descriptor.description,
 		}),
 	);
@@ -539,7 +539,7 @@ function descriptorEntryCommandCandidates(options: {
 	sourceLabel: string;
 	entry: ExtensionEntry;
 	segments: readonly string[];
-	hiddenSegments: readonly string[];
+	hiddenAncestorKeys: readonly string[];
 	rootGroupDescription: string;
 }): readonly ExtensionCommandCandidate[] {
 	if ("load" in options.entry) {
@@ -548,10 +548,10 @@ function descriptorEntryCommandCandidates(options: {
 		const commandInfoPath = descriptorCommandInfoPath({
 			commandName: commandEntry.name,
 			segments: options.segments,
-			hiddenSegments: options.hiddenSegments,
+			hiddenAncestorKeys: options.hiddenAncestorKeys,
 			rootGroupDescription: options.rootGroupDescription,
 		});
-		const displayPath = `${relativeDisplayPath(options.cwd, options.descriptorPath)}#${segments.join("/")}`;
+		const displayPath = `${relative(options.cwd, options.descriptorPath)}#${segments.join("/")}`;
 		return [
 			{
 				...commandInfoPath,
@@ -573,15 +573,18 @@ function descriptorEntryCommandCandidates(options: {
 		];
 	}
 	const nextSegments = [...options.segments, options.entry.group];
-	const hiddenSegments = options.entry.hidden
-		? [...options.hiddenSegments, commandKey({ name: options.entry.group, segments: nextSegments })]
-		: options.hiddenSegments;
+	const hiddenAncestorKeys = options.entry.hidden
+		? [
+				...options.hiddenAncestorKeys,
+				commandKey({ name: options.entry.group, segments: nextSegments }),
+			]
+		: options.hiddenAncestorKeys;
 	return options.entry.entries.flatMap((entry) =>
 		descriptorEntryCommandCandidates({
 			...options,
 			entry,
 			segments: nextSegments,
-			hiddenSegments,
+			hiddenAncestorKeys,
 		}),
 	);
 }
@@ -589,27 +592,26 @@ function descriptorEntryCommandCandidates(options: {
 function descriptorCommandInfoPath(options: {
 	commandName: string;
 	segments: readonly string[];
-	hiddenSegments: readonly string[];
+	hiddenAncestorKeys: readonly string[];
 	rootGroupDescription: string;
-}): Pick<NsCommandCliInfo, "name" | "group" | "segments" | "groupDescription" | "hiddenSegments"> {
+}): Pick<
+	NsCommandCliInfo,
+	"name" | "group" | "segments" | "groupDescription" | "hiddenAncestorKeys"
+> {
 	const rootGroup = options.segments[0];
 	if (options.segments.length === 1 && rootGroup !== undefined) {
 		return {
 			name: options.commandName,
 			group: rootGroup,
 			groupDescription: options.rootGroupDescription,
-			...optionalEntry("hiddenSegments", options.hiddenSegments),
+			...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 		};
 	}
 	return {
 		name: options.commandName,
 		segments: [...options.segments, options.commandName],
-		...optionalEntry("hiddenSegments", options.hiddenSegments),
+		...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 	};
-}
-
-function relativeDisplayPath(rootDir: string, entryPath: string): string {
-	return relative(rootDir, entryPath);
 }
 
 async function loadPreinstalledCandidates(
@@ -686,7 +688,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 				{
 					severity: "error",
 					code: "extension_descriptor_import_failed",
-					message: `Failed to load source-dev ns extension descriptor ${descriptorPath.path}.\n${formatUnknownError(error)}`,
+					message: `Failed to load source-dev ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
 					path: descriptorPath.path,
 					sourceLevel: "preinstalled",
 				},
@@ -709,7 +711,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 			candidates: [],
 		};
 	}
-	const spec = relativeDisplayPath(options.packagesRoot, options.packageDir);
+	const spec = relative(options.packagesRoot, options.packageDir);
 	return {
 		diagnostics: [],
 		candidates: descriptorCommandCandidates({
@@ -802,7 +804,9 @@ function preinstalledCatalogEntryCommandInfo(
 	return toCommandCliInfo({
 		...entry,
 		...(entry.path === undefined ? {} : { segments: entry.path }),
-		...(entry.hiddenSegments === undefined ? {} : { hiddenSegments: entry.hiddenSegments }),
+		...(entry.hiddenAncestorKeys === undefined
+			? {}
+			: { hiddenAncestorKeys: entry.hiddenAncestorKeys }),
 	});
 }
 

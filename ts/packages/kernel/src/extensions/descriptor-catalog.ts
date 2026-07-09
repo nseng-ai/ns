@@ -22,7 +22,7 @@ export function extensionDescriptorToPreinstalledCatalog(
 			descriptor,
 			entry,
 			segments: descriptor.group === undefined ? [] : [descriptor.group],
-			hiddenSegments: [],
+			hiddenAncestorKeys: [],
 			displayPath: options.displayPath,
 			...optionalEntry("helpGroup", options.helpGroup),
 			...optionalEntry("entryHelpGroup", options.entryHelpGroup),
@@ -34,7 +34,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 	descriptor: ExtensionDescriptor;
 	entry: ExtensionEntry;
 	segments: readonly string[];
-	hiddenSegments: readonly string[];
+	hiddenAncestorKeys: readonly string[];
 	displayPath: string;
 	helpGroup?: string;
 	entryHelpGroup?: (entry: ExtensionEntry, segments: readonly string[]) => string | undefined;
@@ -51,7 +51,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 					? { group: options.segments[0], groupDescription: options.descriptor.description }
 					: {}),
 				...optionalEntry("path", segments),
-				...optionalEntry("hiddenSegments", options.hiddenSegments),
+				...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 				...optionalEntry(
 					"helpGroup",
 					options.entryHelpGroup?.(commandEntry, segments) ?? options.helpGroup,
@@ -63,15 +63,18 @@ function descriptorEntryToPreinstalledCatalog(options: {
 		];
 	}
 	const nextSegments = [...options.segments, options.entry.group];
-	const hiddenSegments = options.entry.hidden
-		? [...options.hiddenSegments, commandKey({ name: options.entry.group, segments: nextSegments })]
-		: options.hiddenSegments;
+	const hiddenAncestorKeys = options.entry.hidden
+		? [
+				...options.hiddenAncestorKeys,
+				commandKey({ name: options.entry.group, segments: nextSegments }),
+			]
+		: options.hiddenAncestorKeys;
 	return options.entry.entries.flatMap((entry) =>
 		descriptorEntryToPreinstalledCatalog({
 			...options,
 			entry,
 			segments: nextSegments,
-			hiddenSegments,
+			hiddenAncestorKeys,
 		}),
 	);
 }

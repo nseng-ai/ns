@@ -96,7 +96,7 @@ describe("Reviews ns command face", () => {
 		expect(schema).toHaveProperty("outputJsonSchema");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["reviews/exec-publish-findings"]);
+		expect(run.registry.loadLog).toEqual(["reviews/exec/publish-findings"]);
 	});
 
 	test("selected visible Reviews path routes parsed requests and the ns API", async () => {
@@ -130,14 +130,14 @@ describe("Reviews ns command face", () => {
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
 		expect(envelope.data).toMatchObject({
-			commandKey: "reviews/exec-publish-findings",
+			commandKey: "reviews/exec/publish-findings",
 			stdin: '{"status":"ok"}',
 			request: { prNumber: 47 },
 		});
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
-		expect(run.registry.loadLog).toEqual(["reviews/exec-publish-findings"]);
+		expect(run.registry.loadLog).toEqual(["reviews/exec/publish-findings"]);
 	});
 });
 
@@ -216,23 +216,25 @@ const fakeReviewsCommandSpecs = [
 		}),
 	},
 	{
-		name: "exec-record-findings",
+		name: "record-findings",
 		description: "Record same-session Reviews findings from stdin.",
 		entryPath: "fake://reviews/src/commands/exec-record-findings.ts",
+		segments: ["reviews", "exec", "record-findings"],
 		command: fakeReviewsCommand({
-			key: "reviews/exec-record-findings",
-			name: "exec-record-findings",
+			key: "reviews/exec/record-findings",
+			name: "record-findings",
 			summary: "Record same-session Reviews findings from stdin.",
 			description: "Record fake same-session Reviews findings from stdin.",
 		}),
 	},
 	{
-		name: "exec-publish-findings",
+		name: "publish-findings",
 		description: "Publish Reviews findings to GitHub.",
 		entryPath: "fake://reviews/src/commands/exec-publish-findings.ts",
+		segments: ["reviews", "exec", "publish-findings"],
 		command: fakeReviewsCommand({
-			key: "reviews/exec-publish-findings",
-			name: "exec-publish-findings",
+			key: "reviews/exec/publish-findings",
+			name: "publish-findings",
 			summary: "Publish Reviews findings to GitHub.",
 			description: "Publish fake Reviews findings to GitHub.",
 			schema: z.object({
@@ -253,13 +255,16 @@ function fakeReviewsRegistry(): FakeReviewsRegistry {
 		async loadCommandCatalog(_options) {
 			return {
 				candidates: candidatesByKey,
-				commandInfos: candidates.map(({ group, name, segments, description, fullDescription }) => ({
-					...(group === undefined ? {} : { group }),
-					...(segments === undefined ? {} : { segments }),
-					name,
-					description,
-					fullDescription,
-				})),
+				commandInfos: candidates.map(
+					({ group, name, segments, description, fullDescription, hiddenAncestorKeys }) => ({
+						...(group === undefined ? {} : { group }),
+						...(segments === undefined ? {} : { segments }),
+						...(hiddenAncestorKeys === undefined ? {} : { hiddenAncestorKeys }),
+						name,
+						description,
+						fullDescription,
+					}),
+				),
 				diagnostics: [],
 			};
 		},
@@ -292,6 +297,7 @@ function reviewsCandidate(spec: FakeReviewsCommandSpec): ExtensionCommandCandida
 	return {
 		group: "reviews",
 		...(spec.segments === undefined ? {} : { segments: spec.segments }),
+		...(spec.segments?.[1] === "exec" ? { hiddenAncestorKeys: ["reviews/exec"] } : {}),
 		name: spec.name,
 		description: spec.description,
 		fullDescription: spec.description,

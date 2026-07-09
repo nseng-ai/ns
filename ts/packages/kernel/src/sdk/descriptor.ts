@@ -1,3 +1,4 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { RawArgvCommand } from "./command.ts";
@@ -58,6 +59,19 @@ export interface ExtensionDescriptor {
 	readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
 }
 
+export function nsExtensionExportTarget(exportsField: unknown): string | undefined {
+	const exportsResult = z.record(z.string(), z.unknown()).safeParse(exportsField);
+	if (!exportsResult.success) return undefined;
+	const nsExtensionExport = exportsResult.data["./ns-extension"];
+	if (typeof nsExtensionExport === "string") return nsExtensionExport;
+	const conditionalExportResult = z.record(z.string(), z.unknown()).safeParse(nsExtensionExport);
+	if (!conditionalExportResult.success) return undefined;
+	const importTarget = conditionalExportResult.data["import"];
+	if (typeof importTarget === "string") return importTarget;
+	const defaultTarget = conditionalExportResult.data["default"];
+	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+}
+
 export type ExtensionDescriptorValidationResult =
 	| { readonly ok: true; readonly descriptor: ExtensionDescriptor }
 	| { readonly ok: false; readonly message: string };
@@ -65,18 +79,6 @@ export type ExtensionDescriptorValidationResult =
 export type LoadedCommandNameValidationResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly message: string };
-
-type DefinedOptionalEntries<T extends Record<string, unknown>> = {
-	readonly [Key in keyof T]?: Exclude<T[Key], undefined>;
-};
-
-function definedOptionalEntries<T extends Record<string, unknown>>(
-	entries: T,
-): DefinedOptionalEntries<T> {
-	return Object.fromEntries(
-		Object.entries(entries).filter(([, value]) => value !== undefined),
-	) as DefinedOptionalEntries<T>;
-}
 
 const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z.strictObject({
 	name: z.string().min(1),
@@ -95,7 +97,7 @@ const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
 			(entry): ExtensionGroupEntry => ({
 				group: entry.group,
 				description: entry.description,
-				...definedOptionalEntries({ hidden: entry.hidden }),
+				...optionalEntries({ hidden: entry.hidden }),
 				entries: entry.entries,
 			}),
 		),
@@ -119,7 +121,7 @@ export const extensionPointDefinitionSchema: z.ZodType<ExtensionPointDefinition>
 			id: point.id,
 			accepts: point.accepts,
 			cardinality: point.cardinality,
-			...definedOptionalEntries({ description: point.description, default: point.default }),
+			...optionalEntries({ description: point.description, default: point.default }),
 		}),
 	);
 
@@ -135,7 +137,7 @@ export const bundledArtifactDefinitionSchema: z.ZodType<BundledArtifactDefinitio
 			kind: artifact.kind,
 			name: artifact.name,
 			path: artifact.path,
-			...definedOptionalEntries({ description: artifact.description }),
+			...optionalEntries({ description: artifact.description }),
 		}),
 	);
 
@@ -149,9 +151,9 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 	})
 	.transform(
 		(descriptor): ExtensionDescriptor => ({
-			...definedOptionalEntries({ group: descriptor.group }),
+			...optionalEntries({ group: descriptor.group }),
 			description: descriptor.description,
-			...definedOptionalEntries({
+			...optionalEntries({
 				entries: descriptor.entries,
 				points: descriptor.points,
 				bundledArtifacts: descriptor.bundledArtifacts,

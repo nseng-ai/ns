@@ -146,7 +146,7 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 		resultSchema: options.resultSchema,
 		toNsCommand(createContext) {
 			return createNsDomainCommand({
-				name: `exec-${spec.name}`,
+				name: spec.name,
 				summary: spec.description ?? spec.summary ?? spec.name,
 				description: spec.description ?? spec.summary ?? spec.name,
 				schema: spec.schema,

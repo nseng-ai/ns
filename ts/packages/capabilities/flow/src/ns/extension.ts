@@ -67,11 +67,18 @@ export default defineExtension({
 			}),
 		},
 		{
-			name: "exec-read-graphite-branch-metadata",
-			load: async () => ({
-				default: (await import("./commands/exec-read-graphite-branch-metadata.ts"))
-					.flowExecReadGraphiteBranchMetadataCommand,
-			}),
+			group: "exec",
+			hidden: true,
+			description: "Agent-only flow operations.",
+			entries: [
+				{
+					name: "read-graphite-branch-metadata",
+					load: async () => ({
+						default: (await import("./commands/exec-read-graphite-branch-metadata.ts"))
+							.flowExecReadGraphiteBranchMetadataCommand,
+					}),
+				},
+			],
 		},
 	],
 });

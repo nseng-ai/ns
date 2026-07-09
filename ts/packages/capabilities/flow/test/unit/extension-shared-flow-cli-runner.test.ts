@@ -87,6 +87,22 @@ describe("project extension shared Flow CLI runner", () => {
 		});
 	});
 
+	test("maps exit code 1 to negative and other nonzero exits to failure", async () => {
+		const sharedModule = await loadFlowCliRunnerModule();
+
+		expect(sharedModule.exitCodeToFlowCommandExit(1, "declined")).toEqual({
+			type: "negative",
+			message: "declined",
+			data: { exitCode: 1 },
+		});
+		expect(sharedModule.exitCodeToFlowCommandExit(2, "failed")).toEqual({
+			type: "failure",
+			errorType: "flow-command-failed",
+			message: "failed",
+			data: { exitCode: 2 },
+		});
+	});
+
 	test("optionally forwards exec live output through ctx.onOutput", async () => {
 		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, trustedExec, calls, liveOutput } = createFakeApi([

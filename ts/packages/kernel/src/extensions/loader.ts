@@ -1,4 +1,4 @@
-import { formatUnknownError } from "./command-registry.ts";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	matchNsCommandModuleReference,
 	moduleReferenceDisplay,
@@ -29,7 +29,7 @@ export async function loadNsExtensionContribution(
 			ok: false,
 			diagnostic: diagnostic(
 				"ns_extension_contribution_import_failed",
-				`Failed to load ns extension contribution ${displayPath}.\n${formatUnknownError(error)}`,
+				`Failed to load ns extension contribution ${displayPath}.\n${formatErrorMessage(error)}`,
 				displayPath,
 			),
 		};

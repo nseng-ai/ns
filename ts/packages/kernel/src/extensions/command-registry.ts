@@ -1,8 +1,8 @@
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
+import { defineInternalParsedCommand } from "../sdk/command.ts";
 import {
-	defineParsedCommand,
 	failure,
 	type CommandExit,
 	type DescriptorCommand,
@@ -12,11 +12,8 @@ import {
 } from "../sdk/index.ts";
 import { validateLoadedCommandName, type ExtensionCommandEntry } from "../sdk/descriptor.ts";
 
-import {
-	extensionPointCommand,
-	extensionPointsCommand,
-	installCommand,
-} from "./built-in-extension-commands.ts";
+import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
+import { installCommand } from "./install-command.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
@@ -26,7 +23,7 @@ export interface NsCommandPath {
 	name: string;
 	segments?: readonly string[];
 	groupDescription?: string;
-	hiddenSegments?: readonly string[];
+	hiddenAncestorKeys?: readonly string[];
 }
 
 export interface NsCommandSourceInfo {
@@ -79,8 +76,6 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 		command: extensionPointsCommand,
 	},
 };
-
-const NS_EXEC_COMMAND_PREFIX = "exec-";
 
 const descriptorCommandSchema = z
 	.object({
@@ -163,7 +158,7 @@ export function toCommandCliInfo(
 			group: candidate.group,
 			segments: candidate.segments,
 			groupDescription: candidate.groupDescription,
-			hiddenSegments: candidate.hiddenSegments,
+			hiddenAncestorKeys: candidate.hiddenAncestorKeys,
 			helpGroup: candidate.helpGroup,
 		}),
 		name: candidate.name,
@@ -205,14 +200,15 @@ export function validateDescriptorCommandContribution(
 			message: `Invalid ns descriptor command ${sourceLabel}: ${formatNsCommandIssue(parsed.error.issues[0])}`,
 		};
 	}
-	const nameValidation = validateLoadedCommandName(entry, parsed.data);
-	if (!nameValidation.ok && parsed.data.name !== `${NS_EXEC_COMMAND_PREFIX}${entry.name}`) {
+	const command = parsed.data;
+	const nameValidation = validateLoadedCommandName(entry, command);
+	if (!nameValidation.ok) {
 		return {
 			ok: false,
 			message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
 		};
 	}
-	return adaptParsedDescriptorCommand(contribution as DescriptorCommand, sourceLabel);
+	return adaptParsedDescriptorCommand(command, sourceLabel);
 }
 
 export function extensionCommandFailedExit(
@@ -221,7 +217,7 @@ export function extensionCommandFailedExit(
 ): CommandExit<never> {
 	return failure(
 		"extension-command-failed",
-		`Command ${commandName} failed.\n${formatUnknownError(error)}`,
+		`Command ${commandName} failed.\n${formatErrorMessage(error)}`,
 		{ command: commandName },
 	);
 }
@@ -233,10 +229,6 @@ export function validateCommandExit(result: unknown, commandName: string): Comma
 		`Command ${commandName} returned an invalid command exit.`,
 		{ command: commandName },
 	);
-}
-
-export function formatUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 function adaptParsedDescriptorCommand(
@@ -253,7 +245,7 @@ function adaptParsedDescriptorCommand(
 	}
 	return {
 		ok: true,
-		command: defineParsedCommand({
+		command: defineInternalParsedCommand({
 			name: parsed.command.name,
 			summary: parsed.command.summary,
 			description: parsed.command.description,
@@ -282,46 +274,42 @@ function adaptParsedDescriptorCommand(
 function parseParsedDescriptorCommand(
 	command: DescriptorCommand,
 ): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false; message: string } {
-	if (!isRecord(command)) return { ok: false, message: "command must be an object." };
-	const bridgedSpec = parseBridgedParsedCommandSpec(command);
-	if (bridgedSpec.ok) return bridgedSpec;
-	if (!(command.schema instanceof z.ZodObject)) {
-		return {
-			ok: false,
-			message: "command schema must be a Zod object schema from @nseng-ai/kernel/sdk.",
-		};
+	const bridgedSpec = isRecord(command["nsParsedCommandSpec"])
+		? command["nsParsedCommandSpec"]
+		: undefined;
+	if (bridgedSpec !== undefined) {
+		const parsed = parseParsedCommandSpec(command, bridgedSpec, isZodObjectLike);
+		if (parsed.ok) return parsed;
 	}
+	const parsed = parseParsedCommandSpec(
+		command,
+		command,
+		(value): value is z.ZodObject => value instanceof z.ZodObject,
+	);
+	if (parsed.ok) return parsed;
 	return {
-		ok: true,
-		command: {
-			name: command.name,
-			summary: command.summary,
-			description: command.description,
-			schema: command.schema,
-			...(command.resultSchema instanceof z.ZodType ? { resultSchema: command.resultSchema } : {}),
-			...(isPositionals(command.positionals) ? { positionals: command.positionals } : {}),
-			...(isOptions(command.options) ? { options: command.options } : {}),
-			...(isRenderFunction(command.renderHuman) ? { renderHuman: command.renderHuman } : {}),
-			...(isRenderFunction(command.renderMarkdown)
-				? { renderMarkdown: command.renderMarkdown }
-				: {}),
-			...(isCompletionProvider(command.completionProvider)
-				? { completionProvider: command.completionProvider }
-				: {}),
-			run: command.run as ParsedDescriptorCommandContribution["run"],
-		},
+		ok: false,
+		message: "command schema must be a Zod object schema from @nseng-ai/kernel/sdk.",
 	};
 }
 
-function parseBridgedParsedCommandSpec(
+interface ParsedCommandSpecFields {
+	readonly schema?: unknown;
+	readonly resultSchema?: unknown;
+	readonly positionals?: unknown;
+	readonly options?: unknown;
+	readonly renderHuman?: unknown;
+	readonly renderMarkdown?: unknown;
+	readonly completionProvider?: unknown;
+	readonly run?: unknown;
+}
+
+function parseParsedCommandSpec(
 	command: DescriptorCommand,
+	spec: ParsedCommandSpecFields,
+	isSchema: (value: unknown) => value is z.ZodObject,
 ): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false } {
-	if (!isRecord(command)) return { ok: false };
-	const spec = command["nsParsedCommandSpec"];
-	if (!isRecord(spec)) return { ok: false };
-	if (!isZodObjectLike(spec.schema) || typeof spec.run !== "function") {
-		return { ok: false };
-	}
+	if (!isSchema(spec.schema) || typeof spec.run !== "function") return { ok: false };
 	return {
 		ok: true,
 		command: {

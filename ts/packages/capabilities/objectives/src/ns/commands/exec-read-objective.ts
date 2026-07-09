@@ -7,7 +7,7 @@ import {
 } from "../../core/operations/read-objective.ts";
 
 export const objectiveExecReadObjectiveNsCommand = objectiveNsCommand({
-	name: "exec-read-objective",
+	name: "read-objective",
 	summary: "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
 	description: "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
 	schema: readObjectiveRequestSchema,
