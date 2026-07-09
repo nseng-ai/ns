@@ -3,26 +3,16 @@ import { resultErr } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import type { ReviewResult } from "../core/failures.ts";
+import type { ReviewExecutionResponse, ReviewInputCoverage, ReviewUsage } from "../core/models.ts";
 import {
-	createFindingsReview,
-	reviewExecutionResponseSchema,
-	reviewFindingsPayloadSchema,
-	type ReviewExecutionResponse,
-	type ReviewFindingsPayload,
-	type ReviewInputCoverage,
-	type ReviewUsage,
-} from "../core/models.ts";
+	buildReviewFindingsJsonSchema,
+	reviewResponseFromFindingsPayload,
+} from "./review-findings-output.ts";
 
 const TRUNCATED_MODEL_RESPONSE_CHARS = 500;
 
 export function buildClaudeDiffFindingsJsonSchema(): Record<string, unknown> {
-	const schema = z.toJSONSchema(reviewFindingsPayloadSchema, { io: "output" }) as Record<
-		string,
-		unknown
-	>;
-	// Claude Code accepts draft schema keywords but omits structured_output when the top-level schema URI is present.
-	delete schema.$schema;
-	return schema;
+	return buildReviewFindingsJsonSchema();
 }
 
 export function buildClaudeCodeArgs(options: {
@@ -63,20 +53,12 @@ export function parseClaudeCodeReviewOutput(options: {
 	if (!resultEvent.ok) return resultEvent;
 
 	if (Object.hasOwn(resultEvent.value, "structured_output")) {
-		const findingsResult = reviewFindingsPayloadSchema.safeParse(
-			resultEvent.value.structured_output,
-		);
-		if (!findingsResult.success) {
-			return resultErr({
-				code: "review-execution-invalid-findings",
-				message: `Claude Code structured output did not match the findings schema: ${findingsResult.error.message}`,
-			});
-		}
-		return reviewResponseFromClaudePayload(
-			findingsResult.data,
-			resultEvent.value,
-			options.inputCoverage,
-		);
+		return reviewResponseFromFindingsPayload({
+			payload: resultEvent.value.structured_output,
+			usage: usageFromResultEvent(resultEvent.value),
+			inputCoverage: options.inputCoverage,
+			harnessLabel: "Claude Code",
+		});
 	}
 
 	if (typeof resultEvent.value.result === "string") {
@@ -121,26 +103,6 @@ function resultEventFromParsedOutput(parsed: unknown): ReviewResult<Record<strin
 		});
 	}
 	return { ok: true, value: parsed };
-}
-
-function reviewResponseFromClaudePayload(
-	payload: ReviewFindingsPayload,
-	resultEvent: Record<string, unknown>,
-	inputCoverage: ReviewInputCoverage | null,
-): ReviewResult<ReviewExecutionResponse> {
-	try {
-		const response = reviewExecutionResponseSchema.parse({
-			payload: createFindingsReview(payload.findings),
-			usage: usageFromResultEvent(resultEvent),
-			inputCoverage,
-		});
-		return { ok: true, value: response };
-	} catch (error) {
-		return resultErr({
-			code: "review-execution-invalid-findings",
-			message: `Claude Code structured output did not match the findings schema: ${formatErrorMessage(error)}`,
-		});
-	}
 }
 
 function parseClaudeCodeOutputJson(stdout: string): ReviewResult<unknown> {

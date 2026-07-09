@@ -19,10 +19,13 @@ describe("parseReviewsProjectConfigToml", () => {
 		expect(config.diff.exclude).toEqual([]);
 	});
 
-	test("defaults model profiles to Claude Code supported aliases", () => {
+	test("defaults model profiles to qualified Luna and Terra references", () => {
 		const config = expectOk(parseReviewsProjectConfigToml(""));
 
-		expect(config.modelProfiles).toEqual({ quick: "haiku", deep: "sonnet" });
+		expect(config.modelProfiles).toEqual({
+			quick: "openai/gpt-5.6-luna",
+			deep: "openai/gpt-5.6-terra",
+		});
 	});
 
 	test("parses reviews diff excludes", () => {
@@ -50,13 +53,16 @@ describe("parseReviewsProjectConfigToml", () => {
 					"unknown = true\n" +
 					"\n" +
 					"[reviews.model_profiles]\n" +
-					'quick = "haiku"\n' +
-					'deep = "opus"\n',
+					'quick = "anthropic/claude-haiku-4-5"\n' +
+					'deep = "openai-codex/gpt-5.6-terra"\n',
 			),
 		);
 
 		expect(config.diff.exclude).toEqual([".agents/skills/**/*.py"]);
-		expect(config.modelProfiles).toEqual({ quick: "haiku", deep: "opus" });
+		expect(config.modelProfiles).toEqual({
+			quick: "anthropic/claude-haiku-4-5",
+			deep: "openai-codex/gpt-5.6-terra",
+		});
 	});
 
 	test.each([
@@ -71,8 +77,23 @@ describe("parseReviewsProjectConfigToml", () => {
 			"invalid-exclude",
 		],
 		[
-			'[reviews.model_profiles]\nfast = "haiku"\n',
+			'[reviews.model_profiles]\nfast = "anthropic/claude-haiku-4-5"\n',
 			"unknown profile key(s): fast",
+			"invalid-model-profiles",
+		],
+		[
+			'[reviews.model_profiles]\nquick = "haiku"\n',
+			"qualified model reference",
+			"invalid-model-profiles",
+		],
+		[
+			'[reviews.model_profiles]\nquick = "google/gemini-3-pro"\n',
+			"not supported",
+			"invalid-model-profiles",
+		],
+		[
+			'[reviews.model_profiles]\nquick = "acme/gpt-5.6-luna"\n',
+			"not supported",
 			"invalid-model-profiles",
 		],
 		['reviews = "not a table"\n', "[reviews] must be a TOML table", "invalid-table"],

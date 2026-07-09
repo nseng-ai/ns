@@ -128,14 +128,14 @@ describe("runRecordFindings", () => {
 
 		const exit = await runRecordFindings(ctx, {
 			reviewKey: "typescript-style",
-			model: "pi/sonnet",
+			model: "anthropic/claude-sonnet-4-6",
 		});
 
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") return;
 		expect(exit.message).toContain("failed to write Branch Memory review log");
 		expect(exit.data?.reviewName).toBe("typescript-style");
-		expect(exit.data?.model).toBe("pi/sonnet");
+		expect(exit.data?.model).toBe("anthropic/claude-sonnet-4-6");
 	});
 });
 

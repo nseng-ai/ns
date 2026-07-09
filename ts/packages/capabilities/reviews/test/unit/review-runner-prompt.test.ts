@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { isClaudeCodeSupportedModelPattern } from "@nseng-ai/foundation/model-slug";
-
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/claude-code-review-runner.ts";
 import {
 	assembleReviewPrompt,
@@ -228,19 +226,7 @@ function priorFindingsContext(
 	};
 }
 
-describe("Claude Code harness schema and model support", () => {
-	test.each(["sonnet", "opus", "haiku", "claude-3-5-sonnet"])(
-		"accepts supported model %s",
-		(model) => {
-			expect(isClaudeCodeSupportedModelPattern(model)).toBe(true);
-		},
-	);
-
-	test("rejects unsupported model names", () => {
-		expect(isClaudeCodeSupportedModelPattern("gpt-4")).toBe(false);
-		expect(isClaudeCodeSupportedModelPattern("fable")).toBe(false);
-	});
-
+describe("shared review findings schema", () => {
 	test("builds a ref-free findings JSON schema", () => {
 		const schema = buildClaudeDiffFindingsJsonSchema();
 		const schemaText = JSON.stringify(schema);

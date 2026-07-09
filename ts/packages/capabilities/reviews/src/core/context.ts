@@ -7,8 +7,10 @@ import type { GithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr
 
 import {
 	ClaudeCodeProcessReviewRunner,
+	RoutingReviewRunner,
 	type ReviewRunnerGateway,
 } from "../gateways/review-runner.ts";
+import { CodexProcessReviewRunner } from "../gateways/codex-review-runner.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
@@ -92,7 +94,12 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
 		reviewLog: options.reviewLog ?? new RealReviewLogGateway({ execApi }),
 		github: new RealGithubPrFeedbackGateway(execApiToCommandRunner(execApi)),
-		reviewRunner: options.reviewRunner ?? new ClaudeCodeProcessReviewRunner({ execApi }),
+		reviewRunner:
+			options.reviewRunner ??
+			new RoutingReviewRunner({
+				claudeCode: new ClaudeCodeProcessReviewRunner({ execApi }),
+				codex: new CodexProcessReviewRunner({ execApi }),
+			}),
 		cwd: options.cwd,
 		env: options.env,
 		...optionalEntry("signal", options.signal),
