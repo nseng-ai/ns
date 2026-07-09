@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
@@ -71,6 +71,21 @@ export const nsTomlExtensionsSettingsSchema = {
 
 export function isUnsupportedNsTomlExtensionSpec(value: string): boolean {
 	return value.startsWith("npm:") || value.startsWith("git:");
+}
+
+export function resolveDeclaredLocalExtensionRoots(
+	rootDir: string,
+	extensions: readonly string[],
+): readonly string[] {
+	return [
+		...new Set(
+			extensions.filter(isLocalNsTomlExtensionSpec).map((extension) => resolve(rootDir, extension)),
+		),
+	].sort((left, right) => left.localeCompare(right));
+}
+
+function isLocalNsTomlExtensionSpec(value: string): boolean {
+	return !isUnsupportedNsTomlExtensionSpec(value);
 }
 
 export interface ProjectConfigGateway {

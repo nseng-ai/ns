@@ -13,6 +13,7 @@
 	"dependencies": {
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
+		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"ns": {

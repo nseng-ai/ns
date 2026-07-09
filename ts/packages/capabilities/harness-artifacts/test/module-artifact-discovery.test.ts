@@ -9,15 +9,12 @@ import { discoverExtensionModuleHarnessArtifacts } from "../src/module-artifact-
 import { descriptorExtensionSource, descriptorPackageJson } from "./support/descriptor-fixtures.ts";
 
 describe("descriptor module artifact discovery", () => {
-	test("ignores projects without ns.toml extension declarations", async () => {
+	test("returns an empty result when no module roots are given", async () => {
 		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-empty-"));
 		try {
 			writeText(join(root, ".ns", "extensions", "direct", "index.ts"), "export default {};\n");
 
-			const result = await discoverExtensionModuleHarnessArtifacts({
-				projectRoot: root,
-				homeDir: join(root, "home"),
-			});
+			const result = await discoverExtensionModuleHarnessArtifacts({ moduleRoots: [] });
 
 			expect(result).toEqual({ catalogs: [], diagnostics: [] });
 		} finally {
@@ -45,12 +42,9 @@ describe("descriptor module artifact discovery", () => {
 				join(root, "extensions", "descriptor-ext", "skills", "descriptor", "SKILL.md"),
 				"descriptor\n",
 			);
-			writeText(join(root, "ns.toml"), 'extensions = ["./extensions/descriptor-ext"]\n');
 
 			const result = await discoverExtensionModuleHarnessArtifacts({
-				projectRoot: root,
-				homeDir: join(root, "home"),
-				env: {},
+				moduleRoots: [join(root, "extensions", "descriptor-ext")],
 			});
 
 			expect(result.diagnostics).toEqual([]);
@@ -68,7 +62,7 @@ describe("descriptor module artifact discovery", () => {
 		}
 	});
 
-	test("discovers multiple ns.toml extension descriptors deterministically", async () => {
+	test("discovers multiple extension module roots deterministically", async () => {
 		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-many-"));
 		try {
 			writeDescriptorExtension(root, "project-ext", {
@@ -86,12 +80,13 @@ describe("descriptor module artifact discovery", () => {
 				"project\n",
 			);
 			writeText(join(root, "extensions", "global-ext", "skills", "global", "SKILL.md"), "global\n");
-			writeText(
-				join(root, "ns.toml"),
-				'extensions = ["./extensions/project-ext", "./extensions/global-ext"]\n',
-			);
 
-			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				moduleRoots: [
+					join(root, "extensions", "project-ext"),
+					join(root, "extensions", "global-ext"),
+				],
+			});
 
 			expect(result.diagnostics).toEqual([]);
 			expect(result.catalogs.map((catalog) => catalog.packageName)).toEqual([
@@ -117,7 +112,6 @@ describe("descriptor module artifact discovery", () => {
 			writeText(join(root, "extensions", "local-ext", "skills", "local", "SKILL.md"), "local\n");
 
 			const result = await discoverExtensionModuleHarnessArtifacts({
-				projectRoot: root,
 				moduleRoots: [join(root, "extensions", "local-ext")],
 			});
 
@@ -143,7 +137,6 @@ describe("descriptor module artifact discovery", () => {
 			writeText(join(root, "extensions", "good", "skills", "good", "SKILL.md"), "good\n");
 
 			const result = await discoverExtensionModuleHarnessArtifacts({
-				projectRoot: root,
 				moduleRoots: [
 					join(root, "missing"),
 					join(root, "not-dir"),
@@ -167,9 +160,10 @@ describe("descriptor module artifact discovery", () => {
 		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-bad-"));
 		try {
 			writeText(join(root, "extensions", "bad", "package.json"), "{");
-			writeText(join(root, "ns.toml"), 'extensions = ["./extensions/bad"]\n');
 
-			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				moduleRoots: [join(root, "extensions", "bad")],
+			});
 
 			expect(result.diagnostics).toMatchObject([
 				{
@@ -194,9 +188,10 @@ describe("descriptor module artifact discovery", () => {
 				],
 			});
 			writeText(join(root, "extensions", "ext", "skills", "valid", "SKILL.md"), "valid\n");
-			writeText(join(root, "ns.toml"), 'extensions = ["./extensions/ext"]\n');
 
-			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				moduleRoots: [join(root, "extensions", "ext")],
+			});
 
 			expect(result.catalogs).toHaveLength(1);
 			expect(result.catalogs[0]?.artifacts.map((artifact) => artifact.id)).toEqual([
@@ -231,12 +226,14 @@ describe("descriptor module artifact discovery", () => {
 					`${extensionName}\n`,
 				);
 			}
-			writeText(
-				join(root, "ns.toml"),
-				'extensions = ["./extensions/left", "./extensions/right", "./extensions/right-copy"]\n',
-			);
 
-			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				moduleRoots: [
+					join(root, "extensions", "left"),
+					join(root, "extensions", "right"),
+					join(root, "extensions", "right-copy"),
+				],
+			});
 
 			expect(result.catalogs.flatMap((catalog) => catalog.artifacts)).toHaveLength(3);
 			expect(result.diagnostics.map((diagnostic) => diagnostic.code).sort()).toEqual([

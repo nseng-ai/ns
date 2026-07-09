@@ -1,20 +1,26 @@
 import { join } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { z } from "zod";
 
 import type { NsDevCliContext } from "../context.ts";
 import {
 	collectPackageDirs,
 	commandSummarySchema,
+	formatUnknownError,
+	guardFilesystemErrors,
+	installNsPublishPackage,
 	newestTarball,
 	packagePathIsLocalPackage,
+	packLocalNsPackage,
 	readJsonObject,
 	resolvePath,
 	runTrackedCommand,
 	scriptField,
 	stringField,
 	tarballName,
+	trackedCommandFailureExit,
 	type CommandSummary,
 } from "../shared.ts";
 
@@ -51,13 +57,7 @@ export async function runInstallLocalNsExtension(
 	context: NsDevCliContext,
 	request: InstallLocalNsExtensionRequest,
 ): Promise<ClinkrExit<InstallLocalNsExtensionResult>> {
-	try {
-		return await runInstallLocalNsExtensionInner(context, request);
-	} catch (error) {
-		return failure("filesystem-error", "Filesystem operation failed.", {
-			message: formatUnknownError(error),
-		});
-	}
+	return guardFilesystemErrors(() => runInstallLocalNsExtensionInner(context, request));
 }
 
 async function runInstallLocalNsExtensionInner(
@@ -125,59 +125,52 @@ async function runInstallLocalNsExtensionInner(
 	const sinceMs = context.clock.nowMs();
 	const packScript = scriptField(packageJson.value, "pack:local");
 	if (packScript !== undefined) {
-		const packed = await runTrackedCommand(
-			context,
-			"pnpm",
-			["--dir", join(nsWorktree, "ts"), "--filter", packageName, "run", "pack:local"],
-			nsWorktree,
-		);
-		if (packed.type === "failed") return failure("subprocess-failed", packed.message, packed.data);
+		const packed = await runTrackedCommand(context, {
+			command: "pnpm",
+			args: ["--dir", join(nsWorktree, "ts"), "--filter", packageName, "run", "pack:local"],
+			cwd: nsWorktree,
+		});
+		if (packed.type === "failed") return trackedCommandFailureExit(packed);
 		commands.push(packed.summary);
 
 		const generated = await newestTarball(context.fs, join(packagePath, "dist"), sinceMs);
 		if (generated.type === "error") return failure("tarball-not-found", generated.message);
-		await context.fs.copyFile(generated.path, join(packDir, tarballName(generated.path)));
+		await context.fs.copyFile(generated.value, join(packDir, tarballName(generated.value)));
 	} else {
-		const packed = await runTrackedCommand(
-			context,
-			"npm",
-			["pack", packagePath, "--pack-destination", packDir],
-			nsWorktree,
-		);
-		if (packed.type === "failed") return failure("subprocess-failed", packed.message, packed.data);
+		const packed = await runTrackedCommand(context, {
+			command: "npm",
+			args: ["pack", packagePath, "--pack-destination", packDir],
+			cwd: nsWorktree,
+		});
+		if (packed.type === "failed") return trackedCommandFailureExit(packed);
 		commands.push(packed.summary);
 	}
 
 	const tarball = await newestTarball(context.fs, packDir, sinceMs);
 	if (tarball.type === "error") return failure("tarball-not-found", tarball.message);
 
-	const installArgs = ["install", dependencyType === "dev" ? "--save-dev" : "--save", tarball.path];
-	const installed = await runTrackedCommand(context, "npm", installArgs, targetPath);
-	if (installed.type === "failed")
-		return failure("subprocess-failed", installed.message, installed.data);
+	const installArgs = [
+		"install",
+		dependencyType === "dev" ? "--save-dev" : "--save",
+		tarball.value,
+	];
+	const installed = await runTrackedCommand(context, {
+		command: "npm",
+		args: installArgs,
+		cwd: targetPath,
+	});
+	if (installed.type === "failed") return trackedCommandFailureExit(installed);
 	commands.push(installed.summary);
 
-	await registerPackageExtension(context, targetPath, packageName);
+	const registerResult = await registerPackageExtension(context, targetPath, packageName);
+	if (registerResult.type === "error") return registerResult.exit;
 
-	const rebuiltNs = await runTrackedCommand(
-		context,
-		"pnpm",
-		["--dir", join(nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"],
-		nsWorktree,
-	);
-	if (rebuiltNs.type === "failed")
-		return failure("subprocess-failed", rebuiltNs.message, rebuiltNs.data);
+	const rebuiltNs = await packLocalNsPackage(context, nsWorktree);
+	if (rebuiltNs.type === "failed") return trackedCommandFailureExit(rebuiltNs);
 	commands.push(rebuiltNs.summary);
 
-	const nsPublishPath = join(nsWorktree, "ts", "packages", "hosts", "ns-cli", "dist", "publish");
-	const reinstalledNs = await runTrackedCommand(
-		context,
-		"npm",
-		["install", "--save-dev", nsPublishPath],
-		targetPath,
-	);
-	if (reinstalledNs.type === "failed")
-		return failure("subprocess-failed", reinstalledNs.message, reinstalledNs.data);
+	const reinstalledNs = await installNsPublishPackage(context, { nsWorktree, targetPath });
+	if (reinstalledNs.type === "failed") return trackedCommandFailureExit(reinstalledNs);
 	commands.push(reinstalledNs.summary);
 
 	return ok({
@@ -185,44 +178,92 @@ async function runInstallLocalNsExtensionInner(
 		packageName,
 		packagePath,
 		packageVersion,
-		tarballPath: tarball.path,
+		tarballPath: tarball.value,
 		dependencyType,
 		commands,
 	});
 }
 
+type RegisterPackageExtensionResult =
+	| { readonly type: "ok" }
+	| { readonly type: "error"; readonly exit: ClinkrExit<InstallLocalNsExtensionResult> };
+
 async function registerPackageExtension(
 	context: NsDevCliContext,
 	targetPath: string,
 	packageName: string,
-): Promise<void> {
+): Promise<RegisterPackageExtensionResult> {
 	const nsTomlPath = join(targetPath, "ns.toml");
 	const extensionPath = `./node_modules/${packageName}`;
-	const existing = (await context.fs.exists(nsTomlPath))
-		? await context.fs.readText(nsTomlPath)
-		: "";
-	if (extensionIsAlreadyRegistered(existing, extensionPath)) return;
-	const next = appendExtensionRegistration(existing, extensionPath);
-	await context.fs.writeText(nsTomlPath, next);
+	const toml = await readNsTomlTable(context, nsTomlPath);
+	if (toml.type === "error") return toml;
+	const extensions = normalizeExtensionsValue(toml.table.extensions);
+	if (extensions.type === "error") return invalidNsToml(nsTomlPath, extensions.message);
+
+	const uniqueExtensions = [...new Set(extensions.value)];
+	if (uniqueExtensions.includes(extensionPath)) return { type: "ok" };
+
+	const nextToml = {
+		...toml.table,
+		extensions: [...uniqueExtensions, extensionPath],
+	} satisfies Record<string, unknown>;
+	const serialized = ensureTrailingNewline(stringifyToml(nextToml));
+	await context.fs.writeText(nsTomlPath, serialized);
+	return { type: "ok" };
 }
 
-function extensionIsAlreadyRegistered(source: string, extensionPath: string): boolean {
-	return source.includes(JSON.stringify(extensionPath));
+async function readNsTomlTable(
+	context: NsDevCliContext,
+	nsTomlPath: string,
+): Promise<
+	| { readonly type: "ok"; readonly table: Record<string, unknown> }
+	| { readonly type: "error"; readonly exit: ClinkrExit<InstallLocalNsExtensionResult> }
+> {
+	if (!(await context.fs.exists(nsTomlPath))) return { type: "ok", table: {} };
+	try {
+		const text = await context.fs.readText(nsTomlPath);
+		const parsed = parseToml(text);
+		if (!isPlainObject(parsed)) {
+			return invalidNsToml(nsTomlPath, "ns.toml must contain a TOML table.");
+		}
+		return { type: "ok", table: parsed as Record<string, unknown> };
+	} catch (error) {
+		return invalidNsToml(nsTomlPath, formatUnknownError(error));
+	}
 }
 
-function appendExtensionRegistration(source: string, extensionPath: string): string {
-	const line = `extensions = [${JSON.stringify(extensionPath)}]`;
-	if (source.trim() === "") return `${line}\n`;
-	const match = /^extensions\s*=\s*\[(?<entries>[^\]]*)\]\s*$/mu.exec(source);
-	if (match?.groups?.entries === undefined) return `${source.replace(/\s*$/u, "\n")}\n${line}\n`;
-	const replacement = `extensions = [${appendTomlStringEntry(match.groups.entries, extensionPath)}]`;
-	return `${source.slice(0, match.index)}${replacement}${source.slice(match.index + match[0].length)}`;
+function normalizeExtensionsValue(
+	extensions: unknown,
+):
+	| { readonly type: "ok"; readonly value: readonly string[] }
+	| { readonly type: "error"; readonly message: string } {
+	if (extensions === undefined) return { type: "ok", value: [] };
+	if (!Array.isArray(extensions)) {
+		return { type: "error", message: "ns.toml extensions must be an array of strings." };
+	}
+	const normalized: string[] = [];
+	for (const entry of extensions) {
+		if (typeof entry !== "string" || entry.length === 0) {
+			return { type: "error", message: "ns.toml extensions must be an array of strings." };
+		}
+		normalized.push(entry);
+	}
+	return { type: "ok", value: normalized };
 }
 
-function appendTomlStringEntry(entries: string, extensionPath: string): string {
-	const trimmed = entries.trim();
-	if (trimmed === "") return JSON.stringify(extensionPath);
-	return `${trimmed}, ${JSON.stringify(extensionPath)}`;
+function invalidNsToml(
+	path: string,
+	message: string,
+): Extract<RegisterPackageExtensionResult, { type: "error" }> {
+	return { type: "error", exit: failure("ns-toml-invalid", "Invalid ns.toml.", { path, message }) };
+}
+
+function ensureTrailingNewline(content: string): string {
+	return content.endsWith("\n") ? content : `${content}\n`;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function renderInstallLocalNsExtension(result: InstallLocalNsExtensionResult): string {
@@ -264,8 +305,4 @@ async function resolveExtensionPackage(
 		type: "error",
 		message: `Could not resolve package ${packageRef} under ${packagesRoot}.`,
 	};
-}
-
-function formatUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

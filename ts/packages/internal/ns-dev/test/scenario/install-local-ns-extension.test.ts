@@ -1,6 +1,7 @@
+import { parse as parseToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario } from "./run-scenario.ts";
+import { parseJsonOutput, runScenario, type ScenarioRun } from "./run-scenario.ts";
 
 const BASE_FILES = {
 	"/target/package.json": JSON.stringify({ name: "target" }),
@@ -94,10 +95,7 @@ describe("install-local-ns-extension", () => {
 		expect(run.stderr.join("")).toContain(
 			"ns-dev: running npm install --save-dev /repo/tmp/local-npm-packs/nseng-ai-example-extension-1.2.3.tgz in /target",
 		);
-		expect(run.fs.writtenFiles).toContainEqual({
-			path: "/target/ns.toml",
-			content: 'extensions = ["./node_modules/@nseng-ai/example-extension"]\n',
-		});
+		expect(extensionsFromWrittenToml(run)).toEqual(["./node_modules/@nseng-ai/example-extension"]);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
 			data: {
@@ -128,11 +126,9 @@ describe("install-local-ns-extension", () => {
 			},
 		);
 		expect(await run.exit).toBe(0);
-		expect(run.fs.writtenFiles).toContainEqual({
-			path: "/target/ns.toml",
-			content:
-				'harnesses = ["claude-code"]\n\nextensions = ["./node_modules/@nseng-ai/objectives"]\n',
-		});
+		const parsedToml = parsedWrittenToml(run);
+		expect(parsedToml.harnesses).toEqual(["claude-code"]);
+		expect(parsedToml.extensions).toEqual(["./node_modules/@nseng-ai/objectives"]);
 	});
 
 	it("returns subprocess failure envelope", async () => {
@@ -202,10 +198,7 @@ describe("install-local-ns-extension", () => {
 				cwd: "/target",
 			},
 		]);
-		expect(run.fs.writtenFiles).toContainEqual({
-			path: "/target/ns.toml",
-			content: 'extensions = ["./node_modules/@nseng-ai/objectives"]\n',
-		});
+		expect(extensionsFromWrittenToml(run)).toEqual(["./node_modules/@nseng-ai/objectives"]);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
 			data: {
@@ -214,4 +207,117 @@ describe("install-local-ns-extension", () => {
 			},
 		});
 	});
+
+	it("adds the extension to an existing extensions array", async () => {
+		const run = runScenario(
+			[
+				"install-local-ns-extension",
+				"--target",
+				"/target",
+				"--package",
+				"@nseng-ai/example-extension",
+				"--format",
+				"json",
+			],
+			{
+				files: {
+					...BASE_FILES,
+					"/target/ns.toml":
+						'extensions = ["./node_modules/@nseng-ai/objectives", "./node_modules/other"]\n',
+				},
+			},
+		);
+		expect(await run.exit).toBe(0);
+		expect(extensionsFromWrittenToml(run)).toEqual([
+			"./node_modules/@nseng-ai/objectives",
+			"./node_modules/other",
+			"./node_modules/@nseng-ai/example-extension",
+		]);
+	});
+
+	it("skips rewriting ns.toml when the extension is already registered", async () => {
+		const run = runScenario(
+			[
+				"install-local-ns-extension",
+				"--target",
+				"/target",
+				"--package",
+				"@nseng-ai/objectives",
+				"--format",
+				"json",
+			],
+			{
+				files: {
+					...BASE_FILES,
+					"/target/ns.toml": 'extensions = ["./node_modules/@nseng-ai/objectives"]\n',
+				},
+			},
+		);
+		expect(await run.exit).toBe(0);
+		expect(run.fs.writtenFiles.find((file) => file.path === "/target/ns.toml")).toBeUndefined();
+	});
+
+	it("fails when ns.toml extensions is not an array", async () => {
+		const run = runScenario(
+			[
+				"install-local-ns-extension",
+				"--target",
+				"/target",
+				"--package",
+				"@nseng-ai/example-extension",
+				"--format",
+				"json",
+			],
+			{
+				files: {
+					...BASE_FILES,
+					"/target/ns.toml": 'extensions = "./node_modules/other"\n',
+				},
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			errorType: "ns-toml-invalid",
+			data: { path: "/target/ns.toml", message: "ns.toml extensions must be an array of strings." },
+		});
+	});
+
+	it("fails when ns.toml cannot be parsed", async () => {
+		const run = runScenario(
+			[
+				"install-local-ns-extension",
+				"--target",
+				"/target",
+				"--package",
+				"@nseng-ai/example-extension",
+				"--format",
+				"json",
+			],
+			{
+				files: {
+					...BASE_FILES,
+					"/target/ns.toml": "extensions = [\n",
+				},
+			},
+		);
+		expect(await run.exit).toBe(2);
+		const output = parseJsonOutput(run) as { data?: { path?: string; message?: string } };
+		expect(output).toMatchObject({ status: "failure", errorType: "ns-toml-invalid" });
+		expect(output.data?.path).toBe("/target/ns.toml");
+		expect(typeof output.data?.message).toBe("string");
+	});
 });
+
+function parsedWrittenToml(run: ScenarioRun, path = "/target/ns.toml"): Record<string, unknown> {
+	const file = run.fs.writtenFiles.find((entry) => entry.path === path);
+	if (file === undefined) throw new Error(`Expected written file at ${path}.`);
+	return parseToml(file.content) as Record<string, unknown>;
+}
+
+function extensionsFromWrittenToml(run: ScenarioRun, path = "/target/ns.toml"): readonly string[] {
+	const parsed = parsedWrittenToml(run, path);
+	const extensions = parsed.extensions;
+	expect(Array.isArray(extensions)).toBe(true);
+	return extensions as string[];
+}

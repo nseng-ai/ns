@@ -653,6 +653,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      smol-toml:
+        specifier: 'catalog:'
+        version: 1.6.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3

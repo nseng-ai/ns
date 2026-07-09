@@ -91,6 +91,7 @@ export {
 } from "./ns-toml.ts";
 export {
 	planHarnessArtifactReconcile,
+	reconcileDiagnosticSchema,
 	reconcileReportSchema,
 	runHarnessArtifactReconcile,
 	type DesiredHarnessArtifact,
@@ -98,6 +99,7 @@ export {
 	type HarnessSelectionState,
 	type OrphanedManifestEntry,
 	type ReconcileArtifactOutcome,
+	type ReconcileDiagnostic,
 	type ReconcileErrorInfo,
 	type ReconcilePair,
 	type ReconcileReport,

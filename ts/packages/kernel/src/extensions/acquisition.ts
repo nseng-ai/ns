@@ -2,12 +2,19 @@ import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { runCommand } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import { z } from "zod";
 
 export type ExtensionSourceSpec =
 	| { kind: "local"; raw: string; path: string }
-	| { kind: "npm"; raw: string; packageName: string; version: string | undefined; pinned: boolean }
+	| {
+			kind: "npm";
+			raw: string;
+			packageName: string;
+			version: string | undefined;
+			isPinned: boolean;
+	  }
 	| { kind: "git"; raw: string };
 
 export interface ResolvedExtensionModuleRoot {
@@ -23,13 +30,24 @@ export interface ExtensionAcquisitionDiagnostic {
 	readonly path?: string;
 }
 
+export const EXTENSION_ACQUISITION_DIAGNOSTIC_CODES = [
+	"extension_acquisition_invalid_npm_spec",
+	"extension_acquisition_git_unsupported",
+	"extension_acquisition_npm_project_failed",
+	"extension_acquisition_npm_install_failed",
+	"extension_acquisition_npm_missing_after_install",
+	"extension_acquisition_preview_skipped",
+] as const;
+
 export type ExtensionAcquisitionDiagnosticCode =
-	| "extension_acquisition_invalid_npm_spec"
-	| "extension_acquisition_git_unsupported"
-	| "extension_acquisition_npm_project_failed"
-	| "extension_acquisition_npm_install_failed"
-	| "extension_acquisition_npm_missing_after_install"
-	| "extension_acquisition_preview_skipped";
+	(typeof EXTENSION_ACQUISITION_DIAGNOSTIC_CODES)[number];
+
+export const extensionAcquisitionDiagnosticSchema = z.object({
+	code: z.enum(EXTENSION_ACQUISITION_DIAGNOSTIC_CODES),
+	message: z.string(),
+	spec: z.string().optional(),
+	path: z.string().optional(),
+});
 
 export interface ExtensionAcquisitionGateway {
 	ensureManagedNpmProject(
@@ -43,7 +61,7 @@ export interface ExtensionAcquisitionGateway {
 		rawSpec: string;
 		packageName: string;
 		version: string | undefined;
-		pinned: boolean;
+		isPinned: boolean;
 	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>>;
 }
 
@@ -61,7 +79,7 @@ export interface ResolveDeclaredExtensionModulesResult {
 }
 
 export const MANAGED_EXTENSIONS_ROOT = ".ns/managed-extensions";
-export const MANAGED_NPM_PROJECT_RELATIVE_PATH = ".ns/managed-extensions/npm";
+export const MANAGED_NPM_PROJECT_RELATIVE_PATH = `${MANAGED_EXTENSIONS_ROOT}/npm`;
 
 export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway = {
 	async ensureManagedNpmProject(projectDir) {
@@ -190,7 +208,7 @@ export async function resolveDeclaredExtensionModules(
 			}
 			continue;
 		}
-		if (!parsed.value.pinned || !installed.value) {
+		if (!parsed.value.isPinned || !installed.value) {
 			if (!hasEnsuredNpmProject) {
 				const project = await gateway.ensureManagedNpmProject(npmProjectDir);
 				if (!project.ok) {
@@ -204,7 +222,7 @@ export async function resolveDeclaredExtensionModules(
 				rawSpec: raw,
 				packageName: parsed.value.packageName,
 				version: parsed.value.version,
-				pinned: parsed.value.pinned,
+				isPinned: parsed.value.isPinned,
 			});
 			if (!install.ok) {
 				diagnostics.push(withSpec(install.error, raw));
@@ -212,7 +230,7 @@ export async function resolveDeclaredExtensionModules(
 			}
 		}
 		const installedAfter =
-			parsed.value.pinned && installed.value
+			parsed.value.isPinned && installed.value
 				? installed
 				: await gateway.isNpmPackageInstalled(packageRoot);
 		if (!installedAfter.ok) {
@@ -247,7 +265,7 @@ function parseNpmExtensionSourceSpec(
 		raw,
 		packageName,
 		version,
-		pinned: version !== undefined,
+		isPinned: version !== undefined,
 	});
 }
 
@@ -285,23 +303,22 @@ function withSpec(
 function sortRoots(
 	roots: readonly ResolvedExtensionModuleRoot[],
 ): readonly ResolvedExtensionModuleRoot[] {
-	return [...roots].sort((left, right) =>
-		`${left.sourceKind}\0${left.moduleRoot}`.localeCompare(
-			`${right.sourceKind}\0${right.moduleRoot}`,
-		),
-	);
+	return sortByKey(roots, (root) => `${root.sourceKind}\0${root.moduleRoot}`);
 }
 
 function sortDiagnostics(
 	diagnostics: readonly ExtensionAcquisitionDiagnostic[],
 ): readonly ExtensionAcquisitionDiagnostic[] {
-	return [...diagnostics].sort((left, right) =>
-		`${left.spec ?? ""}\0${left.path ?? ""}\0${left.code}`.localeCompare(
-			`${right.spec ?? ""}\0${right.path ?? ""}\0${right.code}`,
-		),
+	return sortByKey(
+		diagnostics,
+		(diagnostic) => `${diagnostic.spec ?? ""}\0${diagnostic.path ?? ""}\0${diagnostic.code}`,
 	);
 }
 
+function sortByKey<T>(items: readonly T[], key: (item: T) => string): readonly T[] {
+	return [...items].sort((left, right) => key(left).localeCompare(key(right)));
+}
+
 function isNodeErrorCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === code;
+	return errorCodeFromUnknown(error) === code;
 }

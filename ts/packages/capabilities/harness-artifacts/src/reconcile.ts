@@ -1,13 +1,13 @@
 import { isAbsolute, join, resolve } from "node:path";
 
 import {
+	extensionAcquisitionDiagnosticSchema,
+	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
-	type ExtensionAcquisitionDiagnostic,
 	type ExtensionAcquisitionGateway,
 } from "@nseng-ai/kernel/extensions/acquisition";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
-import { isUnsupportedNsTomlExtensionSpec } from "@nseng-ai/kernel/project-config/points";
 import { z } from "zod";
 
 import { type SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -38,7 +38,6 @@ import {
 	moduleArtifactDiscoveryDiagnosticSchema,
 	type ExtensionDescriptorModuleLoader,
 	type HarnessArtifactModuleDiscoveryGateway,
-	type ModuleArtifactDiscoveryDiagnostic,
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
@@ -187,14 +186,13 @@ export interface RunHarnessArtifactReconcileRequest {
 	projectRoot: string;
 	homeDir?: string;
 	env: Record<string, string | undefined>;
-	isDryRun: boolean;
+	mode: "preview" | "check-force" | "apply";
 	shouldForce: boolean;
 	extensionTarget?: string;
 	fs?: HarnessArtifactFileSystemGateway;
 	discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
 	descriptorLoader?: ExtensionDescriptorModuleLoader;
 	acquisitionGateway?: ExtensionAcquisitionGateway;
-	acquisitionMode?: "preview" | "apply";
 	firstPartySourceRoot?: string;
 }
 
@@ -220,12 +218,18 @@ export const reconcileArtifactOutcomeSchema = z.object({
 });
 export type ReconcileArtifactOutcome = z.output<typeof reconcileArtifactOutcomeSchema>;
 
+export const reconcileDiagnosticSchema = z.union([
+	moduleArtifactDiscoveryDiagnosticSchema,
+	extensionAcquisitionDiagnosticSchema,
+]);
+export type ReconcileDiagnostic = z.output<typeof reconcileDiagnosticSchema>;
+
 export const reconcileReportSchema = z.object({
 	mode: z.enum(["dry-run", "applied"]),
 	harnessSelection: harnessSelectionStateSchema,
 	artifacts: z.array(reconcileArtifactOutcomeSchema).readonly(),
 	orphans: z.array(orphanedManifestEntrySchema).readonly(),
-	diagnostics: z.array(moduleArtifactDiscoveryDiagnosticSchema).readonly(),
+	diagnostics: z.array(reconcileDiagnosticSchema).readonly(),
 	skippedCollisions: z.array(skippedArtifactCollisionSchema).readonly(),
 	isForceRequired: z.boolean(),
 });
@@ -264,19 +268,20 @@ export async function runHarnessArtifactReconcile(
 		...optionalEntry("target", request.extensionTarget),
 	});
 	if (!extensionSelection.ok) return extensionSelection;
+	const shouldApply = request.mode === "apply";
+	// check-force runs real acquisition so the force-conflict check reflects
+	// post-install artifacts for newly declared npm extensions; only artifact
+	// writes stay dry in that mode.
+	const shouldAcquire = request.mode !== "preview";
 	const acquisition = await resolveDeclaredExtensionModules({
 		projectRoot: request.projectRoot,
 		declaredSpecs: extensionSelection.value.declaredSpecs,
 		selectedSpecs: extensionSelection.value.selectedSpecs,
-		mode: request.acquisitionMode ?? (request.isDryRun ? "preview" : "apply"),
+		mode: shouldAcquire ? "apply" : "preview",
 		...optionalEntry("gateway", request.acquisitionGateway),
 	});
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
-		projectRoot: request.projectRoot,
-		...optionalEntry("homeDir", request.homeDir),
-		env: request.env,
 		moduleRoots: acquisition.roots.map((root) => root.moduleRoot),
-		includeDeclaredExtensions: false,
 		gateway: discoveryGateway,
 		...optionalEntry("descriptorLoader", request.descriptorLoader),
 	});
@@ -284,7 +289,7 @@ export async function runHarnessArtifactReconcile(
 	const desired = desiredHarnessArtifacts({
 		moduleCatalogs: moduleDiscovery.catalogs,
 		firstPartySourceRoot: request.firstPartySourceRoot,
-		includeFirstPartyArtifacts: !extensionSelection.value.isTargeted,
+		shouldIncludeFirstPartyArtifacts: !extensionSelection.value.isTargeted,
 	});
 	if (!desired.ok) return desired;
 
@@ -325,7 +330,7 @@ export async function runHarnessArtifactReconcile(
 			fs,
 		});
 		if (!prepared.ok) return prepared;
-		if (request.isDryRun) {
+		if (!shouldApply) {
 			artifacts.push(
 				reconcileOutcomeFromProvision({
 					pair,
@@ -363,14 +368,11 @@ export async function runHarnessArtifactReconcile(
 	}
 
 	return resultOk({
-		mode: request.isDryRun ? "dry-run" : "applied",
+		mode: shouldApply ? "applied" : "dry-run",
 		harnessSelection: selection.value.state,
 		artifacts,
 		orphans: plan.orphans,
-		diagnostics: [
-			...acquisition.diagnostics.map(acquisitionDiagnostic),
-			...moduleDiscovery.diagnostics,
-		],
+		diagnostics: [...acquisition.diagnostics, ...moduleDiscovery.diagnostics],
 		skippedCollisions: plan.skippedCollisions,
 		isForceRequired: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
@@ -458,7 +460,7 @@ function desiredHarnessArtifacts(input: {
 		artifacts: readonly SkillHarnessArtifactEntry[];
 	}[];
 	firstPartySourceRoot: string | undefined;
-	includeFirstPartyArtifacts: boolean;
+	shouldIncludeFirstPartyArtifacts: boolean;
 }): Result<readonly DesiredHarnessArtifact[], ReconcileErrorInfo> {
 	const firstPartyArtifacts = firstPartyDesiredArtifacts(input);
 	if (!firstPartyArtifacts.ok) return firstPartyArtifacts;
@@ -476,9 +478,9 @@ function desiredHarnessArtifacts(input: {
 
 function firstPartyDesiredArtifacts(input: {
 	firstPartySourceRoot: string | undefined;
-	includeFirstPartyArtifacts: boolean;
+	shouldIncludeFirstPartyArtifacts: boolean;
 }): Result<readonly DesiredHarnessArtifact[], ReconcileErrorInfo> {
-	if (!input.includeFirstPartyArtifacts) return resultOk([]);
+	if (!input.shouldIncludeFirstPartyArtifacts) return resultOk([]);
 	const firstPartySourceRoot = input.firstPartySourceRoot ?? resolveFirstPartyCatalogSourceRoot();
 	if (firstPartySourceRoot === undefined) {
 		return resultErr({
@@ -507,13 +509,7 @@ function parseHarnessSelection(
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });
 	}
 	const parsed = parseNsTomlHarnesses(state.text, nsTomlPath);
-	if (parsed.type === "error") {
-		return resultErr({
-			code: "invalid_ns_toml",
-			message: parsed.error.message,
-			details: { path: nsTomlPath, error: parsed.error },
-		});
-	}
+	if (parsed.type === "error") return invalidNsTomlResult(parsed.error, nsTomlPath);
 	if (parsed.type === "missing") {
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });
 	}
@@ -552,15 +548,13 @@ function parseExtensionSelection(input: {
 	{
 		declaredSpecs: readonly string[];
 		selectedSpecs: readonly string[];
-		moduleRoots: readonly string[];
 		isTargeted: boolean;
 	},
 	ReconcileErrorInfo
 > {
 	if (input.state.type === "missing") {
-		if (input.target === undefined) {
-			return resultOk({ declaredSpecs: [], selectedSpecs: [], moduleRoots: [], isTargeted: false });
-		}
+		if (input.target === undefined)
+			return resultOk({ declaredSpecs: [], selectedSpecs: [], isTargeted: false });
 		return invalidTargetResult({
 			target: input.target,
 			projectRoot: input.projectRoot,
@@ -568,43 +562,25 @@ function parseExtensionSelection(input: {
 		});
 	}
 	const parsed = parseNsTomlExtensions(input.state.text, input.nsTomlPath);
-	if (parsed.type === "error") {
-		return resultErr({
-			code: "invalid_ns_toml",
-			message: parsed.error.message,
-			details: { path: input.nsTomlPath, error: parsed.error },
-		});
-	}
+	if (parsed.type === "error") return invalidNsTomlResult(parsed.error, input.nsTomlPath);
 	const declared = parsed.type === "ok" ? parsed.extensions : [];
-	const declaredLocalSpecs = declared.filter((extension) => isLocalExtensionSpec(extension));
-	const declaredLocalRoots = declaredLocalSpecs.map((extension) =>
-		normalizeExtensionPath(input.projectRoot, extension),
-	);
 	const target = input.target;
 	if (target === undefined) {
 		return resultOk({
 			declaredSpecs: declared,
 			selectedSpecs: declared,
-			moduleRoots: uniqueSortedPaths(declaredLocalRoots),
 			isTargeted: false,
 		});
 	}
-	const normalizedTarget = isLocalExtensionSpec(target)
-		? normalizeExtensionPath(input.projectRoot, target)
-		: target;
-	const isDeclaredTarget = isLocalExtensionSpec(target)
-		? declaredLocalRoots.includes(normalizedTarget)
-		: declared.includes(target);
-	if (!isDeclaredTarget) {
-		return invalidTargetResult({
-			target,
-			projectRoot: input.projectRoot,
-			declaredExtensions: declared,
-		});
-	}
-	const selectedSpec = isLocalExtensionSpec(target)
-		? declaredLocalSpecs[declaredLocalRoots.indexOf(normalizedTarget)]
-		: target;
+	const isTargetLocal = isLocalExtensionSpec(input.projectRoot, target);
+	const normalizedTarget = normalizeExtensionPath(input.projectRoot, target);
+	const selectedSpec = isTargetLocal
+		? declared.find(
+				(spec) =>
+					isLocalExtensionSpec(input.projectRoot, spec) &&
+					normalizeExtensionPath(input.projectRoot, spec) === normalizedTarget,
+			)
+		: declared.find((spec) => spec === target);
 	if (selectedSpec === undefined) {
 		return invalidTargetResult({
 			target,
@@ -615,19 +591,8 @@ function parseExtensionSelection(input: {
 	return resultOk({
 		declaredSpecs: declared,
 		selectedSpecs: [selectedSpec],
-		moduleRoots: isLocalExtensionSpec(target) ? [normalizedTarget] : [],
 		isTargeted: true,
 	});
-}
-
-function acquisitionDiagnostic(
-	diagnostic: ExtensionAcquisitionDiagnostic,
-): ModuleArtifactDiscoveryDiagnostic {
-	return {
-		code: diagnostic.code,
-		message: diagnostic.message,
-		...optionalEntry("path", diagnostic.path ?? diagnostic.spec),
-	};
 }
 
 function invalidTargetResult(input: {
@@ -647,16 +612,24 @@ function invalidTargetResult(input: {
 	});
 }
 
-function isLocalExtensionSpec(value: string): boolean {
-	return !isUnsupportedNsTomlExtensionSpec(value);
+function invalidNsTomlResult(
+	error: NsTomlErrorInfo,
+	nsTomlPath: string,
+): Result<never, ReconcileErrorInfo> {
+	return resultErr({
+		code: "invalid_ns_toml",
+		message: error.message,
+		details: { path: nsTomlPath, error },
+	});
+}
+
+function isLocalExtensionSpec(projectRoot: string, value: string): boolean {
+	const parsed = parseExtensionSourceSpec(projectRoot, value);
+	return parsed.ok && parsed.value.kind === "local";
 }
 
 function normalizeExtensionPath(projectRoot: string, value: string): string {
 	return resolve(isAbsolute(value) ? value : join(projectRoot, value));
-}
-
-function uniqueSortedPaths(paths: readonly string[]): readonly string[] {
-	return [...new Set(paths)].sort((left, right) => left.localeCompare(right));
 }
 
 async function readProjectManifestSnapshots(input: {

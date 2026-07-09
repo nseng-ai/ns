@@ -11,20 +11,20 @@ import type { SkillsCommandContext } from "./skills-shared.ts";
 
 const nsUpdateModeSchema = z.enum(["self", "extensions", "all"]);
 
-export const nsUpdateRequestSchema = z.object({
-	mode: nsUpdateModeSchema.default("self"),
+const nsUpdateSharedFieldsSchema = z.object({
 	dryRun: z.boolean().default(false),
 	force: z.boolean().default(false),
 	target: z.string().optional(),
 });
 
-export const nsUpdateCliRequestSchema = z.object({
+export const nsUpdateRequestSchema = nsUpdateSharedFieldsSchema.extend({
+	mode: nsUpdateModeSchema.default("self"),
+});
+
+export const nsUpdateCliRequestSchema = nsUpdateSharedFieldsSchema.extend({
 	extensions: z.boolean().default(false),
 	self: z.boolean().default(false),
 	all: z.boolean().default(false),
-	dryRun: z.boolean().default(false),
-	force: z.boolean().default(false),
-	target: z.string().optional(),
 });
 
 export const nsUpdateResultSchema = reconcileReportSchema;
@@ -52,6 +52,7 @@ export async function runNsUpdate(
 				target: request.target,
 			});
 		}
+		if (request.mode === "all") return allUpdateNotImplemented();
 		return selfUpdateNotImplemented();
 	}
 	const baseRequest = {
@@ -61,21 +62,21 @@ export async function runNsUpdate(
 		shouldForce: request.force,
 		...optionalEntry("extensionTarget", request.target),
 	};
-	if (request.dryRun || !request.force) {
-		const preview = await runHarnessArtifactReconcile({
-			...baseRequest,
-			isDryRun: true,
-			acquisitionMode: request.dryRun ? "preview" : "apply",
-		});
+	if (request.dryRun) {
+		const preview = await runHarnessArtifactReconcile({ ...baseRequest, mode: "preview" });
 		if (!preview.ok) return reconcileFailureExit(preview.error);
-		if (request.dryRun) return ok(preview.value);
+		return ok(preview.value);
+	}
+	if (!request.force) {
+		const preview = await runHarnessArtifactReconcile({ ...baseRequest, mode: "check-force" });
+		if (!preview.ok) return reconcileFailureExit(preview.error);
 		if (preview.value.isForceRequired) {
 			return negative("Update refused: locally edited target files require --force.", {
 				data: preview.value,
 			});
 		}
 	}
-	const result = await runHarnessArtifactReconcile({ ...baseRequest, isDryRun: false });
+	const result = await runHarnessArtifactReconcile({ ...baseRequest, mode: "apply" });
 	if (!result.ok) return reconcileFailureExit(result.error);
 	if (result.value.skippedCollisions.length > 0) {
 		return negative("Update skipped colliding harness artifacts.", { data: result.value });
@@ -159,6 +160,14 @@ function selfUpdateNotImplemented<T>(): ClinkrExit<T> {
 	return failure(
 		"self-update-not-implemented",
 		"ns self-update is not implemented yet; run ns update --extensions to update extension artifacts.",
+		{ availableMode: "extensions" },
+	);
+}
+
+function allUpdateNotImplemented<T>(): ClinkrExit<T> {
+	return failure(
+		"all-update-not-implemented",
+		"ns update --all is not implemented yet because ns self-update is not implemented; run ns update --extensions to update extension artifacts.",
 		{ availableMode: "extensions" },
 	);
 }
