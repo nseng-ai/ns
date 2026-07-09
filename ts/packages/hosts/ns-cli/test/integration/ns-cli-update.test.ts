@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { runCommand } from "@nseng-ai/foundation/exec";
 
 import { runNsCli } from "../../src/cli.ts";
+import { writeModuleExtension } from "../support/cli-harness.ts";
 
 const tempDirs: string[] = [];
 
@@ -21,41 +22,6 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 	if (result.code !== 0) {
 		throw new Error(`git init failed: ${result.stderr || result.stdout}`);
 	}
-}
-
-async function writeModuleExtension(projectRoot: string): Promise<void> {
-	const moduleRoot = join(projectRoot, "extensions", "acme-module");
-	await mkdir(join(moduleRoot, "skills", "module-skill"), { recursive: true });
-	await mkdir(join(moduleRoot, "src", "ns"), { recursive: true });
-	await writeFile(
-		join(moduleRoot, "package.json"),
-		`${JSON.stringify(
-			{
-				name: "@acme/module",
-				version: "1.0.0",
-				type: "module",
-				exports: { "./ns-extension": "./src/ns/extension.ts" },
-			},
-			null,
-			2,
-		)}\n`,
-		"utf8",
-	);
-	await writeFile(
-		join(moduleRoot, "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/kernel/sdk";
-export default defineExtension({
-	description: "ACME module.",
-	bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],
-});
-`,
-		"utf8",
-	);
-	await writeFile(
-		join(moduleRoot, "skills", "module-skill", "SKILL.md"),
-		"# module skill\n",
-		"utf8",
-	);
 }
 
 async function runNsCliJson(args: readonly string[], cwd: string) {
