@@ -1,7 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
-import { commandKey } from "./command-registry.ts";
+import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import type { PreinstalledNsCommandCatalogEntry } from "./registry.ts";
 
 export interface ExtensionDescriptorToPreinstalledCatalogOptions {
@@ -62,19 +62,12 @@ function descriptorEntryToPreinstalledCatalog(options: {
 			},
 		];
 	}
-	const nextSegments = [...options.segments, options.entry.group];
-	const hiddenAncestorKeys = options.entry.hidden
-		? [
-				...options.hiddenAncestorKeys,
-				commandKey({ name: options.entry.group, segments: nextSegments }),
-			]
-		: options.hiddenAncestorKeys;
+	const nextState = nextDescriptorTraversalState(options.entry, options);
 	return options.entry.entries.flatMap((entry) =>
 		descriptorEntryToPreinstalledCatalog({
 			...options,
 			entry,
-			segments: nextSegments,
-			hiddenAncestorKeys,
+			...nextState,
 		}),
 	);
 }

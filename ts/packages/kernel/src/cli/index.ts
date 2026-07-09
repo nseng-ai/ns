@@ -262,7 +262,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
 			if (command !== undefined && parsedCommandSpec !== undefined) {
 				parent.command({
-					name: cliLeafCommandName(commandInfo),
+					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
 					schema: parsedCommandSpec.schema,
@@ -303,7 +303,7 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			}
 			parent.command(
 				rawCommand({
-					name: cliLeafCommandName(commandInfo),
+					name: commandLeafName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
 					...(command === undefined
@@ -531,7 +531,7 @@ function requestedCommandKey(
 	const candidates = commandInfos
 		.map((commandInfo) => ({
 			commandInfo,
-			displaySegments: displaySegmentsForCommand(commandInfo),
+			displaySegments: commandSegments(commandInfo),
 		}))
 		.filter(({ displaySegments }) => pathPrefixMatches(commandArgs, displaySegments))
 		.sort((left, right) => right.displaySegments.length - left.displaySegments.length);
@@ -551,7 +551,7 @@ function requestedGroupSegments(
 	const commandArgs = commandPathArgs(args);
 	if (commandArgs.length === 0) return undefined;
 	const hasGroup = commandInfos.some((commandInfo) => {
-		const segments = displaySegmentsForCommand(commandInfo);
+		const segments = commandSegments(commandInfo);
 		return commandArgs.length < segments.length && pathPrefixMatches(commandArgs, segments);
 	});
 	return hasGroup ? commandArgs : undefined;
@@ -598,14 +598,6 @@ function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	);
 	completion.group(exec);
 	return completion;
-}
-
-function cliLeafCommandName(commandInfo: NsCommandPath): string {
-	return commandLeafName(commandInfo);
-}
-
-function displaySegmentsForCommand(commandInfo: NsCommandPath): readonly string[] {
-	return commandSegments(commandInfo);
 }
 
 function pathPrefixMatches(args: readonly string[], path: readonly string[]): boolean {
@@ -664,7 +656,7 @@ function groupForCommand(
 	groupCache: Map<string, ClinkrGroup<NsCliContext>>,
 	commandInfo: NsCommandCliInfo,
 ): ClinkrGroup<NsCliContext> {
-	const displaySegments = displaySegmentsForCommand(commandInfo);
+	const displaySegments = commandSegments(commandInfo);
 	const parentSegments = displaySegments.slice(0, -1);
 	let parent = root;
 	for (let index = 0; index < parentSegments.length; index += 1) {
@@ -725,7 +717,7 @@ async function runPassthroughCommand(
 	try {
 		const result = await command.run(ctx.context, {
 			argv,
-			commandPath: displaySegmentsForCommand(path),
+			commandPath: commandSegments(path),
 		});
 		return validateCommandExit(result, command.name);
 	} catch (error) {

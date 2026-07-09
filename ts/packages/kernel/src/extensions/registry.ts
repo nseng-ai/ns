@@ -19,6 +19,7 @@ import {
 	type NsCommandSourceLevel,
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
+import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
 	loadedModuleReference,
@@ -572,19 +573,12 @@ function descriptorEntryCommandCandidates(options: {
 			},
 		];
 	}
-	const nextSegments = [...options.segments, options.entry.group];
-	const hiddenAncestorKeys = options.entry.hidden
-		? [
-				...options.hiddenAncestorKeys,
-				commandKey({ name: options.entry.group, segments: nextSegments }),
-			]
-		: options.hiddenAncestorKeys;
+	const nextState = nextDescriptorTraversalState(options.entry, options);
 	return options.entry.entries.flatMap((entry) =>
 		descriptorEntryCommandCandidates({
 			...options,
 			entry,
-			segments: nextSegments,
-			hiddenAncestorKeys,
+			...nextState,
 		}),
 	);
 }
