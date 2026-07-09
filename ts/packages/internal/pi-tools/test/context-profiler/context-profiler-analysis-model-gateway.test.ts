@@ -1,12 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import type {
-	AssistantMessage,
-	completeSimple,
-	Context,
-	SimpleStreamOptions,
-	Usage,
-} from "@earendil-works/pi-ai";
+import type { AssistantMessage, Context, SimpleStreamOptions, Usage } from "@earendil-works/pi-ai";
+import type { completeSimple } from "@earendil-works/pi-ai/compat";
 import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../../src/context-profiler/analysis.ts";
 import {
 	createCodexAnalysisModelGateway,

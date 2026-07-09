@@ -1,4 +1,5 @@
-import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
+import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -152,7 +153,7 @@ function parsePiModelRef(modelRef: string): ParsedPiModelRef {
 }
 
 async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
-	const piAi = await import("@earendil-works/pi-ai");
+	const piAi = await import("@earendil-works/pi-ai/compat");
 	return piAi.completeSimple;
 }
 
