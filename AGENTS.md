@@ -40,7 +40,7 @@ automatically when its objective closes (`closed.md` appears). Not every objecti
 one — only those whose direction every agent must respect.
 
 For the full slate of in-flight initiatives (not just the orienting ones above), run
-`objective list`. Before starting work, check whether your task overlaps an active
+`ns objective list`. Before starting work, check whether your task overlaps an active
 objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 
 ## Context and routing
