@@ -30,17 +30,21 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       the tip vs per-branch distribution (absorb-style); restack cost, visibility,
       and revertability of model-written fixes.
       Blocked by: Stack-tip review semantics.
-- [ ] (grilling) Anti-incremental review state encoding — where "this stack content
-      was reviewed" lives (git note, PR-body machine block, prior-findings-context
-      pattern), what keys it (SHAs, diff hash), and who reads/writes it.
+- [ ] (grilling) Anti-incremental review state encoding — how a local stack-tip run
+      participates in the convergence state the remote path already stamps in the
+      GitHub Findings comment (last-reviewed head + capped prior-findings union;
+      `ts/packages/capabilities/reviews/src/core/findings-comment.ts`, ADR 0027) versus
+      an alternative store (git note, diff-hash key); what keys it and who reads/writes
+      it locally versus in CI.
       Blocked by: Stack-tip review semantics.
 - [ ] (grilling) Prod-submit pipeline integration — phase position in the submit
       phase stream, the never-block/never-dirty invariant, escape hatch, and TTY
       confirmation before pushing auto-fixes.
       Blocked by: Submission-class surface; Fixer engine.
-- [ ] (grilling) Remote roaster's residual role — whether `roaster.yml` keeps running
-      tripwires as a backstop, shrinks to un-attested deltas only, or retires; how
-      the remote workflow honors the review state.
+- [ ] (grilling) Remote roaster's residual role — whether the remote review workflow
+      (`.github/workflows/reviews.yml`) keeps running tripwires as a backstop, shrinks
+      to un-attested deltas only, or retires; how it honors review state written by
+      local prod submission given its own existing convergence stamping.
       Blocked by: Anti-incremental review state encoding.
 
 ## Parked

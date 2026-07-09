@@ -128,12 +128,16 @@ gateway until the bundle lands.
 
 Reopened 2026-07-05 by the Pi-style extension-install decision:
 
-- **`ns install` surface design** (with the `ns-cli-design` skill): accepted source
-  forms for v1 (npm name only, or also local path/git), where installed-extension
-  settings live (global/XDG vs `-l` local vs `ns.toml`) and their schema, `ns update` v1
-  scope (self, extensions, both, or deferred), and naming conformance with kernel CLI
-  conventions. Runtime loader-side resolution is owned by
-  `checkout-free-sdl-distribution`.
+- **`ns install` surface design** (with the `ns-cli-design` skill) — PARTIALLY LANDED: a
+  built-in `ns install <source>` now exists (`ts/packages/kernel/src/extensions/install-command.ts`)
+  that installs a **local package directory** into managed storage and records the source
+  spec in `ns.toml` (idempotent). It explicitly rejects `npm:`/`git:`/URL source forms as
+  "planned but not supported in this slice," so the customer happy-path form
+  (`ns install @nseng-ai/objectives` by npm name) is not yet reachable. `ns remove` is not
+  built. Still open: the remaining source forms (npm name, git, URL), where
+  installed-extension settings finally live and their schema, `ns update` v1 scope (self is
+  reserved/not implemented; `--extensions` provisions artifacts), and `ns remove`. Runtime
+  loader-side resolution is owned by `checkout-free-sdl-distribution`.
 - **Where objective skills ship** — RESOLVED: the objective skill is provisioned through
   the first-party `ns skills` list/path/install surface (`@nseng-ai/harness-artifacts`),
   and `ns init`'s `RealSkillMaterializer` binds to `provisionFirstPartySkill`. End-to-end

@@ -14,11 +14,11 @@ The design starting point is pi's debugged update mechanism (see `npm-bundled-ar
 
 This is a **bounded execution Subobjective** under the `skill-management-subsystem` umbrella, but design-heavy at the front: the spec grammar, storage location for fetched modules, and update semantics are open questions that must be resolved as recorded decisions before implementation slices run.
 
-**Explicitly not acquired here:** individual third-party skills. The umbrella retired `npx skills` wrapping and first-party GitHub *skill* acquisition permanently. This record fetches *modules* (npm packages / repos that statically declare `ns.harnessArtifacts` in `package.json`); it does not fetch loose skills, and it does not reopen the retired channel.
+**Explicitly not acquired here:** individual third-party skills. The umbrella retired `npx skills` wrapping and first-party GitHub *skill* acquisition permanently. This record fetches *modules* (npm packages / repos that declare an ns extension descriptor — `exports["./ns-extension"]` in `package.json`, since superseding static `ns.harnessArtifacts`); it does not fetch loose skills, and it does not reopen the retired channel.
 
 ## Starting state (source-grounded)
 
-- **Provisioning from modules already works; only acquisition is missing.** `@nseng-ai/harness-artifacts` parses static `ns.harnessArtifacts` declarations (`module-artifact-declaration.ts`) without executing module code; the reconcile planner/driver plus minimal top-level `ns update` provision first-party and extension-root artifacts with a per-file SHA-256 install manifest, idempotence, and clobber protection. Acquisition only needs to put modules on disk where discovery already looks (or extend discovery to a new fetched-module root).
+- **Provisioning from modules already works; only acquisition is missing.** `@nseng-ai/harness-artifacts` resolves an extension module's bundled harness artifacts from its ns extension descriptor (`module-artifact-declaration.ts` imports and validates `exports["./ns-extension"]`; descriptor import now executes module code at catalog/discovery time under the trusted-repo posture, superseding the earlier static-`ns.harnessArtifacts` no-execution model — see `updates/20260708T171326Z-...`); the reconcile planner/driver plus minimal top-level `ns update` provision first-party and extension-root artifacts with a per-file SHA-256 install manifest, idempotence, and clobber protection. Acquisition only needs to put modules on disk where discovery already looks (or extend discovery to a new fetched-module root).
 - **Today's arrival paths:** committed `.ns/extensions/` directories and the XDG root — i.e., vendoring, which gives pinning for free via git.
 - **`ns.toml` exists** at the repo root (written by `ns init`, parsed via `ts/packages/capabilities/harness-artifacts/src/ns-toml.ts` and consumed by the ns-init flow) and already carries the project's `harnesses = [...]` selection; the `artifact-packages` list would extend this file, not invent new state.
 - **Pi's mechanism is the debugged reference:** uniform spec grammar, pinned-npm skip semantics, git-refs-reconciled-not-advanced, self-update kept separate from artifact update.
@@ -30,7 +30,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 - **Decide fetched-module storage**: where acquired modules land on disk (a managed root the discovery layer reads), how that location is recorded/inspected, and how it stays git-native and inspectable per the umbrella's no-hidden-database rule.
 - **Fetch + resolve**: materialize each declared spec into a resolved module directory; surface failures as diagnostics, not hidden behavior. LBYL over EAFP.
 - **Version resolution / update semantics per source kind** (owned here): pinned specs are stable and skipped; unpinned/ref specs reconcile to the declared spec on `ns update --extensions`. The command contract is pi-verbatim (decided 2026-07-07, `updates/20260707T200657Z-...`): bare `ns update`/`--self` = self-update only, `--extensions` = acquisition + provisioning, `--all` = both, with per-spec targeting of declared specs. The ns **self-update mechanism** is now a late in-scope roadmap row (added 2026-07-07 by user instruction); until it lands, bare `ns update` errors with a clear use-`--extensions` diagnostic.
-- **Hand off to existing provisioning unchanged**: acquired modules flow through the same static-declaration discovery, reconcile planner, manifest, and clobber rules as directory-present modules. If the shared core needs widening, keep changes additive (the proving-consumer lesson from `npm-bundled-artifact-provisioning`).
+- **Hand off to existing provisioning unchanged**: acquired modules flow through the same descriptor-based discovery, reconcile planner, manifest, and clobber rules as directory-present modules. If the shared core needs widening, keep changes additive (the proving-consumer lesson from `npm-bundled-artifact-provisioning`).
 - **Record design decisions as Semantic Updates** before their implementation slices.
 
 ## Non-Goals
@@ -39,7 +39,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 - **No `npx skills` wrapping/replacement and no first-party acquisition of individual third-party skills** (retired permanently): modules only.
 - **No ns-owned semantic-version solver or dependency graph** (umbrella hard non-goal): each declared extension spec resolves one top-level module. The selected npm acquisition mechanics may let the package manager install that module's runtime dependencies, but ns does not model, traverse, solve, or provision extension dependencies as first-class specs.
 - **No trust/consent gate in this record** — deliberately, per the umbrella's retirement of trust gating, re-affirmed 2026-07-07 with fetch semantics on the table (see Risks); do not add one silently, and do not remove the risk note.
-- No executed module code during discovery or acquisition-time hooks; declarations stay static data.
+- No install/update side-effect hooks run silently during acquisition. (Extension-metadata discovery now imports the ns extension descriptor module — descriptor code executes at catalog/discovery time under the trusted-repo posture, accepted per `updates/20260708T171326Z-...`, superseding the earlier "declarations stay static data" non-goal; acquisition itself must still not run arbitrary install/update hooks silently.)
 - No hidden database or cache as durable state; whatever records exist must be explicit, inspectable files.
 - No `agent` / `extension-bundle` provisioning semantics (parked at the umbrella; types already accommodate).
 
@@ -54,7 +54,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 
 ## Definition of Progress
 
-Keepable progress resolves a front-loaded design question as a recorded decision, or advances an implementation slice consistent with recorded decisions, with passing validation. Do not keep changes that guess at unrecorded design decisions, execute module code during discovery/acquisition, introduce hidden durable state, add or remove the trust posture silently, or reopen retired acquisition channels.
+Keepable progress resolves a front-loaded design question as a recorded decision, or advances an implementation slice consistent with recorded decisions, with passing validation. Do not keep changes that guess at unrecorded design decisions, run arbitrary install/update side-effect hooks silently during acquisition, introduce hidden durable state, add or remove the trust posture silently, or reopen retired acquisition channels.
 
 ## Runner Policy
 
