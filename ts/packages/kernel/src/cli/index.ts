@@ -12,6 +12,7 @@ import {
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
+	type ClinkrIo,
 } from "@nseng-ai/clinkr";
 import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
@@ -327,7 +328,10 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 								`Unknown ns command: ${commandDisplayName(commandInfo)}`,
 								{ command: commandDisplayName(commandInfo) },
 							);
-							return emitExit(result, { format: ctx.context.outputFormat ?? "human", io: ctx });
+							return emitExit(result, {
+								format: ctx.context.outputFormat ?? "human",
+								io: clinkrIo(ctx),
+							});
 						}
 						const result = await runPassthroughCommand(
 							ctx,
@@ -335,7 +339,10 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 							passthroughSchema.parse(request).argv,
 							commandInfo,
 						);
-						return emitExit(result, { format: ctx.context.outputFormat ?? "human", io: ctx });
+						return emitExit(result, {
+							format: ctx.context.outputFormat ?? "human",
+							io: clinkrIo(ctx),
+						});
 					},
 				}),
 			);
@@ -504,8 +511,15 @@ async function buildNsCliContext(options: {
 		interaction: createNsCliInteraction({ stderr: options.stderr }),
 		stdout: options.stdout,
 		stderr: options.stderr,
-		canEmitAnsi: renderCapabilities.canEmitAnsi,
-		...optionalEntry("caps", renderCapabilities.caps),
+		renderCapabilities,
+	};
+}
+
+function clinkrIo(ctx: NsCliContext): ClinkrIo {
+	return {
+		stdout: ctx.stdout,
+		stderr: ctx.stderr,
+		...ctx.renderCapabilities,
 	};
 }
 

@@ -312,8 +312,7 @@ function captureIo(ctx: NsExtensionApi, stdout: string[], stderr: string[]): Cli
 	return {
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
-		canEmitAnsi: ctx.renderCapabilities.canEmitAnsi,
-		...(ctx.renderCapabilities.caps === undefined ? {} : { caps: ctx.renderCapabilities.caps }),
+		...ctx.renderCapabilities,
 	};
 }
 
