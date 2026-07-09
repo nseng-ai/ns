@@ -81,6 +81,7 @@ export type {
 	PreinstalledNsCommandCatalogLoader,
 } from "../extensions/registry.ts";
 export {
+	extensionDescriptorToPreinstalledCatalog,
 	repoLocalNsCommandDescriptorToPreinstalledCatalogEntry,
 	repoLocalNsExtensionToPreinstalledCatalog,
 } from "../extensions/repo-local-catalog.ts";

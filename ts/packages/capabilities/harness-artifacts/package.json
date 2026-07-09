@@ -8,6 +8,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./api": "./src/api.ts",
+		"./ns-extension": "./src/ns/extension.ts",
 		"./ns/commands/install": "./src/ns/commands/install.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
 		"./ns/commands/path": "./src/ns/commands/path.ts",

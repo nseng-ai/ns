@@ -1,17 +1,19 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { KernelCommand } from "./command.ts";
+import type { KernelCommand, NsCommand } from "./command.ts";
 
-export interface KernelCommandModule<TCommand extends KernelCommand = KernelCommand> {
+export type DescriptorCommand = KernelCommand | NsCommand;
+
+export interface KernelCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly default: TCommand;
 }
 
-export type KernelCommandLoad<TCommand extends KernelCommand = KernelCommand> = () =>
+export type KernelCommandLoad<TCommand extends DescriptorCommand = DescriptorCommand> = () =>
 	| Promise<KernelCommandModule<TCommand>>
 	| KernelCommandModule<TCommand>;
 
-export interface ExtensionCommandEntry<TCommand extends KernelCommand = KernelCommand> {
+export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly name: string;
 	/**
 	 * Lazy command-module thunk. Keep this as a literal dynamic import, for example
@@ -156,7 +158,7 @@ export function validateExtensionDescriptor(
 
 export function validateLoadedCommandName(
 	entry: ExtensionCommandEntry,
-	command: KernelCommand,
+	command: Pick<DescriptorCommand, "name">,
 ): LoadedCommandNameValidationResult {
 	if (entry.name === command.name) return { ok: true };
 	return {

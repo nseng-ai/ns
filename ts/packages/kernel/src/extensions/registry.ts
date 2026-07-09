@@ -27,6 +27,7 @@ import {
 	type ExtensionDiscoveryDiagnostic,
 } from "./discovery.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
+import { descriptorCommandAsNsCommand } from "./repo-local-catalog.ts";
 import {
 	fileModuleReference,
 	loadedModuleReference,
@@ -111,6 +112,8 @@ export interface PreinstalledNsCommandCatalogEntryBase {
 	readonly description: string;
 	readonly fullDescription: string;
 	readonly path?: readonly string[];
+	readonly hiddenSegments?: readonly string[];
+	readonly hasStaticCommandInfo?: boolean;
 }
 
 export interface PreinstalledNsCommandPackageCatalogEntry extends PreinstalledNsCommandCatalogEntryBase {
@@ -748,7 +751,7 @@ function preinstalledCandidateForCatalogEntry(
 	return {
 		...preinstalledCatalogEntryCommandInfo(entry),
 		moduleReference: preinstalledCatalogEntryModuleReference(entry),
-		hasStaticCommandInfo: true,
+		hasStaticCommandInfo: entry.hasStaticCommandInfo ?? true,
 		source: {
 			level: "preinstalled",
 			label: `preinstalled package ${displayPath}`,
@@ -775,6 +778,7 @@ function preinstalledCatalogEntryCommandInfo(
 	return toCommandCliInfo({
 		...entry,
 		...(entry.path === undefined ? {} : { segments: entry.path }),
+		...(entry.hiddenSegments === undefined ? {} : { hiddenSegments: entry.hiddenSegments }),
 	});
 }
 
@@ -1001,16 +1005,6 @@ function validateDescriptorCommandContribution(
 		};
 	}
 	return { ok: true, command: descriptorCommandAsNsCommand(contribution) };
-}
-
-function descriptorCommandAsNsCommand(command: NsCommand): NsCommand {
-	return {
-		name: command.name,
-		summary: command.summary,
-		description: command.description,
-		...optionalEntry("resultSchema", command.resultSchema),
-		run: async (ctx) => await command.run(ctx, { argv: [] }),
-	};
 }
 
 function isNsCommand(value: unknown): value is NsCommand {
