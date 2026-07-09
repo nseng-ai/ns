@@ -21,6 +21,7 @@ import {
 	type FleetDetailContext,
 	type FleetEntrySessionParseCache,
 } from "../../src/fleet/detail.ts";
+import { renderTimelineEntryLines } from "../../src/fleet/detail-render.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
 import type { ReadWorktreeState, WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
 import { settleMicrotasks } from "../helpers/explore-testing.ts";
@@ -102,6 +103,35 @@ const CSI_UP = "\u001b[1;1A";
 const CSI_DOWN = "\u001b[1;1B";
 
 describe("subagent fleet navigator", () => {
+	test("renders tool timeline rows without raw JSON argument blobs", () => {
+		expect(
+			renderTimelineEntryLines({
+				kind: "tool",
+				toolName: "read",
+				state: "ok",
+				inputPreview: '{"path":"ts/packages/kernel/src/cli/index.ts","limit":100}',
+				resultPreview: '#!/usr/bin/env node import { z } from "zod";',
+			}),
+		).toEqual([
+			"✓ read · path: ts/packages/kernel/src/cli/index.ts · limit: 100",
+			'  ↳ #!/usr/bin/env node import { z } from "zod";',
+		]);
+	});
+
+	test("renders nested tool preview records through the same compact formatter", () => {
+		expect(
+			renderTimelineEntryLines({
+				kind: "tool",
+				toolName: "dispatch_runner_subagent",
+				state: "ok",
+				inputPreview:
+					'{"title":"Scout","options":{"model":"fast","metadata":{"branch":"main"}},"files":["a.ts","b.ts"]}',
+			}),
+		).toEqual([
+			"✓ dispatch_runner_subagent · title: Scout · options: { model: fast · metadata: {…} } · files: a.ts, b.ts",
+		]);
+	});
+
 	test("loads detail with usage totals from JSONL through the readTextFile seam", async () => {
 		const detail = await loadFleetTaskDetail({
 			task: {
@@ -392,7 +422,7 @@ describe("subagent fleet navigator", () => {
 			},
 			activity: { currentToolInputPreview: "just test" },
 		});
-		await vi.waitFor(() => expect(view.render(100).join("\n")).toContain("▶ bash: just test"));
+		await vi.waitFor(() => expect(view.render(100).join("\n")).toContain("▶ bash · just test"));
 
 		view.handleInput("b");
 		expect(view.render(100).join("\n")).toContain("subagent fleet:");
@@ -748,7 +778,7 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		expect(readCount).toBe(1);
 		expect(manualTimers.pendingTimerCount()).toBe(1);
-		expect(view.render(100).join("\n")).toContain("current action: ▶ bash: just test");
+		expect(view.render(100).join("\n")).toContain("current action: ▶ bash · just test");
 		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 0s");
 
 		manualClock.advanceMs(2_000);
@@ -771,7 +801,7 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		expect(readCount).toBe(3);
 		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 0s");
-		expect(view.render(100).join("\n")).toContain("last output: still running");
+		expect(view.render(100).join("\n")).toContain("↳ still running");
 
 		view.handleInput("b");
 		expect(manualTimers.pendingTimerCount()).toBe(0);
