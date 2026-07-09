@@ -465,6 +465,7 @@ Options for `ctx.exec`.
 ```ts
 interface NsExecOptions {
   timeoutMs?: number;
+  cwd?: string | undefined;
   stdin?: string | undefined;
   onStdout?: ((text: string) => void) | undefined;
   onStderr?: ((text: string) => void) | undefined;
@@ -474,6 +475,7 @@ interface NsExecOptions {
 **Fields.**
 
 - `timeoutMs?` — kill the process after this many milliseconds.
+- `cwd?` — working directory for this subprocess; defaults to the command context cwd.
 - `stdin?` — string written to the process's stdin.
 - `onStdout?` / `onStderr?` — per-chunk output callbacks invoked as the process streams.
 

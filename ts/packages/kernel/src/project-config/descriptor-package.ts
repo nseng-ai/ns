@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
@@ -72,4 +73,52 @@ export function resolveDescriptorExportPath(
 	const path = resolve(packageDir, target);
 	if (!isPathInside(packageDir, path)) return { ok: false, reason: "escapes", target };
 	return { ok: true, path, target };
+}
+
+export interface AcquiredDescriptorPackageRoot {
+	readonly declaredRoot: string;
+	readonly packageRoot: string;
+	readonly isManaged: boolean;
+}
+
+export function resolveAcquiredDescriptorPackageRoot(options: {
+	repoRoot: string;
+	spec: string;
+}): AcquiredDescriptorPackageRoot {
+	const declaredRoot = resolve(options.repoRoot, options.spec);
+	const packageName = readPackageName(declaredRoot);
+	if (packageName === undefined) {
+		return { declaredRoot, packageRoot: declaredRoot, isManaged: false };
+	}
+	const managedRoot = managedDescriptorPackageRoot(options.repoRoot, packageName);
+	if (!directoryExists(managedRoot)) {
+		return { declaredRoot, packageRoot: declaredRoot, isManaged: false };
+	}
+	return { declaredRoot, packageRoot: managedRoot, isManaged: true };
+}
+
+export function managedExtensionsNpmProjectRoot(repoRoot: string): string {
+	return join(repoRoot, ".ns", "managed-extensions", "npm");
+}
+
+export function managedDescriptorPackageRoot(repoRoot: string, packageName: string): string {
+	return join(managedExtensionsNpmProjectRoot(repoRoot), "node_modules", ...packageName.split("/"));
+}
+
+function readPackageName(packageRoot: string): string | undefined {
+	try {
+		const parsed: unknown = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+		const result = z.object({ name: z.string().min(1) }).safeParse(parsed);
+		return result.success ? result.data.name : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function directoryExists(path: string): boolean {
+	try {
+		return existsSync(path) && statSync(path).isDirectory();
+	} catch {
+		return false;
+	}
 }

@@ -14,6 +14,7 @@ export interface ExecResult {
 
 export interface NsExecOptions {
 	timeoutMs?: number;
+	cwd?: ExplicitUndefined<"public-api-compatibility", string>;
 	stdin?: ExplicitUndefined<"public-api-compatibility", string>;
 	onStdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	onStderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;

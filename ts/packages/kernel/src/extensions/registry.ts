@@ -43,6 +43,7 @@ import {
 import {
 	descriptorExportTarget,
 	parseDeclaredExtensionSpecsToml,
+	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
 } from "../project-config/descriptor-package.ts";
 import type { DescriptorCommand } from "../sdk/index.ts";
@@ -413,7 +414,11 @@ async function loadDescriptorPackage(options: { cwd: string; spec: string }): Pr
 	diagnostics: readonly ExtensionDiagnostic[];
 	candidates: readonly ExtensionCommandCandidate[];
 }> {
-	const packageDir = resolve(options.cwd, options.spec);
+	const acquisition = resolveAcquiredDescriptorPackageRoot({
+		repoRoot: options.cwd,
+		spec: options.spec,
+	});
+	const packageDir = acquisition.packageRoot;
 	const packageJsonPath = join(packageDir, "package.json");
 	const descriptorPath = resolveDescriptorExport(packageDir, packageJsonPath);
 	if (!descriptorPath.ok) return { diagnostics: [descriptorPath.diagnostic], candidates: [] };

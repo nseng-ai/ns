@@ -4,6 +4,7 @@ import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/found
 import { validateExtensionDescriptor, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
 import {
 	parseDeclaredExtensionSpecsToml,
+	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
 } from "@nseng-ai/kernel/project-config/descriptor-package";
 import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
@@ -146,7 +147,15 @@ async function extensionArtifactRoots(request: {
 	const declared = await readDeclaredExtensionSpecs(request);
 	if (!declared.ok) return { roots: [], diagnostics: [declared.diagnostic] };
 	return {
-		roots: sortStrings(declared.specs.map((spec) => resolve(request.projectRoot, spec))),
+		roots: sortStrings(
+			declared.specs.map(
+				(spec) =>
+					resolveAcquiredDescriptorPackageRoot({
+						repoRoot: request.projectRoot,
+						spec,
+					}).packageRoot,
+			),
+		),
 		diagnostics: [],
 	};
 }

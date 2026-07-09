@@ -17,7 +17,7 @@ import {
 	writeWorkspaceFile,
 } from "../helpers/extension-workspace.ts";
 
-const builtInCandidateKeys = ["extension/point", "extension/points"];
+const builtInCandidateKeys = ["extension/point", "extension/points", "install"];
 const builtInCommandInfos = [
 	{
 		segments: ["extension", "point"],
@@ -32,6 +32,13 @@ const builtInCommandInfos = [
 		name: "points",
 		description: "List defined ns points and their active sources.",
 		fullDescription: "List defined ns points and their active sources.",
+	},
+	{
+		name: "install",
+		description: "Install a local ns extension package.",
+		fullDescription:
+			"Install a local ns extension package into managed storage and record the source spec in ns.toml.",
+		helpGroup: "Built-ins:",
 	},
 ] as const;
 
