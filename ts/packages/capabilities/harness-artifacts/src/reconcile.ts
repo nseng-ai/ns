@@ -8,7 +8,6 @@ import {
 } from "@nseng-ai/kernel/extensions/acquisition";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
-import { resolveDeclaredLocalExtensionRoots } from "@nseng-ai/kernel/project-config/points";
 import { z } from "zod";
 
 import { type SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -270,19 +269,19 @@ export async function runHarnessArtifactReconcile(
 	});
 	if (!extensionSelection.ok) return extensionSelection;
 	const shouldApply = request.mode === "apply";
+	// check-force runs real acquisition so the force-conflict check reflects
+	// post-install artifacts for newly declared npm extensions; only artifact
+	// writes stay dry in that mode.
+	const shouldAcquire = request.mode !== "preview";
 	const acquisition = await resolveDeclaredExtensionModules({
 		projectRoot: request.projectRoot,
 		declaredSpecs: extensionSelection.value.declaredSpecs,
 		selectedSpecs: extensionSelection.value.selectedSpecs,
-		mode: shouldApply ? "apply" : "preview",
+		mode: shouldAcquire ? "apply" : "preview",
 		...optionalEntry("gateway", request.acquisitionGateway),
 	});
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
-		projectRoot: request.projectRoot,
-		...optionalEntry("homeDir", request.homeDir),
-		env: request.env,
 		moduleRoots: acquisition.roots.map((root) => root.moduleRoot),
-		includeDeclaredExtensions: false,
 		gateway: discoveryGateway,
 		...optionalEntry("descriptorLoader", request.descriptorLoader),
 	});
@@ -510,13 +509,7 @@ function parseHarnessSelection(
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });
 	}
 	const parsed = parseNsTomlHarnesses(state.text, nsTomlPath);
-	if (parsed.type === "error") {
-		return resultErr({
-			code: "invalid_ns_toml",
-			message: parsed.error.message,
-			details: { path: nsTomlPath, error: parsed.error },
-		});
-	}
+	if (parsed.type === "error") return invalidNsTomlResult(parsed.error, nsTomlPath);
 	if (parsed.type === "missing") {
 		return resultOk({ state: { type: "missing" }, harnessSelection: undefined });
 	}
@@ -569,21 +562,8 @@ function parseExtensionSelection(input: {
 		});
 	}
 	const parsed = parseNsTomlExtensions(input.state.text, input.nsTomlPath);
-	if (parsed.type === "error") {
-		return resultErr({
-			code: "invalid_ns_toml",
-			message: parsed.error.message,
-			details: { path: input.nsTomlPath, error: parsed.error },
-		});
-	}
+	if (parsed.type === "error") return invalidNsTomlResult(parsed.error, input.nsTomlPath);
 	const declared = parsed.type === "ok" ? parsed.extensions : [];
-	const declaredLocalSpecs = declared.filter((extension) =>
-		isLocalExtensionSpec(input.projectRoot, extension),
-	);
-	const declaredLocalRoots = resolveDeclaredLocalExtensionRoots(
-		input.projectRoot,
-		declaredLocalSpecs,
-	);
 	const target = input.target;
 	if (target === undefined) {
 		return resultOk({
@@ -592,22 +572,15 @@ function parseExtensionSelection(input: {
 			isTargeted: false,
 		});
 	}
-	const normalizedTarget = isLocalExtensionSpec(input.projectRoot, target)
-		? normalizeExtensionPath(input.projectRoot, target)
-		: target;
-	const isDeclaredTarget = isLocalExtensionSpec(input.projectRoot, target)
-		? declaredLocalRoots.includes(normalizedTarget)
-		: declared.includes(target);
-	if (!isDeclaredTarget) {
-		return invalidTargetResult({
-			target,
-			projectRoot: input.projectRoot,
-			declaredExtensions: declared,
-		});
-	}
-	const selectedSpec = isLocalExtensionSpec(input.projectRoot, target)
-		? declaredLocalSpecs[declaredLocalRoots.indexOf(normalizedTarget)]
-		: target;
+	const isTargetLocal = isLocalExtensionSpec(input.projectRoot, target);
+	const normalizedTarget = normalizeExtensionPath(input.projectRoot, target);
+	const selectedSpec = isTargetLocal
+		? declared.find(
+				(spec) =>
+					isLocalExtensionSpec(input.projectRoot, spec) &&
+					normalizeExtensionPath(input.projectRoot, spec) === normalizedTarget,
+			)
+		: declared.find((spec) => spec === target);
 	if (selectedSpec === undefined) {
 		return invalidTargetResult({
 			target,
@@ -636,6 +609,17 @@ function invalidTargetResult(input: {
 			normalizedTarget,
 			declaredExtensions: [...input.declaredExtensions],
 		},
+	});
+}
+
+function invalidNsTomlResult(
+	error: NsTomlErrorInfo,
+	nsTomlPath: string,
+): Result<never, ReconcileErrorInfo> {
+	return resultErr({
+		code: "invalid_ns_toml",
+		message: error.message,
+		details: { path: nsTomlPath, error },
 	});
 }
 

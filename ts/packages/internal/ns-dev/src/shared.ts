@@ -95,6 +95,36 @@ export function trackedCommandFailureExit(
 	});
 }
 
+export function nsCliPackageRoot(nsWorktree: string): string {
+	return join(nsWorktree, "ts", "packages", "hosts", "ns-cli");
+}
+
+export function nsCliPublishPath(nsWorktree: string): string {
+	return join(nsCliPackageRoot(nsWorktree), "dist", "publish");
+}
+
+export async function packLocalNsPackage(
+	context: NsDevCliContext,
+	nsWorktree: string,
+): Promise<CommandRunResult> {
+	return runTrackedCommand(context, {
+		command: "pnpm",
+		args: ["--dir", join(nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"],
+		cwd: nsWorktree,
+	});
+}
+
+export async function installNsPublishPackage(
+	context: NsDevCliContext,
+	options: { readonly nsWorktree: string; readonly targetPath: string },
+): Promise<CommandRunResult> {
+	return runTrackedCommand(context, {
+		command: "npm",
+		args: ["install", "--save-dev", nsCliPublishPath(options.nsWorktree)],
+		cwd: options.targetPath,
+	});
+}
+
 export async function guardFilesystemErrors<T>(
 	run: () => Promise<ClinkrExit<T>>,
 ): Promise<ClinkrExit<T>> {

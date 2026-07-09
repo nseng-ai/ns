@@ -2,11 +2,7 @@ import { join, resolve } from "node:path";
 
 import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { validateExtensionDescriptor, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
-import {
-	parseDeclaredExtensionSpecsToml,
-	resolveAcquiredDescriptorPackageRoot,
-	resolveDescriptorExportPath,
-} from "@nseng-ai/kernel/project-config";
+import { resolveDescriptorExportPath } from "@nseng-ai/kernel/project-config";
 import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
 import { z } from "zod";
 
@@ -32,11 +28,7 @@ import {
 export type ExtensionDescriptorModuleLoader = (descriptorPath: string) => Promise<unknown>;
 
 export interface DiscoverExtensionModuleHarnessArtifactsRequest {
-	projectRoot: string;
-	homeDir?: string;
-	env?: Record<string, string | undefined>;
-	moduleRoots?: readonly string[];
-	includeDeclaredExtensions?: boolean;
+	moduleRoots: readonly string[];
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
 	descriptorLoader?: ExtensionDescriptorModuleLoader;
 }
@@ -65,8 +57,6 @@ export type {
 
 export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
 	...MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
-	"module_artifact_extension_root_unavailable",
-	"module_artifact_extension_root_not_directory",
 	"module_artifact_extension_root_unreadable",
 	"module_artifact_local_package_missing",
 	"module_artifact_local_package_not_directory",
@@ -118,25 +108,9 @@ export async function discoverExtensionModuleHarnessArtifacts(
 ): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
 	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
 	const descriptorLoader = request.descriptorLoader ?? loadNsUserModuleDefault;
-	const rootResolution =
-		request.includeDeclaredExtensions === false
-			? { roots: [], diagnostics: [] }
-			: await extensionArtifactRoots({
-					projectRoot: request.projectRoot,
-					gateway,
-				});
 	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
-	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [...rootResolution.diagnostics];
-	for (const moduleRoot of rootResolution.roots) {
-		const packageCatalog = await discoverExtensionPackage({
-			moduleRoot,
-			gateway,
-			descriptorLoader,
-		});
-		if (packageCatalog.type === "catalog") catalogs.push(packageCatalog.catalog);
-		else diagnostics.push(...packageCatalog.diagnostics);
-	}
-	for (const packageRoot of sortStrings(request.moduleRoots ?? [])) {
+	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
+	for (const packageRoot of sortStrings(request.moduleRoots)) {
 		const packageResult = await discoverLocalExtensionPackage({
 			moduleRoot: packageRoot,
 			gateway,
@@ -162,109 +136,6 @@ export async function discoverExtensionModuleHarnessArtifacts(
 	};
 }
 
-async function extensionArtifactRoots(request: {
-	projectRoot: string;
-	gateway: HarnessArtifactModuleDiscoveryGateway;
-}): Promise<{
-	roots: readonly string[];
-	diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
-}> {
-	const declared = await readDeclaredExtensionSpecs(request);
-	if (!declared.ok) return { roots: [], diagnostics: [declared.diagnostic] };
-	return {
-		roots: sortStrings(
-			declared.specs.map(
-				(spec) =>
-					resolveAcquiredDescriptorPackageRoot({
-						repoRoot: request.projectRoot,
-						spec,
-					}).packageRoot,
-			),
-		),
-		diagnostics: [],
-	};
-}
-
-async function readDeclaredExtensionSpecs(request: {
-	projectRoot: string;
-	gateway: HarnessArtifactModuleDiscoveryGateway;
-}): Promise<
-	| { ok: true; specs: readonly string[] }
-	| { ok: false; diagnostic: ModuleArtifactDiscoveryDiagnostic }
-> {
-	const nsTomlPath = join(request.projectRoot, "ns.toml");
-	const text = await request.gateway.readOptionalTextFile(nsTomlPath);
-	if (!text.ok) {
-		return { ok: false, diagnostic: discoveryFileSystemDiagnostic(text.error) };
-	}
-	if (text.value.type === "missing") return { ok: true, specs: [] };
-	const parsed = parseDeclaredExtensionSpecsToml(text.value.text);
-	if (parsed.ok) return parsed;
-	return {
-		ok: false,
-		diagnostic: {
-			code: "module_artifact_extension_root_unavailable",
-			message:
-				parsed.reason === "invalid-toml"
-					? `Could not parse ns.toml for harness artifact discovery: ${parsed.message}`
-					: parsed.message,
-			path: nsTomlPath,
-		},
-	};
-}
-
-type RequiredDirectoryStateResult =
-	| { type: "directory"; directory: Extract<ModuleDiscoveryDirectoryState, { type: "directory" }> }
-	| { type: "missing" }
-	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] };
-
-async function readRequiredDirectoryState(options: {
-	path: string;
-	gateway: HarnessArtifactModuleDiscoveryGateway;
-	missing:
-		| { type: "ignore" }
-		| {
-				type: "diagnostic";
-				code: Extract<
-					ModuleArtifactDiscoveryDiagnosticCode,
-					"module_artifact_local_package_missing"
-				>;
-				message: string;
-		  };
-	notDirectoryCode: Extract<
-		ModuleArtifactDiscoveryDiagnosticCode,
-		"module_artifact_extension_root_not_directory" | "module_artifact_local_package_not_directory"
-	>;
-	notDirectoryMessage: string;
-}): Promise<RequiredDirectoryStateResult> {
-	const state = await options.gateway.readDirectory(options.path);
-	if (!state.ok) {
-		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(state.error)] };
-	}
-	if (state.value.type === "missing") {
-		if (options.missing.type === "ignore") return { type: "missing" };
-		return {
-			type: "diagnostics",
-			diagnostics: [
-				{ code: options.missing.code, message: options.missing.message, path: options.path },
-			],
-		};
-	}
-	if (state.value.type !== "directory") {
-		return {
-			type: "diagnostics",
-			diagnostics: [
-				{
-					code: options.notDirectoryCode,
-					message: options.notDirectoryMessage,
-					path: options.path,
-				},
-			],
-		};
-	}
-	return { type: "directory", directory: state.value };
-}
-
 async function discoverLocalExtensionPackage(options: {
 	moduleRoot: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
@@ -273,28 +144,42 @@ async function discoverLocalExtensionPackage(options: {
 	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
 	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
 > {
-	const directoryState = await readRequiredDirectoryState({
-		path: options.moduleRoot,
-		gateway: options.gateway,
-		missing: {
-			type: "diagnostic",
-			code: "module_artifact_local_package_missing",
-			message: `Declared local extension package does not exist: ${options.moduleRoot}.`,
-		},
-		notDirectoryCode: "module_artifact_local_package_not_directory",
-		notDirectoryMessage: `Declared local extension package must be a directory: ${options.moduleRoot}.`,
-	});
-	if (directoryState.type === "diagnostics") {
-		return { type: "diagnostics", diagnostics: directoryState.diagnostics };
+	const state = await options.gateway.readDirectory(options.moduleRoot);
+	if (!state.ok) {
+		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(state.error)] };
 	}
-	return discoverExtensionPackage({ ...options, missingPackageJsonIsDiagnostic: true });
+	if (state.value.type === "missing") {
+		return {
+			type: "diagnostics",
+			diagnostics: [
+				{
+					code: "module_artifact_local_package_missing",
+					message: `Declared local extension package does not exist: ${options.moduleRoot}.`,
+					path: options.moduleRoot,
+				},
+			],
+		};
+	}
+	if (state.value.type !== "directory") {
+		return {
+			type: "diagnostics",
+			diagnostics: [
+				{
+					code: "module_artifact_local_package_not_directory",
+					message: `Declared local extension package must be a directory: ${options.moduleRoot}.`,
+					path: options.moduleRoot,
+				},
+			],
+		};
+	}
+	return discoverExtensionPackage({ ...options, shouldTreatMissingPackageJsonAsDiagnostic: true });
 }
 
 async function discoverExtensionPackage(options: {
 	moduleRoot: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
 	descriptorLoader: ExtensionDescriptorModuleLoader;
-	missingPackageJsonIsDiagnostic?: boolean;
+	shouldTreatMissingPackageJsonAsDiagnostic?: boolean;
 }): Promise<
 	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
 	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
@@ -305,7 +190,7 @@ async function discoverExtensionPackage(options: {
 		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(packageText.error)] };
 	}
 	if (packageText.value.type === "missing") {
-		if (options.missingPackageJsonIsDiagnostic === true) {
+		if (options.shouldTreatMissingPackageJsonAsDiagnostic === true) {
 			return {
 				type: "diagnostics",
 				diagnostics: [

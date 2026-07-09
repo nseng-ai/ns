@@ -14,7 +14,8 @@
 		"./project-config": "./src/project-config/index.ts",
 		"./project-config/points": "./src/project-config/points.ts",
 		"./runtime/module-loader": "./src/runtime/module-loader.ts",
-		"./sdk": "./src/sdk/index.ts"
+		"./sdk": "./src/sdk/index.ts",
+		"./testing": "./src/testing/index.ts"
 	},
 	"ns": {
 		"tier": "sdk",
@@ -23,7 +24,8 @@
 			"extensions",
 			"project-config",
 			"runtime",
-			"sdk"
+			"sdk",
+			"testing"
 		],
 		"publicPluginApi": [
 			"./sdk"
@@ -38,7 +40,8 @@
 			"./pi-text-generation",
 			"./progress-phase-state",
 			"./project-config/points",
-			"./runtime/module-loader"
+			"./runtime/module-loader",
+			"./testing"
 		]
 	},
 	"bin": {

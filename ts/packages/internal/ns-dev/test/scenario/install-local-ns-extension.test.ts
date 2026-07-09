@@ -311,8 +311,8 @@ describe("install-local-ns-extension", () => {
 
 function parsedWrittenToml(run: ScenarioRun, path = "/target/ns.toml"): Record<string, unknown> {
 	const file = run.fs.writtenFiles.find((entry) => entry.path === path);
-	expect(file).toBeDefined();
-	return parseToml(file!.content) as Record<string, unknown>;
+	if (file === undefined) throw new Error(`Expected written file at ${path}.`);
+	return parseToml(file.content) as Record<string, unknown>;
 }
 
 function extensionsFromWrittenToml(run: ScenarioRun, path = "/target/ns.toml"): readonly string[] {

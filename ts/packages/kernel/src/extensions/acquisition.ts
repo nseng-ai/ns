@@ -79,7 +79,7 @@ export interface ResolveDeclaredExtensionModulesResult {
 }
 
 export const MANAGED_EXTENSIONS_ROOT = ".ns/managed-extensions";
-export const MANAGED_NPM_PROJECT_RELATIVE_PATH = ".ns/managed-extensions/npm";
+export const MANAGED_NPM_PROJECT_RELATIVE_PATH = `${MANAGED_EXTENSIONS_ROOT}/npm`;
 
 export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway = {
 	async ensureManagedNpmProject(projectDir) {

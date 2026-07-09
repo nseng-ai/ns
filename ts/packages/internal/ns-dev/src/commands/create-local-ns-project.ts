@@ -9,6 +9,10 @@ import {
 	commandRefSchema,
 	commandSummarySchema,
 	guardFilesystemErrors,
+	installNsPublishPackage,
+	nsCliPackageRoot,
+	nsCliPublishPath,
+	packLocalNsPackage,
 	readVerifiedNsPackage,
 	resolvePath,
 	runTrackedCommand,
@@ -61,9 +65,9 @@ async function runCreateLocalNsProjectInner(
 	const parent = resolvePath(request.parent ?? "~/code/scratch/ns-integration-runs", context);
 	const projectName = request.name ?? `ns-local-project-${timestampForPath(context.clock.nowMs())}`;
 	const projectPath = join(parent, projectName);
-	const nsPackageRoot = join(nsWorktree, "ts", "packages", "hosts", "ns-cli");
+	const nsPackageRoot = nsCliPackageRoot(nsWorktree);
 	const sourcePackageJsonPath = join(nsPackageRoot, "package.json");
-	const publishPath = join(nsPackageRoot, "dist", "publish");
+	const publishPath = nsCliPublishPath(nsWorktree);
 	const publishPackageJsonPath = join(publishPath, "package.json");
 
 	const sourcePackageJson = await readVerifiedNsPackage(context.fs, sourcePackageJsonPath);
@@ -84,11 +88,7 @@ async function runCreateLocalNsProjectInner(
 	}
 
 	const commands: CommandSummary[] = [];
-	const pack = await runTrackedCommand(context, {
-		command: "pnpm",
-		args: ["--dir", join(nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"],
-		cwd: nsWorktree,
-	});
+	const pack = await packLocalNsPackage(context, nsWorktree);
 	if (pack.type === "failed") return trackedCommandFailureExit(pack);
 	commands.push(pack.summary);
 
@@ -117,7 +117,24 @@ async function runCreateLocalNsProjectInner(
 	for (const step of [
 		{ command: "git", args: ["init", "-b", "main", "."] },
 		{ command: "npm", args: ["init", "-y"] },
-		{ command: "npm", args: ["install", "--save-dev", publishPath] },
+	] as const) {
+		const result = await runTrackedCommand(context, {
+			command: step.command,
+			args: step.args,
+			cwd: projectPath,
+		});
+		if (result.type === "failed") return trackedCommandFailureExit(result);
+		commands.push(result.summary);
+	}
+
+	const installedNs = await installNsPublishPackage(context, {
+		nsWorktree,
+		targetPath: projectPath,
+	});
+	if (installedNs.type === "failed") return trackedCommandFailureExit(installedNs);
+	commands.push(installedNs.summary);
+
+	for (const step of [
 		{
 			command: "git",
 			args: ["add", ".gitignore", "README.md", "package.json", "package-lock.json"],

@@ -11,20 +11,20 @@ import type { SkillsCommandContext } from "./skills-shared.ts";
 
 const nsUpdateModeSchema = z.enum(["self", "extensions", "all"]);
 
-export const nsUpdateRequestSchema = z.object({
-	mode: nsUpdateModeSchema.default("self"),
+const nsUpdateSharedFieldsSchema = z.object({
 	dryRun: z.boolean().default(false),
 	force: z.boolean().default(false),
 	target: z.string().optional(),
 });
 
-export const nsUpdateCliRequestSchema = z.object({
+export const nsUpdateRequestSchema = nsUpdateSharedFieldsSchema.extend({
+	mode: nsUpdateModeSchema.default("self"),
+});
+
+export const nsUpdateCliRequestSchema = nsUpdateSharedFieldsSchema.extend({
 	extensions: z.boolean().default(false),
 	self: z.boolean().default(false),
 	all: z.boolean().default(false),
-	dryRun: z.boolean().default(false),
-	force: z.boolean().default(false),
-	target: z.string().optional(),
 });
 
 export const nsUpdateResultSchema = reconcileReportSchema;
@@ -52,6 +52,7 @@ export async function runNsUpdate(
 				target: request.target,
 			});
 		}
+		if (request.mode === "all") return allUpdateNotImplemented();
 		return selfUpdateNotImplemented();
 	}
 	const baseRequest = {
@@ -159,6 +160,14 @@ function selfUpdateNotImplemented<T>(): ClinkrExit<T> {
 	return failure(
 		"self-update-not-implemented",
 		"ns self-update is not implemented yet; run ns update --extensions to update extension artifacts.",
+		{ availableMode: "extensions" },
+	);
+}
+
+function allUpdateNotImplemented<T>(): ClinkrExit<T> {
+	return failure(
+		"all-update-not-implemented",
+		"ns update --all is not implemented yet because ns self-update is not implemented; run ns update --extensions to update extension artifacts.",
 		{ availableMode: "extensions" },
 	);
 }

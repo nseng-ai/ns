@@ -10,8 +10,10 @@ import {
 	commandSummarySchema,
 	formatUnknownError,
 	guardFilesystemErrors,
+	installNsPublishPackage,
 	newestTarball,
 	packagePathIsLocalPackage,
+	packLocalNsPackage,
 	readJsonObject,
 	resolvePath,
 	runTrackedCommand,
@@ -163,20 +165,11 @@ async function runInstallLocalNsExtensionInner(
 	const registerResult = await registerPackageExtension(context, targetPath, packageName);
 	if (registerResult.type === "error") return registerResult.exit;
 
-	const rebuiltNs = await runTrackedCommand(context, {
-		command: "pnpm",
-		args: ["--dir", join(nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"],
-		cwd: nsWorktree,
-	});
+	const rebuiltNs = await packLocalNsPackage(context, nsWorktree);
 	if (rebuiltNs.type === "failed") return trackedCommandFailureExit(rebuiltNs);
 	commands.push(rebuiltNs.summary);
 
-	const nsPublishPath = join(nsWorktree, "ts", "packages", "hosts", "ns-cli", "dist", "publish");
-	const reinstalledNs = await runTrackedCommand(context, {
-		command: "npm",
-		args: ["install", "--save-dev", nsPublishPath],
-		cwd: targetPath,
-	});
+	const reinstalledNs = await installNsPublishPackage(context, { nsWorktree, targetPath });
 	if (reinstalledNs.type === "failed") return trackedCommandFailureExit(reinstalledNs);
 	commands.push(reinstalledNs.summary);
 

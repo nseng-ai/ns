@@ -2,11 +2,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
-import type {
-	ExtensionAcquisitionDiagnostic,
-	ExtensionAcquisitionGateway,
-} from "@nseng-ai/kernel/extensions/acquisition";
+import type { ExtensionAcquisitionGateway } from "@nseng-ai/kernel/extensions/acquisition";
+import { FakeExtensionAcquisitionGateway } from "@nseng-ai/kernel/testing";
 import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
@@ -156,7 +153,7 @@ describe("harness artifact reconcile driver", () => {
 			"/repo/.ns/managed-extensions/npm/node_modules/@acme/module/skills/module/SKILL.md",
 			"npm v1\n",
 		);
-		const acquisitionGateway = new FakeAcquisitionGateway();
+		const acquisitionGateway = new FakeExtensionAcquisitionGateway();
 
 		const result = await runHarnessArtifactReconcile(
 			fixture.request({
@@ -168,7 +165,9 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(acquisitionGateway.installCalls).toEqual(["npm:@acme/module@1.0.0"]);
+		expect(acquisitionGateway.installs.map((install) => install.rawSpec)).toEqual([
+			"npm:@acme/module@1.0.0",
+		]);
 		expect(result.value.artifacts.map((artifact) => artifact.packageName)).toEqual([
 			"@acme/module",
 		]);
@@ -195,7 +194,7 @@ describe("harness artifact reconcile driver", () => {
 		});
 		fixture.fs.setFile("/repo/local-ext/package.json", packageJson("@acme/local"));
 		fixture.fs.setFile("/repo/local-ext/skills/module/SKILL.md", "local v1\n");
-		const acquisitionGateway = new FakeAcquisitionGateway();
+		const acquisitionGateway = new FakeExtensionAcquisitionGateway();
 		acquisitionGateway.failSpec = "npm:@acme/bad";
 
 		const result = await runHarnessArtifactReconcile(
@@ -332,41 +331,6 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 			);
 		},
 	};
-}
-
-class FakeAcquisitionGateway implements ExtensionAcquisitionGateway {
-	readonly installed = new Set<string>();
-	readonly installCalls: string[] = [];
-	failSpec: string | undefined;
-
-	async ensureManagedNpmProject(): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
-		return resultOk(undefined);
-	}
-
-	async isNpmPackageInstalled(
-		packageRoot: string,
-	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>> {
-		return resultOk(this.installed.has(packageRoot));
-	}
-
-	async installNpmPackage(request: {
-		projectDir: string;
-		rawSpec: string;
-		packageName: string;
-		version: string | undefined;
-		isPinned: boolean;
-	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
-		this.installCalls.push(request.rawSpec);
-		if (request.rawSpec === this.failSpec) {
-			return resultErr({
-				code: "extension_acquisition_npm_install_failed",
-				message: `failed ${request.rawSpec}`,
-				spec: request.rawSpec,
-			});
-		}
-		this.installed.add(`${request.projectDir}/node_modules/${request.packageName}`);
-		return resultOk(undefined);
-	}
 }
 
 function packageJson(name: string): string {
