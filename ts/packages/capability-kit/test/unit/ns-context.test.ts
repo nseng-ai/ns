@@ -20,11 +20,11 @@ describe("ns context adapters", () => {
 	});
 
 	test("maps ns confirm approval to confirmed", async () => {
-		const prompts: Array<{ title: string; message: string }> = [];
+		const prompts: Array<{ title: string; message: string; defaultAnswer: "yes" | "no" }> = [];
 		const interaction = createNsClinkrInteraction(
 			fakeApi({
-				confirm: async (title, message) => {
-					prompts.push({ title, message });
+				confirm: async (title, message, options) => {
+					prompts.push({ title, message, defaultAnswer: options?.defaultAnswer ?? "no" });
 					return true;
 				},
 			}),
@@ -35,7 +35,9 @@ describe("ns context adapters", () => {
 		await expect(
 			interaction.confirm({ message: "Continue?", defaultAnswer: "yes" }),
 		).resolves.toEqual({ type: "confirmed" });
-		expect(prompts).toEqual([{ title: "Deploy", message: "Formatted: Continue?" }]);
+		expect(prompts).toEqual([
+			{ title: "Deploy", message: "Formatted: Continue?", defaultAnswer: "yes" },
+		]);
 	});
 
 	test("maps ns confirm rejection to declined", async () => {

@@ -34,6 +34,9 @@ export function createNsClinkrInteraction(
 			const approved = await confirmPrompt(
 				options.title,
 				formatNsConfirmationMessage(options, request),
+				{
+					defaultAnswer: request.defaultAnswer,
+				},
 			);
 			return approved ? { type: "confirmed" } : { type: "declined" };
 		},
