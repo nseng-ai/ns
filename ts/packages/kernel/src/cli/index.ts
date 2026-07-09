@@ -68,16 +68,14 @@ import {
 	commandLeafName,
 	commandPathMatches,
 	commandSegments,
-	executeNsCommand,
 	extensionCommandFailedExit,
-	formatUnknownError,
 	listStaticNsCommandInfos,
 	validateCommandExit,
 	type NsCommandInfo,
 	type NsCommandCliInfo,
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
-import { isRawKernelCommand, isStructuredNsCommand } from "../extensions/registry.ts";
+import { parsedSpecForCommand } from "../sdk/command.ts";
 
 export type { NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
@@ -184,6 +182,10 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			selectedCommandKey === undefined
 				? undefined
 				: commandCatalog.candidates.get(selectedCommandKey);
+		const requestedGroup =
+			selectedCommandKey === undefined
+				? requestedGroupSegments(args, commandCatalog.commandInfos)
+				: undefined;
 		const diagnosticClassification = classifyExtensionDiagnosticsForInvocation({
 			diagnostics: commandCatalog.diagnostics,
 			requestedCommandName: selectedCommandKey,
@@ -201,7 +203,9 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			selectedCommandKey === undefined &&
 			!isStaticTopLevelMetadataRequest(args)
 		) {
-			const loadedListing = await loadListingCommandInfos(commandCatalog);
+			const loadedListing = await loadListingCommandInfos(commandCatalog, {
+				...optionalEntry("groupSegments", requestedGroup),
+			});
 			commandInfos = loadedListing.commandInfos;
 			listingDiagnostics = loadedListing.diagnostics;
 		}
@@ -234,20 +238,6 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				caps: io.caps,
 			}),
 		});
-		const { selectedCommand, selectedCommandPath } = selectedCommandResolution.resolution;
-		if (
-			selectedCommand !== undefined &&
-			selectedCommandPath !== undefined &&
-			isRawKernelCommand(selectedCommand)
-		) {
-			const exitCode = await executeRawSelectedCommand({
-				args,
-				context: contextWithIO,
-				command: selectedCommand,
-				path: selectedCommandPath,
-			});
-			return { type: "handled", exitCode };
-		}
 		return {
 			type: "run",
 			context: contextWithIO,
@@ -263,59 +253,88 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? buildState.selectedCommand
 					: undefined;
-			const selectedStructuredCommand =
-				selectedCommand === undefined || !isStructuredNsCommand(selectedCommand)
+			const command =
+				selectedCommand === undefined ||
+				buildState.selectedCommandPath === undefined ||
+				!commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? undefined
 					: selectedCommand;
-			const schema = selectedStructuredCommand?.schema ?? z.object({});
-			const commandOptions = {
-				name: cliLeafCommandName(commandInfo),
-				description: commandInfo.fullDescription,
-				summary: commandInfo.description,
-				schema,
-				...optionalEntries({ helpGroup: commandInfo.helpGroup }),
-				...(selectedStructuredCommand?.positionals === undefined
-					? {}
-					: { positionals: selectedStructuredCommand.positionals }),
-				...(selectedStructuredCommand?.options === undefined
-					? {}
-					: { options: selectedStructuredCommand.options }),
-				...(selectedStructuredCommand?.completionProvider === undefined
-					? {}
-					: {
-							completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
-								selectedStructuredCommand.completionProvider?.(ctx.context, request) ?? [],
-						}),
-			};
-			if (selectedStructuredCommand?.resultSchema !== undefined) {
+			const parsedCommandSpec = command === undefined ? undefined : parsedSpecForCommand(command);
+			if (command !== undefined && parsedCommandSpec !== undefined) {
 				parent.command({
-					...commandOptions,
-					resultSchema: selectedStructuredCommand.resultSchema,
-					...(selectedStructuredCommand.renderHuman === undefined
+					name: cliLeafCommandName(commandInfo),
+					description: commandInfo.fullDescription,
+					summary: commandInfo.description,
+					schema: parsedCommandSpec.schema,
+					...(parsedCommandSpec.resultSchema === undefined
 						? {}
-						: { renderHuman: selectedStructuredCommand.renderHuman }),
-					...(selectedStructuredCommand.renderMarkdown === undefined
+						: { resultSchema: parsedCommandSpec.resultSchema }),
+					...(parsedCommandSpec.positionals === undefined
 						? {}
-						: { renderMarkdown: selectedStructuredCommand.renderMarkdown }),
+						: { positionals: parsedCommandSpec.positionals }),
+					...(parsedCommandSpec.options === undefined
+						? {}
+						: { options: parsedCommandSpec.options }),
+					...(parsedCommandSpec.renderHuman === undefined
+						? {}
+						: { renderHuman: parsedCommandSpec.renderHuman }),
+					...(parsedCommandSpec.renderMarkdown === undefined
+						? {}
+						: { renderMarkdown: parsedCommandSpec.renderMarkdown }),
+					...(parsedCommandSpec.completionProvider === undefined
+						? {}
+						: {
+								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
+									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
+							}),
+					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
 					handler: async (ctx, request) => {
-						const result = await selectedStructuredCommand.run(ctx.context, request);
-						return validateCommandExit(result, selectedStructuredCommand.name);
+						try {
+							return validateCommandExit(
+								await parsedCommandSpec.run(ctx.context, request),
+								command.name,
+							);
+						} catch (error) {
+							return extensionCommandFailedExit(command.name, error);
+						}
 					},
 				});
 				continue;
 			}
 			parent.command(
 				rawCommand({
-					...commandOptions,
+					name: cliLeafCommandName(commandInfo),
+					description: commandInfo.fullDescription,
+					summary: commandInfo.description,
+					...(command === undefined
+						? { schema: placeholderSchema }
+						: {
+								schema: passthroughSchema,
+								positionals: { argv: { position: 0 } },
+								passThrough: true as const,
+							}),
+					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
+					...(command?.complete === undefined
+						? {}
+						: {
+								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
+									command.complete?.(ctx.context, request) ?? [],
+							}),
 					run: async (ctx, request) => {
-						const result =
-							selectedStructuredCommand === undefined
-								? failure(
-										"unknown-command",
-										`Unknown ns command: ${commandDisplayName(commandInfo)}`,
-										{ command: commandDisplayName(commandInfo) },
-									)
-								: await executeNsCommand(ctx.context, selectedStructuredCommand, request);
+						if (command === undefined) {
+							const result = failure(
+								"unknown-command",
+								`Unknown ns command: ${commandDisplayName(commandInfo)}`,
+								{ command: commandDisplayName(commandInfo) },
+							);
+							return emitExit(result, { format: ctx.context.outputFormat ?? "human", io: ctx });
+						}
+						const result = await runPassthroughCommand(
+							ctx,
+							command,
+							passthroughSchema.parse(request).argv,
+							commandInfo,
+						);
 						return emitExit(result, { format: ctx.context.outputFormat ?? "human", io: ctx });
 					},
 				}),
@@ -394,9 +413,7 @@ async function handleCompletionResolverInvocation(options: {
 		{ words },
 		{
 			context,
-			onDynamicCompletionError: (error) => {
-				options.stderr(`completion provider failed: ${formatUnknownError(error)}\n`);
-			},
+			onDynamicCompletionError: () => {},
 		},
 	);
 	options.stdout(renderCompletionCandidatesNewline(candidates));
@@ -508,7 +525,7 @@ function requestedCommandKey(
 	args: readonly string[],
 	commandInfos: readonly NsCommandCliInfo[],
 ): string | undefined {
-	const commandArgs = args.filter((arg) => !arg.startsWith("-"));
+	const commandArgs = commandPathArgs(args);
 	if (commandArgs.length === 0) return undefined;
 
 	const candidates = commandInfos
@@ -522,6 +539,27 @@ function requestedCommandKey(
 	if (selected === undefined) return commandArgs[0];
 	if (commandArgs.length < selected.displaySegments.length) return undefined;
 	return commandKey(selected.commandInfo);
+}
+
+const passthroughSchema = z.object({ argv: z.array(z.string()).default([]) });
+const placeholderSchema = z.object({});
+
+function requestedGroupSegments(
+	args: readonly string[],
+	commandInfos: readonly NsCommandCliInfo[],
+): readonly string[] | undefined {
+	const commandArgs = commandPathArgs(args);
+	if (commandArgs.length === 0) return undefined;
+	const hasGroup = commandInfos.some((commandInfo) => {
+		const segments = displaySegmentsForCommand(commandInfo);
+		return commandArgs.length < segments.length && pathPrefixMatches(commandArgs, segments);
+	});
+	return hasGroup ? commandArgs : undefined;
+}
+
+function commandPathArgs(args: readonly string[]): readonly string[] {
+	const firstOptionIndex = args.findIndex((arg) => arg.startsWith("-"));
+	return firstOptionIndex === -1 ? args : args.slice(0, firstOptionIndex);
 }
 
 const NS_EXEC_GROUP_NAME = "exec";
@@ -585,7 +623,8 @@ function displaySegmentsForCommand(commandInfo: NsCommandPath): readonly string[
 }
 
 function pathPrefixMatches(args: readonly string[], path: readonly string[]): boolean {
-	return path.every((segment, index) => args[index] === segment);
+	const length = Math.min(args.length, path.length);
+	return args.slice(0, length).every((segment, index) => path[index] === segment);
 }
 
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
@@ -688,33 +727,21 @@ function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
 	return args.includes("--version") || args.includes("--runtime");
 }
 
-async function executeRawSelectedCommand(options: {
-	args: readonly string[];
-	context: NsCliContext;
-	command: DescriptorCommand;
-	path: NsCommandPath;
-}): Promise<number> {
-	const emit = (exit: CommandExit) =>
-		emitExit(exit, { format: clinkrFormatFromArgs(options.args), io: options.context });
-	if (!isRawKernelCommand(options.command)) {
-		return emit(
-			failure("invalid-command-shape", `Command ${options.command.name} is not a raw command.`, {
-				command: options.command.name,
-			}),
-		);
-	}
+async function runPassthroughCommand(
+	ctx: NsCliContext,
+	command: DescriptorCommand,
+	argv: readonly string[],
+	path: NsCommandPath,
+): Promise<CommandExit> {
 	try {
-		const result = await options.command.run(options.context.context, {
-			argv: rawArgvTail(options.args, options.path),
+		const result = await command.run(ctx.context, {
+			argv,
+			commandPath: displaySegmentsForCommand(path),
 		});
-		return emit(validateCommandExit(result, options.command.name));
+		return validateCommandExit(result, command.name);
 	} catch (error) {
-		return emit(extensionCommandFailedExit(options.command.name, error));
+		return extensionCommandFailedExit(command.name, error);
 	}
-}
-
-function rawArgvTail(args: readonly string[], path: NsCommandPath): readonly string[] {
-	return args.slice(displaySegmentsForCommand(path).length);
 }
 
 export const VERSION = entry.version;

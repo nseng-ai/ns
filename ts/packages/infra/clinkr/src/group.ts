@@ -75,6 +75,8 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	helpGroup?: string;
 	schema: S;
 	isRawExit: true;
+	/** Pass all tokens through to the raw handler, including framework-looking options. */
+	passThrough?: true;
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
@@ -137,6 +139,7 @@ interface RegisteredCommand<TContext> {
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
 	plan: SurfacePlan;
 	completionProvider: ClinkrDynamicCompletionProvider<TContext> | undefined;
+	passThrough: boolean;
 }
 
 interface RenderedExecution<TContext> {
@@ -229,6 +232,7 @@ export class ClinkrGroup<TContext> {
 			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
+			passThrough: spec.isRawExit === true && spec.passThrough === true,
 		});
 		return this;
 	}
@@ -253,6 +257,7 @@ export class ClinkrGroup<TContext> {
 			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
+			passThrough: spec.isRawExit === true && spec.passThrough === true,
 		};
 		return this;
 	}
@@ -411,6 +416,7 @@ function completionCommandPlan<TContext>(
 		...(registered.completionProvider === undefined
 			? {}
 			: { completionProvider: registered.completionProvider }),
+		...(registered.passThrough ? { passThrough: true } : {}),
 	};
 }
 
@@ -482,6 +488,10 @@ function configureCommandExecution<TContext>(
 	options: ConfigureCommandExecutionOptions<TContext>,
 ): void {
 	const { command, registered, context, io, state } = options;
+	if (registered.passThrough) {
+		command.helpOption(false);
+		command.allowUnknownOption(true);
+	}
 	for (const positional of registered.plan.positionals) {
 		command.addArgument(buildCommanderArgument(positional));
 	}
@@ -495,16 +505,21 @@ function configureCommandExecution<TContext>(
 	for (const optionPlan of registered.plan.options) {
 		command.addOption(buildCommanderOption(optionPlan));
 	}
-	if (registered.execution.type === "rendered") {
+	if (!registered.passThrough && registered.execution.type === "rendered") {
 		command.addOption(
 			new Option("--format <format>", "Output format.")
 				.choices(["human", "json", "markdown", "md"])
 				.default("human"),
 		);
 	}
-	command.addOption(
-		new Option("--json-schema", "Print the JSON Schema for this command's input/output and exit."),
-	);
+	if (!registered.passThrough) {
+		command.addOption(
+			new Option(
+				"--json-schema",
+				"Print the JSON Schema for this command's input/output and exit.",
+			),
+		);
+	}
 	command.action(async (...actionArgs: unknown[]) => {
 		const opts = command.opts<Record<string, unknown>>();
 		// Eager like --help: schema printing happens before required-argument

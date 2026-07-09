@@ -1,6 +1,11 @@
 // Public author API for ns extensions.
 // Keep ts/packages/kernel/docs/sdk-reference.md in sync when changing these exports.
-export { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
+export {
+	defineCommand,
+	defineExtension,
+	defineParsedCommand,
+	defineRawCommand,
+} from "./command.ts";
 export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionResult,
@@ -9,7 +14,12 @@ export type {
 	PositionalSpec,
 	RenderCapabilities,
 	DefineCommandSpec,
+	ParsedKernelCommandSpec,
 	KernelCommand,
+	KernelCommandCompletionCandidate,
+	KernelCommandCompletionProvider,
+	KernelCommandCompletionRequest,
+	KernelCommandCompletionResult,
 	KernelCommandInvocation,
 	KernelCommandSpec,
 	NsCommand,
@@ -17,6 +27,7 @@ export type {
 	NsCommandRequest,
 	NsCommandSchema,
 	NsExtension,
+	OptionSpec,
 } from "./command.ts";
 export type {
 	ExecResult,

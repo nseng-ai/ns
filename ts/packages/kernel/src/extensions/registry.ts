@@ -40,13 +40,12 @@ import {
 	type ExtensionDescriptor,
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
-import { isDefinedRawCommand } from "../sdk/command.ts";
 import {
 	descriptorExportTarget,
 	parseDeclaredExtensionSpecsToml,
 	resolveDescriptorExportPath,
 } from "../project-config/descriptor-package.ts";
-import type { DescriptorCommand, KernelCommand, NsCommand } from "../sdk/index.ts";
+import type { DescriptorCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;
 export type ExtensionSourceInfo = NsCommandSourceInfo;
@@ -246,7 +245,10 @@ export async function loadSelectedNsCommand(
 	return { ok: true, command: validation.command, source: candidate.source, path: candidate };
 }
 
-export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promise<{
+export async function loadListingCommandInfos(
+	catalog: NsCommandCatalog,
+	options: { groupSegments?: readonly string[] } = {},
+): Promise<{
 	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionErrorDiagnostic[];
 }> {
@@ -255,6 +257,10 @@ export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promis
 		diagnostic: ExtensionErrorDiagnostic | undefined;
 	}> = [];
 	for (const candidate of catalog.candidates.values()) {
+		if (!shouldLoadListingCandidate(candidate, options.groupSegments)) {
+			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: undefined });
+			continue;
+		}
 		if (isBuiltInCandidate(candidate)) {
 			loadedInfos.push({ commandInfo: toCommandCliInfo(candidate), diagnostic: undefined });
 			continue;
@@ -279,6 +285,16 @@ export async function loadListingCommandInfos(catalog: NsCommandCatalog): Promis
 			loaded.diagnostic === undefined ? [] : [loaded.diagnostic],
 		),
 	};
+}
+
+function shouldLoadListingCandidate(
+	candidate: ExtensionCommandCandidate,
+	groupSegments: readonly string[] | undefined,
+): boolean {
+	if (groupSegments === undefined) return true;
+	const segments = commandSegments(candidate);
+	if (segments.length <= groupSegments.length) return false;
+	return groupSegments.every((segment, index) => segments[index] === segment);
 }
 
 export function commandInfosForSelectedCommand(
@@ -988,14 +1004,6 @@ function validateDescriptorCommandContribution(
 	);
 	if (!validation.ok) return validation;
 	return { ok: true, command: validation.command };
-}
-
-export function isRawKernelCommand(command: DescriptorCommand): command is KernelCommand {
-	return isDefinedRawCommand(command);
-}
-
-export function isStructuredNsCommand(command: DescriptorCommand): command is NsCommand {
-	return !isRawKernelCommand(command);
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

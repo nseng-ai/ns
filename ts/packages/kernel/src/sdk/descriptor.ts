@@ -1,9 +1,9 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { KernelCommand, NsCommand } from "./command.ts";
+import type { KernelCommand } from "./command.ts";
 
-export type DescriptorCommand = KernelCommand | NsCommand;
+export type DescriptorCommand = KernelCommand;
 
 export interface KernelCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly default: TCommand;

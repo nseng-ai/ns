@@ -38,9 +38,7 @@ describe("slot ns extension context", () => {
 		);
 		expect(command).toBeDefined();
 		if (command === undefined) throw new Error("missing list command");
-		if (command.schema === undefined) throw new Error("missing list command schema");
-
-		await command.run(extensionApi({ renderCapabilities }), command.schema.parse({}));
+		await command.run(extensionApi({ renderCapabilities }), { argv: [] });
 
 		expect(createRealSlotContext).toHaveBeenCalledWith(
 			expect.objectContaining({

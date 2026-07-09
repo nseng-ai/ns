@@ -1,5 +1,5 @@
 import { runAutoslotCli } from "../../autoslot/autoslot.ts";
-import { defineExtension, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineCommand, defineExtension, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -11,14 +11,15 @@ const autoslotSchema = z.object({
 		.describe("Branch slug to use instead of deriving one from the worktree or latest commit."),
 });
 
-export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = {
+export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineCommand({
 	name: "autoslot",
 	summary: "Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	description:
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
+	resultSchema: z.string(),
 	options: { slug: { short: "-s" } },
-	run: async (ctx, request) => {
+	handler: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
 		// edge so autoslot durable outcomes render in the house style next to where facts are computed.
 		const caps = resolveFlowStreamCaps(ctx);
@@ -39,7 +40,7 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = {
 				}),
 		});
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowAutoslotCommand],

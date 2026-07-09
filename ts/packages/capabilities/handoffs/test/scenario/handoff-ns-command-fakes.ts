@@ -1,5 +1,5 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@nseng-ai/brmem";
-import { usageError, type ClinkrExit, type ClinkrInteraction } from "@nseng-ai/clinkr";
+import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {
@@ -83,21 +83,45 @@ export async function runHandoffCommand<S extends NsCommandSchema, T>(
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
-	if (command.schema === undefined) {
-		throw new Error(`Command ${command.name} does not declare a request schema.`);
-	}
-	const parsed = command.schema.safeParse(request);
-	if (!parsed.success) {
-		return usageError("Invalid handoff command request.", { issues: parsed.error.issues });
-	}
-	const exit = await command.run(options.api ?? createFakeHandoffNsApi(), parsed.data);
+	const exit = await command.run(options.api ?? createFakeHandoffNsApi(), {
+		argv: requestObjectToArgv(command.name, request),
+	});
 	if (!isClinkrExit<T>(exit)) {
 		throw new Error(
 			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
 		);
 	}
-	if (exit.type === "ok") command.resultSchema?.parse(exit.data);
 	return exit;
+}
+
+function requestObjectToArgv(commandName: string, request: unknown): readonly string[] {
+	if (typeof request !== "object" || request === null || Array.isArray(request)) return [];
+	const entries = Object.entries(request);
+	const positionals = entries.flatMap(([key, value]) =>
+		positionalRequestEntryToArgv(commandName, key, value),
+	);
+	const options = entries.flatMap(([key, value]) => requestEntryToArgv(commandName, key, value));
+	return [...positionals, ...options];
+}
+
+function positionalRequestEntryToArgv(
+	commandName: string,
+	key: string,
+	value: unknown,
+): readonly string[] {
+	if (!["delete", "pickup"].includes(commandName) || key !== "slug" || value === undefined) {
+		return [];
+	}
+	return [String(value)];
+}
+
+function requestEntryToArgv(commandName: string, key: string, value: unknown): readonly string[] {
+	if (["delete", "pickup"].includes(commandName) && key === "slug") return [];
+	const flag = `--${key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`;
+	if (value === true) return [flag];
+	if (value === false || value === undefined) return [];
+	if (Array.isArray(value)) return value.flatMap((entry) => [flag, String(entry)]);
+	return [flag, String(value)];
 }
 
 export async function putHandoffEntry(

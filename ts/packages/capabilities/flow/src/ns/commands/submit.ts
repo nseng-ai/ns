@@ -34,6 +34,7 @@ import {
 } from "../../submit/submit-hooks.ts";
 import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
+	defineCommand,
 	defineExtension,
 	failure,
 	negative,
@@ -90,17 +91,18 @@ The command owns its output and exit code. It does not support --format.`;
 
 type SubmitRequest = z.output<typeof submitSchema>;
 
-export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
+export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 	name: "submit",
 	summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
 	description: SUBMIT_COMMAND_DESCRIPTION,
 	schema: submitSchema,
+	resultSchema: z.string(),
 	options: {
 		restack: { short: "-R" },
 		force: { short: "-f" },
 		verbose: { short: "-v" },
 	},
-	async run(ctx: NsExtensionApi, request: SubmitRequest) {
+	handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
 		const runtime = createNsSubmitRuntime(ctx);
 		const repoRoot = request.hooks
 			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
@@ -212,7 +214,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 			},
 		});
 	},
-};
+});
 
 export default defineExtension({
 	commands: [flowSubmitCommand],

@@ -29,34 +29,37 @@ const extension = defineExtension({
 			name: "first",
 			summary: "First.",
 			description: "First command.",
-			run() {
-				return ok("first");
+			run(_ctx, invocation) {
+				return ok(invocation.argv.join(" ") || "first");
 			},
 		},
-		{
+		defineCommand({
 			name: "second",
 			summary: "Second.",
 			description: "Second command.",
 			schema: z.object({ second: z.string() }),
-			run(_ctx, request) {
+			resultSchema: z.string(),
+			handler(_ctx, request) {
 				return ok(request.second);
 			},
-		},
-		{
+		}),
+		defineCommand({
 			name: "third",
 			summary: "Third.",
 			description: "Third command.",
 			schema: z.object({ third: z.number() }),
-			run(_ctx, request) {
+			resultSchema: z.string(),
+			handler(_ctx, request) {
 				return ok(String(request.third));
 			},
-		},
-		{
+		}),
+		defineCommand({
 			name: "fourth",
 			summary: "Fourth.",
 			description: "Fourth command.",
 			schema: z.object({ fourth: z.boolean() }),
-			run(_ctx, request) {
+			resultSchema: z.string(),
+			handler(_ctx, request) {
 				type Request = typeof request;
 				const checks: [
 					Assert<IsAny<Request> extends false ? true : false>,
@@ -67,13 +70,14 @@ const extension = defineExtension({
 				void request.missing;
 				return ok(request.fourth ? "yes" : "no");
 			},
-		},
-		{
+		}),
+		defineCommand({
 			name: "fifth",
 			summary: "Fifth.",
 			description: "Fifth command.",
 			schema: z.object({ fifth: z.string() }),
-			run(_ctx, request) {
+			resultSchema: z.string(),
+			handler(_ctx, request) {
 				type Request = typeof request;
 				const checks: [
 					Assert<IsAny<Request> extends false ? true : false>,
@@ -84,7 +88,7 @@ const extension = defineExtension({
 				void request.missing;
 				return ok(request.fifth);
 			},
-		},
+		}),
 	],
 });
 

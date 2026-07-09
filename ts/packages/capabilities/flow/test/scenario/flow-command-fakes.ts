@@ -11,7 +11,6 @@ import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
-import { usageError } from "@nseng-ai/kernel/sdk";
 
 import {
 	ScriptedNsTestContext,
@@ -466,21 +465,26 @@ async function runFlowCommand(input: {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 }): Promise<{ exitCode: number; result: CommandExit }> {
-	const parsedRequest = input.command.schema?.safeParse(input.request) ?? {
-		success: true,
-		data: {},
-	};
-	if (!parsedRequest.success) {
-		const issue = parsedRequest.error.issues[0]?.message ?? "request did not match command schema";
-		const result = usageError(`Invalid request for command ${input.command.name}: ${issue}`, {
-			command: input.command.name,
-		});
-		writeCommandExitOutput(result, input);
-		return { exitCode: 2, result };
-	}
-	const result = await input.command.run(input.context, parsedRequest.data);
+	const result = await input.command.run(input.context, {
+		argv: requestObjectToArgv(input.request),
+	});
 	writeCommandExitOutput(result, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
+}
+
+function requestObjectToArgv(request: unknown): readonly string[] {
+	if (typeof request !== "object" || request === null || Array.isArray(request)) return [];
+	return Object.entries(request).flatMap(([key, value]) => requestEntryToArgv(key, value));
+}
+
+function requestEntryToArgv(key: string, value: unknown): readonly string[] {
+	const kebab = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+	const flag = `--${kebab}`;
+	if (value === true) return [flag];
+	if (value === false) return key === "restack" ? [`--no-${kebab}`] : [];
+	if (value === undefined) return [];
+	if (Array.isArray(value)) return value.flatMap((entry) => [flag, String(entry)]);
+	return [flag, String(value)];
 }
 
 function exitCodeForCommandExit(result: CommandExit): number {

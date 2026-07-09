@@ -2,13 +2,13 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
+	defineParsedCommand,
 	failure,
-	usageError,
 	type CommandExit,
 	type DescriptorCommand,
-	type NsCommand,
-	type NsCommandSchema,
-	type NsExtensionApi,
+	type OptionSpec,
+	type PositionalSpec,
+	type RenderCapabilities,
 } from "../sdk/index.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
@@ -47,11 +47,11 @@ export interface NsCommandCandidate extends NsCommandCliInfo {
 
 export interface BuiltInNsCommandCandidate extends NsCommandCandidate {
 	source: NsCommandSourceInfo & { level: "built-in" };
-	command: NsCommand;
+	command: DescriptorCommand;
 }
 
 export interface BuiltInCommandDefinition extends Partial<NsCommandPath> {
-	command: NsCommand;
+	command: DescriptorCommand;
 }
 
 export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {
@@ -71,26 +71,32 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 
 const nsCommandSchema = z
 	.object({
-		kind: z.literal("raw").optional(),
 		name: z.string(),
 		summary: z.string(),
 		description: z.string(),
-		schema: z.custom<NsCommandSchema>(isZodObjectSchema).optional(),
-		positionals: z.custom<NsCommand["positionals"]>(isRecord).optional(),
-		options: z.custom<NsCommand["options"]>(isRecord).optional(),
-		resultSchema: z.custom<NsCommand["resultSchema"]>(isZodSchema).optional(),
-		renderHuman: z
-			.custom<NsCommand["renderHuman"]>((value) => typeof value === "function")
+		run: z.custom<DescriptorCommand["run"]>((value) => typeof value === "function"),
+		complete: z
+			.custom<DescriptorCommand["complete"]>((value) => typeof value === "function")
 			.optional(),
-		renderMarkdown: z
-			.custom<NsCommand["renderMarkdown"]>((value) => typeof value === "function")
-			.optional(),
-		completionProvider: z
-			.custom<NsCommand["completionProvider"]>((value) => typeof value === "function")
-			.optional(),
-		run: z.custom<NsCommand["run"]>((value) => typeof value === "function"),
 	})
 	.passthrough();
+
+interface ParsedDescriptorCommandContribution {
+	readonly name: string;
+	readonly summary: string;
+	readonly description: string;
+	readonly schema: z.ZodObject;
+	readonly resultSchema?: z.ZodType;
+	readonly positionals?: Partial<Record<string, PositionalSpec>>;
+	readonly options?: Partial<Record<string, OptionSpec>>;
+	readonly renderHuman?: (data: unknown, caps: RenderCapabilities) => string;
+	readonly renderMarkdown?: (data: unknown, caps: RenderCapabilities) => string;
+	readonly completionProvider?: DescriptorCommand["complete"];
+	run(
+		ctx: Parameters<DescriptorCommand["run"]>[0],
+		request: unknown,
+	): ReturnType<DescriptorCommand["run"]>;
+}
 
 const nsExtensionSchema = z.object({
 	commands: z.array(nsCommandSchema).optional().default([]),
@@ -204,29 +210,10 @@ export function validateNsExtensionContribution(
 			message: `Invalid ${contributionLabel} ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
 		};
 	}
+	const parsedCommand = adaptParsedDescriptorCommand(command, contributionLabel, sourceLabel);
+	if (!parsedCommand.ok) return parsedCommand;
 
-	return { ok: true, command };
-}
-
-export async function executeNsCommand(
-	ctx: NsExtensionApi,
-	command: NsCommand,
-	request: unknown,
-): Promise<CommandExit> {
-	const parsedRequest = (command.schema ?? z.object({})).safeParse(request);
-	if (!parsedRequest.success) {
-		return usageError(
-			`Invalid request for command ${command.name}: ${parsedRequest.error.issues[0]?.message ?? "request did not match command schema"}`,
-			{ command: command.name },
-		);
-	}
-
-	try {
-		const result = await command.run(ctx, parsedRequest.data);
-		return validateCommandExit(result, command.name);
-	} catch (error) {
-		return extensionCommandFailedExit(command.name, error);
-	}
+	return { ok: true, command: parsedCommand.command };
 }
 
 export function extensionCommandFailedExit(
@@ -260,16 +247,110 @@ function findCommandEntry(
 	return extension.commands.find((command) => command.name === expectedName);
 }
 
+function adaptParsedDescriptorCommand(
+	command: DescriptorCommand,
+	contributionLabel: string,
+	sourceLabel: string,
+): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
+	if (!isRecord(command) || !("schema" in command)) return { ok: true, command };
+	const parsed = parseParsedDescriptorCommand(command);
+	if (!parsed.ok) {
+		return {
+			ok: false,
+			message: `Invalid ${contributionLabel} ${sourceLabel}: ${parsed.message}`,
+		};
+	}
+	return {
+		ok: true,
+		command: defineParsedCommand({
+			name: parsed.command.name,
+			summary: parsed.command.summary,
+			description: parsed.command.description,
+			schema: parsed.command.schema,
+			...(parsed.command.resultSchema === undefined
+				? {}
+				: { resultSchema: parsed.command.resultSchema }),
+			...(parsed.command.positionals === undefined
+				? {}
+				: { positionals: parsed.command.positionals }),
+			...(parsed.command.options === undefined ? {} : { options: parsed.command.options }),
+			...(parsed.command.renderHuman === undefined
+				? {}
+				: { renderHuman: parsed.command.renderHuman }),
+			...(parsed.command.renderMarkdown === undefined
+				? {}
+				: { renderMarkdown: parsed.command.renderMarkdown }),
+			...(parsed.command.completionProvider === undefined
+				? {}
+				: { completionProvider: parsed.command.completionProvider }),
+			run: parsed.command.run,
+		}),
+	};
+}
+
+function parseParsedDescriptorCommand(
+	command: DescriptorCommand,
+): { ok: true; command: ParsedDescriptorCommandContribution } | { ok: false; message: string } {
+	if (!isRecord(command)) return { ok: false, message: "command must be an object." };
+	if (!(command.schema instanceof z.ZodObject)) {
+		return {
+			ok: false,
+			message: "command schema must be a Zod object schema from @nseng-ai/kernel/sdk.",
+		};
+	}
+	return {
+		ok: true,
+		command: {
+			name: command.name,
+			summary: command.summary,
+			description: command.description,
+			schema: command.schema,
+			...(command.resultSchema instanceof z.ZodType ? { resultSchema: command.resultSchema } : {}),
+			...(isPositionals(command.positionals) ? { positionals: command.positionals } : {}),
+			...(isOptions(command.options) ? { options: command.options } : {}),
+			...(isRenderFunction(command.renderHuman) ? { renderHuman: command.renderHuman } : {}),
+			...(isRenderFunction(command.renderMarkdown)
+				? { renderMarkdown: command.renderMarkdown }
+				: {}),
+			...(isCompletionProvider(command.completionProvider)
+				? { completionProvider: command.completionProvider }
+				: {}),
+			run: command.run as ParsedDescriptorCommandContribution["run"],
+		},
+	};
+}
+
+function isCompletionProvider(value: unknown): value is DescriptorCommand["complete"] {
+	return typeof value === "function";
+}
+
+function isRenderFunction(
+	value: unknown,
+): value is (data: unknown, caps: RenderCapabilities) => string {
+	return typeof value === "function";
+}
+
+function isPositionals(value: unknown): value is Partial<Record<string, PositionalSpec>> {
+	if (!isRecord(value)) return false;
+	return Object.values(value).every(
+		(entry) => isRecord(entry) && typeof entry.position === "number",
+	);
+}
+
+function isOptions(value: unknown): value is Partial<Record<string, OptionSpec>> {
+	if (!isRecord(value)) return false;
+	return Object.values(value).every(
+		(entry) =>
+			isRecord(entry) &&
+			(!("short" in entry) || entry.short === undefined || typeof entry.short === "string"),
+	);
+}
+
 const nsExtensionCommandEntryIssueFields = [
 	{ field: "name", message: "command name must be a string" },
 	{ field: "summary", message: "command summary must be a string" },
 	{ field: "description", message: "command description must be a string" },
-	{
-		field: "schema",
-		message: "command schema must be a Zod object schema from @nseng-ai/kernel/sdk",
-	},
-	{ field: "options", message: "command options must be an object" },
-	{ field: "completionProvider", message: "command completionProvider must be a function" },
+	{ field: "complete", message: "command complete must be a function" },
 	{ field: "run", message: "command run must be a function" },
 ] as const satisfies readonly { field: string; message: string }[];
 
@@ -312,20 +393,6 @@ function formatNsCommandEntryIssueKind(
 	const entry = nsExtensionCommandEntryIssueFields.find((field) => field.field === kind);
 	if (entry !== undefined) return entry.message;
 	return "command entry must include name, summary, description, and run";
-}
-
-function isZodObjectSchema(value: unknown): value is NsCommandSchema {
-	if (value instanceof z.ZodObject) return true;
-	if (!isRecord(value)) return false;
-	const candidate = value as { safeParse?: unknown; _zod?: { def?: { type?: unknown } } };
-	return typeof candidate.safeParse === "function" && candidate._zod?.def?.type === "object";
-}
-
-function isZodSchema(value: unknown): value is z.ZodType {
-	if (value instanceof z.ZodType) return true;
-	if (!isRecord(value)) return false;
-	const candidate = value as { safeParse?: unknown; _zod?: { def?: unknown } };
-	return typeof candidate.safeParse === "function" && candidate._zod?.def !== undefined;
 }
 
 function isCommandExit(value: unknown): value is CommandExit {

@@ -120,7 +120,7 @@ describe("extension descriptor SDK", () => {
 			handler: async (_ctx, request) => ok({ greeting: `hello ${request.name}` }),
 		});
 
-		await expect(command.run(noopApi, { name: "ns" })).resolves.toEqual({
+		await expect(command.run(noopApi, { argv: ["ns"] })).resolves.toEqual({
 			type: "ok",
 			data: { greeting: "hello ns" },
 		});

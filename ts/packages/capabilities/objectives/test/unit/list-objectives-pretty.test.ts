@@ -2,7 +2,6 @@ import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
-import { objectiveListNsCommand } from "../../src/ns/commands/list.ts";
 import {
 	relativeTime,
 	renderObjectiveListPretty,
@@ -130,20 +129,20 @@ describe("renderObjectiveListPretty layout", () => {
 		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
 		Object.defineProperty(process.stdout, "columns", { value: 36, configurable: true });
 		try {
-			const out =
-				objectiveListNsCommand.renderHuman?.(
-					result({
-						records: [
-							{
-								slug: "slug-that-fits-default-width",
-								status: "open",
-								latestUpdateIso: null,
-								hasOutstandingChanges: false,
-							},
-						],
-					}),
-					{ canEmitAnsi: false },
-				) ?? "";
+			const out = renderObjectiveListPretty(
+				result({
+					records: [
+						{
+							slug: "slug-that-fits-default-width",
+							status: "open",
+							latestUpdateIso: null,
+							hasOutstandingChanges: false,
+						},
+					],
+				}),
+				caps({ colorDepth: "none" }),
+				NOW,
+			);
 
 			expect(out).toContain("slug-that-fits-default-width");
 			expect(out).not.toContain("…");

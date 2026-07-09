@@ -1,4 +1,4 @@
-import { ok, negative } from "@nseng-ai/clinkr";
+import { negative, ok } from "@nseng-ai/clinkr";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ import {
 	type PointCatalogInstallation,
 	type ProjectConfigDiagnostic,
 } from "../project-config/points.ts";
-import type { NsCommand } from "../sdk/index.ts";
+import { defineCommand, type NsCommand } from "../sdk/index.ts";
 
 const knownPromptEnvOverride = {
 	pointId: "flow.submit.pr-description",
@@ -79,27 +79,27 @@ const extensionPointResultSchema = z.union([
 export const extensionPointsCommand: NsCommand<
 	typeof extensionPointsRequestSchema,
 	z.infer<typeof extensionPointsResultSchema>
-> = {
+> = defineCommand({
 	name: "points",
 	summary: "List defined ns points and their active sources.",
 	description: "List defined ns points and their active sources.",
 	schema: extensionPointsRequestSchema,
 	resultSchema: extensionPointsResultSchema,
-	run: async (ctx) => ok(toPointsResult(await loadCatalog(ctx.cwd, ctx.env))),
-	renderHuman: (data) => renderPointsHuman(extensionPointsResultSchema.parse(data)),
-};
+	handler: async (ctx) => ok(toPointsResult(await loadCatalog(ctx.cwd, ctx.env))),
+	renderHuman: renderPointsHuman,
+});
 
 export const extensionPointCommand: NsCommand<
 	typeof extensionPointDetailRequestSchema,
 	z.infer<typeof extensionPointResultSchema>
-> = {
+> = defineCommand({
 	name: "point",
 	summary: "Show one ns point definition and its active source.",
 	description: "Show one ns point definition and its active source.",
 	schema: extensionPointDetailRequestSchema,
 	positionals: { id: { position: 0 } },
 	resultSchema: extensionPointResultSchema,
-	run: async (ctx, request) => {
+	handler: async (ctx, request) => {
 		const catalog = await loadCatalog(ctx.cwd, ctx.env);
 		const entry = catalog.entries.find((candidate) => candidate.definition.id === request.id);
 		if (entry === undefined) {
@@ -113,7 +113,7 @@ export const extensionPointCommand: NsCommand<
 		return ok(toPointDetailResult(catalog, entry));
 	},
 	renderHuman: (data) => renderPointDetailHuman(extensionPointDetailResultSchema.parse(data)),
-};
+});
 
 async function loadCatalog(
 	cwd: string,

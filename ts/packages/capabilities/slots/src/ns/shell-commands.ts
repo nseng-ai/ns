@@ -9,7 +9,7 @@ import {
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
 } from "@nseng-ai/capability-kit/shell-support";
-import type { NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { z } from "zod";
 
 import { shellInstallOptionSpecs, shellShowOptionSpecs } from "../core/command-options.ts";
@@ -100,7 +100,7 @@ function renderNsShellInstall(result: unknown): string {
 
 export function buildNsShellCommands(): NsCommand[] {
 	return [
-		{
+		defineCommand({
 			name: "show",
 			summary: "Print the parent-shell wrapper script.",
 			description: "Print the parent-shell wrapper script.",
@@ -108,9 +108,9 @@ export function buildNsShellCommands(): NsCommand[] {
 			options: shellShowOptionSpecs,
 			resultSchema: nsShellShowResultSchema,
 			renderHuman: renderNsShellShow,
-			run: runNsShellShow,
-		},
-		{
+			handler: runNsShellShow,
+		}),
+		defineCommand({
 			name: "install",
 			summary: "Install the parent-shell wrapper in the detected or selected rc file.",
 			description: "Install the parent-shell wrapper in the detected or selected rc file.",
@@ -118,7 +118,7 @@ export function buildNsShellCommands(): NsCommand[] {
 			options: shellInstallOptionSpecs,
 			resultSchema: nsShellInstallResultSchema,
 			renderHuman: renderNsShellInstall,
-			run: runNsShellInstall,
-		},
+			handler: runNsShellInstall,
+		}),
 	];
 }
