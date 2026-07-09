@@ -18,7 +18,10 @@ this objective owns.
 ## Scope
 
 - A new capability package exporting the `ns dispatch` repo-local command
-  group via a kernel descriptor under `.ns/extensions/`, with the Pi mirror
+  group via the standard typed `exports["./ns-extension"]` descriptor module
+  (the substrate the `extension-descriptor-contract` Objective is
+  standardizing; the legacy `.ns/extensions/*` shim directories are already
+  gone from this checkout and must not be reintroduced), with the Pi mirror
   via `registerCliCommandExtension`.
 - `ns dispatch plan` and `ns dispatch prompt`, both honoring `--target`. The
   local/cmux target reuses the `@nseng-ai/ccc` cmux cores
@@ -73,8 +76,11 @@ Assumptions:
 - The `@nseng-ai/ccc` cmux cores are extraction-ready (validated by the
   2026-06-03 parity audit): the local target is CLI-entry + skill work, not
   logic extraction.
-- The kernel repo-local extension mechanism is the durable substrate; the flow
-  capability proved the pattern at scale.
+- The durable registration substrate is the typed `exports["./ns-extension"]`
+  descriptor module standardized by `extension-descriptor-contract`, not the
+  legacy `.ns/extensions/*` shim directories (which no longer exist in this
+  checkout); the flow capability proved the repo-local `ns`-command pattern at
+  scale.
 - ns state travels via git: a cloud executor with a repo checkout inherits
   objectives, branch context, and branch memory with no state-sync layer.
 - The AI SDK harness adapters (`@ai-sdk/harness-claude-code`,
@@ -102,6 +108,12 @@ Risks:
 - Local-target regression: retargeting daily-driver cmux dispatch behind a new
   CLI could break existing muscle memory and flows; Pi bridge behavior must
   stay equivalent.
+- Substrate dependency: the `extension-descriptor-contract` migration is in
+  flight, so the exact descriptor shape `ns dispatch` registers against is
+  still settling. Mitigation: build on the `exports["./ns-extension"]`
+  convention and honor the extension-descriptor-contract orientation rather
+  than any legacy `.ns/extensions` shim; treat that Objective as a soft
+  dependency (candidate Objective Edge, not yet recorded).
 
 ## Open Questions
 

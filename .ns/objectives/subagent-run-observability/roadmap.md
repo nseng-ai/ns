@@ -10,10 +10,10 @@
       session files (tail-read or size-gate the re-parse).
   - Policy: direct execution after preview; keep the slice inside existing
     session JSONL parsing and navigator refresh behavior.
-  - Evidence: local branch diff `master...HEAD` adds current-action extraction in
-    `timeline.ts`, running-detail polling and heartbeat rendering in `navigator.ts`,
-    and targeted navigator/timeline tests; PR #3213 is open evidence for the slice.
-    The follow-up branch now extends the session parsers for the actual top-level
+  - Evidence: landed on trunk (merged PR #3213) — current-action extraction in
+    `timeline.ts`, running-detail polling in `fleet/detail.ts` and heartbeat
+    rendering in `fleet/detail-render.ts`, plus targeted navigator/timeline tests.
+    The follow-up parser work now extends the session parsers for the actual top-level
     Pi `message` shape observed in manual smoke, with targeted timeline/parser/detail
     tests showing assistant text, tool calls, tool results, nonzero header counts,
     and current-action clearing for that shape. Manual navigator re-smoke remains
@@ -38,11 +38,11 @@
   - Policy: direct execution after preview; keep HEAD-baseline capture local to
     the extension and do not change runner dispatch semantics or external
     Git/Graphite behavior.
-  - Evidence: current PR #3220 / local branch diff from `live-worktree-diff-summary-panel...HEAD`
-    adds read-only HEAD snapshot capture in fleet tracking, renders a completed-run
-    summary with final status, last diagnostic, commit movement, and shared
-    worktree state in `navigator.ts`, and adds targeted fleet navigator/tracking
-    tests. Manual navigator smoke remains unrecorded.
+  - Evidence: landed on trunk (merged PR #3220) — read-only HEAD snapshot capture
+    in `fleet/tracking.ts`, a completed-run summary rendering final status, last
+    diagnostic, commit movement, and shared worktree state in `fleet/detail-render.ts`,
+    and targeted fleet navigator/tracking tests. Manual navigator smoke remains
+    unrecorded.
 - [x] Token/context trend
       Per-turn token delta and context-use trend alongside the existing totals
       line, derived from the usage events already parsed today.

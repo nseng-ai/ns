@@ -83,9 +83,11 @@ Risks:
 - Two sources of truth: enriching the ns command while stack-view keeps its own GraphQL
   layer duplicates the check/thread model. Mitigation: the open question below must get
   an explicit decision before this objective closes.
-- The interim skill rewrite lands inside the open extension-descriptor stack (the skill
-  file is introduced by PR #3283, unmerged); edits must stack on top of the current tip
-  rather than branch from master, and a stack rebase could conflict with them.
+- The interim skill rewrite must target the landed skill, not a stale draft. The skill
+  file has now landed on trunk (`skills/code-fix-gh-stack/SKILL.md`, PR #3283 merged
+  2026-07-09, commit 4c30d67fa), so the rewrite branches from trunk normally rather than
+  stacking on the extension-descriptor stack; the earlier stack-rebase-conflict concern is
+  resolved. Rebase the rewrite on current trunk before landing.
 - GitHub check-run/status-context duality: `gh pr checks` merges both, but the GraphQL
   enrichment must handle check runs and legacy statuses (Graphite mergeability is a
   status context), or stale/fresh classification will silently miss entries.

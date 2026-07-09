@@ -27,7 +27,8 @@ This Objective is execution-friendly: a runner may pick a cluster, fix it, and
 submit a PR without asking each time, under the Runner Policy below. It is the
 canonical home for this specific findings backlog. It does not re-run the
 sweep, and it does not absorb or duplicate the unrelated god-file/dedup
-backlog already tracked in `ts-cli-core-structural-cleanup` — see Non-Goals.
+backlog tracked in the now-closed `ts-cli-core-structural-cleanup` — see
+Non-Goals.
 
 ## Scope
 
@@ -67,13 +68,15 @@ In scope:
 - Do not touch test source files (`**/test/**`, `*.test.ts`) or vendored
   third-party code under `.agents/skills/`, `.claude/skills/`, `skills/` — out
   of the original sweep's scope and out of scope here too.
-- Do not duplicate or re-track work already owned by `ts-cli-core-structural-
-  cleanup` (god-file decomposition, cross-package Git/GitHub gateway dedup,
-  CLI wiring layer, Branch-Memory access unification, and similar). Where a
-  finding here clearly overlaps a row already open in that Objective, dispose
-  it here as **routed** to `ts-cli-core-structural-cleanup` rather than
-  duplicating the implementation. Where overlap is unclear, fix it here and
-  note the overlap in the Semantic Update.
+- Do not duplicate or re-track the god-file/dedup work that
+  `ts-cli-core-structural-cleanup` owned (god-file decomposition, cross-package
+  Git/GitHub gateway dedup, CLI wiring layer, Branch-Memory access
+  unification, and similar). That Objective closed on 2026-07-06 with its work
+  landed on trunk, so it is no longer an active routing target: where a finding
+  here overlaps a shape it already fixed, dispose it here as **disposed** with
+  re-probe evidence naming the landed helper, rather than re-implementing it.
+  Where overlap is unclear, fix it here and note the overlap in the Semantic
+  Update.
 - Do not move duplicated capability-domain logic below the SDK merely because
   it's duplicated. Apply the same ADR 0009 layering guardrail used by
   `ts-cli-core-structural-cleanup`: neutral infra dedup is fine; relocating
@@ -141,8 +144,9 @@ below.
   of Progress, and validates locally.
 - **Steer or ask first when:** a finding's fix is ambiguous, would touch a
   public SDK/CLI/extension surface in a way a human should weigh in on, looks
-  like it overlaps `ts-cli-core-structural-cleanup` ownership and the overlap
-  isn't clear-cut, validation fails for a reason outside the smell fix itself,
+  like it overlaps work the closed `ts-cli-core-structural-cleanup` already
+  landed and the overlap isn't clear-cut, validation fails for a reason outside
+  the smell fix itself,
   or the smallest-fix as written would require a behavior change to implement
   cleanly.
 - **How work may change files and be left:** local edits and commits on a
@@ -222,10 +226,12 @@ Risks:
 
 - **Ownership overlap risk:** several remaining `infra` and `capabilities`
   findings (e.g., the Flow land-stack presentation-failure duplication, now
-  under `capabilities/flow/src/land`) sit close to open
-  `ts-cli-core-structural-cleanup` rows. Fixing the same shape in both
-  Objectives would waste effort or conflict; check that Objective's open
-  roadmap rows before implementing an `infra`/`capabilities` cluster. (The
+  under `capabilities/flow/src/land`) sit close to work
+  `ts-cli-core-structural-cleanup` already did. That Objective closed on
+  2026-07-06 with its god-file/gateway-dedup work landed on trunk, so the risk
+  is now re-fixing a shape it already resolved rather than a live two-Objective
+  conflict; before implementing an `infra`/`capabilities` cluster, check its
+  closed roadmap record and the landed code for the overlapping shape. (The
   `RealGitGateway`/GitHub gateway sub-slices flagged earlier were fixed here
   in the completed git/github sub-slices without conflict.)
 - **Cross-package duplication is undercounted** by construction (each
@@ -260,8 +266,9 @@ Risks:
   `thermo-council/orchestrator.ts`, `grill/extension.ts`) got a dedicated
   sub-slice within its parent row, and deciding the controller.ts row split
   stays deferred to pickup time.
-- Whether any remaining `infra`/`capabilities` findings should be disposed as
-  routed to `ts-cli-core-structural-cleanup` before implementation, versus
-  deciding row-by-row at pickup. Practice so far has been row-by-row: the
-  completed infra git/github sub-slices were fixed here with no routed
-  dispositions recorded yet.
+- Whether any remaining `infra`/`capabilities` findings overlap what
+  `ts-cli-core-structural-cleanup` already landed. That Objective is now closed,
+  so routing findings to it is no longer possible; the standing practice is
+  row-by-row at pickup — fix the shape here, or dispose it with re-probe
+  evidence when its landed work already resolved it. The completed infra
+  git/github sub-slices were fixed here with no routed dispositions recorded.

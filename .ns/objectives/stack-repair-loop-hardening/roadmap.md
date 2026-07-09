@@ -8,8 +8,9 @@
       (checks-only; threads inventoried and routed to pr-address, not owned), conflict canon
       (downstack shape canonical, skip duplicates, route to `code-gt-restack-resolve`),
       stale/fresh triage, amend verification, mergeability-as-trailing, delegation guidance.
-      Lands stacked on the current extension-descriptor stack tip (skill file originates in
-      unmerged PR #3283).
+      Branches from trunk: the skill file has landed on trunk (PR #3283 merged, commit
+      4c30d67fa) and still carries the target defects at HEAD (`## Purpose` present,
+      "resolve conflicts carefully" no-op, negations un-rephrased).
 - [ ] Define the enriched `branch-pr-checks` JSON field contract before code: per-check
       timestamps, head-commit push time, stale/fresh, unresolved-thread counts, per-PR
       status, mergeability flagged trailing. Resolve the status-vocabulary open question

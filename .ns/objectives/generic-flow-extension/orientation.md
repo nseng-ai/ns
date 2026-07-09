@@ -6,9 +6,12 @@ flow README (draft: this objective's `references/README-draft.md`, promoting to
 `ts/packages/capabilities/flow/README.md`); point mechanics per `docs/guides/points.md`
 and ADR 0031.
 
-What you see now — legacy, do not copy: a hardcoded `code-just-fix` skill reference and
-stderr prose sniffing in `flow/src/pi/ns-extension.ts`; the gate point still named
-`flow.submit.pre`; no `ns flow validate`.
+What you see now: the gate point is still named `flow.submit.pre`, there is no `ns flow
+validate` command, and no `flow.validation.recovery` point; `flow/src/pi/ns-extension.ts`
+is a plain command-registration bridge with no recovery logic. The only hardcoded
+`code-just-fix` auto-fix bridge on trunk is the generic pi `/just` command
+(`.pi/extensions/just-fix.ts`), which is exit-code-driven and separate from flow submit —
+do not copy it into flow.
 
 Avoid: baking ns-repo assumptions (command names, skill names, prompt text, consumer
 paths) into `ts/packages/capabilities/flow`; detecting CLI failures by matching

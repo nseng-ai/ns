@@ -71,7 +71,19 @@ cleaned up after the fact.
   row owns this trade.
 - **Risk:** anti-incremental state that remote roaster trusts is a soft attestation
   (local runs are not CI); the state-encoding row must decide how much the remote
-  workflow trusts it.
+  workflow trusts it and how a local stack-tip run interoperates with the convergence
+  state the remote path already stamps (see Grounding below).
+- **Grounding:** anti-incremental review state is not greenfield. The remote review
+  workflow (`.github/workflows/reviews.yml`; the Roaster engine now ships in package
+  `@nseng-ai/reviews` per ADR 0029, but "Roaster" stays the engine name and `roaster`
+  the CLI subcommand) already implements generation-time convergence:
+  `ts/packages/capabilities/reviews/src/core/findings-comment.ts` stamps a
+  last-reviewed head plus a capped prior-findings union into the GitHub Findings
+  comment, and review runs consume prior-findings context (design in ADR 0027,
+  Proposed). Two of the three candidate locations the state-encoding row lists — a
+  PR-body/Findings-comment machine block and the prior-findings-context pattern — are
+  this existing mechanism; the open work is how a local stack-tip run reads, writes,
+  and extends it, not choosing from scratch.
 - **Lineage note:** the closed Python-era records `roaster-addressing-engine` and
   `roaster-graphite-stack-workflow` explored triage/resolver/stack machinery whose
   implementation was deleted in the TS strangler rewrite; concepts may inform rows but

@@ -145,14 +145,18 @@ Risks:
   signatures but still re-reads/re-parses the session on an interval. Tail-reading
   or size-gated incremental parsing may still be needed if real sessions jank the
   TUI.
-- Commit detection ambiguity for the post-run summary is partly de-risked by
-  PR #3220 / local branch evidence: the extension captures baseline and final
-  HEAD snapshots in fleet/run tracking and reports HEAD movement as commit
-  state, without changing runner dispatch semantics or trying to infer
-  Graphite stack ownership beyond local OID comparison.
-- Navigator size: `navigator.ts` is already ~766 lines; adding four features
-  without decomposition risks an unmaintainable component. Keep derivation
-  pure and out of the render code.
+- Commit detection ambiguity for the post-run summary is de-risked by the
+  landed post-run slice (merged PR #3220): the extension captures baseline and
+  final HEAD snapshots in fleet/run tracking (`src/fleet/tracking.ts`) and
+  reports HEAD movement as commit state, without changing runner dispatch
+  semantics or trying to infer Graphite stack ownership beyond local OID
+  comparison.
+- Navigator size: this risk is largely retired. Rather than piling four
+  features into `navigator.ts`, the derivation and render logic landed as
+  separate modules — `src/fleet/detail.ts`, `src/fleet/detail-render.ts`,
+  `src/fleet/worktree-state.ts`, and `src/runner-subagents/timeline.ts` /
+  `activity.ts` / `json-events.ts` — and `navigator.ts` is now ~730 lines.
+  Keep new derivation pure and out of the render code as further slices land.
 
 ## Open Questions
 
