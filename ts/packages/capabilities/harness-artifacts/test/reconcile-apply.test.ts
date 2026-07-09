@@ -2,10 +2,16 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import type {
+	ExtensionAcquisitionDiagnostic,
+	ExtensionAcquisitionGateway,
+} from "@nseng-ai/kernel/extensions/acquisition";
 import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	runHarnessArtifactReconcile,
+	type ExtensionDescriptorModuleLoader,
 	type InstallManifestData,
 } from "../src/index.ts";
 import { descriptorExtensionSource, descriptorPackageJson } from "./support/descriptor-fixtures.ts";
@@ -112,13 +118,16 @@ describe("harness artifact reconcile driver", () => {
 			nsToml: 'harnesses = ["pi"]\nextensions = ["./local-ext", "./other-ext"]\n',
 			includeModule: false,
 		});
-		fixture.fs.setFile("/repo/local-ext/package.json", packageJsonWithName("@acme/local"));
+		fixture.fs.setFile("/repo/local-ext/package.json", packageJson("@acme/local"));
 		fixture.fs.setFile("/repo/local-ext/skills/module/SKILL.md", "local v1\n");
-		fixture.fs.setFile("/repo/other-ext/package.json", packageJsonWithName("@acme/other"));
+		fixture.fs.setFile("/repo/other-ext/package.json", packageJson("@acme/other"));
 		fixture.fs.setFile("/repo/other-ext/skills/module/SKILL.md", "other v1\n");
 
 		const targeted = await runHarnessArtifactReconcile(
-			fixture.request({ extensionTarget: "./local-ext" }),
+			fixture.request({
+				extensionTarget: "./local-ext",
+				descriptorLoader: loadModuleArtifactDescriptor,
+			}),
 		);
 
 		expect(targeted).toMatchObject({ ok: true });
@@ -132,6 +141,73 @@ describe("harness artifact reconcile driver", () => {
 			fixture.request({ extensionTarget: "./undeclared-ext" }),
 		);
 		expect(undeclared).toMatchObject({ ok: false, error: { code: "invalid_extension_target" } });
+	});
+
+	test("declared npm extensions acquire managed package roots and provision static artifacts", async () => {
+		const fixture = createFixture({
+			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
+			includeModule: false,
+		});
+		fixture.fs.setFile(
+			"/repo/.ns/managed-extensions/npm/node_modules/@acme/module/package.json",
+			packageJson("@acme/module"),
+		);
+		fixture.fs.setFile(
+			"/repo/.ns/managed-extensions/npm/node_modules/@acme/module/skills/module/SKILL.md",
+			"npm v1\n",
+		);
+		const acquisitionGateway = new FakeAcquisitionGateway();
+
+		const result = await runHarnessArtifactReconcile(
+			fixture.request({
+				extensionTarget: "npm:@acme/module@1.0.0",
+				acquisitionGateway,
+				descriptorLoader: loadModuleArtifactDescriptor,
+			}),
+		);
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(acquisitionGateway.installCalls).toEqual(["npm:@acme/module@1.0.0"]);
+		expect(result.value.artifacts.map((artifact) => artifact.packageName)).toEqual([
+			"@acme/module",
+		]);
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("npm v1\n");
+	});
+
+	test("declared-only npm targeting rejects undeclared specs", async () => {
+		const fixture = createFixture({
+			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
+			includeModule: false,
+		});
+
+		const result = await runHarnessArtifactReconcile(
+			fixture.request({ extensionTarget: "npm:@acme/other@1.0.0" }),
+		);
+
+		expect(result).toMatchObject({ ok: false, error: { code: "invalid_extension_target" } });
+	});
+
+	test("npm acquisition diagnostics do not block local extension provisioning", async () => {
+		const fixture = createFixture({
+			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/bad", "./local-ext"]\n',
+			includeModule: false,
+		});
+		fixture.fs.setFile("/repo/local-ext/package.json", packageJson("@acme/local"));
+		fixture.fs.setFile("/repo/local-ext/skills/module/SKILL.md", "local v1\n");
+		const acquisitionGateway = new FakeAcquisitionGateway();
+		acquisitionGateway.failSpec = "npm:@acme/bad";
+
+		const result = await runHarnessArtifactReconcile(
+			fixture.request({ acquisitionGateway, descriptorLoader: loadModuleArtifactDescriptor }),
+		);
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.value.diagnostics).toMatchObject([
+			{ code: "extension_acquisition_npm_install_failed" },
+		]);
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("local v1\n");
 	});
 
 	test("missing ns.toml skips new installs while refreshing manifest-tracked entries", async () => {
@@ -220,6 +296,8 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 				isDryRun?: boolean;
 				shouldForce?: boolean;
 				extensionTarget?: string;
+				acquisitionGateway?: ExtensionAcquisitionGateway;
+				descriptorLoader?: ExtensionDescriptorModuleLoader;
 			} = {},
 		) {
 			return {
@@ -231,6 +309,12 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 				...(overrides.extensionTarget === undefined
 					? {}
 					: { extensionTarget: overrides.extensionTarget }),
+				...(overrides.acquisitionGateway === undefined
+					? {}
+					: { acquisitionGateway: overrides.acquisitionGateway }),
+				...(overrides.descriptorLoader === undefined
+					? {}
+					: { descriptorLoader: overrides.descriptorLoader }),
 				fs,
 				discoveryGateway: fs,
 				firstPartySourceRoot: "/first-party",
@@ -250,6 +334,41 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 	};
 }
 
+class FakeAcquisitionGateway implements ExtensionAcquisitionGateway {
+	readonly installed = new Set<string>();
+	readonly installCalls: string[] = [];
+	failSpec: string | undefined;
+
+	async ensureManagedNpmProject(): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
+		return resultOk(undefined);
+	}
+
+	async isNpmPackageInstalled(
+		packageRoot: string,
+	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>> {
+		return resultOk(this.installed.has(packageRoot));
+	}
+
+	async installNpmPackage(request: {
+		projectDir: string;
+		rawSpec: string;
+		packageName: string;
+		version: string | undefined;
+		pinned: boolean;
+	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
+		this.installCalls.push(request.rawSpec);
+		if (request.rawSpec === this.failSpec) {
+			return resultErr({
+				code: "extension_acquisition_npm_install_failed",
+				message: `failed ${request.rawSpec}`,
+				spec: request.rawSpec,
+			});
+		}
+		this.installed.add(`${request.projectDir}/node_modules/${request.packageName}`);
+		return resultOk(undefined);
+	}
+}
+
 function packageJson(name: string): string {
 	return descriptorPackageJson({ name, version: "1.0.0" });
 }
@@ -261,12 +380,11 @@ function descriptorSource(artifact: { name: string; path: string }): string {
 	});
 }
 
-function packageJsonWithName(name: string): string {
-	return JSON.stringify({
-		name,
-		version: "1.0.0",
-		ns: { harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module" }] },
-	});
+async function loadModuleArtifactDescriptor(): Promise<unknown> {
+	return {
+		description: "Test extension.",
+		bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module" }],
+	};
 }
 
 function moduleManifest(): InstallManifestData {

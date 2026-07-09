@@ -1,5 +1,10 @@
 import { isAbsolute, join, resolve } from "node:path";
 
+import {
+	resolveDeclaredExtensionModules,
+	type ExtensionAcquisitionDiagnostic,
+	type ExtensionAcquisitionGateway,
+} from "@nseng-ai/kernel/extensions/acquisition";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { isUnsupportedNsTomlExtensionSpec } from "@nseng-ai/kernel/project-config/points";
@@ -31,7 +36,9 @@ import {
 import {
 	discoverExtensionModuleHarnessArtifacts,
 	moduleArtifactDiscoveryDiagnosticSchema,
+	type ExtensionDescriptorModuleLoader,
 	type HarnessArtifactModuleDiscoveryGateway,
+	type ModuleArtifactDiscoveryDiagnostic,
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
@@ -185,6 +192,9 @@ export interface RunHarnessArtifactReconcileRequest {
 	extensionTarget?: string;
 	fs?: HarnessArtifactFileSystemGateway;
 	discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
+	descriptorLoader?: ExtensionDescriptorModuleLoader;
+	acquisitionGateway?: ExtensionAcquisitionGateway;
+	acquisitionMode?: "preview" | "apply";
 	firstPartySourceRoot?: string;
 }
 
@@ -232,11 +242,6 @@ export type ReconcileErrorInfo =
 			details: { target: string; normalizedTarget: string; declaredExtensions: readonly string[] };
 	  }
 	| {
-			code: "unsupported_extension_source";
-			message: string;
-			details: { extension: string };
-	  }
-	| {
 			code: "first_party_source_root_unavailable";
 			message: string;
 			details: { catalogId: string };
@@ -259,12 +264,21 @@ export async function runHarnessArtifactReconcile(
 		...optionalEntry("target", request.extensionTarget),
 	});
 	if (!extensionSelection.ok) return extensionSelection;
+	const acquisition = await resolveDeclaredExtensionModules({
+		projectRoot: request.projectRoot,
+		declaredSpecs: extensionSelection.value.declaredSpecs,
+		selectedSpecs: extensionSelection.value.selectedSpecs,
+		mode: request.acquisitionMode ?? (request.isDryRun ? "preview" : "apply"),
+		...optionalEntry("gateway", request.acquisitionGateway),
+	});
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
 		projectRoot: request.projectRoot,
 		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
-		localPackageRoots: extensionSelection.value.localPackageRoots,
+		moduleRoots: acquisition.roots.map((root) => root.moduleRoot),
+		includeDeclaredExtensions: false,
 		gateway: discoveryGateway,
+		...optionalEntry("descriptorLoader", request.descriptorLoader),
 	});
 
 	const desired = desiredHarnessArtifacts({
@@ -353,7 +367,10 @@ export async function runHarnessArtifactReconcile(
 		harnessSelection: selection.value.state,
 		artifacts,
 		orphans: plan.orphans,
-		diagnostics: moduleDiscovery.diagnostics,
+		diagnostics: [
+			...acquisition.diagnostics.map(acquisitionDiagnostic),
+			...moduleDiscovery.diagnostics,
+		],
 		skippedCollisions: plan.skippedCollisions,
 		isForceRequired: artifacts.some((artifact) => artifact.action === "conflicted"),
 	});
@@ -531,9 +548,19 @@ function parseExtensionSelection(input: {
 	nsTomlPath: string;
 	projectRoot: string;
 	target?: string;
-}): Result<{ localPackageRoots: readonly string[]; isTargeted: boolean }, ReconcileErrorInfo> {
+}): Result<
+	{
+		declaredSpecs: readonly string[];
+		selectedSpecs: readonly string[];
+		moduleRoots: readonly string[];
+		isTargeted: boolean;
+	},
+	ReconcileErrorInfo
+> {
 	if (input.state.type === "missing") {
-		if (input.target === undefined) return resultOk({ localPackageRoots: [], isTargeted: false });
+		if (input.target === undefined) {
+			return resultOk({ declaredSpecs: [], selectedSpecs: [], moduleRoots: [], isTargeted: false });
+		}
 		return invalidTargetResult({
 			target: input.target,
 			projectRoot: input.projectRoot,
@@ -549,40 +576,58 @@ function parseExtensionSelection(input: {
 		});
 	}
 	const declared = parsed.type === "ok" ? parsed.extensions : [];
-	const unsupported = declared.find((extension) => isUnsupportedNsTomlExtensionSpec(extension));
-	if (unsupported !== undefined && input.target === undefined) {
-		return resultErr({
-			code: "unsupported_extension_source",
-			message: `Unsupported ns.toml extension source in this slice: ${unsupported}. Only local filesystem paths are supported.`,
-			details: { extension: unsupported },
-		});
-	}
-	const declaredLocalRoots = declared
-		.filter((extension) => !isUnsupportedNsTomlExtensionSpec(extension))
-		.map((extension) => normalizeExtensionPath(input.projectRoot, extension));
+	const declaredLocalSpecs = declared.filter((extension) => isLocalExtensionSpec(extension));
+	const declaredLocalRoots = declaredLocalSpecs.map((extension) =>
+		normalizeExtensionPath(input.projectRoot, extension),
+	);
 	const target = input.target;
 	if (target === undefined) {
 		return resultOk({
-			localPackageRoots: uniqueSortedPaths(declaredLocalRoots),
+			declaredSpecs: declared,
+			selectedSpecs: declared,
+			moduleRoots: uniqueSortedPaths(declaredLocalRoots),
 			isTargeted: false,
 		});
 	}
-	if (isUnsupportedNsTomlExtensionSpec(target)) {
-		return resultErr({
-			code: "unsupported_extension_source",
-			message: `Unsupported ns update --extensions target in this slice: ${target}. Only declared local filesystem paths are supported.`,
-			details: { extension: target },
-		});
-	}
-	const normalizedTarget = normalizeExtensionPath(input.projectRoot, target);
-	if (!declaredLocalRoots.includes(normalizedTarget)) {
+	const normalizedTarget = isLocalExtensionSpec(target)
+		? normalizeExtensionPath(input.projectRoot, target)
+		: target;
+	const isDeclaredTarget = isLocalExtensionSpec(target)
+		? declaredLocalRoots.includes(normalizedTarget)
+		: declared.includes(target);
+	if (!isDeclaredTarget) {
 		return invalidTargetResult({
 			target,
 			projectRoot: input.projectRoot,
-			declaredExtensions: declaredLocalRoots,
+			declaredExtensions: declared,
 		});
 	}
-	return resultOk({ localPackageRoots: [normalizedTarget], isTargeted: true });
+	const selectedSpec = isLocalExtensionSpec(target)
+		? declaredLocalSpecs[declaredLocalRoots.indexOf(normalizedTarget)]
+		: target;
+	if (selectedSpec === undefined) {
+		return invalidTargetResult({
+			target,
+			projectRoot: input.projectRoot,
+			declaredExtensions: declared,
+		});
+	}
+	return resultOk({
+		declaredSpecs: declared,
+		selectedSpecs: [selectedSpec],
+		moduleRoots: isLocalExtensionSpec(target) ? [normalizedTarget] : [],
+		isTargeted: true,
+	});
+}
+
+function acquisitionDiagnostic(
+	diagnostic: ExtensionAcquisitionDiagnostic,
+): ModuleArtifactDiscoveryDiagnostic {
+	return {
+		code: diagnostic.code,
+		message: diagnostic.message,
+		...optionalEntry("path", diagnostic.path ?? diagnostic.spec),
+	};
 }
 
 function invalidTargetResult(input: {
@@ -600,6 +645,10 @@ function invalidTargetResult(input: {
 			declaredExtensions: [...input.declaredExtensions],
 		},
 	});
+}
+
+function isLocalExtensionSpec(value: string): boolean {
+	return !isUnsupportedNsTomlExtensionSpec(value);
 }
 
 function normalizeExtensionPath(projectRoot: string, value: string): string {
