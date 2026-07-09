@@ -74,6 +74,14 @@ Only emit findings that match one of these smells:
   the real target direct.
 - **Refused Bequest** — a subclass or implementer ignores or overrides most of
   what it inherits. Drop the inheritance, use composition.
+- **Confusable Siblings** — two exported names in the same API family differ
+  only by a near-synonym (`create`/`define`, `get`/`fetch`, `make`/`build`)
+  while their semantics differ on some other axis. Rename so the axis that
+  actually distinguishes them is in the name.
+  <!-- NS-local invention (2026-07-07): "Confusable Siblings" is our own coinage,
+       not a term of art from Fowler's Refactoring or established online usage.
+       Do not assume model weights know this term — the definition above is the
+       entire spec. Preserve this smell across upstream pocock-review refreshes. -->
 
 ## Procedure
 
