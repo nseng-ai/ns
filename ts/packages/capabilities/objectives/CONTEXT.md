@@ -13,7 +13,7 @@ The `ns objective list` behavior that inventories Objective records under the ro
 *Avoid*: Graphite stack projection, deleted-record discovery, Objective selection authority, cross-worktree inventory, per-record branch-name attribution
 
 **`ns objective show`**:
-The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and every Objective Edge with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus whether the counterpart record exists.
+The `ns objective show <slug>` visible read-only command (Tier 0) that renders one Objective Edge in detail: status and Blocked Sentence, latest update and outstanding-changes state, the local branches whose changes touch the record (the branch attribution formerly on `list`, via Git path-touch facts), and non-closed Objective Edges by default with both perspectives — this record's Edge Annotation and the counterpart's back-edge annotation plus whether the counterpart record exists and whether the resolved counterpart has a closure marker. Closed counterpart edges are intentionally hidden from the default human focus and can be included explicitly.
 *Avoid*: Graphite stack projection, Objective selection authority, edge mutation surface, prose interpretation, hidden `exec` placement
 
 **EDGES list column**:

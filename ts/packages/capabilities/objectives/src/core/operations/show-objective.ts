@@ -28,11 +28,17 @@ import { readParsedObjectiveFrontmatter } from "./record-frontmatter-read.ts";
 
 export const showObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to show."),
+	shouldIncludeClosedEdges: z
+		.boolean()
+		.default(false)
+		.describe("Include Objective Edges whose counterpart record is closed."),
 });
 
 const showObjectiveEdgeCounterpartSchema = z.object({
 	// Whether active-root-only record resolution found the counterpart record.
 	exists: z.boolean(),
+	// Closure marker presence for resolved counterpart records; null when the counterpart is missing.
+	isClosed: z.boolean().nullable(),
 	// Back-edge annotation naming this record in the counterpart's frontmatter; null when the
 	// counterpart record or its back-edge is missing, unreadable, or malformed.
 	annotation: z.string().nullable(),
@@ -87,7 +93,7 @@ export async function runShowObjective(
 	ctx: ObjectiveCliContext,
 	request: ShowObjectiveRequest,
 ): Promise<ClinkrExit<ShowObjectiveResult>> {
-	const result = await buildShowObjectiveResult(ctx, request.slug);
+	const result = await buildShowObjectiveResult(ctx, request);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	if (result.type === "git-error") return failure(result.error.code, result.error.message);
 	const value = result.value;
@@ -103,13 +109,13 @@ export async function runShowObjective(
 
 async function buildShowObjectiveResult(
 	ctx: ObjectiveCliContext,
-	slug: string | undefined,
+	request: ShowObjectiveRequest,
 ): Promise<
 	| { type: "ok"; value: ShowObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
 > {
-	const targetResult = await resolveObjectiveRecordTarget(ctx.storage, slug);
+	const targetResult = await resolveObjectiveRecordTarget(ctx.storage, request.slug);
 	if (targetResult.type === "storage-error") return targetResult;
 	const target = targetResult.value;
 	if (target.status !== "found") {
@@ -138,6 +144,7 @@ async function buildShowObjectiveResult(
 	for (const edge of facts.edges) {
 		const counterpart = await resolveEdgeCounterpart(ctx.storage, target.slug, edge.objective);
 		if (counterpart.type === "storage-error") return counterpart;
+		if (!request.shouldIncludeClosedEdges && counterpart.value.isClosed === true) continue;
 		edges.push({
 			objective: edge.objective,
 			annotation: edge.annotation,
@@ -200,12 +207,18 @@ async function resolveEdgeCounterpart(
 	const resolved = await storage.resolveRecordRelativePath(endpoint);
 	if (!resolved.ok) return { type: "storage-error", error: resolved.error };
 	if (resolved.value === null) {
-		return { type: "ok", value: { exists: false, annotation: null } };
+		return { type: "ok", value: { exists: false, isClosed: null, annotation: null } };
 	}
+	const files = await storage.filePresence(resolved.value);
+	if (!files.ok) return { type: "storage-error", error: files.error };
 	const read = await storage.readObjectiveRecordDocument(resolved.value);
 	return {
 		type: "ok",
-		value: { exists: true, annotation: backEdgeAnnotation(read, ownSlug) },
+		value: {
+			exists: true,
+			isClosed: files.value.closedMd,
+			annotation: backEdgeAnnotation(read, ownSlug),
+		},
 	};
 }
 
@@ -327,13 +340,19 @@ function labeledWrappedBlock(options: {
 }
 
 function counterpartIntent(counterpart: ShowObjectiveEdgeCounterpart): Intent {
-	if (counterpart.exists) return "muted";
-	return "error";
+	if (!counterpart.exists) return "error";
+	if (counterpart.isClosed === true) return "warn";
+	return "muted";
 }
 
 function counterpartLabel(counterpart: ShowObjectiveEdgeCounterpart): string {
+	if (counterpart.isClosed === true) return "closed";
 	if (counterpart.exists) return "found";
 	return "missing";
+}
+
+function counterpartGlyphName(counterpart: ShowObjectiveEdgeCounterpart): "done" | "open" {
+	return counterpart.isClosed === true ? "done" : "open";
 }
 
 // The counterpart's back-edge annotation is deliberately absent from the human surface: in the
@@ -341,8 +360,9 @@ function counterpartLabel(counterpart: ShowObjectiveEdgeCounterpart): string {
 function renderEdgeLines(edge: ShowObjectiveEdge, caps: Caps): string[] {
 	const intent = counterpartIntent(edge.counterpart);
 	const label = counterpartLabel(edge.counterpart);
+	const glyphName = counterpartGlyphName(edge.counterpart);
 	const lines = [
-		`${paint(caps, intent, glyph(caps, "open"))} ${bold(paint(caps, "accent", edge.objective))}  ${paint(
+		`${paint(caps, intent, glyph(caps, glyphName))} ${bold(paint(caps, "accent", edge.objective))}  ${paint(
 			caps,
 			intent,
 			label,
@@ -386,7 +406,8 @@ export function renderShowObjectiveMarkdown(result: ShowObjectiveResult): string
 		parts.push("_No Objective Edges declared._\n");
 	} else {
 		for (const edge of result.edges) {
-			parts.push(`### \`${edge.objective}\` (${counterpartLabel(edge.counterpart)})\n\n`);
+			const label = counterpartLabel(edge.counterpart);
+			parts.push(`### \`${edge.objective}\` (${label})\n\n`);
 			parts.push(`- this record: ${edge.annotation}\n`);
 			parts.push(`- \`${edge.objective}\`: ${counterpartAnnotationText(edge.counterpart)}\n\n`);
 		}
