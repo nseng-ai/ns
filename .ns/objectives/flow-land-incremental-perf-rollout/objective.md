@@ -88,3 +88,37 @@ Risks:
 - What stack shape should the human-driven real wall-time baseline run use? (Inherited; still undecided.)
 - Is post-merge verification ultimately retained or removed? Deliberately open until the GraphQL merge path has enough validation/evidence history.
 - Do the inherited parked follow-ups (stale backup deletion, post-restack guard reads, descendant restack scope, merge-loop duplicate PR facts) still justify slices given the already-reduced call counts?
+
+## Closure
+
+Closed intentionally, for now, without completing the remaining rollout — a deliberate
+pause and deprioritization, not completion. The conservative, low-risk portion of the
+work is landed and kept; the risky primitive slices were never derived, and the
+remaining roadmap rows (targeted trunk fetches, lease-based push/retarget, GraphQL
+merge adoption, the post-merge verification decision, the wall-time baseline, the
+inherited parked-follow-up dispositions, and reference-stack deletion) close unresolved.
+If this work resumes, start a fresh Objective and treat this record and its updates as
+the map of where the frontier stopped.
+
+Key evidence at close:
+
+- Four conservative optimizations plus external-call telemetry are on trunk
+  (`ts/packages/capabilities/flow/src/land/stack/external-call-telemetry*.ts`); the
+  fake-backed scenario counts (linear-11 = 145, linear-25 = 313 at last recording)
+  remain the measurement backbone.
+- The architecture gate fully landed on trunk (land plan type unification, single
+  `LandContext` threading, fake-testable Graphite maintenance), so a future resumption
+  starts from a much better-factored land core than this Objective began with.
+
+Caveats and standing hazards that outlive this record:
+
+- The unmerged five-branch reference stack ending at `flow-land-perf-baselines` still
+  exists. The rule that it is reading material only — never landed, rebased,
+  cherry-picked, or built upon — was enforced by this Objective's `orientation.md`,
+  which leaves the always-load set at close. Durable-rule graduation candidate: either
+  delete the reference stack branches (human-driven) or carry the do-not-build-on rule
+  into AGENTS.md until they are deleted.
+- Land merge/push primitives and safety gates remain unchanged; any future change to
+  them should re-adopt this record's small-revertible-slice discipline.
+
+Follow-ups: none scheduled; resumption is a deliberate future decision.
