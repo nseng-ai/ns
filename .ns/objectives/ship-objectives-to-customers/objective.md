@@ -8,6 +8,8 @@ edges:
     annotation: Consumes its reachability contract (shared CLI + skill, Pi additive); onboarding must reach all three harnesses through that doctrine.
   - objective: eve-parity-docs-site
     annotation: Consumes the docs-site shell it owns; customer onboarding needs publishable installation, quickstart, and concept docs on that substrate.
+  - objective: skill-management-subsystem
+    annotation: Downstream consumer of the reusable skill-management subsystem; customer Objectives rely on its `ns skills`/harness-artifact provisioning surface for skill delivery into Claude Code, Codex, and Pi.
 ---
 
 # Ship Objectives to Customers
