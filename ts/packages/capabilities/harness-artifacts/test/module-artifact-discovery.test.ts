@@ -1,4 +1,7 @@
-import { join } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
@@ -155,6 +158,64 @@ describe("extension-root module artifact discovery", () => {
 		]);
 	});
 
+	test("discovers skill artifacts declared by descriptor bundledArtifacts", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-"));
+		try {
+			writeText(
+				join(root, "project", ".ns", "extensions", "descriptor-ext", "package.json"),
+				JSON.stringify({
+					name: "descriptor-ext",
+					version: "1.0.0",
+					exports: { "./ns-extension": "./src/ns/extension.ts" },
+				}),
+			);
+			writeText(
+				join(root, "project", ".ns", "extensions", "descriptor-ext", "src", "ns", "extension.ts"),
+				`
+import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	description: "Descriptor artifacts.",
+	bundledArtifacts: [
+		{ kind: "skill", name: "descriptor-skill", path: "skills/descriptor", description: "Descriptor skill." },
+	],
+});
+`,
+			);
+			writeText(
+				join(
+					root,
+					"project",
+					".ns",
+					"extensions",
+					"descriptor-ext",
+					"skills",
+					"descriptor",
+					"SKILL.md",
+				),
+				"descriptor\n",
+			);
+
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				projectRoot: join(root, "project"),
+				homeDir: join(root, "home"),
+				env: {},
+			});
+
+			expect(result.diagnostics).toEqual([]);
+			expect(result.catalogs).toHaveLength(1);
+			expect(result.catalogs[0]?.artifacts).toEqual([
+				expect.objectContaining({
+					id: "descriptor-ext:descriptor-skill",
+					description: "Descriptor skill.",
+					source: expect.objectContaining({ relativePath: "skills/descriptor" }),
+				}),
+			]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	test("diagnoses unsupported declarations and missing SKILL.md without hiding valid catalog data", async () => {
 		const fixture = discoveryFixture({
 			"/repo/.ns/extensions/ext/package.json": packageJson({
@@ -212,6 +273,11 @@ describe("extension-root module artifact discovery", () => {
 		]);
 	});
 });
+
+function writeText(path: string, text: string): void {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, text, "utf8");
+}
 
 function discoveryFixture(files: Record<string, string | FakeNode>) {
 	const nodes: Record<string, FakeNode> = {};
