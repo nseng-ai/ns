@@ -6,6 +6,7 @@
 		".": "./src/core/index.ts",
 		"./identity": "./src/core/identity.ts",
 		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts",
 		"./ns/commands/list": "./src/ns/commands/list.ts",
 		"./ns/commands/delete": "./src/ns/commands/delete.ts",
 		"./ns/commands/gc": "./src/ns/commands/gc.ts",

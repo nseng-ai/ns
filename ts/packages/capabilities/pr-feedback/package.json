@@ -4,6 +4,7 @@
 	"type": "module",
 	"exports": {
 		"./api": "./src/api.ts",
+		"./ns-extension": "./src/ns-extension.ts",
 		"./ns-command": "./src/ns-command.ts",
 		"./ns/commands/exec-download-feedback": "./src/ns/commands/exec-download-feedback.ts",
 		"./ns/commands/exec-map-branch-prs": "./src/ns/commands/exec-map-branch-prs.ts",
