@@ -1,4 +1,7 @@
-import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
+// Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
+// Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
+import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -152,7 +155,7 @@ function parsePiModelRef(modelRef: string): ParsedPiModelRef {
 }
 
 async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
-	const piAi = await import("@earendil-works/pi-ai");
+	const piAi = await import("@earendil-works/pi-ai/compat");
 	return piAi.completeSimple;
 }
 

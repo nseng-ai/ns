@@ -1,12 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type {
-	AssistantMessage,
-	completeSimple,
-	Context,
-	SimpleStreamOptions,
-	Usage,
-} from "@earendil-works/pi-ai";
+import type { AssistantMessage, Context, SimpleStreamOptions, Usage } from "@earendil-works/pi-ai";
+// Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
+// Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
+import type { completeSimple } from "@earendil-works/pi-ai/compat";
 import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../../src/context-profiler/analysis.ts";
 import {
 	createCodexAnalysisModelGateway,
