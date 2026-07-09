@@ -171,8 +171,9 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 }
 
 describe("project-local submit extension", () => {
-	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
+	test("clean success with --regenerate-descriptions submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
 		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
 			state: {
 				textGeneration: [
 					{
@@ -244,6 +245,20 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).toContainEqual(
 			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
 		);
+	});
+
+	test("clean success skips existing PR description checks by default", async () => {
+		const run = runWithFakes();
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("Submitted 1 PR:");
+		expect(output).toContain(`✓ #123 ${PR_URL}`);
+		expect(output).not.toContain("description updated");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
+		);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
@@ -355,6 +370,7 @@ describe("project-local submit extension", () => {
 			generator: PR_DESCRIPTION_GENERATOR_VERSION,
 		});
 		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -414,6 +430,7 @@ describe("project-local submit extension", () => {
 			resolveModel = resolve;
 		});
 		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
 			state: { textGeneration: [pendingModel] },
 		});
 
@@ -437,6 +454,7 @@ describe("project-local submit extension", () => {
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
 		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1603,6 +1621,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		const ghStderr = "GraphQL: Could not resolve to a PullRequest with the number of 123\n";
 		const viewCommand = "gh pr view 123 --json number,url,title,body,headRefName,baseRefName";
 		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: successfulSubmitResponses().flatMap((response) =>
@@ -1650,6 +1669,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("description edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes({
+			request: { regenerateDescriptions: true },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),

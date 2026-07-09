@@ -734,6 +734,7 @@ describe("runSubmitCommand", () => {
 			metadataGateway,
 			restack: true,
 			force: false,
+			shouldRegenerateExistingPrDescriptions: true,
 			prDescription: {
 				githubPr,
 				textGenerator,

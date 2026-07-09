@@ -93,7 +93,12 @@ export interface SubmitMetadataGateway {
 }
 
 export type SubmitPrMetadataPrewriteResult =
-	| { kind: "prepared"; prepared: PrewrittenPrMetadata[]; hasUpstackBranches: boolean }
+	| {
+			kind: "prepared";
+			prepared: PrewrittenPrMetadata[];
+			hasUpstackBranches: boolean;
+			existingPrLinks: SubmitPrLink[];
+	  }
 	| {
 			kind: "failed";
 			error: string;
@@ -407,10 +412,14 @@ export async function prepareSubmitPrMetadata(input: {
 	if (!inspected.ok) {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
 	}
+	const existingPrLinks = inspected.value.branches.flatMap((branch) =>
+		branch.kind === "existing" ? [branch.pr] : [],
+	);
 	const preparedResult = (prepared: PrewrittenPrMetadata[]): SubmitPrMetadataPrewriteResult => ({
 		kind: "prepared",
 		prepared,
 		hasUpstackBranches: inspected.value.hasUpstackBranches,
+		existingPrLinks,
 	});
 
 	const amendableBranches = await findAmendableBranchNames(inspected.value);

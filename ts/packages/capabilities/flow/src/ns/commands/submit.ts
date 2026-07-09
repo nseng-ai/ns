@@ -72,6 +72,12 @@ const submitSchema = z.object({
 		.describe(
 			'Run pre-submit hooks installed at [points]."flow.submit.pre" in repo-root ns.toml before checkpointing. Use --no-hooks to skip.',
 		),
+	regenerateDescriptions: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Regenerate titles and ns-managed descriptions for PRs that already existed before this submit.",
+		),
 });
 
 const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit hooks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
@@ -85,6 +91,8 @@ Environment:
 
   NS_SUBMIT_FAILURE_MODEL       Model reference for summarizing submit failures.
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
+
+By default, existing PRs are submitted without rechecking or rewriting their GitHub title/body. Use --regenerate-descriptions to regenerate titles and ns-managed descriptions for PRs that already existed before this submit.
 
 The command owns its output and exit code. It does not support --format.`;
 
@@ -190,6 +198,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 					force: request.force,
 					shouldForwardCommandOutput: request.verbose,
 					prDescription: runtime.prDescription,
+					shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 					onPhase: stream.emit,
 					...(onOutput === undefined ? {} : { onOutput }),
 				});
@@ -325,6 +334,7 @@ async function runSubmitWithMatrix(input: {
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: runtime.prDescription,
+			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 			onPhase,
 			onOutput,
 			submitMatrix: matrix,

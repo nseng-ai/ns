@@ -198,6 +198,7 @@ export interface RunSubmitCommandOptions {
 	submitMatrix?: SubmitMatrixProgressSink;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
+	shouldRegenerateExistingPrDescriptions?: boolean;
 }
 
 export async function runSubmitCommand(
@@ -444,24 +445,40 @@ export async function runSubmitCommand(
 			text: "current PR not detected",
 		});
 	}
+	const shouldRegenerateExistingPrDescriptions =
+		options.shouldRegenerateExistingPrDescriptions === true;
+	const partitionedPrLinks = shouldRegenerateExistingPrDescriptions
+		? { newPrLinks: prLinks, existingPrLinks: [] }
+		: partitionPrLinksByExisting(prLinks, prewrite.existingPrLinks);
+	const descriptionPrLinks = partitionedPrLinks.newPrLinks;
+	const skippedExistingPrLinks = partitionedPrLinks.existingPrLinks;
 	emitSubmitPhase(
 		options,
 		{
 			type: "phase-started",
 			phaseKey: "descriptions",
-			label: formatDescriptionPhaseStart(prLinks.length),
+			label: formatDescriptionPhaseStart(descriptionPrLinks.length, skippedExistingPrLinks.length),
 		},
 		(matrix) => {
 			if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
 		},
 	);
 	options.submitMatrix?.setRunningCommands(
-		prLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
+		descriptionPrLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
 	);
+	for (const link of skippedExistingPrLinks) {
+		const number = prNumberFromLink(link);
+		if (number !== undefined) {
+			options.submitMatrix?.setCellByPrNumber(number, "description", {
+				state: "skipped",
+				text: "existing PR",
+			});
+		}
+	}
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
-		prLinks,
+		prLinks: descriptionPrLinks,
 		prewrittenMetadata: prewrite.prepared,
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
@@ -495,8 +512,13 @@ export async function runSubmitCommand(
 
 type RestackDecision = "run" | "declined" | "unavailable";
 
-function formatDescriptionPhaseStart(prCount: number): string {
-	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
+function formatDescriptionPhaseStart(prCount: number, skippedExistingCount: number): string {
+	if (prCount === 0 && skippedExistingCount === 0) {
+		return "checking PR descriptions; no PR links detected yet";
+	}
+	if (prCount === 0) {
+		return `skipping ${formatItemCount(skippedExistingCount, "existing PR description", "existing PR descriptions")}`;
+	}
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
 }
 
@@ -871,6 +893,23 @@ function mergePrLinks(
 		links.push({ ...link });
 	}
 	return links;
+}
+
+function partitionPrLinksByExisting(
+	links: readonly SubmitPrLink[],
+	existingLinks: readonly SubmitPrLink[],
+): { newPrLinks: SubmitPrLink[]; existingPrLinks: SubmitPrLink[] } {
+	const existingKeys = new Set(existingLinks.map(prLinkIdentityKey));
+	const newPrLinks: SubmitPrLink[] = [];
+	const matchedExistingPrLinks: SubmitPrLink[] = [];
+	for (const link of links) {
+		if (existingKeys.has(prLinkIdentityKey(link))) {
+			matchedExistingPrLinks.push(link);
+		} else {
+			newPrLinks.push(link);
+		}
+	}
+	return { newPrLinks, existingPrLinks: matchedExistingPrLinks };
 }
 
 function prLinkIdentityKey(link: SubmitPrLink): string {
