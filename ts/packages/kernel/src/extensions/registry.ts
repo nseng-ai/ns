@@ -1,11 +1,12 @@
-import { existsSync, readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
 	commandInfoForLoadedCommand,
 	commandKey,
+	formatUnknownError,
 	toCommandCliInfo,
 	commandPathMatches,
 	commandSegments,
@@ -36,10 +37,19 @@ import {
 } from "./module-reference.ts";
 import {
 	isPathInside,
+	isRecord,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 import { mergeXdgHomeEnv, requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
+import { parse } from "smol-toml";
+import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
+import {
+	validateExtensionDescriptor,
+	type ExtensionCommandEntry,
+	type ExtensionDescriptor,
+	type ExtensionEntry,
+} from "../sdk/descriptor.ts";
 import type { NsCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;
@@ -57,6 +67,7 @@ export interface ExternalNsCommandCandidate extends NsCommandCandidate {
 	moduleReference: NsCommandModuleReference;
 	entryPath?: string;
 	hasStaticCommandInfo: boolean;
+	descriptorEntry?: ExtensionCommandEntry;
 }
 
 export type ExtensionDiagnostic = ExtensionErrorDiagnostic | ExtensionOverrideDiagnostic;
@@ -170,6 +181,13 @@ export async function loadNsCommandCatalog(
 		label: join(options.cwd, ".ns", "extensions"),
 		candidates: projectCandidates.candidates,
 	});
+	const descriptorProjectCandidates = await loadProjectDescriptorCandidates(options.cwd);
+	diagnostics.push(...descriptorProjectCandidates.diagnostics);
+	orderedSources.push({
+		level: "project",
+		label: "ns.toml descriptor extensions",
+		candidates: descriptorProjectCandidates.candidates,
+	});
 
 	const merged = new Map<string, ExtensionCommandCandidate>();
 	for (const source of orderedSources) {
@@ -223,11 +241,18 @@ export async function loadSelectedNsCommand(
 			),
 		};
 	}
-	const validation = validateNsExtensionContribution(
-		loaded.defaultExport,
-		candidate,
-		formatSource(candidate.source),
-	);
+	const validation =
+		candidate.descriptorEntry === undefined
+			? validateNsExtensionContribution(
+					loaded.defaultExport,
+					candidate,
+					formatSource(candidate.source),
+				)
+			: validateDescriptorCommandContribution(
+					loaded.defaultExport,
+					candidate.descriptorEntry,
+					formatSource(candidate.source),
+				);
 	if (!validation.ok) {
 		return {
 			ok: false,
@@ -361,6 +386,268 @@ function loadRootCandidates(options: { level: "global" | "project"; rootDir: str
 			discoveredCommandCandidateForLevel(command, options.level),
 		),
 	};
+}
+
+async function loadProjectDescriptorCandidates(cwd: string): Promise<{
+	diagnostics: readonly ExtensionDiagnostic[];
+	candidates: readonly ExtensionCommandCandidate[];
+}> {
+	const declared = readDeclaredExtensionSpecs(cwd);
+	if (!declared.ok) return { diagnostics: [declared.diagnostic], candidates: [] };
+	const diagnostics: ExtensionDiagnostic[] = [];
+	const candidates: ExtensionCommandCandidate[] = [];
+	for (const spec of declared.specs) {
+		const loaded = await loadDescriptorPackage({ cwd, spec });
+		diagnostics.push(...loaded.diagnostics);
+		candidates.push(...loaded.candidates);
+	}
+	return { diagnostics, candidates };
+}
+
+function projectErrorDiagnostic(
+	code: string,
+	message: string,
+	path: string,
+): ExtensionErrorDiagnostic {
+	return { severity: "error", code, message, path, sourceLevel: "project" };
+}
+
+function readDeclaredExtensionSpecs(
+	cwd: string,
+): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
+	const nsTomlPath = join(cwd, "ns.toml");
+	if (!existsSync(nsTomlPath)) return { ok: true, specs: [] };
+	let parsed: unknown;
+	try {
+		parsed = parse(readFileSync(nsTomlPath, "utf8"));
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"ns_toml_invalid",
+				`ns.toml: Invalid TOML.\n${formatUnknownError(error)}`,
+				nsTomlPath,
+			),
+		};
+	}
+	if (!isRecord(parsed)) return { ok: true, specs: [] };
+	const value = parsed["extensions"];
+	if (value === undefined) return { ok: true, specs: [] };
+	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"ns_toml_extensions_invalid",
+				"ns.toml extensions must be an array of package-directory strings.",
+				nsTomlPath,
+			),
+		};
+	}
+	return { ok: true, specs: value };
+}
+
+async function loadDescriptorPackage(options: { cwd: string; spec: string }): Promise<{
+	diagnostics: readonly ExtensionDiagnostic[];
+	candidates: readonly ExtensionCommandCandidate[];
+}> {
+	const packageDir = resolve(options.cwd, options.spec);
+	const packageJsonPath = join(packageDir, "package.json");
+	const descriptorPath = resolveDescriptorExport(packageDir, packageJsonPath);
+	if (!descriptorPath.ok) return { diagnostics: [descriptorPath.diagnostic], candidates: [] };
+	let descriptorExport: unknown;
+	try {
+		descriptorExport = await loadNsUserModuleDefault(descriptorPath.path);
+	} catch (error) {
+		return {
+			diagnostics: [
+				projectErrorDiagnostic(
+					"extension_descriptor_import_failed",
+					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatUnknownError(error)}`,
+					descriptorPath.path,
+				),
+			],
+			candidates: [],
+		};
+	}
+	const validation = validateExtensionDescriptor(descriptorExport, descriptorPath.path);
+	if (!validation.ok) {
+		return {
+			diagnostics: [
+				projectErrorDiagnostic(
+					"extension_descriptor_invalid",
+					validation.message,
+					descriptorPath.path,
+				),
+			],
+			candidates: [],
+		};
+	}
+	return {
+		diagnostics: [],
+		candidates: descriptorCommandCandidates({
+			cwd: options.cwd,
+			spec: options.spec,
+			packageDir,
+			descriptorPath: descriptorPath.path,
+			descriptor: validation.descriptor,
+		}),
+	};
+}
+
+function resolveDescriptorExport(
+	packageDir: string,
+	packageJsonPath: string,
+): { ok: true; path: string } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"extension_descriptor_package_json_read_failed",
+				`Could not read extension package manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+				packageJsonPath,
+			),
+		};
+	}
+	const exportTarget = descriptorExportTarget(parsed);
+	if (exportTarget === undefined) {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"extension_descriptor_export_missing",
+				`Extension package must expose exports["./ns-extension"]: ${packageJsonPath}.`,
+				packageJsonPath,
+			),
+		};
+	}
+	if (exportTarget.startsWith("/") || exportTarget.includes("\\")) {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"extension_descriptor_export_invalid",
+				`Extension descriptor export must be a relative POSIX path: ${exportTarget}.`,
+				packageJsonPath,
+			),
+		};
+	}
+	const resolvedPath = resolve(packageDir, exportTarget);
+	if (!isPathInside(packageDir, resolvedPath)) {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"extension_descriptor_export_escapes",
+				`Extension descriptor export must stay inside the package: ${exportTarget}.`,
+				packageJsonPath,
+			),
+		};
+	}
+	try {
+		if (!statSync(resolvedPath).isFile()) {
+			throw new Error("not a file");
+		}
+	} catch {
+		return {
+			ok: false,
+			diagnostic: projectErrorDiagnostic(
+				"extension_descriptor_export_missing_file",
+				`Extension descriptor export does not resolve to a file: ${exportTarget}.`,
+				packageJsonPath,
+			),
+		};
+	}
+	return { ok: true, path: resolvedPath };
+}
+
+function descriptorExportTarget(manifest: unknown): string | undefined {
+	if (!isRecord(manifest)) return undefined;
+	const exportsValue = manifest["exports"];
+	if (!isRecord(exportsValue)) return undefined;
+	const nsExtensionExport = exportsValue["./ns-extension"];
+	if (typeof nsExtensionExport === "string") return nsExtensionExport;
+	if (!isRecord(nsExtensionExport)) return undefined;
+	const importTarget = nsExtensionExport["import"];
+	if (typeof importTarget === "string") return importTarget;
+	const defaultTarget = nsExtensionExport["default"];
+	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+}
+
+function descriptorCommandCandidates(options: {
+	cwd: string;
+	spec: string;
+	packageDir: string;
+	descriptorPath: string;
+	descriptor: ExtensionDescriptor;
+}): readonly ExtensionCommandCandidate[] {
+	const entries = options.descriptor.entries ?? [];
+	return entries.flatMap((entry) =>
+		descriptorEntryCommandCandidates({
+			...options,
+			entry,
+			segments: options.descriptor.group === undefined ? [] : [options.descriptor.group],
+			hiddenSegments: [],
+			rootGroupDescription: options.descriptor.description,
+		}),
+	);
+}
+
+function descriptorEntryCommandCandidates(options: {
+	cwd: string;
+	spec: string;
+	packageDir: string;
+	descriptorPath: string;
+	descriptor: ExtensionDescriptor;
+	entry: ExtensionEntry;
+	segments: readonly string[];
+	hiddenSegments: readonly string[];
+	rootGroupDescription: string;
+}): readonly ExtensionCommandCandidate[] {
+	if ("load" in options.entry) {
+		const commandEntry = options.entry;
+		const segments = [...options.segments, commandEntry.name];
+		const displayPath = `${relativeDisplayPath(options.cwd, options.descriptorPath)}#${segments.join("/")}`;
+		return [
+			{
+				name: commandEntry.name,
+				segments,
+				description: `Load ns descriptor command ${segments.join(" ")}.`,
+				fullDescription: `Load ns descriptor command ${segments.join(" ")}.`,
+				...(options.segments.length === 1
+					? { group: options.segments[0], groupDescription: options.rootGroupDescription }
+					: {}),
+				...optionalEntry("hiddenSegments", options.hiddenSegments),
+				moduleReference: loadedModuleReference(displayPath, async () => {
+					const module = await commandEntry.load();
+					return module.default;
+				}),
+				descriptorEntry: commandEntry,
+				hasStaticCommandInfo: false,
+				entryPath: options.descriptorPath,
+				source: {
+					level: "project",
+					label: `ns.toml descriptor ${options.spec}`,
+					path: options.descriptorPath,
+				},
+			},
+		];
+	}
+	const nextSegments = [...options.segments, options.entry.group];
+	const hiddenSegments = options.entry.hidden
+		? [...options.hiddenSegments, commandKey({ name: options.entry.group, segments: nextSegments })]
+		: options.hiddenSegments;
+	return options.entry.entries.flatMap((entry) =>
+		descriptorEntryCommandCandidates({
+			...options,
+			entry,
+			segments: nextSegments,
+			hiddenSegments,
+		}),
+	);
+}
+
+function relativeDisplayPath(rootDir: string, entryPath: string): string {
+	return relative(rootDir, entryPath);
 }
 
 async function loadPreinstalledCandidates(
@@ -694,6 +981,46 @@ function fromLoadDiagnostic(
 	commandName: string,
 ): ExtensionErrorDiagnostic {
 	return { ...diagnostic, sourceLevel, commandName };
+}
+
+function validateDescriptorCommandContribution(
+	contribution: unknown,
+	entry: ExtensionCommandEntry,
+	sourceLabel: string,
+): { ok: true; command: NsCommand } | { ok: false; message: string } {
+	if (!isNsCommand(contribution)) {
+		return {
+			ok: false,
+			message: `Invalid ns descriptor command ${sourceLabel}: loaded module default export must be a command object.`,
+		};
+	}
+	if (entry.name !== contribution.name) {
+		return {
+			ok: false,
+			message: `Invalid ns descriptor command ${sourceLabel}: Loaded command name mismatch: descriptor entry "${entry.name}" loaded command "${contribution.name}".`,
+		};
+	}
+	return { ok: true, command: descriptorCommandAsNsCommand(contribution) };
+}
+
+function descriptorCommandAsNsCommand(command: NsCommand): NsCommand {
+	return {
+		name: command.name,
+		summary: command.summary,
+		description: command.description,
+		...optionalEntry("resultSchema", command.resultSchema),
+		run: async (ctx) => await command.run(ctx, { argv: [] }),
+	};
+}
+
+function isNsCommand(value: unknown): value is NsCommand {
+	if (!isRecord(value)) return false;
+	return (
+		typeof value.name === "string" &&
+		typeof value.summary === "string" &&
+		typeof value.description === "string" &&
+		typeof value.run === "function"
+	);
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

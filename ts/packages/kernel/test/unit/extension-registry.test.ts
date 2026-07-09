@@ -54,6 +54,20 @@ export default defineExtension({
 `;
 }
 
+function descriptorCommandModule(name: string, message: string): string {
+	return `
+import { defineRawCommand, ok, z } from "@nseng-ai/kernel/sdk";
+
+export default defineRawCommand({
+	name: ${JSON.stringify(name)},
+	summary: ${JSON.stringify(`${name} summary`)},
+	description: ${JSON.stringify(`${name} command`)},
+	resultSchema: z.object({ message: z.string() }),
+	run() { return ok({ message: ${JSON.stringify(message)} }); },
+});
+`;
+}
+
 function preinstalledEntry(group: string, name: string, moduleSpecifier: string) {
 	return {
 		group,
@@ -77,6 +91,176 @@ describe("extension registry", () => {
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
 		expect(loaded.commandInfos).toEqual(builtInCommandInfos);
+	});
+
+	test("ns.toml-declared descriptor package contributes nested command candidates", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "package.json"),
+			JSON.stringify({
+				name: "tools",
+				version: "1.0.0",
+				exports: { "./ns-extension": "./src/ns/extension.ts" },
+			}),
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
+			`
+import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	group: "tools",
+	description: "Tool commands.",
+	entries: [
+		{ name: "scan", load: () => import("../commands/scan.ts") },
+		{
+			group: "exec",
+			hidden: true,
+			description: "Agent-only tool commands.",
+			entries: [{ name: "doctor", load: () => import("../commands/doctor.ts") }],
+		},
+	],
+});
+`,
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "src", "commands", "scan.ts"),
+			descriptorCommandModule("scan", "scanned"),
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "src", "commands", "doctor.ts"),
+			descriptorCommandModule("doctor", "healthy"),
+		);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect(loaded.candidates.get("tools/scan")).toMatchObject({
+			name: "scan",
+			segments: ["tools", "scan"],
+			group: "tools",
+			groupDescription: "Tool commands.",
+			moduleReference: { type: "loaded" },
+			source: { level: "project" },
+		});
+		expect(loaded.candidates.get("tools/exec/doctor")).toMatchObject({
+			name: "doctor",
+			segments: ["tools", "exec", "doctor"],
+			hiddenSegments: ["tools/exec"],
+		});
+		const listing = await loadListingCommandInfos(loaded);
+		expect(listing.diagnostics).toEqual([]);
+		expect(listing.commandInfos).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					segments: ["tools", "scan"],
+					description: "scan summary",
+					fullDescription: "scan command",
+				}),
+				expect.objectContaining({
+					segments: ["tools", "exec", "doctor"],
+					description: "doctor summary",
+					hiddenSegments: ["tools/exec"],
+				}),
+			]),
+		);
+	});
+
+	test("descriptor selected load reports command-name mismatches", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "package.json"),
+			JSON.stringify({
+				name: "tools",
+				version: "1.0.0",
+				exports: { "./ns-extension": "./src/ns/extension.ts" },
+			}),
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
+			`
+import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	group: "tools",
+	description: "Tool commands.",
+	entries: [{ name: "scan", load: () => import("../commands/scan.ts") }],
+});
+`,
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "tools", "src", "commands", "scan.ts"),
+			descriptorCommandModule("other", "oops"),
+		);
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
+		const selected = loaded.candidates.get("tools/scan");
+		expect(selected).toBeDefined();
+		if (selected === undefined) return;
+
+		const command = await loadSelectedNsCommand(selected);
+
+		expect(command.ok).toBe(false);
+		if (command.ok) return;
+		expect(command.diagnostic.code).toBe("extension_command_invalid");
+		expect(command.diagnostic.message).toContain(
+			'Loaded command name mismatch: descriptor entry "scan" loaded command "other"',
+		);
+	});
+
+	test("malformed descriptor does not block other declared descriptor packages", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(
+			join(workspace.cwd, "ns.toml"),
+			'extensions = ["./extensions/bad", "./extensions/good"]\n',
+		);
+		for (const packageName of ["bad", "good"] as const) {
+			writeWorkspaceFile(
+				join(workspace.cwd, "extensions", packageName, "package.json"),
+				JSON.stringify({
+					name: packageName,
+					version: "1.0.0",
+					exports: { "./ns-extension": "./src/ns/extension.ts" },
+				}),
+			);
+		}
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "bad", "src", "ns", "extension.ts"),
+			"export default { entries: [] };\n",
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "good", "src", "ns", "extension.ts"),
+			`
+import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	group: "good",
+	description: "Good commands.",
+	entries: [{ name: "scan", load: () => import("../commands/scan.ts") }],
+});
+`,
+		);
+		writeWorkspaceFile(
+			join(workspace.cwd, "extensions", "good", "src", "commands", "scan.ts"),
+			descriptorCommandModule("scan", "ok"),
+		);
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			xdgHomeDir: workspace.homeDir,
+		});
+
+		expect(loaded.candidates.has("good/scan")).toBe(true);
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: "extension_descriptor_invalid" })]),
+		);
 	});
 
 	test("injected preinstalled catalog contributes package commands", async () => {

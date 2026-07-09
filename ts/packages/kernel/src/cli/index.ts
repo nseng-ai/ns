@@ -630,19 +630,23 @@ function groupForCommand(
 			parent = existing;
 			continue;
 		}
+		const currentSegments = parentSegments.slice(0, index + 1);
 		const group = new ClinkrGroup<NsCliContext>({
 			name: segment,
-			description: groupDescription(parentSegments.slice(0, index + 1), commandInfo),
+			description: groupDescription(currentSegments, commandInfo),
 			...(index === 0 ? { helpGroup: NS_EXTENSION_HELP_GROUP } : {}),
-			...(segment === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)
-				? { isHidden: true }
-				: {}),
+			...(isHiddenCommandGroup(currentSegments, commandInfo) ? { isHidden: true } : {}),
 		});
 		groupCache.set(groupKey, group);
 		parent.group(group);
 		parent = group;
 	}
 	return parent;
+}
+
+function isHiddenCommandGroup(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {
+	if (segments.at(-1) === NS_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) return true;
+	return commandInfo.hiddenSegments?.some((hidden) => hidden === segments.join("/")) ?? false;
 }
 
 function groupDescription(segments: readonly string[], commandInfo: NsCommandCliInfo): string {
