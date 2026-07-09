@@ -37,6 +37,11 @@ export interface Deferred<T> {
 	readonly resolve: (value: T) => void;
 }
 
+export interface RequestObjectToArgvOptions {
+	readonly positionalKeys?: readonly string[];
+	readonly negatedBooleanKeys?: readonly string[];
+}
+
 /** Internal monorepo testing helper for ordered scripted expectations. */
 export class ScriptedQueue<TStep> {
 	private readonly errors: string[] = [];
@@ -71,6 +76,46 @@ export function createDeferred<T>(): Deferred<T> {
 	});
 	if (resolve === undefined) throw new Error("Deferred promise did not initialize");
 	return { promise, resolve };
+}
+
+export function requestObjectToArgv(
+	request: unknown,
+	options: RequestObjectToArgvOptions = {},
+): readonly string[] {
+	if (typeof request !== "object" || request === null || Array.isArray(request)) return [];
+	const entries = Object.entries(request);
+	const positionalKeys = new Set(options.positionalKeys ?? []);
+	const negatedBooleanKeys = new Set(options.negatedBooleanKeys ?? []);
+	const positionals = entries.flatMap(([key, value]) =>
+		positionalKeys.has(key) ? positionalRequestEntryToArgv(value) : [],
+	);
+	const flags = entries.flatMap(([key, value]) =>
+		positionalKeys.has(key) ? [] : requestEntryToArgv(key, value, negatedBooleanKeys),
+	);
+	return [...positionals, ...flags];
+}
+
+function positionalRequestEntryToArgv(value: unknown): readonly string[] {
+	if (value === undefined) return [];
+	if (Array.isArray(value)) return value.map((entry) => String(entry));
+	return [String(value)];
+}
+
+function requestEntryToArgv(
+	key: string,
+	value: unknown,
+	negatedBooleanKeys: ReadonlySet<string>,
+): readonly string[] {
+	const flag = `--${kebabCase(key)}`;
+	if (value === true) return [flag];
+	if (value === false) return negatedBooleanKeys.has(key) ? [`--no-${kebabCase(key)}`] : [];
+	if (value === undefined) return [];
+	if (Array.isArray(value)) return value.flatMap((entry) => [flag, String(entry)]);
+	return [flag, String(value)];
+}
+
+function kebabCase(value: string): string {
+	return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
 export function createTempDirTracker(): TempDirTracker {

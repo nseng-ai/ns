@@ -237,6 +237,13 @@ export function formatPrewriteFailureOutput(options: {
 		.join("\n");
 }
 
+export function formatPrewrittenMetadataAdvisory(
+	prewrittenMetadata: readonly PrewrittenPrMetadata[],
+	message: string,
+): readonly string[] {
+	return prewrittenMetadata.length === 0 ? [] : [message];
+}
+
 export function formatSubmitFailureOutput(
 	output: SubmitCommandOutput,
 	prewrittenMetadata: readonly PrewrittenPrMetadata[],
@@ -250,12 +257,10 @@ export function formatSubmitFailureOutput(
 			killed: `${submitCommandDisplay} timed out and was killed.`,
 			exit: (exitCode) => `${submitCommandDisplay} failed with exit code ${exitCode}.`,
 		},
-		detailLines:
-			prewrittenMetadata.length === 0
-				? []
-				: [
-						"Local PR metadata commit messages were prepared before submit; rerun ns flow submit after resolving the Graphite failure.",
-					],
+		detailLines: formatPrewrittenMetadataAdvisory(
+			prewrittenMetadata,
+			"Local PR metadata commit messages were prepared before submit; rerun ns flow submit after resolving the Graphite failure.",
+		),
 	});
 }
 

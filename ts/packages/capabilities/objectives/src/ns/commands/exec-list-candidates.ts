@@ -7,7 +7,7 @@ import {
 } from "../../core/operations/list-candidates.ts";
 
 export const objectiveExecListCandidatesNsCommand = objectiveNsCommand({
-	name: "exec-list-candidates",
+	name: "list-candidates",
 	summary: "List active Objective slug candidates for shell and agent autocomplete.",
 	description: "List active Objective slug candidates for shell and agent autocomplete.",
 	schema: listCandidatesRequestSchema,

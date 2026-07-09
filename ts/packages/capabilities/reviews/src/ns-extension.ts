@@ -1,4 +1,4 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/kernel/sdk";
 
 export default defineExtension({
 	group: "reviews",
@@ -20,26 +20,21 @@ export default defineExtension({
 			name: "run",
 			load: async () => ({ default: (await import("./commands/run.ts")).reviewRunCommand }),
 		},
-		{
-			group: "exec",
-			hidden: true,
-			description: "Agent-only Reviews operations.",
-			entries: [
-				{
-					name: "record-findings",
-					load: async () => ({
-						default: (await import("./commands/exec-record-findings.ts"))
-							.reviewsExecRecordFindingsCommand,
-					}),
-				},
-				{
-					name: "publish-findings",
-					load: async () => ({
-						default: (await import("./commands/exec-publish-findings.ts"))
-							.reviewsExecPublishFindingsCommand,
-					}),
-				},
-			],
-		},
+		hiddenExecGroup("Agent-only Reviews operations.", [
+			{
+				name: "record-findings",
+				load: async () => ({
+					default: (await import("./commands/exec-record-findings.ts"))
+						.reviewsExecRecordFindingsCommand,
+				}),
+			},
+			{
+				name: "publish-findings",
+				load: async () => ({
+					default: (await import("./commands/exec-publish-findings.ts"))
+						.reviewsExecPublishFindingsCommand,
+				}),
+			},
+		]),
 	],
 });

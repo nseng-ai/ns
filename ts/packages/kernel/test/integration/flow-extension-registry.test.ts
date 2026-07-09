@@ -40,7 +40,7 @@ describe("checked-in flow ns extension registry loading", () => {
 			"flow/branch-latest-commit",
 			"flow/changes",
 			"flow/cp",
-			"flow/exec-read-graphite-branch-metadata",
+			"flow/exec/read-graphite-branch-metadata",
 			"flow/land",
 			"flow/pull-trunk",
 			"flow/push",

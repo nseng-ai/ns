@@ -6,9 +6,11 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
+	descriptorExportTarget,
 	managedDescriptorPackageRoot,
+	nsExtensionExportTarget,
 	resolveAcquiredDescriptorPackageRoot,
-} from "../../src/project-config/descriptor-package.ts";
+} from "@nseng-ai/kernel/project-config";
 import { appendDeclaredExtensionSpecToml } from "../../src/project-config/ns-toml-extensions-edit.ts";
 
 describe("ns.toml extension spec edits", () => {
@@ -16,7 +18,7 @@ describe("ns.toml extension spec edits", () => {
 		expect(appendDeclaredExtensionSpecToml('harnesses = ["pi"]\n', "./extensions/tools")).toEqual({
 			ok: true,
 			text: 'harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
-			wasAdded: true,
+			isAdded: true,
 		});
 	});
 
@@ -28,12 +30,12 @@ describe("ns.toml extension spec edits", () => {
 		expect(first).toEqual({
 			ok: true,
 			text: 'extensions = ["./extensions/a", "./extensions/b"]\n[points]\n',
-			wasAdded: true,
+			isAdded: true,
 		});
 		expect(appendDeclaredExtensionSpecToml(first.ok ? first.text : "", "./extensions/b")).toEqual({
 			ok: true,
 			text: 'extensions = ["./extensions/a", "./extensions/b"]\n[points]\n',
-			wasAdded: false,
+			isAdded: false,
 		});
 	});
 
@@ -42,6 +44,36 @@ describe("ns.toml extension spec edits", () => {
 			ok: false,
 			reason: "invalid-toml",
 		});
+	});
+});
+
+describe("descriptor package exports", () => {
+	test("resolves string and conditional descriptor export targets", () => {
+		expect(nsExtensionExportTarget({ "./ns-extension": "./src/ns/extension.ts" })).toBe(
+			"./src/ns/extension.ts",
+		);
+		expect(
+			nsExtensionExportTarget({
+				"./ns-extension": {
+					import: "./src/ns/extension.ts",
+					default: "./dist/ns/extension.js",
+				},
+			}),
+		).toBe("./src/ns/extension.ts");
+		expect(
+			nsExtensionExportTarget({
+				"./ns-extension": { default: "./dist/ns/extension.js" },
+			}),
+		).toBe("./dist/ns/extension.js");
+		expect(nsExtensionExportTarget({ "./other": "./src/ns/extension.ts" })).toBeUndefined();
+	});
+
+	test("resolves descriptor export targets from package manifests", () => {
+		expect(
+			descriptorExportTarget({
+				exports: { "./ns-extension": { default: "./src/ns/extension.ts" } },
+			}),
+		).toBe("./src/ns/extension.ts");
 	});
 });
 
@@ -54,9 +86,7 @@ describe("descriptor package acquisition", () => {
 		writePackageJson(managedRoot, "@acme/tools");
 
 		expect(resolveAcquiredDescriptorPackageRoot({ repoRoot, spec: "./extensions/tools" })).toEqual({
-			declaredRoot: sourceRoot,
 			packageRoot: managedRoot,
-			isManaged: true,
 		});
 	});
 
@@ -66,9 +96,7 @@ describe("descriptor package acquisition", () => {
 		writePackageJson(sourceRoot, "tools");
 
 		expect(resolveAcquiredDescriptorPackageRoot({ repoRoot, spec: "./extensions/tools" })).toEqual({
-			declaredRoot: sourceRoot,
 			packageRoot: sourceRoot,
-			isManaged: false,
 		});
 	});
 });

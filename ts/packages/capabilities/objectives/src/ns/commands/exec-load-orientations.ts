@@ -7,7 +7,7 @@ import {
 } from "../../core/operations/load-orientations.ts";
 
 export const objectiveExecLoadOrientationsNsCommand = objectiveNsCommand({
-	name: "exec-load-orientations",
+	name: "load-orientations",
 	summary: "Load active Objective orientation files for agent onboarding.",
 	description: "Load active Objective orientation files for agent onboarding.",
 	schema: loadOrientationsRequestSchema,

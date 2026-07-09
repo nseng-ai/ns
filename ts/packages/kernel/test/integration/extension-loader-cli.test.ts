@@ -253,31 +253,27 @@ export default { name: "hello", summary: "Hello", description: "Hello", run() { 
 async function createThrowingDescriptorProject(commandName: string): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
 	tempDirs.push(directory);
-	writeFileSyncWithParents(join(directory, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
-	writePackageManifest(directory, "tools");
-	writeFileSyncWithParents(
-		join(directory, "extensions", "tools", "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/kernel/sdk";
-export default defineExtension({
-	description: "Project test tools.",
-	entries: [
-		{ name: ${JSON.stringify(commandName)}, load: async () => { throw new Error("module boom"); } },
-	],
-});
-`,
-	);
+	writeDescriptorPackage(directory, [], {
+		entriesSource: `{ name: ${JSON.stringify(commandName)}, load: async () => { throw new Error("module boom"); } }`,
+	});
 	return directory;
 }
 
-function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): void {
+function writeDescriptorPackage(
+	cwd: string,
+	commandNames: readonly string[],
+	options: { entriesSource?: string } = {},
+): void {
 	writeFileSyncWithParents(join(cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
 	writePackageManifest(cwd, "tools");
-	const entries = commandNames
-		.map(
-			(name) =>
-				`{ name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
-		)
-		.join(",\n\t\t");
+	const entries =
+		options.entriesSource ??
+		commandNames
+			.map(
+				(name) =>
+					`{ name: ${JSON.stringify(name)}, load: async () => await import("../commands/${name}.ts") }`,
+			)
+			.join(",\n\t\t");
 	writeFileSyncWithParents(
 		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 		`import { defineExtension } from "@nseng-ai/kernel/sdk";

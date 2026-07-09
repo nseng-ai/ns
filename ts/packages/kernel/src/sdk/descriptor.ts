@@ -1,17 +1,17 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import type { KernelCommand } from "./command.ts";
+import type { RawArgvCommand } from "./command.ts";
 
-export type DescriptorCommand = KernelCommand;
+export type DescriptorCommand = RawArgvCommand;
 
-export interface KernelCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
+export interface RawArgvCommandModule<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly default: TCommand;
 }
 
-export type KernelCommandLoad<TCommand extends DescriptorCommand = DescriptorCommand> = () =>
-	| Promise<KernelCommandModule<TCommand>>
-	| KernelCommandModule<TCommand>;
+export type RawArgvCommandLoad<TCommand extends DescriptorCommand = DescriptorCommand> = () =>
+	| Promise<RawArgvCommandModule<TCommand>>
+	| RawArgvCommandModule<TCommand>;
 
 export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly name: string;
@@ -21,7 +21,7 @@ export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = Desc
 	 * lexically while parsing, even inside callbacks. Computed specifiers such as
 	 * `import(commandPath)` are opaque to bundlers and break bundled descriptors.
 	 */
-	readonly load: KernelCommandLoad<TCommand>;
+	readonly load: RawArgvCommandLoad<TCommand>;
 }
 
 export interface ExtensionGroupEntry {
@@ -59,6 +59,26 @@ export interface ExtensionDescriptor {
 	readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
 }
 
+export function hiddenExecGroup(
+	description: string,
+	entries: readonly ExtensionEntry[],
+): ExtensionGroupEntry {
+	return { group: "exec", hidden: true, description, entries };
+}
+
+export function nsExtensionExportTarget(exportsField: unknown): string | undefined {
+	const exportsResult = z.record(z.string(), z.unknown()).safeParse(exportsField);
+	if (!exportsResult.success) return undefined;
+	const nsExtensionExport = exportsResult.data["./ns-extension"];
+	if (typeof nsExtensionExport === "string") return nsExtensionExport;
+	const conditionalExportResult = z.record(z.string(), z.unknown()).safeParse(nsExtensionExport);
+	if (!conditionalExportResult.success) return undefined;
+	const importTarget = conditionalExportResult.data["import"];
+	if (typeof importTarget === "string") return importTarget;
+	const defaultTarget = conditionalExportResult.data["default"];
+	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+}
+
 export type ExtensionDescriptorValidationResult =
 	| { readonly ok: true; readonly descriptor: ExtensionDescriptor }
 	| { readonly ok: false; readonly message: string };
@@ -69,7 +89,7 @@ export type LoadedCommandNameValidationResult =
 
 const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z.strictObject({
 	name: z.string().min(1),
-	load: z.custom<KernelCommandLoad>((value) => typeof value === "function"),
+	load: z.custom<RawArgvCommandLoad>((value) => typeof value === "function"),
 });
 
 const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
@@ -84,7 +104,7 @@ const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
 			(entry): ExtensionGroupEntry => ({
 				group: entry.group,
 				description: entry.description,
-				...optionalEntry("hidden", entry.hidden),
+				...optionalEntries({ hidden: entry.hidden }),
 				entries: entry.entries,
 			}),
 		),
@@ -108,8 +128,7 @@ export const extensionPointDefinitionSchema: z.ZodType<ExtensionPointDefinition>
 			id: point.id,
 			accepts: point.accepts,
 			cardinality: point.cardinality,
-			...optionalEntry("description", point.description),
-			...optionalEntry("default", point.default),
+			...optionalEntries({ description: point.description, default: point.default }),
 		}),
 	);
 
@@ -125,7 +144,7 @@ export const bundledArtifactDefinitionSchema: z.ZodType<BundledArtifactDefinitio
 			kind: artifact.kind,
 			name: artifact.name,
 			path: artifact.path,
-			...optionalEntry("description", artifact.description),
+			...optionalEntries({ description: artifact.description }),
 		}),
 	);
 
@@ -139,11 +158,13 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 	})
 	.transform(
 		(descriptor): ExtensionDescriptor => ({
-			...optionalEntry("group", descriptor.group),
+			...optionalEntries({ group: descriptor.group }),
 			description: descriptor.description,
-			...optionalEntry("entries", descriptor.entries),
-			...optionalEntry("points", descriptor.points),
-			...optionalEntry("bundledArtifacts", descriptor.bundledArtifacts),
+			...optionalEntries({
+				entries: descriptor.entries,
+				points: descriptor.points,
+				bundledArtifacts: descriptor.bundledArtifacts,
+			}),
 		}),
 	);
 
@@ -160,7 +181,7 @@ export function validateExtensionDescriptor(
 }
 
 export function validateLoadedCommandName(
-	entry: ExtensionCommandEntry,
+	entry: Pick<ExtensionCommandEntry, "name">,
 	command: Pick<DescriptorCommand, "name">,
 ): LoadedCommandNameValidationResult {
 	if (entry.name === command.name) return { ok: true };

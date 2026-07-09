@@ -6,7 +6,6 @@ import {
 	commandInfoForLoadedCommand,
 	commandKey,
 	commandLeafName,
-	formatUnknownError,
 	toCommandCliInfo,
 	commandPathMatches,
 	commandSegments,
@@ -20,6 +19,7 @@ import {
 	type NsCommandSourceLevel,
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
+import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
 	loadedModuleReference,
@@ -29,6 +29,7 @@ import {
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
 import {
+	formatErrorMessage,
 	isPathInside,
 	optionalEntry,
 	type ExplicitUndefined,
@@ -41,6 +42,8 @@ import {
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
 import {
+	declaredExtensionSpecsErrorInfo,
+	descriptorExportPathErrorInfo,
 	descriptorExportTarget,
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
@@ -107,7 +110,7 @@ export interface PreinstalledNsCommandCatalogEntryBase {
 	readonly description: string;
 	readonly fullDescription: string;
 	readonly path?: readonly string[];
-	readonly hiddenSegments?: readonly string[];
+	readonly hiddenAncestorKeys?: readonly string[];
 	readonly hasStaticCommandInfo?: boolean;
 }
 
@@ -220,7 +223,7 @@ export async function loadSelectedNsCommand(
 	}
 	const validation = validateDescriptorCommandContribution(
 		loaded.defaultExport,
-		candidate.descriptorEntry ?? commandEntryForCandidate(candidate),
+		candidate.descriptorEntry ?? { name: commandLeafName(candidate) },
 		formatSource(candidate.source),
 	);
 	if (!validation.ok) {
@@ -398,15 +401,10 @@ function readDeclaredExtensionSpecs(
 	if (!existsSync(nsTomlPath)) return { ok: true, specs: [] };
 	const parsed = parseDeclaredExtensionSpecsToml(readFileSync(nsTomlPath, "utf8"));
 	if (parsed.ok) return parsed;
+	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
 	return {
 		ok: false,
-		diagnostic: projectErrorDiagnostic(
-			parsed.reason === "invalid-toml" ? "ns_toml_invalid" : "ns_toml_extensions_invalid",
-			parsed.reason === "invalid-toml"
-				? `ns.toml: Invalid TOML.\n${parsed.message}`
-				: parsed.message,
-			nsTomlPath,
-		),
+		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, nsTomlPath),
 	};
 }
 
@@ -430,7 +428,7 @@ async function loadDescriptorPackage(options: { cwd: string; spec: string }): Pr
 			diagnostics: [
 				projectErrorDiagnostic(
 					"extension_descriptor_import_failed",
-					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatUnknownError(error)}`,
+					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
 					descriptorPath.path,
 				),
 			],
@@ -476,7 +474,7 @@ function resolveDescriptorExport(
 			ok: false,
 			diagnostic: projectErrorDiagnostic(
 				"extension_descriptor_package_json_read_failed",
-				`Could not read extension package manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+				`Could not read extension package manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
 				packageJsonPath,
 			),
 		};
@@ -504,27 +502,10 @@ function descriptorExportErrorDiagnostic(
 	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
 	packageJsonPath: string,
 ): { ok: false; diagnostic: ExtensionErrorDiagnostic } {
-	if (result.reason === "missing") {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_export_missing",
-				`Extension package must expose exports["./ns-extension"]: ${packageJsonPath}.`,
-				packageJsonPath,
-			),
-		};
-	}
+	const errorInfo = descriptorExportPathErrorInfo(result, packageJsonPath);
 	return {
 		ok: false,
-		diagnostic: projectErrorDiagnostic(
-			result.reason === "invalid"
-				? "extension_descriptor_export_invalid"
-				: "extension_descriptor_export_escapes",
-			result.reason === "invalid"
-				? `Extension descriptor export must be a relative POSIX path: ${result.target}.`
-				: `Extension descriptor export must stay inside the package: ${result.target}.`,
-			packageJsonPath,
-		),
+		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, packageJsonPath),
 	};
 }
 
@@ -543,7 +524,7 @@ function descriptorCommandCandidates(options: {
 			...options,
 			entry,
 			segments: options.descriptor.group === undefined ? [] : [options.descriptor.group],
-			hiddenSegments: [],
+			hiddenAncestorKeys: [],
 			rootGroupDescription: options.descriptor.description,
 		}),
 	);
@@ -559,7 +540,7 @@ function descriptorEntryCommandCandidates(options: {
 	sourceLabel: string;
 	entry: ExtensionEntry;
 	segments: readonly string[];
-	hiddenSegments: readonly string[];
+	hiddenAncestorKeys: readonly string[];
 	rootGroupDescription: string;
 }): readonly ExtensionCommandCandidate[] {
 	if ("load" in options.entry) {
@@ -568,10 +549,10 @@ function descriptorEntryCommandCandidates(options: {
 		const commandInfoPath = descriptorCommandInfoPath({
 			commandName: commandEntry.name,
 			segments: options.segments,
-			hiddenSegments: options.hiddenSegments,
+			hiddenAncestorKeys: options.hiddenAncestorKeys,
 			rootGroupDescription: options.rootGroupDescription,
 		});
-		const displayPath = `${relativeDisplayPath(options.cwd, options.descriptorPath)}#${segments.join("/")}`;
+		const displayPath = `${relative(options.cwd, options.descriptorPath)}#${segments.join("/")}`;
 		return [
 			{
 				...commandInfoPath,
@@ -592,16 +573,12 @@ function descriptorEntryCommandCandidates(options: {
 			},
 		];
 	}
-	const nextSegments = [...options.segments, options.entry.group];
-	const hiddenSegments = options.entry.hidden
-		? [...options.hiddenSegments, commandKey({ name: options.entry.group, segments: nextSegments })]
-		: options.hiddenSegments;
+	const nextState = nextDescriptorTraversalState(options.entry, options);
 	return options.entry.entries.flatMap((entry) =>
 		descriptorEntryCommandCandidates({
 			...options,
 			entry,
-			segments: nextSegments,
-			hiddenSegments,
+			...nextState,
 		}),
 	);
 }
@@ -609,27 +586,26 @@ function descriptorEntryCommandCandidates(options: {
 function descriptorCommandInfoPath(options: {
 	commandName: string;
 	segments: readonly string[];
-	hiddenSegments: readonly string[];
+	hiddenAncestorKeys: readonly string[];
 	rootGroupDescription: string;
-}): Pick<NsCommandCliInfo, "name" | "group" | "segments" | "groupDescription" | "hiddenSegments"> {
+}): Pick<
+	NsCommandCliInfo,
+	"name" | "group" | "segments" | "groupDescription" | "hiddenAncestorKeys"
+> {
 	const rootGroup = options.segments[0];
 	if (options.segments.length === 1 && rootGroup !== undefined) {
 		return {
 			name: options.commandName,
 			group: rootGroup,
 			groupDescription: options.rootGroupDescription,
-			...optionalEntry("hiddenSegments", options.hiddenSegments),
+			...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 		};
 	}
 	return {
 		name: options.commandName,
 		segments: [...options.segments, options.commandName],
-		...optionalEntry("hiddenSegments", options.hiddenSegments),
+		...optionalEntry("hiddenAncestorKeys", options.hiddenAncestorKeys),
 	};
-}
-
-function relativeDisplayPath(rootDir: string, entryPath: string): string {
-	return relative(rootDir, entryPath);
 }
 
 async function loadPreinstalledCandidates(
@@ -706,7 +682,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 				{
 					severity: "error",
 					code: "extension_descriptor_import_failed",
-					message: `Failed to load source-dev ns extension descriptor ${descriptorPath.path}.\n${formatUnknownError(error)}`,
+					message: `Failed to load source-dev ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
 					path: descriptorPath.path,
 					sourceLevel: "preinstalled",
 				},
@@ -729,7 +705,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 			candidates: [],
 		};
 	}
-	const spec = relativeDisplayPath(options.packagesRoot, options.packageDir);
+	const spec = relative(options.packagesRoot, options.packageDir);
 	return {
 		diagnostics: [],
 		candidates: descriptorCommandCandidates({
@@ -822,7 +798,9 @@ function preinstalledCatalogEntryCommandInfo(
 	return toCommandCliInfo({
 		...entry,
 		...(entry.path === undefined ? {} : { segments: entry.path }),
-		...(entry.hiddenSegments === undefined ? {} : { hiddenSegments: entry.hiddenSegments }),
+		...(entry.hiddenAncestorKeys === undefined
+			? {}
+			: { hiddenAncestorKeys: entry.hiddenAncestorKeys }),
 	});
 }
 
@@ -970,15 +948,6 @@ function fromLoadDiagnostic(
 	commandName: string,
 ): ExtensionErrorDiagnostic {
 	return { ...diagnostic, sourceLevel, commandName };
-}
-
-function commandEntryForCandidate(candidate: ExternalNsCommandCandidate): ExtensionCommandEntry {
-	return {
-		name: commandLeafName(candidate),
-		load: () => {
-			throw new Error("Catalog candidates do not load through synthetic entries.");
-		},
-	};
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

@@ -61,7 +61,7 @@ export interface ClinkrCompletionCommandPlan<TContext = unknown> {
 	options: readonly ClinkrCompletionOptionPlan[];
 	positionals: readonly PositionalPlan[];
 	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
-	passThrough?: boolean;
+	shouldPassThrough?: boolean;
 }
 
 export interface ClinkrCompletionGroupPlan<TContext = unknown> {
@@ -443,7 +443,7 @@ function shouldRunDynamicProvider<TContext>(completion: {
 }): boolean {
 	const command = completion.context.command;
 	if (command === undefined) return false;
-	if (completion.current.startsWith("-")) return command.passThrough === true;
+	if (completion.current.startsWith("-")) return command.shouldPassThrough === true;
 	const pendingOptionFlag = completion.context.args.at(-1);
 	if (pendingOptionFlag === undefined) return true;
 	const pendingOption = findOption(commandOptions(command), pendingOptionFlag);

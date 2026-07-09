@@ -16,7 +16,11 @@ export function clinkrFormatFromArgs(args: readonly string[]): ClinkrFormat {
 	return format;
 }
 
+export function isJsonSchemaFlag(arg: string): boolean {
+	return arg === "--json-schema";
+}
+
 export function isClinkrHumanOutputInvocation(args: readonly string[]): boolean {
-	if (args.includes("--json-schema")) return false;
+	if (args.some(isJsonSchemaFlag)) return false;
 	return clinkrFormatFromArgs(args) === "human";
 }

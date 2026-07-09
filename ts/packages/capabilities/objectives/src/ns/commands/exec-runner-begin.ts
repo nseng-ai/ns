@@ -21,7 +21,7 @@ export const objectiveExecRunnerBeginNsCommand: NsCommand<
 	typeof runnerBeginRequestSchema,
 	RunnerBeginResult
 > = createNsDomainCommand({
-	name: "exec-runner-begin",
+	name: "runner-begin",
 	summary: RUNNER_BEGIN_DESCRIPTION,
 	description: RUNNER_BEGIN_DESCRIPTION,
 	schema: runnerBeginRequestSchema,

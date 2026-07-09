@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { discoverExtensionModuleHarnessArtifacts } from "../src/module-artifact-discovery.ts";
+import { descriptorExtensionSource, descriptorPackageJson } from "./support/descriptor-fixtures.ts";
 
 describe("descriptor module artifact discovery", () => {
 	test("ignores projects without ns.toml extension declarations", async () => {
@@ -30,6 +31,7 @@ describe("descriptor module artifact discovery", () => {
 			writeDescriptorExtension(root, "descriptor-ext", {
 				packageName: "descriptor-ext",
 				version: "1.0.0",
+				exportTarget: { import: "./src/ns/extension.ts" },
 				bundledArtifacts: [
 					{
 						kind: "skill",
@@ -199,28 +201,25 @@ function writeDescriptorExtension(
 	options: {
 		packageName: string;
 		version?: string;
+		exportTarget?: unknown;
 		bundledArtifacts: readonly unknown[];
 	},
 ): void {
-	writeJson(join(root, "extensions", extensionName, "package.json"), {
-		name: options.packageName,
-		...(options.version === undefined ? {} : { version: options.version }),
-		exports: { "./ns-extension": "./src/ns/extension.ts" },
-	});
+	writeText(
+		join(root, "extensions", extensionName, "package.json"),
+		descriptorPackageJson({
+			name: options.packageName,
+			...(options.version === undefined ? {} : { version: options.version }),
+			...(options.exportTarget === undefined ? {} : { exportTarget: options.exportTarget }),
+		}),
+	);
 	writeText(
 		join(root, "extensions", extensionName, "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/kernel/sdk";
-
-export default defineExtension({
-	description: "${extensionName}.",
-	bundledArtifacts: ${JSON.stringify(options.bundledArtifacts)},
-});
-`,
+		descriptorExtensionSource({
+			description: `${extensionName}.`,
+			bundledArtifacts: options.bundledArtifacts,
+		}),
 	);
-}
-
-function writeJson(path: string, value: unknown): void {
-	writeText(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 function writeText(path: string, text: string): void {

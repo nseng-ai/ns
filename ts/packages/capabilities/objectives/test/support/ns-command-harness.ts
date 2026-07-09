@@ -1,5 +1,6 @@
 import type { ClinkrExit, ClinkrFormat } from "@nseng-ai/clinkr";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import { noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
@@ -126,7 +127,7 @@ export async function runObjectiveCommand<S extends NsCommandSchema, T>(
 	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
 	const exit = await command.run(options.api ?? createFakeObjectiveNsApi(), {
-		argv: requestObjectToArgv(request),
+		argv: requestObjectToArgv(request, { positionalKeys: ["slug", "sessionFiles"] }),
 	});
 	if (!isClinkrExit<T>(exit)) {
 		throw new Error(
@@ -134,29 +135,6 @@ export async function runObjectiveCommand<S extends NsCommandSchema, T>(
 		);
 	}
 	return exit;
-}
-
-function requestObjectToArgv(request: unknown): readonly string[] {
-	if (typeof request !== "object" || request === null || Array.isArray(request)) return [];
-	const entries = Object.entries(request);
-	const positionals = entries.flatMap(([key, value]) => positionalRequestEntryToArgv(key, value));
-	const options = entries.flatMap(([key, value]) => requestEntryToArgv(key, value));
-	return [...positionals, ...options];
-}
-
-function positionalRequestEntryToArgv(key: string, value: unknown): readonly string[] {
-	if (key === "slug" && value !== undefined) return [String(value)];
-	if (key === "sessionFiles" && Array.isArray(value)) return value.map((entry) => String(entry));
-	return [];
-}
-
-function requestEntryToArgv(key: string, value: unknown): readonly string[] {
-	if (key === "slug" || key === "sessionFiles") return [];
-	const flag = `--${key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`;
-	if (value === true) return [flag];
-	if (value === false || value === undefined) return [];
-	if (Array.isArray(value)) return value.flatMap((entry) => [flag, String(entry)]);
-	return [flag, String(value)];
 }
 
 function isClinkrExit<T>(value: unknown): value is ClinkrExit<T> {

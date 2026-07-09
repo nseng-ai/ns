@@ -6,7 +6,7 @@ import {
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
-} from "@nseng-ai/kernel/project-config/descriptor-package";
+} from "@nseng-ai/kernel/project-config";
 import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
 import { z } from "zod";
 
@@ -318,8 +318,8 @@ function descriptorExportPath(
 	} catch {
 		return { ok: false };
 	}
-	const path = resolveDescriptorExportPath(moduleRoot, parsed);
-	return path.ok ? { ok: true, path: path.path } : { ok: false };
+	const result = resolveDescriptorExportPath(moduleRoot, parsed);
+	return result.ok ? { ok: true, path: result.path } : { ok: false };
 }
 
 async function validateDiscoveredArtifacts(options: {

@@ -133,7 +133,7 @@ export default defineExtension({
 		expect(loaded.candidates.get("tools/exec/doctor")).toMatchObject({
 			name: "doctor",
 			segments: ["tools", "exec", "doctor"],
-			hiddenSegments: ["tools/exec"],
+			hiddenAncestorKeys: ["tools/exec"],
 		});
 		const listing = await loadListingCommandInfos(loaded);
 		expect(listing.diagnostics).toEqual([]);
@@ -148,7 +148,7 @@ export default defineExtension({
 				expect.objectContaining({
 					segments: ["tools", "exec", "doctor"],
 					description: "doctor summary",
-					hiddenSegments: ["tools/exec"],
+					hiddenAncestorKeys: ["tools/exec"],
 				}),
 			]),
 		);

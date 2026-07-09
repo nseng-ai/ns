@@ -7,7 +7,7 @@ import {
 } from "../../operations/collect-evidence.ts";
 
 export const retrosExecCollectEvidenceNsCommand = retrosNsCommand({
-	name: "exec-collect-evidence",
+	name: "collect-evidence",
 	summary: "Collect compact session evidence for a branch retrospective.",
 	description: "Collect compact session evidence for a branch retrospective.",
 	schema: collectEvidenceRequestSchema,

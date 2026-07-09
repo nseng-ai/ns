@@ -7,6 +7,7 @@ import type { Result } from "@nseng-ai/foundation/result";
 
 import {
 	defineExecOperation,
+	findOperationByName,
 	gatewayOptions,
 	prFeedbackFailureExit,
 	prTargetFailureExit,
@@ -178,11 +179,7 @@ export const primitiveOperations: readonly ExecOperation[] = [
 ];
 
 export function findPrimitiveOperation(operationName: string): ExecOperation {
-	const operation = primitiveOperations.find((candidate) => candidate.name === operationName);
-	if (operation === undefined) {
-		throw new Error(`Unknown Address primitive operation: ${operationName}`);
-	}
-	return operation;
+	return findOperationByName(primitiveOperations, operationName, "primitive");
 }
 
 async function runPrDetails(

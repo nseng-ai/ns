@@ -1,3 +1,4 @@
+import { nsExtensionExportTarget } from "@nseng-ai/kernel/project-config";
 import * as ts from "typescript";
 
 import {
@@ -213,16 +214,6 @@ function isFirstPartyExtensionDescriptorPath(
 	const descriptorExport = nsExtensionExportTarget(metadata.manifest.exports);
 	if (descriptorExport === undefined) return false;
 	return path === `${metadata.packageDir}/${descriptorExport.replace(/^\.\//, "")}`;
-}
-
-function nsExtensionExportTarget(exportsField: unknown): string | undefined {
-	if (!isRecord(exportsField)) return undefined;
-	const nsExtensionExport = exportsField["./ns-extension"];
-	return typeof nsExtensionExport === "string" ? nsExtensionExport : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }
 
 function isLowerLayerConcreteCapabilitySurfaceNode(

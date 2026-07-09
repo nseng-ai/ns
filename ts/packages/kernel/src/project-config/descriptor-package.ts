@@ -5,6 +5,8 @@ import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z } from "zod";
 
+import { nsExtensionExportTarget } from "../sdk/descriptor.ts";
+
 export type DeclaredExtensionSpecsParseResult =
 	| { readonly ok: true; readonly specs: readonly string[] }
 	| {
@@ -12,6 +14,15 @@ export type DeclaredExtensionSpecsParseResult =
 			readonly reason: "invalid-toml" | "invalid-extensions";
 			readonly message: string;
 	  };
+
+export interface DescriptorPackageErrorInfo {
+	readonly code: string;
+	readonly message: string;
+}
+
+export interface DeclaredExtensionSpecsErrorInfo extends DescriptorPackageErrorInfo {
+	readonly path: "ns.toml" | "extensions";
+}
 
 export function parseDeclaredExtensionSpecsToml(source: string): DeclaredExtensionSpecsParseResult {
 	let parsed: unknown;
@@ -38,19 +49,28 @@ export function parseDeclaredExtensionSpecsToml(source: string): DeclaredExtensi
 	return { ok: true, specs: value };
 }
 
+export function declaredExtensionSpecsErrorInfo(
+	result: Exclude<DeclaredExtensionSpecsParseResult, { ok: true }>,
+): DeclaredExtensionSpecsErrorInfo {
+	if (result.reason === "invalid-toml") {
+		return {
+			code: "ns_toml_invalid",
+			message: `ns.toml: Invalid TOML.\n${result.message}`,
+			path: "ns.toml",
+		};
+	}
+	return {
+		code: "ns_toml_extensions_invalid",
+		message: result.message,
+		path: "extensions",
+	};
+}
+
 export function descriptorExportTarget(manifest: unknown): string | undefined {
 	const manifestResult = z.record(z.string(), z.unknown()).safeParse(manifest);
-	if (!manifestResult.success) return undefined;
-	const exportsResult = z.record(z.string(), z.unknown()).safeParse(manifestResult.data["exports"]);
-	if (!exportsResult.success) return undefined;
-	const nsExtensionExport = exportsResult.data["./ns-extension"];
-	if (typeof nsExtensionExport === "string") return nsExtensionExport;
-	const nsExtensionExportResult = z.record(z.string(), z.unknown()).safeParse(nsExtensionExport);
-	if (!nsExtensionExportResult.success) return undefined;
-	const importTarget = nsExtensionExportResult.data["import"];
-	if (typeof importTarget === "string") return importTarget;
-	const defaultTarget = nsExtensionExportResult.data["default"];
-	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+	return manifestResult.success
+		? nsExtensionExportTarget(manifestResult.data["exports"])
+		: undefined;
 }
 
 export type DescriptorExportPathResult =
@@ -75,10 +95,30 @@ export function resolveDescriptorExportPath(
 	return { ok: true, path, target };
 }
 
+export function descriptorExportPathErrorInfo(
+	result: Exclude<DescriptorExportPathResult, { ok: true }>,
+	packageJsonPath: string,
+): DescriptorPackageErrorInfo {
+	if (result.reason === "missing") {
+		return {
+			code: "extension_descriptor_export_missing",
+			message: `Extension package must expose exports["./ns-extension"]: ${packageJsonPath}.`,
+		};
+	}
+	if (result.reason === "invalid") {
+		return {
+			code: "extension_descriptor_export_invalid",
+			message: `Extension descriptor export must be a relative POSIX path: ${result.target}.`,
+		};
+	}
+	return {
+		code: "extension_descriptor_export_escapes",
+		message: `Extension descriptor export must stay inside the package: ${result.target}.`,
+	};
+}
+
 export interface AcquiredDescriptorPackageRoot {
-	readonly declaredRoot: string;
 	readonly packageRoot: string;
-	readonly isManaged: boolean;
 }
 
 export function resolveAcquiredDescriptorPackageRoot(options: {
@@ -87,14 +127,10 @@ export function resolveAcquiredDescriptorPackageRoot(options: {
 }): AcquiredDescriptorPackageRoot {
 	const declaredRoot = resolve(options.repoRoot, options.spec);
 	const packageName = readPackageName(declaredRoot);
-	if (packageName === undefined) {
-		return { declaredRoot, packageRoot: declaredRoot, isManaged: false };
-	}
+	if (packageName === undefined) return { packageRoot: declaredRoot };
 	const managedRoot = managedDescriptorPackageRoot(options.repoRoot, packageName);
-	if (!directoryExists(managedRoot)) {
-		return { declaredRoot, packageRoot: declaredRoot, isManaged: false };
-	}
-	return { declaredRoot, packageRoot: managedRoot, isManaged: true };
+	if (!directoryExists(managedRoot)) return { packageRoot: declaredRoot };
+	return { packageRoot: managedRoot };
 }
 
 export function managedExtensionsNpmProjectRoot(repoRoot: string): string {
@@ -115,9 +151,17 @@ function readPackageName(packageRoot: string): string | undefined {
 	}
 }
 
-function directoryExists(path: string): boolean {
+export function directoryExists(path: string): boolean {
 	try {
 		return existsSync(path) && statSync(path).isDirectory();
+	} catch {
+		return false;
+	}
+}
+
+export function fileExists(path: string): boolean {
+	try {
+		return existsSync(path) && statSync(path).isFile();
 	} catch {
 		return false;
 	}

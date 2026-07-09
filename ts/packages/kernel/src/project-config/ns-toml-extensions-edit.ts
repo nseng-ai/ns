@@ -4,7 +4,7 @@ export type NsTomlExtensionsAppendResult =
 	| {
 			readonly ok: true;
 			readonly text: string;
-			readonly wasAdded: boolean;
+			readonly isAdded: boolean;
 	  }
 	| {
 			readonly ok: false;
@@ -20,13 +20,13 @@ export function appendDeclaredExtensionSpecToml(
 	if (!parsed.ok) {
 		return { ok: false, reason: parsed.reason, message: parsed.message };
 	}
-	if (parsed.specs.includes(spec)) return { ok: true, text: source, wasAdded: false };
+	if (parsed.specs.includes(spec)) return { ok: true, text: source, isAdded: false };
 	if (parsed.specs.length === 0 && !hasTopLevelExtensionsAssignment(source)) {
 		const prefix = source.trimEnd();
 		return {
 			ok: true,
 			text: `${prefix}${prefix === "" ? "" : "\n"}extensions = [${JSON.stringify(spec)}]\n`,
-			wasAdded: true,
+			isAdded: true,
 		};
 	}
 	const replacement = appendToExistingExtensionsArray(source, spec);
@@ -38,7 +38,7 @@ export function appendDeclaredExtensionSpecToml(
 				"Top-level ns.toml extensions assignment must be a textual array before ns install can append to it.",
 		};
 	}
-	return { ok: true, text: replacement, wasAdded: true };
+	return { ok: true, text: replacement, isAdded: true };
 }
 
 function hasTopLevelExtensionsAssignment(source: string): boolean {
@@ -68,6 +68,7 @@ function appendToExistingExtensionsArray(source: string, spec: string): string |
 					return appendBeforeArrayClose({
 						source,
 						lines,
+						startIndex,
 						closeLineIndex: index,
 						closeCharIndex: charIndex,
 						spec,
@@ -82,6 +83,7 @@ function appendToExistingExtensionsArray(source: string, spec: string): string |
 function appendBeforeArrayClose(options: {
 	readonly source: string;
 	readonly lines: readonly string[];
+	readonly startIndex: number;
 	readonly closeLineIndex: number;
 	readonly closeCharIndex: number;
 	readonly spec: string;
@@ -91,8 +93,7 @@ function appendBeforeArrayClose(options: {
 	const before = options.source.slice(0, closeOffset).trimEnd();
 	const after = options.source.slice(closeOffset);
 	const separator = before.endsWith("[") ? "" : ",";
-	const isMultiline = options.closeLineIndex !== findTopLevelExtensionsLine([...options.lines]);
-	if (isMultiline) {
+	if (options.closeLineIndex !== options.startIndex) {
 		const closeLine = options.lines[options.closeLineIndex] ?? "";
 		const indent = closeLine.match(/^\s*/u)?.[0] ?? "";
 		return `${before}${separator}\n${indent}\t${JSON.stringify(options.spec)}\n${after}`;

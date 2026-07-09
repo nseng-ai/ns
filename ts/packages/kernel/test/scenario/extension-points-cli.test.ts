@@ -83,9 +83,17 @@ describe("ns extension point introspection", () => {
 					id: string;
 					semantics: string;
 					activeSource: unknown;
+					defaultPath?: string;
 					manifestPath?: string;
 				}>;
 			};
+			expect(data.points.map((point) => point.id)).toEqual([
+				"branch-context.plans-write",
+				"descriptor.prompt",
+				"descriptor.scan.pre",
+				"flow.submit.pr-description",
+				"flow.submit.pre",
+			]);
 			expect(data.points).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
@@ -97,6 +105,14 @@ describe("ns extension point introspection", () => {
 						id: "descriptor.prompt",
 						semantics: "override",
 						activeSource: expect.objectContaining({ source: "default" }),
+					}),
+					expect.objectContaining({
+						id: "branch-context.plans-write",
+						defaultPath: "../pi/prompts/plans-write-default.md",
+						activeSource: expect.objectContaining({
+							source: "default",
+							path: "../pi/prompts/plans-write-default.md",
+						}),
 					}),
 				]),
 			);
@@ -208,6 +224,13 @@ export default defineExtension({
 			cardinality: "one",
 			default: "./prompts/descriptor.md",
 			description: "Descriptor prompt.",
+		},
+		{
+			id: "branch-context.plans-write",
+			accepts: "prompt",
+			cardinality: "one",
+			default: "../pi/prompts/plans-write-default.md",
+			description: "Descriptor-owned plan writing prompt.",
 		},
 	],
 });

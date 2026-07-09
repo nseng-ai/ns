@@ -8,6 +8,7 @@ import {
 	runHarnessArtifactReconcile,
 	type InstallManifestData,
 } from "../src/index.ts";
+import { descriptorExtensionSource, descriptorPackageJson } from "./support/descriptor-fixtures.ts";
 import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
 
 describe("harness artifact reconcile driver", () => {
@@ -214,21 +215,14 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 }
 
 function packageJson(name: string): string {
-	return JSON.stringify({
-		name,
-		version: "1.0.0",
-		exports: { "./ns-extension": "./src/ns/extension.ts" },
-	});
+	return descriptorPackageJson({ name, version: "1.0.0" });
 }
 
 function descriptorSource(artifact: { name: string; path: string }): string {
-	return `import { defineExtension } from "@nseng-ai/kernel/sdk";
-
-export default defineExtension({
-	description: "Test extension.",
-	bundledArtifacts: [{ kind: "skill", name: ${JSON.stringify(artifact.name)}, path: ${JSON.stringify(artifact.path)} }],
-});
-`;
+	return descriptorExtensionSource({
+		description: "Test extension.",
+		bundledArtifacts: [{ kind: "skill", name: artifact.name, path: artifact.path }],
+	});
 }
 
 function moduleManifest(): InstallManifestData {

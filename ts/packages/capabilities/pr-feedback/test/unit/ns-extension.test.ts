@@ -13,7 +13,7 @@ function commandEntryNames(entries: readonly ExtensionEntry[] | undefined): read
 describe("pr-feedback ns extension descriptor", () => {
 	test("keeps descriptor exec entries in sync with operation names", () => {
 		expect(commandEntryNames(descriptor.entries)).toEqual(
-			EXEC_OPERATIONS.map((operation) => `exec-${operation.name}`),
+			EXEC_OPERATIONS.map((operation) => operation.name),
 		);
 	});
 });

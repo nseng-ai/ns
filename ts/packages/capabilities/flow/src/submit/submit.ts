@@ -18,6 +18,7 @@ import {
 import {
 	formatPostSubmitFailureOutput,
 	formatPreflightFailureOutput,
+	formatPrewrittenMetadataAdvisory,
 	formatPrewriteFailureOutput,
 	formatReadinessRecheckFailureOutput,
 	formatRestackConfirmationPrompt,
@@ -569,12 +570,11 @@ function formatPreflightCauseOutput(input: {
 	prewrittenMetadata: readonly PrewrittenPrMetadata[];
 }): string {
 	const message = formatSubmitPreflightFailureCause(input.cause, input.output);
-	if (input.prewrittenMetadata.length === 0) return message;
-	return [
-		message,
-		"",
+	const advisory = formatPrewrittenMetadataAdvisory(
+		input.prewrittenMetadata,
 		"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
-	].join("\n");
+	);
+	return [message, ...(advisory.length === 0 ? [] : ["", ...advisory])].join("\n");
 }
 
 async function shouldRunRestack(

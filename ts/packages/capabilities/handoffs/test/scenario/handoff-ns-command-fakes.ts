@@ -1,6 +1,7 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@nseng-ai/brmem";
 import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {
 	ExecResult,
@@ -84,7 +85,9 @@ export async function runHandoffCommand<S extends NsCommandSchema, T>(
 	options: { api?: NsExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
 	const exit = await command.run(options.api ?? createFakeHandoffNsApi(), {
-		argv: requestObjectToArgv(command.name, request),
+		argv: requestObjectToArgv(request, {
+			positionalKeys: positionalRequestKeysForCommand(command.name),
+		}),
 	});
 	if (!isClinkrExit<T>(exit)) {
 		throw new Error(
@@ -94,34 +97,8 @@ export async function runHandoffCommand<S extends NsCommandSchema, T>(
 	return exit;
 }
 
-function requestObjectToArgv(commandName: string, request: unknown): readonly string[] {
-	if (typeof request !== "object" || request === null || Array.isArray(request)) return [];
-	const entries = Object.entries(request);
-	const positionals = entries.flatMap(([key, value]) =>
-		positionalRequestEntryToArgv(commandName, key, value),
-	);
-	const options = entries.flatMap(([key, value]) => requestEntryToArgv(commandName, key, value));
-	return [...positionals, ...options];
-}
-
-function positionalRequestEntryToArgv(
-	commandName: string,
-	key: string,
-	value: unknown,
-): readonly string[] {
-	if (!["delete", "pickup"].includes(commandName) || key !== "slug" || value === undefined) {
-		return [];
-	}
-	return [String(value)];
-}
-
-function requestEntryToArgv(commandName: string, key: string, value: unknown): readonly string[] {
-	if (["delete", "pickup"].includes(commandName) && key === "slug") return [];
-	const flag = `--${key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`;
-	if (value === true) return [flag];
-	if (value === false || value === undefined) return [];
-	if (Array.isArray(value)) return value.flatMap((entry) => [flag, String(entry)]);
-	return [flag, String(value)];
+function positionalRequestKeysForCommand(commandName: string): readonly string[] {
+	return ["delete", "pickup"].includes(commandName) ? ["slug"] : [];
 }
 
 export async function putHandoffEntry(

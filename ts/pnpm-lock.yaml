@@ -677,6 +677,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
       jsonc-parser:
         specifier: 'catalog:'
         version: 3.3.1
