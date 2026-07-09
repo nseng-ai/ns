@@ -49,6 +49,7 @@ export type {
 	DefineCommandSpec,
 	DescriptorCommand,
 	ExecResult,
+	ExtensionActivation,
 	ExtensionCommandEntry,
 	ExtensionDescriptor,
 	ExtensionDescriptorValidationResult,

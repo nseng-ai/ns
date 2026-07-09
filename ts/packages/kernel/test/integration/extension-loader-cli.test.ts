@@ -311,6 +311,7 @@ function writePackageManifest(cwd: string, packageName: string): void {
 		join(cwd, "extensions", packageName, "package.json"),
 		JSON.stringify({
 			name: packageName,
+			version: "1.0.0",
 			type: "module",
 			exports: { "./ns-extension": "./src/ns/extension.ts" },
 		}),

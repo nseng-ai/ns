@@ -51,11 +51,17 @@ export interface BundledArtifactDefinition {
 	readonly description?: string;
 }
 
+export interface ExtensionActivation {
+	readonly instructions?: string;
+	readonly consumerDirs?: readonly string[];
+}
+
 export interface ExtensionDescriptor {
 	readonly group?: string;
 	readonly description: string;
 	readonly entries?: readonly ExtensionEntry[];
 	readonly points?: readonly ExtensionPointDefinition[];
+	readonly activation?: ExtensionActivation;
 	readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
 }
 
@@ -148,12 +154,53 @@ export const bundledArtifactDefinitionSchema: z.ZodType<BundledArtifactDefinitio
 		}),
 	);
 
+const activationInstructionsSchema = z.string().refine(isSingleLevelTwoMarkdownSection, {
+	message:
+		"must begin with a non-empty level-2 Markdown heading and contain exactly one level-2 section",
+});
+
+const activationConsumerDirSchema = z.string().refine(isCanonicalConsumerDir, {
+	message: 'must be a canonical repository-relative directory strictly beneath ".ns/"',
+});
+
+const extensionActivationSchema: z.ZodType<ExtensionActivation> = z
+	.strictObject({
+		instructions: activationInstructionsSchema.optional(),
+		consumerDirs: z
+			.array(activationConsumerDirSchema)
+			.superRefine((consumerDirs, context) => {
+				const firstIndexes = new Map<string, number>();
+				for (const [index, consumerDir] of consumerDirs.entries()) {
+					const firstIndex = firstIndexes.get(consumerDir);
+					if (firstIndex === undefined) {
+						firstIndexes.set(consumerDir, index);
+						continue;
+					}
+					context.addIssue({
+						code: "custom",
+						message: `duplicates entry at index ${firstIndex}`,
+						path: [index],
+					});
+				}
+			})
+			.optional(),
+	})
+	.transform(
+		(activation): ExtensionActivation => ({
+			...optionalEntries({
+				instructions: activation.instructions,
+				consumerDirs: activation.consumerDirs,
+			}),
+		}),
+	);
+
 export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 	.strictObject({
 		group: z.string().min(1).optional(),
 		description: z.string().min(1),
 		entries: z.array(extensionEntrySchema).optional(),
 		points: z.array(extensionPointDefinitionSchema).optional(),
+		activation: extensionActivationSchema.optional(),
 		bundledArtifacts: z.array(bundledArtifactDefinitionSchema).optional(),
 	})
 	.transform(
@@ -163,10 +210,25 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 			...optionalEntries({
 				entries: descriptor.entries,
 				points: descriptor.points,
+				activation: descriptor.activation,
 				bundledArtifacts: descriptor.bundledArtifacts,
 			}),
 		}),
 	);
+
+function isSingleLevelTwoMarkdownSection(instructions: string): boolean {
+	const [heading, ...remainingLines] = instructions.split("\n");
+	if (heading === undefined || !heading.startsWith("## ") || heading.slice(3).trim() === "") {
+		return false;
+	}
+	return remainingLines.every((line) => !line.startsWith("## "));
+}
+
+function isCanonicalConsumerDir(consumerDir: string): boolean {
+	if (!consumerDir.startsWith(".ns/") || consumerDir.includes("\\")) return false;
+	const segments = consumerDir.split("/");
+	return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
 
 export function validateExtensionDescriptor(
 	value: unknown,

@@ -1,21 +1,21 @@
 import {
-	initObjectives,
-	initObjectivesRequestSchema,
-	initObjectivesResultSchema,
-	renderInitObjectivesHuman,
-} from "../../init-objectives.ts";
+	initNs,
+	initNsRequestSchema,
+	initNsResultSchema,
+	renderInitNsHuman,
+} from "../../init-ns.ts";
 import { nsInitCommand } from "../command.ts";
 
 export const nsInitNsCommand = nsInitCommand({
 	name: "init",
 	summary: "Activate ns in this repository.",
 	description:
-		"Activate ns in this repository by writing ns.toml harness selection, managed instruction files, and .ns/objectives scaffolding.",
-	schema: initObjectivesRequestSchema,
+		"Activate ns in this repository by writing ns.toml, generating agent instructions, creating declared consumer directories, and provisioning declared extension artifacts.",
+	schema: initNsRequestSchema,
 	options: { harness: { short: "-H" } },
-	resultSchema: initObjectivesResultSchema,
-	handler: (context, request) => initObjectives(context, { ...request, cwd: context.cwd }),
-	renderHuman: renderInitObjectivesHuman,
+	resultSchema: initNsResultSchema,
+	handler: (context, request) => initNs(context, { ...request, cwd: context.cwd }),
+	renderHuman: renderInitNsHuman,
 });
 
 export default nsInitNsCommand;

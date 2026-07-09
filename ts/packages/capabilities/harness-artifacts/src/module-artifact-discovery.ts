@@ -20,6 +20,7 @@ import { sortStrings } from "./sort.ts";
 import {
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
 	parseDescriptorArtifactDeclarations,
+	parseModuleArtifactDeclarations,
 	parsePackageManifestArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
 	type ParseModuleArtifactDeclarationResult,
@@ -31,6 +32,18 @@ export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	moduleRoots: readonly string[];
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
 	descriptorLoader?: ExtensionDescriptorModuleLoader;
+}
+
+export interface DeclaredExtensionModuleArtifactFacts {
+	readonly moduleRoot: string;
+	readonly packageName: string;
+	readonly version: string;
+	readonly descriptor: ExtensionDescriptor;
+}
+
+export interface DiscoverDeclaredExtensionModuleHarnessArtifactsRequest {
+	readonly modules: readonly DeclaredExtensionModuleArtifactFacts[];
+	readonly gateway?: HarnessArtifactModuleDiscoveryGateway;
 }
 
 export interface ResolvedNpmModuleHarnessArtifactCatalog {
@@ -103,6 +116,56 @@ export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDi
 			...optionalEntry("artifactName", diagnostic.artifactName),
 		}));
 
+/** Discover artifacts from already-loaded declared descriptors without widening the source set. */
+export async function discoverDeclaredExtensionModuleHarnessArtifacts(
+	request: DiscoverDeclaredExtensionModuleHarnessArtifactsRequest,
+): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
+	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
+	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
+	for (const module of [...request.modules].sort((left, right) =>
+		left.moduleRoot.localeCompare(right.moduleRoot),
+	)) {
+		const parsed = parseModuleArtifactDeclarations({
+			packageName: module.packageName,
+			version: module.version,
+			declarations: descriptorArtifactDeclarations(module.descriptor),
+		});
+		if (!parsed.ok) {
+			catalogs.push({
+				type: "npm-module-catalog",
+				moduleRoot: module.moduleRoot,
+				packageName: module.packageName,
+				version: module.version,
+				artifacts: [],
+				diagnostics: parsed.diagnostics.map((diagnostic) =>
+					declarationDiagnostic(diagnostic, module.moduleRoot),
+				),
+			});
+			continue;
+		}
+		const artifactResults = await validateDiscoveredArtifacts({
+			moduleRoot: module.moduleRoot,
+			packageName: module.packageName,
+			artifacts: parsed.artifacts,
+			gateway,
+		});
+		catalogs.push({
+			type: "npm-module-catalog",
+			moduleRoot: module.moduleRoot,
+			packageName: parsed.packageName,
+			version: parsed.version,
+			artifacts: artifactResults.artifacts,
+			diagnostics: sortDiscoveryDiagnostics([
+				...parsed.diagnostics.map((diagnostic) =>
+					declarationDiagnostic(diagnostic, module.moduleRoot),
+				),
+				...artifactResults.diagnostics,
+			]),
+		});
+	}
+	return finalizeDiscoveryResult(catalogs);
+}
+
 export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,
 ): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
@@ -119,8 +182,15 @@ export async function discoverExtensionModuleHarnessArtifacts(
 		if (packageResult.type === "catalog") catalogs.push(packageResult.catalog);
 		else diagnostics.push(...packageResult.diagnostics);
 	}
+	return finalizeDiscoveryResult(catalogs, diagnostics);
+}
+
+function finalizeDiscoveryResult(
+	catalogs: readonly ResolvedNpmModuleHarnessArtifactCatalog[],
+	extraDiagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] = [],
+): DiscoverExtensionModuleHarnessArtifactsResult {
 	const duplicateDiagnostics = duplicateArtifactDiagnostics(catalogs);
-	const catalogsWithDuplicateDiagnostics = catalogs.map((catalog) => ({
+	const finalizedCatalogs = catalogs.map((catalog) => ({
 		...catalog,
 		diagnostics: sortDiscoveryDiagnostics([
 			...catalog.diagnostics,
@@ -128,10 +198,10 @@ export async function discoverExtensionModuleHarnessArtifacts(
 		]),
 	}));
 	return {
-		catalogs: catalogsWithDuplicateDiagnostics,
+		catalogs: finalizedCatalogs,
 		diagnostics: sortDiscoveryDiagnostics([
-			...diagnostics,
-			...catalogsWithDuplicateDiagnostics.flatMap((catalog) => catalog.diagnostics),
+			...extraDiagnostics,
+			...finalizedCatalogs.flatMap((catalog) => catalog.diagnostics),
 		]),
 	};
 }

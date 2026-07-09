@@ -270,3 +270,29 @@ promotion.
   descriptors (likely rendering-only).
 - Where Pi-side consumption (e.g. `@nseng-ai/objectives/pi`) should eventually read descriptor
   metadata for parity tables — deferred to cross-harness-parity unless a test forces it.
+
+## Closure
+
+Completed. The typed `exports["./ns-extension"]` descriptor is now the sole declaration source for
+extension commands, points, and bundled artifacts; first-party packages and the ns-cli host consume
+it, and the legacy JSON manifests, `.ns/extensions` shims, per-package catalogs, and extension-root
+scanning are gone. The neutral command SDK, descriptor validation, managed local-package install,
+and promoted author documentation all landed.
+
+Closure evidence is recorded in the Semantic Updates: trunk inspection at
+`a814ebe365b9164fdcd31c3cf09c681be670c4f0` verified every roadmap row and completion criterion;
+latency measurements covered help and completion paths; a scratch project proved packaged
+`@nseng-ai/ns`, idempotent `ns install <local-package-dir>`, managed-root creation, source-spec
+recording, and real Objective command routing. Full repository validation also passed on the current
+clean branch after the upstream activation-contract extension.
+
+The accepted residual risk is eager group-help latency from module-owned summaries. Continue to
+monitor that path and add a per-descriptor load-time budget diagnostic only if future evidence
+warrants escalation. Parked direct-entry sugar, global extension mechanisms, broader install source
+forms, and ns-dev delegation remain outside this completed Objective. Customer acquisition and
+activation work continues under `ship-objectives-to-customers` through the retained Objective Edge.
+
+The durable architecture rule should survive this initiative: extension packages declare through a
+cheap typed `./ns-extension` descriptor, and code must not reintroduce JSON extension manifests,
+extension-root scanning, or implementation imports in descriptor modules. This is a candidate for
+promotion into the repository architecture rules now that the orientation will leave the active set.
