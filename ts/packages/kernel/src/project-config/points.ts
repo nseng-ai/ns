@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
@@ -7,6 +7,7 @@ import { z, type ZodType } from "zod";
 
 import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
 import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
+import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 import { NS_COMMAND_NAME_PATTERN } from "../sdk/command-name.ts";
 import {
 	nsExtensionManifestPointSchema,
@@ -14,6 +15,7 @@ import {
 	nsExtensionPointAcceptsValues,
 	nsExtensionPointSemanticsValues,
 } from "../sdk/extension-manifest.ts";
+import { validateExtensionDescriptor, type ExtensionDescriptor } from "../sdk/descriptor.ts";
 
 export type PointAccepts = (typeof nsExtensionPointAcceptsValues)[number];
 export type PointSemantics = (typeof nsExtensionPointSemanticsValues)[number];
@@ -311,6 +313,199 @@ export function discoverPointDefinitionsInRoot(rootDir: string): PointDefinition
 	return { pointDefinitions, diagnostics };
 }
 
+async function discoverDescriptorPointDefinitions(
+	repoRoot: string,
+	gateway: ProjectConfigGateway,
+): Promise<PointDefinitionDiscoveryResult> {
+	const declared = readDeclaredExtensionSpecs(repoRoot, gateway);
+	if (!declared.ok) return { pointDefinitions: [], diagnostics: [declared.diagnostic] };
+	const pointDefinitions: PointDefinition[] = [];
+	const diagnostics: ProjectConfigDiagnostic[] = [];
+	for (const spec of declared.specs) {
+		const loaded = await loadDescriptorPointDefinitions({ repoRoot, spec });
+		pointDefinitions.push(...loaded.pointDefinitions);
+		diagnostics.push(...loaded.diagnostics);
+	}
+	return { pointDefinitions, diagnostics };
+}
+
+function readDeclaredExtensionSpecs(
+	repoRoot: string,
+	gateway: ProjectConfigGateway,
+): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
+	const readResult = gateway.readTextFile({ repoRoot, relativePath: "ns.toml" });
+	if (readResult.type === "missing") return { ok: true, specs: [] };
+	if (readResult.type === "error") {
+		return {
+			ok: false,
+			diagnostic: diagnostic("ns_toml_read_failed", readResult.message, { path: "ns.toml" }),
+		};
+	}
+	let parsed: unknown;
+	try {
+		parsed = parse(readResult.text);
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"ns_toml_invalid",
+				`ns.toml: Invalid TOML.\n${formatErrorMessage(error)}`,
+				{
+					path: "ns.toml",
+				},
+			),
+		};
+	}
+	const documentResult = recordSchema.safeParse(parsed);
+	if (!documentResult.success) return { ok: true, specs: [] };
+	const value = documentResult.data["extensions"];
+	if (value === undefined) return { ok: true, specs: [] };
+	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"ns_toml_extensions_invalid",
+				"ns.toml extensions must be an array of package-directory strings.",
+				{ path: "extensions" },
+			),
+		};
+	}
+	return { ok: true, specs: value };
+}
+
+async function loadDescriptorPointDefinitions(request: {
+	repoRoot: string;
+	spec: string;
+}): Promise<PointDefinitionDiscoveryResult> {
+	const packageDir = resolve(request.repoRoot, request.spec);
+	const packageJsonPath = join(packageDir, "package.json");
+	const descriptorPath = resolveDescriptorExport(packageDir, packageJsonPath);
+	if (!descriptorPath.ok) return { pointDefinitions: [], diagnostics: [descriptorPath.diagnostic] };
+	let descriptorExport: unknown;
+	try {
+		descriptorExport = await loadNsUserModuleDefault(descriptorPath.path);
+	} catch (error) {
+		return {
+			pointDefinitions: [],
+			diagnostics: [
+				diagnostic(
+					"extension_descriptor_import_failed",
+					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
+					{ path: descriptorPath.path },
+				),
+			],
+		};
+	}
+	const validation = validateExtensionDescriptor(descriptorExport, descriptorPath.path);
+	if (!validation.ok) {
+		return {
+			pointDefinitions: [],
+			diagnostics: [
+				diagnostic("extension_descriptor_invalid", validation.message, {
+					path: descriptorPath.path,
+				}),
+			],
+		};
+	}
+	return {
+		pointDefinitions: pointDefinitionsForDescriptor(validation.descriptor, descriptorPath.path),
+		diagnostics: [],
+	};
+}
+
+function resolveDescriptorExport(
+	packageDir: string,
+	packageJsonPath: string,
+): { ok: true; path: string } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+	} catch (error) {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"extension_descriptor_package_json_read_failed",
+				`Could not read extension package manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
+				{ path: packageJsonPath },
+			),
+		};
+	}
+	const exportTarget = descriptorExportTarget(parsed);
+	if (exportTarget === undefined) {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"extension_descriptor_export_missing",
+				`Extension package must expose exports["./ns-extension"]: ${packageJsonPath}.`,
+				{ path: packageJsonPath },
+			),
+		};
+	}
+	if (exportTarget.startsWith("/") || exportTarget.includes("\\")) {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"extension_descriptor_export_invalid",
+				`Extension descriptor export must be a relative POSIX path: ${exportTarget}.`,
+				{ path: packageJsonPath },
+			),
+		};
+	}
+	const resolvedPath = resolve(packageDir, exportTarget);
+	if (!isPathInside(packageDir, resolvedPath)) {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"extension_descriptor_export_escapes",
+				`Extension descriptor export must stay inside the package: ${exportTarget}.`,
+				{ path: packageJsonPath },
+			),
+		};
+	}
+	try {
+		if (!statSync(resolvedPath).isFile()) throw new Error("not a file");
+	} catch {
+		return {
+			ok: false,
+			diagnostic: diagnostic(
+				"extension_descriptor_export_missing_file",
+				`Extension descriptor export does not resolve to a file: ${exportTarget}.`,
+				{ path: packageJsonPath },
+			),
+		};
+	}
+	return { ok: true, path: resolvedPath };
+}
+
+function descriptorExportTarget(manifest: unknown): string | undefined {
+	const manifestResult = recordSchema.safeParse(manifest);
+	if (!manifestResult.success) return undefined;
+	const exportsResult = recordSchema.safeParse(manifestResult.data["exports"]);
+	if (!exportsResult.success) return undefined;
+	const nsExtensionExport = exportsResult.data["./ns-extension"];
+	if (typeof nsExtensionExport === "string") return nsExtensionExport;
+	const nsExtensionExportResult = recordSchema.safeParse(nsExtensionExport);
+	if (!nsExtensionExportResult.success) return undefined;
+	const importTarget = nsExtensionExportResult.data["import"];
+	if (typeof importTarget === "string") return importTarget;
+	const defaultTarget = nsExtensionExportResult.data["default"];
+	return typeof defaultTarget === "string" ? defaultTarget : undefined;
+}
+
+function pointDefinitionsForDescriptor(
+	descriptor: ExtensionDescriptor,
+	descriptorPath: string,
+): readonly PointDefinition[] {
+	return (descriptor.points ?? []).map((point) => ({
+		id: point.id,
+		accepts: point.accepts,
+		semantics: point.cardinality === "many" ? "additive" : "override",
+		...optionalEntry("description", point.description),
+		...optionalEntry("defaultPath", point.default),
+		manifestPath: descriptorPath,
+	}));
+}
+
 export function loadPointCatalog(request: {
 	repoRoot: string;
 	gateway: ProjectConfigGateway;
@@ -338,6 +533,50 @@ export function loadPointCatalog(request: {
 		pointDefinitions: definitionResult.pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
 		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
+		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
+		env: request.env ?? {},
+	});
+}
+
+export async function loadPointCatalogWithDescriptors(request: {
+	repoRoot: string;
+	gateway: ProjectConfigGateway;
+	pointDefinitions?: readonly PointDefinition[];
+	extensionRoot?: string;
+	settingsSchemas?: readonly SettingsSchema[];
+	promptEnvOverride?: PromptPointEnvOverride;
+	env?: Record<string, string | undefined>;
+}): Promise<PointCatalog> {
+	const legacyDefinitionResult =
+		request.pointDefinitions === undefined
+			? discoverPointDefinitionsInRoot(
+					join(request.repoRoot, request.extensionRoot ?? ".ns/extensions"),
+				)
+			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
+	const descriptorDefinitionResult =
+		request.pointDefinitions === undefined
+			? await discoverDescriptorPointDefinitions(request.repoRoot, request.gateway)
+			: { pointDefinitions: [], diagnostics: [] };
+	const pointDefinitions = [
+		...legacyDefinitionResult.pointDefinitions,
+		...descriptorDefinitionResult.pointDefinitions,
+	];
+	const configResult = loadProjectConfig({
+		repoRoot: request.repoRoot,
+		gateway: request.gateway,
+		pointDefinitions,
+		settingsSchemas: request.settingsSchemas ?? [],
+	});
+	return buildPointCatalog({
+		repoRoot: request.repoRoot,
+		gateway: request.gateway,
+		pointDefinitions,
+		config: configResult.config ?? emptyLoadedProjectConfig,
+		diagnostics: [
+			...legacyDefinitionResult.diagnostics,
+			...descriptorDefinitionResult.diagnostics,
+			...configResult.diagnostics,
+		],
 		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
