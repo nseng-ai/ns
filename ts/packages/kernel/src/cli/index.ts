@@ -505,7 +505,7 @@ async function buildNsCliContext(options: {
 		stdout: options.stdout,
 		stderr: options.stderr,
 		canEmitAnsi: renderCapabilities.canEmitAnsi,
-		...(renderCapabilities.caps === undefined ? {} : { caps: renderCapabilities.caps }),
+		...optionalEntry("caps", renderCapabilities.caps),
 	};
 }
 

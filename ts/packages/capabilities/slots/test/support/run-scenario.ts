@@ -6,6 +6,7 @@ import {
 	type ConfirmationResult,
 } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
@@ -83,7 +84,7 @@ export function runScenario(
 				stdout: (text) => fixture.stdout.push(text),
 				stderr: (text) => fixture.stderr.push(text),
 				canEmitAnsi: options.canEmitAnsi ?? false,
-				...(options.caps === undefined ? {} : { caps: options.caps }),
+				...optionalEntry("caps", options.caps),
 			},
 		})
 		.then((code) => {

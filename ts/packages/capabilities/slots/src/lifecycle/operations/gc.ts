@@ -7,7 +7,13 @@ import {
 	type Caps,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { cell, paint, renderTable, stripAnsiWhenDisabled } from "@nseng-ai/foundation/cli-theme";
+import {
+	cell,
+	paint,
+	renderTable,
+	stripAnsiWhenDisabled,
+	type Intent,
+} from "@nseng-ai/foundation/cli-theme";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -205,14 +211,18 @@ function renderGcCleanupDetails(
 	);
 }
 
+function intentFor(count: number, activeIntent: Intent): Intent {
+	return count === 0 ? "muted" : activeIntent;
+}
+
 function gcSummaryLine(result: GcResult, caps: Caps): string {
 	const freedLabel = result.dryRun ? "would free" : "freed";
-	const freedIntent = result.freedCount === 0 ? "muted" : result.dryRun ? "accent" : "success";
+	const freedIntent = intentFor(result.freedCount, result.dryRun ? "accent" : "success");
 	const facts = [
 		paint(caps, freedIntent, `${freedLabel} ${result.freedCount}`),
-		paint(caps, result.keptCount === 0 ? "muted" : "warn", `kept ${result.keptCount}`),
-		paint(caps, result.skippedCount === 0 ? "muted" : "warn", `skipped ${result.skippedCount}`),
-		paint(caps, result.errorCount === 0 ? "muted" : "error", `errors ${result.errorCount}`),
+		paint(caps, intentFor(result.keptCount, "warn"), `kept ${result.keptCount}`),
+		paint(caps, intentFor(result.skippedCount, "warn"), `skipped ${result.skippedCount}`),
+		paint(caps, intentFor(result.errorCount, "error"), `errors ${result.errorCount}`),
 	];
 	if (result.cleanupErrorCount > 0)
 		facts.push(paint(caps, "error", `cleanup errors ${result.cleanupErrorCount}`));
