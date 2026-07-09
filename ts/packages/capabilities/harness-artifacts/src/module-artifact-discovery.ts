@@ -33,6 +33,7 @@ export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	projectRoot: string;
 	homeDir?: string;
 	env?: Record<string, string | undefined>;
+	localPackageRoots?: readonly string[];
 	gateway?: HarnessArtifactModuleDiscoveryGateway;
 }
 
@@ -63,6 +64,9 @@ export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
 	"module_artifact_extension_root_unavailable",
 	"module_artifact_extension_root_not_directory",
 	"module_artifact_extension_root_unreadable",
+	"module_artifact_local_package_missing",
+	"module_artifact_local_package_not_directory",
+	"module_artifact_local_package_missing_package_json",
 	"module_artifact_skill_path_escapes",
 	"module_artifact_skill_entry_missing",
 	"module_artifact_skill_entry_not_directory",
@@ -119,6 +123,11 @@ export async function discoverExtensionModuleHarnessArtifacts(
 		const packageCatalog = await discoverExtensionPackage({ moduleRoot, gateway });
 		if (packageCatalog.type === "catalog") catalogs.push(packageCatalog.catalog);
 		else diagnostics.push(...packageCatalog.diagnostics);
+	}
+	for (const packageRoot of sortStrings(request.localPackageRoots ?? [])) {
+		const packageResult = await discoverLocalExtensionPackage({ moduleRoot: packageRoot, gateway });
+		if (packageResult.type === "catalog") catalogs.push(packageResult.catalog);
+		else diagnostics.push(...packageResult.diagnostics);
 	}
 	const duplicateDiagnostics = duplicateArtifactDiagnostics(catalogs);
 	const catalogsWithDuplicateDiagnostics = catalogs.map((catalog) => ({
@@ -188,9 +197,47 @@ async function readDeclaredExtensionSpecs(request: {
 	};
 }
 
+async function discoverLocalExtensionPackage(options: {
+	moduleRoot: string;
+	gateway: HarnessArtifactModuleDiscoveryGateway;
+}): Promise<
+	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
+	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
+> {
+	const state = await options.gateway.pathState(options.moduleRoot);
+	if (!state.ok)
+		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(state.error)] };
+	if (state.value.type === "missing") {
+		return {
+			type: "diagnostics",
+			diagnostics: [
+				{
+					code: "module_artifact_local_package_missing",
+					message: `Declared local extension package does not exist: ${options.moduleRoot}.`,
+					path: options.moduleRoot,
+				},
+			],
+		};
+	}
+	if (state.value.type !== "directory") {
+		return {
+			type: "diagnostics",
+			diagnostics: [
+				{
+					code: "module_artifact_local_package_not_directory",
+					message: `Declared local extension package must be a directory: ${options.moduleRoot}.`,
+					path: options.moduleRoot,
+				},
+			],
+		};
+	}
+	return discoverExtensionPackage({ ...options, missingPackageJsonIsDiagnostic: true });
+}
+
 async function discoverExtensionPackage(options: {
 	moduleRoot: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
+	missingPackageJsonIsDiagnostic?: boolean;
 }): Promise<
 	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
 	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
@@ -200,7 +247,21 @@ async function discoverExtensionPackage(options: {
 	if (!packageText.ok) {
 		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(packageText.error)] };
 	}
-	if (packageText.value.type === "missing") return { type: "diagnostics", diagnostics: [] };
+	if (packageText.value.type === "missing") {
+		if (options.missingPackageJsonIsDiagnostic === true) {
+			return {
+				type: "diagnostics",
+				diagnostics: [
+					{
+						code: "module_artifact_local_package_missing_package_json",
+						message: `Declared local extension package must contain package.json: ${options.moduleRoot}.`,
+						path: packageJsonPath,
+					},
+				],
+			};
+		}
+		return { type: "diagnostics", diagnostics: [] };
+	}
 	const parsed = await parsePackageArtifactDeclarationForDiscovery({
 		moduleRoot: options.moduleRoot,
 		packageJsonPath,

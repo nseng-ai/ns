@@ -1,5 +1,6 @@
 import {
 	getProjectConfigSetting,
+	nsTomlExtensionsSettingsSchema,
 	parseProjectConfigToml,
 	projectConfigErrorFromDiagnostics,
 	type ProjectConfigDiagnostic,
@@ -11,6 +12,11 @@ import { ALL_HARNESS_IDS, type HarnessId } from "./harness-paths.ts";
 
 export type NsTomlHarnessesParseResult =
 	| { type: "ok"; harnesses: readonly HarnessId[] }
+	| { type: "missing" }
+	| { type: "error"; error: NsTomlErrorInfo };
+
+export type NsTomlExtensionsParseResult =
+	| { type: "ok"; extensions: readonly string[] }
 	| { type: "missing" }
 	| { type: "error"; error: NsTomlErrorInfo };
 
@@ -28,6 +34,7 @@ export interface NsTomlErrorInfo {
 export type NsTomlErrorCode =
 	| "invalid-toml"
 	| "invalid-harnesses"
+	| "invalid-extensions"
 	| "ambiguous-harnesses-assignment";
 
 const nsInitHarnessesSettingsSchema = {
@@ -38,6 +45,7 @@ const nsInitHarnessesSettingsSchema = {
 } satisfies SettingsSchema<readonly string[]>;
 
 const nsInitHarnessesSettingsKey = nsInitHarnessesSettingsSchema.path.join(".");
+const nsInitExtensionsSettingsKey = nsTomlExtensionsSettingsSchema.path.join(".");
 
 export function parseNsTomlHarnesses(
 	content: string,
@@ -52,6 +60,21 @@ export function parseNsTomlHarnesses(
 	const harnesses = getProjectConfigSetting(result.config, nsInitHarnessesSettingsSchema);
 	if (harnesses === undefined) return { type: "missing" };
 	return normalizeHarnessSelection(harnesses);
+}
+
+export function parseNsTomlExtensions(
+	content: string,
+	pathLabel = "ns.toml",
+): NsTomlExtensionsParseResult {
+	const result = parseProjectConfigToml(content, {
+		pathLabel,
+		pointsTable: { mode: "skip" },
+		settingsSchemas: [nsTomlExtensionsSettingsSchema],
+	});
+	if (!result.ok) return nsTomlErrorFromDiagnostics(result.diagnostics, pathLabel);
+	const extensions = getProjectConfigSetting(result.config, nsTomlExtensionsSettingsSchema);
+	if (extensions === undefined) return { type: "missing" };
+	return { type: "ok", extensions: [...extensions] };
 }
 
 export function renderNsTomlHarnesses(harnesses: readonly HarnessId[]): string {
@@ -108,10 +131,13 @@ export function normalizeHarnessSelection(
 function nsTomlErrorFromDiagnostics(
 	diagnostics: readonly ProjectConfigDiagnostic[],
 	pathLabel: string,
-): NsTomlHarnessesParseResult {
+): { type: "error"; error: NsTomlErrorInfo } {
 	const error = projectConfigErrorFromDiagnostics(diagnostics, {
 		invalidToml: "invalid-toml",
-		invalidSettingsByPath: { [nsInitHarnessesSettingsKey]: "invalid-harnesses" },
+		invalidSettingsByPath: {
+			[nsInitHarnessesSettingsKey]: "invalid-harnesses",
+			[nsInitExtensionsSettingsKey]: "invalid-extensions",
+		},
 		defaultCode: "invalid-toml",
 		defaultMessage: `${pathLabel}: invalid ns.toml`,
 		pathLabel,

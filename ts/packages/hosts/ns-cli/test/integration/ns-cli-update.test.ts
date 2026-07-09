@@ -105,7 +105,7 @@ describe("ns CLI host integration", () => {
 		await writeModuleExtension(projectRoot);
 		const cwd = join(projectRoot, "nested");
 
-		const installed = await runNsCliJson(["update"], cwd);
+		const installed = await runNsCliJson(["update", "--extensions"], cwd);
 		const installedData = dataFromEnvelope(parseJsonOutput(installed));
 		const moduleTarget = join(projectRoot, ".pi", "skills", "module-skill", "SKILL.md");
 		const objectiveTarget = join(projectRoot, ".pi", "skills", "objective", "SKILL.md");
@@ -136,7 +136,7 @@ describe("ns CLI host integration", () => {
 			},
 		});
 
-		const rerun = await runNsCliJson(["update"], cwd);
+		const rerun = await runNsCliJson(["update", "--extensions"], cwd);
 		const rerunData = dataFromEnvelope(parseJsonOutput(rerun));
 		expect(rerun.exit).toBe(0);
 		expect(rerunData.artifacts).toEqual(
@@ -152,7 +152,7 @@ describe("ns CLI host integration", () => {
 			"# module skill v2\n",
 			"utf8",
 		);
-		const refused = await runNsCliJson(["update"], cwd);
+		const refused = await runNsCliJson(["update", "--extensions"], cwd);
 		const refusedEnvelope = parseJsonOutput(refused);
 		expect(refused.exit).toBe(1);
 		expect(refusedEnvelope).toMatchObject({ status: "negative", exitCode: 1 });
@@ -169,7 +169,7 @@ describe("ns CLI host integration", () => {
 		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
 		expect(await readFile(objectiveTarget, "utf8")).toBe("local edit\n");
 
-		const forced = await runNsCliJson(["update", "--force"], cwd);
+		const forced = await runNsCliJson(["update", "--extensions", "--force"], cwd);
 		expect(forced.exit).toBe(0);
 		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill v2\n");
 		expect(await readFile(objectiveTarget, "utf8")).toContain("# objective");

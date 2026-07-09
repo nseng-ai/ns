@@ -17,10 +17,14 @@ Design decisions (steer-first; record each as a Semantic Update before implement
 
 Implementation (after the decisions above):
 
-- [ ] `ns.toml` declaration list (`extensions = [...]`, per the storage decision): schema, parsing, and diagnostics in the ns-toml layer.
+- [x] `ns.toml` declaration list (`extensions = [...]`, per the storage decision): schema, parsing, and diagnostics in the ns-toml layer.
+      **Implemented 2026-07-07** (see `updates/20260707T210000Z-local-filesystem-pointer-dogfood-sequencing.md`): top-level local extension declarations parse with diagnostics; table-local entries are ignored.
 - [ ] Acquisition slice one: fetch + resolve declared specs of the first-slice source kind(s) into the decided storage root behind the gateway, with per-module failure diagnostics that do not block provisioning of present modules.
-- [ ] Wire acquired modules into existing static-declaration discovery and the `ns update` reconcile flow; prove idempotence on unchanged specs and reconcile-to-spec on changed specs.
-- [ ] Wire the pi-verbatim `ns update` command surface: `--extensions`/`--all`/`--self` modes, bare/`--self` interim error diagnostic, per-spec targeting for declared specs, `--dry-run`/`--force` carried into extensions mode.
+      **Sequencing update 2026-07-07**: local filesystem pointer dogfooding landed first; npm managed acquisition remains pending.
+- [~] Wire acquired modules into existing static-declaration discovery and the `ns update` reconcile flow; prove idempotence on unchanged specs and reconcile-to-spec on changed specs.
+  **Partial 2026-07-07**: declared local package directories feed static `package.json#ns.harnessArtifacts` discovery and declared-only targeted `ns update --extensions <local-path>`; managed npm acquisition wiring remains pending.
+- [x] Wire the pi-verbatim `ns update` command surface: `--extensions`/`--all`/`--self` modes, bare/`--self` interim error diagnostic, per-spec targeting for declared specs, `--dry-run`/`--force` carried into extensions mode.
+      **Implemented 2026-07-07**: bare/`--self`/`--all` fail with `self-update-not-implemented`; `--extensions` owns the reconcile path; local targets are declared-only.
 - [ ] End-to-end evidence: one real remote module declared, fetched, and provisioned into `pi`/`claude-code`/`codex` roots with manifest hashes; existing arrival paths verified unchanged; full `just` green.
 - [ ] Build the ns self-update mechanism behind bare `ns update`/`--self` (added 2026-07-07 by user instruction with the pi-verbatim contract decision; sequenced after the acquisition slices — the interim error contract holds until this lands).
 
