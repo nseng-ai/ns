@@ -1,6 +1,4 @@
 import { resolveRenderCapabilities } from "@nseng-ai/clinkr";
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	listObjectivesRequestSchema,
@@ -23,6 +21,4 @@ export const objectiveListNsCommand = objectiveNsCommand({
 	renderMarkdown: renderObjectiveListMarkdown,
 });
 
-export default defineExtension({
-	commands: [objectiveListNsCommand],
-});
+export default objectiveListNsCommand;

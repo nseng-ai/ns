@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { reviewRunResultSchema } from "../core/models.ts";
 import {
 	recordFindingsRequestSchema,
@@ -25,8 +23,6 @@ export const reviewsExecRecordFindingsCommand = reviewsNsCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [reviewsExecRecordFindingsCommand],
-});
+export default reviewsExecRecordFindingsCommand;
 
 export type ReviewsExecRecordFindingsRequest = RecordFindingsRequest;

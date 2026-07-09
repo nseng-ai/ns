@@ -5,12 +5,22 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { validateNsExtensionContribution } from "../../src/extensions/command-registry.ts";
+import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
+import type { ExtensionCommandEntry } from "../../src/sdk/descriptor.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
 import { parsedSpecForCommand } from "../../src/sdk/command.ts";
 import { z } from "@nseng-ai/kernel/sdk";
 
 const tempDirs: string[] = [];
+
+function testCommandEntry(name: string): ExtensionCommandEntry {
+	return {
+		name,
+		load: () => {
+			throw new Error("test command entries do not load through validation");
+		},
+	};
+}
 
 async function createModule(source: string): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-extension-loader-"));
@@ -30,24 +40,27 @@ afterEach(() => {
 describe("extension loader", () => {
 	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok, z } from "@nseng-ai/kernel/sdk";
+import { ok, z } from "@nseng-ai/kernel/sdk";
 
-export default defineExtension({
-	commands: [{
+const schema = z.object({ loud: z.boolean().default(false) });
+export default {
 	name: "greet",
 	summary: "Say hello.",
 	description: "Say hello with details.",
-	schema: z.object({ loud: z.boolean().default(false) }),
-	run(_ctx, request) { return ok(request.loud ? "HELLO" : "hello"); },
-}],
-});
+	schema,
+	run(_ctx, invocation) { return ok(invocation.argv.includes("--loud") ? "HELLO" : "hello"); },
+};
 `);
 
 		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateNsExtensionContribution(loaded.defaultExport, "greet", modulePath);
+		const validation = validateDescriptorCommandContribution(
+			loaded.defaultExport,
+			testCommandEntry("greet"),
+			modulePath,
+		);
 		expect(validation.ok).toBe(true);
 		if (!validation.ok) return;
 		const command = validation.command;
@@ -63,9 +76,9 @@ export default defineExtension({
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateNsExtensionContribution(
+		const validation = validateDescriptorCommandContribution(
 			loaded.defaultExport,
-			"list",
+			testCommandEntry("list"),
 			"@nseng-ai/objectives/ns/commands/list",
 		);
 		expect(validation.ok).toBe(true);
@@ -75,25 +88,23 @@ export default defineExtension({
 
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok } from "@nseng-ai/kernel/sdk";
+import { ok } from "@nseng-ai/kernel/sdk";
 
-export default defineExtension({
-	commands: [{
-		name: "list",
-		summary: "List things.",
-		description: "List things with details.",
-		run() { return ok({}); },
-	}],
-});
+export default {
+	name: "list",
+	summary: "List things.",
+	description: "List things with details.",
+	run() { return ok({}); },
+};
 `);
 
 		const loaded = await loadNsExtensionContribution({ type: "file", path: modulePath });
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const validation = validateNsExtensionContribution(
+		const validation = validateDescriptorCommandContribution(
 			loaded.defaultExport,
-			{ name: "review-list", segments: ["reviews", "review", "list"] },
+			testCommandEntry("list"),
 			modulePath,
 		);
 		expect(validation.ok).toBe(true);
@@ -109,10 +120,14 @@ export default defineExtension({
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
 		expect(
-			validateNsExtensionContribution(loaded.defaultExport, "greet", modulePath),
+			validateDescriptorCommandContribution(
+				loaded.defaultExport,
+				testCommandEntry("greet"),
+				modulePath,
+			),
 		).toMatchObject({
 			ok: false,
-			message: expect.stringContaining('expected a command entry named "greet" in commands[]'),
+			message: expect.stringContaining("command summary must be a string"),
 		});
 	});
 

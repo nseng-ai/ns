@@ -1,14 +1,6 @@
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import {
-	defineCommand,
-	defineExtension,
-	failure,
-	negative,
-	ok,
-	z,
-	type NsCommand,
-} from "@nseng-ai/kernel/sdk";
+import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,
@@ -91,9 +83,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [flowCpCommand],
-});
+export default flowCpCommand;
 
 export type RunCpCoreResult = CheckpointWorkflowResult;
 

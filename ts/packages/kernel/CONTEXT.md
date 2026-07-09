@@ -5,7 +5,7 @@
 ## Language
 
 **ns kernel**:
-The host layer of the `ns` CLI: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, execution context construction, shell completion, shell integration, and the public author SDK. The kernel stays small and does not own workflow policy unless repeated command evidence proves a reusable host service belongs here.
+The host layer of the `ns` CLI: command discovery, precedence, selected command loading, CLI presentation, argument/schema parsing, execution context construction, shell completion, shell integration, and the public author SDK. The kernel stays small and does not own workflow policy unless repeated command evidence proves a reusable host service belongs here.
 *Avoid*: repository workflow command bundle, capability implementation owner, Graphite/GitHub policy owner, hidden task database, synonym for all `@ns/*` packages.
 
 **ns command surface**:
@@ -16,36 +16,32 @@ The user-facing CLI path contributed by a built-in host command or an extension 
 A command implemented by the kernel because it is host infrastructure, such as runtime diagnostics, completion, or managed shell integration. Built-ins are the lowest-precedence catalog source and can be overridden by higher-precedence extension entries only through the normal catalog rules.
 *Avoid*: default capability command, bundled workflow, project policy.
 
-**Preinstalled extension catalog**:
-Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the same extension model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning package module specifiers.
+**Preinstalled descriptor catalog**:
+Injected metadata for first-party extension commands shipped with an installed CLI distribution. It is a distribution convenience for the descriptor model: metadata is available for discovery/help/completion, while selected commands are imported lazily from their owning command modules.
 *Avoid*: privileged built-in, kernel-owned command, reason to bypass the SDK boundary, automatic destination for repo-specific policy.
 
-**Project-local extension**:
-A checked-in repository extension under `<repo>/.ns/extensions` that contributes command behavior for that checkout. Project-local entries can group commands and override lower-precedence sources without making those commands universal built-ins.
-*Avoid*: default kernel command, compatibility alias, bundled first-party extension, package implementation module.
+**Project descriptor extension**:
+A repository-declared extension package listed in repo-root `ns.toml` and exposing `exports["./ns-extension"]`. Project descriptor entries can group commands and override lower-precedence sources without making those commands universal built-ins.
+*Avoid*: default kernel command, compatibility alias, bundled first-party extension, package implementation module, extension-root scan.
 
-**Global extension**:
-A user-level extension discovered under `$XDG_DATA_HOME/ns/extensions`. Global entries have higher precedence than built-ins and preinstalled metadata, and lower precedence than project-local entries.
-*Avoid*: project policy, installed catalog entry, kernel command.
-
-**Extension root**:
-A discovery root containing direct files, directory indexes, or package manifests. Direct files and directory indexes can be imported for top-level help summaries; package manifests contribute side-effect-light metadata.
-*Avoid*: recursive command crawler, hidden task registry, eager import boundary.
+**Extension descriptor**:
+A typed side-effect-light module that default-exports `defineExtension({ ... })` from `@ns/kernel/sdk`. It declares command entries, point definitions, and bundled artifacts as metadata plus lazy command-module thunks.
+*Avoid*: command implementation module, JSON manifest, root crawler, eager import boundary.
 
 **ns command entry**:
-A command contribution inside an extension's `commands` array or a manifest/preinstalled catalog descriptor. It names one command leaf and points at the module that implements selected-command behavior.
+A command contribution inside an extension descriptor or preinstalled descriptor catalog entry. It names one command leaf and points at the module that implements selected-command behavior.
 *Avoid*: extension root, package API, Pi mirror, YAML task spec.
 
 **Extension discovery**:
-The side-effect-light CLI step that scans built-in definitions, injected preinstalled metadata, global roots, and project roots to build the command catalog without importing unrelated extension command modules.
-*Avoid*: eager module loading for help, partial registration state from failed modules, hidden plugin registry.
+The side-effect-light CLI step that scans built-in definitions, injected preinstalled descriptor metadata, and `ns.toml`-declared descriptors to build the command catalog without importing unrelated command implementation modules.
+*Avoid*: eager module loading for help, partial registration state from failed modules, hidden plugin registry, filesystem extension-root scanning.
 
-**Selected extension loading**:
-The CLI step that imports and validates exactly one external command contribution after the user selects a command. Selected help and JSON schema may load the selected contribution; top-level help and unrelated commands must not load unselected package manifest or preinstalled entries. Discovery diagnostics that affect the selected command are fatal; unrelated discovery diagnostics are warnings.
+**Selected command loading**:
+The CLI step that imports and validates exactly one external command contribution after the user selects a command. Selected help and JSON schema may load the selected contribution; top-level help and unrelated commands must not load unselected descriptor entries. Discovery diagnostics that affect the selected command are fatal; unrelated discovery diagnostics are warnings.
 *Avoid*: loading all extension code to discover command names, fallback past a broken higher-precedence selected command, bricking static help/version/runtime for unrelated malformed entries.
 
 **Catalog precedence**:
-The ordering used to resolve duplicate command keys: built-in host commands < preinstalled extension metadata < global extensions < project-local extensions. Higher-precedence entries override lower-precedence entries with diagnostics rather than compatibility aliases.
+The ordering used to resolve duplicate command keys: built-in host commands < preinstalled descriptor catalog < project descriptor extensions. Higher-precedence entries override lower-precedence entries with diagnostics rather than compatibility aliases.
 *Avoid*: fallback alias, load-order accident, capability priority scheme.
 
 **ns extension API**:
@@ -70,7 +66,7 @@ The full point identifier. First-party ids usually follow `<group>.<workflow>.<l
 
 **Point installation**:
 Consumer project config for a point. Hook installations come from `[points]`; prompt installations can come from `[points]` or the conventional `.ns/prompts/<point-id>.md` path.
-*Avoid*: point definition, extension manifest, global install tier
+*Avoid*: point definition, extension descriptor, global install tier
 
 **Kernel project-config loader**:
 The single parse/validation path for repo-root `ns.toml`, including the `[points]` table and descriptor-declared point metadata. Extension-rooted settings tables stay settings; they do not become points.
@@ -85,7 +81,7 @@ A package-relative markdown file declared by an override prompt point and used w
 *Avoid*: TypeScript prompt constant, hook fallback, global default
 
 **Active prompt source**:
-The prompt source selected by the resolution ladder: development environment override, `[points]`, conventional `.ns/prompts/<point-id>.md`, then manifest default. The catalog reports this source; the kernel resolves content but does not perform the LM interaction.
+The prompt source selected by the resolution ladder: development environment override, `[points]`, conventional `.ns/prompts/<point-id>.md`, then descriptor default. The catalog reports this source; the kernel resolves content but does not perform the LM interaction.
 *Avoid*: prompt execution, hook source, hidden fallback
 
 **ns extension points command surface**:
@@ -103,10 +99,6 @@ The rule that capability domain logic takes injected gateways and stays outside 
 **SDK boundary**:
 The boundary between the kernel-owned author SDK and code above it. SDK promotion requires repeated command evidence or a clearly documented single-command necessity, and should deepen the author-facing interface rather than expose implementation internals for convenience.
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad.
-
-**Single-file extension**:
-A direct `.ns/extensions/<name>.ts` or `.ns/extensions/<name>.js` authoring module. It is a leaf surface: it may import the public author API, but workspace packages must not import from it.
-*Avoid*: shared package module, helper library, public SDK source.
 
 ## Extension layering
 

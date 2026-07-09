@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { handoffNsCommand } from "../command.ts";
 import {
 	createRequestSchema,
@@ -19,6 +17,4 @@ export const handoffCreateNsCommand = handoffNsCommand({
 	renderHuman: renderCreate,
 });
 
-export default defineExtension({
-	commands: [handoffCreateNsCommand],
-});
+export default handoffCreateNsCommand;

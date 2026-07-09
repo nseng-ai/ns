@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { retrosNsCommand } from "../command.ts";
 import {
 	readEvidenceDetailRequestSchema,
@@ -18,6 +16,4 @@ export const retrosExecReadEvidenceDetailNsCommand = retrosNsCommand({
 	renderHuman: renderReadEvidenceDetail,
 });
 
-export default defineExtension({
-	commands: [retrosExecReadEvidenceDetailNsCommand],
-});
+export default retrosExecReadEvidenceDetailNsCommand;

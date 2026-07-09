@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { handoffNsCommand } from "../command.ts";
 import {
 	listRequestSchema,
@@ -22,6 +20,4 @@ export const handoffListNsCommand = handoffNsCommand({
 	renderMarkdown: renderListMarkdown,
 });
 
-export default defineExtension({
-	commands: [handoffListNsCommand],
-});
+export default handoffListNsCommand;

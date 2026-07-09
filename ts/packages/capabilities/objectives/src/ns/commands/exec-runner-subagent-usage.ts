@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	renderRunnerSubagentUsageMarkdown,
@@ -20,6 +18,4 @@ export const objectiveExecRunnerSubagentUsageNsCommand = objectiveNsCommand({
 	renderMarkdown: renderRunnerSubagentUsageMarkdown,
 });
 
-export default defineExtension({
-	commands: [objectiveExecRunnerSubagentUsageNsCommand],
-});
+export default objectiveExecRunnerSubagentUsageNsCommand;

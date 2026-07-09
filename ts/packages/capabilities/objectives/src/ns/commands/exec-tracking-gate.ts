@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	renderTrackingGate,
@@ -20,6 +18,4 @@ export const objectiveExecTrackingGateNsCommand = objectiveNsCommand({
 	renderMarkdown: renderTrackingGate,
 });
 
-export default defineExtension({
-	commands: [objectiveExecTrackingGateNsCommand],
-});
+export default objectiveExecTrackingGateNsCommand;

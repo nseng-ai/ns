@@ -3,12 +3,11 @@ import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
-import {
-	type NsCommand,
-	type NsExtension,
-	type NsCommandCompletionProvider,
-	type NsCommandSchema,
-	type NsExtensionApi,
+import type {
+	NsCommand,
+	NsCommandCompletionProvider,
+	NsCommandSchema,
+	NsExtensionApi,
 } from "@nseng-ai/kernel/sdk";
 
 import { createRealSlotContext, type SlotCliContext } from "../core/context.ts";
@@ -24,6 +23,18 @@ type SlotNsCommandOptions<S extends NsCommandSchema, T> = Omit<
 	NsDomainCommandOptions<S, T, SlotCliContext>,
 	"createContext"
 >;
+
+export function loadSlotNsCommand(commandName: string): NsCommand {
+	const command = allSlotNsCommands().find((candidate) => candidate.name === commandName);
+	if (command === undefined) {
+		throw new Error(`Missing Slot ns command ${commandName}.`);
+	}
+	return command;
+}
+
+function allSlotNsCommands(): readonly NsCommand[] {
+	return [...slotCommandSpecs.map((spec) => slotCommandFromSpec(spec)), ...buildNsShellCommands()];
+}
 
 function slotCommand<S extends NsCommandSchema, T>(
 	options: SlotNsCommandOptions<S, T>,
@@ -56,12 +67,3 @@ function slotCommandFromSpec(spec: SlotCommandSpec): NsCommand<NsCommandSchema, 
 		...optionalEntry("completionProvider", completionProvider),
 	});
 }
-
-const extension = {
-	commands: [
-		...slotCommandSpecs.map((spec) => slotCommandFromSpec(spec)),
-		...buildNsShellCommands(),
-	],
-} satisfies NsExtension;
-
-export default extension;

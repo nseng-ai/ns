@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { type ReviewListRequest } from "../operations/cli-operations.ts";
 import { createReviewListCommand } from "./list.ts";
 
@@ -11,8 +9,6 @@ export const reviewLsCommand = createReviewListCommand({
 	description: REVIEW_LS_DESCRIPTION,
 });
 
-export default defineExtension({
-	commands: [reviewLsCommand],
-});
+export default reviewLsCommand;
 
 export type ReviewLsRequest = ReviewListRequest;

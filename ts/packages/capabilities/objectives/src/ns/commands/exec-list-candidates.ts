@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { objectiveNsCommand } from "../command.ts";
 import {
 	listCandidatesRequestSchema,
@@ -18,6 +16,4 @@ export const objectiveExecListCandidatesNsCommand = objectiveNsCommand({
 	renderHuman: renderListCandidates,
 });
 
-export default defineExtension({
-	commands: [objectiveExecListCandidatesNsCommand],
-});
+export default objectiveExecListCandidatesNsCommand;

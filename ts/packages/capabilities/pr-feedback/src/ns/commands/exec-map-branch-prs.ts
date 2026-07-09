@@ -1,3 +1,3 @@
-import { prAddressNsExtension } from "../../ns-command.ts";
+import { prAddressNsCommand } from "../../ns-command.ts";
 
-export default prAddressNsExtension("map-branch-prs");
+export default prAddressNsCommand("map-branch-prs");

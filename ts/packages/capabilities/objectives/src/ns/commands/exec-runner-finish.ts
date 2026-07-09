@@ -1,5 +1,5 @@
 import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
-import { defineExtension, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import {
 	runnerFinishRequestSchema,
@@ -34,6 +34,4 @@ export const objectiveExecRunnerFinishNsCommand: NsCommand<
 	renderMarkdown: (result) => result.checkpointMarkdown,
 });
 
-export default defineExtension({
-	commands: [objectiveExecRunnerFinishNsCommand],
-});
+export default objectiveExecRunnerFinishNsCommand;

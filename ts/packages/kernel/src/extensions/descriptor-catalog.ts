@@ -58,7 +58,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 				),
 				hasStaticCommandInfo: false,
 				displayPath: `${options.displayPath}#${segments.join("/")}`,
-				load: async () => ({ commands: [(await commandEntry.load()).default] }),
+				load: async () => (await commandEntry.load()).default,
 			},
 		];
 	}

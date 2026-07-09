@@ -70,6 +70,7 @@ export interface KernelCommand<T = unknown> {
 		invocation: KernelCommandInvocation,
 	): Promise<CommandExit<T>> | CommandExit<T>;
 	complete?: ExplicitUndefined<"public-api-compatibility", KernelCommandCompletionProvider>;
+	readonly nsParsedCommandSpec?: unknown;
 	readonly [parsedKernelCommandSpec]?: unknown;
 }
 
@@ -99,11 +100,13 @@ export function defineRawCommand<T>(command: KernelCommandSpec<T>): KernelComman
 export function defineCommand<S extends NsCommandSchema, T>(
 	spec: DefineCommandSpec<S, T>,
 ): KernelCommand<T> {
+	const parsedSpec = parsedSpecForDefinedCommand(spec);
 	return {
 		name: spec.name,
 		summary: spec.summary,
 		description: spec.description,
-		[parsedKernelCommandSpec]: parsedSpecForDefinedCommand(spec),
+		nsParsedCommandSpec: parsedSpec,
+		[parsedKernelCommandSpec]: parsedSpec,
 		async run(ctx, invocation) {
 			return await runDefinedCommand(ctx, invocation, spec);
 		},
@@ -115,19 +118,9 @@ export function defineCommand<S extends NsCommandSchema, T>(
 export type NsCommandCompletionProvider = KernelCommandCompletionProvider;
 export type NsCommand<_S extends NsCommandSchema = z.ZodObject, T = unknown> = KernelCommand<T>;
 
-export interface NsExtension<
-	TCommands extends readonly KernelCommand[] = readonly KernelCommand[],
-> {
-	commands?: ExplicitUndefined<"overload-selector", TCommands>;
-}
-
 export function defineExtension<const TDescriptor extends ExtensionDescriptor>(
 	extension: TDescriptor,
-): TDescriptor;
-export function defineExtension<const TCommands extends readonly KernelCommand[]>(
-	extension: NsExtension<TCommands>,
-): NsExtension<TCommands>;
-export function defineExtension(extension: NsExtension): NsExtension {
+): TDescriptor {
 	return extension;
 }
 

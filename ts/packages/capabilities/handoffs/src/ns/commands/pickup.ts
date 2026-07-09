@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { handoffNsCommand } from "../command.ts";
 import {
 	pickupRequestSchema,
@@ -20,6 +18,4 @@ export const handoffPickupNsCommand = handoffNsCommand({
 	renderHuman: renderPickup,
 });
 
-export default defineExtension({
-	commands: [handoffPickupNsCommand],
-});
+export default handoffPickupNsCommand;

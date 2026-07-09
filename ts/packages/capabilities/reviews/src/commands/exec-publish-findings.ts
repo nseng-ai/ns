@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import {
 	publishFindingsRequestSchema,
 	publishFindingsResultSchema,
@@ -25,8 +23,6 @@ export const reviewsExecPublishFindingsCommand = reviewsNsCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [reviewsExecPublishFindingsCommand],
-});
+export default reviewsExecPublishFindingsCommand;
 
 export type ReviewsExecPublishFindingsRequest = PublishFindingsRequest;

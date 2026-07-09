@@ -1,13 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import {
-	defineCommand,
-	defineExtension,
-	negative,
-	ok,
-	z,
-	type NsCommand,
-} from "@nseng-ai/kernel/sdk";
+import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
@@ -33,9 +26,7 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCom
 	},
 });
 
-export default defineExtension({
-	commands: [flowPullTrunkCommand],
-});
+export default flowPullTrunkCommand;
 
 function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 	const command = formatCommand(result.command, result.args);

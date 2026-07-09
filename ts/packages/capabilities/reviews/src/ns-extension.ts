@@ -21,18 +21,25 @@ export default defineExtension({
 			load: async () => ({ default: (await import("./commands/run.ts")).reviewRunCommand }),
 		},
 		{
-			name: "exec-record-findings",
-			load: async () => ({
-				default: (await import("./commands/exec-record-findings.ts"))
-					.reviewsExecRecordFindingsCommand,
-			}),
-		},
-		{
-			name: "exec-publish-findings",
-			load: async () => ({
-				default: (await import("./commands/exec-publish-findings.ts"))
-					.reviewsExecPublishFindingsCommand,
-			}),
+			group: "exec",
+			hidden: true,
+			description: "Agent-only Reviews operations.",
+			entries: [
+				{
+					name: "record-findings",
+					load: async () => ({
+						default: (await import("./commands/exec-record-findings.ts"))
+							.reviewsExecRecordFindingsCommand,
+					}),
+				},
+				{
+					name: "publish-findings",
+					load: async () => ({
+						default: (await import("./commands/exec-publish-findings.ts"))
+							.reviewsExecPublishFindingsCommand,
+					}),
+				},
+			],
 		},
 	],
 });

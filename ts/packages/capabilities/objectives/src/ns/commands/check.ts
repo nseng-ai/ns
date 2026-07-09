@@ -1,5 +1,4 @@
 import { usageError, type ClinkrExit, type RenderCapabilities } from "@nseng-ai/clinkr";
-import { defineExtension } from "@nseng-ai/kernel/sdk";
 import { z } from "zod";
 
 import { objectiveNsCommand } from "../command.ts";
@@ -71,6 +70,4 @@ export const objectiveCheckNsCommand = objectiveNsCommand({
 	renderHuman: renderObjectiveCheckCommand,
 });
 
-export default defineExtension({
-	commands: [objectiveCheckNsCommand],
-});
+export default objectiveCheckNsCommand;

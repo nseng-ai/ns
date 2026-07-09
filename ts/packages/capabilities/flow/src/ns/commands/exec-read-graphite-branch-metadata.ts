@@ -5,7 +5,6 @@ import {
 } from "@nseng-ai/capability-kit/graphite/metadata";
 import {
 	defineCommand,
-	defineExtension,
 	failure,
 	ok,
 	z,
@@ -56,6 +55,4 @@ async function runExecReadGraphiteBranchMetadata(
 	return ok(result.stdout.trim() === "" ? "[]" : result.stdout.trim());
 }
 
-export default defineExtension({
-	commands: [flowExecReadGraphiteBranchMetadataCommand],
-});
+export default flowExecReadGraphiteBranchMetadataCommand;

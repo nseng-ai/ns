@@ -1,5 +1,5 @@
 import { runAutoslotCli } from "../../autoslot/autoslot.ts";
-import { defineCommand, defineExtension, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineCommand, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -42,6 +42,4 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 	},
 });
 
-export default defineExtension({
-	commands: [flowAutoslotCommand],
-});
+export default flowAutoslotCommand;

@@ -2,13 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import {
-	defineExtension,
-	defineRawCommand,
-	noopNsCommandIo,
-	noopNsProgress,
-	ok,
-} from "@nseng-ai/kernel/sdk";
+import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/kernel/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -171,16 +165,12 @@ export default defineExtension({
 					if (activeLoads > 1) throw new Error("listing loads overlapped");
 					await Promise.resolve();
 					activeLoads -= 1;
-					return {
-						commands: [
-							defineRawCommand({
-								name,
-								summary: `${name} summary`,
-								description: `${name} command`,
-								run: () => ok({ name }),
-							}),
-						],
-					};
+					return defineRawCommand({
+						name,
+						summary: `${name} summary`,
+						description: `${name} command`,
+						run: () => ok({ name }),
+					});
 				},
 			};
 		}
@@ -334,15 +324,11 @@ export default defineExtension({
 					fullDescription: "scan command.",
 					displayPath: "@example/tools/ns/commands/scan",
 					load: () =>
-						defineExtension({
-							commands: [
-								{
-									name: "scan",
-									summary: "Scan from a thunk.",
-									description: "Scan from a thunk.",
-									run: () => ok("thunk scan"),
-								},
-							],
+						defineRawCommand({
+							name: "scan",
+							summary: "Scan from a thunk.",
+							description: "Scan from a thunk.",
+							run: () => ok("thunk scan"),
 						}),
 				},
 			],

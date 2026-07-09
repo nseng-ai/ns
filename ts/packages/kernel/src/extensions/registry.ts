@@ -5,12 +5,13 @@ import { fileURLToPath } from "node:url";
 import {
 	commandInfoForLoadedCommand,
 	commandKey,
+	commandLeafName,
 	formatUnknownError,
 	toCommandCliInfo,
 	commandPathMatches,
 	commandSegments,
 	listBuiltInNsCommandCandidates,
-	validateNsExtensionContribution,
+	validateDescriptorCommandContribution,
 	type BuiltInNsCommandCandidate,
 	type NsCommandCandidate,
 	type NsCommandCliInfo,
@@ -35,7 +36,6 @@ import {
 import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 import {
 	validateExtensionDescriptor,
-	validateLoadedCommandName,
 	type ExtensionCommandEntry,
 	type ExtensionDescriptor,
 	type ExtensionEntry,
@@ -217,18 +217,11 @@ export async function loadSelectedNsCommand(
 			),
 		};
 	}
-	const validation =
-		candidate.descriptorEntry === undefined
-			? validateNsExtensionContribution(
-					loaded.defaultExport,
-					candidate,
-					formatSource(candidate.source),
-				)
-			: validateDescriptorCommandContribution(
-					loaded.defaultExport,
-					candidate.descriptorEntry,
-					formatSource(candidate.source),
-				);
+	const validation = validateDescriptorCommandContribution(
+		loaded.defaultExport,
+		candidate.descriptorEntry ?? commandEntryForCandidate(candidate),
+		formatSource(candidate.source),
+	);
 	if (!validation.ok) {
 		return {
 			ok: false,
@@ -688,7 +681,7 @@ async function loadSourceDevDescriptorCandidates(options: {
 	try {
 		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 	} catch {
-		// Source-dev descriptor discovery is opportunistic; invalid manifests fall back to legacy package discovery below.
+		// Source-dev descriptor discovery is opportunistic; invalid manifests are ignored.
 		return { diagnostics: [], candidates: [] };
 	}
 	if (descriptorExportTarget(parsed) === undefined) return { diagnostics: [], candidates: [] };
@@ -974,36 +967,13 @@ function fromLoadDiagnostic(
 	return { ...diagnostic, sourceLevel, commandName };
 }
 
-function validateDescriptorCommandContribution(
-	contribution: unknown,
-	entry: ExtensionCommandEntry,
-	sourceLabel: string,
-): { ok: true; command: DescriptorCommand } | { ok: false; message: string } {
-	if (typeof contribution === "object" && contribution !== null && "name" in contribution) {
-		const name = contribution.name;
-		if (typeof name !== "string")
-			return validateNsExtensionContribution(
-				{ commands: [contribution] },
-				entry,
-				sourceLabel,
-				"ns descriptor command",
-			);
-		const nameValidation = validateLoadedCommandName(entry, { name });
-		if (!nameValidation.ok) {
-			return {
-				ok: false,
-				message: `Invalid ns descriptor command ${sourceLabel}: ${nameValidation.message}`,
-			};
-		}
-	}
-	const validation = validateNsExtensionContribution(
-		{ commands: [contribution] },
-		entry,
-		sourceLabel,
-		"ns descriptor command",
-	);
-	if (!validation.ok) return validation;
-	return { ok: true, command: validation.command };
+function commandEntryForCandidate(candidate: ExternalNsCommandCandidate): ExtensionCommandEntry {
+	return {
+		name: commandLeafName(candidate),
+		load: () => {
+			throw new Error("Catalog candidates do not load through synthetic entries.");
+		},
+	};
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

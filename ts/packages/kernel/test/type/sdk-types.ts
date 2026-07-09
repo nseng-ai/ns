@@ -23,76 +23,9 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 type IsEqual<A, B> =
 	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
-const extension = defineExtension({
-	commands: [
-		{
-			name: "first",
-			summary: "First.",
-			description: "First command.",
-			run(_ctx, invocation) {
-				return ok(invocation.argv.join(" ") || "first");
-			},
-		},
-		defineCommand({
-			name: "second",
-			summary: "Second.",
-			description: "Second command.",
-			schema: z.object({ second: z.string() }),
-			resultSchema: z.string(),
-			handler(_ctx, request) {
-				return ok(request.second);
-			},
-		}),
-		defineCommand({
-			name: "third",
-			summary: "Third.",
-			description: "Third command.",
-			schema: z.object({ third: z.number() }),
-			resultSchema: z.string(),
-			handler(_ctx, request) {
-				return ok(String(request.third));
-			},
-		}),
-		defineCommand({
-			name: "fourth",
-			summary: "Fourth.",
-			description: "Fourth command.",
-			schema: z.object({ fourth: z.boolean() }),
-			resultSchema: z.string(),
-			handler(_ctx, request) {
-				type Request = typeof request;
-				const checks: [
-					Assert<IsAny<Request> extends false ? true : false>,
-					Assert<IsEqual<Request, { fourth: boolean }>>,
-				] = [true, true];
-				void checks;
-				// @ts-expect-error missing is not part of the fourth command schema
-				void request.missing;
-				return ok(request.fourth ? "yes" : "no");
-			},
-		}),
-		defineCommand({
-			name: "fifth",
-			summary: "Fifth.",
-			description: "Fifth command.",
-			schema: z.object({ fifth: z.string() }),
-			resultSchema: z.string(),
-			handler(_ctx, request) {
-				type Request = typeof request;
-				const checks: [
-					Assert<IsAny<Request> extends false ? true : false>,
-					Assert<IsEqual<Request, { fifth: string }>>,
-				] = [true, true];
-				void checks;
-				// @ts-expect-error missing is not part of the fifth command schema
-				void request.missing;
-				return ok(request.fifth);
-			},
-		}),
-	],
-});
+const extension = defineExtension({ description: "Typed descriptor." });
 
-const commandlessExtension = defineExtension({});
+const commandlessExtension = defineExtension({ description: "Commandless descriptor." });
 
 const rawCommand = defineRawCommand({
 	name: "legacy",

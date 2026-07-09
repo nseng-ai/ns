@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { harnessArtifactsNsCommand } from "../command.ts";
 import {
 	renderSkillsInstallHuman,
@@ -26,6 +24,4 @@ export const skillsInstallNsCommand = harnessArtifactsNsCommand({
 	renderHuman: renderSkillsInstallHuman,
 });
 
-export default defineExtension({
-	commands: [skillsInstallNsCommand],
-});
+export default skillsInstallNsCommand;

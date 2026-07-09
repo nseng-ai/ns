@@ -1,3 +1,3 @@
-import { prAddressNsExtension } from "../../ns-command.ts";
+import { prAddressNsCommand } from "../../ns-command.ts";
 
-export default prAddressNsExtension("download-feedback");
+export default prAddressNsCommand("download-feedback");

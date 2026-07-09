@@ -4,7 +4,6 @@ import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/found
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import {
 	defineCommand,
-	defineExtension,
 	negative,
 	ok,
 	z,
@@ -172,9 +171,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 	},
 });
 
-export default defineExtension({
-	commands: [flowRegeneratePrCommand],
-});
+export default flowRegeneratePrCommand;
 
 function formatConfirmationMessage(input: { generated: PreparedPrDescriptionUpdate }): string {
 	return [

@@ -83,7 +83,7 @@ export type {
 	PreinstalledNsCommandCatalogEntry,
 	PreinstalledNsCommandCatalogLoader,
 } from "../extensions/registry.ts";
-export { extensionDescriptorToPreinstalledCatalog } from "../extensions/repo-local-catalog.ts";
+export { extensionDescriptorToPreinstalledCatalog } from "../extensions/descriptor-catalog.ts";
 
 interface NsCliExtensionRegistryDeps {
 	loadCommandCatalog?: (options: LoadNsCommandCatalogOptions) => Promise<NsCommandCatalog>;

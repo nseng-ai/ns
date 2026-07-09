@@ -26,7 +26,6 @@ import {
 import { createCommandIo } from "@nseng-ai/kernel/command-io";
 import {
 	defineCommand,
-	defineExtension,
 	z,
 	type NsCommand,
 	type NsCommandIo,
@@ -104,9 +103,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [flowLandCommand],
-});
+export default flowLandCommand;
 
 interface LandCliProgress {
 	io: NsCommandIo;

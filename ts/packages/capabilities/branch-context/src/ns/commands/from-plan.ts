@@ -1,5 +1,3 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
 import { branchContextCommand } from "../command.ts";
 import {
 	branchContextResultSchema,
@@ -16,6 +14,4 @@ export const branchContextFromPlanNsCommand = branchContextCommand({
 	handler: handleCreate,
 });
 
-export default defineExtension({
-	commands: [branchContextFromPlanNsCommand],
-});
+export default branchContextFromPlanNsCommand;

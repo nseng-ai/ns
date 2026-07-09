@@ -1,14 +1,7 @@
 import { dim, glyph, renderBufferedReport } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
-import {
-	defineCommand,
-	defineExtension,
-	failure,
-	ok,
-	z,
-	type NsCommand,
-} from "@nseng-ai/kernel/sdk";
+import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
@@ -82,9 +75,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [flowChangesCommand],
-});
+export default flowChangesCommand;
 
 function formatOutstandingChangesMessage(
 	terminalCaps: Caps,

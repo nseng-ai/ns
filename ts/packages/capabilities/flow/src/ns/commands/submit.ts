@@ -35,7 +35,6 @@ import {
 import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
 	defineCommand,
-	defineExtension,
 	failure,
 	negative,
 	ok,
@@ -216,9 +215,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 	},
 });
 
-export default defineExtension({
-	commands: [flowSubmitCommand],
-});
+export default flowSubmitCommand;
 
 async function resolveFlowSubmitGitRepoRoot(
 	git: Pick<GitGateway, "optionalRepoRoot">,

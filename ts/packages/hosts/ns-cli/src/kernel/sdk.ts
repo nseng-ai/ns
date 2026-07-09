@@ -76,7 +76,6 @@ export type {
 	NsConfirmOptions,
 	NsConfirmPrompt,
 	NsExecOptions,
-	NsExtension,
 	NsExtensionApi,
 	NsNotifyLevel,
 	NsOutputStream,
