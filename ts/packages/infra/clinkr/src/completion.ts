@@ -57,6 +57,7 @@ export interface ClinkrCompletionOptionPlan {
 
 export interface ClinkrCompletionCommandPlan<TContext = unknown> {
 	name: string;
+	aliases?: readonly string[];
 	description?: string;
 	options: readonly ClinkrCompletionOptionPlan[];
 	positionals: readonly PositionalPlan[];
@@ -66,6 +67,7 @@ export interface ClinkrCompletionCommandPlan<TContext = unknown> {
 
 export interface ClinkrCompletionGroupPlan<TContext = unknown> {
 	name: string;
+	aliases?: readonly string[];
 	description?: string;
 	isRoot: boolean;
 	isHidden: boolean;
@@ -215,12 +217,12 @@ function resolveCompletionContext<TContext>(
 	for (let index = 0; index < words.length; index += 1) {
 		const word = words[index];
 		if (word === undefined || word === "") return { group, args: words.slice(index) };
-		const childGroup = group.groups.find((candidate) => candidate.name === word);
+		const childGroup = group.groups.find((candidate) => matchesCommandName(candidate, word));
 		if (childGroup !== undefined) {
 			group = childGroup;
 			continue;
 		}
-		const command = group.commands.find((candidate) => candidate.name === word);
+		const command = group.commands.find((candidate) => matchesCommandName(candidate, word));
 		if (command !== undefined) return { group, command, args: words.slice(index + 1) };
 		if (group.defaultCommand !== undefined) {
 			return { group, command: group.defaultCommand, args: words.slice(index) };
@@ -237,10 +239,10 @@ function completeGroup<TContext>(
 	const options = groupOptions(group);
 	if (current.startsWith("-")) return optionCandidates(options, current);
 	const commandCandidates: ClinkrCompletionCandidate[] = [
-		...group.commands.map((command) => candidate(command.name, "command", command.description)),
+		...group.commands.flatMap((command) => commandCandidatesForPlan(command)),
 		...group.groups
 			.filter((child) => !child.isHidden)
-			.map((child) => candidate(child.name, "command", child.description)),
+			.flatMap((child) => commandCandidatesForPlan(child)),
 	];
 	const positionalCandidates =
 		group.defaultCommand === undefined
@@ -422,6 +424,23 @@ function shellWord(word: string): string {
 
 function safeShellIdentifier(value: string): string {
 	return value.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+function matchesCommandName(
+	candidate: { name: string; aliases?: readonly string[] },
+	word: string,
+): boolean {
+	return candidate.name === word || candidate.aliases?.includes(word) === true;
+}
+
+function commandCandidatesForPlan(plan: {
+	name: string;
+	aliases?: readonly string[];
+	description?: string;
+}): readonly ClinkrCompletionCandidate[] {
+	return [plan.name, ...(plan.aliases ?? [])].map((name) =>
+		candidate(name, "command", plan.description),
+	);
 }
 
 function filterCandidates(

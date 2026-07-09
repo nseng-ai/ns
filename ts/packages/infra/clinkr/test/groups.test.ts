@@ -199,6 +199,26 @@ describe("nested groups", () => {
 		expect(run.stdout).toContain("top");
 	});
 
+	test("a leaf command named ls blocks the bare list group alias", async () => {
+		const context: ProbeContext = { calls: [] };
+		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		root.command({
+			name: "ls",
+			schema: z.object({}),
+			handler: async (ctx) => {
+				ctx.calls.push("ls");
+				return ok({});
+			},
+		});
+		root.group(new ClinkrGroup<ProbeContext>({ name: "list" }));
+
+		const run = await runForTest(root, ["ls"], { context });
+
+		expect(run.exitCode).toBe(0);
+		expect(context.calls).toEqual(["ls"]);
+		expect(run.stdout).not.toContain("Usage:");
+	});
+
 	test("--help works at every level and exits 0", async () => {
 		for (const argv of [["--help"], ["sub", "--help"], ["sub", "inner", "--help"]]) {
 			const run = await runForTest(buildTree(), argv, { context: { calls: [] } });

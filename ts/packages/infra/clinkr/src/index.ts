@@ -43,7 +43,11 @@ export type {
 	CompleteClinkrWordsAsyncOptions,
 	RenderClinkrCompletionScriptOptions,
 } from "./completion.ts";
-export { ClinkrGroup } from "./group.ts";
+export {
+	ClinkrGroup,
+	clinkrAutomaticAliasesForName,
+	clinkrNameMatchesAutomaticAlias,
+} from "./group.ts";
 export type {
 	ClinkrCommandSpec,
 	ClinkrCompleteAsyncOptions,
