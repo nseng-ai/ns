@@ -246,6 +246,13 @@ describe("thermo council extension", () => {
 				model: "anthropic/claude-fable-5",
 			}),
 		);
+		expect(defaultSeats[1]).toEqual(
+			expect.objectContaining({
+				id: "openai-high",
+				label: "OpenAI High",
+				model: "openai-codex/gpt-5.6-sol",
+			}),
+		);
 		expect(seats).toEqual([
 			expect.objectContaining({ id: "anthropic-fable", model: "anthropic/custom-fable" }),
 			expect.objectContaining({ id: "openai-high", model: "openai/seat-specific" }),
