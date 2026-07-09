@@ -240,12 +240,13 @@ Runner steps under the boundaries below.
 
 ## Open Questions
 
-This Objective is readme-driven: the canonical, exclusively user-facing contract is
-`references/README-draft.md` ("Writing an ns extension"). Design decisions count as settled only
-when folded into that README. The field-level contract was settled 2026-07-07 across two
-structured grilling sessions (the second revised the first: neutral command contract, recursive
-`entries`, module-owned summary, thunk-only `load`, `bundledArtifacts`, point `id`/`cardinality`)
-and is recorded in the README's "Settled contract decisions" section.
+This Objective was readme-driven: the canonical, user-facing contract has been promoted to
+`ts/packages/kernel/docs/writing-an-ns-extension.md` ("Writing an ns extension"), and
+`references/README-draft.md` remains as a historical pointer. The field-level contract was
+settled 2026-07-07 across two structured grilling sessions (the second revised the first:
+neutral command contract, recursive `entries`, module-owned summary, thunk-only `load`,
+`bundledArtifacts`, point `id`/`cardinality`) and was reconciled with the shipped SDK during
+promotion.
 
 - Validation diagnostics UX detail for malformed descriptors (the README states the posture —
   per-extension degradation, field-naming diagnostics; exact codes/wording settle during rows
