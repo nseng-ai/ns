@@ -11,6 +11,7 @@
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 
 import {
+	collapseWhitespace,
 	entriesForCheckBucket,
 	formatCheckEntryLabel,
 	formatThreadDetailLabel,
@@ -95,7 +96,7 @@ export function buildSummaryPrompt(model: StackViewModel): string {
 	bottomUp.forEach((row, index) => {
 		lines.push(`## PR ${index + 1} of ${bottomUp.length}`);
 		lines.push(`Branch: ${row.branch}`);
-		lines.push(`Title: ${stackRowLabel(row)}`);
+		lines.push(`Title: ${summaryPrTitle(row)}`);
 		lines.push("Description:");
 		lines.push(
 			buildFencedTextBlock(row.body.trim().length > 0 ? row.body.trim() : "(no description)"),
@@ -133,6 +134,11 @@ function plainRowMeta(row: StackViewPr): string {
  * insertion order. Returns an empty array when the map is empty so callers can
  * omit the block entirely.
  */
+function summaryPrTitle(row: StackViewPr): string {
+	if (row.number === null) return `(no PR) ${row.branch}`;
+	return `#${row.number} ${collapseWhitespace(row.title)}`;
+}
+
 function objectiveDisplayLines(model: StackViewModel): string[] {
 	const lines: string[] = [];
 	for (const [slug, numbers] of model.objectivesBySlug) {

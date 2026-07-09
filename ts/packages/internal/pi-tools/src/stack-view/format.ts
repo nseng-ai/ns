@@ -43,7 +43,7 @@ export const CHECK_BUCKET_DISPLAY: Record<
 
 export function stackRowLabel(row: StackViewPr): string {
 	if (row.number === null) return `(no PR) ${row.branch}`;
-	return `#${row.number} ${collapseWhitespace(row.title)}`;
+	return `#${row.number} ${row.branch}`;
 }
 
 export function statusWord(status: StackViewPrStatus): string {

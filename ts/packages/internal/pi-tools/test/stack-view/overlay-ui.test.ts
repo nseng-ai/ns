@@ -104,8 +104,10 @@ describe("overlay-model units", () => {
 
 	describe("formatStackRowCells", () => {
 		test("omits badges on zero totals and renders both label forms", () => {
-			const ready = formatStackRowCells(prFixture({ number: 12, title: "Add   widget\nfeature" }));
-			expect(ready.label).toBe("#12 Add widget feature");
+			const ready = formatStackRowCells(
+				prFixture({ number: 12, branch: "feature/widget", title: "Add   widget\nfeature" }),
+			);
+			expect(ready.label).toBe("#12 feature/widget");
 			expect(ready.threads).toBe("");
 			expect(ready.checks).toBe("");
 			expect(ready.statusWord).toBe("ready");
@@ -404,8 +406,8 @@ describe("StackViewOverlay list region", () => {
 		const list = listRegion(lines);
 		const selected = list.find((line) => line.includes("▸"));
 		expect(selected).toBeDefined();
-		expect(selected).toContain("#2 Two");
-		expect(list.some((line) => line.includes("*") && line.includes("#2 Two"))).toBe(true);
+		expect(selected).toContain("#2 feature/2");
+		expect(list.some((line) => line.includes("*") && line.includes("#2 feature/2"))).toBe(true);
 		expect(list.some((line) => line.includes("─ main"))).toBe(true);
 	});
 
