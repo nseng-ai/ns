@@ -10,6 +10,8 @@ edges:
     annotation: Consumes the docs-site shell it owns; customer onboarding needs publishable installation, quickstart, and concept docs on that substrate.
   - objective: skill-management-subsystem
     annotation: Downstream consumer of the reusable skill-management subsystem; customer Objectives rely on its `ns skills`/harness-artifact provisioning surface for skill delivery into Claude Code, Codex, and Pi.
+  - objective: extension-descriptor-contract
+    annotation: Consumes its landed descriptor contract and managed `ns install`/acquisition machinery; the `ns extension install`/`uninstall`/`update` customer acquisition surface designed here (references/README-draft.md) extends that slice to npm sources and admin verbs.
 ---
 
 # Ship Objectives to Customers
@@ -74,6 +76,7 @@ Risks:
 - Writing into a customer's `AGENTS.md` risks clobbering their content; needs a safe managed-block design. Mitigable.
 - Codex cannot make explicit-only skills zero-ambient, so objective skills always cost context on Codex. Acceptable, but must be documented.
 - Coordinating across three in-flight dependency Objectives risks sequencing stalls; mitigate by treating them as dependencies with explicit interface expectations rather than blocking work.
+- The bare-core reaffirmation (2026-07-09) partially reopens packaging risk: the registry-verified `0.1.1` shape bundles objectives, so the checkout-free smoke evidence does not cover the target shape. The unbundling slice must republish and re-verify through the `ns extension install npm:@nseng-ai/objectives` path before the docs/verification rows can complete.
 
 ## Resolved Decisions
 
@@ -114,6 +117,51 @@ Resolved 2026-07-05 in a happy-path charting session with the owner (full record
   publicly deployed (Vercel gate removed, nseng.ai), and a stranger able to follow Get
   Started end-to-end with zero improvisation.
 
+Resolved 2026-07-09 in a README-driven design session with the owner (design artifact:
+`references/README-draft.md`; full record:
+`updates/20260709T165911Z-extension-acquisition-surface-designed.md`):
+
+- **Bare core reaffirmed.** The published `@nseng-ai/ns` ships with no extensions
+  bundled, superseding the batteries-included `0.1.1` shape; an unbundling/republish
+  slice is required before customer launch.
+- **Acquisition verbs live under the `ns extension` group** (`install`, `uninstall`,
+  `update`, `list`, plus existing `point`/`points`). Top-level `ns install` is retired;
+  top-level `ns update` narrows to reserved self-update.
+- **Explicit `npm:` source-spec grammar** (Pi parity; no bare npm names): the CLI
+  argument is verbatim the `ns.toml` `extensions = [...]` entry. Versioned = pinned,
+  unversioned = floating. Happy path amends to
+  `npm install -g @nseng-ai/ns` → `ns extension install npm:@nseng-ai/objectives` →
+  `ns init`.
+- **Removal verb is `uninstall`** (mirrors `install`; no `remove` alias);
+  **`ns extension update` requires exactly one source target** (no `--all` in v1).
+- **Repo-level `ns.toml` is the only settings home in v1**, amending the 2026-07-05
+  "user-level settings only" note; a user scope may layer on later.
+- **Generic `ns init` direction settled**: `init` stays a core built-in for its
+  extension-agnostic duties; objectives-specific behavior baked into it was a mistake.
+  Extensions contribute activation content through a descriptor activation surface that
+  needs its own design slice.
+
+Resolved 2026-07-09 in a follow-up activation-surface design session with the owner
+(design artifact: `references/init-activation-design.md`; full record:
+`updates/20260709T183829Z-init-activation-surface-designed.md`):
+
+- **Trunk detection is generic git posture**, kept in core `ns init` (reworded away from
+  its objectives-specific justification).
+- **Pointer-stanza architecture.** `AGENTS.md` gets one minimal permanent fenced stanza
+  pointing at `.ns/instructions.md`; all instruction content lives in that **committed,
+  tool-owned, wholly regenerated** file. Extension install/uninstall/update never touch
+  `AGENTS.md` again.
+- **Descriptor `activation` field, plain data only** (no activation hook): optional
+  `instructions` (one markdown section) + `consumerDirs` (created with `.gitkeep`, never
+  deleted by ns). Core does all writing; new optional field on the promoted descriptor
+  contract, coordinated per `extension-descriptor-contract` policy at implementation.
+- **Orientations ship day-one** in the objectives extension's contributed section
+  (supersedes the 2026-07-01 lean-block exclusion of `load-orientations`, whose cost
+  rationale the pointer architecture removes).
+- **No migration machinery**: the old `ns:objectives:*` fat block exists only in
+  `ns-init` source/tests (no real repo carries it); migration is in-place code/test
+  changes in the implementation slice.
+
 Derived design (first build slice, see the update for full rationale): skill delivery
 depends on `skill-management-subsystem`'s copy-into-harness-roots slice (not areg's symlink
 model); `ns init` lives in a new `@nseng-ai/ns-init` capability package (amended
@@ -126,23 +174,26 @@ gateway until the bundle lands.
 
 ## Open Questions
 
-Reopened 2026-07-05 by the Pi-style extension-install decision:
+Reopened 2026-07-05 by the Pi-style extension-install decision; resolved 2026-07-09 in
+the README-driven design session (see Resolved Decisions above):
 
-- **`ns install` surface design** (with the `ns-cli-design` skill) — PARTIALLY LANDED: a
-  built-in `ns install <source>` now exists (`ts/packages/kernel/src/extensions/install-command.ts`)
-  that installs a **local package directory** into managed storage and records the source
-  spec in `ns.toml` (idempotent). It explicitly rejects `npm:`/`git:`/URL source forms as
-  "planned but not supported in this slice," so the customer happy-path form
-  (`ns install @nseng-ai/objectives` by npm name) is not yet reachable. `ns remove` is not
-  built. Still open: the remaining source forms (npm name, git, URL), where
-  installed-extension settings finally live and their schema, `ns update` v1 scope (self is
-  reserved/not implemented; `--extensions` provisions artifacts), and `ns remove`. Runtime
-  loader-side resolution is owned by `checkout-free-sdl-distribution`.
+- **`ns install` surface design** — RESOLVED: acquisition verbs live under the
+  `ns extension` group with the explicit `npm:`/local-path source-spec grammar; settings
+  home is repo-level `ns.toml` only; `ns extension update` is single-target;
+  self-update stays reserved at top-level `ns update`. Canonical design:
+  `references/README-draft.md`. Implementation (with `ns-cli-design` discipline at
+  build time) is roadmap work; the already-landed top-level local-package
+  `ns install <source>` slice (`ts/packages/kernel/src/extensions/install-command.ts`)
+  is substrate/migration input, not the final customer surface.
 - **Where objective skills ship** — RESOLVED: the objective skill is provisioned through
   the first-party `ns skills` list/path/install surface (`@nseng-ai/harness-artifacts`),
   and `ns init`'s `RealSkillMaterializer` binds to `provisionFirstPartySkill`. End-to-end
   provisioning from the published tarball into a customer repo is still to be verified
   (Claude-Code verification row).
-- **Where `ns init` lives**: in the bare core (must work with zero extensions installed)
-  or contributed by the objectives extension. The `@nseng-ai/ns-init` package scaffold
-  described above predates the bare-core split and may need re-homing.
+- **Where `ns init` lives** — RESOLVED as a split: core owns a generic `init`
+  orchestrator (git posture, harness persistence, pointer-stanza + `.ns/instructions.md`
+  mechanics, artifact provisioning); extensions own their activation content, contributed
+  through the descriptor `activation` field. The activation surface design is complete
+  (2026-07-09, `references/init-activation-design.md`); the remaining work is the
+  implementation slice de-objectives-ifying `@nseng-ai/ns-init` before the bare-core
+  republish.
