@@ -48,6 +48,8 @@ All subagent tools that share one `pi` object share one fleet registry, so built
 
 ## Building your own subagent tool
 
+> For the ordered step-by-step procedure and a checklist, see [`AUTHORING.md`](./AUTHORING.md). This section is the reference the guide points back to.
+
 Import from `@nseng-ai/ns-pi-subagents/api`. The recipe: register a Pi tool, and inside `execute` dispatch a child, track it in the fleet, and map the result.
 
 ```ts

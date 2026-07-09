@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"keywords": ["pi-package"],
-	"files": ["src", "README.md"],
+	"files": ["src", "README.md", "AUTHORING.md", "AGENTS.md"],
 	"exports": {
 		"./api": "./src/api/index.ts",
 		"./extension": "./src/extension.ts",
