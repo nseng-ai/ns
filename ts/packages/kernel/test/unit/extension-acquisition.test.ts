@@ -15,7 +15,7 @@ class FakeAcquisitionGateway implements ExtensionAcquisitionGateway {
 		rawSpec: string;
 		packageName: string;
 		version: string | undefined;
-		pinned: boolean;
+		isPinned: boolean;
 	}> = [];
 	ensureCalls = 0;
 	failSpec: string | undefined;
@@ -36,13 +36,13 @@ class FakeAcquisitionGateway implements ExtensionAcquisitionGateway {
 		rawSpec: string;
 		packageName: string;
 		version: string | undefined;
-		pinned: boolean;
+		isPinned: boolean;
 	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
 		this.installs.push({
 			rawSpec: request.rawSpec,
 			packageName: request.packageName,
 			version: request.version,
-			pinned: request.pinned,
+			isPinned: request.isPinned,
 		});
 		if (request.rawSpec === this.failSpec) {
 			return resultErr({
@@ -60,19 +60,19 @@ describe("extension acquisition", () => {
 	test("parses npm specs without splitting scoped package names at the leading @", () => {
 		expect(parseExtensionSourceSpec("/repo", "npm:left-pad")).toMatchObject({
 			ok: true,
-			value: { kind: "npm", packageName: "left-pad", version: undefined, pinned: false },
+			value: { kind: "npm", packageName: "left-pad", version: undefined, isPinned: false },
 		});
 		expect(parseExtensionSourceSpec("/repo", "npm:left-pad@1.3.0")).toMatchObject({
 			ok: true,
-			value: { kind: "npm", packageName: "left-pad", version: "1.3.0", pinned: true },
+			value: { kind: "npm", packageName: "left-pad", version: "1.3.0", isPinned: true },
 		});
 		expect(parseExtensionSourceSpec("/repo", "npm:@scope/pkg")).toMatchObject({
 			ok: true,
-			value: { kind: "npm", packageName: "@scope/pkg", version: undefined, pinned: false },
+			value: { kind: "npm", packageName: "@scope/pkg", version: undefined, isPinned: false },
 		});
 		expect(parseExtensionSourceSpec("/repo", "npm:@scope/pkg@1.2.3")).toMatchObject({
 			ok: true,
-			value: { kind: "npm", packageName: "@scope/pkg", version: "1.2.3", pinned: true },
+			value: { kind: "npm", packageName: "@scope/pkg", version: "1.2.3", isPinned: true },
 		});
 	});
 
@@ -105,7 +105,7 @@ describe("extension acquisition", () => {
 		);
 	});
 
-	test("pinned npm installs when missing and skips when already installed", async () => {
+	test("versioned npm specs install when missing and skip when already installed", async () => {
 		const gateway = new FakeAcquisitionGateway();
 		const first = await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
@@ -125,7 +125,7 @@ describe("extension acquisition", () => {
 				rawSpec: "npm:@scope/pkg@1.2.3",
 				packageName: "@scope/pkg",
 				version: "1.2.3",
-				pinned: true,
+				isPinned: true,
 			},
 		]);
 
@@ -138,7 +138,7 @@ describe("extension acquisition", () => {
 		expect(gateway.installs).toHaveLength(1);
 	});
 
-	test("unpinned npm installs on every apply run", async () => {
+	test("floating npm specs install on every apply run", async () => {
 		const gateway = new FakeAcquisitionGateway();
 		await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",

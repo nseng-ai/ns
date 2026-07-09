@@ -5,12 +5,16 @@ import { z } from "zod";
 
 import type { NsDevCliContext } from "../context.ts";
 import {
+	commandRefFrom,
+	commandRefSchema,
 	commandSummarySchema,
-	readJsonObject,
+	guardFilesystemErrors,
+	readVerifiedNsPackage,
 	resolvePath,
 	runTrackedCommand,
-	stringField,
+	trackedCommandFailureExit,
 	type CommandSummary,
+	type CommandRef,
 } from "../shared.ts";
 
 export const createLocalNsProjectRequestSchema = z.object({
@@ -21,11 +25,7 @@ export const createLocalNsProjectRequestSchema = z.object({
 	skipVerify: z.boolean().optional().describe("Skip post-install npx ns verification commands."),
 });
 
-const verificationPassedSchema = z.object({
-	command: z.string(),
-	args: z.array(z.string()),
-	cwd: z.string(),
-});
+const verificationPassedSchema = commandRefSchema;
 
 export const createLocalNsProjectResultSchema = z.object({
 	projectPath: z.string(),
@@ -40,19 +40,13 @@ export const createLocalNsProjectResultSchema = z.object({
 
 type CreateLocalNsProjectRequest = z.output<typeof createLocalNsProjectRequestSchema>;
 type CreateLocalNsProjectResult = z.output<typeof createLocalNsProjectResultSchema>;
-type VerificationPassed = z.output<typeof verificationPassedSchema>;
+type VerificationPassed = CommandRef;
 
 export async function runCreateLocalNsProject(
 	context: NsDevCliContext,
 	request: CreateLocalNsProjectRequest,
 ): Promise<ClinkrExit<CreateLocalNsProjectResult>> {
-	try {
-		return await runCreateLocalNsProjectInner(context, request);
-	} catch (error) {
-		return failure("filesystem-error", "Filesystem operation failed.", {
-			message: formatUnknownError(error),
-		});
-	}
+	return guardFilesystemErrors(() => runCreateLocalNsProjectInner(context, request));
 }
 
 async function runCreateLocalNsProjectInner(
@@ -72,19 +66,9 @@ async function runCreateLocalNsProjectInner(
 	const publishPath = join(nsPackageRoot, "dist", "publish");
 	const publishPackageJsonPath = join(publishPath, "package.json");
 
-	const sourcePackageJson = await readJsonObject(context.fs, sourcePackageJsonPath);
-	if (sourcePackageJson.type === "error")
+	const sourcePackageJson = await readVerifiedNsPackage(context.fs, sourcePackageJsonPath);
+	if (sourcePackageJson.type === "error") {
 		return failure("ns-package-not-found", sourcePackageJson.message);
-	const sourceName = stringField(sourcePackageJson.value, "name");
-	const sourceVersion = stringField(sourcePackageJson.value, "version");
-	if (sourceName !== "@nseng-ai/ns") {
-		return failure(
-			"ns-package-not-found",
-			`Expected ${sourcePackageJsonPath} to be @nseng-ai/ns, found ${sourceName ?? "<missing>"}.`,
-		);
-	}
-	if (sourceVersion === undefined) {
-		return failure("ns-package-not-found", `Expected ${sourcePackageJsonPath} to contain version.`);
 	}
 
 	if (await context.fs.exists(projectPath)) {
@@ -100,31 +84,22 @@ async function runCreateLocalNsProjectInner(
 	}
 
 	const commands: CommandSummary[] = [];
-	const pack = await runTrackedCommand(
-		context,
-		"pnpm",
-		["--dir", join(nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"],
-		nsWorktree,
-	);
-	if (pack.type === "failed") return failure("subprocess-failed", pack.message, pack.data);
+	const pack = await runTrackedCommand(context, {
+		command: "pnpm",
+		args: ["--dir", join(nsWorktree, "ts"), "--filter", "@nseng-ai/ns", "run", "pack:local"],
+		cwd: nsWorktree,
+	});
+	if (pack.type === "failed") return trackedCommandFailureExit(pack);
 	commands.push(pack.summary);
 
-	const publishPackageJson = await readJsonObject(context.fs, publishPackageJsonPath);
+	const publishPackageJson = await readVerifiedNsPackage(context.fs, publishPackageJsonPath);
 	if (publishPackageJson.type === "error") {
 		return failure("publish-package-not-found", publishPackageJson.message);
 	}
-	const publishName = stringField(publishPackageJson.value, "name");
-	const publishVersion = stringField(publishPackageJson.value, "version");
-	if (publishName !== "@nseng-ai/ns") {
-		return failure(
-			"publish-package-not-found",
-			`Expected ${publishPackageJsonPath} to be @nseng-ai/ns, found ${publishName ?? "<missing>"}.`,
-		);
-	}
-	if (publishVersion !== sourceVersion) {
+	if (publishPackageJson.value.version !== sourcePackageJson.value.version) {
 		return failure(
 			"publish-package-version-mismatch",
-			`Fresh package version mismatch: source ${sourceVersion}, publish ${publishVersion ?? "<missing>"}.`,
+			`Fresh package version mismatch: source ${sourcePackageJson.value.version}, publish ${publishPackageJson.value.version}.`,
 		);
 	}
 
@@ -149,8 +124,12 @@ async function runCreateLocalNsProjectInner(
 		},
 		{ command: "git", args: ["commit", "-m", "Initial commit"] },
 	] as const) {
-		const result = await runTrackedCommand(context, step.command, step.args, projectPath);
-		if (result.type === "failed") return failure("subprocess-failed", result.message, result.data);
+		const result = await runTrackedCommand(context, {
+			command: step.command,
+			args: step.args,
+			cwd: projectPath,
+		});
+		if (result.type === "failed") return trackedCommandFailureExit(result);
 		commands.push(result.summary);
 	}
 
@@ -163,15 +142,19 @@ async function runCreateLocalNsProjectInner(
 			["ns", "skills", "list"],
 			["ns", "extension", "points"],
 		] as const) {
-			const result = await runTrackedCommand(context, "npx", args, projectPath);
+			const result = await runTrackedCommand(context, {
+				command: "npx",
+				args,
+				cwd: projectPath,
+			});
 			if (result.type === "failed") {
 				return failure("verification-failed", result.message, {
-					failedCommand: { command: "npx", args: [...args], cwd: projectPath },
+					failedCommand: commandRefFrom(result.summary),
 					...result.data,
 				});
 			}
 			commands.push(result.summary);
-			verification.push({ command: "npx", args: [...args], cwd: projectPath });
+			verification.push(commandRefFrom({ command: "npx", args, cwd: projectPath }));
 		}
 	}
 
@@ -179,7 +162,7 @@ async function runCreateLocalNsProjectInner(
 		projectPath,
 		projectName,
 		nsWorktree,
-		nsPackageVersion: sourceVersion,
+		nsPackageVersion: sourcePackageJson.value.version,
 		publishPath,
 		verification,
 		nextCommands: [`cd ${projectPath}`, "npx ns init --harness claude-code"],
@@ -213,10 +196,6 @@ function renderJavaScriptGitignore(): string {
 		".env.*",
 		"",
 	].join("\n");
-}
-
-function formatUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 function timestampForPath(nowMs: number): string {

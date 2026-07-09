@@ -1,47 +1,119 @@
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
-import { commandSucceeded, formatShellArg, type ExecResult } from "@nseng-ai/foundation/exec";
+import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
+import {
+	commandSucceeded,
+	formatCommand,
+	formatCommandDetails,
+	tailText,
+	type ExecResult,
+} from "@nseng-ai/foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { FileSystemGateway, NsDevCliContext } from "./context.ts";
 
 const MAX_OUTPUT_SNIPPET_CHARS = 2_000;
 
-export const commandSummarySchema = z.object({
+export type NsDevResult<T> =
+	| { readonly type: "ok"; readonly value: T }
+	| { readonly type: "error"; readonly message: string };
+
+export const commandRefSchema = z.object({
 	command: z.string(),
 	args: z.array(z.string()),
 	cwd: z.string(),
+});
+export type CommandRef = z.output<typeof commandRefSchema>;
+
+export const commandSummarySchema = commandRefSchema.extend({
 	exitCode: z.number().int(),
 });
+export type CommandSummary = z.output<typeof commandSummarySchema>;
 
-export const commandFailureDataSchema = z.object({
-	command: z.string(),
-	args: z.array(z.string()),
-	cwd: z.string(),
-	exitCode: z.number().int(),
+export const commandFailureDataSchema = commandSummarySchema.extend({
 	killed: z.boolean(),
 	stdout: z.string(),
 	stderr: z.string(),
 	startupError: z.string().optional(),
 });
+export type CommandFailureData = z.output<typeof commandFailureDataSchema>;
 
-export interface CommandSummary {
+export interface RunTrackedCommandRequest {
 	readonly command: string;
-	readonly args: string[];
+	readonly args: readonly string[];
 	readonly cwd: string;
-	readonly exitCode: number;
-}
-
-export interface CommandFailureData extends CommandSummary {
-	readonly killed: boolean;
-	readonly stdout: string;
-	readonly stderr: string;
-	readonly startupError?: string;
 }
 
 export type CommandRunResult =
 	| { readonly type: "ok"; readonly summary: CommandSummary; readonly result: ExecResult }
-	| { readonly type: "failed"; readonly message: string; readonly data: CommandFailureData };
+	| {
+			readonly type: "failed";
+			readonly message: string;
+			readonly data: CommandFailureData;
+			readonly summary: CommandSummary;
+	  };
+
+export async function runTrackedCommand(
+	context: NsDevCliContext,
+	request: RunTrackedCommandRequest,
+): Promise<CommandRunResult> {
+	const displayCommand = formatCommand(request.command, request.args);
+	context.status?.(`ns-dev: running ${displayCommand} in ${request.cwd}\n`);
+	const result = await context.runCommand(request.command, request.args, {
+		cwd: request.cwd,
+		env: context.env,
+	});
+	const summary: CommandSummary = {
+		...commandRefFrom(request),
+		exitCode: result.code,
+	};
+	if (commandSucceeded(result)) return { type: "ok", summary, result };
+	const data: CommandFailureData = {
+		...summary,
+		killed: result.killed,
+		stdout: snippet(result.stdout),
+		stderr: snippet(result.stderr),
+		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
+	};
+	const details = result.startupError ?? formatCommandDetails(result);
+	return {
+		type: "failed",
+		message: `Command failed: ${displayCommand} (${details})`,
+		data,
+		summary,
+	};
+}
+
+export function trackedCommandFailureExit(
+	failureResult: Extract<CommandRunResult, { type: "failed" }>,
+	options: { errorType?: string; extraData?: Record<string, unknown> } = {},
+): ClinkrExit<never> {
+	return failure(options.errorType ?? "subprocess-failed", failureResult.message, {
+		...failureResult.data,
+		...(options.extraData ?? {}),
+	});
+}
+
+export async function guardFilesystemErrors<T>(
+	run: () => Promise<ClinkrExit<T>>,
+): Promise<ClinkrExit<T>> {
+	try {
+		return await run();
+	} catch (error) {
+		return failure("filesystem-error", "Filesystem operation failed.", {
+			message: formatUnknownError(error),
+		});
+	}
+}
+
+export function commandRefFrom(ref: {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly cwd: string;
+}): CommandRef {
+	return { command: ref.command, args: [...ref.args], cwd: ref.cwd };
+}
 
 export function expandHome(path: string, homeDir: string): string {
 	if (path === "~") return homeDir;
@@ -57,10 +129,7 @@ export function resolvePath(path: string, options: { cwd: string; homeDir: strin
 export async function readJsonObject(
 	fs: FileSystemGateway,
 	path: string,
-): Promise<
-	| { readonly type: "ok"; readonly value: Record<string, unknown> }
-	| { readonly type: "error"; readonly message: string }
-> {
+): Promise<NsDevResult<Record<string, unknown>>> {
 	try {
 		const parsed: unknown = JSON.parse(await fs.readText(path));
 		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -70,7 +139,7 @@ export async function readJsonObject(
 	} catch (error) {
 		return {
 			type: "error",
-			message: `Could not read JSON from ${path}: ${formatErrorMessage(error)}`,
+			message: `Could not read JSON from ${path}: ${formatUnknownError(error)}`,
 		};
 	}
 }
@@ -87,38 +156,31 @@ export function scriptField(value: Record<string, unknown>, key: string): string
 	return typeof script === "string" ? script : undefined;
 }
 
-export async function runTrackedCommand(
-	context: NsDevCliContext,
-	command: string,
-	args: readonly string[],
-	cwd: string,
-): Promise<CommandRunResult> {
-	context.status?.(`ns-dev: running ${formatCommandForHumans(command, args)} in ${cwd}\n`);
-	const result = await context.runCommand(command, args, { cwd, env: context.env });
-	const summary: CommandSummary = { command, args: [...args], cwd, exitCode: result.code };
-	if (commandSucceeded(result)) return { type: "ok", summary, result };
-	const data: CommandFailureData = {
-		...summary,
-		killed: result.killed,
-		stdout: snippet(result.stdout),
-		stderr: snippet(result.stderr),
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
-	};
-	return {
-		type: "failed",
-		message: `Command failed: ${formatCommandForHumans(command, args)} (${formatFailure(result)})`,
-		data,
-	};
+export async function readVerifiedNsPackage(
+	fs: FileSystemGateway,
+	path: string,
+): Promise<NsDevResult<{ readonly name: "@nseng-ai/ns"; readonly version: string }>> {
+	const packageJson = await readJsonObject(fs, path);
+	if (packageJson.type === "error") return packageJson;
+	const name = stringField(packageJson.value, "name");
+	const version = stringField(packageJson.value, "version");
+	if (name !== "@nseng-ai/ns") {
+		return {
+			type: "error",
+			message: `Expected ${path} to be @nseng-ai/ns, found ${name ?? "<missing>"}.`,
+		};
+	}
+	if (version === undefined) {
+		return { type: "error", message: `Expected ${path} to contain version.` };
+	}
+	return { type: "ok", value: { name, version } };
 }
 
 export async function newestTarball(
 	fs: FileSystemGateway,
 	packDir: string,
 	sinceMs: number,
-): Promise<
-	| { readonly type: "ok"; readonly path: string }
-	| { readonly type: "error"; readonly message: string }
-> {
+): Promise<NsDevResult<string>> {
 	const entries = await fs.readDir(packDir);
 	const tarballs = entries.filter((entry) => entry.isFile && entry.name.endsWith(".tgz"));
 	if (tarballs.length === 0) return { type: "error", message: `No .tgz generated in ${packDir}.` };
@@ -134,16 +196,14 @@ export async function newestTarball(
 	if (newest.mtimeMs + 1_000 < sinceMs) {
 		return { type: "error", message: `Newest tarball in ${packDir} appears stale: ${newest.path}` };
 	}
-	return { type: "ok", path: newest.path };
+	return { type: "ok", value: newest.path };
 }
 
 export async function collectPackageDirs(
 	fs: FileSystemGateway,
 	root: string,
 ): Promise<readonly string[]> {
-	const matches: string[] = [];
-	await collectPackageDirsAt(fs, root, matches, 0);
-	return matches;
+	return collectPackageDirsAt(fs, root, 0);
 }
 
 export function packagePathIsLocalPackage(nsWorktree: string, packagePath: string): boolean {
@@ -156,44 +216,32 @@ export function tarballName(path: string): string {
 	return basename(path);
 }
 
-function formatCommandForHumans(command: string, args: readonly string[]): string {
-	return [command, ...args].map(formatShellArg).join(" ");
-}
-
-function formatFailure(result: ExecResult): string {
-	const detail = result.stderr.trim() || result.stdout.trim();
-	if (detail !== "") return `exit ${result.code}: ${snippet(detail)}`;
-	return `exit ${result.code}${result.killed ? ", killed" : ""}`;
+export function formatUnknownError(error: unknown): string {
+	return formatErrorMessage(error);
 }
 
 function snippet(text: string): string {
-	if (text.length <= MAX_OUTPUT_SNIPPET_CHARS) return text;
-	return text.slice(-MAX_OUTPUT_SNIPPET_CHARS);
-}
-
-function formatErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
+	return tailText(text, { maxChars: MAX_OUTPUT_SNIPPET_CHARS });
 }
 
 async function collectPackageDirsAt(
 	fs: FileSystemGateway,
 	current: string,
-	matches: string[],
 	depth: number,
-): Promise<void> {
-	if (depth > 4) return;
-	if (await fs.exists(join(current, "package.json"))) {
-		matches.push(current);
-		return;
-	}
+): Promise<readonly string[]> {
+	if (depth > 4) return [];
+	if (await fs.exists(join(current, "package.json"))) return [current];
 	let entries: readonly { readonly name: string; readonly isDirectory: boolean }[];
 	try {
 		entries = await fs.readDir(current);
 	} catch {
-		return;
+		// Best-effort workspace package discovery skips unreadable directories.
+		return [];
 	}
+	const matches: string[] = [];
 	for (const entry of entries) {
 		if (!entry.isDirectory || entry.name === "node_modules" || entry.name === "dist") continue;
-		await collectPackageDirsAt(fs, join(current, entry.name), matches, depth + 1);
+		matches.push(...(await collectPackageDirsAt(fs, join(current, entry.name), depth + 1)));
 	}
+	return matches;
 }

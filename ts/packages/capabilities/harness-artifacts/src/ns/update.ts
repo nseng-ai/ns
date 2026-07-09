@@ -61,21 +61,21 @@ export async function runNsUpdate(
 		shouldForce: request.force,
 		...optionalEntry("extensionTarget", request.target),
 	};
-	if (request.dryRun || !request.force) {
-		const preview = await runHarnessArtifactReconcile({
-			...baseRequest,
-			isDryRun: true,
-			acquisitionMode: request.dryRun ? "preview" : "apply",
-		});
+	if (request.dryRun) {
+		const preview = await runHarnessArtifactReconcile({ ...baseRequest, mode: "preview" });
 		if (!preview.ok) return reconcileFailureExit(preview.error);
-		if (request.dryRun) return ok(preview.value);
+		return ok(preview.value);
+	}
+	if (!request.force) {
+		const preview = await runHarnessArtifactReconcile({ ...baseRequest, mode: "check-force" });
+		if (!preview.ok) return reconcileFailureExit(preview.error);
 		if (preview.value.isForceRequired) {
 			return negative("Update refused: locally edited target files require --force.", {
 				data: preview.value,
 			});
 		}
 	}
-	const result = await runHarnessArtifactReconcile({ ...baseRequest, isDryRun: false });
+	const result = await runHarnessArtifactReconcile({ ...baseRequest, mode: "apply" });
 	if (!result.ok) return reconcileFailureExit(result.error);
 	if (result.value.skippedCollisions.length > 0) {
 		return negative("Update skipped colliding harness artifacts.", { data: result.value });

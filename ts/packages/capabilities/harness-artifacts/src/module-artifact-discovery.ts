@@ -76,12 +76,6 @@ export const MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES = [
 	"module_artifact_skill_entry_not_directory",
 	"module_artifact_duplicate_id",
 	"module_artifact_duplicate_target_name",
-	"extension_acquisition_invalid_npm_spec",
-	"extension_acquisition_git_unsupported",
-	"extension_acquisition_npm_project_failed",
-	"extension_acquisition_npm_install_failed",
-	"extension_acquisition_npm_missing_after_install",
-	"extension_acquisition_preview_skipped",
 ] as const;
 
 export type ModuleArtifactDiscoveryDiagnosticCode =
@@ -219,26 +213,40 @@ async function readDeclaredExtensionSpecs(request: {
 	};
 }
 
-async function discoverLocalExtensionPackage(options: {
-	moduleRoot: string;
+type RequiredDirectoryStateResult =
+	| { type: "directory"; directory: Extract<ModuleDiscoveryDirectoryState, { type: "directory" }> }
+	| { type: "missing" }
+	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] };
+
+async function readRequiredDirectoryState(options: {
+	path: string;
 	gateway: HarnessArtifactModuleDiscoveryGateway;
-	descriptorLoader: ExtensionDescriptorModuleLoader;
-}): Promise<
-	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
-	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
-> {
-	const state = await options.gateway.pathState(options.moduleRoot);
-	if (!state.ok)
+	missing:
+		| { type: "ignore" }
+		| {
+				type: "diagnostic";
+				code: Extract<
+					ModuleArtifactDiscoveryDiagnosticCode,
+					"module_artifact_local_package_missing"
+				>;
+				message: string;
+		  };
+	notDirectoryCode: Extract<
+		ModuleArtifactDiscoveryDiagnosticCode,
+		"module_artifact_extension_root_not_directory" | "module_artifact_local_package_not_directory"
+	>;
+	notDirectoryMessage: string;
+}): Promise<RequiredDirectoryStateResult> {
+	const state = await options.gateway.readDirectory(options.path);
+	if (!state.ok) {
 		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(state.error)] };
+	}
 	if (state.value.type === "missing") {
+		if (options.missing.type === "ignore") return { type: "missing" };
 		return {
 			type: "diagnostics",
 			diagnostics: [
-				{
-					code: "module_artifact_local_package_missing",
-					message: `Declared local extension package does not exist: ${options.moduleRoot}.`,
-					path: options.moduleRoot,
-				},
+				{ code: options.missing.code, message: options.missing.message, path: options.path },
 			],
 		};
 	}
@@ -247,12 +255,37 @@ async function discoverLocalExtensionPackage(options: {
 			type: "diagnostics",
 			diagnostics: [
 				{
-					code: "module_artifact_local_package_not_directory",
-					message: `Declared local extension package must be a directory: ${options.moduleRoot}.`,
-					path: options.moduleRoot,
+					code: options.notDirectoryCode,
+					message: options.notDirectoryMessage,
+					path: options.path,
 				},
 			],
 		};
+	}
+	return { type: "directory", directory: state.value };
+}
+
+async function discoverLocalExtensionPackage(options: {
+	moduleRoot: string;
+	gateway: HarnessArtifactModuleDiscoveryGateway;
+	descriptorLoader: ExtensionDescriptorModuleLoader;
+}): Promise<
+	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
+	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
+> {
+	const directoryState = await readRequiredDirectoryState({
+		path: options.moduleRoot,
+		gateway: options.gateway,
+		missing: {
+			type: "diagnostic",
+			code: "module_artifact_local_package_missing",
+			message: `Declared local extension package does not exist: ${options.moduleRoot}.`,
+		},
+		notDirectoryCode: "module_artifact_local_package_not_directory",
+		notDirectoryMessage: `Declared local extension package must be a directory: ${options.moduleRoot}.`,
+	});
+	if (directoryState.type === "diagnostics") {
+		return { type: "diagnostics", diagnostics: directoryState.diagnostics };
 	}
 	return discoverExtensionPackage({ ...options, missingPackageJsonIsDiagnostic: true });
 }

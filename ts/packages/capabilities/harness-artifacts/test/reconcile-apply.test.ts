@@ -75,7 +75,7 @@ describe("harness artifact reconcile driver", () => {
 		await runHarnessArtifactReconcile(fixture.request());
 		fixture.fs.setFile("/repo/.pi/skills/objective/SKILL.md", "local edit\n");
 
-		const dryRunConflict = await runHarnessArtifactReconcile(fixture.request({ isDryRun: true }));
+		const dryRunConflict = await runHarnessArtifactReconcile(fixture.request({ mode: "preview" }));
 
 		expect(dryRunConflict).toMatchObject({ ok: true });
 		if (!dryRunConflict.ok) return;
@@ -293,7 +293,7 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 		fs,
 		request(
 			overrides: {
-				isDryRun?: boolean;
+				mode?: "preview" | "check-force" | "apply";
 				shouldForce?: boolean;
 				extensionTarget?: string;
 				acquisitionGateway?: ExtensionAcquisitionGateway;
@@ -304,7 +304,7 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 				projectRoot: "/repo",
 				homeDir: "/home/alice",
 				env: { XDG_DATA_HOME: "/home/alice/.local/share" },
-				isDryRun: overrides.isDryRun ?? false,
+				mode: overrides.mode ?? "apply",
 				shouldForce: overrides.shouldForce ?? false,
 				...(overrides.extensionTarget === undefined
 					? {}
@@ -354,7 +354,7 @@ class FakeAcquisitionGateway implements ExtensionAcquisitionGateway {
 		rawSpec: string;
 		packageName: string;
 		version: string | undefined;
-		pinned: boolean;
+		isPinned: boolean;
 	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
 		this.installCalls.push(request.rawSpec);
 		if (request.rawSpec === this.failSpec) {
