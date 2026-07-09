@@ -38,6 +38,33 @@ Frontmatter fields:
 
 Applicability patterns must be globs, not git pathspecs; keep them repo-relative and do not use `..` segments.
 
+## Model profiles and harnesses
+
+Reviews model profiles use qualified `provider/model-id` references:
+
+```toml
+[reviews.model_profiles]
+quick = "openai/gpt-5.6-luna"
+deep = "openai/gpt-5.6-terra"
+```
+
+These are both the package fallbacks and this repository's checked-in profiles. Provider routing is explicit:
+
+- `anthropic/<model-id>` runs the local Claude Code CLI.
+- `openai/<model-id>` and `openai-codex/<model-id>` run the local Codex CLI.
+
+Bare aliases and other providers are rejected; Reviews never infers a provider from a model ID or falls back to another harness. The full qualified reference is retained in progress, results, and Review logs, while only the model ID is passed to the selected CLI.
+
+Local runs require the selected CLI and its authentication (`ANTHROPIC_API_KEY` for Claude Code or `OPENAI_API_KEY` for Codex). The tested protocol versions are `@anthropic-ai/claude-code@2.1.205` and `@openai/codex@0.144.0`.
+
+Override a profile for one run with another qualified reference:
+
+```bash
+ns reviews run <review-key> --model anthropic/claude-sonnet-4-6
+```
+
+Codex runs with a read-only sandbox, an ephemeral session, ignored user configuration, and schema-validated structured output. Codex token/cost usage is currently reported as `null`.
+
 ## Local operation
 
 List all configured reviews:
@@ -90,7 +117,7 @@ Discovery job:
 
 Review job:
 
-1. Installs the TypeScript workspace and Claude Code CLI.
+1. Installs the TypeScript workspace plus pinned Claude Code and Codex CLIs.
 2. Runs each selected review with:
 
    ```bash
@@ -104,7 +131,7 @@ Review job:
 
 Operational notes:
 
-- CI requires `ANTHROPIC_API_KEY` for review execution and uses `GITHUB_TOKEN` for PR publication.
+- CI exposes both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` so checked-in or future mixed-provider profiles use the same router as local runs. It uses `GITHUB_TOKEN` for PR publication.
 - Draft PRs and forked PRs are skipped by the workflow guard.
 - A review definition appears in CI only when `local_only` is omitted or set to `false` and its `applies_to` globs match the current diff when `--applicable` is used.
 - Review logs are written to Branch Memory under the `reviews` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns reviews log`.

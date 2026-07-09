@@ -48,7 +48,7 @@
 					"reviews",
 					"model_profiles"
 				],
-				"description": "Model aliases for Reviews quick and deep review profiles."
+				"description": "Qualified model references for Reviews quick and deep review profiles."
 			}
 		]
 	},

@@ -30,6 +30,7 @@ import {
 } from "../core/project-config.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
+import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
 
 export interface RunReviewRequest {
 	readonly key: string;
@@ -236,10 +237,13 @@ function resolveReviewModel(
 		};
 	}
 
-	const requestModel = request.model?.trim() ?? "";
-	if (requestModel !== "")
-		return { ok: true, value: { modelProfile: profile, model: requestModel } };
-	return { ok: true, value: { modelProfile: profile, model: config.modelProfiles[profile] } };
+	const selectedModel = request.model ?? config.modelProfiles[profile];
+	const resolved = resolveReviewsModelReference(selectedModel);
+	if (!resolved.ok) return resolved;
+	return {
+		ok: true,
+		value: { modelProfile: profile, model: resolved.value.reference },
+	};
 }
 
 async function reviewLogMetadata(

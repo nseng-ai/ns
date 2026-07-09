@@ -214,7 +214,7 @@ describe("reviews domain schemas", () => {
 			localOnly: false,
 		});
 		const request = reviewRunnerRequestSchema.parse({
-			model: "haiku",
+			model: "openai/gpt-5.6-luna",
 			reviewDefinition,
 			reviewDir: "/repo/.ns/reviews/typescript-style",
 			target: { localDiff },
@@ -266,7 +266,7 @@ describe("reviews domain schemas", () => {
 			reviewName: "typescript-style",
 			reviewPath: ".ns/reviews/typescript-style/review.md",
 			modelProfile: "quick",
-			model: "haiku",
+			model: "openai/gpt-5.6-luna",
 			baseRef: "main",
 			format: "findings",
 			count: 0,

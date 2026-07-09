@@ -8,8 +8,8 @@ exclude = [
 ]
 
 [reviews.model_profiles]
-quick = "haiku"
-deep = "sonnet"
+quick = "openai/gpt-5.6-luna"
+deep = "openai/gpt-5.6-terra"
 
 [points]
 "flow.submit.pre" = ["just"]

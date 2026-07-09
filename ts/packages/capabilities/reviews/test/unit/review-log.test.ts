@@ -12,7 +12,7 @@ function runResult(overrides: Partial<ReviewRunResult> = {}): ReviewRunResult {
 		reviewName: "team/review key",
 		reviewPath: "/repo/.ns/reviews/team/review key.md",
 		modelProfile: "deep",
-		model: "sonnet",
+		model: "openai/gpt-5.6-terra",
 		baseRef: "main",
 		format: "findings",
 		count: 0,
