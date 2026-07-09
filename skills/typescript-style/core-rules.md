@@ -104,6 +104,11 @@ Full reasoning: `references/type-system.md`.
 - **Model state machines as explicit unions.** Prefer one field like
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
+- **Classify absence where it arises.** Resolve defaultable absence to a concrete value. Handle
+  `undefined` from optional inputs and lookups immediately instead of carrying it into the rest of the
+  code. Represent meaningful states—including `none`, `not-found`, and `unavailable`—as named
+  discriminated variants. Treat an impossible miss as an invariant failure through a checked accessor
+  that returns `T`.
 - **Expose deliberate extension points.** Empty interfaces plus declaration merging can let apps extend
   a core event/message union without forking it. `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`: an empty
   `interface Child extends Parent {}` is not an extension point; it is a type alias with worse

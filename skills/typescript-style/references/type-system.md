@@ -120,6 +120,18 @@ function resolveRetryOptions(options: RetryOptions): ResolvedRetryOptions {
 
 For partial subsets, use `Required<Omit<T, "field">>` or an explicit resolved interface.
 
+Semantic absence should be named rather than carried as `undefined`:
+
+```ts
+type Selection =
+  | { type: "not-selected" }
+  | { type: "selected"; command: Command };
+```
+
+Keep `T | undefined` at an omitted-input or local-lookup seam. If absence changes behavior, make it a
+variant. If absence is impossible after establishing an invariant, use one checked accessor that returns
+`T` and fails loudly when the invariant is broken.
+
 ## Declaration merging as an extension point
 
 A neutral core can expose an empty interface for app-specific variants:
