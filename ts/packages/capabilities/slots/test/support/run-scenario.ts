@@ -83,6 +83,7 @@ export function runScenario(
 				stdout: (text) => fixture.stdout.push(text),
 				stderr: (text) => fixture.stderr.push(text),
 				canEmitAnsi: options.canEmitAnsi ?? false,
+				...(options.caps === undefined ? {} : { caps: options.caps }),
 			},
 		})
 		.then((code) => {
