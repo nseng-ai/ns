@@ -28,7 +28,7 @@ under `skills/<name>/`.
 - `pocock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts (renamed on import; see below).
 - `writing-great-skills`: upstream skill-authoring reference; ns audit behavior is folded into first-party `skill-audit` / `skill-audit-improved`.
 - `tdd`: red → green loop reference (SKILL.md, `tests.md`, `mocking.md`); vendored as-shipped, no ns meld yet.
-- `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/engineering/wayfinder/`). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Carries the recorded tracker-line fork (see below). The Objective system's ideation pattern is an ns-native adaptation of this skill's model; the concept mapping, deliberate drops, and LM-driven sync process live in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md).
+- `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/engineering/wayfinder/`). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Carries the recorded tracker-line fork (see below). Bound to a **single-document tracker** via `docs/agents/issue-tracker.md` ("Wayfinding operations"): each wayfinder effort is one committed map file under `docs/wayfinding/` holding its tickets as sections — deliberately *not* Objectives-backed, so `/wayfinder` yields a lightweight doc while `objective-create-wayfinding` remains the Objectives-backed route. The Objective system's ideation pattern is an ns-native adaptation of this skill's model; the concept mapping, deliberate drops, and LM-driven sync process live in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md).
 - `research`: background-agent research into a repo Markdown summary (model-invoked, per upstream).
 - `prototype`: throwaway prototypes to answer design questions (model-invoked, per upstream).
 - `diagnosing-bugs`: diagnosis loop for hard bugs and regressions (model-invoked, per upstream).
@@ -144,9 +144,6 @@ additions:
   no-file-paths durability rule; the prototype-snippet exception.
 - `handoff` borrows for `handoff-create`: a "suggested skills" section; an explicit
   don't-duplicate/reference-by-path rule.
-- Decide whether ns's vendored `wayfinder` should bind to a real tracker via
-  `docs/agents/issue-tracker.md` ("Wayfinding operations") — per standing policy,
-  presumably Objectives-backed if ever done.
 - Consolidate `skill-audit` and `skill-audit-improved` into one skill (both are
   writing-great-skills melds; the registry then collapses to one row).
 - Melding assessments for other upstreams when their first update lands: `graphite`
