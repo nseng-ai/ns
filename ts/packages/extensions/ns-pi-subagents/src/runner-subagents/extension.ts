@@ -27,6 +27,7 @@ import { runFinalTextSubagent } from "./dispatch-preparation.ts";
 import {
 	agentConfigurationErrorText,
 	checkAgentDefinitionConfiguration,
+	toSubagentToolRegistration,
 	type AgentDefinitionConfigurationCheck,
 	type SubagentToolRegistration,
 } from "../agent-configuration.ts";
@@ -203,7 +204,7 @@ export function registerForkedPiAgentTool(
 		},
 	});
 
-	return { isHealthy: registrationCheck.ok };
+	return toSubagentToolRegistration(registrationCheck);
 }
 
 function configurationErrorResult(

@@ -37,44 +37,62 @@ export async function settleMicrotasks(count = 20): Promise<void> {
 	for (let index = 0; index < count; index += 1) await Promise.resolve();
 }
 
-export function makeExplorerAgentDefinition(
-	overrides: Partial<PiAgentDefinition> = {},
+type FakeAgentDefinitionBase = Pick<
+	PiAgentDefinition,
+	"name" | "toolName" | "label" | "description" | "promptGuidelines" | "body" | "filePath"
+>;
+
+function makeFakeAgentDefinition(
+	base: FakeAgentDefinitionBase,
+	overrides: Partial<PiAgentDefinition>,
 ): PiAgentDefinition {
 	return {
 		schema: PI_AGENT_DEFINITION_SCHEMA,
-		name: EXPLORER_AGENT_NAME,
-		toolName: EXPLORE_TOOL_NAME,
-		label: "Explorer",
-		description: "Fake explorer agent definition for tests.",
-		promptGuidelines: ["Use explore for read-only reconnaissance."],
-		body: [
-			"You are a fake explorer.",
-			"",
-			...EXPLORER_SCOUT_SECTION_HEADERS,
-			"",
-			"## Delegated exploration",
-			"",
-			"{{prompt}}",
-		].join("\n"),
-		filePath: `/fake/${EXPLORER_AGENT_REPO_RELATIVE_PATH}`,
+		...base,
 		...overrides,
 	};
+}
+
+export function makeExplorerAgentDefinition(
+	overrides: Partial<PiAgentDefinition> = {},
+): PiAgentDefinition {
+	return makeFakeAgentDefinition(
+		{
+			name: EXPLORER_AGENT_NAME,
+			toolName: EXPLORE_TOOL_NAME,
+			label: "Explorer",
+			description: "Fake explorer agent definition for tests.",
+			promptGuidelines: ["Use explore for read-only reconnaissance."],
+			body: [
+				"You are a fake explorer.",
+				"",
+				...EXPLORER_SCOUT_SECTION_HEADERS,
+				"",
+				"## Delegated exploration",
+				"",
+				"{{prompt}}",
+			].join("\n"),
+			filePath: `/fake/${EXPLORER_AGENT_REPO_RELATIVE_PATH}`,
+		},
+		overrides,
+	);
 }
 
 export function makeRunnerAgentDefinition(
 	overrides: Partial<PiAgentDefinition> = {},
 ): PiAgentDefinition {
-	return {
-		schema: PI_AGENT_DEFINITION_SCHEMA,
-		name: RUNNER_AGENT_NAME,
-		toolName: FORKED_PI_AGENT_TOOL_NAME,
-		label: "Forked Pi subagent",
-		description: "Fake runner agent definition for tests.",
-		promptGuidelines: ["Use forked_pi_agent for focused delegated work."],
-		body: ["You are a fake runner.", "", "## Delegated task", "", "{{prompt}}"].join("\n"),
-		filePath: `/fake/${RUNNER_AGENT_REPO_RELATIVE_PATH}`,
-		...overrides,
-	};
+	return makeFakeAgentDefinition(
+		{
+			name: RUNNER_AGENT_NAME,
+			toolName: FORKED_PI_AGENT_TOOL_NAME,
+			label: "Forked Pi subagent",
+			description: "Fake runner agent definition for tests.",
+			promptGuidelines: ["Use forked_pi_agent for focused delegated work."],
+			body: ["You are a fake runner.", "", "## Delegated task", "", "{{prompt}}"].join("\n"),
+			filePath: `/fake/${RUNNER_AGENT_REPO_RELATIVE_PATH}`,
+		},
+		overrides,
+	);
 }
 
 export function makePerAgentDefinitionLoader(

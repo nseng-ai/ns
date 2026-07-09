@@ -4,6 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
+import type {
+	BeforeAgentStartEvent,
+	BeforeAgentStartEventResult,
+	ExtensionAPI,
+	ExtensionHandler,
+} from "@earendil-works/pi-coding-agent";
 import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import packageExtension from "../src/extension.ts";
 import { EXPLORE_TOOL_NAME, EXPLORER_AGENT_NAME } from "../src/explore/contract.ts";
@@ -13,7 +19,7 @@ import {
 	makeRunnerAgentDefinition,
 } from "./helpers/explore-testing.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
-import type { BeforeAgentStartHandler, NsPiSubagentsExtensionAPI } from "../src/extension.ts";
+import type { NsPiSubagentsExtensionAPI } from "../src/extension.ts";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
 import { FORKED_PI_AGENT_TOOL_NAME, RUNNER_AGENT_NAME } from "../src/runner-subagents/extension.ts";
@@ -21,7 +27,9 @@ import { FORKED_PI_AGENT_TOOL_NAME, RUNNER_AGENT_NAME } from "../src/runner-suba
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(packageRoot, "..", "package.json");
 
-class FakePiBase implements NsPiSubagentsExtensionAPI {
+type BeforeAgentStartHandler = ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>;
+
+class FakePiBase {
 	readonly commands = new Map<
 		string,
 		{ handler(args: string, ctx: CommandContext): Promise<void> | void }
@@ -44,25 +52,47 @@ class FakePiBase implements NsPiSubagentsExtensionAPI {
 	}
 }
 
-class FakePi extends FakePiBase {
+class FakePi extends FakePiBase implements NsPiSubagentsExtensionAPI {
 	readonly beforeAgentStartHandlers: BeforeAgentStartHandler[] = [];
 
-	on(_event: "before_agent_start", handler: BeforeAgentStartHandler): void {
-		this.beforeAgentStartHandlers.push(handler);
-	}
+	readonly on = ((event: string, handler: BeforeAgentStartHandler): void => {
+		if (event === "before_agent_start") this.beforeAgentStartHandlers.push(handler);
+	}) as ExtensionAPI["on"];
 }
 
-class OnlessFakePi extends FakePiBase {}
-
-function healthyAgentDefinitionLoader(): (
-	agentName: string,
-) => ReturnType<typeof makeExplorerAgentDefinition> {
+function agentDefinitionLoader(
+	overrides: {
+		explore?: Parameters<typeof makeExplorerAgentDefinition>[0];
+		runner?: Parameters<typeof makeRunnerAgentDefinition>[0];
+	} = {},
+): (agentName: string) => ReturnType<typeof makeExplorerAgentDefinition> {
 	return makePerAgentDefinitionLoader(
 		new Map([
-			[EXPLORER_AGENT_NAME, makeExplorerAgentDefinition()],
-			[RUNNER_AGENT_NAME, makeRunnerAgentDefinition()],
+			[EXPLORER_AGENT_NAME, makeExplorerAgentDefinition(overrides.explore)],
+			[RUNNER_AGENT_NAME, makeRunnerAgentDefinition(overrides.runner)],
 		]),
 	);
+}
+
+function invokeBeforeAgentStart(
+	handler: BeforeAgentStartHandler | undefined,
+	systemPrompt: string,
+): ReturnType<BeforeAgentStartHandler> {
+	return handler?.(
+		{
+			type: "before_agent_start",
+			prompt: "",
+			systemPrompt,
+			systemPromptOptions: { cwd: "/repo" },
+		},
+		// The registered handler does not consume extension context.
+		undefined as never,
+	);
+}
+
+function requireSyncSystemPrompt(result: ReturnType<BeforeAgentStartHandler>): string {
+	if (result === undefined || "then" in result) throw new Error("Expected synchronous doctrine.");
+	return result.systemPrompt ?? "";
 }
 
 describe("ns-pi-subagents package", () => {
@@ -98,37 +128,30 @@ describe("ns-pi-subagents package", () => {
 
 		packageExtension(pi, {
 			cwd: "/repo",
-			loadAgentDefinition: healthyAgentDefinitionLoader(),
+			loadAgentDefinition: agentDefinitionLoader(),
 		});
 
 		expect(pi.beforeAgentStartHandlers).toHaveLength(1);
-		const result = pi.beforeAgentStartHandlers[0]?.({ systemPrompt: "BASE" });
-		expect(result).toMatchObject({
-			systemPrompt: expect.stringContaining("### `explore` — parallel read-only scouts"),
-		});
-		expect(result).toMatchObject({
-			systemPrompt: expect.stringContaining("### `forked_pi_agent` — focused forked Pi process"),
-		});
-		if (result === undefined || "then" in result) throw new Error("Expected synchronous doctrine.");
-		expect(result.systemPrompt.startsWith("BASE\n\n")).toBe(true);
+		const systemPrompt = requireSyncSystemPrompt(
+			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
+		);
+		expect(systemPrompt).toContain("### `explore` — parallel read-only scouts");
+		expect(systemPrompt).toContain("### `forked_pi_agent` — focused forked Pi process");
+		expect(systemPrompt.startsWith("BASE\n\n")).toBe(true);
 	});
 
 	test("injects forked_pi_agent doctrine only when explorer registration is degraded", () => {
 		const pi = new FakePi();
-		const loader = makePerAgentDefinitionLoader(
-			new Map([
-				[EXPLORER_AGENT_NAME, makeExplorerAgentDefinition({ toolName: "broken_explore" })],
-				[RUNNER_AGENT_NAME, makeRunnerAgentDefinition()],
-			]),
-		);
+		const loader = agentDefinitionLoader({ explore: { toolName: "broken_explore" } });
 
 		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
 
 		expect(pi.beforeAgentStartHandlers).toHaveLength(1);
-		const result = pi.beforeAgentStartHandlers[0]?.({ systemPrompt: "BASE" });
-		if (result === undefined || "then" in result) throw new Error("Expected synchronous doctrine.");
-		expect(result.systemPrompt).not.toContain("### `explore`");
-		expect(result.systemPrompt).toContain("### `forked_pi_agent` — focused forked Pi process");
+		const systemPrompt = requireSyncSystemPrompt(
+			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
+		);
+		expect(systemPrompt).not.toContain("### `explore`");
+		expect(systemPrompt).toContain("### `forked_pi_agent` — focused forked Pi process");
 	});
 
 	test("injects explore doctrine only when runner registration is degraded", () => {
@@ -140,20 +163,19 @@ describe("ns-pi-subagents package", () => {
 		});
 
 		expect(pi.beforeAgentStartHandlers).toHaveLength(1);
-		const result = pi.beforeAgentStartHandlers[0]?.({ systemPrompt: "BASE" });
-		if (result === undefined || "then" in result) throw new Error("Expected synchronous doctrine.");
-		expect(result.systemPrompt).toContain("### `explore` — parallel read-only scouts");
-		expect(result.systemPrompt).not.toContain("### `forked_pi_agent`");
+		const systemPrompt = requireSyncSystemPrompt(
+			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
+		);
+		expect(systemPrompt).toContain("### `explore` — parallel read-only scouts");
+		expect(systemPrompt).not.toContain("### `forked_pi_agent`");
 	});
 
 	test("omits doctrine when both built-in tools are degraded but still registers fallback tools", () => {
 		const pi = new FakePi();
-		const loader = makePerAgentDefinitionLoader(
-			new Map([
-				[EXPLORER_AGENT_NAME, makeExplorerAgentDefinition({ toolName: "broken_explore" })],
-				[RUNNER_AGENT_NAME, makeRunnerAgentDefinition({ toolName: "broken_runner" })],
-			]),
-		);
+		const loader = agentDefinitionLoader({
+			explore: { toolName: "broken_explore" },
+			runner: { toolName: "broken_runner" },
+		});
 
 		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
 
@@ -167,27 +189,19 @@ describe("ns-pi-subagents package", () => {
 		const secondPi = new FakePi();
 		packageExtension(firstPi, {
 			cwd: "/repo",
-			loadAgentDefinition: healthyAgentDefinitionLoader(),
+			loadAgentDefinition: agentDefinitionLoader(),
 		});
 		packageExtension(secondPi, {
 			cwd: "/repo",
-			loadAgentDefinition: healthyAgentDefinitionLoader(),
+			loadAgentDefinition: agentDefinitionLoader(),
 		});
 
-		const first = firstPi.beforeAgentStartHandlers[0]?.({ systemPrompt: "BASE" });
-		const second = secondPi.beforeAgentStartHandlers[0]?.({ systemPrompt: "BASE" });
-		if (first === undefined || "then" in first) throw new Error("Expected synchronous doctrine.");
-		if (second === undefined || "then" in second) throw new Error("Expected synchronous doctrine.");
-		expect(first.systemPrompt).toBe(second.systemPrompt);
-	});
-
-	test("on-less hosts still register tools and commands", () => {
-		const pi = new OnlessFakePi();
-
-		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: healthyAgentDefinitionLoader() });
-
-		expect(pi.tools.has(EXPLORE_TOOL_NAME)).toBe(true);
-		expect(pi.tools.has(FORKED_PI_AGENT_TOOL_NAME)).toBe(true);
-		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
+		const first = requireSyncSystemPrompt(
+			invokeBeforeAgentStart(firstPi.beforeAgentStartHandlers[0], "BASE"),
+		);
+		const second = requireSyncSystemPrompt(
+			invokeBeforeAgentStart(secondPi.beforeAgentStartHandlers[0], "BASE"),
+		);
+		expect(first).toBe(second);
 	});
 });

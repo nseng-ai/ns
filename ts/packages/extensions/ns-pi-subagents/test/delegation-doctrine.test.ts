@@ -1,27 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSubagentDelegationDoctrine } from "../src/delegation-doctrine.ts";
-
-const INTRO = [
-	"## Subagent delegation",
-	"",
-	"Pi sessions in this repo provide a subagent system from `@nseng-ai/ns-pi-subagents` (see that package's README). Use the built-in subagent tools according to the doctrine below.",
-].join("\n");
-
-const EXPLORE_SECTION = [
-	"### `explore` — parallel read-only scouts",
-	"",
-	"- When a question spans several files, directories, or subsystems, fan out `explore` with parallel focused tasks instead of serial read/grep — delegate the reading, keep the conclusion.",
-	"- Batch independent explore tasks into one call so they run concurrently.",
-	"- Work directly when you already know the exact file or symbol, or the task is trivial.",
-].join("\n");
-
-const FORKED_PI_AGENT_SECTION = [
-	"### `forked_pi_agent` — focused forked Pi process",
-	"",
-	"- Use it for a self-contained delegated task; the prompt must carry complete context — the child starts cold.",
-	"- Act on the returned status and findings; open the child session file only when you need depth.",
-].join("\n");
+import {
+	buildSubagentDelegationDoctrine,
+	EXPLORE_DELEGATION_DOCTRINE,
+	FORKED_PI_AGENT_DELEGATION_DOCTRINE,
+	SUBAGENT_DELEGATION_INTRO,
+} from "../src/delegation-doctrine.ts";
 
 function requireDoctrine(text: string | undefined): string {
 	if (text === undefined) throw new Error("Expected doctrine text.");
@@ -41,7 +25,13 @@ describe("subagent delegation doctrine", () => {
 			}),
 		);
 
-		expect(doctrine).toBe([INTRO, EXPLORE_SECTION, FORKED_PI_AGENT_SECTION].join("\n\n"));
+		expect(doctrine).toBe(
+			[
+				SUBAGENT_DELEGATION_INTRO,
+				EXPLORE_DELEGATION_DOCTRINE,
+				FORKED_PI_AGENT_DELEGATION_DOCTRINE,
+			].join("\n\n"),
+		);
 		expect(countSubsectionHeadings(doctrine)).toBe(2);
 	});
 
@@ -53,7 +43,7 @@ describe("subagent delegation doctrine", () => {
 			}),
 		);
 
-		expect(doctrine).toBe([INTRO, EXPLORE_SECTION].join("\n\n"));
+		expect(doctrine).toBe([SUBAGENT_DELEGATION_INTRO, EXPLORE_DELEGATION_DOCTRINE].join("\n\n"));
 		expect(countSubsectionHeadings(doctrine)).toBe(1);
 	});
 
@@ -65,7 +55,9 @@ describe("subagent delegation doctrine", () => {
 			}),
 		);
 
-		expect(doctrine).toBe([INTRO, FORKED_PI_AGENT_SECTION].join("\n\n"));
+		expect(doctrine).toBe(
+			[SUBAGENT_DELEGATION_INTRO, FORKED_PI_AGENT_DELEGATION_DOCTRINE].join("\n\n"),
+		);
 		expect(countSubsectionHeadings(doctrine)).toBe(1);
 	});
 

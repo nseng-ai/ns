@@ -35,6 +35,7 @@ import { emitExploreProgress } from "./progress.ts";
 import type { SubagentRuntime } from "../runtime/seam.ts";
 import {
 	checkAgentDefinitionConfiguration,
+	toSubagentToolRegistration,
 	type AgentDefinitionConfigurationCheck,
 	type SubagentToolRegistration,
 } from "../agent-configuration.ts";
@@ -184,7 +185,7 @@ export function registerExploreTool(
 		},
 	});
 
-	return { isHealthy: registrationCheck.ok };
+	return toSubagentToolRegistration(registrationCheck);
 }
 
 function validateExploreInput(params: unknown): ExploreInput {
