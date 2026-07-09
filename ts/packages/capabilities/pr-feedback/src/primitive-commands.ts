@@ -177,6 +177,14 @@ export const primitiveOperations: readonly ExecOperation[] = [
 	}),
 ];
 
+export function findPrimitiveOperation(operationName: string): ExecOperation {
+	const operation = primitiveOperations.find((candidate) => candidate.name === operationName);
+	if (operation === undefined) {
+		throw new Error(`Unknown Address primitive operation: ${operationName}`);
+	}
+	return operation;
+}
+
 async function runPrDetails(
 	ctx: PrAddressExecContext,
 	request: PrNumberRequest,

@@ -17,7 +17,7 @@ const SDK_SPECIFIER = "@nseng-ai/kernel/sdk";
  */
 export function createNsJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
-		moduleCache: false,
+		moduleCache: true,
 		virtualModules: {
 			[SDK_SPECIFIER]: nsSdkRuntimeExports,
 		},

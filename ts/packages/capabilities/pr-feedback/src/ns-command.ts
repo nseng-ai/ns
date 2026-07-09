@@ -7,6 +7,10 @@ import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
 
 export function prAddressNsCommand(operationName: string) {
 	const operation = findOperation(operationName);
+	return prAddressOperationNsCommand(operation);
+}
+
+export function prAddressOperationNsCommand(operation: ExecOperation) {
 	return operation.toNsCommand(createExecContext);
 }
 

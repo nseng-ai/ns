@@ -1,20 +1,16 @@
 import { defineExtension, type ExtensionEntry, type NsCommand } from "@nseng-ai/kernel/sdk";
 
-import slotExtension from "./extension.ts";
-
-const slotCommands = slotExtension.commands ?? [];
-
 function slotCommandEntry(commandName: string): ExtensionEntry {
-	const command = findSlotCommand(commandName);
-	return { name: command.name, load: () => ({ default: command }) };
+	return { name: commandName, load: () => loadSlotCommand(commandName) };
 }
 
-function findSlotCommand(commandName: string): NsCommand {
-	const command = slotCommands.find((candidate) => candidate.name === commandName);
+async function loadSlotCommand(commandName: string): Promise<{ readonly default: NsCommand }> {
+	const slotExtension = (await import("./extension.ts")).default;
+	const command = slotExtension.commands?.find((candidate) => candidate.name === commandName);
 	if (command === undefined) {
 		throw new Error(`Missing Slot ns command ${commandName}.`);
 	}
-	return command;
+	return { default: command };
 }
 
 export default defineExtension({

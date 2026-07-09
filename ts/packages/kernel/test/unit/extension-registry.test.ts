@@ -2,7 +2,13 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { defineExtension, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/kernel/sdk";
+import {
+	defineExtension,
+	defineRawCommand,
+	noopNsCommandIo,
+	noopNsProgress,
+	ok,
+} from "@nseng-ai/kernel/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -144,6 +150,55 @@ export default defineExtension({
 					description: "doctor summary",
 					hiddenSegments: ["tools/exec"],
 				}),
+			]),
+		);
+	});
+
+	test("listing loads non-static loaded entries serially", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		let activeLoads = 0;
+
+		function loadedEntry(name: string) {
+			return {
+				group: "tools",
+				groupDescription: "Tool commands.",
+				name,
+				description: `${name} placeholder.`,
+				fullDescription: `${name} placeholder.`,
+				displayPath: `fixture#${name}`,
+				hasStaticCommandInfo: false,
+				async load() {
+					activeLoads += 1;
+					if (activeLoads > 1) throw new Error("listing loads overlapped");
+					await Promise.resolve();
+					activeLoads -= 1;
+					return {
+						commands: [
+							defineRawCommand({
+								name,
+								summary: `${name} summary`,
+								description: `${name} command`,
+								run: () => ok({ name }),
+							}),
+						],
+					};
+				},
+			};
+		}
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => [loadedEntry("one"), loadedEntry("two")],
+		});
+
+		const listing = await loadListingCommandInfos(loaded);
+
+		expect(listing.diagnostics).toEqual([]);
+		expect(listing.commandInfos).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "one", description: "one summary" }),
+				expect.objectContaining({ name: "two", description: "two summary" }),
 			]),
 		);
 	});

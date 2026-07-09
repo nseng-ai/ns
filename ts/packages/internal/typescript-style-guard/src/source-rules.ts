@@ -4,6 +4,7 @@ import {
 	BAN_AS_UNKNOWN_AS,
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
+	BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
 	BAN_RAW_PRODUCTION_TIMERS,
@@ -73,6 +74,21 @@ export function collectViolations(
 			}
 		}
 
+		if (
+			ts.isImportDeclaration(node) &&
+			isExtensionDescriptorForbiddenStaticImport(node, path, packageMetadataByName)
+		) {
+			violations.push(
+				buildViolationWithText(
+					BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT,
+					path,
+					sourceFile,
+					node.moduleSpecifier,
+					"First-party ns-extension descriptor modules may statically import only @nseng-ai/kernel/sdk; keep implementation modules behind descriptor load thunks.",
+				),
+			);
+		}
+
 		if (ts.isInterfaceDeclaration(node) && node.members.length === 0 && hasExtendsClause(node)) {
 			violations.push(buildViolation(BAN_EMPTY_INTERFACE_EXTENDS, path, sourceFile, node));
 		}
@@ -122,6 +138,7 @@ export function collectViolations(
 }
 
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
+const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/kernel/sdk";
 const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/foundation/src/time/index.ts",
@@ -159,6 +176,53 @@ function isFirstPartyImportDeclaration(node: ts.ImportDeclaration): boolean {
 	const specifier = moduleSpecifierText(node);
 	if (specifier === undefined) return false;
 	return isFirstPartyModuleSpecifier(specifier);
+}
+
+function isExtensionDescriptorForbiddenStaticImport(
+	node: ts.ImportDeclaration,
+	path: string,
+	packageMetadataByName: ReadonlyMap<string, PackageMetadata>,
+): boolean {
+	if (!isFirstPartyExtensionDescriptorPath(path, packageMetadataByName)) return false;
+	if (!hasRuntimeImportBinding(node)) return false;
+	const specifier = moduleSpecifierText(node);
+	if (specifier === undefined) return false;
+	return specifier !== DESCRIPTOR_ALLOWED_VALUE_IMPORT;
+}
+
+function hasRuntimeImportBinding(node: ts.ImportDeclaration): boolean {
+	const importClause = node.importClause;
+	if (importClause === undefined) return true;
+	if (importClause.isTypeOnly) return false;
+	if (importClause.name !== undefined) return true;
+	const namedBindings = importClause.namedBindings;
+	if (namedBindings === undefined) return false;
+	if (ts.isNamespaceImport(namedBindings)) return true;
+	return namedBindings.elements.some((element) => !element.isTypeOnly);
+}
+
+function isFirstPartyExtensionDescriptorPath(
+	path: string,
+	packageMetadataByName: ReadonlyMap<string, PackageMetadata>,
+): boolean {
+	if (!path.startsWith("ts/packages/")) return false;
+	const packageName = packageNameForPath(path, packageMetadataByName);
+	if (packageName === undefined) return false;
+	const metadata = packageMetadataByName.get(packageName);
+	if (metadata === undefined) return false;
+	const descriptorExport = nsExtensionExportTarget(metadata.manifest.exports);
+	if (descriptorExport === undefined) return false;
+	return path === `${metadata.packageDir}/${descriptorExport.replace(/^\.\//, "")}`;
+}
+
+function nsExtensionExportTarget(exportsField: unknown): string | undefined {
+	if (!isRecord(exportsField)) return undefined;
+	const nsExtensionExport = exportsField["./ns-extension"];
+	return typeof nsExtensionExport === "string" ? nsExtensionExport : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function isLowerLayerConcreteCapabilitySurfaceNode(
